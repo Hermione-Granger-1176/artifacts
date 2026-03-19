@@ -6,8 +6,10 @@ These are the main cross-cutting pieces that should stay consistent over time:
 
 - `pyproject.toml` is the source of truth for Python dependencies, test policy, lint policy, and site metadata
 - `Makefile` is the common interface for local work and CI
+- `.github/actions/verified-commit/action.yml` centralizes the verified commit and PR fallback logic used by CI
 - `.github/workflows/update.yml` is the main build, validation, and deploy workflow
 - `.github/workflows/refresh-action-shas.yml` keeps pinned GitHub Actions references current
+- `.github/dependabot.yml` handles recurring dependency update checks
 - `gh-pages` is a CI-managed deployment branch and should not be edited manually
 
 ## When changing CI
@@ -15,11 +17,12 @@ These are the main cross-cutting pieces that should stay consistent over time:
 If you touch workflow files:
 
 1. prefer extending the existing workflow over cloning logic into another workflow file
-2. keep action references pinned to full commit SHAs
-3. non-fork PRs use the app token for preview deploys, while fork PRs are excluded from preview deployment
-4. keep local and CI commands aligned through `make`
-5. preserve the separation between the source repo and the `_site/` deploy directory
-6. keep the PR preview comment recreated on each push so the latest preview link stays easy to find
+2. update the shared verified commit action when commit or PR fallback behavior changes
+3. keep action references pinned to full commit SHAs
+4. non-fork PRs use the app token for preview deploys, while fork PRs are excluded from preview deployment
+5. keep local and CI commands aligned through `make`
+6. preserve the separation between the source repo and the `_site/` deploy directory
+7. keep the PR preview comment recreated on each push so the latest preview link stays easy to find
 
 ## When changing URLs or repo metadata
 

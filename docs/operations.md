@@ -8,7 +8,7 @@ Use the Makefile instead of ad hoc shell commands.
 make new name=... # scaffold a new artifact directory with placeholder files
 make setup      # create .venv, install Python deps, install Chromium locally
 make check      # run Ruff, pytest, and artifact validation with the 100% coverage gate
-make validate   # fail fast on incomplete or invalid top-level artifact dirs
+make validate   # fail fast on incomplete or invalid top-level artifact directories
 make index      # rebuild js/data.js and README auto markers
 make thumbnails # regenerate WebP thumbnails when Playwright is available
 make site       # assemble the clean deployable Pages payload in _site/
@@ -72,4 +72,4 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 - if no artifacts exist, the index generator still writes a valid empty `js/data.js`
 - if generated thumbnails are intentionally removed from the working tree, `js/data.js` will emit `thumbnail: null` until CI regenerates them
 
-See `docs/maintenance.md` for the long-term upkeep checklist.
+See [`maintenance.md`](maintenance.md) for the long-term upkeep checklist.

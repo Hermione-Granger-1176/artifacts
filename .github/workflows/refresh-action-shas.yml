@@ -20,7 +20,12 @@ jobs:
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
+          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
+
+      - name: Capture default branch HEAD SHA
+        id: head
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Update action SHAs
         env:
@@ -88,131 +93,30 @@ jobs:
 
           PY
 
+      - name: Detect workflow changes
+        id: changes
+        run: |
+          git add .github/workflows
+          if git diff --staged --quiet -- .github/workflows; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Commit changes (verified)
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        if: steps.changes.outputs.changed == 'true'
+        uses: ./.github/actions/verified-commit
         with:
           github-token: ${{ steps.app-token.outputs.token }}
-          script: |
-            const fs = require("fs");
-            const { execSync } = require("child_process");
-
-            try {
-              execSync("git diff --quiet .github/workflows/");
-              core.info("No changes to commit");
-              return;
-            } catch {
-              // There are changes, continue
-            }
-
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const defaultBranch = process.env.DEFAULT_BRANCH;
-
-            const { data: ref } = await github.rest.git.getRef({
-              owner,
-              repo,
-              ref: `heads/${defaultBranch}`,
-            });
-
-            const changedFiles = execSync("git diff --name-only .github/workflows/")
-              .toString()
-              .trim()
-              .split("\n")
-              .filter(Boolean);
-
-            const additions = changedFiles.map((filePath) => ({
-              path: filePath,
-              contents: fs.readFileSync(filePath).toString("base64"),
-            }));
-
-            if (additions.length === 0) {
-              core.info("No files to commit");
-              return;
-            }
-
-            const mutation = `
-              mutation ($input: CreateCommitOnBranchInput!) {
-                createCommitOnBranch(input: $input) {
-                  commit { oid url }
-                }
-              }
-            `;
-
-            try {
-              const result = await github.graphql(mutation, {
-                input: {
-                  branch: {
-                    repositoryNameWithOwner: `${owner}/${repo}`,
-                    branchName: defaultBranch,
-                  },
-                  expectedHeadOid: ref.object.sha,
-                  message: { headline: "ci: refresh action SHAs" },
-                  fileChanges: { additions },
-                },
-              });
-              core.info(
-                `Created verified commit: ${result.createCommitOnBranch.commit.url}`
-              );
-            } catch (err) {
-              core.info(
-                `Direct commit failed (${err.message}), creating branch and PR`
-              );
-
-              const date = new Date()
-                .toISOString()
-                .slice(0, 10)
-                .replace(/-/g, "");
-              const newBranch = `ci/refresh-action-shas-${date}`;
-
-              let branchSha = ref.object.sha;
-              try {
-                await github.rest.git.createRef({
-                  owner,
-                  repo,
-                  ref: `refs/heads/${newBranch}`,
-                  sha: ref.object.sha,
-                });
-              } catch {
-                const { data: existingRef } = await github.rest.git.getRef({
-                  owner,
-                  repo,
-                  ref: `heads/${newBranch}`,
-                });
-                branchSha = existingRef.object.sha;
-              }
-
-              await github.graphql(mutation, {
-                input: {
-                  branch: {
-                    repositoryNameWithOwner: `${owner}/${repo}`,
-                    branchName: newBranch,
-                  },
-                  expectedHeadOid: branchSha,
-                   message: { headline: "ci: refresh action SHAs" },
-                  fileChanges: { additions },
-                },
-              });
-
-              const { data: existing } = await github.rest.pulls.list({
-                owner,
-                repo,
-                state: "open",
-                head: `${owner}:${newBranch}`,
-              });
-
-              if (existing.length === 0) {
-                const { data: pr } = await github.rest.pulls.create({
-                  owner,
-                  repo,
-                  head: newBranch,
-                  base: defaultBranch,
-                   title: "ci: refresh action SHAs",
-                   body: "## Summary\n- Type: CI maintenance\n- Pin GitHub Actions to full commit SHAs for reproducible runs\n- Keep workflow behavior unchanged\n",
-                });
-                core.info(`Created PR: ${pr.html_url}`);
-              } else {
-                core.info(`Updated existing PR: ${existing[0].html_url}`);
-              }
-            }
-        env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          base-branch: ${{ github.event.repository.default_branch }}
+          expected-head-sha: ${{ steps.head.outputs.sha }}
+          commit-headline: "ci: refresh action SHAs"
+          fallback-branch-prefix: ci/refresh-action-shas
+          pr-title: "ci: refresh action SHAs"
+          pr-body: |
+            ## Summary
+            - Type: CI maintenance
+            - Pin GitHub Actions to full commit SHAs for reproducible runs
+            - Keep workflow behavior unchanged
+          pathspec: |
+            .github/workflows

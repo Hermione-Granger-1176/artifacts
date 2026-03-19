@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Create a new artifact directory scaffold under apps/."""
+"""
+Scaffold Artifact
+
+Create a new artifact directory under ``apps/`` with the required metadata
+files and a minimal HTML starting point.
+
+Usage:
+    python scripts/scaffold_artifact.py <artifact-name>
+"""
 
 from __future__ import annotations
 
