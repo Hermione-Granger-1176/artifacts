@@ -146,11 +146,10 @@ body.detail-open .scroll-top {
     text-decoration: none;
 }
 
-.logo-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-full);
-    object-fit: cover;
+.logo-icon {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
 }
 
 .logo {

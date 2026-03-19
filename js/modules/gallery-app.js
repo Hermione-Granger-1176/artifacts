@@ -6,11 +6,14 @@ import {
   splitListParam
 } from './catalog.js';
 import { getGalleryConfig, getTagLabel, getToolLabel } from './config.js';
+import { createDetailOverlay } from './detail-overlay.js';
+import { createFilterDropdown } from './filter-dropdown.js';
 import { ICONS } from './icons.js';
+import { setBackgroundContentInert } from './inert.js';
+import { createMotionHelper } from './motion.js';
 import {
   buildFilterPanelHtml,
   buildGridHtml,
-  createDetailContent,
   renderPagination,
   updateFilterDropdownUI
 } from './render.js';
@@ -21,6 +24,7 @@ const DEFAULTS = { page: 1, sort: 'newest', q: '' };
 const SCROLL_TOP_THRESHOLD = 300;
 const DETAIL_CLOSE_DELAY = 360;
 
+/** Parse URL search params into normalized gallery state (page, sort, filters, search). */
 export function readGalleryStateFromSearch({ search, allTools, allTags, defaults = DEFAULTS }) {
   const params = new URLSearchParams(search);
   return {
@@ -33,6 +37,7 @@ export function readGalleryStateFromSearch({ search, allTools, allTags, defaults
   };
 }
 
+/** Serialize gallery state into a URL path with query string, omitting default values. */
 export function buildGalleryUrl({
   pathname,
   page,
@@ -63,6 +68,7 @@ export function buildGalleryUrl({
   return queryString ? `${pathname}?${queryString}` : pathname;
 }
 
+/** @param {Document} documentObj @param {string} id @returns {HTMLElement} */
 function requireElement(documentObj, id) {
   const element = documentObj.getElementById(id);
   if (!element) {
@@ -71,6 +77,10 @@ function requireElement(documentObj, id) {
   return element;
 }
 
+/**
+ * Initialize the gallery application: resolve DOM elements, hydrate data, wire event
+ * listeners, and render the initial view.
+ */
 export function initializeGalleryApp({ documentObj = document, runtime, windowObj = window } = {}) {
   if (!runtime) {
     throw new Error('A runtime instance is required to initialize the gallery');
@@ -86,7 +96,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   const noResultsReset = requireElement(documentObj, 'no-results-reset');
   const paginationContainer = requireElement(documentObj, 'pagination');
   const scrollTopBtn = requireElement(documentObj, 'scroll-top');
-  const detailOverlay = requireElement(documentObj, 'detail-overlay');
+  const detailOverlayEl = requireElement(documentObj, 'detail-overlay');
   const detailPanel = requireElement(documentObj, 'detail-panel');
   const htmlElement = documentObj.documentElement;
 
@@ -107,6 +117,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   const tagFilterPanel = requireElement(documentObj, 'tag-filter-panel');
 
   const prefersReducedMotionQuery = windowObj.matchMedia('(prefers-reduced-motion: reduce)');
+  const motion = createMotionHelper(prefersReducedMotionQuery, windowObj);
   const galleryConfig = getGalleryConfig(windowObj);
   const rawArtifacts = Array.isArray(windowObj.ARTIFACTS_DATA) ? windowObj.ARTIFACTS_DATA : [];
   const allArtifacts = hydrateArtifacts(rawArtifacts);
@@ -143,17 +154,26 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
   };
 
+  const filterDropdown = createFilterDropdown(filterControls);
+  const overlay = createDetailOverlay({
+    detailOverlay: detailOverlayEl,
+    detailPanel,
+    grid,
+    documentObj,
+    windowObj,
+    motion,
+    setBackgroundContentInert,
+    backgroundElements,
+    DETAIL_CLOSE_DELAY
+  });
+
   let currentPage = DEFAULTS.page;
   let currentFilter = DEFAULTS.q;
   let currentSort = DEFAULTS.sort;
   let currentTools = [];
   let currentTags = [];
-  let expandedId = null;
   let debounceTimer = null;
   let suppressPush = false;
-  let lastExpandedTrigger = null;
-  let overlayResetTimer = null;
-  let openFilterKey = null;
 
   filterReset.innerHTML = ICONS.reset;
 
@@ -188,10 +208,10 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     applyStateChange({ closeFilter: true, focusTarget: searchInput });
   });
 
-  Object.entries(filterControls).forEach(([key, control]) => {
+  for (const [key, control] of Object.entries(filterControls)) {
     control.toggle.addEventListener('click', (event) => {
       event.stopPropagation();
-      toggleFilterDropdown(key);
+      filterDropdown.toggle(key);
     });
 
     control.panel.addEventListener('change', (event) => {
@@ -211,7 +231,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       currentPage = 1;
       applyStateChange();
     });
-  });
+  }
 
   sortToggle.addEventListener('click', () => {
     currentSort = currentSort === 'newest' ? 'oldest' : 'newest';
@@ -222,9 +242,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   filterReset.addEventListener('click', resetFilters);
   noResultsReset.addEventListener('click', resetFilters);
 
-  detailOverlay.addEventListener('click', (event) => {
+  detailOverlayEl.addEventListener('click', (event) => {
     if (event.target.closest('[data-close-detail]')) {
-      closeExpandedOverlay();
+      overlay.close();
     }
   });
 
@@ -234,7 +254,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return;
     }
 
-    toggleExpand(card.dataset.id, card);
+    overlay.toggle(card.dataset.id, card, artifactById);
   });
 
   grid.addEventListener('keydown', (event) => {
@@ -248,7 +268,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
 
     event.preventDefault();
-    toggleExpand(card.dataset.id, card);
+    overlay.toggle(card.dataset.id, card, artifactById);
   });
 
   paginationContainer.addEventListener('click', (event) => {
@@ -263,46 +283,46 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
 
     currentPage = page;
-    closeExpandedOverlay({ restoreFocus: false, immediate: true });
+    overlay.close({ restoreFocus: false, immediate: true });
     pushState();
     renderContent();
-    scrollToTop();
+    motion.scrollToTop();
   });
 
   documentObj.addEventListener('click', (event) => {
-    if (!openFilterKey) {
+    if (!filterDropdown.isOpen()) {
       return;
     }
 
-    const activeControl = filterControls[openFilterKey];
+    const activeControl = filterControls[filterDropdown.getOpenKey()];
     if (!activeControl.root.contains(event.target)) {
-      closeFilterDropdown();
+      filterDropdown.close();
     }
   });
 
   documentObj.addEventListener('keydown', (event) => {
     switch (event.key) {
       case 'Tab':
-        trapDetailOverlayFocus(event);
+        overlay.trapFocus(event);
         return;
 
       case 'Escape':
-        if (openFilterKey) {
+        if (filterDropdown.isOpen()) {
           event.preventDefault();
-          closeFilterDropdown();
+          filterDropdown.close();
           return;
         }
 
-        if (!expandedId) {
+        if (!overlay.getExpandedId()) {
           return;
         }
 
         event.preventDefault();
-        closeExpandedOverlay();
+        overlay.close();
         return;
 
       case '/': {
-        if (expandedId) {
+        if (overlay.getExpandedId()) {
           return;
         }
 
@@ -318,7 +338,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
         }
 
         event.preventDefault();
-        closeFilterDropdown();
+        filterDropdown.close();
         searchInput.focus();
         return;
       }
@@ -329,8 +349,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   });
 
   windowObj.addEventListener('popstate', () => {
-    closeFilterDropdown();
-    closeExpandedOverlay({ restoreFocus: false, immediate: true });
+    filterDropdown.close();
+    overlay.close({ restoreFocus: false, immediate: true });
     suppressPush = true;
     readStateFromURL();
     syncUIToState();
@@ -356,20 +376,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   );
 
   scrollTopBtn.addEventListener('click', () => {
-    scrollToTop();
+    motion.scrollToTop();
   });
-
-  function prefersReducedMotion() {
-    return prefersReducedMotionQuery.matches;
-  }
-
-  function getScrollBehavior() {
-    return prefersReducedMotion() ? 'auto' : 'smooth';
-  }
-
-  function scrollToTop() {
-    windowObj.scrollTo({ top: 0, behavior: getScrollBehavior() });
-  }
 
   function applyTheme(theme, persist = true) {
     htmlElement.setAttribute('data-theme', theme);
@@ -384,13 +392,13 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   function buildFilterPanels() {
-    Object.entries(filterControls).forEach(([key, control]) => {
+    for (const [key, control] of Object.entries(filterControls)) {
       control.panel.innerHTML = buildFilterPanelHtml({
         key,
         values: control.values,
         labelFormatter: control.labelFormatter
       });
-    });
+    }
   }
 
   function readStateFromURL() {
@@ -460,42 +468,12 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     filterReset.classList.toggle('hidden', !hasActiveFilters);
   }
 
-  function setBackgroundContentInert(isInert) {
-    const updateInteractivity = isInert ? makeElementInert : restoreElementInteractivity;
-    backgroundElements.forEach(updateInteractivity);
-  }
-
-  function makeElementInert(element) {
-    if (element.inert) {
-      return;
-    }
-
-    element.dataset.prevAriaHidden = element.getAttribute('aria-hidden') ?? '';
-    element.setAttribute('aria-hidden', 'true');
-    element.inert = true;
-  }
-
-  function restoreElementInteractivity(element) {
-    if (!element.inert) {
-      return;
-    }
-
-    if (element.dataset.prevAriaHidden === '') {
-      element.removeAttribute('aria-hidden');
-    } else {
-      element.setAttribute('aria-hidden', element.dataset.prevAriaHidden);
-    }
-
-    delete element.dataset.prevAriaHidden;
-    element.inert = false;
-  }
-
   function applyStateChange({ closeFilter = false, focusTarget = null } = {}) {
     if (closeFilter) {
-      closeFilterDropdown();
+      filterDropdown.close();
     }
 
-    closeExpandedOverlay({ restoreFocus: false, immediate: true });
+    overlay.close({ restoreFocus: false, immediate: true });
     syncUIToState();
     pushState();
     renderContent();
@@ -503,53 +481,6 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     if (focusTarget) {
       focusTarget.focus();
     }
-  }
-
-  function trapDetailOverlayFocus(event) {
-    if (!expandedId) {
-      return false;
-    }
-
-    const focusableSelectors = [
-      'a[href]',
-      'button:not([disabled])',
-      'input:not([disabled])',
-      'select:not([disabled])',
-      'textarea:not([disabled])',
-      '[tabindex]:not([tabindex="-1"])'
-    ].join(',');
-
-    const focusableElements = [...detailPanel.querySelectorAll(focusableSelectors)].filter(
-      (element) => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true'
-    );
-
-    if (focusableElements.length === 0) {
-      event.preventDefault();
-      detailPanel.focus({ preventScroll: true });
-      return true;
-    }
-
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-    const activeElement = documentObj.activeElement;
-
-    if (event.shiftKey) {
-      if (activeElement === firstElement || !detailPanel.contains(activeElement)) {
-        event.preventDefault();
-        lastElement.focus({ preventScroll: true });
-        return true;
-      }
-
-      return false;
-    }
-
-    if (activeElement === lastElement || !detailPanel.contains(activeElement)) {
-      event.preventDefault();
-      firstElement.focus({ preventScroll: true });
-      return true;
-    }
-
-    return false;
   }
 
   function getSelectedValues(key) {
@@ -576,36 +507,6 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
   }
 
-  function toggleFilterDropdown(key) {
-    if (openFilterKey === key) {
-      closeFilterDropdown();
-      return;
-    }
-
-    openFilterDropdown(key);
-  }
-
-  function openFilterDropdown(key) {
-    closeFilterDropdown();
-    openFilterKey = key;
-    const control = filterControls[key];
-    control.root.classList.add('open');
-    control.toggle.setAttribute('aria-expanded', 'true');
-    control.panel.setAttribute('aria-hidden', 'false');
-  }
-
-  function closeFilterDropdown() {
-    if (!openFilterKey) {
-      return;
-    }
-
-    const control = filterControls[openFilterKey];
-    control.root.classList.remove('open');
-    control.toggle.setAttribute('aria-expanded', 'false');
-    control.panel.setAttribute('aria-hidden', 'true');
-    openFilterKey = null;
-  }
-
   function resetFilters() {
     currentFilter = '';
     currentTools = [];
@@ -613,126 +514,6 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     currentPage = DEFAULTS.page;
     searchInput.value = '';
     applyStateChange({ closeFilter: true, focusTarget: searchInput });
-  }
-
-  function getCardById(id) {
-    return id ? grid.querySelector(`.artifact-card[data-id="${id}"]`) : null;
-  }
-
-  function toggleExpand(id, triggerCard) {
-    if (expandedId === id) {
-      closeExpandedOverlay();
-      return;
-    }
-
-    openExpandedOverlay(id, triggerCard);
-  }
-
-  function openExpandedOverlay(id, triggerCard) {
-    const item = artifactById.get(id);
-    if (!item) {
-      return;
-    }
-
-    clearTimeout(overlayResetTimer);
-    expandedId = id;
-    lastExpandedTrigger = triggerCard || getCardById(id);
-    detailPanel.innerHTML = createDetailContent(item);
-    detailOverlay.classList.add('visible');
-    detailOverlay.setAttribute('aria-hidden', 'false');
-    documentObj.body.classList.add('detail-open');
-    setBackgroundContentInert(true);
-    updateExpandedCardState();
-
-    const panelRect = detailPanel.getBoundingClientRect();
-    const originRect = lastExpandedTrigger ? lastExpandedTrigger.getBoundingClientRect() : null;
-    applyDetailMotion(originRect, panelRect);
-
-    windowObj.requestAnimationFrame(() => {
-      detailOverlay.classList.add('open');
-      const closeButton = detailPanel.querySelector('.detail-close');
-      if (closeButton) {
-        closeButton.focus({ preventScroll: true });
-      }
-    });
-  }
-
-  function closeExpandedOverlay({ restoreFocus = true, immediate = false } = {}) {
-    if (!expandedId && !detailOverlay.classList.contains('visible')) {
-      return;
-    }
-
-    const closingId = expandedId;
-    const fallbackCard = lastExpandedTrigger && documentObj.body.contains(lastExpandedTrigger)
-      ? lastExpandedTrigger
-      : getCardById(closingId);
-
-    if (!immediate) {
-      const panelRect = detailPanel.getBoundingClientRect();
-      const originRect = fallbackCard ? fallbackCard.getBoundingClientRect() : null;
-      applyDetailMotion(originRect, panelRect);
-    } else {
-      clearDetailMotion();
-    }
-
-    expandedId = null;
-    updateExpandedCardState();
-    detailOverlay.classList.remove('open');
-    detailOverlay.setAttribute('aria-hidden', 'true');
-    documentObj.body.classList.remove('detail-open');
-
-    const finishClose = () => {
-      detailOverlay.classList.remove('visible');
-      detailPanel.innerHTML = '';
-      clearDetailMotion();
-      setBackgroundContentInert(false);
-      if (restoreFocus && fallbackCard) {
-        fallbackCard.focus({ preventScroll: true });
-      }
-      lastExpandedTrigger = null;
-    };
-
-    clearTimeout(overlayResetTimer);
-    if (immediate || prefersReducedMotion()) {
-      finishClose();
-      return;
-    }
-
-    overlayResetTimer = windowObj.setTimeout(finishClose, DETAIL_CLOSE_DELAY);
-  }
-
-  function applyDetailMotion(originRect, panelRect) {
-    clearDetailMotion();
-    if (prefersReducedMotion() || !originRect || !panelRect.width || !panelRect.height) {
-      return;
-    }
-
-    const panelCenterX = panelRect.left + panelRect.width / 2;
-    const panelCenterY = panelRect.top + panelRect.height / 2;
-    const originCenterX = originRect.left + originRect.width / 2;
-    const originCenterY = originRect.top + originRect.height / 2;
-    const scaleX = Math.max(0.36, Math.min(1, originRect.width / panelRect.width));
-    const scaleY = Math.max(0.24, Math.min(1, originRect.height / panelRect.height));
-
-    detailPanel.style.setProperty('--detail-from-x', `${originCenterX - panelCenterX}px`);
-    detailPanel.style.setProperty('--detail-from-y', `${originCenterY - panelCenterY}px`);
-    detailPanel.style.setProperty('--detail-from-scale-x', `${scaleX}`);
-    detailPanel.style.setProperty('--detail-from-scale-y', `${scaleY}`);
-  }
-
-  function clearDetailMotion() {
-    detailPanel.style.removeProperty('--detail-from-x');
-    detailPanel.style.removeProperty('--detail-from-y');
-    detailPanel.style.removeProperty('--detail-from-scale-x');
-    detailPanel.style.removeProperty('--detail-from-scale-y');
-  }
-
-  function updateExpandedCardState() {
-    grid.querySelectorAll('.artifact-card').forEach((card) => {
-      const isExpanded = card.dataset.id === expandedId;
-      card.classList.toggle('expanded', isExpanded);
-      card.setAttribute('aria-expanded', String(isExpanded));
-    });
   }
 
   function renderContent() {
@@ -756,13 +537,13 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       grid.innerHTML = '';
       noResults.classList.remove('hidden');
       paginationContainer.innerHTML = '';
-      updateExpandedCardState();
+      overlay.updateExpandedCardState();
       return;
     }
 
     noResults.classList.add('hidden');
-    grid.innerHTML = buildGridHtml(pageItems, expandedId);
-    updateExpandedCardState();
+    grid.innerHTML = buildGridHtml(pageItems, overlay.getExpandedId());
+    overlay.updateExpandedCardState();
     renderPagination(paginationContainer, currentPage, totalPages);
   }
 }

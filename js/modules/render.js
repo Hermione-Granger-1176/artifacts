@@ -1,6 +1,7 @@
 import { getPageNumbers } from './catalog.js';
 import { ICONS } from './icons.js';
 
+/** @param {string|null|undefined} unsafe - Raw string to escape for safe HTML insertion. */
 export function escapeHtml(unsafe) {
   if (!unsafe) {
     return '';
@@ -14,6 +15,7 @@ export function escapeHtml(unsafe) {
     .replace(/'/g, '&#039;');
 }
 
+/** Build checkbox HTML for a filter dropdown panel. */
 export function buildFilterPanelHtml({ key, values, labelFormatter }) {
   return values
     .map(
@@ -27,6 +29,7 @@ export function buildFilterPanelHtml({ key, values, labelFormatter }) {
     .join('');
 }
 
+/** Return a human-readable label summarizing the current filter selection. */
 export function getFilterSummary(selectedValues, control) {
   if (selectedValues.length === 0) {
     return control.emptyLabel;
@@ -39,18 +42,20 @@ export function getFilterSummary(selectedValues, control) {
   return `${selectedValues.length} ${control.pluralLabel}`;
 }
 
+/** Sync a filter dropdown's checkbox state and label with the current selection. */
 export function updateFilterDropdownUI(control, selectedValues) {
   control.label.textContent = getFilterSummary(selectedValues, control);
 
-  control.panel.querySelectorAll('.filter-dropdown-checkbox').forEach((checkbox) => {
+  for (const checkbox of control.panel.querySelectorAll('.filter-dropdown-checkbox')) {
     const isChecked = selectedValues.includes(checkbox.value);
     checkbox.checked = isChecked;
     const option = checkbox.closest('.filter-dropdown-item');
     option.setAttribute('aria-selected', String(isChecked));
     option.classList.toggle('is-selected', isChecked);
-  });
+  }
 }
 
+/** Build the inner HTML for the detail overlay panel. */
 export function createDetailContent(item) {
   const heroMedia = item.thumbnail
     ? `<img class="detail-media" src="${escapeHtml(item.thumbnail)}" alt="${escapeHtml(item.name)} preview">`
@@ -77,6 +82,7 @@ export function createDetailContent(item) {
   `;
 }
 
+/** Build the HTML for a single artifact card in the grid. */
 function createCard(item, isExpanded) {
   const thumbnailHtml = item.thumbnail
     ? `<img class="card-thumbnail" src="${escapeHtml(item.thumbnail)}" alt="${escapeHtml(item.name)}" loading="lazy">`
@@ -96,10 +102,12 @@ function createCard(item, isExpanded) {
   `;
 }
 
+/** Build the combined HTML for all artifact cards on the current page. */
 export function buildGridHtml(items, expandedId) {
   return items.map((item) => createCard(item, expandedId === item.id)).join('');
 }
 
+/** Render pagination controls into the given container element. */
 export function renderPagination(container, currentPage, totalPages) {
   if (totalPages <= 1) {
     container.innerHTML = '';
@@ -115,7 +123,9 @@ export function renderPagination(container, currentPage, totalPages) {
     }
 
     const isActive = page === currentPage;
-    return `<button class="page-btn ${isActive ? 'active' : ''}" data-page="${page}" ${isActive ? 'aria-current="page"' : ''} aria-label="Page ${page}">${page}</button>`;
+    const activeClass = isActive ? 'active' : '';
+    const ariaCurrent = isActive ? 'aria-current="page"' : '';
+    return `<button class="page-btn ${activeClass}" data-page="${page}" ${ariaCurrent} aria-label="Page ${page}">${page}</button>`;
   }).join('');
 
   let html = '';
