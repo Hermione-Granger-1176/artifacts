@@ -152,9 +152,15 @@ def test_generate_thumbnails_exits_when_playwright_is_missing(
 
 
 class FakePage:
-    def __init__(self, fail_goto: bool = False, transient_failures: int = 0) -> None:
+    def __init__(
+        self,
+        fail_goto: bool = False,
+        transient_failures: int = 0,
+        fail_close: bool = False,
+    ) -> None:
         self._fail_goto = fail_goto
         self._transient_failures = transient_failures
+        self._fail_close = fail_close
         self._goto_calls = 0
         self.closed = False
 
@@ -176,6 +182,8 @@ class FakePage:
         return b"png-bytes"
 
     async def close(self) -> None:
+        if self._fail_close:
+            raise RuntimeError("close failed")
         self.closed = True
 
 
@@ -184,15 +192,21 @@ class FakeBrowser:
         self,
         fail_goto: bool = False,
         transient_failures: int = 0,
+        fail_new_page: bool = False,
+        fail_page_close: bool = False,
     ) -> None:
         self._fail_goto = fail_goto
         self._transient_failures = transient_failures
+        self._fail_new_page = fail_new_page
+        self._fail_page_close = fail_page_close
         self.closed = False
         self.pages: list[FakePage] = []
 
     async def new_page(
         self, viewport: dict[str, int], device_scale_factor: int
     ) -> FakePage:
+        if self._fail_new_page:
+            raise RuntimeError("new_page failed")
         assert viewport == {
             "width": generate_thumbnails.VIEWPORT_WIDTH,
             "height": generate_thumbnails.VIEWPORT_HEIGHT,
@@ -201,6 +215,7 @@ class FakeBrowser:
         page = FakePage(
             fail_goto=self._fail_goto,
             transient_failures=self._transient_failures,
+            fail_close=self._fail_page_close,
         )
         self.pages.append(page)
         return page
@@ -214,10 +229,14 @@ class FakePlaywright:
         self,
         fail_goto: bool = False,
         transient_failures: int = 0,
+        fail_new_page: bool = False,
+        fail_page_close: bool = False,
     ) -> None:
         self.browser = FakeBrowser(
             fail_goto=fail_goto,
             transient_failures=transient_failures,
+            fail_new_page=fail_new_page,
+            fail_page_close=fail_page_close,
         )
         self.chromium = types.SimpleNamespace(
             launch=self.browser_launch,
@@ -232,15 +251,21 @@ class FakeAsyncPlaywright:
         self,
         fail_goto: bool = False,
         transient_failures: int = 0,
+        fail_new_page: bool = False,
+        fail_page_close: bool = False,
     ) -> None:
         self._fail_goto = fail_goto
         self._transient_failures = transient_failures
+        self._fail_new_page = fail_new_page
+        self._fail_page_close = fail_page_close
         self.playwright: FakePlaywright | None = None
 
     async def __aenter__(self) -> FakePlaywright:
         self.playwright = FakePlaywright(
             fail_goto=self._fail_goto,
             transient_failures=self._transient_failures,
+            fail_new_page=self._fail_new_page,
+            fail_page_close=self._fail_page_close,
         )
         return self.playwright
 
@@ -252,11 +277,15 @@ def _patch_playwright(
     monkeypatch: pytest.MonkeyPatch,
     fail_goto: bool = False,
     transient_failures: int = 0,
+    fail_new_page: bool = False,
+    fail_page_close: bool = False,
 ) -> FakeAsyncPlaywright:
     """Patch the playwright import and return the fake context manager."""
     fake_cm = FakeAsyncPlaywright(
         fail_goto=fail_goto,
         transient_failures=transient_failures,
+        fail_new_page=fail_new_page,
+        fail_page_close=fail_page_close,
     )
     original_import = builtins.__import__
 
@@ -454,3 +483,56 @@ def test_generate_thumbnails_processes_multiple_artifacts_concurrently(
     assert fake_cm.playwright is not None
     assert len(fake_cm.playwright.browser.pages) == 3
     assert all(page.closed for page in fake_cm.playwright.browser.pages)
+
+
+def test_generate_thumbnails_handles_page_creation_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact_dir = tmp_path / "loan-tool"
+    write_text(artifact_dir / "index.html", "<html></html>")
+    monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
+    monkeypatch.setattr(
+        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
+    )
+
+    fake_cm = _patch_playwright(monkeypatch, fail_new_page=True)
+    _patch_sleep(monkeypatch)
+
+    with pytest.raises(RuntimeError, match="failed for every attempted artifact"):
+        generate_thumbnails.generate_thumbnails()
+
+    assert fake_cm.playwright is not None
+    assert fake_cm.playwright.browser.closed is True
+
+
+def test_generate_thumbnails_tolerates_page_close_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact_dir = tmp_path / "loan-tool"
+    write_text(artifact_dir / "index.html", "<html></html>")
+    monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
+    monkeypatch.setattr(
+        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
+    )
+
+    save_calls: list[tuple[bytes, Path]] = []
+
+    fake_cm = _patch_playwright(monkeypatch, fail_page_close=True)
+    monkeypatch.setattr(
+        generate_thumbnails,
+        "save_thumbnail",
+        lambda image_bytes, thumb_path: save_calls.append((image_bytes, thumb_path)),
+    )
+
+    stats = generate_thumbnails.generate_thumbnails()
+
+    assert stats == {
+        "total": 1,
+        "attempted": 1,
+        "generated": 1,
+        "skipped": 0,
+        "failed": 0,
+    }
+    assert len(save_calls) == 1
+    assert fake_cm.playwright is not None
+    assert fake_cm.playwright.browser.closed is True

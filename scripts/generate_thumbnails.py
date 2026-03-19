@@ -154,12 +154,13 @@ async def _process_artifact(
         return "skipped"
 
     logger.info("Screenshotting %s", artifact_dir.name)
+    page = None
     async with semaphore:
-        page = await browser.new_page(
-            viewport={"width": VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
-            device_scale_factor=2,
-        )
         try:
+            page = await browser.new_page(
+                viewport={"width": VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
+                device_scale_factor=2,
+            )
             html_path = artifact_dir / "index.html"
             thumb_path = artifact_dir / SCREENSHOT_FILE
             legacy_thumb_path = artifact_dir / LEGACY_SCREENSHOT_FILE
@@ -177,7 +178,11 @@ async def _process_artifact(
             logger.warning("Failed to screenshot %s: %s", artifact_dir.name, exc)
             return "failed"
         finally:
-            await page.close()
+            if page is not None:
+                try:
+                    await page.close()
+                except Exception:
+                    pass
 
 
 async def _run_generation(
@@ -194,18 +199,21 @@ async def _run_generation(
 
     async with async_playwright_cm() as p:
         browser = await p.chromium.launch()
-        semaphore = asyncio.Semaphore(MAX_CONCURRENT_PAGES)
+        try:
+            semaphore = asyncio.Semaphore(MAX_CONCURRENT_PAGES)
 
-        results = await asyncio.gather(
-            *[_process_artifact(browser, d, semaphore) for d in artifacts]
-        )
+            results = await asyncio.gather(
+                *[_process_artifact(browser, d, semaphore) for d in artifacts],
+                return_exceptions=True,
+            )
 
-        for status in results:
-            stats[status] += 1
-            if status != "skipped":
-                stats["attempted"] += 1
-
-        await browser.close()
+            for result in results:
+                status = "failed" if isinstance(result, Exception) else result
+                stats[status] += 1
+                if status != "skipped":
+                    stats["attempted"] += 1
+        finally:
+            await browser.close()
 
     logger.info("Done generating thumbnails")
     logger.info(_summarize(stats))
