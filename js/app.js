@@ -369,10 +369,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!chip) return;
         const action = chip.dataset.dismiss;
 
-        if (action === 'tool') currentTool = DEFAULTS.tool;
-        else if (action === 'tag') currentTag = DEFAULTS.tag;
-        else if (action === 'sort') currentSort = DEFAULTS.sort;
-        else if (action === 'search') { currentFilter = ''; searchInput.value = ''; }
+        switch (action) {
+            case 'tool':
+                currentTool = DEFAULTS.tool;
+                break;
+            case 'tag':
+                currentTag = DEFAULTS.tag;
+                break;
+            case 'sort':
+                currentSort = DEFAULTS.sort;
+                break;
+            case 'search':
+                currentFilter = '';
+                searchInput.value = '';
+                break;
+            default:
+                return;
+        }
 
         currentPage = 1;
         expandedId = null;
@@ -406,10 +419,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─── Filter Counts ──────────────────────────────────────────────────
 
     function updateFilterCounts() {
-        const toolCounts = {};
-        allTools.forEach(t => { toolCounts[t] = 0; });
-        const tagCounts = {};
-        allTags.forEach(t => { tagCounts[t] = 0; });
+        const toolCounts = Object.fromEntries(allTools.map(t => [t, 0]));
+        const tagCounts = Object.fromEntries(allTags.map(t => [t, 0]));
 
         allArtifacts.forEach(item => {
             const matchesTag = currentTag === 'all' || item.tags.includes(currentTag);
@@ -483,22 +494,19 @@ document.addEventListener('DOMContentLoaded', () => {
             grid.innerHTML = '';
             noResults.classList.remove('hidden');
             paginationContainer.innerHTML = '';
-        } else {
-            noResults.classList.add('hidden');
-            grid.innerHTML = buildGridHtml(pageItems);
-            renderPagination(totalPages);
+            return;
         }
+
+        noResults.classList.add('hidden');
+        grid.innerHTML = buildGridHtml(pageItems);
+        renderPagination(totalPages);
     }
 
     function buildGridHtml(items) {
-        let html = '';
-        for (const item of items) {
-            html += createCard(item);
-            if (expandedId === item.id) {
-                html += createExpandPanel(item);
-            }
-        }
-        return html;
+        return items.map(item => {
+            const expandPanel = expandedId === item.id ? createExpandPanel(item) : '';
+            return createCard(item) + expandPanel;
+        }).join('');
     }
 
     function createCard(item) {

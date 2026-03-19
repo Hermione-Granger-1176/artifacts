@@ -5,21 +5,26 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build-and-deploy:
+  build-and-publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      contents: write
+      issues: write
+      pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -29,29 +34,47 @@ jobs:
 
       - name: Create GitHub App token
         id: app-token
+        if: github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork
         uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
         with:
           app-id: ${{ vars.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Set up Python
+        if: github.event.action != 'closed'
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: '3.12'
 
-      - name: Install Playwright
-        run: pip install playwright && playwright install chromium --with-deps
+      - name: Install Python dependencies
+        if: github.event.action != 'closed'
+        run: make setup-ci
+
+      - name: Lint Python scripts and tests
+        if: github.event.action != 'closed'
+        run: make lint
+
+      - name: Run Python tests
+        if: github.event.action != 'closed'
+        run: make test
+
+      - name: Validate artifact directories
+        if: github.event.action != 'closed'
+        run: make validate
 
       - name: Generate thumbnails
-        run: python scripts/generate_thumbnails.py
+        if: github.event.action != 'closed'
+        run: make thumbnails
 
       - name: Generate content index
-        run: python scripts/generate_index.py
+        if: github.event.action != 'closed'
+        run: make index
 
       - name: Detect changes
+        if: github.event.action != 'closed'
         id: changes
         run: |
-          git add js/data.js README.md apps/*/thumbnail.png
+          git add -A js/data.js README.md apps
           if git diff --staged --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -59,38 +82,34 @@ jobs:
           fi
 
       - name: Commit generated files (verified)
-        if: steps.changes.outputs.changed == 'true'
+        if: github.event_name != 'pull_request' && github.event.action != 'closed' && steps.changes.outputs.changed == 'true'
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const fs = require("fs");
-            const path = require("path");
+            const { execSync } = require("child_process");
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const defaultBranch = context.ref.replace("refs/heads/", "");
             const headSha = context.sha;
 
-            // Collect changed files
             const additions = [];
-            const trackedFiles = [
-              "js/data.js",
-              "README.md",
-            ];
+            const deletions = [];
+            const diffOutput = execSync(
+              "git diff --staged --name-status -- js/data.js README.md apps"
+            ).toString().trim();
 
-            // Add thumbnail files
-            const appsDir = "apps";
-            for (const entry of fs.readdirSync(appsDir, { withFileTypes: true })) {
-              if (entry.isDirectory()) {
-                const thumbPath = path.join(appsDir, entry.name, "thumbnail.png");
-                if (fs.existsSync(thumbPath)) {
-                  trackedFiles.push(thumbPath);
-                }
-              }
+            if (!diffOutput) {
+              core.info("No files to commit");
+              return;
             }
 
-            for (const filePath of trackedFiles) {
-              if (fs.existsSync(filePath)) {
+            for (const line of diffOutput.split("\n")) {
+              const [status, filePath] = line.split(/\s+/, 2);
+              if (status === "D") {
+                deletions.push({ path: filePath });
+              } else if (fs.existsSync(filePath)) {
                 additions.push({
                   path: filePath,
                   contents: fs.readFileSync(filePath).toString("base64"),
@@ -98,7 +117,7 @@ jobs:
               }
             }
 
-            if (additions.length === 0) {
+            if (additions.length === 0 && deletions.length === 0) {
               core.info("No files to commit");
               return;
             }
@@ -120,9 +139,9 @@ jobs:
                   },
                   expectedHeadOid: headSha,
                   message: {
-                    headline: "Auto-update artifacts [skip ci]",
+                    headline: "ci: update generated artifacts [skip ci]",
                   },
-                  fileChanges: { additions },
+                  fileChanges: { additions, deletions },
                 },
               });
               core.info(
@@ -164,9 +183,9 @@ jobs:
                   },
                   expectedHeadOid: branchSha,
                   message: {
-                    headline: "Auto-update artifacts",
+                    headline: "ci: update generated artifacts",
                   },
-                  fileChanges: { additions },
+                  fileChanges: { additions, deletions },
                 },
               });
 
@@ -183,8 +202,8 @@ jobs:
                   repo,
                   head: newBranch,
                   base: defaultBranch,
-                  title: "Auto-update artifacts",
-                  body: "## Summary\n- Auto-generated artifacts update from `update.yml` workflow\n- Direct commit to default branch was blocked by branch protection\n",
+                    title: "ci: update generated artifacts",
+                    body: "## Summary\n- Type: CI automation\n- Update generated artifacts from the `update.yml` workflow\n- Direct commit to the default branch was blocked by branch protection\n",
                 });
                 core.info(`Created PR: ${pr.html_url}`);
               } else {
@@ -193,22 +212,82 @@ jobs:
             }
 
       - name: Re-checkout after API commit
-        if: steps.changes.outputs.changed == 'true'
+        if: github.event_name != 'pull_request' && github.event.action != 'closed' && steps.changes.outputs.changed == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 1
+          persist-credentials: false
 
-      - name: Setup Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - name: Prepare deployable site
+        if: github.event.action != 'closed'
+        run: make site
+
+      - name: Deploy PR preview
+        if: github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork
+        id: preview
+        uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1
         with:
-          enablement: true
+          source-dir: _site
+          preview-branch: gh-pages
+          token: ${{ steps.app-token.outputs.token }}
+          comment: false
+          qr-code: false
 
-      - name: Upload site
-        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+      - name: Post PR preview link
+        if: github.event_name == 'pull_request' && github.event.action != 'closed' && !github.event.pull_request.head.repo.fork
+        uses: marocchino/sticky-pull-request-comment@67d0dec7b07ed060a405f9b2a64b8ab319fdd7db # v2
         with:
-          path: '.'
+          header: pr-preview
+          recreate: true
+          message: |
+            CI preview
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+            Preview URL: ${{ steps.preview.outputs.preview-url }}
+
+      - name: Remove PR preview link comment
+        if: github.event_name == 'pull_request' && github.event.action == 'closed' && !github.event.pull_request.head.repo.fork
+        uses: marocchino/sticky-pull-request-comment@67d0dec7b07ed060a405f9b2a64b8ab319fdd7db # v2
+        with:
+          header: pr-preview
+          delete: true
+
+      - name: Summarize PR preview
+        if: github.event_name == 'pull_request' && github.event.action != 'closed' && !github.event.pull_request.head.repo.fork
+        run: |
+          {
+            echo "## PR Preview"
+            echo
+            echo "Preview URL: ${{ steps.preview.outputs.preview-url }}"
+            echo
+            if [ "${{ steps.changes.outputs.changed }}" = "true" ]; then
+              echo "Generated files changed during this run:"
+              echo
+              echo '```text'
+              git diff --staged --name-status -- js/data.js README.md apps
+              echo '```'
+            else
+              echo "No generated file changes were detected during this run."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Note fork PR preview limitation
+        if: github.event_name == 'pull_request' && github.event.action != 'closed' && github.event.pull_request.head.repo.fork
+        run: |
+          {
+            echo "## PR Preview"
+            echo
+            echo "Preview deployment is skipped for fork-based pull requests because this workflow does not expose the app token to forks."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy main site to gh-pages
+        if: github.event_name != 'pull_request'
+        uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4
+        with:
+          branch: gh-pages
+          folder: _site
+          token: ${{ steps.app-token.outputs.token }}
+          clean-exclude: |
+            pr-preview/
+          force: false
+          commit-message: Deploy site for ${{ github.sha }}

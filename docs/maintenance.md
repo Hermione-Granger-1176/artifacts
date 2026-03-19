@@ -1,0 +1,78 @@
+# Maintenance Notes
+
+## What to keep stable
+
+These are the main cross-cutting pieces that should stay consistent over time:
+
+- `pyproject.toml` is the source of truth for Python dependencies, test policy, lint policy, and site metadata
+- `Makefile` is the common interface for local work and CI
+- `.github/workflows/update.yml` is the main build, validation, and deploy workflow
+- `.github/workflows/refresh-action-shas.yml` keeps pinned GitHub Actions references current
+- `gh-pages` is a CI-managed deployment branch and should not be edited manually
+
+## When changing CI
+
+If you touch workflow files:
+
+1. prefer extending the existing workflow over cloning logic into another workflow file
+2. keep action references pinned to full commit SHAs
+3. non-fork PRs use the app token for preview deploys, while fork PRs are excluded from preview deployment
+4. keep local and CI commands aligned through `make`
+5. preserve the separation between the source repo and the `_site/` deploy directory
+6. keep the PR preview comment recreated on each push so the latest preview link stays easy to find
+
+## When changing URLs or repo metadata
+
+Update `pyproject.toml` under `[tool.artifacts]`.
+
+This is where the repo keeps:
+
+- canonical site URL
+- site path
+- repository URL
+
+Scripts and docs should read from that shared config instead of embedding one-off copies.
+
+The deployed site path used by the 404 fallback is injected into the deploy output from this shared config.
+
+## When changing generators
+
+If you modify `scripts/generate_index.py`, `scripts/generate_thumbnails.py`, or `scripts/prepare_site.py`:
+
+- update or add tests in `tests/`
+- keep `make check` green
+- keep `make validate` aligned with the artifact directory contract when required files change
+- preserve the 100% coverage gate unless there is an explicit decision to relax it
+- regenerate derived files when needed with `make index` or `make generate`
+
+## Thumbnail policy
+
+- CI is allowed to generate thumbnails during pull requests and pushes
+- checked-in thumbnails are not required for every local branch state
+- if thumbnails are removed locally, the gallery data can temporarily contain `thumbnail: null`
+- pushes to `main` will regenerate and persist fresh thumbnails through CI
+- PR previews can render regenerated thumbnails without committing them back to the source branch
+
+## Pages preview setup
+
+The preview workflow assumes GitHub Pages serves the repository from the `gh-pages` branch root.
+
+- main site deploys to the root of `gh-pages`
+- PR previews deploy under `pr-preview/pr-<number>/`
+- main deploys must preserve `pr-preview/`
+- do not manually merge or edit `gh-pages`; CI owns it
+
+## Action SHA maintenance
+
+The repo includes a scheduled workflow that refreshes pinned GitHub Action SHAs.
+
+- file: `.github/workflows/refresh-action-shas.yml`
+- purpose: keep workflows pinned and reproducible without manual SHA lookup
+- expectation: when adding a new external action, pin it immediately and let the refresh workflow keep it current later
+
+## Good maintenance habits
+
+- prefer central config over scattered constants
+- prefer one well-structured workflow path over several partially duplicated ones
+- keep README high level and keep deeper operational detail in `docs/`
+- treat generated files as outputs, not primary editing targets

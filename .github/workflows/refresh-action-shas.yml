@@ -188,7 +188,7 @@ jobs:
                     branchName: newBranch,
                   },
                   expectedHeadOid: branchSha,
-                  message: { headline: "ci: refresh action SHAs" },
+                   message: { headline: "ci: refresh action SHAs" },
                   fileChanges: { additions },
                 },
               });
@@ -206,8 +206,8 @@ jobs:
                   repo,
                   head: newBranch,
                   base: defaultBranch,
-                  title: "ci: refresh action SHAs",
-                  body: "## Summary\n- Pin GitHub Actions to full commit SHAs for reproducible runs\n- Keep workflow behavior unchanged\n",
+                   title: "ci: refresh action SHAs",
+                   body: "## Summary\n- Type: CI maintenance\n- Pin GitHub Actions to full commit SHAs for reproducible runs\n- Keep workflow behavior unchanged\n",
                 });
                 core.info(`Created PR: ${pr.html_url}`);
               } else {

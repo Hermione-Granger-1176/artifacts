@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "artifacts-tools"
+version = "0.1.0"
+description = "Build tooling for the Artifacts gallery"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12"
+dependencies = [
+  "Pillow==12.1.1",
+  "playwright==1.58.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest-cov==7.0.0",
+  "pytest==9.0.2",
+  "ruff==0.15.6",
+]
+
+[tool.setuptools]
+packages = ["scripts"]
+
+[tool.artifacts]
+site_url = "https://hermione-granger-1176.github.io/artifacts/"
+site_path = "/artifacts/"
+repository_url = "https://github.com/Hermione-Granger-1176/artifacts"
+
+[tool.pytest.ini_options]
+addopts = "-ra --cov=scripts --cov-report=term-missing --cov-fail-under=100"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "UP", "W"]
+ignore = ["E501"]
