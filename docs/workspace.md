@@ -18,7 +18,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |- css/                   Root gallery styles
 |- docs/                  Workspace documentation
 |- js/                    Root gallery logic and generated data
-|- scripts/               Python generation tools
+|- scripts/               Python generation and deploy-prep tools
 |- tests/                 Python test suite for the tooling layer
 |- 404.html               GitHub Pages error page
 |- index.html             Root gallery entry point
@@ -32,6 +32,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `apps/*/name.txt`, `description.txt`, `tags.txt`, `tools.txt`: artifact metadata
 - `index.html`, `css/style.css`, `js/app.js`: root gallery UI
 - `pyproject.toml`: Python dependency pins and workspace configuration
+- `scripts/prepare_site.py`: deploy-time site assembly, cache busting, and site path injection
 - `.github/workflows/update.yml`: production automation behavior
 
 ## Generated and derived files

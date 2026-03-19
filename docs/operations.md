@@ -31,6 +31,7 @@ The production workflow uses the same command surface:
 - `make test`
 - `make thumbnails`
 - `make index`
+- `make site`
 
 This keeps local and CI behavior aligned and reduces workflow-specific shell logic.
 
@@ -40,6 +41,9 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 - pull requests run the same setup, lint, test, generation, and `_site/` assembly path
 - pull requests publish preview deployments under `pr-preview/pr-<number>/`
 - pull requests leave the source branch untouched while preview comments provide the live preview link
+- preview deploys use the GitHub App token
+- preview comments use the workflow token and appear as `github-actions[bot]`
+- fork-based PRs skip preview deployment because the app token is not exposed to forks
 
 ## Coverage and quality gates
 

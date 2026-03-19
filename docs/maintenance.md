@@ -16,7 +16,7 @@ If you touch workflow files:
 
 1. prefer extending the existing workflow over cloning logic into another workflow file
 2. keep action references pinned to full commit SHAs
-3. update conditions carefully so pull requests do not require deploy secrets or write access
+3. non-fork PRs use the app token for preview deploys, while fork PRs are excluded from preview deployment
 4. keep local and CI commands aligned through `make`
 5. preserve the separation between the source repo and the `_site/` deploy directory
 
@@ -36,7 +36,7 @@ The deployed site path used by the root gallery and 404 fallback is injected int
 
 ## When changing generators
 
-If you modify `scripts/generate_index.py` or `scripts/generate_thumbnails.py`:
+If you modify `scripts/generate_index.py`, `scripts/generate_thumbnails.py`, or `scripts/prepare_site.py`:
 
 - update or add tests in `tests/`
 - keep `make check` green
