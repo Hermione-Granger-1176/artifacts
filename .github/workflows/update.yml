@@ -83,133 +83,23 @@ jobs:
 
       - name: Commit generated files (verified)
         if: github.event_name != 'pull_request' && github.event.action != 'closed' && steps.changes.outputs.changed == 'true'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: ./.github/actions/verified-commit
         with:
           github-token: ${{ steps.app-token.outputs.token }}
-          script: |
-            const fs = require("fs");
-            const { execSync } = require("child_process");
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const defaultBranch = context.ref.replace("refs/heads/", "");
-            const headSha = context.sha;
-
-            const additions = [];
-            const deletions = [];
-            const diffOutput = execSync(
-              "git diff --staged --name-status -- js/data.js README.md apps"
-            ).toString().trim();
-
-            if (!diffOutput) {
-              core.info("No files to commit");
-              return;
-            }
-
-            for (const line of diffOutput.split("\n")) {
-              const [status, filePath] = line.split(/\s+/, 2);
-              if (status === "D") {
-                deletions.push({ path: filePath });
-              } else if (fs.existsSync(filePath)) {
-                additions.push({
-                  path: filePath,
-                  contents: fs.readFileSync(filePath).toString("base64"),
-                });
-              }
-            }
-
-            if (additions.length === 0 && deletions.length === 0) {
-              core.info("No files to commit");
-              return;
-            }
-
-            const mutation = `
-              mutation ($input: CreateCommitOnBranchInput!) {
-                createCommitOnBranch(input: $input) {
-                  commit { oid url }
-                }
-              }
-            `;
-
-            try {
-              const result = await github.graphql(mutation, {
-                input: {
-                  branch: {
-                    repositoryNameWithOwner: `${owner}/${repo}`,
-                    branchName: defaultBranch,
-                  },
-                  expectedHeadOid: headSha,
-                  message: {
-                    headline: "ci: update generated artifacts [skip ci]",
-                  },
-                  fileChanges: { additions, deletions },
-                },
-              });
-              core.info(
-                `Created verified commit: ${result.createCommitOnBranch.commit.url}`
-              );
-            } catch (err) {
-              core.info(
-                `Direct commit failed (${err.message}), creating branch and PR`
-              );
-
-              const date = new Date()
-                .toISOString()
-                .slice(0, 10)
-                .replace(/-/g, "");
-              const newBranch = `auto/update-artifacts-${date}`;
-
-              let branchSha = headSha;
-              try {
-                await github.rest.git.createRef({
-                  owner,
-                  repo,
-                  ref: `refs/heads/${newBranch}`,
-                  sha: headSha,
-                });
-              } catch {
-                const { data: existingRef } = await github.rest.git.getRef({
-                  owner,
-                  repo,
-                  ref: `heads/${newBranch}`,
-                });
-                branchSha = existingRef.object.sha;
-              }
-
-              await github.graphql(mutation, {
-                input: {
-                  branch: {
-                    repositoryNameWithOwner: `${owner}/${repo}`,
-                    branchName: newBranch,
-                  },
-                  expectedHeadOid: branchSha,
-                  message: {
-                    headline: "ci: update generated artifacts",
-                  },
-                  fileChanges: { additions, deletions },
-                },
-              });
-
-              const { data: existing } = await github.rest.pulls.list({
-                owner,
-                repo,
-                state: "open",
-                head: `${owner}:${newBranch}`,
-              });
-
-              if (existing.length === 0) {
-                const { data: pr } = await github.rest.pulls.create({
-                  owner,
-                  repo,
-                  head: newBranch,
-                  base: defaultBranch,
-                    title: "ci: update generated artifacts",
-                    body: "## Summary\n- Type: CI automation\n- Update generated artifacts from the `update.yml` workflow\n- Direct commit to the default branch was blocked by branch protection\n",
-                });
-                core.info(`Created PR: ${pr.html_url}`);
-              } else {
-                core.info(`Updated existing PR: ${existing[0].html_url}`);
-              }
-            }
+          base-branch: ${{ github.ref_name }}
+          expected-head-sha: ${{ github.sha }}
+          commit-headline: "ci: update generated artifacts [skip ci]"
+          fallback-branch-prefix: auto/update-artifacts
+          pr-title: "ci: update generated artifacts"
+          pr-body: |
+            ## Summary
+            - Type: CI automation
+            - Update generated artifacts from the `update.yml` workflow
+            - Direct commit to the default branch was blocked by branch protection
+          pathspec: |
+            js/data.js
+            README.md
+            apps
 
       - name: Re-checkout after API commit
         if: github.event_name != 'pull_request' && github.event.action != 'closed' && steps.changes.outputs.changed == 'true'

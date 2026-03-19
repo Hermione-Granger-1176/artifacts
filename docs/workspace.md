@@ -13,6 +13,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 
 ```text
 .
+|- .github/actions/       Shared composite actions for workflows
 |- .github/workflows/     CI/CD automation
 |- apps/                  Artifact folders and CI-generated thumbnails
 |- css/                   Root gallery styles
@@ -33,6 +34,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `index.html`, `css/style.css`, `js/app.js`: root gallery UI
 - `pyproject.toml`: Python dependency pins and workspace configuration
 - `scripts/prepare_site.py`: deploy-time site assembly, cache busting, and site path injection
+- `.github/actions/verified-commit/action.yml`: shared verified commit and PR fallback logic for CI
 - `.github/workflows/update.yml`: production automation behavior
 
 ## Generated and derived files

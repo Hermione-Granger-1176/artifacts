@@ -1,0 +1,251 @@
+name: Verified commit with PR fallback
+description: Create a verified commit on a branch or fall back to a pull request when branch protection blocks it.
+
+inputs:
+  github-token:
+    description: GitHub token used for GraphQL and REST API calls.
+    required: true
+  base-branch:
+    description: Branch to update directly before falling back to a PR branch.
+    required: true
+  expected-head-sha:
+    description: Expected head SHA for the direct commit target branch.
+    required: true
+  commit-headline:
+    description: Commit subject line for the verified commit.
+    required: true
+  fallback-branch-prefix:
+    description: Prefix used to create the fallback branch name when direct commit fails.
+    required: true
+  pr-title:
+    description: Pull request title for the fallback branch.
+    required: true
+  pr-body:
+    description: Pull request body for the fallback branch.
+    required: true
+  pathspec:
+    description: Newline-delimited git pathspec entries used to inspect staged changes.
+    required: true
+
+outputs:
+  changed:
+    description: Whether staged changes were found for the provided pathspec.
+    value: ${{ steps.commit.outputs.changed }}
+  result-url:
+    description: URL of the created commit or pull request.
+    value: ${{ steps.commit.outputs.result-url }}
+
+runs:
+  using: composite
+  steps:
+    - id: commit
+      shell: bash
+      env:
+        GH_TOKEN_INPUT: ${{ inputs.github-token }}
+        BASE_BRANCH: ${{ inputs.base-branch }}
+        EXPECTED_HEAD_SHA: ${{ inputs.expected-head-sha }}
+        COMMIT_HEADLINE: ${{ inputs.commit-headline }}
+        FALLBACK_BRANCH_PREFIX: ${{ inputs.fallback-branch-prefix }}
+        PR_TITLE: ${{ inputs.pr-title }}
+        PR_BODY: ${{ inputs.pr-body }}
+        PATHSPEC_INPUT: ${{ inputs.pathspec }}
+      run: |
+        node <<'NODE'
+        const fs = require('fs');
+        const { execFileSync } = require('child_process');
+
+        const outputFile = process.env.GITHUB_OUTPUT;
+        const token = process.env.GH_TOKEN_INPUT;
+        const baseBranch = process.env.BASE_BRANCH;
+        const expectedHeadSha = process.env.EXPECTED_HEAD_SHA;
+        const commitHeadline = process.env.COMMIT_HEADLINE;
+        const fallbackBranchPrefix = process.env.FALLBACK_BRANCH_PREFIX;
+        const prTitle = process.env.PR_TITLE;
+        const prBody = process.env.PR_BODY;
+        const pathspec = (process.env.PATHSPEC_INPUT || '')
+          .split(/\r?\n/)
+          .map((entry) => entry.trim())
+          .filter(Boolean);
+
+        const [owner, repo] = (process.env.GITHUB_REPOSITORY || '').split('/');
+
+        if (!outputFile || !token || !owner || !repo) {
+          throw new Error('Missing required GitHub environment for verified commit action');
+        }
+
+        const setOutput = (name, value) => {
+          fs.appendFileSync(outputFile, `${name}=${value}\n`);
+        };
+
+        const fetchJson = async (url, options = {}) => {
+          const response = await fetch(url, {
+            ...options,
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/vnd.github+json',
+              'Content-Type': 'application/json',
+              ...(options.headers || {}),
+            },
+          });
+
+          if (!response.ok) {
+            const message = await response.text();
+            throw new Error(`${response.status} ${response.statusText}: ${message}`);
+          }
+
+          if (response.status === 204) {
+            return null;
+          }
+
+          return response.json();
+        };
+
+        const graphql = async (query, variables) => {
+          const response = await fetchJson('https://api.github.com/graphql', {
+            method: 'POST',
+            body: JSON.stringify({ query, variables }),
+          });
+
+          if (response.errors && response.errors.length > 0) {
+            throw new Error(response.errors.map((error) => error.message).join('; '));
+          }
+
+          return response.data;
+        };
+
+        const gitArgs = ['diff', '--staged', '--name-status'];
+        if (pathspec.length > 0) {
+          gitArgs.push('--', ...pathspec);
+        }
+        const diffOutput = execFileSync('git', gitArgs, { encoding: 'utf8' }).trim();
+
+        if (!diffOutput) {
+          console.log('No staged changes to commit');
+          setOutput('changed', 'false');
+          setOutput('result-url', '');
+          process.exit(0);
+        }
+
+        const additions = [];
+        const deletions = [];
+        for (const line of diffOutput.split('\n')) {
+          const parts = line.split('\t');
+          const status = parts[0] || '';
+
+          if (status.startsWith('R') && parts.length >= 3) {
+            deletions.push({ path: parts[1] });
+            additions.push({
+              path: parts[2],
+              contents: fs.readFileSync(parts[2]).toString('base64'),
+            });
+            continue;
+          }
+
+          const filePath = parts[1];
+          if (!filePath) {
+            continue;
+          }
+
+          if (status.startsWith('D')) {
+            deletions.push({ path: filePath });
+            continue;
+          }
+
+          if (fs.existsSync(filePath)) {
+            additions.push({
+              path: filePath,
+              contents: fs.readFileSync(filePath).toString('base64'),
+            });
+          }
+        }
+
+        if (additions.length === 0 && deletions.length === 0) {
+          console.log('No staged file payloads were produced');
+          setOutput('changed', 'false');
+          setOutput('result-url', '');
+          process.exit(0);
+        }
+
+        setOutput('changed', 'true');
+
+        const mutation = `
+          mutation ($input: CreateCommitOnBranchInput!) {
+            createCommitOnBranch(input: $input) {
+              commit { oid url }
+            }
+          }
+        `;
+
+        const createCommit = async (branchName, headSha, headline) => {
+          const data = await graphql(mutation, {
+            input: {
+              branch: {
+                repositoryNameWithOwner: `${owner}/${repo}`,
+                branchName,
+              },
+              expectedHeadOid: headSha,
+              message: { headline },
+              fileChanges: { additions, deletions },
+            },
+          });
+
+          return data.createCommitOnBranch.commit;
+        };
+
+        try {
+          const commit = await createCommit(baseBranch, expectedHeadSha, commitHeadline);
+          console.log(`Created verified commit: ${commit.url}`);
+          setOutput('result-url', commit.url);
+          process.exit(0);
+        } catch (error) {
+          console.log(`Direct commit failed (${error.message}), creating branch and PR`);
+        }
+
+        const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const fallbackBranch = `${fallbackBranchPrefix}-${date}`;
+        let fallbackHeadSha = expectedHeadSha;
+
+        try {
+          await fetchJson(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+            method: 'POST',
+            body: JSON.stringify({
+              ref: `refs/heads/${fallbackBranch}`,
+              sha: expectedHeadSha,
+            }),
+          });
+        } catch (_error) {
+          const existingRef = await fetchJson(
+            `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${fallbackBranch}`
+          );
+          fallbackHeadSha = existingRef.object.sha;
+        }
+
+        const fallbackCommit = await createCommit(fallbackBranch, fallbackHeadSha, commitHeadline.replace(' [skip ci]', ''));
+        console.log(`Created verified fallback commit: ${fallbackCommit.url}`);
+
+        const pullsUrl = new URL(`https://api.github.com/repos/${owner}/${repo}/pulls`);
+        pullsUrl.search = new URLSearchParams({
+          state: 'open',
+          head: `${owner}:${fallbackBranch}`,
+        }).toString();
+        const existingPulls = await fetchJson(pullsUrl.toString());
+
+        if (existingPulls.length > 0) {
+          console.log(`Updated existing PR: ${existingPulls[0].html_url}`);
+          setOutput('result-url', existingPulls[0].html_url);
+          process.exit(0);
+        }
+
+        const pullRequest = await fetchJson(`https://api.github.com/repos/${owner}/${repo}/pulls`, {
+          method: 'POST',
+          body: JSON.stringify({
+            title: prTitle,
+            body: prBody,
+            head: fallbackBranch,
+            base: baseBranch,
+          }),
+        });
+
+        console.log(`Created PR: ${pullRequest.html_url}`);
+        setOutput('result-url', pullRequest.html_url);
+        NODE
