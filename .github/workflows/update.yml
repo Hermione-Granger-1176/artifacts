@@ -136,7 +136,12 @@ jobs:
         continue-on-error: ${{ !github.event.repository.private }}
 
   publish:
-    if: github.event.action != 'closed'
+    if: >-
+      github.event.action != 'closed' &&
+      !failure() && !cancelled() &&
+      needs.verify.result == 'success' &&
+      needs.secret-scan.result == 'success' &&
+      (needs.dependency-review.result == 'success' || needs.dependency-review.result == 'skipped')
     needs:
       - verify
       - secret-scan
