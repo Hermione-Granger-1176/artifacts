@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" data-runtime-status="booting">
 
 <head>
     <meta charset="UTF-8">
@@ -7,7 +7,13 @@
     <meta name="description"
         content="A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT, Gemini).">
     <title>Artifacts | Aditya Kumar Darak</title>
-    <script>document.documentElement.dataset.theme = localStorage.getItem('theme') || 'dark';</script>
+    <script>
+        try {
+            document.documentElement.dataset.theme = localStorage.getItem('theme') || 'dark';
+        } catch (_error) {
+            document.documentElement.dataset.theme = 'dark';
+        }
+    </script>
     <link rel="stylesheet" href="css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,6 +54,10 @@
             </button>
         </div>
     </header>
+
+    <div id="runtime-error" class="runtime-error hidden" role="alert" aria-live="assertive">
+        <p>The gallery failed to initialize correctly. Reload the page, or try again later.</p>
+    </div>
 
     <main class="container">
         <section class="controls">
@@ -141,8 +151,9 @@
                 target="_blank" rel="noopener noreferrer">LinkedIn</a></p>
     </footer>
 
+    <script src="js/gallery-config.js"></script>
     <script src="js/data.js"></script>
-    <script src="js/app.js"></script>
+    <script type="module" src="js/app.js"></script>
 </body>
 
 </html>

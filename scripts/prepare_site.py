@@ -105,6 +105,7 @@ def _patch_index_html(version: str) -> None:
     content = index_path.read_text(encoding="utf-8")
     replacements = {
         'href="css/style.css"': f'href="css/style.css?v={version}"',
+        'src="js/gallery-config.js"': f'src="js/gallery-config.js?v={version}"',
         'src="js/data.js"': f'src="js/data.js?v={version}"',
         'src="js/app.js"': f'src="js/app.js?v={version}"',
     }

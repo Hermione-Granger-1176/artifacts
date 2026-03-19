@@ -2,12 +2,14 @@
 """
 Generate Artifact Index
 
-Scans top-level artifact directories and generates a JavaScript data file
-(js/data.js) containing all artifact information. This file is used by the
-gallery page to display filterable, searchable artifacts.
+Scans top-level artifact directories and generates the JavaScript data files
+used by the root gallery page. `js/data.js` contains artifact metadata, while
+`js/gallery-config.js` contains shared display configuration consumed by the
+browser UI.
 
-The script also updates auto-managed sections in README.md (artifact count,
-tool badges, and tag badges) so profile stats stay in sync.
+The script also updates auto-managed sections in README.md, including the site
+URL, total count, total badge, tool badges, and tag badges, so the README
+snapshot stays in sync.
 
 Each artifact directory can contain:
     - index.html: Required. The artifact itself.
@@ -28,8 +30,9 @@ import logging
 import re
 import sys
 import tomllib
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, cast
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,8 +43,10 @@ logger = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parent.parent
 APPS_DIR = REPO_ROOT / "apps"
 JS_OUTPUT_FILE = REPO_ROOT / "js" / "data.js"
+JS_CONFIG_OUTPUT_FILE = REPO_ROOT / "js" / "gallery-config.js"
 README_FILE = REPO_ROOT / "README.md"
 PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
+GALLERY_METADATA_FILE = REPO_ROOT / "config" / "gallery_metadata.json"
 
 # File names
 INDEX_FILE = "index.html"
@@ -78,85 +83,12 @@ class BadgeConfig(TypedDict):
     logo_color: str | None
 
 
-TOOL_DISPLAY_ORDER = ["claude", "chatgpt", "gemini"]
+MetadataEntry = Mapping[str, str | None]
 
-TOOL_BADGE_CONFIG: dict[str, BadgeConfig] = {
-    "claude": {
-        "label": "Claude",
-        "color": "D97706",
-        "alt": "Claude",
-        "logo": "anthropic",
-        "logo_color": "white",
-    },
-    "chatgpt": {
-        "label": "ChatGPT",
-        "color": "10A37F",
-        "alt": "ChatGPT",
-        "logo": "openai",
-        "logo_color": "white",
-    },
-    "gemini": {
-        "label": "Gemini",
-        "color": "4285F4",
-        "alt": "Gemini",
-        "logo": "google",
-        "logo_color": "white",
-    },
-}
 
-TAG_DISPLAY_ORDER = [
-    "finance",
-    "calculator",
-    "visualization",
-    "game",
-    "tool",
-    "education",
-]
-
-TAG_BADGE_CONFIG: dict[str, BadgeConfig] = {
-    "finance": {
-        "label": "Finance",
-        "color": "27AE60",
-        "alt": "Finance",
-        "logo": None,
-        "logo_color": None,
-    },
-    "calculator": {
-        "label": "Calculator",
-        "color": "2E86C1",
-        "alt": "Calculator",
-        "logo": None,
-        "logo_color": None,
-    },
-    "visualization": {
-        "label": "Visualization",
-        "color": "E67E22",
-        "alt": "Visualization",
-        "logo": None,
-        "logo_color": None,
-    },
-    "game": {
-        "label": "Game",
-        "color": "E74C3C",
-        "alt": "Game",
-        "logo": None,
-        "logo_color": None,
-    },
-    "tool": {
-        "label": "Tool",
-        "color": "8E44AD",
-        "alt": "Tool",
-        "logo": None,
-        "logo_color": None,
-    },
-    "education": {
-        "label": "Education",
-        "color": "F39C12",
-        "alt": "Education",
-        "logo": None,
-        "logo_color": None,
-    },
-}
+class GalleryMetadata(TypedDict):
+    tools: list[dict[str, str | None]]
+    tags: list[dict[str, str | None]]
 
 
 def _read_file(file_path: Path) -> str:
@@ -175,7 +107,7 @@ def _parse_lines(file_path: Path) -> list[str]:
 
 
 def _is_valid_artifact(folder: Path) -> bool:
-    """A folder is valid if it contains index.html and name.txt."""
+    """Return True when an artifact directory contains index.html and name.txt."""
     return (
         folder.is_dir()
         and (folder / INDEX_FILE).exists()
@@ -251,10 +183,92 @@ def _extract_artifact(folder: Path) -> ArtifactItem | None:
 
 def _resolve_thumbnail(folder: Path) -> str | None:
     """Resolve the preferred thumbnail path, with legacy fallback support."""
-    for thumbnail_file in THUMBNAIL_FILES:
-        if (folder / thumbnail_file).exists():
-            return f"apps/{folder.name}/{thumbnail_file}"
-    return None
+    thumbnail_file = next(
+        (candidate for candidate in THUMBNAIL_FILES if (folder / candidate).exists()),
+        None,
+    )
+    if thumbnail_file is None:
+        return None
+    return f"apps/{folder.name}/{thumbnail_file}"
+
+
+def _read_gallery_metadata() -> GalleryMetadata:
+    """Load shared gallery metadata used by generators and the frontend."""
+    if not GALLERY_METADATA_FILE.exists():
+        raise FileNotFoundError(
+            f"Gallery metadata file not found: {GALLERY_METADATA_FILE}"
+        )
+
+    metadata = json.loads(GALLERY_METADATA_FILE.read_text(encoding="utf-8"))
+
+    if not isinstance(metadata, dict):
+        raise ValueError("Gallery metadata must be a JSON object")
+
+    for group in ("tools", "tags"):
+        entries = metadata.get(group)
+        if not isinstance(entries, list):
+            raise ValueError(f"Gallery metadata '{group}' must be a list")
+
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise ValueError(f"Gallery metadata '{group}' entries must be objects")
+            if not entry.get("id") or not entry.get("label"):
+                raise ValueError(
+                    f"Gallery metadata '{group}' entries must include id and label"
+                )
+
+    return {
+        "tools": cast(list[dict[str, str | None]], metadata["tools"]),
+        "tags": cast(list[dict[str, str | None]], metadata["tags"]),
+    }
+
+
+def _display_order(entries: Sequence[MetadataEntry]) -> list[str]:
+    """Return configured display order for a metadata group."""
+    return [str(entry["id"]) for entry in entries]
+
+
+def _badge_config_map(entries: Sequence[MetadataEntry]) -> dict[str, BadgeConfig]:
+    """Build a badge config lookup from shared metadata entries."""
+    return {
+        str(entry["id"]): {
+            "label": str(entry["label"]),
+            "color": str(entry["color"]),
+            "alt": str(entry["alt"]),
+            "logo": entry.get("logo"),
+            "logo_color": entry.get("logo_color"),
+        }
+        for entry in entries
+    }
+
+
+def _frontend_config(metadata: GalleryMetadata) -> dict[str, object]:
+    """Build the browser config object consumed by the gallery UI."""
+    return {
+        "toolDisplayOrder": _display_order(metadata["tools"]),
+        "tagDisplayOrder": _display_order(metadata["tags"]),
+        "tools": {
+            str(entry["id"]): {"label": str(entry["label"])}
+            for entry in metadata["tools"]
+        },
+        "tags": {
+            str(entry["id"]): {"label": str(entry["label"])}
+            for entry in metadata["tags"]
+        },
+    }
+
+
+def _write_frontend_config(metadata: GalleryMetadata) -> None:
+    """Write the generated browser config used by the root gallery."""
+    JS_CONFIG_OUTPUT_FILE.parent.mkdir(exist_ok=True)
+    config_content = json.dumps(
+        _frontend_config(metadata), indent=2, ensure_ascii=False
+    )
+    JS_CONFIG_OUTPUT_FILE.write_text(
+        f"window.ARTIFACTS_CONFIG = {config_content};",
+        encoding="utf-8",
+    )
+    logger.info("Successfully generated %s", JS_CONFIG_OUTPUT_FILE)
 
 
 def _read_site_url() -> str:
@@ -378,6 +392,7 @@ def _update_readme(items: list[ArtifactItem]) -> None:
         raise FileNotFoundError(f"README file not found: {README_FILE}")
 
     site_url = _read_site_url()
+    gallery_metadata = _read_gallery_metadata()
     total_count = len(items)
     all_tags = {tag for item in items for tag in item["tags"]}
     all_tools = {tool for item in items for tool in item["tools"]}
@@ -395,12 +410,20 @@ def _update_readme(items: list[ArtifactItem]) -> None:
     readme = _replace_block_marker(
         readme,
         "TAG_BADGES",
-        _build_badges_block(all_tags, TAG_DISPLAY_ORDER, TAG_BADGE_CONFIG),
+        _build_badges_block(
+            all_tags,
+            _display_order(gallery_metadata["tags"]),
+            _badge_config_map(gallery_metadata["tags"]),
+        ),
     )
     readme = _replace_block_marker(
         readme,
         "TOOL_BADGES",
-        _build_badges_block(all_tools, TOOL_DISPLAY_ORDER, TOOL_BADGE_CONFIG),
+        _build_badges_block(
+            all_tools,
+            _display_order(gallery_metadata["tools"]),
+            _badge_config_map(gallery_metadata["tools"]),
+        ),
     )
     README_FILE.write_text(readme, encoding="utf-8")
     logger.info("Successfully updated %s", README_FILE)
@@ -440,11 +463,13 @@ def generate() -> None:
         seen.add(item["id"])
 
     JS_OUTPUT_FILE.parent.mkdir(exist_ok=True)
+    gallery_metadata = _read_gallery_metadata()
 
     js_content = (
         f"window.ARTIFACTS_DATA = {json.dumps(items, indent=2, ensure_ascii=False)};"
     )
     JS_OUTPUT_FILE.write_text(js_content, encoding="utf-8")
+    _write_frontend_config(gallery_metadata)
     _update_readme(items)
 
     logger.info("Successfully generated %s with %d items", JS_OUTPUT_FILE, len(items))

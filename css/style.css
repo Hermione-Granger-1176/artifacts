@@ -103,6 +103,21 @@ body.detail-open .scroll-top {
     user-select: none;
 }
 
+.runtime-error {
+    width: min(100%, 1400px);
+    margin: 1rem auto 0;
+    padding: 0 2rem;
+}
+
+.runtime-error p {
+    border: 1px solid rgba(190, 38, 38, 0.25);
+    border-radius: var(--radius-md);
+    background: rgba(190, 38, 38, 0.14);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+    padding: 0.85rem 1rem;
+}
+
 /* Header */
 .header {
     background: var(--bg-header);

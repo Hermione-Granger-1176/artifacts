@@ -29,13 +29,17 @@ def create_source_tree(repo_root: Path) -> None:
         "".join(
             [
                 '<link rel="stylesheet" href="css/style.css">\n',
+                '<script src="js/gallery-config.js"></script>\n',
                 '<script src="js/data.js"></script>\n',
-                '<script src="js/app.js"></script>\n',
+                '<script type="module" src="js/app.js"></script>\n',
             ]
         ),
     )
     write_text(repo_root / "css" / "style.css", "body {}\n")
     write_text(repo_root / "js" / "app.js", "console.log('app')\n")
+    write_text(
+        repo_root / "js" / "gallery-config.js", "window.ARTIFACTS_CONFIG = {};\n"
+    )
     write_text(repo_root / "js" / "data.js", "window.ARTIFACTS_DATA = [];\n")
     write_text(repo_root / "apps" / "sample" / "index.html", "<html></html>\n")
 
@@ -134,7 +138,7 @@ def test_patch_index_html_applies_cache_busting(
     deploy_dir.mkdir()
     write_text(
         deploy_dir / "index.html",
-        'href="css/style.css" src="js/data.js" src="js/app.js"\n',
+        'href="css/style.css" src="js/gallery-config.js" src="js/data.js" src="js/app.js"\n',
     )
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
 
@@ -142,6 +146,7 @@ def test_patch_index_html_applies_cache_busting(
 
     content = (deploy_dir / "index.html").read_text(encoding="utf-8")
     assert 'href="css/style.css?v=abc123"' in content
+    assert 'src="js/gallery-config.js?v=abc123"' in content
     assert 'src="js/data.js?v=abc123"' in content
     assert 'src="js/app.js?v=abc123"' in content
 
