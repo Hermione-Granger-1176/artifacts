@@ -42,6 +42,15 @@ The gallery does not inspect artifact HTML directly in the browser. It depends o
 - resizes and writes a WebP thumbnail
 - removes legacy PNG thumbnails after successful WebP generation
 
+### Deployable site assembly
+
+`scripts/prepare_site.py` builds the clean Pages payload.
+
+- copies only the files needed for the static site into `_site/`
+- applies cache-busting query strings to root assets
+- injects the configured site path into `404.html`
+- writes `.nojekyll` for branch-based Pages deployments
+
 ## Configuration strategy
 
 The repo now centralizes more workspace-level configuration in `pyproject.toml`.
@@ -63,9 +72,12 @@ This reduces hardcoded values in scripts and keeps deployment-sensitive values i
 3. generate thumbnails and gallery data
 4. stage generated additions and deletions
 5. create a verified commit through the GitHub GraphQL API, or open a PR if branch protection blocks direct commit
-6. apply deploy-time cache-busting query strings to root assets
-7. upload and deploy the site to GitHub Pages
+6. assemble a clean `_site/` deploy directory
+7. deploy `main` to the root of the `gh-pages` branch
+8. deploy PR previews to `gh-pages/pr-preview/pr-<number>/`
 
 ## Compatibility notes
 
 The target steady state is WebP thumbnails. The index generator keeps temporary PNG fallback support so the site remains stable during migration windows or older branch checkouts.
+
+PR previews depend on the repository using branch-based GitHub Pages deployment with `gh-pages` as the published branch.

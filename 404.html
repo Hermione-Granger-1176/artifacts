@@ -79,7 +79,7 @@
         }
     </style>
 </head>
-<body>
+<body data-site-path="/">
     <main>
         <div class="eyebrow">404 Error</div>
         <h1>That artifact is missing.</h1>
@@ -89,8 +89,20 @@
     </main>
     <script>
         const homeLink = document.getElementById("home-link");
+        const sitePath = document.body.dataset.sitePath || "/";
+        const siteParts = sitePath.split("/").filter(Boolean);
         const pathParts = window.location.pathname.split("/").filter(Boolean);
-        homeLink.href = pathParts.length > 1 ? `/${pathParts[0]}/` : "/";
+        const isPreviewPath =
+            pathParts.length >= siteParts.length + 2 &&
+            pathParts.slice(0, siteParts.length).join("/") === siteParts.join("/") &&
+            pathParts[siteParts.length] === "pr-preview";
+
+        if (isPreviewPath) {
+            const previewRoot = [...siteParts, "pr-preview", pathParts[siteParts.length + 1]];
+            homeLink.href = `/${previewRoot.join("/")}/`;
+        } else {
+            homeLink.href = sitePath;
+        }
     </script>
 </body>
 </html>

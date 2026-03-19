@@ -8,6 +8,7 @@ These are the main cross-cutting pieces that should stay consistent over time:
 - `Makefile` is the common interface for local work and CI
 - `.github/workflows/update.yml` is the main build, validation, and deploy workflow
 - `.github/workflows/refresh-action-shas.yml` keeps pinned GitHub Actions references current
+- `gh-pages` is a CI-managed deployment branch and should not be edited manually
 
 ## When changing CI
 
@@ -17,6 +18,7 @@ If you touch workflow files:
 2. keep action references pinned to full commit SHAs
 3. update conditions carefully so pull requests do not require deploy secrets or write access
 4. keep local and CI commands aligned through `make`
+5. preserve the separation between the source repo and the `_site/` deploy directory
 
 ## When changing URLs or repo metadata
 
@@ -29,6 +31,8 @@ This is where the repo keeps:
 - repository URL
 
 Scripts and docs should read from that shared config instead of embedding one-off copies.
+
+The deployed site path used by the root gallery and 404 fallback is injected into the deploy output from this shared config.
 
 ## When changing generators
 
@@ -45,6 +49,16 @@ If you modify `scripts/generate_index.py` or `scripts/generate_thumbnails.py`:
 - checked-in thumbnails are not required for every local branch state
 - if thumbnails are removed locally, the gallery data can temporarily contain `thumbnail: null`
 - pushes to `main` will regenerate and persist fresh thumbnails through CI
+- PR previews can render regenerated thumbnails without committing them back to the source branch
+
+## Pages preview setup
+
+The preview workflow assumes GitHub Pages serves the repository from the `gh-pages` branch root.
+
+- main site deploys to the root of `gh-pages`
+- PR previews deploy under `pr-preview/pr-<number>/`
+- main deploys must preserve `pr-preview/`
+- do not manually merge or edit `gh-pages`; CI owns it
 
 ## Action SHA maintenance
 

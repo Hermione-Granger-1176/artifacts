@@ -41,6 +41,7 @@ These files are outputs. Prefer changing the generator instead of editing them d
 - `js/data.js`
 - README auto-marked values such as site URL, total count, and badges
 - `apps/*/thumbnail.webp`
+- `_site/` when `make site` or CI prepares the deployable Pages payload
 
 The website is the canonical artifact catalog. `README.md` intentionally keeps only a high-level snapshot instead of listing every artifact.
 
@@ -63,4 +64,5 @@ The generator still recognizes `thumbnail.png` as a temporary compatibility fall
 - update generator logic in `scripts/` when derived output behavior should change
 - use `make index` to refresh `js/data.js` and README markers
 - use `make thumbnails` or CI to regenerate thumbnails
+- use `make site` to inspect the exact deployable Pages directory locally
 - keep workspace-level configuration in `pyproject.toml` rather than scattering URLs or constants across scripts

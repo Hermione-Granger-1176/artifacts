@@ -74,9 +74,15 @@ apps/
    make generate
    ```
 
-4. If you prefer running commands directly, the Makefile uses `.venv` and installs dependencies from `pyproject.toml`.
+4. Build the clean deployable site directory when you want to inspect the exact Pages payload:
 
-5. Open `index.html` in a browser to verify the gallery locally.
+   ```bash
+   make site
+   ```
+
+5. If you prefer running commands directly, the Makefile uses `.venv` and installs dependencies from `pyproject.toml`.
+
+6. Open `index.html` in a browser to verify the gallery locally.
 
 ## License
 

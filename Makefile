@@ -5,22 +5,22 @@ VENV_PIP := $(VENV)/bin/pip
 VENV_PLAYWRIGHT := $(VENV)/bin/playwright
 VENV_RUFF := $(VENV)/bin/ruff
 
-.PHONY: install browser-install browser-install-ci setup setup-ci lint test thumbnails index generate check clean
+.PHONY: install browser-install browser-install-ci setup setup-ci lint test thumbnails index site generate check clean
 
 install:
 	$(PYTHON) -m venv $(VENV)
 	$(VENV_PYTHON) -m pip install --upgrade pip
 	$(VENV_PIP) install -e ".[dev]"
 
-browser-install:
+browser-install: install
 	$(VENV_PLAYWRIGHT) install chromium
 
-browser-install-ci:
+browser-install-ci: install
 	$(VENV_PLAYWRIGHT) install chromium --with-deps
 
-setup: install browser-install
+setup: browser-install
 
-setup-ci: install browser-install-ci
+setup-ci: browser-install-ci
 
 lint:
 	$(VENV_RUFF) check scripts tests
@@ -34,7 +34,12 @@ thumbnails:
 index:
 	$(VENV_PYTHON) scripts/generate_index.py
 
-generate: thumbnails index
+site:
+	$(VENV_PYTHON) scripts/prepare_site.py
+
+generate:
+	$(MAKE) thumbnails
+	$(MAKE) index
 
 check: lint test
 
