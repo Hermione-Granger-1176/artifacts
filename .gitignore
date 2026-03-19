@@ -1,0 +1,17 @@
+# =========================
+# Claude Code local / runtime state
+# =========================
+.claude/settings.local.json
+.claude/plans/
+.claude/projects/
+
+# =========================
+# OS / Editor junk
+# =========================
+.DS_Store
+Thumbs.db
+*~
+*.swp
+*.swo
+.vscode/
+.idea/

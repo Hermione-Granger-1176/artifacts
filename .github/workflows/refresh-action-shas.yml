@@ -1,0 +1,157 @@
+name: Refresh Action SHAs
+
+on:
+  schedule:
+    - cron: "0 3 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Update action SHAs
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+
+          token = os.environ.get("GH_TOKEN")
+          if not token:
+            raise SystemExit("GH_TOKEN is required")
+
+          pattern = re.compile(r"^(\s*-\s*uses:\s*)([^@\s]+)@([^\s#]+)(.*)$")
+          sha_pattern = re.compile(r"^[0-9a-f]{40}$")
+          cache = {}
+
+          def resolve_sha(action, ref):
+            repo = "/".join(action.split("/")[:2])
+            key = f"{repo}@{ref}"
+            if key in cache:
+              return cache[key]
+            url = f"https://api.github.com/repos/{repo}/commits/{ref}"
+            req = Request(url, headers={
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+            })
+            with urlopen(req) as response:
+              data = json.load(response)
+            cache[key] = data["sha"]
+            return cache[key]
+
+          workflow_dir = Path(".github/workflows")
+          files = list(workflow_dir.glob("*.yml")) + list(workflow_dir.glob("*.yaml"))
+
+          for path in files:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+            updated = False
+            new_lines = []
+
+            for line in lines:
+              match = pattern.match(line)
+              if not match:
+                new_lines.append(line)
+                continue
+
+              prefix, action, ref, _suffix = match.groups()
+              if action.startswith("./") or action.startswith("docker://") or "$" + "{{" in action:
+                new_lines.append(line)
+                continue
+
+              if sha_pattern.fullmatch(ref):
+                new_lines.append(line)
+                continue
+
+              sha = resolve_sha(action, ref)
+              new_lines.append(f"{prefix}{action}@{sha} # {ref}")
+              updated = True
+
+            if updated:
+              path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+
+          PY
+
+      - name: Commit changes
+        id: commit
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "hermione1176[bot]"
+          git config user.email "263522878+hermione1176[bot]@users.noreply.github.com"
+          git add .github/workflows
+          git commit -m "ci: refresh action SHAs"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "branch=ci/refresh-action-shas-$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Push to default branch
+        id: push
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          BRANCH: ${{ steps.commit.outputs.branch }}
+        run: |
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git branch -M "$BRANCH"
+          set +e
+          git push origin "HEAD:${DEFAULT_BRANCH}"
+          status=$?
+          set -e
+          if [ $status -eq 0 ]; then
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            git push -u origin "$BRANCH"
+          fi
+
+      - name: Open PR
+        if: steps.commit.outputs.changed == 'true' && steps.push.outputs.pushed == 'false'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const branch = process.env.BRANCH;
+            const base = process.env.DEFAULT_BRANCH;
+            const title = "ci: refresh action SHAs";
+            const body = "## Summary\n- Pin GitHub Actions to full commit SHAs for reproducible runs\n- Keep workflow behavior unchanged\n";
+            const head = `${context.repo.owner}:${branch}`;
+
+            const { data: existing } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              head,
+            });
+
+            if (existing.length === 0) {
+              await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head: branch,
+                base,
+                title,
+                body,
+              });
+            }
+        env:
+          BRANCH: ${{ steps.commit.outputs.branch }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
