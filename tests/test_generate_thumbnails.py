@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import builtins
 import os
 import types
@@ -137,7 +138,7 @@ def test_generate_thumbnails_exits_when_playwright_is_missing(
         fromlist: Sequence[str] = (),
         level: int = 0,
     ) -> object:
-        if name == "playwright.sync_api":
+        if name == "playwright.async_api":
             raise ImportError("playwright unavailable")
         return original_import(name, globals, locals, fromlist, level)
 
@@ -145,6 +146,173 @@ def test_generate_thumbnails_exits_when_playwright_is_missing(
 
     with pytest.raises(SystemExit, match="1"):
         generate_thumbnails.generate_thumbnails()
+
+
+# -- Async fake helpers --
+
+
+class FakePage:
+    def __init__(
+        self,
+        fail_goto: bool = False,
+        transient_failures: int = 0,
+        fail_close: bool = False,
+    ) -> None:
+        self._fail_goto = fail_goto
+        self._transient_failures = transient_failures
+        self._fail_close = fail_close
+        self._goto_calls = 0
+        self.closed = False
+
+    async def goto(self, url: str, wait_until: str, timeout: int) -> None:
+        assert url.startswith("file://")
+        assert wait_until == "networkidle"
+        assert timeout == 30000
+        self._goto_calls += 1
+        if self._fail_goto:
+            raise RuntimeError("boom")
+        if self._goto_calls <= self._transient_failures:
+            raise RuntimeError(f"transient-{self._goto_calls}")
+
+    async def wait_for_timeout(self, milliseconds: int) -> None:
+        assert milliseconds == generate_thumbnails.POST_LOAD_DELAY_MS
+
+    async def screenshot(self, type: str) -> bytes:
+        assert type == "png"
+        return b"png-bytes"
+
+    async def close(self) -> None:
+        if self._fail_close:
+            raise RuntimeError("close failed")
+        self.closed = True
+
+
+class FakeBrowser:
+    def __init__(
+        self,
+        fail_goto: bool = False,
+        transient_failures: int = 0,
+        fail_new_page: bool = False,
+        fail_page_close: bool = False,
+    ) -> None:
+        self._fail_goto = fail_goto
+        self._transient_failures = transient_failures
+        self._fail_new_page = fail_new_page
+        self._fail_page_close = fail_page_close
+        self.closed = False
+        self.pages: list[FakePage] = []
+
+    async def new_page(
+        self, viewport: dict[str, int], device_scale_factor: int
+    ) -> FakePage:
+        if self._fail_new_page:
+            raise RuntimeError("new_page failed")
+        assert viewport == {
+            "width": generate_thumbnails.VIEWPORT_WIDTH,
+            "height": generate_thumbnails.VIEWPORT_HEIGHT,
+        }
+        assert device_scale_factor == 2
+        page = FakePage(
+            fail_goto=self._fail_goto,
+            transient_failures=self._transient_failures,
+            fail_close=self._fail_page_close,
+        )
+        self.pages.append(page)
+        return page
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+class FakePlaywright:
+    def __init__(
+        self,
+        fail_goto: bool = False,
+        transient_failures: int = 0,
+        fail_new_page: bool = False,
+        fail_page_close: bool = False,
+    ) -> None:
+        self.browser = FakeBrowser(
+            fail_goto=fail_goto,
+            transient_failures=transient_failures,
+            fail_new_page=fail_new_page,
+            fail_page_close=fail_page_close,
+        )
+        self.chromium = types.SimpleNamespace(
+            launch=self.browser_launch,
+        )
+
+    async def browser_launch(self) -> FakeBrowser:
+        return self.browser
+
+
+class FakeAsyncPlaywright:
+    def __init__(
+        self,
+        fail_goto: bool = False,
+        transient_failures: int = 0,
+        fail_new_page: bool = False,
+        fail_page_close: bool = False,
+    ) -> None:
+        self._fail_goto = fail_goto
+        self._transient_failures = transient_failures
+        self._fail_new_page = fail_new_page
+        self._fail_page_close = fail_page_close
+        self.playwright: FakePlaywright | None = None
+
+    async def __aenter__(self) -> FakePlaywright:
+        self.playwright = FakePlaywright(
+            fail_goto=self._fail_goto,
+            transient_failures=self._transient_failures,
+            fail_new_page=self._fail_new_page,
+            fail_page_close=self._fail_page_close,
+        )
+        return self.playwright
+
+    async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+        return None
+
+
+def _patch_playwright(
+    monkeypatch: pytest.MonkeyPatch,
+    fail_goto: bool = False,
+    transient_failures: int = 0,
+    fail_new_page: bool = False,
+    fail_page_close: bool = False,
+) -> FakeAsyncPlaywright:
+    """Patch the playwright import and return the fake context manager."""
+    fake_cm = FakeAsyncPlaywright(
+        fail_goto=fail_goto,
+        transient_failures=transient_failures,
+        fail_new_page=fail_new_page,
+        fail_page_close=fail_page_close,
+    )
+    original_import = builtins.__import__
+
+    def fake_import(
+        name: str,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] = (),
+        level: int = 0,
+    ) -> object:
+        if name == "playwright.async_api":
+            return types.SimpleNamespace(async_playwright=lambda: fake_cm)
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    return fake_cm
+
+
+def _patch_sleep(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """Patch asyncio.sleep to record calls and return immediately."""
+    sleep_calls: list[float] = []
+
+    async def fake_sleep(seconds: float) -> None:
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+    return sleep_calls
 
 
 def test_generate_thumbnails_processes_artifacts_and_closes_browser(
@@ -155,62 +323,9 @@ def test_generate_thumbnails_processes_artifacts_and_closes_browser(
     (artifact_dir / generate_thumbnails.LEGACY_SCREENSHOT_FILE).write_bytes(b"legacy")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
 
-    browser_closed = False
     save_calls: list[tuple[bytes, Path]] = []
 
-    class FakePage:
-        def goto(self, url: str, wait_until: str, timeout: int) -> None:
-            assert url.startswith("file://")
-            assert wait_until == "networkidle"
-            assert timeout == 30000
-
-        def wait_for_timeout(self, milliseconds: int) -> None:
-            assert milliseconds == 1000
-
-        def screenshot(self, type: str) -> bytes:
-            assert type == "png"
-            return b"png-bytes"
-
-    class FakeBrowser:
-        def new_page(
-            self, viewport: dict[str, int], device_scale_factor: int
-        ) -> FakePage:
-            assert viewport == {
-                "width": generate_thumbnails.VIEWPORT_WIDTH,
-                "height": generate_thumbnails.VIEWPORT_HEIGHT,
-            }
-            assert device_scale_factor == 2
-            return FakePage()
-
-        def close(self) -> None:
-            nonlocal browser_closed
-            browser_closed = True
-
-    class FakePlaywright:
-        def __init__(self) -> None:
-            self.chromium = types.SimpleNamespace(launch=lambda: FakeBrowser())
-
-    class FakeSyncPlaywright:
-        def __enter__(self) -> FakePlaywright:
-            return FakePlaywright()
-
-        def __exit__(self, exc_type, exc, tb) -> None:
-            return None
-
-    original_import = builtins.__import__
-
-    def fake_import(
-        name: str,
-        globals: Mapping[str, object] | None = None,
-        locals: Mapping[str, object] | None = None,
-        fromlist: Sequence[str] = (),
-        level: int = 0,
-    ) -> object:
-        if name == "playwright.sync_api":
-            return types.SimpleNamespace(sync_playwright=lambda: FakeSyncPlaywright())
-        return original_import(name, globals, locals, fromlist, level)
-
-    monkeypatch.setattr(builtins, "__import__", fake_import)
+    fake_cm = _patch_playwright(monkeypatch)
     monkeypatch.setattr(
         generate_thumbnails,
         "save_thumbnail",
@@ -222,7 +337,9 @@ def test_generate_thumbnails_processes_artifacts_and_closes_browser(
 
     stats = generate_thumbnails.generate_thumbnails()
 
-    assert browser_closed is True
+    assert fake_cm.playwright is not None
+    assert fake_cm.playwright.browser.closed is True
+    assert all(page.closed for page in fake_cm.playwright.browser.pages)
     assert stats == {
         "total": 1,
         "attempted": 1,
@@ -246,40 +363,7 @@ def test_generate_thumbnails_skips_up_to_date_artifacts(
         generate_thumbnails, "should_generate_thumbnail", lambda _path: False
     )
 
-    class FakeBrowser:
-        def new_page(
-            self, viewport: dict[str, int], device_scale_factor: int
-        ) -> object:
-            return object()
-
-        def close(self) -> None:
-            return None
-
-    class FakePlaywright:
-        def __init__(self) -> None:
-            self.chromium = types.SimpleNamespace(launch=lambda: FakeBrowser())
-
-    class FakeSyncPlaywright:
-        def __enter__(self) -> FakePlaywright:
-            return FakePlaywright()
-
-        def __exit__(self, exc_type, exc, tb) -> None:
-            return None
-
-    original_import = builtins.__import__
-
-    def fake_import(
-        name: str,
-        globals: Mapping[str, object] | None = None,
-        locals: Mapping[str, object] | None = None,
-        fromlist: Sequence[str] = (),
-        level: int = 0,
-    ) -> object:
-        if name == "playwright.sync_api":
-            return types.SimpleNamespace(sync_playwright=lambda: FakeSyncPlaywright())
-        return original_import(name, globals, locals, fromlist, level)
-
-    monkeypatch.setattr(builtins, "__import__", fake_import)
+    _patch_playwright(monkeypatch)
 
     assert generate_thumbnails.generate_thumbnails() == {
         "total": 1,
@@ -301,58 +385,9 @@ def test_generate_thumbnails_retries_transient_failures_then_succeeds(
     )
 
     save_calls: list[tuple[bytes, Path]] = []
-    sleep_calls: list[float] = []
-    goto_calls = 0
 
-    class FakePage:
-        def goto(self, url: str, wait_until: str, timeout: int) -> None:
-            nonlocal goto_calls
-            goto_calls += 1
-            if goto_calls < 3:
-                raise RuntimeError(f"transient-{goto_calls}")
-
-        def wait_for_timeout(self, milliseconds: int) -> None:
-            assert milliseconds == generate_thumbnails.POST_LOAD_DELAY_MS
-
-        def screenshot(self, type: str) -> bytes:
-            assert type == "png"
-            return b"png-bytes"
-
-    class FakeBrowser:
-        def new_page(
-            self, viewport: dict[str, int], device_scale_factor: int
-        ) -> FakePage:
-            return FakePage()
-
-        def close(self) -> None:
-            return None
-
-    class FakePlaywright:
-        def __init__(self) -> None:
-            self.chromium = types.SimpleNamespace(launch=lambda: FakeBrowser())
-
-    class FakeSyncPlaywright:
-        def __enter__(self) -> FakePlaywright:
-            return FakePlaywright()
-
-        def __exit__(self, exc_type, exc, tb) -> None:
-            return None
-
-    original_import = builtins.__import__
-
-    def fake_import(
-        name: str,
-        globals: Mapping[str, object] | None = None,
-        locals: Mapping[str, object] | None = None,
-        fromlist: Sequence[str] = (),
-        level: int = 0,
-    ) -> object:
-        if name == "playwright.sync_api":
-            return types.SimpleNamespace(sync_playwright=lambda: FakeSyncPlaywright())
-        return original_import(name, globals, locals, fromlist, level)
-
-    monkeypatch.setattr(builtins, "__import__", fake_import)
-    monkeypatch.setattr(generate_thumbnails, "sleep", sleep_calls.append)
+    _patch_playwright(monkeypatch, transient_failures=2)
+    sleep_calls = _patch_sleep(monkeypatch)
     monkeypatch.setattr(
         generate_thumbnails,
         "save_thumbnail",
@@ -361,7 +396,6 @@ def test_generate_thumbnails_retries_transient_failures_then_succeeds(
 
     stats = generate_thumbnails.generate_thumbnails()
 
-    assert goto_calls == 3
     assert sleep_calls == [0.5, 1.0]
     assert stats == {
         "total": 1,
@@ -381,63 +415,19 @@ def test_generate_thumbnails_logs_warning_for_failed_screenshot(
     artifact_dir = tmp_path / "loan-tool"
     write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
-
-    browser_closed = False
-
-    class FakePage:
-        def goto(self, url: str, wait_until: str, timeout: int) -> None:
-            raise RuntimeError("boom")
-
-        def wait_for_timeout(self, milliseconds: int) -> None:
-            raise AssertionError("wait_for_timeout should not be reached")
-
-        def screenshot(self, type: str) -> bytes:
-            raise AssertionError("screenshot should not be reached")
-
-    class FakeBrowser:
-        def new_page(
-            self, viewport: dict[str, int], device_scale_factor: int
-        ) -> FakePage:
-            return FakePage()
-
-        def close(self) -> None:
-            nonlocal browser_closed
-            browser_closed = True
-
-    class FakePlaywright:
-        def __init__(self) -> None:
-            self.chromium = types.SimpleNamespace(launch=lambda: FakeBrowser())
-
-    class FakeSyncPlaywright:
-        def __enter__(self) -> FakePlaywright:
-            return FakePlaywright()
-
-        def __exit__(self, exc_type, exc, tb) -> None:
-            return None
-
-    original_import = builtins.__import__
-
-    def fake_import(
-        name: str,
-        globals: Mapping[str, object] | None = None,
-        locals: Mapping[str, object] | None = None,
-        fromlist: Sequence[str] = (),
-        level: int = 0,
-    ) -> object:
-        if name == "playwright.sync_api":
-            return types.SimpleNamespace(sync_playwright=lambda: FakeSyncPlaywright())
-        return original_import(name, globals, locals, fromlist, level)
-
-    monkeypatch.setattr(builtins, "__import__", fake_import)
     monkeypatch.setattr(
         generate_thumbnails, "should_generate_thumbnail", lambda _path: True
     )
-    monkeypatch.setattr(generate_thumbnails, "sleep", lambda _seconds: None)
+
+    fake_cm = _patch_playwright(monkeypatch, fail_goto=True)
+    _patch_sleep(monkeypatch)
 
     with pytest.raises(RuntimeError, match="failed for every attempted artifact"):
         generate_thumbnails.generate_thumbnails()
 
-    assert browser_closed is True
+    assert fake_cm.playwright is not None
+    assert fake_cm.playwright.browser.closed is True
+    assert all(page.closed for page in fake_cm.playwright.browser.pages)
 
 
 def test_generate_thumbnails_raises_when_all_attempts_fail(
@@ -450,51 +440,99 @@ def test_generate_thumbnails_raises_when_all_attempts_fail(
         generate_thumbnails, "should_generate_thumbnail", lambda _path: True
     )
 
-    class FakePage:
-        def goto(self, url: str, wait_until: str, timeout: int) -> None:
-            raise RuntimeError("boom")
-
-        def wait_for_timeout(self, milliseconds: int) -> None:
-            raise AssertionError("wait_for_timeout should not be reached")
-
-        def screenshot(self, type: str) -> bytes:
-            raise AssertionError("screenshot should not be reached")
-
-    class FakeBrowser:
-        def new_page(
-            self, viewport: dict[str, int], device_scale_factor: int
-        ) -> FakePage:
-            return FakePage()
-
-        def close(self) -> None:
-            return None
-
-    class FakePlaywright:
-        def __init__(self) -> None:
-            self.chromium = types.SimpleNamespace(launch=lambda: FakeBrowser())
-
-    class FakeSyncPlaywright:
-        def __enter__(self) -> FakePlaywright:
-            return FakePlaywright()
-
-        def __exit__(self, exc_type, exc, tb) -> None:
-            return None
-
-    original_import = builtins.__import__
-
-    def fake_import(
-        name: str,
-        globals: Mapping[str, object] | None = None,
-        locals: Mapping[str, object] | None = None,
-        fromlist: Sequence[str] = (),
-        level: int = 0,
-    ) -> object:
-        if name == "playwright.sync_api":
-            return types.SimpleNamespace(sync_playwright=lambda: FakeSyncPlaywright())
-        return original_import(name, globals, locals, fromlist, level)
-
-    monkeypatch.setattr(builtins, "__import__", fake_import)
-    monkeypatch.setattr(generate_thumbnails, "sleep", lambda _seconds: None)
+    _patch_playwright(monkeypatch, fail_goto=True)
+    _patch_sleep(monkeypatch)
 
     with pytest.raises(RuntimeError, match="failed for every attempted artifact"):
         generate_thumbnails.generate_thumbnails()
+
+
+def test_generate_thumbnails_processes_multiple_artifacts_concurrently(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dirs = []
+    for name in ("alpha", "beta", "gamma"):
+        d = tmp_path / name
+        write_text(d / "index.html", f"<html>{name}</html>")
+        dirs.append(d)
+
+    monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: dirs)
+    monkeypatch.setattr(
+        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
+    )
+
+    save_calls: list[tuple[bytes, Path]] = []
+
+    fake_cm = _patch_playwright(monkeypatch)
+    monkeypatch.setattr(
+        generate_thumbnails,
+        "save_thumbnail",
+        lambda image_bytes, thumb_path: save_calls.append((image_bytes, thumb_path)),
+    )
+
+    stats = generate_thumbnails.generate_thumbnails()
+
+    assert stats == {
+        "total": 3,
+        "attempted": 3,
+        "generated": 3,
+        "skipped": 0,
+        "failed": 0,
+    }
+    assert len(save_calls) == 3
+    assert fake_cm.playwright is not None
+    assert len(fake_cm.playwright.browser.pages) == 3
+    assert all(page.closed for page in fake_cm.playwright.browser.pages)
+
+
+def test_generate_thumbnails_handles_page_creation_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact_dir = tmp_path / "loan-tool"
+    write_text(artifact_dir / "index.html", "<html></html>")
+    monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
+    monkeypatch.setattr(
+        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
+    )
+
+    fake_cm = _patch_playwright(monkeypatch, fail_new_page=True)
+    _patch_sleep(monkeypatch)
+
+    with pytest.raises(RuntimeError, match="failed for every attempted artifact"):
+        generate_thumbnails.generate_thumbnails()
+
+    assert fake_cm.playwright is not None
+    assert fake_cm.playwright.browser.closed is True
+
+
+def test_generate_thumbnails_tolerates_page_close_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact_dir = tmp_path / "loan-tool"
+    write_text(artifact_dir / "index.html", "<html></html>")
+    monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
+    monkeypatch.setattr(
+        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
+    )
+
+    save_calls: list[tuple[bytes, Path]] = []
+
+    fake_cm = _patch_playwright(monkeypatch, fail_page_close=True)
+    monkeypatch.setattr(
+        generate_thumbnails,
+        "save_thumbnail",
+        lambda image_bytes, thumb_path: save_calls.append((image_bytes, thumb_path)),
+    )
+
+    stats = generate_thumbnails.generate_thumbnails()
+
+    assert stats == {
+        "total": 1,
+        "attempted": 1,
+        "generated": 1,
+        "skipped": 0,
+        "failed": 0,
+    }
+    assert len(save_calls) == 1
+    assert fake_cm.playwright is not None
+    assert fake_cm.playwright.browser.closed is True

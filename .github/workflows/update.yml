@@ -140,6 +140,7 @@ jobs:
     needs:
       - verify
       - secret-scan
+      - dependency-review
     runs-on: ubuntu-latest
     permissions:
       contents: write

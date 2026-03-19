@@ -1,3 +1,4 @@
+/** @param {Object[]} rawArtifacts - Raw artifact records from generated data. */
 export function hydrateArtifacts(rawArtifacts) {
   return rawArtifacts.map((item) => ({
     ...item,
@@ -5,6 +6,7 @@ export function hydrateArtifacts(rawArtifacts) {
   }));
 }
 
+/** @param {Object} item - Artifact record with name, description, tags, tools, and id. */
 export function getSearchableText(item) {
   const description = item.description || '';
   const tags = Array.isArray(item.tags) ? item.tags.join(' ') : '';
@@ -12,6 +14,7 @@ export function getSearchableText(item) {
   return `${item.name} ${description} ${tags} ${tools} ${item.id}`.toLowerCase();
 }
 
+/** @param {string|null} rawValue - Comma-separated string from a URL query parameter. */
 export function splitListParam(rawValue) {
   if (!rawValue) {
     return [];
@@ -20,19 +23,29 @@ export function splitListParam(rawValue) {
   return rawValue.split(',').map((value) => value.trim()).filter(Boolean);
 }
 
+/**
+ * Filter and deduplicate values, preserving the display order of allowedValues.
+ * @param {string[]} values - User-selected values (may contain duplicates or unknowns).
+ * @param {string[]} allowedValues - Canonical list of valid values in display order.
+ */
 export function normalizeSelection(values, allowedValues) {
   const allowedSet = new Set(allowedValues);
-  const unique = [];
+  const uniqueSet = new Set();
 
-  values.forEach((value) => {
-    if (allowedSet.has(value) && !unique.includes(value)) {
-      unique.push(value);
+  for (const value of values) {
+    if (allowedSet.has(value)) {
+      uniqueSet.add(value);
     }
-  });
+  }
 
-  return allowedValues.filter((value) => unique.includes(value));
+  return allowedValues.filter((value) => uniqueSet.has(value));
 }
 
+/**
+ * Sort values with configured display-order entries first, then remaining values alphabetically.
+ * @param {string[]} values - Values to sort.
+ * @param {string[]|undefined} displayOrder - Preferred ordering (may be absent).
+ */
 export function sortValuesByDisplayOrder(values, displayOrder) {
   const configured = Array.isArray(displayOrder) ? displayOrder : [];
   const known = configured.filter((value) => values.includes(value));
@@ -40,6 +53,11 @@ export function sortValuesByDisplayOrder(values, displayOrder) {
   return [...known, ...unknown];
 }
 
+/**
+ * Filter artifacts by search text, tool, and tag selections, then sort by the chosen order.
+ * @param {Object[]} artifacts - Hydrated artifact records with searchText.
+ * @param {Object} options - Filter/sort state with currentFilter, currentSort, currentTags, currentTools.
+ */
 export function filterAndSortArtifacts(artifacts, options) {
   const {
     currentFilter,
@@ -72,6 +90,12 @@ export function filterAndSortArtifacts(artifacts, options) {
     .sort(comparator);
 }
 
+/**
+ * Build a collapsed page number sequence with ellipses for long ranges.
+ * @param {number} current - Current page (1-based).
+ * @param {number} total - Total number of pages.
+ * @returns {(number|string)[]} Page numbers and '...' ellipsis markers.
+ */
 export function getPageNumbers(current, total) {
   if (total <= 7) {
     return Array.from({ length: total }, (_, index) => index + 1);

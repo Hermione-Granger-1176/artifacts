@@ -33,6 +33,14 @@ Workspace commands go through the `Makefile`. Python dependencies and workspace 
 - `make lock`: refresh `locks/requirements.lock` and `locks/requirements-dev.lock` after Python dependency changes
 - `make new name=my-artifact`: scaffold a new artifact directory with placeholder files
 - `make site`: build the clean `_site/` deploy payload
+- `make security`: run `pip-audit` and `npm audit` dependency vulnerability checks
+- `make coverage-js`: print Node test-runner coverage for tracked JS modules
+- `make align-tables`: align markdown table pipe characters across all docs
+- `make lint`: run ruff (Python) and ESLint (JavaScript) checks
+- `make test`: run pytest and Node test runner
+- `make thumbnails`: regenerate WebP thumbnails when Playwright is available
+- `make index`: rebuild `js/data.js`, `js/gallery-config.js`, and README auto markers
+- `make clean`: remove `.venv`, caches, build artifacts, and `node_modules`
 
 ## Auto-generated files
 
@@ -62,6 +70,7 @@ Workspace documentation lives in `docs/`:
 - [`frontend.md`](docs/frontend.md): root gallery modules, bootstrap flow, and frontend tests
 - [`operations.md`](docs/operations.md): local commands, CI behavior, and troubleshooting
 - [`maintenance.md`](docs/maintenance.md): long-term upkeep and workflow hygiene
+- [`style.md`](docs/style.md): editor configuration and language conventions
 
 ## Conventions
 

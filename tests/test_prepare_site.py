@@ -42,6 +42,12 @@ def create_source_tree(repo_root: Path) -> None:
     )
     write_text(repo_root / "js" / "data.js", "window.ARTIFACTS_DATA = [];\n")
     write_text(repo_root / "apps" / "sample" / "index.html", "<html></html>\n")
+    write_text(
+        repo_root / "assets" / "icons" / "manifest.webmanifest",
+        '{\n  "start_url": "../../"\n}\n',
+    )
+    (repo_root / "assets" / "icons" / "favicon.ico").write_bytes(b"ico")
+    (repo_root / "assets" / "icons" / "icon.svg").write_bytes(b"<svg/>")
 
 
 def test_normalize_site_path() -> None:
@@ -212,6 +218,34 @@ def test_patch_404_html_preserves_preview_logic(
     assert '"pr-preview"' in content
 
 
+def test_patch_manifest_injects_site_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy_dir = tmp_path / "_site"
+    icons_dir = deploy_dir / "assets" / "icons"
+    icons_dir.mkdir(parents=True)
+    write_text(
+        icons_dir / "manifest.webmanifest",
+        '{\n  "start_url": "../../"\n}\n',
+    )
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._patch_manifest("/artifacts/")
+
+    content = (icons_dir / "manifest.webmanifest").read_text(encoding="utf-8")
+    assert '"start_url": "/artifacts/"' in content
+
+
+def test_patch_manifest_skips_when_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy_dir = tmp_path / "_site"
+    deploy_dir.mkdir()
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._patch_manifest("/artifacts/")
+
+
 def test_write_nojekyll_creates_marker(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -245,6 +279,11 @@ def test_prepare_site_builds_deploy_output(
     assert 'data-site-path="/artifacts/"' in error_content
     assert (deploy_dir / ".nojekyll").exists()
     assert (deploy_dir / "apps" / "sample" / "index.html").exists()
+    assert (deploy_dir / "assets" / "icons" / "favicon.ico").exists()
+    manifest = (deploy_dir / "assets" / "icons" / "manifest.webmanifest").read_text(
+        encoding="utf-8"
+    )
+    assert '"start_url": "/artifacts/"' in manifest
 
 
 def test_prepare_site_propagates_git_failures(

@@ -19,6 +19,10 @@ Do not hand-edit generated outputs unless you are intentionally changing the gen
 - `_site/`
 - README auto-managed marker sections
 
+## Code conventions
+
+See [`docs/style.md`](../docs/style.md) for editor configuration, language conventions, and commit message style.
+
 ## Pull requests
 
 - Keep changes scoped and describe the user-visible or maintenance impact.

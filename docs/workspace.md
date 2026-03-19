@@ -13,8 +13,10 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 
 ```text
 .
+|- .editorconfig          Editor settings for all file types
 |- .github/actions/       Shared composite actions for workflows
 |- .github/workflows/     CI/CD automation
+|- assets/icons/          Logo, favicon, and web app manifest
 |- config/                Shared gallery metadata used by generators and UI
 |- apps/                  Artifact folders and generated thumbnails
 |- css/                   Root gallery styles
@@ -36,6 +38,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `apps/*/index.html`: artifact implementation
 - `apps/*/name.txt`, `description.txt`, `tags.txt`, `tools.txt`: artifact metadata
 - `index.html`, `css/style.css`, `js/app.js`, `js/modules/*`: root gallery UI
+- `assets/icons/*`: logo, favicon, apple touch icon, PWA manifest, and raster icons
 - `config/gallery_metadata.json`: shared tool and tag display metadata for generators and the browser UI
 - `pyproject.toml`: Python dependency pins and workspace configuration
 - `locks/requirements.lock`, `locks/requirements-dev.lock`: frozen Python dependency graphs

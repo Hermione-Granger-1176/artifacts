@@ -6,7 +6,7 @@ VENV_PLAYWRIGHT := $(VENV)/bin/playwright
 VENV_RUFF := $(VENV)/bin/ruff
 NPM ?= npm
 
-.PHONY: install lock node-install setup-base browser-install browser-install-ci setup setup-ci lint lint-js test test-js coverage-js security validate thumbnails index site generate new check clean
+.PHONY: install lock node-install setup-base browser-install browser-install-ci setup setup-ci lint lint-js test test-js coverage-js security validate thumbnails index site generate new check align-tables clean
 
 install:
 	$(PYTHON) -m venv $(VENV)
@@ -83,6 +83,9 @@ new:
 	$(PYTHON) scripts/scaffold_artifact.py "$(name)"
 
 check: lint test validate
+
+align-tables:
+	$(PYTHON) scripts/align_tables.py
 
 clean:
 	rm -rf $(VENV) .pytest_cache .ruff_cache build dist *.egg-info node_modules

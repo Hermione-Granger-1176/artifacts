@@ -9,7 +9,6 @@ path, and the `.nojekyll` marker needed for branch-based GitHub Pages.
 Usage:
     python scripts/prepare_site.py
 """
-
 from __future__ import annotations
 
 import logging
@@ -29,13 +28,12 @@ logger = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
 DEPLOY_DIR = REPO_ROOT / "_site"
-DEPLOY_ITEMS = ("404.html", "apps", "css", "index.html", "js")
+DEPLOY_ITEMS = ("404.html", "apps", "assets", "css", "index.html", "js")
 GIT_COMMAND_TIMEOUT_SECONDS = 10
 
 
 def _normalize_site_path(value: str) -> str:
     """Return a normalized GitHub Pages site path with surrounding slashes."""
-
     stripped = value.strip().strip("/")
     if not stripped:
         return "/"
@@ -44,7 +42,6 @@ def _normalize_site_path(value: str) -> str:
 
 def _load_site_path() -> str:
     """Load the configured site path from ``pyproject.toml``."""
-
     if not PYPROJECT_FILE.exists():
         raise FileNotFoundError(f"pyproject.toml not found: {PYPROJECT_FILE}")
 
@@ -60,7 +57,6 @@ def _load_site_path() -> str:
 
 def _resolve_version() -> str:
     """Return the deploy version from the environment or current Git SHA."""
-
     env_version = os.environ.get("ARTIFACTS_DEPLOY_VERSION")
     if env_version:
         return env_version
@@ -75,7 +71,6 @@ def _resolve_version() -> str:
 
 def _copy_deploy_items() -> None:
     """Copy the static site inputs into the clean deploy directory."""
-
     if DEPLOY_DIR.exists():
         shutil.rmtree(DEPLOY_DIR)
 
@@ -94,7 +89,6 @@ def _copy_deploy_items() -> None:
 
 def _replace_exact(content: str, old: str, new: str) -> str:
     """Replace one exact string and raise an error if it is missing."""
-
     if old not in content:
         raise ValueError(f"Expected content not found: {old}")
     return content.replace(old, new)
@@ -102,7 +96,6 @@ def _replace_exact(content: str, old: str, new: str) -> str:
 
 def _patch_index_html(version: str) -> None:
     """Apply cache-busting query strings to root HTML asset references."""
-
     index_path = DEPLOY_DIR / "index.html"
     content = index_path.read_text(encoding="utf-8")
     replacements = {
@@ -120,7 +113,6 @@ def _patch_index_html(version: str) -> None:
 
 def _patch_404_html(site_path: str) -> None:
     """Inject the configured site path into the 404 fallback page."""
-
     error_path = DEPLOY_DIR / "404.html"
     content = error_path.read_text(encoding="utf-8")
     content = _replace_exact(
@@ -130,21 +122,30 @@ def _patch_404_html(site_path: str) -> None:
     error_path.write_text(content, encoding="utf-8")
 
 
+def _patch_manifest(site_path: str) -> None:
+    """Inject the configured site path into the web app manifest."""
+    manifest_path = DEPLOY_DIR / "assets" / "icons" / "manifest.webmanifest"
+    if not manifest_path.exists():
+        return
+    content = manifest_path.read_text(encoding="utf-8")
+    content = _replace_exact(content, '"start_url": "../../"', f'"start_url": "{site_path}"')
+    manifest_path.write_text(content, encoding="utf-8")
+
+
 def _write_nojekyll() -> None:
     """Write the marker file that disables Jekyll processing on Pages."""
-
     (DEPLOY_DIR / ".nojekyll").write_text("", encoding="utf-8")
 
 
 def prepare_site() -> None:
     """Build the deployable ``_site/`` payload for GitHub Pages."""
-
     logger.info("Preparing deployable site output")
     site_path = _load_site_path()
     version = _resolve_version()
     _copy_deploy_items()
     _patch_index_html(version)
     _patch_404_html(site_path)
+    _patch_manifest(site_path)
     _write_nojekyll()
     logger.info("Prepared %s", DEPLOY_DIR)
 

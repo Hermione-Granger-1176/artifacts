@@ -16,6 +16,8 @@ make thumbnails # regenerate WebP thumbnails when Playwright is available
 make site       # assemble the clean deployable Pages payload in _site/
 make generate   # run thumbnails and index together
 make lock       # refresh locks/requirements.lock and locks/requirements-dev.lock after dependency changes
+make align-tables # align markdown table pipe characters across all docs
+make clean       # remove .venv, caches, build artifacts, and node_modules
 ```
 
 Recommended workflow when changing workspace code:
