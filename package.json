@@ -1,0 +1,14 @@
+{
+  "name": "artifacts-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .github/actions/verified-commit/verified-commit.mjs js tests/js",
+    "test": "node --test tests/js/*.test.js",
+    "test:coverage": "node --experimental-test-coverage --test-coverage-include=js/modules/catalog.js --test-coverage-include=js/modules/config.js --test-coverage-include=js/modules/gallery-app.js --test-coverage-include=js/modules/icons.js --test-coverage-include=js/modules/render.js --test-coverage-include=js/modules/runtime.js --test-coverage-include=.github/actions/verified-commit/*.mjs --test tests/js/*.test.js"
+  },
+  "devDependencies": {
+    "eslint": "10.0.3",
+    "globals": "17.4.0"
+  }
+}

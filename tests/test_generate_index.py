@@ -62,6 +62,33 @@ def minimal_pyproject() -> str:
     )
 
 
+def minimal_gallery_metadata() -> str:
+    return json.dumps(
+        {
+            "tools": [
+                {
+                    "id": "claude",
+                    "label": "Claude",
+                    "color": "D97706",
+                    "alt": "Claude",
+                    "logo": "anthropic",
+                    "logo_color": "white",
+                }
+            ],
+            "tags": [
+                {
+                    "id": "finance",
+                    "label": "Finance",
+                    "color": "27AE60",
+                    "alt": "Finance",
+                    "logo": None,
+                    "logo_color": None,
+                }
+            ],
+        }
+    )
+
+
 def test_read_file_and_parse_lines(tmp_path: Path) -> None:
     sample = tmp_path / "sample.txt"
     write_text(sample, " first\n\nsecond \n")
@@ -296,10 +323,26 @@ def test_replace_block_marker_requires_exactly_one_pair() -> None:
 
 
 def test_build_badges_block_respects_display_order_and_fallback() -> None:
+    tag_badge_config: dict[str, generate_index.BadgeConfig] = {
+        "finance": {
+            "label": "Finance",
+            "color": "27AE60",
+            "alt": "Finance",
+            "logo": None,
+            "logo_color": None,
+        },
+        "visualization": {
+            "label": "Visualization",
+            "color": "E67E22",
+            "alt": "Visualization",
+            "logo": None,
+            "logo_color": None,
+        },
+    }
     badges = generate_index._build_badges_block(
         {"visualization", "custom-tag", "finance"},
-        generate_index.TAG_DISPLAY_ORDER,
-        generate_index.TAG_BADGE_CONFIG,
+        ["finance", "visualization"],
+        tag_badge_config,
     )
 
     first_line, second_line, third_line = badges.splitlines()
@@ -309,7 +352,19 @@ def test_build_badges_block_respects_display_order_and_fallback() -> None:
 
 
 def test_build_badge_includes_logo_metadata_for_known_tools() -> None:
-    badge = generate_index._build_badge("claude", generate_index.TOOL_BADGE_CONFIG)
+    tool_badge_config: dict[str, generate_index.BadgeConfig] = {
+        "claude": {
+            "label": "Claude",
+            "color": "D97706",
+            "alt": "Claude",
+            "logo": "anthropic",
+            "logo_color": "white",
+        }
+    }
+    badge = generate_index._build_badge(
+        "claude",
+        tool_badge_config,
+    )
 
     assert "logo=anthropic" in badge
     assert "logoColor=white" in badge
@@ -319,11 +374,159 @@ def test_build_badges_block_returns_empty_string_for_empty_items() -> None:
     assert (
         generate_index._build_badges_block(
             set(),
-            generate_index.TAG_DISPLAY_ORDER,
-            generate_index.TAG_BADGE_CONFIG,
+            ["finance"],
+            {},
         )
         == ""
     )
+
+
+def test_read_gallery_metadata_loads_shared_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    metadata_file = tmp_path / "gallery_metadata.json"
+    write_text(metadata_file, minimal_gallery_metadata())
+
+    monkeypatch.setattr(generate_index, "GALLERY_METADATA_FILE", metadata_file)
+
+    metadata = generate_index._read_gallery_metadata()
+
+    assert metadata["tools"][0]["id"] == "claude"
+    assert metadata["tags"][0]["label"] == "Finance"
+
+
+def test_read_gallery_metadata_raises_when_file_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        generate_index, "GALLERY_METADATA_FILE", tmp_path / "gallery_metadata.json"
+    )
+
+    with pytest.raises(FileNotFoundError, match="Gallery metadata file not found"):
+        generate_index._read_gallery_metadata()
+
+
+def test_read_gallery_metadata_raises_for_invalid_shape(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    metadata_file = tmp_path / "gallery_metadata.json"
+    write_text(metadata_file, '{"tools": {}, "tags": []}')
+
+    monkeypatch.setattr(generate_index, "GALLERY_METADATA_FILE", metadata_file)
+
+    with pytest.raises(ValueError, match="must be a list"):
+        generate_index._read_gallery_metadata()
+
+
+def test_read_gallery_metadata_raises_for_non_object_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    metadata_file = tmp_path / "gallery_metadata.json"
+    write_text(metadata_file, "[]")
+
+    monkeypatch.setattr(generate_index, "GALLERY_METADATA_FILE", metadata_file)
+
+    with pytest.raises(ValueError, match="must be a JSON object"):
+        generate_index._read_gallery_metadata()
+
+
+def test_read_gallery_metadata_raises_for_invalid_entry_object(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    metadata_file = tmp_path / "gallery_metadata.json"
+    write_text(metadata_file, '{"tools": ["claude"], "tags": []}')
+
+    monkeypatch.setattr(generate_index, "GALLERY_METADATA_FILE", metadata_file)
+
+    with pytest.raises(ValueError, match="entries must be objects"):
+        generate_index._read_gallery_metadata()
+
+
+def test_read_gallery_metadata_raises_for_missing_required_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    metadata_file = tmp_path / "gallery_metadata.json"
+    write_text(
+        metadata_file,
+        '{"tools": [{"id": "claude"}], "tags": [{"id": "finance", "label": "Finance"}]}',
+    )
+
+    monkeypatch.setattr(generate_index, "GALLERY_METADATA_FILE", metadata_file)
+
+    with pytest.raises(ValueError, match="must include label, color, alt"):
+        generate_index._read_gallery_metadata()
+
+
+def test_badge_config_map_and_display_order_use_shared_metadata() -> None:
+    entries: list[dict[str, str | None]] = [
+        {
+            "id": "claude",
+            "label": "Claude",
+            "color": "D97706",
+            "alt": "Claude",
+            "logo": "anthropic",
+            "logo_color": "white",
+        },
+        {
+            "id": "chatgpt",
+            "label": "ChatGPT",
+            "color": "10A37F",
+            "alt": "ChatGPT",
+            "logo": "openai",
+            "logo_color": "white",
+        },
+    ]
+
+    assert generate_index._display_order(entries) == ["claude", "chatgpt"]
+    assert generate_index._badge_config_map(entries)["claude"]["logo"] == "anthropic"
+
+
+def test_write_frontend_config_writes_browser_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config_output = tmp_path / "js" / "gallery-config.js"
+    metadata_file = tmp_path / "config" / "gallery_metadata.json"
+    monkeypatch.setattr(generate_index, "JS_CONFIG_OUTPUT_FILE", config_output)
+    monkeypatch.setattr(generate_index, "GALLERY_METADATA_FILE", metadata_file)
+    write_text(metadata_file, minimal_gallery_metadata())
+
+    generate_index._write_frontend_config(generate_index._read_gallery_metadata())
+
+    content = config_output.read_text(encoding="utf-8")
+    assert content.startswith("window.ARTIFACTS_CONFIG = ")
+
+
+def test_frontend_config_contains_display_labels() -> None:
+    metadata: generate_index.GalleryMetadata = {
+        "tools": [
+            {
+                "id": "claude",
+                "label": "Claude",
+                "color": "D97706",
+                "alt": "Claude",
+                "logo": "anthropic",
+                "logo_color": "white",
+            }
+        ],
+        "tags": [
+            {
+                "id": "finance",
+                "label": "Finance",
+                "color": "27AE60",
+                "alt": "Finance",
+                "logo": None,
+                "logo_color": None,
+            }
+        ],
+    }
+
+    frontend_config = generate_index._frontend_config(metadata)
+
+    tools = frontend_config["tools"]
+
+    assert isinstance(tools, dict)
+    assert tools["claude"]["label"] == "Claude"
+    assert frontend_config["tagDisplayOrder"] == ["finance"]
 
 
 def test_read_site_url_normalizes_trailing_slash(
@@ -374,14 +577,19 @@ def test_generate_writes_js_output_and_updates_readme(
 
     readme_file = tmp_path / "README.md"
     js_output_file = tmp_path / "js" / "data.js"
+    js_config_output_file = tmp_path / "js" / "gallery-config.js"
     pyproject_file = tmp_path / "pyproject.toml"
+    metadata_file = tmp_path / "config" / "gallery_metadata.json"
     write_text(readme_file, minimal_readme())
     write_text(pyproject_file, minimal_pyproject())
+    write_text(metadata_file, minimal_gallery_metadata())
 
     monkeypatch.setattr(generate_index, "APPS_DIR", apps_dir)
     monkeypatch.setattr(generate_index, "README_FILE", readme_file)
     monkeypatch.setattr(generate_index, "JS_OUTPUT_FILE", js_output_file)
+    monkeypatch.setattr(generate_index, "JS_CONFIG_OUTPUT_FILE", js_config_output_file)
     monkeypatch.setattr(generate_index, "PYPROJECT_FILE", pyproject_file)
+    monkeypatch.setattr(generate_index, "GALLERY_METADATA_FILE", metadata_file)
 
     generate_index.generate()
 
@@ -398,12 +606,17 @@ def test_generate_writes_js_output_and_updates_readme(
     assert "https://example.com/demo/" in readme_output
     assert "Total-1" in readme_output
     assert "Claude" in readme_output
+    config_output = js_config_output_file.read_text(encoding="utf-8")
+    assert "ARTIFACTS_CONFIG" in config_output
 
 
 def test_update_readme_raises_when_readme_file_is_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(generate_index, "README_FILE", tmp_path / "README.md")
+    metadata_file = tmp_path / "config" / "gallery_metadata.json"
+    write_text(metadata_file, minimal_gallery_metadata())
+    monkeypatch.setattr(generate_index, "GALLERY_METADATA_FILE", metadata_file)
 
     with pytest.raises(FileNotFoundError, match="README file not found"):
         generate_index._update_readme([])
@@ -414,19 +627,25 @@ def test_generate_handles_empty_repo_state(
 ) -> None:
     readme_file = tmp_path / "README.md"
     js_output_file = tmp_path / "js" / "data.js"
+    js_config_output_file = tmp_path / "js" / "gallery-config.js"
     pyproject_file = tmp_path / "pyproject.toml"
+    metadata_file = tmp_path / "config" / "gallery_metadata.json"
     write_text(readme_file, minimal_readme())
     write_text(pyproject_file, minimal_pyproject())
+    write_text(metadata_file, minimal_gallery_metadata())
 
     monkeypatch.setattr(generate_index, "APPS_DIR", tmp_path / "missing-apps")
     monkeypatch.setattr(generate_index, "README_FILE", readme_file)
     monkeypatch.setattr(generate_index, "JS_OUTPUT_FILE", js_output_file)
+    monkeypatch.setattr(generate_index, "JS_CONFIG_OUTPUT_FILE", js_config_output_file)
     monkeypatch.setattr(generate_index, "PYPROJECT_FILE", pyproject_file)
+    monkeypatch.setattr(generate_index, "GALLERY_METADATA_FILE", metadata_file)
 
     generate_index.generate()
 
     js_output = js_output_file.read_text(encoding="utf-8")
     assert js_output == "window.ARTIFACTS_DATA = [];"
+    assert js_config_output_file.exists()
     readme_output = readme_file.read_text(encoding="utf-8")
     assert "Total-0" in readme_output
 

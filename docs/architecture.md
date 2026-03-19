@@ -6,19 +6,22 @@ The deployed product is a static site with a generated data layer.
 
 - `index.html` is the root shell for the gallery
 - `css/style.css` styles the root gallery
-- `js/app.js` renders the gallery experience in the browser
-- `js/data.js` is generated metadata consumed by `js/app.js`
+- `js/app.js` bootstraps runtime validation and gallery initialization in the browser
+- `js/modules/*` split the gallery logic into config validation, runtime diagnostics, catalog helpers, render helpers, and the main gallery orchestrator
+- `js/gallery-config.js` is generated shared display metadata consumed by the frontend modules
+- `js/data.js` is generated artifact metadata consumed by the frontend modules
 - `apps/*/index.html` pages are standalone artifacts and are linked from the gallery
 
 ## Runtime flow
 
 At runtime, the root site works like this:
 
-1. `index.html` loads the stylesheet and the two JavaScript files
-2. `js/data.js` defines `window.ARTIFACTS_DATA`
-3. `js/app.js` restores URL-synced search, multi-select filter, and sort state before building the card grid and pagination UI
-4. `js/app.js` also manages theme persistence, the detail overlay, keyboard shortcuts, and the scroll-to-top control
-5. clicking a card opens details and links out to the artifact page in `apps/`
+1. `index.html` loads the stylesheet and the generated/runtime JavaScript files
+2. `js/gallery-config.js` defines `window.ARTIFACTS_CONFIG`
+3. `js/data.js` defines `window.ARTIFACTS_DATA`
+4. `js/app.js` creates the runtime, installs global error handling, validates generated bootstrap data, and calls `initializeGalleryApp`
+5. `js/modules/gallery-app.js` restores URL-synced search, multi-select filter, and sort state, then manages theme persistence, detail overlays, keyboard shortcuts, card rendering, and pagination
+6. clicking a card opens details and links out to the artifact page in `apps/`
 
 The gallery does not inspect artifact HTML directly in the browser. It depends on generated metadata.
 
@@ -31,6 +34,7 @@ The gallery does not inspect artifact HTML directly in the browser. It depends o
 - scans `apps/` for valid artifact folders
 - reads `name.txt`, `description.txt`, `tags.txt`, and `tools.txt`
 - resolves thumbnails with a preferred order of `thumbnail.webp` then `thumbnail.png`
+- writes `js/gallery-config.js`
 - writes `js/data.js`
 - updates README auto markers such as site URL, counts, and badges
 
@@ -58,6 +62,8 @@ The repo now centralizes more workspace-level configuration in `pyproject.toml`.
 
 - `[project]`: pinned Python dependencies
 - `[project.optional-dependencies]`: dev tooling such as `pytest`, `pytest-cov`, and `ruff`
+- `locks/requirements.lock` and `locks/requirements-dev.lock`: frozen Python dependency resolution used by `make setup`
+- `package-lock.json`: frozen Node dependency resolution used by `npm ci`
 - `[tool.pytest.ini_options]`: test and coverage policy
 - `[tool.ruff.*]`: lint policy
 - `[tool.artifacts]`: canonical site URL and related workspace metadata
@@ -69,20 +75,31 @@ This reduces hardcoded values in scripts and keeps deployment-sensitive values i
 `.github/workflows/update.yml` is the main automation workflow for pushes, PR previews, and manual runs.
 
 1. bootstrap the toolchain with `make setup-ci`
-2. run linting, tests, and artifact directory validation before generation
+2. run Python linting, JavaScript linting, unit tests, browser smoke tests, dependency audit, and artifact directory validation before generation
 3. generate thumbnails and gallery data
 4. stage generated additions and deletions
 5. on non-PR runs, create a verified commit through the GitHub GraphQL API, or open a PR if branch protection blocks direct commit
 6. assemble a clean `_site/` deploy directory
 7. for pushes to `main` and manual runs: deploy `_site/` to the root of the `gh-pages` branch
 8. for trusted PRs: deploy `_site/` to `gh-pages/pr-preview/pr-<number>/` without writing generated outputs back to the source branch
-9. recreate the sticky preview link comment so the newest preview stays at the bottom of the PR timeline
-10. on PR close: remove the preview from `gh-pages` and delete the comment
+9. poll the published root or preview URL until it serves the expected cache-busted asset reference for the current commit
+10. recreate the sticky preview link comment so the newest preview stays at the bottom of the PR timeline
+11. on PR close: remove the preview from `gh-pages` and delete the comment
 
 Main and trusted preview deploys use the GitHub App token. Fork and Dependabot PRs still build `_site/`, but skip preview deployment because the token is unavailable.
+
+## External GitHub settings
+
+The workflow depends on repository settings that are not enforceable from source control alone:
+
+- GitHub Pages must publish from the `gh-pages` branch root
+- `vars.APP_ID` must contain the GitHub App id
+- `secrets.APP_PRIVATE_KEY` must contain the app private key
+- `main` branch protection should enforce the `verify`, `secret-scan`, and `dependency-review` checks plus review/signing/history requirements
+- `gh-pages` should remain branch-based for now, but only the deploy GitHub App and the single repo admin should be able to bypass its ruleset
 
 ## Compatibility notes
 
 The target steady state is WebP thumbnails. The index generator keeps temporary PNG fallback support so the site remains stable during migration windows or older branch checkouts.
 
-PR previews depend on the repository using branch-based GitHub Pages deployment with `gh-pages` as the published branch.
+PR previews depend on the repository using branch-based GitHub Pages deployment with `gh-pages` as the published branch, so `gh-pages` protection must stay compatible with direct app-driven deploy writes until the repo migrates away from the legacy branch model.

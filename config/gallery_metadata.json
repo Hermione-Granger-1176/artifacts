@@ -1,0 +1,78 @@
+{
+  "tools": [
+    {
+      "id": "claude",
+      "label": "Claude",
+      "color": "D97706",
+      "alt": "Claude",
+      "logo": "anthropic",
+      "logo_color": "white"
+    },
+    {
+      "id": "chatgpt",
+      "label": "ChatGPT",
+      "color": "10A37F",
+      "alt": "ChatGPT",
+      "logo": "openai",
+      "logo_color": "white"
+    },
+    {
+      "id": "gemini",
+      "label": "Gemini",
+      "color": "4285F4",
+      "alt": "Gemini",
+      "logo": "google",
+      "logo_color": "white"
+    }
+  ],
+  "tags": [
+    {
+      "id": "finance",
+      "label": "Finance",
+      "color": "27AE60",
+      "alt": "Finance",
+      "logo": null,
+      "logo_color": null
+    },
+    {
+      "id": "calculator",
+      "label": "Calculator",
+      "color": "2E86C1",
+      "alt": "Calculator",
+      "logo": null,
+      "logo_color": null
+    },
+    {
+      "id": "visualization",
+      "label": "Visualization",
+      "color": "E67E22",
+      "alt": "Visualization",
+      "logo": null,
+      "logo_color": null
+    },
+    {
+      "id": "game",
+      "label": "Game",
+      "color": "E74C3C",
+      "alt": "Game",
+      "logo": null,
+      "logo_color": null
+    },
+    {
+      "id": "tool",
+      "label": "Tool",
+      "color": "8E44AD",
+      "alt": "Tool",
+      "logo": null,
+      "logo_color": null
+    },
+    {
+      "id": "education",
+      "label": "Education",
+      "color": "F39C12",
+      "alt": "Education",
+      "logo": null,
+      "logo_color": null
+    }
+  ]
+}

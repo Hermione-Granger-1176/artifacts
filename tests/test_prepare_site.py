@@ -29,13 +29,17 @@ def create_source_tree(repo_root: Path) -> None:
         "".join(
             [
                 '<link rel="stylesheet" href="css/style.css">\n',
+                '<script src="js/gallery-config.js"></script>\n',
                 '<script src="js/data.js"></script>\n',
-                '<script src="js/app.js"></script>\n',
+                '<script type="module" src="js/app.js"></script>\n',
             ]
         ),
     )
     write_text(repo_root / "css" / "style.css", "body {}\n")
     write_text(repo_root / "js" / "app.js", "console.log('app')\n")
+    write_text(
+        repo_root / "js" / "gallery-config.js", "window.ARTIFACTS_CONFIG = {};\n"
+    )
     write_text(repo_root / "js" / "data.js", "window.ARTIFACTS_DATA = [];\n")
     write_text(repo_root / "apps" / "sample" / "index.html", "<html></html>\n")
 
@@ -84,13 +88,35 @@ def test_resolve_version_prefers_environment(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_resolve_version_uses_git(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ARTIFACTS_DEPLOY_VERSION", raising=False)
+
+    observed: dict[str, object] = {}
+
+    def fake_check_output(*args: object, **kwargs: object) -> str:
+        observed.update(kwargs)
+        return "deadbee\n"
+
     monkeypatch.setattr(
         prepare_site.subprocess,
         "check_output",
-        lambda *args, **kwargs: "deadbee\n",
+        fake_check_output,
     )
 
     assert prepare_site._resolve_version() == "deadbee"
+    assert observed["timeout"] == prepare_site.GIT_COMMAND_TIMEOUT_SECONDS
+
+
+def test_resolve_version_propagates_git_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("ARTIFACTS_DEPLOY_VERSION", raising=False)
+
+    def raise_git_timeout(*args: object, **kwargs: object) -> str:
+        raise subprocess.TimeoutExpired(["git", "rev-parse", "--short", "HEAD"], 10)
+
+    monkeypatch.setattr(prepare_site.subprocess, "check_output", raise_git_timeout)
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        prepare_site._resolve_version()
 
 
 def test_replace_exact_requires_expected_content() -> None:
@@ -134,7 +160,7 @@ def test_patch_index_html_applies_cache_busting(
     deploy_dir.mkdir()
     write_text(
         deploy_dir / "index.html",
-        'href="css/style.css" src="js/data.js" src="js/app.js"\n',
+        'href="css/style.css" src="js/gallery-config.js" src="js/data.js" src="js/app.js"\n',
     )
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
 
@@ -142,6 +168,7 @@ def test_patch_index_html_applies_cache_busting(
 
     content = (deploy_dir / "index.html").read_text(encoding="utf-8")
     assert 'href="css/style.css?v=abc123"' in content
+    assert 'src="js/gallery-config.js?v=abc123"' in content
     assert 'src="js/data.js?v=abc123"' in content
     assert 'src="js/app.js?v=abc123"' in content
 
@@ -162,6 +189,27 @@ def test_patch_404_html_injects_site_path(
     content = (deploy_dir / "404.html").read_text(encoding="utf-8")
     assert 'data-site-path="/artifacts/"' in content
     assert 'href="/artifacts/"' in content
+
+
+def test_patch_404_html_preserves_preview_logic(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy_dir = tmp_path / "_site"
+    deploy_dir.mkdir()
+    original = (
+        '<body data-site-path="/">\n'
+        '<a id="home-link" href="/">Return to gallery</a>\n'
+        '<script>const previewRoot = [...siteParts, "pr-preview", pathParts[siteParts.length + 1]];</script>\n'
+    )
+    write_text(deploy_dir / "404.html", original)
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._patch_404_html("/artifacts/")
+
+    content = (deploy_dir / "404.html").read_text(encoding="utf-8")
+    assert 'data-site-path="/artifacts/"' in content
+    assert 'href="/artifacts/"' in content
+    assert '"pr-preview"' in content
 
 
 def test_write_nojekyll_creates_marker(
