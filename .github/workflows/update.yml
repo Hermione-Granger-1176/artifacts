@@ -226,7 +226,6 @@ jobs:
           preview-branch: gh-pages
           token: ${{ steps.app-token.outputs.token }}
           qr-code: false
-          wait-for-pages-deployment: true
 
       - name: Summarize PR preview
         if: github.event_name == 'pull_request' && github.event.action != 'closed' && !github.event.pull_request.head.repo.fork
