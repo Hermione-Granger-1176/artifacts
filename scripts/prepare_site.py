@@ -33,6 +33,8 @@ DEPLOY_ITEMS = ("404.html", "apps", "css", "index.html", "js")
 
 
 def _normalize_site_path(value: str) -> str:
+    """Return a normalized GitHub Pages site path with surrounding slashes."""
+
     stripped = value.strip().strip("/")
     if not stripped:
         return "/"
@@ -40,6 +42,8 @@ def _normalize_site_path(value: str) -> str:
 
 
 def _load_site_path() -> str:
+    """Load the configured site path from ``pyproject.toml``."""
+
     if not PYPROJECT_FILE.exists():
         raise FileNotFoundError(f"pyproject.toml not found: {PYPROJECT_FILE}")
 
@@ -54,6 +58,8 @@ def _load_site_path() -> str:
 
 
 def _resolve_version() -> str:
+    """Return the deploy version from the environment or current Git SHA."""
+
     env_version = os.environ.get("ARTIFACTS_DEPLOY_VERSION")
     if env_version:
         return env_version
@@ -66,6 +72,8 @@ def _resolve_version() -> str:
 
 
 def _copy_deploy_items() -> None:
+    """Copy the static site inputs into the clean deploy directory."""
+
     if DEPLOY_DIR.exists():
         shutil.rmtree(DEPLOY_DIR)
 
@@ -78,17 +86,21 @@ def _copy_deploy_items() -> None:
             raise FileNotFoundError(f"Required deploy path not found: {source}")
         if source.is_dir():
             shutil.copytree(source, target)
-        else:
-            shutil.copy2(source, target)
+            continue
+        shutil.copy2(source, target)
 
 
 def _replace_exact(content: str, old: str, new: str) -> str:
+    """Replace one exact string and fail loudly if it is missing."""
+
     if old not in content:
         raise ValueError(f"Expected content not found: {old}")
     return content.replace(old, new)
 
 
 def _patch_index_html(version: str) -> None:
+    """Apply cache-busting query strings to root HTML asset references."""
+
     index_path = DEPLOY_DIR / "index.html"
     content = index_path.read_text(encoding="utf-8")
     replacements = {
@@ -104,6 +116,8 @@ def _patch_index_html(version: str) -> None:
 
 
 def _patch_404_html(site_path: str) -> None:
+    """Inject the configured site path into the 404 fallback page."""
+
     error_path = DEPLOY_DIR / "404.html"
     content = error_path.read_text(encoding="utf-8")
     content = _replace_exact(
@@ -114,10 +128,14 @@ def _patch_404_html(site_path: str) -> None:
 
 
 def _write_nojekyll() -> None:
+    """Write the marker file that disables Jekyll processing on Pages."""
+
     (DEPLOY_DIR / ".nojekyll").write_text("", encoding="utf-8")
 
 
 def prepare_site() -> None:
+    """Build the deployable ``_site/`` payload for GitHub Pages."""
+
     logger.info("Preparing deployable site output")
     site_path = _load_site_path()
     version = _resolve_version()

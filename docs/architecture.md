@@ -16,8 +16,9 @@ At runtime, the root site works like this:
 
 1. `index.html` loads the stylesheet and the two JavaScript files
 2. `js/data.js` defines `window.ARTIFACTS_DATA`
-3. `js/app.js` reads that array and builds the card grid, filters, search, and pagination UI
-4. clicking a card opens details and links out to the artifact page in `apps/`
+3. `js/app.js` restores URL-synced search, multi-select filter, and sort state before building the card grid and pagination UI
+4. `js/app.js` also manages theme persistence, the detail overlay, keyboard shortcuts, and the scroll-to-top control
+5. clicking a card opens details and links out to the artifact page in `apps/`
 
 The gallery does not inspect artifact HTML directly in the browser. It depends on generated metadata.
 
@@ -65,16 +66,16 @@ This reduces hardcoded values in scripts and keeps deployment-sensitive values i
 
 ## Deployment flow
 
-`.github/workflows/update.yml` is the main production workflow.
+`.github/workflows/update.yml` is the main automation workflow for pushes, PR previews, and manual runs.
 
 1. bootstrap the toolchain with `make setup-ci`
 2. run linting, tests, and artifact directory validation before generation
 3. generate thumbnails and gallery data
 4. stage generated additions and deletions
-5. create a verified commit through the GitHub GraphQL API, or open a PR if branch protection blocks direct commit
+5. on non-PR runs, create a verified commit through the GitHub GraphQL API, or open a PR if branch protection blocks direct commit
 6. assemble a clean `_site/` deploy directory
-7. for pushes to `main`: deploy `_site/` to the root of the `gh-pages` branch
-8. for PRs: deploy `_site/` to `gh-pages/pr-preview/pr-<number>/`
+7. for pushes to `main` and manual runs: deploy `_site/` to the root of the `gh-pages` branch
+8. for PRs: deploy `_site/` to `gh-pages/pr-preview/pr-<number>/` without writing generated outputs back to the source branch
 9. recreate the sticky preview link comment so the newest preview stays at the bottom of the PR timeline
 10. on PR close: remove the preview from `gh-pages` and delete the comment
 

@@ -23,15 +23,14 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 ## Snapshot
 
 - <!-- AUTO:TOTAL_COUNT -->1<!-- /AUTO:TOTAL_COUNT --> artifacts published
-- Browse the live website for searchable thumbnails, filters, and launch links.
+- Browse the live website for searchable thumbnails, multi-select filters, theme persistence, and detail overlays.
 
 ## Docs
 
-- `docs/README.md`: entry point for workspace documentation
-- `docs/workspace.md`: repository layout and responsibilities
-- `docs/architecture.md`: runtime, build, and deployment design
-- `docs/operations.md`: local workflows, CI, and generation notes
-- `docs/maintenance.md`: maintenance rules and long-term repo hygiene
+- [`workspace.md`](docs/workspace.md): repository layout and responsibilities
+- [`architecture.md`](docs/architecture.md): runtime, build, and deployment design
+- [`operations.md`](docs/operations.md): local workflows, CI, and generation notes
+- [`maintenance.md`](docs/maintenance.md): maintenance rules and long-term repo hygiene
 
 ## Structure
 
@@ -53,7 +52,8 @@ apps/
 1. Create a new scaffold with `make new name=my-artifact`, or create a kebab-case directory under `apps/` manually
 2. Replace the scaffold `index.html` with your artifact and fill in the metadata files
 3. Run `make validate` to catch missing required files before pushing
-4. Push to `main` or open a PR: everything else is automated
+4. Push to `main` or trigger a manual run to let CI regenerate derived files, prepare `_site/`, and deploy the site
+5. Open a PR to run the same checks and publish a live preview without modifying the source branch
 
 ## Local development
 
