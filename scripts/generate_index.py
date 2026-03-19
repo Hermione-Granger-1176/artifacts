@@ -218,12 +218,14 @@ def _validate_gallery_metadata_entries(group: str, entries: object) -> None:
     if not isinstance(entries, list):
         raise ValueError(f"Gallery metadata '{group}' must be a list")
 
+    required_fields = ("id", "label", "color", "alt")
     for entry in entries:
         if not isinstance(entry, dict):
             raise ValueError(f"Gallery metadata '{group}' entries must be objects")
-        if not entry.get("id") or not entry.get("label"):
+        missing = [field for field in required_fields if not entry.get(field)]
+        if missing:
             raise ValueError(
-                f"Gallery metadata '{group}' entries must include id and label"
+                f"Gallery metadata '{group}' entries must include " + ", ".join(missing)
             )
 
 

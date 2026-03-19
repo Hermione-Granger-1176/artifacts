@@ -453,7 +453,7 @@ def test_read_gallery_metadata_raises_for_missing_required_fields(
 
     monkeypatch.setattr(generate_index, "GALLERY_METADATA_FILE", metadata_file)
 
-    with pytest.raises(ValueError, match="must include id and label"):
+    with pytest.raises(ValueError, match="must include label, color, alt"):
         generate_index._read_gallery_metadata()
 
 

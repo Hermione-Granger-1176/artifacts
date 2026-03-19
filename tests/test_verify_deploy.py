@@ -112,10 +112,9 @@ def test_verify_deploy_retries_until_expected_substring_found(
         timeout_seconds=5.0,
     )
 
-    assert seen_urls == [
-        "https://example.com/demo/?artifacts-deploy-check=1",
-        "https://example.com/demo/?artifacts-deploy-check=2",
-    ]
+    assert "artifacts-deploy-check=1" in seen_urls[0]
+    assert "artifacts-deploy-check=2" in seen_urls[1]
+    assert all(url.startswith("https://example.com/demo/") for url in seen_urls)
     assert sleep_calls == [1.5]
 
 

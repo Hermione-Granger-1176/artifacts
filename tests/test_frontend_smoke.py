@@ -165,7 +165,7 @@ def test_gallery_smoke_covers_root_interactions(tmp_path: Path, monkeypatch) -> 
         )
         expect(page.locator("#detail-title")).to_have_text("Artifact 13")
 
-        page.click("[data-close-detail]")
+        page.locator("button.detail-close").click()
         page.wait_for_timeout(450)
         expect(page.locator("#detail-overlay")).not_to_have_class(
             "detail-overlay visible open"

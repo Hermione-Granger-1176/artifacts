@@ -20,6 +20,7 @@ import sys
 import time
 import tomllib
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -83,7 +84,12 @@ def verify_deploy(
 
     last_error: str | None = None
     for attempt in range(1, attempts + 1):
-        cache_busted_url = f"{url}?artifacts-deploy-check={attempt}"
+        parsed = urllib.parse.urlsplit(url)
+        query = urllib.parse.parse_qs(parsed.query)
+        query["artifacts-deploy-check"] = [str(attempt)]
+        cache_busted_url = urllib.parse.urlunsplit(
+            parsed._replace(query=urllib.parse.urlencode(query, doseq=True))
+        )
         try:
             status_code, body = _fetch_text(cache_busted_url, timeout_seconds)
             if status_code != 200:

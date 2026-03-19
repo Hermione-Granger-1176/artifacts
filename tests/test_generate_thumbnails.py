@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import builtins
+import os
 import types
 from collections.abc import Mapping, Sequence
 from io import BytesIO
 from pathlib import Path
-from time import sleep
 
 import pytest
 from PIL import Image
@@ -69,8 +69,9 @@ def test_should_generate_thumbnail_when_missing_or_stale(tmp_path: Path) -> None
 
     assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is False
 
-    sleep(0.01)
     write_text(artifact_dir / "index.html", "<html>updated</html>")
+    future_mtime = thumb_path.stat().st_mtime + 2
+    os.utime(artifact_dir / "index.html", (future_mtime, future_mtime))
 
     assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is True
 

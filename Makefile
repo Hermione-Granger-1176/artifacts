@@ -15,16 +15,16 @@ install:
 	$(VENV_PIP) install --no-deps -e .
 
 lock:
-	$(PYTHON) -m venv /tmp/artifacts-runtime-lock-venv
-	$(PYTHON) -m venv /tmp/artifacts-dev-lock-venv
-	/tmp/artifacts-runtime-lock-venv/bin/pip install --upgrade pip
-	/tmp/artifacts-dev-lock-venv/bin/pip install --upgrade pip
-	/tmp/artifacts-runtime-lock-venv/bin/pip install -e .
-	/tmp/artifacts-dev-lock-venv/bin/pip install -e ".[dev]"
-	/tmp/artifacts-runtime-lock-venv/bin/pip freeze --exclude-editable > locks/requirements.lock
-	/tmp/artifacts-dev-lock-venv/bin/pip freeze --exclude-editable > locks/requirements-dev.lock
-	rm -rf /tmp/artifacts-runtime-lock-venv
-	rm -rf /tmp/artifacts-dev-lock-venv
+	@runtime_dir=$$(mktemp -d) && dev_dir=$$(mktemp -d) && \
+	trap 'rm -rf "$$runtime_dir" "$$dev_dir"' EXIT && \
+	$(PYTHON) -m venv "$$runtime_dir" && \
+	$(PYTHON) -m venv "$$dev_dir" && \
+	"$$runtime_dir/bin/pip" install --upgrade pip && \
+	"$$dev_dir/bin/pip" install --upgrade pip && \
+	"$$runtime_dir/bin/pip" install -e . && \
+	"$$dev_dir/bin/pip" install -e ".[dev]" && \
+	"$$runtime_dir/bin/pip" freeze --exclude-editable > locks/requirements.lock && \
+	"$$dev_dir/bin/pip" freeze --exclude-editable > locks/requirements-dev.lock
 
 node-install:
 	$(NPM) ci
