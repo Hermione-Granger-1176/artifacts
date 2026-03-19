@@ -7,7 +7,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - the root site is the gallery
 - each artifact lives in its own folder under `apps/`
 - the repo includes Python tooling to generate gallery data and thumbnails
-- GitHub Actions deploys the site and commits generated outputs back when needed
+- GitHub Actions deploys the site, publishes PR previews, and commits generated outputs back on non-PR runs when needed
 
 ## Top-level layout
 
@@ -35,7 +35,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `pyproject.toml`: Python dependency pins and workspace configuration
 - `scripts/prepare_site.py`: deploy-time site assembly, cache busting, and site path injection
 - `.github/actions/verified-commit/action.yml`: shared verified commit and PR fallback logic for CI
-- `.github/workflows/update.yml`: production automation behavior
+- `.github/workflows/update.yml`: main automation workflow for pushes, PR previews, and manual runs
 
 ## Generated and derived files
 

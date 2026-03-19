@@ -101,11 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         debounceTimer = setTimeout(() => {
             currentFilter = event.target.value.toLowerCase();
             currentPage = 1;
-            closeFilterDropdown();
-            closeExpandedOverlay({ restoreFocus: false, immediate: true });
-            syncUIToState();
-            pushState();
-            renderContent();
+            applyStateChange({ closeFilter: true });
         }, 150);
     });
 
@@ -113,12 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.value = '';
         currentFilter = '';
         currentPage = 1;
-        closeFilterDropdown();
-        closeExpandedOverlay({ restoreFocus: false, immediate: true });
-        syncUIToState();
-        pushState();
-        renderContent();
-        searchInput.focus();
+        applyStateChange({ closeFilter: true, focusTarget: searchInput });
     });
 
     Object.entries(filterControls).forEach(([key, control]) => {
@@ -141,30 +132,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             setSelectedValues(key, nextValues);
             currentPage = 1;
-            closeExpandedOverlay({ restoreFocus: false, immediate: true });
-            syncUIToState();
-            pushState();
-            renderContent();
+            applyStateChange();
         });
     });
 
     sortToggle.addEventListener('click', () => {
         currentSort = currentSort === 'newest' ? 'oldest' : 'newest';
         currentPage = 1;
-        closeFilterDropdown();
-        closeExpandedOverlay({ restoreFocus: false, immediate: true });
-        syncUIToState();
-        pushState();
-        renderContent();
+        applyStateChange({ closeFilter: true });
     });
 
-    filterReset.addEventListener('click', () => {
-        resetFilters();
-    });
+    filterReset.addEventListener('click', resetFilters);
 
-    noResultsReset.addEventListener('click', () => {
-        resetFilters();
-    });
+    noResultsReset.addEventListener('click', resetFilters);
 
     detailOverlay.addEventListener('click', (event) => {
         if (event.target.closest('[data-close-detail]')) {
@@ -208,31 +188,42 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && openFilterKey) {
-            event.preventDefault();
-            closeFilterDropdown();
-            return;
-        }
+        switch (event.key) {
+            case 'Escape':
+                if (openFilterKey) {
+                    event.preventDefault();
+                    closeFilterDropdown();
+                    return;
+                }
 
-        if (event.key === 'Escape' && expandedId) {
-            event.preventDefault();
-            closeExpandedOverlay();
-            return;
-        }
+                if (!expandedId) {
+                    return;
+                }
 
-        if (event.key === '/') {
-            const activeElement = document.activeElement;
-            const isInput = activeElement && (
-                activeElement.tagName === 'INPUT'
-                || activeElement.tagName === 'TEXTAREA'
-                || activeElement.isContentEditable
-            );
+                event.preventDefault();
+                closeExpandedOverlay();
+                return;
 
-            if (!isInput) {
+            case '/': {
+                const activeElement = document.activeElement;
+                const isInput = activeElement && (
+                    activeElement.tagName === 'INPUT'
+                    || activeElement.tagName === 'TEXTAREA'
+                    || activeElement.isContentEditable
+                );
+
+                if (isInput) {
+                    return;
+                }
+
                 event.preventDefault();
                 closeFilterDropdown();
                 searchInput.focus();
+                return;
             }
+
+            default:
+                return;
         }
     });
 
@@ -369,6 +360,21 @@ document.addEventListener('DOMContentLoaded', () => {
         filterReset.classList.toggle('hidden', !hasActiveFilters);
     }
 
+    function applyStateChange({ closeFilter = false, focusTarget = null } = {}) {
+        if (closeFilter) {
+            closeFilterDropdown();
+        }
+
+        closeExpandedOverlay({ restoreFocus: false, immediate: true });
+        syncUIToState();
+        pushState();
+        renderContent();
+
+        if (focusTarget) {
+            focusTarget.focus();
+        }
+    }
+
     function getSelectedValues(key) {
         return key === 'tool' ? currentTools : currentTags;
     }
@@ -432,13 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentTags = [];
         currentPage = DEFAULTS.page;
         searchInput.value = '';
-
-        closeFilterDropdown();
-        closeExpandedOverlay({ restoreFocus: false, immediate: true });
-        syncUIToState();
-        pushState();
-        renderContent();
-        searchInput.focus();
+        applyStateChange({ closeFilter: true, focusTarget: searchInput });
     }
 
     function getCardById(id) {
@@ -703,9 +703,15 @@ document.addEventListener('DOMContentLoaded', () => {
         pages.sort((left, right) => left - right);
 
         const result = [];
-        for (let index = 0; index < pages.length; index += 1) {
-            if (index > 0 && pages[index] - pages[index - 1] > 1) result.push('...');
-            result.push(pages[index]);
+        let previousPage = null;
+
+        for (const page of pages) {
+            if (previousPage !== null && page - previousPage > 1) {
+                result.push('...');
+            }
+
+            result.push(page);
+            previousPage = page;
         }
         return result;
     }

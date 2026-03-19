@@ -397,7 +397,7 @@ body.detail-open .scroll-top {
     transform: rotate(180deg);
 }
 
-/* ─── Artifact Grid (Netflix-style thumbnails) ─────────────────────── */
+/* Artifact grid */
 .artifacts-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -530,7 +530,7 @@ body.detail-open .scroll-top {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0) 32%, rgba(0, 0, 0, 0.8) 100%);
 }
 
-/* ─── Detail Overlay (Netflix-inspired cinematic zoom) ──────────────── */
+/* Detail overlay */
 .detail-overlay {
     position: fixed;
     inset: 0;

@@ -132,30 +132,33 @@ runs:
           const parts = line.split('\t');
           const status = parts[0] || '';
 
-          if (status.startsWith('R') && parts.length >= 3) {
-            deletions.push({ path: parts[1] });
-            additions.push({
-              path: parts[2],
-              contents: fs.readFileSync(parts[2]).toString('base64'),
-            });
-            continue;
-          }
+          switch (status.charAt(0)) {
+            case 'R':
+              if (parts.length >= 3) {
+                deletions.push({ path: parts[1] });
+                additions.push({
+                  path: parts[2],
+                  contents: fs.readFileSync(parts[2]).toString('base64'),
+                });
+              }
+              break;
 
-          const filePath = parts[1];
-          if (!filePath) {
-            continue;
-          }
+            case 'D':
+              if (parts[1]) {
+                deletions.push({ path: parts[1] });
+              }
+              break;
 
-          if (status.startsWith('D')) {
-            deletions.push({ path: filePath });
-            continue;
-          }
-
-          if (fs.existsSync(filePath)) {
-            additions.push({
-              path: filePath,
-              contents: fs.readFileSync(filePath).toString('base64'),
-            });
+            default: {
+              const filePath = parts[1];
+              if (filePath && fs.existsSync(filePath)) {
+                additions.push({
+                  path: filePath,
+                  contents: fs.readFileSync(filePath).toString('base64'),
+                });
+              }
+              break;
+            }
           }
         }
 

@@ -4,10 +4,10 @@ This folder explains how the repository works as a system, not how any single ar
 
 If you are new to the repo, read in this order:
 
-1. `docs/workspace.md` for structure, ownership, and source-of-truth files
-2. `docs/architecture.md` for runtime and build flow
-3. `docs/operations.md` for local commands, CI behavior, and troubleshooting
-4. `docs/maintenance.md` for ongoing upkeep and workflow hygiene
+1. [`workspace.md`](workspace.md) for structure, ownership, and source-of-truth files
+2. [`architecture.md`](architecture.md) for runtime and build flow
+3. [`operations.md`](operations.md) for local commands, CI behavior, and troubleshooting
+4. [`maintenance.md`](maintenance.md) for ongoing upkeep and workflow hygiene
 
 What these docs cover:
 

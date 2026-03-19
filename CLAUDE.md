@@ -6,7 +6,7 @@ Hosted via GitHub Pages. The canonical site URL is configured in `pyproject.toml
 ## Structure
 
 Each artifact lives in its own directory under `apps/` with an `index.html` entry point.
-The root `index.html` is a Netflix-style gallery page listing all artifacts with thumbnails.
+The root `index.html` is a gallery page with searchable thumbnails, multi-select filters, theme persistence, and detail overlays.
 
 ## Adding a new artifact
 
@@ -19,8 +19,8 @@ The root `index.html` is a Netflix-style gallery page listing all artifacts with
    - `tools.txt`: Optional AI tools, one per line (e.g., `claude`, `chatgpt`)
 4. You can scaffold this structure with `make new name=my-artifact`
 5. Run `make validate` before pushing so incomplete artifact directories fail fast
-6. Push to `main` or open a PR: CI generates thumbnails, updates gallery data, and builds the deployable site
-7. PRs get a live preview link posted as a recreated comment so the newest preview stays at the bottom of the thread
+6. Push to `main` or trigger a manual run: CI can generate thumbnails, update gallery data, and build the deployable site
+7. PRs build previews without committing generated outputs back to the source branch, and get a live preview link posted as a recreated comment so the newest preview stays at the bottom of the thread
 
 ## Local commands
 
@@ -55,10 +55,10 @@ Do not manually edit these outputs unless updating generator logic:
 
 Workspace documentation lives in `docs/`:
 
-- `docs/workspace.md`: repository layout and generated files
-- `docs/architecture.md`: runtime, build, and deploy flow
-- `docs/operations.md`: local commands, CI behavior, and troubleshooting
-- `docs/maintenance.md`: long-term upkeep and workflow hygiene
+- [`workspace.md`](docs/workspace.md): repository layout and generated files
+- [`architecture.md`](docs/architecture.md): runtime, build, and deploy flow
+- [`operations.md`](docs/operations.md): local commands, CI behavior, and troubleshooting
+- [`maintenance.md`](docs/maintenance.md): long-term upkeep and workflow hygiene
 
 ## Conventions
 
