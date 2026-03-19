@@ -23,3 +23,14 @@ updates:
       all-actions:
         patterns:
           - "*"
+
+  - package-ecosystem: npm
+    target-branch: main
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      all-node-dependencies:
+        patterns:
+          - "*"

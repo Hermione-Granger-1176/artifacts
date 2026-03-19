@@ -35,6 +35,7 @@ jobs:
           import json
           import os
           import re
+          import time
           from pathlib import Path
           from urllib.request import Request, urlopen
 
@@ -45,6 +46,8 @@ jobs:
           pattern = re.compile(r"^(\s*-\s*uses:\s*)([^@\s]+)@([^\s#]+)(.*)$")
           sha_pattern = re.compile(r"^[0-9a-f]{40}$")
           cache = {}
+          timeout_seconds = 15
+          max_attempts = 3
 
           def resolve_sha(action, ref):
             repo = "/".join(action.split("/")[:2])
@@ -56,10 +59,19 @@ jobs:
               "Authorization": f"Bearer {token}",
               "Accept": "application/vnd.github+json",
             })
-            with urlopen(req) as response:
-              data = json.load(response)
-            cache[key] = data["sha"]
-            return cache[key]
+            last_error = None
+            for attempt in range(1, max_attempts + 1):
+              try:
+                with urlopen(req, timeout=timeout_seconds) as response:
+                  data = json.load(response)
+                cache[key] = data["sha"]
+                return cache[key]
+              except Exception as exc:
+                last_error = exc
+                if attempt == max_attempts:
+                  break
+                time.sleep(attempt * 0.25)
+            raise last_error
 
           workflow_dir = Path(".github/workflows")
           files = list(workflow_dir.glob("*.yml")) + list(workflow_dir.glob("*.yaml"))
@@ -110,9 +122,9 @@ jobs:
           github-token: ${{ steps.app-token.outputs.token }}
           base-branch: ${{ github.event.repository.default_branch }}
           expected-head-sha: ${{ steps.head.outputs.sha }}
-          commit-headline: "ci: refresh action SHAs"
+          commit-headline: "Refresh action SHAs"
           fallback-branch-prefix: ci/refresh-action-shas
-          pr-title: "ci: refresh action SHAs"
+          pr-title: "Refresh action SHAs"
           pr-body: |
             ## Summary
             - Type: CI maintenance

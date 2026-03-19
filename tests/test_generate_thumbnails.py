@@ -5,6 +5,7 @@ import types
 from collections.abc import Mapping, Sequence
 from io import BytesIO
 from pathlib import Path
+from time import sleep
 
 import pytest
 from PIL import Image
@@ -57,12 +58,59 @@ def test_save_thumbnail_resizes_and_writes_webp(tmp_path: Path) -> None:
         assert thumbnail.height == 540
 
 
+def test_should_generate_thumbnail_when_missing_or_stale(tmp_path: Path) -> None:
+    artifact_dir = tmp_path / "loan-tool"
+    write_text(artifact_dir / "index.html", "<html></html>")
+
+    assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is True
+
+    thumb_path = artifact_dir / generate_thumbnails.SCREENSHOT_FILE
+    thumb_path.write_bytes(b"thumb")
+
+    assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is False
+
+    sleep(0.01)
+    write_text(artifact_dir / "index.html", "<html>updated</html>")
+
+    assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is True
+
+
+def test_should_generate_thumbnail_when_legacy_png_exists(tmp_path: Path) -> None:
+    artifact_dir = tmp_path / "loan-tool"
+    write_text(artifact_dir / "index.html", "<html></html>")
+    (artifact_dir / generate_thumbnails.SCREENSHOT_FILE).write_bytes(b"webp")
+    (artifact_dir / generate_thumbnails.LEGACY_SCREENSHOT_FILE).write_bytes(b"png")
+
+    assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is True
+
+
+def test_summarize_formats_stats() -> None:
+    summary = generate_thumbnails._summarize(
+        {
+            "total": 3,
+            "attempted": 2,
+            "generated": 1,
+            "skipped": 1,
+            "failed": 1,
+        }
+    )
+
+    assert "attempted=2" in summary
+    assert "failed=1" in summary
+
+
 def test_generate_thumbnails_returns_early_when_no_artifacts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [])
 
-    generate_thumbnails.generate_thumbnails()
+    assert generate_thumbnails.generate_thumbnails() == {
+        "total": 0,
+        "attempted": 0,
+        "generated": 0,
+        "skipped": 0,
+        "failed": 0,
+    }
 
 
 def test_generate_thumbnails_exits_when_playwright_is_missing(
@@ -160,14 +208,78 @@ def test_generate_thumbnails_processes_artifacts_and_closes_browser(
         "save_thumbnail",
         lambda image_bytes, thumb_path: save_calls.append((image_bytes, thumb_path)),
     )
+    monkeypatch.setattr(
+        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
+    )
 
-    generate_thumbnails.generate_thumbnails()
+    stats = generate_thumbnails.generate_thumbnails()
 
     assert browser_closed is True
+    assert stats == {
+        "total": 1,
+        "attempted": 1,
+        "generated": 1,
+        "skipped": 0,
+        "failed": 0,
+    }
     assert save_calls == [
         (b"png-bytes", artifact_dir / generate_thumbnails.SCREENSHOT_FILE)
     ]
     assert not (artifact_dir / generate_thumbnails.LEGACY_SCREENSHOT_FILE).exists()
+
+
+def test_generate_thumbnails_skips_up_to_date_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact_dir = tmp_path / "loan-tool"
+    write_text(artifact_dir / "index.html", "<html></html>")
+    monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
+    monkeypatch.setattr(
+        generate_thumbnails, "should_generate_thumbnail", lambda _path: False
+    )
+
+    class FakeBrowser:
+        def new_page(
+            self, viewport: dict[str, int], device_scale_factor: int
+        ) -> object:
+            return object()
+
+        def close(self) -> None:
+            return None
+
+    class FakePlaywright:
+        def __init__(self) -> None:
+            self.chromium = types.SimpleNamespace(launch=lambda: FakeBrowser())
+
+    class FakeSyncPlaywright:
+        def __enter__(self) -> FakePlaywright:
+            return FakePlaywright()
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    original_import = builtins.__import__
+
+    def fake_import(
+        name: str,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] = (),
+        level: int = 0,
+    ) -> object:
+        if name == "playwright.sync_api":
+            return types.SimpleNamespace(sync_playwright=lambda: FakeSyncPlaywright())
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    assert generate_thumbnails.generate_thumbnails() == {
+        "total": 1,
+        "attempted": 0,
+        "generated": 0,
+        "skipped": 1,
+        "failed": 0,
+    }
 
 
 def test_generate_thumbnails_logs_warning_for_failed_screenshot(
@@ -224,7 +336,70 @@ def test_generate_thumbnails_logs_warning_for_failed_screenshot(
         return original_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
+    monkeypatch.setattr(
+        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
+    )
 
-    generate_thumbnails.generate_thumbnails()
+    with pytest.raises(RuntimeError, match="failed for every attempted artifact"):
+        generate_thumbnails.generate_thumbnails()
 
     assert browser_closed is True
+
+
+def test_generate_thumbnails_raises_when_all_attempts_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact_dir = tmp_path / "loan-tool"
+    write_text(artifact_dir / "index.html", "<html></html>")
+    monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
+    monkeypatch.setattr(
+        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
+    )
+
+    class FakePage:
+        def goto(self, url: str, wait_until: str, timeout: int) -> None:
+            raise RuntimeError("boom")
+
+        def wait_for_timeout(self, milliseconds: int) -> None:
+            raise AssertionError("wait_for_timeout should not be reached")
+
+        def screenshot(self, type: str) -> bytes:
+            raise AssertionError("screenshot should not be reached")
+
+    class FakeBrowser:
+        def new_page(
+            self, viewport: dict[str, int], device_scale_factor: int
+        ) -> FakePage:
+            return FakePage()
+
+        def close(self) -> None:
+            return None
+
+    class FakePlaywright:
+        def __init__(self) -> None:
+            self.chromium = types.SimpleNamespace(launch=lambda: FakeBrowser())
+
+    class FakeSyncPlaywright:
+        def __enter__(self) -> FakePlaywright:
+            return FakePlaywright()
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    original_import = builtins.__import__
+
+    def fake_import(
+        name: str,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] = (),
+        level: int = 0,
+    ) -> object:
+        if name == "playwright.sync_api":
+            return types.SimpleNamespace(sync_playwright=lambda: FakeSyncPlaywright())
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    with pytest.raises(RuntimeError, match="failed for every attempted artifact"):
+        generate_thumbnails.generate_thumbnails()

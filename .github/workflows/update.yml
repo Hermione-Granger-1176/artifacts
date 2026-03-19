@@ -19,7 +19,104 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build-and-publish:
+  verify:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install workspace dependencies
+        run: make setup-ci
+
+      - name: Lint workspace code
+        run: make lint
+
+      - name: Run workspace tests
+        env:
+          ARTIFACTS_REQUIRE_BROWSER_TESTS: '1'
+        run: make test
+
+      - name: Validate artifact directories
+        run: make validate
+
+      - name: Audit Python dependencies
+        run: .venv/bin/python -m pip_audit --requirement locks/requirements-dev.lock
+
+      - name: Generate thumbnails
+        run: make thumbnails
+
+      - name: Generate content index
+        run: make index
+
+      - name: Prepare deployable site
+        run: make site
+
+      - name: Summarize verification
+        run: |
+          {
+            echo "## Verification"
+            echo
+            echo "Completed lint, tests, validation, security audit, generation, and site assembly."
+            echo
+            echo "Generated file changes during verification:"
+            echo
+            echo '```text'
+            git diff --name-status -- js/data.js js/gallery-config.js README.md apps || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  secret-scan:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependency-review:
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
+
+  publish:
+    if: github.event.action != 'closed'
+    needs:
+      - verify
+      - secret-scan
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -35,13 +132,11 @@ jobs:
       - name: Determine whether app-token actions are allowed
         id: token-policy
         run: |
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "allowed=true" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.actor }}" = "dependabot[bot]" ]; then
-            echo "allowed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "allowed=true" >> "$GITHUB_OUTPUT"
+          allowed=true
+          if [ "${{ github.event_name }}" = "pull_request" ] && { [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.actor }}" = "dependabot[bot]" ]; }; then
+            allowed=false
           fi
+          echo "allowed=$allowed" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub App token
         id: app-token
@@ -67,40 +162,29 @@ jobs:
           exit 1
 
       - name: Set up Python
-        if: github.event.action != 'closed'
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: '3.12'
 
-      - name: Install Python dependencies
-        if: github.event.action != 'closed'
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install workspace dependencies
         run: make setup-ci
 
-      - name: Lint Python scripts and tests
-        if: github.event.action != 'closed'
-        run: make lint
-
-      - name: Run Python tests
-        if: github.event.action != 'closed'
-        run: make test
-
-      - name: Validate artifact directories
-        if: github.event.action != 'closed'
-        run: make validate
-
       - name: Generate thumbnails
-        if: github.event.action != 'closed'
         run: make thumbnails
 
       - name: Generate content index
-        if: github.event.action != 'closed'
         run: make index
 
-      - name: Detect changes
-        if: github.event.action != 'closed'
+      - name: Detect generated changes
         id: changes
         run: |
-          git add -A js/data.js README.md apps
+          git add -A js/data.js js/gallery-config.js README.md apps
           if git diff --staged --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -108,15 +192,15 @@ jobs:
           fi
 
       - name: Commit generated files (verified)
-        if: github.event_name != 'pull_request' && github.event.action != 'closed' && steps.changes.outputs.changed == 'true' && steps.token-status.outputs.available == 'true'
+        if: github.event_name != 'pull_request' && steps.changes.outputs.changed == 'true' && steps.token-status.outputs.available == 'true'
         uses: ./.github/actions/verified-commit
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           base-branch: ${{ github.ref_name }}
           expected-head-sha: ${{ github.sha }}
-          commit-headline: "ci: update generated artifacts [skip ci]"
+          commit-headline: "Update generated artifacts [skip ci]"
           fallback-branch-prefix: auto/update-artifacts
-          pr-title: "ci: update generated artifacts"
+          pr-title: "Update generated artifacts"
           pr-body: |
             ## Summary
             - Type: CI automation
@@ -124,11 +208,12 @@ jobs:
             - Direct commit to the default branch was blocked by branch protection
           pathspec: |
             js/data.js
+            js/gallery-config.js
             README.md
             apps
 
       - name: Re-checkout after API commit
-        if: github.event_name != 'pull_request' && github.event.action != 'closed' && steps.changes.outputs.changed == 'true' && steps.token-status.outputs.available == 'true'
+        if: github.event_name != 'pull_request' && steps.changes.outputs.changed == 'true' && steps.token-status.outputs.available == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ github.ref_name }}
@@ -136,7 +221,6 @@ jobs:
           persist-credentials: false
 
       - name: Prepare deployable site
-        if: github.event.action != 'closed'
         run: make site
 
       - name: Deploy PR preview
@@ -151,7 +235,7 @@ jobs:
           qr-code: false
 
       - name: Post PR preview link
-        if: github.event_name == 'pull_request' && github.event.action != 'closed' && steps.token-status.outputs.available == 'true'
+        if: github.event_name == 'pull_request' && steps.token-status.outputs.available == 'true'
         uses: marocchino/sticky-pull-request-comment@70d2764d1a7d5d9560b100cbea0077fc8f633987 # v3
         with:
           header: pr-preview
@@ -161,34 +245,23 @@ jobs:
 
             Preview URL: ${{ steps.preview.outputs.preview-url }}
 
-      - name: Remove PR preview link comment
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' && steps.token-status.outputs.available == 'true'
-        uses: marocchino/sticky-pull-request-comment@70d2764d1a7d5d9560b100cbea0077fc8f633987 # v3
-        with:
-          header: pr-preview
-          delete: true
-
       - name: Summarize PR preview
-        if: github.event_name == 'pull_request' && github.event.action != 'closed' && steps.token-status.outputs.available == 'true'
+        if: github.event_name == 'pull_request' && steps.token-status.outputs.available == 'true'
         run: |
           {
             echo "## PR Preview"
             echo
             echo "Preview URL: ${{ steps.preview.outputs.preview-url }}"
             echo
-            if [ "${{ steps.changes.outputs.changed }}" = "true" ]; then
-              echo "Generated files changed during this run:"
-              echo
-              echo '```text'
-              git diff --staged --name-status -- js/data.js README.md apps
-              echo '```'
-            else
-              echo "No generated file changes were detected during this run."
-            fi
+            echo "Generated changes staged for this run:"
+            echo
+            echo '```text'
+            git diff --staged --name-status -- js/data.js js/gallery-config.js README.md apps || true
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Note limited PR preview
-        if: github.event_name == 'pull_request' && github.event.action != 'closed' && steps.token-status.outputs.available != 'true'
+        if: github.event_name == 'pull_request' && steps.token-status.outputs.available != 'true'
         run: |
           {
             echo "## PR Preview"
@@ -207,3 +280,65 @@ jobs:
             pr-preview/
           force: false
           commit-message: Deploy site for ${{ github.sha }}
+
+      - name: Summarize publish
+        if: github.event_name != 'pull_request'
+        run: |
+          {
+            echo "## Publish"
+            echo
+            echo "Deploy version: ${{ github.sha }}"
+            echo "Generated files changed: ${{ steps.changes.outputs.changed }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  cleanup-preview:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Determine whether app-token actions are allowed
+        id: token-policy
+        run: |
+          allowed=true
+          if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            allowed=false
+          fi
+          echo "allowed=$allowed" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub App token
+        id: app-token
+        if: steps.token-policy.outputs.allowed == 'true'
+        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Ensure preview workspace exists
+        if: steps.token-policy.outputs.allowed == 'true'
+        run: mkdir -p _site
+
+      - name: Remove PR preview deployment
+        if: steps.token-policy.outputs.allowed == 'true'
+        uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1
+        with:
+          source-dir: _site
+          preview-branch: gh-pages
+          token: ${{ steps.app-token.outputs.token }}
+          comment: false
+          qr-code: false
+
+      - name: Remove PR preview link comment
+        if: steps.token-policy.outputs.allowed == 'true'
+        uses: marocchino/sticky-pull-request-comment@70d2764d1a7d5d9560b100cbea0077fc8f633987 # v3
+        with:
+          header: pr-preview
+          delete: true
