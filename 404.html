@@ -88,22 +88,24 @@
         <a id="home-link" href="/artifacts/">Return to gallery</a>
     </main>
     <script>
-        const homeLink = document.getElementById("home-link");
-        const sitePath = document.body.dataset.sitePath || "/";
-        const siteParts = sitePath.split("/").filter(Boolean);
-        const pathParts = window.location.pathname.split("/").filter(Boolean);
-        const isPreviewPath =
-            pathParts.length >= siteParts.length + 2 &&
-            pathParts.slice(0, siteParts.length).join("/") === siteParts.join("/") &&
-            pathParts[siteParts.length] === "pr-preview";
+        (function () {
+            const homeLink = document.getElementById("home-link");
+            const sitePath = document.body.dataset.sitePath || "/";
+            const siteParts = sitePath.split("/").filter(Boolean);
+            const pathParts = window.location.pathname.split("/").filter(Boolean);
+            const isPreviewPath =
+                pathParts.length >= siteParts.length + 2 &&
+                pathParts.slice(0, siteParts.length).join("/") === siteParts.join("/") &&
+                pathParts[siteParts.length] === "pr-preview";
 
-        if (!isPreviewPath) {
-            homeLink.href = sitePath;
-            return;
-        }
+            if (!isPreviewPath) {
+                homeLink.href = sitePath;
+                return;
+            }
 
-        const previewRoot = [...siteParts, "pr-preview", pathParts[siteParts.length + 1]];
-        homeLink.href = `/${previewRoot.join("/")}/`;
+            const previewRoot = [...siteParts, "pr-preview", pathParts[siteParts.length + 1]];
+            homeLink.href = `/${previewRoot.join("/")}/`;
+        })();
     </script>
 </body>
 </html>
