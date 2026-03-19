@@ -1,3 +1,4 @@
+/** Extract a human-readable message from an error of any shape. */
 function normalizeErrorMessage(error) {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -14,6 +15,7 @@ function normalizeErrorMessage(error) {
   return 'Unknown runtime error';
 }
 
+/** Create a runtime instance providing error reporting, storage access, and lifecycle status. */
 export function createRuntime({ consoleObj = console, documentObj = document, windowObj = window } = {}) {
   const state = {
     ready: false,

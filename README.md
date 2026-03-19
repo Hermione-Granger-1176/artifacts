@@ -32,6 +32,7 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 - [`frontend.md`](docs/frontend.md): JavaScript module layout and test coverage
 - [`operations.md`](docs/operations.md): local workflows, CI, and generation notes
 - [`maintenance.md`](docs/maintenance.md): maintenance rules and long-term repo hygiene
+- [`style.md`](docs/style.md): editor configuration and language conventions
 - [`CONTRIBUTING.md`](.github/CONTRIBUTING.md): contribution and dependency update workflow
 - [`SECURITY.md`](.github/SECURITY.md): how to report vulnerabilities
 - [`CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md): collaboration expectations

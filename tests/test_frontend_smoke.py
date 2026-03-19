@@ -42,6 +42,7 @@ def build_smoke_site(
 
     shutil.copy2(REPO_ROOT / "index.html", source_root / "index.html")
     shutil.copy2(REPO_ROOT / "404.html", source_root / "404.html")
+    copy_tree(REPO_ROOT / "assets", source_root / "assets")
     copy_tree(REPO_ROOT / "css", source_root / "css")
     copy_tree(REPO_ROOT / "js", source_root / "js")
 

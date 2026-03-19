@@ -6,17 +6,20 @@ Scans artifact directories for index.html files and uses Playwright to
 capture screenshots for artifacts with missing or stale thumbnails, saving an
 optimized thumbnail.webp in the artifact folder.
 
+Artifacts are processed concurrently using async Playwright with a bounded
+semaphore to limit parallel browser pages.
+
 Usage:
     python scripts/generate_thumbnails.py
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import sys
 from io import BytesIO
 from pathlib import Path
-from time import sleep
 from typing import Any, TypedDict
 
 from PIL import Image
@@ -40,6 +43,7 @@ POST_LOAD_DELAY_MS = 1000
 SCREENSHOT_RETRY_ATTEMPTS = 3
 SCREENSHOT_RETRY_BACKOFF_BASE_SECONDS = 0.5
 SCREENSHOT_RETRY_BACKOFF_MAX_SECONDS = 2.0
+MAX_CONCURRENT_PAGES = 4
 
 
 class ThumbnailStats(TypedDict):
@@ -107,39 +111,79 @@ def _retry_delay_seconds(attempt: int) -> float:
     )
 
 
-def _capture_screenshot(page: Any, file_url: str, artifact_name: str) -> bytes:
+async def _capture_screenshot(
+    page: Any, file_url: str, artifact_name: str
+) -> bytes:
     """Capture one artifact screenshot with bounded retries for transient failures."""
 
     last_error: Exception | None = None
 
     for attempt in range(1, SCREENSHOT_RETRY_ATTEMPTS + 1):
         try:
-            page.goto(file_url, wait_until="networkidle", timeout=NAVIGATION_TIMEOUT_MS)
-            page.wait_for_timeout(POST_LOAD_DELAY_MS)
-            return page.screenshot(type="png")
+            await page.goto(
+                file_url, wait_until="networkidle", timeout=NAVIGATION_TIMEOUT_MS
+            )
+            await page.wait_for_timeout(POST_LOAD_DELAY_MS)
+            return await page.screenshot(type="png")
         except Exception as exc:
             last_error = exc
-            if attempt < SCREENSHOT_RETRY_ATTEMPTS:
-                delay_seconds = _retry_delay_seconds(attempt)
-                logger.warning(
-                    "Retrying %s after screenshot attempt %d/%d failed: %s",
-                    artifact_name,
-                    attempt,
-                    SCREENSHOT_RETRY_ATTEMPTS,
-                    exc,
-                )
-                sleep(delay_seconds)
-                continue
-
-            break
+            if attempt >= SCREENSHOT_RETRY_ATTEMPTS:
+                break
+            delay_seconds = _retry_delay_seconds(attempt)
+            logger.warning(
+                "Retrying %s after screenshot attempt %d/%d failed: %s",
+                artifact_name,
+                attempt,
+                SCREENSHOT_RETRY_ATTEMPTS,
+                exc,
+            )
+            await asyncio.sleep(delay_seconds)
 
     assert last_error is not None
     raise last_error
 
 
-def generate_thumbnails() -> ThumbnailStats:
-    """Generate thumbnail screenshots for all artifacts."""
-    artifacts = find_artifacts()
+async def _process_artifact(
+    browser: Any,
+    artifact_dir: Path,
+    semaphore: asyncio.Semaphore,
+) -> str:
+    """Process one artifact and return its status string."""
+    if not should_generate_thumbnail(artifact_dir):
+        logger.info("Skipping %s (thumbnail is up to date)", artifact_dir.name)
+        return "skipped"
+
+    logger.info("Screenshotting %s", artifact_dir.name)
+    async with semaphore:
+        page = await browser.new_page(
+            viewport={"width": VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
+            device_scale_factor=2,
+        )
+        try:
+            html_path = artifact_dir / "index.html"
+            thumb_path = artifact_dir / SCREENSHOT_FILE
+            legacy_thumb_path = artifact_dir / LEGACY_SCREENSHOT_FILE
+            file_url = html_path.resolve().as_uri()
+
+            screenshot_bytes = await _capture_screenshot(
+                page, file_url, artifact_dir.name
+            )
+            save_thumbnail(screenshot_bytes, thumb_path)
+            if legacy_thumb_path.exists():
+                legacy_thumb_path.unlink()
+            logger.info("  -> %s", thumb_path.name)
+            return "generated"
+        except Exception as exc:
+            logger.warning("Failed to screenshot %s: %s", artifact_dir.name, exc)
+            return "failed"
+        finally:
+            await page.close()
+
+
+async def _run_generation(
+    artifacts: list[Path], async_playwright_cm: Any
+) -> ThumbnailStats:
+    """Run concurrent thumbnail generation and return aggregated stats."""
     stats: ThumbnailStats = {
         "total": len(artifacts),
         "attempted": 0,
@@ -147,55 +191,21 @@ def generate_thumbnails() -> ThumbnailStats:
         "skipped": 0,
         "failed": 0,
     }
-    if not artifacts:
-        logger.info("No artifacts found")
-        return stats
 
-    logger.info("Found %d artifact(s) to screenshot", len(artifacts))
+    async with async_playwright_cm() as p:
+        browser = await p.chromium.launch()
+        semaphore = asyncio.Semaphore(MAX_CONCURRENT_PAGES)
 
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        logger.error(
-            "Playwright is not installed. Run `make setup` to install pinned "
-            "dependencies and Chromium."
-        )
-        sys.exit(1)
-
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page(
-            viewport={"width": VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
-            device_scale_factor=2,
+        results = await asyncio.gather(
+            *[_process_artifact(browser, d, semaphore) for d in artifacts]
         )
 
-        for artifact_dir in artifacts:
-            html_path = artifact_dir / "index.html"
-            thumb_path = artifact_dir / SCREENSHOT_FILE
-            legacy_thumb_path = artifact_dir / LEGACY_SCREENSHOT_FILE
-            file_url = html_path.resolve().as_uri()
+        for status in results:
+            stats[status] += 1
+            if status != "skipped":
+                stats["attempted"] += 1
 
-            if not should_generate_thumbnail(artifact_dir):
-                stats["skipped"] += 1
-                logger.info("Skipping %s (thumbnail is up to date)", artifact_dir.name)
-                continue
-
-            logger.info("Screenshotting %s", artifact_dir.name)
-            stats["attempted"] += 1
-            try:
-                screenshot_bytes = _capture_screenshot(
-                    page, file_url, artifact_dir.name
-                )
-                save_thumbnail(screenshot_bytes, thumb_path)
-                if legacy_thumb_path.exists():
-                    legacy_thumb_path.unlink()
-                stats["generated"] += 1
-                logger.info("  -> %s", thumb_path.name)
-            except Exception as exc:
-                stats["failed"] += 1
-                logger.warning("Failed to screenshot %s: %s", artifact_dir.name, exc)
-
-        browser.close()
+        await browser.close()
 
     logger.info("Done generating thumbnails")
     logger.info(_summarize(stats))
@@ -204,6 +214,33 @@ def generate_thumbnails() -> ThumbnailStats:
         raise RuntimeError("Thumbnail generation failed for every attempted artifact")
 
     return stats
+
+
+def generate_thumbnails() -> ThumbnailStats:
+    """Generate thumbnail screenshots for all artifacts."""
+    artifacts = find_artifacts()
+    if not artifacts:
+        logger.info("No artifacts found")
+        return {
+            "total": 0,
+            "attempted": 0,
+            "generated": 0,
+            "skipped": 0,
+            "failed": 0,
+        }
+
+    logger.info("Found %d artifact(s) to screenshot", len(artifacts))
+
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError:
+        logger.error(
+            "Playwright is not installed. Run `make setup` to install pinned "
+            "dependencies and Chromium."
+        )
+        sys.exit(1)
+
+    return asyncio.run(_run_generation(artifacts, async_playwright))
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -9,12 +9,16 @@
 
 ## JavaScript module responsibilities
 
-- `js/modules/gallery-app.js`: DOM wiring, event handlers, URL state, filtering, pagination, overlays, and theme behavior
+- `js/modules/gallery-app.js`: DOM wiring, event handlers, URL state, filtering, pagination, and theme behavior
 - `js/modules/catalog.js`: pure catalog helpers for search text, selection normalization, sorting, and pagination math
-- `js/modules/render.js`: HTML generation and DOM sync helpers for cards, detail content, filters, and pagination
 - `js/modules/config.js`: bootstrap data validation, generated config hydration, and label helpers
-- `js/modules/runtime.js`: startup status, error reporting, and guarded localStorage access
+- `js/modules/detail-overlay.js`: detail panel lifecycle, open/close animation, and focus trapping
+- `js/modules/filter-dropdown.js`: filter dropdown open/close state management
 - `js/modules/icons.js`: shared inline SVG icon markup
+- `js/modules/inert.js`: background element inert/interactive toggling for overlay accessibility
+- `js/modules/motion.js`: reduced-motion-aware scroll and animation helpers
+- `js/modules/render.js`: HTML generation and DOM sync helpers for cards, detail content, filters, and pagination
+- `js/modules/runtime.js`: startup status, error reporting, and guarded localStorage access
 
 Invalid generated bootstrap data fails startup before the gallery initializes, which routes through the runtime error banner and global error reporting.
 
@@ -22,7 +26,11 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 
 - `tests/js/catalog.test.js`: catalog helper behavior
 - `tests/js/config.test.js`: config merging, bootstrap validation, and label fallbacks
+- `tests/js/detail-overlay.test.js`: overlay open/close, focus trapping, animation, and motion preferences
+- `tests/js/filter-dropdown.test.js`: dropdown toggle, open, close, and state queries
 - `tests/js/gallery-app.test.js`: URL state parsing and serialization helpers extracted from the gallery orchestrator
+- `tests/js/inert.test.js`: element inert toggling and background content management
+- `tests/js/motion.test.js`: reduced-motion detection, scroll behavior, and scroll-to-top
 - `tests/js/render.test.js`: escaping, filter UI sync, detail content, card rendering, and pagination markup
 - `tests/js/runtime.test.js`: runtime state, error capture, and fatal banner behavior
 - `tests/js/verified-commit.test.js`: workflow helper logic for the verified-commit action

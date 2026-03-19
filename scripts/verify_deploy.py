@@ -11,7 +11,6 @@ Usage:
     python scripts/verify_deploy.py --url https://example.test/pr-preview/pr-42/ \
         --expected-substring "?v=<sha>"
 """
-
 from __future__ import annotations
 
 import argparse
@@ -39,13 +38,11 @@ DEFAULT_TIMEOUT_SECONDS = 20.0
 
 def _normalize_site_url(value: str) -> str:
     """Return a normalized site URL with a trailing slash."""
-
     return value.rstrip("/") + "/"
 
 
 def _load_site_url() -> str:
     """Load the configured site URL from ``pyproject.toml``."""
-
     if not PYPROJECT_FILE.exists():
         raise FileNotFoundError(f"pyproject.toml not found: {PYPROJECT_FILE}")
 
@@ -61,7 +58,6 @@ def _load_site_url() -> str:
 
 def _fetch_text(url: str, timeout_seconds: float) -> tuple[int, str]:
     """Fetch text content from a deployed URL."""
-
     with urllib.request.urlopen(url, timeout=timeout_seconds) as response:
         status_code = response.getcode()
         charset = response.headers.get_content_charset("utf-8")
@@ -78,7 +74,6 @@ def verify_deploy(
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> None:
     """Wait until the deployed HTML contains the expected marker."""
-
     if attempts < 1:
         raise ValueError("attempts must be at least 1")
 
@@ -120,7 +115,6 @@ def verify_deploy(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse command-line arguments."""
-
     parser = argparse.ArgumentParser(description="Verify a published site deployment")
     parser.add_argument("--url", help="Published URL to verify")
     parser.add_argument(
@@ -151,7 +145,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
-
     args = parse_args(argv)
     url = _normalize_site_url(args.url) if args.url else _load_site_url()
     verify_deploy(

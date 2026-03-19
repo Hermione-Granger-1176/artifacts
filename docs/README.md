@@ -9,6 +9,7 @@ If you are new to the repo, read in this order:
 3. [`frontend.md`](frontend.md) for JavaScript module responsibilities and test coverage
 4. [`operations.md`](operations.md) for local commands, CI behavior, and troubleshooting
 5. [`maintenance.md`](maintenance.md) for ongoing upkeep and workflow hygiene
+6. [`style.md`](style.md) for editor configuration and language conventions
 
 What these docs cover:
 

@@ -5,6 +5,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 export const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
 export const DEFAULT_MAX_ATTEMPTS = 3;
 
+/** @param {string} input - Newline-separated pathspec entries
+ *  @returns {string[]} Trimmed, non-empty pathspec entries */
 export function splitPathspec(input) {
   return (input || '')
     .split(/\r?\n/)
@@ -12,6 +14,10 @@ export function splitPathspec(input) {
     .filter(Boolean);
 }
 
+/** Parse `git diff --name-status` output into additions and deletions for the GraphQL API.
+ *  @param {string} diffOutput - Raw output from `git diff --name-status`
+ *  @param {{ existsSync: (path: string) => boolean, readFileSync: (path: string) => Buffer }} deps - File-system helpers
+ *  @returns {{ additions: { path: string, contents: string }[], deletions: { path: string }[] }} */
 export function parseDiffOutput(diffOutput, { existsSync, readFileSync }) {
   const additions = [];
   const deletions = [];
@@ -21,43 +27,27 @@ export function parseDiffOutput(diffOutput, { existsSync, readFileSync }) {
   }
 
   for (const line of diffOutput.trim().split('\n')) {
-    const parts = line.split('\t');
-    const status = parts[0] || '';
+    const [status = '', path1, path2] = line.split('\t');
+    const code = status.charAt(0);
 
-    switch (status.charAt(0)) {
-      case 'R': {
-        if (parts.length >= 3) {
-          deletions.push({ path: parts[1] });
-          additions.push({
-            path: parts[2],
-            contents: readFileSync(parts[2]).toString('base64')
-          });
-        }
-        break;
-      }
-
-      case 'D': {
-        if (parts[1]) {
-          deletions.push({ path: parts[1] });
-        }
-        break;
-      }
-
-      default: {
-        const filePath = parts[1];
-        if (filePath && existsSync(filePath)) {
-          additions.push({
-            path: filePath,
-            contents: readFileSync(filePath).toString('base64')
-          });
-        }
-      }
+    if (code === 'R' && path1 && path2) {
+      deletions.push({ path: path1 });
+      additions.push({ path: path2, contents: readFileSync(path2).toString('base64') });
+    } else if (code === 'D' && path1) {
+      deletions.push({ path: path1 });
+    } else if (path1 && existsSync(path1)) {
+      additions.push({ path: path1, contents: readFileSync(path1).toString('base64') });
     }
   }
 
   return { additions, deletions };
 }
 
+/** Fetch JSON from a URL with retries and a per-request timeout.
+ *  @param {string} url - Request URL
+ *  @param {RequestInit} options - Fetch options
+ *  @param {object} [dependencies] - Injectable overrides for fetch, sleep, retry limits, and timeout
+ *  @returns {Promise<object | null>} Parsed JSON body, or null on 204 */
 export async function fetchJson(url, options, dependencies = {}) {
   const {
     fetchImpl = fetch,
@@ -65,8 +55,6 @@ export async function fetchJson(url, options, dependencies = {}) {
     requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
     sleepImpl = sleep
   } = dependencies;
-
-  let lastError = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const controller = new AbortController();
@@ -89,9 +77,7 @@ export async function fetchJson(url, options, dependencies = {}) {
 
       return await response.json();
     } catch (error) {
-      lastError = error;
-      const shouldRetry = attempt < maxAttempts && isRetryableError(error);
-      if (!shouldRetry) {
+      if (attempt >= maxAttempts || !isRetryableError(error)) {
         throw error;
       }
 
@@ -100,10 +86,10 @@ export async function fetchJson(url, options, dependencies = {}) {
       clearTimeout(timeout);
     }
   }
-
-  throw lastError;
 }
 
+/** @param {Error | null} error
+ *  @returns {boolean} Whether the error is transient and worth retrying */
 export function isRetryableError(error) {
   if (!error) {
     return false;
@@ -117,6 +103,9 @@ export function isRetryableError(error) {
   return /429|502|503|504|timed out|ECONNRESET|network/i.test(message);
 }
 
+/** Build argument list for `git diff --staged --name-status`, optionally filtered by pathspec.
+ *  @param {string[]} pathspec - Paths to restrict the diff
+ *  @returns {string[]} Argument array for execFileSync */
 export function createGitArgs(pathspec) {
   const gitArgs = ['diff', '--staged', '--name-status'];
   if (pathspec.length > 0) {
@@ -125,11 +114,18 @@ export function createGitArgs(pathspec) {
   return gitArgs;
 }
 
+/** Generate a date-stamped branch name (e.g. `prefix-20260319`).
+ *  @param {string} prefix - Branch name prefix
+ *  @param {Date} [date=new Date()] - Date used for the stamp
+ *  @returns {string} */
 export function createBranchName(prefix, date = new Date()) {
   const value = date.toISOString().slice(0, 10).replace(/-/g, '');
   return `${prefix}-${value}`;
 }
 
+/** Create authenticated GitHub REST and GraphQL helpers.
+ *  @param {{ owner: string, repo: string, token: string, fetchDependencies: object }} config
+ *  @returns {{ fetchJson: (url: string, options?: RequestInit) => Promise<object | null>, graphql: (query: string, variables: object) => Promise<object>, owner: string, repo: string }} */
 export function createApiClients({ owner, repo, token, fetchDependencies }) {
   const fetchWithHeaders = (url, options = {}) =>
     fetchJson(
@@ -169,6 +165,9 @@ export function createApiClients({ owner, repo, token, fetchDependencies }) {
   };
 }
 
+/** Commit staged changes via the GitHub GraphQL API (verified/signed), falling back to a PR.
+ *  @param {object} [deps] - Injectable environment, fs, exec, and fetch overrides
+ *  @returns {Promise<{ changed: boolean, resultUrl: string }>} */
 export async function runVerifiedCommit({
   env = process.env,
   execFileSyncImpl = execFileSync,
@@ -198,14 +197,18 @@ export async function runVerifiedCommit({
     appendFileSyncImpl(outputFile, `${name}=${value}\n`);
   };
 
+  const noChange = (message) => {
+    consoleObj.log(message);
+    setOutput('changed', 'false');
+    setOutput('result-url', '');
+    return { changed: false, resultUrl: '' };
+  };
+
   const gitArgs = createGitArgs(pathspec);
   const diffOutput = execFileSyncImpl('git', gitArgs, { encoding: 'utf8' }).trim();
 
   if (!diffOutput) {
-    consoleObj.log('No staged changes to commit');
-    setOutput('changed', 'false');
-    setOutput('result-url', '');
-    return { changed: false, resultUrl: '' };
+    return noChange('No staged changes to commit');
   }
 
   const { additions, deletions } = parseDiffOutput(diffOutput, {
@@ -214,10 +217,7 @@ export async function runVerifiedCommit({
   });
 
   if (additions.length === 0 && deletions.length === 0) {
-    consoleObj.log('No staged file payloads were produced');
-    setOutput('changed', 'false');
-    setOutput('result-url', '');
-    return { changed: false, resultUrl: '' };
+    return noChange('No staged file payloads were produced');
   }
 
   setOutput('changed', 'true');
