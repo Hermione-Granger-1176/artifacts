@@ -148,7 +148,7 @@ def test_gallery_smoke_covers_root_interactions(tmp_path: Path, monkeypatch) -> 
         expect(page.locator("#pagination .page-btn")).to_have_count(6)
         expect(page.locator("html")).to_have_attribute("data-runtime-status", "ready")
 
-        page.locator('[data-page="2"]').click()
+        page.get_by_role("button", name="Page 2").click()
         expect(page.locator(".artifact-card")).to_have_count(1)
 
         page.fill("#search-input", "Artifact 13")
