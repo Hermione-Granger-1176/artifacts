@@ -68,14 +68,8 @@ jobs:
             const path = require("path");
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-
-            const branchName = context.ref.replace("refs/heads/", "");
-
-            const { data: ref } = await github.rest.git.getRef({
-              owner,
-              repo,
-              ref: `heads/${branchName}`,
-            });
+            const defaultBranch = context.ref.replace("refs/heads/", "");
+            const headSha = context.sha;
 
             // Collect changed files
             const additions = [];
@@ -117,27 +111,92 @@ jobs:
               }
             `;
 
-            const result = await github.graphql(mutation, {
-              input: {
-                branch: {
-                  repositoryNameWithOwner: `${owner}/${repo}`,
-                  branchName,
+            try {
+              const result = await github.graphql(mutation, {
+                input: {
+                  branch: {
+                    repositoryNameWithOwner: `${owner}/${repo}`,
+                    branchName: defaultBranch,
+                  },
+                  expectedHeadOid: headSha,
+                  message: {
+                    headline: "Auto-update artifacts [skip ci]",
+                  },
+                  fileChanges: { additions },
                 },
-                expectedHeadOid: ref.object.sha,
-                message: {
-                  headline: "Auto-update artifacts [skip ci]",
-                },
-                fileChanges: { additions },
-              },
-            });
+              });
+              core.info(
+                `Created verified commit: ${result.createCommitOnBranch.commit.url}`
+              );
+            } catch (err) {
+              core.info(
+                `Direct commit failed (${err.message}), creating branch and PR`
+              );
 
-            core.info(`Created commit: ${result.createCommitOnBranch.commit.url}`);
+              const date = new Date()
+                .toISOString()
+                .slice(0, 10)
+                .replace(/-/g, "");
+              const newBranch = `auto/update-artifacts-${date}`;
+
+              let branchSha = headSha;
+              try {
+                await github.rest.git.createRef({
+                  owner,
+                  repo,
+                  ref: `refs/heads/${newBranch}`,
+                  sha: headSha,
+                });
+              } catch {
+                const { data: existingRef } = await github.rest.git.getRef({
+                  owner,
+                  repo,
+                  ref: `heads/${newBranch}`,
+                });
+                branchSha = existingRef.object.sha;
+              }
+
+              await github.graphql(mutation, {
+                input: {
+                  branch: {
+                    repositoryNameWithOwner: `${owner}/${repo}`,
+                    branchName: newBranch,
+                  },
+                  expectedHeadOid: branchSha,
+                  message: {
+                    headline: "Auto-update artifacts",
+                  },
+                  fileChanges: { additions },
+                },
+              });
+
+              const { data: existing } = await github.rest.pulls.list({
+                owner,
+                repo,
+                state: "open",
+                head: `${owner}:${newBranch}`,
+              });
+
+              if (existing.length === 0) {
+                const { data: pr } = await github.rest.pulls.create({
+                  owner,
+                  repo,
+                  head: newBranch,
+                  base: defaultBranch,
+                  title: "Auto-update artifacts",
+                  body: "## Summary\n- Auto-generated artifacts update from `update.yml` workflow\n- Direct commit to default branch was blocked by branch protection\n",
+                });
+                core.info(`Created PR: ${pr.html_url}`);
+              } else {
+                core.info(`Updated existing PR: ${existing[0].html_url}`);
+              }
+            }
 
       - name: Re-checkout after API commit
         if: steps.changes.outputs.changed == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: main
+          ref: ${{ github.ref_name }}
           fetch-depth: 1
 
       - name: Setup Pages
