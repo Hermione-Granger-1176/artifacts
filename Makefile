@@ -60,7 +60,7 @@ coverage-js:
 
 security:
 	$(VENV_PYTHON) -m pip_audit --requirement locks/requirements-dev.lock
-	$(NPM) audit --omit=dev
+	$(NPM) audit
 
 validate:
 	$(PYTHON) -c "from scripts.generate_index import validate; validate()"
