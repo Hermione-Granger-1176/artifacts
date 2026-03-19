@@ -41,6 +41,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `locks/requirements.lock`, `locks/requirements-dev.lock`: frozen Python dependency graphs
 - `package.json`, `package-lock.json`: frozen Node tooling graph
 - `scripts/prepare_site.py`: deploy-time site assembly, cache busting, and site path injection
+- `scripts/verify_deploy.py`: post-deploy polling and verification for published Pages URLs
 - `.github/actions/verified-commit/action.yml` and `.github/actions/verified-commit/verified-commit.mjs`: shared verified commit and PR fallback logic for CI
 - `.github/workflows/update.yml`: main automation workflow for pushes, PR previews, and manual runs
 

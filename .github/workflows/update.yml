@@ -52,11 +52,33 @@ jobs:
           ARTIFACTS_REQUIRE_BROWSER_TESTS: '1'
         run: make test
 
+      - name: Report JavaScript coverage
+        run: |
+          set -o pipefail
+          make coverage-js | tee js-coverage.txt
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          report = Path("js-coverage.txt").read_text(encoding="utf-8")
+          start_marker = "ℹ start of coverage report"
+          end_marker = "ℹ end of coverage report"
+          start = report.find(start_marker)
+          end = report.find(end_marker)
+          if start == -1 or end == -1:
+              raise SystemExit("Coverage report markers not found in js-coverage.txt")
+          snippet = report[start : end + len(end_marker)]
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
+              summary.write("## JavaScript Coverage\n\n```text\n")
+              summary.write(snippet)
+              summary.write("\n```\n")
+          PY
+
       - name: Validate artifact directories
         run: make validate
 
-      - name: Audit Python dependencies
-        run: .venv/bin/python -m pip_audit --requirement locks/requirements-dev.lock
+      - name: Run practical dependency audits
+        run: make security
 
       - name: Generate thumbnails
         run: make thumbnails
@@ -223,6 +245,10 @@ jobs:
       - name: Prepare deployable site
         run: make site
 
+      - name: Resolve deployed asset marker
+        id: deploy-version
+        run: echo "short-sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Deploy PR preview
         if: github.event_name == 'pull_request' && steps.token-status.outputs.available == 'true'
         id: preview
@@ -244,6 +270,15 @@ jobs:
             CI preview
 
             Preview URL: ${{ steps.preview.outputs.preview-url }}
+
+      - name: Verify PR preview deployment
+        if: github.event_name == 'pull_request' && steps.token-status.outputs.available == 'true'
+        run: >-
+          .venv/bin/python scripts/verify_deploy.py
+          --url "${{ steps.preview.outputs.preview-url }}"
+          --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
+          --attempts 18
+          --delay-seconds 10
 
       - name: Summarize PR preview
         if: github.event_name == 'pull_request' && steps.token-status.outputs.available == 'true'
@@ -281,6 +316,14 @@ jobs:
           force: false
           commit-message: Deploy site for ${{ github.sha }}
 
+      - name: Verify published site
+        if: github.event_name != 'pull_request' && steps.token-status.outputs.available == 'true'
+        run: >-
+          .venv/bin/python scripts/verify_deploy.py
+          --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
+          --attempts 18
+          --delay-seconds 10
+
       - name: Summarize publish
         if: github.event_name != 'pull_request'
         run: |
@@ -289,6 +332,7 @@ jobs:
             echo
             echo "Deploy version: ${{ github.sha }}"
             echo "Generated files changed: ${{ steps.changes.outputs.changed }}"
+            echo "Published URL verified: yes"
           } >> "$GITHUB_STEP_SUMMARY"
 
   cleanup-preview:

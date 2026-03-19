@@ -21,6 +21,48 @@ const DEFAULTS = { page: 1, sort: 'newest', q: '' };
 const SCROLL_TOP_THRESHOLD = 300;
 const DETAIL_CLOSE_DELAY = 360;
 
+export function readGalleryStateFromSearch({ search, allTools, allTags, defaults = DEFAULTS }) {
+  const params = new URLSearchParams(search);
+  return {
+    page: Math.max(1, Number.parseInt(params.get('page'), 10) || defaults.page),
+    q: (params.get('q') || defaults.q).toLowerCase(),
+    sort: params.get('sort') === 'oldest' ? 'oldest' : defaults.sort,
+    tools: normalizeSelection(splitListParam(params.get('tool')), allTools),
+    tags: normalizeSelection(splitListParam(params.get('tag')), allTags),
+    rawQuery: params.get('q') || ''
+  };
+}
+
+export function buildGalleryUrl({
+  pathname,
+  page,
+  sort,
+  q,
+  tools,
+  tags,
+  defaults = DEFAULTS
+}) {
+  const params = new URLSearchParams();
+  if (page > 1) {
+    params.set('page', page);
+  }
+  if (tools.length > 0) {
+    params.set('tool', tools.join(','));
+  }
+  if (tags.length > 0) {
+    params.set('tag', tags.join(','));
+  }
+  if (sort !== defaults.sort) {
+    params.set('sort', sort);
+  }
+  if (q) {
+    params.set('q', q);
+  }
+
+  const queryString = params.toString();
+  return queryString ? `${pathname}?${queryString}` : pathname;
+}
+
 function requireElement(documentObj, id) {
   const element = documentObj.getElementById(id);
   if (!element) {
@@ -352,37 +394,28 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   function readStateFromURL() {
-    const params = new URLSearchParams(windowObj.location.search);
-    currentPage = Math.max(1, Number.parseInt(params.get('page'), 10) || DEFAULTS.page);
-    currentFilter = (params.get('q') || DEFAULTS.q).toLowerCase();
-    currentSort = params.get('sort') === 'oldest' ? 'oldest' : DEFAULTS.sort;
-    currentTools = normalizeSelection(splitListParam(params.get('tool')), allTools);
-    currentTags = normalizeSelection(splitListParam(params.get('tag')), allTags);
-    searchInput.value = params.get('q') || '';
+    const nextState = readGalleryStateFromSearch({
+      search: windowObj.location.search,
+      allTools,
+      allTags
+    });
+    currentPage = nextState.page;
+    currentFilter = nextState.q;
+    currentSort = nextState.sort;
+    currentTools = nextState.tools;
+    currentTags = nextState.tags;
+    searchInput.value = nextState.rawQuery;
   }
 
   function buildQueryString() {
-    const params = new URLSearchParams();
-    if (currentPage > 1) {
-      params.set('page', currentPage);
-    }
-    if (currentTools.length > 0) {
-      params.set('tool', currentTools.join(','));
-    }
-    if (currentTags.length > 0) {
-      params.set('tag', currentTags.join(','));
-    }
-    if (currentSort !== DEFAULTS.sort) {
-      params.set('sort', currentSort);
-    }
-    if (currentFilter) {
-      params.set('q', currentFilter);
-    }
-
-    const queryString = params.toString();
-    return queryString
-      ? `${windowObj.location.pathname}?${queryString}`
-      : windowObj.location.pathname;
+    return buildGalleryUrl({
+      pathname: windowObj.location.pathname,
+      page: currentPage,
+      sort: currentSort,
+      q: currentFilter,
+      tools: currentTools,
+      tags: currentTags
+    });
   }
 
   function pushState() {
@@ -428,14 +461,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   function setBackgroundContentInert(isInert) {
-    backgroundElements.forEach((element) => {
-      if (isInert) {
-        makeElementInert(element);
-        return;
-      }
-
-      restoreElementInteractivity(element);
-    });
+    const updateInteractivity = isInert ? makeElementInert : restoreElementInteractivity;
+    backgroundElements.forEach(updateInteractivity);
   }
 
   function makeElementInert(element) {
@@ -526,16 +553,27 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   function getSelectedValues(key) {
-    return key === 'tool' ? currentTools : currentTags;
+    switch (key) {
+      case 'tool':
+        return currentTools;
+      case 'tag':
+        return currentTags;
+      default:
+        throw new Error(`Unknown filter key: ${key}`);
+    }
   }
 
   function setSelectedValues(key, values) {
-    if (key === 'tool') {
-      currentTools = normalizeSelection(values, allTools);
-      return;
+    switch (key) {
+      case 'tool':
+        currentTools = normalizeSelection(values, allTools);
+        return;
+      case 'tag':
+        currentTags = normalizeSelection(values, allTags);
+        return;
+      default:
+        throw new Error(`Unknown filter key: ${key}`);
     }
-
-    currentTags = normalizeSelection(values, allTags);
   }
 
   function toggleFilterDropdown(key) {

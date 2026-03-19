@@ -32,10 +32,13 @@ def build_smoke_site(
     *,
     site_path: str = "/",
     artifact_count: int = 13,
+    config_override=None,
+    artifacts_override=None,
 ) -> Path:
     source_root = tmp_path / "source"
     deploy_root = tmp_path / "_site"
     source_root.mkdir(parents=True, exist_ok=True)
+    (source_root / "apps").mkdir(parents=True, exist_ok=True)
 
     shutil.copy2(REPO_ROOT / "index.html", source_root / "index.html")
     shutil.copy2(REPO_ROOT / "404.html", source_root / "404.html")
@@ -69,6 +72,11 @@ def build_smoke_site(
         for index in range(1, artifact_count + 1)
     ]
 
+    if config_override is not None:
+        config = config_override
+    if artifacts_override is not None:
+        artifacts = artifacts_override
+
     write_text(
         source_root / "js" / "gallery-config.js",
         f"window.ARTIFACTS_CONFIG = {json.dumps(config, indent=2)};\n",
@@ -77,11 +85,12 @@ def build_smoke_site(
         source_root / "js" / "data.js",
         f"window.ARTIFACTS_DATA = {json.dumps(artifacts, indent=2)};\n",
     )
-    for artifact in artifacts:
-        write_text(
-            source_root / artifact["url"] / "index.html",
-            f"<html><body><h1>{artifact['name']}</h1></body></html>\n",
-        )
+    if isinstance(artifacts, list):
+        for artifact in artifacts:
+            write_text(
+                source_root / artifact["url"] / "index.html",
+                f"<html><body><h1>{artifact['name']}</h1></body></html>\n",
+            )
 
     write_text(
         source_root / "pyproject.toml", f'[tool.artifacts]\nsite_path = "{site_path}"\n'
@@ -118,11 +127,13 @@ def launch_browser(playwright):
     try:
         return playwright.chromium.launch()
     except Exception as exc:  # pragma: no cover - environment specific
-        if "Executable doesn't exist" in str(exc):
-            if REQUIRE_BROWSER_TESTS:
-                pytest.fail("Playwright Chromium is required for this test run")
-            pytest.skip("Playwright Chromium is not installed")
-        raise
+        if "Executable doesn't exist" not in str(exc):
+            raise
+
+        if REQUIRE_BROWSER_TESTS:
+            pytest.fail("Playwright Chromium is required for this test run")
+
+        pytest.skip("Playwright Chromium is not installed")
 
 
 def test_gallery_smoke_covers_root_interactions(tmp_path: Path, monkeypatch) -> None:
@@ -179,4 +190,24 @@ def test_404_links_handle_root_and_preview_paths(tmp_path: Path, monkeypatch) ->
         expect(page.locator("#home-link")).to_have_attribute(
             "href", "/pr-preview/pr-42/"
         )
+        browser.close()
+
+
+def test_gallery_shows_runtime_error_for_invalid_bootstrap_data(
+    tmp_path: Path, monkeypatch
+) -> None:
+    deploy_root = build_smoke_site(
+        tmp_path,
+        monkeypatch,
+        artifacts_override={"invalid": True},
+    )
+
+    with StaticServer(deploy_root) as server, sync_playwright() as playwright:
+        browser = launch_browser(playwright)
+        page = browser.new_page()
+        page.goto(f"{server.url}/", wait_until="networkidle")
+
+        expect(page.locator("html")).to_have_attribute("data-runtime-status", "error")
+        expect(page.locator("#runtime-error")).not_to_have_class("runtime-error hidden")
+        expect(page.locator(".artifact-card")).to_have_count(0)
         browser.close()

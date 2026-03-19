@@ -11,7 +11,7 @@ These are the main cross-cutting pieces that should stay consistent over time:
 - `.github/workflows/refresh-action-shas.yml` keeps pinned GitHub Actions references current
 - `.github/dependabot.yml` handles recurring dependency update checks
 - `locks/requirements.lock`, `locks/requirements-dev.lock`, and `package-lock.json` keep local and CI installs reproducible
-- `gh-pages` is a CI-managed deployment branch and should not be edited manually
+- `gh-pages` is a CI-managed deployment branch protected by a ruleset and should not be edited manually
 
 ## When changing CI
 
@@ -67,6 +67,7 @@ The preview workflow assumes GitHub Pages serves the repository from the `gh-pag
 - PR previews deploy under `pr-preview/pr-<number>/`
 - main deploys must preserve `pr-preview/`
 - do not manually merge or edit `gh-pages`; CI owns it
+- `gh-pages` ruleset bypass is intentionally limited to the deploy GitHub App and the single repo admin role for recovery
 
 ## Action SHA maintenance
 

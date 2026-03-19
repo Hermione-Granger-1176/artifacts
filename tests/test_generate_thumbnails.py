@@ -99,6 +99,13 @@ def test_summarize_formats_stats() -> None:
     assert "failed=1" in summary
 
 
+def test_retry_delay_seconds_is_bounded() -> None:
+    assert generate_thumbnails._retry_delay_seconds(1) == 0.5
+    assert generate_thumbnails._retry_delay_seconds(2) == 1.0
+    assert generate_thumbnails._retry_delay_seconds(3) == 2.0
+    assert generate_thumbnails._retry_delay_seconds(4) == 2.0
+
+
 def test_generate_thumbnails_returns_early_when_no_artifacts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -282,6 +289,91 @@ def test_generate_thumbnails_skips_up_to_date_artifacts(
     }
 
 
+def test_generate_thumbnails_retries_transient_failures_then_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact_dir = tmp_path / "loan-tool"
+    write_text(artifact_dir / "index.html", "<html></html>")
+    monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
+    monkeypatch.setattr(
+        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
+    )
+
+    save_calls: list[tuple[bytes, Path]] = []
+    sleep_calls: list[float] = []
+    goto_calls = 0
+
+    class FakePage:
+        def goto(self, url: str, wait_until: str, timeout: int) -> None:
+            nonlocal goto_calls
+            goto_calls += 1
+            if goto_calls < 3:
+                raise RuntimeError(f"transient-{goto_calls}")
+
+        def wait_for_timeout(self, milliseconds: int) -> None:
+            assert milliseconds == generate_thumbnails.POST_LOAD_DELAY_MS
+
+        def screenshot(self, type: str) -> bytes:
+            assert type == "png"
+            return b"png-bytes"
+
+    class FakeBrowser:
+        def new_page(
+            self, viewport: dict[str, int], device_scale_factor: int
+        ) -> FakePage:
+            return FakePage()
+
+        def close(self) -> None:
+            return None
+
+    class FakePlaywright:
+        def __init__(self) -> None:
+            self.chromium = types.SimpleNamespace(launch=lambda: FakeBrowser())
+
+    class FakeSyncPlaywright:
+        def __enter__(self) -> FakePlaywright:
+            return FakePlaywright()
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    original_import = builtins.__import__
+
+    def fake_import(
+        name: str,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
+        fromlist: Sequence[str] = (),
+        level: int = 0,
+    ) -> object:
+        if name == "playwright.sync_api":
+            return types.SimpleNamespace(sync_playwright=lambda: FakeSyncPlaywright())
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    monkeypatch.setattr(generate_thumbnails, "sleep", sleep_calls.append)
+    monkeypatch.setattr(
+        generate_thumbnails,
+        "save_thumbnail",
+        lambda image_bytes, thumb_path: save_calls.append((image_bytes, thumb_path)),
+    )
+
+    stats = generate_thumbnails.generate_thumbnails()
+
+    assert goto_calls == 3
+    assert sleep_calls == [0.5, 1.0]
+    assert stats == {
+        "total": 1,
+        "attempted": 1,
+        "generated": 1,
+        "skipped": 0,
+        "failed": 0,
+    }
+    assert save_calls == [
+        (b"png-bytes", artifact_dir / generate_thumbnails.SCREENSHOT_FILE)
+    ]
+
+
 def test_generate_thumbnails_logs_warning_for_failed_screenshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -339,6 +431,7 @@ def test_generate_thumbnails_logs_warning_for_failed_screenshot(
     monkeypatch.setattr(
         generate_thumbnails, "should_generate_thumbnail", lambda _path: True
     )
+    monkeypatch.setattr(generate_thumbnails, "sleep", lambda _seconds: None)
 
     with pytest.raises(RuntimeError, match="failed for every attempted artifact"):
         generate_thumbnails.generate_thumbnails()
@@ -400,6 +493,7 @@ def test_generate_thumbnails_raises_when_all_attempts_fail(
         return original_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr(builtins, "__import__", fake_import)
+    monkeypatch.setattr(generate_thumbnails, "sleep", lambda _seconds: None)
 
     with pytest.raises(RuntimeError, match="failed for every attempted artifact"):
         generate_thumbnails.generate_thumbnails()

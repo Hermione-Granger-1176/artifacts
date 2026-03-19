@@ -59,6 +59,7 @@ Workspace documentation lives in `docs/`:
 
 - [`workspace.md`](docs/workspace.md): repository layout and generated files
 - [`architecture.md`](docs/architecture.md): runtime, build, and deploy flow
+- [`frontend.md`](docs/frontend.md): root gallery modules, bootstrap flow, and frontend tests
 - [`operations.md`](docs/operations.md): local commands, CI behavior, and troubleshooting
 - [`maintenance.md`](docs/maintenance.md): long-term upkeep and workflow hygiene
 

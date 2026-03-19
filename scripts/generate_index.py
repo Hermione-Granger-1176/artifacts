@@ -48,7 +48,6 @@ README_FILE = REPO_ROOT / "README.md"
 PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
 GALLERY_METADATA_FILE = REPO_ROOT / "config" / "gallery_metadata.json"
 
-# File names
 INDEX_FILE = "index.html"
 NAME_FILE = "name.txt"
 DESCRIPTION_FILE = "description.txt"
@@ -205,22 +204,27 @@ def _read_gallery_metadata() -> GalleryMetadata:
         raise ValueError("Gallery metadata must be a JSON object")
 
     for group in ("tools", "tags"):
-        entries = metadata.get(group)
-        if not isinstance(entries, list):
-            raise ValueError(f"Gallery metadata '{group}' must be a list")
-
-        for entry in entries:
-            if not isinstance(entry, dict):
-                raise ValueError(f"Gallery metadata '{group}' entries must be objects")
-            if not entry.get("id") or not entry.get("label"):
-                raise ValueError(
-                    f"Gallery metadata '{group}' entries must include id and label"
-                )
+        _validate_gallery_metadata_entries(group, metadata.get(group))
 
     return {
         "tools": cast(list[dict[str, str | None]], metadata["tools"]),
         "tags": cast(list[dict[str, str | None]], metadata["tags"]),
     }
+
+
+def _validate_gallery_metadata_entries(group: str, entries: object) -> None:
+    """Validate one gallery metadata group."""
+
+    if not isinstance(entries, list):
+        raise ValueError(f"Gallery metadata '{group}' must be a list")
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise ValueError(f"Gallery metadata '{group}' entries must be objects")
+        if not entry.get("id") or not entry.get("label"):
+            raise ValueError(
+                f"Gallery metadata '{group}' entries must include id and label"
+            )
 
 
 def _display_order(entries: Sequence[MetadataEntry]) -> list[str]:
@@ -447,7 +451,7 @@ def validate() -> None:
 
 
 def generate() -> None:
-    """Generate the js/data.js file from artifact directories."""
+    """Generate gallery data files and update README snapshot markers."""
     logger.info("Starting artifact index generation")
 
     items = _scan_artifacts()
@@ -455,7 +459,6 @@ def generate() -> None:
     if not items:
         logger.warning("No artifacts found")
 
-    # Check for duplicate IDs
     seen: set[str] = set()
     for item in items:
         if item["id"] in seen:

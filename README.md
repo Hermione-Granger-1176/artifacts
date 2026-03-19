@@ -93,7 +93,7 @@ apps/
    make site
    ```
 
-6. If you prefer running commands directly, the Makefile uses `.venv` plus the frozen dependency sets in `requirements*.lock` and `package-lock.json`.
+6. If you prefer running commands directly, the Makefile uses `.venv` plus the frozen dependency sets in `locks/requirements*.lock` and `package-lock.json`.
 
 7. If you change Python dependency declarations, regenerate the Python lock files:
 

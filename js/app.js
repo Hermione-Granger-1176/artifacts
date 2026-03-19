@@ -1,4 +1,5 @@
 import { initializeGalleryApp } from './modules/gallery-app.js';
+import { validateGalleryBootstrapData } from './modules/config.js';
 import { createRuntime } from './modules/runtime.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -6,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   runtime.setupGlobalErrorHandlers();
 
   try {
+    validateGalleryBootstrapData(window);
     initializeGalleryApp({ runtime });
     runtime.markReady();
   } catch (error) {

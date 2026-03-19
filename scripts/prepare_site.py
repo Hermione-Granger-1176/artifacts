@@ -30,6 +30,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
 DEPLOY_DIR = REPO_ROOT / "_site"
 DEPLOY_ITEMS = ("404.html", "apps", "css", "index.html", "js")
+GIT_COMMAND_TIMEOUT_SECONDS = 10
 
 
 def _normalize_site_path(value: str) -> str:
@@ -68,6 +69,7 @@ def _resolve_version() -> str:
         ["git", "rev-parse", "--short", "HEAD"],
         cwd=REPO_ROOT,
         text=True,
+        timeout=GIT_COMMAND_TIMEOUT_SECONDS,
     ).strip()
 
 
@@ -91,7 +93,7 @@ def _copy_deploy_items() -> None:
 
 
 def _replace_exact(content: str, old: str, new: str) -> str:
-    """Replace one exact string and fail loudly if it is missing."""
+    """Replace one exact string and raise an error if it is missing."""
 
     if old not in content:
         raise ValueError(f"Expected content not found: {old}")
@@ -150,6 +152,11 @@ def prepare_site() -> None:
 if __name__ == "__main__":  # pragma: no cover
     try:
         prepare_site()
-    except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as exc:
+    except (
+        FileNotFoundError,
+        ValueError,
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+    ) as exc:
         logger.error("Failed to prepare site: %s", exc)
         sys.exit(1)

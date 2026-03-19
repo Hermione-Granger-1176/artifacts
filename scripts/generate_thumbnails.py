@@ -16,7 +16,8 @@ import logging
 import sys
 from io import BytesIO
 from pathlib import Path
-from typing import TypedDict
+from time import sleep
+from typing import Any, TypedDict
 
 from PIL import Image
 
@@ -36,6 +37,9 @@ THUMBNAIL_WIDTH = 960
 THUMBNAIL_QUALITY = 85
 NAVIGATION_TIMEOUT_MS = 30000
 POST_LOAD_DELAY_MS = 1000
+SCREENSHOT_RETRY_ATTEMPTS = 3
+SCREENSHOT_RETRY_BACKOFF_BASE_SECONDS = 0.5
+SCREENSHOT_RETRY_BACKOFF_MAX_SECONDS = 2.0
 
 
 class ThumbnailStats(TypedDict):
@@ -94,6 +98,45 @@ def _summarize(stats: ThumbnailStats) -> str:
     )
 
 
+def _retry_delay_seconds(attempt: int) -> float:
+    """Return a bounded exponential backoff for retry attempt numbers."""
+
+    return min(
+        SCREENSHOT_RETRY_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)),
+        SCREENSHOT_RETRY_BACKOFF_MAX_SECONDS,
+    )
+
+
+def _capture_screenshot(page: Any, file_url: str, artifact_name: str) -> bytes:
+    """Capture one artifact screenshot with bounded retries for transient failures."""
+
+    last_error: Exception | None = None
+
+    for attempt in range(1, SCREENSHOT_RETRY_ATTEMPTS + 1):
+        try:
+            page.goto(file_url, wait_until="networkidle", timeout=NAVIGATION_TIMEOUT_MS)
+            page.wait_for_timeout(POST_LOAD_DELAY_MS)
+            return page.screenshot(type="png")
+        except Exception as exc:
+            last_error = exc
+            if attempt < SCREENSHOT_RETRY_ATTEMPTS:
+                delay_seconds = _retry_delay_seconds(attempt)
+                logger.warning(
+                    "Retrying %s after screenshot attempt %d/%d failed: %s",
+                    artifact_name,
+                    attempt,
+                    SCREENSHOT_RETRY_ATTEMPTS,
+                    exc,
+                )
+                sleep(delay_seconds)
+                continue
+
+            break
+
+    assert last_error is not None
+    raise last_error
+
+
 def generate_thumbnails() -> ThumbnailStats:
     """Generate thumbnail screenshots for all artifacts."""
     artifacts = find_artifacts()
@@ -140,19 +183,17 @@ def generate_thumbnails() -> ThumbnailStats:
             logger.info("Screenshotting %s", artifact_dir.name)
             stats["attempted"] += 1
             try:
-                page.goto(
-                    file_url, wait_until="networkidle", timeout=NAVIGATION_TIMEOUT_MS
+                screenshot_bytes = _capture_screenshot(
+                    page, file_url, artifact_dir.name
                 )
-                page.wait_for_timeout(POST_LOAD_DELAY_MS)
-                screenshot_bytes = page.screenshot(type="png")
                 save_thumbnail(screenshot_bytes, thumb_path)
                 if legacy_thumb_path.exists():
                     legacy_thumb_path.unlink()
                 stats["generated"] += 1
                 logger.info("  -> %s", thumb_path.name)
-            except Exception as e:
+            except Exception as exc:
                 stats["failed"] += 1
-                logger.warning("Failed to screenshot %s: %s", artifact_dir.name, e)
+                logger.warning("Failed to screenshot %s: %s", artifact_dir.name, exc)
 
         browser.close()
 
