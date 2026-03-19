@@ -23,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
+      pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -235,8 +237,6 @@ jobs:
           header: pr-preview
           message: |
             Preview URL: ${{ steps.preview.outputs.preview-url }}
-        env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
       - name: Remove PR preview link comment
         if: github.event_name == 'pull_request' && github.event.action == 'closed' && !github.event.pull_request.head.repo.fork
@@ -244,8 +244,6 @@ jobs:
         with:
           header: pr-preview
           delete: true
-        env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
       - name: Summarize PR preview
         if: github.event_name == 'pull_request' && github.event.action != 'closed' && !github.event.pull_request.head.repo.fork
