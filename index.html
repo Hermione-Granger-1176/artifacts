@@ -61,34 +61,52 @@
                 </svg>
                 <button id="search-clear" class="search-clear hidden" aria-label="Clear search">&times;</button>
             </div>
-            <div class="sort-wrapper" role="group" aria-label="Sort order">
-                <button class="btn-sort active" data-sort="newest">Newest</button>
-                <button class="btn-sort" data-sort="oldest">Oldest</button>
+
+            <div class="control-cluster">
+                <section class="filter-section" aria-label="Filters">
+                    <div id="tool-dropdown" class="filter-dropdown">
+                        <button id="tool-filter-toggle" class="filter-dropdown-toggle" type="button"
+                            aria-haspopup="listbox" aria-expanded="false" aria-controls="tool-filter-panel">
+                            <span id="tool-filter-label" class="filter-dropdown-label">All tools</span>
+                            <svg class="filter-dropdown-chevron" xmlns="http://www.w3.org/2000/svg" width="16"
+                                height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        <div id="tool-filter-panel" class="filter-dropdown-panel" role="listbox"
+                            aria-label="Filter by AI tool" aria-multiselectable="true"></div>
+                    </div>
+
+                    <div id="tag-dropdown" class="filter-dropdown">
+                        <button id="tag-filter-toggle" class="filter-dropdown-toggle" type="button"
+                            aria-haspopup="listbox" aria-expanded="false" aria-controls="tag-filter-panel">
+                            <span id="tag-filter-label" class="filter-dropdown-label">All tags</span>
+                            <svg class="filter-dropdown-chevron" xmlns="http://www.w3.org/2000/svg" width="16"
+                                height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        <div id="tag-filter-panel" class="filter-dropdown-panel" role="listbox"
+                            aria-label="Filter by tag" aria-multiselectable="true"></div>
+                    </div>
+
+                    <button id="sort-toggle" class="sort-toggle" type="button" aria-label="Sort by newest first"
+                        title="Sort by newest first">
+                        <svg class="sort-toggle-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 5v14"></path>
+                            <path d="m17 14-5 5-5-5"></path>
+                        </svg>
+                    </button>
+
+                    <button id="filter-reset" class="filter-reset hidden" type="button" aria-label="Reset filters"
+                        title="Reset filters"></button>
+                </section>
             </div>
         </section>
-
-        <section class="filter-section" aria-label="Filters">
-            <div class="filter-group" id="tool-filters" role="group" aria-label="AI tool filter">
-                <span class="filter-label">Tool</span>
-                <button class="btn-filter active" data-tool="all">All</button>
-            </div>
-            <div class="filter-group" id="tag-filters" role="group" aria-label="Tag filter">
-                <span class="filter-label">Tags</span>
-                <button class="btn-filter active" data-tag="all">All</button>
-            </div>
-            <button id="reset-filters" class="btn-reset hidden" aria-label="Reset all filters">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="1 4 1 10 7 10"></polyline>
-                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                </svg>
-                Reset
-            </button>
-        </section>
-
-        <div id="active-filters" class="active-filters hidden" aria-live="polite"></div>
-
-        <div id="results-count" class="results-count" aria-live="polite"></div>
 
         <section id="artifacts-grid" class="artifacts-grid" aria-live="polite">
             <noscript>
@@ -96,12 +114,12 @@
             </noscript>
         </section>
 
-        <nav id="pagination" class="pagination" aria-label="Pagination"></nav>
-
         <div id="no-results" class="no-results hidden" role="status">
             <p>No artifacts found matching your filters.</p>
-            <button id="no-results-reset" class="btn-reset-link">Clear all filters</button>
+            <button id="no-results-reset" class="btn-reset-link">Clear search and filters</button>
         </div>
+
+        <nav id="pagination" class="pagination" aria-label="Pagination"></nav>
     </main>
 
     <button id="scroll-top" class="scroll-top" aria-label="Scroll to top">
@@ -110,6 +128,12 @@
             <polyline points="18 15 12 9 6 15"></polyline>
         </svg>
     </button>
+
+    <div id="detail-overlay" class="detail-overlay" aria-hidden="true">
+        <div class="detail-backdrop" data-close-detail></div>
+        <section id="detail-panel" class="detail-panel" role="dialog" aria-modal="true"
+            aria-labelledby="detail-title" tabindex="-1"></section>
+    </div>
 
     <footer class="footer">
         <p>&copy; Aditya Kumar Darak &middot; <a href="https://github.com/Hermione-Granger-1176" target="_blank"
