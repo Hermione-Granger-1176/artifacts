@@ -44,11 +44,11 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 
 - pushes to `main` and manual runs build, generate, commit generated files when needed, prepare `_site/`, and deploy to `gh-pages`
 - pull requests run the same setup, lint, test, generation, and `_site/` assembly path
-- pull requests publish preview deployments under `pr-preview/pr-<number>/`
+- trusted pull requests publish preview deployments under `pr-preview/pr-<number>/`
 - pull requests leave the source branch untouched while preview comments provide the live preview link
 - preview deploys use the GitHub App token
 - preview comments use the workflow token, appear as `github-actions[bot]`, and are recreated on each push so the newest preview stays at the bottom of the PR timeline
-- fork-based PRs skip preview deployment because the app token is not exposed to forks
+- fork-based and Dependabot PRs still run checks and site assembly, but skip preview deployment because the app token is unavailable in those contexts
 
 ## Coverage and quality gates
 

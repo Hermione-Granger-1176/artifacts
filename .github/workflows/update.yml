@@ -32,13 +32,39 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Determine whether app-token actions are allowed
+        id: token-policy
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create GitHub App token
         id: app-token
-        if: github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork
+        if: steps.token-policy.outputs.allowed == 'true'
         uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
         with:
           app-id: ${{ vars.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Check GitHub App token availability
+        id: token-status
+        run: |
+          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fail if a trusted run cannot mint the app token
+        if: steps.token-policy.outputs.allowed == 'true' && steps.token-status.outputs.available != 'true'
+        run: |
+          echo "Expected a GitHub App token for this run, but token creation did not succeed." >&2
+          exit 1
 
       - name: Set up Python
         if: github.event.action != 'closed'
@@ -82,7 +108,7 @@ jobs:
           fi
 
       - name: Commit generated files (verified)
-        if: github.event_name != 'pull_request' && github.event.action != 'closed' && steps.changes.outputs.changed == 'true'
+        if: github.event_name != 'pull_request' && github.event.action != 'closed' && steps.changes.outputs.changed == 'true' && steps.token-status.outputs.available == 'true'
         uses: ./.github/actions/verified-commit
         with:
           github-token: ${{ steps.app-token.outputs.token }}
@@ -102,7 +128,7 @@ jobs:
             apps
 
       - name: Re-checkout after API commit
-        if: github.event_name != 'pull_request' && github.event.action != 'closed' && steps.changes.outputs.changed == 'true'
+        if: github.event_name != 'pull_request' && github.event.action != 'closed' && steps.changes.outputs.changed == 'true' && steps.token-status.outputs.available == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ github.ref_name }}
@@ -114,7 +140,7 @@ jobs:
         run: make site
 
       - name: Deploy PR preview
-        if: github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork
+        if: github.event_name == 'pull_request' && steps.token-status.outputs.available == 'true'
         id: preview
         uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1
         with:
@@ -125,8 +151,8 @@ jobs:
           qr-code: false
 
       - name: Post PR preview link
-        if: github.event_name == 'pull_request' && github.event.action != 'closed' && !github.event.pull_request.head.repo.fork
-        uses: marocchino/sticky-pull-request-comment@67d0dec7b07ed060a405f9b2a64b8ab319fdd7db # v2
+        if: github.event_name == 'pull_request' && github.event.action != 'closed' && steps.token-status.outputs.available == 'true'
+        uses: marocchino/sticky-pull-request-comment@70d2764d1a7d5d9560b100cbea0077fc8f633987 # v3
         with:
           header: pr-preview
           recreate: true
@@ -136,14 +162,14 @@ jobs:
             Preview URL: ${{ steps.preview.outputs.preview-url }}
 
       - name: Remove PR preview link comment
-        if: github.event_name == 'pull_request' && github.event.action == 'closed' && !github.event.pull_request.head.repo.fork
-        uses: marocchino/sticky-pull-request-comment@67d0dec7b07ed060a405f9b2a64b8ab319fdd7db # v2
+        if: github.event_name == 'pull_request' && github.event.action == 'closed' && steps.token-status.outputs.available == 'true'
+        uses: marocchino/sticky-pull-request-comment@70d2764d1a7d5d9560b100cbea0077fc8f633987 # v3
         with:
           header: pr-preview
           delete: true
 
       - name: Summarize PR preview
-        if: github.event_name == 'pull_request' && github.event.action != 'closed' && !github.event.pull_request.head.repo.fork
+        if: github.event_name == 'pull_request' && github.event.action != 'closed' && steps.token-status.outputs.available == 'true'
         run: |
           {
             echo "## PR Preview"
@@ -161,17 +187,17 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Note fork PR preview limitation
-        if: github.event_name == 'pull_request' && github.event.action != 'closed' && github.event.pull_request.head.repo.fork
+      - name: Note limited PR preview
+        if: github.event_name == 'pull_request' && github.event.action != 'closed' && steps.token-status.outputs.available != 'true'
         run: |
           {
             echo "## PR Preview"
             echo
-            echo "Preview deployment is skipped for fork-based pull requests because this workflow does not expose the app token to forks."
+            echo "Preview deployment is skipped because the app token is unavailable (fork or Dependabot PR)."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy main site to gh-pages
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.token-status.outputs.available == 'true'
         uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4
         with:
           branch: gh-pages
