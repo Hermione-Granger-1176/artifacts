@@ -75,11 +75,11 @@ This reduces hardcoded values in scripts and keeps deployment-sensitive values i
 5. on non-PR runs, create a verified commit through the GitHub GraphQL API, or open a PR if branch protection blocks direct commit
 6. assemble a clean `_site/` deploy directory
 7. for pushes to `main` and manual runs: deploy `_site/` to the root of the `gh-pages` branch
-8. for PRs: deploy `_site/` to `gh-pages/pr-preview/pr-<number>/` without writing generated outputs back to the source branch
+8. for trusted PRs: deploy `_site/` to `gh-pages/pr-preview/pr-<number>/` without writing generated outputs back to the source branch
 9. recreate the sticky preview link comment so the newest preview stays at the bottom of the PR timeline
 10. on PR close: remove the preview from `gh-pages` and delete the comment
 
-Main and preview deploys use the GitHub App token. Preview comments use the workflow token.
+Main and trusted preview deploys use the GitHub App token. Fork and Dependabot PRs still build `_site/`, but skip preview deployment because the token is unavailable.
 
 ## Compatibility notes
 
