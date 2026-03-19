@@ -12,6 +12,6 @@ window.ARTIFACTS_DATA = [
       "claude"
     ],
     "url": "apps/loan-amortization/",
-    "thumbnail": null
+    "thumbnail": "apps/loan-amortization/thumbnail.webp"
   }
 ];
