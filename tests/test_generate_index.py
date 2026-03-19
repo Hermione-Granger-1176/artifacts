@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -83,6 +84,51 @@ def test_is_valid_artifact_requires_index_and_name(tmp_path: Path) -> None:
     assert not generate_index._is_valid_artifact(artifact_dir / "index.html")
 
 
+def test_is_kebab_case_accepts_expected_directory_names() -> None:
+    assert generate_index.is_kebab_case("budget-tracker") is True
+    assert generate_index.is_kebab_case("artifact-2026") is True
+    assert generate_index.is_kebab_case("BudgetTracker") is False
+    assert generate_index.is_kebab_case("budget_tracker") is False
+
+
+def test_artifact_issues_cover_missing_files_and_empty_name(tmp_path: Path) -> None:
+    missing_all = tmp_path / "budget-tracker"
+    missing_all.mkdir()
+    assert generate_index._artifact_issues(missing_all) == [
+        "missing index.html and name.txt"
+    ]
+
+    missing_index = tmp_path / "loan-tool"
+    missing_index.mkdir()
+    write_text(missing_index / "name.txt", "Loan Tool")
+    assert generate_index._artifact_issues(missing_index) == [
+        "has name.txt but no index.html"
+    ]
+
+    missing_name = tmp_path / "chart-tool"
+    missing_name.mkdir()
+    write_text(missing_name / "index.html", "<html></html>")
+    assert generate_index._artifact_issues(missing_name) == [
+        "has index.html but no name.txt"
+    ]
+
+    empty_name = tmp_path / "empty-name"
+    empty_name.mkdir()
+    write_text(empty_name / "index.html", "<html></html>")
+    write_text(empty_name / "name.txt", "   ")
+    assert generate_index._artifact_issues(empty_name) == ["has an empty name.txt"]
+
+
+def test_artifact_issues_include_non_kebab_case_name(tmp_path: Path) -> None:
+    folder = tmp_path / "Bad Artifact"
+    folder.mkdir()
+
+    assert generate_index._artifact_issues(folder) == [
+        "directory name must use kebab-case",
+        "missing index.html and name.txt",
+    ]
+
+
 def test_extract_artifact_builds_expected_structure(tmp_path: Path) -> None:
     artifact_dir = create_artifact(
         tmp_path,
@@ -147,12 +193,75 @@ def test_scan_artifacts_filters_hidden_and_invalid_dirs(
     assert [item["id"] for item in items] == ["a-first", "z-last"]
 
 
+def test_scan_artifacts_logs_warnings_for_incomplete_directories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    apps_dir = tmp_path / "apps"
+    apps_dir.mkdir()
+    create_artifact(apps_dir, "valid-artifact")
+    missing_index = apps_dir / "missing-index"
+    missing_index.mkdir()
+    write_text(missing_index / "name.txt", "Missing Index")
+    missing_name = apps_dir / "missing-name"
+    missing_name.mkdir()
+    write_text(missing_name / "index.html", "<html></html>")
+
+    monkeypatch.setattr(generate_index, "APPS_DIR", apps_dir)
+
+    with caplog.at_level(logging.WARNING):
+        items = generate_index._scan_artifacts()
+
+    assert [item["id"] for item in items] == ["valid-artifact"]
+    assert "missing-index: has name.txt but no index.html" in caplog.text
+    assert "missing-name: has index.html but no name.txt" in caplog.text
+
+
 def test_scan_artifacts_returns_empty_when_apps_dir_is_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(generate_index, "APPS_DIR", tmp_path / "missing-apps")
 
     assert generate_index._scan_artifacts() == []
+
+
+def test_validate_passes_for_valid_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    apps_dir = tmp_path / "apps"
+    apps_dir.mkdir()
+    create_artifact(apps_dir, "valid-artifact")
+
+    monkeypatch.setattr(generate_index, "APPS_DIR", apps_dir)
+
+    generate_index.validate()
+
+
+def test_validate_raises_for_invalid_artifact_directories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    apps_dir = tmp_path / "apps"
+    apps_dir.mkdir()
+    missing_index = apps_dir / "missing-index"
+    missing_index.mkdir()
+    write_text(missing_index / "name.txt", "Missing Index")
+    empty_name = apps_dir / "empty-name"
+    empty_name.mkdir()
+    write_text(empty_name / "index.html", "<html></html>")
+    write_text(empty_name / "name.txt", "   ")
+    bad_name = apps_dir / "Bad Artifact"
+    bad_name.mkdir()
+    write_text(bad_name / "index.html", "<html></html>")
+    write_text(bad_name / "name.txt", "Bad Artifact")
+
+    monkeypatch.setattr(generate_index, "APPS_DIR", apps_dir)
+
+    with pytest.raises(ValueError, match="Artifact validation failed") as exc_info:
+        generate_index.validate()
+
+    message = str(exc_info.value)
+    assert "missing-index: has name.txt but no index.html" in message
+    assert "empty-name: has an empty name.txt" in message
+    assert "Bad Artifact: directory name must use kebab-case" in message
 
 
 def test_replace_inline_marker_requires_exactly_one_pair() -> None:

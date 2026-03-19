@@ -14,19 +14,23 @@ The root `index.html` is a Netflix-style gallery page listing all artifacts with
 2. Place the HTML file as `index.html` inside that directory
 3. Add metadata files:
    - `name.txt`: Title (single line)
-   - `description.txt`: Short description (single line)
-   - `tags.txt`: One tag per line (e.g., `finance`, `calculator`)
-   - `tools.txt`: One AI tool per line (e.g., `claude`, `chatgpt`)
-4. Push to `main` or open a PR: CI generates thumbnails, updates gallery data, and builds the deployable site
-5. PRs get a live preview link posted as a comment
+   - `description.txt`: Optional short description (single line)
+   - `tags.txt`: Optional tags, one per line (e.g., `finance`, `calculator`)
+   - `tools.txt`: Optional AI tools, one per line (e.g., `claude`, `chatgpt`)
+4. You can scaffold this structure with `make new name=my-artifact`
+5. Run `make validate` before pushing so incomplete artifact directories fail fast
+6. Push to `main` or open a PR: CI generates thumbnails, updates gallery data, and builds the deployable site
+7. PRs get a live preview link posted as a recreated comment so the newest preview stays at the bottom of the thread
 
 ## Local commands
 
 Workspace commands go through the `Makefile`. Python dependencies and workspace metadata live in `pyproject.toml`.
 
 - `make setup`: create `.venv`, install Python dependencies, and install Chromium
-- `make check`: run Ruff and pytest with the 100% coverage gate
+- `make check`: run Ruff, pytest, and artifact validation with the 100% coverage gate
+- `make validate`: fail fast on incomplete or invalid top-level artifact directories
 - `make generate`: run thumbnail generation and data generation sequentially
+- `make new name=my-artifact`: scaffold a new artifact directory with placeholder files
 - `make site`: build the clean `_site/` deploy payload
 
 ## Auto-generated files
@@ -44,7 +48,7 @@ Do not manually edit these outputs unless updating generator logic:
 - Pushes to `main` deploy the site root to `gh-pages`
 - PRs deploy previews to `gh-pages/pr-preview/pr-<number>/`
 - Preview deploys use the GitHub App token
-- Preview comments are posted by the workflow token and appear as `github-actions[bot]`
+- Preview comments are posted by the workflow token, appear as `github-actions[bot]`, and are recreated on each push so the newest preview stays visible
 - `gh-pages` is CI-managed and should not be edited manually
 
 ## Docs

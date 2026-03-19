@@ -52,6 +52,12 @@ TOOLS_FILE = "tools.txt"
 PREFERRED_THUMBNAIL_FILE = "thumbnail.webp"
 LEGACY_THUMBNAIL_FILE = "thumbnail.png"
 THUMBNAIL_FILES = (PREFERRED_THUMBNAIL_FILE, LEGACY_THUMBNAIL_FILE)
+KEBAB_CASE_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+MISSING_REQUIRED_FILE_ISSUES = {
+    (False, False): f"missing {INDEX_FILE} and {NAME_FILE}",
+    (False, True): f"has {NAME_FILE} but no {INDEX_FILE}",
+    (True, False): f"has {INDEX_FILE} but no {NAME_FILE}",
+}
 
 
 class ArtifactItem(TypedDict):
@@ -177,6 +183,48 @@ def _is_valid_artifact(folder: Path) -> bool:
     )
 
 
+def is_kebab_case(name: str) -> bool:
+    """Return True when a directory name follows kebab-case."""
+    return bool(KEBAB_CASE_PATTERN.fullmatch(name))
+
+
+def _artifact_issues(folder: Path) -> list[str]:
+    """Collect validation issues for one top-level artifact directory."""
+    issues: list[str] = []
+    has_index = (folder / INDEX_FILE).exists()
+    has_name = (folder / NAME_FILE).exists()
+
+    if not is_kebab_case(folder.name):
+        issues.append("directory name must use kebab-case")
+
+    missing_required_file_issue = MISSING_REQUIRED_FILE_ISSUES.get(
+        (has_index, has_name)
+    )
+    if missing_required_file_issue:
+        issues.append(missing_required_file_issue)
+
+    if has_name and not _read_file(folder / NAME_FILE):
+        issues.append(f"has an empty {NAME_FILE}")
+
+    return issues
+
+
+def _iter_artifact_dirs() -> list[Path]:
+    """Return top-level visible artifact directories under apps/."""
+    if not APPS_DIR.exists():
+        logger.info("Directory not found: %s (skipping)", APPS_DIR)
+        return []
+
+    return sorted(
+        (
+            folder
+            for folder in APPS_DIR.iterdir()
+            if folder.is_dir() and not folder.name.startswith(".")
+        ),
+        key=lambda folder: folder.name,
+    )
+
+
 def _extract_artifact(folder: Path) -> ArtifactItem | None:
     """Extract structured data from an artifact folder."""
     name = _read_file(folder / NAME_FILE)
@@ -226,21 +274,14 @@ def _read_site_url() -> str:
 
 def _scan_artifacts() -> list[ArtifactItem]:
     """Scan the apps/ directory for artifact directories."""
-    if not APPS_DIR.exists():
-        logger.info("Directory not found: %s (skipping)", APPS_DIR)
-        return []
-
     items: list[ArtifactItem] = []
-    folders = sorted(
-        (
-            f
-            for f in APPS_DIR.iterdir()
-            if f.is_dir() and not f.name.startswith(".") and _is_valid_artifact(f)
-        ),
-        key=lambda f: f.name,
-    )
+    for folder in _iter_artifact_dirs():
+        issues = _artifact_issues(folder)
+        if issues:
+            for issue in issues:
+                logger.warning("%s: %s", folder.name, issue)
+            continue
 
-    for folder in folders:
         item = _extract_artifact(folder)
         if item:
             items.append(item)
@@ -325,11 +366,10 @@ def _build_badges_block(
     sorted_items = _sort_items(items, display_order)
     if not sorted_items:
         return ""
-    badges: list[str] = []
-    for index, item in enumerate(sorted_items):
-        suffix = "&nbsp;" if index < len(sorted_items) - 1 else ""
-        badges.append(f"{_build_badge(item, config)}{suffix}")
-    return "\n".join(badges)
+    return "\n".join(
+        f"{_build_badge(item, config)}{'&nbsp;' if index < len(sorted_items) - 1 else ''}"
+        for index, item in enumerate(sorted_items)
+    )
 
 
 def _update_readme(items: list[ArtifactItem]) -> None:
@@ -364,6 +404,23 @@ def _update_readme(items: list[ArtifactItem]) -> None:
     )
     README_FILE.write_text(readme, encoding="utf-8")
     logger.info("Successfully updated %s", README_FILE)
+
+
+def validate() -> None:
+    """Validate artifact directory structure before generation."""
+    logger.info("Validating artifact directories")
+
+    issues = [
+        f"{folder.name}: {issue}"
+        for folder in _iter_artifact_dirs()
+        for issue in _artifact_issues(folder)
+    ]
+
+    if issues:
+        issue_list = "\n- ".join(issues)
+        raise ValueError(f"Artifact validation failed:\n- {issue_list}")
+
+    logger.info("Artifact validation passed")
 
 
 def generate() -> None:

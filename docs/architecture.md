@@ -68,14 +68,14 @@ This reduces hardcoded values in scripts and keeps deployment-sensitive values i
 `.github/workflows/update.yml` is the main production workflow.
 
 1. bootstrap the toolchain with `make setup-ci`
-2. run linting and tests before generation
+2. run linting, tests, and artifact directory validation before generation
 3. generate thumbnails and gallery data
 4. stage generated additions and deletions
 5. create a verified commit through the GitHub GraphQL API, or open a PR if branch protection blocks direct commit
 6. assemble a clean `_site/` deploy directory
 7. for pushes to `main`: deploy `_site/` to the root of the `gh-pages` branch
 8. for PRs: deploy `_site/` to `gh-pages/pr-preview/pr-<number>/`
-9. post or update a sticky preview link comment on the PR
+9. recreate the sticky preview link comment so the newest preview stays at the bottom of the PR timeline
 10. on PR close: remove the preview from `gh-pages` and delete the comment
 
 Main and preview deploys use the GitHub App token. Preview comments use the workflow token.

@@ -39,13 +39,13 @@ def find_artifacts() -> list[Path]:
     """Find all artifact directories containing an index.html."""
     if not APPS_DIR.exists():
         return []
-    artifacts = []
-    for item in sorted(APPS_DIR.iterdir()):
-        if not item.is_dir() or item.name.startswith("."):
-            continue
-        if (item / "index.html").exists():
-            artifacts.append(item)
-    return artifacts
+    return [
+        item
+        for item in sorted(APPS_DIR.iterdir())
+        if item.is_dir()
+        and not item.name.startswith(".")
+        and (item / "index.html").exists()
+    ]
 
 
 def save_thumbnail(image_bytes: bytes, thumb_path: Path) -> None:

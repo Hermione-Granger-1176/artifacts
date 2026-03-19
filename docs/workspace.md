@@ -62,7 +62,9 @@ The generator still recognizes `thumbnail.png` as a temporary compatibility fall
 ## Editing rules
 
 - add or modify artifacts in `apps/`
+- use `make new name=my-artifact` when you want a correct starting structure quickly
 - update generator logic in `scripts/` when derived output behavior should change
+- use `make validate` to catch incomplete top-level artifact directories before pushing
 - use `make index` to refresh `js/data.js` and README markers
 - use `make thumbnails` or CI to regenerate thumbnails
 - use `make site` to inspect the exact deployable Pages directory locally

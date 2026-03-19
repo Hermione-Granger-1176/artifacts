@@ -58,6 +58,10 @@ jobs:
         if: github.event.action != 'closed'
         run: make test
 
+      - name: Validate artifact directories
+        if: github.event.action != 'closed'
+        run: make validate
+
       - name: Generate thumbnails
         if: github.event.action != 'closed'
         run: make thumbnails
@@ -135,7 +139,7 @@ jobs:
                   },
                   expectedHeadOid: headSha,
                   message: {
-                    headline: "Auto-update artifacts [skip ci]",
+                    headline: "ci: update generated artifacts [skip ci]",
                   },
                   fileChanges: { additions, deletions },
                 },
@@ -179,7 +183,7 @@ jobs:
                   },
                   expectedHeadOid: branchSha,
                   message: {
-                    headline: "Auto-update artifacts",
+                    headline: "ci: update generated artifacts",
                   },
                   fileChanges: { additions, deletions },
                 },
@@ -198,8 +202,8 @@ jobs:
                   repo,
                   head: newBranch,
                   base: defaultBranch,
-                  title: "Auto-update artifacts",
-                  body: "## Summary\n- Auto-generated artifacts update from `update.yml` workflow\n- Direct commit to default branch was blocked by branch protection\n",
+                    title: "ci: update generated artifacts",
+                    body: "## Summary\n- Type: CI automation\n- Update generated artifacts from the `update.yml` workflow\n- Direct commit to the default branch was blocked by branch protection\n",
                 });
                 core.info(`Created PR: ${pr.html_url}`);
               } else {
@@ -235,7 +239,10 @@ jobs:
         uses: marocchino/sticky-pull-request-comment@67d0dec7b07ed060a405f9b2a64b8ab319fdd7db # v2
         with:
           header: pr-preview
+          recreate: true
           message: |
+            CI preview
+
             Preview URL: ${{ steps.preview.outputs.preview-url }}
 
       - name: Remove PR preview link comment

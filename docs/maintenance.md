@@ -19,6 +19,7 @@ If you touch workflow files:
 3. non-fork PRs use the app token for preview deploys, while fork PRs are excluded from preview deployment
 4. keep local and CI commands aligned through `make`
 5. preserve the separation between the source repo and the `_site/` deploy directory
+6. keep the PR preview comment recreated on each push so the latest preview link stays easy to find
 
 ## When changing URLs or repo metadata
 
@@ -32,7 +33,7 @@ This is where the repo keeps:
 
 Scripts and docs should read from that shared config instead of embedding one-off copies.
 
-The deployed site path used by the root gallery and 404 fallback is injected into the deploy output from this shared config.
+The deployed site path used by the 404 fallback is injected into the deploy output from this shared config.
 
 ## When changing generators
 
@@ -40,6 +41,7 @@ If you modify `scripts/generate_index.py`, `scripts/generate_thumbnails.py`, or 
 
 - update or add tests in `tests/`
 - keep `make check` green
+- keep `make validate` aligned with the artifact directory contract when required files change
 - preserve the 100% coverage gate unless there is an explicit decision to relax it
 - regenerate derived files when needed with `make index` or `make generate`
 

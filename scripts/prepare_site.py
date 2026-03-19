@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Prepare a clean deployable site directory for Pages and PR previews."""
+"""
+Prepare Site Payload
+
+Copies the deployable static site into `_site/`, then applies deploy-time
+adjustments such as cache-busting query strings, the configured 404 fallback
+path, and the `.nojekyll` marker needed for branch-based GitHub Pages.
+
+Usage:
+    python scripts/prepare_site.py
+"""
 
 from __future__ import annotations
 

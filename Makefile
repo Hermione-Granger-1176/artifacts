@@ -5,7 +5,7 @@ VENV_PIP := $(VENV)/bin/pip
 VENV_PLAYWRIGHT := $(VENV)/bin/playwright
 VENV_RUFF := $(VENV)/bin/ruff
 
-.PHONY: install browser-install browser-install-ci setup setup-ci lint test thumbnails index site generate check clean
+.PHONY: install browser-install browser-install-ci setup setup-ci lint test validate thumbnails index site generate new check clean
 
 install:
 	$(PYTHON) -m venv $(VENV)
@@ -28,20 +28,27 @@ lint:
 test:
 	$(VENV_PYTHON) -m pytest
 
+validate:
+	$(PYTHON) -c "from scripts.generate_index import validate; validate()"
+
 thumbnails:
 	$(VENV_PYTHON) scripts/generate_thumbnails.py
 
 index:
-	$(VENV_PYTHON) scripts/generate_index.py
+	$(PYTHON) scripts/generate_index.py
 
 site:
-	$(VENV_PYTHON) scripts/prepare_site.py
+	$(PYTHON) scripts/prepare_site.py
 
 generate:
 	$(MAKE) thumbnails
 	$(MAKE) index
 
-check: lint test
+new:
+	@test -n "$(name)" || (printf 'Usage: make new name=my-artifact\n' >&2; exit 1)
+	$(PYTHON) scripts/scaffold_artifact.py "$(name)"
+
+check: lint test validate
 
 clean:
 	rm -rf $(VENV) .pytest_cache .ruff_cache build dist *.egg-info

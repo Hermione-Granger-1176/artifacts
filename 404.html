@@ -97,12 +97,13 @@
             pathParts.slice(0, siteParts.length).join("/") === siteParts.join("/") &&
             pathParts[siteParts.length] === "pr-preview";
 
-        if (isPreviewPath) {
-            const previewRoot = [...siteParts, "pr-preview", pathParts[siteParts.length + 1]];
-            homeLink.href = `/${previewRoot.join("/")}/`;
-        } else {
+        if (!isPreviewPath) {
             homeLink.href = sitePath;
+            return;
         }
+
+        const previewRoot = [...siteParts, "pr-preview", pathParts[siteParts.length + 1]];
+        homeLink.href = `/${previewRoot.join("/")}/`;
     </script>
 </body>
 </html>

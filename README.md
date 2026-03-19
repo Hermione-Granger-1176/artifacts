@@ -42,17 +42,18 @@ apps/
   artifact-name/
     index.html        # Entry point (currently single-file, can be split later)
     name.txt          # Display name
-    description.txt   # Short description
-    tags.txt          # Content tags (one per line)
-    tools.txt         # AI tools used (one per line)
+    description.txt   # Optional short description
+    tags.txt          # Optional content tags (one per line)
+    tools.txt         # Optional AI tools used (one per line)
     thumbnail.webp    # Auto-generated screenshot
 ```
 
 ## Adding a new artifact
 
-1. Create a kebab-case directory under `apps/`
-2. Add `index.html` and metadata files
-3. Push to `main`: everything else is automated
+1. Create a new scaffold with `make new name=my-artifact`, or create a kebab-case directory under `apps/` manually
+2. Replace the scaffold `index.html` with your artifact and fill in the metadata files
+3. Run `make validate` to catch missing required files before pushing
+4. Push to `main` or open a PR: everything else is automated
 
 ## Local development
 
@@ -62,27 +63,33 @@ apps/
    make setup
    ```
 
-2. Run linting and tests (including the 100% Python coverage gate):
+2. Run linting, tests, and artifact validation (including the 100% Python coverage gate):
 
    ```bash
    make check
    ```
 
-3. Regenerate derived files before pushing:
+3. Validate top-level artifact directories before pushing:
+
+   ```bash
+   make validate
+   ```
+
+4. Regenerate derived files before pushing:
 
    ```bash
    make generate
    ```
 
-4. Build the clean deployable site directory when you want to inspect the exact Pages payload:
+5. Build the clean deployable site directory when you want to inspect the exact Pages payload:
 
    ```bash
    make site
    ```
 
-5. If you prefer running commands directly, the Makefile uses `.venv` and installs dependencies from `pyproject.toml`.
+6. If you prefer running commands directly, the Makefile uses `.venv` and installs dependencies from `pyproject.toml`.
 
-6. Open `index.html` in a browser to verify the gallery locally.
+7. Open `index.html` in a browser to verify the gallery locally.
 
 ## License
 
