@@ -29,8 +29,12 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 - [`workspace.md`](docs/workspace.md): repository layout and responsibilities
 - [`architecture.md`](docs/architecture.md): runtime, build, and deployment design
+- [`frontend.md`](docs/frontend.md): JavaScript module layout and test coverage
 - [`operations.md`](docs/operations.md): local workflows, CI, and generation notes
 - [`maintenance.md`](docs/maintenance.md): maintenance rules and long-term repo hygiene
+- [`CONTRIBUTING.md`](.github/CONTRIBUTING.md): contribution and dependency update workflow
+- [`SECURITY.md`](.github/SECURITY.md): how to report vulnerabilities
+- [`CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md): collaboration expectations
 
 ## Structure
 
@@ -63,7 +67,9 @@ apps/
    make setup
    ```
 
-2. Run linting, tests, and artifact validation (including the 100% Python coverage gate):
+   This installs pinned Python dependencies from `locks/requirements-dev.lock`, pinned Node dependencies from `package-lock.json`, and Chromium for Playwright-based smoke tests.
+
+2. Run linting, browser smoke tests, JavaScript unit tests, Python tests, and artifact validation (including the 100% Python coverage gate):
 
    ```bash
    make check
@@ -87,9 +93,17 @@ apps/
    make site
    ```
 
-6. If you prefer running commands directly, the Makefile uses `.venv` and installs dependencies from `pyproject.toml`.
+6. If you prefer running commands directly, the Makefile uses `.venv` plus the frozen dependency sets in `requirements*.lock` and `package-lock.json`.
 
-7. Open `index.html` in a browser to verify the gallery locally.
+7. If you change Python dependency declarations, regenerate the Python lock files:
+
+   ```bash
+   make lock
+   ```
+
+   If you change Node dependencies, refresh `package-lock.json` with npm tooling before rerunning `npm ci` or `make check`.
+
+8. Open `index.html` in a browser to verify the gallery locally.
 
 ## License
 

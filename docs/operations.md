@@ -6,13 +6,14 @@ Use the Makefile instead of ad hoc shell commands.
 
 ```bash
 make new name=... # scaffold a new artifact directory with placeholder files
-make setup      # create .venv, install Python deps, install Chromium locally
-make check      # run Ruff, pytest, and artifact validation with the 100% coverage gate
+make setup      # create .venv, install pinned Python/Node deps, install Chromium locally
+make check      # run Python/JS lint, Python/JS tests, browser smoke tests, and artifact validation
 make validate   # fail fast on incomplete or invalid top-level artifact directories
-make index      # rebuild js/data.js and README auto markers
+make index      # rebuild js/data.js, js/gallery-config.js, and README auto markers
 make thumbnails # regenerate WebP thumbnails when Playwright is available
 make site       # assemble the clean deployable Pages payload in _site/
 make generate   # run thumbnails and index together
+make lock       # refresh locks/requirements.lock and locks/requirements-dev.lock after dependency changes
 ```
 
 Recommended workflow when changing workspace code:
@@ -25,6 +26,7 @@ Recommended workflow when changing workspace code:
 6. `make index` if metadata or README markers may have changed
 7. `make thumbnails` only if you need fresh local thumbnails and Playwright is available
 8. `make site` if you want to inspect the exact Pages output locally
+9. `make lock` if you changed Python dependency declarations, and refresh `package-lock.json` if you changed Node dependencies
 
 ## CI behavior
 
@@ -34,6 +36,7 @@ The production workflow uses the same command surface:
 - `make lint`
 - `make test`
 - `make validate`
+- `.venv/bin/python -m pip_audit --requirement locks/requirements-dev.lock`
 - `make thumbnails`
 - `make index`
 - `make site`
@@ -42,8 +45,11 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 
 `update.yml` now handles production deploys and pull request previews.
 
-- pushes to `main` and manual runs build, generate, commit generated files when needed, prepare `_site/`, and deploy to `gh-pages`
-- pull requests run the same setup, lint, test, generation, and `_site/` assembly path
+- `verify` is a read-only job that runs setup, lint, tests, browser smoke tests, dependency audit, generation, and `_site/` assembly
+- `secret-scan` runs Gitleaks against the checked-out repository
+- pull requests also run dependency review for manifest and lockfile changes
+- `publish` is the main write-capable job; it regenerates outputs, commits generated files when needed, prepares `_site/`, and deploys previews or `gh-pages`
+- `cleanup-preview` is a write-capable cleanup job that removes preview deployments and comments when PRs close
 - trusted pull requests publish preview deployments under `pr-preview/pr-<number>/`
 - pull requests leave the source branch untouched while preview comments provide the live preview link
 - preview deploys use the GitHub App token
@@ -53,23 +59,48 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 ## Coverage and quality gates
 
 - `ruff` runs against `scripts/` and `tests/`
+- `eslint` runs against browser modules, Node tests, and workflow helper code
 - `pytest` enforces 100% line coverage for the `scripts` package
+- `node --test` covers shared browser and workflow helper modules under `tests/js/`
+- Playwright smoke tests validate the built root gallery and `404.html` routing behavior when Chromium is installed
 - `make validate` fails if a top-level artifact directory is missing `index.html` or `name.txt`, has an empty `name.txt`, or uses a non-kebab-case directory name
 - coverage policy is configured in `pyproject.toml`
 
 ## Thumbnail policy
 
 - `thumbnail.webp` is the preferred generated format
+- local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date
 - local working copies do not need checked-in thumbnails to function during development
 - CI can regenerate thumbnails after push or during pull request preview builds
 - the generator still tolerates legacy `thumbnail.png` when present so older generated states do not break the gallery
 
+## Required GitHub settings
+
+The workflow assumes these repository settings already exist:
+
+- GitHub Pages publishes from the `gh-pages` branch root
+- repository variables include `APP_ID`
+- repository secrets include `APP_PRIVATE_KEY`
+- branch protection blocks unreviewed direct updates to `main`
+
+## Rollback and recovery
+
+- if a deployment is bad, restore the site by redeploying a known-good `main` commit
+- if generated-file commits fail on `main`, look for the fallback PR created by the verified-commit action and merge or close it intentionally
+- if PR previews stop publishing, verify `APP_ID`, `APP_PRIVATE_KEY`, and GitHub App installation access first
+- if Pages serves the wrong root, confirm the repository is still configured for branch-based deployment from `gh-pages`
+- if dependency audit or secret scanning starts failing, treat that as a release blocker until triaged
+
 ## Troubleshooting
 
-- if Playwright or Chromium is unavailable locally, `make thumbnails` can fail while `make check` and `make index` still succeed
+- if the Playwright Python package is unavailable locally, browser smoke tests fail during collection and `make thumbnails` exits immediately; rerun `make setup`
+- if Chromium is unavailable locally, browser smoke tests are skipped; run `make setup` to install it
+- if Chromium is unavailable locally, `make thumbnails` can still fail even though `make check` succeeds with skipped smoke tests
 - if you want to inspect the deployable output locally, run `make site` and serve `_site/` from a static file server
 - if README auto markers are removed or duplicated, `scripts/generate_index.py` fails fast instead of silently corrupting the file
 - if no artifacts exist, the index generator still writes a valid empty `js/data.js`
+- if Python dependency declarations change, rerun `make lock` before committing
+- if Node dependency declarations change, refresh `package-lock.json` before committing
 - if generated thumbnails are intentionally removed from the working tree, `js/data.js` will emit `thumbnail: null` until CI regenerates them
 
 See [`maintenance.md`](maintenance.md) for the long-term upkeep checklist.
