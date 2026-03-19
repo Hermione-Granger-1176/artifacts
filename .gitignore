@@ -15,3 +15,24 @@ Thumbs.db
 *.swo
 .vscode/
 .idea/
+
+# =========================
+# Python / tooling
+# =========================
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# =========================
+# Environment files
+# =========================
+.env
+.env.*

@@ -2,7 +2,7 @@
 
 A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT, Gemini, etc.). Each artifact is a self-contained web application with its own page.
 
-**Live site:** https://hermione-granger-1176.github.io/artifacts/
+**Live site:** <!-- AUTO:SITE_URL -->https://hermione-granger-1176.github.io/artifacts/<!-- /AUTO:SITE_URL -->
 
 <!-- AUTO:TOTAL_BADGE --><img src="https://img.shields.io/badge/Total-1-D97706?style=for-the-badge" alt="Total"><!-- /AUTO:TOTAL_BADGE -->
 
@@ -20,13 +20,18 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 <img src="https://img.shields.io/badge/Claude-D97706?style=flat-square&logo=anthropic&logoColor=white" alt="Claude">
 <!-- AUTO:TOOL_BADGES_END -->
 
-## Artifacts (<!-- AUTO:TOTAL_COUNT -->1<!-- /AUTO:TOTAL_COUNT -->)
+## Snapshot
 
-<!-- AUTO:ARTIFACTS_TABLE_START -->
-| Artifact | Description | Tools | Live Link |
-|----------|-------------|-------|-----------|
-| Loan Amortization Schedule | Interactive loan amortization calculator with charts, extra payment scenarios, and detailed repayment schedules. | Claude | [Open](https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/) |
-<!-- AUTO:ARTIFACTS_TABLE_END -->
+- <!-- AUTO:TOTAL_COUNT -->1<!-- /AUTO:TOTAL_COUNT --> artifacts published
+- Browse the live website for searchable thumbnails, filters, and launch links.
+
+## Docs
+
+- `docs/README.md`: entry point for workspace documentation
+- `docs/workspace.md`: repository layout and responsibilities
+- `docs/architecture.md`: runtime, build, and deployment design
+- `docs/operations.md`: local workflows, CI, and generation notes
+- `docs/maintenance.md`: maintenance rules and long-term repo hygiene
 
 ## Structure
 
@@ -40,14 +45,38 @@ apps/
     description.txt   # Short description
     tags.txt          # Content tags (one per line)
     tools.txt         # AI tools used (one per line)
-    thumbnail.png     # Auto-generated screenshot
+    thumbnail.webp    # Auto-generated screenshot
 ```
 
 ## Adding a new artifact
 
 1. Create a kebab-case directory under `apps/`
 2. Add `index.html` and metadata files
-3. Push to `main` — everything else is automated
+3. Push to `main`: everything else is automated
+
+## Local development
+
+1. Bootstrap the local toolchain:
+
+   ```bash
+   make setup
+   ```
+
+2. Run linting and tests (including the 100% Python coverage gate):
+
+   ```bash
+   make check
+   ```
+
+3. Regenerate derived files before pushing:
+
+   ```bash
+   make generate
+   ```
+
+4. If you prefer running commands directly, the Makefile uses `.venv` and installs dependencies from `pyproject.toml`.
+
+5. Open `index.html` in a browser to verify the gallery locally.
 
 ## License
 

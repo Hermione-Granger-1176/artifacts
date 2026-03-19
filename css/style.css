@@ -569,7 +569,7 @@ body {
     border: 1px solid var(--border-color);
 }
 
-/* Expand panel badges — always on dark hero background */
+/* Expand panel badges for the dark hero background */
 .expand-tag-badge {
     font-size: 0.7rem;
     font-weight: 500;
