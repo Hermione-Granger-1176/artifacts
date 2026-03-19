@@ -54,64 +54,65 @@ runs:
         const fs = require('fs');
         const { execFileSync } = require('child_process');
 
-        const outputFile = process.env.GITHUB_OUTPUT;
-        const token = process.env.GH_TOKEN_INPUT;
-        const baseBranch = process.env.BASE_BRANCH;
-        const expectedHeadSha = process.env.EXPECTED_HEAD_SHA;
-        const commitHeadline = process.env.COMMIT_HEADLINE;
-        const fallbackBranchPrefix = process.env.FALLBACK_BRANCH_PREFIX;
-        const prTitle = process.env.PR_TITLE;
-        const prBody = process.env.PR_BODY;
-        const pathspec = (process.env.PATHSPEC_INPUT || '')
-          .split(/\r?\n/)
-          .map((entry) => entry.trim())
-          .filter(Boolean);
+        (async () => {
+          const outputFile = process.env.GITHUB_OUTPUT;
+          const token = process.env.GH_TOKEN_INPUT;
+          const baseBranch = process.env.BASE_BRANCH;
+          const expectedHeadSha = process.env.EXPECTED_HEAD_SHA;
+          const commitHeadline = process.env.COMMIT_HEADLINE;
+          const fallbackBranchPrefix = process.env.FALLBACK_BRANCH_PREFIX;
+          const prTitle = process.env.PR_TITLE;
+          const prBody = process.env.PR_BODY;
+          const pathspec = (process.env.PATHSPEC_INPUT || '')
+            .split(/\r?\n/)
+            .map((entry) => entry.trim())
+            .filter(Boolean);
 
-        const [owner, repo] = (process.env.GITHUB_REPOSITORY || '').split('/');
+          const [owner, repo] = (process.env.GITHUB_REPOSITORY || '').split('/');
 
-        if (!outputFile || !token || !owner || !repo) {
-          throw new Error('Missing required GitHub environment for verified commit action');
-        }
-
-        const setOutput = (name, value) => {
-          fs.appendFileSync(outputFile, `${name}=${value}\n`);
-        };
-
-        const fetchJson = async (url, options = {}) => {
-          const response = await fetch(url, {
-            ...options,
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: 'application/vnd.github+json',
-              'Content-Type': 'application/json',
-              ...(options.headers || {}),
-            },
-          });
-
-          if (!response.ok) {
-            const message = await response.text();
-            throw new Error(`${response.status} ${response.statusText}: ${message}`);
+          if (!outputFile || !token || !owner || !repo) {
+            throw new Error('Missing required GitHub environment for verified commit action');
           }
 
-          if (response.status === 204) {
-            return null;
-          }
+          const setOutput = (name, value) => {
+            fs.appendFileSync(outputFile, `${name}=${value}\n`);
+          };
 
-          return response.json();
-        };
+          const fetchJson = async (url, options = {}) => {
+            const response = await fetch(url, {
+              ...options,
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/vnd.github+json',
+                'Content-Type': 'application/json',
+                ...(options.headers || {}),
+              },
+            });
 
-        const graphql = async (query, variables) => {
-          const response = await fetchJson('https://api.github.com/graphql', {
-            method: 'POST',
-            body: JSON.stringify({ query, variables }),
-          });
+            if (!response.ok) {
+              const message = await response.text();
+              throw new Error(`${response.status} ${response.statusText}: ${message}`);
+            }
 
-          if (response.errors && response.errors.length > 0) {
-            throw new Error(response.errors.map((error) => error.message).join('; '));
-          }
+            if (response.status === 204) {
+              return null;
+            }
 
-          return response.data;
-        };
+            return response.json();
+          };
+
+          const graphql = async (query, variables) => {
+            const response = await fetchJson('https://api.github.com/graphql', {
+              method: 'POST',
+              body: JSON.stringify({ query, variables }),
+            });
+
+            if (response.errors && response.errors.length > 0) {
+              throw new Error(response.errors.map((error) => error.message).join('; '));
+            }
+
+            return response.data;
+          };
 
         const gitArgs = ['diff', '--staged', '--name-status'];
         if (pathspec.length > 0) {
@@ -251,4 +252,8 @@ runs:
 
         console.log(`Created PR: ${pullRequest.html_url}`);
         setOutput('result-url', pullRequest.html_url);
+        })().catch((error) => {
+          console.error(error);
+          process.exit(1);
+        });
         NODE

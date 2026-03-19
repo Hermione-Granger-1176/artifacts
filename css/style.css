@@ -308,6 +308,7 @@ body.detail-open .scroll-top {
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-lg);
+    visibility: hidden;
     opacity: 0;
     transform: translateY(-4px);
     pointer-events: none;
@@ -316,6 +317,7 @@ body.detail-open .scroll-top {
 }
 
 .filter-dropdown.open .filter-dropdown-panel {
+    visibility: visible;
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
@@ -488,6 +490,14 @@ body.detail-open .scroll-top {
 .artifact-card.expanded .card-overlay-row {
     opacity: 1;
     transform: translateY(0);
+}
+
+@media (hover: none), (pointer: coarse) {
+    .card-overlay,
+    .card-overlay-row {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 .card-name {

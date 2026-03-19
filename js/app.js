@@ -12,6 +12,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const detailOverlay = document.getElementById('detail-overlay');
     const detailPanel = document.getElementById('detail-panel');
     const htmlElement = document.documentElement;
+    const backgroundElements = [
+        document.querySelector('.header'),
+        document.querySelector('.container'),
+        document.querySelector('.footer'),
+        scrollTopBtn,
+    ].filter(Boolean);
 
     const toolDropdown = document.getElementById('tool-dropdown');
     const toolFilterToggle = document.getElementById('tool-filter-toggle');
@@ -189,6 +195,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('keydown', (event) => {
         switch (event.key) {
+            case 'Tab':
+                trapDetailOverlayFocus(event);
+                return;
+
             case 'Escape':
                 if (openFilterKey) {
                     event.preventDefault();
@@ -205,6 +215,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
 
             case '/': {
+                if (expandedId) {
+                    return;
+                }
+
                 const activeElement = document.activeElement;
                 const isInput = activeElement && (
                     activeElement.tagName === 'INPUT'
@@ -360,6 +374,34 @@ document.addEventListener('DOMContentLoaded', () => {
         filterReset.classList.toggle('hidden', !hasActiveFilters);
     }
 
+    function setBackgroundContentInert(isInert) {
+        backgroundElements.forEach((element) => {
+            if (isInert) {
+                if (element.inert) {
+                    return;
+                }
+
+                element.dataset.prevAriaHidden = element.getAttribute('aria-hidden') ?? '';
+                element.setAttribute('aria-hidden', 'true');
+                element.inert = true;
+                return;
+            }
+
+            if (!element.inert) {
+                return;
+            }
+
+            if (element.dataset.prevAriaHidden === '') {
+                element.removeAttribute('aria-hidden');
+            } else {
+                element.setAttribute('aria-hidden', element.dataset.prevAriaHidden);
+            }
+
+            delete element.dataset.prevAriaHidden;
+            element.inert = false;
+        });
+    }
+
     function applyStateChange({ closeFilter = false, focusTarget = null } = {}) {
         if (closeFilter) {
             closeFilterDropdown();
@@ -373,6 +415,52 @@ document.addEventListener('DOMContentLoaded', () => {
         if (focusTarget) {
             focusTarget.focus();
         }
+    }
+
+    function trapDetailOverlayFocus(event) {
+        if (!expandedId) {
+            return false;
+        }
+
+        const focusableSelectors = [
+            'a[href]',
+            'button:not([disabled])',
+            'input:not([disabled])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            '[tabindex]:not([tabindex="-1"])',
+        ].join(',');
+
+        const focusableElements = [...detailPanel.querySelectorAll(focusableSelectors)]
+            .filter((element) => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true');
+
+        if (focusableElements.length === 0) {
+            event.preventDefault();
+            detailPanel.focus({ preventScroll: true });
+            return true;
+        }
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+        const activeElement = document.activeElement;
+
+        if (event.shiftKey) {
+            if (activeElement === firstElement || !detailPanel.contains(activeElement)) {
+                event.preventDefault();
+                lastElement.focus({ preventScroll: true });
+                return true;
+            }
+
+            return false;
+        }
+
+        if (activeElement === lastElement || !detailPanel.contains(activeElement)) {
+            event.preventDefault();
+            firstElement.focus({ preventScroll: true });
+            return true;
+        }
+
+        return false;
     }
 
     function getSelectedValues(key) {
@@ -422,6 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const control = filterControls[key];
         control.root.classList.add('open');
         control.toggle.setAttribute('aria-expanded', 'true');
+        control.panel.setAttribute('aria-hidden', 'false');
     }
 
     function closeFilterDropdown() {
@@ -429,6 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const control = filterControls[openFilterKey];
         control.root.classList.remove('open');
         control.toggle.setAttribute('aria-expanded', 'false');
+        control.panel.setAttribute('aria-hidden', 'true');
         openFilterKey = null;
     }
 
@@ -464,6 +554,7 @@ document.addEventListener('DOMContentLoaded', () => {
         detailOverlay.classList.add('visible');
         detailOverlay.setAttribute('aria-hidden', 'false');
         document.body.classList.add('detail-open');
+        setBackgroundContentInert(true);
         updateExpandedCardState();
 
         const panelRect = detailPanel.getBoundingClientRect();
@@ -505,6 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
             detailOverlay.classList.remove('visible');
             detailPanel.innerHTML = '';
             clearDetailMotion();
+            setBackgroundContentInert(false);
             if (restoreFocus && fallbackCard) {
                 fallbackCard.focus({ preventScroll: true });
             }
