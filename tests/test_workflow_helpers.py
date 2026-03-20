@@ -91,6 +91,25 @@ def test_validate_lock_refresh_artifact_rejects_symlinks(tmp_path: Path) -> None
         workflow_helpers.validate_lock_refresh_artifact(tmp_path)
 
 
+@pytest.mark.skipif(not hasattr(Path, "symlink_to"), reason="symlinks unavailable")
+def test_validate_lock_refresh_artifact_rejects_symlinked_directories(
+    tmp_path: Path,
+) -> None:
+    write_text(tmp_path / "locks" / "requirements.lock", "pkg==1.0\n")
+    write_text(tmp_path / "locks" / "requirements-dev.lock", "pkg==1.0\n")
+    write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
+    write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
+    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/pip/demo\n")
+    linked_dir = tmp_path / "linked-dir"
+    linked_dir.mkdir()
+    (tmp_path / ".artifacts" / "nested-link").symlink_to(
+        linked_dir, target_is_directory=True
+    )
+
+    with pytest.raises(ValueError, match="Refusing artifact containing symlink"):
+        workflow_helpers.validate_lock_refresh_artifact(tmp_path)
+
+
 def test_validate_lock_refresh_artifact_rejects_missing_files(tmp_path: Path) -> None:
     write_text(tmp_path / "locks" / "requirements.lock", "pkg==1.0\n")
 

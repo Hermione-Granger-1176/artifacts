@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -61,9 +62,14 @@ def read_lock_refresh_metadata(root: Path) -> dict[str, str]:
 
 def validate_lock_refresh_artifact(root: Path) -> None:
     """Fail if a downloaded lock-refresh artifact tree contains unsafe paths."""
-    for path in root.rglob("*"):
-        if path.is_symlink():
-            raise ValueError(f"Refusing artifact containing symlink: {path}")
+    for walk_root, dirnames, filenames in os.walk(root, followlinks=False):
+        for name in [*dirnames, *filenames]:
+            path = Path(walk_root) / name
+            if path.is_symlink():
+                raise ValueError(f"Refusing artifact containing symlink: {path}")
+        dirnames[:] = [
+            name for name in dirnames if not (Path(walk_root) / name).is_symlink()
+        ]
 
     for relative_path in LOCK_ARTIFACT_REQUIRED_FILES.values():
         path = root / relative_path
