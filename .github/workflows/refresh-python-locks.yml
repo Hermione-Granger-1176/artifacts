@@ -100,32 +100,15 @@ jobs:
       - name: Read refresh metadata
         id: metadata
         run: |
-          echo "pr-number=$(tr -d '\n' < .artifacts/lock-refresh/.artifacts/pr-number.txt)" >> "$GITHUB_OUTPUT"
-          echo "head-sha=$(tr -d '\n' < .artifacts/lock-refresh/.artifacts/head-sha.txt)" >> "$GITHUB_OUTPUT"
-          echo "head-ref=$(tr -d '\n' < .artifacts/lock-refresh/.artifacts/head-ref.txt)" >> "$GITHUB_OUTPUT"
+          metadata_json=$(.venv/bin/python scripts/workflow_helpers.py read-lock-metadata --root .artifacts/lock-refresh)
+          echo "pr-number=$(printf '%s' "$metadata_json" | python3.12 -c 'import json,sys; print(json.load(sys.stdin)["pr-number"])')" >> "$GITHUB_OUTPUT"
+          echo "head-sha=$(printf '%s' "$metadata_json" | python3.12 -c 'import json,sys; print(json.load(sys.stdin)["head-sha"])')" >> "$GITHUB_OUTPUT"
+          echo "head-ref=$(printf '%s' "$metadata_json" | python3.12 -c 'import json,sys; print(json.load(sys.stdin)["head-ref"])')" >> "$GITHUB_OUTPUT"
 
       - name: Validate downloaded artifact contents
-        run: |
-          python3.12 - <<'PY'
-          from pathlib import Path
-
-          root = Path('.artifacts/lock-refresh')
-          required_files = [
-              root / 'locks' / 'requirements.lock',
-              root / 'locks' / 'requirements-dev.lock',
-              root / '.artifacts' / 'pr-number.txt',
-              root / '.artifacts' / 'head-sha.txt',
-              root / '.artifacts' / 'head-ref.txt',
-          ]
-
-          for path in root.rglob('*'):
-              if path.is_symlink():
-                  raise SystemExit(f'Refusing artifact containing symlink: {path}')
-
-          for path in required_files:
-              if not path.is_file():
-                  raise SystemExit(f'Required artifact file missing or not a regular file: {path}')
-          PY
+        run: >-
+          .venv/bin/python scripts/workflow_helpers.py validate-lock-artifact
+          --root .artifacts/lock-refresh
 
       - name: Validate Dependabot branch state
         id: branch-state

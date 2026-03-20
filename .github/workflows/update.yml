@@ -166,18 +166,12 @@ jobs:
 
       - name: Determine whether app-token actions are allowed
         id: token-policy
-        run: |
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "allowed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.event.pull_request.user.login }}" = "dependabot[bot]" ]; then
-            echo "allowed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "allowed=true" >> "$GITHUB_OUTPUT"
+        run: >-
+          .venv/bin/python scripts/workflow_helpers.py app-token-policy
+          --event-name "${{ github.event_name }}"
+          --head-repo-fork "${{ github.event.pull_request.head.repo.fork || 'false' }}"
+          --pr-author "${{ github.event.pull_request.user.login || '' }}"
+          >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub App token
         id: app-token
@@ -373,13 +367,12 @@ jobs:
 
       - name: Determine whether app-token actions are allowed
         id: token-policy
-        run: |
-          if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.event.pull_request.user.login }}" = "dependabot[bot]" ]; then
-            echo "allowed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "allowed=true" >> "$GITHUB_OUTPUT"
+        run: >-
+          .venv/bin/python scripts/workflow_helpers.py app-token-policy
+          --event-name pull_request
+          --head-repo-fork "${{ github.event.pull_request.head.repo.fork }}"
+          --pr-author "${{ github.event.pull_request.user.login }}"
+          >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub App token
         id: app-token

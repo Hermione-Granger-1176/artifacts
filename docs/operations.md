@@ -59,6 +59,7 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 - same-repo Dependabot Python PRs also trigger `.github/workflows/refresh-python-locks.yml`, which computes refreshed lock files on the PR branch and commits them back from a follow-up trusted workflow run after artifact validation and PR head revalidation
 - `publish` is the main write-capable job; it regenerates outputs, commits generated files when needed, prepares `_site/`, deploys previews or `gh-pages`, and then verifies the published URL serves the new asset version
 - `cleanup-preview` is a write-capable cleanup job that removes preview deployments and comments when PRs close
+- workflow trust-policy and lock-artifact validation shell logic is intentionally kept thin; `scripts/workflow_helpers.py` owns those tested helper paths
 - trusted pull requests publish preview deployments under `pr-preview/pr-<number>/`
 - pull requests leave the source branch untouched while preview comments provide the live preview link
 - preview deploys use the GitHub App token
