@@ -33,7 +33,7 @@ See [`docs/style.md`](../docs/style.md) for editor configuration, language conve
 
 - Python dependencies live in `pyproject.toml` and are frozen in `locks/requirements.lock` and `locks/requirements-dev.lock`.
 - Node tooling lives in `package.json` and `package-lock.json`.
-- Same-repo Dependabot pip PRs auto-refresh the Python lock files through `.github/workflows/refresh-python-locks.yml`, but local/manual dependency edits still need `make lock`.
+- Same-repo Dependabot pip PRs auto-refresh the Python lock files through `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml`, but local/manual dependency edits still need `make lock`.
 - After changing Python dependency declarations, regenerate the Python lock files with `make lock`.
 - After changing Node dependencies, refresh `package-lock.json` with npm before rerunning `npm ci` or `make check`.
 - Workspace-only maintenance changes do not need a standalone changelog entry; app release notes stay app-specific.

@@ -10,7 +10,8 @@ These are the main cross-cutting pieces that should stay consistent over time:
 - `scripts/workflow_helpers.py` centralizes small workflow trust and artifact-validation helpers so the YAML stays policy-focused and the procedural logic stays testable
 - `.github/workflows/update.yml` is the main build, validation, and deploy workflow
 - `.github/workflows/refresh-action-shas.yml` keeps pinned GitHub Actions references current
-- `.github/workflows/refresh-python-locks.yml` keeps Python freeze lock files aligned on same-repo Dependabot pip PRs through an untrusted compute step, artifact validation, and a separate trusted commit step
+- `.github/workflows/refresh-python-locks.yml` computes Python lock refresh artifacts for same-repo Dependabot pip PRs
+- `.github/workflows/commit-python-locks.yml` validates and commits those refreshed Python lock artifacts in a separate trusted workflow
 - `.github/dependabot.yml` handles recurring dependency update checks
 - `locks/requirements.lock`, `locks/requirements-dev.lock`, and `package-lock.json` keep local and CI installs reproducible
 - `gh-pages` is a CI-managed deployment branch protected by a ruleset and should not be edited manually

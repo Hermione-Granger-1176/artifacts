@@ -62,7 +62,7 @@ Do not manually edit these outputs unless updating generator logic:
 - PRs deploy previews to `gh-pages/pr-preview/pr-<number>/`
 - Preview deploys use the GitHub App token
 - Preview comments are posted by the workflow token, appear as `github-actions[bot]`, and are recreated on each push so the newest preview stays visible
-- Same-repo Dependabot pip PRs refresh Python lock files with `.github/workflows/refresh-python-locks.yml`
+- Same-repo Dependabot pip PRs refresh Python lock files with `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml`
 - `gh-pages` is CI-managed and should not be edited manually
 
 ## Docs

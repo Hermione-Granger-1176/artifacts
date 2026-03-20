@@ -167,7 +167,7 @@ jobs:
       - name: Determine whether app-token actions are allowed
         id: token-policy
         run: >-
-          .venv/bin/python scripts/workflow_helpers.py app-token-policy
+          python3 scripts/workflow_helpers.py app-token-policy
           --event-name "${{ github.event_name }}"
           --head-repo-fork "${{ github.event.pull_request.head.repo.fork || 'false' }}"
           --pr-author "${{ github.event.pull_request.user.login || '' }}"
@@ -368,7 +368,7 @@ jobs:
       - name: Determine whether app-token actions are allowed
         id: token-policy
         run: >-
-          .venv/bin/python scripts/workflow_helpers.py app-token-policy
+          python3 scripts/workflow_helpers.py app-token-policy
           --event-name pull_request
           --head-repo-fork "${{ github.event.pull_request.head.repo.fork }}"
           --pr-author "${{ github.event.pull_request.user.login }}"
