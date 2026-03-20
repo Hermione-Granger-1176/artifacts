@@ -14,7 +14,7 @@ from PIL import Image
 import scripts.generate_thumbnails as generate_thumbnails
 
 
-def write_text(path: Path, content: str) -> None:
+def _write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
@@ -25,8 +25,8 @@ def test_find_artifacts_returns_only_visible_dirs_with_index_html(
     apps_dir = tmp_path / "apps"
     apps_dir.mkdir()
 
-    write_text(apps_dir / "loan-tool" / "index.html", "<html></html>")
-    write_text(apps_dir / "budget-tool" / "index.html", "<html></html>")
+    _write_text(apps_dir / "loan-tool" / "index.html", "<html></html>")
+    _write_text(apps_dir / "budget-tool" / "index.html", "<html></html>")
     (apps_dir / ".hidden").mkdir()
     (apps_dir / "empty").mkdir()
 
@@ -61,7 +61,7 @@ def test_save_thumbnail_resizes_and_writes_webp(tmp_path: Path) -> None:
 
 def test_should_generate_thumbnail_when_missing_or_stale(tmp_path: Path) -> None:
     artifact_dir = tmp_path / "loan-tool"
-    write_text(artifact_dir / "index.html", "<html></html>")
+    _write_text(artifact_dir / "index.html", "<html></html>")
 
     assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is True
 
@@ -70,7 +70,7 @@ def test_should_generate_thumbnail_when_missing_or_stale(tmp_path: Path) -> None
 
     assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is False
 
-    write_text(artifact_dir / "index.html", "<html>updated</html>")
+    _write_text(artifact_dir / "index.html", "<html>updated</html>")
     future_mtime = thumb_path.stat().st_mtime + 2
     os.utime(artifact_dir / "index.html", (future_mtime, future_mtime))
 
@@ -79,7 +79,7 @@ def test_should_generate_thumbnail_when_missing_or_stale(tmp_path: Path) -> None
 
 def test_should_generate_thumbnail_when_legacy_png_exists(tmp_path: Path) -> None:
     artifact_dir = tmp_path / "loan-tool"
-    write_text(artifact_dir / "index.html", "<html></html>")
+    _write_text(artifact_dir / "index.html", "<html></html>")
     (artifact_dir / generate_thumbnails.SCREENSHOT_FILE).write_bytes(b"webp")
     (artifact_dir / generate_thumbnails.LEGACY_SCREENSHOT_FILE).write_bytes(b"png")
 
@@ -126,7 +126,7 @@ def test_generate_thumbnails_exits_when_playwright_is_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     artifact_dir = tmp_path / "loan-tool"
-    write_text(artifact_dir / "index.html", "<html></html>")
+    _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
 
     original_import = builtins.__import__
@@ -157,10 +157,12 @@ class FakePage:
         fail_goto: bool = False,
         transient_failures: int = 0,
         fail_close: bool = False,
+        screenshot_bytes: bytes = b"png-bytes",
     ) -> None:
         self._fail_goto = fail_goto
         self._transient_failures = transient_failures
         self._fail_close = fail_close
+        self._screenshot_bytes = screenshot_bytes
         self._goto_calls = 0
         self.closed = False
 
@@ -179,7 +181,7 @@ class FakePage:
 
     async def screenshot(self, type: str) -> bytes:
         assert type == "png"
-        return b"png-bytes"
+        return self._screenshot_bytes
 
     async def close(self) -> None:
         if self._fail_close:
@@ -194,11 +196,13 @@ class FakeBrowser:
         transient_failures: int = 0,
         fail_new_page: bool = False,
         fail_page_close: bool = False,
+        screenshot_bytes: bytes = b"png-bytes",
     ) -> None:
         self._fail_goto = fail_goto
         self._transient_failures = transient_failures
         self._fail_new_page = fail_new_page
         self._fail_page_close = fail_page_close
+        self._screenshot_bytes = screenshot_bytes
         self.closed = False
         self.pages: list[FakePage] = []
 
@@ -216,6 +220,7 @@ class FakeBrowser:
             fail_goto=self._fail_goto,
             transient_failures=self._transient_failures,
             fail_close=self._fail_page_close,
+            screenshot_bytes=self._screenshot_bytes,
         )
         self.pages.append(page)
         return page
@@ -231,12 +236,14 @@ class FakePlaywright:
         transient_failures: int = 0,
         fail_new_page: bool = False,
         fail_page_close: bool = False,
+        screenshot_bytes: bytes = b"png-bytes",
     ) -> None:
         self.browser = FakeBrowser(
             fail_goto=fail_goto,
             transient_failures=transient_failures,
             fail_new_page=fail_new_page,
             fail_page_close=fail_page_close,
+            screenshot_bytes=screenshot_bytes,
         )
         self.chromium = types.SimpleNamespace(
             launch=self.browser_launch,
@@ -253,11 +260,13 @@ class FakeAsyncPlaywright:
         transient_failures: int = 0,
         fail_new_page: bool = False,
         fail_page_close: bool = False,
+        screenshot_bytes: bytes = b"png-bytes",
     ) -> None:
         self._fail_goto = fail_goto
         self._transient_failures = transient_failures
         self._fail_new_page = fail_new_page
         self._fail_page_close = fail_page_close
+        self._screenshot_bytes = screenshot_bytes
         self.playwright: FakePlaywright | None = None
 
     async def __aenter__(self) -> FakePlaywright:
@@ -266,6 +275,7 @@ class FakeAsyncPlaywright:
             transient_failures=self._transient_failures,
             fail_new_page=self._fail_new_page,
             fail_page_close=self._fail_page_close,
+            screenshot_bytes=self._screenshot_bytes,
         )
         return self.playwright
 
@@ -279,6 +289,7 @@ def _patch_playwright(
     transient_failures: int = 0,
     fail_new_page: bool = False,
     fail_page_close: bool = False,
+    screenshot_bytes: bytes = b"png-bytes",
 ) -> FakeAsyncPlaywright:
     """Patch the playwright import and return the fake context manager."""
     fake_cm = FakeAsyncPlaywright(
@@ -286,6 +297,7 @@ def _patch_playwright(
         transient_failures=transient_failures,
         fail_new_page=fail_new_page,
         fail_page_close=fail_page_close,
+        screenshot_bytes=screenshot_bytes,
     )
     original_import = builtins.__import__
 
@@ -319,7 +331,7 @@ def test_generate_thumbnails_processes_artifacts_and_closes_browser(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     artifact_dir = tmp_path / "loan-tool"
-    write_text(artifact_dir / "index.html", "<html></html>")
+    _write_text(artifact_dir / "index.html", "<html></html>")
     (artifact_dir / generate_thumbnails.LEGACY_SCREENSHOT_FILE).write_bytes(b"legacy")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
 
@@ -357,7 +369,7 @@ def test_generate_thumbnails_skips_up_to_date_artifacts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     artifact_dir = tmp_path / "loan-tool"
-    write_text(artifact_dir / "index.html", "<html></html>")
+    _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
     monkeypatch.setattr(
         generate_thumbnails, "should_generate_thumbnail", lambda _path: False
@@ -378,7 +390,7 @@ def test_generate_thumbnails_retries_transient_failures_then_succeeds(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     artifact_dir = tmp_path / "loan-tool"
-    write_text(artifact_dir / "index.html", "<html></html>")
+    _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
     monkeypatch.setattr(
         generate_thumbnails, "should_generate_thumbnail", lambda _path: True
@@ -410,21 +422,27 @@ def test_generate_thumbnails_retries_transient_failures_then_succeeds(
 
 
 def test_generate_thumbnails_logs_warning_for_failed_screenshot(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     artifact_dir = tmp_path / "loan-tool"
-    write_text(artifact_dir / "index.html", "<html></html>")
+    _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
     monkeypatch.setattr(
         generate_thumbnails, "should_generate_thumbnail", lambda _path: True
     )
 
+    caplog.set_level("WARNING")
     fake_cm = _patch_playwright(monkeypatch, fail_goto=True)
     _patch_sleep(monkeypatch)
 
     with pytest.raises(RuntimeError, match="failed for every attempted artifact"):
         generate_thumbnails.generate_thumbnails()
 
+    assert any(
+        "Failed to screenshot loan-tool" in record.message for record in caplog.records
+    )
     assert fake_cm.playwright is not None
     assert fake_cm.playwright.browser.closed is True
     assert all(page.closed for page in fake_cm.playwright.browser.pages)
@@ -434,7 +452,7 @@ def test_generate_thumbnails_raises_when_all_attempts_fail(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     artifact_dir = tmp_path / "loan-tool"
-    write_text(artifact_dir / "index.html", "<html></html>")
+    _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
     monkeypatch.setattr(
         generate_thumbnails, "should_generate_thumbnail", lambda _path: True
@@ -453,7 +471,7 @@ def test_generate_thumbnails_processes_multiple_artifacts_concurrently(
     dirs = []
     for name in ("alpha", "beta", "gamma"):
         d = tmp_path / name
-        write_text(d / "index.html", f"<html>{name}</html>")
+        _write_text(d / "index.html", f"<html>{name}</html>")
         dirs.append(d)
 
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: dirs)
@@ -489,7 +507,7 @@ def test_generate_thumbnails_handles_page_creation_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     artifact_dir = tmp_path / "loan-tool"
-    write_text(artifact_dir / "index.html", "<html></html>")
+    _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
     monkeypatch.setattr(
         generate_thumbnails, "should_generate_thumbnail", lambda _path: True
@@ -509,7 +527,7 @@ def test_generate_thumbnails_tolerates_page_close_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     artifact_dir = tmp_path / "loan-tool"
-    write_text(artifact_dir / "index.html", "<html></html>")
+    _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
     monkeypatch.setattr(
         generate_thumbnails, "should_generate_thumbnail", lambda _path: True
@@ -536,3 +554,72 @@ def test_generate_thumbnails_tolerates_page_close_failure(
     assert len(save_calls) == 1
     assert fake_cm.playwright is not None
     assert fake_cm.playwright.browser.closed is True
+
+
+def test_generate_thumbnails_tolerates_partial_failures_by_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    successful = tmp_path / "alpha"
+    failing = tmp_path / "beta"
+    _write_text(successful / "index.html", "<html></html>")
+    _write_text(failing / "index.html", "<html></html>")
+
+    monkeypatch.setattr(
+        generate_thumbnails, "find_artifacts", lambda: [successful, failing]
+    )
+    monkeypatch.delenv(generate_thumbnails.STRICT_THUMBNAILS_ENV_VAR, raising=False)
+
+    original_process = generate_thumbnails._process_artifact
+
+    async def fake_process_artifact(browser, artifact_dir, semaphore):
+        if artifact_dir == failing:
+            return "failed"
+        return await original_process(browser, artifact_dir, semaphore)
+
+    monkeypatch.setattr(generate_thumbnails, "_process_artifact", fake_process_artifact)
+    monkeypatch.setattr(generate_thumbnails, "save_thumbnail", lambda *_args: None)
+
+    fake_cm = _patch_playwright(monkeypatch)
+
+    stats = generate_thumbnails.generate_thumbnails()
+
+    assert stats == {
+        "total": 2,
+        "attempted": 2,
+        "generated": 1,
+        "skipped": 0,
+        "failed": 1,
+    }
+    assert fake_cm.playwright is not None
+    assert fake_cm.playwright.browser.closed is True
+
+
+def test_generate_thumbnails_strict_mode_fails_on_partial_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    successful = tmp_path / "alpha"
+    failing = tmp_path / "beta"
+    _write_text(successful / "index.html", "<html></html>")
+    _write_text(failing / "index.html", "<html></html>")
+
+    monkeypatch.setattr(
+        generate_thumbnails, "find_artifacts", lambda: [successful, failing]
+    )
+    monkeypatch.setenv(generate_thumbnails.STRICT_THUMBNAILS_ENV_VAR, "1")
+
+    original_process = generate_thumbnails._process_artifact
+
+    async def fake_process_artifact(browser, artifact_dir, semaphore):
+        if artifact_dir == failing:
+            return "failed"
+        return await original_process(browser, artifact_dir, semaphore)
+
+    monkeypatch.setattr(generate_thumbnails, "_process_artifact", fake_process_artifact)
+    monkeypatch.setattr(generate_thumbnails, "save_thumbnail", lambda *_args: None)
+
+    _patch_playwright(monkeypatch)
+
+    with pytest.raises(
+        RuntimeError, match="failed for one or more attempted artifacts"
+    ):
+        generate_thumbnails.generate_thumbnails()

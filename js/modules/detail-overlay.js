@@ -89,18 +89,15 @@ export function createDetailOverlay({
     const firstElement = focusableElements[0];
     const lastElement = focusableElements[focusableElements.length - 1];
     const activeElement = documentObj.activeElement;
+    const activeElementOutsidePanel = !detailPanel.contains(activeElement);
 
-    if (event.shiftKey) {
-      if (activeElement === firstElement || !detailPanel.contains(activeElement)) {
-        event.preventDefault();
-        lastElement.focus({ preventScroll: true });
-        return true;
-      }
-
-      return false;
+    if (event.shiftKey && (activeElement === firstElement || activeElementOutsidePanel)) {
+      event.preventDefault();
+      lastElement.focus({ preventScroll: true });
+      return true;
     }
 
-    if (activeElement === lastElement || !detailPanel.contains(activeElement)) {
+    if (activeElement === lastElement || activeElementOutsidePanel) {
       event.preventDefault();
       firstElement.focus({ preventScroll: true });
       return true;

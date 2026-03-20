@@ -22,6 +22,7 @@ jobs:
   verify:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -81,6 +82,8 @@ jobs:
         run: make security
 
       - name: Generate thumbnails
+        env:
+          ARTIFACTS_STRICT_THUMBNAILS: '1'
         run: make thumbnails
 
       - name: Generate content index
@@ -106,6 +109,7 @@ jobs:
   secret-scan:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:
@@ -122,6 +126,7 @@ jobs:
   dependency-review:
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
@@ -147,6 +152,7 @@ jobs:
       - secret-scan
       - dependency-review
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
       issues: write
@@ -160,12 +166,12 @@ jobs:
 
       - name: Determine whether app-token actions are allowed
         id: token-policy
-        run: |
-          allowed=true
-          if [ "${{ github.event_name }}" = "pull_request" ] && { [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.actor }}" = "dependabot[bot]" ]; }; then
-            allowed=false
-          fi
-          echo "allowed=$allowed" >> "$GITHUB_OUTPUT"
+        run: >-
+          python3 scripts/workflow_helpers.py app-token-policy
+          --event-name "${{ github.event_name }}"
+          --head-repo-fork "${{ github.event.pull_request.head.repo.fork || 'false' }}"
+          --pr-author "${{ github.event.pull_request.user.login || '' }}"
+          >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub App token
         id: app-token
@@ -205,6 +211,8 @@ jobs:
         run: make setup-ci
 
       - name: Generate thumbnails
+        env:
+          ARTIFACTS_STRICT_THUMBNAILS: '1'
         run: make thumbnails
 
       - name: Generate content index
@@ -345,6 +353,7 @@ jobs:
   cleanup-preview:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: write
       issues: write
@@ -358,12 +367,12 @@ jobs:
 
       - name: Determine whether app-token actions are allowed
         id: token-policy
-        run: |
-          allowed=true
-          if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.actor }}" = "dependabot[bot]" ]; then
-            allowed=false
-          fi
-          echo "allowed=$allowed" >> "$GITHUB_OUTPUT"
+        run: >-
+          python3 scripts/workflow_helpers.py app-token-policy
+          --event-name pull_request
+          --head-repo-fork "${{ github.event.pull_request.head.repo.fork }}"
+          --pr-author "${{ github.event.pull_request.user.login }}"
+          >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub App token
         id: app-token

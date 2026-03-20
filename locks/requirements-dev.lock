@@ -30,7 +30,7 @@ pytest==9.0.2
 pytest-cov==7.0.0
 requests==2.32.5
 rich==14.3.3
-ruff==0.15.6
+ruff==0.15.7
 sortedcontainers==2.4.0
 tomli==2.4.0
 tomli_w==1.2.0

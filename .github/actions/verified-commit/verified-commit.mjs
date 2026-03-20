@@ -5,8 +5,11 @@ import { setTimeout as sleep } from 'node:timers/promises';
 export const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
 export const DEFAULT_MAX_ATTEMPTS = 3;
 
-/** @param {string} input - Newline-separated pathspec entries
- *  @returns {string[]} Trimmed, non-empty pathspec entries */
+/**
+ * Split newline-delimited pathspec input into trimmed entries.
+ * @param {string} input - Newline-separated pathspec entries
+ * @returns {string[]} Trimmed, non-empty pathspec entries
+ */
 export function splitPathspec(input) {
   return (input || '')
     .split(/\r?\n/)
@@ -33,11 +36,19 @@ export function parseDiffOutput(diffOutput, { existsSync, readFileSync }) {
     if (code === 'R' && path1 && path2) {
       deletions.push({ path: path1 });
       additions.push({ path: path2, contents: readFileSync(path2).toString('base64') });
-    } else if (code === 'D' && path1) {
-      deletions.push({ path: path1 });
-    } else if (path1 && existsSync(path1)) {
-      additions.push({ path: path1, contents: readFileSync(path1).toString('base64') });
+      continue;
     }
+
+    if (code === 'D' && path1) {
+      deletions.push({ path: path1 });
+      continue;
+    }
+
+    if (!path1 || !existsSync(path1)) {
+      continue;
+    }
+
+    additions.push({ path: path1, contents: readFileSync(path1).toString('base64') });
   }
 
   return { additions, deletions };
@@ -77,19 +88,27 @@ export async function fetchJson(url, options, dependencies = {}) {
 
       return await response.json();
     } catch (error) {
-      if (attempt >= maxAttempts || !isRetryableError(error)) {
+      if (attempt < maxAttempts && isRetryableError(error)) {
+        await sleepImpl(attempt * 250);
+        continue;
+      }
+
+      if (error instanceof Error) {
         throw error;
       }
 
-      await sleepImpl(attempt * 250);
+      throw new Error(String(error));
     } finally {
       clearTimeout(timeout);
     }
   }
 }
 
-/** @param {Error | null} error
- *  @returns {boolean} Whether the error is transient and worth retrying */
+/**
+ * Check whether an error looks transient enough to retry.
+ * @param {Error | null} error
+ * @returns {boolean} Whether the error is transient and worth retrying
+ */
 export function isRetryableError(error) {
   if (!error) {
     return false;
@@ -103,9 +122,11 @@ export function isRetryableError(error) {
   return /429|502|503|504|timed out|ECONNRESET|network/i.test(message);
 }
 
-/** Build argument list for `git diff --staged --name-status`, optionally filtered by pathspec.
- *  @param {string[]} pathspec - Paths to restrict the diff
- *  @returns {string[]} Argument array for execFileSync */
+/**
+ * Build `git diff --staged --name-status` arguments for an optional pathspec.
+ * @param {string[]} pathspec - Paths to restrict the diff
+ * @returns {string[]} Argument array for execFileSync
+ */
 export function createGitArgs(pathspec) {
   const gitArgs = ['diff', '--staged', '--name-status'];
   if (pathspec.length > 0) {
@@ -114,10 +135,12 @@ export function createGitArgs(pathspec) {
   return gitArgs;
 }
 
-/** Generate a date-stamped branch name (e.g. `prefix-20260319`).
- *  @param {string} prefix - Branch name prefix
- *  @param {Date} [date=new Date()] - Date used for the stamp
- *  @returns {string} */
+/**
+ * Generate a date-stamped branch name (for example `prefix-20260319`).
+ * @param {string} prefix - Branch name prefix
+ * @param {Date} [date=new Date()] - Date used for the stamp
+ * @returns {string}
+ */
 export function createBranchName(prefix, date = new Date()) {
   const value = date.toISOString().slice(0, 10).replace(/-/g, '');
   return `${prefix}-${value}`;

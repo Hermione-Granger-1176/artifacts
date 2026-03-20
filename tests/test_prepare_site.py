@@ -159,6 +159,42 @@ def test_copy_deploy_items_errors_for_missing_source(
         prepare_site._copy_deploy_items()
 
 
+@pytest.mark.skipif(not hasattr(Path, "symlink_to"), reason="symlinks unavailable")
+def test_copy_deploy_items_rejects_symlinked_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_source_tree(tmp_path)
+    linked_target = tmp_path / "shared.js"
+    write_text(linked_target, "console.log('linked')\n")
+    (tmp_path / "js" / "app.js").unlink()
+    (tmp_path / "js" / "app.js").symlink_to(linked_target)
+
+    monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path / "_site")
+
+    with pytest.raises(
+        ValueError, match="Refusing to copy deploy tree containing symlink"
+    ):
+        prepare_site._copy_deploy_items()
+
+
+@pytest.mark.skipif(not hasattr(Path, "symlink_to"), reason="symlinks unavailable")
+def test_copy_deploy_items_rejects_top_level_symlinked_deploy_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_source_tree(tmp_path)
+    linked_assets = tmp_path / "shared-assets"
+    linked_assets.mkdir()
+    (tmp_path / "assets").rename(linked_assets)
+    (tmp_path / "assets").symlink_to(linked_assets, target_is_directory=True)
+
+    monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path / "_site")
+
+    with pytest.raises(ValueError, match="Refusing to copy symlinked deploy path"):
+        prepare_site._copy_deploy_items()
+
+
 def test_patch_index_html_applies_cache_busting(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

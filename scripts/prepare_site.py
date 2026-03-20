@@ -9,6 +9,7 @@ path, and the `.nojekyll` marker needed for branch-based GitHub Pages.
 Usage:
     python scripts/prepare_site.py
 """
+
 from __future__ import annotations
 
 import logging
@@ -81,7 +82,19 @@ def _copy_deploy_items() -> None:
         target = DEPLOY_DIR / item
         if not source.exists():
             raise FileNotFoundError(f"Required deploy path not found: {source}")
+        if source.is_symlink():
+            raise ValueError(f"Refusing to copy symlinked deploy path: {source}")
         if source.is_dir():
+            for root, dirnames, filenames in os.walk(source, followlinks=False):
+                for name in [*dirnames, *filenames]:
+                    nested = Path(root) / name
+                    if nested.is_symlink():
+                        raise ValueError(
+                            f"Refusing to copy deploy tree containing symlink: {nested}"
+                        )
+                dirnames[:] = [
+                    name for name in dirnames if not (Path(root) / name).is_symlink()
+                ]
             shutil.copytree(source, target)
             continue
         shutil.copy2(source, target)
@@ -128,7 +141,9 @@ def _patch_manifest(site_path: str) -> None:
     if not manifest_path.exists():
         return
     content = manifest_path.read_text(encoding="utf-8")
-    content = _replace_exact(content, '"start_url": "../../"', f'"start_url": "{site_path}"')
+    content = _replace_exact(
+        content, '"start_url": "../../"', f'"start_url": "{site_path}"'
+    )
     manifest_path.write_text(content, encoding="utf-8")
 
 

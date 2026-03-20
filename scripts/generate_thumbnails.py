@@ -17,10 +17,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sys
 from io import BytesIO
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict, cast
 
 from PIL import Image
 
@@ -44,6 +45,8 @@ SCREENSHOT_RETRY_ATTEMPTS = 3
 SCREENSHOT_RETRY_BACKOFF_BASE_SECONDS = 0.5
 SCREENSHOT_RETRY_BACKOFF_MAX_SECONDS = 2.0
 MAX_CONCURRENT_PAGES = 4
+STRICT_THUMBNAILS_ENV_VAR = "ARTIFACTS_STRICT_THUMBNAILS"
+ThumbnailStatus = Literal["generated", "skipped", "failed"]
 
 
 class ThumbnailStats(TypedDict):
@@ -111,9 +114,13 @@ def _retry_delay_seconds(attempt: int) -> float:
     )
 
 
-async def _capture_screenshot(
-    page: Any, file_url: str, artifact_name: str
-) -> bytes:
+def _strict_thumbnail_failures_enabled() -> bool:
+    """Return True when any attempted thumbnail failure should fail the run."""
+
+    return os.environ.get(STRICT_THUMBNAILS_ENV_VAR) == "1"
+
+
+async def _capture_screenshot(page: Any, file_url: str, artifact_name: str) -> bytes:
     """Capture one artifact screenshot with bounded retries for transient failures."""
 
     last_error: Exception | None = None
@@ -147,8 +154,8 @@ async def _process_artifact(
     browser: Any,
     artifact_dir: Path,
     semaphore: asyncio.Semaphore,
-) -> str:
-    """Process one artifact and return its status string."""
+) -> ThumbnailStatus:
+    """Process one artifact and return its thumbnail generation status."""
     if not should_generate_thumbnail(artifact_dir):
         logger.info("Skipping %s (thumbnail is up to date)", artifact_dir.name)
         return "skipped"
@@ -208,7 +215,11 @@ async def _run_generation(
             )
 
             for result in results:
-                status = "failed" if isinstance(result, Exception) else result
+                status: ThumbnailStatus = (
+                    "failed"
+                    if isinstance(result, Exception)
+                    else cast(ThumbnailStatus, result)
+                )
                 stats[status] += 1
                 if status != "skipped":
                     stats["attempted"] += 1
@@ -220,6 +231,11 @@ async def _run_generation(
 
     if stats["attempted"] > 0 and stats["failed"] == stats["attempted"]:
         raise RuntimeError("Thumbnail generation failed for every attempted artifact")
+
+    if stats["failed"] > 0 and _strict_thumbnail_failures_enabled():
+        raise RuntimeError(
+            "Thumbnail generation failed for one or more attempted artifacts"
+        )
 
     return stats
 

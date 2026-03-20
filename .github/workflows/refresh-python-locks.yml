@@ -1,0 +1,65 @@
+name: Refresh Python Locks
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - pyproject.toml
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  refresh-locks:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      startsWith(github.event.pull_request.head.ref, 'dependabot/pip/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Dependabot branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Refresh Python lock files
+        run: make lock
+
+      - name: Write refresh metadata
+        run: |
+          mkdir -p .artifacts
+          printf '%s\n' '${{ github.event.pull_request.number }}' > .artifacts/pr-number.txt
+          printf '%s\n' '${{ github.event.pull_request.head.sha }}' > .artifacts/head-sha.txt
+          printf '%s\n' '${{ github.event.pull_request.head.ref }}' > .artifacts/head-ref.txt
+
+      - name: Upload refreshed Python lock files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: python-lock-refresh-${{ github.event.pull_request.number }}
+          path: |
+            locks/requirements.lock
+            locks/requirements-dev.lock
+            .artifacts/pr-number.txt
+            .artifacts/head-sha.txt
+            .artifacts/head-ref.txt
+          if-no-files-found: error

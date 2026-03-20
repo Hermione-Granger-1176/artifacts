@@ -28,7 +28,7 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `tests/js/config.test.js`: config merging, bootstrap validation, and label fallbacks
 - `tests/js/detail-overlay.test.js`: overlay open/close, focus trapping, animation, and motion preferences
 - `tests/js/filter-dropdown.test.js`: dropdown toggle, open, close, and state queries
-- `tests/js/gallery-app.test.js`: URL state parsing and serialization helpers extracted from the gallery orchestrator
+- `tests/js/gallery-app.test.js`: gallery initialization, URL state, filters, pagination, overlay behavior, keyboard shortcuts, and theme persistence
 - `tests/js/inert.test.js`: element inert toggling and background content management
 - `tests/js/motion.test.js`: reduced-motion detection, scroll behavior, and scroll-to-top
 - `tests/js/render.test.js`: escaping, filter UI sync, detail content, card rendering, and pagination markup
@@ -42,5 +42,5 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `npm run test:coverage` and `make coverage-js` use Node's built-in experimental coverage report, which is the current no-new-dependencies option in this repo
 - `make check` runs Python tests and the JavaScript unit suite locally
 - browser smoke tests are allowed to skip locally when Chromium is unavailable
-- CI installs Chromium through `make setup-ci`, so the browser smoke tests are expected to run there
+- CI sets `ARTIFACTS_REQUIRE_BROWSER_TESTS=1`, so browser smoke tests must execute successfully there instead of skipping when Chromium is unavailable
 - full Istanbul/nyc-style instrumentation is intentionally not added because that would require extra dependencies beyond the current production-readiness scope

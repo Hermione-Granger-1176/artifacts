@@ -52,12 +52,14 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 
 `update.yml` now handles production deploys and pull request previews.
 
-- `verify` is a read-only job that runs setup, lint, tests, browser smoke tests, dependency audit, generation, and `_site/` assembly
+- `verify` is a read-only job that runs setup, lint, tests, browser smoke tests, dependency audit, strict thumbnail generation, generation, and `_site/` assembly
 - `verify` also records a JavaScript coverage report from Node's built-in test runner without adding extra coverage dependencies
 - `secret-scan` runs Gitleaks against the checked-out repository
 - pull requests also run dependency review for manifest and lockfile changes
+- same-repo Dependabot Python PRs also trigger `.github/workflows/refresh-python-locks.yml`, which computes refreshed lock files on the PR branch; `.github/workflows/commit-python-locks.yml` performs the trusted follow-up artifact validation and commit after PR head revalidation
 - `publish` is the main write-capable job; it regenerates outputs, commits generated files when needed, prepares `_site/`, deploys previews or `gh-pages`, and then verifies the published URL serves the new asset version
 - `cleanup-preview` is a write-capable cleanup job that removes preview deployments and comments when PRs close
+- workflow trust-policy and lock-artifact validation shell logic is intentionally kept thin; `scripts/workflow_helpers.py` owns those tested helper paths
 - trusted pull requests publish preview deployments under `pr-preview/pr-<number>/`
 - pull requests leave the source branch untouched while preview comments provide the live preview link
 - preview deploys use the GitHub App token
@@ -70,7 +72,7 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 - `eslint` runs against browser modules, Node tests, and workflow helper code
 - `pytest` enforces 100% line coverage for the `scripts` package
 - `node --test` covers shared browser and workflow helper modules under `tests/js/`
-- `make coverage-js` uses Node's built-in experimental coverage output as the no-new-dependencies approximation for JavaScript coverage reporting
+- `make coverage-js` uses Node's built-in experimental coverage output as the no-new-dependencies approximation for JavaScript coverage reporting and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across the tracked JavaScript/module set
 - `make security` mirrors the practical local dependency audits in CI; Gitleaks and GitHub dependency review remain CI-only because this repo does not vendor those scanners locally
 - Playwright smoke tests validate the built root gallery and `404.html` routing behavior when Chromium is installed
 - `make validate` fails if a top-level artifact directory is missing `index.html` or `name.txt`, has an empty `name.txt`, or uses a non-kebab-case directory name
@@ -80,6 +82,7 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 
 - `thumbnail.webp` is the preferred generated format
 - local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date
+- CI sets `ARTIFACTS_STRICT_THUMBNAILS=1`, so any attempted thumbnail failure fails the workflow instead of being logged as a warning
 - local working copies do not need checked-in thumbnails to function during development
 - CI can regenerate thumbnails after push or during pull request preview builds
 - the generator still tolerates legacy `thumbnail.png` when present so older generated states do not break the gallery
@@ -110,7 +113,7 @@ The workflow assumes these repository settings already exist:
 - if Chromium is unavailable locally, browser smoke tests are skipped; run `make setup` to install it
 - if Chromium is unavailable locally, `make thumbnails` can still fail even though `make check` succeeds with skipped smoke tests
 - if you want to inspect the deployable output locally, run `make site` and serve `_site/` from a static file server
-- if `make security` fails on `npm audit --omit=dev`, the issue is in production dependencies; dev-only advisories remain covered by GitHub dependency review in PRs
+- if `make security` fails on `npm audit`, the issue is in the current workspace dependency graph and needs triage before release
 - if the post-deploy verifier flakes, rerun the workflow and inspect whether the published page is still serving the previous `?v=<sha>` asset query strings
 - if README auto markers are removed or duplicated, `scripts/generate_index.py` fails fast instead of silently corrupting the file
 - if no artifacts exist, the index generator still writes a valid empty `js/data.js`
