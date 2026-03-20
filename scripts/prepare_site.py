@@ -85,11 +85,16 @@ def _copy_deploy_items() -> None:
         if source.is_symlink():
             raise ValueError(f"Refusing to copy symlinked deploy path: {source}")
         if source.is_dir():
-            for nested in source.rglob("*"):
-                if nested.is_symlink():
-                    raise ValueError(
-                        f"Refusing to copy deploy tree containing symlink: {nested}"
-                    )
+            for root, dirnames, filenames in os.walk(source, followlinks=False):
+                for name in [*dirnames, *filenames]:
+                    nested = Path(root) / name
+                    if nested.is_symlink():
+                        raise ValueError(
+                            f"Refusing to copy deploy tree containing symlink: {nested}"
+                        )
+                dirnames[:] = [
+                    name for name in dirnames if not (Path(root) / name).is_symlink()
+                ]
             shutil.copytree(source, target)
             continue
         shutil.copy2(source, target)

@@ -172,7 +172,7 @@ jobs:
             exit 0
           fi
 
-          if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+          if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.event.pull_request.user.login }}" = "dependabot[bot]" ]; then
             echo "allowed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -374,7 +374,7 @@ jobs:
       - name: Determine whether app-token actions are allowed
         id: token-policy
         run: |
-          if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+          if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.event.pull_request.user.login }}" = "dependabot[bot]" ]; then
             echo "allowed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi

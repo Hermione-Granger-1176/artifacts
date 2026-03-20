@@ -92,7 +92,7 @@ All jobs have explicit `timeout-minutes` limits (verify: 15, secret-scan: 5, dep
 
 Main and trusted preview deploys use the GitHub App token. Fork and Dependabot PRs still build `_site/`, but skip preview deployment because the token is unavailable.
 
-Same-repo Dependabot pip PRs use `.github/workflows/refresh-python-locks.yml` to refresh `locks/requirements.lock` and `locks/requirements-dev.lock` separately from `update.yml`; the workflow computes lock files on the PR branch and commits them in a follow-up trusted run.
+Same-repo Dependabot pip PRs use `.github/workflows/refresh-python-locks.yml` to refresh `locks/requirements.lock` and `locks/requirements-dev.lock` separately from `update.yml`; the workflow computes lock files on the PR branch, uploads them as artifacts, validates the downloaded artifact contents in a follow-up trusted run, and only then commits them if the PR head is unchanged.
 
 Deployable site assembly uses `ARTIFACTS_DEPLOY_VERSION` when it is set, and otherwise falls back to `git rev-parse --short HEAD` for cache-busting asset URLs.
 

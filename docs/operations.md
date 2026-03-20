@@ -56,7 +56,7 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 - `verify` also records a JavaScript coverage report from Node's built-in test runner without adding extra coverage dependencies
 - `secret-scan` runs Gitleaks against the checked-out repository
 - pull requests also run dependency review for manifest and lockfile changes
-- same-repo Dependabot Python PRs also trigger `.github/workflows/refresh-python-locks.yml`, which computes refreshed lock files on the PR branch and commits them back from a follow-up trusted workflow run
+- same-repo Dependabot Python PRs also trigger `.github/workflows/refresh-python-locks.yml`, which computes refreshed lock files on the PR branch and commits them back from a follow-up trusted workflow run after artifact validation and PR head revalidation
 - `publish` is the main write-capable job; it regenerates outputs, commits generated files when needed, prepares `_site/`, deploys previews or `gh-pages`, and then verifies the published URL serves the new asset version
 - `cleanup-preview` is a write-capable cleanup job that removes preview deployments and comments when PRs close
 - trusted pull requests publish preview deployments under `pr-preview/pr-<number>/`

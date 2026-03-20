@@ -9,7 +9,7 @@ These are the main cross-cutting pieces that should stay consistent over time:
 - `.github/actions/verified-commit/action.yml` and `.github/actions/verified-commit/verified-commit.mjs` centralize the verified commit and PR fallback logic used by CI
 - `.github/workflows/update.yml` is the main build, validation, and deploy workflow
 - `.github/workflows/refresh-action-shas.yml` keeps pinned GitHub Actions references current
-- `.github/workflows/refresh-python-locks.yml` keeps Python freeze lock files aligned on same-repo Dependabot pip PRs through an untrusted compute step and a separate trusted commit step
+- `.github/workflows/refresh-python-locks.yml` keeps Python freeze lock files aligned on same-repo Dependabot pip PRs through an untrusted compute step, artifact validation, and a separate trusted commit step
 - `.github/dependabot.yml` handles recurring dependency update checks
 - `locks/requirements.lock`, `locks/requirements-dev.lock`, and `package-lock.json` keep local and CI installs reproducible
 - `gh-pages` is a CI-managed deployment branch protected by a ruleset and should not be edited manually

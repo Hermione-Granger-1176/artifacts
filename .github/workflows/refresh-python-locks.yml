@@ -27,7 +27,7 @@ jobs:
   refresh-locks:
     if: >-
       github.event_name == 'pull_request' &&
-      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
       startsWith(github.event.pull_request.head.ref, 'dependabot/pip/') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -74,7 +74,7 @@ jobs:
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.name == 'Refresh Python Locks' &&
-      github.event.workflow_run.actor.login == 'dependabot[bot]'
+      github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -104,7 +104,31 @@ jobs:
           echo "head-sha=$(tr -d '\n' < .artifacts/lock-refresh/.artifacts/head-sha.txt)" >> "$GITHUB_OUTPUT"
           echo "head-ref=$(tr -d '\n' < .artifacts/lock-refresh/.artifacts/head-ref.txt)" >> "$GITHUB_OUTPUT"
 
+      - name: Validate downloaded artifact contents
+        run: |
+          python3.12 - <<'PY'
+          from pathlib import Path
+
+          root = Path('.artifacts/lock-refresh')
+          required_files = [
+              root / 'locks' / 'requirements.lock',
+              root / 'locks' / 'requirements-dev.lock',
+              root / '.artifacts' / 'pr-number.txt',
+              root / '.artifacts' / 'head-sha.txt',
+              root / '.artifacts' / 'head-ref.txt',
+          ]
+
+          for path in root.rglob('*'):
+              if path.is_symlink():
+                  raise SystemExit(f'Refusing artifact containing symlink: {path}')
+
+          for path in required_files:
+              if not path.is_file():
+                  raise SystemExit(f'Required artifact file missing or not a regular file: {path}')
+          PY
+
       - name: Validate Dependabot branch state
+        id: branch-state
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -112,16 +136,20 @@ jobs:
           current_ref=$(gh pr view "${{ steps.metadata.outputs.pr-number }}" --json headRefName --jq .headRefName)
           if [ "$current_sha" != "${{ steps.metadata.outputs.head-sha }}" ] || [ "$current_ref" != "${{ steps.metadata.outputs.head-ref }}" ]; then
             echo "Dependabot branch moved since lock refresh artifact generation; skipping stale commit." >&2
-            exit 1
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "stale=false" >> "$GITHUB_OUTPUT"
 
       - name: Copy refreshed Python lock files into workspace
+        if: steps.branch-state.outputs.stale != 'true'
         run: |
           cp .artifacts/lock-refresh/locks/requirements.lock locks/requirements.lock
           cp .artifacts/lock-refresh/locks/requirements-dev.lock locks/requirements-dev.lock
 
       - name: Detect Python lock file changes
         id: changes
+        if: steps.branch-state.outputs.stale != 'true'
         run: |
           git add locks/requirements.lock locks/requirements-dev.lock
           if git diff --staged --quiet -- locks/requirements.lock locks/requirements-dev.lock; then
@@ -131,7 +159,7 @@ jobs:
           fi
 
       - name: Commit refreshed Python lock files (verified)
-        if: steps.changes.outputs.changed == 'true'
+        if: steps.branch-state.outputs.stale != 'true' && steps.changes.outputs.changed == 'true'
         uses: ./.github/actions/verified-commit
         with:
           github-token: ${{ github.token }}
