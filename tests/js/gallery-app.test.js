@@ -206,13 +206,11 @@ class FakeFilterPanel extends FakeElement {
   set innerHTML(value) {
     this._innerHTML = value;
     this.checkboxes = [];
-    const valuePattern = /value="([^"]+)"/g;
-    let match;
-    while ((match = valuePattern.exec(value))) {
+    for (const [, checkboxValue] of value.matchAll(/value="([^"]+)"/g)) {
       const option = new FakeFilterOption();
       option.parentElement = this;
       option.ownerDocument = this.ownerDocument;
-      const checkbox = new FakeCheckbox(match[1]);
+      const checkbox = new FakeCheckbox(checkboxValue);
       checkbox.parentElement = option;
       checkbox.ownerDocument = this.ownerDocument;
       this.checkboxes.push(checkbox);
@@ -262,11 +260,9 @@ class FakeGrid extends FakeElement {
   set innerHTML(value) {
     this._innerHTML = value;
     this.cards = [];
-    const cardPattern = /<article class="([^"]*artifact-card[^"]*)" data-id="([^"]+)"[^>]*aria-expanded="([^"]+)"/g;
-    let match;
-    while ((match = cardPattern.exec(value))) {
-      const classes = match[1].trim().split(/\s+/).filter(Boolean);
-      const card = new FakeCard(match[2], classes, match[3] === 'true');
+    for (const [, classNames, id, expanded] of value.matchAll(/<article class="([^"]*artifact-card[^"]*)" data-id="([^"]+)"[^>]*aria-expanded="([^"]+)"/g)) {
+      const classes = classNames.trim().split(/\s+/).filter(Boolean);
+      const card = new FakeCard(id, classes, expanded === 'true');
       card.parentElement = this;
       card.ownerDocument = this.ownerDocument;
       this.cards.push(card);

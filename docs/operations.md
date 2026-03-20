@@ -56,7 +56,7 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 - `verify` also records a JavaScript coverage report from Node's built-in test runner without adding extra coverage dependencies
 - `secret-scan` runs Gitleaks against the checked-out repository
 - pull requests also run dependency review for manifest and lockfile changes
-- same-repo Dependabot Python PRs also trigger `.github/workflows/refresh-python-locks.yml`, which refreshes `locks/requirements.lock` and `locks/requirements-dev.lock` against the PR branch
+- same-repo Dependabot Python PRs also trigger `.github/workflows/refresh-python-locks.yml`, which computes refreshed lock files on the PR branch and commits them back from a follow-up trusted workflow run
 - `publish` is the main write-capable job; it regenerates outputs, commits generated files when needed, prepares `_site/`, deploys previews or `gh-pages`, and then verifies the published URL serves the new asset version
 - `cleanup-preview` is a write-capable cleanup job that removes preview deployments and comments when PRs close
 - trusted pull requests publish preview deployments under `pr-preview/pr-<number>/`
@@ -112,7 +112,7 @@ The workflow assumes these repository settings already exist:
 - if Chromium is unavailable locally, browser smoke tests are skipped; run `make setup` to install it
 - if Chromium is unavailable locally, `make thumbnails` can still fail even though `make check` succeeds with skipped smoke tests
 - if you want to inspect the deployable output locally, run `make site` and serve `_site/` from a static file server
-- if `make security` fails on `npm audit --omit=dev`, the issue is in production dependencies; dev-only advisories remain covered by GitHub dependency review in PRs
+- if `make security` fails on `npm audit`, the issue is in the current workspace dependency graph and needs triage before release
 - if the post-deploy verifier flakes, rerun the workflow and inspect whether the published page is still serving the previous `?v=<sha>` asset query strings
 - if README auto markers are removed or duplicated, `scripts/generate_index.py` fails fast instead of silently corrupting the file
 - if no artifacts exist, the index generator still writes a valid empty `js/data.js`

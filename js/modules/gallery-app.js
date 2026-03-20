@@ -174,6 +174,20 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   let currentTags = [];
   let debounceTimer = null;
   let suppressPush = false;
+  const filterSelectionControllers = {
+    tool: {
+      get: () => currentTools,
+      set: (values) => {
+        currentTools = normalizeSelection(values, allTools);
+      }
+    },
+    tag: {
+      get: () => currentTags,
+      set: (values) => {
+        currentTags = normalizeSelection(values, allTags);
+      }
+    }
+  };
 
   filterReset.innerHTML = ICONS.reset;
 
@@ -321,19 +335,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
         overlay.close();
         return;
 
-      case '/': {
-        if (overlay.getExpandedId()) {
-          return;
-        }
-
-        const activeElement = documentObj.activeElement;
-        const isInput = activeElement && (
-          activeElement.tagName === 'INPUT'
-          || activeElement.tagName === 'TEXTAREA'
-          || activeElement.isContentEditable
-        );
-
-        if (isInput) {
+      case '/':
+        if (overlay.getExpandedId() || isTextEntryElement(documentObj.activeElement)) {
           return;
         }
 
@@ -341,7 +344,6 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
         filterDropdown.close();
         searchInput.focus();
         return;
-      }
 
       default:
         return;
@@ -415,7 +417,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     searchInput.value = nextState.rawQuery;
   }
 
-  function buildQueryString() {
+  function buildStateUrl() {
     return buildGalleryUrl({
       pathname: windowObj.location.pathname,
       page: currentPage,
@@ -431,7 +433,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return;
     }
 
-    const nextUrl = buildQueryString();
+    const nextUrl = buildStateUrl();
     const currentUrl = `${windowObj.location.pathname}${windowObj.location.search}`;
     if (nextUrl !== currentUrl) {
       windowObj.history.pushState(null, '', nextUrl);
@@ -483,28 +485,28 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
   }
 
-  function getSelectedValues(key) {
-    switch (key) {
-      case 'tool':
-        return currentTools;
-      case 'tag':
-        return currentTags;
-      default:
-        throw new Error(`Unknown filter key: ${key}`);
+  function getFilterSelectionController(key) {
+    const controller = filterSelectionControllers[key];
+    if (!controller) {
+      throw new Error(`Unknown filter key: ${key}`);
     }
+    return controller;
+  }
+
+  function getSelectedValues(key) {
+    return getFilterSelectionController(key).get();
   }
 
   function setSelectedValues(key, values) {
-    switch (key) {
-      case 'tool':
-        currentTools = normalizeSelection(values, allTools);
-        return;
-      case 'tag':
-        currentTags = normalizeSelection(values, allTags);
-        return;
-      default:
-        throw new Error(`Unknown filter key: ${key}`);
-    }
+    getFilterSelectionController(key).set(values);
+  }
+
+  function isTextEntryElement(element) {
+    return Boolean(element && (
+      element.tagName === 'INPUT'
+      || element.tagName === 'TEXTAREA'
+      || element.isContentEditable
+    ));
   }
 
   function resetFilters() {

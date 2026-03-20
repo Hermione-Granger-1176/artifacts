@@ -167,11 +167,17 @@ jobs:
       - name: Determine whether app-token actions are allowed
         id: token-policy
         run: |
-          allowed=true
-          if [ "${{ github.event_name }}" = "pull_request" ] && { [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.actor }}" = "dependabot[bot]" ]; }; then
-            allowed=false
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          echo "allowed=$allowed" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "allowed=true" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub App token
         id: app-token
@@ -368,11 +374,12 @@ jobs:
       - name: Determine whether app-token actions are allowed
         id: token-policy
         run: |
-          allowed=true
           if [ "${{ github.event.pull_request.head.repo.fork }}" = "true" ] || [ "${{ github.actor }}" = "dependabot[bot]" ]; then
-            allowed=false
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          echo "allowed=$allowed" >> "$GITHUB_OUTPUT"
+
+          echo "allowed=true" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub App token
         id: app-token

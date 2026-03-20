@@ -30,13 +30,7 @@ export function splitListParam(rawValue) {
  */
 export function normalizeSelection(values, allowedValues) {
   const allowedSet = new Set(allowedValues);
-  const uniqueSet = new Set();
-
-  for (const value of values) {
-    if (allowedSet.has(value)) {
-      uniqueSet.add(value);
-    }
-  }
+  const uniqueSet = new Set(values.filter((value) => allowedSet.has(value)));
 
   return allowedValues.filter((value) => uniqueSet.has(value));
 }

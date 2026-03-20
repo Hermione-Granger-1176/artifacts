@@ -268,65 +268,55 @@ test('runVerifiedCommit falls back to a pull request after direct commit failure
     fetchDependencies: {
       fetchImpl: async (url, options = {}) => {
         requests.push({ url, options });
-        const routes = [
-          {
-            matches: (candidateUrl) => candidateUrl === 'https://api.github.com/graphql',
-            response: () => {
-              const body = JSON.parse(options.body);
-              const branchName = body.variables.input.branch.branchName;
-              if (branchName === 'main') {
-                return {
-                  ok: true,
-                  status: 200,
-                  json: async () => ({ errors: [{ message: 'protected branch' }] })
-                };
-              }
-
-              return {
-                ok: true,
-                status: 200,
-                json: async () => ({
-                  data: {
-                    createCommitOnBranch: {
-                      commit: {
-                        oid: 'def456',
-                        url: 'https://example.com/commit/def456'
-                      }
-                    }
-                  }
-                })
-              };
-            }
-          },
-          {
-            matches: (candidateUrl) => candidateUrl.endsWith('/git/refs'),
-            response: () => ({
-              ok: true,
-              status: 201,
-              json: async () => ({ ref: 'refs/heads/auto/update-artifacts-20260319' })
-            })
-          },
-          {
-            matches: (candidateUrl) => candidateUrl.includes('/pulls?'),
-            response: () => ({
+        if (url === 'https://api.github.com/graphql') {
+          const body = JSON.parse(options.body);
+          const branchName = body.variables.input.branch.branchName;
+          if (branchName === 'main') {
+            return {
               ok: true,
               status: 200,
-              json: async () => []
-            })
-          },
-          {
-            matches: (candidateUrl) => candidateUrl.endsWith('/pulls'),
-            response: () => ({
-              ok: true,
-              status: 201,
-              json: async () => ({ html_url: 'https://example.com/pr/123' })
-            })
+              json: async () => ({ errors: [{ message: 'protected branch' }] })
+            };
           }
-        ];
-        const route = routes.find((candidate) => candidate.matches(url));
 
-        if (route) {
-          return route.response();
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              data: {
+                createCommitOnBranch: {
+                  commit: {
+                    oid: 'def456',
+                    url: 'https://example.com/commit/def456'
+                  }
+                }
+              }
+            })
+          };
+        }
+
+        if (url.endsWith('/git/refs')) {
+          return {
+            ok: true,
+            status: 201,
+            json: async () => ({ ref: 'refs/heads/auto/update-artifacts-20260319' })
+          };
+        }
+
+        if (url.includes('/pulls?')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => []
+          };
+        }
+
+        if (url.endsWith('/pulls')) {
+          return {
+            ok: true,
+            status: 201,
+            json: async () => ({ html_url: 'https://example.com/pr/123' })
+          };
         }
 
         throw new Error(`Unexpected URL: ${url}`);

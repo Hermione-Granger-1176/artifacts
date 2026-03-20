@@ -27,17 +27,20 @@ The root `index.html` is a gallery page with searchable thumbnails, multi-select
 Workspace commands go through the `Makefile`. Python dependencies and workspace metadata live in `pyproject.toml`, while frozen Python and Node installs live in `locks/requirements*.lock` and `package-lock.json`.
 
 - `make setup`: create `.venv`, install pinned Python and Node dependencies, and install Chromium
+- `make setup-ci`: CI bootstrap variant that installs Chromium with system dependencies for runners/containers
 - `make check`: run Python/JS lint, Python/JS tests, browser smoke tests, and artifact validation with the 100% Python coverage gate
 - `make validate`: fail fast on incomplete or invalid top-level artifact directories
 - `make generate`: run thumbnail generation and data generation sequentially
-- `make lock`: refresh `locks/requirements.lock` and `locks/requirements-dev.lock` after Python dependency changes
+- `make lock`: refresh `locks/requirements.lock` and `locks/requirements-dev.lock` after Python dependency changes; same-repo Dependabot pip PRs also refresh them automatically through CI when `pyproject.toml` changes
 - `make new name=my-artifact`: scaffold a new artifact directory with placeholder files
 - `make site`: build the clean `_site/` deploy payload
-- `make security`: run `pip-audit` and `npm audit` dependency vulnerability checks
-- `make coverage-js`: print Node test-runner coverage for tracked JS modules
+- `make security`: run the local `pip-audit` and `npm audit` dependency vulnerability checks used in CI
+- `make coverage-js`: run Node test-runner coverage for tracked JS modules and enforce the current JS coverage baseline
 - `make align-tables`: align markdown table pipe characters across all docs
 - `make lint`: run ruff (Python) and ESLint (JavaScript) checks
+- `make lint-js`: run ESLint only
 - `make test`: run pytest and Node test runner
+- `make test-js`: run the Node test runner only
 - `make thumbnails`: regenerate WebP thumbnails when Playwright is available
 - `make index`: rebuild `js/data.js`, `js/gallery-config.js`, and README auto markers
 - `make clean`: remove `.venv`, caches, build artifacts, and `node_modules`
@@ -59,6 +62,7 @@ Do not manually edit these outputs unless updating generator logic:
 - PRs deploy previews to `gh-pages/pr-preview/pr-<number>/`
 - Preview deploys use the GitHub App token
 - Preview comments are posted by the workflow token, appear as `github-actions[bot]`, and are recreated on each push so the newest preview stays visible
+- Same-repo Dependabot pip PRs refresh Python lock files with `.github/workflows/refresh-python-locks.yml`
 - `gh-pages` is CI-managed and should not be edited manually
 
 ## Docs

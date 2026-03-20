@@ -114,7 +114,7 @@ def _retry_delay_seconds(attempt: int) -> float:
     )
 
 
-def strict_thumbnail_failures_enabled() -> bool:
+def _strict_thumbnail_failures_enabled() -> bool:
     """Return True when any attempted thumbnail failure should fail the run."""
 
     return os.environ.get(STRICT_THUMBNAILS_ENV_VAR) == "1"
@@ -154,8 +154,8 @@ async def _process_artifact(
     browser: Any,
     artifact_dir: Path,
     semaphore: asyncio.Semaphore,
-) -> str:
-    """Process one artifact and return its status string."""
+) -> ThumbnailStatus:
+    """Process one artifact and return its thumbnail generation status."""
     if not should_generate_thumbnail(artifact_dir):
         logger.info("Skipping %s (thumbnail is up to date)", artifact_dir.name)
         return "skipped"
@@ -232,7 +232,7 @@ async def _run_generation(
     if stats["attempted"] > 0 and stats["failed"] == stats["attempted"]:
         raise RuntimeError("Thumbnail generation failed for every attempted artifact")
 
-    if stats["failed"] > 0 and strict_thumbnail_failures_enabled():
+    if stats["failed"] > 0 and _strict_thumbnail_failures_enabled():
         raise RuntimeError(
             "Thumbnail generation failed for one or more attempted artifacts"
         )

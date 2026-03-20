@@ -78,20 +78,23 @@ This reduces hardcoded values in scripts and keeps deployment-sensitive values i
 2. `secret-scan` runs Gitleaks against the full commit history in parallel
 3. `dependency-review` checks manifest and lockfile changes on pull requests
 4. the `publish` job runs after `verify` and `secret-scan` succeed and `dependency-review` either succeeds or is skipped (push events skip it)
-5. regenerate Python dependency lock files with `make lock`
-6. generate thumbnails and gallery data
-7. stage generated additions, deletions, and lock file changes
-8. on non-PR runs, create a verified commit through the GitHub GraphQL API, or open a PR if branch protection blocks direct commit
-9. assemble a clean `_site/` deploy directory
-10. for pushes to `main` and manual runs: deploy `_site/` to the root of the `gh-pages` branch
-11. for trusted PRs: deploy `_site/` to `gh-pages/pr-preview/pr-<number>/` without writing generated outputs back to the source branch
-12. poll the published root or preview URL until it serves the expected cache-busted asset reference for the current commit
-13. recreate the sticky preview link comment so the newest preview stays at the bottom of the PR timeline
-14. on PR close: remove the preview from `gh-pages` and delete the comment
+5. generate thumbnails and gallery data
+6. stage generated additions and deletions for generated gallery outputs
+7. on non-PR runs, create a verified commit through the GitHub GraphQL API, or open a PR if branch protection blocks direct commit
+8. assemble a clean `_site/` deploy directory
+9. for pushes to `main` and manual runs: deploy `_site/` to the root of the `gh-pages` branch
+10. for trusted PRs: deploy `_site/` to `gh-pages/pr-preview/pr-<number>/` without writing generated outputs back to the source branch
+11. poll the published root or preview URL until it serves the expected cache-busted asset reference for the current commit
+12. recreate the sticky preview link comment so the newest preview stays at the bottom of the PR timeline
+13. on PR close: remove the preview from `gh-pages` and delete the comment
 
 All jobs have explicit `timeout-minutes` limits (verify: 15, secret-scan: 5, dependency-review: 5, publish: 20, cleanup-preview: 5) to guard against hung builds.
 
 Main and trusted preview deploys use the GitHub App token. Fork and Dependabot PRs still build `_site/`, but skip preview deployment because the token is unavailable.
+
+Same-repo Dependabot pip PRs use `.github/workflows/refresh-python-locks.yml` to refresh `locks/requirements.lock` and `locks/requirements-dev.lock` separately from `update.yml`; the workflow computes lock files on the PR branch and commits them in a follow-up trusted run.
+
+Deployable site assembly uses `ARTIFACTS_DEPLOY_VERSION` when it is set, and otherwise falls back to `git rev-parse --short HEAD` for cache-busting asset URLs.
 
 ## External GitHub settings
 
