@@ -1,0 +1,88 @@
+name: Refresh Python Locks
+
+on:
+  pull_request_target:
+    branches:
+      - main
+    paths:
+      - pyproject.toml
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    if: >-
+      github.actor == 'dependabot[bot]' &&
+      startsWith(github.event.pull_request.head.ref, 'dependabot/pip/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout default branch workflow code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Fetch Dependabot pyproject.toml
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            repos/${{ github.repository }}/contents/pyproject.toml \
+            -H "Accept: application/vnd.github.raw" \
+            -f ref='${{ github.event.pull_request.head.sha }}' > pyproject.toml
+
+      - name: Capture Dependabot branch HEAD SHA
+        id: head
+        run: echo "sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: '3.12'
+
+      - name: Refresh Python lock files
+        run: make lock
+
+      - name: Detect Python lock file changes
+        id: changes
+        run: |
+          git add locks/requirements.lock locks/requirements-dev.lock
+          if git diff --staged --quiet -- locks/requirements.lock locks/requirements-dev.lock; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit refreshed Python lock files (verified)
+        if: steps.changes.outputs.changed == 'true'
+        uses: ./.github/actions/verified-commit
+        with:
+          github-token: ${{ github.token }}
+          base-branch: ${{ github.event.pull_request.head.ref }}
+          expected-head-sha: ${{ steps.head.outputs.sha }}
+          commit-headline: "Refresh Python lock files [skip ci]"
+          fallback-branch-prefix: ci/refresh-python-locks
+          pr-title: "Refresh Python lock files"
+          pr-body: |
+            ## Summary
+            - Type: CI maintenance
+            - Refresh `locks/requirements.lock` and `locks/requirements-dev.lock` to match the Dependabot Python update
+            - Keep Python installs reproducible in local and CI workflows
+          pathspec: |
+            locks/requirements.lock
+            locks/requirements-dev.lock

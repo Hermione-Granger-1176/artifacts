@@ -157,10 +157,12 @@ class FakePage:
         fail_goto: bool = False,
         transient_failures: int = 0,
         fail_close: bool = False,
+        screenshot_bytes: bytes = b"png-bytes",
     ) -> None:
         self._fail_goto = fail_goto
         self._transient_failures = transient_failures
         self._fail_close = fail_close
+        self._screenshot_bytes = screenshot_bytes
         self._goto_calls = 0
         self.closed = False
 
@@ -179,7 +181,7 @@ class FakePage:
 
     async def screenshot(self, type: str) -> bytes:
         assert type == "png"
-        return b"png-bytes"
+        return self._screenshot_bytes
 
     async def close(self) -> None:
         if self._fail_close:
@@ -194,11 +196,13 @@ class FakeBrowser:
         transient_failures: int = 0,
         fail_new_page: bool = False,
         fail_page_close: bool = False,
+        screenshot_bytes: bytes = b"png-bytes",
     ) -> None:
         self._fail_goto = fail_goto
         self._transient_failures = transient_failures
         self._fail_new_page = fail_new_page
         self._fail_page_close = fail_page_close
+        self._screenshot_bytes = screenshot_bytes
         self.closed = False
         self.pages: list[FakePage] = []
 
@@ -216,6 +220,7 @@ class FakeBrowser:
             fail_goto=self._fail_goto,
             transient_failures=self._transient_failures,
             fail_close=self._fail_page_close,
+            screenshot_bytes=self._screenshot_bytes,
         )
         self.pages.append(page)
         return page
@@ -231,12 +236,14 @@ class FakePlaywright:
         transient_failures: int = 0,
         fail_new_page: bool = False,
         fail_page_close: bool = False,
+        screenshot_bytes: bytes = b"png-bytes",
     ) -> None:
         self.browser = FakeBrowser(
             fail_goto=fail_goto,
             transient_failures=transient_failures,
             fail_new_page=fail_new_page,
             fail_page_close=fail_page_close,
+            screenshot_bytes=screenshot_bytes,
         )
         self.chromium = types.SimpleNamespace(
             launch=self.browser_launch,
@@ -253,11 +260,13 @@ class FakeAsyncPlaywright:
         transient_failures: int = 0,
         fail_new_page: bool = False,
         fail_page_close: bool = False,
+        screenshot_bytes: bytes = b"png-bytes",
     ) -> None:
         self._fail_goto = fail_goto
         self._transient_failures = transient_failures
         self._fail_new_page = fail_new_page
         self._fail_page_close = fail_page_close
+        self._screenshot_bytes = screenshot_bytes
         self.playwright: FakePlaywright | None = None
 
     async def __aenter__(self) -> FakePlaywright:
@@ -266,6 +275,7 @@ class FakeAsyncPlaywright:
             transient_failures=self._transient_failures,
             fail_new_page=self._fail_new_page,
             fail_page_close=self._fail_page_close,
+            screenshot_bytes=self._screenshot_bytes,
         )
         return self.playwright
 
@@ -279,6 +289,7 @@ def _patch_playwright(
     transient_failures: int = 0,
     fail_new_page: bool = False,
     fail_page_close: bool = False,
+    screenshot_bytes: bytes = b"png-bytes",
 ) -> FakeAsyncPlaywright:
     """Patch the playwright import and return the fake context manager."""
     fake_cm = FakeAsyncPlaywright(
@@ -286,6 +297,7 @@ def _patch_playwright(
         transient_failures=transient_failures,
         fail_new_page=fail_new_page,
         fail_page_close=fail_page_close,
+        screenshot_bytes=screenshot_bytes,
     )
     original_import = builtins.__import__
 
@@ -536,3 +548,72 @@ def test_generate_thumbnails_tolerates_page_close_failure(
     assert len(save_calls) == 1
     assert fake_cm.playwright is not None
     assert fake_cm.playwright.browser.closed is True
+
+
+def test_generate_thumbnails_tolerates_partial_failures_by_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    successful = tmp_path / "alpha"
+    failing = tmp_path / "beta"
+    write_text(successful / "index.html", "<html></html>")
+    write_text(failing / "index.html", "<html></html>")
+
+    monkeypatch.setattr(
+        generate_thumbnails, "find_artifacts", lambda: [successful, failing]
+    )
+    monkeypatch.delenv(generate_thumbnails.STRICT_THUMBNAILS_ENV_VAR, raising=False)
+
+    original_process = generate_thumbnails._process_artifact
+
+    async def fake_process_artifact(browser, artifact_dir, semaphore):
+        if artifact_dir == failing:
+            return "failed"
+        return await original_process(browser, artifact_dir, semaphore)
+
+    monkeypatch.setattr(generate_thumbnails, "_process_artifact", fake_process_artifact)
+    monkeypatch.setattr(generate_thumbnails, "save_thumbnail", lambda *_args: None)
+
+    fake_cm = _patch_playwright(monkeypatch)
+
+    stats = generate_thumbnails.generate_thumbnails()
+
+    assert stats == {
+        "total": 2,
+        "attempted": 2,
+        "generated": 1,
+        "skipped": 0,
+        "failed": 1,
+    }
+    assert fake_cm.playwright is not None
+    assert fake_cm.playwright.browser.closed is True
+
+
+def test_generate_thumbnails_strict_mode_fails_on_partial_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    successful = tmp_path / "alpha"
+    failing = tmp_path / "beta"
+    write_text(successful / "index.html", "<html></html>")
+    write_text(failing / "index.html", "<html></html>")
+
+    monkeypatch.setattr(
+        generate_thumbnails, "find_artifacts", lambda: [successful, failing]
+    )
+    monkeypatch.setenv(generate_thumbnails.STRICT_THUMBNAILS_ENV_VAR, "1")
+
+    original_process = generate_thumbnails._process_artifact
+
+    async def fake_process_artifact(browser, artifact_dir, semaphore):
+        if artifact_dir == failing:
+            return "failed"
+        return await original_process(browser, artifact_dir, semaphore)
+
+    monkeypatch.setattr(generate_thumbnails, "_process_artifact", fake_process_artifact)
+    monkeypatch.setattr(generate_thumbnails, "save_thumbnail", lambda *_args: None)
+
+    _patch_playwright(monkeypatch)
+
+    with pytest.raises(
+        RuntimeError, match="failed for one or more attempted artifacts"
+    ):
+        generate_thumbnails.generate_thumbnails()

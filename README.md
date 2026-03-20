@@ -68,7 +68,7 @@ apps/
    make setup
    ```
 
-   This installs pinned Python dependencies from `locks/requirements-dev.lock`, pinned Node dependencies from `package-lock.json`, and Chromium for Playwright-based smoke tests.
+   This installs pinned Python dependencies from `locks/requirements-dev.lock`, pinned Node dependencies from `package-lock.json`, and Chromium for Playwright-based smoke tests. Same-repo Dependabot PRs keep the Python lock files refreshed automatically.
 
 2. Run linting, browser smoke tests, JavaScript unit tests, Python tests, and artifact validation (including the 100% Python coverage gate):
 

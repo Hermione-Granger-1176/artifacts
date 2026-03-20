@@ -9,6 +9,7 @@ These are the main cross-cutting pieces that should stay consistent over time:
 - `.github/actions/verified-commit/action.yml` and `.github/actions/verified-commit/verified-commit.mjs` centralize the verified commit and PR fallback logic used by CI
 - `.github/workflows/update.yml` is the main build, validation, and deploy workflow
 - `.github/workflows/refresh-action-shas.yml` keeps pinned GitHub Actions references current
+- `.github/workflows/refresh-python-locks.yml` keeps Python freeze lock files aligned on same-repo Dependabot pip PRs
 - `.github/dependabot.yml` handles recurring dependency update checks
 - `locks/requirements.lock`, `locks/requirements-dev.lock`, and `package-lock.json` keep local and CI installs reproducible
 - `gh-pages` is a CI-managed deployment branch protected by a ruleset and should not be edited manually
@@ -81,6 +82,7 @@ The repo includes a scheduled workflow that refreshes pinned GitHub Action SHAs.
 
 - Python declarations live in `pyproject.toml`, but installs should flow through `locks/requirements.lock` and `locks/requirements-dev.lock`
 - Node declarations live in `package.json`, but installs should flow through `package-lock.json`
+- same-repo Dependabot pip PRs refresh `locks/requirements.lock` and `locks/requirements-dev.lock` automatically through `.github/workflows/refresh-python-locks.yml`
 - after Python dependency changes, run `make lock` and `make check`
 - after Node dependency changes, refresh `package-lock.json` with npm tooling, then run `npm ci` and `make check`
 

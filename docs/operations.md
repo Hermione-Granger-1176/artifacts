@@ -52,10 +52,11 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 
 `update.yml` now handles production deploys and pull request previews.
 
-- `verify` is a read-only job that runs setup, lint, tests, browser smoke tests, dependency audit, generation, and `_site/` assembly
+- `verify` is a read-only job that runs setup, lint, tests, browser smoke tests, dependency audit, strict thumbnail generation, generation, and `_site/` assembly
 - `verify` also records a JavaScript coverage report from Node's built-in test runner without adding extra coverage dependencies
 - `secret-scan` runs Gitleaks against the checked-out repository
 - pull requests also run dependency review for manifest and lockfile changes
+- same-repo Dependabot Python PRs also trigger `.github/workflows/refresh-python-locks.yml`, which refreshes `locks/requirements.lock` and `locks/requirements-dev.lock` against the PR branch
 - `publish` is the main write-capable job; it regenerates outputs, commits generated files when needed, prepares `_site/`, deploys previews or `gh-pages`, and then verifies the published URL serves the new asset version
 - `cleanup-preview` is a write-capable cleanup job that removes preview deployments and comments when PRs close
 - trusted pull requests publish preview deployments under `pr-preview/pr-<number>/`
@@ -70,7 +71,7 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 - `eslint` runs against browser modules, Node tests, and workflow helper code
 - `pytest` enforces 100% line coverage for the `scripts` package
 - `node --test` covers shared browser and workflow helper modules under `tests/js/`
-- `make coverage-js` uses Node's built-in experimental coverage output as the no-new-dependencies approximation for JavaScript coverage reporting
+- `make coverage-js` uses Node's built-in experimental coverage output as the no-new-dependencies approximation for JavaScript coverage reporting and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across the tracked JavaScript/module set
 - `make security` mirrors the practical local dependency audits in CI; Gitleaks and GitHub dependency review remain CI-only because this repo does not vendor those scanners locally
 - Playwright smoke tests validate the built root gallery and `404.html` routing behavior when Chromium is installed
 - `make validate` fails if a top-level artifact directory is missing `index.html` or `name.txt`, has an empty `name.txt`, or uses a non-kebab-case directory name
@@ -80,6 +81,7 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 
 - `thumbnail.webp` is the preferred generated format
 - local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date
+- CI sets `ARTIFACTS_STRICT_THUMBNAILS=1`, so any attempted thumbnail failure fails the workflow instead of being logged as a warning
 - local working copies do not need checked-in thumbnails to function during development
 - CI can regenerate thumbnails after push or during pull request preview builds
 - the generator still tolerates legacy `thumbnail.png` when present so older generated states do not break the gallery

@@ -74,7 +74,7 @@ This reduces hardcoded values in scripts and keeps deployment-sensitive values i
 
 `.github/workflows/update.yml` is the main automation workflow for pushes, PR previews, and manual runs.
 
-1. the `verify` job bootstraps with `make setup-ci`, then runs lint, tests, browser smoke tests, dependency audit, and artifact validation
+1. the `verify` job bootstraps with `make setup-ci`, then runs lint, tests, browser smoke tests, dependency audit, artifact validation, and strict thumbnail generation
 2. `secret-scan` runs Gitleaks against the full commit history in parallel
 3. `dependency-review` checks manifest and lockfile changes on pull requests
 4. the `publish` job runs after `verify` and `secret-scan` succeed and `dependency-review` either succeeds or is skipped (push events skip it)
