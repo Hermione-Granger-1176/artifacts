@@ -45,13 +45,15 @@ def is_separator_row(cells: list[str]) -> bool:
 def build_separator(widths: list[int], original_cells: list[str]) -> str:
     """Rebuild a separator row preserving colon alignment markers."""
     parts = []
-    for width, cell in zip(widths, original_cells, strict=True):
-        cell = cell.strip()
+    for width, raw_cell in zip(widths, original_cells, strict=True):
+        cell = raw_cell.strip()
         left_colon = cell.startswith(":")
         right_colon = cell.endswith(":")
-        dash_count = width - int(left_colon) - int(right_colon)
-        segment = (":" if left_colon else "") + "-" * dash_count + (":" if right_colon else "")
-        parts.append(segment)
+        parts.append(
+            (":" if left_colon else "")
+            + "-" * (width - int(left_colon) - int(right_colon))
+            + (":" if right_colon else "")
+        )
     return "| " + " | ".join(parts) + " |"
 
 

@@ -17,10 +17,16 @@ export function splitPathspec(input) {
     .filter(Boolean);
 }
 
-/** Parse `git diff --name-status` output into additions and deletions for the GraphQL API.
- *  @param {string} diffOutput - Raw output from `git diff --name-status`
- *  @param {{ existsSync: (path: string) => boolean, readFileSync: (path: string) => Buffer }} deps - File-system helpers
- *  @returns {{ additions: { path: string, contents: string }[], deletions: { path: string }[] }} */
+/**
+ * Parse `git diff --name-status` output into additions and deletions for the GraphQL API.
+ * @param {string} diffOutput - Raw output from `git diff --name-status`.
+ * @param {{
+ *   existsSync: (path: string) => boolean,
+ *   readFileSync: (path: string) => Buffer
+ * }} deps - File-system helpers.
+ * @returns {{ additions: { path: string, contents: string }[], deletions: { path: string }[] }}
+ *   GraphQL file payloads.
+ */
 export function parseDiffOutput(diffOutput, { existsSync, readFileSync }) {
   const additions = [];
   const deletions = [];
@@ -33,32 +39,44 @@ export function parseDiffOutput(diffOutput, { existsSync, readFileSync }) {
     const [status = '', path1, path2] = line.split('\t');
     const code = status.charAt(0);
 
-    if (code === 'R' && path1 && path2) {
-      deletions.push({ path: path1 });
-      additions.push({ path: path2, contents: readFileSync(path2).toString('base64') });
-      continue;
-    }
+    switch (code) {
+      case 'R':
+        if (path1 && path2) {
+          deletions.push({ path: path1 });
+          additions.push({ path: path2, contents: readFileSync(path2).toString('base64') });
+        }
+        continue;
 
-    if (code === 'D' && path1) {
-      deletions.push({ path: path1 });
-      continue;
-    }
+      case 'D':
+        if (path1) {
+          deletions.push({ path: path1 });
+        }
+        continue;
 
-    if (!path1 || !existsSync(path1)) {
-      continue;
-    }
+      default:
+        if (!path1 || !existsSync(path1)) {
+          continue;
+        }
 
-    additions.push({ path: path1, contents: readFileSync(path1).toString('base64') });
+        additions.push({ path: path1, contents: readFileSync(path1).toString('base64') });
+    }
   }
 
   return { additions, deletions };
 }
 
-/** Fetch JSON from a URL with retries and a per-request timeout.
- *  @param {string} url - Request URL
- *  @param {RequestInit} options - Fetch options
- *  @param {object} [dependencies] - Injectable overrides for fetch, sleep, retry limits, and timeout
- *  @returns {Promise<object | null>} Parsed JSON body, or null on 204 */
+/**
+ * Fetch JSON from a URL with retries and a per-request timeout.
+ * @param {string} url - Request URL.
+ * @param {RequestInit} options - Fetch options.
+ * @param {{
+ *   fetchImpl?: typeof fetch,
+ *   maxAttempts?: number,
+ *   requestTimeoutMs?: number,
+ *   sleepImpl?: (delayMs: number) => Promise<void>
+ * }} [dependencies] - Injectable overrides for fetch, retry limits, and timeout.
+ * @returns {Promise<object | null>} Parsed JSON body, or null on 204.
+ */
 export async function fetchJson(url, options, dependencies = {}) {
   const {
     fetchImpl = fetch,
@@ -146,9 +164,21 @@ export function createBranchName(prefix, date = new Date()) {
   return `${prefix}-${value}`;
 }
 
-/** Create authenticated GitHub REST and GraphQL helpers.
- *  @param {{ owner: string, repo: string, token: string, fetchDependencies: object }} config
- *  @returns {{ fetchJson: (url: string, options?: RequestInit) => Promise<object | null>, graphql: (query: string, variables: object) => Promise<object>, owner: string, repo: string }} */
+/**
+ * Create authenticated GitHub REST and GraphQL helpers.
+ * @param {{
+ *   owner: string,
+ *   repo: string,
+ *   token: string,
+ *   fetchDependencies: object
+ * }} config - Repository identity, token, and injectable fetch helpers.
+ * @returns {{
+ *   fetchJson: (url: string, options?: RequestInit) => Promise<object | null>,
+ *   graphql: (query: string, variables: object) => Promise<object>,
+ *   owner: string,
+ *   repo: string
+ * }} Authenticated API helpers.
+ */
 export function createApiClients({ owner, repo, token, fetchDependencies }) {
   const fetchWithHeaders = (url, options = {}) =>
     fetchJson(
@@ -188,9 +218,20 @@ export function createApiClients({ owner, repo, token, fetchDependencies }) {
   };
 }
 
-/** Commit staged changes via the GitHub GraphQL API (verified/signed), falling back to a PR.
- *  @param {object} [deps] - Injectable environment, fs, exec, and fetch overrides
- *  @returns {Promise<{ changed: boolean, resultUrl: string }>} */
+/**
+ * Commit staged changes via the GitHub GraphQL API (verified/signed), falling back to a PR.
+ * @param {{
+ *   env?: NodeJS.ProcessEnv,
+ *   execFileSyncImpl?: typeof execFileSync,
+ *   existsSyncImpl?: typeof fs.existsSync,
+ *   readFileSyncImpl?: typeof fs.readFileSync,
+ *   appendFileSyncImpl?: typeof fs.appendFileSync,
+ *   consoleObj?: Console,
+ *   fetchDependencies?: object,
+ *   now?: Date
+ * }} [deps={}] - Injectable environment, fs, exec, and fetch overrides.
+ * @returns {Promise<{ changed: boolean, resultUrl: string }>} Commit or PR result metadata.
+ */
 export async function runVerifiedCommit({
   env = process.env,
   execFileSyncImpl = execFileSync,

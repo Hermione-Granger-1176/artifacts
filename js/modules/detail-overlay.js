@@ -3,7 +3,26 @@ import { createDetailContent } from './render.js';
 /**
  * Create a detail overlay controller managing the expanded artifact panel lifecycle,
  * including open/close animation, focus trapping, and background inert management.
- * @returns {{ getExpandedId, getCardById, updateExpandedCardState, trapFocus, open, close, toggle }}
+ * @param {{
+ *   detailOverlay: HTMLElement,
+ *   detailPanel: HTMLElement,
+ *   grid: HTMLElement,
+ *   documentObj: Document,
+ *   windowObj: Window,
+ *   motion: { prefersReducedMotion: () => boolean },
+ *   setBackgroundContentInert: (elements: HTMLElement[], isInert: boolean) => void,
+ *   backgroundElements: HTMLElement[],
+ *   detailCloseDelay: number
+ * }} options - Overlay DOM dependencies and injected helpers.
+ * @returns {{
+ *   getExpandedId: () => string | null,
+ *   getCardById: (id: string | null | undefined) => HTMLElement | null,
+ *   updateExpandedCardState: () => void,
+ *   trapFocus: (event: KeyboardEvent) => boolean,
+ *   open: (id: string, triggerCard: HTMLElement | null, artifactById: Map<string, *>) => void,
+ *   close: (options?: { restoreFocus?: boolean, immediate?: boolean }) => void,
+ *   toggle: (id: string, triggerCard: HTMLElement | null, artifactById: Map<string, *>) => void
+ * }} Overlay controller methods.
  */
 export function createDetailOverlay({
   detailOverlay,
@@ -14,7 +33,7 @@ export function createDetailOverlay({
   motion,
   setBackgroundContentInert,
   backgroundElements,
-  DETAIL_CLOSE_DELAY
+  detailCloseDelay
 }) {
   let expandedId = null;
   let lastExpandedTrigger = null;
@@ -116,6 +135,8 @@ export function createDetailOverlay({
     expandedId = id;
     lastExpandedTrigger = triggerCard || getCardById(id);
     detailPanel.innerHTML = createDetailContent(item);
+    const cardBgColor = triggerCard && triggerCard.style ? triggerCard.style.getPropertyValue('--card-bg-color') : '';
+    detailPanel.style.setProperty('--detail-accent', cardBgColor || 'var(--color-page-paper)');
     detailOverlay.classList.add('visible');
     detailOverlay.setAttribute('aria-hidden', 'false');
     documentObj.body.classList.add('detail-open');
@@ -145,14 +166,6 @@ export function createDetailOverlay({
       ? lastExpandedTrigger
       : getCardById(closingId);
 
-    if (!immediate) {
-      const panelRect = detailPanel.getBoundingClientRect();
-      const originRect = fallbackCard ? fallbackCard.getBoundingClientRect() : null;
-      applyDetailMotion(originRect, panelRect);
-    } else {
-      clearDetailMotion();
-    }
-
     expandedId = null;
     updateExpandedCardState();
     detailOverlay.classList.remove('open');
@@ -172,11 +185,15 @@ export function createDetailOverlay({
 
     clearTimeout(overlayResetTimer);
     if (immediate || motion.prefersReducedMotion()) {
+      clearDetailMotion();
       finishClose();
       return;
     }
 
-    overlayResetTimer = windowObj.setTimeout(finishClose, DETAIL_CLOSE_DELAY);
+    const panelRect = detailPanel.getBoundingClientRect();
+    const originRect = fallbackCard ? fallbackCard.getBoundingClientRect() : null;
+    applyDetailMotion(originRect, panelRect);
+    overlayResetTimer = windowObj.setTimeout(finishClose, detailCloseDelay);
   }
 
   function toggle(id, triggerCard, artifactById) {

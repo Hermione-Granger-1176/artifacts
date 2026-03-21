@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Prepare Site Payload
+"""Prepare the deployable Pages payload in `_site/`.
 
 Copies the deployable static site into `_site/`, then applies deploy-time
 adjustments such as cache-busting query strings, the configured 404 fallback
@@ -14,10 +13,12 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tomllib
+from itertools import chain
 from pathlib import Path
 
 logging.basicConfig(
@@ -31,6 +32,7 @@ PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
 DEPLOY_DIR = REPO_ROOT / "_site"
 DEPLOY_ITEMS = ("404.html", "apps", "assets", "css", "index.html", "js")
 GIT_COMMAND_TIMEOUT_SECONDS = 10
+ROOT_STYLESHEET_IMPORT_PATTERN = re.compile(r'@import url\("(\./[^"?]+\.css)"\);')
 
 
 def _normalize_site_path(value: str) -> str:
@@ -80,24 +82,38 @@ def _copy_deploy_items() -> None:
     for item in DEPLOY_ITEMS:
         source = REPO_ROOT / item
         target = DEPLOY_DIR / item
-        if not source.exists():
-            raise FileNotFoundError(f"Required deploy path not found: {source}")
-        if source.is_symlink():
-            raise ValueError(f"Refusing to copy symlinked deploy path: {source}")
-        if source.is_dir():
-            for root, dirnames, filenames in os.walk(source, followlinks=False):
-                for name in [*dirnames, *filenames]:
-                    nested = Path(root) / name
-                    if nested.is_symlink():
-                        raise ValueError(
-                            f"Refusing to copy deploy tree containing symlink: {nested}"
-                        )
-                dirnames[:] = [
-                    name for name in dirnames if not (Path(root) / name).is_symlink()
-                ]
-            shutil.copytree(source, target)
-            continue
+        _copy_deploy_item(source, target)
+
+
+def _copy_deploy_item(source: Path, target: Path) -> None:
+    """Copy one deploy input after validating symlink safety."""
+    if not source.exists():
+        raise FileNotFoundError(f"Required deploy path not found: {source}")
+
+    if source.is_symlink():
+        raise ValueError(f"Refusing to copy symlinked deploy path: {source}")
+
+    if not source.is_dir():
         shutil.copy2(source, target)
+        return
+
+    _validate_copy_tree(source)
+    shutil.copytree(source, target)
+
+
+def _validate_copy_tree(root_dir: Path) -> None:
+    """Reject symlinks anywhere inside a deploy directory tree."""
+    for root, dirnames, filenames in os.walk(root_dir, followlinks=False):
+        for name in chain(dirnames, filenames):
+            nested = Path(root) / name
+            if nested.is_symlink():
+                raise ValueError(
+                    f"Refusing to copy deploy tree containing symlink: {nested}"
+                )
+
+        dirnames[:] = [
+            name for name in dirnames if not (Path(root) / name).is_symlink()
+        ]
 
 
 def _replace_exact(content: str, old: str, new: str) -> str:
@@ -122,6 +138,20 @@ def _patch_index_html(version: str) -> None:
         content = _replace_exact(content, old, new)
 
     index_path.write_text(content, encoding="utf-8")
+
+
+def _patch_root_stylesheet(version: str) -> None:
+    """Apply cache-busting query strings to modular stylesheet imports."""
+    stylesheet_path = DEPLOY_DIR / "css" / "style.css"
+    if not stylesheet_path.exists():
+        return
+
+    content = stylesheet_path.read_text(encoding="utf-8")
+    patched = ROOT_STYLESHEET_IMPORT_PATTERN.sub(
+        lambda match: f'@import url("{match.group(1)}?v={version}");',
+        content,
+    )
+    stylesheet_path.write_text(patched, encoding="utf-8")
 
 
 def _patch_404_html(site_path: str) -> None:
@@ -159,6 +189,7 @@ def prepare_site() -> None:
     version = _resolve_version()
     _copy_deploy_items()
     _patch_index_html(version)
+    _patch_root_stylesheet(version)
     _patch_404_html(site_path)
     _patch_manifest(site_path)
     _write_nojekyll()

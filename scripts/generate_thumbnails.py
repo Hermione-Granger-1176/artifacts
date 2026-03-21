@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Generate Thumbnails
+"""Generate artifact thumbnails with Playwright and Pillow.
 
 Scans artifact directories for index.html files and uses Playwright to
 capture screenshots for artifacts with missing or stale thumbnails, saving an

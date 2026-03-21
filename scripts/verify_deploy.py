@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Verify Published Deployments
+"""Verify published deployments by polling for the expected version marker.
 
 Fetches a deployed root or preview URL and waits for the expected deploy version
 marker to appear in the HTML. This gives CI a post-deploy check without adding
@@ -11,6 +10,7 @@ Usage:
     python scripts/verify_deploy.py --url https://example.test/pr-preview/pr-42/ \
         --expected-substring "?v=<sha>"
 """
+
 from __future__ import annotations
 
 import argparse
@@ -65,6 +65,27 @@ def _fetch_text(url: str, timeout_seconds: float) -> tuple[int, str]:
     return status_code, body
 
 
+def _build_cache_busted_url(url: str, attempt: int) -> str:
+    """Add a cache-busting query parameter for one verification attempt."""
+    parsed = urllib.parse.urlsplit(url)
+    query = urllib.parse.parse_qs(parsed.query)
+    query["artifacts-deploy-check"] = [str(attempt)]
+    return urllib.parse.urlunsplit(
+        parsed._replace(query=urllib.parse.urlencode(query, doseq=True))
+    )
+
+
+def _validate_deploy_response(
+    status_code: int, body: str, expected_substring: str
+) -> None:
+    """Raise when a fetched deploy response is not the expected version."""
+    if status_code != 200:
+        raise RuntimeError(f"returned HTTP {status_code}")
+
+    if expected_substring not in body:
+        raise RuntimeError(f"did not contain expected marker: {expected_substring}")
+
+
 def verify_deploy(
     url: str,
     expected_substring: str,
@@ -79,20 +100,10 @@ def verify_deploy(
 
     last_error: str | None = None
     for attempt in range(1, attempts + 1):
-        parsed = urllib.parse.urlsplit(url)
-        query = urllib.parse.parse_qs(parsed.query)
-        query["artifacts-deploy-check"] = [str(attempt)]
-        cache_busted_url = urllib.parse.urlunsplit(
-            parsed._replace(query=urllib.parse.urlencode(query, doseq=True))
-        )
+        cache_busted_url = _build_cache_busted_url(url, attempt)
         try:
             status_code, body = _fetch_text(cache_busted_url, timeout_seconds)
-            if status_code != 200:
-                raise RuntimeError(f"returned HTTP {status_code}")
-            if expected_substring not in body:
-                raise RuntimeError(
-                    f"did not contain expected marker: {expected_substring}"
-                )
+            _validate_deploy_response(status_code, body, expected_substring)
 
             logger.info("Verified published deployment at %s", url)
             return

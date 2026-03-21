@@ -27,19 +27,27 @@ The root `index.html` is a gallery page with searchable thumbnails, multi-select
 Workspace commands go through the `Makefile`. Python dependencies and workspace metadata live in `pyproject.toml`, while frozen Python and Node installs live in `locks/requirements*.lock` and `package-lock.json`.
 
 - `make setup`: create `.venv`, install pinned Python and Node dependencies, and install Chromium
+- `make setup-local`: create `.venv` and install pinned Python and Node dependencies without Chromium
 - `make setup-ci`: CI bootstrap variant that installs Chromium with system dependencies for runners/containers
-- `make check`: run Python/JS lint, Python/JS tests, browser smoke tests, and artifact validation with the 100% Python coverage gate
+- `make check-local`: run the fast local gate, including EditorConfig validation, Python/JS/CSS/YAML/workflow lint, non-browser Python tests, JavaScript tests, JavaScript coverage, dependency audits, and artifact validation
+- `make web`: run browser smoke tests and thumbnail generation
+- `make check`: run the full gate, which combines `make check-local`, `make web`, index generation, and deployable site assembly
 - `make validate`: fail fast on incomplete or invalid top-level artifact directories
 - `make generate`: run thumbnail generation and data generation sequentially
 - `make lock`: refresh `locks/requirements.lock` and `locks/requirements-dev.lock` after Python dependency changes; same-repo Dependabot pip PRs also refresh them automatically through CI when `pyproject.toml` changes
 - `make new name=my-artifact`: scaffold a new artifact directory with placeholder files
 - `make site`: build the clean `_site/` deploy payload
 - `make security`: run the local `pip-audit` and `npm audit` dependency vulnerability checks used in CI
-- `make coverage-js`: run Node test-runner coverage for tracked JS modules and enforce the current JS coverage baseline
+- `make coverage-js`: run Node test-runner coverage for `js/app.js`, `js/modules/*.js`, and `.github/actions/verified-commit/*.mjs`, and enforce the current JS coverage baseline
+- `make editorconfig-check`: verify supported `.editorconfig` rules for covered repository files
 - `make align-tables`: align markdown table pipe characters across all docs
-- `make lint`: run ruff (Python) and ESLint (JavaScript) checks
+- `make lint`: run EditorConfig validation, ruff (Python), ESLint (JavaScript), stylelint (CSS), yamllint (YAML), and workflow lint checks
 - `make lint-js`: run ESLint only
-- `make test`: run pytest and Node test runner
+- `make lint-css`: run stylelint only
+- `make lint-yaml`: run yamllint only
+- `make lint-workflows`: run workflow-specific action linting only
+- `make test`: run non-browser pytest and the Node test runner
+- `make test-browser`: run browser smoke tests only
 - `make test-js`: run the Node test runner only
 - `make thumbnails`: regenerate WebP thumbnails when Playwright is available
 - `make index`: rebuild `js/data.js`, `js/gallery-config.js`, and README auto markers

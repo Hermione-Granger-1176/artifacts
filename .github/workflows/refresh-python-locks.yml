@@ -27,6 +27,10 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PYTHON_VERSION: '3.12'
+      LOCK_REFRESH_ARTIFACT_NAME: python-lock-refresh-${{ github.event.pull_request.number }}
+      LOCK_REFRESH_ROOT: .artifacts
     permissions:
       contents: read
     steps:
@@ -40,26 +44,30 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: '3.12'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Refresh Python lock files
         run: make lock
 
       - name: Write refresh metadata
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          mkdir -p .artifacts
-          printf '%s\n' '${{ github.event.pull_request.number }}' > .artifacts/pr-number.txt
-          printf '%s\n' '${{ github.event.pull_request.head.sha }}' > .artifacts/head-sha.txt
-          printf '%s\n' '${{ github.event.pull_request.head.ref }}' > .artifacts/head-ref.txt
+          mkdir -p "$LOCK_REFRESH_ROOT"
+          printf '%s\n' "$PR_NUMBER" > "$LOCK_REFRESH_ROOT/pr-number.txt"
+          printf '%s\n' "$HEAD_SHA" > "$LOCK_REFRESH_ROOT/head-sha.txt"
+          printf '%s\n' "$HEAD_REF" > "$LOCK_REFRESH_ROOT/head-ref.txt"
 
       - name: Upload refreshed Python lock files
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: python-lock-refresh-${{ github.event.pull_request.number }}
+          name: ${{ env.LOCK_REFRESH_ARTIFACT_NAME }}
           path: |
             locks/requirements.lock
             locks/requirements-dev.lock
-            .artifacts/pr-number.txt
-            .artifacts/head-sha.txt
-            .artifacts/head-ref.txt
+            ${{ env.LOCK_REFRESH_ROOT }}/pr-number.txt
+            ${{ env.LOCK_REFRESH_ROOT }}/head-sha.txt
+            ${{ env.LOCK_REFRESH_ROOT }}/head-ref.txt
           if-no-files-found: error

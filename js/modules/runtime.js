@@ -15,7 +15,22 @@ function normalizeErrorMessage(error) {
   return 'Unknown runtime error';
 }
 
-/** Create a runtime instance providing error reporting, storage access, and lifecycle status. */
+/**
+ * Create a runtime instance providing error reporting, storage access, and lifecycle status.
+ * @param {{ consoleObj?: Console, documentObj?: Document, windowObj?: Window }} [options={}]
+ *   Injected browser globals for startup and tests.
+ * @returns {{
+ *   markReady: () => void,
+ *   readStorage: (key: string, fallbackValue?: string|null) => string|null,
+ *   reportError: (error: *, context: string, options?: { fatal?: boolean }) => void,
+ *   setupGlobalErrorHandlers: () => void,
+ *   state: {
+ *     ready: boolean,
+ *     lastError: ({ context: string, message: string, fatal: boolean, timestamp: string }|null)
+ *   },
+ *   writeStorage: (key: string, value: string) => boolean
+ * }} Runtime API.
+ */
 export function createRuntime({ consoleObj = console, documentObj = document, windowObj = window } = {}) {
   const state = {
     ready: false,

@@ -7,22 +7,22 @@ import {
 } from './catalog.js';
 import { getGalleryConfig, getTagLabel, getToolLabel } from './config.js';
 import { createDetailOverlay } from './detail-overlay.js';
-import { createFilterDropdown } from './filter-dropdown.js';
 import { ICONS } from './icons.js';
 import { setBackgroundContentInert } from './inert.js';
 import { createMotionHelper } from './motion.js';
+import { createBookScene } from './book-scene.js';
 import {
-  buildFilterPanelHtml,
+  buildFilterNotes,
   buildGridHtml,
-  renderPagination,
-  updateFilterDropdownUI
+  renderPagination
 } from './render.js';
 
-const ITEMS_PER_PAGE = 12;
-const THEME_COLORS = { dark: '#202020', light: '#f0f0f0' };
+const ITEMS_PER_PAGE = 4;
+const THEME_COLORS = { dark: '#1e1a14', light: '#f5efe6' };
 const DEFAULTS = { page: 1, sort: 'newest', q: '' };
 const SCROLL_TOP_THRESHOLD = 300;
 const DETAIL_CLOSE_DELAY = 360;
+const ACTIVATION_KEYS = new Set(['Enter', ' ']);
 
 /** Parse URL search params into normalized gallery state (page, sort, filters, search). */
 export function readGalleryStateFromSearch({ search, allTools, allTags, defaults = DEFAULTS }) {
@@ -68,7 +68,12 @@ export function buildGalleryUrl({
   return queryString ? `${pathname}?${queryString}` : pathname;
 }
 
-/** @param {Document} documentObj @param {string} id @returns {HTMLElement} */
+/**
+ * Return a required DOM element by ID.
+ * @param {Document} documentObj - Document containing the gallery shell.
+ * @param {string} id - Required element ID.
+ * @returns {HTMLElement} Located DOM element.
+ */
 function requireElement(documentObj, id) {
   const element = documentObj.getElementById(id);
   if (!element) {
@@ -78,8 +83,32 @@ function requireElement(documentObj, id) {
 }
 
 /**
+ * Toggle one filter value in a normalized selection list.
+ * @param {string[]} selection - Current selected values.
+ * @param {string} value - Value to add or remove.
+ * @returns {string[]} Updated selection values.
+ */
+function toggleSelection(selection, value) {
+  return selection.includes(value)
+    ? selection.filter((entry) => entry !== value)
+    : [...selection, value];
+}
+
+/**
  * Initialize the gallery application: resolve DOM elements, hydrate data, wire event
  * listeners, and render the initial view.
+ * @param {{
+ *   documentObj?: Document,
+ *   runtime: {
+ *     markReady: () => void,
+ *     readStorage: (key: string, fallbackValue?: string|null) => string|null,
+ *     reportError: (error: *, context: string, options?: { fatal?: boolean }) => void,
+ *     setupGlobalErrorHandlers: () => void,
+ *     writeStorage: (key: string, value: string) => boolean
+ *   },
+ *   windowObj?: Window
+ * }} [options={}] - Injected document, runtime, and window dependencies.
+ * @returns {void}
  */
 export function initializeGalleryApp({ documentObj = document, runtime, windowObj = window } = {}) {
   if (!runtime) {
@@ -98,6 +127,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   const scrollTopBtn = requireElement(documentObj, 'scroll-top');
   const detailOverlayEl = requireElement(documentObj, 'detail-overlay');
   const detailPanel = requireElement(documentObj, 'detail-panel');
+  const filterNotesContainer = requireElement(documentObj, 'filter-notes');
   const htmlElement = documentObj.documentElement;
 
   const backgroundElements = [
@@ -107,17 +137,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     scrollTopBtn
   ].filter(Boolean);
 
-  const toolDropdown = requireElement(documentObj, 'tool-dropdown');
-  const toolFilterToggle = requireElement(documentObj, 'tool-filter-toggle');
-  const toolFilterLabel = requireElement(documentObj, 'tool-filter-label');
-  const toolFilterPanel = requireElement(documentObj, 'tool-filter-panel');
-  const tagDropdown = requireElement(documentObj, 'tag-dropdown');
-  const tagFilterToggle = requireElement(documentObj, 'tag-filter-toggle');
-  const tagFilterLabel = requireElement(documentObj, 'tag-filter-label');
-  const tagFilterPanel = requireElement(documentObj, 'tag-filter-panel');
-
   const prefersReducedMotionQuery = windowObj.matchMedia('(prefers-reduced-motion: reduce)');
   const motion = createMotionHelper(prefersReducedMotionQuery, windowObj);
+  const bookScene = createBookScene({ documentObj, windowObj, motion });
   const galleryConfig = getGalleryConfig(windowObj);
   const rawArtifacts = Array.isArray(windowObj.ARTIFACTS_DATA) ? windowObj.ARTIFACTS_DATA : [];
   const allArtifacts = hydrateArtifacts(rawArtifacts);
@@ -131,30 +153,6 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     galleryConfig.toolDisplayOrder
   );
 
-  const filterControls = {
-    tool: {
-      root: toolDropdown,
-      toggle: toolFilterToggle,
-      label: toolFilterLabel,
-      panel: toolFilterPanel,
-      values: allTools,
-      emptyLabel: 'All tools',
-      pluralLabel: 'tools',
-      labelFormatter: (value) => getToolLabel(galleryConfig, value)
-    },
-    tag: {
-      root: tagDropdown,
-      toggle: tagFilterToggle,
-      label: tagFilterLabel,
-      panel: tagFilterPanel,
-      values: allTags,
-      emptyLabel: 'All tags',
-      pluralLabel: 'tags',
-      labelFormatter: (value) => getTagLabel(galleryConfig, value)
-    }
-  };
-
-  const filterDropdown = createFilterDropdown(filterControls);
   const overlay = createDetailOverlay({
     detailOverlay: detailOverlayEl,
     detailPanel,
@@ -164,7 +162,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     motion,
     setBackgroundContentInert,
     backgroundElements,
-    DETAIL_CLOSE_DELAY
+    detailCloseDelay: DETAIL_CLOSE_DELAY
   });
 
   let currentPage = DEFAULTS.page;
@@ -174,32 +172,27 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   let currentTags = [];
   let debounceTimer = null;
   let suppressPush = false;
-  const filterSelectionControllers = {
-    tool: {
-      get: () => currentTools,
-      set: (values) => {
-        currentTools = normalizeSelection(values, allTools);
-      }
+  const resetFiltersByNote = {
+    'all-tags': () => {
+      currentTags = [];
     },
-    tag: {
-      get: () => currentTags,
-      set: (values) => {
-        currentTags = normalizeSelection(values, allTags);
-      }
+    'all-tools': () => {
+      currentTools = [];
     }
   };
 
   filterReset.innerHTML = ICONS.reset;
 
-  buildFilterPanels();
+  renderFilterNotes();
   readStateFromURL();
 
-  const savedTheme = runtime.readStorage('theme', 'dark') || 'dark';
+  const savedTheme = runtime.readStorage('theme', 'light') || 'light';
   applyTheme(savedTheme, false);
 
   syncUIToState();
   renderContent();
   documentObj.body.classList.remove('js-loading');
+  void bookScene.startIntro();
 
   themeToggle.addEventListener('click', () => {
     const currentTheme = htmlElement.getAttribute('data-theme');
@@ -211,7 +204,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     debounceTimer = windowObj.setTimeout(() => {
       currentFilter = event.target.value.toLowerCase();
       currentPage = 1;
-      applyStateChange({ closeFilter: true });
+      applyStateChange();
     }, 150);
   });
 
@@ -219,38 +212,34 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     searchInput.value = '';
     currentFilter = '';
     currentPage = 1;
-    applyStateChange({ closeFilter: true, focusTarget: searchInput });
+    applyStateChange({ focusTarget: searchInput });
   });
 
-  for (const [key, control] of Object.entries(filterControls)) {
-    control.toggle.addEventListener('click', (event) => {
-      event.stopPropagation();
-      filterDropdown.toggle(key);
-    });
+  filterNotesContainer.addEventListener('click', (event) => {
+    const tab = event.target.closest('.desk-note');
+    if (!tab) {
+      return;
+    }
 
-    control.panel.addEventListener('change', (event) => {
-      const checkbox = event.target.closest('.filter-dropdown-checkbox');
-      if (!checkbox) {
-        return;
-      }
+    const { filterNote, filterTag, filterTool } = tab.dataset;
+    if (filterNote && resetFiltersByNote[filterNote]) {
+      resetFiltersByNote[filterNote]();
+    } else if (filterTool) {
+      currentTools = toggleSelection(currentTools, filterTool);
+    } else if (filterTag) {
+      currentTags = toggleSelection(currentTags, filterTag);
+    } else {
+      return;
+    }
 
-      const nextValues = new Set(getSelectedValues(key));
-      if (checkbox.checked) {
-        nextValues.add(checkbox.value);
-      } else {
-        nextValues.delete(checkbox.value);
-      }
-
-      setSelectedValues(key, [...nextValues]);
-      currentPage = 1;
-      applyStateChange();
-    });
-  }
+    currentPage = 1;
+    applyStateChange();
+  });
 
   sortToggle.addEventListener('click', () => {
     currentSort = currentSort === 'newest' ? 'oldest' : 'newest';
     currentPage = 1;
-    applyStateChange({ closeFilter: true });
+    applyStateChange();
   });
 
   filterReset.addEventListener('click', resetFilters);
@@ -272,7 +261,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   });
 
   grid.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' && event.key !== ' ') {
+    if (!ACTIVATION_KEYS.has(event.key)) {
       return;
     }
 
@@ -285,7 +274,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     overlay.toggle(card.dataset.id, card, artifactById);
   });
 
-  paginationContainer.addEventListener('click', (event) => {
+  paginationContainer.addEventListener('click', async (event) => {
     const button = event.target.closest('[data-page]');
     if (!button || button.disabled) {
       return;
@@ -296,22 +285,13 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return;
     }
 
+    const direction = page > currentPage ? 'next' : 'previous';
     currentPage = page;
     overlay.close({ restoreFocus: false, immediate: true });
     pushState();
-    renderContent();
-    motion.scrollToTop();
-  });
-
-  documentObj.addEventListener('click', (event) => {
-    if (!filterDropdown.isOpen()) {
-      return;
-    }
-
-    const activeControl = filterControls[filterDropdown.getOpenKey()];
-    if (!activeControl.root.contains(event.target)) {
-      filterDropdown.close();
-    }
+    await bookScene.turnPage(() => {
+      renderContent();
+    }, { direction });
   });
 
   documentObj.addEventListener('keydown', (event) => {
@@ -321,12 +301,6 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
         return;
 
       case 'Escape':
-        if (filterDropdown.isOpen()) {
-          event.preventDefault();
-          filterDropdown.close();
-          return;
-        }
-
         if (!overlay.getExpandedId()) {
           return;
         }
@@ -341,7 +315,6 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
         }
 
         event.preventDefault();
-        filterDropdown.close();
         searchInput.focus();
         return;
 
@@ -351,7 +324,6 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   });
 
   windowObj.addEventListener('popstate', () => {
-    filterDropdown.close();
     overlay.close({ restoreFocus: false, immediate: true });
     suppressPush = true;
     readStateFromURL();
@@ -393,14 +365,15 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
   }
 
-  function buildFilterPanels() {
-    for (const [key, control] of Object.entries(filterControls)) {
-      control.panel.innerHTML = buildFilterPanelHtml({
-        key,
-        values: control.values,
-        labelFormatter: control.labelFormatter
-      });
-    }
+  function renderFilterNotes() {
+    filterNotesContainer.innerHTML = buildFilterNotes({
+      tools: allTools,
+      tags: allTags,
+      activeTools: currentTools,
+      activeTags: currentTags,
+      toolLabel: (value) => getToolLabel(galleryConfig, value),
+      tagLabel: (value) => getTagLabel(galleryConfig, value)
+    });
   }
 
   function readStateFromURL() {
@@ -446,10 +419,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
 
     updateSearchClearVisibility();
-    updateFilterDropdownUI(filterControls.tool, currentTools);
-    updateFilterDropdownUI(filterControls.tag, currentTags);
     updateSortToggle();
     updateFilterResetVisibility();
+    renderFilterNotes();
   }
 
   function updateSearchClearVisibility() {
@@ -470,11 +442,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     filterReset.classList.toggle('hidden', !hasActiveFilters);
   }
 
-  function applyStateChange({ closeFilter = false, focusTarget = null } = {}) {
-    if (closeFilter) {
-      filterDropdown.close();
-    }
-
+  function applyStateChange({ focusTarget = null } = {}) {
     overlay.close({ restoreFocus: false, immediate: true });
     syncUIToState();
     pushState();
@@ -483,22 +451,6 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     if (focusTarget) {
       focusTarget.focus();
     }
-  }
-
-  function getFilterSelectionController(key) {
-    const controller = filterSelectionControllers[key];
-    if (!controller) {
-      throw new Error(`Unknown filter key: ${key}`);
-    }
-    return controller;
-  }
-
-  function getSelectedValues(key) {
-    return getFilterSelectionController(key).get();
-  }
-
-  function setSelectedValues(key, values) {
-    getFilterSelectionController(key).set(values);
   }
 
   function isTextEntryElement(element) {
@@ -515,7 +467,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     currentTags = [];
     currentPage = DEFAULTS.page;
     searchInput.value = '';
-    applyStateChange({ closeFilter: true, focusTarget: searchInput });
+    applyStateChange({ focusTarget: searchInput });
   }
 
   function renderContent() {

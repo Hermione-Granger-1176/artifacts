@@ -148,7 +148,7 @@ def test_generate_thumbnails_exits_when_playwright_is_missing(
         generate_thumbnails.generate_thumbnails()
 
 
-# -- Async fake helpers --
+# Async fake helpers used by the browser-free thumbnail tests.
 
 
 class FakePage:

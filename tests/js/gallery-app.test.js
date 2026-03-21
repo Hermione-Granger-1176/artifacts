@@ -60,6 +60,9 @@ class FakeElement {
     this.inert = false;
     this.style = {
       properties: {},
+      getPropertyValue(name) {
+        return this.properties[name] || '';
+      },
       removeProperty(name) {
         delete this.properties[name];
       },
@@ -129,13 +132,12 @@ class FakeElement {
   }
 
   contains(target) {
-    let node = target;
-    while (node) {
+    for (let node = target; node; node = node.parentElement) {
       if (node === this) {
         return true;
       }
-      node = node.parentElement;
     }
+
     return false;
   }
 
@@ -160,13 +162,12 @@ class FakeElement {
   }
 
   closest(selector) {
-    let node = this;
-    while (node) {
+    for (let node = this; node; node = node.parentElement) {
       if (node.matches(selector)) {
         return node;
       }
-      node = node.parentElement;
     }
+
     return null;
   }
 
@@ -180,48 +181,6 @@ class FakeElement {
 
   getBoundingClientRect() {
     return { left: 100, top: 100, width: 320, height: 180 };
-  }
-}
-
-class FakeCheckbox extends FakeElement {
-  constructor(value) {
-    super({ tagName: 'INPUT', classes: ['filter-dropdown-checkbox'] });
-    this.value = value;
-    this.checked = false;
-  }
-}
-
-class FakeFilterOption extends FakeElement {
-  constructor() {
-    super({ tagName: 'LABEL', classes: ['filter-dropdown-item'] });
-  }
-}
-
-class FakeFilterPanel extends FakeElement {
-  constructor(id) {
-    super({ id });
-    this.checkboxes = [];
-  }
-
-  set innerHTML(value) {
-    this._innerHTML = value;
-    this.checkboxes = [];
-    for (const [, checkboxValue] of value.matchAll(/value="([^"]+)"/g)) {
-      const option = new FakeFilterOption();
-      option.parentElement = this;
-      option.ownerDocument = this.ownerDocument;
-      const checkbox = new FakeCheckbox(checkboxValue);
-      checkbox.parentElement = option;
-      checkbox.ownerDocument = this.ownerDocument;
-      this.checkboxes.push(checkbox);
-    }
-  }
-
-  querySelectorAll(selector) {
-    if (selector === '.filter-dropdown-checkbox') {
-      return this.checkboxes;
-    }
-    return [];
   }
 }
 
@@ -259,14 +218,13 @@ class FakeGrid extends FakeElement {
 
   set innerHTML(value) {
     this._innerHTML = value;
-    this.cards = [];
-    for (const [, classNames, id, expanded] of value.matchAll(/<article class="([^"]*artifact-card[^"]*)" data-id="([^"]+)"[^>]*aria-expanded="([^"]+)"/g)) {
+    this.cards = [...value.matchAll(/<article class="([^"]*artifact-card[^"]*)" data-id="([^"]+)"[^>]*aria-expanded="([^"]+)"/g)].map(([, classNames, id, expanded]) => {
       const classes = classNames.trim().split(/\s+/).filter(Boolean);
       const card = new FakeCard(id, classes, expanded === 'true');
       card.parentElement = this;
       card.ownerDocument = this.ownerDocument;
-      this.cards.push(card);
-    }
+      return card;
+    });
   }
 
   querySelector(selector) {
@@ -510,26 +468,9 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
   const detailOverlay = registerElement(new FakeElement({ id: 'detail-overlay', classes: ['detail-overlay'] }));
   detailOverlay.setAttribute('aria-hidden', 'true');
   const detailPanel = registerElement(new FakeDetailPanel());
-
-  const toolDropdown = registerElement(new FakeElement({ id: 'tool-dropdown' }));
-  const toolFilterToggle = registerElement(createButton('tool-filter-toggle'));
-  const toolFilterLabel = registerElement(new FakeElement({ id: 'tool-filter-label' }));
-  const toolFilterPanel = registerElement(new FakeFilterPanel('tool-filter-panel'));
-  toolFilterPanel.setAttribute('aria-hidden', 'true');
-
-  const tagDropdown = registerElement(new FakeElement({ id: 'tag-dropdown' }));
-  const tagFilterToggle = registerElement(createButton('tag-filter-toggle'));
-  const tagFilterLabel = registerElement(new FakeElement({ id: 'tag-filter-label' }));
-  const tagFilterPanel = registerElement(new FakeFilterPanel('tag-filter-panel'));
-  tagFilterPanel.setAttribute('aria-hidden', 'true');
+  const bookmarkTabs = registerElement(new FakeElement({ id: 'filter-notes' }));
 
   [
-    [toolFilterToggle, toolDropdown],
-    [toolFilterLabel, toolDropdown],
-    [toolFilterPanel, toolDropdown],
-    [tagFilterToggle, tagDropdown],
-    [tagFilterLabel, tagDropdown],
-    [tagFilterPanel, tagDropdown],
     [grid, container],
     [searchInput, container],
     [searchClear, container],
@@ -541,7 +482,8 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
     [pagination, container],
     [scrollTop, body],
     [detailOverlay, body],
-    [detailPanel, detailOverlay]
+    [detailPanel, detailOverlay],
+    [bookmarkTabs, container]
   ].forEach(([child, parent]) => {
     child.parentElement = parent;
   });
@@ -560,6 +502,7 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
   return {
     documentObj,
     elements: {
+      bookmarkTabs,
       detailOverlay,
       detailPanel,
       filterReset,
@@ -572,15 +515,7 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
       searchClear,
       searchInput,
       sortToggle,
-      tagDropdown,
-      tagFilterLabel,
-      tagFilterPanel,
-      tagFilterToggle,
-      themeToggle,
-      toolDropdown,
-      toolFilterLabel,
-      toolFilterPanel,
-      toolFilterToggle
+      themeToggle
     },
     historyCalls,
     outsideTarget,
@@ -690,9 +625,9 @@ test('initializeGalleryApp restores URL and theme state on startup', () => {
   });
 
   assert.equal(harness.documentObj.documentElement.getAttribute('data-theme'), 'light');
-  assert.equal(harness.elements.metaThemeColor.getAttribute('content'), '#f0f0f0');
+  assert.equal(harness.elements.metaThemeColor.getAttribute('content'), '#f5efe6');
   assert.equal(harness.elements.sortToggle.getAttribute('aria-pressed'), 'true');
-  assert.equal(harness.elements.grid.cards.length, 1);
+  assert.equal(harness.elements.grid.cards.length, 4);
   assert.equal(harness.documentObj.body.classList.contains('js-loading'), false);
 });
 
@@ -709,7 +644,7 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
   pageTwoButton.dataset.page = '2';
   harness.elements.pagination.dispatch('click', { target: pageTwoButton });
   assert.equal(harness.windowObj.location.search, '?page=2');
-  assert.equal(harness.elements.grid.cards.length, 1);
+  assert.equal(harness.elements.grid.cards.length, 4);
 
   harness.elements.searchInput.value = 'Artifact 13';
   harness.elements.searchInput.dispatch('input', { target: harness.elements.searchInput });
@@ -722,28 +657,17 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
   assert.equal(harness.windowObj.location.search, '');
   assert.equal(harness.documentObj.activeElement, harness.elements.searchInput);
 
-  harness.elements.toolFilterToggle.dispatch('click');
-  assert.equal(harness.elements.toolDropdown.classList.contains('open'), true);
-  const chatgptCheckbox = harness.elements.toolFilterPanel.checkboxes.find((checkbox) => checkbox.value === 'chatgpt');
-  chatgptCheckbox.checked = true;
-  harness.elements.toolFilterPanel.dispatch('change', { target: chatgptCheckbox });
-  assert.match(harness.windowObj.location.search, /tool=chatgpt/);
-  assert.equal(harness.elements.toolFilterLabel.textContent, 'ChatGPT');
-
-  harness.elements.tagFilterToggle.dispatch('click');
-  const calculatorCheckbox = harness.elements.tagFilterPanel.checkboxes.find((checkbox) => checkbox.value === 'calculator');
-  calculatorCheckbox.checked = true;
-  harness.elements.tagFilterPanel.dispatch('change', { target: calculatorCheckbox });
-  assert.match(harness.windowObj.location.search, /tag=calculator/);
-  assert.equal(harness.elements.tagFilterLabel.textContent, 'Calculator');
+  const toolTab = new FakeElement({ tagName: 'BUTTON', classes: ['desk-note'] });
+  toolTab.dataset.filterTool = 'claude';
+  toolTab.parentElement = harness.elements.bookmarkTabs;
+  harness.elements.bookmarkTabs.dispatch('click', { target: toolTab });
+  assert.match(harness.windowObj.location.search, /tool=claude/);
   assert.equal(harness.elements.filterReset.classList.contains('hidden'), false);
-
-  harness.documentObj.dispatch('click', { target: harness.outsideTarget });
-  assert.equal(harness.elements.tagDropdown.classList.contains('open'), false);
 
   harness.elements.sortToggle.dispatch('click');
   assert.match(harness.windowObj.location.search, /sort=oldest/);
   assert.equal(harness.elements.sortToggle.getAttribute('aria-pressed'), 'true');
+  assert.match(harness.windowObj.location.search, /tool=claude/);
 
   harness.elements.searchInput.value = 'missing artifact';
   harness.elements.searchInput.dispatch('input', { target: harness.elements.searchInput });
@@ -758,7 +682,6 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
   harness.windowObj.location.search = '?q=Artifact+12&tool=claude';
   harness.windowObj.dispatch('popstate');
   assert.equal(harness.elements.searchInput.value, 'Artifact 12');
-  assert.equal(harness.elements.toolFilterLabel.textContent, 'Claude');
   assert.equal(harness.elements.grid.cards.length, 1);
 
   harness.windowObj.scrollY = 400;
@@ -815,5 +738,68 @@ test('initializeGalleryApp handles overlay and keyboard interactions', () => {
   harness.windowObj.location.search = '?page=2';
   harness.windowObj.dispatch('popstate');
   assert.equal(harness.elements.detailOverlay.classList.contains('visible'), false);
-  assert.equal(harness.elements.grid.cards.length, 1);
+  assert.equal(harness.elements.grid.cards.length, 4);
+});
+
+test('initializeGalleryApp desk notes toggle tool and tag filters', () => {
+  const harness = createGalleryHarness();
+
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+
+  function createDeskNote(dataset) {
+    const deskNote = new FakeElement({ tagName: 'BUTTON', classes: ['desk-note'] });
+    Object.assign(deskNote.dataset, dataset);
+    deskNote.parentElement = harness.elements.bookmarkTabs;
+    return deskNote;
+  }
+
+  const claudeTab = createDeskNote({ filterTool: 'claude' });
+  harness.elements.bookmarkTabs.dispatch('click', { target: claudeTab });
+  assert.match(harness.windowObj.location.search, /tool=claude/);
+  assert.equal(harness.elements.filterReset.classList.contains('hidden'), false);
+
+  const chatgptTab = createDeskNote({ filterTool: 'chatgpt' });
+  harness.elements.bookmarkTabs.dispatch('click', { target: chatgptTab });
+  const bothToolsParam = new URLSearchParams(harness.windowObj.location.search).get('tool');
+  assert.match(bothToolsParam, /claude/);
+  assert.match(bothToolsParam, /chatgpt/);
+
+  harness.elements.bookmarkTabs.dispatch('click', { target: claudeTab });
+  const afterRemoveParam = new URLSearchParams(harness.windowObj.location.search).get('tool');
+  assert.doesNotMatch(afterRemoveParam, /claude/);
+  assert.match(afterRemoveParam, /chatgpt/);
+
+  const gameTag = createDeskNote({ filterTag: 'game' });
+  harness.elements.bookmarkTabs.dispatch('click', { target: gameTag });
+  assert.match(harness.windowObj.location.search, /tag=game/);
+  assert.match(harness.windowObj.location.search, /tool=chatgpt/);
+
+  harness.elements.bookmarkTabs.dispatch('click', { target: gameTag });
+  assert.doesNotMatch(harness.windowObj.location.search, /tag=game/);
+
+  const allToolsTab = createDeskNote({ filterNote: 'all-tools' });
+  harness.elements.bookmarkTabs.dispatch('click', { target: allToolsTab });
+  assert.doesNotMatch(harness.windowObj.location.search, /tool=/);
+
+  const allTagsTab = createDeskNote({ filterNote: 'all-tags' });
+  harness.elements.bookmarkTabs.dispatch('click', { target: allTagsTab });
+  assert.doesNotMatch(harness.windowObj.location.search, /tag=/);
+  assert.equal(harness.elements.filterReset.classList.contains('hidden'), true);
+
+  const pageTwoButton = new FakeElement({ tagName: 'BUTTON' });
+  pageTwoButton.dataset.page = '2';
+  harness.elements.pagination.dispatch('click', { target: pageTwoButton });
+  assert.match(harness.windowObj.location.search, /page=2/);
+  harness.elements.bookmarkTabs.dispatch('click', { target: claudeTab });
+  assert.doesNotMatch(harness.windowObj.location.search, /page=2/);
+
+  const prevSearch = harness.windowObj.location.search;
+  const nonTab = new FakeElement({ tagName: 'DIV' });
+  nonTab.parentElement = harness.elements.bookmarkTabs;
+  harness.elements.bookmarkTabs.dispatch('click', { target: nonTab });
+  assert.equal(harness.windowObj.location.search, prevSearch);
 });

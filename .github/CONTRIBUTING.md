@@ -4,9 +4,9 @@ Thanks for helping improve the Artifacts workspace.
 
 ## Development flow
 
-1. Run `make setup` to create `.venv`, install pinned Python and Node dependencies, and install Chromium.
+1. Run `make setup-local` to create `.venv` and install pinned Python and Node dependencies, or `make setup` if you also need Chromium for browser smoke tests and thumbnail generation.
 2. Make changes.
-3. Run `make check` before opening a pull request.
+3. Run `make check-local` while you iterate, `make web` when browser behavior or thumbnails change, and `make check` before opening a pull request.
 4. If you changed generated outputs or metadata, run `make generate` and `make site` as needed.
 
 ## Generated files
@@ -35,5 +35,5 @@ See [`docs/style.md`](../docs/style.md) for editor configuration, language conve
 - Node tooling lives in `package.json` and `package-lock.json`.
 - Same-repo Dependabot pip PRs auto-refresh the Python lock files through `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml`, but local/manual dependency edits still need `make lock`.
 - After changing Python dependency declarations, regenerate the Python lock files with `make lock`.
-- After changing Node dependencies, refresh `package-lock.json` with npm before rerunning `npm ci` or `make check`.
+- After changing Node dependencies, refresh `package-lock.json` with npm before rerunning `npm ci`, `make check-local`, or `make check`.
 - Workspace-only maintenance changes do not need a standalone changelog entry; app release notes stay app-specific.

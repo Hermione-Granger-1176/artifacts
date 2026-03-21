@@ -6,17 +6,17 @@ Please be respectful, direct, and constructive.
 
 Examples of expected behavior:
 
-- assume good intent
-- give actionable feedback
-- keep discussions technical and professional
-- respect different experience levels and backgrounds
+- Assume good intent.
+- Give actionable feedback.
+- Keep discussions technical and professional.
+- Respect different experience levels and backgrounds.
 
 Examples of unacceptable behavior:
 
-- harassment or personal attacks
-- discriminatory language
-- doxxing or deliberate intimidation
-- bad-faith disruption of reviews or discussions
+- Harassment or personal attacks.
+- Discriminatory language.
+- Doxxing or deliberate intimidation.
+- Bad-faith disruption of reviews or discussions.
 
 ## Enforcement
 
