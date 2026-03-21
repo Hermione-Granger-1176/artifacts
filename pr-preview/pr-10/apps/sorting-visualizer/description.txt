@@ -1,1 +1,0 @@
-Watch sorting algorithms in action with animated bar charts.

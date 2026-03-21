@@ -1,1 +1,0 @@
-Customizable focus timer with work and break intervals.

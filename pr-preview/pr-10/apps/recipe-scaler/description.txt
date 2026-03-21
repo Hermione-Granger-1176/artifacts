@@ -1,1 +1,0 @@
-Scale recipe ingredients up or down by serving count.

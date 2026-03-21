@@ -252,6 +252,11 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
     const sheet = getElementById('book-sheet');
 
+    if (!sheet) {
+      await Promise.resolve(render());
+      return;
+    }
+
     const isMobile = windowObj && windowObj.innerWidth <= MOBILE_BREAKPOINT;
     const turnDirection = direction === 'previous' ? 'previous' : 'next';
 
