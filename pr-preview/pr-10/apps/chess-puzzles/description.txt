@@ -1,0 +1,1 @@
+Solve tactical chess puzzles with move validation.
