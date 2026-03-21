@@ -1,4 +1,21 @@
-/** @param {Object[]} rawArtifacts - Raw artifact records from generated data. */
+/**
+ * @typedef {{
+ *   id: string,
+ *   name: string,
+ *   description?: string | null,
+ *   tags: string[],
+ *   tools: string[],
+ *   url: string,
+ *   thumbnail?: string | null,
+ *   searchText?: string
+ * }} ArtifactRecord
+ */
+
+/**
+ * Attach derived search text to generated artifact records.
+ * @param {ArtifactRecord[]} rawArtifacts - Raw artifact records from generated data.
+ * @returns {(ArtifactRecord & { searchText: string })[]} Hydrated artifact records.
+ */
 export function hydrateArtifacts(rawArtifacts) {
   return rawArtifacts.map((item) => ({
     ...item,
@@ -6,7 +23,11 @@ export function hydrateArtifacts(rawArtifacts) {
   }));
 }
 
-/** @param {Object} item - Artifact record with name, description, tags, tools, and id. */
+/**
+ * Build lowercase search text from one artifact record.
+ * @param {ArtifactRecord} item - Artifact record with name, description, tags, tools, and id.
+ * @returns {string} Lowercase combined search text.
+ */
 export function getSearchableText(item) {
   const description = item.description || '';
   const tags = Array.isArray(item.tags) ? item.tags.join(' ') : '';
@@ -14,7 +35,11 @@ export function getSearchableText(item) {
   return `${item.name} ${description} ${tags} ${tools} ${item.id}`.toLowerCase();
 }
 
-/** @param {string|null} rawValue - Comma-separated string from a URL query parameter. */
+/**
+ * Split a comma-separated URL parameter into trimmed values.
+ * @param {string|null} rawValue - Comma-separated string from a URL query parameter.
+ * @returns {string[]} Trimmed non-empty values.
+ */
 export function splitListParam(rawValue) {
   if (!rawValue) {
     return [];
@@ -27,6 +52,7 @@ export function splitListParam(rawValue) {
  * Filter and deduplicate values, preserving the display order of allowedValues.
  * @param {string[]} values - User-selected values (may contain duplicates or unknowns).
  * @param {string[]} allowedValues - Canonical list of valid values in display order.
+ * @returns {string[]} Normalized selected values in display order.
  */
 export function normalizeSelection(values, allowedValues) {
   const allowedSet = new Set(allowedValues);
@@ -39,6 +65,7 @@ export function normalizeSelection(values, allowedValues) {
  * Sort values with configured display-order entries first, then remaining values alphabetically.
  * @param {string[]} values - Values to sort.
  * @param {string[]|undefined} displayOrder - Preferred ordering (may be absent).
+ * @returns {string[]} Sorted values.
  */
 export function sortValuesByDisplayOrder(values, displayOrder) {
   const configured = Array.isArray(displayOrder) ? displayOrder : [];
@@ -49,8 +76,14 @@ export function sortValuesByDisplayOrder(values, displayOrder) {
 
 /**
  * Filter artifacts by search text, tool, and tag selections, then sort by the chosen order.
- * @param {Object[]} artifacts - Hydrated artifact records with searchText.
- * @param {Object} options - Filter/sort state with currentFilter, currentSort, currentTags, currentTools.
+ * @param {(ArtifactRecord & { searchText: string })[]} artifacts - Hydrated artifact records.
+ * @param {{
+ *   currentFilter: string,
+ *   currentSort: string,
+ *   currentTags: string[],
+ *   currentTools: string[]
+ * }} options - Filter/sort state.
+ * @returns {(ArtifactRecord & { searchText: string })[]} Filtered and sorted artifacts.
  */
 export function filterAndSortArtifacts(artifacts, options) {
   const {

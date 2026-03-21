@@ -1,6 +1,14 @@
 /**
  * Create a motion helper that respects the user's reduced-motion preference.
- * @returns {{ prefersReducedMotion, getScrollBehavior, scrollToTop }}
+ * @param {{ matches: boolean }} prefersReducedMotionQuery - Media-query-like object for
+ * reduced-motion detection.
+ * @param {{ scrollTo: (options: { top: number, behavior: ('auto'|'smooth') }) => void }} windowObj
+ *   Window-like object used for scrolling.
+ * @returns {{
+ *   prefersReducedMotion: () => boolean,
+ *   getScrollBehavior: () => ('auto'|'smooth'),
+ *   scrollToTop: () => void
+ * }} Motion helper methods.
  */
 export function createMotionHelper(prefersReducedMotionQuery, windowObj) {
   function prefersReducedMotion() {

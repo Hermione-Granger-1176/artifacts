@@ -9,14 +9,39 @@ const DEFAULT_CONFIG = {
   tags: {}
 };
 
-/** @param {*} value - Value to check. */
+/**
+ * @typedef {{ label: string }} LabelEntry
+ * @typedef {{
+ *   toolDisplayOrder?: string[],
+ *   tagDisplayOrder?: string[],
+ *   tools?: Record<string, LabelEntry>,
+ *   tags?: Record<string, LabelEntry>
+ * }} GalleryConfig
+ * @typedef {{
+ *   id: string,
+ *   name: string,
+ *   url: string,
+ *   description?: string | null,
+ *   thumbnail?: string | null,
+ *   tags: string[],
+ *   tools: string[]
+ * }} ArtifactRecord
+ */
+
+/**
+ * Return whether a value is a plain object.
+ * @param {*} value - Value to check.
+ * @returns {boolean} Whether the value is a plain object.
+ */
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 /**
- * @param {boolean} condition
+ * Throw when a runtime bootstrap validation check fails.
+ * @param {boolean} condition - Condition to enforce.
  * @param {string} message - Error message if assertion fails.
+ * @returns {void}
  */
 function assertShape(condition, message) {
   if (!condition) {
@@ -25,8 +50,10 @@ function assertShape(condition, message) {
 }
 
 /**
- * @param {*} value
+ * Validate that a runtime config field is an array of strings.
+ * @param {*} value - Value to validate.
  * @param {string} path - Dotted path for error messages.
+ * @returns {void}
  */
 function validateStringArray(value, path) {
   assertShape(Array.isArray(value), `${path} must be an array`);
@@ -37,8 +64,10 @@ function validateStringArray(value, path) {
 }
 
 /**
- * @param {*} value
+ * Validate that a runtime config label map has string labels.
+ * @param {*} value - Value to validate.
  * @param {string} path - Dotted path for error messages.
+ * @returns {void}
  */
 function validateLabelMap(value, path) {
   assertShape(isPlainObject(value), `${path} must be an object`);
@@ -50,9 +79,11 @@ function validateLabelMap(value, path) {
 }
 
 /**
- * @param {Object} value
- * @param {string} key
- * @param {string} path
+ * Validate one optional string-or-null field on a record.
+ * @param {Record<string, *>} value - Record containing the field.
+ * @param {string} key - Field name.
+ * @param {string} path - Dotted path for error messages.
+ * @returns {void}
  */
 function validateNullableStringField(value, key, path) {
   if (!(key in value) || value[key] === null) {
@@ -62,7 +93,11 @@ function validateNullableStringField(value, key, path) {
   assertShape(typeof value[key] === 'string', `${path}.${key} must be a string or null`);
 }
 
-/** Validate the shape of window.ARTIFACTS_DATA at boot time. */
+/**
+ * Validate the shape of `window.ARTIFACTS_DATA` at boot time.
+ * @param {*} value - Runtime bootstrap data to validate.
+ * @returns {ArtifactRecord[]} Validated artifact data.
+ */
 export function validateArtifactsData(value) {
   assertShape(Array.isArray(value), 'window.ARTIFACTS_DATA must be an array');
 
@@ -91,7 +126,11 @@ export function validateArtifactsData(value) {
   return value;
 }
 
-/** Validate the shape of window.ARTIFACTS_CONFIG at boot time. */
+/**
+ * Validate the shape of `window.ARTIFACTS_CONFIG` at boot time.
+ * @param {*} value - Runtime config object to validate.
+ * @returns {GalleryConfig} Validated gallery config.
+ */
 export function validateArtifactsConfig(value) {
   assertShape(isPlainObject(value), 'window.ARTIFACTS_CONFIG must be an object');
 
@@ -111,13 +150,21 @@ export function validateArtifactsConfig(value) {
   return value;
 }
 
-/** Validate both config and data globals before gallery initialization. */
+/**
+ * Validate both generated globals before gallery initialization.
+ * @param {Window} [windowObj=window] - Runtime window object containing bootstrap globals.
+ * @returns {void}
+ */
 export function validateGalleryBootstrapData(windowObj = window) {
   validateArtifactsConfig(windowObj.ARTIFACTS_CONFIG);
   validateArtifactsData(windowObj.ARTIFACTS_DATA);
 }
 
-/** Merge runtime config from window.ARTIFACTS_CONFIG with built-in defaults. */
+/**
+ * Merge runtime config from `window.ARTIFACTS_CONFIG` with built-in defaults.
+ * @param {Window} [windowObj=window] - Runtime window object containing bootstrap globals.
+ * @returns {Required<GalleryConfig>} Merged gallery config.
+ */
 export function getGalleryConfig(windowObj = window) {
   const runtimeConfig = windowObj.ARTIFACTS_CONFIG || {};
   return {
@@ -134,17 +181,31 @@ export function getGalleryConfig(windowObj = window) {
   };
 }
 
-/** @param {Object} config @param {string} tool - Tool identifier. */
+/**
+ * Return the display label for one tool identifier.
+ * @param {Required<GalleryConfig>} config - Gallery config object.
+ * @param {string} tool - Tool identifier.
+ * @returns {string} Display label.
+ */
 export function getToolLabel(config, tool) {
   return config.tools[tool]?.label || capitalize(tool);
 }
 
-/** @param {Object} config @param {string} tag - Tag identifier. */
+/**
+ * Return the display label for one tag identifier.
+ * @param {Required<GalleryConfig>} config - Gallery config object.
+ * @param {string} tag - Tag identifier.
+ * @returns {string} Display label.
+ */
 export function getTagLabel(config, tag) {
   return config.tags[tag]?.label || capitalize(tag).replace(/-/g, ' ');
 }
 
-/** @param {string} value */
+/**
+ * Capitalize the first letter of a string.
+ * @param {string} value - Input string.
+ * @returns {string} Capitalized string.
+ */
 function capitalize(value) {
   if (!value) {
     return '';

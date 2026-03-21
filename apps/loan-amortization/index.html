@@ -305,8 +305,16 @@ function calcEMI(P, r, n) {
 function getExtraForPeriod(p) {
   let total = 0;
   extras.forEach(e => {
-    if (e.type === 'onetime' && e.period === p) total += e.amount;
-    else if (e.type === 'recurring' && p >= e.startPeriod && (p - e.startPeriod) % e.every === 0) total += e.amount;
+    switch (e.type) {
+      case 'onetime':
+        if (e.period === p) total += e.amount;
+        break;
+      case 'recurring':
+        if (p >= e.startPeriod && (p - e.startPeriod) % e.every === 0) total += e.amount;
+        break;
+      default:
+        break;
+    }
   });
   return total;
 }
@@ -316,11 +324,11 @@ function runSchedule(P, r, n, withExtras) {
   let balance = P, totalInterest = 0, totalExtra = 0;
   const balances = [], prinParts = [], intParts = [], cumPrin = [], cumInt = [], rows = [];
   let period = 0, rp = 0, ri = 0;
-  while (balance > 0.01 && period < 2000) {
-    period++;
+  for (; balance > 0.01 && period < 2000; period += 1) {
+    const currentPeriod = period + 1;
     const intPart = balance * r;
     let prinPart = emi - intPart;
-    let extraAmt = withExtras ? getExtraForPeriod(period) : 0;
+    let extraAmt = withExtras ? getExtraForPeriod(currentPeriod) : 0;
     if (prinPart + extraAmt >= balance) {
       prinPart = Math.min(prinPart, balance);
       extraAmt = Math.min(extraAmt, balance - prinPart);
@@ -334,7 +342,7 @@ function runSchedule(P, r, n, withExtras) {
     intParts.push(Math.round(intPart));
     cumPrin.push(Math.round(rp));
     cumInt.push(Math.round(ri));
-    rows.push({ period, emi: intPart + prinPart, principal: prinPart, interest: intPart, extra: extraAmt, balance });
+    rows.push({ period: currentPeriod, emi: intPart + prinPart, principal: prinPart, interest: intPart, extra: extraAmt, balance });
   }
   let breakEven = null;
   for (let i = 1; i < cumPrin.length; i++) {
@@ -385,7 +393,10 @@ function recalc() {
   destroyCharts();
 
   const maxP = Math.max(base.periods, extra.periods);
-  const pad = (arr, len) => { const a = [...arr]; while (a.length < len) a.push(0); return a; };
+  const pad = (arr, len) => {
+    const missing = Math.max(0, len - arr.length);
+    return missing > 0 ? [...arr, ...Array(missing).fill(0)] : [...arr];
+  };
   const labels = Array.from({ length: maxP }, (_, i) => i + 1);
   const xTitle = fp.label;
 
