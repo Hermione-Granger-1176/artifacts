@@ -79,6 +79,9 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
     const animation = element.animate(keyframes, options);
     await animation.finished;
+    if (typeof animation.commitStyles === 'function') {
+      animation.commitStyles();
+    }
     animation.cancel();
   }
 

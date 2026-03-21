@@ -48,7 +48,7 @@ function buildSnippetList(items, className, emptyValue = '') {
  * @returns {string} Escaped string safe for HTML templates.
  */
 export function escapeHtml(unsafe) {
-  if (!unsafe) {
+  if (unsafe == null) {
     return '';
   }
 
@@ -101,7 +101,7 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
   }
 
   const leftNotes = [
-    `<button class="desk-note${hasActiveTools ? '' : ' is-active'}" data-filter-note="all-tools" type="button" style="--note-color: ${shuffled[0]}; --rotate: ${(rand() * 6 - 3).toFixed(1)}deg;">All</button>`,
+    `<button class="desk-note${hasActiveTools ? '' : ' is-active'}" data-filter-note="all-tools" type="button" aria-label="All tools" style="--note-color: ${shuffled[0]}; --rotate: ${(rand() * 6 - 3).toFixed(1)}deg;">All</button>`,
     ...tools.map((tool, index) => {
       const color = shuffled[(index + 1) % shuffled.length];
       labelColorMap.set(tool, color);
@@ -118,7 +118,7 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
 
   const tagColorOffset = tools.length + 1;
   const rightNotes = [
-    `<button class="desk-note${hasActiveTags ? '' : ' is-active'}" data-filter-note="all-tags" type="button" style="--note-color: ${shuffled[0]}; --rotate: ${(rand() * 6 - 3).toFixed(1)}deg;">All</button>`,
+    `<button class="desk-note${hasActiveTags ? '' : ' is-active'}" data-filter-note="all-tags" type="button" aria-label="All tags" style="--note-color: ${shuffled[0]}; --rotate: ${(rand() * 6 - 3).toFixed(1)}deg;">All</button>`,
     ...tags.map((tag, index) => {
       const color = shuffled[(tagColorOffset + index) % shuffled.length];
       labelColorMap.set(tag, color);
