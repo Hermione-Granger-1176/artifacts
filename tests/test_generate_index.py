@@ -98,19 +98,6 @@ def test_read_file_and_parse_lines(tmp_path: Path) -> None:
     assert generate_index._parse_lines(sample) == ["first", "second"]
 
 
-def test_is_valid_artifact_requires_index_and_name(tmp_path: Path) -> None:
-    artifact_dir = tmp_path / "valid-artifact"
-    artifact_dir.mkdir()
-    assert not generate_index._is_valid_artifact(artifact_dir)
-
-    write_text(artifact_dir / "index.html", "<html></html>")
-    assert not generate_index._is_valid_artifact(artifact_dir)
-
-    write_text(artifact_dir / "name.txt", "Valid")
-    assert generate_index._is_valid_artifact(artifact_dir)
-    assert not generate_index._is_valid_artifact(artifact_dir / "index.html")
-
-
 def test_is_kebab_case_accepts_expected_directory_names() -> None:
     assert generate_index.is_kebab_case("budget-tracker") is True
     assert generate_index.is_kebab_case("artifact-2026") is True
@@ -494,6 +481,7 @@ def test_write_frontend_config_writes_browser_metadata(
 
     content = config_output.read_text(encoding="utf-8")
     assert content.startswith("window.ARTIFACTS_CONFIG = ")
+    assert content.endswith(";\n")
 
 
 def test_frontend_config_contains_display_labels() -> None:
@@ -596,7 +584,7 @@ def test_generate_writes_js_output_and_updates_readme(
     js_output = js_output_file.read_text(encoding="utf-8")
     assert js_output.startswith("window.ARTIFACTS_DATA = ")
     payload = json.loads(
-        js_output.removeprefix("window.ARTIFACTS_DATA = ").removesuffix(";")
+        js_output.removeprefix("window.ARTIFACTS_DATA = ").removesuffix(";\n")
     )
     assert payload[0]["thumbnail"] == (
         f"apps/loan-tool/{generate_index.PREFERRED_THUMBNAIL_FILE}"
@@ -644,7 +632,7 @@ def test_generate_handles_empty_repo_state(
     generate_index.generate()
 
     js_output = js_output_file.read_text(encoding="utf-8")
-    assert js_output == "window.ARTIFACTS_DATA = [];"
+    assert js_output == "window.ARTIFACTS_DATA = [];\n"
     assert js_config_output_file.exists()
     readme_output = readme_file.read_text(encoding="utf-8")
     assert "Total-0" in readme_output

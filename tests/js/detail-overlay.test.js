@@ -46,6 +46,7 @@ function createFakeElement(id = '') {
     get _focusCalled() { return focusCalled; },
     set _focusCalled(v) { focusCalled = v; },
     style: {
+      getPropertyValue(name) { return styleProps[name] || ''; },
       setProperty(name, value) { styleProps[name] = value; },
       removeProperty(name) { delete styleProps[name]; },
       _props: styleProps
@@ -114,7 +115,7 @@ function createTestDeps(opts = {}) {
       inertCalls.push({ elements, isInert });
     },
     backgroundElements: [],
-    DETAIL_CLOSE_DELAY: 360,
+    detailCloseDelay: 360,
     _inertCalls: inertCalls,
     _rafCallbacks: rafCallbacks,
     _timeoutCallbacks: timeoutCallbacks,

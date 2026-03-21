@@ -4,10 +4,10 @@
 
 This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 
-- the root site is the gallery
-- each artifact lives in its own folder under `apps/`
-- the repo includes Python tooling to generate gallery data and thumbnails
-- GitHub Actions deploys the site, publishes PR previews, and commits generated outputs back on non-PR runs when needed
+- The root site is the gallery.
+- Each artifact lives in its own folder under `apps/`.
+- The repo includes Python tooling to generate gallery data and thumbnails.
+- GitHub Actions deploys the site, publishes PR previews, and commits generated outputs back on non-PR runs when needed.
 
 ## Top-level layout
 
@@ -17,7 +17,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |- .github/actions/       Shared composite actions for workflows
 |- .github/workflows/     CI/CD automation
 |- assets/icons/          Logo, favicon, and web app manifest
-|- config/                Shared gallery metadata used by generators and UI
+|- config/                Shared gallery metadata used by generators
 |- apps/                  Artifact folders and generated thumbnails
 |- css/                   Root gallery styles
 |- docs/                  Workspace documentation
@@ -37,9 +37,9 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 
 - `apps/*/index.html`: artifact implementation
 - `apps/*/name.txt`, `description.txt`, `tags.txt`, `tools.txt`: artifact metadata
-- `index.html`, `css/style.css`, `js/app.js`, `js/modules/*`: root gallery UI
+- `index.html`, `css/style.css`, `css/root-gallery-*.css`, `js/app.js`, `js/modules/*`: root gallery UI
 - `assets/icons/*`: logo, favicon, apple touch icon, PWA manifest, and raster icons
-- `config/gallery_metadata.json`: shared tool and tag display metadata for generators and the browser UI
+- `config/gallery_metadata.json`: shared tool and tag display metadata used by generators to produce `js/gallery-config.js`
 - `pyproject.toml`: Python dependency pins and workspace configuration
 - `locks/requirements.lock`, `locks/requirements-dev.lock`: frozen Python dependency graphs
 - `package.json`, `package-lock.json`: frozen Node tooling graph
@@ -75,12 +75,13 @@ The generator still recognizes `thumbnail.png` as a temporary compatibility fall
 
 ## Editing rules
 
-- add or modify artifacts in `apps/`
-- use `make new name=my-artifact` when you want a correct starting structure quickly
-- update generator logic in `scripts/` when derived output behavior should change
-- use `make validate` to catch incomplete top-level artifact directories before pushing
-- use `make index` to refresh `js/data.js`, `js/gallery-config.js`, and README markers
-- use `make lock` after Python dependency changes, and refresh `package-lock.json` after Node dependency changes
-- use `make thumbnails` or CI to regenerate thumbnails
-- use `make site` to inspect the exact deployable Pages directory locally
-- keep workspace-level configuration in `pyproject.toml` rather than scattering URLs or constants across scripts
+- Add or modify artifacts in `apps/`.
+- Use `make new name=my-artifact` when you want a correct starting structure quickly.
+- Use `make check-local` for the fast local gate, `make web` for browser smoke tests and thumbnails, and `make check` for the full pre-ship gate.
+- Update generator logic in `scripts/` when derived output behavior should change.
+- Use `make validate` to catch incomplete top-level artifact directories before pushing.
+- Use `make index` to refresh `js/data.js`, `js/gallery-config.js`, and README markers.
+- Use `make lock` after Python dependency changes, and refresh `package-lock.json` after Node dependency changes.
+- Use `make thumbnails` or CI to regenerate thumbnails.
+- Use `make site` to inspect the exact deployable Pages directory locally.
+- Keep workspace-level configuration in `pyproject.toml` rather than scattering URLs or constants across scripts.

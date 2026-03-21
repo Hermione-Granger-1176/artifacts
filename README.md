@@ -65,46 +65,66 @@ apps/
 1. Bootstrap the local toolchain:
 
    ```bash
-   make setup
+   make setup-local
    ```
 
-   This installs pinned Python dependencies from `locks/requirements-dev.lock`, pinned Node dependencies from `package-lock.json`, and Chromium for Playwright-based smoke tests. Same-repo Dependabot pip PRs that update `pyproject.toml` refresh the Python lock files automatically through CI.
+   This installs pinned Python dependencies from `locks/requirements-dev.lock` and pinned Node dependencies from `package-lock.json` without Chromium. Run `make setup` when you also want Playwright Chromium for browser smoke tests or thumbnail generation. Same-repo Dependabot pip PRs that update `pyproject.toml` refresh the Python lock files automatically through CI.
 
-2. Run linting, browser smoke tests, JavaScript unit tests, Python tests, and artifact validation (including the 100% Python coverage gate):
+2. Run the fast local verification flow while you iterate:
+
+   ```bash
+   make check-local
+   ```
+
+   This runs local linting, non-browser Python and JavaScript tests, JavaScript coverage, dependency audits, and artifact validation.
+
+3. Run browser and thumbnail checks when you touch root-gallery behavior or before shipping:
+
+   ```bash
+   make web
+   ```
+
+4. Run the full release gate before pushing when you want the CI-equivalent local flow:
 
    ```bash
    make check
    ```
 
-3. Validate top-level artifact directories before pushing:
+5. Validate top-level artifact directories explicitly when needed:
 
    ```bash
    make validate
    ```
 
-4. Regenerate derived files before pushing:
+6. Regenerate derived files before pushing:
 
    ```bash
    make generate
    ```
 
-5. Build the clean deployable site directory when you want to inspect the exact Pages payload:
+7. Build the clean deployable site directory when you want to inspect the exact Pages payload:
 
    ```bash
    make site
    ```
 
-6. If you prefer running commands directly, the Makefile uses `.venv` plus the frozen dependency sets in `locks/requirements*.lock` and `package-lock.json`.
+8. If you prefer running commands directly, most dependency-backed targets use the `.venv` environment with the frozen dependency sets in `locks/requirements*.lock` and `package-lock.json`, while a few lightweight helper targets call `python3.12` through the `PYTHON` Make variable.
 
-7. If you change Python dependency declarations, regenerate the Python lock files:
+9. If you change Python dependency declarations, regenerate the Python lock files:
 
    ```bash
    make lock
    ```
 
-   If you change Node dependencies, refresh `package-lock.json` with npm tooling before rerunning `npm ci` or `make check`.
+   If you change Node dependencies, refresh `package-lock.json` with npm tooling before rerunning `npm ci`, `make check-local`, or `make check`.
 
-8. Open `index.html` in a browser to verify the gallery locally.
+10. Serve the repo root or `_site/` from a local static server when you want to verify the gallery in a browser, for example:
+
+   ```bash
+   python3 -m http.server 4173
+   ```
+
+   Then open `http://127.0.0.1:4173/`.
 
 ## License
 

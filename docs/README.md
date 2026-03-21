@@ -13,11 +13,11 @@ If you are new to the repo, read in this order:
 
 What these docs cover:
 
-- how the root gallery is assembled
-- which files are generated versus hand-maintained
-- where URLs and deployment metadata live
-- how CI generates data, thumbnails, and the Pages deployment
-- how to work locally without breaking generated state
-- how to maintain pinned actions, generators, and workspace metadata
-- which external GitHub settings the deployment workflow expects
-- how to recover from a bad deploy or broken preview workflow
+- How the root gallery is assembled.
+- Which files are generated versus hand-maintained.
+- Where URLs and deployment metadata live.
+- How CI generates data, thumbnails, and the Pages deployment.
+- How to work locally without breaking generated state.
+- How to maintain pinned actions, generators, and workspace metadata.
+- Which external GitHub settings the deployment workflow expects.
+- How to recover from a bad deploy or broken preview workflow.

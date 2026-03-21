@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Workflow Helpers
+"""Provide small command-line helpers for GitHub Actions workflows.
 
 Provides small command-line helpers for GitHub Actions workflows so trust-boundary
 decisions and artifact validation live in tested Python instead of inline shell.
@@ -18,6 +17,7 @@ import argparse
 import json
 import os
 import sys
+from itertools import chain
 from pathlib import Path
 
 LOCK_ARTIFACT_FILES = {
@@ -32,15 +32,23 @@ LOCK_ARTIFACT_REQUIRED_FILES = {
     **LOCK_ARTIFACT_FILES,
 }
 
+BOOL_LOOKUP = {
+    "true": True,
+    "1": True,
+    "yes": True,
+    "false": False,
+    "0": False,
+    "no": False,
+}
+
 
 def _parse_bool(value: str) -> bool:
     """Parse a GitHub-style boolean string."""
     normalized = value.strip().lower()
-    if normalized in {"true", "1", "yes"}:
-        return True
-    if normalized in {"false", "0", "no"}:
-        return False
-    raise ValueError(f"Invalid boolean value: {value}")
+    try:
+        return BOOL_LOOKUP[normalized]
+    except KeyError as exc:
+        raise ValueError(f"Invalid boolean value: {value}") from exc
 
 
 def app_token_allowed(*, event_name: str, head_repo_fork: bool, pr_author: str) -> bool:
@@ -63,7 +71,7 @@ def read_lock_refresh_metadata(root: Path) -> dict[str, str]:
 def validate_lock_refresh_artifact(root: Path) -> None:
     """Fail if a downloaded lock-refresh artifact tree contains unsafe paths."""
     for walk_root, dirnames, filenames in os.walk(root, followlinks=False):
-        for name in [*dirnames, *filenames]:
+        for name in chain(dirnames, filenames):
             path = Path(walk_root) / name
             if path.is_symlink():
                 raise ValueError(f"Refusing artifact containing symlink: {path}")
@@ -103,30 +111,44 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _handle_app_token_policy(args: argparse.Namespace) -> int:
+    """Print whether GitHub App token actions are allowed for the current event."""
+    allowed = app_token_allowed(
+        event_name=args.event_name,
+        head_repo_fork=_parse_bool(args.head_repo_fork),
+        pr_author=args.pr_author,
+    )
+    print(f"allowed={'true' if allowed else 'false'}")
+    return 0
+
+
+def _handle_read_lock_metadata(args: argparse.Namespace) -> int:
+    """Print lock refresh metadata as JSON."""
+    root = Path(args.root)
+    print(json.dumps(read_lock_refresh_metadata(root), sort_keys=True))
+    return 0
+
+
+def _handle_validate_lock_artifact(args: argparse.Namespace) -> int:
+    """Validate a downloaded lock refresh artifact tree."""
+    validate_lock_refresh_artifact(Path(args.root))
+    return 0
+
+
+COMMAND_HANDLERS = {
+    "app-token-policy": _handle_app_token_policy,
+    "read-lock-metadata": _handle_read_lock_metadata,
+    "validate-lock-artifact": _handle_validate_lock_artifact,
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     args = _build_parser().parse_args(argv)
-
-    if args.command == "app-token-policy":
-        allowed = app_token_allowed(
-            event_name=args.event_name,
-            head_repo_fork=_parse_bool(args.head_repo_fork),
-            pr_author=args.pr_author,
-        )
-        print(f"allowed={'true' if allowed else 'false'}")
-        return 0
-
-    root = Path(args.root)
-
-    if args.command == "read-lock-metadata":
-        print(json.dumps(read_lock_refresh_metadata(root), sort_keys=True))
-        return 0
-
-    if args.command == "validate-lock-artifact":
-        validate_lock_refresh_artifact(root)
-        return 0
-
-    raise ValueError(f"Unsupported command: {args.command}")
+    handler = COMMAND_HANDLERS.get(args.command)
+    if handler is None:
+        raise ValueError(f"Unsupported command: {args.command}")
+    return handler(args)
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -130,10 +130,8 @@ def launch_browser(playwright):
     except Exception as exc:  # pragma: no cover - environment specific
         if "Executable doesn't exist" not in str(exc):
             raise
-
         if REQUIRE_BROWSER_TESTS:
             pytest.fail("Playwright Chromium is required for this test run")
-
         pytest.skip("Playwright Chromium is not installed")
 
 
@@ -145,19 +143,18 @@ def test_gallery_smoke_covers_root_interactions(tmp_path: Path, monkeypatch) -> 
         page = browser.new_page()
         page.goto(f"{server.url}/", wait_until="networkidle")
 
-        expect(page.locator(".artifact-card")).to_have_count(12)
-        expect(page.locator("#pagination .page-btn")).to_have_count(6)
+        expect(page.locator(".artifact-card")).to_have_count(4)
+        expect(page.locator("#pagination .page-btn")).to_have_count(8)
         expect(page.locator("html")).to_have_attribute("data-runtime-status", "ready")
 
         page.get_by_role("button", name="Page 2").click()
-        expect(page.locator(".artifact-card")).to_have_count(1)
+        expect(page.locator(".artifact-card")).to_have_count(4)
+
+        page.locator('.desk-note[data-filter-tool="chatgpt"]').click()
+        expect(page.locator(".artifact-card")).to_have_count(4)
 
         page.fill("#search-input", "Artifact 13")
         page.wait_for_timeout(250)
-        expect(page.locator(".artifact-card")).to_have_count(1)
-
-        page.click("#tool-filter-toggle")
-        page.locator('#tool-filter-panel input[value="chatgpt"]').check()
         expect(page.locator(".artifact-card")).to_have_count(1)
 
         page.locator(".artifact-card").first.click()

@@ -84,3 +84,41 @@ test('runtime reveals the error banner for fatal errors', () => {
   assert.equal(documentObj.documentElement.dataset.runtimeStatus, 'error');
   assert.equal(documentObj.runtimeErrorBanner.classList.removed, true);
 });
+
+test('runtime falls back when storage access throws', () => {
+  const errors = [];
+  const windowObj = createWindowStub();
+  windowObj.localStorage = {
+    getItem() {
+      throw new Error('read blocked');
+    },
+    setItem() {
+      throw new Error('write blocked');
+    }
+  };
+  const runtime = createRuntime({
+    consoleObj: { error(message) { errors.push(message); } },
+    documentObj: createDocumentStub(),
+    windowObj
+  });
+
+  assert.equal(runtime.readStorage('theme', 'light'), 'light');
+  assert.equal(runtime.writeStorage('theme', 'dark'), false);
+  assert.equal(runtime.state.lastError.message, 'write blocked');
+  assert.match(errors[0], /localStorage read/);
+  assert.match(errors[1], /localStorage write/);
+});
+
+test('runtime setupGlobalErrorHandlers is idempotent and handles rejections', () => {
+  const documentObj = createDocumentStub();
+  const windowObj = createWindowStub();
+  const runtime = createRuntime({ consoleObj: { error() {} }, documentObj, windowObj });
+
+  runtime.setupGlobalErrorHandlers();
+  runtime.setupGlobalErrorHandlers();
+  windowObj.dispatch('unhandledrejection', { reason: { message: 'async boom' } });
+
+  assert.equal(windowObj.__ARTIFACTS_ERROR_HANDLERS_BOUND__, true);
+  assert.equal(runtime.state.lastError.message, 'async boom');
+  assert.equal(documentObj.documentElement.dataset.runtimeStatus, 'booting');
+});

@@ -35,7 +35,22 @@ def create_source_tree(repo_root: Path) -> None:
             ]
         ),
     )
-    write_text(repo_root / "css" / "style.css", "body {}\n")
+    write_text(
+        repo_root / "css" / "style.css",
+        "".join(
+            [
+                '@import url("./root-gallery-foundation.css");\n',
+                '@import url("./root-gallery-artifacts.css");\n',
+                '@import url("./root-gallery-responsive.css");\n',
+            ]
+        ),
+    )
+    write_text(repo_root / "css" / "root-gallery-foundation.css", "body {}\n")
+    write_text(repo_root / "css" / "root-gallery-artifacts.css", ".artifact-card {}\n")
+    write_text(
+        repo_root / "css" / "root-gallery-responsive.css",
+        "@media (max-width: 1px) {}\n",
+    )
     write_text(repo_root / "js" / "app.js", "console.log('app')\n")
     write_text(
         repo_root / "js" / "gallery-config.js", "window.ARTIFACTS_CONFIG = {};\n"
@@ -215,6 +230,36 @@ def test_patch_index_html_applies_cache_busting(
     assert 'src="js/app.js?v=abc123"' in content
 
 
+def test_patch_root_stylesheet_versions_imports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy_dir = tmp_path / "_site"
+    styles_dir = deploy_dir / "css"
+    styles_dir.mkdir(parents=True)
+    write_text(
+        styles_dir / "style.css",
+        '@import url("./root-gallery-foundation.css");\n'
+        '@import url("./root-gallery-artifacts.css");\n',
+    )
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._patch_root_stylesheet("abc123")
+
+    content = (styles_dir / "style.css").read_text(encoding="utf-8")
+    assert '@import url("./root-gallery-foundation.css?v=abc123");' in content
+    assert '@import url("./root-gallery-artifacts.css?v=abc123");' in content
+
+
+def test_patch_root_stylesheet_skips_when_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy_dir = tmp_path / "_site"
+    deploy_dir.mkdir()
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._patch_root_stylesheet("abc123")
+
+
 def test_patch_404_html_injects_site_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -310,8 +355,10 @@ def test_prepare_site_builds_deploy_output(
     prepare_site.prepare_site()
 
     index_content = (deploy_dir / "index.html").read_text(encoding="utf-8")
+    style_content = (deploy_dir / "css" / "style.css").read_text(encoding="utf-8")
     error_content = (deploy_dir / "404.html").read_text(encoding="utf-8")
     assert "css/style.css?v=abc123" in index_content
+    assert '@import url("./root-gallery-foundation.css?v=abc123");' in style_content
     assert 'data-site-path="/artifacts/"' in error_content
     assert (deploy_dir / ".nojekyll").exists()
     assert (deploy_dir / "apps" / "sample" / "index.html").exists()

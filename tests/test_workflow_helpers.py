@@ -167,18 +167,13 @@ def test_main_validate_lock_artifact_returns_zero(tmp_path: Path) -> None:
     )
 
 
-def test_main_raises_for_unsupported_command() -> None:
-    class Args:
-        command = "unsupported"
-        root = "."
+def test_main_rejects_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    import argparse
 
-    with pytest.MonkeyPatch.context() as monkeypatch:
-        monkeypatch.setattr(
-            workflow_helpers,
-            "_build_parser",
-            lambda: type(
-                "Parser", (), {"parse_args": lambda self, argv=None: Args()}
-            )(),
-        )
-        with pytest.raises(ValueError, match="Unsupported command"):
-            workflow_helpers.main([])
+    fake_ns = argparse.Namespace(command="nonexistent")
+    monkeypatch.setattr(
+        workflow_helpers, "_build_parser",
+        lambda: type("P", (), {"parse_args": lambda self, argv=None: fake_ns})()
+    )
+    with pytest.raises(ValueError, match="Unsupported command"):
+        workflow_helpers.main([])

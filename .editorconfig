@@ -52,7 +52,7 @@ trim_trailing_whitespace = false
 indent_style = tab
 
 [*.lock]
-insert_final_newline = false
+insert_final_newline = true
 trim_trailing_whitespace = false
 
 # Artifacts are self-contained and may use any conventions

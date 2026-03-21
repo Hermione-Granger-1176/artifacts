@@ -10,10 +10,10 @@ Please do not open a public issue for a suspected security problem.
 
 Report vulnerabilities through GitHub private vulnerability reporting if it is enabled for the repository. If that option is unavailable, contact the maintainer directly and include:
 
-- affected file paths or workflow names
-- reproduction steps
-- impact assessment
-- suggested remediation, if known
+- Affected file paths or workflow names.
+- Reproduction steps.
+- Impact assessment.
+- Suggested remediation, if known.
 
 ## Expectations
 
