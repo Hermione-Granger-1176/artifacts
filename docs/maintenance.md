@@ -7,6 +7,7 @@ These are the main cross-cutting pieces that should stay consistent over time:
 - `pyproject.toml` is the source of truth for Python dependencies, test policy, lint policy, and site metadata.
 - `Makefile` is the common interface for local work and CI.
 - `.github/actions/verified-commit/action.yml` and `.github/actions/verified-commit/verified-commit.mjs` centralize the verified commit and PR fallback logic used by CI.
+- `.github/actions/deploy-site/action.yml` and `.github/actions/deploy-site/deploy-verified.mjs` handle verified deploys to `gh-pages` via the GraphQL API, preserving PR preview directories.
 - `scripts/workflow_helpers.py` centralizes workflow trust, artifact-validation, thumbnail invalidation, and fallback PR detection helpers so the YAML stays policy-focused and the procedural logic stays testable.
 - `.github/workflows/update.yml` is the main build, validation, and deploy workflow.
 - `.github/workflows/refresh-action-shas.yml` keeps pinned GitHub Actions references current.
@@ -23,7 +24,7 @@ If you touch workflow files:
 1. Prefer extending the existing workflow over cloning logic into another workflow file.
 2. Update the shared verified commit action when commit or PR fallback behavior changes.
 3. Keep action references pinned to full commit SHAs.
-4. Non-fork, non-Dependabot PRs use the app token for preview deploys, while fork and Dependabot PRs are excluded from preview deployment.
+4. Non-fork, non-Dependabot PRs use the escalation app token (Harry1176) for all deploys (main, preview, and cleanup), while fork and Dependabot PRs are excluded from deployment.
 5. Keep local and CI commands aligned through `make`.
 6. Preserve the separation between the source repo and the `_site/` deploy directory.
 7. Keep the PR preview comment recreated on each push so the latest preview link stays easy to find.

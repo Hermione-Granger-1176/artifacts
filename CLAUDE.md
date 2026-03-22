@@ -38,7 +38,7 @@ Workspace commands go through the `Makefile`. Python dependencies and workspace 
 - `make new name=my-artifact`: scaffold a new artifact directory with placeholder files
 - `make site`: build the clean `_site/` deploy payload
 - `make security`: run the local `pip-audit` and `npm audit` dependency vulnerability checks used in CI
-- `make coverage-js`: run Node test-runner coverage for `js/app.js`, `js/modules/*.js`, and `.github/actions/verified-commit/*.mjs`, and enforce the current JS coverage baseline
+- `make coverage-js`: run Node test-runner coverage for `js/app.js`, `js/modules/*.js`, `.github/actions/verified-commit/*.mjs`, and `.github/actions/deploy-site/*.mjs`, and enforce the current JS coverage baseline
 - `make editorconfig-check`: verify supported `.editorconfig` rules for covered repository files
 - `make align-tables`: align markdown table pipe characters across all docs
 - `make lint`: run EditorConfig validation, ruff (Python), ESLint (JavaScript), stylelint (CSS), yamllint (YAML), and workflow lint checks
@@ -68,7 +68,7 @@ Do not manually edit these outputs unless updating generator logic:
 - GitHub Pages serves from the `gh-pages` branch root
 - Pushes to `main` deploy the site root to `gh-pages`
 - PRs deploy previews to `gh-pages/pr-preview/pr-<number>/`
-- Preview deploys use the GitHub App token
+- All deploys (main, preview, and cleanup) use the escalation app token (Harry1176) and create verified commits via the GraphQL API
 - Preview comments are posted by the workflow token, appear as `github-actions[bot]`, and are recreated on each push so the newest preview stays visible
 - Same-repo Dependabot pip PRs refresh Python lock files with `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml`
 - `gh-pages` is CI-managed and should not be edited manually

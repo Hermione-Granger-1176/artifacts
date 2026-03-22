@@ -50,7 +50,7 @@ Run `make lint` or `make check-local` to check. Those targets also run the Edito
 - **DOM access:** use `documentObj`/`windowObj` parameters for testability
 - **No `eval`**, no `document.write`, no `innerHTML` with unescaped user input
 
-Run `make lint`, `make coverage-js`, or `make check-local` to check. `make coverage-js` enforces the current baseline across `js/app.js`, `js/modules/*.js`, and `.github/actions/verified-commit/*.mjs`.
+Run `make lint`, `make coverage-js`, or `make check-local` to check. `make coverage-js` enforces the current baseline across `js/app.js`, `js/modules/*.js`, `.github/actions/verified-commit/*.mjs`, and `.github/actions/deploy-site/*.mjs`.
 
 ## CSS
 

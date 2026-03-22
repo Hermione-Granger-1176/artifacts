@@ -4,11 +4,11 @@
   "type": "module",
   "scripts": {
     "lint": "npm run lint:js && npm run lint:css && npm run lint:workflows",
-    "lint:js": "eslint \".github/actions/verified-commit/verified-commit.mjs\" \"eslint.config.js\" \"js/**/*.js\" \"tests/js/**/*.js\" \"scripts/**/*.mjs\"",
+    "lint:js": "eslint \".github/actions/verified-commit/verified-commit.mjs\" \".github/actions/deploy-site/deploy-verified.mjs\" \"eslint.config.js\" \"js/**/*.js\" \"tests/js/**/*.js\" \"scripts/**/*.mjs\"",
     "lint:css": "stylelint \"css/**/*.css\"",
     "lint:workflows": "node scripts/lint-workflows.mjs",
     "test": "node --test tests/js/*.test.js",
-    "test:coverage": "node --experimental-test-coverage --test-coverage-lines=95 --test-coverage-branches=85 --test-coverage-functions=95 --test-coverage-include=js/app.js --test-coverage-include=js/modules/*.js --test-coverage-include=.github/actions/verified-commit/*.mjs --test tests/js/*.test.js"
+    "test:coverage": "node --experimental-test-coverage --test-coverage-lines=95 --test-coverage-branches=85 --test-coverage-functions=95 --test-coverage-include=js/app.js --test-coverage-include=js/modules/*.js --test-coverage-include=.github/actions/verified-commit/*.mjs --test-coverage-include=.github/actions/deploy-site/*.mjs --test tests/js/*.test.js"
   },
   "devDependencies": {
     "actionlint": "2.0.6",
