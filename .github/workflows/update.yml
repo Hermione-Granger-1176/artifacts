@@ -236,6 +236,13 @@ jobs:
         id: deploy-version
         run: echo "short-sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve preview URL
+        if: github.event_name == 'pull_request'
+        id: preview-url
+        run: |
+          site_url=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['tool']['artifacts']['site_url'].rstrip('/'))")
+          echo "url=${site_url}/${{ env.PREVIEW_ROOT }}/pr-${{ github.event.pull_request.number }}/" >> "$GITHUB_OUTPUT"
+
       - name: Deploy PR preview
         if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
         env:
@@ -257,13 +264,13 @@ jobs:
           message: |
             CI preview
 
-            Preview URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ env.PREVIEW_ROOT }}/pr-${{ github.event.pull_request.number }}/
+            Preview URL: ${{ steps.preview-url.outputs.url }}
 
       - name: Verify PR preview deployment
         if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
         run: >-
           python3 scripts/verify_deploy.py
-          --url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ env.PREVIEW_ROOT }}/pr-${{ github.event.pull_request.number }}/"
+          --url "${{ steps.preview-url.outputs.url }}"
           --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
           --attempts ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
           --delay-seconds ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
@@ -274,7 +281,7 @@ jobs:
           {
             echo "## PR Preview"
             echo
-            echo "Preview URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ env.PREVIEW_ROOT }}/pr-${{ github.event.pull_request.number }}/"
+            echo "Preview URL: ${{ steps.preview-url.outputs.url }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Note limited PR preview

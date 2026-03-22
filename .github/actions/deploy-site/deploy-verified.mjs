@@ -23,7 +23,10 @@ export function gitBlobSha(content) {
 export function walkDir(dir, root = dir, deps = { readdirSync: fs.readdirSync }) {
   return deps.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
-    return entry.isDirectory() ? walkDir(full, root, deps) : [path.relative(root, full)];
+    if (entry.isDirectory()) {
+      return walkDir(full, root, deps);
+    }
+    return [path.relative(root, full).replace(/\\/g, '/')];
   });
 }
 
@@ -198,38 +201,50 @@ export async function runVerifiedDeploy({
   }
 
   const clients = createApiClients({ owner, repo, token, fetchDependencies });
-  const { headSha, remoteFiles } = await fetchBranchState(clients, pagesBranch, consoleObj);
+  const maxAttempts = 3;
 
-  let fileChanges;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const { headSha, remoteFiles } = await fetchBranchState(clients, pagesBranch, consoleObj);
 
-  if (removeSubdir) {
-    consoleObj.log(`Removing subdirectory: ${removeSubdir}`);
-    fileChanges = computeRemoval(remoteFiles, removeSubdir);
-  } else {
-    if (!deployDir) {
-      throw new Error(`DEPLOY_DIR is required for ${deploySubdir ? 'preview' : 'full'} deploys`);
+    let fileChanges;
+
+    if (removeSubdir) {
+      consoleObj.log(`Removing subdirectory: ${removeSubdir}`);
+      fileChanges = computeRemoval(remoteFiles, removeSubdir);
+    } else {
+      if (!deployDir) {
+        throw new Error(`DEPLOY_DIR is required for ${deploySubdir ? 'preview' : 'full'} deploys`);
+      }
+      const localFiles = walkDirImpl(deployDir);
+      const suffix = deploySubdir ? ` → ${deploySubdir}/` : '';
+      consoleObj.log(`Local deploy: ${localFiles.length} files${suffix}`);
+      fileChanges = computeChanges(
+        localFiles, remoteFiles, previewRoot, deployDir, deploySubdir,
+        { readFileSync: readFileSyncImpl }
+      );
     }
-    const localFiles = walkDirImpl(deployDir);
-    const suffix = deploySubdir ? ` → ${deploySubdir}/` : '';
-    consoleObj.log(`Local deploy: ${localFiles.length} files${suffix}`);
-    fileChanges = computeChanges(
-      localFiles, remoteFiles, previewRoot, deployDir, deploySubdir,
-      { readFileSync: readFileSyncImpl }
-    );
+
+    const { additions, deletions } = fileChanges;
+
+    if (additions.length === 0 && deletions.length === 0) {
+      consoleObj.log('No changes to deploy');
+      return { deployed: false, commitUrl: '' };
+    }
+
+    consoleObj.log(`Deploying: ${additions.length} additions, ${deletions.length} deletions`);
+
+    try {
+      const commit = await createVerifiedCommit(clients, pagesBranch, headSha, commitMessage, fileChanges);
+      consoleObj.log(`Created verified deploy commit: ${commit.url}`);
+      return { deployed: true, commitUrl: commit.url };
+    } catch (error) {
+      if (attempt < maxAttempts && /expectedHeadOid/i.test(String(error.message || error))) {
+        consoleObj.log(`Branch moved (attempt ${attempt}/${maxAttempts}), refetching and retrying`);
+        continue;
+      }
+      throw error;
+    }
   }
-
-  const { additions, deletions } = fileChanges;
-
-  if (additions.length === 0 && deletions.length === 0) {
-    consoleObj.log('No changes to deploy');
-    return { deployed: false, commitUrl: '' };
-  }
-
-  consoleObj.log(`Deploying: ${additions.length} additions, ${deletions.length} deletions`);
-
-  const commit = await createVerifiedCommit(clients, pagesBranch, headSha, commitMessage, fileChanges);
-  consoleObj.log(`Created verified deploy commit: ${commit.url}`);
-  return { deployed: true, commitUrl: commit.url };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
