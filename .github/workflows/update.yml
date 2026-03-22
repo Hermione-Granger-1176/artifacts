@@ -62,36 +62,24 @@ jobs:
         run: make setup-ci
 
       - name: Run full repository check
-        run: make COVERAGE_OUTPUT=js-coverage.txt check
+        run: make check
 
       - name: Report JavaScript coverage
         run: |
-          python - <<'PY'
-          import os
-          from pathlib import Path
-
-          report = Path("js-coverage.txt").read_text(encoding="utf-8")
-          start_marker = "ℹ start of coverage report"
-          end_marker = "ℹ end of coverage report"
-          start = report.find(start_marker)
-          end = report.find(end_marker)
-          if start == -1 or end == -1:
-              raise SystemExit("Coverage report markers not found in js-coverage.txt")
-          snippet = report[start : end + len(end_marker)]
-          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
-              summary.write("## JavaScript Coverage\n\n```text\n")
-              summary.write(snippet)
-              summary.write("\n```\n")
-          PY
+          {
+            echo "## JavaScript Coverage"
+            echo
+            echo '```text'
+            cat js-coverage.txt 2>/dev/null || echo "No coverage report found."
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summarize verification
         run: |
           {
-            echo "## Verification"
+            echo "## Verify"
             echo
-            echo 'Completed `make check` (local checks, web checks, generation, and site assembly).'
-            echo
-            echo "Generated file changes during verification:"
+            echo "Generated changes detected during \`make check\`:"
             echo
             echo '```text'
             git diff --name-status -- ${GENERATED_OUTPUT_ARGS} || true
@@ -113,7 +101,7 @@ jobs:
       - name: Scan for committed secrets
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
   dependency-review:
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
@@ -121,12 +109,9 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-      pull-requests: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          fetch-depth: 1
 
       - name: Review dependency changes
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
@@ -150,71 +135,24 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: CI setup
+        id: setup
+        uses: ./.github/actions/ci-setup
         with:
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Determine whether app-token actions are allowed
-        id: token-policy
-        run: >-
-          python3 scripts/workflow_helpers.py app-token-policy
-          --event-name "${{ github.event_name }}"
-          --head-repo-fork "${{ github.event.pull_request.head.repo.fork || 'false' }}"
-          --pr-author "${{ github.event.pull_request.user.login || '' }}"
-          >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub App token
-        id: app-token
-        if: steps.token-policy.outputs.allowed == 'true'
-        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
-        with:
+          event-name: ${{ github.event_name }}
+          head-repo-fork: ${{ github.event.pull_request.head.repo.fork || 'false' }}
+          pr-author: ${{ github.event.pull_request.user.login || '' }}
           app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-
-      - name: Create escalation token for fallback PRs
-        id: escalation-token
-        if: steps.token-policy.outputs.allowed == 'true'
-        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
-        with:
-          app-id: ${{ vars.ESCALATION_APP_ID }}
-          private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
-
-      - name: Check GitHub App token availability
-        id: token-status
-        run: |
-          if [ -n "${{ steps.app-token.outputs.token }}" ] && [ -n "${{ steps.escalation-token.outputs.token }}" ]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Fail if a trusted run cannot mint the app tokens
-        if: steps.token-policy.outputs.allowed == 'true' && steps.token-status.outputs.available != 'true'
-        run: |
-          echo "Expected GitHub App tokens for this run, but token creation did not succeed." >&2
-          [ -z "${{ steps.app-token.outputs.token }}" ] && echo "  - Hermione1176 (APP_ID) token missing" >&2
-          [ -z "${{ steps.escalation-token.outputs.token }}" ] && echo "  - Harry1176 (ESCALATION_APP_ID) token missing" >&2
-          exit 1
-
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
+          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          escalation-app-id: ${{ vars.ESCALATION_APP_ID }}
+          escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
-        with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - name: Install workspace dependencies
-        run: make setup-ci
+          install-deps: 'true'
 
       - name: Invalidate thumbnails for changed apps
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+          GH_TOKEN: ${{ steps.setup.outputs.app-token || github.token }}
         run: >-
           python3 scripts/workflow_helpers.py invalidate-thumbnails
           --event-name "${{ github.event_name }}"
@@ -240,10 +178,10 @@ jobs:
 
       - name: Commit generated files (verified)
         id: commit-generated
-        if: steps.changes.outputs.changed == 'true' && steps.token-status.outputs.available == 'true'
+        if: steps.changes.outputs.changed == 'true' && steps.setup.outputs.token-available == 'true'
         uses: ./.github/actions/verified-commit
         with:
-          github-token: ${{ steps.escalation-token.outputs.token }}
+          github-token: ${{ steps.setup.outputs.escalation-token }}
           base-branch: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
           expected-head-sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           commit-headline: "Update generated artifacts [skip ci]"
@@ -282,18 +220,18 @@ jobs:
         run: echo "short-sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Deploy PR preview
-        if: github.event_name == 'pull_request' && steps.token-status.outputs.available == 'true'
+        if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
         id: preview
         uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1
         with:
           source-dir: _site
           preview-branch: ${{ env.PAGES_BRANCH }}
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.setup.outputs.app-token }}
           comment: false
           qr-code: false
 
       - name: Post PR preview link
-        if: github.event_name == 'pull_request' && steps.token-status.outputs.available == 'true'
+        if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
         uses: marocchino/sticky-pull-request-comment@70d2764d1a7d5d9560b100cbea0077fc8f633987 # v3
         with:
           header: ${{ env.PREVIEW_COMMENT_HEADER }}
@@ -304,7 +242,7 @@ jobs:
             Preview URL: ${{ steps.preview.outputs.preview-url }}
 
       - name: Verify PR preview deployment
-        if: github.event_name == 'pull_request' && steps.token-status.outputs.available == 'true'
+        if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
         run: >-
           python3 scripts/verify_deploy.py
           --url "${{ steps.preview.outputs.preview-url }}"
@@ -313,7 +251,7 @@ jobs:
           --delay-seconds ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
 
       - name: Summarize PR preview
-        if: github.event_name == 'pull_request' && steps.token-status.outputs.available == 'true'
+        if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
         run: |
           {
             echo "## PR Preview"
@@ -328,7 +266,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Note limited PR preview
-        if: github.event_name == 'pull_request' && steps.token-status.outputs.available != 'true'
+        if: github.event_name == 'pull_request' && steps.setup.outputs.token-available != 'true'
         run: |
           {
             echo "## PR Preview"
@@ -339,13 +277,13 @@ jobs:
       - name: Deploy main site to gh-pages
         if: >-
           github.event_name != 'pull_request' &&
-          steps.token-status.outputs.available == 'true' &&
+          steps.setup.outputs.token-available == 'true' &&
           steps.commit-result.outputs.fallback != 'true'
         uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4
         with:
           branch: ${{ env.PAGES_BRANCH }}
           folder: _site
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.setup.outputs.app-token }}
           clean-exclude: |
             ${{ env.PREVIEW_ROOT }}/
           force: false
@@ -354,7 +292,7 @@ jobs:
       - name: Verify published site
         if: >-
           github.event_name != 'pull_request' &&
-          steps.token-status.outputs.available == 'true' &&
+          steps.setup.outputs.token-available == 'true' &&
           steps.commit-result.outputs.fallback != 'true'
         run: >-
           python3 scripts/verify_deploy.py
@@ -393,45 +331,34 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: CI setup
+        id: setup
+        uses: ./.github/actions/ci-setup
         with:
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Determine whether app-token actions are allowed
-        id: token-policy
-        run: >-
-          python3 scripts/workflow_helpers.py app-token-policy
-          --event-name pull_request
-          --head-repo-fork "${{ github.event.pull_request.head.repo.fork }}"
-          --pr-author "${{ github.event.pull_request.user.login }}"
-          >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub App token
-        id: app-token
-        if: steps.token-policy.outputs.allowed == 'true'
-        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
-        with:
+          event-name: pull_request
+          head-repo-fork: ${{ github.event.pull_request.head.repo.fork }}
+          pr-author: ${{ github.event.pull_request.user.login }}
           app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          escalation-app-id: ${{ vars.ESCALATION_APP_ID }}
+          escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
 
       - name: Ensure preview workspace exists
-        if: steps.token-policy.outputs.allowed == 'true'
+        if: steps.setup.outputs.token-available == 'true'
         run: mkdir -p _site
 
       - name: Remove PR preview deployment
-        if: steps.token-policy.outputs.allowed == 'true'
+        if: steps.setup.outputs.token-available == 'true'
         uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1
         with:
           source-dir: _site
           preview-branch: ${{ env.PAGES_BRANCH }}
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.setup.outputs.app-token }}
           comment: false
           qr-code: false
 
       - name: Remove PR preview link comment
-        if: steps.token-policy.outputs.allowed == 'true'
+        if: steps.setup.outputs.token-available == 'true'
         uses: marocchino/sticky-pull-request-comment@70d2764d1a7d5d9560b100cbea0077fc8f633987 # v3
         with:
           header: ${{ env.PREVIEW_COMMENT_HEADER }}
@@ -450,54 +377,33 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout merged main
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: CI setup
+        id: setup
+        uses: ./.github/actions/ci-setup
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Create GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
-        with:
-          app-id: ${{ vars.ESCALATION_APP_ID }}
-          private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
+          event-name: pull_request
+          head-repo-fork: ${{ github.event.pull_request.head.repo.fork }}
+          pr-author: ${{ github.event.pull_request.user.login }}
+          app-id: ${{ vars.APP_ID }}
+          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          escalation-app-id: ${{ vars.ESCALATION_APP_ID }}
+          escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
+          checkout-ref: ${{ github.event.pull_request.merge_commit_sha }}
 
       # No Node.js or make setup-ci needed: make site runs prepare_site.py
       # which is stdlib-only Python. All generated files (thumbnails, data.js)
       # are already committed to the merge commit from the PR branch.
-      - name: Prepare deployable site
-        run: make site
-
-      - name: Resolve deployed asset marker
-        id: deploy-version
-        run: echo "short-sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy main site to gh-pages
-        uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4
+      - name: Deploy site
+        uses: ./.github/actions/deploy-site
         with:
-          branch: ${{ env.PAGES_BRANCH }}
-          folder: _site
-          token: ${{ steps.app-token.outputs.token }}
-          clean-exclude: |
-            ${{ env.PREVIEW_ROOT }}/
-          force: false
+          token: ${{ steps.setup.outputs.escalation-token }}
+          pages-branch: ${{ env.PAGES_BRANCH }}
+          preview-root: ${{ env.PREVIEW_ROOT }}
           # Use merge_commit_sha (not github.sha) since github.sha is the
           # PR head ref in pull_request closed events
-          commit-message: Deploy site for ${{ github.event.pull_request.merge_commit_sha }}
-
-      - name: Verify published site
-        run: >-
-          python3 scripts/verify_deploy.py
-          --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
-          --attempts ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
-          --delay-seconds ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
+          commit-sha: ${{ github.event.pull_request.merge_commit_sha }}
+          verify-attempts: ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
+          verify-delay-seconds: ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
 
       - name: Summarize deploy
         run: |
@@ -506,5 +412,5 @@ jobs:
             echo
             echo "PR: #${{ github.event.pull_request.number }}"
             echo "Merge commit: ${{ github.event.pull_request.merge_commit_sha }}"
-            echo "Deploy version: ${{ steps.deploy-version.outputs.short-sha }}"
+            echo "Deploy version: ${{ steps.setup.outputs.short-sha || 'N/A' }}"
           } >> "$GITHUB_STEP_SUMMARY"

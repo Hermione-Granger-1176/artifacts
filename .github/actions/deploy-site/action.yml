@@ -1,0 +1,62 @@
+name: Deploy site to GitHub Pages
+description: Build _site/, deploy to gh-pages, and verify the published URL.
+
+inputs:
+  token:
+    description: GitHub App token for pushing to gh-pages.
+    required: true
+  pages-branch:
+    description: Branch to deploy to.
+    required: false
+    default: gh-pages
+  preview-root:
+    description: Preview directory to preserve during deploy.
+    required: false
+    default: pr-preview
+  commit-sha:
+    description: SHA to use in the deploy commit message.
+    required: true
+  verify-attempts:
+    description: Number of polling attempts for deploy verification.
+    required: false
+    default: '18'
+  verify-delay-seconds:
+    description: Seconds between polling attempts.
+    required: false
+    default: '10'
+
+outputs:
+  short-sha:
+    description: Short SHA used for cache-busting asset URLs.
+    value: ${{ steps.deploy-version.outputs.short-sha }}
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare deployable site
+      shell: bash
+      run: make site
+
+    - name: Resolve deployed asset marker
+      id: deploy-version
+      shell: bash
+      run: echo "short-sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+    - name: Deploy to gh-pages
+      uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4
+      with:
+        branch: ${{ inputs.pages-branch }}
+        folder: _site
+        token: ${{ inputs.token }}
+        clean-exclude: |
+          ${{ inputs.preview-root }}/
+        force: false
+        commit-message: Deploy site for ${{ inputs.commit-sha }}
+
+    - name: Verify published site
+      shell: bash
+      run: >-
+        python3 scripts/verify_deploy.py
+        --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
+        --attempts ${{ inputs.verify-attempts }}
+        --delay-seconds ${{ inputs.verify-delay-seconds }}

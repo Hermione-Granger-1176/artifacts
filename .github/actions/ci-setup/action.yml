@@ -1,0 +1,126 @@
+name: CI setup
+description: Checkout, mint app tokens, and optionally install the full toolchain.
+
+inputs:
+  event-name:
+    description: GitHub event name for token policy.
+    required: true
+  head-repo-fork:
+    description: Whether the PR head repo is a fork.
+    required: false
+    default: 'false'
+  pr-author:
+    description: PR author login for token policy.
+    required: false
+    default: ''
+  app-id:
+    description: Primary GitHub App ID (Hermione1176).
+    required: true
+  app-private-key:
+    description: Primary GitHub App private key.
+    required: true
+  escalation-app-id:
+    description: Escalation GitHub App ID (Harry1176).
+    required: true
+  escalation-app-private-key:
+    description: Escalation GitHub App private key.
+    required: true
+  checkout-ref:
+    description: Git ref to checkout.
+    required: false
+    default: ''
+  python-version:
+    description: Python version to install.
+    required: false
+    default: '3.12'
+  node-version:
+    description: Node.js version to install (empty to skip).
+    required: false
+    default: ''
+  install-deps:
+    description: Whether to run make setup-ci.
+    required: false
+    default: 'false'
+
+outputs:
+  app-token:
+    description: Primary GitHub App installation token.
+    value: ${{ steps.app-token.outputs.token }}
+  escalation-token:
+    description: Escalation GitHub App installation token.
+    value: ${{ steps.escalation-token.outputs.token }}
+  token-available:
+    description: Whether both tokens were minted successfully.
+    value: ${{ steps.token-status.outputs.available }}
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      with:
+        ref: ${{ inputs.checkout-ref || github.ref }}
+        fetch-depth: 1
+        persist-credentials: false
+
+    - name: Determine whether app-token actions are allowed
+      id: token-policy
+      shell: bash
+      run: >-
+        python3 scripts/workflow_helpers.py app-token-policy
+        --event-name "${{ inputs.event-name }}"
+        --head-repo-fork "${{ inputs.head-repo-fork }}"
+        --pr-author "${{ inputs.pr-author }}"
+        >> "$GITHUB_OUTPUT"
+
+    - name: Create GitHub App token
+      id: app-token
+      if: steps.token-policy.outputs.allowed == 'true'
+      uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.app-private-key }}
+
+    - name: Create escalation token
+      id: escalation-token
+      if: steps.token-policy.outputs.allowed == 'true'
+      uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
+      with:
+        app-id: ${{ inputs.escalation-app-id }}
+        private-key: ${{ inputs.escalation-app-private-key }}
+
+    - name: Check GitHub App token availability
+      id: token-status
+      shell: bash
+      run: |
+        if [ -n "${{ steps.app-token.outputs.token }}" ] && [ -n "${{ steps.escalation-token.outputs.token }}" ]; then
+          echo "available=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "available=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Fail if a trusted run cannot mint the app tokens
+      if: steps.token-policy.outputs.allowed == 'true' && steps.token-status.outputs.available != 'true'
+      shell: bash
+      run: |
+        echo "Expected GitHub App tokens for this run, but token creation did not succeed." >&2
+        [ -z "${{ steps.app-token.outputs.token }}" ] && echo "  - Hermione1176 (APP_ID) token missing" >&2
+        [ -z "${{ steps.escalation-token.outputs.token }}" ] && echo "  - Harry1176 (ESCALATION_APP_ID) token missing" >&2
+        exit 1
+
+    - name: Set up Python
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Set up Node.js
+      if: inputs.node-version != ''
+      uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+
+    - name: Install workspace dependencies
+      if: inputs.install-deps == 'true'
+      shell: bash
+      run: make setup-ci
