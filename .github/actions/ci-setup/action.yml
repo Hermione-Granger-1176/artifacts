@@ -1,5 +1,5 @@
 name: CI setup
-description: Checkout, mint app tokens, and optionally install the full toolchain.
+description: Mint app tokens and optionally install the full toolchain. Requires actions/checkout to have run first.
 
 inputs:
   event-name:

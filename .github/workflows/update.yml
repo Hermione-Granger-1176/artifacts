@@ -62,17 +62,27 @@ jobs:
         run: make setup-ci
 
       - name: Run full repository check
-        run: make check
+        run: make COVERAGE_OUTPUT=js-coverage.txt check
 
       - name: Report JavaScript coverage
         run: |
-          {
-            echo "## JavaScript Coverage"
-            echo
-            echo '```text'
-            cat js-coverage.txt 2>/dev/null || echo "No coverage report found."
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          report = Path("js-coverage.txt").read_text(encoding="utf-8")
+          start_marker = "ℹ start of coverage report"
+          end_marker = "ℹ end of coverage report"
+          start = report.find(start_marker)
+          end = report.find(end_marker)
+          if start == -1 or end == -1:
+              raise SystemExit("Coverage report markers not found in js-coverage.txt")
+          snippet = report[start : end + len(end_marker)]
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
+              summary.write("## JavaScript Coverage\n\n```text\n")
+              summary.write(snippet)
+              summary.write("\n```\n")
+          PY
 
       - name: Summarize verification
         run: |
