@@ -427,8 +427,8 @@ function recalc() {
       ${periodsSaved > 0 ? `<div class="sub"><span class="savings-pill">${periodsSaved} earlier</span></div>` : ''}</div>
     <div class="metric"><span class="info-tip metric-tip" data-tip="Principal + total interest. The real cost of your loan.">?</span><div class="label">Total paid</div><div class="value">${fmt(totalPaid)}</div>
       <div class="sub">Interest is ${((costRatio - 1) * 100).toFixed(1)}% of loan</div></div>
-    <div class="metric"><span class="info-tip metric-tip" data-tip="The ${fp.label.toLowerCase()} when cumulative principal paid surpasses cumulative interest">?</span><div class="label">Break-even</div><div class="value">${extra.breakEven ? fp.label + ' ' + extra.breakEven : 'N/A'}</div>
-      <div class="sub">Principal > interest</div></div>
+    <div class="metric"><span class="info-tip metric-tip" data-tip="The ${fp.label.toLowerCase()} when cumulative principal paid (from EMI + extras) surpasses cumulative interest">?</span><div class="label">Break-even</div><div class="value">${extra.breakEven ? fp.label + ' ' + extra.breakEven : 'N/A'}</div>
+      <div class="sub">Principal (EMI + extras) > interest</div></div>
   `;
 
   destroyCharts();
