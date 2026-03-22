@@ -9,6 +9,9 @@ Usage:
         --head-repo-fork false --pr-author login
     python scripts/workflow_helpers.py read-lock-metadata --root .artifacts/lock-refresh
     python scripts/workflow_helpers.py validate-lock-artifact --root .artifacts/lock-refresh
+    python scripts/workflow_helpers.py invalidate-thumbnails --event-name pull_request \
+        --repo owner/repo --pr-number 42
+    python scripts/workflow_helpers.py check-fallback --result-url https://github.com/...
 """
 
 from __future__ import annotations
@@ -16,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 from itertools import chain
 from pathlib import Path
@@ -87,6 +91,45 @@ def validate_lock_refresh_artifact(root: Path) -> None:
             )
 
 
+def invalidate_thumbnails(
+    *, event_name: str, repo: str, pr_number: str, commit_sha: str
+) -> list[str]:
+    """Delete thumbnail.webp for apps whose index.html changed in a PR or push."""
+    if event_name == "pull_request":
+        endpoint = f"repos/{repo}/pulls/{pr_number}/files"
+        paginate = ["--paginate"]
+    else:
+        endpoint = f"repos/{repo}/commits/{commit_sha}"
+        paginate = []
+
+    result = subprocess.run(
+        ["gh", "api", endpoint, *paginate, "--jq", ".[].filename"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    invalidated = []
+    for line in result.stdout.splitlines():
+        filename = line.strip()
+        if not filename:
+            continue
+        parts = Path(filename).parts
+        if not (len(parts) == 3 and parts[0] == "apps" and parts[2] == "index.html"):
+            continue
+        thumb = Path(parts[0]) / parts[1] / "thumbnail.webp"
+        if not thumb.exists():
+            continue
+        thumb.unlink()
+        invalidated.append(str(thumb))
+        print(f"Invalidating {thumb} ({filename} changed)")
+    return invalidated
+
+
+def check_fallback(result_url: str) -> bool:
+    """Return True when the verified-commit result URL points to a pull request."""
+    return "/pull/" in result_url
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Workflow helper commands")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -107,6 +150,21 @@ def _build_parser() -> argparse.ArgumentParser:
         "validate-lock-artifact", help="Validate a downloaded lock refresh artifact"
     )
     artifact_parser.add_argument("--root", required=True)
+
+    thumb_parser = subparsers.add_parser(
+        "invalidate-thumbnails",
+        help="Delete stale thumbnails for apps with changed index.html",
+    )
+    thumb_parser.add_argument("--event-name", required=True)
+    thumb_parser.add_argument("--repo", required=True)
+    thumb_parser.add_argument("--pr-number", default="")
+    thumb_parser.add_argument("--commit-sha", default="")
+
+    fallback_parser = subparsers.add_parser(
+        "check-fallback",
+        help="Check if a verified-commit result URL is a fallback PR",
+    )
+    fallback_parser.add_argument("--result-url", required=True)
 
     return parser
 
@@ -135,10 +193,32 @@ def _handle_validate_lock_artifact(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_invalidate_thumbnails(args: argparse.Namespace) -> int:
+    """Print invalidated thumbnail paths, or a no-op message."""
+    invalidated = invalidate_thumbnails(
+        event_name=args.event_name,
+        repo=args.repo,
+        pr_number=args.pr_number,
+        commit_sha=args.commit_sha,
+    )
+    if not invalidated:
+        print("No thumbnails invalidated")
+    return 0
+
+
+def _handle_check_fallback(args: argparse.Namespace) -> int:
+    """Print whether the verified-commit result is a fallback PR."""
+    is_fallback = check_fallback(args.result_url)
+    print(f"fallback={'true' if is_fallback else 'false'}")
+    return 0
+
+
 COMMAND_HANDLERS = {
     "app-token-policy": _handle_app_token_policy,
     "read-lock-metadata": _handle_read_lock_metadata,
     "validate-lock-artifact": _handle_validate_lock_artifact,
+    "invalidate-thumbnails": _handle_invalidate_thumbnails,
+    "check-fallback": _handle_check_fallback,
 }
 
 

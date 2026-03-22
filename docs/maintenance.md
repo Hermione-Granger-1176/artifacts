@@ -7,7 +7,7 @@ These are the main cross-cutting pieces that should stay consistent over time:
 - `pyproject.toml` is the source of truth for Python dependencies, test policy, lint policy, and site metadata.
 - `Makefile` is the common interface for local work and CI.
 - `.github/actions/verified-commit/action.yml` and `.github/actions/verified-commit/verified-commit.mjs` centralize the verified commit and PR fallback logic used by CI.
-- `scripts/workflow_helpers.py` centralizes small workflow trust and artifact-validation helpers so the YAML stays policy-focused and the procedural logic stays testable.
+- `scripts/workflow_helpers.py` centralizes workflow trust, artifact-validation, thumbnail invalidation, and fallback PR detection helpers so the YAML stays policy-focused and the procedural logic stays testable.
 - `.github/workflows/update.yml` is the main build, validation, and deploy workflow.
 - `.github/workflows/refresh-action-shas.yml` keeps pinned GitHub Actions references current.
 - `.github/workflows/refresh-python-locks.yml` computes Python lock refresh artifacts for same-repo Dependabot pip PRs.

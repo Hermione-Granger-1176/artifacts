@@ -79,19 +79,20 @@ This reduces hardcoded values in scripts and keeps deployment-sensitive values i
 2. `secret-scan` runs Gitleaks against the full commit history in parallel.
 3. `dependency-review` checks manifest and lockfile changes on pull requests.
 4. The `publish` job runs after `verify` and `secret-scan` succeed and `dependency-review` either succeeds or is skipped (push events skip it).
-5. The publish path regenerates thumbnails and gallery data.
+5. The publish path invalidates stale thumbnails for apps whose `index.html` changed (via `workflow_helpers.py invalidate-thumbnails`), then regenerates thumbnails and gallery data.
 6. It stages generated additions and deletions for generated gallery outputs.
-7. On non-PR runs, it creates a verified commit through the GitHub GraphQL API, or opens a PR if branch protection blocks a direct commit.
+7. It creates a verified commit through the GitHub GraphQL API using the escalation app token (Harry1176), or opens a fallback PR if branch protection blocks a direct commit. When a fallback PR is created, the main-site deploy is skipped (deploy is deferred to the merge of that PR).
 8. It assembles a clean `_site/` deploy directory.
-9. For pushes to `main` and manual runs, it deploys `_site/` to the root of the `gh-pages` branch.
+9. For pushes to `main` and manual runs (when no fallback PR was created), it deploys `_site/` to the root of the `gh-pages` branch.
 10. For trusted PRs, it deploys `_site/` to `gh-pages/pr-preview/pr-<number>/` without writing generated outputs back to the source branch.
 11. It polls the published root or preview URL until it serves the expected cache-busted asset reference for the current commit.
 12. It recreates the sticky preview link comment so the newest preview stays at the bottom of the PR timeline.
 13. On PR close, it removes the preview from `gh-pages` and deletes the comment.
+14. On PR merge, the `deploy-on-merge` job checks out the exact merge commit, builds `_site/`, and deploys to `gh-pages` using the escalation app token. This ensures deployment even when squash merges contain `[skip ci]` in the commit body.
 
-All jobs have explicit `timeout-minutes` limits (verify: 15, secret-scan: 5, dependency-review: 5, publish: 20, cleanup-preview: 5) to guard against hung builds.
+All jobs have explicit `timeout-minutes` limits (verify: 15, secret-scan: 5, dependency-review: 5, publish: 20, cleanup-preview: 5, deploy-on-merge: 10) to guard against hung builds.
 
-Main and trusted preview deploys use the GitHub App token. Fork and Dependabot PRs still build `_site/`, but skip preview deployment because the token is unavailable.
+Two GitHub App tokens are used: the primary app token (Hermione1176, `APP_ID`) handles preview deploys and cleanup, while the escalation app token (Harry1176, `ESCALATION_APP_ID`) handles verified commits and merge-triggered deploys. Fork and Dependabot PRs still build `_site/`, but skip preview deployment because the tokens are unavailable.
 
 Same-repo Dependabot pip PRs use `.github/workflows/refresh-python-locks.yml` to compute refreshed lock files on the PR branch and `.github/workflows/commit-python-locks.yml` to validate the uploaded artifact contents in a follow-up trusted run before committing them if the PR head is unchanged.
 
@@ -102,8 +103,10 @@ Deployable site assembly uses `ARTIFACTS_DEPLOY_VERSION` when it is set, and oth
 The workflow depends on repository settings that are not enforceable from source control alone:
 
 - GitHub Pages must publish from the `gh-pages` branch root.
-- `vars.APP_ID` must contain the GitHub App id.
-- `secrets.APP_PRIVATE_KEY` must contain the app private key.
+- `vars.APP_ID` must contain the primary GitHub App id (Hermione1176).
+- `secrets.APP_PRIVATE_KEY` must contain the primary app private key.
+- `vars.ESCALATION_APP_ID` must contain the escalation GitHub App id (Harry1176).
+- `secrets.ESCALATION_APP_PRIVATE_KEY` must contain the escalation app private key.
 - `main` branch protection should enforce the `verify`, `secret-scan`, and `dependency-review` checks plus review/signing/history requirements.
 - `gh-pages` should remain branch-based for now, but only the deploy GitHub App and the single repo admin should be able to bypass its ruleset.
 

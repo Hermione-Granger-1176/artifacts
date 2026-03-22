@@ -215,25 +215,12 @@ jobs:
       - name: Invalidate thumbnails for changed apps
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            changed_files=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --paginate --jq '.[].filename')
-          else
-            changed_files=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}" --jq '.files[].filename')
-          fi
-
-          echo "$changed_files" | while IFS= read -r file; do
-            case "$file" in
-              apps/*/index.html)
-                app_dir=$(dirname "$file")
-                thumb="${app_dir}/thumbnail.webp"
-                if [ -f "$thumb" ]; then
-                  echo "Invalidating ${thumb} (${file} changed)"
-                  rm "$thumb"
-                fi
-                ;;
-            esac
-          done
+        run: >-
+          python3 scripts/workflow_helpers.py invalidate-thumbnails
+          --event-name "${{ github.event_name }}"
+          --repo "${{ github.repository }}"
+          --pr-number "${{ github.event.pull_request.number || '' }}"
+          --commit-sha "${{ github.sha }}"
 
       - name: Generate thumbnails
         run: make thumbnails
@@ -272,14 +259,10 @@ jobs:
       - name: Check if fallback PR was created
         id: commit-result
         if: steps.commit-generated.outcome == 'success'
-        run: |
-          url="${{ steps.commit-generated.outputs.result-url }}"
-          if echo "$url" | grep -q '/pull/'; then
-            echo "fallback=true" >> "$GITHUB_OUTPUT"
-            echo "Fallback PR created: $url — skipping deploy"
-          else
-            echo "fallback=false" >> "$GITHUB_OUTPUT"
-          fi
+        run: >-
+          python3 scripts/workflow_helpers.py check-fallback
+          --result-url "${{ steps.commit-generated.outputs.result-url }}"
+          >> "$GITHUB_OUTPUT"
 
       - name: Re-checkout after API commit
         if: >-
@@ -486,6 +469,9 @@ jobs:
           app-id: ${{ vars.ESCALATION_APP_ID }}
           private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
 
+      # No Node.js or make setup-ci needed: make site runs prepare_site.py
+      # which is stdlib-only Python. All generated files (thumbnails, data.js)
+      # are already committed to the merge commit from the PR branch.
       - name: Prepare deployable site
         run: make site
 
@@ -502,6 +488,8 @@ jobs:
           clean-exclude: |
             ${{ env.PREVIEW_ROOT }}/
           force: false
+          # Use merge_commit_sha (not github.sha) since github.sha is the
+          # PR head ref in pull_request closed events
           commit-message: Deploy site for ${{ github.event.pull_request.merge_commit_sha }}
 
       - name: Verify published site
