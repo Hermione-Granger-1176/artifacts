@@ -53,9 +53,10 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 - `secret-scan` runs Gitleaks against the checked-out repository.
 - Pull requests also run dependency review for manifest and lockfile changes.
 - Same-repo Dependabot Python PRs also trigger `.github/workflows/refresh-python-locks.yml`, which computes refreshed lock files on the PR branch; `.github/workflows/commit-python-locks.yml` performs the trusted follow-up artifact validation and commit after PR head revalidation.
-- `publish` is the main write-capable job; it regenerates outputs, commits generated files when needed, prepares `_site/`, deploys previews or `gh-pages`, and then verifies the published URL serves the new asset version.
+- `publish` is the main write-capable job; it auto-invalidates stale thumbnails for changed apps, regenerates outputs, commits generated files when needed (using the escalation app token for fallback PR creation), prepares `_site/`, deploys previews or `gh-pages`, and then verifies the published URL serves the new asset version. When a fallback PR is created (admin bypass push), the main-site deploy is skipped.
 - `cleanup-preview` is a write-capable cleanup job that removes preview deployments and comments when PRs close.
-- Workflow trust-policy and lock-artifact validation shell logic is intentionally kept thin; `scripts/workflow_helpers.py` owns those tested helper paths.
+- `deploy-on-merge` runs after `cleanup-preview` when a PR is merged; it checks out the merge commit, builds `_site/`, and deploys to `gh-pages` using the escalation app token. This ensures deployment even when squash merges contain `[skip ci]` in the commit body.
+- Workflow trust-policy, lock-artifact validation, thumbnail invalidation, and fallback PR detection logic is intentionally kept thin; `scripts/workflow_helpers.py` owns those tested helper paths.
 - Trusted pull requests publish preview deployments under `pr-preview/pr-<number>/`.
 - Pull requests leave the source branch untouched while preview comments provide the live preview link.
 - Preview deploys use the GitHub App token.
@@ -83,7 +84,7 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 ## Thumbnail policy
 
 - `thumbnail.webp` is the preferred generated format.
-- Local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date.
+- Local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date. CI also auto-invalidates thumbnails for apps whose `index.html` changed in the PR or push, using `workflow_helpers.py invalidate-thumbnails`.
 - CI sets `ARTIFACTS_STRICT_THUMBNAILS=1`, so any attempted thumbnail failure fails the workflow instead of being logged as a warning.
 - Local working copies do not need checked-in thumbnails to function during development.
 - CI can regenerate thumbnails after push or during pull request preview builds.
@@ -94,8 +95,8 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 The workflow assumes these repository settings already exist:
 
 - GitHub Pages publishes from the `gh-pages` branch root.
-- Repository variables include `APP_ID`.
-- Repository secrets include `APP_PRIVATE_KEY`.
+- Repository variables include `APP_ID` (Hermione1176) and `ESCALATION_APP_ID` (Harry1176).
+- Repository secrets include `APP_PRIVATE_KEY` and `ESCALATION_APP_PRIVATE_KEY`.
 - `main` branch protection requires `verify`, `secret-scan`, and `dependency-review`, plus 1 approval, signed commits, linear history, and conversation resolution.
 - `gh-pages` is protected by a branch ruleset that restricts updates, deletions, and creations, blocks force pushes, and requires linear history, with bypass limited to the deploy GitHub App and the repo admin role.
 - This repo intentionally operates as a single-admin repo, so admin-role bypass is the acceptable stand-in for owner-only bypass on `gh-pages`.
