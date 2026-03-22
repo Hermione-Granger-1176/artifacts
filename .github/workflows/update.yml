@@ -219,12 +219,12 @@ jobs:
           fi
 
       - name: Commit generated files (verified)
-        if: github.event_name != 'pull_request' && steps.changes.outputs.changed == 'true' && steps.token-status.outputs.available == 'true'
+        if: steps.changes.outputs.changed == 'true' && steps.token-status.outputs.available == 'true'
         uses: ./.github/actions/verified-commit
         with:
           github-token: ${{ steps.app-token.outputs.token }}
-          base-branch: ${{ github.ref_name }}
-          expected-head-sha: ${{ github.sha }}
+          base-branch: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          expected-head-sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           commit-headline: "Update generated artifacts [skip ci]"
           fallback-branch-prefix: auto/update-artifacts
           pr-title: "Update generated artifacts"
@@ -236,10 +236,10 @@ jobs:
           pathspec: ${{ env.GENERATED_OUTPUT_PATHSPEC }}
 
       - name: Re-checkout after API commit
-        if: github.event_name != 'pull_request' && steps.changes.outputs.changed == 'true' && steps.token-status.outputs.available == 'true'
+        if: steps.changes.outputs.changed == 'true' && steps.token-status.outputs.available == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
           fetch-depth: 1
           persist-credentials: false
 
