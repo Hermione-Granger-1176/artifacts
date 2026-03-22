@@ -1,5 +1,5 @@
 name: Deploy site to GitHub Pages
-description: Build _site/, deploy to gh-pages, and verify the published URL.
+description: Build _site/, deploy to gh-pages with a verified commit, and verify the published URL.
 
 inputs:
   token:
@@ -43,15 +43,15 @@ runs:
       run: echo "short-sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
     - name: Deploy to gh-pages
-      uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4
-      with:
-        branch: ${{ inputs.pages-branch }}
-        folder: _site
-        token: ${{ inputs.token }}
-        clean-exclude: |
-          ${{ inputs.preview-root }}/
-        force: false
-        commit-message: Deploy site for ${{ inputs.commit-sha }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        PAGES_BRANCH: ${{ inputs.pages-branch }}
+        PREVIEW_ROOT: ${{ inputs.preview-root }}
+        COMMIT_MESSAGE: Deploy site for ${{ inputs.commit-sha }}
+        DEPLOY_DIR: _site
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: node ./.github/actions/deploy-site/deploy-verified.mjs
 
     - name: Verify published site
       shell: bash

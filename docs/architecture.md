@@ -83,12 +83,12 @@ This reduces hardcoded values in scripts and keeps deployment-sensitive values i
 6. It stages generated additions and deletions for generated gallery outputs.
 7. It creates a verified commit through the GitHub GraphQL API using the escalation app token (Harry1176), or opens a fallback PR if branch protection blocks a direct commit. When a fallback PR is created, the main-site deploy is skipped (deploy is deferred to the merge of that PR).
 8. It assembles a clean `_site/` deploy directory.
-9. For pushes to `main` and manual runs (when no fallback PR was created), it deploys `_site/` to the root of the `gh-pages` branch.
+9. For pushes to `main` and manual runs (when no fallback PR was created), it deploys `_site/` to the root of the `gh-pages` branch using a verified commit via the GraphQL API (`deploy-verified.mjs`), preserving the `pr-preview/` directory.
 10. For trusted PRs, it deploys `_site/` to `gh-pages/pr-preview/pr-<number>/` without writing generated outputs back to the source branch.
 11. It polls the published root or preview URL until it serves the expected cache-busted asset reference for the current commit.
 12. It recreates the sticky preview link comment so the newest preview stays at the bottom of the PR timeline.
 13. On PR close, it removes the preview from `gh-pages` and deletes the comment.
-14. On PR merge, the `deploy-on-merge` job checks out the exact merge commit, builds `_site/`, and deploys to `gh-pages` using the escalation app token. This ensures deployment even when squash merges contain `[skip ci]` in the commit body.
+14. On PR merge, the `deploy-on-merge` job checks out the exact merge commit, builds `_site/`, and deploys to `gh-pages` with a verified commit via the GraphQL API. This ensures deployment even when squash merges contain `[skip ci]` in the commit body.
 
 All jobs have explicit `timeout-minutes` limits (verify: 15, secret-scan: 5, dependency-review: 5, publish: 20, cleanup-preview: 5, deploy-on-merge: 10) to guard against hung builds.
 

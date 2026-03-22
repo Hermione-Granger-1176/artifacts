@@ -291,31 +291,20 @@ jobs:
             echo "Preview deployment is skipped because the app token is unavailable (fork or Dependabot PR)."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Deploy main site to gh-pages
+      - name: Deploy main site
+        id: main-deploy
         if: >-
           github.event_name != 'pull_request' &&
           steps.setup.outputs.token-available == 'true' &&
           steps.commit-result.outputs.fallback != 'true'
-        uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4
+        uses: ./.github/actions/deploy-site
         with:
-          branch: ${{ env.PAGES_BRANCH }}
-          folder: _site
-          token: ${{ steps.setup.outputs.app-token }}
-          clean-exclude: |
-            ${{ env.PREVIEW_ROOT }}/
-          force: false
-          commit-message: Deploy site for ${{ github.sha }}
-
-      - name: Verify published site
-        if: >-
-          github.event_name != 'pull_request' &&
-          steps.setup.outputs.token-available == 'true' &&
-          steps.commit-result.outputs.fallback != 'true'
-        run: >-
-          python3 scripts/verify_deploy.py
-          --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
-          --attempts ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
-          --delay-seconds ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
+          token: ${{ steps.setup.outputs.escalation-token }}
+          pages-branch: ${{ env.PAGES_BRANCH }}
+          preview-root: ${{ env.PREVIEW_ROOT }}
+          commit-sha: ${{ github.sha }}
+          verify-attempts: ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
+          verify-delay-seconds: ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
 
       - name: Summarize publish
         if: github.event_name != 'pull_request' && steps.commit-result.outputs.fallback != 'true'
