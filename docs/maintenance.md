@@ -24,7 +24,7 @@ If you touch workflow files:
 1. Prefer extending the existing workflow over cloning logic into another workflow file.
 2. Update the shared verified commit action when commit or PR fallback behavior changes.
 3. Keep action references pinned to full commit SHAs.
-4. Non-fork, non-Dependabot PRs use the app token for preview deploys, while fork and Dependabot PRs are excluded from preview deployment.
+4. Non-fork, non-Dependabot PRs use the escalation app token (Harry1176) for all deploys (main, preview, and cleanup), while fork and Dependabot PRs are excluded from deployment.
 5. Keep local and CI commands aligned through `make`.
 6. Preserve the separation between the source repo and the `_site/` deploy directory.
 7. Keep the PR preview comment recreated on each push so the latest preview link stays easy to find.

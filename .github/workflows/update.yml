@@ -238,14 +238,15 @@ jobs:
 
       - name: Deploy PR preview
         if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
-        id: preview
-        uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1
-        with:
-          source-dir: _site
-          preview-branch: ${{ env.PAGES_BRANCH }}
-          token: ${{ steps.setup.outputs.app-token }}
-          comment: false
-          qr-code: false
+        env:
+          GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
+          PAGES_BRANCH: ${{ env.PAGES_BRANCH }}
+          PREVIEW_ROOT: ${{ env.PREVIEW_ROOT }}
+          COMMIT_MESSAGE: Deploy preview for PR ${{ github.event.pull_request.number }}
+          DEPLOY_DIR: _site
+          DEPLOY_SUBDIR: ${{ env.PREVIEW_ROOT }}/pr-${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node ./.github/actions/deploy-site/deploy-verified.mjs
 
       - name: Post PR preview link
         if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
@@ -256,13 +257,13 @@ jobs:
           message: |
             CI preview
 
-            Preview URL: ${{ steps.preview.outputs.preview-url }}
+            Preview URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ env.PREVIEW_ROOT }}/pr-${{ github.event.pull_request.number }}/
 
       - name: Verify PR preview deployment
         if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
         run: >-
           python3 scripts/verify_deploy.py
-          --url "${{ steps.preview.outputs.preview-url }}"
+          --url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ env.PREVIEW_ROOT }}/pr-${{ github.event.pull_request.number }}/"
           --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
           --attempts ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
           --delay-seconds ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
@@ -273,13 +274,7 @@ jobs:
           {
             echo "## PR Preview"
             echo
-            echo "Preview URL: ${{ steps.preview.outputs.preview-url }}"
-            echo
-            echo "Generated changes staged for this run:"
-            echo
-            echo '```text'
-            git diff --staged --name-status -- ${GENERATED_OUTPUT_ARGS} || true
-            echo '```'
+            echo "Preview URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ env.PREVIEW_ROOT }}/pr-${{ github.event.pull_request.number }}/"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Note limited PR preview
@@ -303,6 +298,7 @@ jobs:
           pages-branch: ${{ env.PAGES_BRANCH }}
           preview-root: ${{ env.PREVIEW_ROOT }}
           commit-sha: ${{ github.sha }}
+          skip-build: 'true'
           verify-attempts: ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
           verify-delay-seconds: ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
 
@@ -355,19 +351,16 @@ jobs:
           escalation-app-id: ${{ vars.ESCALATION_APP_ID }}
           escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
 
-      - name: Ensure preview workspace exists
-        if: steps.setup.outputs.token-available == 'true'
-        run: mkdir -p _site
-
       - name: Remove PR preview deployment
         if: steps.setup.outputs.token-available == 'true'
-        uses: rossjrw/pr-preview-action@ffa7509e91a3ec8dfc2e5536c4d5c1acdf7a6de9 # v1
-        with:
-          source-dir: _site
-          preview-branch: ${{ env.PAGES_BRANCH }}
-          token: ${{ steps.setup.outputs.app-token }}
-          comment: false
-          qr-code: false
+        env:
+          GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
+          PAGES_BRANCH: ${{ env.PAGES_BRANCH }}
+          PREVIEW_ROOT: ${{ env.PREVIEW_ROOT }}
+          COMMIT_MESSAGE: Remove preview for PR ${{ github.event.pull_request.number }}
+          REMOVE_SUBDIR: ${{ env.PREVIEW_ROOT }}/pr-${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node ./.github/actions/deploy-site/deploy-verified.mjs
 
       - name: Remove PR preview link comment
         if: steps.setup.outputs.token-available == 'true'

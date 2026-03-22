@@ -18,7 +18,7 @@ export default [
     rules: commonRules
   },
   {
-    files: ['tests/js/**/*.js', '.github/actions/verified-commit/**/*.mjs', 'scripts/**/*.mjs', 'eslint.config.js'],
+    files: ['tests/js/**/*.js', '.github/actions/verified-commit/**/*.mjs', '.github/actions/deploy-site/**/*.mjs', 'scripts/**/*.mjs', 'eslint.config.js'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

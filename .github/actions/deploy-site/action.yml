@@ -16,6 +16,10 @@ inputs:
   commit-sha:
     description: SHA to use in the deploy commit message.
     required: true
+  skip-build:
+    description: Skip make site if _site/ is already prepared.
+    required: false
+    default: 'false'
   verify-attempts:
     description: Number of polling attempts for deploy verification.
     required: false
@@ -34,6 +38,7 @@ runs:
   using: composite
   steps:
     - name: Prepare deployable site
+      if: inputs.skip-build != 'true'
       shell: bash
       run: make site
 

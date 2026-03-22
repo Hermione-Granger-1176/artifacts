@@ -41,12 +41,13 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `tests/js/render.test.js`: escaping, filter UI sync, detail content, card rendering, and pagination markup
 - `tests/js/runtime.test.js`: runtime state, error capture, and fatal banner behavior
 - `tests/js/verified-commit.test.js`: workflow helper logic for the verified-commit action
+- `tests/js/deploy-verified.test.js`: deploy-site action logic (blob SHA, change computation, verified deploy, preview modes)
 - `tests/test_frontend_smoke.py`: browser smoke coverage for gallery load, invalid bootstrap data, search, desk-note filters, pagination, detail overlay, and `404.html`
 
 ## Local vs CI expectations
 
 - `npm run test` runs the JavaScript unit suite with Node's built-in test runner
-- `npm run test:coverage` and `make coverage-js` use Node's built-in experimental coverage report, which currently gates `js/app.js`, `js/modules/*.js`, and `.github/actions/verified-commit/*.mjs`
+- `npm run test:coverage` and `make coverage-js` use Node's built-in experimental coverage report, which currently gates `js/app.js`, `js/modules/*.js`, `.github/actions/verified-commit/*.mjs`, and `.github/actions/deploy-site/*.mjs`
 - `make check-local` runs the fast local gate: lint, non-browser pytest, JavaScript unit tests, JavaScript coverage, dependency audits, and artifact validation
 - `make web` runs browser smoke tests and thumbnail generation; use `make setup` first so Chromium is available
 - `make check` runs the full local release gate by combining `make check-local`, `make web`, index generation, and deployable site assembly

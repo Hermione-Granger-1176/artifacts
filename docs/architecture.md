@@ -84,15 +84,15 @@ This reduces hardcoded values in scripts and keeps deployment-sensitive values i
 7. It creates a verified commit through the GitHub GraphQL API using the escalation app token (Harry1176), or opens a fallback PR if branch protection blocks a direct commit. When a fallback PR is created, the main-site deploy is skipped (deploy is deferred to the merge of that PR).
 8. It assembles a clean `_site/` deploy directory.
 9. For pushes to `main` and manual runs (when no fallback PR was created), it deploys `_site/` to the root of the `gh-pages` branch using a verified commit via the GraphQL API (`deploy-verified.mjs`), preserving the `pr-preview/` directory.
-10. For trusted PRs, it deploys `_site/` to `gh-pages/pr-preview/pr-<number>/` without writing generated outputs back to the source branch.
+10. For trusted PRs, it deploys `_site/` to `gh-pages/pr-preview/pr-<number>/` via `deploy-verified.mjs` with `DEPLOY_SUBDIR`, without writing generated outputs back to the source branch.
 11. It polls the published root or preview URL until it serves the expected cache-busted asset reference for the current commit.
 12. It recreates the sticky preview link comment so the newest preview stays at the bottom of the PR timeline.
-13. On PR close, it removes the preview from `gh-pages` and deletes the comment.
+13. On PR close, it removes the preview from `gh-pages` via `deploy-verified.mjs` with `REMOVE_SUBDIR` and deletes the comment.
 14. On PR merge, the `deploy-on-merge` job checks out the exact merge commit, builds `_site/`, and deploys to `gh-pages` with a verified commit via the GraphQL API. This ensures deployment even when squash merges contain `[skip ci]` in the commit body.
 
 All jobs have explicit `timeout-minutes` limits (verify: 15, secret-scan: 5, dependency-review: 5, publish: 20, cleanup-preview: 5, deploy-on-merge: 10) to guard against hung builds.
 
-Two GitHub App tokens are used: the primary app token (Hermione1176, `APP_ID`) handles preview deploys and cleanup, while the escalation app token (Harry1176, `ESCALATION_APP_ID`) handles verified commits and merge-triggered deploys. Fork and Dependabot PRs still build `_site/`, but skip preview deployment because the tokens are unavailable.
+Two GitHub App tokens are minted: the primary app token (Hermione1176, `APP_ID`) is a fallback for non-deploy operations like thumbnail invalidation, while the escalation app token (Harry1176, `ESCALATION_APP_ID`) handles all write operations including verified commits, preview deploys, preview cleanup, main site deploys, and merge-triggered deploys. Fork and Dependabot PRs still build `_site/`, but skip deployment because the tokens are unavailable.
 
 Same-repo Dependabot pip PRs use `.github/workflows/refresh-python-locks.yml` to compute refreshed lock files on the PR branch and `.github/workflows/commit-python-locks.yml` to validate the uploaded artifact contents in a follow-up trusted run before committing them if the PR head is unchanged.
 

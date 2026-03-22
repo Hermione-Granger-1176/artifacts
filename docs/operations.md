@@ -11,7 +11,7 @@ make setup      # create .venv, install pinned Python/Node deps, install Chromiu
 make check-local # run the fast local gate without browser smoke or thumbnails
 make web        # run browser smoke tests and thumbnail generation
 make check      # run the full release gate, including local + web checks, index generation, and site assembly
-make coverage-js # print Node test-runner coverage for js/app.js, js/modules/*.js, and the verified-commit action module
+make coverage-js # print Node test-runner coverage for js/app.js, js/modules/*.js, the verified-commit action module, and the deploy-site action module
 make editorconfig-check # verify supported .editorconfig rules for covered repository files
 make security   # run the local dependency audits used in CI
 make validate   # fail fast on incomplete or invalid top-level artifact directories
@@ -59,7 +59,7 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 - Workflow trust-policy, lock-artifact validation, thumbnail invalidation, and fallback PR detection logic is intentionally kept thin; `scripts/workflow_helpers.py` owns those tested helper paths.
 - Trusted pull requests publish preview deployments under `pr-preview/pr-<number>/`.
 - Pull requests leave the source branch untouched while preview comments provide the live preview link.
-- Preview deploys use the GitHub App token.
+- All deploys (main, preview, and cleanup) use the escalation app token (Harry1176) and create verified commits via the GraphQL API (`deploy-verified.mjs`).
 - Preview comments use the workflow token, appear as `github-actions[bot]`, and are recreated on each push so the newest preview stays at the bottom of the PR timeline.
 - Fork-based and Dependabot PRs still run checks and site assembly, but skip preview deployment because the app token is unavailable in those contexts.
 
@@ -73,7 +73,7 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 - Workflow linting runs through `scripts/lint-workflows.mjs`, which wraps `actionlint` across `.github/workflows/*.yml` and `.github/workflows/*.yaml`.
 - `pytest` enforces 100% line coverage for the `scripts` package.
 - `node --test` covers shared browser and workflow helper modules under `tests/js/`.
-- `make coverage-js` uses Node's built-in experimental coverage output as the no-new-dependencies approximation for JavaScript coverage reporting and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across `js/app.js`, `js/modules/*.js`, and `.github/actions/verified-commit/*.mjs`.
+- `make coverage-js` uses Node's built-in experimental coverage output as the no-new-dependencies approximation for JavaScript coverage reporting and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across `js/app.js`, `js/modules/*.js`, `.github/actions/verified-commit/*.mjs`, and `.github/actions/deploy-site/*.mjs`.
 - `make security` mirrors the practical local dependency audits in CI; Gitleaks and GitHub dependency review remain CI-only because this repo does not vendor those scanners locally.
 - Playwright smoke tests validate the built root gallery and `404.html` routing behavior through `make test-browser`.
 - `make check-local` is the fast local gate without browser smoke or thumbnail generation.
