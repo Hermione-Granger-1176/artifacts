@@ -1,0 +1,793 @@
+/* Root gallery foundation styles */
+/* ================================================================
+   Custom Properties — Light Theme (Default)
+   ================================================================ */
+
+:root {
+  --color-bg-primary: #f5efe6;
+  --color-bg-secondary: #ede5d8;
+  --color-bg-card: #fefcf8;
+  --color-text-primary: #2d2017;
+  --color-text-secondary: #6b5c4d;
+  --color-accent: #d4725c;
+  --color-accent-hover: #c0604a;
+  --color-accent-ring: rgba(212, 114, 92, 0.25);
+  --color-accent-ghost: rgba(212, 114, 92, 0.1);
+  --color-page-paper: #fefcf8;
+  --color-page-shadow: rgba(0, 0, 0, 0.08);
+  --color-border: rgba(45, 32, 23, 0.1);
+  --color-border-solid: #d4cfc8;
+  --font-body: 'Caveat', cursive;
+  --font-display: 'Fredoka One', cursive;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-note: 6px;
+  --radius-book: 8px;
+  --radius-pill: 999px;
+  --transition-fast: 0.2s;
+  --book-sheet-min-height: 800px;
+  --book-sheet-min-height-tablet: 820px;
+  --gallery-page-padding-block: 1.2rem;
+  --gallery-page-padding-top: var(--gallery-page-padding-block);
+  --gallery-page-padding-bottom: var(--gallery-page-padding-block);
+  --gallery-slice-padding: 1.2rem;
+  --gallery-card-gap: 1.25rem;
+  --desk-note-size: 100px;
+  --desk-note-gap: 0.6rem;
+  --desk-note-offset-top: 6rem;
+
+  /* Shared aliases used across the gallery styles. */
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --accent: var(--color-accent);
+  --accent-hover: var(--color-accent-hover);
+  --accent-ring: var(--color-accent-ring);
+  --accent-ghost: var(--color-accent-ghost);
+  --border-color: var(--color-border);
+  --border-solid: var(--color-border-solid);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --card-color-1: #f0d4c8;
+  --card-color-2: #c8e0d4;
+  --card-color-3: #d0d4f0;
+  --card-color-4: #f0e0c8;
+  --card-color-5: #e0c8f0;
+  --card-color-6: #c8e8f0;
+  --card-color-7: #f0eac8;
+  --card-color-8: #f0c8d8;
+  --card-color-9: #d0f0cc;
+  --card-color-10: #f0d8c8;
+  --card-color-11: #c8dcf0;
+  --card-color-12: #e0d8c8;
+}
+
+/* ================================================================
+   Custom Properties — Dark Theme
+   ================================================================ */
+
+[data-theme="dark"] {
+  --color-bg-primary: #1e1a14;
+  --color-bg-secondary: #2a2520;
+  --color-bg-card: #363028;
+  --color-text-primary: #e8ddd0;
+  --color-text-secondary: #b39f8d;
+  --color-accent: #e8856a;
+  --color-accent-hover: #f09a7e;
+  --color-accent-ring: rgba(232, 133, 106, 0.25);
+  --color-accent-ghost: rgba(232, 133, 106, 0.12);
+  --color-page-paper: #332e26;
+  --color-page-shadow: rgba(0, 0, 0, 0.3);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-solid: #4a3e30;
+
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --accent: var(--color-accent);
+  --accent-hover: var(--color-accent-hover);
+  --accent-ring: var(--color-accent-ring);
+  --accent-ghost: var(--color-accent-ghost);
+  --border-color: var(--color-border);
+  --border-solid: var(--color-border-solid);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.32);
+  --card-color-1: #4d3f38;
+  --card-color-2: #384d42;
+  --card-color-3: #3e4050;
+  --card-color-4: #4d4538;
+  --card-color-5: #443850;
+  --card-color-6: #384450;
+  --card-color-7: #4d4a38;
+  --card-color-8: #4d3842;
+  --card-color-9: #3e4d3a;
+  --card-color-10: #4d4238;
+  --card-color-11: #384050;
+  --card-color-12: #44403a;
+}
+
+/* ================================================================
+   Reset & Base
+   ================================================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  background: var(--color-bg-primary);
+  overflow-x: hidden;
+}
+
+body.detail-open {
+  overflow: hidden;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* ================================================================
+   Utility
+   ================================================================ */
+
+.hidden {
+  display: none !important;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ================================================================
+   Layout Stacking
+   ================================================================ */
+
+.header,
+.container,
+.footer,
+.scroll-top {
+  position: relative;
+  z-index: 1;
+}
+
+/* ================================================================
+   Header
+   ================================================================ */
+
+.header {
+  position: relative;
+  z-index: 1;
+  padding: 0.5rem clamp(1rem, 2vw, 1.6rem) 0.15rem;
+  background: var(--color-bg-primary);
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.95rem 1.25rem 1.2rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ================================================================
+   Logo
+   ================================================================ */
+
+.logo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.95rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.logo-icon {
+  flex-shrink: 0;
+}
+
+.logo-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.logo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 2vw, 2.3rem);
+  line-height: 1;
+  color: var(--color-text-primary);
+}
+
+.logo-sub {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+}
+
+/* ================================================================
+   Theme Toggle
+   ================================================================ */
+
+.btn-icon {
+  width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: transform var(--transition-fast) ease, color var(--transition-fast) ease;
+}
+
+.btn-icon:hover {
+  color: var(--accent);
+  transform: rotate(18deg) scale(1.08);
+}
+
+/* Light (default): show sun, hide moon */
+.icon-moon {
+  display: none;
+}
+
+/* Dark: show moon, hide sun */
+[data-theme="dark"] .icon-sun {
+  display: none;
+}
+
+[data-theme="dark"] .icon-moon {
+  display: block;
+}
+
+/* ================================================================
+   Runtime Error
+   ================================================================ */
+
+.runtime-error {
+  width: min(100% - 2rem, 640px);
+  margin: 1rem auto 0;
+  padding: 0.9rem 1.15rem;
+  border: 1px solid rgba(192, 57, 43, 0.35);
+  border-radius: 18px;
+  background: rgba(192, 57, 43, 0.14);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.runtime-error p {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+/* ================================================================
+   Book Layout
+   ================================================================ */
+
+.book-layout {
+  position: relative;
+  width: min(100%, 1720px);
+  margin: 0 auto;
+  padding: 0.4rem clamp(0.5rem, 2.5vw, 2rem) 2.5rem;
+  display: grid;
+  grid-template-columns: minmax(180px, 216px) minmax(0, 1fr) minmax(180px, 216px);
+  column-gap: clamp(0.35rem, 1vw, 0.9rem);
+  align-items: start;
+}
+
+/* ================================================================
+   Book Shell & Cover
+   ================================================================ */
+
+.book-shell {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1;
+  width: min(100%, 1060px);
+  justify-self: center;
+  margin-top: 0.4rem;
+  perspective: 1400px;
+}
+
+.book-cover {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  pointer-events: none;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.book-cover-face,
+.book-cover-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 0 var(--radius-book) var(--radius-book) 0;
+  backface-visibility: hidden;
+}
+
+.book-cover-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: clamp(2rem, 5vw, 4rem);
+  background: #c25540;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-left: none;
+  box-shadow: 4px 4px 20px rgba(0, 0, 0, 0.1);
+  z-index: 2;
+}
+
+.book-cover-back {
+  background: var(--color-page-paper);
+  border: 1px solid var(--color-border-solid);
+  transform: rotateY(180deg);
+  z-index: 1;
+  border-radius: var(--radius-book) 0 0 var(--radius-book);
+  box-shadow: inset 4px 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.book-cover-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 6vw, 5rem);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.book-cover-author {
+  margin: 1.5rem 0 0;
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.03em;
+}
+
+.book-cover-sub {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.02em;
+}
+
+.book-shell.is-opening .book-cover,
+.book-shell:not(.is-open) .book-cover {
+  visibility: visible;
+}
+
+.book-shell.is-open .book-cover {
+  visibility: hidden;
+}
+
+/*
+   When the book is closed, clip out the left half so it looks like a right-aligned book.
+   Also hide the left page content so it doesn't leak during animation.
+*/
+.book-shell:not(.is-open) .book-sheet {
+  clip-path: inset(0 0 0 50%);
+}
+
+.book-shell:not(.is-open) .artifact-page-left {
+  opacity: 0;
+}
+
+/*
+   When fully open, unclip the sheet. The cover is hidden, revealing the left page.
+*/
+.book-shell.is-open .book-sheet {
+  clip-path: inset(0 0 0 0);
+}
+
+.book-shell.is-open .artifact-page-left {
+  opacity: 1;
+}
+
+.book-sheet.is-turning {
+  pointer-events: none;
+}
+
+/* ================================================================
+   Toolbar / Filter Area
+   ================================================================ */
+
+.toolbar-ribbon {
+  position: relative;
+  z-index: 5;
+  width: min(100%, 680px);
+  margin: 0 auto 0.75rem;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--color-border-solid);
+  border-radius: 14px;
+  background: var(--color-bg-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ================================================================
+   Search
+   ================================================================ */
+
+.search-wrapper {
+  position: relative;
+  flex: 1 1 320px;
+  min-width: 240px;
+}
+
+#search-input {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 2rem;
+  padding: 0.2rem 3rem 0.2rem 2.8rem;
+  border: 1px solid var(--color-border-solid);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-card);
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+#search-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.search-icon,
+.search-clear {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  transform: translateY(-50%);
+}
+
+.search-icon {
+  left: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.search-clear {
+  right: 0.6rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+/* ================================================================
+   Filter Controls
+   ================================================================ */
+
+.control-cluster,
+.filter-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.sort-toggle,
+.filter-reset,
+.btn-reset-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.8rem;
+  padding: 0.45rem 1rem;
+  border: 1px solid var(--color-border-solid);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.sort-toggle:hover,
+.filter-reset:hover,
+.btn-reset-link:hover,
+.page-btn:hover,
+.detail-close:hover {
+  transform: translateY(-2px);
+}
+
+.sort-toggle.is-oldest .sort-toggle-icon {
+  transform: rotate(180deg);
+}
+
+/* ================================================================
+   Book Sheet (Page)
+   ================================================================ */
+
+.book-sheet {
+  position: relative;
+  width: 100%;
+  height: var(--book-sheet-min-height);
+  min-height: var(--book-sheet-min-height);
+  border-radius: var(--radius-book);
+  background: transparent;
+  box-shadow:
+    1px 1px 0 var(--color-page-paper),
+    2px 2px 0 rgba(0, 0, 0, 0.06),
+    3px 3px 0 var(--color-page-paper),
+    4px 4px 0 rgba(0, 0, 0, 0.06),
+    5px 5px 0 var(--color-page-paper),
+    6px 6px 0 rgba(0, 0, 0, 0.06),
+    7px 7px 0 var(--color-page-paper),
+    8px 8px 0 rgba(0, 0, 0, 0.06),
+    9px 9px 0 var(--color-page-paper),
+    10px 10px 0 rgba(0, 0, 0, 0.04),
+    10px 10px 16px var(--color-page-shadow);
+}
+
+.book-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: var(--gallery-page-padding-block) 2.1rem var(--gallery-page-padding-block);
+  border-radius: var(--radius-book);
+  background: var(--color-bg-secondary);
+  border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Page gutter shadows — subtle for depth */
+.book-inner::before,
+.book-inner::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(50% - 16px);
+  pointer-events: none;
+}
+
+.book-inner::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.03), transparent 18%);
+}
+
+.book-inner::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.03), transparent 18%);
+}
+
+/* ================================================================
+   Filter Notes (Desk Notes)
+   ================================================================ */
+
+.desk-notes {
+  grid-column: 1 / -1;
+  display: contents;
+  pointer-events: none;
+}
+
+.desk-notes-left {
+  grid-column: 1;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: repeat(2, var(--desk-note-size));
+  gap: var(--desk-note-gap);
+  align-content: start;
+  align-self: start;
+  justify-items: end;
+  justify-self: end;
+  padding-top: var(--desk-note-offset-top);
+}
+
+.desk-notes-right {
+  grid-column: 3;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: repeat(2, var(--desk-note-size));
+  gap: var(--desk-note-gap);
+  align-content: start;
+  align-self: start;
+  justify-items: start;
+  justify-self: start;
+  padding-top: var(--desk-note-offset-top);
+}
+
+.desk-note {
+  position: relative;
+  width: var(--desk-note-size);
+  height: var(--desk-note-size);
+  padding: 1rem;
+  border: none;
+  border-radius: 2px;
+  background: var(--note-color, #f5e6a3);
+  color: #3d2e1f;
+  font-family: 'Caveat', cursive;
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  cursor: pointer;
+  box-shadow:
+    2px 4px 6px rgba(0, 0, 0, 0.1),
+    inset 0 0 20px rgba(0, 0, 0, 0.05);
+  transform: rotate(var(--rotate, 0deg));
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
+}
+
+.desk-note::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  border-radius: 1px;
+}
+
+.desk-note:hover {
+  z-index: 100;
+  opacity: 1;
+  transform: rotate(calc(var(--rotate, 0deg) * 0.5)) scale(1.05) translateY(-4px);
+  box-shadow:
+    4px 8px 12px rgba(0, 0, 0, 0.15),
+    inset 0 0 20px rgba(0, 0, 0, 0.05);
+}
+
+.desk-note.is-active {
+  opacity: 1;
+  z-index: 50;
+  border: 2px solid #3d2e1f;
+  box-shadow:
+    4px 8px 12px rgba(0, 0, 0, 0.15),
+    inset 0 0 20px rgba(0, 0, 0, 0.05);
+}
+
+/* ================================================================
+   Book Spine
+   ================================================================ */
+
+.book-spine {
+  position: absolute;
+  top: 1rem;
+  bottom: 1rem;
+  left: 50%;
+  z-index: 5;
+  width: 6px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    rgba(0, 0, 0, 0.06) 0%,
+    rgba(0, 0, 0, 0.14) 50%,
+    rgba(0, 0, 0, 0.06) 100%);
+  border-radius: 3px;
+}
+
+/* ================================================================
+   Scroll-to-Top
+   ================================================================ */
+
+.scroll-top {
+  position: fixed;
+  right: 1.4rem;
+  bottom: 1.4rem;
+  width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-solid);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
+  transition: opacity var(--transition-fast) ease, transform var(--transition-fast) ease;
+}
+
+.scroll-top.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* ================================================================
+   Footer
+   ================================================================ */
+
+.footer {
+  padding: 0 1rem 2.2rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+[data-theme="dark"] .footer {
+  color: rgba(232, 221, 208, 0.72);
+}
+
+.footer p {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.footer a {
+  color: inherit;
+}
+
+/* ================================================================
+   Focus-Visible
+   ================================================================ */
+
+#search-input:focus-visible,
+.sort-toggle:focus-visible,
+.filter-reset:focus-visible,
+.artifact-card:focus-visible,
+.page-btn:focus-visible,
+.detail-close:focus-visible,
+.scroll-top:focus-visible,
+.btn-reset-link:focus-visible,
+.btn-icon:focus-visible,
+.footer a:focus-visible {
+  outline: 3px solid var(--accent-ring);
+  outline-offset: 3px;
+}
