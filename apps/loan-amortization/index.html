@@ -305,16 +305,8 @@ function calcEMI(P, r, n) {
 function getExtraForPeriod(p) {
   let total = 0;
   extras.forEach(e => {
-    switch (e.type) {
-      case 'onetime':
-        if (e.period === p) total += e.amount;
-        break;
-      case 'recurring':
-        if (p >= e.startPeriod && (p - e.startPeriod) % e.every === 0) total += e.amount;
-        break;
-      default:
-        break;
-    }
+    if (e.type === 'onetime' && e.period === p) total += e.amount;
+    else if (e.type === 'recurring' && p >= e.startPeriod && (p - e.startPeriod) % e.every === 0) total += e.amount;
   });
   return total;
 }
@@ -324,11 +316,11 @@ function runSchedule(P, r, n, withExtras) {
   let balance = P, totalInterest = 0, totalExtra = 0;
   const balances = [], prinParts = [], intParts = [], cumPrin = [], cumInt = [], rows = [];
   let period = 0, rp = 0, ri = 0;
-  for (; balance > 0.01 && period < 2000; period += 1) {
-    const currentPeriod = period + 1;
+  while (balance > 0.01 && period < 2000) {
+    period++;
     const intPart = balance * r;
     let prinPart = emi - intPart;
-    let extraAmt = withExtras ? getExtraForPeriod(currentPeriod) : 0;
+    let extraAmt = withExtras ? getExtraForPeriod(period) : 0;
     if (prinPart + extraAmt >= balance) {
       prinPart = Math.min(prinPart, balance);
       extraAmt = Math.min(extraAmt, balance - prinPart);
@@ -342,7 +334,7 @@ function runSchedule(P, r, n, withExtras) {
     intParts.push(Math.round(intPart));
     cumPrin.push(Math.round(rp));
     cumInt.push(Math.round(ri));
-    rows.push({ period: currentPeriod, emi: intPart + prinPart, principal: prinPart, interest: intPart, extra: extraAmt, balance });
+    rows.push({ period, emi: intPart + prinPart, principal: prinPart, interest: intPart, extra: extraAmt, balance });
   }
   let breakEven = null;
   for (let i = 1; i < cumPrin.length; i++) {
@@ -375,7 +367,7 @@ function recalc() {
   const extra = runSchedule(P, r, n, true);
   const saved = base.totalInterest - extra.totalInterest;
   const periodsSaved = base.periods - extra.periods;
-  const totalPaid = P + extra.totalInterest + extra.totalExtra;
+  const totalPaid = P + extra.totalInterest;
   const costRatio = totalPaid / P;
 
   $('metrics').innerHTML = `
@@ -384,8 +376,8 @@ function recalc() {
       ${saved > 1 ? `<div class="sub"><span class="savings-pill">Save ${fmt(saved)}</span></div>` : ''}</div>
     <div class="metric"><div class="label">Payoff in <span class="info-tip" data-tip="Number of ${fp.label.toLowerCase()}s until the loan is fully paid off">?</span></div><div class="value">${extra.periods} ${fp.label.toLowerCase()}s</div>
       ${periodsSaved > 0 ? `<div class="sub"><span class="savings-pill">${periodsSaved} earlier</span></div>` : ''}</div>
-    <div class="metric"><div class="label">Loan cost ratio <span class="info-tip" data-tip="Total amount paid divided by loan amount. 1.20x means you pay 20% extra in interest and fees">?</span></div><div class="value">${costRatio.toFixed(2)}x</div>
-      <div class="sub">Total paid: ${fmt(totalPaid)}</div></div>
+    <div class="metric"><div class="label">Loan cost ratio <span class="info-tip" data-tip="(Principal + Interest) / Principal. Shows how much you pay per $1 borrowed. Lower is better.">?</span></div><div class="value">${costRatio.toFixed(2)}x</div>
+      <div class="sub">Interest is ${((costRatio - 1) * 100).toFixed(1)}% of loan</div></div>
     <div class="metric"><div class="label">Break-even <span class="info-tip" data-tip="The ${fp.label.toLowerCase()} when your cumulative principal paid surpasses cumulative interest paid">?</span></div><div class="value">${extra.breakEven ? fp.label + ' ' + extra.breakEven : 'N/A'}</div>
       <div class="sub">Principal > interest</div></div>
   `;
@@ -393,10 +385,7 @@ function recalc() {
   destroyCharts();
 
   const maxP = Math.max(base.periods, extra.periods);
-  const pad = (arr, len) => {
-    const missing = Math.max(0, len - arr.length);
-    return missing > 0 ? [...arr, ...Array(missing).fill(0)] : [...arr];
-  };
+  const pad = (arr, len) => { const a = [...arr]; while (a.length < len) a.push(0); return a; };
   const labels = Array.from({ length: maxP }, (_, i) => i + 1);
   const xTitle = fp.label;
 
