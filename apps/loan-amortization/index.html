@@ -23,24 +23,26 @@ h1 { font-size: 20px; font-weight: 500; margin-bottom: 1.5rem; }
 .input-card select:focus { outline: none; border-color: #378ADD; }
 
 .metrics-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 1.5rem; }
-.metric { background: #fff; border-radius: 10px; padding: 0.75rem 1rem; border: 0.5px solid rgba(0,0,0,0.1); }
+.metric { position: relative; background: #fff; border-radius: 10px; padding: 0.75rem 1rem; padding-right: 28px; border: 0.5px solid rgba(0,0,0,0.1); }
 .metric .label { font-size: 11px; color: #666; margin-bottom: 4px; }
 .metric .value { font-size: 18px; font-weight: 500; }
 .metric .sub { font-size: 11px; color: #666; margin-top: 2px; }
+.metric .metric-tip { position: absolute; top: 8px; right: 8px; }
 
 .extra-section { background: #fff; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; border: 0.5px solid rgba(0,0,0,0.1); }
-.extra-item { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 0.5px solid rgba(0,0,0,0.08); flex-wrap: nowrap; }
-.extra-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.extra-item { position: relative; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px 12px; padding-right: 32px; background: #f9f9f7; border: 0.5px solid rgba(0,0,0,0.08); border-radius: 10px; flex-wrap: nowrap; }
+.extra-item:last-child { margin-bottom: 0; }
+.extra-item .card-tip { position: absolute; top: 6px; right: 8px; }
 .type-toggle { display: flex; border: 0.5px solid rgba(0,0,0,0.2); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
-.type-toggle button { padding: 4px 9px; font-size: 12px; border: none; background: none; color: #666; cursor: pointer; white-space: nowrap; font-family: inherit; }
-.type-toggle button.active { background: #f0f0ee; color: #1a1a1a; font-weight: 500; }
+.type-toggle button { padding: 5px 10px; font-size: 12px; border: none; background: none; color: #666; cursor: pointer; white-space: nowrap; font-family: inherit; }
+.type-toggle button.active { background: #fff; color: #1a1a1a; font-weight: 500; }
 .amt-group { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
 .amt-group span { font-size: 13px; color: #666; }
-.amt-group input { width: 90px; text-align: right; padding: 5px 8px; border: 0.5px solid rgba(0,0,0,0.15); border-radius: 8px; font-size: 13px; font-family: inherit; }
-.param-group { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.amt-group input { width: 110px; text-align: right; padding: 6px 10px; border: 0.5px solid rgba(0,0,0,0.15); border-radius: 8px; font-size: 14px; font-family: inherit; }
+.param-group { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .param-group span { font-size: 12px; color: #666; white-space: nowrap; }
-.param-group input { width: 45px; text-align: right; padding: 5px 6px; border: 0.5px solid rgba(0,0,0,0.15); border-radius: 8px; font-size: 13px; font-family: inherit; }
-.btn-remove { background: none; border: none; color: #a32d2d; font-size: 15px; padding: 0 6px; cursor: pointer; flex-shrink: 0; }
+.param-group input { width: 55px; text-align: right; padding: 6px 8px; border: 0.5px solid rgba(0,0,0,0.15); border-radius: 8px; font-size: 14px; font-family: inherit; }
+.btn-remove { background: none; border: none; color: #a32d2d; font-size: 18px; padding: 0; cursor: pointer; flex-shrink: 0; position: absolute; bottom: 8px; right: 10px; }
 .btn { cursor: pointer; font-size: 13px; padding: 6px 14px; border-radius: 8px; font-family: inherit; }
 .btn-add { background: #e6f1fb; color: #185fa5; border: none; }
 .btn-add:hover { background: #b5d4f4; }
@@ -124,6 +126,14 @@ tr.year-row td { background: #f7f7f5; font-weight: 500; }
       <option value="biweekly">Bi-weekly</option>
       <option value="weekly">Weekly</option>
     </select>
+    <div id="biweeklyMode" style="display:none;margin-top:10px;">
+      <div style="font-size:11px;color:#666;margin-bottom:6px;">Bi-weekly method</div>
+      <div class="type-toggle" style="width:100%;">
+        <button id="bwTrue" class="active" style="flex:1;text-align:center;" onclick="setBwMode('true')">True</button>
+        <button id="bwAccel" style="flex:1;text-align:center;" onclick="setBwMode('accelerated')">Accelerated</button>
+      </div>
+      <div id="bwDesc" style="font-size:10px;color:#999;margin-top:4px;">EMI recalculated for 26 periods per year</div>
+    </div>
   </div>
 </div>
 
@@ -133,7 +143,7 @@ tr.year-row td { background: #f7f7f5; font-weight: 500; }
     <button class="btn btn-add" id="btnAdd">+ Add</button>
   </div>
   <div id="extraList"></div>
-  <div style="font-size: 12px; color: #999; margin-top: 4px;">* Hover over <span class="info-tip" data-tip="These icons explain each field" style="display:inline-flex;vertical-align:middle;margin:0 2px;">?</span> for field explanations. Periods adapt to your chosen EMI frequency.</div>
+  <div style="font-size: 12px; color: #999; margin-top: 4px;">Hover over <span style="display:inline-flex;vertical-align:middle;width:14px;height:14px;border-radius:50%;background:#e8e8e6;color:#666;font-size:9px;font-weight:600;align-items:center;justify-content:center;">?</span> on each card for a summary. Periods adapt to your chosen EMI frequency.</div>
 </div>
 
 <div class="metrics-grid" id="metrics"></div>
@@ -158,7 +168,7 @@ tr.year-row td { background: #f7f7f5; font-weight: 500; }
       <h2>Scenario comparison</h2>
       <div class="chart-legend">
         <span><span class="dot" style="background:#378ADD;"></span>Principal</span>
-        <span><span class="dot" style="background:#D85A30;"></span>Interest</span>
+        <span><span class="dot" style="background:#E24B4A;"></span>Interest</span>
         <span><span class="dot" style="background:#1D9E75;"></span>Extras</span>
       </div>
       <div style="position:relative;width:100%;height:240px;"><canvas id="compChart"></canvas></div>
@@ -166,7 +176,7 @@ tr.year-row td { background: #f7f7f5; font-weight: 500; }
     <div class="chart-card">
       <h2>Interest saved</h2>
       <div class="chart-legend">
-        <span><span class="dot" style="background:#D85A30;"></span>Interest paid</span>
+        <span><span class="dot" style="background:#E24B4A;"></span>Interest paid</span>
         <span><span class="dot" style="background:#1D9E75;"></span>Interest saved</span>
       </div>
       <div style="position:relative;width:100%;height:240px;"><canvas id="savingsChart"></canvas></div>
@@ -174,20 +184,22 @@ tr.year-row td { background: #f7f7f5; font-weight: 500; }
   </div>
 
   <div class="chart-card">
-    <h2>Cumulative principal vs interest paid</h2>
+    <h2>Cumulative payments</h2>
     <div class="chart-legend">
       <span><span class="dot" style="background:#378ADD;"></span>Cumulative principal</span>
-      <span><span class="dot" style="background:#D85A30;"></span>Cumulative interest</span>
-      <span style="font-style:italic; color:#999;">Vertical line = break-even</span>
+      <span><span class="dot" style="background:#1D9E75;"></span>Cumulative extras</span>
+      <span><span class="dot" style="background:#E24B4A;"></span>Cumulative interest</span>
+      <span style="font-style:italic; color:#999;">Dashed line = break-even</span>
     </div>
     <div style="position:relative;width:100%;height:280px;"><canvas id="cumulChart"></canvas></div>
   </div>
 
   <div class="chart-card">
-    <h2>Monthly breakdown (principal vs interest)</h2>
+    <h2>Per-period breakdown</h2>
     <div class="chart-legend">
-      <span><span class="dot" style="background:#378ADD;"></span>Principal portion</span>
-      <span><span class="dot" style="background:#D85A30;"></span>Interest portion</span>
+      <span><span class="dot" style="background:#378ADD;"></span>Principal</span>
+      <span><span class="dot" style="background:#1D9E75;"></span>Extra payment</span>
+      <span><span class="dot" style="background:#E24B4A;"></span>Interest</span>
     </div>
     <div style="position:relative;width:100%;height:260px;"><canvas id="monthlyChart"></canvas></div>
   </div>
@@ -198,6 +210,7 @@ tr.year-row td { background: #f7f7f5; font-weight: 500; }
     <button class="active" id="btnPeriod">Per period</button>
     <button id="btnYearly">Yearly summary</button>
   </div>
+  <div id="tableSummary" style="display:flex;gap:12px;flex-wrap:wrap;padding:10px 0;font-size:13px;"></div>
   <div class="table-wrap" id="periodTableWrap">
     <table>
       <thead><tr><th>#</th><th>EMI</th><th>Principal</th><th>Interest</th><th>Extra</th><th>Balance</th></tr></thead>
@@ -216,13 +229,16 @@ tr.year-row td { background: #f7f7f5; font-weight: 500; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script>
+Chart.defaults.plugins.datalabels = false;
 const $ = id => document.getElementById(id);
 const fmt = n => '$' + Math.round(n).toLocaleString('en-US');
 
 let extras = [];
 let nextId = 0;
 let charts = {};
+let bwMode = 'true';
 
 function getFreq() {
   return $('selFreq').value;
@@ -238,6 +254,20 @@ function freqParams() {
     weekly:     { periodsPerYear: 52, label: 'Week' }
   };
   return map[getFreq()];
+}
+
+function setBwMode(mode) {
+  bwMode = mode;
+  $('bwTrue').className = mode === 'true' ? 'active' : '';
+  $('bwAccel').className = mode === 'accelerated' ? 'active' : '';
+  $('bwDesc').textContent = mode === 'true'
+    ? 'EMI recalculated for 26 periods per year'
+    : 'Monthly EMI / 2 paid 26 times (13 monthly payments per year)';
+  recalc();
+}
+
+function updateBiweeklyToggle() {
+  $('biweeklyMode').style.display = getFreq() === 'biweekly' ? '' : 'none';
 }
 
 function addExtra() {
@@ -257,8 +287,12 @@ function renderExtras() {
     const item = document.createElement('div');
     item.className = 'extra-item';
     const isRec = e.type === 'recurring';
+    const tipText = isRec
+      ? `Pays $${e.amount.toLocaleString()} every ${e.every === 1 ? pl : e.every + ' ' + pl + 's'} starting from ${pl} ${e.startPeriod}`
+      : `One-time payment of $${e.amount.toLocaleString()} at ${pl} ${e.period}`;
     if (isRec) {
       item.innerHTML = `
+        <span class="info-tip card-tip" data-tip="${tipText}">?</span>
         <div class="type-toggle">
           <button class="active" onclick="setType(${e.id},'recurring')">Recurring</button>
           <button onclick="setType(${e.id},'onetime')">One-time</button>
@@ -269,16 +303,15 @@ function renderExtras() {
         <div class="param-group"><span>every</span>
           <input type="number" value="${e.every}" min="1" max="60" oninput="updateField(${e.id},'every',this.value)">
           <span>${pl}(s)</span>
-          <span class="info-tip" data-tip="How often this extra payment repeats (1 = every ${pl})">?</span>
         </div>
         <div class="param-group"><span>from</span>
           <input type="number" value="${e.startPeriod}" min="1" max="2000" oninput="updateField(${e.id},'startPeriod',this.value)">
-          <span class="info-tip" data-tip="The ${pl} number when this recurring payment starts">?</span>
         </div>
         <button class="btn-remove" onclick="removeExtra(${e.id})">x</button>
       `;
     } else {
       item.innerHTML = `
+        <span class="info-tip card-tip" data-tip="${tipText}">?</span>
         <div class="type-toggle">
           <button onclick="setType(${e.id},'recurring')">Recurring</button>
           <button class="active" onclick="setType(${e.id},'onetime')">One-time</button>
@@ -288,7 +321,6 @@ function renderExtras() {
         </div>
         <div class="param-group"><span>at ${pl}</span>
           <input type="number" value="${e.period}" min="1" max="2000" oninput="updateField(${e.id},'period',this.value)">
-          <span class="info-tip" data-tip="The specific ${pl} number when this lump sum is paid">?</span>
         </div>
         <button class="btn-remove" onclick="removeExtra(${e.id})">x</button>
       `;
@@ -311,11 +343,11 @@ function getExtraForPeriod(p) {
   return total;
 }
 
-function runSchedule(P, r, n, withExtras) {
-  const emi = calcEMI(P, r, n);
+function runSchedule(P, r, n, withExtras, emiOverride) {
+  const emi = emiOverride || calcEMI(P, r, n);
   let balance = P, totalInterest = 0, totalExtra = 0;
-  const balances = [], prinParts = [], intParts = [], cumPrin = [], cumInt = [], rows = [];
-  let period = 0, rp = 0, ri = 0;
+  const balances = [], prinParts = [], intParts = [], extraParts = [], cumPrin = [], cumInt = [], cumExtra = [], rows = [];
+  let period = 0, rp = 0, ri = 0, re = 0;
   while (balance > 0.01 && period < 2000) {
     period++;
     const intPart = balance * r;
@@ -328,19 +360,21 @@ function runSchedule(P, r, n, withExtras) {
     balance -= (prinPart + extraAmt);
     if (balance < 0.01) balance = 0;
     totalInterest += intPart; totalExtra += extraAmt;
-    rp += prinPart; ri += intPart;
+    rp += prinPart; ri += intPart; re += extraAmt;
     balances.push(Math.round(balance));
     prinParts.push(Math.round(prinPart));
     intParts.push(Math.round(intPart));
+    extraParts.push(Math.round(extraAmt));
     cumPrin.push(Math.round(rp));
     cumInt.push(Math.round(ri));
+    cumExtra.push(Math.round(re));
     rows.push({ period, emi: intPart + prinPart, principal: prinPart, interest: intPart, extra: extraAmt, balance });
   }
   let breakEven = null;
   for (let i = 1; i < cumPrin.length; i++) {
-    if (cumPrin[i] >= cumInt[i] && cumPrin[i - 1] < cumInt[i - 1]) { breakEven = i + 1; break; }
+    if (cumPrin[i] + cumExtra[i] >= cumInt[i] && cumPrin[i - 1] + cumExtra[i - 1] < cumInt[i - 1]) { breakEven = i + 1; break; }
   }
-  return { emi, periods: period, totalInterest, totalExtra, balances, prinParts, intParts, cumPrin, cumInt, rows, breakEven };
+  return { emi, periods: period, totalInterest, totalExtra, balances, prinParts, intParts, extraParts, cumPrin, cumInt, cumExtra, rows, breakEven };
 }
 
 function syncInputsFromSliders() {
@@ -353,7 +387,14 @@ function parseNum(str) { return +str.replace(/[^0-9.\-]/g, ''); }
 function destroyCharts() { Object.values(charts).forEach(c => c.destroy()); charts = {}; }
 
 const tickC = '#888', gridC = 'rgba(0,0,0,0.06)';
-const dollarTick = v => (v < 0 ? '-' : '') + '$' + (Math.abs(v) >= 1000 ? (Math.abs(v) / 1000).toFixed(0) + 'k' : Math.abs(v));
+const dollarTick = v => {
+  const a = Math.abs(v);
+  const sign = v < 0 ? '-' : '';
+  if (a >= 1000000) return sign + '$' + (a / 1000000).toFixed(1) + 'M';
+  if (a >= 10000) return sign + '$' + Math.round(a / 1000) + 'k';
+  if (a >= 1000) return sign + '$' + (a / 1000).toFixed(1) + 'k';
+  return sign + '$' + Math.round(a);
+};
 
 function recalc() {
   const P = +$('slPrincipal').value;
@@ -363,22 +404,30 @@ function recalc() {
   const r = annRate / 100 / fp.periodsPerYear;
   const n = years * fp.periodsPerYear;
 
-  const base = runSchedule(P, r, n, false);
-  const extra = runSchedule(P, r, n, true);
+  let emiOverride = null;
+  if (getFreq() === 'biweekly' && bwMode === 'accelerated') {
+    const monthlyR = annRate / 100 / 12;
+    const monthlyN = years * 12;
+    emiOverride = calcEMI(P, monthlyR, monthlyN) / 2;
+  }
+
+  const base = runSchedule(P, r, n, false, emiOverride);
+  const extra = runSchedule(P, r, n, true, emiOverride);
   const saved = base.totalInterest - extra.totalInterest;
   const periodsSaved = base.periods - extra.periods;
   const totalPaid = P + extra.totalInterest;
   const costRatio = totalPaid / P;
 
   $('metrics').innerHTML = `
-    <div class="metric"><div class="label">${fp.label}ly EMI <span class="info-tip" data-tip="Fixed payment amount each ${fp.label.toLowerCase()}, excluding extra payments">?</span></div><div class="value">${fmt(base.emi)}</div></div>
-    <div class="metric"><div class="label">Total interest <span class="info-tip" data-tip="Total interest you will pay over the loan lifetime with your extra payments applied">?</span></div><div class="value">${fmt(extra.totalInterest)}</div>
-      ${saved > 1 ? `<div class="sub"><span class="savings-pill">Save ${fmt(saved)}</span></div>` : ''}</div>
-    <div class="metric"><div class="label">Payoff in <span class="info-tip" data-tip="Number of ${fp.label.toLowerCase()}s until the loan is fully paid off">?</span></div><div class="value">${extra.periods} ${fp.label.toLowerCase()}s</div>
+    <div class="metric"><span class="info-tip metric-tip" data-tip="Fixed payment amount each ${fp.label.toLowerCase()}, excluding extra payments">?</span><div class="label">${fp.label}ly EMI</div><div class="value">${fmt(base.emi)}</div></div>
+    <div class="metric"><span class="info-tip metric-tip" data-tip="Interest without extras vs with extras applied">?</span><div class="label">Total interest</div><div class="value">${fmt(extra.totalInterest)}</div>
+      ${saved > 1 ? `<div class="sub"><span class="savings-pill">Save ${fmt(saved)}</span></div>` : ''}
+      <div class="sub" style="color:#999;">Without extras: ${fmt(base.totalInterest)}</div></div>
+    <div class="metric"><span class="info-tip metric-tip" data-tip="Number of ${fp.label.toLowerCase()}s until the loan is fully paid off">?</span><div class="label">Payoff in</div><div class="value">${extra.periods} ${fp.label.toLowerCase()}s</div>
       ${periodsSaved > 0 ? `<div class="sub"><span class="savings-pill">${periodsSaved} earlier</span></div>` : ''}</div>
-    <div class="metric"><div class="label">Loan cost ratio <span class="info-tip" data-tip="(Principal + Interest) / Principal. Shows how much you pay per $1 borrowed. Lower is better.">?</span></div><div class="value">${costRatio.toFixed(2)}x</div>
+    <div class="metric"><span class="info-tip metric-tip" data-tip="Principal + total interest. The real cost of your loan.">?</span><div class="label">Total paid</div><div class="value">${fmt(totalPaid)}</div>
       <div class="sub">Interest is ${((costRatio - 1) * 100).toFixed(1)}% of loan</div></div>
-    <div class="metric"><div class="label">Break-even <span class="info-tip" data-tip="The ${fp.label.toLowerCase()} when your cumulative principal paid surpasses cumulative interest paid">?</span></div><div class="value">${extra.breakEven ? fp.label + ' ' + extra.breakEven : 'N/A'}</div>
+    <div class="metric"><span class="info-tip metric-tip" data-tip="The ${fp.label.toLowerCase()} when cumulative principal paid surpasses cumulative interest">?</span><div class="label">Break-even</div><div class="value">${extra.breakEven ? fp.label + ' ' + extra.breakEven : 'N/A'}</div>
       <div class="sub">Principal > interest</div></div>
   `;
 
@@ -399,7 +448,7 @@ function recalc() {
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString() } } },
       scales: {
         x: { title: { display: true, text: xTitle, color: tickC }, ticks: { color: tickC, maxTicksLimit: 12 }, grid: { color: gridC } },
-        y: { title: { display: true, text: 'Balance', color: tickC }, ticks: { color: tickC, callback: dollarTick }, grid: { color: gridC } }
+        y: { beginAtZero: true, title: { display: true, text: 'Balance', color: tickC }, ticks: { color: tickC, callback: dollarTick }, grid: { color: gridC } }
       }
     }
   });
@@ -407,8 +456,8 @@ function recalc() {
   charts.comp = new Chart($('compChart'), {
     type: 'bar',
     data: { labels: ['Without extras', 'With extras'], datasets: [
-      { label: 'Principal', data: [P, P], backgroundColor: '#378ADD' },
-      { label: 'Interest', data: [Math.round(base.totalInterest), Math.round(extra.totalInterest)], backgroundColor: '#D85A30' },
+      { label: 'Principal', data: [P, Math.max(0, Math.round(P - extra.totalExtra))], backgroundColor: '#378ADD' },
+      { label: 'Interest', data: [Math.round(base.totalInterest), Math.round(extra.totalInterest)], backgroundColor: '#E24B4A' },
       { label: 'Extras', data: [0, Math.round(extra.totalExtra)], backgroundColor: '#1D9E75' }
     ] },
     options: { responsive: true, maintainAspectRatio: false,
@@ -419,12 +468,56 @@ function recalc() {
 
   const intPaid = Math.round(extra.totalInterest);
   const intSaved = Math.max(0, Math.round(saved));
+  const intTotal = intPaid + intSaved || 1;
   charts.savings = new Chart($('savingsChart'), {
     type: 'doughnut',
-    data: { labels: ['Interest paid', 'Interest saved'], datasets: [{ data: [intPaid, intSaved], backgroundColor: ['#D85A30', '#1D9E75'], borderWidth: 0, hoverOffset: 4 }] },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '60%',
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.label + ': $' + ctx.parsed.toLocaleString() } } }
-    }
+    data: { labels: ['Interest paid', 'Interest saved'], datasets: [{ data: [intPaid, intSaved], backgroundColor: ['#E24B4A', '#1D9E75'], borderWidth: 2, borderColor: '#fff', hoverOffset: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '55%',
+      layout: { padding: { top: 30, bottom: 30, left: 30, right: 30 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ctx.label + ': $' + ctx.parsed.toLocaleString() } },
+        datalabels: {
+          display: (ctx) => {
+            const v = ctx.dataset.data[ctx.dataIndex];
+            return v > 0 && (v / intTotal) <= 0.95;
+          },
+          anchor: 'end',
+          align: 'end',
+          offset: 8,
+          color: (ctx) => ctx.dataIndex === 0 ? '#993C1D' : '#0F6E56',
+          font: { weight: '500', size: 12 },
+          textAlign: 'center',
+          formatter: (val) => {
+            const pct = Math.round(val / intTotal * 100);
+            return pct + '%\n' + fmt(val);
+          }
+        }
+      }
+    },
+    plugins: [ChartDataLabels, {
+      id: 'centerText',
+      afterDraw(chart) {
+        const ds = chart.data.datasets[0].data;
+        const total = ds.reduce((a, b) => a + b, 0);
+        if (total === 0) return;
+        const dominant = ds.findIndex(v => (v / total) > 0.95);
+        if (dominant === -1) return;
+        const { ctx, chartArea: { left, right, top, bottom } } = chart;
+        const cx = (left + right) / 2;
+        const cy = (top + bottom) / 2;
+        const pct = Math.round(ds[dominant] / total * 100) + '%';
+        const amt = '$' + Math.round(ds[dominant]).toLocaleString('en-US');
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.fillStyle = dominant === 0 ? '#993C1D' : '#0F6E56';
+        ctx.font = '500 22px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillText(pct, cx, cy - 4);
+        ctx.font = '500 13px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillText(amt, cx, cy + 14);
+        ctx.restore();
+      }
+    }]
   });
 
   const annotation = extra.breakEven ? {
@@ -438,14 +531,15 @@ function recalc() {
   charts.cumul = new Chart($('cumulChart'), {
     type: 'line',
     data: { labels: extra.rows.map(r => r.period), datasets: [
-      { label: 'Cumulative principal', data: extra.cumPrin, borderColor: '#378ADD', backgroundColor: 'rgba(55,138,221,0.1)', fill: true, pointRadius: 0, borderWidth: 2, tension: 0.3 },
-      { label: 'Cumulative interest', data: extra.cumInt, borderColor: '#D85A30', backgroundColor: 'rgba(216,90,48,0.1)', fill: true, pointRadius: 0, borderWidth: 2, tension: 0.3 }
+      { label: 'Cumulative principal', data: extra.cumPrin, borderColor: '#378ADD', backgroundColor: 'rgba(55,138,221,0.08)', fill: true, pointRadius: 0, borderWidth: 2, tension: 0.3 },
+      { label: 'Cumulative extras', data: extra.cumExtra, borderColor: '#1D9E75', backgroundColor: 'rgba(29,158,117,0.08)', fill: true, pointRadius: 0, borderWidth: 2, tension: 0.3 },
+      { label: 'Cumulative interest', data: extra.cumInt, borderColor: '#E24B4A', backgroundColor: 'rgba(226,75,74,0.08)', fill: true, pointRadius: 0, borderWidth: 2, tension: 0.3 }
     ] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, ...annotation, tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString() } } },
       scales: {
         x: { title: { display: true, text: xTitle, color: tickC }, ticks: { color: tickC, maxTicksLimit: 12 }, grid: { color: gridC } },
-        y: { ticks: { color: tickC, callback: dollarTick }, grid: { color: gridC } }
+        y: { beginAtZero: true, ticks: { color: tickC, callback: dollarTick }, grid: { color: gridC } }
       }
     }
   });
@@ -453,17 +547,29 @@ function recalc() {
   charts.monthly = new Chart($('monthlyChart'), {
     type: 'line',
     data: { labels: extra.rows.map(r => r.period), datasets: [
-      { label: 'Principal portion', data: extra.prinParts, borderColor: '#378ADD', backgroundColor: 'rgba(55,138,221,0.3)', fill: true, pointRadius: 0, borderWidth: 1.5, tension: 0.3 },
-      { label: 'Interest portion', data: extra.intParts, borderColor: '#D85A30', backgroundColor: 'rgba(216,90,48,0.3)', fill: true, pointRadius: 0, borderWidth: 1.5, tension: 0.3 }
+      { label: 'Principal', data: extra.prinParts, borderColor: '#378ADD', backgroundColor: 'rgba(55,138,221,0.4)', fill: true, pointRadius: 0, borderWidth: 1.5, tension: 0.3, order: 3 },
+      { label: 'Extra payment', data: extra.extraParts, borderColor: '#1D9E75', backgroundColor: 'rgba(29,158,117,0.4)', fill: true, pointRadius: 0, borderWidth: 1.5, tension: 0.3, order: 2 },
+      { label: 'Interest', data: extra.intParts, borderColor: '#E24B4A', backgroundColor: 'rgba(226,75,74,0.45)', fill: true, pointRadius: 0, borderWidth: 1.5, tension: 0.3, order: 1 }
     ] },
     options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString() } } },
       scales: {
         x: { title: { display: true, text: xTitle, color: tickC }, ticks: { color: tickC, maxTicksLimit: 12 }, grid: { color: gridC } },
-        y: { stacked: true, ticks: { color: tickC, callback: dollarTick }, grid: { color: gridC } }
+        y: { stacked: true, beginAtZero: true, ticks: { color: tickC, callback: dollarTick }, grid: { color: gridC } }
       }
     }
   });
+
+  // Period table summary
+  let sumEmi = 0, sumPrin = 0, sumInt = 0, sumExtra = 0;
+  extra.rows.forEach(r => { sumEmi += r.emi; sumPrin += r.principal; sumInt += r.interest; sumExtra += r.extra; });
+  $('tableSummary').innerHTML = `
+    <div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:6px 12px;"><span style="color:#666;font-size:11px;">Total EMI</span><br><strong>${fmt(sumEmi)}</strong></div>
+    <div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:6px 12px;"><span style="color:#666;font-size:11px;">Principal (EMI)</span><br><strong>${fmt(sumPrin)}</strong></div>
+    <div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:6px 12px;"><span style="color:#666;font-size:11px;">Total interest</span><br><strong>${fmt(sumInt)}</strong></div>
+    <div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:6px 12px;"><span style="color:#666;font-size:11px;">Total extras</span><br><strong>${sumExtra > 0 ? fmt(sumExtra) : '-'}</strong></div>
+    <div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:6px 12px;"><span style="color:#666;font-size:11px;">Periods</span><br><strong>${extra.periods}</strong></div>
+  `;
 
   // Period table
   const tbody = $('tbody');
@@ -480,7 +586,6 @@ function recalc() {
   ybody.innerHTML = '';
   const ppy = fp.periodsPerYear;
   const totalYears = Math.ceil(extra.periods / ppy);
-  let grandPrin = 0, grandInt = 0, grandExtra = 0;
   for (let y = 1; y <= totalYears; y++) {
     const start = (y - 1) * ppy;
     const end = Math.min(y * ppy, extra.periods);
@@ -491,16 +596,11 @@ function recalc() {
       const row = extra.rows[i];
       yPrin += row.principal; yInt += row.interest; yExtra += row.extra; closeBal = row.balance;
     }
-    grandPrin += yPrin; grandInt += yInt; grandExtra += yExtra;
     const tr = document.createElement('tr');
     tr.className = 'year-row';
     tr.innerHTML = `<td>Year ${y}</td><td>${fmt(openBal)}</td><td>${fmt(yPrin)}</td><td>${fmt(yInt)}</td><td>${yExtra > 0 ? fmt(yExtra) : '-'}</td><td>${fmt(closeBal)}</td>`;
     ybody.appendChild(tr);
   }
-  const ttr = document.createElement('tr');
-  ttr.style.cssText = 'font-weight:500; background:#e6f1fb;';
-  ttr.innerHTML = `<td>Total</td><td>${fmt(P)}</td><td>${fmt(grandPrin)}</td><td>${fmt(grandInt)}</td><td>${grandExtra > 0 ? fmt(grandExtra) : '-'}</td><td>${fmt(0)}</td>`;
-  ybody.appendChild(ttr);
 }
 
 // Event listeners
@@ -508,7 +608,7 @@ function recalc() {
   $(id).addEventListener('input', () => { syncInputsFromSliders(); recalc(); });
 });
 
-$('selFreq').addEventListener('change', () => { renderExtras(); recalc(); });
+$('selFreq').addEventListener('change', () => { updateBiweeklyToggle(); renderExtras(); recalc(); });
 
 $('inPrincipal').addEventListener('change', function () {
   const v = parseNum(this.value);
@@ -548,6 +648,7 @@ $('btnYearly').addEventListener('click', () => {
   $('btnYearly').classList.add('active'); $('btnPeriod').classList.remove('active');
 });
 
+updateBiweeklyToggle();
 syncInputsFromSliders();
 recalc();
 </script>
