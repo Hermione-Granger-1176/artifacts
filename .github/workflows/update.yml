@@ -173,6 +173,14 @@ jobs:
           app-id: ${{ vars.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
+      - name: Create escalation token for fallback PRs
+        id: escalation-token
+        if: steps.token-policy.outputs.allowed == 'true'
+        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
+        with:
+          app-id: ${{ vars.ESCALATION_APP_ID }}
+          private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
+
       - name: Check GitHub App token availability
         id: token-status
         run: |
@@ -202,6 +210,29 @@ jobs:
       - name: Install workspace dependencies
         run: make setup-ci
 
+      - name: Invalidate thumbnails for changed apps
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            changed_files=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --paginate --jq '.[].filename')
+          else
+            changed_files=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}" --jq '.files[].filename')
+          fi
+
+          echo "$changed_files" | while IFS= read -r file; do
+            case "$file" in
+              apps/*/index.html)
+                app_dir=$(dirname "$file")
+                thumb="${app_dir}/thumbnail.webp"
+                if [ -f "$thumb" ]; then
+                  echo "Invalidating ${thumb} (${file} changed)"
+                  rm "$thumb"
+                fi
+                ;;
+            esac
+          done
+
       - name: Generate thumbnails
         run: make thumbnails
 
@@ -219,10 +250,11 @@ jobs:
           fi
 
       - name: Commit generated files (verified)
+        id: commit-generated
         if: steps.changes.outputs.changed == 'true' && steps.token-status.outputs.available == 'true'
         uses: ./.github/actions/verified-commit
         with:
-          github-token: ${{ steps.app-token.outputs.token }}
+          github-token: ${{ steps.escalation-token.outputs.token }}
           base-branch: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
           expected-head-sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           commit-headline: "Update generated artifacts [skip ci]"
@@ -235,8 +267,22 @@ jobs:
             - Direct commit to the default branch was blocked by branch protection
           pathspec: ${{ env.GENERATED_OUTPUT_PATHSPEC }}
 
+      - name: Check if fallback PR was created
+        id: commit-result
+        if: steps.commit-generated.outcome == 'success'
+        run: |
+          url="${{ steps.commit-generated.outputs.result-url }}"
+          if echo "$url" | grep -q '/pull/'; then
+            echo "fallback=true" >> "$GITHUB_OUTPUT"
+            echo "Fallback PR created: $url — skipping deploy"
+          else
+            echo "fallback=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Re-checkout after API commit
-        if: steps.changes.outputs.changed == 'true' && steps.token-status.outputs.available == 'true'
+        if: >-
+          steps.commit-generated.outcome == 'success' &&
+          steps.commit-result.outputs.fallback != 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
@@ -306,7 +352,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy main site to gh-pages
-        if: github.event_name != 'pull_request' && steps.token-status.outputs.available == 'true'
+        if: >-
+          github.event_name != 'pull_request' &&
+          steps.token-status.outputs.available == 'true' &&
+          steps.commit-result.outputs.fallback != 'true'
         uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4
         with:
           branch: ${{ env.PAGES_BRANCH }}
@@ -318,7 +367,10 @@ jobs:
           commit-message: Deploy site for ${{ github.sha }}
 
       - name: Verify published site
-        if: github.event_name != 'pull_request' && steps.token-status.outputs.available == 'true'
+        if: >-
+          github.event_name != 'pull_request' &&
+          steps.token-status.outputs.available == 'true' &&
+          steps.commit-result.outputs.fallback != 'true'
         run: >-
           python3 scripts/verify_deploy.py
           --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
@@ -326,7 +378,7 @@ jobs:
           --delay-seconds ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
 
       - name: Summarize publish
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.commit-result.outputs.fallback != 'true'
         run: |
           {
             echo "## Publish"
@@ -334,6 +386,17 @@ jobs:
             echo "Deploy version: ${{ github.sha }}"
             echo "Generated files changed: ${{ steps.changes.outputs.changed }}"
             echo "Published URL verified: yes"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summarize deferred deploy
+        if: github.event_name != 'pull_request' && steps.commit-result.outputs.fallback == 'true'
+        run: |
+          {
+            echo "## Deploy Deferred"
+            echo
+            echo "Generated artifacts were committed to a fallback PR."
+            echo "Deploy will happen when the PR is merged."
+            echo "PR: ${{ steps.commit-generated.outputs.result-url }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
   cleanup-preview:
@@ -388,3 +451,70 @@ jobs:
         with:
           header: ${{ env.PREVIEW_COMMENT_HEADER }}
           delete: true
+
+  deploy-on-merge:
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true
+    needs:
+      - cleanup-preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
+        with:
+          app-id: ${{ vars.ESCALATION_APP_ID }}
+          private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
+
+      - name: Prepare deployable site
+        run: make site
+
+      - name: Resolve deployed asset marker
+        id: deploy-version
+        run: echo "short-sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy main site to gh-pages
+        uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4
+        with:
+          branch: ${{ env.PAGES_BRANCH }}
+          folder: _site
+          token: ${{ steps.app-token.outputs.token }}
+          clean-exclude: |
+            ${{ env.PREVIEW_ROOT }}/
+          force: false
+          commit-message: Deploy site for ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Verify published site
+        run: >-
+          python3 scripts/verify_deploy.py
+          --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
+          --attempts ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
+          --delay-seconds ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
+
+      - name: Summarize deploy
+        run: |
+          {
+            echo "## Deploy on Merge"
+            echo
+            echo "PR: #${{ github.event.pull_request.number }}"
+            echo "Merge commit: ${{ github.event.pull_request.merge_commit_sha }}"
+            echo "Deploy version: ${{ steps.deploy-version.outputs.short-sha }}"
+          } >> "$GITHUB_STEP_SUMMARY"
