@@ -232,6 +232,7 @@ def test_invalidate_thumbnails_uses_commits_api_for_push(
     )
     assert "repos/owner/repo/commits/abc123" in captured_cmd
     assert "--paginate" not in captured_cmd
+    assert ".files[].filename" in captured_cmd
     assert not thumb.exists()
 
 

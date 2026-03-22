@@ -98,12 +98,14 @@ def invalidate_thumbnails(
     if event_name == "pull_request":
         endpoint = f"repos/{repo}/pulls/{pr_number}/files"
         paginate = ["--paginate"]
+        jq_expr = ".[].filename"
     else:
         endpoint = f"repos/{repo}/commits/{commit_sha}"
         paginate = []
+        jq_expr = ".files[].filename"
 
     result = subprocess.run(
-        ["gh", "api", endpoint, *paginate, "--jq", ".[].filename"],
+        ["gh", "api", endpoint, *paginate, "--jq", jq_expr],
         capture_output=True,
         text=True,
         check=True,

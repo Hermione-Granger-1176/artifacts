@@ -136,6 +136,12 @@ jobs:
       issues: write
       pull-requests: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: CI setup
         id: setup
         uses: ./.github/actions/ci-setup
@@ -332,6 +338,12 @@ jobs:
       issues: write
       pull-requests: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: CI setup
         id: setup
         uses: ./.github/actions/ci-setup
@@ -378,6 +390,13 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout merged main
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: CI setup
         id: setup
         uses: ./.github/actions/ci-setup
@@ -389,12 +408,13 @@ jobs:
           app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
           escalation-app-id: ${{ vars.ESCALATION_APP_ID }}
           escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
-          checkout-ref: ${{ github.event.pull_request.merge_commit_sha }}
 
       # No Node.js or make setup-ci needed: make site runs prepare_site.py
       # which is stdlib-only Python. All generated files (thumbnails, data.js)
       # are already committed to the merge commit from the PR branch.
       - name: Deploy site
+        id: deploy
+        if: steps.setup.outputs.token-available == 'true'
         uses: ./.github/actions/deploy-site
         with:
           token: ${{ steps.setup.outputs.escalation-token }}
@@ -407,11 +427,21 @@ jobs:
           verify-delay-seconds: ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
 
       - name: Summarize deploy
+        if: steps.setup.outputs.token-available == 'true'
         run: |
           {
             echo "## Deploy on Merge"
             echo
             echo "PR: #${{ github.event.pull_request.number }}"
             echo "Merge commit: ${{ github.event.pull_request.merge_commit_sha }}"
-            echo "Deploy version: ${{ steps.setup.outputs.short-sha || 'N/A' }}"
+            echo "Deploy version: ${{ steps.deploy.outputs.short-sha }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Note skipped deploy
+        if: steps.setup.outputs.token-available != 'true'
+        run: |
+          {
+            echo "## Deploy Skipped"
+            echo
+            echo "Deployment skipped because the app token is unavailable (fork or Dependabot PR)."
           } >> "$GITHUB_STEP_SUMMARY"
