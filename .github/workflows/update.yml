@@ -184,16 +184,18 @@ jobs:
       - name: Check GitHub App token availability
         id: token-status
         run: |
-          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
+          if [ -n "${{ steps.app-token.outputs.token }}" ] && [ -n "${{ steps.escalation-token.outputs.token }}" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Fail if a trusted run cannot mint the app token
+      - name: Fail if a trusted run cannot mint the app tokens
         if: steps.token-policy.outputs.allowed == 'true' && steps.token-status.outputs.available != 'true'
         run: |
-          echo "Expected a GitHub App token for this run, but token creation did not succeed." >&2
+          echo "Expected GitHub App tokens for this run, but token creation did not succeed." >&2
+          [ -z "${{ steps.app-token.outputs.token }}" ] && echo "  - Hermione1176 (APP_ID) token missing" >&2
+          [ -z "${{ steps.escalation-token.outputs.token }}" ] && echo "  - Harry1176 (ESCALATION_APP_ID) token missing" >&2
           exit 1
 
       - name: Set up Python
@@ -468,7 +470,7 @@ jobs:
       - name: Checkout merged main
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: main
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 1
           persist-credentials: false
 
