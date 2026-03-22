@@ -372,7 +372,7 @@ function runSchedule(P, r, n, withExtras, emiOverride) {
   }
   let breakEven = null;
   for (let i = 1; i < cumPrin.length; i++) {
-    if (cumPrin[i] >= cumInt[i] && cumPrin[i - 1] < cumInt[i - 1]) { breakEven = i + 1; break; }
+    if (cumPrin[i] + cumExtra[i] >= cumInt[i] && cumPrin[i - 1] + cumExtra[i - 1] < cumInt[i - 1]) { breakEven = i + 1; break; }
   }
   return { emi, periods: period, totalInterest, totalExtra, balances, prinParts, intParts, extraParts, cumPrin, cumInt, cumExtra, rows, breakEven };
 }
@@ -456,7 +456,7 @@ function recalc() {
   charts.comp = new Chart($('compChart'), {
     type: 'bar',
     data: { labels: ['Without extras', 'With extras'], datasets: [
-      { label: 'Principal', data: [P, P], backgroundColor: '#378ADD' },
+      { label: 'Principal', data: [P, Math.max(0, Math.round(P - extra.totalExtra))], backgroundColor: '#378ADD' },
       { label: 'Interest', data: [Math.round(base.totalInterest), Math.round(extra.totalInterest)], backgroundColor: '#E24B4A' },
       { label: 'Extras', data: [0, Math.round(extra.totalExtra)], backgroundColor: '#1D9E75' }
     ] },
@@ -565,7 +565,7 @@ function recalc() {
   extra.rows.forEach(r => { sumEmi += r.emi; sumPrin += r.principal; sumInt += r.interest; sumExtra += r.extra; });
   $('tableSummary').innerHTML = `
     <div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:6px 12px;"><span style="color:#666;font-size:11px;">Total EMI</span><br><strong>${fmt(sumEmi)}</strong></div>
-    <div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:6px 12px;"><span style="color:#666;font-size:11px;">Total principal</span><br><strong>${fmt(sumPrin)}</strong></div>
+    <div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:6px 12px;"><span style="color:#666;font-size:11px;">Principal (EMI)</span><br><strong>${fmt(sumPrin)}</strong></div>
     <div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:6px 12px;"><span style="color:#666;font-size:11px;">Total interest</span><br><strong>${fmt(sumInt)}</strong></div>
     <div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:6px 12px;"><span style="color:#666;font-size:11px;">Total extras</span><br><strong>${sumExtra > 0 ? fmt(sumExtra) : '-'}</strong></div>
     <div style="background:#fff;border:0.5px solid rgba(0,0,0,0.1);border-radius:8px;padding:6px 12px;"><span style="color:#666;font-size:11px;">Periods</span><br><strong>${extra.periods}</strong></div>
