@@ -151,6 +151,7 @@ describe('createDetailOverlay', () => {
     assert.equal(overlay.getExpandedId(), 'test-1');
     assert.equal(deps.detailOverlay._classes.has('visible'), true);
     assert.equal(deps.detailOverlay._attrs['aria-hidden'], 'false');
+    assert.equal(deps.detailPanel._attrs['aria-describedby'], 'detail-description');
     assert.equal(deps._inertCalls.length, 1);
     assert.equal(deps._inertCalls[0].isInert, true);
   });
@@ -167,6 +168,7 @@ describe('createDetailOverlay', () => {
     assert.equal(deps.detailOverlay._classes.has('open'), false);
     assert.equal(deps.detailOverlay._attrs['aria-hidden'], 'true');
     assert.equal(deps.detailOverlay._classes.has('visible'), false);
+    assert.equal(deps.detailPanel._attrs['aria-describedby'], undefined);
   });
 
   it('close is a no-op when nothing is expanded and not visible', () => {

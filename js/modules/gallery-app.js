@@ -496,18 +496,15 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return target;
     }
 
-    if (target.type === 'page') {
-      return paginationContainer.querySelector(`[data-page="${target.value}"]`);
-    }
+    const targetResolvers = {
+      page: () => paginationContainer.querySelector(`[data-page="${target.value}"]`),
+      'desk-note': () => {
+        const selectorName = target.dataset.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+        return filterNotesContainer.querySelector(`[data-${selectorName}="${target.value}"]`);
+      }
+    };
 
-    if (target.type === 'desk-note') {
-      const selectorName = target.dataset.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
-      return filterNotesContainer.querySelector(
-        `[data-${selectorName}="${target.value}"]`
-      );
-    }
-
-    return null;
+    return targetResolvers[target.type]?.() || null;
   }
 
   function restorePendingFocus() {

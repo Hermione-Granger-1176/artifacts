@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Verify published deployments by polling for the expected version marker.
+"""Verify published deployments by polling for expected HTML and metadata markers.
 
 Fetches a deployed root or preview URL and waits for the expected deploy version
-marker to appear in the HTML. This gives CI a post-deploy check without adding
+marker to appear in the HTML and the expected commit SHA to appear in
+``deploy-metadata.json``. This gives CI a post-deploy check without adding
 extra dependencies or relying on GitHub Pages-specific APIs.
 
 Usage:
-    python scripts/verify_deploy.py --expected-substring "?v=<sha>"
+    python scripts/verify_deploy.py --expected-substring "?v=<sha>" \
+        --expected-commit-sha <full-sha>
     python scripts/verify_deploy.py --url https://example.test/pr-preview/pr-42/ \
-        --expected-substring "?v=<sha>"
+        --expected-substring "?v=<sha>" --expected-commit-sha <full-sha>
 """
 
 from __future__ import annotations

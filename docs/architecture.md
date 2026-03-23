@@ -76,6 +76,8 @@ This reduces hardcoded values in scripts and keeps deployment-sensitive values i
 
 `.github/workflows/update.yml` is the main automation workflow for pushes, PR previews, and manual runs.
 
+The rationale for the strict verified-artifact publish path lives in [ADR 0001](adr/0001-root-publishing-platform.md).
+
 1. The `verify` job bootstraps with `make setup-ci`, then runs `make check`, which bundles local lint/test/audit/validation work, browser smoke tests, strict thumbnail generation, content generation, and deployable site assembly.
 2. `secret-scan` runs Gitleaks against the full commit history in parallel.
 3. `dependency-review` checks manifest and lockfile changes on pull requests.
@@ -89,7 +91,7 @@ This reduces hardcoded values in scripts and keeps deployment-sensitive values i
 
 All jobs have explicit `timeout-minutes` limits (verify: 15, secret-scan: 5, dependency-review: 5, publish: 20, cleanup-preview: 5) to guard against hung builds.
 
-Two GitHub App tokens are minted: the primary app token (Hermione1176, `APP_ID`) is a fallback for non-deploy operations like thumbnail invalidation, while the escalation app token (Harry1176, `ESCALATION_APP_ID`) handles all write operations including preview deploys, preview cleanup, and main site deploys. Fork and Dependabot PRs still build `_site/`, but skip deployment because the tokens are unavailable.
+Two GitHub App tokens are minted by the shared `ci-setup` action: the primary app token (Hermione1176, `APP_ID`) remains available for other trusted workflow operations, while the escalation app token (Harry1176, `ESCALATION_APP_ID`) handles all write operations in this publish path including preview deploys, preview cleanup, and main site deploys. Fork and Dependabot PRs still build `_site/`, but skip deployment because the tokens are unavailable.
 
 Same-repo Dependabot pip PRs use `.github/workflows/refresh-python-locks.yml` to compute refreshed lock files on the PR branch and `.github/workflows/commit-python-locks.yml` to validate the uploaded artifact contents in a follow-up trusted run before committing them if the PR head is unchanged.
 

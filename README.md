@@ -29,6 +29,7 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 - [`workspace.md`](docs/workspace.md): repository layout and responsibilities
 - [`architecture.md`](docs/architecture.md): runtime, build, and deployment design
+- [`docs/adr/0001-root-publishing-platform.md`](docs/adr/0001-root-publishing-platform.md): accepted decision record for the strict root publish flow
 - [`frontend.md`](docs/frontend.md): JavaScript module layout and test coverage
 - [`operations.md`](docs/operations.md): local workflows, CI, and generation notes
 - [`maintenance.md`](docs/maintenance.md): maintenance rules and long-term repo hygiene

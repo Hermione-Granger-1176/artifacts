@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Provide small command-line helpers for GitHub Actions workflows.
 
-Provides small command-line helpers for GitHub Actions workflows so trust-boundary
-decisions and artifact validation live in tested Python instead of inline shell.
+These helpers keep trust-boundary decisions and artifact validation in tested
+Python instead of inline shell.
 
 Usage:
     python scripts/workflow_helpers.py app-token-policy --event-name pull_request \
@@ -161,19 +161,25 @@ def invalidate_thumbnails(
     *, event_name: str, repo: str, pr_number: str, commit_sha: str
 ) -> list[str]:
     """Delete thumbnail.webp for apps whose index.html changed in a PR or push."""
-    if event_name == "pull_request":
-        endpoint = f"repos/{repo}/pulls/{pr_number}/files"
-        paginate = ["--paginate"]
-        jq_expr = ".[].filename"
-    else:
-        endpoint = f"repos/{repo}/commits/{commit_sha}"
-        paginate = []
-        jq_expr = ".files[].filename"
+    request = {
+        "pull_request": {
+            "endpoint": f"repos/{repo}/pulls/{pr_number}/files",
+            "paginate": ["--paginate"],
+            "jq_expr": ".[].filename",
+        }
+    }.get(
+        event_name,
+        {
+            "endpoint": f"repos/{repo}/commits/{commit_sha}",
+            "paginate": [],
+            "jq_expr": ".files[].filename",
+        },
+    )
 
     stdout = _run_gh_api(
-        endpoint,
-        paginate=paginate,
-        jq_expr=jq_expr,
+        request["endpoint"],
+        paginate=request["paginate"],
+        jq_expr=request["jq_expr"],
         description=f"listing changed files for {event_name} {repo}",
     )
     invalidated = []

@@ -463,8 +463,7 @@ button {
   margin: 0 auto 0.75rem;
 }
 
-.toolbar-ribbon,
-.toolbar-ribbon > .controls {
+.toolbar-ribbon {
   display: block;
 }
 

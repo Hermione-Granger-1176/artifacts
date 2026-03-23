@@ -142,7 +142,18 @@ def test_gallery_smoke_covers_root_interactions(tmp_path: Path, monkeypatch) -> 
     with StaticServer(deploy_root) as server, sync_playwright() as playwright:
         browser = launch_browser(playwright)
         page = browser.new_page()
+        page.set_viewport_size({"width": 860, "height": 1100})
         page.goto(f"{server.url}/", wait_until="networkidle")
+
+        search_box = page.locator("#search-input").bounding_box()
+        sort_box = page.locator("#sort-toggle").bounding_box()
+        assert search_box is not None
+        assert sort_box is not None
+        search_center_y = search_box["y"] + (search_box["height"] / 2)
+        sort_center_y = sort_box["y"] + (sort_box["height"] / 2)
+        assert abs(search_center_y - sort_center_y) < 12
+
+        page.set_viewport_size({"width": 1100, "height": 1100})
 
         expect(page.locator(".artifact-card")).to_have_count(4)
         expect(page.locator("#pagination .page-btn")).to_have_count(8)
