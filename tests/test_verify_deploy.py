@@ -278,6 +278,38 @@ def test_verify_deploy_retries_when_metadata_sha_is_wrong(
     assert sleep_calls == [1.0]
 
 
+def test_verify_deploy_retries_when_metadata_status_is_non_200(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = iter([(200, '<script src="js/app.js?v=abc123"></script>')] * 2)
+    metadata_responses = iter(
+        [
+            (503, {"commit_sha": "abc123"}),
+            (200, {"commit_sha": "abc123"}),
+        ]
+    )
+    sleep_calls: list[float] = []
+
+    monkeypatch.setattr(
+        verify_deploy, "_fetch_text", lambda url, timeout: next(responses)
+    )
+    monkeypatch.setattr(
+        verify_deploy, "_fetch_json", lambda url, timeout: next(metadata_responses)
+    )
+    monkeypatch.setattr(verify_deploy.time, "sleep", sleep_calls.append)
+
+    verify_deploy.verify_deploy(
+        "https://example.com/demo/",
+        "js/app.js?v=abc123",
+        "abc123",
+        attempts=2,
+        delay_seconds=1.0,
+        timeout_seconds=5.0,
+    )
+
+    assert sleep_calls == [1.0]
+
+
 def test_main_uses_explicit_url(monkeypatch: pytest.MonkeyPatch) -> None:
     observed: dict[str, object] = {}
 

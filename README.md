@@ -60,6 +60,8 @@ apps/
 4. Push to `main` or trigger a manual run to let CI regenerate derived files, prepare `_site/`, and deploy the site
 5. Open a PR to run the same checks and publish a live preview without modifying the source branch
 
+CI is intentionally strict for the root publishing platform: dependency review, secret scanning, verification, preview deploys, and main deploys fail closed instead of auto-healing source branches. Preview and production deploys both consume the exact verified `_site/` artifact built in CI.
+
 ## Local development
 
 1. Bootstrap the local toolchain:

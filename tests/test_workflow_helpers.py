@@ -374,6 +374,20 @@ def test_run_gh_api_fails_fast_for_non_retryable_errors(
         )
 
 
+def test_run_gh_api_uses_final_fallback_when_attempts_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(workflow_helpers, "GH_API_MAX_ATTEMPTS", 0)
+
+    with pytest.raises(RuntimeError, match="unknown error"):
+        workflow_helpers._run_gh_api(
+            "repos/owner/repo/commits/abc123",
+            paginate=[],
+            jq_expr=".files[].filename",
+            description="listing changed files for push owner/repo",
+        )
+
+
 def test_main_check_fallback_prints_true(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
