@@ -131,7 +131,22 @@ def test_validate_metadata_payload_rejects_wrong_sha() -> None:
 
 def test_normalize_metadata_path_rejects_blank_value() -> None:
     with pytest.raises(ValueError, match="metadata-path must not be empty"):
-        verify_deploy._normalize_metadata_path("/")
+        verify_deploy._normalize_metadata_path("   ")
+
+
+def test_normalize_metadata_path_rejects_leading_slash() -> None:
+    with pytest.raises(
+        ValueError, match="metadata-path must be relative and must not start with '/'"
+    ):
+        verify_deploy._normalize_metadata_path("/deploy-metadata.json")
+
+
+def test_normalize_metadata_path_rejects_full_url() -> None:
+    with pytest.raises(
+        ValueError,
+        match="metadata-path must be relative and must not be a full URL",
+    ):
+        verify_deploy._normalize_metadata_path("https://example.com/deploy.json")
 
 
 def test_verify_deploy_retries_until_expected_substring_found(

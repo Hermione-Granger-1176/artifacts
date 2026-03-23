@@ -101,10 +101,14 @@ def _validate_deploy_response(
 
 
 def _normalize_metadata_path(value: str) -> str:
-    """Return a normalized deploy metadata path without a leading slash."""
-    normalized = value.strip().lstrip("/")
+    """Return a validated relative deploy metadata path."""
+    normalized = value.strip()
     if not normalized:
         raise ValueError("metadata-path must not be empty")
+    if normalized.startswith("/"):
+        raise ValueError("metadata-path must be relative and must not start with '/'")
+    if "://" in normalized:
+        raise ValueError("metadata-path must be relative and must not be a full URL")
     return normalized
 
 
