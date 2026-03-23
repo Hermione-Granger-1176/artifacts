@@ -78,6 +78,13 @@ def build_smoke_site(
     if artifacts_override is not None:
         artifacts = artifacts_override
 
+    normalized_site_path = site_path.strip("/")
+    site_url = (
+        f"https://example.com/{normalized_site_path}/"
+        if normalized_site_path
+        else "https://example.com/"
+    )
+
     write_text(
         source_root / "js" / "gallery-config.js",
         f"window.ARTIFACTS_CONFIG = {json.dumps(config, indent=2)};\n",
@@ -94,7 +101,14 @@ def build_smoke_site(
             )
 
     write_text(
-        source_root / "pyproject.toml", f'[tool.artifacts]\nsite_path = "{site_path}"\n'
+        source_root / "pyproject.toml",
+        "".join(
+            [
+                "[tool.artifacts]\n",
+                f'site_path = "{site_path}"\n',
+                f'site_url = "{site_url}"\n',
+            ]
+        ),
     )
 
     monkeypatch.setattr(prepare_site, "REPO_ROOT", source_root)
