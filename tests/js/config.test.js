@@ -69,11 +69,38 @@ test('validateArtifactsData enforces safe repo-relative paths', () => {
         name: 'Loan Amortization Schedule',
         tags: [],
         tools: [],
+        url: 'javascript%3Aalert(1)'
+      }
+    ]),
+    /window\.ARTIFACTS_DATA\[0\]\.url must not use a javascript URL/
+  );
+
+  assert.throws(
+    () => validateArtifactsData([
+      {
+        id: 'loan-amortization',
+        name: 'Loan Amortization Schedule',
+        tags: [],
+        tools: [],
         url: 'apps/loan-amortization/',
         thumbnail: 'apps/other-artifact/thumbnail.webp'
       }
     ]),
     /window\.ARTIFACTS_DATA\[0\]\.thumbnail must use the same artifact id/
+  );
+
+  assert.throws(
+    () => validateArtifactsData([
+      {
+        id: 'loan-amortization',
+        name: 'Loan Amortization Schedule',
+        tags: [],
+        tools: [],
+        url: 'apps/loan-amortization/',
+        thumbnail: 'data%3Aimage/png;base64,AAAA'
+      }
+    ]),
+    /window\.ARTIFACTS_DATA\[0\]\.thumbnail must not use a data URL/
   );
 
   assert.throws(

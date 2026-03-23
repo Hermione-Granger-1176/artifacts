@@ -457,7 +457,7 @@ def run_axe(
 
     return page.evaluate(
         """async ({ context, options }) => {
-            const axeContext = context && context.include ? context : document;
+            const axeContext = context || document;
             return await window.axe.run(axeContext, options);
         }""",
         {"context": context, "options": options},

@@ -535,8 +535,6 @@ def test_audit_repo_settings_returns_expected_summary(
         "pages-branch": "gh-pages",
         "pages-path": "/",
         "required-checks": ["dependency-review", "secret-scan", "verify"],
-        "secrets": ["APP_PRIVATE_KEY", "ESCALATION_APP_PRIVATE_KEY"],
-        "variables": ["APP_ID", "ESCALATION_APP_ID"],
     }
 
 

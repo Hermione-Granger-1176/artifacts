@@ -56,7 +56,7 @@ GH_API_RETRYABLE_ERROR_PATTERN = re.compile(
     r"429|502|503|504|timed out|timeout|ECONNRESET|connection reset|network",
     re.IGNORECASE,
 )
-EXPECTED_MAIN_REQUIRED_CHECKS = {"verify", "secret-scan", "dependency-review"}
+EXPECTED_REQUIRED_CHECKS = {"verify", "secret-scan", "dependency-review"}
 EXPECTED_REPOSITORY_VARIABLES = {"APP_ID", "ESCALATION_APP_ID"}
 EXPECTED_REPOSITORY_SECRETS = {"APP_PRIVATE_KEY", "ESCALATION_APP_PRIVATE_KEY"}
 
@@ -316,10 +316,12 @@ def audit_repo_settings(
         issues.append(f"Pages source path is {pages_source_path!r} instead of '/'")
 
     required_checks = _extract_required_checks(protection)
-    missing_checks = EXPECTED_MAIN_REQUIRED_CHECKS - required_checks
+    branch_label = f"{default_branch} branch protection"
+
+    missing_checks = EXPECTED_REQUIRED_CHECKS - required_checks
     if missing_checks:
         issues.append(
-            "main branch protection is missing required checks: "
+            f"{branch_label} is missing required checks: "
             + ", ".join(sorted(missing_checks))
         )
 
@@ -328,22 +330,20 @@ def audit_repo_settings(
         not isinstance(review_settings, dict)
         or int(review_settings.get("required_approving_review_count", 0)) < 1
     ):
-        issues.append(
-            "main branch protection does not require at least 1 approving review"
-        )
+        issues.append(f"{branch_label} does not require at least 1 approving review")
 
     for key, message in (
         (
             "required_signatures",
-            "main branch protection does not require signed commits",
+            f"{branch_label} does not require signed commits",
         ),
         (
             "required_linear_history",
-            "main branch protection does not require linear history",
+            f"{branch_label} does not require linear history",
         ),
         (
             "required_conversation_resolution",
-            "main branch protection does not require conversation resolution",
+            f"{branch_label} does not require conversation resolution",
         ),
     ):
         setting = protection.get(key)
@@ -378,8 +378,6 @@ def audit_repo_settings(
         "pages-branch": pages_source_branch,
         "pages-path": pages_source_path,
         "required-checks": sorted(required_checks),
-        "variables": sorted(variable_names),
-        "secrets": sorted(secret_names),
         "gh-pages-ruleset": True,
     }
 

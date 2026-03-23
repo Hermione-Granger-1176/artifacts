@@ -112,7 +112,9 @@ function assertSafeRelativePath(value, path) {
   assertShape(!value.startsWith('/'), `${path} must not start with '/'`);
   assertShape(!decodedValue.startsWith('/'), `${path} must not start with '/'`);
   assertShape(!/^data:/i.test(value), `${path} must not use a data URL`);
+  assertShape(!/^data:/i.test(decodedValue), `${path} must not use a data URL`);
   assertShape(!/^javascript:/i.test(value), `${path} must not use a javascript URL`);
+  assertShape(!/^javascript:/i.test(decodedValue), `${path} must not use a javascript URL`);
   assertShape(!decodedValue.includes('..'), `${path} must not contain path traversal segments`);
 }
 
