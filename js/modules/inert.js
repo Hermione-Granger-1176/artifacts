@@ -1,4 +1,8 @@
-/** Mark an element as inert, saving its previous aria-hidden state. */
+/**
+ * Mark an element as inert and preserve its prior ``aria-hidden`` state.
+ * @param {HTMLElement} element - Element to disable for interaction.
+ * @returns {void}
+ */
 export function makeElementInert(element) {
   if (element.inert) {
     return;
@@ -9,7 +13,11 @@ export function makeElementInert(element) {
   element.inert = true;
 }
 
-/** Restore an element from inert state, reinstating its previous aria-hidden value. */
+/**
+ * Restore an element from inert state.
+ * @param {HTMLElement} element - Element to restore for interaction.
+ * @returns {void}
+ */
 export function restoreElementInteractivity(element) {
   if (!element.inert) {
     return;
@@ -25,7 +33,12 @@ export function restoreElementInteractivity(element) {
   element.inert = false;
 }
 
-/** Toggle inert state on a list of background elements (e.g. when an overlay is open). */
+/**
+ * Toggle inert state on a list of background elements.
+ * @param {HTMLElement[]} elements - Background elements to update.
+ * @param {boolean} isInert - Whether the elements should be inert.
+ * @returns {void}
+ */
 export function setBackgroundContentInert(elements, isInert) {
   const updateInteractivity = isInert ? makeElementInert : restoreElementInteractivity;
   elements.forEach(updateInteractivity);

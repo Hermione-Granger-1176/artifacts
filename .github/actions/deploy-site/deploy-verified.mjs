@@ -67,15 +67,16 @@ export function computeChanges(
     additions.push({ path: targetPath, contents: content.toString('base64') });
   }
 
-  for (const [remotePath] of remoteFiles) {
-    const skip = targetPrefix
-      ? !remotePath.startsWith(`${targetPrefix}/`)
-      : remotePath.startsWith(`${previewRoot}/`);
-    if (skip || localSet.has(remotePath)) {
-      continue;
-    }
-    deletions.push({ path: remotePath });
-  }
+  deletions.push(
+    ...[...remoteFiles.keys()]
+      .filter((remotePath) => {
+        const skip = targetPrefix
+          ? !remotePath.startsWith(`${targetPrefix}/`)
+          : remotePath.startsWith(`${previewRoot}/`);
+        return !skip && !localSet.has(remotePath);
+      })
+      .map((remotePath) => ({ path: remotePath }))
+  );
 
   return { additions, deletions };
 }

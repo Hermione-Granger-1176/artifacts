@@ -413,6 +413,16 @@ def test_run_gh_api_json_rejects_invalid_json(monkeypatch: pytest.MonkeyPatch) -
         )
 
 
+def test_collect_named_items_skips_non_lists_and_non_dict_entries() -> None:
+    assert (
+        workflow_helpers._collect_named_items({"variables": "invalid"}, "variables")
+        == set()
+    )
+    assert workflow_helpers._collect_named_items(
+        {"variables": ["bad", {"name": "APP_ID"}, {"name": 9}]}, "variables"
+    ) == {"APP_ID"}
+
+
 def test_extract_required_checks_handles_contexts_and_checks() -> None:
     assert workflow_helpers._extract_required_checks(
         {

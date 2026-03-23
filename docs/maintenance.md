@@ -64,7 +64,7 @@ If you modify `scripts/generate_index.py`, `scripts/generate_thumbnails.py`, or 
 - CI is allowed to generate thumbnails during pull requests and pushes.
 - Checked-in thumbnails are not required for every local branch state.
 - If thumbnails are removed locally, the gallery data can temporarily contain `thumbnail: null`.
-- Pushes to `main` will regenerate and persist fresh thumbnails through CI.
+- Pushes to `main` can regenerate fresh thumbnails in the verified build and deploy them to `gh-pages`, but CI does not commit regenerated thumbnails back to `main`.
 - PR previews can render regenerated thumbnails without committing them back to the source branch.
 
 ## Pages preview setup

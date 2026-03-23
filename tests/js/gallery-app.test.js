@@ -142,23 +142,22 @@ class FakeElement {
   }
 
   matches(selector) {
-    if (selector.startsWith('#')) {
-      return this.id === selector.slice(1);
-    }
+    switch (selector) {
+      case '[data-close-detail]':
+        return this.hasAttribute('data-close-detail');
+      case '[data-page]':
+        return Object.hasOwn(this.dataset, 'page');
+      default:
+        if (selector.startsWith('#')) {
+          return this.id === selector.slice(1);
+        }
 
-    if (selector === '[data-close-detail]') {
-      return this.hasAttribute('data-close-detail');
-    }
+        if (selector.startsWith('.')) {
+          return this.classList.contains(selector.slice(1));
+        }
 
-    if (selector === '[data-page]') {
-      return Object.hasOwn(this.dataset, 'page');
+        return false;
     }
-
-    if (selector.startsWith('.')) {
-      return this.classList.contains(selector.slice(1));
-    }
-
-    return false;
   }
 
   closest(selector) {
@@ -193,16 +192,17 @@ class FakeCard extends FakeElement {
   }
 
   matches(selector) {
-    if (selector === '.artifact-card') {
-      return true;
-    }
+    switch (selector) {
+      case '.artifact-card':
+        return true;
+      default:
+        if (selector.startsWith('.artifact-card[data-id=')) {
+          const match = selector.match(/data-id="([^"]+)"/);
+          return this.dataset.id === match?.[1];
+        }
 
-    if (selector.startsWith('.artifact-card[data-id=')) {
-      const match = selector.match(/data-id="([^"]+)"/);
-      return this.dataset.id === match?.[1];
+        return super.matches(selector);
     }
-
-    return super.matches(selector);
   }
 
   getBoundingClientRect() {

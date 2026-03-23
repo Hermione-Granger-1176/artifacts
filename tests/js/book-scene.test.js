@@ -101,15 +101,10 @@ function createHarness({
       currentLeft = nextLeft;
       currentRight = nextRight;
     };
-    grid.querySelector = (selector) => {
-      if (selector === '.artifact-page-left') {
-        return currentLeft;
-      }
-      if (selector === '.artifact-page-right') {
-        return currentRight;
-      }
-      return null;
-    };
+    grid.querySelector = (selector) => ({
+      '.artifact-page-left': currentLeft,
+      '.artifact-page-right': currentRight
+    }[selector] ?? null);
   }
 
   const elements = new Map([

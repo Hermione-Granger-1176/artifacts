@@ -26,6 +26,7 @@ import sys
 import time
 from itertools import chain
 from pathlib import Path
+from typing import cast
 
 LOCK_ARTIFACT_FILES = {
     "pr-number": Path(".artifacts/pr-number.txt"),
@@ -170,6 +171,37 @@ def _run_gh_api_json(endpoint: str, *, description: str) -> object:
         raise RuntimeError(f"gh api {description} returned invalid JSON") from exc
 
 
+def _require_response_type(value: object, expected_type: type, message: str) -> None:
+    """Raise when a GitHub API response does not match the expected JSON shape."""
+    if not isinstance(value, expected_type):
+        raise RuntimeError(message)
+
+
+def _collect_named_items(payload: dict[str, object], key: str) -> set[str]:
+    """Collect string ``name`` fields from a GitHub API list payload."""
+    names: set[str] = set()
+    items = payload.get(key)
+    if not isinstance(items, list):
+        return names
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        if isinstance(name, str):
+            names.add(name)
+    return names
+
+
+def _append_missing_items(
+    issues: list[str], *, actual: set[str], expected: set[str], label: str
+) -> None:
+    """Append a formatted issue when expected items are missing."""
+    missing_items = expected - actual
+    if missing_items:
+        issues.append(f"missing {label}: " + ", ".join(sorted(missing_items)))
+
+
 def _extract_required_checks(protection: object) -> set[str]:
     """Return the normalized set of required status checks from branch protection."""
     if not isinstance(protection, dict):
@@ -244,18 +276,26 @@ def audit_repo_settings(
         f"repos/{repo}/rulesets", description=f"listing rulesets for {repo}"
     )
 
-    if not isinstance(repository, dict):
-        raise RuntimeError("Repository metadata must be a JSON object")
-    if not isinstance(pages, dict):
-        raise RuntimeError("Pages settings must be a JSON object")
-    if not isinstance(protection, dict):
-        raise RuntimeError("Branch protection settings must be a JSON object")
-    if not isinstance(variables, dict):
-        raise RuntimeError("Actions variables response must be a JSON object")
-    if not isinstance(secrets, dict):
-        raise RuntimeError("Actions secrets response must be a JSON object")
-    if not isinstance(rulesets, list):
-        raise RuntimeError("Rulesets response must be a JSON array")
+    _require_response_type(
+        repository, dict, "Repository metadata must be a JSON object"
+    )
+    _require_response_type(pages, dict, "Pages settings must be a JSON object")
+    _require_response_type(
+        protection, dict, "Branch protection settings must be a JSON object"
+    )
+    _require_response_type(
+        variables, dict, "Actions variables response must be a JSON object"
+    )
+    _require_response_type(
+        secrets, dict, "Actions secrets response must be a JSON object"
+    )
+    _require_response_type(rulesets, list, "Rulesets response must be a JSON array")
+    repository = cast(dict[str, object], repository)
+    pages = cast(dict[str, object], pages)
+    protection = cast(dict[str, object], protection)
+    variables = cast(dict[str, object], variables)
+    secrets = cast(dict[str, object], secrets)
+    rulesets = cast(list[object], rulesets)
 
     issues = []
     actual_default_branch = repository.get("default_branch")
@@ -264,7 +304,8 @@ def audit_repo_settings(
             f"default branch is {actual_default_branch!r} instead of {default_branch!r}"
         )
 
-    pages_source = pages.get("source") if isinstance(pages.get("source"), dict) else {}
+    raw_pages_source = pages.get("source")
+    pages_source = raw_pages_source if isinstance(raw_pages_source, dict) else {}
     pages_source_branch = pages_source.get("branch")
     pages_source_path = pages_source.get("path") or "/"
     if pages_source_branch != pages_branch:
@@ -309,27 +350,21 @@ def audit_repo_settings(
         if not isinstance(setting, dict) or setting.get("enabled") is not True:
             issues.append(message)
 
-    variable_names = {
-        item.get("name")
-        for item in variables.get("variables", [])
-        if isinstance(item, dict) and isinstance(item.get("name"), str)
-    }
-    missing_variables = EXPECTED_REPOSITORY_VARIABLES - variable_names
-    if missing_variables:
-        issues.append(
-            "missing repository variables: " + ", ".join(sorted(missing_variables))
-        )
+    variable_names = _collect_named_items(variables, "variables")
+    _append_missing_items(
+        issues,
+        actual=variable_names,
+        expected=EXPECTED_REPOSITORY_VARIABLES,
+        label="repository variables",
+    )
 
-    secret_names = {
-        item.get("name")
-        for item in secrets.get("secrets", [])
-        if isinstance(item, dict) and isinstance(item.get("name"), str)
-    }
-    missing_secrets = EXPECTED_REPOSITORY_SECRETS - secret_names
-    if missing_secrets:
-        issues.append(
-            "missing repository secrets: " + ", ".join(sorted(missing_secrets))
-        )
+    secret_names = _collect_named_items(secrets, "secrets")
+    _append_missing_items(
+        issues,
+        actual=secret_names,
+        expected=EXPECTED_REPOSITORY_SECRETS,
+        label="repository secrets",
+    )
 
     if not any(_ruleset_targets_branch(ruleset, pages_branch) for ruleset in rulesets):
         issues.append(f"no branch ruleset explicitly targets {pages_branch!r}")

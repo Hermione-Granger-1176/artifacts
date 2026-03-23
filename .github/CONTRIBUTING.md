@@ -28,7 +28,7 @@ See [`docs/style.md`](../docs/style.md) for editor configuration, language conve
 - Keep changes scoped and describe the user-visible or maintenance impact.
 - Trusted PRs publish a live preview; fork and Dependabot PRs skip preview deployment because the GitHub App token is unavailable.
 - Trusted preview and production deploys also run `make test-browser-live` against the published URL, so browser-only regressions can still fail the release after deploy verification.
-- If CI updates generated files on `main`, the workflow writes a verified commit directly or opens a fallback PR when branch protection blocks the direct write.
+- If CI regenerates files during `make check`, the diff is summarized and the verified `_site/` build is deployed without mutating the source branch. The verified-commit fallback flow is reserved for the dedicated Python lock refresh workflow.
 
 ## Dependency updates
 

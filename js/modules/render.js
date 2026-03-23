@@ -19,7 +19,7 @@ function getRotationStyle(index) {
   return `--note-rotate:${BASE_ROTATIONS[rotationIndex]}; --note-hover-rotate:${HOVER_ROTATIONS[rotationIndex]};`;
 }
 
-/** Global color map — each tag/tool name gets one color, shared across filter notes and detail capsules. */
+/** Global color map: each tag/tool name gets one color, shared across filter notes and detail capsules. */
 const labelColorMap = new Map();
 let shuffledColors = null;
 

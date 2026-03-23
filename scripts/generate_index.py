@@ -29,11 +29,15 @@ import json
 import logging
 import re
 import sys
-import tomllib
 import urllib.parse
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TypedDict, cast
+
+try:
+    from scripts.project_config import load_artifacts_setting
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from project_config import load_artifacts_setting
 
 logging.basicConfig(
     level=logging.INFO,
@@ -325,16 +329,7 @@ def _write_frontend_config(metadata: GalleryMetadata) -> None:
 
 def _read_site_url() -> str:
     """Read the canonical live-site URL from pyproject.toml."""
-    if not PYPROJECT_FILE.exists():
-        raise FileNotFoundError(f"pyproject.toml not found: {PYPROJECT_FILE}")
-
-    pyproject = tomllib.loads(PYPROJECT_FILE.read_text(encoding="utf-8"))
-
-    try:
-        site_url = pyproject["tool"]["artifacts"]["site_url"]
-    except KeyError as exc:
-        raise ValueError("Missing tool.artifacts.site_url in pyproject.toml") from exc
-
+    site_url = load_artifacts_setting(PYPROJECT_FILE, "site_url")
     return site_url.rstrip("/") + "/"
 
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Prepare the deployable Pages payload in `_site/`.
+"""Prepare the deployable Pages payload in ``_site/``.
 
-Copies the deployable static site into `_site/`, then applies deploy-time
+Copies the deployable static site into ``_site/``, then applies deploy-time
 adjustments such as cache-busting query strings, the configured 404 fallback
-path, and the `.nojekyll` marker needed for branch-based GitHub Pages.
+path, and the ``.nojekyll`` marker needed for branch-based GitHub Pages.
 
 Usage:
     python scripts/prepare_site.py
@@ -18,10 +18,14 @@ import re
 import shutil
 import subprocess
 import sys
-import tomllib
 from itertools import chain
 from pathlib import Path
 from urllib.parse import urljoin
+
+try:
+    from scripts.project_config import load_artifacts_setting
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from project_config import load_artifacts_setting
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,17 +57,7 @@ def _normalize_site_path(value: str) -> str:
 
 def _load_site_path() -> str:
     """Load the configured site path from ``pyproject.toml``."""
-    if not PYPROJECT_FILE.exists():
-        raise FileNotFoundError(f"pyproject.toml not found: {PYPROJECT_FILE}")
-
-    pyproject = tomllib.loads(PYPROJECT_FILE.read_text(encoding="utf-8"))
-
-    try:
-        site_path = pyproject["tool"]["artifacts"]["site_path"]
-    except KeyError as exc:
-        raise ValueError("Missing tool.artifacts.site_path in pyproject.toml") from exc
-
-    return _normalize_site_path(site_path)
+    return _normalize_site_path(load_artifacts_setting(PYPROJECT_FILE, "site_path"))
 
 
 def _normalize_site_url(value: str) -> str:
@@ -73,17 +67,17 @@ def _normalize_site_url(value: str) -> str:
 
 def _load_site_url() -> str:
     """Load the configured canonical site URL from ``pyproject.toml``."""
-    if not PYPROJECT_FILE.exists():
-        raise FileNotFoundError(f"pyproject.toml not found: {PYPROJECT_FILE}")
+    return _normalize_site_url(load_artifacts_setting(PYPROJECT_FILE, "site_url"))
 
-    pyproject = tomllib.loads(PYPROJECT_FILE.read_text(encoding="utf-8"))
 
-    try:
-        site_url = pyproject["tool"]["artifacts"]["site_url"]
-    except KeyError as exc:
-        raise ValueError("Missing tool.artifacts.site_url in pyproject.toml") from exc
-
-    return _normalize_site_url(site_url)
+def _read_git_output(*args: str) -> str:
+    """Run one git command and return stripped stdout."""
+    return subprocess.check_output(
+        ["git", *args],
+        cwd=REPO_ROOT,
+        text=True,
+        timeout=GIT_COMMAND_TIMEOUT_SECONDS,
+    ).strip()
 
 
 def _resolve_version() -> str:
@@ -92,12 +86,7 @@ def _resolve_version() -> str:
     if env_version:
         return env_version
 
-    return subprocess.check_output(
-        ["git", "rev-parse", "--short", "HEAD"],
-        cwd=REPO_ROOT,
-        text=True,
-        timeout=GIT_COMMAND_TIMEOUT_SECONDS,
-    ).strip()
+    return _read_git_output("rev-parse", "--short", "HEAD")
 
 
 def _resolve_commit_sha() -> str:
@@ -106,12 +95,7 @@ def _resolve_commit_sha() -> str:
     if env_commit_sha:
         return env_commit_sha
 
-    return subprocess.check_output(
-        ["git", "rev-parse", "HEAD"],
-        cwd=REPO_ROOT,
-        text=True,
-        timeout=GIT_COMMAND_TIMEOUT_SECONDS,
-    ).strip()
+    return _read_git_output("rev-parse", "HEAD")
 
 
 def _copy_deploy_items() -> None:
@@ -165,6 +149,14 @@ def _replace_exact(content: str, old: str, new: str) -> str:
     return content.replace(old, new)
 
 
+def _replace_exact_many(content: str, replacements: dict[str, str]) -> str:
+    """Apply a sequence of exact replacements, failing on the first missing one."""
+    updated_content = content
+    for old, new in replacements.items():
+        updated_content = _replace_exact(updated_content, old, new)
+    return updated_content
+
+
 def _patch_index_html(version: str) -> None:
     """Apply cache-busting query strings to root HTML asset references."""
     index_path = DEPLOY_DIR / "index.html"
@@ -176,9 +168,7 @@ def _patch_index_html(version: str) -> None:
         'src="js/app.js"': f'src="js/app.js?v={version}"',
     }
 
-    for old, new in replacements.items():
-        content = _replace_exact(content, old, new)
-
+    content = _replace_exact_many(content, replacements)
     index_path.write_text(content, encoding="utf-8")
 
 
@@ -210,10 +200,13 @@ def _patch_404_html(site_path: str) -> None:
     """Inject the configured site path into the 404 fallback page."""
     error_path = DEPLOY_DIR / "404.html"
     content = error_path.read_text(encoding="utf-8")
-    content = _replace_exact(
-        content, 'data-site-path="/"', f'data-site-path="{site_path}"'
+    content = _replace_exact_many(
+        content,
+        {
+            'data-site-path="/"': f'data-site-path="{site_path}"',
+            'href="/"': f'href="{site_path}"',
+        },
     )
-    content = _replace_exact(content, 'href="/"', f'href="{site_path}"')
     error_path.write_text(content, encoding="utf-8")
 
 
@@ -223,8 +216,9 @@ def _patch_manifest(site_path: str) -> None:
     if not manifest_path.exists():
         return
     content = manifest_path.read_text(encoding="utf-8")
-    content = _replace_exact(
-        content, '"start_url": "../../"', f'"start_url": "{site_path}"'
+    content = _replace_exact_many(
+        content,
+        {'"start_url": "../../"': f'"start_url": "{site_path}"'},
     )
     manifest_path.write_text(content, encoding="utf-8")
 
