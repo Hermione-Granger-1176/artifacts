@@ -28,6 +28,11 @@ def create_source_tree(repo_root: Path) -> None:
         repo_root / "index.html",
         "".join(
             [
+                '<link rel="canonical" href="__ARTIFACTS_SITE_URL__">\n',
+                '<meta property="og:url" content="__ARTIFACTS_SITE_URL__">\n',
+                '<meta property="og:image" content="__ARTIFACTS_SHARE_IMAGE__">\n',
+                '<meta property="og:image:secure_url" content="__ARTIFACTS_SHARE_IMAGE__">\n',
+                '<meta name="twitter:image" content="__ARTIFACTS_SHARE_IMAGE__">\n',
                 '<link rel="stylesheet" href="css/style.css">\n',
                 '<script src="js/gallery-config.js"></script>\n',
                 '<script src="js/data.js"></script>\n',
@@ -63,6 +68,8 @@ def create_source_tree(repo_root: Path) -> None:
     )
     (repo_root / "assets" / "icons" / "favicon.ico").write_bytes(b"ico")
     (repo_root / "assets" / "icons" / "icon.svg").write_bytes(b"<svg/>")
+    (repo_root / "assets" / "social").mkdir(parents=True, exist_ok=True)
+    (repo_root / "assets" / "social" / "share-preview.png").write_bytes(b"png")
 
 
 def test_normalize_site_path() -> None:
@@ -79,6 +86,45 @@ def test_load_site_path_reads_pyproject(
     monkeypatch.setattr(prepare_site, "PYPROJECT_FILE", pyproject)
 
     assert prepare_site._load_site_path() == "/artifacts/"
+
+
+def test_normalize_site_url() -> None:
+    assert prepare_site._normalize_site_url("https://example.com/demo") == (
+        "https://example.com/demo/"
+    )
+    assert prepare_site._normalize_site_url("https://example.com/demo/") == (
+        "https://example.com/demo/"
+    )
+
+
+def test_load_site_url_reads_pyproject(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    write_text(pyproject, '[tool.artifacts]\nsite_url = "https://example.com/demo"\n')
+    monkeypatch.setattr(prepare_site, "PYPROJECT_FILE", pyproject)
+
+    assert prepare_site._load_site_url() == "https://example.com/demo/"
+
+
+def test_load_site_url_errors_for_missing_pyproject(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(prepare_site, "PYPROJECT_FILE", tmp_path / "pyproject.toml")
+
+    with pytest.raises(FileNotFoundError, match="pyproject.toml not found"):
+        prepare_site._load_site_url()
+
+
+def test_load_site_url_errors_for_missing_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    write_text(pyproject, "[tool.other]\nvalue = true\n")
+    monkeypatch.setattr(prepare_site, "PYPROJECT_FILE", pyproject)
+
+    with pytest.raises(ValueError, match="Missing tool.artifacts.site_url"):
+        prepare_site._load_site_url()
 
 
 def test_load_site_path_errors_for_missing_pyproject(
@@ -228,6 +274,32 @@ def test_patch_index_html_applies_cache_busting(
     assert 'src="js/gallery-config.js?v=abc123"' in content
     assert 'src="js/data.js?v=abc123"' in content
     assert 'src="js/app.js?v=abc123"' in content
+
+
+def test_patch_social_metadata_injects_absolute_urls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy_dir = tmp_path / "_site"
+    deploy_dir.mkdir()
+    write_text(
+        deploy_dir / "index.html",
+        '<link rel="canonical" href="__ARTIFACTS_SITE_URL__">\n'
+        '<meta property="og:url" content="__ARTIFACTS_SITE_URL__">\n'
+        '<meta property="og:image" content="__ARTIFACTS_SHARE_IMAGE__">\n'
+        '<meta property="og:image:secure_url" content="__ARTIFACTS_SHARE_IMAGE__">\n'
+        '<meta name="twitter:image" content="__ARTIFACTS_SHARE_IMAGE__">\n',
+    )
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._patch_social_metadata("https://example.com/demo/", "abc123")
+
+    content = (deploy_dir / "index.html").read_text(encoding="utf-8")
+    assert 'href="https://example.com/demo/"' in content
+    assert 'content="https://example.com/demo/"' in content
+    assert (
+        'content="https://example.com/demo/assets/social/share-preview.png?v=abc123"'
+        in content
+    )
 
 
 def test_patch_root_stylesheet_versions_imports(
@@ -388,7 +460,10 @@ def test_prepare_site_builds_deploy_output(
 ) -> None:
     create_source_tree(tmp_path)
     pyproject = tmp_path / "pyproject.toml"
-    write_text(pyproject, '[tool.artifacts]\nsite_path = "/artifacts/"\n')
+    write_text(
+        pyproject,
+        '[tool.artifacts]\nsite_path = "/artifacts/"\nsite_url = "https://example.com/artifacts"\n',
+    )
     deploy_dir = tmp_path / "_site"
 
     monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
@@ -403,11 +478,17 @@ def test_prepare_site_builds_deploy_output(
     style_content = (deploy_dir / "css" / "style.css").read_text(encoding="utf-8")
     error_content = (deploy_dir / "404.html").read_text(encoding="utf-8")
     assert "css/style.css?v=abc123" in index_content
+    assert 'href="https://example.com/artifacts/"' in index_content
+    assert (
+        'content="https://example.com/artifacts/assets/social/share-preview.png?v=abc123"'
+        in index_content
+    )
     assert '@import url("./root-gallery-foundation.css?v=abc123");' in style_content
     assert 'data-site-path="/artifacts/"' in error_content
     assert (deploy_dir / ".nojekyll").exists()
     assert (deploy_dir / "apps" / "sample" / "index.html").exists()
     assert (deploy_dir / "assets" / "icons" / "favicon.ico").exists()
+    assert (deploy_dir / "assets" / "social" / "share-preview.png").exists()
     metadata = (deploy_dir / prepare_site.DEPLOY_METADATA_FILE).read_text(
         encoding="utf-8"
     )
@@ -424,7 +505,10 @@ def test_prepare_site_propagates_git_failures(
 ) -> None:
     create_source_tree(tmp_path)
     pyproject = tmp_path / "pyproject.toml"
-    write_text(pyproject, '[tool.artifacts]\nsite_path = "/artifacts/"\n')
+    write_text(
+        pyproject,
+        '[tool.artifacts]\nsite_path = "/artifacts/"\nsite_url = "https://example.com/artifacts"\n',
+    )
 
     monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(prepare_site, "PYPROJECT_FILE", pyproject)

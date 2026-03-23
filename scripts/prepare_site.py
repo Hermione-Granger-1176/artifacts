@@ -21,6 +21,7 @@ import sys
 import tomllib
 from itertools import chain
 from pathlib import Path
+from urllib.parse import urljoin
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,6 +38,9 @@ ROOT_STYLESHEET_IMPORT_PATTERN = re.compile(r'@import url\("(\./[^"?]+\.css)"\);
 DEPLOY_METADATA_FILE = "deploy-metadata.json"
 DEPLOY_COMMIT_SHA_ENV_VAR = "ARTIFACTS_DEPLOY_COMMIT_SHA"
 DEPLOY_VERSION_ENV_VAR = "ARTIFACTS_DEPLOY_VERSION"
+SITE_URL_PLACEHOLDER = "__ARTIFACTS_SITE_URL__"
+SHARE_IMAGE_PLACEHOLDER = "__ARTIFACTS_SHARE_IMAGE__"
+SHARE_IMAGE_PATH = "assets/social/share-preview.png"
 
 
 def _normalize_site_path(value: str) -> str:
@@ -60,6 +64,26 @@ def _load_site_path() -> str:
         raise ValueError("Missing tool.artifacts.site_path in pyproject.toml") from exc
 
     return _normalize_site_path(site_path)
+
+
+def _normalize_site_url(value: str) -> str:
+    """Return a normalized canonical site URL with a trailing slash."""
+    return value.rstrip("/") + "/"
+
+
+def _load_site_url() -> str:
+    """Load the configured canonical site URL from ``pyproject.toml``."""
+    if not PYPROJECT_FILE.exists():
+        raise FileNotFoundError(f"pyproject.toml not found: {PYPROJECT_FILE}")
+
+    pyproject = tomllib.loads(PYPROJECT_FILE.read_text(encoding="utf-8"))
+
+    try:
+        site_url = pyproject["tool"]["artifacts"]["site_url"]
+    except KeyError as exc:
+        raise ValueError("Missing tool.artifacts.site_url in pyproject.toml") from exc
+
+    return _normalize_site_url(site_url)
 
 
 def _resolve_version() -> str:
@@ -158,6 +182,16 @@ def _patch_index_html(version: str) -> None:
     index_path.write_text(content, encoding="utf-8")
 
 
+def _patch_social_metadata(site_url: str, version: str) -> None:
+    """Inject canonical URLs and a cache-busted social preview image."""
+    index_path = DEPLOY_DIR / "index.html"
+    content = index_path.read_text(encoding="utf-8")
+    share_image_url = f"{urljoin(site_url, SHARE_IMAGE_PATH)}?v={version}"
+    content = _replace_exact(content, SITE_URL_PLACEHOLDER, site_url)
+    content = _replace_exact(content, SHARE_IMAGE_PLACEHOLDER, share_image_url)
+    index_path.write_text(content, encoding="utf-8")
+
+
 def _patch_root_stylesheet(version: str) -> None:
     """Apply cache-busting query strings to modular stylesheet imports."""
     stylesheet_path = DEPLOY_DIR / "css" / "style.css"
@@ -218,10 +252,12 @@ def prepare_site() -> None:
     """Build the deployable ``_site/`` payload for GitHub Pages."""
     logger.info("Preparing deployable site output")
     site_path = _load_site_path()
+    site_url = _load_site_url()
     commit_sha = _resolve_commit_sha()
     version = _resolve_version()
     _copy_deploy_items()
     _patch_index_html(version)
+    _patch_social_metadata(site_url, version)
     _patch_root_stylesheet(version)
     _patch_404_html(site_path)
     _patch_manifest(site_path)
