@@ -80,7 +80,13 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     const animation = element.animate(keyframes, options);
     await animation.finished;
     if (typeof animation.commitStyles === 'function') {
-      animation.commitStyles();
+      try {
+        animation.commitStyles();
+      } catch (error) {
+        if (!(error instanceof DOMException) || error.name !== 'InvalidStateError') {
+          throw error;
+        }
+      }
     }
     animation.cancel();
   }
@@ -189,7 +195,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
         }
       );
 
-      // Phase 2: Reveal the left page — flip it in from the right
+      // Phase 2: Reveal the left page, flip it in from the right
       if (leftPage) {
         // Keep left page hidden until we start its animation
         leftPage.style.opacity = '0';
@@ -314,7 +320,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       { duration: PAGE_TURN_MS, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' }
     );
 
-    // At the midpoint (page is edge-on), swap content — hidden behind the moving page
+    // At the midpoint (page is edge-on), swap content, hidden behind the moving page
     await delay(PAGE_TURN_MS * 0.45);
     await Promise.resolve(render());
 

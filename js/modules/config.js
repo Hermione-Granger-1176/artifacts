@@ -9,6 +9,10 @@ const DEFAULT_CONFIG = {
   tags: {}
 };
 
+const SAFE_ARTIFACT_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SAFE_ARTIFACT_URL_PATTERN = /^apps\/([a-z0-9]+(?:-[a-z0-9]+)*)\/$/;
+const SAFE_THUMBNAIL_PATTERN = /^apps\/([a-z0-9]+(?:-[a-z0-9]+)*)\/(thumbnail\.(?:webp|png))$/;
+
 /**
  * @typedef {{ label: string }} LabelEntry
  * @typedef {{
@@ -93,6 +97,47 @@ function validateNullableStringField(value, key, path) {
   assertShape(typeof value[key] === 'string', `${path}.${key} must be a string or null`);
 }
 
+function decodeUriComponentSafely(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function assertSafeRelativePath(value, path) {
+  const decodedValue = decodeUriComponentSafely(value);
+  assertShape(!value.includes('://'), `${path} must be a repo-relative path`);
+  assertShape(!decodedValue.includes('://'), `${path} must be a repo-relative path`);
+  assertShape(!value.startsWith('/'), `${path} must not start with '/'`);
+  assertShape(!decodedValue.startsWith('/'), `${path} must not start with '/'`);
+  assertShape(!/^data:/i.test(value), `${path} must not use a data URL`);
+  assertShape(!/^data:/i.test(decodedValue), `${path} must not use a data URL`);
+  assertShape(!/^javascript:/i.test(value), `${path} must not use a javascript URL`);
+  assertShape(!/^javascript:/i.test(decodedValue), `${path} must not use a javascript URL`);
+  assertShape(!decodedValue.includes('..'), `${path} must not contain path traversal segments`);
+}
+
+function validateArtifactUrl(value, path, expectedId) {
+  assertShape(typeof value === 'string', `${path} must be a string`);
+  assertSafeRelativePath(value, path);
+  const match = value.match(SAFE_ARTIFACT_URL_PATTERN);
+  assertShape(Boolean(match), `${path} must match apps/<artifact-id>/`);
+  if (expectedId) {
+    assertShape(match[1] === expectedId, `${path} must use the same artifact id as ${path.replace(/\.url$/, '.id')}`);
+  }
+}
+
+function validateThumbnailPath(value, path, expectedId) {
+  assertShape(typeof value === 'string', `${path} must be a string`);
+  assertSafeRelativePath(value, path);
+  const match = value.match(SAFE_THUMBNAIL_PATTERN);
+  assertShape(Boolean(match), `${path} must match apps/<artifact-id>/thumbnail.(webp|png)`);
+  if (expectedId) {
+    assertShape(match[1] === expectedId, `${path} must use the same artifact id as ${path.replace(/\.thumbnail$/, '.id')}`);
+  }
+}
+
 /**
  * Validate the shape of `window.ARTIFACTS_DATA` at boot time.
  * @param {*} value - Runtime bootstrap data to validate.
@@ -105,12 +150,15 @@ export function validateArtifactsData(value) {
     const path = `window.ARTIFACTS_DATA[${index}]`;
     assertShape(isPlainObject(item), `${path} must be an object`);
     assertShape(typeof item.id === 'string', `${path}.id must be a string`);
+    assertShape(SAFE_ARTIFACT_ID_PATTERN.test(item.id), `${path}.id must use kebab-case`);
     assertShape(typeof item.name === 'string', `${path}.name must be a string`);
-    assertShape(typeof item.url === 'string', `${path}.url must be a string`);
+    validateArtifactUrl(item.url, `${path}.url`, item.id);
 
-    ['description', 'thumbnail'].forEach((key) => {
-      validateNullableStringField(item, key, path);
-    });
+    validateNullableStringField(item, 'description', path);
+    validateNullableStringField(item, 'thumbnail', path);
+    if (item.thumbnail !== undefined && item.thumbnail !== null) {
+      validateThumbnailPath(item.thumbnail, `${path}.thumbnail`, item.id);
+    }
 
     assertShape(Array.isArray(item.tags), `${path}.tags must be an array`);
     item.tags.forEach((tag, tagIndex) => {
