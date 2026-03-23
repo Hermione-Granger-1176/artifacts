@@ -129,7 +129,7 @@ function validateArtifactUrl(value, path, expectedId) {
 }
 
 function validateThumbnailPath(value, path, expectedId) {
-  assertShape(typeof value === 'string', `${path} must be a string or null`);
+  assertShape(typeof value === 'string', `${path} must be a string`);
   assertSafeRelativePath(value, path);
   const match = value.match(SAFE_THUMBNAIL_PATTERN);
   assertShape(Boolean(match), `${path} must match apps/<artifact-id>/thumbnail.(webp|png)`);
