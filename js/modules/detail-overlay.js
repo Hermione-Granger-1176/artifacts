@@ -135,6 +135,7 @@ export function createDetailOverlay({
     expandedId = id;
     lastExpandedTrigger = triggerCard || getCardById(id);
     detailPanel.innerHTML = createDetailContent(item);
+    detailPanel.setAttribute('aria-describedby', 'detail-description');
     const cardBgColor = triggerCard && triggerCard.style ? triggerCard.style.getPropertyValue('--card-bg-color') : '';
     detailPanel.style.setProperty('--detail-accent', cardBgColor || 'var(--color-page-paper)');
     detailOverlay.classList.add('visible');
@@ -175,6 +176,7 @@ export function createDetailOverlay({
     const finishClose = () => {
       detailOverlay.classList.remove('visible');
       detailPanel.innerHTML = '';
+      detailPanel.removeAttribute('aria-describedby');
       clearDetailMotion();
       setBackgroundContentInert(backgroundElements, false);
       if (restoreFocus && fallbackCard) {

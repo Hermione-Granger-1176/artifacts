@@ -166,10 +166,11 @@ export function createDetailContent(item) {
     </div>
     <div class="detail-content">
       <h2 id="detail-title" class="detail-title">${escapeHtml(item.name)}</h2>
-      <p class="detail-description">${escapeHtml(description)}</p>
+      <p id="detail-description" class="detail-description">${escapeHtml(description)}</p>
       ${detailTags || detailTools ? `<div class="detail-meta">${detailTags}${detailTools}</div>` : ''}
-      <a class="detail-open-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">
-        Open artifact ${ICONS.open}
+      <a class="detail-open-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer"
+        aria-label="Open artifact in a new tab">
+        Open artifact <span class="visually-hidden">(opens in a new tab)</span> ${ICONS.open}
       </a>
     </div>
   `;
