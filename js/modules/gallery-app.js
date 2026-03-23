@@ -128,6 +128,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   const detailOverlayEl = requireElement(documentObj, 'detail-overlay');
   const detailPanel = requireElement(documentObj, 'detail-panel');
   const filterNotesContainer = requireElement(documentObj, 'filter-notes');
+  const galleryStatus = requireElement(documentObj, 'gallery-status');
   const htmlElement = documentObj.documentElement;
 
   const backgroundElements = [
@@ -374,6 +375,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     if (meta) {
       meta.setAttribute('content', THEME_COLORS[theme] || THEME_COLORS.dark);
     }
+
+    galleryStatus.textContent = `Theme switched to ${theme} mode.`;
   }
 
   function renderFilterNotes() {
@@ -538,6 +541,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       paginationContainer.innerHTML = '';
       overlay.updateExpandedCardState();
       restorePendingFocus();
+      galleryStatus.textContent = 'No artifacts match the current search and filters.';
       return;
     }
 
@@ -546,5 +550,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     overlay.updateExpandedCardState();
     renderPagination(paginationContainer, currentPage, totalPages);
     restorePendingFocus();
+    const artifactLabel = totalItems === 1 ? 'artifact' : 'artifacts';
+    const pageLabel = totalPages === 1 ? 'single page' : `page ${currentPage} of ${totalPages}`;
+    galleryStatus.textContent = `Showing ${totalItems} ${artifactLabel}; ${pageLabel}.`;
   }
 }

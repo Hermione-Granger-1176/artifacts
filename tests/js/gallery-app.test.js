@@ -471,6 +471,7 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
   detailOverlay.setAttribute('aria-hidden', 'true');
   const detailPanel = registerElement(new FakeDetailPanel());
   const bookmarkTabs = registerElement(new FakeElement({ id: 'filter-notes' }));
+  const galleryStatus = registerElement(new FakeElement({ id: 'gallery-status' }));
   bookmarkTabs.querySelector = (selector) => bookmarkTabs._queryResults?.get(selector) || null;
   bookmarkTabs._queryResults = new Map();
 
@@ -487,7 +488,8 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
     [scrollTop, body],
     [detailOverlay, body],
     [detailPanel, detailOverlay],
-    [bookmarkTabs, container]
+    [bookmarkTabs, container],
+    [galleryStatus, body]
   ].forEach(([child, parent]) => {
     child.parentElement = parent;
   });
@@ -510,6 +512,7 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
       detailOverlay,
       detailPanel,
       filterReset,
+      galleryStatus,
       grid,
       metaThemeColor,
       noResults,
@@ -632,6 +635,7 @@ test('initializeGalleryApp restores URL and theme state on startup', () => {
   assert.equal(harness.elements.metaThemeColor.getAttribute('content'), '#f5efe6');
   assert.equal(harness.elements.sortToggle.getAttribute('aria-pressed'), 'true');
   assert.equal(harness.elements.themeToggle.getAttribute('aria-label'), 'Switch to dark theme');
+  assert.equal(harness.elements.galleryStatus.textContent, 'Showing 13 artifacts; page 2 of 4.');
   assert.equal(harness.elements.grid.cards.length, 4);
   assert.equal(harness.documentObj.body.classList.contains('js-loading'), false);
 });
@@ -691,6 +695,7 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
   harness.runTimers(150);
   assert.equal(harness.elements.grid.cards.length, 0);
   assert.equal(harness.elements.noResults.classList.contains('hidden'), false);
+  assert.equal(harness.elements.galleryStatus.textContent, 'No artifacts match the current search and filters.');
 
   harness.elements.noResultsReset.dispatch('click');
   assert.equal(harness.windowObj.location.search, '?sort=oldest');
@@ -714,6 +719,7 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
   assert.equal(harness.documentObj.documentElement.getAttribute('data-theme'), 'light');
   assert.equal(harness.elements.themeToggle.getAttribute('aria-pressed'), 'false');
   assert.equal(harness.elements.themeToggle.getAttribute('aria-label'), 'Switch to dark theme');
+  assert.equal(harness.elements.galleryStatus.textContent, 'Theme switched to light mode.');
   assert.deepEqual(harness.runtime.writes.at(-1), { key: 'theme', value: 'light' });
 });
 
