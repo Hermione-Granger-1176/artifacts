@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ class FakeSubprocessResult:
 
     def __init__(self, stdout: str = "", returncode: int = 0) -> None:
         self.stdout = stdout
+        self.stderr = ""
         self.returncode = returncode
 
 
@@ -176,15 +178,16 @@ def test_main_validate_lock_artifact_returns_zero(tmp_path: Path) -> None:
 
 
 def test_check_fallback_detects_pull_request_url() -> None:
-    assert workflow_helpers.check_fallback(
-        "https://github.com/owner/repo/pull/42"
-    ) is True
+    assert (
+        workflow_helpers.check_fallback("https://github.com/owner/repo/pull/42") is True
+    )
 
 
 def test_check_fallback_detects_commit_url() -> None:
-    assert workflow_helpers.check_fallback(
-        "https://github.com/owner/repo/commit/abc123"
-    ) is False
+    assert (
+        workflow_helpers.check_fallback("https://github.com/owner/repo/commit/abc123")
+        is False
+    )
 
 
 def test_check_fallback_handles_empty_url() -> None:
@@ -223,7 +226,9 @@ def test_invalidate_thumbnails_uses_commits_api_for_push(
     captured_cmd: list[object] = []
 
     def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
-        captured_cmd.extend(args[0] if args else [])
+        command = args[0] if args else []
+        if isinstance(command, list):
+            captured_cmd.extend(command)
         return FakeSubprocessResult("apps/calculator/index.html\n")
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
@@ -288,6 +293,87 @@ def test_invalidate_thumbnails_skips_missing_thumbnail(
     assert result == []
 
 
+def test_is_retryable_gh_api_failure_matches_expected_cases() -> None:
+    assert workflow_helpers._is_retryable_gh_api_failure("503 Service Unavailable")
+    assert workflow_helpers._is_retryable_gh_api_failure("timed out while calling API")
+    assert workflow_helpers._is_retryable_gh_api_failure("network error")
+    assert not workflow_helpers._is_retryable_gh_api_failure("404 Not Found")
+
+
+def test_run_gh_api_retries_transient_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    sleep_calls: list[float] = []
+
+    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            result = FakeSubprocessResult(returncode=1)
+            result.stderr = "503 Service Unavailable"
+            return result
+        return FakeSubprocessResult("apps/demo/index.html\n")
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+    monkeypatch.setattr(workflow_helpers.time, "sleep", sleep_calls.append)
+
+    stdout = workflow_helpers._run_gh_api(
+        "repos/owner/repo/pulls/1/files",
+        paginate=["--paginate"],
+        jq_expr=".[].filename",
+        description="listing changed files for pull_request owner/repo",
+    )
+
+    assert stdout == "apps/demo/index.html\n"
+    assert calls == 2
+    assert sleep_calls == [workflow_helpers.GH_API_RETRY_DELAY_SECONDS]
+
+
+def test_run_gh_api_retries_timeout_then_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sleep_calls: list[float] = []
+
+    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+        raise subprocess.TimeoutExpired(["gh", "api"], 15)
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+    monkeypatch.setattr(workflow_helpers.time, "sleep", sleep_calls.append)
+
+    with pytest.raises(RuntimeError, match="timed out"):
+        workflow_helpers._run_gh_api(
+            "repos/owner/repo/commits/abc123",
+            paginate=[],
+            jq_expr=".files[].filename",
+            description="listing changed files for push owner/repo",
+        )
+
+    assert sleep_calls == [
+        workflow_helpers.GH_API_RETRY_DELAY_SECONDS,
+        workflow_helpers.GH_API_RETRY_DELAY_SECONDS * 2,
+    ]
+
+
+def test_run_gh_api_fails_fast_for_non_retryable_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+        result = FakeSubprocessResult(returncode=1)
+        result.stderr = "404 Not Found"
+        return result
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="404 Not Found"):
+        workflow_helpers._run_gh_api(
+            "repos/owner/repo/commits/abc123",
+            paginate=[],
+            jq_expr=".files[].filename",
+            description="listing changed files for push owner/repo",
+        )
+
+
 def test_main_check_fallback_prints_true(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -339,8 +425,9 @@ def test_main_rejects_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
 
     fake_ns = argparse.Namespace(command="nonexistent")
     monkeypatch.setattr(
-        workflow_helpers, "_build_parser",
-        lambda: type("P", (), {"parse_args": lambda self, argv=None: fake_ns})()
+        workflow_helpers,
+        "_build_parser",
+        lambda: type("P", (), {"parse_args": lambda self, argv=None: fake_ns})(),
     )
     with pytest.raises(ValueError, match="Unsupported command"):
         workflow_helpers.main([])

@@ -78,7 +78,16 @@ jobs:
           if-no-files-found: error
 
       - name: Report JavaScript coverage
+        if: always()
         run: |
+          if [ ! -f js-coverage.txt ]; then
+            {
+              echo "## JavaScript Coverage"
+              echo
+              echo "Coverage output was not generated because `make check` did not complete successfully."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           python - <<'PY'
           import os
           from pathlib import Path
@@ -98,6 +107,7 @@ jobs:
           PY
 
       - name: Summarize verification
+        if: always()
         run: |
           {
             echo "## Verify"
@@ -105,8 +115,20 @@ jobs:
             echo "Generated changes detected during \`make check\`:"
             echo
             echo '```text'
-            git diff --name-status -- ${GENERATED_OUTPUT_ARGS} || true
+            git status --short -- ${GENERATED_OUTPUT_ARGS} || true
             echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summarize verify failure
+        if: failure()
+        run: |
+          {
+            echo "## Verify failed"
+            echo
+            echo "The strict repository gate failed before publish."
+            echo
+            echo "Recommended local command: \`make check\`"
+            echo "Inspect the failed step in this run for the exact command and error output."
           } >> "$GITHUB_STEP_SUMMARY"
 
   secret-scan:
@@ -294,6 +316,25 @@ jobs:
             echo "Generated files changed: ${{ steps.changes.outputs.changed }}"
             echo "Verified artifact: site-${{ github.run_id }}-${{ github.run_attempt }}"
             echo "Published URL verified: yes"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summarize publish failure
+        if: failure()
+        run: |
+          {
+            echo "## Publish failed"
+            echo
+            echo "The verified site artifact was not published successfully."
+            echo
+            echo "Recommended local command: \`make check\`"
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "Preview deploys also require trusted app tokens and a healthy GitHub Pages publish path."
+              if [ -n "${{ steps.preview-url.outputs.url }}" ]; then
+                echo "Preview URL (if created): ${{ steps.preview-url.outputs.url }}"
+              fi
+            else
+              echo "Inspect deploy verification and GitHub Pages settings if the build artifact looked correct."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   cleanup-preview:
