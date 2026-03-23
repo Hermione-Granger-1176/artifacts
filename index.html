@@ -31,6 +31,7 @@
 </head>
 
 <body class="js-loading">
+  <a class="skip-link" href="#search-input">Skip to search</a>
   <header class="header">
     <div class="header-content">
       <a href="./" class="logo-link">
@@ -46,7 +47,8 @@
           <p class="logo-sub">A collection of interactive experiments</p>
         </div>
       </a>
-      <button id="theme-toggle" class="btn-icon" aria-label="Toggle theme">
+      <button id="theme-toggle" class="btn-icon" type="button" aria-label="Switch to dark theme" aria-pressed="false"
+        title="Switch to dark theme">
         <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="5"></circle>
@@ -135,7 +137,7 @@
     <nav id="pagination" class="pagination" aria-label="Pagination"></nav>
   </main>
 
-  <button id="scroll-top" class="scroll-top" aria-label="Scroll to top">
+  <button id="scroll-top" class="scroll-top" type="button" aria-label="Scroll to top" aria-hidden="true" tabindex="-1">
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <polyline points="18 15 12 9 6 15"></polyline>

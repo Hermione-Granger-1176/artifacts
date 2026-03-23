@@ -11,6 +11,7 @@
       --color-carbon-black: #202020;
       --color-graphite: #333533;
       --border-color: rgba(255, 255, 255, 0.08);
+      --focus-ring: #fff3a6;
     }
 
     * {
@@ -76,6 +77,11 @@
 
     a:hover {
       filter: brightness(1.05);
+    }
+
+    a:focus-visible {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 4px;
     }
   </style>
 </head>

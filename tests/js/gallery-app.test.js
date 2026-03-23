@@ -465,10 +465,14 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
   const noResultsReset = registerElement(createButton('no-results-reset'));
   const pagination = registerElement(new FakeElement({ id: 'pagination' }));
   const scrollTop = registerElement(createButton('scroll-top'));
+  scrollTop.setAttribute('aria-hidden', 'true');
+  scrollTop.tabIndex = -1;
   const detailOverlay = registerElement(new FakeElement({ id: 'detail-overlay', classes: ['detail-overlay'] }));
   detailOverlay.setAttribute('aria-hidden', 'true');
   const detailPanel = registerElement(new FakeDetailPanel());
   const bookmarkTabs = registerElement(new FakeElement({ id: 'filter-notes' }));
+  bookmarkTabs.querySelector = (selector) => bookmarkTabs._queryResults?.get(selector) || null;
+  bookmarkTabs._queryResults = new Map();
 
   [
     [grid, container],
@@ -627,6 +631,7 @@ test('initializeGalleryApp restores URL and theme state on startup', () => {
   assert.equal(harness.documentObj.documentElement.getAttribute('data-theme'), 'light');
   assert.equal(harness.elements.metaThemeColor.getAttribute('content'), '#f5efe6');
   assert.equal(harness.elements.sortToggle.getAttribute('aria-pressed'), 'true');
+  assert.equal(harness.elements.themeToggle.getAttribute('aria-label'), 'Switch to dark theme');
   assert.equal(harness.elements.grid.cards.length, 4);
   assert.equal(harness.documentObj.body.classList.contains('js-loading'), false);
 });
@@ -642,6 +647,15 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
 
   const pageTwoButton = new FakeElement({ tagName: 'BUTTON' });
   pageTwoButton.dataset.page = '2';
+  pageTwoButton.focus = function focus() {
+    harness.documentObj.activeElement = this;
+  };
+  harness.elements.pagination.querySelector = (selector) => {
+    if (selector === '[data-page="2"]') {
+      return pageTwoButton;
+    }
+    return null;
+  };
   harness.elements.pagination.dispatch('click', { target: pageTwoButton });
   assert.equal(harness.windowObj.location.search, '?page=2');
   assert.equal(harness.elements.grid.cards.length, 4);
@@ -660,6 +674,9 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
   const toolTab = new FakeElement({ tagName: 'BUTTON', classes: ['desk-note'] });
   toolTab.dataset.filterTool = 'claude';
   toolTab.parentElement = harness.elements.bookmarkTabs;
+  toolTab.ownerDocument = harness.documentObj;
+  harness.elements.bookmarkTabs._queryResults.set('[data-filterTool="claude"]', toolTab);
+  harness.elements.bookmarkTabs._queryResults.set('[data-filter-tool="claude"]', toolTab);
   harness.elements.bookmarkTabs.dispatch('click', { target: toolTab });
   assert.match(harness.windowObj.location.search, /tool=claude/);
   assert.equal(harness.elements.filterReset.classList.contains('hidden'), false);
@@ -687,12 +704,16 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
   harness.windowObj.scrollY = 400;
   harness.windowObj.dispatch('scroll');
   assert.equal(harness.elements.scrollTop.classList.contains('visible'), true);
+  assert.equal(harness.elements.scrollTop.getAttribute('aria-hidden'), 'false');
+  assert.equal(harness.elements.scrollTop.tabIndex, 0);
 
   harness.elements.scrollTop.dispatch('click');
   assert.deepEqual(harness.scrollCalls.at(-1), { behavior: 'smooth', top: 0 });
 
   harness.elements.themeToggle.dispatch('click');
   assert.equal(harness.documentObj.documentElement.getAttribute('data-theme'), 'light');
+  assert.equal(harness.elements.themeToggle.getAttribute('aria-pressed'), 'false');
+  assert.equal(harness.elements.themeToggle.getAttribute('aria-label'), 'Switch to dark theme');
   assert.deepEqual(harness.runtime.writes.at(-1), { key: 'theme', value: 'light' });
 });
 
@@ -754,6 +775,12 @@ test('initializeGalleryApp desk notes toggle tool and tag filters', () => {
     const deskNote = new FakeElement({ tagName: 'BUTTON', classes: ['desk-note'] });
     Object.assign(deskNote.dataset, dataset);
     deskNote.parentElement = harness.elements.bookmarkTabs;
+    deskNote.ownerDocument = harness.documentObj;
+    for (const [key, value] of Object.entries(dataset)) {
+      harness.elements.bookmarkTabs._queryResults.set(`[data-${key}="${value}"]`, deskNote);
+      const kebabKey = key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+      harness.elements.bookmarkTabs._queryResults.set(`[data-${kebabKey}="${value}"]`, deskNote);
+    }
     return deskNote;
   }
 
@@ -792,10 +819,21 @@ test('initializeGalleryApp desk notes toggle tool and tag filters', () => {
 
   const pageTwoButton = new FakeElement({ tagName: 'BUTTON' });
   pageTwoButton.dataset.page = '2';
+  pageTwoButton.focus = function focus() {
+    harness.documentObj.activeElement = this;
+  };
+  harness.elements.pagination.querySelector = (selector) => {
+    if (selector === '[data-page="2"]') {
+      return pageTwoButton;
+    }
+    return null;
+  };
   harness.elements.pagination.dispatch('click', { target: pageTwoButton });
   assert.match(harness.windowObj.location.search, /page=2/);
+  assert.equal(harness.documentObj.activeElement?.dataset.page, '2');
   harness.elements.bookmarkTabs.dispatch('click', { target: claudeTab });
   assert.doesNotMatch(harness.windowObj.location.search, /page=2/);
+  assert.equal(harness.documentObj.activeElement, claudeTab);
 
   const prevSearch = harness.windowObj.location.search;
   const nonTab = new FakeElement({ tagName: 'DIV' });
