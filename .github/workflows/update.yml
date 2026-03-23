@@ -28,11 +28,6 @@ env:
   VERIFY_DEPLOY_DELAY_SECONDS: '10'
   ARTIFACTS_STRICT_THUMBNAILS: '1'
   GENERATED_OUTPUT_ARGS: js/data.js js/gallery-config.js README.md apps
-  GENERATED_OUTPUT_PATHSPEC: |
-    js/data.js
-    js/gallery-config.js
-    README.md
-    apps
 
 jobs:
   verify:
@@ -41,6 +36,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+      pull-requests: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -61,11 +57,38 @@ jobs:
       - name: Install workspace dependencies
         run: make setup-ci
 
+      - name: Invalidate thumbnails for changed apps
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/workflow_helpers.py invalidate-thumbnails
+          --event-name "${{ github.event_name }}"
+          --repo "${{ github.repository }}"
+          --pr-number "${{ github.event.pull_request.number || '' }}"
+          --commit-sha "${{ github.sha }}"
+
       - name: Run full repository check
         run: make COVERAGE_OUTPUT=js-coverage.txt check
 
+      - name: Upload verified site artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: site-${{ github.run_id }}
+          path: _site
+          if-no-files-found: error
+          overwrite: true
+
       - name: Report JavaScript coverage
+        if: always()
         run: |
+          if [ ! -f js-coverage.txt ]; then
+            {
+              echo "## JavaScript Coverage"
+              echo
+              echo "Coverage output was not generated because `make check` did not complete successfully."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           python - <<'PY'
           import os
           from pathlib import Path
@@ -85,6 +108,7 @@ jobs:
           PY
 
       - name: Summarize verification
+        if: always()
         run: |
           {
             echo "## Verify"
@@ -92,8 +116,20 @@ jobs:
             echo "Generated changes detected during \`make check\`:"
             echo
             echo '```text'
-            git diff --name-status -- ${GENERATED_OUTPUT_ARGS} || true
+            git status --short -- ${GENERATED_OUTPUT_ARGS} || true
             echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summarize verify failure
+        if: failure()
+        run: |
+          {
+            echo "## Verify failed"
+            echo
+            echo "The strict repository gate failed before publish."
+            echo
+            echo "Recommended local command: \`make check\`"
+            echo "Inspect the failed step in this run for the exact command and error output."
           } >> "$GITHUB_STEP_SUMMARY"
 
   secret-scan:
@@ -126,7 +162,6 @@ jobs:
 
       - name: Review dependency changes
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
-        continue-on-error: ${{ !github.event.repository.private }}
 
   publish:
     if: >-
@@ -165,76 +200,38 @@ jobs:
           escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
           python-version: ${{ env.PYTHON_VERSION }}
           node-version: ${{ env.NODE_VERSION }}
-          install-deps: 'true'
 
-      - name: Invalidate thumbnails for changed apps
-        env:
-          GH_TOKEN: ${{ steps.setup.outputs.app-token || github.token }}
-        run: >-
-          python3 scripts/workflow_helpers.py invalidate-thumbnails
-          --event-name "${{ github.event_name }}"
-          --repo "${{ github.repository }}"
-          --pr-number "${{ github.event.pull_request.number || '' }}"
-          --commit-sha "${{ github.sha }}"
-
-      - name: Generate thumbnails
-        run: make thumbnails
-
-      - name: Generate content index
-        run: make index
+      - name: Download verified site artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: site-${{ github.run_id }}
+          path: _site
 
       - name: Detect generated changes
         id: changes
         run: |
-          git add -A ${GENERATED_OUTPUT_ARGS}
-          if git diff --staged --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
+          if [ -n "$(git status --short -- ${GENERATED_OUTPUT_ARGS})" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit generated files (verified)
-        id: commit-generated
-        if: steps.changes.outputs.changed == 'true' && steps.setup.outputs.token-available == 'true'
-        uses: ./.github/actions/verified-commit
-        with:
-          github-token: ${{ steps.setup.outputs.escalation-token }}
-          base-branch: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-          expected-head-sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-          commit-headline: "Update generated artifacts [skip ci]"
-          fallback-branch-prefix: auto/update-artifacts
-          pr-title: "Update generated artifacts"
-          pr-body: |
-            ## Summary
-            - Type: CI automation
-            - Update generated artifacts from the `update.yml` workflow
-            - Direct commit to the default branch was blocked by branch protection
-          pathspec: ${{ env.GENERATED_OUTPUT_PATHSPEC }}
-
-      - name: Check if fallback PR was created
-        id: commit-result
-        if: steps.commit-generated.outcome == 'success'
-        run: >-
-          python3 scripts/workflow_helpers.py check-fallback
-          --result-url "${{ steps.commit-generated.outputs.result-url }}"
-          >> "$GITHUB_OUTPUT"
-
-      - name: Re-checkout after API commit
-        if: >-
-          steps.commit-generated.outcome == 'success' &&
-          steps.commit-result.outputs.fallback != 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Prepare deployable site
-        run: make site
+      - name: Summarize generated workspace changes
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          {
+            echo "## Generated workspace changes"
+            echo
+            echo "CI rebuilt generated content for this run. The publish workflow deploys these changes from the verified workspace build without mutating the source branch."
+            echo
+            echo '```text'
+            git status --short -- ${GENERATED_OUTPUT_ARGS} || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Resolve deployed asset marker
         id: deploy-version
-        run: echo "short-sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+        run: echo "short-sha=$(printf '%s' "${{ github.sha }}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
 
       - name: Resolve preview URL
         if: github.event_name == 'pull_request'
@@ -272,6 +269,7 @@ jobs:
           python3 scripts/verify_deploy.py
           --url "${{ steps.preview-url.outputs.url }}"
           --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
+          --expected-commit-sha "${{ github.sha }}"
           --attempts ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
           --delay-seconds ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
 
@@ -282,6 +280,7 @@ jobs:
             echo "## PR Preview"
             echo
             echo "Preview URL: ${{ steps.preview-url.outputs.url }}"
+            echo "Built from verified artifact: site-${{ github.run_id }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Note limited PR preview
@@ -297,8 +296,7 @@ jobs:
         id: main-deploy
         if: >-
           github.event_name != 'pull_request' &&
-          steps.setup.outputs.token-available == 'true' &&
-          steps.commit-result.outputs.fallback != 'true'
+          steps.setup.outputs.token-available == 'true'
         uses: ./.github/actions/deploy-site
         with:
           token: ${{ steps.setup.outputs.escalation-token }}
@@ -310,25 +308,34 @@ jobs:
           verify-delay-seconds: ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
 
       - name: Summarize publish
-        if: github.event_name != 'pull_request' && steps.commit-result.outputs.fallback != 'true'
+        if: github.event_name != 'pull_request'
         run: |
           {
             echo "## Publish"
             echo
             echo "Deploy version: ${{ github.sha }}"
             echo "Generated files changed: ${{ steps.changes.outputs.changed }}"
+            echo "Verified artifact: site-${{ github.run_id }}"
             echo "Published URL verified: yes"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Summarize deferred deploy
-        if: github.event_name != 'pull_request' && steps.commit-result.outputs.fallback == 'true'
+      - name: Summarize publish failure
+        if: failure()
         run: |
           {
-            echo "## Deploy Deferred"
+            echo "## Publish failed"
             echo
-            echo "Generated artifacts were committed to a fallback PR."
-            echo "Deploy will happen when the PR is merged."
-            echo "PR: ${{ steps.commit-generated.outputs.result-url }}"
+            echo "The verified site artifact was not published successfully."
+            echo
+            echo "Recommended local command: \`make check\`"
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "Preview deploys also require trusted app tokens and a healthy GitHub Pages publish path."
+              if [ -n "${{ steps.preview-url.outputs.url }}" ]; then
+                echo "Preview URL (if created): ${{ steps.preview-url.outputs.url }}"
+              fi
+            else
+              echo "Inspect deploy verification and GitHub Pages settings if the build artifact looked correct."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   cleanup-preview:
@@ -375,72 +382,3 @@ jobs:
         with:
           header: ${{ env.PREVIEW_COMMENT_HEADER }}
           delete: true
-
-  deploy-on-merge:
-    if: >-
-      always() &&
-      github.event_name == 'pull_request' &&
-      github.event.action == 'closed' &&
-      github.event.pull_request.merged == true
-    needs:
-      - cleanup-preview
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout merged main
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: CI setup
-        id: setup
-        uses: ./.github/actions/ci-setup
-        with:
-          event-name: pull_request
-          head-repo-fork: ${{ github.event.pull_request.head.repo.fork }}
-          pr-author: ${{ github.event.pull_request.user.login }}
-          app-id: ${{ vars.APP_ID }}
-          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          escalation-app-id: ${{ vars.ESCALATION_APP_ID }}
-          escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
-
-      # No Node.js or make setup-ci needed: make site runs prepare_site.py
-      # which is stdlib-only Python. All generated files (thumbnails, data.js)
-      # are already committed to the merge commit from the PR branch.
-      - name: Deploy site
-        id: deploy
-        if: steps.setup.outputs.token-available == 'true'
-        uses: ./.github/actions/deploy-site
-        with:
-          token: ${{ steps.setup.outputs.escalation-token }}
-          pages-branch: ${{ env.PAGES_BRANCH }}
-          preview-root: ${{ env.PREVIEW_ROOT }}
-          # Use merge_commit_sha (not github.sha) since github.sha is the
-          # PR head ref in pull_request closed events
-          commit-sha: ${{ github.event.pull_request.merge_commit_sha }}
-          verify-attempts: ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
-          verify-delay-seconds: ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
-
-      - name: Summarize deploy
-        if: steps.setup.outputs.token-available == 'true'
-        run: |
-          {
-            echo "## Deploy on Merge"
-            echo
-            echo "PR: #${{ github.event.pull_request.number }}"
-            echo "Merge commit: ${{ github.event.pull_request.merge_commit_sha }}"
-            echo "Deploy version: ${{ steps.deploy.outputs.short-sha }}"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Note skipped deploy
-        if: steps.setup.outputs.token-available != 'true'
-        run: |
-          {
-            echo "## Deploy Skipped"
-            echo
-            echo "Deployment skipped because the app token is unavailable (fork or Dependabot PR)."
-          } >> "$GITHUB_STEP_SUMMARY"

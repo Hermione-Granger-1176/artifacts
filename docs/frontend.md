@@ -44,6 +44,14 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `tests/js/deploy-verified.test.js`: deploy-site action logic (blob SHA, change computation, verified deploy, preview modes)
 - `tests/test_frontend_smoke.py`: browser smoke coverage for gallery load, invalid bootstrap data, search, desk-note filters, pagination, detail overlay, and `404.html`
 
+## Accessibility notes for the root shell
+
+- The root shell keeps keyboard focus visible across search, desk-note filters, pagination, overlay close/return, and the scroll-to-top control.
+- `js/modules/gallery-app.js` keeps the theme toggle stateful with `aria-pressed`, updates the toggle label for the next theme, and announces result/theme changes through a dedicated live region.
+- `js/modules/render.js` gives the detail description a stable ID, and `js/modules/detail-overlay.js` uses it to describe the dialog while artifact links announce that they open in a new tab.
+- `404.html` has explicit focus-visible styling so fallback navigation is keyboard-safe even outside the main app shell.
+- `css/root-gallery-foundation.css` owns the root focus ring tokens and skip-link behavior; `css/root-gallery-artifacts.css` owns accessible contrast tuning for active pagination and detail CTA states.
+
 ## Local vs CI expectations
 
 - `npm run test` runs the JavaScript unit suite with Node's built-in test runner

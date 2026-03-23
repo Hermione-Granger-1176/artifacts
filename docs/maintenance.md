@@ -30,6 +30,7 @@ If you touch workflow files:
 7. Keep the PR preview comment recreated on each push so the latest preview link stays easy to find.
 8. Keep read-only verification separate from write-capable publish steps.
 9. Pull repeated workflow constants into top-level or job-level `env` entries before copy-pasting them across steps.
+10. Update `docs/adr/0001-root-publishing-platform.md` if the verified-artifact, fail-closed, or no-source-mutation rules change.
 
 ## When changing URLs or repo metadata
 

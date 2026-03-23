@@ -128,6 +128,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   const detailOverlayEl = requireElement(documentObj, 'detail-overlay');
   const detailPanel = requireElement(documentObj, 'detail-panel');
   const filterNotesContainer = requireElement(documentObj, 'filter-notes');
+  const galleryStatus = requireElement(documentObj, 'gallery-status');
   const htmlElement = documentObj.documentElement;
 
   const backgroundElements = [
@@ -172,6 +173,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   let currentTags = [];
   let debounceTimer = null;
   let suppressPush = false;
+  let pendingFocusTarget = null;
   const resetFiltersByNote = {
     'all-tags': () => {
       currentTags = [];
@@ -188,6 +190,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   const savedTheme = runtime.readStorage('theme', 'light') || 'light';
   applyTheme(savedTheme, false);
+  updateScrollTopVisibility(false);
 
   syncUIToState();
   renderContent();
@@ -222,18 +225,22 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
 
     const { filterNote, filterTag, filterTool } = tab.dataset;
+    let focusTarget = null;
     if (filterNote && resetFiltersByNote[filterNote]) {
       resetFiltersByNote[filterNote]();
+      focusTarget = { type: 'desk-note', dataset: 'filterNote', value: filterNote };
     } else if (filterTool) {
       currentTools = toggleSelection(currentTools, filterTool);
+      focusTarget = { type: 'desk-note', dataset: 'filterTool', value: filterTool };
     } else if (filterTag) {
       currentTags = toggleSelection(currentTags, filterTag);
+      focusTarget = { type: 'desk-note', dataset: 'filterTag', value: filterTag };
     } else {
       return;
     }
 
     currentPage = 1;
-    applyStateChange();
+    applyStateChange({ focusTarget });
   });
 
   sortToggle.addEventListener('click', () => {
@@ -287,6 +294,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
     const direction = page > currentPage ? 'next' : 'previous';
     currentPage = page;
+    pendingFocusTarget = { type: 'page', value: String(page) };
     overlay.close({ restoreFocus: false, immediate: true });
     pushState();
     await bookScene.turnPage(() => {
@@ -341,7 +349,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       }
 
       windowObj.requestAnimationFrame(() => {
-        scrollTopBtn.classList.toggle('visible', windowObj.scrollY > SCROLL_TOP_THRESHOLD);
+        updateScrollTopVisibility(windowObj.scrollY > SCROLL_TOP_THRESHOLD);
         scrollTicking = false;
       });
       scrollTicking = true;
@@ -355,6 +363,10 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   function applyTheme(theme, persist = true) {
     htmlElement.setAttribute('data-theme', theme);
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    themeToggle.setAttribute('aria-pressed', String(theme === 'dark'));
+    themeToggle.setAttribute('aria-label', `Switch to ${nextTheme} theme`);
+    themeToggle.setAttribute('title', `Switch to ${nextTheme} theme`);
     if (persist) {
       runtime.writeStorage('theme', theme);
     }
@@ -363,6 +375,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     if (meta) {
       meta.setAttribute('content', THEME_COLORS[theme] || THEME_COLORS.dark);
     }
+
+    galleryStatus.textContent = `Theme switched to ${theme} mode.`;
   }
 
   function renderFilterNotes() {
@@ -428,6 +442,12 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     searchClear.classList.toggle('hidden', searchInput.value.length === 0);
   }
 
+  function updateScrollTopVisibility(isVisible) {
+    scrollTopBtn.classList.toggle('visible', isVisible);
+    scrollTopBtn.setAttribute('aria-hidden', String(!isVisible));
+    scrollTopBtn.tabIndex = isVisible ? 0 : -1;
+  }
+
   function updateSortToggle() {
     const isOldest = currentSort === 'oldest';
     const label = `Sort by ${isOldest ? 'oldest' : 'newest'} first`;
@@ -444,13 +464,10 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   function applyStateChange({ focusTarget = null } = {}) {
     overlay.close({ restoreFocus: false, immediate: true });
+    pendingFocusTarget = focusTarget;
     syncUIToState();
     pushState();
     renderContent();
-
-    if (focusTarget) {
-      focusTarget.focus();
-    }
   }
 
   function isTextEntryElement(element) {
@@ -468,6 +485,34 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     currentPage = DEFAULTS.page;
     searchInput.value = '';
     applyStateChange({ focusTarget: searchInput });
+  }
+
+  function resolvePendingFocusTarget(target) {
+    if (!target) {
+      return null;
+    }
+
+    if (typeof target.focus === 'function' && documentObj.body.contains(target)) {
+      return target;
+    }
+
+    const targetResolvers = {
+      page: () => paginationContainer.querySelector(`[data-page="${target.value}"]`),
+      'desk-note': () => {
+        const selectorName = target.dataset.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+        return filterNotesContainer.querySelector(`[data-${selectorName}="${target.value}"]`);
+      }
+    };
+
+    return targetResolvers[target.type]?.() || null;
+  }
+
+  function restorePendingFocus() {
+    const target = resolvePendingFocusTarget(pendingFocusTarget);
+    pendingFocusTarget = null;
+    if (target && typeof target.focus === 'function') {
+      target.focus();
+    }
   }
 
   function renderContent() {
@@ -492,6 +537,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       noResults.classList.remove('hidden');
       paginationContainer.innerHTML = '';
       overlay.updateExpandedCardState();
+      restorePendingFocus();
+      galleryStatus.textContent = 'No artifacts match the current search and filters.';
       return;
     }
 
@@ -499,5 +546,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     grid.innerHTML = buildGridHtml(pageItems, overlay.getExpandedId());
     overlay.updateExpandedCardState();
     renderPagination(paginationContainer, currentPage, totalPages);
+    restorePendingFocus();
+    const artifactLabel = totalItems === 1 ? 'artifact' : 'artifacts';
+    const pageLabel = totalPages === 1 ? 'single page' : `page ${currentPage} of ${totalPages}`;
+    galleryStatus.textContent = `Showing ${totalItems} ${artifactLabel}; ${pageLabel}.`;
   }
 }

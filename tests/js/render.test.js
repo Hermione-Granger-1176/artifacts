@@ -24,8 +24,10 @@ test('createDetailContent renders fallback and escaped values', () => {
 
   assert.match(html, /detail-media-placeholder/);
   assert.match(html, /Artifact &lt;One&gt;/);
+  assert.match(html, /id="detail-description"/);
   assert.match(html, /Open the artifact to explore the interactive experience\./);
   assert.match(html, /href="apps\/artifact-1\/\?x=&lt;tag&gt;"/);
+  assert.match(html, /aria-label="Open artifact in a new tab"/);
 });
 
 test('buildGridHtml marks the expanded card and lazy-loads thumbnails', () => {

@@ -29,6 +29,7 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 - [`workspace.md`](docs/workspace.md): repository layout and responsibilities
 - [`architecture.md`](docs/architecture.md): runtime, build, and deployment design
+- [`docs/adr/0001-root-publishing-platform.md`](docs/adr/0001-root-publishing-platform.md): accepted decision record for the strict root publish flow
 - [`frontend.md`](docs/frontend.md): JavaScript module layout and test coverage
 - [`operations.md`](docs/operations.md): local workflows, CI, and generation notes
 - [`maintenance.md`](docs/maintenance.md): maintenance rules and long-term repo hygiene
@@ -59,6 +60,8 @@ apps/
 3. Run `make validate` to catch missing required files before pushing
 4. Push to `main` or trigger a manual run to let CI regenerate derived files, prepare `_site/`, and deploy the site
 5. Open a PR to run the same checks and publish a live preview without modifying the source branch
+
+CI is intentionally strict for the root publishing platform: dependency review, secret scanning, verification, preview deploys, and main deploys fail closed instead of auto-healing source branches. Preview and production deploys both consume the exact verified `_site/` artifact built in CI.
 
 ## Local development
 

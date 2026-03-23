@@ -16,6 +16,10 @@ inputs:
   commit-sha:
     description: SHA to use in the deploy commit message.
     required: true
+  deploy-dir:
+    description: Directory containing the prepared site payload.
+    required: false
+    default: _site
   skip-build:
     description: Skip make site if _site/ is already prepared.
     required: false
@@ -33,6 +37,9 @@ outputs:
   short-sha:
     description: Short SHA used for cache-busting asset URLs.
     value: ${{ steps.deploy-version.outputs.short-sha }}
+  deploy-commit-sha:
+    description: Full commit SHA used for deploy metadata verification.
+    value: ${{ steps.deploy-version.outputs.commit-sha }}
 
 runs:
   using: composite
@@ -40,12 +47,18 @@ runs:
     - name: Prepare deployable site
       if: inputs.skip-build != 'true'
       shell: bash
-      run: make site
+      env:
+        ARTIFACTS_DEPLOY_COMMIT_SHA: ${{ inputs.commit-sha }}
+      run: |
+        export ARTIFACTS_DEPLOY_VERSION="$(printf '%s' "$ARTIFACTS_DEPLOY_COMMIT_SHA" | cut -c1-7)"
+        make site
 
     - name: Resolve deployed asset marker
       id: deploy-version
       shell: bash
-      run: echo "short-sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      run: |
+        echo "short-sha=$(printf '%s' "${{ inputs.commit-sha }}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
+        echo "commit-sha=${{ inputs.commit-sha }}" >> "$GITHUB_OUTPUT"
 
     - name: Deploy to gh-pages
       shell: bash
@@ -54,7 +67,7 @@ runs:
         PAGES_BRANCH: ${{ inputs.pages-branch }}
         PREVIEW_ROOT: ${{ inputs.preview-root }}
         COMMIT_MESSAGE: Deploy site for ${{ inputs.commit-sha }}
-        DEPLOY_DIR: _site
+        DEPLOY_DIR: ${{ inputs.deploy-dir }}
         GITHUB_REPOSITORY: ${{ github.repository }}
       run: node ./.github/actions/deploy-site/deploy-verified.mjs
 
@@ -63,5 +76,6 @@ runs:
       run: >-
         python3 scripts/verify_deploy.py
         --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
+        --expected-commit-sha "${{ steps.deploy-version.outputs.commit-sha }}"
         --attempts ${{ inputs.verify-attempts }}
         --delay-seconds ${{ inputs.verify-delay-seconds }}

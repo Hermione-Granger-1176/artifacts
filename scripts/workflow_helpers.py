@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Provide small command-line helpers for GitHub Actions workflows.
 
-Provides small command-line helpers for GitHub Actions workflows so trust-boundary
-decisions and artifact validation live in tested Python instead of inline shell.
+These helpers keep trust-boundary decisions and artifact validation in tested
+Python instead of inline shell.
 
 Usage:
     python scripts/workflow_helpers.py app-token-policy --event-name pull_request \
@@ -19,8 +19,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
+import time
 from itertools import chain
 from pathlib import Path
 
@@ -44,6 +46,14 @@ BOOL_LOOKUP = {
     "0": False,
     "no": False,
 }
+
+GH_API_TIMEOUT_SECONDS = 15
+GH_API_MAX_ATTEMPTS = 3
+GH_API_RETRY_DELAY_SECONDS = 0.5
+GH_API_RETRYABLE_ERROR_PATTERN = re.compile(
+    r"429|502|503|504|timed out|timeout|ECONNRESET|connection reset|network",
+    re.IGNORECASE,
+)
 
 
 def _parse_bool(value: str) -> bool:
@@ -91,27 +101,89 @@ def validate_lock_refresh_artifact(root: Path) -> None:
             )
 
 
+def _is_retryable_gh_api_failure(message: str) -> bool:
+    """Return True when ``gh api`` failed with a likely transient error."""
+    return bool(GH_API_RETRYABLE_ERROR_PATTERN.search(message))
+
+
+def _run_gh_api(
+    endpoint: str, *, paginate: list[str], jq_expr: str, description: str
+) -> str:
+    """Run ``gh api`` with bounded retries, timeout, and contextual failures."""
+    command = ["gh", "api", endpoint, *paginate, "--jq", jq_expr]
+    last_error: str | None = None
+
+    for attempt in range(1, GH_API_MAX_ATTEMPTS + 1):
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=GH_API_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as exc:
+            last_error = (
+                f"timed out after {GH_API_TIMEOUT_SECONDS} seconds while {description}"
+            )
+            if attempt < GH_API_MAX_ATTEMPTS:
+                print(
+                    f"Retrying gh api for {description} after attempt "
+                    f"{attempt}/{GH_API_MAX_ATTEMPTS} timed out.",
+                    file=sys.stderr,
+                )
+                time.sleep(GH_API_RETRY_DELAY_SECONDS * attempt)
+                continue
+            raise RuntimeError(f"gh api {description} failed: {last_error}") from exc
+
+        if result.returncode == 0:
+            return result.stdout
+
+        stderr = (
+            result.stderr.strip() or result.stdout.strip() or "unknown gh api error"
+        )
+        last_error = stderr
+        if attempt < GH_API_MAX_ATTEMPTS and _is_retryable_gh_api_failure(stderr):
+            print(
+                f"Retrying gh api for {description} after attempt "
+                f"{attempt}/{GH_API_MAX_ATTEMPTS} failed: {stderr}",
+                file=sys.stderr,
+            )
+            time.sleep(GH_API_RETRY_DELAY_SECONDS * attempt)
+            continue
+
+        raise RuntimeError(f"gh api {description} failed: {stderr}")
+
+    raise RuntimeError(f"gh api {description} failed: {last_error or 'unknown error'}")
+
+
 def invalidate_thumbnails(
     *, event_name: str, repo: str, pr_number: str, commit_sha: str
 ) -> list[str]:
     """Delete thumbnail.webp for apps whose index.html changed in a PR or push."""
-    if event_name == "pull_request":
-        endpoint = f"repos/{repo}/pulls/{pr_number}/files"
-        paginate = ["--paginate"]
-        jq_expr = ".[].filename"
-    else:
-        endpoint = f"repos/{repo}/commits/{commit_sha}"
-        paginate = []
-        jq_expr = ".files[].filename"
+    request = {
+        "pull_request": {
+            "endpoint": f"repos/{repo}/pulls/{pr_number}/files",
+            "paginate": ["--paginate"],
+            "jq_expr": ".[].filename",
+        }
+    }.get(
+        event_name,
+        {
+            "endpoint": f"repos/{repo}/commits/{commit_sha}",
+            "paginate": [],
+            "jq_expr": ".files[].filename",
+        },
+    )
 
-    result = subprocess.run(
-        ["gh", "api", endpoint, *paginate, "--jq", jq_expr],
-        capture_output=True,
-        text=True,
-        check=True,
+    stdout = _run_gh_api(
+        request["endpoint"],
+        paginate=request["paginate"],
+        jq_expr=request["jq_expr"],
+        description=f"listing changed files for {event_name} {repo}",
     )
     invalidated = []
-    for line in result.stdout.splitlines():
+    for line in stdout.splitlines():
         filename = line.strip()
         if not filename:
             continue
@@ -236,6 +308,6 @@ def main(argv: list[str] | None = None) -> int:
 if __name__ == "__main__":  # pragma: no cover
     try:
         sys.exit(main())
-    except (ValueError, FileNotFoundError) as exc:
+    except (RuntimeError, ValueError, FileNotFoundError) as exc:
         print(exc, file=sys.stderr)
         sys.exit(1)

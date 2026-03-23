@@ -11,7 +11,7 @@
   --color-text-secondary: #6b5c4d;
   --color-accent: #d4725c;
   --color-accent-hover: #c0604a;
-  --color-accent-ring: rgba(212, 114, 92, 0.25);
+  --color-accent-ring: #8f2f1f;
   --color-accent-ghost: rgba(212, 114, 92, 0.1);
   --color-page-paper: #fefcf8;
   --color-page-shadow: rgba(0, 0, 0, 0.08);
@@ -75,7 +75,7 @@
   --color-text-secondary: #b39f8d;
   --color-accent: #e8856a;
   --color-accent-hover: #f09a7e;
-  --color-accent-ring: rgba(232, 133, 106, 0.25);
+  --color-accent-ring: #ffd7c7;
   --color-accent-ghost: rgba(232, 133, 106, 0.12);
   --color-page-paper: #332e26;
   --color-page-shadow: rgba(0, 0, 0, 0.3);
@@ -169,6 +169,24 @@ button {
   border: 0;
 }
 
+.skip-link {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 200;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform var(--transition-fast) ease;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
 /* ================================================================
    Layout Stacking
    ================================================================ */
@@ -253,6 +271,7 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  border-radius: var(--radius-pill);
   border: none;
   background: transparent;
   color: var(--text-secondary);
@@ -444,6 +463,10 @@ button {
   margin: 0 auto 0.75rem;
 }
 
+.toolbar-ribbon {
+  display: block;
+}
+
 .controls {
   display: flex;
   align-items: center;
@@ -507,6 +530,11 @@ button {
   color: var(--text-secondary);
   font-size: 1.2rem;
   line-height: 1;
+}
+
+.search-clear:hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--color-bg-card));
+  color: var(--accent);
 }
 
 /* ================================================================
@@ -745,6 +773,10 @@ button {
   transition: opacity var(--transition-fast) ease, transform var(--transition-fast) ease;
 }
 
+.scroll-top[aria-hidden="true"] {
+  visibility: hidden;
+}
+
 .scroll-top.visible {
   opacity: 1;
   pointer-events: auto;
@@ -781,12 +813,16 @@ button {
 #search-input:focus-visible,
 .sort-toggle:focus-visible,
 .filter-reset:focus-visible,
+.search-clear:focus-visible,
+.desk-note:focus-visible,
 .artifact-card:focus-visible,
 .page-btn:focus-visible,
 .detail-close:focus-visible,
+.detail-open-link:focus-visible,
 .scroll-top:focus-visible,
 .btn-reset-link:focus-visible,
 .btn-icon:focus-visible,
+.skip-link:focus-visible,
 .footer a:focus-visible {
   outline: 3px solid var(--accent-ring);
   outline-offset: 3px;

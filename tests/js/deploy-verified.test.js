@@ -308,6 +308,55 @@ test('runVerifiedDeploy handles preview deploy mode', async () => {
   assert.equal(graphqlInput.fileChanges.additions[0].path, 'pr-preview/pr-42/index.html');
 });
 
+test('runVerifiedDeploy reads from a custom deploy directory', async () => {
+  let observedPath = null;
+
+  const env = {
+    GH_TOKEN: 'test-token',
+    PAGES_BRANCH: 'gh-pages',
+    PREVIEW_ROOT: 'pr-preview',
+    COMMIT_MESSAGE: 'Deploy site for abc123',
+    DEPLOY_DIR: 'custom-site',
+    GITHUB_REPOSITORY: 'owner/repo'
+  };
+
+  const fakeFetch = async (url, options) => {
+    const body = options?.body ? JSON.parse(options.body) : null;
+    if (url === 'https://api.github.com/graphql' && body?.query?.includes('createCommitOnBranch')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: { createCommitOnBranch: { commit: { oid: 'abc', url: 'https://github.com/o/r/commit/abc' } } }
+        })
+      };
+    }
+    if (url.includes('/git/ref/')) {
+      return { ok: true, status: 200, json: async () => ({ object: { sha: 'abc' } }) };
+    }
+    if (url.includes('/git/commits/abc')) {
+      return { ok: true, status: 200, json: async () => ({ tree: { sha: 'tree' } }) };
+    }
+    if (url.includes('/git/trees/tree')) {
+      return { ok: true, status: 200, json: async () => ({ tree: [] }) };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+
+  await runVerifiedDeploy({
+    env,
+    consoleObj: { log() {}, error() {} },
+    fetchDependencies: { fetchImpl: fakeFetch },
+    readFileSyncImpl(filePath) {
+      observedPath = filePath;
+      return Buffer.from('<html>');
+    },
+    walkDirImpl: () => ['index.html']
+  });
+
+  assert.equal(observedPath, 'custom-site/index.html');
+});
+
 test('runVerifiedDeploy handles preview remove mode', async () => {
   let graphqlInput = null;
 

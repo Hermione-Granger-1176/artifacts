@@ -7,7 +7,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - The root site is the gallery.
 - Each artifact lives in its own folder under `apps/`.
 - The repo includes Python tooling to generate gallery data and thumbnails.
-- GitHub Actions deploys the site, publishes PR previews, and commits generated outputs back on non-PR runs when needed.
+- GitHub Actions deploys the site and publishes PR previews from the verified `_site/` artifact without mutating contributor branches during the main publish flow.
 
 ## Top-level layout
 
@@ -40,11 +40,12 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `index.html`, `css/style.css`, `css/root-gallery-*.css`, `js/app.js`, `js/modules/*`: root gallery UI
 - `assets/icons/*`: logo, favicon, apple touch icon, PWA manifest, and raster icons
 - `config/gallery_metadata.json`: shared tool and tag display metadata used by generators to produce `js/gallery-config.js`
+- `docs/adr/*`: accepted cross-cutting decisions about the root publishing platform
 - `pyproject.toml`: Python dependency pins and workspace configuration
 - `locks/requirements.lock`, `locks/requirements-dev.lock`: frozen Python dependency graphs
 - `package.json`, `package-lock.json`: frozen Node tooling graph
 - `scripts/prepare_site.py`: deploy-time site assembly, cache busting, and site path injection
-- `scripts/verify_deploy.py`: post-deploy polling and verification for published Pages URLs
+- `scripts/verify_deploy.py`: post-deploy polling and verification for published Pages URLs against cache-busted HTML and deploy metadata
 - `.github/actions/verified-commit/action.yml` and `.github/actions/verified-commit/verified-commit.mjs`: shared verified commit and PR fallback logic for CI
 - `.github/actions/deploy-site/action.yml` and `.github/actions/deploy-site/deploy-verified.mjs`: verified deploy logic for `gh-pages` (full site, preview deploy, and preview removal)
 - `.github/workflows/update.yml`: main automation workflow for pushes, PR previews, and manual runs

@@ -50,15 +50,16 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 
 - `verify` is a read-only job that runs `make check`, which bundles local lint/test/audit/validation work, browser smoke tests, thumbnail generation, content generation, and `_site/` assembly.
 - `verify` also records a JavaScript coverage report from Node's built-in test runner without adding extra coverage dependencies.
+- `verify` uploads the exact `_site/` output as a workflow artifact so previews and production deploys can consume the verified build instead of rebuilding later.
 - `secret-scan` runs Gitleaks against the checked-out repository.
 - Pull requests also run dependency review for manifest and lockfile changes.
 - Same-repo Dependabot Python PRs also trigger `.github/workflows/refresh-python-locks.yml`, which computes refreshed lock files on the PR branch; `.github/workflows/commit-python-locks.yml` performs the trusted follow-up artifact validation and commit after PR head revalidation.
-- `publish` is the main write-capable job; it auto-invalidates stale thumbnails for changed apps, regenerates outputs, commits generated files when needed (using the escalation app token for fallback PR creation), prepares `_site/`, deploys previews or `gh-pages`, and then verifies the published URL serves the new asset version. When a fallback PR is created (admin bypass push), the main-site deploy is skipped.
+- `publish` is the main write-capable job; it downloads the verified `_site/` artifact from `verify`, deploys previews or `gh-pages` from that exact build, and then verifies the published URL serves both the expected cache-busted asset reference and the expected deploy metadata commit SHA.
 - `cleanup-preview` is a write-capable cleanup job that removes preview deployments and comments when PRs close.
-- `deploy-on-merge` runs after `cleanup-preview` when a PR is merged; it checks out the merge commit, builds `_site/`, and deploys to `gh-pages` using the escalation app token. This ensures deployment even when squash merges contain `[skip ci]` in the commit body.
 - Workflow trust-policy, lock-artifact validation, thumbnail invalidation, and fallback PR detection logic is intentionally kept thin; `scripts/workflow_helpers.py` owns those tested helper paths.
 - Trusted pull requests publish preview deployments under `pr-preview/pr-<number>/`.
 - Pull requests leave the source branch untouched while preview comments provide the live preview link.
+- Generated files may differ in the verified workspace, but the release path never auto-commits those differences back to contributor branches.
 - All deploys (main, preview, and cleanup) use the escalation app token (Harry1176) and create verified commits via the GraphQL API (`deploy-verified.mjs`).
 - Preview comments use the workflow token, appear as `github-actions[bot]`, and are recreated on each push so the newest preview stays at the bottom of the PR timeline.
 - Fork-based and Dependabot PRs still run checks and site assembly, but skip preview deployment because the app token is unavailable in those contexts.
@@ -103,10 +104,10 @@ The workflow assumes these repository settings already exist:
 
 ## Rollback and recovery
 
-- If a deployment is bad, restore the site by redeploying a known-good `main` commit.
-- If generated-file commits fail on `main`, look for the fallback PR created by the verified-commit action and merge or close it intentionally.
+- If a deployment is bad, restore the site by redeploying a known-good `main` commit through the strict push/manual workflow path.
+- If generated files drift in CI, treat that as a signal to inspect the generated diff and decide whether the source change or the generated output contract needs updating; the release path intentionally does not auto-commit those files.
 - If PR previews stop publishing, verify `APP_ID`, `APP_PRIVATE_KEY`, and GitHub App installation access first.
-- If a deploy succeeds but the publish job fails afterward, check the post-deploy verification step for Pages propagation delay or stale HTML responses.
+- If a deploy succeeds but the publish job fails afterward, check the post-deploy verification step for Pages propagation delay, stale HTML responses, or mismatched `deploy-metadata.json` content.
 - If Pages serves the wrong root, confirm the repository is still configured for branch-based deployment from `gh-pages`.
 - If dependency audit or secret scanning starts failing, treat that as a release blocker until triaged.
 
@@ -117,7 +118,7 @@ The workflow assumes these repository settings already exist:
 - `make check-local` intentionally avoids Playwright so it can stay fast on machines without Chromium.
 - If you want to inspect the deployable output locally, run `make site` and serve `_site/` from a static file server.
 - If `make security` fails on `npm audit`, the issue is in the current workspace dependency graph and needs triage before release.
-- If the post-deploy verifier flakes, rerun the workflow and inspect whether the published page is still serving the previous `?v=<sha>` asset query strings.
+- If the post-deploy verifier flakes, inspect both the published `?v=<sha>` asset query strings and the deployed `deploy-metadata.json` payload before rerunning.
 - If README auto markers are removed or duplicated, `scripts/generate_index.py` fails fast instead of silently corrupting the file.
 - If no artifacts exist, the index generator still writes a valid empty `js/data.js`.
 - If Python dependency declarations change, rerun `make lock` before committing.

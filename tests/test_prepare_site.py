@@ -102,13 +102,13 @@ def test_load_site_path_errors_for_missing_config(
 
 
 def test_resolve_version_prefers_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ARTIFACTS_DEPLOY_VERSION", "abc123")
+    monkeypatch.setenv(prepare_site.DEPLOY_VERSION_ENV_VAR, "abc123")
 
     assert prepare_site._resolve_version() == "abc123"
 
 
 def test_resolve_version_uses_git(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("ARTIFACTS_DEPLOY_VERSION", raising=False)
+    monkeypatch.delenv(prepare_site.DEPLOY_VERSION_ENV_VAR, raising=False)
 
     observed: dict[str, object] = {}
 
@@ -129,7 +129,7 @@ def test_resolve_version_uses_git(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_resolve_version_propagates_git_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("ARTIFACTS_DEPLOY_VERSION", raising=False)
+    monkeypatch.delenv(prepare_site.DEPLOY_VERSION_ENV_VAR, raising=False)
 
     def raise_git_timeout(*args: object, **kwargs: object) -> str:
         raise subprocess.TimeoutExpired(["git", "rev-parse", "--short", "HEAD"], 10)
@@ -339,6 +339,50 @@ def test_write_nojekyll_creates_marker(
     assert (deploy_dir / ".nojekyll").exists()
 
 
+def test_resolve_commit_sha_prefers_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(prepare_site.DEPLOY_COMMIT_SHA_ENV_VAR, "a" * 40)
+
+    assert prepare_site._resolve_commit_sha() == "a" * 40
+
+
+def test_resolve_commit_sha_uses_git(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(prepare_site.DEPLOY_COMMIT_SHA_ENV_VAR, raising=False)
+
+    observed: dict[str, object] = {}
+
+    def fake_check_output(*args: object, **kwargs: object) -> str:
+        observed.update(kwargs)
+        return "deadbeefcafefeed\n"
+
+    monkeypatch.setattr(prepare_site.subprocess, "check_output", fake_check_output)
+
+    assert prepare_site._resolve_commit_sha() == "deadbeefcafefeed"
+    assert observed["timeout"] == prepare_site.GIT_COMMAND_TIMEOUT_SECONDS
+
+
+def test_write_deploy_metadata_creates_expected_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy_dir = tmp_path / "_site"
+    deploy_dir.mkdir()
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._write_deploy_metadata(
+        commit_sha="a" * 40,
+        version="abc1234",
+        site_path="/artifacts/",
+    )
+
+    metadata = (deploy_dir / prepare_site.DEPLOY_METADATA_FILE).read_text(
+        encoding="utf-8"
+    )
+    assert '"commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' in metadata
+    assert '"version": "abc1234"' in metadata
+    assert '"site_path": "/artifacts/"' in metadata
+
+
 def test_prepare_site_builds_deploy_output(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -350,7 +394,8 @@ def test_prepare_site_builds_deploy_output(
     monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(prepare_site, "PYPROJECT_FILE", pyproject)
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
-    monkeypatch.setenv("ARTIFACTS_DEPLOY_VERSION", "abc123")
+    monkeypatch.setenv(prepare_site.DEPLOY_VERSION_ENV_VAR, "abc123")
+    monkeypatch.setenv(prepare_site.DEPLOY_COMMIT_SHA_ENV_VAR, "b" * 40)
 
     prepare_site.prepare_site()
 
@@ -363,6 +408,11 @@ def test_prepare_site_builds_deploy_output(
     assert (deploy_dir / ".nojekyll").exists()
     assert (deploy_dir / "apps" / "sample" / "index.html").exists()
     assert (deploy_dir / "assets" / "icons" / "favicon.ico").exists()
+    metadata = (deploy_dir / prepare_site.DEPLOY_METADATA_FILE).read_text(
+        encoding="utf-8"
+    )
+    assert '"commit_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"' in metadata
+    assert '"version": "abc123"' in metadata
     manifest = (deploy_dir / "assets" / "icons" / "manifest.webmanifest").read_text(
         encoding="utf-8"
     )
@@ -379,7 +429,8 @@ def test_prepare_site_propagates_git_failures(
     monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(prepare_site, "PYPROJECT_FILE", pyproject)
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path / "_site")
-    monkeypatch.delenv("ARTIFACTS_DEPLOY_VERSION", raising=False)
+    monkeypatch.delenv(prepare_site.DEPLOY_VERSION_ENV_VAR, raising=False)
+    monkeypatch.delenv(prepare_site.DEPLOY_COMMIT_SHA_ENV_VAR, raising=False)
 
     def raise_git_failure(*args: object, **kwargs: object) -> str:
         raise subprocess.CalledProcessError(1, ["git", "rev-parse"])
