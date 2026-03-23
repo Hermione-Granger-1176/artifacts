@@ -100,7 +100,8 @@ def build_smoke_site(
     monkeypatch.setattr(prepare_site, "REPO_ROOT", source_root)
     monkeypatch.setattr(prepare_site, "PYPROJECT_FILE", source_root / "pyproject.toml")
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_root)
-    monkeypatch.setenv("ARTIFACTS_DEPLOY_VERSION", "smoketest")
+    monkeypatch.setenv(prepare_site.DEPLOY_VERSION_ENV_VAR, "smoketest")
+    monkeypatch.setenv(prepare_site.DEPLOY_COMMIT_SHA_ENV_VAR, "smoketest" * 5)
 
     prepare_site.prepare_site()
 

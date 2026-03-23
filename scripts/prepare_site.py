@@ -11,6 +11,7 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -33,6 +34,9 @@ DEPLOY_DIR = REPO_ROOT / "_site"
 DEPLOY_ITEMS = ("404.html", "apps", "assets", "css", "index.html", "js")
 GIT_COMMAND_TIMEOUT_SECONDS = 10
 ROOT_STYLESHEET_IMPORT_PATTERN = re.compile(r'@import url\("(\./[^"?]+\.css)"\);')
+DEPLOY_METADATA_FILE = "deploy-metadata.json"
+DEPLOY_COMMIT_SHA_ENV_VAR = "ARTIFACTS_DEPLOY_COMMIT_SHA"
+DEPLOY_VERSION_ENV_VAR = "ARTIFACTS_DEPLOY_VERSION"
 
 
 def _normalize_site_path(value: str) -> str:
@@ -60,12 +64,26 @@ def _load_site_path() -> str:
 
 def _resolve_version() -> str:
     """Return the deploy version from the environment or current Git SHA."""
-    env_version = os.environ.get("ARTIFACTS_DEPLOY_VERSION")
+    env_version = os.environ.get(DEPLOY_VERSION_ENV_VAR)
     if env_version:
         return env_version
 
     return subprocess.check_output(
         ["git", "rev-parse", "--short", "HEAD"],
+        cwd=REPO_ROOT,
+        text=True,
+        timeout=GIT_COMMAND_TIMEOUT_SECONDS,
+    ).strip()
+
+
+def _resolve_commit_sha() -> str:
+    """Return the deploy commit SHA from the environment or current Git HEAD."""
+    env_commit_sha = os.environ.get(DEPLOY_COMMIT_SHA_ENV_VAR)
+    if env_commit_sha:
+        return env_commit_sha
+
+    return subprocess.check_output(
+        ["git", "rev-parse", "HEAD"],
         cwd=REPO_ROOT,
         text=True,
         timeout=GIT_COMMAND_TIMEOUT_SECONDS,
@@ -182,10 +200,25 @@ def _write_nojekyll() -> None:
     (DEPLOY_DIR / ".nojekyll").write_text("", encoding="utf-8")
 
 
+def _write_deploy_metadata(*, commit_sha: str, version: str, site_path: str) -> None:
+    """Write deploy metadata used by post-deploy verification."""
+    metadata_path = DEPLOY_DIR / DEPLOY_METADATA_FILE
+    metadata = {
+        "commit_sha": commit_sha,
+        "site_path": site_path,
+        "version": version,
+    }
+    metadata_path.write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
 def prepare_site() -> None:
     """Build the deployable ``_site/`` payload for GitHub Pages."""
     logger.info("Preparing deployable site output")
     site_path = _load_site_path()
+    commit_sha = _resolve_commit_sha()
     version = _resolve_version()
     _copy_deploy_items()
     _patch_index_html(version)
@@ -193,6 +226,7 @@ def prepare_site() -> None:
     _patch_404_html(site_path)
     _patch_manifest(site_path)
     _write_nojekyll()
+    _write_deploy_metadata(commit_sha=commit_sha, version=version, site_path=site_path)
     logger.info("Prepared %s", DEPLOY_DIR)
 
 

@@ -14,6 +14,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 import time
@@ -34,6 +35,7 @@ PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
 DEFAULT_ATTEMPTS = 12
 DEFAULT_DELAY_SECONDS = 10.0
 DEFAULT_TIMEOUT_SECONDS = 20.0
+DEFAULT_METADATA_PATH = "deploy-metadata.json"
 
 
 def _normalize_site_url(value: str) -> str:
@@ -65,6 +67,16 @@ def _fetch_text(url: str, timeout_seconds: float) -> tuple[int, str]:
     return status_code, body
 
 
+def _fetch_json(url: str, timeout_seconds: float) -> tuple[int, object]:
+    """Fetch JSON content from a deployed URL."""
+    status_code, body = _fetch_text(url, timeout_seconds)
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"returned invalid JSON: {exc.msg}") from exc
+    return status_code, payload
+
+
 def _build_cache_busted_url(url: str, attempt: int) -> str:
     """Add a cache-busting query parameter for one verification attempt."""
     parsed = urllib.parse.urlsplit(url)
@@ -86,24 +98,60 @@ def _validate_deploy_response(
         raise RuntimeError(f"did not contain expected marker: {expected_substring}")
 
 
+def _normalize_metadata_path(value: str) -> str:
+    """Return a normalized deploy metadata path without a leading slash."""
+    normalized = value.strip().lstrip("/")
+    if not normalized:
+        raise ValueError("metadata-path must not be empty")
+    return normalized
+
+
+def _build_metadata_url(url: str, metadata_path: str) -> str:
+    """Build the deploy metadata URL for a site root or preview URL."""
+    return urllib.parse.urljoin(url, metadata_path)
+
+
+def _validate_metadata_payload(payload: object, expected_commit_sha: str) -> None:
+    """Raise when fetched deploy metadata does not match the expected commit SHA."""
+    if not isinstance(payload, dict):
+        raise RuntimeError("returned non-object deploy metadata")
+
+    commit_sha = payload.get("commit_sha")
+    if commit_sha != expected_commit_sha:
+        raise RuntimeError(
+            "reported commit SHA "
+            f"{commit_sha!r} instead of expected {expected_commit_sha!r}"
+        )
+
+
 def verify_deploy(
     url: str,
     expected_substring: str,
+    expected_commit_sha: str,
     *,
     attempts: int = DEFAULT_ATTEMPTS,
     delay_seconds: float = DEFAULT_DELAY_SECONDS,
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    metadata_path: str = DEFAULT_METADATA_PATH,
 ) -> None:
-    """Wait until the deployed HTML contains the expected marker."""
+    """Wait until the deployed HTML and metadata match the expected deploy."""
     if attempts < 1:
         raise ValueError("attempts must be at least 1")
 
+    normalized_metadata_path = _normalize_metadata_path(metadata_path)
     last_error: str | None = None
     for attempt in range(1, attempts + 1):
         cache_busted_url = _build_cache_busted_url(url, attempt)
+        metadata_url = _build_cache_busted_url(
+            _build_metadata_url(url, normalized_metadata_path), attempt
+        )
         try:
             status_code, body = _fetch_text(cache_busted_url, timeout_seconds)
             _validate_deploy_response(status_code, body, expected_substring)
+            metadata_status, payload = _fetch_json(metadata_url, timeout_seconds)
+            if metadata_status != 200:
+                raise RuntimeError(f"deploy metadata returned HTTP {metadata_status}")
+            _validate_metadata_payload(payload, expected_commit_sha)
 
             logger.info("Verified published deployment at %s", url)
             return
@@ -134,6 +182,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="HTML substring that identifies the expected deployment version",
     )
     parser.add_argument(
+        "--expected-commit-sha",
+        required=True,
+        help="Full commit SHA that must appear in deploy metadata",
+    )
+    parser.add_argument(
         "--attempts",
         type=int,
         default=DEFAULT_ATTEMPTS,
@@ -151,6 +204,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=DEFAULT_TIMEOUT_SECONDS,
         help=f"Per-request timeout in seconds (default: {DEFAULT_TIMEOUT_SECONDS})",
     )
+    parser.add_argument(
+        "--metadata-path",
+        default=DEFAULT_METADATA_PATH,
+        help=(
+            "Relative path to deploy metadata under the published site "
+            f"(default: {DEFAULT_METADATA_PATH})"
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -161,9 +222,11 @@ def main(argv: list[str] | None = None) -> int:
     verify_deploy(
         url,
         args.expected_substring,
+        args.expected_commit_sha,
         attempts=args.attempts,
         delay_seconds=args.delay_seconds,
         timeout_seconds=args.timeout_seconds,
+        metadata_path=args.metadata_path,
     )
     return 0
 
