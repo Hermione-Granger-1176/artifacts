@@ -186,9 +186,10 @@ class FakeElement {
 
 class FakeCard extends FakeElement {
   constructor(id, classes, expanded) {
-    super({ tagName: 'ARTICLE', classes });
+    super({ tagName: 'BUTTON', classes });
     this.dataset.id = id;
     this.setAttribute('aria-expanded', String(expanded));
+    this.setAttribute('type', 'button');
   }
 
   matches(selector) {
@@ -218,7 +219,7 @@ class FakeGrid extends FakeElement {
 
   set innerHTML(value) {
     this._innerHTML = value;
-    this.cards = [...value.matchAll(/<article class="([^"]*artifact-card[^"]*)" data-id="([^"]+)"[^>]*aria-expanded="([^"]+)"/g)].map(([, classNames, id, expanded]) => {
+    this.cards = [...value.matchAll(/<button class="([^"]*artifact-card[^"]*)" data-id="([^"]+)"[^>]*aria-expanded="([^"]+)"/g)].map(([, classNames, id, expanded]) => {
       const classes = classNames.trim().split(/\s+/).filter(Boolean);
       const card = new FakeCard(id, classes, expanded === 'true');
       card.parentElement = this;

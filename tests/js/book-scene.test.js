@@ -31,10 +31,15 @@ class FakeAnimation {
     } else {
       this.finished = Promise.resolve();
     }
+    this.commitStylesCalls = 0;
   }
 
   cancel() {
     this.cancelled = true;
+  }
+
+  commitStyles() {
+    this.commitStylesCalls += 1;
   }
 
   resolve() {
@@ -419,4 +424,24 @@ test('turnPage queues overlapping turns sequentially', async () => {
   await secondTurn;
 
   assert.deepEqual(renderOrder, ['first', 'second']);
+});
+
+test('startIntro ignores invalid-state commitStyles errors from hidden elements', async () => {
+  const harness = createHarness();
+  harness.cover.animationFactories.push(() => ({
+    finished: Promise.resolve(),
+    cancel() {},
+    commitStyles() {
+      throw new DOMException('Target element is not rendered.', 'InvalidStateError');
+    }
+  }));
+  const bookScene = createBookScene({
+    documentObj: harness.documentObj,
+    motion: { prefersReducedMotion: () => false },
+    windowObj: harness.windowObj
+  });
+
+  await bookScene.startIntro();
+
+  assert.equal(harness.shell.dataset.sceneIntro, 'open');
 });

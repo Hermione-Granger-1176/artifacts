@@ -175,7 +175,7 @@ jobs:
       - secret-scan
       - dependency-review
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       contents: write
       issues: write
@@ -206,6 +206,10 @@ jobs:
         with:
           name: site-${{ github.run_id }}
           path: _site
+
+      - name: Install workspace dependencies for live browser verification
+        if: steps.setup.outputs.token-available == 'true'
+        run: make setup-ci
 
       - name: Detect generated changes
         id: changes
@@ -273,6 +277,13 @@ jobs:
           --attempts ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
           --delay-seconds ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
 
+      - name: Run PR preview browser verification
+        if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
+        env:
+          ARTIFACTS_LIVE_SITE_URL: ${{ steps.preview-url.outputs.url }}
+          ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-live/pr-preview
+        run: make test-browser-live
+
       - name: Summarize PR preview
         if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
         run: |
@@ -306,6 +317,31 @@ jobs:
           skip-build: 'true'
           verify-attempts: ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
           verify-delay-seconds: ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
+
+      - name: Resolve live site URL
+        if: github.event_name != 'pull_request'
+        id: live-site-url
+        run: |
+          site_url=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['tool']['artifacts']['site_url'])")
+          echo "url=${site_url}" >> "$GITHUB_OUTPUT"
+
+      - name: Run live main site browser verification
+        if: >-
+          github.event_name != 'pull_request' &&
+          steps.setup.outputs.token-available == 'true'
+        env:
+          ARTIFACTS_LIVE_SITE_URL: ${{ steps.live-site-url.outputs.url }}
+          ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-live/main-site
+        run: make test-browser-live
+
+      - name: Upload live browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: live-browser-artifacts-${{ github.run_id }}
+          path: .artifacts/browser-live
+          if-no-files-found: ignore
+          overwrite: true
 
       - name: Summarize publish
         if: github.event_name != 'pull_request'

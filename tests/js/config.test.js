@@ -48,6 +48,77 @@ test('validateArtifactsData accepts generated gallery records', () => {
   assert.equal(validateArtifactsData(data), data);
 });
 
+test('validateArtifactsData enforces safe repo-relative paths', () => {
+  assert.throws(
+    () => validateArtifactsData([
+      {
+        id: 'loan-amortization',
+        name: 'Loan Amortization Schedule',
+        tags: [],
+        tools: [],
+        url: 'https://example.com/loan-amortization/'
+      }
+    ]),
+    /window\.ARTIFACTS_DATA\[0\]\.url must be a repo-relative path/
+  );
+
+  assert.throws(
+    () => validateArtifactsData([
+      {
+        id: 'loan-amortization',
+        name: 'Loan Amortization Schedule',
+        tags: [],
+        tools: [],
+        url: 'apps/loan-amortization/',
+        thumbnail: 'apps/other-artifact/thumbnail.webp'
+      }
+    ]),
+    /window\.ARTIFACTS_DATA\[0\]\.thumbnail must use the same artifact id/
+  );
+
+  assert.throws(
+    () => validateArtifactsData([
+      {
+        id: 'loan-amortization',
+        name: 'Loan Amortization Schedule',
+        tags: [],
+        tools: [],
+        url: 'apps/loan-amortization/',
+        thumbnail: 'apps/loan-amortization/%2E%2E/thumbnail.webp'
+      }
+    ]),
+    /window\.ARTIFACTS_DATA\[0\]\.thumbnail must not contain path traversal segments/
+  );
+});
+
+test('validateArtifactsData requires kebab-case ids and matching urls', () => {
+  assert.throws(
+    () => validateArtifactsData([
+      {
+        id: 'LoanTool',
+        name: 'Loan Tool',
+        tags: [],
+        tools: [],
+        url: 'apps/LoanTool/'
+      }
+    ]),
+    /window\.ARTIFACTS_DATA\[0\]\.id must use kebab-case/
+  );
+
+  assert.throws(
+    () => validateArtifactsData([
+      {
+        id: 'loan-tool',
+        name: 'Loan Tool',
+        tags: [],
+        tools: [],
+        url: 'apps/other-tool/'
+      }
+    ]),
+    /window\.ARTIFACTS_DATA\[0\]\.url must use the same artifact id/
+  );
+});
+
 test('validateArtifactsData rejects invalid artifact shapes', () => {
   assert.throws(
     () => validateArtifactsData({}),

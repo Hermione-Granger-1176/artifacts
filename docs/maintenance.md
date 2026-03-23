@@ -8,8 +8,9 @@ These are the main cross-cutting pieces that should stay consistent over time:
 - `Makefile` is the common interface for local work and CI.
 - `.github/actions/verified-commit/action.yml` and `.github/actions/verified-commit/verified-commit.mjs` centralize the verified commit and PR fallback logic used by CI.
 - `.github/actions/deploy-site/action.yml` and `.github/actions/deploy-site/deploy-verified.mjs` handle verified deploys to `gh-pages` via the GraphQL API, preserving PR preview directories.
-- `scripts/workflow_helpers.py` centralizes workflow trust, artifact-validation, thumbnail invalidation, and fallback PR detection helpers so the YAML stays policy-focused and the procedural logic stays testable.
+- `scripts/workflow_helpers.py` centralizes workflow trust, artifact-validation, thumbnail invalidation, fallback PR detection, and repository-settings audit helpers so the YAML stays policy-focused and the procedural logic stays testable.
 - `.github/workflows/update.yml` is the main build, validation, and deploy workflow.
+- `.github/workflows/audit-repo-settings.yml` is the read-only drift audit for required external GitHub settings.
 - `.github/workflows/refresh-action-shas.yml` keeps pinned GitHub Actions references current.
 - `.github/workflows/refresh-python-locks.yml` computes Python lock refresh artifacts for same-repo Dependabot pip PRs.
 - `.github/workflows/commit-python-locks.yml` validates and commits those refreshed Python lock artifacts in a separate trusted workflow.
@@ -31,6 +32,7 @@ If you touch workflow files:
 8. Keep read-only verification separate from write-capable publish steps.
 9. Pull repeated workflow constants into top-level or job-level `env` entries before copy-pasting them across steps.
 10. Update `docs/adr/0001-root-publishing-platform.md` if the verified-artifact, fail-closed, or no-source-mutation rules change.
+11. Keep published-site browser verification artifact output under `.artifacts/` so CI can upload traces and screenshots without polluting tracked files.
 
 ## When changing URLs or repo metadata
 
@@ -90,6 +92,7 @@ The repo includes a scheduled workflow that refreshes pinned GitHub Action SHAs.
 - Same-repo Dependabot pip PRs refresh `locks/requirements.lock` and `locks/requirements-dev.lock` automatically through `.github/workflows/refresh-python-locks.yml`.
 - After Python dependency changes, run `make lock`, `make check-local`, and `make check` when browser or deploy behavior is affected.
 - After Node dependency changes, refresh `package-lock.json` with npm tooling, then run `npm ci`, `make check-local`, and `make check`.
+- If the Playwright accessibility suite changes, keep `axe-core` pinned in `package-lock.json` and refresh the lockfile deliberately.
 
 ## Good maintenance habits
 

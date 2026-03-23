@@ -388,6 +388,319 @@ def test_run_gh_api_uses_final_fallback_when_attempts_disabled(
         )
 
 
+def test_run_gh_api_json_parses_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api",
+        lambda endpoint, paginate, jq_expr, description: '{"ok": true}',
+    )
+
+    assert workflow_helpers._run_gh_api_json(
+        "repos/owner/repo", description="reading repository metadata"
+    ) == {"ok": True}
+
+
+def test_run_gh_api_json_rejects_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api",
+        lambda endpoint, paginate, jq_expr, description: "not-json",
+    )
+
+    with pytest.raises(RuntimeError, match="returned invalid JSON"):
+        workflow_helpers._run_gh_api_json(
+            "repos/owner/repo", description="reading repository metadata"
+        )
+
+
+def test_extract_required_checks_handles_contexts_and_checks() -> None:
+    assert workflow_helpers._extract_required_checks(
+        {
+            "required_status_checks": {
+                "contexts": ["verify", "secret-scan"],
+                "checks": [{"context": "dependency-review"}, {"context": 9}],
+            }
+        }
+    ) == {"verify", "secret-scan", "dependency-review"}
+
+
+def test_extract_required_checks_handles_missing_data() -> None:
+    assert workflow_helpers._extract_required_checks(None) == set()
+    assert workflow_helpers._extract_required_checks({}) == set()
+
+
+def test_ruleset_targets_branch_detects_exact_refs() -> None:
+    assert workflow_helpers._ruleset_targets_branch(
+        {
+            "target": "branch",
+            "conditions": {"ref_name": {"include": ["main", "refs/heads/gh-pages"]}},
+        },
+        "gh-pages",
+    )
+
+
+def test_ruleset_targets_branch_rejects_non_matching_rulesets() -> None:
+    assert (
+        workflow_helpers._ruleset_targets_branch(
+            {
+                "target": "tag",
+                "conditions": {"ref_name": {"include": ["refs/heads/gh-pages"]}},
+            },
+            "gh-pages",
+        )
+        is False
+    )
+    assert workflow_helpers._ruleset_targets_branch({}, "gh-pages") is False
+
+
+def test_ruleset_targets_branch_rejects_malformed_conditions() -> None:
+    assert (
+        workflow_helpers._ruleset_targets_branch(
+            {"target": "branch", "conditions": []}, "gh-pages"
+        )
+        is False
+    )
+    assert (
+        workflow_helpers._ruleset_targets_branch(
+            {"target": "branch", "conditions": {"ref_name": []}}, "gh-pages"
+        )
+        is False
+    )
+    assert (
+        workflow_helpers._ruleset_targets_branch(
+            {
+                "target": "branch",
+                "conditions": {"ref_name": {"include": "refs/heads/gh-pages"}},
+            },
+            "gh-pages",
+        )
+        is False
+    )
+
+
+def test_audit_repo_settings_returns_expected_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = {
+        "repos/owner/repo": {"default_branch": "main"},
+        "repos/owner/repo/pages": {"source": {"branch": "gh-pages", "path": "/"}},
+        "repos/owner/repo/branches/main/protection": {
+            "required_status_checks": {
+                "contexts": ["verify", "secret-scan", "dependency-review"]
+            },
+            "required_pull_request_reviews": {"required_approving_review_count": 1},
+            "required_signatures": {"enabled": True},
+            "required_linear_history": {"enabled": True},
+            "required_conversation_resolution": {"enabled": True},
+        },
+        "repos/owner/repo/actions/variables": {
+            "variables": [
+                {"name": "APP_ID"},
+                {"name": "ESCALATION_APP_ID"},
+            ]
+        },
+        "repos/owner/repo/actions/secrets": {
+            "secrets": [
+                {"name": "APP_PRIVATE_KEY"},
+                {"name": "ESCALATION_APP_PRIVATE_KEY"},
+            ]
+        },
+        "repos/owner/repo/rulesets": [
+            {
+                "target": "branch",
+                "conditions": {"ref_name": {"include": ["refs/heads/gh-pages"]}},
+            }
+        ],
+    }
+
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api_json",
+        lambda endpoint, description: responses[endpoint],
+    )
+
+    assert workflow_helpers.audit_repo_settings(repo="owner/repo") == {
+        "default-branch": "main",
+        "gh-pages-ruleset": True,
+        "pages-branch": "gh-pages",
+        "pages-path": "/",
+        "required-checks": ["dependency-review", "secret-scan", "verify"],
+        "secrets": ["APP_PRIVATE_KEY", "ESCALATION_APP_PRIVATE_KEY"],
+        "variables": ["APP_ID", "ESCALATION_APP_ID"],
+    }
+
+
+def test_audit_repo_settings_rejects_unexpected_response_types(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = {
+        "repos/owner/repo": [],
+        "repos/owner/repo/pages": {"source": {"branch": "gh-pages", "path": "/"}},
+        "repos/owner/repo/branches/main/protection": {},
+        "repos/owner/repo/actions/variables": {"variables": []},
+        "repos/owner/repo/actions/secrets": {"secrets": []},
+        "repos/owner/repo/rulesets": [],
+    }
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api_json",
+        lambda endpoint, description: responses[endpoint],
+    )
+
+    with pytest.raises(RuntimeError, match="Repository metadata must be a JSON object"):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+
+def test_audit_repo_settings_rejects_invalid_pages_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = {
+        "repos/owner/repo": {"default_branch": "main"},
+        "repos/owner/repo/pages": [],
+        "repos/owner/repo/branches/main/protection": {},
+        "repos/owner/repo/actions/variables": {"variables": []},
+        "repos/owner/repo/actions/secrets": {"secrets": []},
+        "repos/owner/repo/rulesets": [],
+    }
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api_json",
+        lambda endpoint, description: responses[endpoint],
+    )
+
+    with pytest.raises(RuntimeError, match="Pages settings must be a JSON object"):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+
+def test_audit_repo_settings_rejects_invalid_protection_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = {
+        "repos/owner/repo": {"default_branch": "main"},
+        "repos/owner/repo/pages": {"source": {"branch": "gh-pages", "path": "/"}},
+        "repos/owner/repo/branches/main/protection": [],
+        "repos/owner/repo/actions/variables": {"variables": []},
+        "repos/owner/repo/actions/secrets": {"secrets": []},
+        "repos/owner/repo/rulesets": [],
+    }
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api_json",
+        lambda endpoint, description: responses[endpoint],
+    )
+
+    with pytest.raises(
+        RuntimeError, match="Branch protection settings must be a JSON object"
+    ):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+
+def test_audit_repo_settings_rejects_invalid_variables_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = {
+        "repos/owner/repo": {"default_branch": "main"},
+        "repos/owner/repo/pages": {"source": {"branch": "gh-pages", "path": "/"}},
+        "repos/owner/repo/branches/main/protection": {},
+        "repos/owner/repo/actions/variables": [],
+        "repos/owner/repo/actions/secrets": {"secrets": []},
+        "repos/owner/repo/rulesets": [],
+    }
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api_json",
+        lambda endpoint, description: responses[endpoint],
+    )
+
+    with pytest.raises(
+        RuntimeError, match="Actions variables response must be a JSON object"
+    ):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+
+def test_audit_repo_settings_rejects_invalid_secrets_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = {
+        "repos/owner/repo": {"default_branch": "main"},
+        "repos/owner/repo/pages": {"source": {"branch": "gh-pages", "path": "/"}},
+        "repos/owner/repo/branches/main/protection": {},
+        "repos/owner/repo/actions/variables": {"variables": []},
+        "repos/owner/repo/actions/secrets": [],
+        "repos/owner/repo/rulesets": [],
+    }
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api_json",
+        lambda endpoint, description: responses[endpoint],
+    )
+
+    with pytest.raises(
+        RuntimeError, match="Actions secrets response must be a JSON object"
+    ):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+
+def test_audit_repo_settings_rejects_invalid_rulesets_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = {
+        "repos/owner/repo": {"default_branch": "main"},
+        "repos/owner/repo/pages": {"source": {"branch": "gh-pages", "path": "/"}},
+        "repos/owner/repo/branches/main/protection": {},
+        "repos/owner/repo/actions/variables": {"variables": []},
+        "repos/owner/repo/actions/secrets": {"secrets": []},
+        "repos/owner/repo/rulesets": {},
+    }
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api_json",
+        lambda endpoint, description: responses[endpoint],
+    )
+
+    with pytest.raises(RuntimeError, match="Rulesets response must be a JSON array"):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+
+def test_audit_repo_settings_reports_configuration_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = {
+        "repos/owner/repo": {"default_branch": "trunk"},
+        "repos/owner/repo/pages": {"source": {"branch": "docs", "path": "/site"}},
+        "repos/owner/repo/branches/main/protection": {
+            "required_status_checks": {"contexts": ["verify"]},
+            "required_pull_request_reviews": {"required_approving_review_count": 0},
+            "required_signatures": {"enabled": False},
+            "required_linear_history": {"enabled": False},
+            "required_conversation_resolution": {"enabled": False},
+        },
+        "repos/owner/repo/actions/variables": {"variables": [{"name": "APP_ID"}]},
+        "repos/owner/repo/actions/secrets": {"secrets": []},
+        "repos/owner/repo/rulesets": [],
+    }
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api_json",
+        lambda endpoint, description: responses[endpoint],
+    )
+
+    with pytest.raises(
+        ValueError, match="Repository settings audit failed"
+    ) as exc_info:
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+    message = str(exc_info.value)
+    assert "default branch is 'trunk' instead of 'main'" in message
+    assert "Pages source branch is 'docs' instead of 'gh-pages'" in message
+    assert "missing repository variables: ESCALATION_APP_ID" in message
+    assert (
+        "missing repository secrets: APP_PRIVATE_KEY, ESCALATION_APP_PRIVATE_KEY"
+        in message
+    )
+    assert "no branch ruleset explicitly targets 'gh-pages'" in message
+
+
 def test_main_check_fallback_prints_true(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -445,3 +758,36 @@ def test_main_rejects_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     with pytest.raises(ValueError, match="Unsupported command"):
         workflow_helpers.main([])
+
+
+def test_main_audit_repo_settings_prints_json(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        workflow_helpers,
+        "audit_repo_settings",
+        lambda repo, default_branch, pages_branch: {
+            "default-branch": default_branch,
+            "pages-branch": pages_branch,
+            "repo": repo,
+        },
+    )
+
+    exit_code = workflow_helpers.main(
+        [
+            "audit-repo-settings",
+            "--repo",
+            "owner/repo",
+            "--default-branch",
+            "main",
+            "--pages-branch",
+            "gh-pages",
+        ]
+    )
+
+    assert exit_code == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "default-branch": "main",
+        "pages-branch": "gh-pages",
+        "repo": "owner/repo",
+    }

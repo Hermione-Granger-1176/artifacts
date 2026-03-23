@@ -1,0 +1,57 @@
+name: Audit Repository Settings
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 8 * * 1'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+
+      - name: CI setup
+        id: setup
+        uses: ./.github/actions/ci-setup
+        with:
+          event-name: ${{ github.event_name }}
+          app-id: ${{ vars.APP_ID }}
+          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          escalation-app-id: ${{ vars.ESCALATION_APP_ID }}
+          escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
+
+      - name: Audit repository settings
+        env:
+          GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
+        run: |
+          python3 scripts/workflow_helpers.py audit-repo-settings \
+            --repo "${{ github.repository }}" \
+            --default-branch main \
+            --pages-branch gh-pages | tee audit-repo-settings.json
+
+      - name: Summarize audit
+        if: success()
+        run: |
+          {
+            echo "## Repository settings audit"
+            echo
+            echo '```json'
+            cat audit-repo-settings.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summarize audit failure
+        if: failure()
+        run: |
+          {
+            echo "## Repository settings audit failed"
+            echo
+            echo "Inspect the failed \`audit-repo-settings\` step for the exact drift report."
+          } >> "$GITHUB_STEP_SUMMARY"

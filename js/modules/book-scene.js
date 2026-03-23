@@ -80,7 +80,13 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     const animation = element.animate(keyframes, options);
     await animation.finished;
     if (typeof animation.commitStyles === 'function') {
-      animation.commitStyles();
+      try {
+        animation.commitStyles();
+      } catch (error) {
+        if (!(error instanceof DOMException) || error.name !== 'InvalidStateError') {
+          throw error;
+        }
+      }
     }
     animation.cancel();
   }

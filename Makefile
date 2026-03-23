@@ -7,7 +7,7 @@ VENV_RUFF := $(VENV)/bin/ruff
 VENV_YAMLLINT := $(VENV)/bin/yamllint
 NPM ?= npm
 
-.PHONY: install lock node-install setup-base browser-install browser-install-ci setup setup-ci setup-local editorconfig-check lint lint-py lint-js lint-css lint-yaml lint-workflows test test-py test-browser test-js coverage-js security validate thumbnails index site generate new check check-local check-web local web align-tables clean
+.PHONY: install lock node-install setup-base browser-install browser-install-ci setup setup-ci setup-local editorconfig-check lint lint-py lint-js lint-css lint-yaml lint-workflows test test-py test-browser test-browser-live test-js coverage-js security validate thumbnails index site generate new check check-local check-web local web align-tables clean
 
 install:
 	$(PYTHON) -m venv $(VENV)
@@ -75,10 +75,13 @@ test:
 	$(MAKE) test-js
 
 test-py:
-	$(VENV_PYTHON) -m pytest --ignore=tests/test_frontend_smoke.py
+	$(VENV_PYTHON) -m pytest --ignore=tests/test_frontend_smoke.py --ignore=tests/test_frontend_accessibility.py --ignore=tests/test_frontend_browser_flows.py --ignore=tests/test_frontend_live.py
 
 test-browser:
-	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov tests/test_frontend_smoke.py
+	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov tests/test_frontend_smoke.py tests/test_frontend_accessibility.py tests/test_frontend_browser_flows.py
+
+test-browser-live:
+	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov tests/test_frontend_live.py
 
 test-js:
 	$(NPM) run test

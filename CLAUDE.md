@@ -30,7 +30,7 @@ Workspace commands go through the `Makefile`. Python dependencies and workspace 
 - `make setup-local`: create `.venv` and install pinned Python and Node dependencies without Chromium
 - `make setup-ci`: CI bootstrap variant that installs Chromium with system dependencies for runners/containers
 - `make check-local`: run the fast local gate, including EditorConfig validation, Python/JS/CSS/YAML/workflow lint, non-browser Python tests, JavaScript tests, JavaScript coverage, dependency audits, and artifact validation
-- `make web`: run browser smoke tests and thumbnail generation
+- `make web`: run browser smoke/accessibility/browser-flow tests and thumbnail generation
 - `make check`: run the full gate, which combines `make check-local`, `make web`, index generation, and deployable site assembly
 - `make validate`: fail fast on incomplete or invalid top-level artifact directories
 - `make generate`: run thumbnail generation and data generation sequentially
@@ -47,7 +47,7 @@ Workspace commands go through the `Makefile`. Python dependencies and workspace 
 - `make lint-yaml`: run yamllint only
 - `make lint-workflows`: run workflow-specific action linting only
 - `make test`: run non-browser pytest and the Node test runner
-- `make test-browser`: run browser smoke tests only
+- `make test-browser`: run browser smoke, accessibility, and browser-flow tests
 - `make test-js`: run the Node test runner only
 - `make thumbnails`: regenerate WebP thumbnails when Playwright is available
 - `make index`: rebuild `js/data.js`, `js/gallery-config.js`, and README auto markers

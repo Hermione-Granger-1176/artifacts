@@ -180,6 +180,21 @@ def test_extract_artifact_falls_back_to_legacy_thumbnail(tmp_path: Path) -> None
     assert item["thumbnail"] == f"apps/loan-tool/{generate_index.LEGACY_THUMBNAIL_FILE}"
 
 
+def test_extract_artifact_rejects_unsafe_thumbnail_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact_dir = create_artifact(tmp_path, "loan-tool")
+    monkeypatch.setattr(
+        generate_index,
+        "_resolve_thumbnail",
+        lambda folder: "apps/loan-tool/%2E%2E/thumbnail.webp",
+    )
+
+    with pytest.raises(ValueError, match="path traversal"):
+        generate_index._extract_artifact(artifact_dir)
+
+
 def test_extract_artifact_returns_none_for_empty_name(tmp_path: Path) -> None:
     artifact_dir = tmp_path / "broken"
     artifact_dir.mkdir()
@@ -670,3 +685,147 @@ def test_generate_raises_for_duplicate_artifact_ids(
 
     with pytest.raises(ValueError, match="Duplicate artifact ID"):
         generate_index.generate()
+
+
+def test_validate_artifact_item_rejects_external_url() -> None:
+    with pytest.raises(ValueError, match="repo-relative path"):
+        generate_index._validate_artifact_item(
+            {
+                "id": "loan-tool",
+                "name": "Loan Tool",
+                "description": "",
+                "tags": [],
+                "tools": [],
+                "url": "https://example.com/loan-tool/",
+                "thumbnail": None,
+            }
+        )
+
+    with pytest.raises(ValueError, match="javascript URL"):
+        generate_index._validate_artifact_item(
+            {
+                "id": "loan-tool",
+                "name": "Loan Tool",
+                "description": "",
+                "tags": [],
+                "tools": [],
+                "url": "javascript:alert(1)",
+                "thumbnail": None,
+            }
+        )
+
+
+def test_validate_artifact_item_rejects_data_url() -> None:
+    with pytest.raises(ValueError, match="data URL"):
+        generate_index._validate_artifact_item(
+            {
+                "id": "loan-tool",
+                "name": "Loan Tool",
+                "description": "",
+                "tags": [],
+                "tools": [],
+                "url": "data:text/html,hello",
+                "thumbnail": None,
+            }
+        )
+
+
+def test_validate_artifact_item_rejects_non_kebab_case_id() -> None:
+    with pytest.raises(ValueError, match="Artifact id must use kebab-case"):
+        generate_index._validate_artifact_item(
+            {
+                "id": "LoanTool",
+                "name": "Loan Tool",
+                "description": "",
+                "tags": [],
+                "tools": [],
+                "url": "apps/loan-tool/",
+                "thumbnail": None,
+            }
+        )
+
+
+def test_validate_artifact_item_rejects_bad_url_shape() -> None:
+    with pytest.raises(ValueError, match="Artifact url must match"):
+        generate_index._validate_artifact_item(
+            {
+                "id": "loan-tool",
+                "name": "Loan Tool",
+                "description": "",
+                "tags": [],
+                "tools": [],
+                "url": "apps/loan-tool/index.html",
+                "thumbnail": None,
+            }
+        )
+
+
+def test_validate_artifact_item_rejects_bad_thumbnail_shape() -> None:
+    with pytest.raises(ValueError, match="Artifact thumbnail must match"):
+        generate_index._validate_artifact_item(
+            {
+                "id": "loan-tool",
+                "name": "Loan Tool",
+                "description": "",
+                "tags": [],
+                "tools": [],
+                "url": "apps/loan-tool/",
+                "thumbnail": "apps/loan-tool/preview.webp",
+            }
+        )
+
+
+def test_validate_artifact_item_rejects_mismatched_url_and_thumbnail() -> None:
+    with pytest.raises(ValueError, match="same artifact id"):
+        generate_index._validate_artifact_item(
+            {
+                "id": "loan-tool",
+                "name": "Loan Tool",
+                "description": "",
+                "tags": [],
+                "tools": [],
+                "url": "apps/other-tool/",
+                "thumbnail": None,
+            }
+        )
+
+    with pytest.raises(ValueError, match="same artifact id"):
+        generate_index._validate_artifact_item(
+            {
+                "id": "loan-tool",
+                "name": "Loan Tool",
+                "description": "",
+                "tags": [],
+                "tools": [],
+                "url": "apps/loan-tool/",
+                "thumbnail": "apps/other-tool/thumbnail.webp",
+            }
+        )
+
+
+def test_validate_artifact_item_rejects_leading_slash_and_encoded_traversal() -> None:
+    with pytest.raises(ValueError, match="must not start with '/'"):
+        generate_index._validate_artifact_item(
+            {
+                "id": "loan-tool",
+                "name": "Loan Tool",
+                "description": "",
+                "tags": [],
+                "tools": [],
+                "url": "/apps/loan-tool/",
+                "thumbnail": None,
+            }
+        )
+
+    with pytest.raises(ValueError, match="path traversal"):
+        generate_index._validate_artifact_item(
+            {
+                "id": "loan-tool",
+                "name": "Loan Tool",
+                "description": "",
+                "tags": [],
+                "tools": [],
+                "url": "apps/loan-tool/",
+                "thumbnail": "apps/loan-tool/%2E%2E/thumbnail.webp",
+            }
+        )

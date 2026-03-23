@@ -30,6 +30,7 @@ import logging
 import re
 import sys
 import tomllib
+import urllib.parse
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TypedDict, cast
@@ -57,6 +58,10 @@ PREFERRED_THUMBNAIL_FILE = "thumbnail.webp"
 LEGACY_THUMBNAIL_FILE = "thumbnail.png"
 THUMBNAIL_FILES = (PREFERRED_THUMBNAIL_FILE, LEGACY_THUMBNAIL_FILE)
 KEBAB_CASE_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+ARTIFACT_URL_PATTERN = re.compile(r"^apps/([a-z0-9]+(?:-[a-z0-9]+)*)/$")
+THUMBNAIL_PATH_PATTERN = re.compile(
+    r"^apps/([a-z0-9]+(?:-[a-z0-9]+)*)/(thumbnail\.(?:webp|png))$"
+)
 MISSING_REQUIRED_FILE_ISSUES = {
     (False, False): f"missing {INDEX_FILE} and {NAME_FILE}",
     (False, True): f"has {NAME_FILE} but no {INDEX_FILE}",
@@ -110,6 +115,54 @@ def is_kebab_case(name: str) -> bool:
     return bool(KEBAB_CASE_PATTERN.fullmatch(name))
 
 
+def _validate_relative_repo_path(value: str, *, field_name: str) -> None:
+    decoded = urllib.parse.unquote(value)
+    if "://" in value or "://" in decoded:
+        raise ValueError(f"{field_name} must be a repo-relative path")
+    if value.startswith("/") or decoded.startswith("/"):
+        raise ValueError(f"{field_name} must not start with '/'")
+    if value.lower().startswith("javascript:") or decoded.lower().startswith(
+        "javascript:"
+    ):
+        raise ValueError(f"{field_name} must not use a javascript URL")
+    if value.lower().startswith("data:") or decoded.lower().startswith("data:"):
+        raise ValueError(f"{field_name} must not use a data URL")
+    if ".." in decoded:
+        raise ValueError(f"{field_name} must not contain path traversal segments")
+
+
+def _validate_artifact_item(item: ArtifactItem) -> None:
+    if not is_kebab_case(item["id"]):
+        raise ValueError(f"Artifact id must use kebab-case: {item['id']}")
+
+    _validate_relative_repo_path(item["url"], field_name="Artifact url")
+    url_match = ARTIFACT_URL_PATTERN.fullmatch(item["url"])
+    if not url_match:
+        raise ValueError(f"Artifact url must match apps/<artifact-id>/: {item['url']}")
+    if url_match.group(1) != item["id"]:
+        raise ValueError(
+            "Artifact url must use the same artifact id as the directory name: "
+            f"{item['url']}"
+        )
+
+    thumbnail = item.get("thumbnail")
+    if thumbnail is None:
+        return
+
+    _validate_relative_repo_path(thumbnail, field_name="Artifact thumbnail")
+    thumbnail_match = THUMBNAIL_PATH_PATTERN.fullmatch(thumbnail)
+    if not thumbnail_match:
+        raise ValueError(
+            "Artifact thumbnail must match apps/<artifact-id>/thumbnail.(webp|png): "
+            f"{thumbnail}"
+        )
+    if thumbnail_match.group(1) != item["id"]:
+        raise ValueError(
+            "Artifact thumbnail must use the same artifact id as the directory name: "
+            f"{thumbnail}"
+        )
+
+
 def _artifact_issues(folder: Path) -> list[str]:
     """Collect validation issues for one top-level artifact directory."""
     issues: list[str] = []
@@ -160,7 +213,7 @@ def _extract_artifact(folder: Path) -> ArtifactItem | None:
 
     thumbnail = _resolve_thumbnail(folder)
 
-    return {
+    item: ArtifactItem = {
         "id": folder.name,
         "name": name,
         "description": description,
@@ -169,6 +222,8 @@ def _extract_artifact(folder: Path) -> ArtifactItem | None:
         "url": f"apps/{folder.name}/",
         "thumbnail": thumbnail,
     }
+    _validate_artifact_item(item)
+    return item
 
 
 def _resolve_thumbnail(folder: Path) -> str | None:

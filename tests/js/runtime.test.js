@@ -122,3 +122,21 @@ test('runtime setupGlobalErrorHandlers is idempotent and handles rejections', ()
   assert.equal(runtime.state.lastError.message, 'async boom');
   assert.equal(documentObj.documentElement.dataset.runtimeStatus, 'booting');
 });
+
+test('runtime suppresses expected bootstrap validation console noise', () => {
+  const errors = [];
+  const runtime = createRuntime({
+    consoleObj: { error(message) { errors.push(message); } },
+    documentObj: createDocumentStub(),
+    windowObj: createWindowStub()
+  });
+
+  runtime.reportError(
+    new Error('window.ARTIFACTS_DATA must be an array'),
+    'gallery initialization',
+    { fatal: true }
+  );
+
+  assert.deepEqual(errors, []);
+  assert.equal(runtime.shouldIgnoreRuntimeError('[Artifacts] gallery initialization: window.ARTIFACTS_DATA must be an array'), true);
+});

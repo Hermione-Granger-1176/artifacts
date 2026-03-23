@@ -98,8 +98,8 @@
     <nav id="filter-notes" class="desk-notes" aria-label="Filter by category"></nav>
 
     <div id="book-shell" class="book-shell">
-      <div class="toolbar-ribbon" aria-label="Gallery controls">
-        <section class="controls">
+      <div class="toolbar-ribbon">
+        <section class="controls" aria-label="Gallery controls">
           <div class="search-wrapper">
             <label for="search-input" class="visually-hidden">Search artifacts</label>
             <input type="text" id="search-input" placeholder="Search artifacts...  ( / )" autocomplete="off">
@@ -108,7 +108,7 @@
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-            <button id="search-clear" class="search-clear hidden" aria-label="Clear search">&times;</button>
+            <button id="search-clear" class="search-clear hidden" type="button" aria-label="Clear search">&times;</button>
           </div>
 
           <div class="control-cluster">
@@ -141,7 +141,7 @@
           <div class="book-cover-back"></div>
         </div>
         <div class="book-inner">
-          <section id="artifacts-grid" class="artifacts-grid" aria-live="polite">
+          <section id="artifacts-grid" class="artifacts-grid" aria-label="Artifact results" aria-live="polite">
             <noscript>
               <p>JavaScript is required to browse the artifact gallery.</p>
             </noscript>
@@ -149,7 +149,7 @@
 
           <div id="no-results" class="no-results hidden" role="status">
             <p>No artifacts found matching your filters.</p>
-            <button id="no-results-reset" class="btn-reset-link">Clear search and filters</button>
+            <button id="no-results-reset" class="btn-reset-link" type="button">Clear search and filters</button>
           </div>
         </div>
       </section>

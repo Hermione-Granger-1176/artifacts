@@ -97,11 +97,11 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
   const hasActiveTags = activeTags.length > 0;
 
   function createDeskNoteButton({ active = false, datasetName, datasetValue, label, color, rotate }) {
-    return `<button class="desk-note${active ? ' is-active' : ''}" ${datasetName}="${escapeHtml(datasetValue)}" type="button" style="--note-color: ${color}; --rotate: ${rotate}deg;">${escapeHtml(label)}</button>`;
+    return `<button class="desk-note${active ? ' is-active' : ''}" ${datasetName}="${escapeHtml(datasetValue)}" type="button" aria-controls="artifacts-grid" aria-pressed="${active}" style="--note-color: ${color}; --rotate: ${rotate}deg;">${escapeHtml(label)}</button>`;
   }
 
   const leftNotes = [
-    `<button class="desk-note${hasActiveTools ? '' : ' is-active'}" data-filter-note="all-tools" type="button" aria-label="All tools" style="--note-color: ${shuffled[0]}; --rotate: ${(rand() * 6 - 3).toFixed(1)}deg;">All</button>`,
+    `<button class="desk-note${hasActiveTools ? '' : ' is-active'}" data-filter-note="all-tools" type="button" aria-controls="artifacts-grid" aria-pressed="${String(!hasActiveTools)}" aria-label="All tools" style="--note-color: ${shuffled[0]}; --rotate: ${(rand() * 6 - 3).toFixed(1)}deg;">All</button>`,
     ...tools.map((tool, index) => {
       const color = shuffled[(index + 1) % shuffled.length];
       labelColorMap.set(tool, color);
@@ -118,7 +118,7 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
 
   const tagColorOffset = tools.length + 1;
   const rightNotes = [
-    `<button class="desk-note${hasActiveTags ? '' : ' is-active'}" data-filter-note="all-tags" type="button" aria-label="All tags" style="--note-color: ${shuffled[0]}; --rotate: ${(rand() * 6 - 3).toFixed(1)}deg;">All</button>`,
+    `<button class="desk-note${hasActiveTags ? '' : ' is-active'}" data-filter-note="all-tags" type="button" aria-controls="artifacts-grid" aria-pressed="${String(!hasActiveTags)}" aria-label="All tags" style="--note-color: ${shuffled[0]}; --rotate: ${(rand() * 6 - 3).toFixed(1)}deg;">All</button>`,
     ...tags.map((tag, index) => {
       const color = shuffled[(tagColorOffset + index) % shuffled.length];
       labelColorMap.set(tag, color);
@@ -188,7 +188,7 @@ function createCard(item, isExpanded, index) {
     : '<div class="card-thumbnail-placeholder"></div>';
 
   return `
-    <article class="artifact-card ${isExpanded ? 'expanded' : ''}" data-id="${escapeHtml(item.id)}" style="--card-bg-color: ${cardColor}; ${getRotationStyle(index)}" tabindex="0" role="button"
+    <button class="artifact-card ${isExpanded ? 'expanded' : ''}" data-id="${escapeHtml(item.id)}" style="--card-bg-color: ${cardColor}; ${getRotationStyle(index)}" type="button"
       aria-label="View details for ${escapeHtml(item.name)}" aria-expanded="${isExpanded}" aria-haspopup="dialog">
       <div class="card-note">
         <div class="card-thumbnail-area">
@@ -198,7 +198,7 @@ function createCard(item, isExpanded, index) {
           <div class="card-name">${escapeHtml(item.name)}</div>
         </div>
       </div>
-    </article>
+    </button>
   `;
 }
 
@@ -259,14 +259,14 @@ export function renderPagination(container, currentPage, totalPages) {
     const isActive = page === currentPage;
     const activeClass = isActive ? 'active' : '';
     const ariaCurrent = isActive ? 'aria-current="page"' : '';
-    return `<button class="page-btn ${activeClass}" data-page="${page}" ${ariaCurrent} aria-label="Page ${page}"><span class="page-btn-paper"></span><span class="page-btn-number">${page}</span></button>`;
+    return `<button class="page-btn ${activeClass}" data-page="${page}" type="button" ${ariaCurrent} aria-label="Page ${page}"><span class="page-btn-paper"></span><span class="page-btn-number">${page}</span></button>`;
   }).join('');
 
   let html = '';
-  html += `<button class="page-btn page-btn-nav" data-page="1" ${onFirst ? 'disabled' : ''} aria-label="First page"><span class="page-btn-paper"></span>${ICONS.chevronFirst}</button>`;
-  html += `<button class="page-btn page-btn-nav" data-page="${currentPage - 1}" ${onFirst ? 'disabled' : ''} aria-label="Previous page"><span class="page-btn-paper"></span>${ICONS.chevronLeft}</button>`;
+  html += `<button class="page-btn page-btn-nav" data-page="1" type="button" ${onFirst ? 'disabled' : ''} aria-label="First page"><span class="page-btn-paper"></span>${ICONS.chevronFirst}</button>`;
+  html += `<button class="page-btn page-btn-nav" data-page="${currentPage - 1}" type="button" ${onFirst ? 'disabled' : ''} aria-label="Previous page"><span class="page-btn-paper"></span>${ICONS.chevronLeft}</button>`;
   html += pageButtons;
-  html += `<button class="page-btn page-btn-nav" data-page="${currentPage + 1}" ${onLast ? 'disabled' : ''} aria-label="Next page"><span class="page-btn-paper"></span>${ICONS.chevronRight}</button>`;
-  html += `<button class="page-btn page-btn-nav" data-page="${totalPages}" ${onLast ? 'disabled' : ''} aria-label="Last page"><span class="page-btn-paper"></span>${ICONS.chevronLast}</button>`;
+  html += `<button class="page-btn page-btn-nav" data-page="${currentPage + 1}" type="button" ${onLast ? 'disabled' : ''} aria-label="Next page"><span class="page-btn-paper"></span>${ICONS.chevronRight}</button>`;
+  html += `<button class="page-btn page-btn-nav" data-page="${totalPages}" type="button" ${onLast ? 'disabled' : ''} aria-label="Last page"><span class="page-btn-paper"></span>${ICONS.chevronLast}</button>`;
   container.innerHTML = html;
 }

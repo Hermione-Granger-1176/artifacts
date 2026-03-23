@@ -54,6 +54,7 @@ The gallery does not inspect artifact HTML directly in the browser. It depends o
 
 - Copies only the files needed for the static site into `_site/`.
 - Applies cache-busting query strings to root assets.
+- Injects canonical, Open Graph, and Twitter share metadata using the configured site URL and social preview image.
 - Injects the configured site path into `404.html` and the web app manifest.
 - Writes `deploy-metadata.json` with the exact deploy commit SHA, site path, and cache-busting version.
 - Writes `.nojekyll` for branch-based Pages deployments.
@@ -78,7 +79,7 @@ This reduces hardcoded values in scripts and keeps deployment-sensitive values i
 
 The rationale for the strict verified-artifact publish path lives in [ADR 0001](adr/0001-root-publishing-platform.md).
 
-1. The `verify` job bootstraps with `make setup-ci`, then runs `make check`, which bundles local lint/test/audit/validation work, browser smoke tests, strict thumbnail generation, content generation, and deployable site assembly.
+1. The `verify` job bootstraps with `make setup-ci`, then runs `make check`, which bundles local lint/test/audit/validation work, browser smoke/accessibility/browser-flow tests, strict thumbnail generation, content generation, and deployable site assembly.
 2. `secret-scan` runs Gitleaks against the full commit history in parallel.
 3. `dependency-review` checks manifest and lockfile changes on pull requests.
 4. The `publish` job runs after `verify` and `secret-scan` succeed and `dependency-review` either succeeds or is skipped (push events skip it).
@@ -86,10 +87,11 @@ The rationale for the strict verified-artifact publish path lives in [ADR 0001](
 6. For pushes to `main` and manual runs, it deploys that verified `_site/` artifact to the root of the `gh-pages` branch using a verified commit via the GraphQL API (`deploy-verified.mjs`), preserving the `pr-preview/` directory.
 7. For trusted PRs, it deploys the verified `_site/` artifact to `gh-pages/pr-preview/pr-<number>/` via `deploy-verified.mjs` with `DEPLOY_SUBDIR`, without writing generated outputs back to the source branch.
 8. It polls the published root or preview URL until it serves both the expected cache-busted asset reference and the expected `deploy-metadata.json` commit SHA.
-9. It recreates the sticky preview link comment so the newest preview stays at the bottom of the PR timeline.
-10. On PR close, it removes the preview from `gh-pages` via `deploy-verified.mjs` with `REMOVE_SUBDIR` and deletes the comment.
+9. It then runs `tests/test_frontend_live.py` against the published preview or production URL in Playwright, capturing failure artifacts when browser-only regressions appear after deploy.
+10. It recreates the sticky preview link comment so the newest preview stays at the bottom of the PR timeline.
+11. On PR close, it removes the preview from `gh-pages` via `deploy-verified.mjs` with `REMOVE_SUBDIR` and deletes the comment.
 
-All jobs have explicit `timeout-minutes` limits (verify: 15, secret-scan: 5, dependency-review: 5, publish: 20, cleanup-preview: 5) to guard against hung builds.
+All jobs have explicit `timeout-minutes` limits (verify: 15, secret-scan: 5, dependency-review: 5, publish: 30, cleanup-preview: 5, repo-settings audit: 10) to guard against hung builds.
 
 Two GitHub App tokens are minted by the shared `ci-setup` action: the primary app token (Hermione1176, `APP_ID`) remains available for other trusted workflow operations, while the escalation app token (Harry1176, `ESCALATION_APP_ID`) handles all write operations in this publish path including preview deploys, preview cleanup, and main site deploys. Fork and Dependabot PRs still build `_site/`, but skip deployment because the tokens are unavailable.
 
@@ -108,6 +110,7 @@ The workflow depends on repository settings that are not enforceable from source
 - `secrets.ESCALATION_APP_PRIVATE_KEY` must contain the escalation app private key.
 - `main` branch protection should enforce the `verify`, `secret-scan`, and `dependency-review` checks plus review/signing/history requirements.
 - `gh-pages` should remain branch-based for now, but only the deploy GitHub App and the single repo admin should be able to bypass its ruleset.
+- `.github/workflows/audit-repo-settings.yml` now provides a read-only manual/weekly drift check for those external settings.
 
 ## Compatibility notes
 
