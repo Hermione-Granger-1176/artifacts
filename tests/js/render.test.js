@@ -47,10 +47,12 @@ test('buildGridHtml marks the expanded card and lazy-loads thumbnails', () => {
     'artifact-2'
   );
 
+  assert.match(html, /<button class="artifact-card/);
   assert.match(html, /data-id="artifact-1"/);
   assert.match(html, /loading="lazy"/);
   assert.match(html, /data-id="artifact-2"[^]*aria-expanded="true"/);
   assert.match(html, /card-thumbnail-placeholder/);
+  assert.match(html, /type="button"/);
 });
 
 test('renderPagination clears single-page output and renders ellipsis for long ranges', () => {
@@ -76,9 +78,11 @@ test('buildFilterNotes marks All as active when no filters are selected', () => 
   });
 
   assert.match(html, /class="desk-note is-active"[^>]*data-filter-note="all-tools"/);
+  assert.match(html, /data-filter-note="all-tools"[^>]*aria-pressed="true"/);
   assert.match(html, /data-filter-tool="claude"/);
   assert.match(html, /data-filter-tool="chatgpt"/);
   assert.match(html, /data-filter-tag="game"/);
+  assert.match(html, /data-filter-tool="claude"[^>]*aria-controls="artifacts-grid"/);
   assert.match(html, />CLAUDE</);
   assert.match(html, />CHATGPT</);
   assert.match(html, />#game</);

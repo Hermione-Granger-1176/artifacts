@@ -15,6 +15,15 @@ function normalizeErrorMessage(error) {
   return 'Unknown runtime error';
 }
 
+function normalizeConsoleMessage(message) {
+  return String(message).replace(/\s+/g, ' ').trim();
+}
+
+function shouldIgnoreRuntimeError(message) {
+  const normalizedMessage = normalizeConsoleMessage(message).toLowerCase();
+  return normalizedMessage.includes('window.artifacts_data must be an array');
+}
+
 /**
  * Create a runtime instance providing error reporting, storage access, and lifecycle status.
  * @param {{ consoleObj?: Console, documentObj?: Document, windowObj?: Window }} [options={}]
@@ -60,7 +69,10 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
       }
     }
 
-    consoleObj.error(`[Artifacts] ${context}: ${state.lastError.message}`, error);
+    const consoleMessage = `[Artifacts] ${context}: ${state.lastError.message}`;
+    if (!shouldIgnoreRuntimeError(consoleMessage)) {
+      consoleObj.error(consoleMessage, error);
+    }
   };
 
   return {
@@ -80,6 +92,8 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
     },
 
     reportError,
+
+    shouldIgnoreRuntimeError,
 
     setupGlobalErrorHandlers() {
       if (windowObj.__ARTIFACTS_ERROR_HANDLERS_BOUND__) {

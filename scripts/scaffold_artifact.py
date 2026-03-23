@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Scaffold a new artifact directory under `apps/`.
+"""Scaffold a new artifact directory under ``apps/``.
 
 Create a new artifact directory under ``apps/`` with the required metadata
 files and a minimal HTML starting point.
@@ -13,15 +13,26 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from scripts.generate_index import (
-    APPS_DIR,
-    DESCRIPTION_FILE,
-    INDEX_FILE,
-    NAME_FILE,
-    TAGS_FILE,
-    TOOLS_FILE,
-    is_kebab_case,
-)
+try:
+    from scripts.generate_index import (
+        APPS_DIR,
+        DESCRIPTION_FILE,
+        INDEX_FILE,
+        NAME_FILE,
+        TAGS_FILE,
+        TOOLS_FILE,
+        is_kebab_case,
+    )
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from generate_index import (
+        APPS_DIR,
+        DESCRIPTION_FILE,
+        INDEX_FILE,
+        NAME_FILE,
+        TAGS_FILE,
+        TOOLS_FILE,
+        is_kebab_case,
+    )
 
 
 def _title_from_slug(slug: str) -> str:

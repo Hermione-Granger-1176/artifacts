@@ -26,12 +26,15 @@ async function main() {
     const filePath = path.join(REPO_ROOT, relativePath);
     const content = await readFile(filePath, 'utf-8');
     const results = lint(content, relativePath);
+    const actionableResults = results.filter(
+      (result) => !result.message.includes('undefined variable "vars"')
+    );
 
-    for (const result of results) {
-      if (result.message.includes('undefined variable "vars"')) {
-        continue;
-      }
+    if (actionableResults.length > 0) {
       hasErrors = true;
+    }
+
+    for (const result of actionableResults) {
       process.stderr.write(
         `${result.file}:${result.line}:${result.column}: ${result.message} [${result.kind}]\n`
       );

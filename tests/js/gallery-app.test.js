@@ -142,23 +142,22 @@ class FakeElement {
   }
 
   matches(selector) {
-    if (selector.startsWith('#')) {
-      return this.id === selector.slice(1);
-    }
+    switch (selector) {
+      case '[data-close-detail]':
+        return this.hasAttribute('data-close-detail');
+      case '[data-page]':
+        return Object.hasOwn(this.dataset, 'page');
+      default:
+        if (selector.startsWith('#')) {
+          return this.id === selector.slice(1);
+        }
 
-    if (selector === '[data-close-detail]') {
-      return this.hasAttribute('data-close-detail');
-    }
+        if (selector.startsWith('.')) {
+          return this.classList.contains(selector.slice(1));
+        }
 
-    if (selector === '[data-page]') {
-      return Object.hasOwn(this.dataset, 'page');
+        return false;
     }
-
-    if (selector.startsWith('.')) {
-      return this.classList.contains(selector.slice(1));
-    }
-
-    return false;
   }
 
   closest(selector) {
@@ -186,22 +185,24 @@ class FakeElement {
 
 class FakeCard extends FakeElement {
   constructor(id, classes, expanded) {
-    super({ tagName: 'ARTICLE', classes });
+    super({ tagName: 'BUTTON', classes });
     this.dataset.id = id;
     this.setAttribute('aria-expanded', String(expanded));
+    this.setAttribute('type', 'button');
   }
 
   matches(selector) {
-    if (selector === '.artifact-card') {
-      return true;
-    }
+    switch (selector) {
+      case '.artifact-card':
+        return true;
+      default:
+        if (selector.startsWith('.artifact-card[data-id=')) {
+          const match = selector.match(/data-id="([^"]+)"/);
+          return this.dataset.id === match?.[1];
+        }
 
-    if (selector.startsWith('.artifact-card[data-id=')) {
-      const match = selector.match(/data-id="([^"]+)"/);
-      return this.dataset.id === match?.[1];
+        return super.matches(selector);
     }
-
-    return super.matches(selector);
   }
 
   getBoundingClientRect() {
@@ -218,7 +219,7 @@ class FakeGrid extends FakeElement {
 
   set innerHTML(value) {
     this._innerHTML = value;
-    this.cards = [...value.matchAll(/<article class="([^"]*artifact-card[^"]*)" data-id="([^"]+)"[^>]*aria-expanded="([^"]+)"/g)].map(([, classNames, id, expanded]) => {
+    this.cards = [...value.matchAll(/<button class="([^"]*artifact-card[^"]*)" data-id="([^"]+)"[^>]*aria-expanded="([^"]+)"/g)].map(([, classNames, id, expanded]) => {
       const classes = classNames.trim().split(/\s+/).filter(Boolean);
       const card = new FakeCard(id, classes, expanded === 'true');
       card.parentElement = this;

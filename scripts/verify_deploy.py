@@ -20,11 +20,15 @@ import json
 import logging
 import sys
 import time
-import tomllib
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
+
+try:
+    from scripts.project_config import load_artifacts_setting
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from project_config import load_artifacts_setting
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,17 +51,7 @@ def _normalize_site_url(value: str) -> str:
 
 def _load_site_url() -> str:
     """Load the configured site URL from ``pyproject.toml``."""
-    if not PYPROJECT_FILE.exists():
-        raise FileNotFoundError(f"pyproject.toml not found: {PYPROJECT_FILE}")
-
-    pyproject = tomllib.loads(PYPROJECT_FILE.read_text(encoding="utf-8"))
-
-    try:
-        site_url = pyproject["tool"]["artifacts"]["site_url"]
-    except KeyError as exc:
-        raise ValueError("Missing tool.artifacts.site_url in pyproject.toml") from exc
-
-    return _normalize_site_url(site_url)
+    return _normalize_site_url(load_artifacts_setting(PYPROJECT_FILE, "site_url"))
 
 
 def _fetch_text(url: str, timeout_seconds: float) -> tuple[int, str]:

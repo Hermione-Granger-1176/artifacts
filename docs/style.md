@@ -101,8 +101,10 @@ Run `make lint-yaml` for YAML structure/format checks and `make lint-workflows` 
 ## Logo and favicon
 
 - Logo and favicon assets live in `assets/icons/`
+- The social share preview image lives at `assets/social/share-preview.png`
 - `icon.svg` is the canonical vector logo with dark/light mode via `prefers-color-scheme`
 - Raster icons (`favicon.ico`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png`) are checked-in derivatives of the SVG design
+- The share preview image should stay stable at 1200x630 so deploy-time Open Graph and Twitter metadata remain valid
 - `manifest.webmanifest` defines PWA metadata; `start_url` is patched by `prepare_site.py` at deploy time
 - The header uses an inline SVG copy of the logo (not a reference to the file) to avoid an extra network request
 

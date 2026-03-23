@@ -24,6 +24,7 @@ __pycache__/
 .venv/
 node_modules/
 _site/
+.artifacts/
 .pytest_cache/
 .ruff_cache/
 .coverage

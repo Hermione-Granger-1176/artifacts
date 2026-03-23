@@ -26,14 +26,16 @@ function createFakeElement(id = '') {
       return { left: 100, top: 100, width: 400, height: 300 };
     },
     querySelector(selector) {
-      if (selector.includes('data-id=')) {
-        const match = selector.match(/data-id="([^"]+)"/);
-        return children.find((c) => c.dataset.id === match?.[1]) || null;
+      switch (selector) {
+        case '.detail-close':
+          return { focus() { focusCalled = true; } };
+        default:
+          if (selector.includes('data-id=')) {
+            const match = selector.match(/data-id="([^"]+)"/);
+            return children.find((c) => c.dataset.id === match?.[1]) || null;
+          }
+          return null;
       }
-      if (selector === '.detail-close') {
-        return { focus() { focusCalled = true; } };
-      }
-      return null;
     },
     querySelectorAll(selector) {
       if (selector.includes('artifact-card')) {

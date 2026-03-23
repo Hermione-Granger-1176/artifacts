@@ -24,7 +24,23 @@ const SCROLL_TOP_THRESHOLD = 300;
 const DETAIL_CLOSE_DELAY = 360;
 const ACTIVATION_KEYS = new Set(['Enter', ' ']);
 
-/** Parse URL search params into normalized gallery state (page, sort, filters, search). */
+/**
+ * Parse URL search params into normalized gallery state.
+ * @param {{
+ *   search: string,
+ *   allTools: string[],
+ *   allTags: string[],
+ *   defaults?: { page: number, sort: string, q: string }
+ * }} options - URL search input and allowed gallery values.
+ * @returns {{
+ *   page: number,
+ *   q: string,
+ *   sort: string,
+ *   tools: string[],
+ *   tags: string[],
+ *   rawQuery: string
+ * }} Normalized gallery state.
+ */
 export function readGalleryStateFromSearch({ search, allTools, allTags, defaults = DEFAULTS }) {
   const params = new URLSearchParams(search);
   return {
@@ -37,7 +53,19 @@ export function readGalleryStateFromSearch({ search, allTools, allTags, defaults
   };
 }
 
-/** Serialize gallery state into a URL path with query string, omitting default values. */
+/**
+ * Serialize gallery state into a URL path with query string.
+ * @param {{
+ *   pathname: string,
+ *   page: number,
+ *   sort: string,
+ *   q: string,
+ *   tools: string[],
+ *   tags: string[],
+ *   defaults?: { page: number, sort: string, q: string }
+ * }} options - Current gallery state values.
+ * @returns {string} URL path with any non-default query parameters.
+ */
 export function buildGalleryUrl({
   pathname,
   page,
@@ -174,6 +202,25 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   let debounceTimer = null;
   let suppressPush = false;
   let pendingFocusTarget = null;
+  const filterNoteHandlers = {
+    filterNote: (value) => {
+      const resetFilter = resetFiltersByNote[value];
+      if (!resetFilter) {
+        return null;
+      }
+
+      resetFilter();
+      return { type: 'desk-note', dataset: 'filterNote', value };
+    },
+    filterTool: (value) => {
+      currentTools = toggleSelection(currentTools, value);
+      return { type: 'desk-note', dataset: 'filterTool', value };
+    },
+    filterTag: (value) => {
+      currentTags = toggleSelection(currentTags, value);
+      return { type: 'desk-note', dataset: 'filterTag', value };
+    }
+  };
   const resetFiltersByNote = {
     'all-tags': () => {
       currentTags = [];
@@ -224,18 +271,18 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return;
     }
 
-    const { filterNote, filterTag, filterTool } = tab.dataset;
-    let focusTarget = null;
-    if (filterNote && resetFiltersByNote[filterNote]) {
-      resetFiltersByNote[filterNote]();
-      focusTarget = { type: 'desk-note', dataset: 'filterNote', value: filterNote };
-    } else if (filterTool) {
-      currentTools = toggleSelection(currentTools, filterTool);
-      focusTarget = { type: 'desk-note', dataset: 'filterTool', value: filterTool };
-    } else if (filterTag) {
-      currentTags = toggleSelection(currentTags, filterTag);
-      focusTarget = { type: 'desk-note', dataset: 'filterTag', value: filterTag };
-    } else {
+    const filterDatasetEntry = [
+      ['filterNote', tab.dataset.filterNote],
+      ['filterTool', tab.dataset.filterTool],
+      ['filterTag', tab.dataset.filterTag]
+    ].find(([, value]) => Boolean(value));
+    if (!filterDatasetEntry) {
+      return;
+    }
+
+    const [dataset, value] = filterDatasetEntry;
+    const focusTarget = filterNoteHandlers[dataset]?.(value);
+    if (!focusTarget) {
       return;
     }
 

@@ -61,27 +61,22 @@ def align_table(lines: list[str]) -> list[str]:
     """Align a block of table lines so pipe characters are vertically aligned."""
     rows = [split_cells(line) for line in lines]
     col_count = max(len(row) for row in rows)
+    rows = [row + [""] * (col_count - len(row)) for row in rows]
+    content_rows = [row for row in rows if not is_separator_row(row)]
 
-    for row in rows:
-        row.extend([""] * (col_count - len(row)))
+    widths = [
+        max(3, max((len(row[col]) for row in content_rows), default=0))
+        for col in range(col_count)
+    ]
 
-    widths = []
-    for col in range(col_count):
-        max_width = 0
-        for row in rows:
-            if not is_separator_row(row):
-                max_width = max(max_width, len(row[col]))
-        widths.append(max(max_width, 3))
-
-    result = []
-    for row in rows:
-        if is_separator_row(row):
-            result.append(build_separator(widths, row))
-        else:
-            cells = [cell.ljust(widths[i]) for i, cell in enumerate(row)]
-            result.append("| " + " | ".join(cells) + " |")
-
-    return result
+    return [
+        build_separator(widths, row)
+        if is_separator_row(row)
+        else "| "
+        + " | ".join(cell.ljust(widths[i]) for i, cell in enumerate(row))
+        + " |"
+        for row in rows
+    ]
 
 
 def process_file(path: Path) -> bool:

@@ -43,21 +43,27 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `tests/js/verified-commit.test.js`: workflow helper logic for the verified-commit action
 - `tests/js/deploy-verified.test.js`: deploy-site action logic (blob SHA, change computation, verified deploy, preview modes)
 - `tests/test_frontend_smoke.py`: browser smoke coverage for gallery load, invalid bootstrap data, search, desk-note filters, pagination, detail overlay, and `404.html`
+- `tests/test_frontend_accessibility.py`: Playwright + axe coverage for root light/dark themes, overlay state, no-results state, and `404.html`, plus explicit contrast assertions
+- `tests/test_frontend_browser_flows.py`: keyboard-only, mobile, reduced-motion, theme persistence, and larger-catalog browser interaction coverage
+- `tests/test_frontend_live.py`: post-deploy browser verification for the published root and `404.html` when `ARTIFACTS_LIVE_SITE_URL` is set
 
 ## Accessibility notes for the root shell
 
 - The root shell keeps keyboard focus visible across search, desk-note filters, pagination, overlay close/return, and the scroll-to-top control.
 - `js/modules/gallery-app.js` keeps the theme toggle stateful with `aria-pressed`, updates the toggle label for the next theme, and announces result/theme changes through a dedicated live region.
+- Artifact cards render as real `<button>` controls so keyboard and screen-reader semantics match the interaction model instead of relying on `role="button"` shims.
 - `js/modules/render.js` gives the detail description a stable ID, and `js/modules/detail-overlay.js` uses it to describe the dialog while artifact links announce that they open in a new tab.
 - `404.html` has explicit focus-visible styling so fallback navigation is keyboard-safe even outside the main app shell.
 - `css/root-gallery-foundation.css` owns the root focus ring tokens and skip-link behavior; `css/root-gallery-artifacts.css` owns accessible contrast tuning for active pagination and detail CTA states.
+- `tests/frontend_helpers.py` fails browser suites on `pageerror`, unexpected `console.error`, failed requests, and HTTP 4xx/5xx responses, and can emit screenshots, traces, and runtime logs for CI artifacts.
 
 ## Local vs CI expectations
 
 - `npm run test` runs the JavaScript unit suite with Node's built-in test runner
 - `npm run test:coverage` and `make coverage-js` use Node's built-in experimental coverage report, which currently gates `js/app.js`, `js/modules/*.js`, `.github/actions/verified-commit/*.mjs`, and `.github/actions/deploy-site/*.mjs`
 - `make check-local` runs the fast local gate: lint, non-browser pytest, JavaScript unit tests, JavaScript coverage, dependency audits, and artifact validation
-- `make web` runs browser smoke tests and thumbnail generation; use `make setup` first so Chromium is available
+- `make web` runs browser smoke, accessibility, and browser-flow tests plus thumbnail generation; use `make setup` first so Chromium is available
 - `make check` runs the full local release gate by combining `make check-local`, `make web`, index generation, and deployable site assembly
-- `make test-browser` sets `ARTIFACTS_REQUIRE_BROWSER_TESTS=1`, so browser smoke tests must execute successfully instead of skipping when Chromium is unavailable
+- `make test-browser` sets `ARTIFACTS_REQUIRE_BROWSER_TESTS=1`, so browser smoke, accessibility, and browser-flow suites must execute successfully instead of skipping when Chromium is unavailable
+- `make test-browser-live` runs the published-site Playwright verification suite when `ARTIFACTS_LIVE_SITE_URL` is set
 - full Istanbul/nyc-style instrumentation is intentionally not added because that would require extra dependencies beyond the current production-readiness scope

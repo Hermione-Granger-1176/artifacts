@@ -61,7 +61,7 @@ apps/
 4. Push to `main` or trigger a manual run to let CI regenerate derived files, prepare `_site/`, and deploy the site
 5. Open a PR to run the same checks and publish a live preview without modifying the source branch
 
-CI is intentionally strict for the root publishing platform: dependency review, secret scanning, verification, preview deploys, and main deploys fail closed instead of auto-healing source branches. Preview and production deploys both consume the exact verified `_site/` artifact built in CI.
+CI is intentionally strict for the root publishing platform: dependency review, secret scanning, browser-based accessibility and interaction checks, preview deploys, live post-deploy browser verification, and main deploys fail closed instead of auto-healing source branches. Preview and production deploys both consume the exact verified `_site/` artifact built in CI.
 
 ## Local development
 
@@ -71,7 +71,7 @@ CI is intentionally strict for the root publishing platform: dependency review, 
    make setup-local
    ```
 
-   This installs pinned Python dependencies from `locks/requirements-dev.lock` and pinned Node dependencies from `package-lock.json` without Chromium. Run `make setup` when you also want Playwright Chromium for browser smoke tests or thumbnail generation. Same-repo Dependabot pip PRs that update `pyproject.toml` refresh the Python lock files automatically through CI.
+   This installs pinned Python dependencies from `locks/requirements-dev.lock` and pinned Node dependencies from `package-lock.json` without Chromium. Run `make setup` when you also want Playwright Chromium for browser tests or thumbnail generation. Same-repo Dependabot pip PRs that update `pyproject.toml` refresh the Python lock files automatically through CI.
 
 2. Run the fast local verification flow while you iterate:
 
@@ -90,8 +90,10 @@ CI is intentionally strict for the root publishing platform: dependency review, 
 4. Run the full release gate before pushing when you want the CI-equivalent local flow:
 
    ```bash
-   make check
-   ```
+    make check
+    ```
+
+    `make check` keeps the root-platform browser gate in one place: Playwright smoke, accessibility, and browser-flow tests run before index generation and `_site/` assembly.
 
 5. Validate top-level artifact directories explicitly when needed:
 
@@ -127,7 +129,13 @@ CI is intentionally strict for the root publishing platform: dependency review, 
    python3 -m http.server 4173
    ```
 
-   Then open `http://127.0.0.1:4173/`.
+    Then open `http://127.0.0.1:4173/`.
+
+11. Verify a deployed preview or production URL in a real browser when needed:
+
+    ```bash
+    ARTIFACTS_LIVE_SITE_URL="https://example.com/artifacts/" make test-browser-live
+    ```
 
 ## License
 

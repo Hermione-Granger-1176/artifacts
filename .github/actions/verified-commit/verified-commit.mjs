@@ -7,8 +7,8 @@ export const DEFAULT_MAX_ATTEMPTS = 3;
 
 /**
  * Split newline-delimited pathspec input into trimmed entries.
- * @param {string} input - Newline-separated pathspec entries
- * @returns {string[]} Trimmed, non-empty pathspec entries
+ * @param {string} input - Newline-separated pathspec entries.
+ * @returns {string[]} Trimmed, non-empty pathspec entries.
  */
 export function splitPathspec(input) {
   return (input || '')
@@ -124,8 +124,8 @@ export async function fetchJson(url, options, dependencies = {}) {
 
 /**
  * Check whether an error looks transient enough to retry.
- * @param {Error | null} error
- * @returns {boolean} Whether the error is transient and worth retrying
+ * @param {Error | null} error - Error to classify.
+ * @returns {boolean} Whether the error is transient and worth retrying.
  */
 export function isRetryableError(error) {
   if (!error) {
@@ -142,8 +142,8 @@ export function isRetryableError(error) {
 
 /**
  * Build `git diff --staged --name-status` arguments for an optional pathspec.
- * @param {string[]} pathspec - Paths to restrict the diff
- * @returns {string[]} Argument array for execFileSync
+ * @param {string[]} pathspec - Paths to restrict the diff.
+ * @returns {string[]} Argument array for execFileSync.
  */
 export function createGitArgs(pathspec) {
   const gitArgs = ['diff', '--staged', '--name-status'];
@@ -155,9 +155,9 @@ export function createGitArgs(pathspec) {
 
 /**
  * Generate a date-stamped branch name (for example `prefix-20260319`).
- * @param {string} prefix - Branch name prefix
- * @param {Date} [date=new Date()] - Date used for the stamp
- * @returns {string}
+ * @param {string} prefix - Branch name prefix.
+ * @param {Date} [date=new Date()] - Date used for the stamp.
+ * @returns {string} Date-stamped branch name.
  */
 export function createBranchName(prefix, date = new Date()) {
   const value = date.toISOString().slice(0, 10).replace(/-/g, '');

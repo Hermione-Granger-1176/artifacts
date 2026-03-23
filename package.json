@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "actionlint": "2.0.6",
+    "axe-core": "4.11.1",
     "eslint": "10.0.3",
     "globals": "17.4.0",
     "stylelint": "17.5.0"

@@ -153,10 +153,11 @@ def check_file(path: Path, relative_path: str, settings: dict[str, str]) -> list
 
     insert_final_newline = settings.get("insert_final_newline")
     has_final_newline = text.endswith("\n")
-    if insert_final_newline == "true" and text and not has_final_newline:
-        violations.append(f"{relative_path}: missing final newline")
-    elif insert_final_newline == "false" and has_final_newline:
-        violations.append(f"{relative_path}: unexpected final newline")
+    match insert_final_newline:
+        case "true" if text and not has_final_newline:
+            violations.append(f"{relative_path}: missing final newline")
+        case "false" if has_final_newline:
+            violations.append(f"{relative_path}: unexpected final newline")
 
     lines = text.splitlines()
     trim_trailing_whitespace = settings.get("trim_trailing_whitespace") == "true"
@@ -170,14 +171,15 @@ def check_file(path: Path, relative_path: str, settings: dict[str, str]) -> list
             continue
 
         leading = _leading_whitespace(line)
-        if indent_style == "space" and "\t" in leading:
-            violations.append(
-                f"{relative_path}:{line_number}: tab used for indentation"
-            )
-        elif indent_style == "tab" and leading and not leading.startswith("\t"):
-            violations.append(
-                f"{relative_path}:{line_number}: spaces used for indentation"
-            )
+        match indent_style:
+            case "space" if "\t" in leading:
+                violations.append(
+                    f"{relative_path}:{line_number}: tab used for indentation"
+                )
+            case "tab" if leading and not leading.startswith("\t"):
+                violations.append(
+                    f"{relative_path}:{line_number}: spaces used for indentation"
+                )
 
     return violations
 

@@ -11,6 +11,82 @@ import {
   splitPathspec
 } from '../../.github/actions/verified-commit/verified-commit.mjs';
 
+function createJsonResponse(payload, { ok = true, status = 200 } = {}) {
+  return {
+    ok,
+    status,
+    json: async () => payload
+  };
+}
+
+function createTextResponse(text, { ok, status, statusText }) {
+  return {
+    ok,
+    status,
+    statusText,
+    text: async () => text
+  };
+}
+
+function createGraphqlCommitResponse(url = 'https://example.com/commit/def456') {
+  return createJsonResponse({
+    data: {
+      createCommitOnBranch: {
+        commit: {
+          oid: 'def456',
+          url
+        }
+      }
+    }
+  });
+}
+
+function createProtectedBranchResponse() {
+  return createJsonResponse({ errors: [{ message: 'protected branch' }] });
+}
+
+function createFallbackFetchImpl({ requests, existingPullRequestUrl = null, existingRefSha = null }) {
+  return async (url, options = {}) => {
+    requests.push({ url, options });
+
+    if (url === 'https://api.github.com/graphql') {
+      const body = JSON.parse(options.body);
+      const branchName = body.variables.input.branch.branchName;
+      return branchName === 'main'
+        ? createProtectedBranchResponse()
+        : createGraphqlCommitResponse();
+    }
+
+    if (url.endsWith('/git/refs')) {
+      if (existingRefSha) {
+        return createTextResponse('Reference already exists', {
+          ok: false,
+          status: 422,
+          statusText: 'Unprocessable Entity'
+        });
+      }
+
+      return createJsonResponse({ ref: 'refs/heads/auto/update-artifacts-20260319' }, { status: 201 });
+    }
+
+    if (existingRefSha && url.includes('/git/ref/heads/auto/update-artifacts-20260319')) {
+      return createJsonResponse({ object: { sha: existingRefSha } });
+    }
+
+    if (url.includes('/pulls?')) {
+      return createJsonResponse(
+        existingPullRequestUrl ? [{ html_url: existingPullRequestUrl }] : []
+      );
+    }
+
+    if (url.endsWith('/pulls') && !existingPullRequestUrl) {
+      return createJsonResponse({ html_url: 'https://example.com/pr/123' }, { status: 201 });
+    }
+
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+}
+
 test('splitPathspec and createGitArgs preserve pathspec ordering', () => {
   const pathspec = splitPathspec('js/data.js\nREADME.md\n');
   assert.deepEqual(pathspec, ['js/data.js', 'README.md']);
@@ -266,61 +342,7 @@ test('runVerifiedCommit falls back to a pull request after direct commit failure
     },
     consoleObj: { log() {}, error() {} },
     fetchDependencies: {
-      fetchImpl: async (url, options = {}) => {
-        requests.push({ url, options });
-        if (url === 'https://api.github.com/graphql') {
-          const body = JSON.parse(options.body);
-          const branchName = body.variables.input.branch.branchName;
-          if (branchName === 'main') {
-            return {
-              ok: true,
-              status: 200,
-              json: async () => ({ errors: [{ message: 'protected branch' }] })
-            };
-          }
-
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({
-              data: {
-                createCommitOnBranch: {
-                  commit: {
-                    oid: 'def456',
-                    url: 'https://example.com/commit/def456'
-                  }
-                }
-              }
-            })
-          };
-        }
-
-        if (url.endsWith('/git/refs')) {
-          return {
-            ok: true,
-            status: 201,
-            json: async () => ({ ref: 'refs/heads/auto/update-artifacts-20260319' })
-          };
-        }
-
-        if (url.includes('/pulls?')) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => []
-          };
-        }
-
-        if (url.endsWith('/pulls')) {
-          return {
-            ok: true,
-            status: 201,
-            json: async () => ({ html_url: 'https://example.com/pr/123' })
-          };
-        }
-
-        throw new Error(`Unexpected URL: ${url}`);
-      },
+      fetchImpl: createFallbackFetchImpl({ requests }),
       sleepImpl: async () => {}
     },
     now: new Date('2026-03-19T12:00:00Z')
@@ -362,64 +384,11 @@ test('runVerifiedCommit reuses an existing fallback branch and open pull request
     },
     consoleObj: { log() {}, error() {} },
     fetchDependencies: {
-      fetchImpl: async (url, options = {}) => {
-        requests.push({ url, options });
-        const requestBody = options.body ? JSON.parse(options.body) : null;
-        if (url === 'https://api.github.com/graphql') {
-          const branchName = requestBody.variables.input.branch.branchName;
-          if (branchName === 'main') {
-            return {
-              ok: true,
-              status: 200,
-              json: async () => ({ errors: [{ message: 'protected branch' }] })
-            };
-          }
-
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({
-              data: {
-                createCommitOnBranch: {
-                  commit: {
-                    oid: 'def456',
-                    url: 'https://example.com/commit/def456'
-                  }
-                }
-              }
-            })
-          };
-        }
-
-        if (url.endsWith('/git/refs')) {
-          return {
-            ok: false,
-            status: 422,
-            statusText: 'Unprocessable Entity',
-            text: async () => 'Reference already exists'
-          };
-        }
-
-        if (url.includes('/git/ref/heads/auto/update-artifacts-20260319')) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({
-              object: { sha: 'existing123' }
-            })
-          };
-        }
-
-        if (url.includes('/pulls?')) {
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ([{ html_url: 'https://example.com/pr/existing' }])
-          };
-        }
-
-        throw new Error(`Unexpected URL: ${url}`);
-      },
+      fetchImpl: createFallbackFetchImpl({
+        requests,
+        existingPullRequestUrl: 'https://example.com/pr/existing',
+        existingRefSha: 'existing123'
+      }),
       sleepImpl: async () => {}
     },
     now: new Date('2026-03-19T12:00:00Z')
