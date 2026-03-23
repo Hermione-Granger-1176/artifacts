@@ -164,6 +164,20 @@ test('validateArtifactsData rejects invalid artifact shapes', () => {
       {
         id: 'artifact-1',
         name: 'Artifact 1',
+        tags: [],
+        tools: [],
+        url: 'apps/artifact-1/',
+        thumbnail: 42
+      }
+    ]),
+    /window\.ARTIFACTS_DATA\[0\]\.thumbnail must be a string/
+  );
+
+  assert.throws(
+    () => validateArtifactsData([
+      {
+        id: 'artifact-1',
+        name: 'Artifact 1',
         tags: ['ok', 42],
         tools: [],
         url: 'apps/artifact-1/'
