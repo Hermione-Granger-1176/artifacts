@@ -28,11 +28,6 @@ env:
   VERIFY_DEPLOY_DELAY_SECONDS: '10'
   ARTIFACTS_STRICT_THUMBNAILS: '1'
   GENERATED_OUTPUT_ARGS: js/data.js js/gallery-config.js README.md apps
-  GENERATED_OUTPUT_PATHSPEC: |
-    js/data.js
-    js/gallery-config.js
-    README.md
-    apps
 
 jobs:
   verify:
@@ -126,7 +121,6 @@ jobs:
 
       - name: Review dependency changes
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
-        continue-on-error: ${{ !github.event.repository.private }}
 
   publish:
     if: >-
@@ -186,48 +180,24 @@ jobs:
       - name: Detect generated changes
         id: changes
         run: |
-          git add -A ${GENERATED_OUTPUT_ARGS}
-          if git diff --staged --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
+          if git status --short -- ${GENERATED_OUTPUT_ARGS} | grep -q .; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Commit generated files (verified)
-        id: commit-generated
-        if: steps.changes.outputs.changed == 'true' && steps.setup.outputs.token-available == 'true'
-        uses: ./.github/actions/verified-commit
-        with:
-          github-token: ${{ steps.setup.outputs.escalation-token }}
-          base-branch: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-          expected-head-sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-          commit-headline: "Update generated artifacts [skip ci]"
-          fallback-branch-prefix: auto/update-artifacts
-          pr-title: "Update generated artifacts"
-          pr-body: |
-            ## Summary
-            - Type: CI automation
-            - Update generated artifacts from the `update.yml` workflow
-            - Direct commit to the default branch was blocked by branch protection
-          pathspec: ${{ env.GENERATED_OUTPUT_PATHSPEC }}
-
-      - name: Check if fallback PR was created
-        id: commit-result
-        if: steps.commit-generated.outcome == 'success'
-        run: >-
-          python3 scripts/workflow_helpers.py check-fallback
-          --result-url "${{ steps.commit-generated.outputs.result-url }}"
-          >> "$GITHUB_OUTPUT"
-
-      - name: Re-checkout after API commit
-        if: >-
-          steps.commit-generated.outcome == 'success' &&
-          steps.commit-result.outputs.fallback != 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-          fetch-depth: 1
-          persist-credentials: false
+      - name: Summarize generated workspace changes
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          {
+            echo "## Generated workspace changes"
+            echo
+            echo "CI rebuilt generated content for this run. The publish workflow deploys these changes from the verified workspace build without mutating the source branch."
+            echo
+            echo '```text'
+            git status --short -- ${GENERATED_OUTPUT_ARGS} || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Prepare deployable site
         run: make site
@@ -297,8 +267,7 @@ jobs:
         id: main-deploy
         if: >-
           github.event_name != 'pull_request' &&
-          steps.setup.outputs.token-available == 'true' &&
-          steps.commit-result.outputs.fallback != 'true'
+          steps.setup.outputs.token-available == 'true'
         uses: ./.github/actions/deploy-site
         with:
           token: ${{ steps.setup.outputs.escalation-token }}
@@ -310,7 +279,7 @@ jobs:
           verify-delay-seconds: ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
 
       - name: Summarize publish
-        if: github.event_name != 'pull_request' && steps.commit-result.outputs.fallback != 'true'
+        if: github.event_name != 'pull_request'
         run: |
           {
             echo "## Publish"
@@ -318,17 +287,6 @@ jobs:
             echo "Deploy version: ${{ github.sha }}"
             echo "Generated files changed: ${{ steps.changes.outputs.changed }}"
             echo "Published URL verified: yes"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Summarize deferred deploy
-        if: github.event_name != 'pull_request' && steps.commit-result.outputs.fallback == 'true'
-        run: |
-          {
-            echo "## Deploy Deferred"
-            echo
-            echo "Generated artifacts were committed to a fallback PR."
-            echo "Deploy will happen when the PR is merged."
-            echo "PR: ${{ steps.commit-generated.outputs.result-url }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
   cleanup-preview:
