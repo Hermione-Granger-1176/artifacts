@@ -430,7 +430,7 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
   const container = new FakeElement({ classes: ['container'] });
   const footer = new FakeElement({ classes: ['footer'] });
   const metaThemeColor = new FakeElement({ tagName: 'META' });
-  metaThemeColor.setAttribute('content', '#202020');
+  metaThemeColor.setAttribute('content', 'rgb(32, 32, 32)');
 
   [header, container, footer, metaThemeColor].forEach((element) => {
     element.ownerDocument = documentObj;
@@ -633,7 +633,7 @@ test('initializeGalleryApp restores URL and theme state on startup', () => {
   });
 
   assert.equal(harness.documentObj.documentElement.getAttribute('data-theme'), 'light');
-  assert.equal(harness.elements.metaThemeColor.getAttribute('content'), '#f5efe6');
+  assert.equal(harness.elements.metaThemeColor.getAttribute('content'), 'rgb(245, 239, 230)');
   assert.equal(harness.elements.sortToggle.getAttribute('aria-pressed'), 'true');
   assert.equal(harness.elements.themeToggle.getAttribute('aria-label'), 'Switch to dark theme');
   assert.equal(harness.elements.galleryStatus.textContent, 'Showing 13 artifacts; page 2 of 4.');
