@@ -7,6 +7,14 @@ const CARD_COLORS = [
   'var(--card-color-7)', 'var(--card-color-8)', 'var(--card-color-9)',
   'var(--card-color-10)', 'var(--card-color-11)', 'var(--card-color-12)'
 ];
+const FILTER_NOTE_COLORS = [
+  'var(--color-note-1)',
+  'var(--color-note-2)',
+  'var(--color-note-3)',
+  'var(--color-note-4)',
+  'var(--color-note-5)',
+  'var(--color-note-6)'
+];
 const BASE_ROTATIONS = ['-1.4deg', '0.6deg', '-0.4deg', '1.2deg', '-0.9deg', '1.5deg', '0.3deg', '-1.1deg', '0.8deg', '-0.5deg', '1.3deg', '-0.7deg'];
 const HOVER_ROTATIONS = ['-0.35deg', '0.2deg', '-0.12deg', '0.4deg', '-0.25deg', '0.45deg', '0.1deg', '-0.3deg', '0.25deg', '-0.15deg', '0.36deg', '-0.2deg'];
 
@@ -24,7 +32,7 @@ const labelColorMap = new Map();
 let shuffledColors = null;
 
 function getLabelColor(name) {
-  return labelColorMap.get(name) || '#e8c8a0';
+  return labelColorMap.get(name) || 'var(--color-capsule-default)';
 }
 
 function buildSnippetList(items, className, emptyValue = '') {
@@ -80,12 +88,10 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
     return x - Math.floor(x);
   };
 
-  const noteColors = ['#f5e6a3', '#e8a0a0', '#a0c8e8', '#a0e8c8', '#e8c8a0', '#e8a0e8'];
-
   // Shuffle once per page load and cache for the session.
   // Individual note rotations still use the seeded helper below for stable per-render jitter.
   if (!shuffledColors) {
-    shuffledColors = [...noteColors];
+    shuffledColors = [...FILTER_NOTE_COLORS];
     for (let i = shuffledColors.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffledColors[i], shuffledColors[j]] = [shuffledColors[j], shuffledColors[i]];

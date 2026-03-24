@@ -18,7 +18,7 @@ import {
 } from './render.js';
 
 const ITEMS_PER_PAGE = 4;
-const THEME_COLORS = { dark: '#1e1a14', light: '#f5efe6' };
+const THEME_COLORS = { dark: 'rgb(30, 26, 20)', light: 'rgb(245, 239, 230)' };
 const DEFAULTS = { page: 1, sort: 'newest', q: '' };
 const SCROLL_TOP_THRESHOLD = 300;
 const DETAIL_CLOSE_DELAY = 360;

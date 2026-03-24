@@ -141,7 +141,7 @@
   min-height: 0;
   border-radius: var(--radius-note);
   overflow: hidden;
-  background: #fff;
+  background: var(--color-surface-contrast);
   border: 1px solid var(--color-border-solid);
   box-shadow: none;
 }
@@ -194,7 +194,7 @@
 }
 
 [data-theme="dark"] .card-name {
-  color: #f0e8d8;
+  color: var(--color-detail-dark-title);
 }
 
 /* ================================================================
@@ -269,12 +269,12 @@
 }
 
 .page-btn.active .page-btn-paper {
-  background: #7a3124;
-  border-color: #6f2418;
+  background: var(--color-accent-strong);
+  border-color: var(--color-accent-strong-hover);
 }
 
 .page-btn.active {
-  color: #fff;
+  color: var(--color-text-on-accent);
 }
 
 .page-btn:hover {
@@ -339,7 +339,7 @@
 }
 
 [data-theme="dark"] .detail-panel {
-  background: var(--detail-accent, #2e2820);
+  background: var(--detail-accent, var(--color-detail-dark-surface));
 }
 
 .detail-overlay.open .detail-panel {
@@ -397,7 +397,7 @@
 }
 
 [data-theme="dark"] .detail-title {
-  color: #f0e8d8;
+  color: var(--color-detail-dark-title);
 }
 
 .detail-description {
@@ -412,7 +412,7 @@
 }
 
 [data-theme="dark"] .detail-description {
-  color: #dbc6a5;
+  color: var(--color-detail-dark-body);
 }
 
 .detail-meta {
@@ -443,15 +443,15 @@
 
 .detail-meta-tags-item,
 .detail-meta-tools-item {
-  background: var(--capsule-bg, #e8c8a0);
-  color: #3d2e1a;
+  background: var(--capsule-bg, var(--color-capsule-default));
+  color: var(--color-capsule-text);
   border: 1.5px solid rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="dark"] .detail-meta-tags-item,
 [data-theme="dark"] .detail-meta-tools-item {
-  background: color-mix(in srgb, var(--capsule-bg, #e8c8a0) 40%, #332e26 60%);
-  color: #f6ead8;
+  background: color-mix(in srgb, var(--capsule-bg, var(--color-capsule-default)) 40%, var(--color-page-paper) 60%);
+  color: var(--color-detail-dark-title);
   border-color: rgba(255, 255, 255, 0.1);
 }
 
@@ -462,8 +462,8 @@
   margin-top: 1.2rem;
   padding: 0.5rem 1.2rem;
   border-radius: var(--radius-pill);
-  background: #7a3124;
-  color: #fff;
+  background: var(--color-accent-strong);
+  color: var(--color-text-on-accent);
   font-size: 1.25rem;
   font-family: var(--font-body);
   font-weight: 600;
@@ -472,7 +472,7 @@
 }
 
 .detail-open-link:hover {
-  background: #6f2418;
+  background: var(--color-accent-strong-hover);
   transform: translateY(-1px);
 }
 
@@ -491,7 +491,7 @@
   border: none;
   border-radius: var(--radius-pill);
   background: rgba(0, 0, 0, 0.82);
-  color: #fff;
+  color: var(--color-text-on-accent);
   display: inline-flex;
   align-items: center;
   justify-content: center;

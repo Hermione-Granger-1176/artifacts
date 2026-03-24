@@ -4,19 +4,33 @@
    ================================================================ */
 
 :root {
-  --color-bg-primary: #f5efe6;
-  --color-bg-secondary: #ede5d8;
-  --color-bg-card: #fefcf8;
-  --color-text-primary: #2d2017;
-  --color-text-secondary: #6b5c4d;
-  --color-accent: #d4725c;
-  --color-accent-hover: #c0604a;
-  --color-accent-ring: #8f2f1f;
+  --color-bg-primary: rgb(245, 239, 230);
+  --color-bg-secondary: rgb(237, 229, 216);
+  --color-bg-card: rgb(254, 252, 248);
+  --color-surface-contrast: rgb(255, 255, 255);
+  --color-text-primary: rgb(45, 32, 23);
+  --color-text-secondary: rgb(107, 92, 77);
+  --color-text-on-accent: rgb(255, 255, 255);
+  --color-accent: rgb(212, 114, 92);
+  --color-accent-hover: rgb(192, 96, 74);
+  --color-accent-ring: rgb(143, 47, 31);
+  --color-accent-strong: rgb(122, 49, 36);
+  --color-accent-strong-hover: rgb(111, 36, 24);
   --color-accent-ghost: rgba(212, 114, 92, 0.1);
-  --color-page-paper: #fefcf8;
+  --color-page-paper: rgb(254, 252, 248);
   --color-page-shadow: rgba(0, 0, 0, 0.08);
   --color-border: rgba(45, 32, 23, 0.1);
-  --color-border-solid: #d4cfc8;
+  --color-border-solid: rgb(212, 207, 200);
+  --color-note-text: rgb(61, 46, 31);
+  --color-note-default: rgb(245, 230, 163);
+  --color-note-1: rgb(245, 230, 163);
+  --color-note-2: rgb(232, 160, 160);
+  --color-note-3: rgb(160, 200, 232);
+  --color-note-4: rgb(160, 232, 200);
+  --color-note-5: rgb(232, 200, 160);
+  --color-note-6: rgb(232, 160, 232);
+  --color-capsule-default: rgb(232, 200, 160);
+  --color-capsule-text: rgb(61, 46, 26);
   --font-body: 'Caveat', cursive;
   --font-display: 'Fredoka One', cursive;
   --radius-sm: 8px;
@@ -49,18 +63,18 @@
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
-  --card-color-1: #f0d4c8;
-  --card-color-2: #c8e0d4;
-  --card-color-3: #d0d4f0;
-  --card-color-4: #f0e0c8;
-  --card-color-5: #e0c8f0;
-  --card-color-6: #c8e8f0;
-  --card-color-7: #f0eac8;
-  --card-color-8: #f0c8d8;
-  --card-color-9: #d0f0cc;
-  --card-color-10: #f0d8c8;
-  --card-color-11: #c8dcf0;
-  --card-color-12: #e0d8c8;
+  --card-color-1: rgb(240, 212, 200);
+  --card-color-2: rgb(200, 224, 212);
+  --card-color-3: rgb(208, 212, 240);
+  --card-color-4: rgb(240, 224, 200);
+  --card-color-5: rgb(224, 200, 240);
+  --card-color-6: rgb(200, 232, 240);
+  --card-color-7: rgb(240, 234, 200);
+  --card-color-8: rgb(240, 200, 216);
+  --card-color-9: rgb(208, 240, 204);
+  --card-color-10: rgb(240, 216, 200);
+  --card-color-11: rgb(200, 220, 240);
+  --card-color-12: rgb(224, 216, 200);
 }
 
 /* ================================================================
@@ -68,19 +82,22 @@
    ================================================================ */
 
 [data-theme="dark"] {
-  --color-bg-primary: #1e1a14;
-  --color-bg-secondary: #2a2520;
-  --color-bg-card: #363028;
-  --color-text-primary: #e8ddd0;
-  --color-text-secondary: #b39f8d;
-  --color-accent: #e8856a;
-  --color-accent-hover: #f09a7e;
-  --color-accent-ring: #ffd7c7;
+  --color-bg-primary: rgb(30, 26, 20);
+  --color-bg-secondary: rgb(42, 37, 32);
+  --color-bg-card: rgb(54, 48, 40);
+  --color-text-primary: rgb(232, 221, 208);
+  --color-text-secondary: rgb(179, 159, 141);
+  --color-accent: rgb(232, 133, 106);
+  --color-accent-hover: rgb(240, 154, 126);
+  --color-accent-ring: rgb(255, 215, 199);
   --color-accent-ghost: rgba(232, 133, 106, 0.12);
-  --color-page-paper: #332e26;
+  --color-page-paper: rgb(51, 46, 38);
   --color-page-shadow: rgba(0, 0, 0, 0.3);
   --color-border: rgba(255, 255, 255, 0.08);
-  --color-border-solid: #4a3e30;
+  --color-border-solid: rgb(74, 62, 48);
+  --color-detail-dark-surface: rgb(46, 40, 32);
+  --color-detail-dark-title: rgb(240, 232, 216);
+  --color-detail-dark-body: rgb(219, 198, 165);
 
   --text-primary: var(--color-text-primary);
   --text-secondary: var(--color-text-secondary);
@@ -93,18 +110,18 @@
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.18);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.25);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.32);
-  --card-color-1: #4d3f38;
-  --card-color-2: #384d42;
-  --card-color-3: #3e4050;
-  --card-color-4: #4d4538;
-  --card-color-5: #443850;
-  --card-color-6: #384450;
-  --card-color-7: #4d4a38;
-  --card-color-8: #4d3842;
-  --card-color-9: #3e4d3a;
-  --card-color-10: #4d4238;
-  --card-color-11: #384050;
-  --card-color-12: #44403a;
+  --card-color-1: rgb(77, 63, 56);
+  --card-color-2: rgb(56, 77, 66);
+  --card-color-3: rgb(62, 64, 80);
+  --card-color-4: rgb(77, 69, 56);
+  --card-color-5: rgb(68, 56, 80);
+  --card-color-6: rgb(56, 68, 80);
+  --card-color-7: rgb(77, 74, 56);
+  --card-color-8: rgb(77, 56, 66);
+  --card-color-9: rgb(62, 77, 58);
+  --card-color-10: rgb(77, 66, 56);
+  --card-color-11: rgb(56, 64, 80);
+  --card-color-12: rgb(68, 64, 58);
 }
 
 /* ================================================================
@@ -176,8 +193,8 @@ button {
   z-index: 200;
   padding: 0.75rem 1rem;
   border-radius: var(--radius-pill);
-  background: #7a3124;
-  color: #fff;
+  background: var(--color-accent-strong);
+  color: var(--color-text-on-accent);
   text-decoration: none;
   transform: translateY(-160%);
   transition: transform var(--transition-fast) ease;
@@ -387,7 +404,7 @@ button {
   justify-content: center;
   gap: 1rem;
   padding: clamp(2rem, 5vw, 4rem);
-  background: #7a3124;
+  background: var(--color-accent-strong);
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-left: none;
   box-shadow: 4px 4px 20px rgba(0, 0, 0, 0.1);
@@ -409,7 +426,7 @@ button {
   font-size: clamp(3rem, 6vw, 5rem);
   line-height: 1;
   letter-spacing: 0.04em;
-  color: #fff;
+  color: var(--color-text-on-accent);
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
@@ -417,7 +434,7 @@ button {
   margin: 1.5rem 0 0;
   font-family: var(--font-body);
   font-size: 1.25rem;
-  color: #fff;
+  color: var(--color-text-on-accent);
   letter-spacing: 0.03em;
 }
 
@@ -425,7 +442,7 @@ button {
   margin: 0;
   font-family: var(--font-body);
   font-size: 1.5rem;
-  color: #fff;
+  color: var(--color-text-on-accent);
   letter-spacing: 0.02em;
 }
 
@@ -695,8 +712,8 @@ button {
   padding: 1rem;
   border: none;
   border-radius: 2px;
-  background: var(--note-color, #f5e6a3);
-  color: #3d2e1f;
+  background: var(--note-color, var(--color-note-default));
+  color: var(--color-note-text);
   font-family: 'Caveat', cursive;
   font-size: 1.4rem;
   font-weight: 700;
@@ -740,7 +757,7 @@ button {
 .desk-note.is-active {
   opacity: 1;
   z-index: 50;
-  border: 2px solid #2d2017;
+  border: 2px solid var(--color-text-primary);
   box-shadow:
     4px 8px 12px rgba(0, 0, 0, 0.15),
     inset 0 0 20px rgba(0, 0, 0, 0.05);
