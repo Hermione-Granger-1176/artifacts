@@ -321,19 +321,19 @@
 <div class="controls">
   <div class="control-group">
     <div class="control-header">
-      <span class="control-label">Temperature</span>
+      <label class="control-label" for="temp-slider">Temperature</label>
       <span class="control-value" id="temp-val">1.0</span>
     </div>
-    <input type="range" min="1" max="30" value="10" id="temp-slider" step="1">
-    <div class="range-hints"><span>Safe (0.1)</span><span>Wild (3.0)</span></div>
+    <input type="range" min="1" max="30" value="10" id="temp-slider" step="1" aria-describedby="temp-hints">
+    <div class="range-hints" id="temp-hints"><span>Safe (0.1)</span><span>Wild (3.0)</span></div>
   </div>
   <div class="control-group">
     <div class="control-header">
-      <span class="control-label">Top P</span>
-      <span class="control-value" id="topk-val">0.7</span>
+      <label class="control-label" for="topp-slider">Top P</label>
+      <span class="control-value" id="topp-val">0.7</span>
     </div>
-    <input type="range" min="1" max="100" value="70" id="topk-slider" step="1">
-    <div class="range-hints"><span>P=0.01 (tight)</span><span>P=1.0 (all)</span></div>
+    <input type="range" min="1" max="100" value="70" id="topp-slider" step="1" aria-describedby="topp-hints">
+    <div class="range-hints" id="topp-hints"><span>P=0.01 (tight)</span><span>P=1.0 (all)</span></div>
   </div>
 </div>
 
@@ -543,9 +543,9 @@ function updateScenario() {
 
 function render() {
   const temp = parseFloat(document.getElementById('temp-slider').value) / 10;
-  const topP = parseFloat(document.getElementById('topk-slider').value) / 100;
+  const topP = parseFloat(document.getElementById('topp-slider').value) / 100;
   document.getElementById('temp-val').textContent = temp.toFixed(1);
-  document.getElementById('topk-val').textContent = topP.toFixed(2);
+  document.getElementById('topp-val').textContent = topP.toFixed(2);
 
   const s = scenarios[activeIdx];
   const logits = s.tokens.map(t => t.baseLogit);
@@ -630,7 +630,7 @@ function render() {
 buildTabs();
 updateScenario();
 document.getElementById('temp-slider').addEventListener('input', render);
-document.getElementById('topk-slider').addEventListener('input', render);
+document.getElementById('topp-slider').addEventListener('input', render);
 render();
 </script>
 </body>
