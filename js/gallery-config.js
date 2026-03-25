@@ -10,7 +10,9 @@ window.ARTIFACTS_CONFIG = {
     "visualization",
     "game",
     "tool",
-    "education"
+    "education",
+    "ai",
+    "llm"
   ],
   "tools": {
     "claude": {
@@ -41,6 +43,12 @@ window.ARTIFACTS_CONFIG = {
     },
     "education": {
       "label": "Education"
+    },
+    "ai": {
+      "label": "AI"
+    },
+    "llm": {
+      "label": "LLM"
     }
   }
 };

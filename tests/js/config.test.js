@@ -30,6 +30,23 @@ test('tool and tag labels fall back sensibly', () => {
   assert.equal(getToolLabel(config, 'custom-tool'), 'Custom-tool');
   assert.equal(getTagLabel(config, 'finance'), 'Finance');
   assert.equal(getTagLabel(config, 'data-viz'), 'Data viz');
+  assert.equal(getTagLabel(config, 'ai'), 'Ai');
+  assert.equal(getTagLabel(config, 'llm'), 'Llm');
+});
+
+test('tool and tag labels use generated config for discovered acronyms', () => {
+  const config = getGalleryConfig({
+    ARTIFACTS_CONFIG: {
+      tagDisplayOrder: ['ai', 'llm'],
+      tags: {
+        ai: { label: 'AI' },
+        llm: { label: 'LLM' }
+      }
+    }
+  });
+
+  assert.equal(getTagLabel(config, 'ai'), 'AI');
+  assert.equal(getTagLabel(config, 'llm'), 'LLM');
 });
 
 test('validateArtifactsData accepts generated gallery records', () => {

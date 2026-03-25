@@ -89,3 +89,5 @@ Workspace documentation lives in `docs/`:
 - Artifact directories use kebab-case names
 - Each artifact is a self-contained `index.html` (inline CSS/JS, CDN dependencies)
 - Later refactoring into separate files is fine as long as `index.html` remains the entry point
+- When a user provides a finished artifact HTML and asks to add it, prefer the minimal path: scaffold the directory, copy the HTML into `apps/<name>/index.html`, fill `name.txt`, `description.txt`, `tags.txt`, and `tools.txt`, avoid opportunistic refactors or extra in-app changes unless the user explicitly asks for them, and do not block on creating `thumbnail.webp` locally unless the user explicitly asks because CI can generate it
+- Before adding or modifying an artifact, always verify the artifact code or calculations at least once to check whether they are correct; use local inspection, quick validation, and internet research when helpful

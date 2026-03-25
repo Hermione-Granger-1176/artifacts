@@ -25,6 +25,7 @@ Usage:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
@@ -52,6 +53,7 @@ JS_CONFIG_OUTPUT_FILE = REPO_ROOT / "js" / "gallery-config.js"
 README_FILE = REPO_ROOT / "README.md"
 PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
 GALLERY_METADATA_FILE = REPO_ROOT / "config" / "gallery_metadata.json"
+ROOT_GALLERY_FOUNDATION_FILE = REPO_ROOT / "css" / "root-gallery-foundation.css"
 
 INDEX_FILE = "index.html"
 NAME_FILE = "name.txt"
@@ -66,6 +68,20 @@ ARTIFACT_URL_PATTERN = re.compile(r"^apps/([a-z0-9]+(?:-[a-z0-9]+)*)/$")
 THUMBNAIL_PATH_PATTERN = re.compile(
     r"^apps/([a-z0-9]+(?:-[a-z0-9]+)*)/(thumbnail\.(?:webp|png))$"
 )
+NOTE_COLOR_PATTERN = re.compile(
+    r"--color-note-(\d+):\s*rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\);"
+)
+UPPERCASE_IDENTIFIER_WORDS = {
+    "ai",
+    "api",
+    "css",
+    "html",
+    "js",
+    "json",
+    "llm",
+    "ui",
+    "ux",
+}
 MISSING_REQUIRED_FILE_ISSUES = {
     (False, False): f"missing {INDEX_FILE} and {NAME_FILE}",
     (False, True): f"has {NAME_FILE} but no {INDEX_FILE}",
@@ -298,27 +314,88 @@ def _badge_config_map(entries: Sequence[MetadataEntry]) -> dict[str, BadgeConfig
     }
 
 
-def _frontend_config(metadata: GalleryMetadata) -> dict[str, object]:
-    """Build the browser config object consumed by the gallery UI."""
-    return {
-        "toolDisplayOrder": _display_order(metadata["tools"]),
-        "tagDisplayOrder": _display_order(metadata["tags"]),
-        "tools": {
-            str(entry["id"]): {"label": str(entry["label"])}
-            for entry in metadata["tools"]
-        },
-        "tags": {
-            str(entry["id"]): {"label": str(entry["label"])}
-            for entry in metadata["tags"]
-        },
+def _format_identifier_words(value: str) -> list[str]:
+    """Format a kebab-case identifier into display words."""
+    words = [word for word in value.split("-") if word]
+    return [
+        word.upper() if word in UPPERCASE_IDENTIFIER_WORDS else word.capitalize()
+        for word in words
+    ]
+
+
+def _format_identifier_label(value: str) -> str:
+    """Convert a kebab-case identifier into a display label."""
+    return " ".join(_format_identifier_words(value))
+
+
+def _read_note_palette() -> list[str]:
+    """Read the gallery desk-note palette from the shared CSS variables."""
+    if not ROOT_GALLERY_FOUNDATION_FILE.exists():
+        return []
+
+    matches = NOTE_COLOR_PATTERN.findall(
+        ROOT_GALLERY_FOUNDATION_FILE.read_text(encoding="utf-8")
+    )
+    ordered = sorted(
+        (
+            int(index),
+            f"{int(red):02X}{int(green):02X}{int(blue):02X}",
+        )
+        for index, red, green, blue in matches
+    )
+    return [color for _, color in ordered]
+
+
+def _fallback_badge_color(key: str) -> str:
+    """Choose a stable fallback badge color from the shared note palette."""
+    palette = _read_note_palette()
+    if not palette:
+        return "6C757D"
+
+    color_index = hashlib.sha1(key.encode("utf-8")).digest()[0] % len(palette)
+    return palette[color_index]
+
+
+def _build_frontend_labels(
+    entries: Sequence[MetadataEntry], discovered_ids: set[str]
+) -> tuple[list[str], dict[str, dict[str, str]]]:
+    """Merge configured and discovered identifiers into frontend label config."""
+    labels = {str(entry["id"]): {"label": str(entry["label"])} for entry in entries}
+    for identifier in discovered_ids:
+        labels.setdefault(identifier, {"label": _format_identifier_label(identifier)})
+
+    display_order = _sort_items(set(labels), _display_order(entries))
+    return display_order, {
+        identifier: labels[identifier] for identifier in display_order
     }
 
 
-def _write_frontend_config(metadata: GalleryMetadata) -> None:
+def _frontend_config(
+    metadata: GalleryMetadata, items: Sequence[ArtifactItem] | None = None
+) -> dict[str, object]:
+    """Build the browser config object consumed by the gallery UI."""
+    discovered_tools = {tool for item in items or [] for tool in item["tools"]}
+    discovered_tags = {tag for item in items or [] for tag in item["tags"]}
+    tool_display_order, tools = _build_frontend_labels(
+        metadata["tools"], discovered_tools
+    )
+    tag_display_order, tags = _build_frontend_labels(metadata["tags"], discovered_tags)
+
+    return {
+        "toolDisplayOrder": tool_display_order,
+        "tagDisplayOrder": tag_display_order,
+        "tools": tools,
+        "tags": tags,
+    }
+
+
+def _write_frontend_config(
+    metadata: GalleryMetadata, items: Sequence[ArtifactItem] | None = None
+) -> None:
     """Write the generated browser config used by the root gallery."""
     JS_CONFIG_OUTPUT_FILE.parent.mkdir(exist_ok=True)
     config_content = json.dumps(
-        _frontend_config(metadata), indent=2, ensure_ascii=False
+        _frontend_config(metadata, items), indent=2, ensure_ascii=False
     )
     JS_CONFIG_OUTPUT_FILE.write_text(
         f"window.ARTIFACTS_CONFIG = {config_content};\n",
@@ -389,11 +466,11 @@ def _replace_block_marker(content: str, marker: str, value: str) -> str:
 
 def _default_badge(tag: str) -> BadgeConfig:
     """Build a fallback badge config for unknown tags/tools."""
-    words = tag.split("-")
+    words = _format_identifier_words(tag)
     return {
-        "label": "_".join(word.capitalize() for word in words),
-        "color": "6C757D",
-        "alt": " ".join(word.capitalize() for word in words),
+        "label": "_".join(words),
+        "color": _fallback_badge_color(tag),
+        "alt": " ".join(words),
         "logo": None,
         "logo_color": None,
     }
@@ -515,7 +592,7 @@ def generate() -> None:
         f"window.ARTIFACTS_DATA = {json.dumps(items, indent=2, ensure_ascii=False)};\n"
     )
     JS_OUTPUT_FILE.write_text(js_content, encoding="utf-8")
-    _write_frontend_config(gallery_metadata)
+    _write_frontend_config(gallery_metadata, items)
     _update_readme(items)
 
     logger.info("Successfully generated %s with %d items", JS_OUTPUT_FILE, len(items))

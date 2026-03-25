@@ -89,6 +89,87 @@ def minimal_gallery_metadata() -> str:
     )
 
 
+def test_format_identifier_label_handles_acronyms() -> None:
+    assert generate_index._format_identifier_label("ai") == "AI"
+    assert generate_index._format_identifier_label("llm") == "LLM"
+    assert generate_index._format_identifier_label("data-viz") == "Data Viz"
+
+
+def test_fallback_badge_color_uses_shared_note_palette(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    foundation_file = tmp_path / "css" / "root-gallery-foundation.css"
+    write_text(
+        foundation_file,
+        """
+:root {
+  --color-note-1: rgb(1, 2, 3);
+  --color-note-2: rgb(4, 5, 6);
+}
+""".strip(),
+    )
+    monkeypatch.setattr(generate_index, "ROOT_GALLERY_FOUNDATION_FILE", foundation_file)
+
+    assert generate_index._fallback_badge_color("ai") in {"010203", "040506"}
+
+
+def test_fallback_badge_color_uses_default_when_palette_file_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        generate_index,
+        "ROOT_GALLERY_FOUNDATION_FILE",
+        tmp_path / "missing-root-gallery-foundation.css",
+    )
+
+    assert generate_index._read_note_palette() == []
+    assert generate_index._fallback_badge_color("ai") == "6C757D"
+
+
+def test_frontend_config_includes_discovered_unknown_labels() -> None:
+    metadata: generate_index.GalleryMetadata = {
+        "tools": [
+            {
+                "id": "claude",
+                "label": "Claude",
+                "color": "D97706",
+                "alt": "Claude",
+                "logo": "anthropic",
+                "logo_color": "white",
+            }
+        ],
+        "tags": [
+            {
+                "id": "finance",
+                "label": "Finance",
+                "color": "27AE60",
+                "alt": "Finance",
+                "logo": None,
+                "logo_color": None,
+            }
+        ],
+    }
+    items: list[generate_index.ArtifactItem] = [
+        {
+            "id": "tokenizer-explorer",
+            "name": "Tokenizer Explorer",
+            "description": "",
+            "tags": ["ai", "llm", "finance"],
+            "tools": ["claude"],
+            "url": "apps/tokenizer-explorer/",
+            "thumbnail": None,
+        }
+    ]
+
+    frontend_config = generate_index._frontend_config(metadata, items)
+    tags = frontend_config["tags"]
+
+    assert frontend_config["tagDisplayOrder"] == ["finance", "ai", "llm"]
+    assert isinstance(tags, dict)
+    assert tags["ai"]["label"] == "AI"
+    assert tags["llm"]["label"] == "LLM"
+
+
 def test_read_file_and_parse_lines(tmp_path: Path) -> None:
     sample = tmp_path / "sample.txt"
     write_text(sample, " first\n\nsecond \n")
