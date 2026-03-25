@@ -41,7 +41,8 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `index.html`, `css/style.css`, `css/root-gallery-*.css`, `js/app.js`, `js/modules/*`: root gallery UI
 - `assets/icons/*`: logo, favicon, apple touch icon, PWA manifest, and raster icons
 - `assets/social/share-preview.png`: social preview image referenced by deploy-time Open Graph and Twitter metadata
-- `config/gallery_metadata.json`: shared tool and tag display metadata used by generators to produce `js/gallery-config.js`
+- `config/gallery_metadata.json`: shared tool and tag display metadata used by generators to produce `js/gallery-config.js` and ordered README badges
+- `config/security_audit.json`: source of truth for Python security-audit lock files and reviewed vulnerability exceptions
 - `docs/adr/*`: accepted cross-cutting decisions about the root publishing platform
 - `pyproject.toml`: Python dependency pins and workspace configuration
 - `locks/requirements.lock`, `locks/requirements-dev.lock`: frozen Python dependency graphs
@@ -88,4 +89,4 @@ The generator still recognizes `thumbnail.png` as a temporary compatibility fall
 - Use `make lock` after Python dependency changes, and refresh `package-lock.json` after Node dependency changes.
 - Use `make thumbnails` or CI to regenerate thumbnails.
 - Use `make site` to inspect the exact deployable Pages directory locally.
-- Keep workspace-level configuration in `pyproject.toml` rather than scattering URLs or constants across scripts.
+- Keep site/dependency tool configuration in `pyproject.toml`, and keep shared generator/security policy configuration in `config/*.json` instead of scattering constants across scripts.

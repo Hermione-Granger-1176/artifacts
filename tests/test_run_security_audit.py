@@ -21,7 +21,7 @@ def test_load_security_audit_exceptions_reads_valid_config(tmp_path: Path) -> No
         """
 {
   "python_lock_files": ["locks/requirements-dev.lock"],
-  "python_ignored_vulnerabilities": [
+  "python_vulnerability_exceptions": [
     {
       "id": "CVE-2026-4539",
       "package": "pygments",
@@ -52,7 +52,7 @@ def test_load_security_audit_exceptions_rejects_invalid_review_date(
         """
 {
   "python_lock_files": ["locks/requirements-dev.lock"],
-  "python_ignored_vulnerabilities": [
+  "python_vulnerability_exceptions": [
     {
       "id": "CVE-2026-4539",
       "package": "pygments",
@@ -94,7 +94,7 @@ def test_python_lock_files_reads_configured_paths(
         """
 {
   "python_lock_files": ["locks/requirements.lock", "locks/requirements-dev.lock"],
-  "python_ignored_vulnerabilities": []
+  "python_vulnerability_exceptions": []
 }
 """.strip(),
     )
@@ -116,7 +116,7 @@ def test_python_lock_files_falls_back_to_defaults(
     lock_b = repo_root / "locks" / "requirements-dev.lock"
     write_text(
         config_file,
-        '{"python_lock_files": [], "python_ignored_vulnerabilities": []}',
+        '{"python_lock_files": [], "python_vulnerability_exceptions": []}',
     )
     write_text(lock_a, "pkg==1.0\n")
     write_text(lock_b, "pkg==2.0\n")
@@ -129,7 +129,7 @@ def test_python_lock_files_rejects_invalid_config_shape(tmp_path: Path) -> None:
     config_file = tmp_path / "security_audit.json"
     write_text(
         config_file,
-        '{"python_lock_files": [1], "python_ignored_vulnerabilities": []}',
+        '{"python_lock_files": [1], "python_vulnerability_exceptions": []}',
     )
 
     with pytest.raises(ValueError, match="python_lock_files"):
@@ -143,7 +143,7 @@ def test_python_lock_files_rejects_missing_configured_file(
     config_file = repo_root / "config" / "security_audit.json"
     write_text(
         config_file,
-        '{"python_lock_files": ["locks/requirements.lock"], "python_ignored_vulnerabilities": []}',
+        '{"python_lock_files": ["locks/requirements.lock"], "python_vulnerability_exceptions": []}',
     )
     monkeypatch.setattr(run_security_audit, "REPO_ROOT", repo_root)
 
@@ -155,7 +155,7 @@ def test_load_security_audit_exceptions_rejects_invalid_entries_list(
     tmp_path: Path,
 ) -> None:
     config_file = tmp_path / "security_audit.json"
-    write_text(config_file, '{"python_ignored_vulnerabilities": {}}')
+    write_text(config_file, '{"python_vulnerability_exceptions": {}}')
 
     with pytest.raises(ValueError, match="must be a list"):
         run_security_audit._load_security_audit_exceptions(config_file)
@@ -165,7 +165,7 @@ def test_load_security_audit_exceptions_rejects_non_object_entry(
     tmp_path: Path,
 ) -> None:
     config_file = tmp_path / "security_audit.json"
-    write_text(config_file, '{"python_ignored_vulnerabilities": ["bad"]}')
+    write_text(config_file, '{"python_vulnerability_exceptions": ["bad"]}')
 
     with pytest.raises(ValueError, match="must be objects"):
         run_security_audit._load_security_audit_exceptions(config_file)
@@ -175,7 +175,7 @@ def test_load_security_audit_exceptions_rejects_missing_required_fields(
     tmp_path: Path,
 ) -> None:
     config_file = tmp_path / "security_audit.json"
-    write_text(config_file, '{"python_ignored_vulnerabilities": [{"id": "CVE-1"}]}')
+    write_text(config_file, '{"python_vulnerability_exceptions": [{"id": "CVE-1"}]}')
 
     with pytest.raises(ValueError, match="must include"):
         run_security_audit._load_security_audit_exceptions(config_file)
@@ -189,7 +189,7 @@ def test_load_security_audit_exceptions_rejects_invalid_ignore_flag(
         config_file,
         """
 {
-  "python_ignored_vulnerabilities": [
+  "python_vulnerability_exceptions": [
     {
       "id": "CVE-2026-4539",
       "package": "pygments",
@@ -285,41 +285,68 @@ def test_run_pip_audit_rejects_invalid_json(
         run_security_audit._run_pip_audit(lock_file)
 
 
-def test_run_pip_audit_rejects_invalid_dependency_shape(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    repo_root = tmp_path / "repo"
-    lock_file = repo_root / "locks" / "requirements-dev.lock"
-    write_text(lock_file, "pkg==1.0\n")
-    monkeypatch.setattr(run_security_audit, "REPO_ROOT", repo_root)
-
-    bad_payloads = [
+@pytest.mark.parametrize(
+    "payload",
+    [
         '{"dependencies": {}}',
         '{"dependencies": [1]}',
         '{"dependencies": [{"name": "pkg", "version": "1.0", "vulns": {}}]}',
         '{"dependencies": [{"name": "pkg", "version": "1.0", "vulns": [1]}]}',
         '{"dependencies": [{"name": "pkg", "version": "1.0", "vulns": [{"id": "CVE-1", "aliases": {}}]}]}',
         '{"dependencies": [{"name": "pkg", "version": "1.0", "vulns": [{"id": "CVE-1", "aliases": [], "fix_versions": {}}]}]}',
-    ]
+    ],
+)
+def test_run_pip_audit_rejects_invalid_dependency_shape(
+    payload: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_root = tmp_path / "repo"
+    lock_file = repo_root / "locks" / "requirements-dev.lock"
+    write_text(lock_file, "pkg==1.0\n")
+    monkeypatch.setattr(run_security_audit, "REPO_ROOT", repo_root)
 
-    for payload in bad_payloads:
-        monkeypatch.setattr(
-            run_security_audit.subprocess,
-            "run",
-            lambda *args, payload=payload, **kwargs: SimpleNamespace(
-                returncode=1,
-                stdout=payload,
-                stderr="",
-            ),
-        )
+    monkeypatch.setattr(
+        run_security_audit.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=1,
+            stdout=payload,
+            stderr="",
+        ),
+    )
 
-        with pytest.raises(ValueError):
-            run_security_audit._run_pip_audit(lock_file)
+    with pytest.raises(ValueError):
+        run_security_audit._run_pip_audit(lock_file)
 
 
-def test_audit_python_dependencies_allows_reviewed_unfixed_vulnerability() -> None:
+def test_audit_python_dependencies_reports_unused_exception() -> None:
     exceptions = (
-        run_security_audit.SecurityAuditException(
+        run_security_audit.VulnerabilityExceptionEntry(
+            vulnerability_id="CVE-2026-4539",
+            package="pygments",
+            lock_file="locks/requirements-dev.lock",
+            reason="No patched release yet.",
+            review_by=date(2026, 4, 25),
+            ignore_only_without_fix=True,
+        ),
+    )
+
+    ignored, errors = run_security_audit._audit_python_dependencies(
+        today=date(2026, 3, 25),
+        exceptions=exceptions,
+        lock_files=(),
+    )
+
+    assert ignored == ()
+    assert errors == (
+        "Unused Python vulnerability exception: locks/requirements-dev.lock pygments CVE-2026-4539",
+    )
+
+
+def test_audit_python_dependencies_allows_reviewed_unfixed_vulnerability(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    exceptions = (
+        run_security_audit.VulnerabilityExceptionEntry(
             vulnerability_id="CVE-2026-4539",
             package="pygments",
             lock_file="locks/requirements-dev.lock",
@@ -338,36 +365,23 @@ def test_audit_python_dependencies_allows_reviewed_unfixed_vulnerability() -> No
             fix_versions=(),
         ),
     )
+    monkeypatch.setattr(run_security_audit, "_run_pip_audit", lambda _: findings)
 
     ignored, errors = run_security_audit._audit_python_dependencies(
         today=date(2026, 3, 25),
         exceptions=exceptions,
-        lock_files=(),
+        lock_files=(Path("locks/requirements-dev.lock"),),
     )
-
-    assert ignored == ()
-    assert errors == (
-        "Unused Python vulnerability exception: locks/requirements-dev.lock pygments CVE-2026-4539",
-    )
-
-    monkeypatch_run = pytest.MonkeyPatch()
-    monkeypatch_run.setattr(run_security_audit, "_run_pip_audit", lambda _: findings)
-    try:
-        ignored, errors = run_security_audit._audit_python_dependencies(
-            today=date(2026, 3, 25),
-            exceptions=exceptions,
-            lock_files=(Path("locks/requirements-dev.lock"),),
-        )
-    finally:
-        monkeypatch_run.undo()
 
     assert len(ignored) == 1
     assert errors == ()
 
 
-def test_audit_python_dependencies_rejects_exception_when_fix_exists() -> None:
+def test_audit_python_dependencies_rejects_exception_when_fix_exists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     exceptions = (
-        run_security_audit.SecurityAuditException(
+        run_security_audit.VulnerabilityExceptionEntry(
             vulnerability_id="CVE-2026-4539",
             package="pygments",
             lock_file="locks/requirements-dev.lock",
@@ -386,16 +400,13 @@ def test_audit_python_dependencies_rejects_exception_when_fix_exists() -> None:
             fix_versions=("2.19.3",),
         ),
     )
-    monkeypatch_run = pytest.MonkeyPatch()
-    monkeypatch_run.setattr(run_security_audit, "_run_pip_audit", lambda _: findings)
-    try:
-        ignored, errors = run_security_audit._audit_python_dependencies(
-            today=date(2026, 3, 25),
-            exceptions=exceptions,
-            lock_files=(Path("locks/requirements-dev.lock"),),
-        )
-    finally:
-        monkeypatch_run.undo()
+    monkeypatch.setattr(run_security_audit, "_run_pip_audit", lambda _: findings)
+
+    ignored, errors = run_security_audit._audit_python_dependencies(
+        today=date(2026, 3, 25),
+        exceptions=exceptions,
+        lock_files=(Path("locks/requirements-dev.lock"),),
+    )
 
     assert ignored == ()
     assert errors == (
@@ -403,9 +414,11 @@ def test_audit_python_dependencies_rejects_exception_when_fix_exists() -> None:
     )
 
 
-def test_audit_python_dependencies_rejects_expired_exception() -> None:
+def test_audit_python_dependencies_rejects_expired_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     exceptions = (
-        run_security_audit.SecurityAuditException(
+        run_security_audit.VulnerabilityExceptionEntry(
             vulnerability_id="CVE-2026-4539",
             package="pygments",
             lock_file="locks/requirements-dev.lock",
@@ -424,16 +437,13 @@ def test_audit_python_dependencies_rejects_expired_exception() -> None:
             fix_versions=(),
         ),
     )
-    monkeypatch_run = pytest.MonkeyPatch()
-    monkeypatch_run.setattr(run_security_audit, "_run_pip_audit", lambda _: findings)
-    try:
-        ignored, errors = run_security_audit._audit_python_dependencies(
-            today=date(2026, 3, 25),
-            exceptions=exceptions,
-            lock_files=(Path("locks/requirements-dev.lock"),),
-        )
-    finally:
-        monkeypatch_run.undo()
+    monkeypatch.setattr(run_security_audit, "_run_pip_audit", lambda _: findings)
+
+    ignored, errors = run_security_audit._audit_python_dependencies(
+        today=date(2026, 3, 25),
+        exceptions=exceptions,
+        lock_files=(Path("locks/requirements-dev.lock"),),
+    )
 
     assert ignored == ()
     assert errors == (
@@ -441,7 +451,9 @@ def test_audit_python_dependencies_rejects_expired_exception() -> None:
     )
 
 
-def test_audit_python_dependencies_rejects_unreviewed_vulnerability() -> None:
+def test_audit_python_dependencies_rejects_unreviewed_vulnerability(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     findings = (
         run_security_audit.VulnerabilityFinding(
             vulnerability_id="CVE-2026-4539",
@@ -452,16 +464,13 @@ def test_audit_python_dependencies_rejects_unreviewed_vulnerability() -> None:
             fix_versions=(),
         ),
     )
-    monkeypatch_run = pytest.MonkeyPatch()
-    monkeypatch_run.setattr(run_security_audit, "_run_pip_audit", lambda _: findings)
-    try:
-        ignored, errors = run_security_audit._audit_python_dependencies(
-            today=date(2026, 3, 25),
-            exceptions=(),
-            lock_files=(Path("locks/requirements-dev.lock"),),
-        )
-    finally:
-        monkeypatch_run.undo()
+    monkeypatch.setattr(run_security_audit, "_run_pip_audit", lambda _: findings)
+
+    ignored, errors = run_security_audit._audit_python_dependencies(
+        today=date(2026, 3, 25),
+        exceptions=(),
+        lock_files=(Path("locks/requirements-dev.lock"),),
+    )
 
     assert ignored == ()
     assert errors == (
@@ -472,7 +481,7 @@ def test_audit_python_dependencies_rejects_unreviewed_vulnerability() -> None:
 def test_main_reports_success_with_reviewed_exceptions(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    exception = run_security_audit.SecurityAuditException(
+    exception = run_security_audit.VulnerabilityExceptionEntry(
         vulnerability_id="CVE-2026-4539",
         package="pygments",
         lock_file="locks/requirements-dev.lock",

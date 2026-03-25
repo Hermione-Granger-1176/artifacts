@@ -450,12 +450,12 @@ def _replace_block_marker(content: str, marker: str, value: str) -> str:
     )
 
 
-def _default_badge(tag: str) -> BadgeConfig:
+def _default_badge(identifier: str) -> BadgeConfig:
     """Build a fallback badge config for unknown tags/tools."""
-    words = _format_identifier_words(tag)
+    words = _format_identifier_words(identifier)
     return {
         "label": "_".join(words),
-        "color": _fallback_badge_color(tag),
+        "color": _fallback_badge_color(identifier),
         "alt": " ".join(words),
         "logo": None,
         "logo_color": None,

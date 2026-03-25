@@ -53,8 +53,10 @@ apps/
     description.txt   # Optional short description
     tags.txt          # Optional content tags (one per line)
     tools.txt         # Optional AI tools used (one per line)
-    thumbnail.webp    # Auto-generated screenshot
+    thumbnail.webp    # Preferred auto-generated screenshot
 ```
+
+Legacy `thumbnail.png` files are still tolerated temporarily so older branches and generated states do not break the gallery.
 
 ## Adding a new artifact
 

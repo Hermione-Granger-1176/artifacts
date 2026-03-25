@@ -3,7 +3,7 @@
     "locks/requirements.lock",
     "locks/requirements-dev.lock"
   ],
-  "python_ignored_vulnerabilities": [
+  "python_vulnerability_exceptions": [
     {
       "id": "CVE-2026-4539",
       "package": "pygments",

@@ -19,8 +19,8 @@ DEFAULT_PYTHON_SECURITY_LOCK_FILES = (
 
 
 @dataclass(frozen=True)
-class SecurityAuditException:
-    """One reviewed vulnerability exception for a specific lock file and package."""
+class VulnerabilityExceptionEntry:
+    """One reviewed vulnerability exception entry for a lock file and package."""
 
     vulnerability_id: str
     package: str
@@ -97,22 +97,20 @@ def _python_lock_files(
 
 def _load_security_audit_exceptions(
     config_file: Path = SECURITY_AUDIT_CONFIG_FILE,
-) -> tuple[SecurityAuditException, ...]:
+) -> tuple[VulnerabilityExceptionEntry, ...]:
     """Load reviewed vulnerability exceptions from the JSON config file."""
     payload = _load_security_audit_config(config_file)
-    entries = payload.get("python_ignored_vulnerabilities", [])
+    entries = payload.get("python_vulnerability_exceptions", [])
     if not isinstance(entries, list):
         raise ValueError(
-            "Security audit config 'python_ignored_vulnerabilities' must be a list"
+            "Security audit config 'python_vulnerability_exceptions' must be a list"
         )
 
-    exceptions: list[SecurityAuditException] = []
+    exceptions: list[VulnerabilityExceptionEntry] = []
     for index, entry in enumerate(entries):
+        entry_path = f"python_vulnerability_exceptions[{index}]"
         if not isinstance(entry, dict):
-            raise ValueError(
-                "Security audit exceptions must be objects: "
-                f"python_ignored_vulnerabilities[{index}]"
-            )
+            raise ValueError(f"Security audit exceptions must be objects: {entry_path}")
 
         required_fields = ("id", "package", "lock_file", "reason", "review_by")
         missing = [field for field in required_fields if not entry.get(field)]
@@ -120,14 +118,14 @@ def _load_security_audit_exceptions(
             raise ValueError(
                 "Security audit exceptions must include "
                 + ", ".join(missing)
-                + f": python_ignored_vulnerabilities[{index}]"
+                + f": {entry_path}"
             )
 
         ignore_only_without_fix = entry.get("ignore_only_without_fix", False)
         if not isinstance(ignore_only_without_fix, bool):
             raise ValueError(
                 "Security audit exception 'ignore_only_without_fix' must be a boolean: "
-                f"python_ignored_vulnerabilities[{index}]"
+                f"{entry_path}"
             )
 
         try:
@@ -135,11 +133,11 @@ def _load_security_audit_exceptions(
         except ValueError as exc:
             raise ValueError(
                 "Security audit exception 'review_by' must use YYYY-MM-DD: "
-                f"python_ignored_vulnerabilities[{index}]"
+                f"{entry_path}"
             ) from exc
 
         exceptions.append(
-            SecurityAuditException(
+            VulnerabilityExceptionEntry(
                 vulnerability_id=str(entry["id"]),
                 package=str(entry["package"]),
                 lock_file=str(entry["lock_file"]),
@@ -150,6 +148,75 @@ def _load_security_audit_exceptions(
         )
 
     return tuple(exceptions)
+
+
+def _parse_vulnerability(
+    vulnerability: object,
+    *,
+    package: str,
+    version: str,
+    lock_file: Path,
+) -> VulnerabilityFinding:
+    """Parse one pip-audit vulnerability entry into a finding."""
+    relative_lock_file = _relative_path(lock_file)
+    if not isinstance(vulnerability, dict):
+        raise ValueError(
+            f"pip-audit vulnerabilities must be objects for {relative_lock_file}"
+        )
+
+    aliases = vulnerability.get("aliases", [])
+    if not isinstance(aliases, list) or not all(
+        isinstance(alias, str) for alias in aliases
+    ):
+        raise ValueError(
+            f"pip-audit aliases must be string lists for {relative_lock_file}"
+        )
+
+    fix_versions = vulnerability.get("fix_versions", [])
+    if not isinstance(fix_versions, list) or not all(
+        isinstance(fix_version, str) for fix_version in fix_versions
+    ):
+        raise ValueError(
+            f"pip-audit fix_versions must be string lists for {relative_lock_file}"
+        )
+
+    return VulnerabilityFinding(
+        vulnerability_id=str(vulnerability.get("id", "")),
+        aliases=tuple(aliases),
+        package=package,
+        version=version,
+        lock_file=relative_lock_file,
+        fix_versions=tuple(fix_versions),
+    )
+
+
+def _parse_dependency_findings(
+    dependency: object, lock_file: Path
+) -> tuple[VulnerabilityFinding, ...]:
+    """Parse all pip-audit findings for one dependency entry."""
+    relative_lock_file = _relative_path(lock_file)
+    if not isinstance(dependency, dict):
+        raise ValueError(
+            f"pip-audit dependency entries must be objects for {relative_lock_file}"
+        )
+
+    vulns = dependency.get("vulns", [])
+    if not isinstance(vulns, list):
+        raise ValueError(
+            f"pip-audit dependency vulns must be a list for {relative_lock_file}"
+        )
+
+    package = str(dependency.get("name", ""))
+    version = str(dependency.get("version", ""))
+    return tuple(
+        _parse_vulnerability(
+            vulnerability,
+            package=package,
+            version=version,
+            lock_file=lock_file,
+        )
+        for vulnerability in vulns
+    )
 
 
 def _run_pip_audit(lock_file: Path) -> tuple[VulnerabilityFinding, ...]:
@@ -187,57 +254,15 @@ def _run_pip_audit(lock_file: Path) -> tuple[VulnerabilityFinding, ...]:
             f"pip-audit JSON for {_relative_path(lock_file)} must include a dependencies list"
         )
 
-    findings: list[VulnerabilityFinding] = []
-    for dependency in dependencies:
-        if not isinstance(dependency, dict):
-            raise ValueError(
-                f"pip-audit dependency entries must be objects for {_relative_path(lock_file)}"
-            )
-
-        vulns = dependency.get("vulns", [])
-        if not isinstance(vulns, list):
-            raise ValueError(
-                f"pip-audit dependency vulns must be a list for {_relative_path(lock_file)}"
-            )
-
-        for vulnerability in vulns:
-            if not isinstance(vulnerability, dict):
-                raise ValueError(
-                    f"pip-audit vulnerabilities must be objects for {_relative_path(lock_file)}"
-                )
-
-            aliases = vulnerability.get("aliases", [])
-            fix_versions = vulnerability.get("fix_versions", [])
-            if not isinstance(aliases, list) or not all(
-                isinstance(alias, str) for alias in aliases
-            ):
-                raise ValueError(
-                    f"pip-audit aliases must be string lists for {_relative_path(lock_file)}"
-                )
-            if not isinstance(fix_versions, list) or not all(
-                isinstance(version, str) for version in fix_versions
-            ):
-                raise ValueError(
-                    "pip-audit fix_versions must be string lists for "
-                    f"{_relative_path(lock_file)}"
-                )
-
-            findings.append(
-                VulnerabilityFinding(
-                    vulnerability_id=str(vulnerability.get("id", "")),
-                    aliases=tuple(aliases),
-                    package=str(dependency.get("name", "")),
-                    version=str(dependency.get("version", "")),
-                    lock_file=_relative_path(lock_file),
-                    fix_versions=tuple(fix_versions),
-                )
-            )
-
-    return tuple(findings)
+    return tuple(
+        finding
+        for dependency in dependencies
+        for finding in _parse_dependency_findings(dependency, lock_file)
+    )
 
 
 def _matches_exception(
-    exception: SecurityAuditException, finding: VulnerabilityFinding
+    exception: VulnerabilityExceptionEntry, finding: VulnerabilityFinding
 ) -> bool:
     """Return whether a reviewed exception matches one vulnerability finding."""
     return (
@@ -250,13 +275,14 @@ def _matches_exception(
 def _audit_python_dependencies(
     *,
     today: date,
-    exceptions: tuple[SecurityAuditException, ...],
+    exceptions: tuple[VulnerabilityExceptionEntry, ...],
     lock_files: tuple[Path, ...],
 ) -> tuple[
-    tuple[tuple[VulnerabilityFinding, SecurityAuditException], ...], tuple[str, ...]
+    tuple[tuple[VulnerabilityFinding, VulnerabilityExceptionEntry], ...],
+    tuple[str, ...],
 ]:
     """Run policy checks for the configured lock files."""
-    ignored: list[tuple[VulnerabilityFinding, SecurityAuditException]] = []
+    ignored: list[tuple[VulnerabilityFinding, VulnerabilityExceptionEntry]] = []
     errors: list[str] = []
     matched_exception_keys: set[tuple[str, str, str]] = set()
 

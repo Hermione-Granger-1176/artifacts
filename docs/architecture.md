@@ -61,7 +61,7 @@ The gallery does not inspect artifact HTML directly in the browser. It depends o
 
 ## Configuration strategy
 
-The repo now centralizes more workspace-level configuration in `pyproject.toml`.
+The repo keeps workspace configuration split between `pyproject.toml` and repo-level JSON config files.
 
 - `[project]`: pinned Python dependencies.
 - `[project.optional-dependencies]`: dev tooling such as `pytest`, `pytest-cov`, and `ruff`.
@@ -70,8 +70,10 @@ The repo now centralizes more workspace-level configuration in `pyproject.toml`.
 - `[tool.pytest.ini_options]`: test and coverage policy.
 - `[tool.ruff.*]`: lint policy.
 - `[tool.artifacts]`: canonical site URL and related workspace metadata.
+- `config/gallery_metadata.json`: shared tag/tool display metadata for generated gallery config and README badges.
+- `config/security_audit.json`: Python lock-file audit scope plus reviewed vulnerability exception policy.
 
-This reduces hardcoded values in scripts and keeps deployment-sensitive values in one place.
+This reduces hardcoded values in scripts while keeping deployment, gallery, and security policy settings in explicit source-of-truth files.
 
 ## Deployment flow
 
