@@ -73,6 +73,22 @@
       "alt": "Education",
       "logo": null,
       "logo_color": null
+    },
+    {
+      "id": "ai",
+      "label": "AI",
+      "color": "A0C8E8",
+      "alt": "AI",
+      "logo": null,
+      "logo_color": null
+    },
+    {
+      "id": "llm",
+      "label": "LLM",
+      "color": "E8C8A0",
+      "alt": "LLM",
+      "logo": null,
+      "logo_color": null
     }
   ]
 }

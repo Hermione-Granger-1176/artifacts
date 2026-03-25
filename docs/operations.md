@@ -76,7 +76,7 @@ This keeps local and CI behavior aligned and reduces workflow-specific shell log
 - `pytest` enforces 100% line coverage for the `scripts` package.
 - `node --test` covers shared browser and workflow helper modules under `tests/js/`.
 - `make coverage-js` uses Node's built-in experimental coverage output as the no-new-dependencies approximation for JavaScript coverage reporting and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across `js/app.js`, `js/modules/*.js`, `.github/actions/verified-commit/*.mjs`, and `.github/actions/deploy-site/*.mjs`.
-- `make security` mirrors the practical local dependency audits in CI; Gitleaks and GitHub dependency review remain CI-only because this repo does not vendor those scanners locally.
+- `make security` mirrors the practical local dependency audits in CI; the Python side runs a policy-driven audit over the configured lock files and reviewed vulnerability exceptions in `config/security_audit.json`, matches exceptions by lock file, package, and vulnerability id or alias, and fails expired, unused, or now-fixable exceptions, while Gitleaks and GitHub dependency review remain CI-only because this repo does not vendor those scanners locally.
 - Playwright browser suites validate the built root gallery and `404.html` routing behavior through `make test-browser`, including smoke, accessibility, and browser-flow coverage.
 - `make test-browser-live` verifies an already-published site in a real browser when `ARTIFACTS_LIVE_SITE_URL` is set, and CI captures failure screenshots/traces/logs through `ARTIFACTS_BROWSER_ARTIFACT_DIR`.
 - `make check-local` is the fast local gate without browser Playwright suites or thumbnail generation.
@@ -121,6 +121,7 @@ The workflow assumes these repository settings already exist:
 - `make check-local` intentionally avoids Playwright so it can stay fast on machines without Chromium.
 - If you want to inspect the deployable output locally, run `make site` and serve `_site/` from a static file server.
 - If `make security` fails on `npm audit`, the issue is in the current workspace dependency graph and needs triage before release.
+- If `make security` fails on the Python audit, either a new vulnerability needs triage, an exception review date has expired, an exception no longer matches the current lock files, or a fix is now available and the temporary exception must be removed.
 - If the post-deploy verifier flakes, inspect both the published `?v=<sha>` asset query strings and the deployed `deploy-metadata.json` payload before rerunning.
 - If live browser verification fails in CI, download the `live-browser-artifacts-<run_id>` artifact for screenshots, traces, and runtime error logs.
 - If README auto markers are removed or duplicated, `scripts/generate_index.py` fails fast instead of silently corrupting the file.

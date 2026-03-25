@@ -4,14 +4,17 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 **Live site:** <!-- AUTO:SITE_URL -->https://hermione-granger-1176.github.io/artifacts/<!-- /AUTO:SITE_URL -->
 
-<!-- AUTO:TOTAL_BADGE --><img src="https://img.shields.io/badge/Total-1-D97706?style=for-the-badge" alt="Total"><!-- /AUTO:TOTAL_BADGE -->
+<!-- AUTO:TOTAL_BADGE --><img src="https://img.shields.io/badge/Total-2-D97706?style=for-the-badge" alt="Total"><!-- /AUTO:TOTAL_BADGE -->
 
 ## Topics
 
 <!-- AUTO:TAG_BADGES_START -->
 <img src="https://img.shields.io/badge/Finance-27AE60?style=flat-square" alt="Finance">&nbsp;
 <img src="https://img.shields.io/badge/Calculator-2E86C1?style=flat-square" alt="Calculator">&nbsp;
-<img src="https://img.shields.io/badge/Visualization-E67E22?style=flat-square" alt="Visualization">
+<img src="https://img.shields.io/badge/Visualization-E67E22?style=flat-square" alt="Visualization">&nbsp;
+<img src="https://img.shields.io/badge/Education-F39C12?style=flat-square" alt="Education">&nbsp;
+<img src="https://img.shields.io/badge/AI-A0C8E8?style=flat-square" alt="AI">&nbsp;
+<img src="https://img.shields.io/badge/LLM-E8C8A0?style=flat-square" alt="LLM">
 <!-- AUTO:TAG_BADGES_END -->
 
 ## AI Tools
@@ -22,7 +25,7 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 ## Snapshot
 
-- <!-- AUTO:TOTAL_COUNT -->1<!-- /AUTO:TOTAL_COUNT --> artifacts published
+- <!-- AUTO:TOTAL_COUNT -->2<!-- /AUTO:TOTAL_COUNT --> artifacts published
 - Browse the live website for searchable thumbnails, multi-select filters, theme persistence, and detail overlays.
 
 ## Docs
@@ -50,8 +53,10 @@ apps/
     description.txt   # Optional short description
     tags.txt          # Optional content tags (one per line)
     tools.txt         # Optional AI tools used (one per line)
-    thumbnail.webp    # Auto-generated screenshot
+    thumbnail.webp    # Preferred auto-generated screenshot
 ```
+
+Legacy `thumbnail.png` files are still tolerated temporarily so older branches and generated states do not break the gallery.
 
 ## Adding a new artifact
 

@@ -37,7 +37,7 @@ Workspace commands go through the `Makefile`. Python dependencies and workspace 
 - `make lock`: refresh `locks/requirements.lock` and `locks/requirements-dev.lock` after Python dependency changes; same-repo Dependabot pip PRs also refresh them automatically through CI when `pyproject.toml` changes
 - `make new name=my-artifact`: scaffold a new artifact directory with placeholder files
 - `make site`: build the clean `_site/` deploy payload
-- `make security`: run the local `pip-audit` and `npm audit` dependency vulnerability checks used in CI
+- `make security`: run the local policy-driven Python lock audit and `npm audit` dependency checks used in CI
 - `make coverage-js`: run Node test-runner coverage for `js/app.js`, `js/modules/*.js`, `.github/actions/verified-commit/*.mjs`, and `.github/actions/deploy-site/*.mjs`, and enforce the current JS coverage baseline
 - `make editorconfig-check`: verify supported `.editorconfig` rules for covered repository files
 - `make align-tables`: align markdown table pipe characters across all docs
@@ -89,3 +89,5 @@ Workspace documentation lives in `docs/`:
 - Artifact directories use kebab-case names
 - Each artifact is a self-contained `index.html` (inline CSS/JS, CDN dependencies)
 - Later refactoring into separate files is fine as long as `index.html` remains the entry point
+- When a user provides a finished artifact HTML and asks to add it, prefer the minimal path: scaffold the directory, copy the HTML into `apps/<name>/index.html`, fill `name.txt`, `description.txt`, `tags.txt`, and `tools.txt`, avoid opportunistic refactors or extra in-app changes unless the user explicitly asks for them, and do not block on creating `thumbnail.webp` locally unless the user explicitly asks because CI can generate it
+- Before adding or modifying an artifact, always verify the artifact code or calculations at least once to check whether they are correct; use local inspection, quick validation, and internet research when helpful

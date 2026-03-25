@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tokenizer: Temperature & Top P Explorer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --bg-secondary: #f5f5f3;
+    --bg-tertiary: #eeede8;
+    --text-primary: #1a1a18;
+    --text-secondary: #5f5e5a;
+    --text-tertiary: #888780;
+    --border: rgba(0,0,0,0.12);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --blue: #378ADD;
+    --green: #1D9E75;
+    --green-light: #E1F5EE;
+    --green-dark: #0F6E56;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18;
+      --bg-secondary: #2c2c2a;
+      --bg-tertiary: #3a3a38;
+      --text-primary: #f1efe8;
+      --text-secondary: #b4b2a9;
+      --text-tertiary: #888780;
+      --border: rgba(255,255,255,0.12);
+      --green-light: #085041;
+      --green-dark: #9FE1CB;
+    }
+  }
+
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 3rem;
+    line-height: 1.7;
+  }
+
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 2rem; }
+
+  .scenario-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 1.5rem;
+    padding-bottom: 4px;
+    overflow: visible;
+  }
+
+  .tab {
+    padding: 5px 13px;
+    border-radius: 20px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-family: Georgia, serif;
+    transition: all 0.15s;
+  }
+
+  .tab:hover { background: var(--bg-secondary); color: var(--text-primary); }
+
+  .tab.active {
+    background: var(--text-primary);
+    color: var(--bg);
+    border-color: var(--text-primary);
+  }
+
+  .scenario-box {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 14px 18px;
+    margin-bottom: 1.5rem;
+  }
+
+  .scenario-type {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+    margin-bottom: 6px;
+  }
+
+  .sentence-display {
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.6;
+  }
+
+  .sentence-prefix {
+    text-decoration: none;
+  }
+
+  .blank {
+    display: inline-block;
+    width: 70px;
+    border-bottom: 2px dashed var(--blue);
+    vertical-align: baseline;
+    margin-left: 6px;
+    line-height: 1;
+    height: 0.2em;
+  }
+
+  .hint { font-size: 13px; color: var(--text-tertiary); margin-top: 6px; }
+
+  .controls {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+
+  .control-group { flex: 1; min-width: 180px; }
+
+  .control-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .control-label { font-size: 13px; color: var(--text-secondary); }
+  .control-value { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+
+  input[type="range"] { width: 100%; accent-color: var(--blue); cursor: pointer; }
+
+  .range-hints {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 3px;
+  }
+
+  .section-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+
+  .bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 5px 0;
+    transition: opacity 0.25s;
+  }
+
+  .bar-wrap.excluded { opacity: 0.22; }
+
+  .bar-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    min-width: 82px;
+    max-width: 82px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'Courier New', monospace;
+  }
+
+  .bar-track {
+    flex: 1;
+    height: 10px;
+    background: var(--bg-tertiary);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .bar-fill { height: 100%; border-radius: 5px; transition: width 0.3s ease; }
+
+  .bar-pct { font-size: 12px; color: var(--text-tertiary); min-width: 42px; text-align: right; }
+
+  hr { border: none; border-top: 0.5px solid var(--border); margin: 1.25rem 0; }
+
+  .pills-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1.25rem; }
+
+  .pill {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1.5px solid transparent;
+    cursor: default;
+    font-family: 'Courier New', monospace;
+  }
+
+  .pill.winner {
+    background: var(--green-light);
+    border-color: var(--green);
+    color: var(--green-dark);
+  }
+
+  .insight {
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .concepts { margin-top: 2rem; }
+
+  .concepts-heading {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+    margin-bottom: 10px;
+  }
+
+  .card {
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+
+  .card-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: Georgia, serif;
+    text-align: left;
+    gap: 12px;
+  }
+
+  .card-trigger:hover { background: var(--bg-secondary); }
+
+  .card-left { display: flex; align-items: center; gap: 10px; }
+
+  .card-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .card-icon.blue { background: #E6F1FB; color: #185FA5; }
+  .card-icon.amber { background: #FAEEDA; color: #854F0B; }
+  .card-icon.purple { background: #EEEDFE; color: #534AB7; }
+
+  @media (prefers-color-scheme: dark) {
+    .card-icon.blue { background: #0C447C; color: #B5D4F4; }
+    .card-icon.amber { background: #633806; color: #FAC775; }
+    .card-icon.purple { background: #3C3489; color: #CECBF6; }
+  }
+
+  .card-title { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+  .card-tagline { font-size: 12px; color: var(--text-tertiary); margin-top: 1px; }
+
+  .card-arrow {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  .card.open .card-arrow { transform: rotate(180deg); }
+
+  .card-body {
+    display: none;
+    padding: 0 16px 14px 54px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .card.open .card-body { display: block; }
+  .card-body p { margin-bottom: 8px; }
+  .card-body p:last-child { margin-bottom: 0; }
+
+  .tip {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 3px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    background: var(--bg-tertiary);
+    color: var(--text-tertiary);
+  }
+</style>
+</head>
+<body>
+
+<h1>Tokenizer: Temperature &amp; Top P</h1>
+<p class="subtitle">Pick a scenario, adjust the sliders, and watch the probabilities reshape in real time.</p>
+
+<div class="scenario-tabs" id="tabs"></div>
+
+<div class="scenario-box">
+  <div class="scenario-type" id="scenario-type"></div>
+  <div class="sentence-display">
+    <span id="sentence-prefix" class="sentence-prefix"></span><span class="blank"></span>
+  </div>
+  <div class="hint">The model is choosing the next token.</div>
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <div class="control-header">
+      <label class="control-label" for="temp-slider">Temperature</label>
+      <span class="control-value" id="temp-val">1.0</span>
+    </div>
+    <input type="range" min="1" max="30" value="10" id="temp-slider" step="1" aria-describedby="temp-hints">
+    <div class="range-hints" id="temp-hints"><span>Safe (0.1)</span><span>Wild (3.0)</span></div>
+  </div>
+  <div class="control-group">
+    <div class="control-header">
+      <label class="control-label" for="topp-slider">Top P</label>
+      <span class="control-value" id="topp-val">0.7</span>
+    </div>
+    <input type="range" min="1" max="100" value="70" id="topp-slider" step="1" aria-describedby="topp-hints">
+    <div class="range-hints" id="topp-hints"><span>P=0.01 (tight)</span><span>P=1.0 (all)</span></div>
+  </div>
+</div>
+
+<p class="section-label">Token candidates and adjusted probabilities:</p>
+<div id="bars" style="margin-bottom: 20px;"></div>
+
+<hr>
+
+<p class="section-label">Token pool after Top P cutoff:</p>
+<div class="pills-row" id="token-pills"></div>
+
+<div class="insight" id="insight-box"></div>
+
+<div class="concepts">
+  <div class="concepts-heading">Concepts explained</div>
+
+  <div class="card" id="card-token">
+    <button class="card-trigger" onclick="toggleCard('card-token')">
+      <div class="card-left">
+        <div class="card-icon blue">T</div>
+        <div>
+          <div class="card-title">What is a token?</div>
+          <div class="card-tagline">The model's unit of language</div>
+        </div>
+      </div>
+      <span class="card-arrow">&#9660;</span>
+    </button>
+    <div class="card-body">
+      <p>A token is a chunk of text, somewhere between a character and a word. "unhappiness" might be split into "un", "happiness". "cat" stays as one token. Spaces and punctuation are tokens too.</p>
+      <p>The model never sees letters. It sees a stream of token IDs, each one a number pointing to an entry in its vocabulary (typically 50,000 to 100,000 tokens). Every response you get is the model picking the next token, one at a time, until it decides to stop.</p>
+      <span class="tip">Rule of thumb: 1 token ≈ 0.75 words in English</span>
+    </div>
+  </div>
+
+  <div class="card" id="card-temp">
+    <button class="card-trigger" onclick="toggleCard('card-temp')">
+      <div class="card-left">
+        <div class="card-icon amber">~</div>
+        <div>
+          <div class="card-title">Temperature</div>
+          <div class="card-tagline">How confident (or reckless) the model is</div>
+        </div>
+      </div>
+      <span class="card-arrow">&#9660;</span>
+    </button>
+    <div class="card-body">
+      <p>Before sampling, the model assigns a raw score (logit) to every possible next token. Temperature divides all those scores before converting them into probabilities.</p>
+      <p>Low temperature (e.g. 0.2) sharpens the distribution, making the top token dominate. High temperature (e.g. 2.0) flattens it, spreading probability more evenly and making surprising tokens viable.</p>
+      <p>Think of it like a group decision: low temperature is a confident leader who always picks the obvious answer. High temperature is a brainstorm where even the weird ideas get a vote.</p>
+      <span class="tip">Code and facts: 0.2 to 0.5. Creative writing: 0.8 to 1.2. Chaos: above 1.5</span>
+    </div>
+  </div>
+
+  <div class="card" id="card-topp">
+    <button class="card-trigger" onclick="toggleCard('card-topp')">
+      <div class="card-left">
+        <div class="card-icon purple">P</div>
+        <div>
+          <div class="card-title">Top P (nucleus sampling)</div>
+          <div class="card-tagline">A probability budget for the candidate pool</div>
+        </div>
+      </div>
+      <span class="card-arrow">&#9660;</span>
+    </button>
+    <div class="card-body">
+      <p>Top P sets a cumulative probability threshold. The model ranks all tokens by probability, then keeps adding them to the candidate pool until the running total hits P. Everything below the cutoff is excluded.</p>
+      <p>At P=0.9, if the top two tokens already account for 90% of the probability mass, only those two are sampled from. At P=1.0, every token is in play.</p>
+      <p>This adapts to context. When the model is confident, the nucleus is small. When it is uncertain, more tokens pass the threshold naturally, giving variety where it makes sense.</p>
+      <span class="tip">0.7 to 0.95 is the typical sweet spot in production</span>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleCard(id) {
+  const card = document.getElementById(id);
+  card.classList.toggle('open');
+}
+</script>
+
+<script>
+const scenarios = [
+  {
+    label: "Sentence 1",
+    type: "Completing a sentence",
+    prefix: "The cat sat on the",
+    tokens: [
+      { word: "mat",     baseLogit: 4.2 },
+      { word: "floor",   baseLogit: 3.1 },
+      { word: "roof",    baseLogit: 1.8 },
+      { word: "table",   baseLogit: 1.3 },
+      { word: "moon",    baseLogit: 0.6 },
+      { word: "chair",   baseLogit: 0.4 },
+      { word: "idea",    baseLogit: 0.1 },
+      { word: "banana",  baseLogit: -0.3 },
+    ]
+  },
+  {
+    label: "Sentence 2",
+    type: "Completing a sentence",
+    prefix: "She opened the door and",
+    tokens: [
+      { word: "walked",   baseLogit: 4.0 },
+      { word: "stepped",  baseLogit: 3.3 },
+      { word: "saw",      baseLogit: 2.5 },
+      { word: "screamed", baseLogit: 1.2 },
+      { word: "laughed",  baseLogit: 0.7 },
+      { word: "vanished", baseLogit: 0.2 },
+      { word: "melted",   baseLogit: -0.2 },
+      { word: "exploded", baseLogit: -0.8 },
+    ]
+  },
+  {
+    label: "Code",
+    type: "Code generation",
+    prefix: "function getUser() { return",
+    tokens: [
+      { word: "this",    baseLogit: 4.5 },
+      { word: "user",    baseLogit: 3.8 },
+      { word: "null",    baseLogit: 2.1 },
+      { word: "fetch(",  baseLogit: 1.6 },
+      { word: "true",    baseLogit: 0.5 },
+      { word: "[]",      baseLogit: 0.1 },
+      { word: "\"hi\"",  baseLogit: -0.4 },
+      { word: "42",      baseLogit: -1.0 },
+    ]
+  },
+  {
+    label: "Creative",
+    type: "Creative writing",
+    prefix: "The lighthouse keeper stared at the",
+    tokens: [
+      { word: "sea",     baseLogit: 3.5 },
+      { word: "horizon", baseLogit: 3.2 },
+      { word: "storm",   baseLogit: 2.4 },
+      { word: "ghost",   baseLogit: 1.5 },
+      { word: "letter",  baseLogit: 1.1 },
+      { word: "abyss",   baseLogit: 0.6 },
+      { word: "clock",   baseLogit: 0.2 },
+      { word: "mirror",  baseLogit: -0.1 },
+    ]
+  },
+  {
+    label: "Factual",
+    type: "Factual / scientific",
+    prefix: "Water boils at 100 degrees",
+    tokens: [
+      { word: "Celsius",     baseLogit: 5.0 },
+      { word: "centigrade",  baseLogit: 3.2 },
+      { word: "Fahrenheit",  baseLogit: 0.8 },
+      { word: "Kelvin",      baseLogit: 0.4 },
+      { word: "absolute",    baseLogit: -0.2 },
+      { word: "hot",         baseLogit: -0.6 },
+      { word: "warm",        baseLogit: -1.0 },
+      { word: "exactly",     baseLogit: -1.4 },
+    ]
+  },
+  {
+    label: "Chat",
+    type: "Conversational reply",
+    prefix: "Thanks for your message! I will get back to you",
+    tokens: [
+      { word: "soon",      baseLogit: 4.3 },
+      { word: "shortly",   baseLogit: 3.6 },
+      { word: "tomorrow",  baseLogit: 2.0 },
+      { word: "later",     baseLogit: 1.8 },
+      { word: "eventually",baseLogit: 0.5 },
+      { word: "never",     baseLogit: -0.3 },
+      { word: "maybe",     baseLogit: -0.7 },
+      { word: "idk",       baseLogit: -1.5 },
+    ]
+  },
+];
+
+const barColors = ["#378ADD","#1D9E75","#BA7517","#D4537E","#7F77DD","#D85A30","#639922","#888780"];
+let activeIdx = 0;
+
+function softmax(logits, temperature) {
+  const scaled = logits.map(l => l / temperature);
+  const maxL = Math.max(...scaled);
+  const exps = scaled.map(l => Math.exp(l - maxL));
+  const sum = exps.reduce((a,b) => a+b, 0);
+  return exps.map(e => e / sum);
+}
+
+function buildTabs() {
+  const container = document.getElementById('tabs');
+  scenarios.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (i === 0 ? ' active' : '');
+    btn.textContent = s.label;
+    btn.onclick = () => {
+      activeIdx = i;
+      document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('active', j === i));
+      updateScenario();
+      render();
+    };
+    container.appendChild(btn);
+  });
+}
+
+function updateScenario() {
+  const s = scenarios[activeIdx];
+  document.getElementById('scenario-type').textContent = s.type;
+  document.getElementById('sentence-prefix').textContent = s.prefix;
+}
+
+function render() {
+  const temp = parseFloat(document.getElementById('temp-slider').value) / 10;
+  const topP = parseFloat(document.getElementById('topp-slider').value) / 100;
+  document.getElementById('temp-val').textContent = temp.toFixed(1);
+  document.getElementById('topp-val').textContent = topP.toFixed(2);
+
+  const s = scenarios[activeIdx];
+  const logits = s.tokens.map(t => t.baseLogit);
+  const probs = softmax(logits, temp);
+  const indexed = s.tokens.map((t,i) => ({ ...t, prob: probs[i], idx: i }));
+  const sorted = [...indexed].sort((a,b) => b.prob - a.prob);
+
+  let cumulative = 0;
+  const inTopP = new Set();
+  for (const t of sorted) {
+    inTopP.add(t.idx);
+    cumulative += t.prob;
+    if (cumulative >= topP) break;
+  }
+
+  const barsEl = document.getElementById('bars');
+  barsEl.innerHTML = '';
+  sorted.forEach((t, rank) => {
+    const excluded = !inTopP.has(t.idx);
+    const pct = (t.prob * 100).toFixed(1);
+    const row = document.createElement('div');
+    row.className = 'bar-wrap' + (excluded ? ' excluded' : '');
+
+    const label = document.createElement('span');
+    label.className = 'bar-label';
+    label.title = t.word;
+    label.textContent = t.word;
+
+    const track = document.createElement('div');
+    track.className = 'bar-track';
+
+    const fill = document.createElement('div');
+    fill.className = 'bar-fill';
+    fill.style.width = `${pct}%`;
+    fill.style.background = barColors[rank % barColors.length];
+    track.appendChild(fill);
+
+    const percent = document.createElement('span');
+    percent.className = 'bar-pct';
+    percent.textContent = `${pct}%`;
+
+    row.append(label, track, percent);
+    barsEl.appendChild(row);
+  });
+
+  const pillsEl = document.getElementById('token-pills');
+  pillsEl.innerHTML = '';
+  const topPTokens = sorted.filter(t => inTopP.has(t.idx));
+  const topPSum = topPTokens.reduce((acc,t) => acc + t.prob, 0);
+  topPTokens.forEach((t, i) => {
+    const renorm = ((t.prob / topPSum) * 100).toFixed(1);
+    const pill = document.createElement('span');
+    pill.className = 'pill' + (i === 0 ? ' winner' : '');
+    if (i !== 0) {
+      pill.style.cssText = `background:${barColors[i]}22; border-color:${barColors[i]}66; color:var(--text-primary);`;
+    }
+    pill.textContent = `${t.word} ${renorm}%`;
+    pillsEl.appendChild(pill);
+  });
+
+  const winner = topPTokens[0];
+  let insight = '';
+  if (temp <= 0.3) {
+    insight = `At temperature ${temp.toFixed(1)}, the model is almost deterministic. "${winner.word}" wins nearly every time. Great for code or facts where consistency matters.`;
+  } else if (temp >= 2.0) {
+    insight = `At temperature ${temp.toFixed(1)}, probability spreads out widely. Unusual tokens become real contenders. Useful for creative tasks, risky for factual ones.`;
+  } else {
+    insight = `At temperature ${temp.toFixed(1)}, "${winner.word}" is the favourite but there is real variety. A solid balance between coherence and surprise.`;
+  }
+  if (topP <= 0.1) {
+    insight += ` Top P=${topP.toFixed(2)} is very tight. Only the single most likely token makes the cut.`;
+  } else if (topP <= 0.5) {
+    insight += ` Top P=${topP.toFixed(2)} keeps a small, high-confidence pool. Only the safest tokens are in play.`;
+  } else if (topP >= 0.99) {
+    insight += ` Top P=${topP.toFixed(2)} is wide enough that nearly every token stays in play. Temperature does most of the shaping here.`;
+  } else {
+    insight += ` Top P=${topP.toFixed(2)} keeps ${topPTokens.length} token${topPTokens.length !== 1 ? 's' : ''} whose cumulative probability reaches that threshold.`;
+  }
+  document.getElementById('insight-box').textContent = insight;
+}
+
+buildTabs();
+updateScenario();
+document.getElementById('temp-slider').addEventListener('input', render);
+document.getElementById('topp-slider').addEventListener('input', render);
+render();
+</script>
+</body>
+</html>

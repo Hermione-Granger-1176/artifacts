@@ -25,6 +25,8 @@ Usage:
 
 from __future__ import annotations
 
+import functools
+import hashlib
 import json
 import logging
 import re
@@ -52,6 +54,7 @@ JS_CONFIG_OUTPUT_FILE = REPO_ROOT / "js" / "gallery-config.js"
 README_FILE = REPO_ROOT / "README.md"
 PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
 GALLERY_METADATA_FILE = REPO_ROOT / "config" / "gallery_metadata.json"
+ROOT_GALLERY_FOUNDATION_FILE = REPO_ROOT / "css" / "root-gallery-foundation.css"
 
 INDEX_FILE = "index.html"
 NAME_FILE = "name.txt"
@@ -66,6 +69,20 @@ ARTIFACT_URL_PATTERN = re.compile(r"^apps/([a-z0-9]+(?:-[a-z0-9]+)*)/$")
 THUMBNAIL_PATH_PATTERN = re.compile(
     r"^apps/([a-z0-9]+(?:-[a-z0-9]+)*)/(thumbnail\.(?:webp|png))$"
 )
+NOTE_COLOR_PATTERN = re.compile(
+    r"--color-note-(\d+):\s*rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\);"
+)
+UPPERCASE_IDENTIFIER_WORDS = {
+    "ai",
+    "api",
+    "css",
+    "html",
+    "js",
+    "json",
+    "llm",
+    "ui",
+    "ux",
+}
 MISSING_REQUIRED_FILE_ISSUES = {
     (False, False): f"missing {INDEX_FILE} and {NAME_FILE}",
     (False, True): f"has {NAME_FILE} but no {INDEX_FILE}",
@@ -298,6 +315,52 @@ def _badge_config_map(entries: Sequence[MetadataEntry]) -> dict[str, BadgeConfig
     }
 
 
+def _format_identifier_words(value: str) -> list[str]:
+    """Format a kebab-case identifier into display words."""
+    words = [word for word in value.split("-") if word]
+    return [
+        word.upper() if word in UPPERCASE_IDENTIFIER_WORDS else word.capitalize()
+        for word in words
+    ]
+
+
+def _format_identifier_label(value: str) -> str:
+    """Convert a kebab-case identifier into a display label."""
+    return " ".join(_format_identifier_words(value))
+
+
+@functools.cache
+def _read_note_palette_file(palette_file: Path) -> tuple[str, ...]:
+    """Read and cache the gallery desk-note palette from the shared CSS file."""
+    if not palette_file.exists():
+        return ()
+
+    matches = NOTE_COLOR_PATTERN.findall(palette_file.read_text(encoding="utf-8"))
+    ordered = sorted(
+        (
+            int(index),
+            f"{int(red):02X}{int(green):02X}{int(blue):02X}",
+        )
+        for index, red, green, blue in matches
+    )
+    return tuple(color for _, color in ordered)
+
+
+def _read_note_palette() -> tuple[str, ...]:
+    """Read the gallery desk-note palette from the shared CSS variables."""
+    return _read_note_palette_file(ROOT_GALLERY_FOUNDATION_FILE)
+
+
+def _fallback_badge_color(key: str) -> str:
+    """Choose a stable fallback badge color from the shared note palette."""
+    palette = _read_note_palette()
+    if not palette:
+        return "6C757D"
+
+    color_index = hashlib.sha1(key.encode("utf-8")).digest()[0] % len(palette)
+    return palette[color_index]
+
+
 def _frontend_config(metadata: GalleryMetadata) -> dict[str, object]:
     """Build the browser config object consumed by the gallery UI."""
     return {
@@ -387,13 +450,13 @@ def _replace_block_marker(content: str, marker: str, value: str) -> str:
     )
 
 
-def _default_badge(tag: str) -> BadgeConfig:
+def _default_badge(identifier: str) -> BadgeConfig:
     """Build a fallback badge config for unknown tags/tools."""
-    words = tag.split("-")
+    words = _format_identifier_words(identifier)
     return {
-        "label": "_".join(word.capitalize() for word in words),
-        "color": "6C757D",
-        "alt": " ".join(word.capitalize() for word in words),
+        "label": "_".join(words),
+        "color": _fallback_badge_color(identifier),
+        "alt": " ".join(words),
         "logo": None,
         "logo_color": None,
     }
