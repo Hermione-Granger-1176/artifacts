@@ -122,52 +122,8 @@ def test_fallback_badge_color_uses_default_when_palette_file_is_missing(
         tmp_path / "missing-root-gallery-foundation.css",
     )
 
-    assert generate_index._read_note_palette() == []
+    assert generate_index._read_note_palette() == ()
     assert generate_index._fallback_badge_color("ai") == "6C757D"
-
-
-def test_frontend_config_includes_discovered_unknown_labels() -> None:
-    metadata: generate_index.GalleryMetadata = {
-        "tools": [
-            {
-                "id": "claude",
-                "label": "Claude",
-                "color": "D97706",
-                "alt": "Claude",
-                "logo": "anthropic",
-                "logo_color": "white",
-            }
-        ],
-        "tags": [
-            {
-                "id": "finance",
-                "label": "Finance",
-                "color": "27AE60",
-                "alt": "Finance",
-                "logo": None,
-                "logo_color": None,
-            }
-        ],
-    }
-    items: list[generate_index.ArtifactItem] = [
-        {
-            "id": "tokenizer-explorer",
-            "name": "Tokenizer Explorer",
-            "description": "",
-            "tags": ["ai", "llm", "finance"],
-            "tools": ["claude"],
-            "url": "apps/tokenizer-explorer/",
-            "thumbnail": None,
-        }
-    ]
-
-    frontend_config = generate_index._frontend_config(metadata, items)
-    tags = frontend_config["tags"]
-
-    assert frontend_config["tagDisplayOrder"] == ["finance", "ai", "llm"]
-    assert isinstance(tags, dict)
-    assert tags["ai"]["label"] == "AI"
-    assert tags["llm"]["label"] == "LLM"
 
 
 def test_read_file_and_parse_lines(tmp_path: Path) -> None:

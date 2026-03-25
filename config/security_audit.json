@@ -1,0 +1,16 @@
+{
+  "python_lock_files": [
+    "locks/requirements.lock",
+    "locks/requirements-dev.lock"
+  ],
+  "python_ignored_vulnerabilities": [
+    {
+      "id": "CVE-2026-4539",
+      "package": "pygments",
+      "lock_file": "locks/requirements-dev.lock",
+      "reason": "Only present in the dev/test toolchain through pytest and rich. The advisory is low severity, local-only ReDoS in the ADL lexer, and there is no patched Pygments release yet.",
+      "review_by": "2026-04-25",
+      "ignore_only_without_fix": true
+    }
+  ]
+}

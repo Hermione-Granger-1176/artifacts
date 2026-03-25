@@ -94,7 +94,7 @@ coverage-js:
 	fi
 
 security:
-	$(VENV_PYTHON) -m pip_audit --requirement locks/requirements-dev.lock
+	$(VENV_PYTHON) scripts/run_security_audit.py
 	$(NPM) audit
 
 validate:

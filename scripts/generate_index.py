@@ -25,6 +25,7 @@ Usage:
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import logging
@@ -328,14 +329,13 @@ def _format_identifier_label(value: str) -> str:
     return " ".join(_format_identifier_words(value))
 
 
-def _read_note_palette() -> list[str]:
-    """Read the gallery desk-note palette from the shared CSS variables."""
-    if not ROOT_GALLERY_FOUNDATION_FILE.exists():
-        return []
+@functools.cache
+def _read_note_palette_file(palette_file: Path) -> tuple[str, ...]:
+    """Read and cache the gallery desk-note palette from the shared CSS file."""
+    if not palette_file.exists():
+        return ()
 
-    matches = NOTE_COLOR_PATTERN.findall(
-        ROOT_GALLERY_FOUNDATION_FILE.read_text(encoding="utf-8")
-    )
+    matches = NOTE_COLOR_PATTERN.findall(palette_file.read_text(encoding="utf-8"))
     ordered = sorted(
         (
             int(index),
@@ -343,7 +343,12 @@ def _read_note_palette() -> list[str]:
         )
         for index, red, green, blue in matches
     )
-    return [color for _, color in ordered]
+    return tuple(color for _, color in ordered)
+
+
+def _read_note_palette() -> tuple[str, ...]:
+    """Read the gallery desk-note palette from the shared CSS variables."""
+    return _read_note_palette_file(ROOT_GALLERY_FOUNDATION_FILE)
 
 
 def _fallback_badge_color(key: str) -> str:
@@ -356,46 +361,27 @@ def _fallback_badge_color(key: str) -> str:
     return palette[color_index]
 
 
-def _build_frontend_labels(
-    entries: Sequence[MetadataEntry], discovered_ids: set[str]
-) -> tuple[list[str], dict[str, dict[str, str]]]:
-    """Merge configured and discovered identifiers into frontend label config."""
-    labels = {str(entry["id"]): {"label": str(entry["label"])} for entry in entries}
-    for identifier in discovered_ids:
-        labels.setdefault(identifier, {"label": _format_identifier_label(identifier)})
-
-    display_order = _sort_items(set(labels), _display_order(entries))
-    return display_order, {
-        identifier: labels[identifier] for identifier in display_order
-    }
-
-
-def _frontend_config(
-    metadata: GalleryMetadata, items: Sequence[ArtifactItem] | None = None
-) -> dict[str, object]:
+def _frontend_config(metadata: GalleryMetadata) -> dict[str, object]:
     """Build the browser config object consumed by the gallery UI."""
-    discovered_tools = {tool for item in items or [] for tool in item["tools"]}
-    discovered_tags = {tag for item in items or [] for tag in item["tags"]}
-    tool_display_order, tools = _build_frontend_labels(
-        metadata["tools"], discovered_tools
-    )
-    tag_display_order, tags = _build_frontend_labels(metadata["tags"], discovered_tags)
-
     return {
-        "toolDisplayOrder": tool_display_order,
-        "tagDisplayOrder": tag_display_order,
-        "tools": tools,
-        "tags": tags,
+        "toolDisplayOrder": _display_order(metadata["tools"]),
+        "tagDisplayOrder": _display_order(metadata["tags"]),
+        "tools": {
+            str(entry["id"]): {"label": str(entry["label"])}
+            for entry in metadata["tools"]
+        },
+        "tags": {
+            str(entry["id"]): {"label": str(entry["label"])}
+            for entry in metadata["tags"]
+        },
     }
 
 
-def _write_frontend_config(
-    metadata: GalleryMetadata, items: Sequence[ArtifactItem] | None = None
-) -> None:
+def _write_frontend_config(metadata: GalleryMetadata) -> None:
     """Write the generated browser config used by the root gallery."""
     JS_CONFIG_OUTPUT_FILE.parent.mkdir(exist_ok=True)
     config_content = json.dumps(
-        _frontend_config(metadata, items), indent=2, ensure_ascii=False
+        _frontend_config(metadata), indent=2, ensure_ascii=False
     )
     JS_CONFIG_OUTPUT_FILE.write_text(
         f"window.ARTIFACTS_CONFIG = {config_content};\n",
@@ -592,7 +578,7 @@ def generate() -> None:
         f"window.ARTIFACTS_DATA = {json.dumps(items, indent=2, ensure_ascii=False)};\n"
     )
     JS_OUTPUT_FILE.write_text(js_content, encoding="utf-8")
-    _write_frontend_config(gallery_metadata, items)
+    _write_frontend_config(gallery_metadata)
     _update_readme(items)
 
     logger.info("Successfully generated %s with %d items", JS_OUTPUT_FILE, len(items))

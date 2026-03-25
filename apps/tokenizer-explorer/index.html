@@ -568,7 +568,26 @@ function render() {
     const pct = (t.prob * 100).toFixed(1);
     const row = document.createElement('div');
     row.className = 'bar-wrap' + (excluded ? ' excluded' : '');
-    row.innerHTML = `<span class="bar-label" title="${t.word}">${t.word}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%; background:${barColors[rank % barColors.length]};"></div></div><span class="bar-pct">${pct}%</span>`;
+
+    const label = document.createElement('span');
+    label.className = 'bar-label';
+    label.title = t.word;
+    label.textContent = t.word;
+
+    const track = document.createElement('div');
+    track.className = 'bar-track';
+
+    const fill = document.createElement('div');
+    fill.className = 'bar-fill';
+    fill.style.width = `${pct}%`;
+    fill.style.background = barColors[rank % barColors.length];
+    track.appendChild(fill);
+
+    const percent = document.createElement('span');
+    percent.className = 'bar-pct';
+    percent.textContent = `${pct}%`;
+
+    row.append(label, track, percent);
     barsEl.appendChild(row);
   });
 
@@ -601,7 +620,7 @@ function render() {
   } else if (topP <= 0.5) {
     insight += ` Top P=${topP.toFixed(2)} keeps a small, high-confidence pool. Only the safest tokens are in play.`;
   } else if (topP >= 0.99) {
-    insight += ' Top P=1.0 lets every token in. Temperature alone shapes the outcome.';
+    insight += ` Top P=${topP.toFixed(2)} is wide enough that nearly every token stays in play. Temperature does most of the shaping here.`;
   } else {
     insight += ` Top P=${topP.toFixed(2)} keeps ${topPTokens.length} token${topPTokens.length !== 1 ? 's' : ''} whose cumulative probability reaches that threshold.`;
   }

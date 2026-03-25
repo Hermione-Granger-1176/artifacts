@@ -37,7 +37,7 @@ Workspace commands go through the `Makefile`. Python dependencies and workspace 
 - `make lock`: refresh `locks/requirements.lock` and `locks/requirements-dev.lock` after Python dependency changes; same-repo Dependabot pip PRs also refresh them automatically through CI when `pyproject.toml` changes
 - `make new name=my-artifact`: scaffold a new artifact directory with placeholder files
 - `make site`: build the clean `_site/` deploy payload
-- `make security`: run the local `pip-audit` and `npm audit` dependency vulnerability checks used in CI
+- `make security`: run the local policy-driven Python lock audit and `npm audit` dependency checks used in CI
 - `make coverage-js`: run Node test-runner coverage for `js/app.js`, `js/modules/*.js`, `.github/actions/verified-commit/*.mjs`, and `.github/actions/deploy-site/*.mjs`, and enforce the current JS coverage baseline
 - `make editorconfig-check`: verify supported `.editorconfig` rules for covered repository files
 - `make align-tables`: align markdown table pipe characters across all docs
