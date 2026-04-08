@@ -43,12 +43,21 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 ## Structure
 
-Each artifact lives in its own directory under `apps/` with an `index.html` entry point. This allows future refactoring into multi-file projects without breaking URLs.
+Each artifact lives in its own directory under `apps/` with an `index.html` entry point. Mature apps now share a root-level app system in `css/app-tokens.css`, `css/app-shell.css`, `js/app-theme.js`, and `js/modules/app-shell.js`, then layer app-local CSS and JS on top.
 
-```
+```text
 apps/
   artifact-name/
-    index.html        # Entry point (currently single-file, can be split later)
+    index.html        # Required entry point
+    css/
+      app.css         # App-local visual overrides
+    js/
+      app.js          # App-local behavior
+    docs/
+      architecture.md # Internal engineering notes
+      verification.md # Formula and QA notes
+      decisions.md    # Local design/engineering decisions
+    README.md         # App-level overview and structure
     name.txt          # Display name
     description.txt   # Optional short description
     tags.txt          # Optional content tags (one per line)
@@ -56,91 +65,23 @@ apps/
     thumbnail.webp    # Preferred auto-generated screenshot
 ```
 
-Legacy `thumbnail.png` files are still tolerated temporarily so older branches and generated states do not break the gallery.
-
 ## Adding a new artifact
 
 1. Create a new scaffold with `make new name=my-artifact`, or create a kebab-case directory under `apps/` manually
 2. Replace the scaffold `index.html` with your artifact and fill in the metadata files
 3. Run `make validate` to catch missing required files before pushing
 4. Push to `main` or trigger a manual run to let CI regenerate derived files, prepare `_site/`, and deploy the site
-5. Open a PR to run the same checks and publish a live preview without modifying the source branch
+5. Open a PR to run the same checks and publish a live preview; trusted same-repo PRs may also save regenerated thumbnails back to the source branch when CI renders a new `thumbnail.webp`
 
-CI is intentionally strict for the root publishing platform: dependency review, secret scanning, browser-based accessibility and interaction checks, preview deploys, live post-deploy browser verification, and main deploys fail closed instead of auto-healing source branches. Preview and production deploys both consume the exact verified `_site/` artifact built in CI.
+CI is intentionally strict for the root publishing platform: dependency review, secret scanning, browser-based accessibility and interaction checks, preview deploys, live post-deploy browser verification, and main deploys fail closed. Preview and production deploys both consume the exact verified `_site/` artifact built in CI. Trusted same-repo PRs can write regenerated thumbnails back to the same PR branch, while trusted `main` pushes open or update a follow-up thumbnail PR instead of writing directly to `main`.
 
 ## Local development
 
-1. Bootstrap the local toolchain:
-
-   ```bash
-   make setup-local
-   ```
-
-   This installs pinned Python dependencies from `locks/requirements-dev.lock` and pinned Node dependencies from `package-lock.json` without Chromium. Run `make setup` when you also want Playwright Chromium for browser tests or thumbnail generation. Same-repo Dependabot pip PRs that update `pyproject.toml` refresh the Python lock files automatically through CI.
-
-2. Run the fast local verification flow while you iterate:
-
-   ```bash
-   make check-local
-   ```
-
-   This runs local linting, non-browser Python and JavaScript tests, JavaScript coverage, dependency audits, and artifact validation.
-
-3. Run browser and thumbnail checks when you touch root-gallery behavior or before shipping:
-
-   ```bash
-   make web
-   ```
-
-4. Run the full release gate before pushing when you want the CI-equivalent local flow:
-
-   ```bash
-    make check
-    ```
-
-    `make check` keeps the root-platform browser gate in one place: Playwright smoke, accessibility, and browser-flow tests run before index generation and `_site/` assembly.
-
-5. Validate top-level artifact directories explicitly when needed:
-
-   ```bash
-   make validate
-   ```
-
-6. Regenerate derived files before pushing:
-
-   ```bash
-   make generate
-   ```
-
-7. Build the clean deployable site directory when you want to inspect the exact Pages payload:
-
-   ```bash
-   make site
-   ```
-
-8. If you prefer running commands directly, most dependency-backed targets use the `.venv` environment with the frozen dependency sets in `locks/requirements*.lock` and `package-lock.json`, while a few lightweight helper targets call `python3.12` through the `PYTHON` Make variable.
-
-9. If you change Python dependency declarations, regenerate the Python lock files:
-
-   ```bash
-   make lock
-   ```
-
-   If you change Node dependencies, refresh `package-lock.json` with npm tooling before rerunning `npm ci`, `make check-local`, or `make check`.
-
-10. Serve the repo root or `_site/` from a local static server when you want to verify the gallery in a browser, for example:
-
-   ```bash
-   python3 -m http.server 4173
-   ```
-
-    Then open `http://127.0.0.1:4173/`.
-
-11. Verify a deployed preview or production URL in a real browser when needed:
-
-    ```bash
-    ARTIFACTS_LIVE_SITE_URL="https://example.com/artifacts/" make test-browser-live
-    ```
+- Run `make help` first; the Makefile is the supported interface for local setup, checks, generation, and GitHub workflow helpers.
+- Use `make setup` for the default local toolchain, or `make setup-all` when you also need Chromium for browser tests and thumbnail generation.
+- Use `make check-local` for the fast local gate, including canonical generated-file drift checks, `make check-web` when browser coverage or thumbnails matter, and `make check` for the full CI-equivalent local gate.
+- Use `make validate`, `make generate`, `make site`, and `make lock` when you need explicit structure checks, derived-file refreshes, deploy-payload inspection, or Python lock refreshes.
+- For the full day-to-day workflow, CI behavior, dependency expectations, and troubleshooting, see [`docs/operations.md`](docs/operations.md), [`docs/workspace.md`](docs/workspace.md), and [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md).
 
 ## License
 

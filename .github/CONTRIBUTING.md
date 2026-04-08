@@ -2,33 +2,23 @@
 
 Thanks for helping improve the Artifacts workspace.
 
-## Development flow
+## Start here
 
-1. Run `make setup-local` to create `.venv` and install pinned Python and Node dependencies, or `make setup` if you also need Chromium for browser tests and thumbnail generation.
-2. Make changes.
-3. Run `make check-local` while you iterate, `make web` when root-gallery browser behavior or thumbnails change, and `make check` before opening a pull request.
-4. If you changed generated outputs or metadata, run `make generate` and `make site` as needed.
+- Run `make help` to see the available workspace targets.
+- Follow [`docs/operations.md`](../docs/operations.md) for the canonical local workflow, CI mapping, and troubleshooting.
+- Use [`docs/workspace.md`](../docs/workspace.md) for repository layout, generated outputs, and source-of-truth ownership.
+- Use [`docs/style.md`](../docs/style.md) for editor settings, language conventions, and commit message style.
 
 ## Generated files
 
-Do not hand-edit generated outputs unless you are intentionally changing the generator behavior.
-
-- `js/data.js`
-- `js/gallery-config.js`
-- `apps/*/thumbnail.webp`
-- `_site/`
-- README auto-managed marker sections
-
-## Code conventions
-
-See [`docs/style.md`](../docs/style.md) for editor configuration, language conventions, and commit message style.
+Do not hand-edit generated outputs unless you are intentionally changing the generator behavior. See [`docs/workspace.md`](../docs/workspace.md#generated-and-derived-files) for the canonical list.
 
 ## Pull requests
 
 - Keep changes scoped and describe the user-visible or maintenance impact.
 - Trusted PRs publish a live preview; fork and Dependabot PRs skip preview deployment because the GitHub App token is unavailable.
 - Trusted preview and production deploys also run `make test-browser-live` against the published URL, so browser-only regressions can still fail the release after deploy verification.
-- If CI regenerates files during `make check`, the diff is summarized and the verified `_site/` build is deployed without mutating the source branch. The verified-commit fallback flow is reserved for the dedicated Python lock refresh workflow.
+- If CI regenerates thumbnails during trusted same-repo PR or `main` runs, it can persist `apps/*/thumbnail.webp` back to the same PR branch or open a follow-up thumbnail PR from `main`. Other generated files are still summarized rather than auto-committed.
 
 ## Dependency updates
 
@@ -36,6 +26,6 @@ See [`docs/style.md`](../docs/style.md) for editor configuration, language conve
 - Node tooling lives in `package.json` and `package-lock.json`.
 - Same-repo Dependabot pip PRs auto-refresh the Python lock files through `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml`, but local/manual dependency edits still need `make lock`.
 - After changing Python dependency declarations, regenerate the Python lock files with `make lock`.
-- After changing Node dependencies, refresh `package-lock.json` with npm before rerunning `npm ci`, `make check-local`, or `make check`.
+- After changing Node dependencies, refresh `package-lock.json` before rerunning the relevant `make` setup or check targets.
 - `axe-core` is pinned in `package-lock.json` because the Playwright accessibility suite injects it into real browser sessions.
 - Workspace-only maintenance changes do not need a standalone changelog entry; app release notes stay app-specific.

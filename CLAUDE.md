@@ -3,64 +3,77 @@
 Collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT, Gemini, etc.).
 Hosted via GitHub Pages. The canonical site URL is configured in `pyproject.toml` under `[tool.artifacts]`.
 
+## Rules
+
+1. **The Makefile is the only interface.** Never run `.venv/bin/*`, `pytest`, `ruff`, `npm run`, or any tool directly. Always use `make <target>`. If unsure what's available, run `make help` first. The list is auto-generated from the Makefile.
+2. **If a target is missing, add it.** Put `## description` after the target name in the Makefile and it appears in `make help` automatically.
+3. **Each tool has one config file.** To change what gets linted/tested/covered, edit the tool's config, nowhere else. See the tool configuration table below.
+4. **Read before acting.** Read the Makefile and existing code before proposing changes. Don't reinvent what already exists.
+5. **Don't run auto-fix commands** (`make align-tables`, `make fmt`, etc.) unless the user asks.
+
 ## Structure
 
 Each artifact lives in its own directory under `apps/` with an `index.html` entry point.
 The root `index.html` is a gallery page with searchable thumbnails, multi-select filters, theme persistence, and detail overlays.
 
+- `apps/<slug>/`: artifacts, each with `index.html`, `name.txt`, `description.txt`, `tags.txt`, `tools.txt`
+- `scripts/{build,ci,lib,lint}/`: Python tooling organized by concern, 100% test coverage enforced
+- `tests/{build,ci,lib,lint}/`: mirrors scripts structure; `tests/browser/` for Playwright; `tests/js/` for Node
+- `js/`, `css/`: gallery + shared app modules and styles
+- `docs/`: developer documentation
+- `config/`: gallery metadata, artifact contract, and security audit policy
+
 ## Adding a new artifact
 
-1. Create a new directory under `apps/` with a kebab-case name (e.g., `apps/budget-tracker/`)
-2. Place the HTML file as `index.html` inside that directory
-3. Add metadata files:
-   - `name.txt`: Title (single line)
-   - `description.txt`: Optional short description (single line)
-   - `tags.txt`: Optional tags, one per line (e.g., `finance`, `calculator`)
-   - `tools.txt`: Optional AI tools, one per line (e.g., `claude`, `chatgpt`)
-4. You can scaffold this structure with `make new name=my-artifact`
-5. Run `make validate` before pushing so incomplete artifact directories fail fast
-6. Push to `main` or trigger a manual run: CI can generate thumbnails, update gallery data, and build the deployable site
-7. PRs build previews without committing generated outputs back to the source branch, and get a live preview link posted as a recreated comment so the newest preview stays at the bottom of the thread
+1. `make new name=my-artifact`: scaffolds the directory with placeholder files
+2. Place the HTML file as `index.html`, fill in `name.txt`, `description.txt`, `tags.txt`, `tools.txt`
+3. `make validate`: fail fast on incomplete directories
+4. Push to `main`: CI generates thumbnails, updates gallery data, builds, and deploys
+5. PRs get live preview links posted as comments
+
+When adding a user-provided artifact, prefer the minimal path: scaffold, copy HTML, fill metadata. Don't refactor, don't block on thumbnails (CI handles them). Verify artifact code/calculations at least once before committing.
 
 ## Local commands
 
-Workspace commands go through the `Makefile`. Python dependencies and workspace metadata live in `pyproject.toml`, while frozen Python and Node installs live in `locks/requirements*.lock` and `package-lock.json`.
+**Run `make help` for the full list of targets.** Help is two-level: top-level shows all build/test/lint targets directly, while `make pr`, `make ci`, and `make git` drill into their sub-commands. Everything is auto-generated from `## comment` annotations in the Makefile.
 
-- `make setup`: create `.venv`, install pinned Python and Node dependencies, and install Chromium
-- `make setup-local`: create `.venv` and install pinned Python and Node dependencies without Chromium
-- `make setup-ci`: CI bootstrap variant that installs Chromium with system dependencies for runners/containers
-- `make check-local`: run the fast local gate, including EditorConfig validation, Python/JS/CSS/YAML/workflow lint, non-browser Python tests, JavaScript tests, JavaScript coverage, dependency audits, and artifact validation
-- `make web`: run browser smoke/accessibility/browser-flow tests and thumbnail generation
-- `make check`: run the full gate, which combines `make check-local`, `make web`, index generation, and deployable site assembly
-- `make validate`: fail fast on incomplete or invalid top-level artifact directories
-- `make generate`: run thumbnail generation and data generation sequentially
-- `make lock`: refresh `locks/requirements.lock` and `locks/requirements-dev.lock` after Python dependency changes; same-repo Dependabot pip PRs also refresh them automatically through CI when `pyproject.toml` changes
-- `make new name=my-artifact`: scaffold a new artifact directory with placeholder files
-- `make site`: build the clean `_site/` deploy payload
-- `make security`: run the local policy-driven Python lock audit and `npm audit` dependency checks used in CI
-- `make coverage-js`: run Node test-runner coverage for `js/app.js`, `js/modules/*.js`, `.github/actions/verified-commit/*.mjs`, and `.github/actions/deploy-site/*.mjs`, and enforce the current JS coverage baseline
-- `make editorconfig-check`: verify supported `.editorconfig` rules for covered repository files
-- `make align-tables`: align markdown table pipe characters across all docs
-- `make lint`: run EditorConfig validation, ruff (Python), ESLint (JavaScript), stylelint (CSS), yamllint (YAML), and workflow lint checks
-- `make lint-js`: run ESLint only
-- `make lint-css`: run stylelint only
-- `make lint-yaml`: run yamllint only
-- `make lint-workflows`: run workflow-specific action linting only
-- `make test`: run non-browser pytest and the Node test runner
-- `make test-browser`: run browser smoke, accessibility, and browser-flow tests
-- `make test-js`: run the Node test runner only
-- `make thumbnails`: regenerate WebP thumbnails when Playwright is available
-- `make index`: rebuild `js/data.js`, `js/gallery-config.js`, and README auto markers
-- `make clean`: remove `.venv`, caches, build artifacts, and `node_modules`
+Key entry points:
+
+- `make setup`: fast default (Python + Node deps, no Chromium)
+- `make setup-all`: full setup including Chromium for browser tests and thumbnails
+- `make check-local`: fast gate before pushing (lint + test + coverage + security + validate + generated drift)
+- `make check`: full gate (check-local + browser tests + thumbnails + index + site build)
+- `make fmt`: auto-fix lint issues across Python, JS, and CSS
+- `make pr`: show all PR commands (create, list, merge, comments, review, resolve, etc.)
+- `make ci`: show all CI commands (runs, watch, issues)
+- `make git`: show all git commands (branch, log, diff)
+- `make status`: quick workspace health check
+
+Python dependencies and workspace metadata live in `pyproject.toml`, while frozen installs live in `locks/requirements*.lock` and `package-lock.json`.
+
+## Tool configuration
+
+Each tool has one config file that owns its scope. The Makefile just calls tools. No file lists repeated anywhere.
+
+| Tool         | Config (source of truth) | What it defines                                                            |
+| ------------ | ------------------------ | -------------------------------------------------------------------------- |
+| ruff         | `pyproject.toml`         | Python lint/format rules; built-in excludes skip `.venv/`, `node_modules/` |
+| pytest       | `pyproject.toml`         | Test paths, coverage target (`scripts/`), 100% threshold                   |
+| ESLint       | `eslint.config.js`       | JS file patterns, ignores, rules                                           |
+| stylelint    | `stylelint.config.js`    | CSS rules, ignoreFiles                                                     |
+| yamllint     | `.yamllint.yml`          | YAML rules, ignore patterns                                                |
+| JS coverage  | `package.json`           | Exclude patterns (`node_modules/`, `tests/`)                               |
+| editorconfig | `.editorconfig`          | Formatting rules per file type                                             |
+
+To change what gets linted/tested/covered, edit the tool's config file, nowhere else.
 
 ## Auto-generated files
 
 Do not manually edit these outputs unless updating generator logic:
 
-- `js/data.js`: Generated by `scripts/generate_index.py`
-- `js/gallery-config.js`: Generated by `scripts/generate_index.py`
-- `apps/*/thumbnail.webp`: Generated by `scripts/generate_thumbnails.py`
-- `_site/`: Assembled by `scripts/prepare_site.py` for deployment and previews
+- `js/data.js`, `js/gallery-config.js`: generated by `scripts/build/generate_index.py`
+- `apps/*/thumbnail.webp`: generated by `scripts/build/generate_thumbnails.py`
+- `_site/`: assembled by `scripts/build/prepare_site.py` for deployment and previews
 - Auto-managed marker sections in `README.md`
 
 ## Deployment
@@ -70,7 +83,7 @@ Do not manually edit these outputs unless updating generator logic:
 - PRs deploy previews to `gh-pages/pr-preview/pr-<number>/`
 - All deploys (main, preview, and cleanup) use the escalation app token (Harry1176) and create verified commits via the GraphQL API
 - Preview comments are posted by the workflow token, appear as `github-actions[bot]`, and are recreated on each push so the newest preview stays visible
-- Same-repo Dependabot pip PRs refresh Python lock files with `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml`
+- Same-repo Dependabot pip PRs refresh Python lock files via CI workflows
 - `gh-pages` is CI-managed and should not be edited manually
 
 ## Docs
@@ -87,7 +100,8 @@ Workspace documentation lives in `docs/`:
 ## Conventions
 
 - Artifact directories use kebab-case names
-- Each artifact is a self-contained `index.html` (inline CSS/JS, CDN dependencies)
-- Later refactoring into separate files is fine as long as `index.html` remains the entry point
-- When a user provides a finished artifact HTML and asks to add it, prefer the minimal path: scaffold the directory, copy the HTML into `apps/<name>/index.html`, fill `name.txt`, `description.txt`, `tags.txt`, and `tools.txt`, avoid opportunistic refactors or extra in-app changes unless the user explicitly asks for them, and do not block on creating `thumbnail.webp` locally unless the user explicitly asks because CI can generate it
-- Before adding or modifying an artifact, always verify the artifact code or calculations at least once to check whether they are correct; use local inspection, quick validation, and internet research when helpful
+- Each artifact keeps `index.html` as the entry point
+- Mature apps should import the shared app system from `css/app-tokens.css`, `css/app-shell.css`, `js/app-theme.js`, and `js/modules/app-shell.js`
+- App-local overrides should live in `apps/<slug>/css/app.css`, `apps/<slug>/js/app.js`, and app-local modules/docs
+- The bookmark-note palette is the shared mature-app color system, and authored app colors should use `rgb()` / `rgba()` values
+- Before adding or modifying an artifact, always verify the artifact code or calculations at least once

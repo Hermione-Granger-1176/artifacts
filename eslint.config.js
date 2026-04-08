@@ -7,7 +7,10 @@ const commonRules = {
 
 export default [
   {
-    files: ['js/**/*.js'],
+    ignores: ['node_modules/**', '.venv/**', '_site/**', 'locks/**', 'assets/**', 'config/**']
+  },
+  {
+    files: ['js/**/*.js', 'apps/**/*.js'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

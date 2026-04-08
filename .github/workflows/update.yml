@@ -30,13 +30,92 @@ env:
   GENERATED_OUTPUT_ARGS: js/data.js js/gallery-config.js README.md apps
 
 jobs:
-  verify:
+  # Decide the only allowed automation path for this event.
+  # The planner is the source of truth for browser scope, thumbnail scope,
+  # and whether thumbnails may be persisted back to source branches.
+  plan:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
+    outputs:
+      json: ${{ steps.plan.outputs.json }}
+      browser-scope: ${{ steps.plan.outputs.browser-scope }}
+      changed-slugs: ${{ steps.plan.outputs.changed-slugs }}
+      thumbnail-scope: ${{ steps.plan.outputs.thumbnail-scope }}
+      thumbnail-slugs: ${{ steps.plan.outputs.thumbnail-slugs }}
+      persist-mode: ${{ steps.plan.outputs.persist-mode }}
+      reason: ${{ steps.plan.outputs.reason }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+
+      - name: Compute browser and thumbnail plan
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REPO_FORK: ${{ github.event.pull_request.head.repo.fork || 'false' }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login || '' }}
+        run: |
+          plan=$(python3 scripts/ci/workflow_helpers.py thumbnail-plan \
+            --event-name "${{ github.event_name }}" \
+            --repo "${{ github.repository }}" \
+            --pr-number "${{ github.event.pull_request.number || '' }}" \
+            --commit-sha "${{ github.sha }}" \
+            --head-repo-fork "$HEAD_REPO_FORK" \
+            --pr-author "$PR_AUTHOR")
+          echo "json=$plan" >> "$GITHUB_OUTPUT"
+          PLAN_JSON="$plan" python3 - <<'PY'
+          import json
+          import os
+
+          plan = json.loads(os.environ["PLAN_JSON"])
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"browser-scope={plan['browser_scope']}\n")
+              output.write(f"changed-slugs={','.join(plan['changed_slugs'])}\n")
+              output.write(f"thumbnail-scope={plan['thumbnail_scope']}\n")
+              output.write(f"thumbnail-slugs={','.join(plan['thumbnail_slugs'])}\n")
+              output.write(f"persist-mode={plan['persist_mode']}\n")
+              output.write(f"reason={plan['reason']}\n")
+          PY
+
+      - name: Summarize automation plan
+        env:
+          PLAN_PERSIST_MODE: ${{ steps.plan.outputs.persist-mode }}
+          PLAN_REASON: ${{ steps.plan.outputs.reason }}
+          PLAN_BROWSER_SCOPE: ${{ steps.plan.outputs.browser-scope }}
+          PLAN_THUMBNAIL_SCOPE: ${{ steps.plan.outputs.thumbnail-scope }}
+          PLAN_CHANGED_SLUGS: ${{ steps.plan.outputs.changed-slugs }}
+          PLAN_THUMBNAIL_SLUGS: ${{ steps.plan.outputs.thumbnail-slugs }}
+        run: |
+          {
+            echo "## Automation plan"
+            echo
+            echo "Persist mode: $PLAN_PERSIST_MODE"
+            echo "Reason: $PLAN_REASON"
+            echo "Browser scope: $PLAN_BROWSER_SCOPE"
+            echo "Thumbnail scope: $PLAN_THUMBNAIL_SCOPE"
+            echo "Changed slugs: ${PLAN_CHANGED_SLUGS:-none}"
+            echo "Thumbnail slugs: ${PLAN_THUMBNAIL_SLUGS:-none}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Build and verify once. This is the only job allowed to run the expensive
+  # thumbnail generation path. Later jobs must reuse the verified artifacts.
+  verify:
+    if: github.event.action != 'closed'
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      thumbnail-artifact-name: ${{ steps.thumbnail-artifact.outputs.artifact-name }}
+      thumbnail-artifact-changed: ${{ steps.thumbnail-artifact.outputs.changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -57,18 +136,64 @@ jobs:
       - name: Install workspace dependencies
         run: make setup-ci
 
-      - name: Invalidate thumbnails for changed apps
+      - name: Run fast repository gate
+        run: make COVERAGE_OUTPUT=js-coverage.txt check-local
+
+      - name: Invalidate thumbnails for targeted runtime changes
+        if: needs.plan.outputs.thumbnail-scope != 'none'
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
-          python3 scripts/workflow_helpers.py invalidate-thumbnails
+          python3 scripts/ci/workflow_helpers.py invalidate-thumbnails
           --event-name "${{ github.event_name }}"
           --repo "${{ github.repository }}"
           --pr-number "${{ github.event.pull_request.number || '' }}"
           --commit-sha "${{ github.sha }}"
 
-      - name: Run full repository check
-        run: make COVERAGE_OUTPUT=js-coverage.txt check
+      - name: Run root browser verification
+        run: make test-browser-root
+
+      - name: Run selective app browser verification
+        if: needs.plan.outputs.browser-scope != 'none'
+        env:
+          ARTIFACTS_BROWSER_APP_SLUGS: ${{ needs.plan.outputs.browser-scope == 'changed' && needs.plan.outputs.changed-slugs || '' }}
+        run: make test-browser-apps
+
+      - name: Build verified site and thumbnails
+        env:
+          ARTIFACTS_THUMBNAIL_SLUGS: ${{ needs.plan.outputs.thumbnail-scope == 'changed' && needs.plan.outputs.thumbnail-slugs || '' }}
+          ARTIFACTS_THUMBNAIL_MANIFEST: .artifacts/thumbnail-persist/manifest.json
+        run: |
+          make thumbnails
+          make index
+          make site
+
+      - name: Package thumbnail persistence artifact
+        id: thumbnail-artifact
+        if: needs.plan.outputs.persist-mode != 'none'
+        env:
+          PLAN_JSON: ${{ needs.plan.outputs.json }}
+        run: |
+          root=.artifacts/thumbnail-persist
+          rm -rf "$root"
+          mkdir -p "$root"
+          printf '%s' "$PLAN_JSON" > "$root/plan.json"
+
+          mapfile -t thumb_files < <((git diff --name-only -- 'apps/*/thumbnail.webp'; git ls-files --others --exclude-standard -- 'apps/*/thumbnail.webp') | awk 'NF' | sort -u)
+
+          if [ "${#thumb_files[@]}" -eq 0 ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "artifact-name=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          for rel_path in "${thumb_files[@]}"; do
+            mkdir -p "$root/$(dirname "$rel_path")"
+            cp "$rel_path" "$root/$rel_path"
+          done
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "artifact-name=thumbnail-persist-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
 
       - name: Upload verified site artifact
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
@@ -78,6 +203,16 @@ jobs:
           if-no-files-found: error
           overwrite: true
 
+      - name: Upload thumbnail persistence artifact
+        if: steps.thumbnail-artifact.outputs.changed == 'true'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: ${{ steps.thumbnail-artifact.outputs.artifact-name }}
+          path: .artifacts/thumbnail-persist
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 1
+
       - name: Report JavaScript coverage
         if: always()
         run: |
@@ -85,7 +220,7 @@ jobs:
             {
               echo "## JavaScript Coverage"
               echo
-              echo "Coverage output was not generated because `make check` did not complete successfully."
+              echo "Coverage output was not generated because the fast local gate did not complete successfully."
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
@@ -113,23 +248,11 @@ jobs:
           {
             echo "## Verify"
             echo
-            echo "Generated changes detected during \`make check\`:"
+            echo "Generated changes detected during the build:"
             echo
             echo '```text'
             git status --short -- ${GENERATED_OUTPUT_ARGS} || true
             echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Summarize verify failure
-        if: failure()
-        run: |
-          {
-            echo "## Verify failed"
-            echo
-            echo "The strict repository gate failed before publish."
-            echo
-            echo "Recommended local command: \`make check\`"
-            echo "Inspect the failed step in this run for the exact command and error output."
           } >> "$GITHUB_STEP_SUMMARY"
 
   secret-scan:
@@ -163,6 +286,8 @@ jobs:
       - name: Review dependency changes
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
 
+  # Publish only the verified `_site` artifact. This job never regenerates
+  # thumbnails or mutates source branches.
   publish:
     if: >-
       github.event.action != 'closed' &&
@@ -171,11 +296,12 @@ jobs:
       needs.secret-scan.result == 'success' &&
       (needs.dependency-review.result == 'success' || needs.dependency-review.result == 'skipped')
     needs:
+      - plan
       - verify
       - secret-scan
       - dependency-review
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
     permissions:
       contents: write
       issues: write
@@ -207,31 +333,9 @@ jobs:
           name: site-${{ github.run_id }}
           path: _site
 
-      - name: Install workspace dependencies for live browser verification
+      - name: Install dependencies for live browser verification
         if: steps.setup.outputs.token-available == 'true'
         run: make setup-ci
-
-      - name: Detect generated changes
-        id: changes
-        run: |
-          if [ -n "$(git status --short -- ${GENERATED_OUTPUT_ARGS})" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Summarize generated workspace changes
-        if: steps.changes.outputs.changed == 'true'
-        run: |
-          {
-            echo "## Generated workspace changes"
-            echo
-            echo "CI rebuilt generated content for this run. The publish workflow deploys these changes from the verified workspace build without mutating the source branch."
-            echo
-            echo '```text'
-            git status --short -- ${GENERATED_OUTPUT_ARGS} || true
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Resolve deployed asset marker
         id: deploy-version
@@ -270,7 +374,7 @@ jobs:
       - name: Verify PR preview deployment
         if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
         run: >-
-          python3 scripts/verify_deploy.py
+          python3 scripts/ci/verify_deploy.py
           --url "${{ steps.preview-url.outputs.url }}"
           --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
           --expected-commit-sha "${{ github.sha }}"
@@ -284,16 +388,6 @@ jobs:
           ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-live/pr-preview
         run: make test-browser-live
 
-      - name: Summarize PR preview
-        if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
-        run: |
-          {
-            echo "## PR Preview"
-            echo
-            echo "Preview URL: ${{ steps.preview-url.outputs.url }}"
-            echo "Built from verified artifact: site-${{ github.run_id }}"
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Note limited PR preview
         if: github.event_name == 'pull_request' && steps.setup.outputs.token-available != 'true'
         run: |
@@ -304,10 +398,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Deploy main site
-        id: main-deploy
-        if: >-
-          github.event_name != 'pull_request' &&
-          steps.setup.outputs.token-available == 'true'
+        if: github.event_name != 'pull_request' && steps.setup.outputs.token-available == 'true'
         uses: ./.github/actions/deploy-site
         with:
           token: ${{ steps.setup.outputs.escalation-token }}
@@ -326,13 +417,22 @@ jobs:
           echo "url=${site_url}" >> "$GITHUB_OUTPUT"
 
       - name: Run live main site browser verification
-        if: >-
-          github.event_name != 'pull_request' &&
-          steps.setup.outputs.token-available == 'true'
+        if: github.event_name != 'pull_request' && steps.setup.outputs.token-available == 'true'
         env:
           ARTIFACTS_LIVE_SITE_URL: ${{ steps.live-site-url.outputs.url }}
           ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-live/main-site
         run: make test-browser-live
+
+      - name: Summarize publish
+        if: always()
+        run: |
+          {
+            echo "## Publish"
+            echo
+            echo "Persist mode: ${{ needs.plan.outputs.persist-mode }}"
+            echo "Reason: ${{ needs.plan.outputs.reason }}"
+            echo "Verified artifact: site-${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload live browser failure artifacts
         if: failure()
@@ -343,37 +443,158 @@ jobs:
           if-no-files-found: ignore
           overwrite: true
 
-      - name: Summarize publish
-        if: github.event_name != 'pull_request'
+  # Persist thumbnails only when the planner explicitly allows it.
+  # This job never regenerates thumbnails. It only applies the validated
+  # thumbnail artifact built by `verify`.
+  persist-thumbnails:
+    if: >-
+      github.event.action != 'closed' &&
+      needs.plan.outputs.persist-mode != 'none' &&
+      needs.verify.outputs.thumbnail-artifact-changed == 'true' &&
+      needs.publish.result == 'success'
+    needs:
+      - plan
+      - verify
+      - publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: CI setup
+        id: setup
+        uses: ./.github/actions/ci-setup
+        with:
+          event-name: ${{ github.event_name }}
+          head-repo-fork: ${{ github.event.pull_request.head.repo.fork || 'false' }}
+          pr-author: ${{ github.event.pull_request.user.login || '' }}
+          app-id: ${{ vars.APP_ID }}
+          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          escalation-app-id: ${{ vars.ESCALATION_APP_ID }}
+          escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download thumbnail persistence artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.verify.outputs.thumbnail-artifact-name }}
+          path: .artifacts/thumbnail-persist
+
+      - name: Validate thumbnail artifact
+        id: validate-artifact
+        run: |
+          plan=$(python3 scripts/ci/workflow_helpers.py validate-thumbnail-artifact --root .artifacts/thumbnail-persist)
+          echo "json=$plan" >> "$GITHUB_OUTPUT"
+
+      - name: Revalidate PR head state before branch writeback
+        if: needs.plan.outputs.persist-mode == 'pr-branch'
+        id: pr-head-state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          current_sha=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
+          current_ref=$(gh pr view "$PR_NUMBER" --json headRefName --jq .headRefName)
+          if [ "$current_sha" != "$PR_HEAD_SHA" ] || [ "$current_ref" != "$PR_HEAD_REF" ]; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "stale=false" >> "$GITHUB_OUTPUT"
+
+      - name: Apply thumbnail artifact and stage exact files
+        id: stage-thumbnails
+        if: needs.plan.outputs.persist-mode != 'pr-branch' || steps.pr-head-state.outputs.stale != 'true'
+        run: |
+          mapfile -t artifact_files < <(find .artifacts/thumbnail-persist/apps -type f -name 'thumbnail.webp' | sort)
+          if [ "${#artifact_files[@]}" -eq 0 ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "pathspec=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          pathspec_file=.artifacts/thumbnail-pathspec.txt
+          : > "$pathspec_file"
+
+          for source in "${artifact_files[@]}"; do
+            target=${source#.artifacts/thumbnail-persist/}
+            mkdir -p "$(dirname "$target")"
+            cp "$source" "$target"
+            git add "$target"
+            printf '%s\n' "$target" >> "$pathspec_file"
+          done
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          {
+            echo 'pathspec<<EOF'
+            cat "$pathspec_file"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Persist thumbnails into the same PR branch
+        if: >-
+          needs.plan.outputs.persist-mode == 'pr-branch' &&
+          steps.pr-head-state.outputs.stale != 'true' &&
+          steps.stage-thumbnails.outputs.changed == 'true'
+        uses: ./.github/actions/verified-commit
+        with:
+          github-token: ${{ steps.setup.outputs.app-token }}
+          base-branch: ${{ github.event.pull_request.head.ref }}
+          expected-head-sha: ${{ github.event.pull_request.head.sha }}
+          commit-headline: "Save generated app thumbnails"
+          fallback-branch-prefix: ci/save-generated-thumbnails
+          pr-title: "Save generated app thumbnails"
+          pr-body: |
+            ## Summary
+            - Type: CI asset maintenance
+            - Save generated `thumbnail.webp` files back to the current PR branch
+          pathspec: ${{ steps.stage-thumbnails.outputs.pathspec }}
+          commit-mode: direct
+
+      - name: Create or update thumbnail follow-up PR
+        if: >-
+          needs.plan.outputs.persist-mode == 'followup-pr' &&
+          steps.stage-thumbnails.outputs.changed == 'true'
+        uses: ./.github/actions/verified-commit
+        with:
+          github-token: ${{ steps.setup.outputs.escalation-token }}
+          base-branch: ${{ github.event.repository.default_branch }}
+          expected-head-sha: ${{ github.sha }}
+          commit-headline: "Save generated app thumbnails"
+          fallback-branch-prefix: ci/save-generated-thumbnails
+          pr-title: "Save generated app thumbnails"
+          pr-body: |
+            <!-- artifacts:generated-thumbnails -->
+
+            ## Summary
+            - Type: CI asset maintenance
+            - Save generated `thumbnail.webp` files back to the source repository
+            - Keep merged branches aligned with the deployed preview and production site assets
+          pathspec: ${{ steps.stage-thumbnails.outputs.pathspec }}
+          commit-mode: force-pr
+
+      - name: Summarize thumbnail persistence
+        if: always()
         run: |
           {
-            echo "## Publish"
+            echo "## Thumbnail persistence"
             echo
-            echo "Deploy version: ${{ github.sha }}"
-            echo "Generated files changed: ${{ steps.changes.outputs.changed }}"
-            echo "Verified artifact: site-${{ github.run_id }}"
-            echo "Published URL verified: yes"
+            echo "Persist mode: ${{ needs.plan.outputs.persist-mode }}"
+            echo "Reason: ${{ needs.plan.outputs.reason }}"
+            echo "Artifact changed: ${{ needs.verify.outputs.thumbnail-artifact-changed }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Summarize publish failure
-        if: failure()
-        run: |
-          {
-            echo "## Publish failed"
-            echo
-            echo "The verified site artifact was not published successfully."
-            echo
-            echo "Recommended local command: \`make check\`"
-            if [ "${{ github.event_name }}" = "pull_request" ]; then
-              echo "Preview deploys also require trusted app tokens and a healthy GitHub Pages publish path."
-              if [ -n "${{ steps.preview-url.outputs.url }}" ]; then
-                echo "Preview URL (if created): ${{ steps.preview-url.outputs.url }}"
-              fi
-            else
-              echo "Inspect deploy verification and GitHub Pages settings if the build artifact looked correct."
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
+  # Preview cleanup is isolated from publish/persistence. Closing or merging a PR
+  # removes only that PR's preview subtree and preview comment.
   cleanup-preview:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
