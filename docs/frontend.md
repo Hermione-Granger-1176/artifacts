@@ -3,10 +3,17 @@
 ## Root gallery entry points
 
 - `index.html` loads the root gallery shell
-- `css/root-gallery-foundation.css` owns the shared theme and layout tokens used by the root gallery, including book height, page padding, and desk-note geometry
-- `js/gallery-config.js` provides generated tool/tag labels and display order
+- `css/gallery/` contains modular partials for the root gallery (tokens, reset, header, toolbar, book, cards, detail overlay, responsive, etc.), imported via `css/style.css`
+- `js/gallery-config.js` provides generated tool/tag labels, display order, and the shared artifact path contract from `config/gallery_metadata.json` and `config/artifact_contract.json`
 - `js/data.js` provides generated artifact metadata
 - `js/app.js` bootstraps the runtime, validates generated bootstrap data, and calls `initializeGalleryApp`
+
+## Shared app system
+
+- `css/app-tokens.css` owns the shared bookmark-note palette, light/dark neutrals, font stacks, and app token rules
+- `css/app-shell.css` owns the shared mature-app header, buttons, inputs, tables, tooltips, and scroll-to-top styling
+- `js/app-theme.js` applies the saved mature-app theme before shared CSS loads, and `js/modules/app-shell.js` owns runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
+- Mature app pages import those shared files first, then add app-local CSS and JS inside `apps/<slug>/`
 
 ## JavaScript module responsibilities
 
@@ -20,6 +27,8 @@
 - `js/modules/book-scene.js`: book cover intro animation and 3D page-turn motion
 - `js/modules/render.js`: HTML generation and DOM sync helpers for cards, detail content, desk-note filters, and pagination
 - `js/modules/runtime.js`: startup status, error reporting, and guarded localStorage access
+- `js/modules/app-runtime.js`: mature-app bootstrap with fatal error handling
+- `js/modules/gallery-url.js`: URL state sync for gallery search, filters, and sort
 
 The root filter UI is rendered as desk notes by `buildFilterNotes()` in `js/modules/render.js` and toggled in `js/modules/gallery-app.js`.
 
@@ -40,12 +49,19 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `tests/js/motion.test.js`: reduced-motion detection, scroll behavior, and scroll-to-top
 - `tests/js/render.test.js`: escaping, filter UI sync, detail content, card rendering, and pagination markup
 - `tests/js/runtime.test.js`: runtime state, error capture, and fatal banner behavior
+- `tests/js/app-runtime.test.js`: app-runtime bootstrap, fatal errors, ready state
+- `tests/js/app-theme.test.js`: theme persistence, normalization, localStorage fallback
+- `tests/js/app-shell.test.js`: shell placeholders, theme-toggle, pre-populated slots
+- `tests/js/loan-amortization-modules.test.js`: frequency params, biweekly EMI, row summary, metrics markup
 - `tests/js/verified-commit.test.js`: workflow helper logic for the verified-commit action
 - `tests/js/deploy-verified.test.js`: deploy-site action logic (blob SHA, change computation, verified deploy, preview modes)
-- `tests/test_frontend_smoke.py`: browser smoke coverage for gallery load, invalid bootstrap data, search, desk-note filters, pagination, detail overlay, and `404.html`
-- `tests/test_frontend_accessibility.py`: Playwright + axe coverage for root light/dark themes, overlay state, no-results state, and `404.html`, plus explicit contrast assertions
-- `tests/test_frontend_browser_flows.py`: keyboard-only, mobile, reduced-motion, theme persistence, and larger-catalog browser interaction coverage
-- `tests/test_frontend_live.py`: post-deploy browser verification for the published root and `404.html` when `ARTIFACTS_LIVE_SITE_URL` is set
+- `tests/browser/test_frontend_smoke.py`: browser smoke coverage for gallery load, invalid bootstrap data, search, desk-note filters, pagination, detail overlay, and `404.html`
+- `tests/browser/test_frontend_accessibility.py`: Playwright + axe coverage for root light/dark themes, overlay state, no-results state, and `404.html`, plus explicit contrast assertions
+- `tests/browser/test_frontend_browser_flows.py`: keyboard-only, mobile, reduced-motion, theme persistence, and larger-catalog browser interaction coverage
+- `tests/browser/test_frontend_apps_smoke.py`: real app smoke coverage for mature app folders that opt into the shared app system
+- `tests/browser/test_frontend_apps_accessibility.py`: Playwright + axe coverage for mature app shared-shell accessibility and contrast
+- `tests/browser/test_frontend_apps_browser_flows.py`: mature app browser-flow coverage for app-specific interactions and theme behavior
+- `tests/browser/test_frontend_live.py`: post-deploy browser verification for the published root and `404.html` when `ARTIFACTS_LIVE_SITE_URL` is set
 
 ## Accessibility notes for the root shell
 
@@ -54,16 +70,21 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - Artifact cards render as real `<button>` controls so keyboard and screen-reader semantics match the interaction model instead of relying on `role="button"` shims.
 - `js/modules/render.js` gives the detail description a stable ID, and `js/modules/detail-overlay.js` uses it to describe the dialog while artifact links announce that they open in a new tab.
 - `404.html` has explicit focus-visible styling so fallback navigation is keyboard-safe even outside the main app shell.
-- `css/root-gallery-foundation.css` owns the root focus ring tokens and skip-link behavior; `css/root-gallery-artifacts.css` owns accessible contrast tuning for active pagination and detail CTA states.
-- `tests/frontend_helpers.py` fails browser suites on `pageerror`, unexpected `console.error`, failed requests, and HTTP 4xx/5xx responses, and can emit screenshots, traces, and runtime logs for CI artifacts.
+- `css/gallery/12-chrome.css` owns the root focus ring tokens and skip-link behavior; `css/gallery/09-cards.css` owns accessible contrast tuning for active pagination and detail CTA states.
+- `tests/browser/frontend_helpers.py` fails browser suites on `pageerror`, unexpected `console.error`, failed requests, and HTTP 4xx/5xx responses, and can emit screenshots, traces, and runtime logs for CI artifacts.
 
 ## Local vs CI expectations
 
-- `npm run test` runs the JavaScript unit suite with Node's built-in test runner
-- `npm run test:coverage` and `make coverage-js` use Node's built-in experimental coverage report, which currently gates `js/app.js`, `js/modules/*.js`, `.github/actions/verified-commit/*.mjs`, and `.github/actions/deploy-site/*.mjs`
-- `make check-local` runs the fast local gate: lint, non-browser pytest, JavaScript unit tests, JavaScript coverage, dependency audits, and artifact validation
-- `make web` runs browser smoke, accessibility, and browser-flow tests plus thumbnail generation; use `make setup` first so Chromium is available
-- `make check` runs the full local release gate by combining `make check-local`, `make web`, index generation, and deployable site assembly
-- `make test-browser` sets `ARTIFACTS_REQUIRE_BROWSER_TESTS=1`, so browser smoke, accessibility, and browser-flow suites must execute successfully instead of skipping when Chromium is unavailable
+- Use [operations.md](operations.md) as the canonical workflow reference; the targets below are the frontend-specific checkpoints you will use most often.
+- `make test-js` runs the JavaScript unit suite with Node's built-in test runner
+- `make coverage-js` uses Node's built-in experimental coverage report, which covers all source files imported by tests while excluding `node_modules/` and `tests/` -- thresholds and exclusions are configured in `package.json`
+- `make check-local` runs the fast local gate: lint, non-browser Python tests, JavaScript unit tests, JavaScript coverage, dependency audits, artifact validation, and canonical generated-file drift checks
+- `make test-browser-root` runs all root-gallery Playwright suites
+- `make test-browser-root-smoke`, `make test-browser-root-accessibility`, and `make test-browser-root-flows` run the root smoke, accessibility, and browser-flow suites separately
+- `make test-browser-apps` runs all mature app Playwright suites; set `ARTIFACTS_BROWSER_APP_SLUGS` to limit coverage to specific app slugs
+- `make test-browser-apps-smoke`, `make test-browser-apps-accessibility`, and `make test-browser-apps-flows` run the mature app smoke, accessibility, and browser-flow suites separately
+- `make check-web` runs both root and app browser suites plus thumbnail generation; use `make setup-all` first so Chromium is available
+- `make check` runs the full local release gate by combining `make check-local`, `make check-web`, index generation, and deployable site assembly
+- `make test-browser` sets `ARTIFACTS_REQUIRE_BROWSER_TESTS=1`, so root and mature app browser suites must execute successfully instead of skipping when Chromium is unavailable
 - `make test-browser-live` runs the published-site Playwright verification suite when `ARTIFACTS_LIVE_SITE_URL` is set
 - full Istanbul/nyc-style instrumentation is intentionally not added because that would require extra dependencies beyond the current production-readiness scope

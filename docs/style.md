@@ -1,21 +1,19 @@
 # Style Guide
 
-Editor and language conventions for the artifacts workspace. These rules are
-enforced by tooling where possible and by review otherwise.
+Editor and language conventions for the artifacts workspace. These rules are enforced by tooling where possible and by review otherwise.
 
 ## Editor configuration
 
 The `.editorconfig` file at the repository root defines per-filetype settings.
 Most editors and IDEs support it natively or through a plugin.
-`make editorconfig-check` enforces the supported rules for covered repository files in automation, while `make lint` layers language-specific linters on top.
+`make editorconfig-check` enforces the supported rules for covered repository files in automation, while `make lint` layers language-specific linters on top. Both targets are discoverable through `make help`.
 
 Summary of settings:
 
 - All files use UTF-8 encoding, LF line endings, and a trailing newline
-- Trailing whitespace is trimmed (except in markdown, where trailing spaces
-  can be significant)
+- Trailing whitespace is trimmed (except in markdown, where trailing spaces can be significant)
 - Indentation varies by file type (see below)
-- `apps/**` opts out of indentation, trailing-whitespace, and final-newline checks
+- `apps/**/*.js`, `apps/**/*.css`, `apps/**/*.html`, and `apps/**/*.md` now follow the same indentation rules as the rest of the workspace
 
 ## Python
 
@@ -50,34 +48,45 @@ Run `make lint` or `make check-local` to check. Those targets also run the Edito
 - **DOM access:** use `documentObj`/`windowObj` parameters for testability
 - **No `eval`**, no `document.write`, no `innerHTML` with unescaped user input
 
-Run `make lint`, `make coverage-js`, or `make check-local` to check. `make coverage-js` enforces the current baseline across `js/app.js`, `js/modules/*.js`, `.github/actions/verified-commit/*.mjs`, and `.github/actions/deploy-site/*.mjs`.
+Run `make lint`, `make coverage-js`, or `make check-local` to check. `make coverage-js` enforces the current baseline across all source files imported by tests. Thresholds and exclusions are configured in `package.json`.
 
 ## CSS
 
 - **Indent:** 2 spaces
-- **Entry file:** `css/style.css`, which imports the modular `css/root-gallery-*.css` files for the root gallery
+- **Entry file:** `css/style.css`, which imports partials from `css/gallery/` for the root gallery (tokens, reset, header, toolbar, book, cards, detail, responsive, etc.)
+- **Shared app system:** `css/app-tokens.css` defines shared tokens; `css/app-shell.css` imports partials from `css/app/` for the shared mature-app shell patterns
 - **Linter:** stylelint, configured in `stylelint.config.js`
 - **Conventions:**
   - BEM-inspired class names (e.g., `.artifact-card`, `.detail-close`)
-  - CSS custom properties for theming and shared geometry (for example `--color-bg-primary`, `--text-primary`, `--accent`, `--book-sheet-min-height`, `--gallery-*`, and `--desk-note-*`)
+  - CSS custom properties for theming and shared geometry (for example `--color-bg-primary`, `--text-primary`, `--accent`, `--book-sheet-min-height`, `--gallery-*`, `--desk-note-*`, and the shared app-shell tokens)
+  - Mature apps use the bookmark-note palette as the shared source of truth for light and dark themes
+  - Authored app colors should use `rgb()` and `rgba()` values instead of hex literals
   - `prefers-reduced-motion` respected for transitions and animations
-  - Mobile-first responsive breakpoints
+  - Desktop-first responsive breakpoints
 
 Run `make lint-css` or `make lint` to check.
 
 ## HTML
 
 - **Indent:** 2 spaces
-- **Artifacts:** self-contained `index.html` with inline CSS/JS or CDN dependencies
+- **Artifacts:** `index.html` remains the entry point, but mature apps should import the shared app system and keep app-local overrides in `css/app.css` and `js/app.js`
 - **Accessibility:** semantic elements, ARIA attributes, keyboard navigation, focus management
 - **External links:** always include `rel="noopener noreferrer"`
+
+## Mature app contract
+
+- Shared app tokens live in `css/app-tokens.css`
+- Shared mature-app theme bootstrap lives in `js/app-theme.js`, and `js/modules/app-shell.js` owns the reusable shell markup plus shell behavior
+- Mature apps should import the shared app system first, then add local overrides
+- Mature app HTML should keep app-specific body content local, while shell placeholders (`data-app-shell`) let the shared module render the common header, runtime-error banner, and scroll-to-top control
+- App headers should reuse the Artifacts logo, back button, theme toggle, and app-styled scroll-to-top pattern
+- App content containers should stay near `1000px` wide unless a product requirement clearly needs more space
 
 ## YAML
 
 - **Indent:** 2 spaces
 - **Linter:** yamllint with repository overrides in `.yamllint.yml`
-- **GitHub Actions:** pin third-party actions to full commit SHAs with a version comment
-  (e.g., `actions/checkout@abc123 # v6`)
+- **GitHub Actions:** pin third-party actions to full commit SHAs with a version comment (e.g., `actions/checkout@abc123 # v6`)
 
 Run `make lint-yaml` for YAML structure/format checks and `make lint-workflows` for workflow-specific action linting.
 

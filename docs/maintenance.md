@@ -1,102 +1,32 @@
 # Maintenance Notes
 
-## What to keep stable
+This document covers long-term stability contracts and recurring upkeep. It does not repeat day-to-day commands or recovery runbooks.
 
-These are the main cross-cutting pieces that should stay consistent over time:
+- See [`workspace.md`](workspace.md) for file ownership and generated-output ownership.
+- See [`architecture.md`](architecture.md) for the current runtime, build, and CI/CD design.
+- See [`operations.md`](operations.md) for exact commands, troubleshooting, and recovery steps.
 
-- `pyproject.toml` is the source of truth for Python dependencies, test policy, lint policy, and site metadata.
-- `Makefile` is the common interface for local work and CI.
-- `.github/actions/verified-commit/action.yml` and `.github/actions/verified-commit/verified-commit.mjs` centralize the verified commit and PR fallback logic used by CI.
-- `.github/actions/deploy-site/action.yml` and `.github/actions/deploy-site/deploy-verified.mjs` handle verified deploys to `gh-pages` via the GraphQL API, preserving PR preview directories.
-- `scripts/workflow_helpers.py` centralizes workflow trust, artifact-validation, thumbnail invalidation, fallback PR detection, and repository-settings audit helpers so the YAML stays policy-focused and the procedural logic stays testable.
-- `.github/workflows/update.yml` is the main build, validation, and deploy workflow.
-- `.github/workflows/audit-repo-settings.yml` is the read-only drift audit for required external GitHub settings.
-- `.github/workflows/refresh-action-shas.yml` keeps pinned GitHub Actions references current.
-- `.github/workflows/refresh-python-locks.yml` computes Python lock refresh artifacts for same-repo Dependabot pip PRs.
-- `.github/workflows/commit-python-locks.yml` validates and commits those refreshed Python lock artifacts in a separate trusted workflow.
-- `.github/dependabot.yml` handles recurring dependency update checks.
-- `locks/requirements.lock`, `locks/requirements-dev.lock`, and `package-lock.json` keep local and CI installs reproducible.
-- `gh-pages` is a CI-managed deployment branch protected by a ruleset and should not be edited manually.
+## Stability contracts
 
-## When changing CI
+- `Makefile` remains the supported entry point for normal local workflows and the primary entry point for shared CI verification gates.
+- Tool scope should live in its owning config file, primarily `pyproject.toml`, `package.json`, `eslint.config.js`, `stylelint.config.js`, `.yamllint.yml`, and `.editorconfig`. Avoid adding overlapping scope rules in multiple places unless a workflow truly needs a narrow exception.
+- `pyproject.toml` under `[tool.artifacts]` owns the canonical site URL, site path, and repository URL.
+- Generated outputs such as `js/data.js`, `js/gallery-config.js`, README auto markers, `apps/*/thumbnail.webp`, and `_site/` stay outputs. Change their source inputs or generators instead of hand-editing them.
+- `_site/` is the deploy artifact, and `gh-pages` is CI-managed deploy state. Neither should be maintained manually.
+- `.github/workflows/update.yml` owns the main verify and publish flow. Reusable write logic belongs in `.github/actions/deploy-site/*`, `.github/actions/verified-commit/*`, and `scripts/ci/workflow_helpers.py` instead of being copied into workflow YAML.
+- Trusted same-repo PRs may deploy previews and persist thumbnails. Fork PRs remain non-mutating, while same-repo Dependabot pip PRs may receive refreshed Python locks either as a verified branch commit or through a fallback maintenance PR branch.
+- Publish steps deploy the verified `_site/` artifact. They do not rebuild from source during deploy.
 
-If you touch workflow files:
+## Recurring upkeep
 
-1. Prefer extending the existing workflow over cloning logic into another workflow file.
-2. Update the shared verified commit action when commit or PR fallback behavior changes.
-3. Keep action references pinned to full commit SHAs.
-4. Non-fork, non-Dependabot PRs use the escalation app token (Harry1176) for all deploys (main, preview, and cleanup), while fork and Dependabot PRs are excluded from deployment.
-5. Keep local and CI commands aligned through `make`.
-6. Preserve the separation between the source repo and the `_site/` deploy directory.
-7. Keep the PR preview comment recreated on each push so the latest preview link stays easy to find.
-8. Keep read-only verification separate from write-capable publish steps.
-9. Pull repeated workflow constants into top-level or job-level `env` entries before copy-pasting them across steps.
-10. Update `docs/adr/0001-root-publishing-platform.md` if the verified-artifact, fail-closed, or no-source-mutation rules change.
-11. Keep published-site browser verification artifact output under `.artifacts/` so CI can upload traces and screenshots without polluting tracked files.
+- **Workflow changes:** keep action references pinned to full commit SHAs, preserve read-only verification before write-capable publish steps, and keep preview deploy and preview cleanup behavior symmetric.
+- **Generator changes:** update matching tests, keep `make validate` aligned with the artifact folder contract, and update workspace docs when ownership or generated-output boundaries change.
+- **Dependency changes:** keep declarations and lockfiles in sync. Same-repo Dependabot pip PRs rely on `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml` to refresh Python locks back onto the PR branch when possible or through a fallback maintenance PR branch when direct writeback is not possible.
+- **Repository settings:** keep Pages, app IDs, app private keys, branch protection, and the `gh-pages` ruleset aligned with the contract documented in [`architecture.md`](architecture.md#external-github-settings) and audited by `.github/workflows/audit-repo-settings.yml`.
+- **Pinned actions:** add new third-party actions with full SHAs immediately and let `.github/workflows/refresh-action-shas.yml` keep them current later through a direct verified commit or a fallback maintenance PR branch.
 
-## When changing URLs or repo metadata
+## When contracts change
 
-Update `pyproject.toml` under `[tool.artifacts]`.
-
-This is where the repo keeps:
-
-- Canonical site URL.
-- Site path.
-- Repository URL.
-
-Scripts and docs should read from that shared config instead of embedding one-off copies.
-
-The deployed site path used by the 404 fallback is injected into the deploy output from this shared config.
-
-## When changing generators
-
-If you modify `scripts/generate_index.py`, `scripts/generate_thumbnails.py`, or `scripts/prepare_site.py`:
-
-- Update or add tests in `tests/`.
-- Update Node tests in `tests/js/` when shared browser or workflow modules change.
-- Keep `make check-local` green while iterating, and keep `make check` green before shipping.
-- Keep `make validate` aligned with the artifact directory contract when required files change.
-- Preserve the 100% Python coverage gate and the current JavaScript coverage baseline unless there is an explicit decision to relax them.
-- Regenerate derived files when needed with `make index` or `make generate`.
-
-## Thumbnail policy
-
-- CI is allowed to generate thumbnails during pull requests and pushes.
-- Checked-in thumbnails are not required for every local branch state.
-- If thumbnails are removed locally, the gallery data can temporarily contain `thumbnail: null`.
-- Pushes to `main` can regenerate fresh thumbnails in the verified build and deploy them to `gh-pages`, but CI does not commit regenerated thumbnails back to `main`.
-- PR previews can render regenerated thumbnails without committing them back to the source branch.
-
-## Pages preview setup
-
-The preview workflow assumes GitHub Pages serves the repository from the `gh-pages` branch root.
-
-- Main site deploys to the root of `gh-pages`.
-- PR previews deploy under `pr-preview/pr-<number>/`.
-- Main deploys must preserve `pr-preview/`.
-- Do not manually merge or edit `gh-pages`; CI owns it.
-- `gh-pages` ruleset bypass is intentionally limited to the deploy GitHub App and the single repo admin role for recovery.
-
-## Action SHA maintenance
-
-The repo includes a scheduled workflow that refreshes pinned GitHub Action SHAs.
-
-- File: `.github/workflows/refresh-action-shas.yml`.
-- Purpose: keep workflows pinned and reproducible without manual SHA lookup.
-- Expectation: when adding a new external action, pin it immediately and let the refresh workflow keep it current later.
-
-## Dependency lock maintenance
-
-- Python declarations live in `pyproject.toml`, but installs should flow through `locks/requirements.lock` and `locks/requirements-dev.lock`.
-- Node declarations live in `package.json`, but installs should flow through `package-lock.json`.
-- Same-repo Dependabot pip PRs refresh `locks/requirements.lock` and `locks/requirements-dev.lock` automatically through `.github/workflows/refresh-python-locks.yml`.
-- After Python dependency changes, run `make lock`, `make check-local`, and `make check` when browser or deploy behavior is affected.
-- After Node dependency changes, refresh `package-lock.json` with npm tooling, then run `npm ci`, `make check-local`, and `make check`.
-- If the Playwright accessibility suite changes, keep `axe-core` pinned in `package-lock.json` and refresh the lockfile deliberately.
-
-## Good maintenance habits
-
-- Prefer central config over scattered constants.
-- Prefer one well-structured workflow path over several partially duplicated ones.
-- Keep README high level and keep deeper operational detail in `docs/`.
-- Treat generated files as outputs, not primary editing targets.
+- Update [`docs/adr/0001-root-publishing-platform.md`](adr/0001-root-publishing-platform.md) if the verified-artifact, fail-closed, or branch-mutation guardrails change.
+- Update [`docs/adr/0002-shared-app-system-and-thumbnail-persistence.md`](adr/0002-shared-app-system-and-thumbnail-persistence.md) if thumbnail persistence or the shared app-system contract changes.
+- Update [`docs/adr/0003-makefile-first-and-single-source-of-truth.md`](adr/0003-makefile-first-and-single-source-of-truth.md) if the Makefile-first or single-source-of-truth policy changes.
