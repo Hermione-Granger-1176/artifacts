@@ -10,8 +10,7 @@ def reject_symlinks(root: Path) -> None:
 
     Walks the directory tree rooted at *root* without following symlinks.
     Both symlinked files and symlinked directories are rejected on first
-    encounter.  Symlinked directories are pruned from further traversal so
-    the walk never follows them.
+    encounter.
 
     Args:
         root: Directory tree to scan.
@@ -26,7 +25,3 @@ def reject_symlinks(root: Path) -> None:
                 raise ValueError(
                     f"Refusing to process tree containing symlink: {path}"
                 )
-
-        dirnames[:] = [
-            name for name in dirnames if not (Path(walk_root) / name).is_symlink()
-        ]

@@ -45,9 +45,10 @@ def test_app_runtime_error_banner_is_visible_when_bootstrap_fails(
 ) -> None:
     deploy_root = build_real_site(tmp_path, monkeypatch)
     app_script = deploy_root / "apps" / "tokenizer-explorer" / "js" / "app.js"
-    broken_script = (
-        app_script.read_text(encoding="utf-8")
-        + "\nthrow new Error('broken startup');\n"
+    original = app_script.read_text(encoding="utf-8")
+    broken_script = original.replace(
+        "run: () => {",
+        "run: () => { throw new Error('broken startup');",
     )
     app_script.write_text(broken_script, encoding="utf-8")
 
