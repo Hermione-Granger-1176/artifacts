@@ -24,6 +24,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 from scripts import REPO_ROOT
+from scripts.build.index_sources import artifact_url, read_artifact_contract_file
 from scripts.lib.app_discovery import _thumbnail_file
 from scripts.lib.path_validation import reject_symlinks
 from scripts.lib.project_config import load_artifacts_setting
@@ -35,7 +36,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
 DEPLOY_DIR = REPO_ROOT / "_site"
-DEPLOY_ITEMS = ("404.html", "apps", "assets", "css", "index.html", "js")
 GIT_COMMAND_TIMEOUT_SECONDS = 10
 ROOT_STYLESHEET_IMPORT_PATTERN = re.compile(r'@import url\("(\./[^"?]+\.css)"\);')
 DEPLOY_METADATA_FILE = "deploy-metadata.json"
@@ -48,6 +48,22 @@ APP_TITLE_PLACEHOLDER = "__APP_TITLE__"
 APP_DESCRIPTION_PLACEHOLDER = "__APP_DESCRIPTION__"
 APP_SHARE_IMAGE_PLACEHOLDER = "__APP_THUMBNAIL_URL__"
 SHARE_IMAGE_PATH = "assets/social/share-preview.png"
+ARTIFACT_CONTRACT_FILE = REPO_ROOT / "config" / "artifact_contract.json"
+
+
+def _artifact_contract() -> dict[str, str]:
+    """Return the validated shared artifact contract."""
+    return read_artifact_contract_file(ARTIFACT_CONTRACT_FILE)
+
+
+def _artifact_base_path() -> str:
+    """Return the top-level artifact directory from the shared contract."""
+    return _artifact_contract()["artifactBasePath"]
+
+
+def _deploy_items() -> tuple[str, ...]:
+    """Return deploy inputs including the configured artifact root."""
+    return ("404.html", _artifact_base_path(), "assets", "css", "index.html", "js")
 
 
 def _normalize_site_path(value: str) -> str:
@@ -108,7 +124,7 @@ def _copy_deploy_items() -> None:
 
     DEPLOY_DIR.mkdir(parents=True)
 
-    for item in DEPLOY_ITEMS:
+    for item in _deploy_items():
         source = REPO_ROOT / item
         target = DEPLOY_DIR / item
         _copy_deploy_item(source, target)
@@ -177,7 +193,7 @@ def _patch_social_metadata(site_url: str, version: str) -> None:
 
 def _patch_app_social_metadata(site_url: str, version: str) -> None:
     """Inject canonical URLs and per-app thumbnail URLs where placeholders exist."""
-    apps_dir = DEPLOY_DIR / "apps"
+    apps_dir = DEPLOY_DIR / _artifact_base_path()
     if not apps_dir.exists():
         return
 
@@ -201,7 +217,7 @@ def _patch_app_social_metadata(site_url: str, version: str) -> None:
         if description_path.exists():
             description = description_path.read_text(encoding="utf-8").strip()
 
-        app_url = urljoin(site_url, f"apps/{app_dir.name}/")
+        app_url = urljoin(site_url, artifact_url(_artifact_contract(), app_dir.name))
         thumbnail_url = f"{urljoin(app_url, _thumbnail_file())}?v={version}"
 
         candidates = {

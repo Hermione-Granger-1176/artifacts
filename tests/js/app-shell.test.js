@@ -111,6 +111,8 @@ test('renderAppShell fills shared shell placeholders', () => {
   assert.match(slots['[data-app-shell="header"]'].innerHTML, /id="theme-toggle"/);
   assert.match(slots['[data-app-shell="header"]'].innerHTML, /href="\.\.\/"/);
   assert.match(slots['[data-app-shell="runtime-error"]'].innerHTML, /id="runtime-error"/);
+  assert.match(slots['[data-app-shell="runtime-error"]'].innerHTML, /id="runtime-error-details"/);
+  assert.match(slots['[data-app-shell="runtime-error"]'].innerHTML, /id="runtime-error-copy"/);
   assert.match(slots['[data-app-shell="scroll-top"]'].innerHTML, /id="scroll-top"/);
 });
 

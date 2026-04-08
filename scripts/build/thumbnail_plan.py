@@ -7,7 +7,9 @@ from pathlib import Path
 from typing import cast
 
 from scripts.ci.repo_audit import require_response_type
+from scripts.build.index_sources import artifact_url
 from scripts.lib.app_discovery import (
+    _artifact_base_path,
     _load_contract,
     missing_thumbnail_slugs,
     runtime_change_plan,
@@ -156,7 +158,7 @@ def thumbnail_plan(
     commit_sha: str,
     head_repo_fork: bool = False,
     pr_author: str = "",
-    apps_root: Path = Path("apps"),
+    apps_root: Path | None = None,
     app_token_allowed_fn,
     list_changed_files_fn=list_changed_files,
     missing_thumbnail_slugs_fn=missing_thumbnail_slugs,
@@ -164,6 +166,7 @@ def thumbnail_plan(
     associated_pr_kind_for_commit_fn=associated_pr_kind_for_commit,
 ) -> dict[str, object]:
     """Return the strict thumbnail automation plan for one workflow event."""
+    apps_root = apps_root or Path(_artifact_base_path())
     changed_files = list_changed_files_fn(
         event_name=event_name,
         repo=repo,
@@ -247,7 +250,7 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
             if relative == THUMBNAIL_ARTIFACT_PLAN_FILE.as_posix():
                 continue
 
-            if not Path(relative).match(f"apps/*/{_THUMBNAIL_FILE}"):
+            if not Path(relative).match(f"{_artifact_base_path()}/*/{_THUMBNAIL_FILE}"):
                 raise ValueError(f"Unexpected file in thumbnail artifact: {relative}")
 
             saw_thumbnail = True
@@ -258,14 +261,16 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
                 )
 
     if plan.get("persist_mode") != "none" and not saw_thumbnail:
-        raise ValueError(f"Thumbnail artifact has no {_THUMBNAIL_FILE} files to persist")
+        raise ValueError(
+            f"Thumbnail artifact has no {_THUMBNAIL_FILE} files to persist"
+        )
 
     return plan
 
 
 def thumbnail_targets(*, app_scope: str, changed_slugs: list[str]) -> list[Path]:
     """Return thumbnail paths that should be invalidated for the runtime scope."""
-    apps_root = Path("apps")
+    apps_root = Path(_artifact_base_path())
 
     if app_scope == "all":
         if not apps_root.exists():

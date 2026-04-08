@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { performance } from 'node:perf_hooks';
 
 import {
   filterAndSortArtifacts,
@@ -85,4 +86,32 @@ test('filterAndSortArtifacts filters by search/tool/tag and sort order', () => {
 
 test('getPageNumbers collapses long page ranges', () => {
   assert.deepEqual(getPageNumbers(5, 10), [1, 2, '...', 4, 5, 6, '...', 9, 10]);
+});
+
+
+test('filterAndSortArtifacts stays responsive on a larger catalog fixture', () => {
+  const artifacts = hydrateArtifacts(
+    Array.from({ length: 500 }, (_, index) => ({
+      id: `artifact-${String(index + 1).padStart(3, '0')}`,
+      name: `Artifact ${index + 1}`,
+      description: index % 2 === 0 ? 'Finance helper and calculator' : 'LLM education explorer',
+      tags: index % 3 === 0 ? ['finance', 'calculator'] : ['ai', 'education'],
+      tools: index % 2 === 0 ? ['claude'] : ['chatgpt'],
+      url: `apps/artifact-${String(index + 1).padStart(3, '0')}/`,
+      thumbnail: null
+    }))
+  );
+
+  const startedAt = performance.now();
+  const filtered = filterAndSortArtifacts(artifacts, {
+    currentFilter: 'helper',
+    currentSort: 'newest',
+    currentTags: ['finance'],
+    currentTools: ['claude']
+  });
+  const durationMs = performance.now() - startedAt;
+
+  assert.equal(filtered.length > 0, true);
+  assert.equal(filtered[0].id, 'artifact-499');
+  assert.equal(durationMs < 50, true);
 });

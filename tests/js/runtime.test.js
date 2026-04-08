@@ -9,6 +9,13 @@ function createWindowStub() {
 
   return {
     __ARTIFACTS_ERROR_HANDLERS_BOUND__: false,
+    location: { href: 'https://example.com/apps/demo/' },
+    navigator: {
+      clipboard: {
+        async writeText() {}
+      },
+      userAgent: 'Test Browser'
+    },
     addEventListener(type, handler) {
       listeners.set(type, handler);
     },
@@ -27,6 +34,7 @@ function createWindowStub() {
 }
 
 function createDocumentStub() {
+  const clickListeners = [];
   const runtimeErrorBanner = {
     className: 'runtime-error hidden',
     classList: {
@@ -40,14 +48,46 @@ function createDocumentStub() {
     }
   };
 
+  const runtimeErrorDetails = { hidden: true };
+  const runtimeErrorOutput = { textContent: '' };
+  const runtimeErrorCopy = {
+    hidden: true,
+    textContent: 'Copy error details',
+    attrs: {},
+    setAttribute(name, value) {
+      this.attrs[name] = value;
+    },
+    removeAttribute(name) {
+      delete this.attrs[name];
+    }
+  };
+
   return {
     documentElement: {
       dataset: {}
     },
-    getElementById(id) {
-      return id === 'runtime-error' ? runtimeErrorBanner : null;
+    addEventListener(type, handler) {
+      if (type === 'click') {
+        clickListeners.push(handler);
+      }
     },
-    runtimeErrorBanner
+    dispatchClick(target) {
+      for (const handler of clickListeners) {
+        handler({ target });
+      }
+    },
+    getElementById(id) {
+      return {
+        'runtime-error': runtimeErrorBanner,
+        'runtime-error-copy': runtimeErrorCopy,
+        'runtime-error-details': runtimeErrorDetails,
+        'runtime-error-output': runtimeErrorOutput
+      }[id] ?? null;
+    },
+    runtimeErrorBanner,
+    runtimeErrorCopy,
+    runtimeErrorDetails,
+    runtimeErrorOutput
   };
 }
 
@@ -87,6 +127,10 @@ test('runtime reveals the error banner for fatal errors', () => {
 
   assert.equal(documentObj.documentElement.dataset.runtimeStatus, 'error');
   assert.equal(documentObj.runtimeErrorBanner.classList.removed, true);
+  assert.equal(documentObj.runtimeErrorDetails.hidden, false);
+  assert.match(documentObj.runtimeErrorOutput.textContent, /Context: gallery initialization/);
+  assert.match(documentObj.runtimeErrorOutput.textContent, /Message: fatal boom/);
+  assert.equal(documentObj.runtimeErrorCopy.hidden, false);
 });
 
 test('runtime falls back when storage access throws', () => {
@@ -156,6 +200,25 @@ test('runtime suppresses expected bootstrap validation console noise', () => {
   );
 
   assert.deepEqual(errors, []);
+});
+
+
+test('runtime copy diagnostics is a safe no-op without clipboard access', async () => {
+  const documentObj = createDocumentStub();
+  const windowObj = createWindowStub();
+  windowObj.navigator = { userAgent: 'Test Browser' };
+  const runtime = createRuntime({ consoleObj: { error() {} }, documentObj, windowObj });
+
+  runtime.reportError(new Error('fatal boom'), 'gallery initialization', { fatal: true });
+  const target = {
+    closest(selector) {
+      return selector === '#runtime-error-copy' ? documentObj.runtimeErrorCopy : null;
+    }
+  };
+  documentObj.dispatchClick(target);
+
+  await Promise.resolve();
+  assert.equal(documentObj.runtimeErrorCopy.textContent, 'Copy error details');
 });
 
 test('standalone readStorage reads from window.localStorage', () => {

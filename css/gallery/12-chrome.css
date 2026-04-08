@@ -19,6 +19,36 @@
   font-size: 1.1rem;
 }
 
+.runtime-error-details {
+  margin-top: 0.75rem;
+}
+
+.runtime-error-details summary {
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.runtime-error-output {
+  margin: 0.65rem 0 0;
+  padding: 0.75rem;
+  overflow-x: auto;
+  border-radius: 12px;
+  background: rgba(45, 32, 23, 0.08);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.runtime-error-copy {
+  margin-top: 0.65rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--color-border-solid);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
 /* ================================================================
    Scroll-to-Top
    ================================================================ */

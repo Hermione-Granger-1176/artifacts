@@ -11,6 +11,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+      issues: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -28,16 +29,67 @@ jobs:
           escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
 
       - name: Audit repository settings
+        id: audit
         env:
           GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
         run: |
+          set +e
           python3 scripts/ci/workflow_helpers.py audit-repo-settings \
             --repo "${{ github.repository }}" \
             --default-branch main \
             --pages-branch gh-pages | tee audit-repo-settings.json
+          status=$?
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Open or update repository settings drift issue
+        if: steps.audit.outputs.status != '0'
+        id: drift-issue
+        env:
+          GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
+        run: |
+          body=$(cat <<'EOF'
+          Repository settings drift was detected by the scheduled audit workflow.
+
+          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Current failure output:
+          ```text
+          $(cat audit-repo-settings.json)
+          ```
+          EOF
+          )
+          issue_url=$(python3 scripts/ci/workflow_helpers.py sync-alert-issue \
+            --repo "${{ github.repository }}" \
+            --title "Repository settings drift detected" \
+            --body "$body" \
+            --label ops \
+            --label ci \
+            --should-exist true)
+          echo "url=$issue_url" >> "$GITHUB_OUTPUT"
+
+      - name: Close repository settings drift issue when clean
+        if: steps.audit.outputs.status == '0'
+        env:
+          GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
+        run: |
+          body=$(cat <<'EOF'
+          Repository settings drift is no longer detected.
+
+          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
+          )
+          python3 scripts/ci/workflow_helpers.py sync-alert-issue \
+            --repo "${{ github.repository }}" \
+            --title "Repository settings drift detected" \
+            --body "$body" \
+            --label ops \
+            --label ci \
+            --should-exist false >/dev/null
 
       - name: Summarize audit
-        if: success()
+        if: steps.audit.outputs.status == '0'
         run: |
           {
             echo "## Repository settings audit"
@@ -48,10 +100,16 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summarize audit failure
-        if: failure()
+        if: steps.audit.outputs.status != '0'
         run: |
           {
             echo "## Repository settings audit failed"
             echo
-            echo "Inspect the failed \`audit-repo-settings\` step for the exact drift report."
+            echo "Inspect the \`audit-repo-settings\` output in this run for the exact drift report."
+            echo
+            echo "Issue: ${{ steps.drift-issue.outputs.url || 'issue not created' }}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail workflow when audit detects drift
+        if: steps.audit.outputs.status != '0'
+        run: exit 1

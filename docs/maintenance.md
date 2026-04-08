@@ -23,6 +23,7 @@ This document covers long-term stability contracts and recurring upkeep. It does
 - **Generator changes:** update matching tests, keep `make validate` aligned with the artifact folder contract, and update workspace docs when ownership or generated-output boundaries change.
 - **Dependency changes:** keep declarations and lockfiles in sync. Same-repo Dependabot pip PRs rely on `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml` to refresh Python locks back onto the PR branch when possible or through a fallback maintenance PR branch when direct writeback is not possible.
 - **Repository settings:** keep Pages, app IDs, app private keys, branch protection, and the `gh-pages` ruleset aligned with the contract documented in [`architecture.md`](architecture.md#external-github-settings) and audited by `.github/workflows/audit-repo-settings.yml`.
+- **Scheduled monitoring:** keep `.github/workflows/live-site-smoke.yml` and `.github/workflows/audit-repo-settings.yml` issue titles stable so their alert issues can be updated and auto-closed instead of duplicating.
 - **Pinned actions:** add new third-party actions with full SHAs immediately and let `.github/workflows/refresh-action-shas.yml` keep them current later through a direct verified commit or a fallback maintenance PR branch.
 
 ## When contracts change

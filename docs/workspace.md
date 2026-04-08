@@ -90,6 +90,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `.github/actions/verified-commit/action.yml` and `.github/actions/verified-commit/verified-commit.mjs`: shared verified commit and PR fallback logic for CI
 - `.github/actions/deploy-site/action.yml` and `.github/actions/deploy-site/deploy-verified.mjs`: verified deploy logic for `gh-pages` (full site, preview deploy, and preview removal)
 - `.github/workflows/update.yml`: main automation workflow for pushes, PR previews, and manual runs
+- `.github/workflows/live-site-smoke.yml`: scheduled live published-site browser smoke checks with issue-based alerting
 
 ## Generated and derived files
 

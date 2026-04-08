@@ -54,6 +54,80 @@ function shouldIgnoreRuntimeError(message) {
   return normalizedMessage.includes('window.artifacts_data must be an array');
 }
 
+function buildErrorSummary(errorRecord, documentObj, windowObj) {
+  const locationHref = windowObj?.location?.href || '';
+  const userAgent = windowObj?.navigator?.userAgent || '';
+  const theme = documentObj?.documentElement?.dataset?.theme || '';
+  const runtimeStatus = documentObj?.documentElement?.dataset?.runtimeStatus || '';
+  const summary = [
+    `Context: ${errorRecord.context}`,
+    `Message: ${errorRecord.message}`,
+    `Fatal: ${errorRecord.fatal ? 'yes' : 'no'}`,
+    `Timestamp: ${errorRecord.timestamp}`
+  ];
+
+  if (locationHref) {
+    summary.push(`URL: ${locationHref}`);
+  }
+  if (theme) {
+    summary.push(`Theme: ${theme}`);
+  }
+  if (runtimeStatus) {
+    summary.push(`Runtime status: ${runtimeStatus}`);
+  }
+  if (userAgent) {
+    summary.push(`User agent: ${userAgent}`);
+  }
+
+  return summary.join('\n');
+}
+
+function updateRuntimeDiagnostics(documentObj, state) {
+  const details = documentObj.getElementById('runtime-error-details');
+  const output = documentObj.getElementById('runtime-error-output');
+  const copyButton = documentObj.getElementById('runtime-error-copy');
+  const summary = state.lastError?.summary || '';
+  const hasSummary = Boolean(summary);
+
+  if (details) {
+    details.hidden = !hasSummary;
+  }
+  if (output) {
+    output.textContent = summary;
+  }
+  if (copyButton) {
+    copyButton.hidden = !hasSummary;
+    if (!hasSummary) {
+      copyButton.textContent = 'Copy error details';
+      copyButton.removeAttribute('data-copy-state');
+    }
+  }
+}
+
+async function copyRuntimeDiagnostics(state, windowObj, documentObj) {
+  const summary = state.lastError?.summary || '';
+  if (!summary) {
+    return false;
+  }
+
+  const writeText = windowObj?.navigator?.clipboard?.writeText;
+  if (typeof writeText !== 'function') {
+    return false;
+  }
+
+  try {
+    await writeText.call(windowObj.navigator.clipboard, summary);
+    const copyButton = documentObj.getElementById('runtime-error-copy');
+    if (copyButton) {
+      copyButton.textContent = 'Copied';
+      copyButton.setAttribute('data-copy-state', 'copied');
+    }
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
 /**
  * Create a runtime instance providing error reporting, storage access, and lifecycle status.
  * @param {{ consoleObj?: Console, documentObj?: Document, windowObj?: Window }} [options={}]
@@ -79,6 +153,15 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
 
   windowObj.__ARTIFACTS_RUNTIME__ = state;
   documentObj.documentElement.dataset.runtimeStatus = 'booting';
+  if (typeof documentObj.addEventListener === 'function') {
+    documentObj.addEventListener('click', (event) => {
+      const copyButton = event.target?.closest?.('#runtime-error-copy');
+      if (!copyButton) {
+        return;
+      }
+      void copyRuntimeDiagnostics(state, windowObj, documentObj);
+    });
+  }
 
   const setStatus = (value) => {
     documentObj.documentElement.dataset.runtimeStatus = value;
@@ -89,8 +172,11 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
       context,
       message: normalizeErrorMessage(error),
       fatal,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      summary: ''
     };
+    state.lastError.summary = buildErrorSummary(state.lastError, documentObj, windowObj);
+    updateRuntimeDiagnostics(documentObj, state);
 
     if (fatal) {
       setStatus('error');

@@ -1,0 +1,112 @@
+name: Live Site Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 1
+
+      - name: CI setup
+        id: setup
+        uses: ./.github/actions/ci-setup
+        with:
+          event-name: ${{ github.event_name }}
+          app-id: ${{ vars.APP_ID }}
+          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          escalation-app-id: ${{ vars.ESCALATION_APP_ID }}
+          escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
+          python-version: '3.12'
+          node-version: '24'
+          install-deps: 'true'
+
+      - name: Resolve live site URL
+        id: site-url
+        run: |
+          site_url=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['tool']['artifacts']['site_url'])")
+          echo "url=${site_url}" >> "$GITHUB_OUTPUT"
+
+      - name: Run published-site browser verification
+        id: smoke
+        env:
+          ARTIFACTS_LIVE_SITE_URL: ${{ steps.site-url.outputs.url }}
+          ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-live/scheduled-smoke
+        run: |
+          set +e
+          make test-browser-live
+          status=$?
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload live-site smoke failure artifacts
+        if: steps.smoke.outputs.status != '0'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: live-site-smoke-artifacts-${{ github.run_id }}
+          path: .artifacts/browser-live
+          if-no-files-found: ignore
+          overwrite: true
+
+      - name: Open or update live-site smoke issue
+        if: steps.smoke.outputs.status != '0'
+        id: live-issue
+        env:
+          GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
+        run: |
+          artifact_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          body=$(printf '%s
+            'Scheduled live-site smoke checks failed.' \
+            "Workflow run: $artifact_url" \
+            'If artifacts were uploaded, inspect the failure screenshot, trace, and runtime logs from this run.' \
+            'Published URL:' \
+            "${{ steps.site-url.outputs.url }}")
+          issue_url=$(python3 scripts/ci/workflow_helpers.py sync-alert-issue \
+            --repo "${{ github.repository }}" \
+            --title "Live site smoke check failed" \
+            --body "$body" \
+            --label ops \
+            --label ci \
+            --should-exist true)
+          echo "url=$issue_url" >> "$GITHUB_OUTPUT"
+
+      - name: Close live-site smoke issue when clean
+        if: steps.smoke.outputs.status == '0'
+        env:
+          GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
+        run: |
+          body=$(printf '%s
+            'Scheduled live-site smoke checks are passing again.' \
+            "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
+          python3 scripts/ci/workflow_helpers.py sync-alert-issue \
+            --repo "${{ github.repository }}" \
+            --title "Live site smoke check failed" \
+            --body "$body" \
+            --label ops \
+            --label ci \
+            --should-exist false >/dev/null
+
+      - name: Summarize live-site smoke failure
+        if: steps.smoke.outputs.status != '0'
+        run: |
+          {
+            echo "## Live site smoke failed"
+            echo
+            echo "Published URL: ${{ steps.site-url.outputs.url }}"
+            echo "Issue: ${{ steps.live-issue.outputs.url || 'issue not created' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail workflow on smoke regression
+        if: steps.smoke.outputs.status != '0'
+        run: exit 1

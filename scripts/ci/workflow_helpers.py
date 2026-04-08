@@ -28,6 +28,7 @@ import time
 from pathlib import Path
 
 from scripts.build import thumbnail_plan as _thumbnail_plan
+from scripts.ci import issue_alerts as _issue_alerts
 from scripts.ci import repo_audit as _repo_audit
 from scripts.lib import app_discovery as _app_discovery
 from scripts.lib import gh_api as _gh_api
@@ -139,6 +140,28 @@ def _run_gh_api_json(endpoint: str, *, description: str) -> object:
     )
 
 
+def _run_gh_api_form(
+    endpoint: str,
+    *,
+    method: str,
+    fields: list[tuple[str, str]],
+    description: str,
+    jq_expr: str = "",
+) -> str:
+    """Run ``gh api`` with form fields and the shared retry/timeout behavior."""
+    return _gh_api.run_gh_api_form(
+        endpoint,
+        method=method,
+        fields=fields,
+        description=description,
+        jq_expr=jq_expr,
+        max_attempts=GH_API_MAX_ATTEMPTS,
+        retry_delay_seconds=GH_API_RETRY_DELAY_SECONDS,
+        sleep_fn=time.sleep,
+        timeout_seconds=GH_API_TIMEOUT_SECONDS,
+    )
+
+
 discover_app_slugs = _app_discovery.discover_app_slugs
 missing_thumbnail_slugs = _app_discovery.missing_thumbnail_slugs
 runtime_change_plan = _app_discovery.runtime_change_plan
@@ -242,6 +265,37 @@ def invalidate_thumbnails(
     )
 
 
+def _issue_payloads_by_title(repo: str, title: str) -> list[dict[str, object]]:
+    """Return open issue payloads whose title exactly matches ``title``."""
+    return _issue_alerts.issue_payloads_by_title(
+        repo,
+        title,
+        run_gh_api_json_fn=_run_gh_api_json,
+    )
+
+
+def sync_alert_issue(
+    *,
+    repo: str,
+    title: str,
+    body: str,
+    labels: list[str],
+    issue_url: str = "",
+    should_exist: bool,
+) -> str:
+    """Create, update, close, or reuse one alert issue addressed by exact title."""
+    del issue_url
+    return _issue_alerts.sync_alert_issue(
+        repo=repo,
+        title=title,
+        body=body,
+        labels=labels,
+        should_exist=should_exist,
+        issue_payloads_by_title_fn=_issue_payloads_by_title,
+        run_gh_api_form_fn=_run_gh_api_form,
+    )
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Workflow helper commands")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -296,6 +350,17 @@ def _build_parser() -> argparse.ArgumentParser:
     audit_parser.add_argument("--repo", required=True)
     audit_parser.add_argument("--default-branch", default="main")
     audit_parser.add_argument("--pages-branch", default="gh-pages")
+
+    alert_parser = subparsers.add_parser(
+        "sync-alert-issue",
+        help="Ensure one GitHub issue exists or is closed for a monitored alert",
+    )
+    alert_parser.add_argument("--repo", required=True)
+    alert_parser.add_argument("--title", required=True)
+    alert_parser.add_argument("--body", required=True)
+    alert_parser.add_argument("--label", action="append", default=[])
+    alert_parser.add_argument("--issue-url", default="")
+    alert_parser.add_argument("--should-exist", required=True)
 
     return parser
 
@@ -368,6 +433,20 @@ def _handle_audit_repo_settings(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_sync_alert_issue(args: argparse.Namespace) -> int:
+    """Synchronize one alert issue with the current monitored state."""
+    issue_url = sync_alert_issue(
+        repo=args.repo,
+        title=args.title,
+        body=args.body,
+        labels=args.label,
+        issue_url=args.issue_url,
+        should_exist=_parse_bool(args.should_exist),
+    )
+    print(issue_url)
+    return 0
+
+
 COMMAND_HANDLERS = {
     "app-token-policy": _handle_app_token_policy,
     "read-lock-metadata": _handle_read_lock_metadata,
@@ -376,6 +455,7 @@ COMMAND_HANDLERS = {
     "thumbnail-plan": _handle_thumbnail_plan,
     "validate-thumbnail-artifact": _handle_validate_thumbnail_artifact,
     "audit-repo-settings": _handle_audit_repo_settings,
+    "sync-alert-issue": _handle_sync_alert_issue,
 }
 
 

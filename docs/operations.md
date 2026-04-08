@@ -56,6 +56,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - `make check-generated` reruns the index generator in a restore-safe mode and fails if `README.md`, `js/data.js`, or `js/gallery-config.js` would drift from tracked source inputs.
 - Playwright browser suites validate both the built root gallery and mature app pages through `make test-browser`, while CI selectively scopes mature app suites with `ARTIFACTS_BROWSER_APP_SLUGS`.
 - `make test-browser-live` verifies an already-published site in a real browser when `ARTIFACTS_LIVE_SITE_URL` is set, and CI captures failure screenshots/traces/logs through `ARTIFACTS_BROWSER_ARTIFACT_DIR`.
+- Scheduled CI monitoring now uses GitHub-native issue alerts: `.github/workflows/audit-repo-settings.yml` opens/closes a single repository-settings drift issue, and `.github/workflows/live-site-smoke.yml` opens/closes a single live-site smoke issue.
 - `make check-local` is the fast local gate without browser Playwright suites or thumbnail generation, and it includes the canonical generated-file drift check.
 - `make test-browser-root-smoke`, `make test-browser-root-accessibility`, and `make test-browser-root-flows` let you run the root gallery Playwright suites separately.
 - `make test-browser-apps-smoke`, `make test-browser-apps-accessibility`, and `make test-browser-apps-flows` let you run the mature app Playwright suites separately while preserving `make test-browser-apps` as the aggregate app gate.
@@ -143,6 +144,7 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
 - If `make security` fails on the Python audit, either a new vulnerability needs triage, an exception review date has expired, an exception no longer matches the current lock files, or a fix is now available and the temporary exception must be removed.
 - If the post-deploy verifier flakes, inspect both the published `?v=<sha>` asset query strings and the deployed `deploy-metadata.json` payload before rerunning.
 - If live browser verification fails in CI, download the `live-browser-artifacts-<run_id>` artifact for screenshots, traces, and runtime error logs.
+- If the daily live-site smoke workflow fails, inspect the `live-site-smoke-artifacts-<run_id>` artifact and the automatically managed GitHub issue before rerunning.
 - If README auto markers are removed or duplicated, `scripts/build/generate_index.py` fails fast instead of silently corrupting the file.
 - If no artifacts exist, the index generator still writes a valid empty `js/data.js`.
 - If Python dependency declarations change, rerun `make lock` before committing.

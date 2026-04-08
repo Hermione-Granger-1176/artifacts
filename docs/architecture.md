@@ -257,13 +257,19 @@ graph TD
     subgraph "Repo settings audit (weekly)"
         audit_schedule["Monday 8:23 UTC / manual"] --> audit["audit-repo-settings<br/>Check Pages, branch protection,<br/>variables, secrets, gh-pages ruleset<br/>Report drift"]
     end
+
+    subgraph "Live smoke (daily)"
+        smoke_schedule["Daily 06:17 UTC / manual"] --> live_smoke["live-site-smoke<br/>Run make test-browser-live<br/>against published site<br/>Open or close alert issue"]
+    end
 ```
 
 **Python lock refresh** keeps Dependabot pip PRs self-contained: when a Dependabot PR changes `pyproject.toml`, `refresh-python-locks.yml` runs `make lock` on the PR branch and uploads the refreshed lock files as an artifact. Then `commit-python-locks.yml` (triggered by `workflow_run`) downloads the artifact, validates it (checks for symlinks, required files, and PR metadata), verifies the PR branch hasn't moved, and uses the shared verified-commit flow to write the refreshed locks back to the PR branch or fall back to a maintenance PR branch when a direct write is not possible.
 
 **Action SHA refresh** runs monthly to keep pinned action references current. It scans all workflow files for `uses:` lines, resolves each ref to a commit SHA via the GitHub API, and updates the files.
 
-**Repo settings audit** runs weekly and on manual dispatch. It calls `scripts/ci/workflow_helpers.py audit-repo-settings` to check that Pages, branch protection, repository variables/secrets, and the gh-pages ruleset match the expected contract. Drift is reported to the step summary.
+**Repo settings audit** runs weekly and on manual dispatch. It calls `scripts/ci/workflow_helpers.py audit-repo-settings` to check that Pages, branch protection, repository variables/secrets, and the gh-pages ruleset match the expected contract. Drift is reported to the step summary, opens or updates a dedicated GitHub issue, and closes that issue automatically once the audit passes again.
+
+**Live site smoke** runs daily and on manual dispatch. It executes `make test-browser-live` against the published site URL, uploads Playwright failure artifacts on regression, opens or updates a dedicated GitHub issue when the live smoke test fails, and closes that issue automatically once the live site passes again.
 
 ### Workflow reference
 
@@ -271,6 +277,7 @@ graph TD
 | -------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `update.yml`               | push to main, PR (open/sync/close), manual               | plan, verify, secret-scan, dependency-review, publish, persist-thumbnails, cleanup-preview |
 | `audit-repo-settings.yml`  | weekly Mon 8:23 UTC, manual                              | audit                                                                                      |
+| `live-site-smoke.yml`      | daily 06:17 UTC, manual                                  | smoke                                                                                      |
 | `refresh-python-locks.yml` | Same-repo Dependabot pip PR with `pyproject.toml` change | refresh-locks                                                                              |
 | `commit-python-locks.yml`  | after refresh-python-locks completes                     | commit-locks                                                                               |
 | `refresh-action-shas.yml`  | monthly 1st 3:00 UTC, manual                             | refresh                                                                                    |

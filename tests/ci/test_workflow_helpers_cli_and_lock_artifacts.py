@@ -174,3 +174,32 @@ def test_main_rejects_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     with pytest.raises(ValueError, match="Unsupported command"):
         workflow_helpers.main([])
+
+
+def test_main_sync_alert_issue_prints_issue_url(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        workflow_helpers,
+        "sync_alert_issue",
+        lambda **kwargs: "https://github.com/owner/repo/issues/3",
+    )
+
+    exit_code = workflow_helpers.main(
+        [
+            "sync-alert-issue",
+            "--repo",
+            "owner/repo",
+            "--title",
+            "Artifact alert",
+            "--body",
+            "Body",
+            "--label",
+            "ci",
+            "--should-exist",
+            "true",
+        ]
+    )
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.strip() == "https://github.com/owner/repo/issues/3"

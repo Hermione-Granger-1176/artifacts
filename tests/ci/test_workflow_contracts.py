@@ -233,12 +233,41 @@ def test_commit_python_locks_workflow_keeps_validation_and_verified_commit_steps
 
 def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     audit = _load_workflow("audit-repo-settings.yml")
+    live_smoke = _load_workflow("live-site-smoke.yml")
     refresh = _load_workflow("refresh-action-shas.yml")
 
     assert set(_workflow_on(audit)) == {"workflow_dispatch", "schedule"}
     assert _workflow_on(audit)["schedule"] == [{"cron": "23 8 * * 1"}]
     assert "audit-repo-settings" in _step_run(
         _job(audit, "audit"), "Audit repository settings"
+    )
+    audit_job = _job(audit, "audit")
+    assert audit_job["permissions"] == {"contents": "read", "issues": "write"}
+    assert "sync-alert-issue" in _step_run(
+        audit_job, "Open or update repository settings drift issue"
+    )
+    assert "sync-alert-issue" in _step_run(
+        audit_job, "Close repository settings drift issue when clean"
+    )
+
+    assert set(_workflow_on(live_smoke)) == {"workflow_dispatch", "schedule"}
+    assert _workflow_on(live_smoke)["schedule"] == [{"cron": "17 6 * * *"}]
+    smoke_job = _job(live_smoke, "smoke")
+    assert smoke_job["permissions"] == {"contents": "read", "issues": "write"}
+    assert _step_uses(smoke_job, "CI setup") == "./.github/actions/ci-setup"
+    assert (
+        _step_run(smoke_job, "Run published-site browser verification")
+        .strip()
+        .startswith("set +e")
+    )
+    assert "make test-browser-live" in _step_run(
+        smoke_job, "Run published-site browser verification"
+    )
+    assert "sync-alert-issue" in _step_run(
+        smoke_job, "Open or update live-site smoke issue"
+    )
+    assert "sync-alert-issue" in _step_run(
+        smoke_job, "Close live-site smoke issue when clean"
     )
 
     assert set(_workflow_on(refresh)) == {"schedule", "workflow_dispatch"}

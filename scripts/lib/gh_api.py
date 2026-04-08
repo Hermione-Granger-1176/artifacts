@@ -22,11 +22,9 @@ def is_retryable_gh_api_failure(message: str) -> bool:
     return bool(GH_API_RETRYABLE_ERROR_PATTERN.search(message))
 
 
-def run_gh_api(
-    endpoint: str,
+def _run_gh_command(
+    command: list[str],
     *,
-    paginate: list[str],
-    jq_expr: str,
     description: str,
     max_attempts=GH_API_MAX_ATTEMPTS,
     retry_delay_seconds=GH_API_RETRY_DELAY_SECONDS,
@@ -34,8 +32,7 @@ def run_gh_api(
     subprocess_module=subprocess,
     timeout_seconds=GH_API_TIMEOUT_SECONDS,
 ) -> str:
-    """Run ``gh api`` with bounded retries, timeout, and contextual failures."""
-    command = ["gh", "api", endpoint, *paginate, "--jq", jq_expr]
+    """Run one ``gh`` command with bounded retries and contextual failures."""
     last_error: str | None = None
 
     for attempt in range(1, max_attempts + 1):
@@ -85,6 +82,31 @@ def run_gh_api(
     raise RuntimeError(f"gh api {description} failed: {last_error or 'unknown error'}")
 
 
+def run_gh_api(
+    endpoint: str,
+    *,
+    paginate: list[str],
+    jq_expr: str,
+    description: str,
+    max_attempts=GH_API_MAX_ATTEMPTS,
+    retry_delay_seconds=GH_API_RETRY_DELAY_SECONDS,
+    sleep_fn=time.sleep,
+    subprocess_module=subprocess,
+    timeout_seconds=GH_API_TIMEOUT_SECONDS,
+) -> str:
+    """Run ``gh api`` with bounded retries, timeout, and contextual failures."""
+    command = ["gh", "api", endpoint, *paginate, "--jq", jq_expr]
+    return _run_gh_command(
+        command,
+        description=description,
+        max_attempts=max_attempts,
+        retry_delay_seconds=retry_delay_seconds,
+        sleep_fn=sleep_fn,
+        subprocess_module=subprocess_module,
+        timeout_seconds=timeout_seconds,
+    )
+
+
 def run_gh_api_json(
     endpoint: str,
     *,
@@ -97,3 +119,44 @@ def run_gh_api_json(
         return json.loads(raw)
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"gh api {description} returned invalid JSON") from exc
+
+
+def gh_escape_data_value(value: str) -> str:
+    """Escape one value for ``gh api -f`` form usage.
+
+    The GitHub CLI treats ``@`` specially for file reads. Prefix a literal ``@``
+    with a backslash so titles/bodies can safely round-trip through ``gh api``.
+    """
+    if value.startswith("@"):
+        return f"\\{value}"
+    return value
+
+
+def run_gh_api_form(
+    endpoint: str,
+    *,
+    method: str,
+    fields: list[tuple[str, str]],
+    description: str,
+    jq_expr: str = "",
+    max_attempts=GH_API_MAX_ATTEMPTS,
+    retry_delay_seconds=GH_API_RETRY_DELAY_SECONDS,
+    sleep_fn=time.sleep,
+    subprocess_module=subprocess,
+    timeout_seconds=GH_API_TIMEOUT_SECONDS,
+) -> str:
+    """Run ``gh api`` with ``-f`` form fields for mutations or filtered reads."""
+    command = ["gh", "api", "-X", method, endpoint]
+    for key, value in fields:
+        command.extend(["-f", f"{key}={gh_escape_data_value(value)}"])
+    if jq_expr:
+        command.extend(["--jq", jq_expr])
+    return _run_gh_command(
+        command,
+        description=description,
+        max_attempts=max_attempts,
+        retry_delay_seconds=retry_delay_seconds,
+        sleep_fn=sleep_fn,
+        subprocess_module=subprocess_module,
+        timeout_seconds=timeout_seconds,
+    )
