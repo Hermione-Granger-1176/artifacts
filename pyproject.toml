@@ -23,8 +23,8 @@ dev = [
   "yamllint==1.38.0",
 ]
 
-[tool.setuptools]
-packages = ["scripts"]
+[tool.setuptools.packages.find]
+include = ["scripts*"]
 
 [tool.artifacts]
 site_url = "https://hermione-granger-1176.github.io/artifacts/"
@@ -32,8 +32,9 @@ site_path = "/artifacts/"
 repository_url = "https://github.com/Hermione-Granger-1176/artifacts"
 
 [tool.pytest.ini_options]
-addopts = "-ra --cov=scripts --cov-report=term-missing --cov-fail-under=100"
+addopts = "-ra --cov=scripts/ --cov-report=term-missing --cov-fail-under=100"
 testpaths = ["tests"]
+norecursedirs = [".git", ".venv", "node_modules", "_site", "__pycache__", "*.egg-info"]
 
 [tool.ruff]
 target-version = "py312"

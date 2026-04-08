@@ -56,7 +56,7 @@ runs:
       id: token-policy
       shell: bash
       run: >-
-        python3 scripts/workflow_helpers.py app-token-policy
+        python3 scripts/ci/workflow_helpers.py app-token-policy
         --event-name "${{ inputs.event-name }}"
         --head-repo-fork "${{ inputs.head-repo-fork }}"
         --pr-author "${{ inputs.pr-author }}"

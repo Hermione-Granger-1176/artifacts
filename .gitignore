@@ -31,8 +31,8 @@ _site/
 .coverage.*
 htmlcov/
 *.egg-info/
-build/
-dist/
+/build/
+/dist/
 npm-debug.log*
 
 # =========================

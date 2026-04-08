@@ -74,7 +74,7 @@ runs:
     - name: Verify published site
       shell: bash
       run: >-
-        python3 scripts/verify_deploy.py
+        python3 scripts/ci/verify_deploy.py
         --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
         --expected-commit-sha "${{ steps.deploy-version.outputs.commit-sha }}"
         --attempts ${{ inputs.verify-attempts }}

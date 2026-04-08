@@ -1,0 +1,396 @@
+#!/usr/bin/env python3
+"""Provide small command-line helpers for GitHub Actions workflows.
+
+These helpers keep trust-boundary decisions and artifact validation in tested
+Python instead of inline shell.
+
+Usage:
+    python scripts/ci/workflow_helpers.py app-token-policy --event-name pull_request \
+        --head-repo-fork false --pr-author login
+    python scripts/ci/workflow_helpers.py read-lock-metadata --root .artifacts/lock-refresh
+    python scripts/ci/workflow_helpers.py validate-lock-artifact --root .artifacts/lock-refresh
+    python scripts/ci/workflow_helpers.py invalidate-thumbnails --event-name pull_request \
+        --repo owner/repo --pr-number 42
+    python scripts/ci/workflow_helpers.py thumbnail-plan --event-name push \
+        --repo owner/repo --commit-sha abc123
+    python scripts/ci/workflow_helpers.py validate-thumbnail-artifact \
+        --root .artifacts/thumbnail-persist
+    python scripts/ci/workflow_helpers.py audit-repo-settings --repo owner/repo
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+from scripts.build import thumbnail_plan as _thumbnail_plan
+from scripts.ci import repo_audit as _repo_audit
+from scripts.lib import app_discovery as _app_discovery
+from scripts.lib import gh_api as _gh_api
+from scripts.lib.path_validation import reject_symlinks
+
+LOCK_ARTIFACT_FILES = {
+    "pr-number": Path(".artifacts/pr-number.txt"),
+    "head-sha": Path(".artifacts/head-sha.txt"),
+    "head-ref": Path(".artifacts/head-ref.txt"),
+}
+
+LOCK_ARTIFACT_REQUIRED_FILES = {
+    "requirements": Path("locks/requirements.lock"),
+    "requirements-dev": Path("locks/requirements-dev.lock"),
+    **LOCK_ARTIFACT_FILES,
+}
+
+BOOL_LOOKUP = {
+    "true": True,
+    "1": True,
+    "yes": True,
+    "false": False,
+    "0": False,
+    "no": False,
+}
+
+GH_API_TIMEOUT_SECONDS = _gh_api.GH_API_TIMEOUT_SECONDS
+GH_API_MAX_ATTEMPTS = _gh_api.GH_API_MAX_ATTEMPTS
+GH_API_RETRY_DELAY_SECONDS = _gh_api.GH_API_RETRY_DELAY_SECONDS
+EXPECTED_REQUIRED_CHECKS = _repo_audit.EXPECTED_REQUIRED_CHECKS
+EXPECTED_REPOSITORY_VARIABLES = _repo_audit.EXPECTED_REPOSITORY_VARIABLES
+EXPECTED_REPOSITORY_SECRETS = _repo_audit.EXPECTED_REPOSITORY_SECRETS
+EXPECTED_PAGES_RULESET_RULES = _repo_audit.EXPECTED_PAGES_RULESET_RULES
+APP_RUNTIME_TOP_LEVELS = _app_discovery.APP_RUNTIME_TOP_LEVELS
+APP_METADATA_FILES = _app_discovery.APP_METADATA_FILES
+SHARED_APP_INFRA_PATHS = _app_discovery.SHARED_APP_INFRA_PATHS
+THUMBNAIL_FOLLOWUP_BRANCH_PREFIX = _thumbnail_plan.THUMBNAIL_FOLLOWUP_BRANCH_PREFIX
+THUMBNAIL_FOLLOWUP_PR_TITLE = _thumbnail_plan.THUMBNAIL_FOLLOWUP_PR_TITLE
+THUMBNAIL_FOLLOWUP_PR_MARKER = _thumbnail_plan.THUMBNAIL_FOLLOWUP_PR_MARKER
+THUMBNAIL_ARTIFACT_PLAN_FILE = _thumbnail_plan.THUMBNAIL_ARTIFACT_PLAN_FILE
+
+
+def _parse_bool(value: str) -> bool:
+    """Parse a GitHub-style boolean string."""
+    normalized = value.strip().lower()
+    try:
+        return BOOL_LOOKUP[normalized]
+    except KeyError as exc:
+        raise ValueError(f"Invalid boolean value: {value}") from exc
+
+
+def app_token_allowed(*, event_name: str, head_repo_fork: bool, pr_author: str) -> bool:
+    """Return whether a workflow run may mint the GitHub App token."""
+    if event_name != "pull_request":
+        return True
+    if head_repo_fork:
+        return False
+    return pr_author != "dependabot[bot]"
+
+
+def read_lock_refresh_metadata(root: Path) -> dict[str, str]:
+    """Read required lock-refresh metadata values from a downloaded artifact tree."""
+    return {
+        key: (root / relative_path).read_text(encoding="utf-8").strip()
+        for key, relative_path in LOCK_ARTIFACT_FILES.items()
+    }
+
+
+def validate_lock_refresh_artifact(root: Path) -> None:
+    """Fail if a downloaded lock-refresh artifact tree contains unsafe paths."""
+    reject_symlinks(root)
+
+    for relative_path in LOCK_ARTIFACT_REQUIRED_FILES.values():
+        path = root / relative_path
+        if not path.is_file():
+            raise ValueError(
+                f"Required artifact file missing or not a regular file: {path}"
+            )
+
+
+def _is_retryable_gh_api_failure(message: str) -> bool:
+    """Return True when ``gh api`` failed with a likely transient error."""
+    return _gh_api.is_retryable_gh_api_failure(message)
+
+
+def _run_gh_api(
+    endpoint: str, *, paginate: list[str], jq_expr: str, description: str
+) -> str:
+    """Run ``gh api`` with bounded retries, timeout, and contextual failures."""
+    return _gh_api.run_gh_api(
+        endpoint,
+        paginate=paginate,
+        jq_expr=jq_expr,
+        description=description,
+        max_attempts=GH_API_MAX_ATTEMPTS,
+        retry_delay_seconds=GH_API_RETRY_DELAY_SECONDS,
+        sleep_fn=time.sleep,
+        subprocess_module=subprocess,
+        timeout_seconds=GH_API_TIMEOUT_SECONDS,
+    )
+
+
+def _run_gh_api_json(endpoint: str, *, description: str) -> object:
+    """Fetch JSON from ``gh api`` and parse it into a Python object."""
+    return _gh_api.run_gh_api_json(
+        endpoint,
+        description=description,
+        run_gh_api_fn=_run_gh_api,
+    )
+
+
+discover_app_slugs = _app_discovery.discover_app_slugs
+missing_thumbnail_slugs = _app_discovery.missing_thumbnail_slugs
+runtime_change_plan = _app_discovery.runtime_change_plan
+_pr_field = _thumbnail_plan.pr_field
+is_generated_thumbnail_pr = _thumbnail_plan.is_generated_thumbnail_pr
+read_thumbnail_plan = _thumbnail_plan.read_thumbnail_plan
+validate_thumbnail_artifact = _thumbnail_plan.validate_thumbnail_artifact
+_require_response_type = _repo_audit.require_response_type
+_collect_named_items = _repo_audit.collect_named_items
+_append_missing_items = _repo_audit.append_missing_items
+_extract_required_checks = _repo_audit.extract_required_checks
+_ruleset_targets_branch = _repo_audit.ruleset_targets_branch
+_extract_ruleset_rule_types = _repo_audit.extract_ruleset_rule_types
+_ruleset_id = _repo_audit.ruleset_id
+
+
+def associated_pr_kind_for_commit(repo: str, commit_sha: str) -> str:
+    """Return the associated PR kind for a commit on ``main`` pushes."""
+    return _thumbnail_plan.associated_pr_kind_for_commit(
+        repo,
+        commit_sha,
+        run_gh_api_json_fn=_run_gh_api_json,
+    )
+
+
+def thumbnail_plan(
+    *,
+    event_name: str,
+    repo: str,
+    pr_number: str,
+    commit_sha: str,
+    head_repo_fork: bool = False,
+    pr_author: str = "",
+    apps_root: Path = Path("apps"),
+) -> dict[str, object]:
+    """Return the strict thumbnail automation plan for one workflow event."""
+    return _thumbnail_plan.thumbnail_plan(
+        event_name=event_name,
+        repo=repo,
+        pr_number=pr_number,
+        commit_sha=commit_sha,
+        head_repo_fork=head_repo_fork,
+        pr_author=pr_author,
+        apps_root=apps_root,
+        app_token_allowed_fn=app_token_allowed,
+        list_changed_files_fn=list_changed_files,
+        missing_thumbnail_slugs_fn=missing_thumbnail_slugs,
+        runtime_change_plan_fn=runtime_change_plan,
+        associated_pr_kind_for_commit_fn=associated_pr_kind_for_commit,
+    )
+
+
+def _load_ruleset_detail(repo: str, ruleset: object) -> object:
+    """Fetch one ruleset detail payload when the summary response is incomplete."""
+    return _repo_audit.load_ruleset_detail(
+        repo,
+        ruleset,
+        run_gh_api_json_fn=_run_gh_api_json,
+    )
+
+
+def audit_repo_settings(
+    *,
+    repo: str,
+    default_branch: str = "main",
+    pages_branch: str = "gh-pages",
+) -> dict[str, object]:
+    """Audit critical repository settings that the release flow depends on."""
+    return _repo_audit.audit_repo_settings(
+        repo=repo,
+        default_branch=default_branch,
+        pages_branch=pages_branch,
+        run_gh_api_json_fn=_run_gh_api_json,
+    )
+
+
+def list_changed_files(
+    *, event_name: str, repo: str, pr_number: str, commit_sha: str
+) -> list[str]:
+    """Return the changed file list for a pull request or push event."""
+    return _thumbnail_plan.list_changed_files(
+        event_name=event_name,
+        repo=repo,
+        pr_number=pr_number,
+        commit_sha=commit_sha,
+        run_gh_api_fn=_run_gh_api,
+    )
+
+
+def invalidate_thumbnails(
+    *, event_name: str, repo: str, pr_number: str, commit_sha: str
+) -> list[str]:
+    """Delete thumbnails for apps whose runtime or shared app shell changed."""
+    return _thumbnail_plan.invalidate_thumbnails(
+        event_name=event_name,
+        repo=repo,
+        pr_number=pr_number,
+        commit_sha=commit_sha,
+        list_changed_files_fn=list_changed_files,
+        runtime_change_plan_fn=runtime_change_plan,
+    )
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Workflow helper commands")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    policy_parser = subparsers.add_parser(
+        "app-token-policy", help="Determine whether app-token actions are allowed"
+    )
+    policy_parser.add_argument("--event-name", required=True)
+    policy_parser.add_argument("--head-repo-fork", required=True)
+    policy_parser.add_argument("--pr-author", default="")
+
+    metadata_parser = subparsers.add_parser(
+        "read-lock-metadata", help="Read lock refresh metadata from an artifact tree"
+    )
+    metadata_parser.add_argument("--root", required=True)
+
+    artifact_parser = subparsers.add_parser(
+        "validate-lock-artifact", help="Validate a downloaded lock refresh artifact"
+    )
+    artifact_parser.add_argument("--root", required=True)
+
+    thumb_parser = subparsers.add_parser(
+        "invalidate-thumbnails",
+        help="Delete stale thumbnails for apps with runtime or shared shell changes",
+    )
+    thumb_parser.add_argument("--event-name", required=True)
+    thumb_parser.add_argument("--repo", required=True)
+    thumb_parser.add_argument("--pr-number", default="")
+    thumb_parser.add_argument("--commit-sha", default="")
+
+    thumbnail_plan_parser = subparsers.add_parser(
+        "thumbnail-plan",
+        help="Plan thumbnail generation and persistence for changed files",
+    )
+    thumbnail_plan_parser.add_argument("--event-name", required=True)
+    thumbnail_plan_parser.add_argument("--repo", required=True)
+    thumbnail_plan_parser.add_argument("--pr-number", default="")
+    thumbnail_plan_parser.add_argument("--commit-sha", default="")
+    thumbnail_plan_parser.add_argument("--head-repo-fork", default="false")
+    thumbnail_plan_parser.add_argument("--pr-author", default="")
+
+    thumbnail_artifact_parser = subparsers.add_parser(
+        "validate-thumbnail-artifact",
+        help="Validate a downloaded thumbnail persistence artifact",
+    )
+    thumbnail_artifact_parser.add_argument("--root", required=True)
+
+    audit_parser = subparsers.add_parser(
+        "audit-repo-settings",
+        help="Audit critical GitHub repository settings used by deployment workflows",
+    )
+    audit_parser.add_argument("--repo", required=True)
+    audit_parser.add_argument("--default-branch", default="main")
+    audit_parser.add_argument("--pages-branch", default="gh-pages")
+
+    return parser
+
+
+def _handle_app_token_policy(args: argparse.Namespace) -> int:
+    """Print whether GitHub App token actions are allowed for the current event."""
+    allowed = app_token_allowed(
+        event_name=args.event_name,
+        head_repo_fork=_parse_bool(args.head_repo_fork),
+        pr_author=args.pr_author,
+    )
+    print(f"allowed={'true' if allowed else 'false'}")
+    return 0
+
+
+def _handle_read_lock_metadata(args: argparse.Namespace) -> int:
+    """Print lock refresh metadata as JSON."""
+    print(json.dumps(read_lock_refresh_metadata(Path(args.root)), sort_keys=True))
+    return 0
+
+
+def _handle_validate_lock_artifact(args: argparse.Namespace) -> int:
+    """Validate a downloaded lock refresh artifact tree."""
+    validate_lock_refresh_artifact(Path(args.root))
+    return 0
+
+
+def _handle_invalidate_thumbnails(args: argparse.Namespace) -> int:
+    """Print invalidated thumbnail paths, or a no-op message."""
+    invalidated = invalidate_thumbnails(
+        event_name=args.event_name,
+        repo=args.repo,
+        pr_number=args.pr_number,
+        commit_sha=args.commit_sha,
+    )
+    if not invalidated:
+        print("No thumbnails invalidated")
+    return 0
+
+
+def _handle_thumbnail_plan(args: argparse.Namespace) -> int:
+    """Print the thumbnail automation plan as JSON."""
+    plan = thumbnail_plan(
+        event_name=args.event_name,
+        repo=args.repo,
+        pr_number=args.pr_number,
+        commit_sha=args.commit_sha,
+        head_repo_fork=_parse_bool(args.head_repo_fork),
+        pr_author=args.pr_author,
+    )
+    print(json.dumps(plan, sort_keys=True))
+    return 0
+
+
+def _handle_validate_thumbnail_artifact(args: argparse.Namespace) -> int:
+    """Validate a downloaded thumbnail artifact and print its plan JSON."""
+    plan = validate_thumbnail_artifact(Path(args.root))
+    print(json.dumps(plan, sort_keys=True))
+    return 0
+
+
+def _handle_audit_repo_settings(args: argparse.Namespace) -> int:
+    """Audit repository settings and print a JSON summary when they match expectations."""
+    summary = audit_repo_settings(
+        repo=args.repo,
+        default_branch=args.default_branch,
+        pages_branch=args.pages_branch,
+    )
+    print(json.dumps(summary, sort_keys=True))
+    return 0
+
+
+COMMAND_HANDLERS = {
+    "app-token-policy": _handle_app_token_policy,
+    "read-lock-metadata": _handle_read_lock_metadata,
+    "validate-lock-artifact": _handle_validate_lock_artifact,
+    "invalidate-thumbnails": _handle_invalidate_thumbnails,
+    "thumbnail-plan": _handle_thumbnail_plan,
+    "validate-thumbnail-artifact": _handle_validate_thumbnail_artifact,
+    "audit-repo-settings": _handle_audit_repo_settings,
+}
+
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point."""
+    args = _build_parser().parse_args(argv)
+    handler = COMMAND_HANDLERS.get(args.command)
+    if handler is None:
+        raise ValueError(f"Unsupported command: {args.command}")
+    return handler(args)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    try:
+        sys.exit(main())
+    except (RuntimeError, ValueError, FileNotFoundError) as exc:
+        print(exc, file=sys.stderr)
+        sys.exit(1)
