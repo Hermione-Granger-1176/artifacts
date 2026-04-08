@@ -30,9 +30,12 @@ const ALLOWED_EXTRA_FIELDS = new Set(['amount', 'every', 'startPeriod', 'period'
 /** @param {Array} extras @param {number} id @param {string} field @param {string} value */
 export function updateExtraField(extras, id, field, value) {
   if (!ALLOWED_EXTRA_FIELDS.has(field)) return;
+  const parsed = +value;
+  if (Number.isNaN(parsed) || parsed < 0) return;
+  if ((field === 'every' || field === 'startPeriod' || field === 'period') && parsed < 1) return;
   const extra = extras.find((item) => item.id === id);
   if (extra) {
-    extra[field] = +value;
+    extra[field] = parsed;
   }
 }
 

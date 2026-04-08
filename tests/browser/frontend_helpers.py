@@ -244,7 +244,7 @@ class RuntimeMonitor:
         # Track CSS filenames that loaded successfully so we can ignore
         # Chromium's spurious duplicate @import re-fetches from wrong paths
         # (triggered by ThreadingHTTPServer + DOM mutations).
-        loaded_css_names: set[str] = set()
+        loaded_css_paths: set[str] = set()
 
         def track_console(message) -> None:
             if message.type != "error":
@@ -294,14 +294,14 @@ class RuntimeMonitor:
             if status != 404 or not url.endswith(".css"):
                 return False
             filename = url.rsplit("/", 1)[-1]
-            return filename in loaded_css_names
+            return any(p.endswith("/" + filename) or p == filename for p in loaded_css_paths)
 
         def track_response(response) -> None:
             if self._should_ignore_url(response.url, base_host):
                 return
             if response.status < 400:
                 if response.url.endswith(".css"):
-                    loaded_css_names.add(response.url.rsplit("/", 1)[-1])
+                    loaded_css_paths.add(response.url)
                 return
             if _is_duplicate_css_fetch(response.url, response.status):
                 return

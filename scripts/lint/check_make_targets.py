@@ -66,7 +66,10 @@ def main(argv: list[str] | None = None) -> int:
     else:
         candidate_paths = []
         for raw_path in args.paths:
-            resolved_path = workspace_root / raw_path
+            resolved_path = (workspace_root / raw_path).resolve()
+            if not resolved_path.is_relative_to(workspace_root.resolve()):
+                print(f"  {raw_path}: path escapes workspace root")
+                return 1
             if not resolved_path.is_file():
                 print(f"  {raw_path}: path does not exist or is not a file")
                 return 1

@@ -1,5 +1,6 @@
 export function softmax(logits, temperature) {
-  const scaled = logits.map((logit) => logit / temperature);
+  const safeTemp = Math.max(temperature, 1e-8);
+  const scaled = logits.map((logit) => logit / safeTemp);
   const maxLogit = Math.max(...scaled);
   const exponentials = scaled.map((logit) => Math.exp(logit - maxLogit));
   const total = exponentials.reduce((sum, value) => sum + value, 0);

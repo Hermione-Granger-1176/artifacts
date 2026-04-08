@@ -37,7 +37,7 @@ const ELEMENT_IDS = [
  * Cache the DOM nodes used by the loan amortization UI.
  *
  * @param {Document} documentObj
- * @returns {Record<string, HTMLElement>}
+ * @returns {Record<string, HTMLElement|null>}
  */
 export function cacheElements(documentObj = document) {
   return cacheElementsByIds(ELEMENT_IDS, documentObj);

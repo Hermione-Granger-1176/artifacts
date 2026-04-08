@@ -107,6 +107,19 @@ def test_check_make_targets_main_rejects_missing_path(
     assert "path does not exist" in capsys.readouterr().out
 
 
+def test_main_rejects_path_escaping_workspace_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_text(tmp_path / "Makefile", "help:\n\t@true\n")
+    monkeypatch.setattr(check_make_targets, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(check_make_targets, "MAKEFILE_PATH", tmp_path / "Makefile")
+
+    exit_code = check_make_targets.main(["../../../etc/passwd"])
+
+    assert exit_code == 1
+    assert "escapes workspace root" in capsys.readouterr().out
+
+
 def test_iter_default_paths_limits_command_lint_scope(tmp_path: Path) -> None:
     write_text(tmp_path / "README.md", "# Readme\n")
     write_text(tmp_path / "CLAUDE.md", "# Agent\n")
