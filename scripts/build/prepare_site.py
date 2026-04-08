@@ -190,13 +190,6 @@ def _patch_app_social_metadata(site_url: str, version: str) -> None:
             continue
 
         content = index_path.read_text(encoding="utf-8")
-        if (
-            APP_URL_PLACEHOLDER not in content
-            and APP_TITLE_PLACEHOLDER not in content
-            and APP_DESCRIPTION_PLACEHOLDER not in content
-            and APP_SHARE_IMAGE_PLACEHOLDER not in content
-        ):
-            continue
 
         title = app_dir.name.replace("-", " ").title()
         name_path = app_dir / "name.txt"
@@ -211,15 +204,15 @@ def _patch_app_social_metadata(site_url: str, version: str) -> None:
         app_url = urljoin(site_url, f"apps/{app_dir.name}/")
         thumbnail_url = f"{urljoin(app_url, _thumbnail_file())}?v={version}"
 
-        replacements = {}
-        if APP_URL_PLACEHOLDER in content:
-            replacements[APP_URL_PLACEHOLDER] = app_url
-        if APP_TITLE_PLACEHOLDER in content:
-            replacements[APP_TITLE_PLACEHOLDER] = title
-        if APP_DESCRIPTION_PLACEHOLDER in content:
-            replacements[APP_DESCRIPTION_PLACEHOLDER] = description
-        if APP_SHARE_IMAGE_PLACEHOLDER in content:
-            replacements[APP_SHARE_IMAGE_PLACEHOLDER] = thumbnail_url
+        candidates = {
+            APP_URL_PLACEHOLDER: app_url,
+            APP_TITLE_PLACEHOLDER: title,
+            APP_DESCRIPTION_PLACEHOLDER: description,
+            APP_SHARE_IMAGE_PLACEHOLDER: thumbnail_url,
+        }
+        replacements = {k: v for k, v in candidates.items() if k in content}
+        if not replacements:
+            continue
 
         index_path.write_text(
             _replace_exact_many(content, replacements), encoding="utf-8"

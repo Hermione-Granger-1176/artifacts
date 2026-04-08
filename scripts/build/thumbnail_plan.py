@@ -47,7 +47,7 @@ def is_generated_thumbnail_pr(pr_payload: object) -> bool:
 
     title = pr_field(pr_payload, "title")
     body = pr_field(pr_payload, "body")
-    head = pr_payload.get("head") if isinstance(pr_payload, dict) else None
+    head = pr_payload.get("head")
     head_ref = ""
     if isinstance(head, dict):
         head_ref = pr_field(head, "ref")

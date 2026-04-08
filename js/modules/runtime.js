@@ -92,13 +92,13 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
       timestamp: new Date().toISOString()
     };
 
-      if (fatal) {
-        setStatus('error');
-        if (runtimeErrorBanner) {
-          runtimeErrorBanner.classList.remove('visually-hidden');
-          runtimeErrorBanner.classList.remove('hidden');
-        }
+    if (fatal) {
+      setStatus('error');
+      if (runtimeErrorBanner) {
+        runtimeErrorBanner.classList.remove('visually-hidden');
+        runtimeErrorBanner.classList.remove('hidden');
       }
+    }
 
     const consoleMessage = `[Artifacts] ${context}: ${state.lastError.message}`;
     if (!shouldIgnoreRuntimeError(consoleMessage)) {

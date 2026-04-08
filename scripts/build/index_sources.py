@@ -143,15 +143,14 @@ def is_kebab_case(name: str, *, compiled_artifact_id_pattern: re.Pattern[str]) -
 def validate_relative_repo_path(value: str, *, field_name: str) -> None:
     """Validate a repo-relative path used in generated gallery metadata."""
     decoded = urllib.parse.unquote(value)
-    if "://" in value or "://" in decoded:
+    candidates = (value, decoded)
+    if any("://" in c for c in candidates):
         raise ValueError(f"{field_name} must be a repo-relative path")
-    if value.startswith("/") or decoded.startswith("/"):
+    if any(c.startswith("/") for c in candidates):
         raise ValueError(f"{field_name} must not start with '/'")
-    if value.lower().startswith("javascript:") or decoded.lower().startswith(
-        "javascript:"
-    ):
+    if any(c.lower().startswith("javascript:") for c in candidates):
         raise ValueError(f"{field_name} must not use a javascript URL")
-    if value.lower().startswith("data:") or decoded.lower().startswith("data:"):
+    if any(c.lower().startswith("data:") for c in candidates):
         raise ValueError(f"{field_name} must not use a data URL")
     if ".." in decoded:
         raise ValueError(f"{field_name} must not contain path traversal segments")

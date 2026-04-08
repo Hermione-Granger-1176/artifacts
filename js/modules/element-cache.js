@@ -5,11 +5,7 @@
  * @returns {Object<string, HTMLElement|null>} Map of id to element (or null if not found).
  */
 export function cacheElements(ids, documentObj = document) {
-  const elements = {};
-
-  for (const id of ids) {
-    elements[id] = documentObj.getElementById(id);
-  }
-
-  return elements;
+  return Object.fromEntries(
+    ids.map((id) => [id, documentObj.getElementById(id)])
+  );
 }

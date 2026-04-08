@@ -29,6 +29,7 @@
 - `js/modules/runtime.js`: startup status, error reporting, and guarded localStorage access
 - `js/modules/app-runtime.js`: mature-app bootstrap with fatal error handling
 - `js/modules/gallery-url.js`: URL state sync for gallery search, filters, and sort
+- `js/modules/element-cache.js`: DOM element caching by ID
 
 The root filter UI is rendered as desk notes by `buildFilterNotes()` in `js/modules/render.js` and toggled in `js/modules/gallery-app.js`.
 
@@ -52,7 +53,8 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `tests/js/app-runtime.test.js`: app-runtime bootstrap, fatal errors, ready state
 - `tests/js/app-theme.test.js`: theme persistence, normalization, localStorage fallback
 - `tests/js/app-shell.test.js`: shell placeholders, theme-toggle, pre-populated slots
-- `tests/js/loan-amortization-modules.test.js`: frequency params, biweekly EMI, row summary, metrics markup
+- `tests/js/element-cache.test.js`: DOM element cache lookup behavior
+- `tests/js/loan-amortization-modules.test.js`: amortization schedule, formatting, frequency params, biweekly EMI, row summary, metrics markup
 - `tests/js/verified-commit.test.js`: workflow helper logic for the verified-commit action
 - `tests/js/deploy-verified.test.js`: deploy-site action logic (blob SHA, change computation, verified deploy, preview modes)
 - `tests/browser/test_frontend_smoke.py`: browser smoke coverage for gallery load, invalid bootstrap data, search, desk-note filters, pagination, detail overlay, and `404.html`

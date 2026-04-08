@@ -25,18 +25,15 @@ def require_response_type(value: object, expected_type: type, message: str) -> N
 
 def collect_named_items(payload: dict[str, object], key: str) -> set[str]:
     """Collect string ``name`` fields from a GitHub API list payload."""
-    names: set[str] = set()
     items = payload.get(key)
     if not isinstance(items, list):
-        return names
+        return set()
 
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        name = item.get("name")
-        if isinstance(name, str):
-            names.add(name)
-    return names
+    return {
+        item["name"]
+        for item in items
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    }
 
 
 def append_missing_items(

@@ -24,7 +24,9 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- actions/               Shared composite actions (ci-setup, deploy-site, verified-commit)
 |  |- workflows/             CI/CD automation
 |  |- ISSUE_TEMPLATE/        Bug report and feature request forms
+|  |- CODE_OF_CONDUCT.md     Collaboration expectations
 |  |- CONTRIBUTING.md        Contribution workflow
+|  |- dependabot.yml         Automated dependency update config
 |  |- SECURITY.md            Vulnerability reporting
 |  |- pull_request_template.md
 |- apps/                     Artifact folders, each with index.html and metadata
@@ -36,6 +38,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |- docs/                     Workspace documentation and ADRs
 |- js/
 |  |- app.js                 Root gallery entry point
+|  |- app-theme.js           Shared mature-app theme bootstrap
 |  |- data.js                Generated artifact metadata
 |  |- gallery-config.js      Generated display config
 |  |- modules/               Shared gallery and app JS modules
@@ -43,7 +46,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |- scripts/
 |  |- build/                 Index generation, thumbnails, site assembly, scaffolding
 |  |- ci/                    Workflow helpers, deploy verification, audits
-|  |- lib/                   Shared libraries (app discovery, GitHub API, project config)
+|  |- lib/                   Shared libraries (app discovery, GitHub API, project config, path validation)
 |  |- lint/                  EditorConfig check, table alignment, workflow linting, doc-command validation, generated-drift detection, Make-target validation
 |- tests/
 |  |- build/                 Tests for scripts/build/

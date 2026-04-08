@@ -63,11 +63,10 @@ export function refreshPalette() {
 }
 
 function pad(values, length) {
-  const copy = [...values];
-  for (let index = copy.length; index < length; index += 1) {
-    copy.push(0);
+  if (values.length >= length) {
+    return [...values];
   }
-  return copy;
+  return [...values, ...new Array(length - values.length).fill(0)];
 }
 
 function buildChartState({ base, extra, principal, interestSaved, periodLabel }) {
