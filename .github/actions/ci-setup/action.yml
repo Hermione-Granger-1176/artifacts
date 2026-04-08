@@ -55,11 +55,15 @@ runs:
     - name: Determine whether app-token actions are allowed
       id: token-policy
       shell: bash
+      env:
+        EVENT_NAME: ${{ inputs.event-name }}
+        HEAD_REPO_FORK: ${{ inputs.head-repo-fork }}
+        PR_AUTHOR: ${{ inputs.pr-author }}
       run: >-
-        python3 scripts/workflow_helpers.py app-token-policy
-        --event-name "${{ inputs.event-name }}"
-        --head-repo-fork "${{ inputs.head-repo-fork }}"
-        --pr-author "${{ inputs.pr-author }}"
+        python3 scripts/ci/workflow_helpers.py app-token-policy
+        --event-name "$EVENT_NAME"
+        --head-repo-fork "$HEAD_REPO_FORK"
+        --pr-author "$PR_AUTHOR"
         >> "$GITHUB_OUTPUT"
 
     - name: Create GitHub App token
@@ -81,8 +85,11 @@ runs:
     - name: Check GitHub App token availability
       id: token-status
       shell: bash
+      env:
+        APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        ESCALATION_TOKEN: ${{ steps.escalation-token.outputs.token }}
       run: |
-        if [ -n "${{ steps.app-token.outputs.token }}" ] && [ -n "${{ steps.escalation-token.outputs.token }}" ]; then
+        if [ -n "$APP_TOKEN" ] && [ -n "$ESCALATION_TOKEN" ]; then
           echo "available=true" >> "$GITHUB_OUTPUT"
         else
           echo "available=false" >> "$GITHUB_OUTPUT"
@@ -91,10 +98,13 @@ runs:
     - name: Fail if a trusted run cannot mint the app tokens
       if: steps.token-policy.outputs.allowed == 'true' && steps.token-status.outputs.available != 'true'
       shell: bash
+      env:
+        APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        ESCALATION_TOKEN: ${{ steps.escalation-token.outputs.token }}
       run: |
         echo "Expected GitHub App tokens for this run, but token creation did not succeed." >&2
-        [ -z "${{ steps.app-token.outputs.token }}" ] && echo "  - Hermione1176 (APP_ID) token missing" >&2
-        [ -z "${{ steps.escalation-token.outputs.token }}" ] && echo "  - Harry1176 (ESCALATION_APP_ID) token missing" >&2
+        [ -z "$APP_TOKEN" ] && echo "  - Hermione1176 (APP_ID) token missing" >&2
+        [ -z "$ESCALATION_TOKEN" ] && echo "  - Harry1176 (ESCALATION_APP_ID) token missing" >&2
         exit 1
 
     - name: Set up Python

@@ -14,6 +14,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  PYTHONPATH: '.'
+
 jobs:
   commit-locks:
     if: >-
@@ -66,7 +69,7 @@ jobs:
         if: steps.artifact.outputs.available == 'true'
         id: metadata
         run: |
-          metadata_json=$(python3 scripts/workflow_helpers.py read-lock-metadata --root "$LOCK_REFRESH_ROOT")
+          metadata_json=$(python3 scripts/ci/workflow_helpers.py read-lock-metadata --root "$LOCK_REFRESH_ROOT")
           echo "pr-number=$(printf '%s' "$metadata_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["pr-number"])')" >> "$GITHUB_OUTPUT"
           echo "head-sha=$(printf '%s' "$metadata_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["head-sha"])')" >> "$GITHUB_OUTPUT"
           echo "head-ref=$(printf '%s' "$metadata_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["head-ref"])')" >> "$GITHUB_OUTPUT"
@@ -74,7 +77,7 @@ jobs:
       - name: Validate downloaded artifact contents
         if: steps.artifact.outputs.available == 'true'
         run: >-
-          python3 scripts/workflow_helpers.py validate-lock-artifact
+          python3 scripts/ci/workflow_helpers.py validate-lock-artifact
           --root "${LOCK_REFRESH_ROOT}"
 
       - name: Validate Dependabot branch state

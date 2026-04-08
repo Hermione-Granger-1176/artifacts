@@ -5,129 +5,151 @@
 Use the Makefile instead of ad hoc shell commands.
 
 ```bash
-make new name=... # scaffold a new artifact directory with placeholder files
-make setup-local # create .venv, install pinned Python/Node deps without Chromium
-make setup      # create .venv, install pinned Python/Node deps, install Chromium locally
-make check-local # run the fast local gate without browser Playwright suites or thumbnails
-make web        # run browser smoke/accessibility/browser-flow tests and thumbnail generation
-make check      # run the full release gate, including local + web checks, index generation, and site assembly
-make coverage-js # print Node test-runner coverage for js/app.js, js/modules/*.js, the verified-commit action module, and the deploy-site action module
-make editorconfig-check # verify supported .editorconfig rules for covered repository files
-make security   # run the local dependency audits used in CI
-make validate   # fail fast on incomplete or invalid top-level artifact directories
-make index      # rebuild js/data.js, js/gallery-config.js, and README auto markers
-make thumbnails # regenerate WebP thumbnails when Playwright is available
-make site       # assemble the clean deployable Pages payload in _site/
-make generate   # run thumbnails and index together
-make lock       # refresh locks/requirements.lock and locks/requirements-dev.lock after dependency changes
-make align-tables # align markdown table pipe characters across all docs
-make clean       # remove .venv, caches, build artifacts, and node_modules
+make help       # see all available targets (auto-generated, two-level)
+make setup      # fast: Python + Node deps, no Chromium
+make setup-all  # full: also installs Chromium for browser tests and thumbnails
+make pr         # show all PR sub-commands
+make ci         # show all CI sub-commands
+make git        # show all git sub-commands
 ```
 
 Recommended workflow when changing workspace code:
 
-1. `make new name=my-artifact` if you want a scaffold instead of creating files by hand.
-2. `make setup-local` for fast local work, or `make setup` if you also need Chromium.
+1. `make new name=my-artifact` if you want a scaffold instead of creating files by hand. It also creates the matching `tests/js/apps/<slug>/` directory for app-specific Node tests.
+2. `make setup` for fast local work, or `make setup-all` if you also need Chromium.
 3. Edit files.
 4. Run `make check-local`.
-5. Run `make web` when you touch root-gallery browser behavior or need fresh thumbnails.
+5. Run `make check-web` when you touch shared browser behavior or need fresh thumbnails.
+   For targeted mature-app browser work, use `ARTIFACTS_BROWSER_APP_SLUGS="app-slug" make test-browser-apps`.
 6. Run `make check` before opening a PR when you want the full CI-equivalent local gate.
 7. Run `make validate` if you changed top-level artifact directories and want an explicit structure check.
 8. Run `make index` if metadata or README markers may have changed.
 9. Run `make site` if you want to inspect the exact Pages output locally.
-10. Run `make lock` if you changed Python dependency declarations, and refresh `package-lock.json` if you changed Node dependencies.
+10. Run `make lock` if you changed Python dependency declarations, and run `make lock-node` if you changed Node dependencies.
 
 ## CI behavior
 
-The production workflow uses the same command surface:
+CI uses the same `make` targets as local development. The `verify` job in `update.yml` runs:
 
-- `make setup-ci`
-- `make check`
+- `make setup-ci`, `make check-local`, `make test-browser-root`, conditional `make test-browser-apps`, `make thumbnails`, `make index`, `make site`
 
-This keeps local and CI behavior aligned and reduces workflow-specific shell logic.
+This keeps local results predictive of CI results.
 
-`update.yml` now handles production deploys and pull request previews.
-
-- `verify` is a read-only job that runs `make check`, which bundles local lint/test/audit/validation work, browser smoke/accessibility/browser-flow tests, thumbnail generation, content generation, and `_site/` assembly.
-- `verify` also records a JavaScript coverage report from Node's built-in test runner without adding extra coverage dependencies.
-- `verify` uploads the exact `_site/` output as a workflow artifact so previews and production deploys can consume the verified build instead of rebuilding later.
-- `secret-scan` runs Gitleaks against the checked-out repository.
-- Pull requests also run dependency review for manifest and lockfile changes.
-- Same-repo Dependabot Python PRs also trigger `.github/workflows/refresh-python-locks.yml`, which computes refreshed lock files on the PR branch; `.github/workflows/commit-python-locks.yml` performs the trusted follow-up artifact validation and commit after PR head revalidation.
-- `publish` is the main write-capable job; it downloads the verified `_site/` artifact from `verify`, deploys previews or `gh-pages` from that exact build, verifies the published URL serves both the expected cache-busted asset reference and the expected deploy metadata commit SHA, and then runs `make test-browser-live` against the deployed URL.
-- `cleanup-preview` is a write-capable cleanup job that removes preview deployments and comments when PRs close.
-- Workflow trust-policy, lock-artifact validation, thumbnail invalidation, fallback PR detection, and repository-settings audit logic is intentionally kept thin; `scripts/workflow_helpers.py` owns those tested helper paths.
-- Trusted pull requests publish preview deployments under `pr-preview/pr-<number>/`.
-- Pull requests leave the source branch untouched while preview comments provide the live preview link.
-- Generated files may differ in the verified workspace, but the release path never auto-commits those differences back to contributor branches.
-- All deploys (main, preview, and cleanup) use the escalation app token (Harry1176) and create verified commits via the GraphQL API (`deploy-verified.mjs`).
-- Preview comments use the workflow token, appear as `github-actions[bot]`, and are recreated on each push so the newest preview stays at the bottom of the PR timeline.
-- Fork-based and Dependabot PRs still run checks and site assembly, but skip preview deployment because the app token is unavailable in those contexts.
-- `.github/workflows/audit-repo-settings.yml` runs a read-only manual/weekly audit that checks Pages, branch protection, Actions variables/secrets, and the `gh-pages` ruleset for drift.
+For the full pipeline reference (job flow diagrams, token model, artifact flow, script dependencies, and deploy behavior), see [architecture.md](architecture.md#cicd-layer).
 
 ## Coverage and quality gates
 
-- `scripts/check_editorconfig.py` enforces supported `.editorconfig` rules such as LF endings, final-newline policy, trailing whitespace trimming, and indentation style for covered repository files, while skipping configured cache/build/dependency directories and binary assets.
-- `ruff` runs against `scripts/` and `tests/`.
-- `eslint` runs against browser modules, Node tests, the custom workflow helper, and repo-level JavaScript config/scripts.
-- `stylelint` runs against `css/**/*.css`.
-- `yamllint` runs against `.github/` with a repo-local `.yamllint.yml` tuned for GitHub Actions and Dependabot files.
-- Workflow linting runs through `scripts/lint-workflows.mjs`, which wraps `actionlint` across `.github/workflows/*.yml` and `.github/workflows/*.yaml`.
+- `make editorconfig-check` enforces supported `.editorconfig` rules such as LF endings, final-newline policy, trailing whitespace trimming, and indentation style for covered repository files, while skipping configured cache/build/dependency directories and binary assets.
+- `ruff` scans the repo root; built-in excludes skip `.venv/`, `node_modules/`, etc. Config: `pyproject.toml`.
+- `eslint` scans the repo root; file patterns and ignores are in `eslint.config.js`.
+- `stylelint` scans all `**/*.css`; ignores are in `stylelint.config.js`.
+- `yamllint` scans the repo root; ignores are in `.yamllint.yml`.
+- Workflow linting runs through `scripts/lint/lint-workflows.mjs`, which wraps `actionlint` across `.github/workflows/*.yml` and `.github/workflows/*.yaml`.
+- `make lint-doc-commands` checks contributor-facing docs for direct commands that should use Make targets instead.
+- `make lint-make-targets` verifies that documented `make <target>` references still exist in `Makefile`.
+- `make lint-js-test-coverage` verifies that every JS or MJS source file under the tracked source roots is imported by at least one test file.
 - `pytest` enforces 100% line coverage for the `scripts` package.
-- `node --test` covers shared browser and workflow helper modules under `tests/js/`.
-- `make coverage-js` uses Node's built-in experimental coverage output as the no-new-dependencies approximation for JavaScript coverage reporting and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across `js/app.js`, `js/modules/*.js`, `.github/actions/verified-commit/*.mjs`, and `.github/actions/deploy-site/*.mjs`.
+- `make test-ci` runs the CI-focused Python tests under `tests/ci/`.
+- `make test-ci-workflows` runs narrow contract tests against `.github/workflows/*.yml` so local and CI checks can catch workflow-structure drift early.
+- `node --test` covers the grouped Node suites under `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, and `tests/js/workflows/`.
+- `make coverage-js` uses Node's built-in experimental coverage output and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across all source files imported by the grouped `tests/js/` suites. Coverage excludes `node_modules/` and `tests/`; thresholds and exclusions are configured in `package.json`.
 - `make security` mirrors the practical local dependency audits in CI; the Python side runs a policy-driven audit over the configured lock files and reviewed vulnerability exceptions in `config/security_audit.json`, matches exceptions by lock file, package, and vulnerability id or alias, and fails expired, unused, or now-fixable exceptions, while Gitleaks and GitHub dependency review remain CI-only because this repo does not vendor those scanners locally.
-- Playwright browser suites validate the built root gallery and `404.html` routing behavior through `make test-browser`, including smoke, accessibility, and browser-flow coverage.
+- `make check-generated` reruns the index generator in a restore-safe mode and fails if `README.md`, `js/data.js`, or `js/gallery-config.js` would drift from tracked source inputs.
+- Playwright browser suites validate both the built root gallery and mature app pages through `make test-browser`, while CI selectively scopes mature app suites with `ARTIFACTS_BROWSER_APP_SLUGS`.
 - `make test-browser-live` verifies an already-published site in a real browser when `ARTIFACTS_LIVE_SITE_URL` is set, and CI captures failure screenshots/traces/logs through `ARTIFACTS_BROWSER_ARTIFACT_DIR`.
-- `make check-local` is the fast local gate without browser Playwright suites or thumbnail generation.
-- `make web` is the browser-only gate for smoke/accessibility/browser-flow tests and thumbnails.
+- Scheduled CI monitoring now uses GitHub-native issue alerts: `.github/workflows/audit-repo-settings.yml` opens/closes a single repository-settings drift issue, and `.github/workflows/live-site-smoke.yml` opens/closes a single live-site smoke issue.
+- `make check-local` is the fast local gate without browser Playwright suites or thumbnail generation, and it includes the JS source-to-test coverage lint plus the canonical generated-file drift check.
+- `make test-browser-root-smoke`, `make test-browser-root-accessibility`, and `make test-browser-root-flows` let you run the root gallery Playwright suites separately.
+- `make test-browser-apps-smoke`, `make test-browser-apps-accessibility`, and `make test-browser-apps-flows` let you run the mature app Playwright suites separately while preserving `make test-browser-apps` as the aggregate app gate.
+- `make check-web` is the browser-only gate for the aggregate root/app browser suites and thumbnails.
 - `make validate` fails if a top-level artifact directory is missing `index.html` or `name.txt`, has an empty `name.txt`, or uses a non-kebab-case directory name.
 - Coverage policy is configured in `pyproject.toml`.
 
 ## Thumbnail policy
 
 - `thumbnail.webp` is the preferred generated format.
-- Local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date. CI also auto-invalidates thumbnails for apps whose `index.html` changed in the PR or push, using `workflow_helpers.py invalidate-thumbnails`.
+- Local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date. CI auto-invalidates thumbnails for apps whose runtime changed (`index.html`, `css/**`, `js/**`, `assets/**`) or when shared app-shell files changed, using `scripts/ci/workflow_helpers.py invalidate-thumbnails`.
+- CI does not trigger mature-app browser suites for app docs or metadata-only edits; the thumbnail plan uses the same runtime-change classification to scope mature-app browser runs.
 - CI sets `ARTIFACTS_STRICT_THUMBNAILS=1`, so any attempted thumbnail failure fails the workflow instead of being logged as a warning.
 - Local working copies do not need checked-in thumbnails to function during development.
-- CI can regenerate thumbnails after push or during pull request preview builds.
-- The generator still tolerates legacy `thumbnail.png` when present so older generated states do not break the gallery.
+- CI can regenerate thumbnails after push or during pull request preview builds, and trusted runs can save those generated `thumbnail.webp` files back to the same PR branch or open/update a follow-up PR for `main` pushes.
 
 ## Required GitHub settings
 
-The workflow assumes these repository settings already exist:
+See [architecture.md: External GitHub settings](architecture.md#external-github-settings) for the full list of required repository settings (Pages, branch protection, app tokens, secrets, rulesets). Use `make ci` to discover the `make ci-audit-repo-settings` wrapper for the manual drift check.
 
-- GitHub Pages publishes from the `gh-pages` branch root.
-- Repository variables include `APP_ID` (Hermione1176) and `ESCALATION_APP_ID` (Harry1176).
-- Repository secrets include `APP_PRIVATE_KEY` and `ESCALATION_APP_PRIVATE_KEY`.
-- `main` branch protection requires `verify`, `secret-scan`, and `dependency-review`, plus 1 approval, signed commits, linear history, and conversation resolution.
-- `gh-pages` is protected by a branch ruleset that restricts updates, deletions, and creations, blocks force pushes, and requires linear history, with bypass limited to the deploy GitHub App and the repo admin role.
-- This repo intentionally operates as a single-admin repo, so admin-role bypass is the acceptable stand-in for owner-only bypass on `gh-pages`.
-- `.github/workflows/audit-repo-settings.yml` is the source-controlled drift check for these assumptions.
+## Runtime dependencies
+
+- `apps/loan-amortization/` is the only app with external runtime CDN dependencies today.
+- Current approved CDN assets are:
+  - Chart.js `4.4.1`
+  - `chartjs-plugin-annotation` `3.0.1`
+  - `chartjs-plugin-datalabels` `2.2.0`
+- Each external script tag must keep a pinned version, `integrity` hash, and `crossorigin="anonymous"`.
+- When updating a CDN asset, update the version, regenerate the SRI hash, rerun the browser suites, and note the change in the app README or architecture doc.
+- Review upstream releases when touching the app or at least once per quarter so the pinned versions and SRI hashes do not quietly age out.
 
 ## Rollback and recovery
 
-- If a deployment is bad, restore the site by redeploying a known-good `main` commit through the strict push/manual workflow path.
-- If generated files drift in CI, treat that as a signal to inspect the generated diff and decide whether the source change or the generated output contract needs updating; the release path intentionally does not auto-commit those files.
-- If PR previews stop publishing, verify `APP_ID`, `APP_PRIVATE_KEY`, and GitHub App installation access first.
-- If a deploy succeeds but the publish job fails afterward, check the post-deploy verification step for Pages propagation delay, stale HTML responses, or mismatched `deploy-metadata.json` content.
-- If Pages serves the wrong root, confirm the repository is still configured for branch-based deployment from `gh-pages`.
-- If dependency audit or secret scanning starts failing, treat that as a release blocker until triaged.
+### Bad main deploy
+
+1. Identify the last known-good commit on `main`.
+2. Trigger the strict deploy workflow for that commit through the normal push/manual path so the repo rebuilds `_site/` and deploys from a verified artifact again.
+3. Verify the published site serves the expected `deploy-metadata.json` SHA and cache-busted asset query strings before declaring recovery complete.
+
+### Broken PR preview
+
+1. Check whether the PR is trusted (same-repo, non-Dependabot) so preview deployment is actually allowed.
+2. Verify `APP_ID`, `APP_PRIVATE_KEY`, `ESCALATION_APP_ID`, and `ESCALATION_APP_PRIVATE_KEY` still exist and the GitHub Apps still have repository installation access.
+3. Inspect the `publish` job summary, then download browser artifacts if live-browser verification failed after deployment.
+
+### Token rotation or GitHub App outage
+
+1. Rotate the affected key in the GitHub App first.
+2. Update the matching repository secret immediately after rotation.
+3. Re-run `make ci-audit-repo-settings repo=<owner/repo>` to confirm the repo still matches the documented contract.
+4. Re-run a trusted preview deploy before relying on the next `main` publish.
+
+### `gh-pages` branch or Pages root drift
+
+1. Confirm GitHub Pages is still branch-based from `gh-pages` with path `/`.
+2. Confirm the `gh-pages` ruleset still targets `refs/heads/gh-pages` and still blocks create/delete/update/force-push operations except for approved bypass actors.
+3. If the branch contents are wrong, redeploy a known-good `main` commit instead of repairing `gh-pages` manually so the verified artifact path stays the source of truth.
+
+### Generated-file drift in CI
+
+1. Treat generated drift as a source-of-truth mismatch, not a deploy-time nuisance.
+2. Inspect the generated diff and determine whether the source change or the generator contract is wrong.
+3. Land the source or generator fix, then rerun the strict gate.
+
+### CDN dependency outage
+
+1. Check whether the failure is isolated to the external Chart.js CDN scripts in `apps/loan-amortization/index.html`.
+2. If the outage is real, either pin to an alternate approved CDN with fresh SRI hashes or temporarily vendor the scripts into the repo and update the HTML references.
+3. Run browser suites before publishing the workaround and document the decision in the app docs.
+
+### Security gate failure
+
+1. Treat dependency audit or secret scan failures as release blockers.
+2. Triage whether the issue is a real leak/vulnerability, an expired exception, or a stale lock/dependency review mismatch.
+3. Only resume deploys after the finding is resolved or consciously documented.
 
 ## Troubleshooting
 
-- If the Playwright Python package is unavailable locally, browser Playwright suites fail during collection and `make thumbnails` exits immediately; rerun `make setup`.
-- If Chromium is unavailable locally, `make web`, `make test-browser`, and `make test-browser-live` fail; run `make setup` to install it.
+- If the Playwright Python package is unavailable locally, browser Playwright suites fail during collection and `make thumbnails` exits immediately; rerun `make setup-all`.
+- If Chromium is unavailable locally, `make check-web`, `make test-browser`, and `make test-browser-live` fail; run `make setup-all` to install it.
 - `make check-local` intentionally avoids Playwright so it can stay fast on machines without Chromium.
+- If you need to manually audit repository settings drift outside the scheduled workflow, run `make ci` to discover `make ci-audit-repo-settings`, then pass `repo=<owner/repo>` when auditing a different repository.
 - If you want to inspect the deployable output locally, run `make site` and serve `_site/` from a static file server.
 - If `make security` fails on `npm audit`, the issue is in the current workspace dependency graph and needs triage before release.
 - If `make security` fails on the Python audit, either a new vulnerability needs triage, an exception review date has expired, an exception no longer matches the current lock files, or a fix is now available and the temporary exception must be removed.
 - If the post-deploy verifier flakes, inspect both the published `?v=<sha>` asset query strings and the deployed `deploy-metadata.json` payload before rerunning.
 - If live browser verification fails in CI, download the `live-browser-artifacts-<run_id>` artifact for screenshots, traces, and runtime error logs.
-- If README auto markers are removed or duplicated, `scripts/generate_index.py` fails fast instead of silently corrupting the file.
+- If the daily live-site smoke workflow fails, inspect the `live-site-smoke-artifacts-<run_id>` artifact and the automatically managed GitHub issue before rerunning.
+- If README auto markers are removed or duplicated, `scripts/build/generate_index.py` fails fast instead of silently corrupting the file.
 - If no artifacts exist, the index generator still writes a valid empty `js/data.js`.
 - If Python dependency declarations change, rerun `make lock` before committing.
-- If Node dependency declarations change, refresh `package-lock.json` before committing.
+- If Node dependency declarations change, run `make lock-node` before committing.
 - If generated thumbnails are intentionally removed from the working tree, `js/data.js` will emit `thumbnail: null` until CI regenerates them.
 
 See [`maintenance.md`](maintenance.md) for the long-term upkeep checklist.

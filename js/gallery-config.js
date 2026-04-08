@@ -1,4 +1,9 @@
 window.ARTIFACTS_CONFIG = {
+  "artifactContract": {
+    "artifactIdPattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    "artifactBasePath": "apps",
+    "thumbnailFile": "thumbnail.webp"
+  },
   "toolDisplayOrder": [
     "claude",
     "chatgpt",

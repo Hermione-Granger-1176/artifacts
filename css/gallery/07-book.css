@@ -1,0 +1,212 @@
+/* Gallery — Book layout, cover, sheet & spine */
+/* ================================================================
+   Book Layout
+   ================================================================ */
+
+.book-layout {
+  position: relative;
+  width: min(100%, 1720px);
+  margin: 0 auto;
+  padding: 0.4rem clamp(0.5rem, 2.5vw, 2rem) 2.5rem;
+  display: grid;
+  grid-template-columns: minmax(180px, 216px) minmax(0, 1fr) minmax(180px, 216px);
+  column-gap: clamp(0.35rem, 1vw, 0.9rem);
+  align-items: start;
+}
+
+/* ================================================================
+   Book Shell & Cover
+   ================================================================ */
+
+.book-shell {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1;
+  width: min(100%, 1060px);
+  justify-self: center;
+  margin-top: 0.4rem;
+  perspective: 1400px;
+}
+
+.book-cover {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  pointer-events: none;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.book-cover-face,
+.book-cover-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 0 var(--radius-book) var(--radius-book) 0;
+  backface-visibility: hidden;
+}
+
+.book-cover-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: clamp(2rem, 5vw, 4rem);
+  background: var(--color-accent-strong);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-left: none;
+  box-shadow: 4px 4px 20px rgba(0, 0, 0, 0.1);
+  z-index: 2;
+}
+
+.book-cover-back {
+  background: var(--color-page-paper);
+  border: 1px solid var(--color-border-solid);
+  transform: rotateY(180deg);
+  z-index: 1;
+  border-radius: var(--radius-book) 0 0 var(--radius-book);
+  box-shadow: inset 4px 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.book-cover-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 6vw, 5rem);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--color-text-on-accent);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.book-cover-author {
+  margin: 1.5rem 0 0;
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+  color: var(--color-text-on-accent);
+  letter-spacing: 0.03em;
+}
+
+.book-cover-sub {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1.5rem;
+  color: var(--color-text-on-accent);
+  letter-spacing: 0.02em;
+}
+
+.book-shell.is-opening .book-cover,
+.book-shell:not(.is-open) .book-cover {
+  visibility: visible;
+}
+
+.book-shell.is-open .book-cover {
+  visibility: hidden;
+}
+
+/*
+   When the book is closed, clip out the left half so it looks like a right-aligned book.
+   Also hide the left page content so it doesn't leak during animation.
+*/
+.book-shell:not(.is-open) .book-sheet {
+  clip-path: inset(0 0 0 50%);
+}
+
+.book-shell:not(.is-open) .artifact-page-left {
+  opacity: 0;
+}
+
+/*
+   When fully open, unclip the sheet. The cover is hidden, revealing the left page.
+*/
+.book-shell.is-open .book-sheet {
+  clip-path: inset(0 0 0 0);
+}
+
+.book-shell.is-open .artifact-page-left {
+  opacity: 1;
+}
+
+.book-sheet.is-turning {
+  pointer-events: none;
+}
+
+/* ================================================================
+   Book Sheet (Page)
+   ================================================================ */
+
+.book-sheet {
+  position: relative;
+  width: 100%;
+  height: var(--book-sheet-min-height);
+  min-height: var(--book-sheet-min-height);
+  border-radius: var(--radius-book);
+  background: transparent;
+  box-shadow:
+    1px 1px 0 var(--color-page-paper),
+    2px 2px 0 rgba(0, 0, 0, 0.06),
+    3px 3px 0 var(--color-page-paper),
+    4px 4px 0 rgba(0, 0, 0, 0.06),
+    5px 5px 0 var(--color-page-paper),
+    6px 6px 0 rgba(0, 0, 0, 0.06),
+    7px 7px 0 var(--color-page-paper),
+    8px 8px 0 rgba(0, 0, 0, 0.06),
+    9px 9px 0 var(--color-page-paper),
+    10px 10px 0 rgba(0, 0, 0, 0.04),
+    10px 10px 16px var(--color-page-shadow);
+}
+
+.book-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: var(--gallery-page-padding-block) 2.1rem var(--gallery-page-padding-block);
+  border-radius: var(--radius-book);
+  background: var(--color-bg-secondary);
+  border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Page gutter shadows — subtle for depth */
+.book-inner::before,
+.book-inner::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(50% - 16px);
+  pointer-events: none;
+}
+
+.book-inner::before {
+  left: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.03), transparent 18%);
+}
+
+.book-inner::after {
+  right: 0;
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.03), transparent 18%);
+}
+
+/* ================================================================
+   Book Spine
+   ================================================================ */
+
+.book-spine {
+  position: absolute;
+  top: 1rem;
+  bottom: 1rem;
+  left: 50%;
+  z-index: 5;
+  width: 6px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    rgba(0, 0, 0, 0.06) 0%,
+    rgba(0, 0, 0, 0.14) 50%,
+    rgba(0, 0, 0, 0.06) 100%);
+  border-radius: 3px;
+}

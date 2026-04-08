@@ -1,4 +1,5 @@
 export default {
+  ignoreFiles: ['node_modules/**', '.venv/**', '_site/**'],
   rules: {
     'block-no-empty': true,
     'color-no-invalid-hex': true,

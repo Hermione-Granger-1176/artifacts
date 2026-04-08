@@ -1,0 +1,29 @@
+/* App — Responsive breakpoints */
+
+@media (max-width: 700px) {
+  .app-header-inner,
+  .page-shell {
+    width: min(100% - 1.25rem, 1000px);
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header-inner {
+    min-height: 64px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

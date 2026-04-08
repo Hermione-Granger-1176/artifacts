@@ -19,7 +19,7 @@ The repository root is treated as a strict publishing platform with these rules:
 1. `verify` is the only workflow job that builds the deployable `_site/` output.
 2. `publish` deploys only the verified `_site/` artifact produced by `verify`.
 3. CI and deployment fail closed. Verification, secret scanning, dependency review, and deploy checks do not auto-heal source branches or silently continue after policy failures.
-4. The publish path does not commit generated outputs back to contributor branches. Generated diffs are summarized for humans to inspect.
+4. The `publish` job does not commit generated outputs back to contributor branches. Separate, policy-gated writeback flows can persist generated thumbnails or refreshed Dependabot lock files when explicitly allowed.
 5. Post-deploy verification must confirm both the cache-busted HTML marker and the `deploy-metadata.json` commit SHA.
 6. Root-shell interactions must preserve visible focus, accessible state announcements, and keyboard-safe behavior.
 

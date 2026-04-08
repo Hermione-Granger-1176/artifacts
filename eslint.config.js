@@ -2,12 +2,19 @@ import globals from 'globals';
 
 const commonRules = {
   'no-console': 'off',
-  'no-undef': 'error'
+  'no-undef': 'error',
+  'no-eval': 'error',
+  'no-implied-eval': 'error',
+  'no-new-func': 'error',
+  'no-script-url': 'error'
 };
 
 export default [
   {
-    files: ['js/**/*.js'],
+    ignores: ['node_modules/**', '.venv/**', '_site/**', 'locks/**', 'assets/**', 'config/**']
+  },
+  {
+    files: ['js/**/*.js', 'apps/**/*.js'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

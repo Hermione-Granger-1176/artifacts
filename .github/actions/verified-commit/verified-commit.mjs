@@ -111,11 +111,7 @@ export async function fetchJson(url, options, dependencies = {}) {
         continue;
       }
 
-      if (error instanceof Error) {
-        throw error;
-      }
-
-      throw new Error(String(error));
+      throw error instanceof Error ? error : new Error(String(error));
     } finally {
       clearTimeout(timeout);
     }
@@ -250,6 +246,7 @@ export async function runVerifiedCommit({
   const fallbackBranchPrefix = env.FALLBACK_BRANCH_PREFIX;
   const prTitle = env.PR_TITLE;
   const prBody = env.PR_BODY;
+  const commitMode = env.COMMIT_MODE || 'direct-or-pr';
   const pathspec = splitPathspec(env.PATHSPEC_INPUT || '');
   const [owner, repo] = (env.GITHUB_REPOSITORY || '').split('/');
 
@@ -312,13 +309,25 @@ export async function runVerifiedCommit({
     return data.createCommitOnBranch.commit;
   };
 
-  try {
-    const commit = await createCommit(baseBranch, expectedHeadSha, commitHeadline);
-    consoleObj.log(`Created verified commit: ${commit.url}`);
-    setOutput('result-url', commit.url);
-    return { changed: true, resultUrl: commit.url };
-  } catch (error) {
-    consoleObj.log(`Direct commit failed (${error.message}), creating branch and PR`);
+  const validModes = new Set(['direct', 'force-pr', 'direct-or-pr']);
+  if (!validModes.has(commitMode)) {
+    throw new Error(`Unsupported commit mode: ${commitMode}`);
+  }
+
+  if (commitMode !== 'force-pr') {
+    try {
+      const commit = await createCommit(baseBranch, expectedHeadSha, commitHeadline);
+      consoleObj.log(`Created verified commit: ${commit.url}`);
+      setOutput('result-url', commit.url);
+      return { changed: true, resultUrl: commit.url };
+    } catch (error) {
+      if (commitMode === 'direct') {
+        throw error;
+      }
+      consoleObj.log(`Direct commit failed (${error.message}), creating branch and PR`);
+    }
+  } else {
+    consoleObj.log('Commit mode force-pr selected, creating branch and PR');
   }
 
   const fallbackBranch = createBranchName(fallbackBranchPrefix, now);
