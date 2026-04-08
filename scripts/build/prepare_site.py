@@ -268,8 +268,22 @@ def _inline_all_css_imports() -> None:
 
     for subdir in ("gallery", "app"):
         partial_dir = DEPLOY_DIR / "css" / subdir
-        if partial_dir.is_dir():
-            shutil.rmtree(partial_dir)
+        if not partial_dir.is_dir():
+            continue
+        referencing = [
+            css_file
+            for css_file in (DEPLOY_DIR / "css").iterdir()
+            if css_file.suffix == ".css"
+            and f"./{subdir}/" in css_file.read_text(encoding="utf-8")
+        ]
+        if referencing:
+            logger.warning(
+                "Keeping %s — still referenced by: %s",
+                partial_dir.relative_to(DEPLOY_DIR),
+                ", ".join(f.name for f in referencing),
+            )
+            continue
+        shutil.rmtree(partial_dir)
 
 
 def _patch_root_stylesheet(version: str) -> None:

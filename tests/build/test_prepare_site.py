@@ -469,6 +469,24 @@ def test_inline_all_css_imports_removes_partial_dirs(
     assert "html {}" in (css_dir / "app-shell.css").read_text(encoding="utf-8")
 
 
+def test_inline_all_css_imports_keeps_partial_dir_when_still_referenced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy_dir = tmp_path / "_site"
+    css_dir = deploy_dir / "css"
+    gallery_dir = css_dir / "gallery"
+    gallery_dir.mkdir(parents=True)
+    write_text(gallery_dir / "01-tokens.css", "body {}\n")
+    # After inlining, a surviving reference (e.g. source comment) keeps the dir.
+    write_text(css_dir / "style.css", '@import url("./gallery/01-tokens.css");\n/* sourced from ./gallery/ */\n')
+    write_text(css_dir / "app-shell.css", "html {}\n")
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._inline_all_css_imports()
+
+    assert gallery_dir.exists(), "Partial dir should be kept when still referenced"
+
+
 def test_inline_css_imports_keeps_import_when_partial_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

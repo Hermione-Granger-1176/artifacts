@@ -57,6 +57,9 @@ def build_smoke_site(
     copy_tree(REPO_ROOT / "assets", source_root / "assets")
     copy_tree(REPO_ROOT / "css", source_root / "css")
     copy_tree(REPO_ROOT / "js", source_root / "js")
+    config_dir = source_root / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(REPO_ROOT / "config" / "artifact_contract.json", config_dir / "artifact_contract.json")
 
     config = {
         "toolDisplayOrder": ["claude", "chatgpt", "gemini"],

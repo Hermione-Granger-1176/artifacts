@@ -66,6 +66,4 @@ def test_app_runtime_error_banner_is_visible_when_bootstrap_fails(
             expect(page.locator("html")).to_have_attribute(
                 "data-runtime-status", "error"
             )
-            expect(page.locator("#runtime-error")).not_to_have_class(
-                "runtime-error visually-hidden"
-            )
+            expect(page.locator("#runtime-error")).to_be_visible()
