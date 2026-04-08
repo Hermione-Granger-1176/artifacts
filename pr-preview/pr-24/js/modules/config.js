@@ -116,12 +116,13 @@ function getArtifactContract(value) {
   return value || DEFAULT_CONFIG.artifactContract;
 }
 
-function getArtifactIdRegex(contract) {
+function compileArtifactIdRegex(contract) {
   return new RegExp(contract.artifactIdPattern);
 }
 
-function matchesArtifactId(value, contract) {
-  const match = getArtifactIdRegex(contract).exec(value);
+function matchesArtifactId(value, contract, compiledRegex) {
+  const regex = compiledRegex || compileArtifactIdRegex(contract);
+  const match = regex.exec(value);
   return Boolean(match) && match.index === 0 && match[0] === value;
 }
 
@@ -133,20 +134,20 @@ function buildThumbnailPath(contract, artifactId) {
   return `${contract.artifactBasePath}/${artifactId}/${contract.thumbnailFile}`;
 }
 
-function matchesArtifactUrlShape(value, contract) {
+function matchesArtifactUrlShape(value, contract, compiledRegex) {
   const parts = value.split('/');
   return parts.length === 3
     && parts[0] === contract.artifactBasePath
     && parts[2] === ''
-    && matchesArtifactId(parts[1], contract);
+    && matchesArtifactId(parts[1], contract, compiledRegex);
 }
 
-function matchesThumbnailShape(value, contract) {
+function matchesThumbnailShape(value, contract, compiledRegex) {
   const parts = value.split('/');
   return parts.length === 3
     && parts[0] === contract.artifactBasePath
     && parts[2] === contract.thumbnailFile
-    && matchesArtifactId(parts[1], contract);
+    && matchesArtifactId(parts[1], contract, compiledRegex);
 }
 
 function validateArtifactContract(value, path) {
@@ -189,12 +190,12 @@ function assertSafeRelativePath(value, path) {
   assertShape(!decodedValue.includes('..'), `${path} must not contain path traversal segments`);
 }
 
-function validateArtifactUrl(value, path, expectedId, contract) {
+function validateArtifactUrl(value, path, expectedId, contract, compiledRegex) {
   assertShape(typeof value === 'string', `${path} must be a string`);
   assertSafeRelativePath(value, path);
   const expectedUrl = buildArtifactUrl(contract, expectedId);
   if (value !== expectedUrl) {
-    if (matchesArtifactUrlShape(value, contract)) {
+    if (matchesArtifactUrlShape(value, contract, compiledRegex)) {
       assertShape(false, `${path} must use the same artifact id as ${path.replace(/\.url$/, '.id')}`);
     }
 
@@ -202,12 +203,12 @@ function validateArtifactUrl(value, path, expectedId, contract) {
   }
 }
 
-function validateThumbnailPath(value, path, expectedId, contract) {
+function validateThumbnailPath(value, path, expectedId, contract, compiledRegex) {
   assertShape(typeof value === 'string', `${path} must be a string`);
   assertSafeRelativePath(value, path);
   const expectedThumbnail = buildThumbnailPath(contract, expectedId);
   if (value !== expectedThumbnail) {
-    if (matchesThumbnailShape(value, contract)) {
+    if (matchesThumbnailShape(value, contract, compiledRegex)) {
       assertShape(false, `${path} must use the same artifact id as ${path.replace(/\.thumbnail$/, '.id')}`);
     }
 
@@ -225,18 +226,20 @@ export function validateArtifactsData(value, artifactContract = DEFAULT_CONFIG.a
   validateArtifactContract(contract, 'artifactContract');
   assertShape(Array.isArray(value), 'window.ARTIFACTS_DATA must be an array');
 
+  const idRegex = compileArtifactIdRegex(contract);
+
   value.forEach((item, index) => {
     const path = `window.ARTIFACTS_DATA[${index}]`;
     assertShape(isPlainObject(item), `${path} must be an object`);
     assertShape(typeof item.id === 'string', `${path}.id must be a string`);
-    assertShape(matchesArtifactId(item.id, contract), `${path}.id must match the artifact id pattern`);
+    assertShape(matchesArtifactId(item.id, contract, idRegex), `${path}.id must match the artifact id pattern`);
     assertShape(typeof item.name === 'string', `${path}.name must be a string`);
-    validateArtifactUrl(item.url, `${path}.url`, item.id, contract);
+    validateArtifactUrl(item.url, `${path}.url`, item.id, contract, idRegex);
 
     validateNullableStringField(item, 'description', path);
     validateNullableStringField(item, 'thumbnail', path);
     if (item.thumbnail !== undefined && item.thumbnail !== null) {
-      validateThumbnailPath(item.thumbnail, `${path}.thumbnail`, item.id, contract);
+      validateThumbnailPath(item.thumbnail, `${path}.thumbnail`, item.id, contract, idRegex);
     }
 
     assertShape(Array.isArray(item.tags), `${path}.tags must be an array`);
