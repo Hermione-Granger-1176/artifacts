@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createRuntime, readStorage, writeStorage } from '../../js/modules/runtime.js';
+import { createRuntime, readStorage, writeStorage } from '../../../js/modules/runtime.js';
 
 function createWindowStub() {
   const listeners = new Map();
@@ -72,9 +72,7 @@ function createDocumentStub() {
       }
     },
     dispatchClick(target) {
-      for (const handler of clickListeners) {
-        handler({ target });
-      }
+      clickListeners.forEach((handler) => handler({ target }));
     },
     getElementById(id) {
       return {

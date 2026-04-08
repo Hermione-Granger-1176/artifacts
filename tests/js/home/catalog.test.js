@@ -9,7 +9,7 @@ import {
   normalizeSelection,
   sortValuesByDisplayOrder,
   splitListParam
-} from '../../js/modules/catalog.js';
+} from '../../../js/modules/catalog.js';
 
 test('hydrateArtifacts precomputes lowercase search text', () => {
   const [artifact] = hydrateArtifacts([

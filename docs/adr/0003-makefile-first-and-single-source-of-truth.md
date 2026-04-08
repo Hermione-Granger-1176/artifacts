@@ -17,7 +17,7 @@ These inconsistencies made it harder to onboard, harder to maintain, and easier 
 
 ## Decision
 
-1. **The Makefile is the only interface.** No tool binary (`.venv/bin/*`, `pytest`, `ruff`, `npm run`) is invoked directly; everything goes through `make <target>`. If a target is missing, add one before using the tool.
+1. **The Makefile is the supported local and contributor interface.** No tool binary (`.venv/bin/*`, `pytest`, `ruff`, `npm run`) is invoked directly in normal workspace usage; everything goes through `make <target>`. If a target is missing, add one before using the tool. Internal CI helpers and composite actions may still call private entrypoints directly.
 
 2. **Each tool's config file owns its scope.** Linting, testing, and coverage scope is defined once in the tool's config or owning script definition, not duplicated across the Makefile and multiple tool configs:
    - ruff: `pyproject.toml` (built-in excludes)
@@ -31,7 +31,7 @@ These inconsistencies made it harder to onboard, harder to maintain, and easier 
 
 4. **Scripts organized by concern.** `scripts/` is split into subpackages: `build/`, `ci/`, `lib/`, `lint/`. A centralized `REPO_ROOT` in `scripts/__init__.py` replaces per-file path computation.
 
-5. **Tests mirror scripts.** `tests/` has matching subdirectories: `build/`, `ci/`, `lib/`, `lint/`, plus `browser/` for Playwright and `js/` for Node tests.
+5. **Tests mirror scripts.** `tests/` has matching subdirectories: `build/`, `ci/`, `lib/`, `lint/`, plus `browser/` for Playwright and grouped `js/` suites for home, shared, app-specific, and workflow-focused Node tests.
 
 6. **Auto-generated two-level help.** `make help` is generated from `## comment` annotations on targets and `# ─── Section ───` headers in the Makefile. Adding a target with `##` makes it appear automatically. `make pr`, `make ci`, and `make git` drill into sub-commands.
 

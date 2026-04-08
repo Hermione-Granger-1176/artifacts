@@ -32,11 +32,13 @@ async function main() {
 
     if (actionableResults.length > 0) {
       hasErrors = true;
-    }
-
-    for (const result of actionableResults) {
       process.stderr.write(
-        `${result.file}:${result.line}:${result.column}: ${result.message} [${result.kind}]\n`
+        actionableResults
+          .map(
+            (result) =>
+              `${result.file}:${result.line}:${result.column}: ${result.message} [${result.kind}]\n`
+          )
+          .join('')
       );
     }
   }

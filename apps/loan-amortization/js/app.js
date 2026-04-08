@@ -137,20 +137,23 @@ function handleExtraListClick(event) {
     return;
   }
 
-  switch (button.dataset.action) {
-    case "remove-extra":
+  const actions = {
+    "remove-extra": () => {
       extras = removeExtraById(extras, extraId);
-      renderExtrasSection();
-      recalc();
-      return;
-    case "set-type":
+    },
+    "set-type": () => {
       setExtraType(extras, extraId, button.dataset.type);
-      renderExtrasSection();
-      recalc();
-      return;
-    default:
-      return;
+    }
+  };
+
+  const action = actions[button.dataset.action];
+  if (!action) {
+    return;
   }
+
+  action();
+  renderExtrasSection();
+  recalc();
 }
 
 function handleExtraListInput(event) {
@@ -167,11 +170,14 @@ function handleExtraListInput(event) {
   updateExtraField(extras, extraId, input.dataset.field, input.value);
   const extra = extras.find((item) => item.id === extraId);
   const tip = input.closest(".extra-item")?.querySelector(".info-tip");
-  if (extra && tip) {
-    const summary = summarizeExtra(extra, getFrequencyParams(getFrequency()).label.toLowerCase());
-    tip.dataset.tip = summary;
-    tip.setAttribute("aria-label", summary);
+  if (!extra || !tip) {
+    recalc();
+    return;
   }
+
+  const summary = summarizeExtra(extra, getFrequencyParams(getFrequency()).label.toLowerCase());
+  tip.dataset.tip = summary;
+  tip.setAttribute("aria-label", summary);
   recalc();
 }
 

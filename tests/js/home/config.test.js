@@ -8,7 +8,7 @@ import {
   validateArtifactsConfig,
   validateArtifactsData,
   validateGalleryBootstrapData
-} from '../../js/modules/config.js';
+} from '../../../js/modules/config.js';
 
 test('getGalleryConfig merges runtime config with defaults', () => {
   const config = getGalleryConfig({

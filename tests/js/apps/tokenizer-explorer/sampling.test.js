@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { softmax, buildTopPSelection } from '../../apps/tokenizer-explorer/js/modules/sampling.js';
+import { softmax, buildTopPSelection } from '../../../../apps/tokenizer-explorer/js/modules/sampling.js';
 
 test('softmax returns valid probability distribution', () => {
   const probs = softmax([1.0, 2.0, 3.0], 1.0);

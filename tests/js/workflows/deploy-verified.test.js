@@ -8,7 +8,7 @@ import {
   computeChanges,
   computeRemoval,
   runVerifiedDeploy
-} from '../../.github/actions/deploy-site/deploy-verified.mjs';
+} from '../../../.github/actions/deploy-site/deploy-verified.mjs';
 
 /** Compute the expected Git blob SHA for a string. */
 function expectedSha(content) {

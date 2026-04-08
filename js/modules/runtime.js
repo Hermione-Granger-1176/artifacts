@@ -1,8 +1,8 @@
 /**
  * Read a value from localStorage, returning a fallback on failure.
- * @param {string} key
- * @param {string|null} [fallbackValue=null]
- * @returns {string|null}
+ * @param {string} key - Storage key to read.
+ * @param {string|null} [fallbackValue=null] - Value to return when reads fail or the key is unset.
+ * @returns {string|null} Stored value or the fallback.
  */
 export function readStorage(key, fallbackValue = null) {
   try {
@@ -15,9 +15,9 @@ export function readStorage(key, fallbackValue = null) {
 
 /**
  * Write a value to localStorage, returning success status.
- * @param {string} key
- * @param {string} value
- * @returns {boolean}
+ * @param {string} key - Storage key to write.
+ * @param {string} value - Value to persist.
+ * @returns {boolean} True when the write succeeds.
  */
 export function writeStorage(key, value) {
   try {
@@ -102,13 +102,17 @@ function updateRuntimeDiagnostics(documentObj, state) {
   if (output) {
     output.textContent = summary;
   }
-  if (copyButton) {
-    copyButton.hidden = !hasSummary;
-    if (!hasSummary) {
-      copyButton.textContent = 'Copy error details';
-      copyButton.removeAttribute('data-copy-state');
-    }
+  if (!copyButton) {
+    return;
   }
+
+  copyButton.hidden = !hasSummary;
+  if (hasSummary) {
+    return;
+  }
+
+  copyButton.textContent = 'Copy error details';
+  copyButton.removeAttribute('data-copy-state');
 }
 
 /** Copy the latest runtime diagnostics summary when clipboard access is available. */
@@ -176,6 +180,14 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
     documentObj.documentElement.dataset.runtimeStatus = value;
   };
 
+  const showFatalBanner = () => {
+    setStatus('error');
+    if (runtimeErrorBanner) {
+      runtimeErrorBanner.classList.remove('visually-hidden');
+      runtimeErrorBanner.classList.remove('hidden');
+    }
+  };
+
   const reportError = (error, context, { fatal = false } = {}) => {
     state.lastError = {
       context,
@@ -188,11 +200,7 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
     updateRuntimeDiagnostics(documentObj, state);
 
     if (fatal) {
-      setStatus('error');
-      if (runtimeErrorBanner) {
-        runtimeErrorBanner.classList.remove('visually-hidden');
-        runtimeErrorBanner.classList.remove('hidden');
-      }
+      showFatalBanner();
     }
 
     const consoleMessage = `[Artifacts] ${context}: ${state.lastError.message}`;

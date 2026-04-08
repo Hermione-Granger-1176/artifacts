@@ -7,7 +7,7 @@ import {
   createDetailContent,
   escapeHtml,
   renderPagination
-} from '../../js/modules/render.js';
+} from '../../../js/modules/render.js';
 
 test('escapeHtml escapes reserved HTML characters', () => {
   assert.equal(escapeHtml('<script src="x">&"\''), '&lt;script src=&quot;x&quot;&gt;&amp;&quot;&#039;');

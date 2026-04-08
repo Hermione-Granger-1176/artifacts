@@ -166,8 +166,12 @@ export function initAppShell({
   }
 
   function handleBackClick() {
-    if (!document.referrer) {
+    const navigateHome = () => {
       window.location.href = homePath;
+    };
+
+    if (!document.referrer) {
+      navigateHome();
       return;
     }
 
@@ -175,7 +179,7 @@ export function initAppShell({
     try {
       referrerUrl = new URL(document.referrer);
     } catch (_error) {
-      window.location.href = homePath;
+      navigateHome();
       return;
     }
 
@@ -183,7 +187,7 @@ export function initAppShell({
       referrerUrl.origin !== window.location.origin ||
       window.history.length <= 1
     ) {
-      window.location.href = homePath;
+      navigateHome();
       return;
     }
 

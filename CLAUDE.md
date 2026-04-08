@@ -18,14 +18,14 @@ The root `index.html` is a gallery page with searchable thumbnails, multi-select
 
 - `apps/<slug>/`: artifacts, each with `index.html`, `name.txt`, `description.txt`, `tags.txt`, `tools.txt`
 - `scripts/{build,ci,lib,lint}/`: Python tooling organized by concern, 100% test coverage enforced
-- `tests/{build,ci,lib,lint}/`: mirrors scripts structure; `tests/browser/` for Playwright; `tests/js/` for Node
+- `tests/{build,ci,lib,lint}/`: mirrors scripts structure; `tests/browser/` for Playwright; `tests/js/{home,common,apps,workflows}/` for Node
 - `js/`, `css/`: gallery + shared app modules and styles
 - `docs/`: developer documentation
 - `config/`: gallery metadata, artifact contract, and security audit policy
 
 ## Adding a new artifact
 
-1. `make new name=my-artifact`: scaffolds the directory with placeholder files
+1. `make new name=my-artifact`: scaffolds the directory with placeholder files and the matching `tests/js/apps/<slug>/` folder
 2. Place the HTML file as `index.html`, fill in `name.txt`, `description.txt`, `tags.txt`, `tools.txt`
 3. `make validate`: fail fast on incomplete directories
 4. Push to `main`: CI generates thumbnails, updates gallery data, builds, and deploys

@@ -39,24 +39,11 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 
 ## Test coverage
 
-- `tests/js/app.test.js`: DOMContentLoaded bootstrap wiring, fatal startup errors, and runtime handoff
-- `tests/js/book-scene.test.js`: intro motion, reduced-motion handling, desktop/mobile page turns, and queued transitions
-- `tests/js/catalog.test.js`: catalog helper behavior
-- `tests/js/config.test.js`: config merging, bootstrap validation, and label fallbacks
-- `tests/js/detail-overlay.test.js`: overlay open/close, focus trapping, animation, and motion preferences
-- `tests/js/gallery-app.test.js`: gallery initialization, URL state, desk-note filters, pagination, overlay behavior, keyboard shortcuts, and theme persistence
-- `tests/js/icons.test.js`: inline SVG export coverage for shared icon fragments
-- `tests/js/inert.test.js`: element inert toggling and background content management
-- `tests/js/motion.test.js`: reduced-motion detection, scroll behavior, and scroll-to-top
-- `tests/js/render.test.js`: escaping, filter UI sync, detail content, card rendering, and pagination markup
-- `tests/js/runtime.test.js`: runtime state, error capture, and fatal banner behavior
-- `tests/js/app-runtime.test.js`: app-runtime bootstrap, fatal errors, ready state
-- `tests/js/app-theme.test.js`: theme persistence, normalization, localStorage fallback
-- `tests/js/app-shell.test.js`: shell placeholders, theme-toggle, pre-populated slots
-- `tests/js/element-cache.test.js`: DOM element cache lookup behavior
-- `tests/js/loan-amortization-modules.test.js`: amortization schedule, formatting, frequency params, biweekly EMI, row summary, metrics markup
-- `tests/js/verified-commit.test.js`: workflow helper logic for the verified-commit action
-- `tests/js/deploy-verified.test.js`: deploy-site action logic (blob SHA, change computation, verified deploy, preview modes)
+- `tests/js/home/`: root gallery tests such as bootstrap wiring, catalog helpers, overlay behavior, rendering, keyboard flows, and home-page runtime coverage
+- `tests/js/common/`: shared app-system tests for runtime helpers, app shell behavior, theme bootstrap, motion helpers, inert handling, and element caching
+- `tests/js/apps/loan-amortization/`: app-specific entry, DOM, and module coverage for the loan amortization app
+- `tests/js/apps/tokenizer-explorer/`: app-specific entry and module coverage for the tokenizer explorer app
+- `tests/js/workflows/`: Node tests for the `deploy-site` and `verified-commit` GitHub composite-action modules
 - `tests/browser/test_frontend_smoke.py`: browser smoke coverage for gallery load, invalid bootstrap data, search, desk-note filters, pagination, detail overlay, and `404.html`
 - `tests/browser/test_frontend_accessibility.py`: Playwright + axe coverage for root light/dark themes, overlay state, no-results state, and `404.html`, plus explicit contrast assertions
 - `tests/browser/test_frontend_browser_flows.py`: keyboard-only, mobile, reduced-motion, theme persistence, and larger-catalog browser interaction coverage
@@ -78,9 +65,9 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 ## Local vs CI expectations
 
 - Use [operations.md](operations.md) as the canonical workflow reference; the targets below are the frontend-specific checkpoints you will use most often.
-- `make test-js` runs the JavaScript unit suite with Node's built-in test runner
+- `make test-js` runs the JavaScript unit suite with Node's built-in test runner across `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, and `tests/js/workflows/`
 - `make coverage-js` uses Node's built-in experimental coverage report, which covers all source files imported by tests while excluding `node_modules/` and `tests/` -- thresholds and exclusions are configured in `package.json`
-- `make check-local` runs the fast local gate: lint, non-browser Python tests, JavaScript unit tests, JavaScript coverage, dependency audits, artifact validation, and canonical generated-file drift checks
+- `make check-local` runs the fast local gate: lint, non-browser Python tests, JavaScript unit tests, JavaScript source-to-test coverage lint, JavaScript coverage, dependency audits, artifact validation, and canonical generated-file drift checks
 - `make test-browser-root` runs all root-gallery Playwright suites
 - `make test-browser-root-smoke`, `make test-browser-root-accessibility`, and `make test-browser-root-flows` run the root smoke, accessibility, and browser-flow suites separately
 - `make test-browser-apps` runs all mature app Playwright suites; set `ARTIFACTS_BROWSER_APP_SLUGS` to limit coverage to specific app slugs

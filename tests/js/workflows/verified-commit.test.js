@@ -9,7 +9,7 @@ import {
   parseDiffOutput,
   runVerifiedCommit,
   splitPathspec
-} from '../../.github/actions/verified-commit/verified-commit.mjs';
+} from '../../../.github/actions/verified-commit/verified-commit.mjs';
 
 function createJsonResponse(payload, { ok = true, status = 200 } = {}) {
   return {

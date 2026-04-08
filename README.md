@@ -67,7 +67,7 @@ apps/
 
 ## Adding a new artifact
 
-1. Create a new scaffold with `make new name=my-artifact`, or create a kebab-case directory under `apps/` manually
+1. Create a new scaffold with `make new name=my-artifact`, or create a kebab-case directory under `apps/` manually. The scaffold also creates `tests/js/apps/<slug>/` so app-specific Node tests have a matching home.
 2. Replace the scaffold `index.html` with your artifact and fill in the metadata files
 3. Run `make validate` to catch missing required files before pushing
 4. Push to `main` or trigger a manual run to let CI regenerate derived files, prepare `_site/`, and deploy the site

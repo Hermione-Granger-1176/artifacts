@@ -15,7 +15,7 @@ make git        # show all git sub-commands
 
 Recommended workflow when changing workspace code:
 
-1. `make new name=my-artifact` if you want a scaffold instead of creating files by hand.
+1. `make new name=my-artifact` if you want a scaffold instead of creating files by hand. It also creates the matching `tests/js/apps/<slug>/` directory for app-specific Node tests.
 2. `make setup` for fast local work, or `make setup-all` if you also need Chromium.
 3. Edit files.
 4. Run `make check-local`.
@@ -47,17 +47,18 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - Workflow linting runs through `scripts/lint/lint-workflows.mjs`, which wraps `actionlint` across `.github/workflows/*.yml` and `.github/workflows/*.yaml`.
 - `make lint-doc-commands` checks contributor-facing docs for direct commands that should use Make targets instead.
 - `make lint-make-targets` verifies that documented `make <target>` references still exist in `Makefile`.
+- `make lint-js-test-coverage` verifies that every JS or MJS source file under the tracked source roots is imported by at least one test file.
 - `pytest` enforces 100% line coverage for the `scripts` package.
 - `make test-ci` runs the CI-focused Python tests under `tests/ci/`.
 - `make test-ci-workflows` runs narrow contract tests against `.github/workflows/*.yml` so local and CI checks can catch workflow-structure drift early.
-- `node --test` covers shared browser and workflow helper modules under `tests/js/`.
-- `make coverage-js` uses Node's built-in experimental coverage output and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across all source files imported by `tests/js/`. Coverage excludes `node_modules/` and `tests/`; thresholds and exclusions are configured in `package.json`.
+- `node --test` covers the grouped Node suites under `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, and `tests/js/workflows/`.
+- `make coverage-js` uses Node's built-in experimental coverage output and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across all source files imported by the grouped `tests/js/` suites. Coverage excludes `node_modules/` and `tests/`; thresholds and exclusions are configured in `package.json`.
 - `make security` mirrors the practical local dependency audits in CI; the Python side runs a policy-driven audit over the configured lock files and reviewed vulnerability exceptions in `config/security_audit.json`, matches exceptions by lock file, package, and vulnerability id or alias, and fails expired, unused, or now-fixable exceptions, while Gitleaks and GitHub dependency review remain CI-only because this repo does not vendor those scanners locally.
 - `make check-generated` reruns the index generator in a restore-safe mode and fails if `README.md`, `js/data.js`, or `js/gallery-config.js` would drift from tracked source inputs.
 - Playwright browser suites validate both the built root gallery and mature app pages through `make test-browser`, while CI selectively scopes mature app suites with `ARTIFACTS_BROWSER_APP_SLUGS`.
 - `make test-browser-live` verifies an already-published site in a real browser when `ARTIFACTS_LIVE_SITE_URL` is set, and CI captures failure screenshots/traces/logs through `ARTIFACTS_BROWSER_ARTIFACT_DIR`.
 - Scheduled CI monitoring now uses GitHub-native issue alerts: `.github/workflows/audit-repo-settings.yml` opens/closes a single repository-settings drift issue, and `.github/workflows/live-site-smoke.yml` opens/closes a single live-site smoke issue.
-- `make check-local` is the fast local gate without browser Playwright suites or thumbnail generation, and it includes the canonical generated-file drift check.
+- `make check-local` is the fast local gate without browser Playwright suites or thumbnail generation, and it includes the JS source-to-test coverage lint plus the canonical generated-file drift check.
 - `make test-browser-root-smoke`, `make test-browser-root-accessibility`, and `make test-browser-root-flows` let you run the root gallery Playwright suites separately.
 - `make test-browser-apps-smoke`, `make test-browser-apps-accessibility`, and `make test-browser-apps-flows` let you run the mature app Playwright suites separately while preserving `make test-browser-apps` as the aggregate app gate.
 - `make check-web` is the browser-only gate for the aggregate root/app browser suites and thumbnails.

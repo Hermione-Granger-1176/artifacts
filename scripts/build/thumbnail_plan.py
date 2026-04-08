@@ -130,7 +130,7 @@ def thumbnail_persist_decision(
     """Return the allowed thumbnail persistence mode and reason."""
     has_thumbnail_work = runtime_changed or bool(missing_slugs)
 
-    if event_name == "pull_request":
+    def handle_pull_request() -> tuple[str, str]:
         if head_repo_fork:
             return ("none", "fork-pr")
         if pr_author == "dependabot[bot]":
@@ -139,14 +139,21 @@ def thumbnail_persist_decision(
             return ("pr-branch", "runtime-pr")
         return ("none", "docs-or-metadata-only")
 
-    if event_name == "push":
+    def handle_push() -> tuple[str, str]:
         if associated_pr_kind == "thumbnail-followup":
             return ("none", "merged-thumbnail-pr")
         if has_thumbnail_work:
             return ("followup-pr", "runtime-main")
         return ("none", "docs-or-metadata-only")
 
-    return ("none", "unsupported-event")
+    decision_by_event = {
+        "pull_request": handle_pull_request,
+        "push": handle_push,
+    }
+    decide = decision_by_event.get(event_name)
+    if decide is None:
+        return ("none", "unsupported-event")
+    return decide()
 
 
 def thumbnail_plan(

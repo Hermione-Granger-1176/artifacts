@@ -194,26 +194,30 @@ function validateArtifactUrl(value, path, expectedId, contract, compiledRegex) {
   assertShape(typeof value === 'string', `${path} must be a string`);
   assertSafeRelativePath(value, path);
   const expectedUrl = buildArtifactUrl(contract, expectedId);
-  if (value !== expectedUrl) {
-    if (matchesArtifactUrlShape(value, contract, compiledRegex)) {
-      assertShape(false, `${path} must use the same artifact id as ${path.replace(/\.url$/, '.id')}`);
-    }
-
-    assertShape(false, `${path} must match ${buildArtifactUrl(contract, '<artifact-id>')}`);
+  if (value === expectedUrl) {
+    return;
   }
+
+  if (matchesArtifactUrlShape(value, contract, compiledRegex)) {
+    assertShape(false, `${path} must use the same artifact id as ${path.replace(/\.url$/, '.id')}`);
+  }
+
+  assertShape(false, `${path} must match ${buildArtifactUrl(contract, '<artifact-id>')}`);
 }
 
 function validateThumbnailPath(value, path, expectedId, contract, compiledRegex) {
   assertShape(typeof value === 'string', `${path} must be a string`);
   assertSafeRelativePath(value, path);
   const expectedThumbnail = buildThumbnailPath(contract, expectedId);
-  if (value !== expectedThumbnail) {
-    if (matchesThumbnailShape(value, contract, compiledRegex)) {
-      assertShape(false, `${path} must use the same artifact id as ${path.replace(/\.thumbnail$/, '.id')}`);
-    }
-
-    assertShape(false, `${path} must match ${buildThumbnailPath(contract, '<artifact-id>')}`);
+  if (value === expectedThumbnail) {
+    return;
   }
+
+  if (matchesThumbnailShape(value, contract, compiledRegex)) {
+    assertShape(false, `${path} must use the same artifact id as ${path.replace(/\.thumbnail$/, '.id')}`);
+  }
+
+  assertShape(false, `${path} must match ${buildThumbnailPath(contract, '<artifact-id>')}`);
 }
 
 /**

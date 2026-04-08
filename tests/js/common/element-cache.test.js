@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { cacheElements } from '../../js/modules/element-cache.js';
+import { cacheElements } from '../../../js/modules/element-cache.js';
 
 function createMockDocument(elementMap) {
   return {

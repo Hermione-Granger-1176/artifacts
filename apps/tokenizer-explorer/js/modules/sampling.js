@@ -1,3 +1,10 @@
+/**
+ * Convert raw logits into normalized probabilities at one temperature.
+ *
+ * @param {number[]} logits
+ * @param {number} temperature
+ * @returns {number[]}
+ */
 export function softmax(logits, temperature) {
   const safeTemp = Math.max(temperature, 1e-8);
   const scaled = logits.map((logit) => logit / safeTemp);
@@ -7,6 +14,19 @@ export function softmax(logits, temperature) {
   return exponentials.map((value) => value / total);
 }
 
+/**
+ * Build the sorted token distribution and the cumulative top-p selection set.
+ *
+ * @param {{ baseLogit: number }[]} tokens
+ * @param {number} temperature
+ * @param {number} topP
+ * @returns {{
+ *   sorted: Array<{ baseLogit: number, idx: number, prob: number }>,
+ *   inTopP: Set<number>,
+ *   topTokens: Array<{ baseLogit: number, idx: number, prob: number }>,
+ *   topTokenProbability: number
+ * }}
+ */
 export function buildTopPSelection(tokens, temperature, topP) {
   const logits = tokens.map((token) => token.baseLogit);
   const probabilities = softmax(logits, temperature);

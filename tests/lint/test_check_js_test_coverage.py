@@ -19,7 +19,8 @@ def _create_tree(tmp_path: Path) -> Path:
     root = tmp_path / "repo"
     (root / "js" / "modules").mkdir(parents=True)
     (root / "apps" / "demo" / "js" / "modules").mkdir(parents=True)
-    (root / "tests" / "js").mkdir(parents=True)
+    (root / "tests" / "js" / "home").mkdir(parents=True)
+    (root / "tests" / "js" / "apps" / "demo").mkdir(parents=True)
 
     (root / "js" / "modules" / "config.js").write_text("export function validate() {}")
     (root / "js" / "modules" / "untested.js").write_text("export function helper() {}")
@@ -28,11 +29,11 @@ def _create_tree(tmp_path: Path) -> Path:
         "export function add(a, b) { return a + b; }"
     )
 
-    (root / "tests" / "js" / "config.test.js").write_text(
-        "import { validate } from '../../js/modules/config.js';\n"
+    (root / "tests" / "js" / "home" / "config.test.js").write_text(
+        "import { validate } from '../../../js/modules/config.js';\n"
     )
-    (root / "tests" / "js" / "math.test.js").write_text(
-        "import { add } from '../../apps/demo/js/modules/math.js';\n"
+    (root / "tests" / "js" / "apps" / "demo" / "math.test.js").write_text(
+        "import { add } from '../../../../apps/demo/js/modules/math.js';\n"
     )
 
     return root
@@ -58,7 +59,7 @@ def test_discover_test_files(tmp_path: Path) -> None:
 
 def test_extract_test_imports_resolves_relative_paths(tmp_path: Path) -> None:
     root = _create_tree(tmp_path)
-    test_file = root / "tests" / "js" / "config.test.js"
+    test_file = root / "tests" / "js" / "home" / "config.test.js"
     imports = extract_test_imports(test_file, root)
     resolved_source = (root / "js" / "modules" / "config.js").resolve()
     assert resolved_source in imports
@@ -66,7 +67,7 @@ def test_extract_test_imports_resolves_relative_paths(tmp_path: Path) -> None:
 
 def test_extract_test_imports_handles_path_resolve(tmp_path: Path) -> None:
     root = _create_tree(tmp_path)
-    test_file = root / "tests" / "js" / "resolve.test.js"
+    test_file = root / "tests" / "js" / "home" / "resolve.test.js"
     test_file.write_text("const p = path.resolve('js/modules/config.js');\n")
     imports = extract_test_imports(test_file, root)
     resolved_source = (root / "js" / "modules" / "config.js").resolve()
@@ -75,9 +76,9 @@ def test_extract_test_imports_handles_path_resolve(tmp_path: Path) -> None:
 
 def test_extract_test_imports_handles_dynamic_import(tmp_path: Path) -> None:
     root = _create_tree(tmp_path)
-    test_file = root / "tests" / "js" / "dynamic.test.js"
+    test_file = root / "tests" / "js" / "home" / "dynamic.test.js"
     test_file.write_text(
-        "await import(`../../js/modules/config.js?t=${Date.now()}`);\n"
+        "await import(`../../../js/modules/config.js?t=${Date.now()}`);\n"
     )
     imports = extract_test_imports(test_file, root)
     resolved_source = (root / "js" / "modules" / "config.js").resolve()
@@ -101,8 +102,8 @@ def test_run_check_reports_untested_files(tmp_path: Path) -> None:
 def test_run_check_passes_when_all_covered(tmp_path: Path) -> None:
     root = _create_tree(tmp_path)
     # Add test for the untested file
-    (root / "tests" / "js" / "untested.test.js").write_text(
-        "import { helper } from '../../js/modules/untested.js';\n"
+    (root / "tests" / "js" / "home" / "untested.test.js").write_text(
+        "import { helper } from '../../../js/modules/untested.js';\n"
     )
     violations = run_check(root=root)
     assert violations == []
@@ -110,8 +111,8 @@ def test_run_check_passes_when_all_covered(tmp_path: Path) -> None:
 
 def test_main_returns_zero_when_all_covered(tmp_path: Path) -> None:
     root = _create_tree(tmp_path)
-    (root / "tests" / "js" / "untested.test.js").write_text(
-        "import { helper } from '../../js/modules/untested.js';\n"
+    (root / "tests" / "js" / "home" / "untested.test.js").write_text(
+        "import { helper } from '../../../js/modules/untested.js';\n"
     )
     assert main(["--root", str(root)]) == 0
 

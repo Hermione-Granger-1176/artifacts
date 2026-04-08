@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { renderAppShell, initAppShell } from '../../js/modules/app-shell.js';
+import { renderAppShell, initAppShell } from '../../../js/modules/app-shell.js';
 
 function createSlot() {
   return {

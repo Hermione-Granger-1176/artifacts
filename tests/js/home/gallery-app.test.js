@@ -5,11 +5,11 @@ import assert from 'node:assert/strict';
 globalThis.CSS = globalThis.CSS || {};
 globalThis.CSS.escape = globalThis.CSS.escape || ((v) => String(v).replace(/([^\w-])/g, '\\$1'));
 
-import { initializeGalleryApp } from '../../js/modules/gallery-app.js';
+import { initializeGalleryApp } from '../../../js/modules/gallery-app.js';
 import {
   buildGalleryUrl,
   readGalleryStateFromSearch
-} from '../../js/modules/gallery-url.js';
+} from '../../../js/modules/gallery-url.js';
 
 class FakeClassList {
   constructor(initial = []) {

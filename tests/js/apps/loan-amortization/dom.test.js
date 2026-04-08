@@ -64,7 +64,7 @@ import {
   setViewMode,
   setTableMode,
   getChartElements
-} from '../../apps/loan-amortization/js/modules/ui.js';
+} from '../../../../apps/loan-amortization/js/modules/ui.js';
 
 test('cacheElements returns cached DOM elements using element-cache', () => {
   const mockDoc = {
@@ -195,7 +195,7 @@ const {
   renderTableSummary,
   renderPeriodTable,
   renderYearlyTable
-} = await import('../../apps/loan-amortization/js/modules/tables.js');
+} = await import('../../../../apps/loan-amortization/js/modules/tables.js');
 
 restoreDocument(origDoc);
 
@@ -268,7 +268,7 @@ test('renderYearlyTable aggregates periods into yearly rows', () => {
 
 // --- interactions.js ---
 
-import { bindEvents } from '../../apps/loan-amortization/js/modules/interactions.js';
+import { bindEvents } from '../../../../apps/loan-amortization/js/modules/interactions.js';
 
 test('bindEvents attaches listeners to slider and button elements', () => {
   const listeners = {};
@@ -546,7 +546,7 @@ globalThis.window = {
 };
 
 const { refreshPalette, renderCharts } = await import(
-  '../../apps/loan-amortization/js/modules/charts.js'
+  '../../../../apps/loan-amortization/js/modules/charts.js'
 );
 
 restoreDocument(origDoc3);

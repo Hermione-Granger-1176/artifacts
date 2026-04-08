@@ -28,6 +28,22 @@ def issue_payloads_by_title(
     ]
 
 
+def _issue_number(issue_payload: dict[str, object]) -> int:
+    """Return the validated issue number from a GitHub issue payload."""
+    issue_number = issue_payload.get("number")
+    if not isinstance(issue_number, int):
+        raise RuntimeError("Matched issue number must be an integer")
+    return issue_number
+
+
+def _issue_url(issue_payload: dict[str, object]) -> str:
+    """Return the validated html_url from a GitHub issue payload."""
+    html_url = issue_payload.get("html_url")
+    if not isinstance(html_url, str) or not html_url:
+        raise RuntimeError("Matched issue html_url must be a non-empty string")
+    return html_url
+
+
 def sync_alert_issue(
     *,
     repo: str,
@@ -47,22 +63,10 @@ def sync_alert_issue(
         *(("labels[]", label) for label in labels),
     ]
 
-    if not should_exist:
-        if primary is None:
+    if primary is None:
+        if not should_exist:
             return ""
 
-        issue_number = primary.get("number")
-        if not isinstance(issue_number, int):
-            raise RuntimeError("Matched issue number must be an integer")
-        run_gh_api_form_fn(
-            f"repos/{repo}/issues/{issue_number}",
-            method="PATCH",
-            fields=[("state", "closed")],
-            description=f"closing alert issue {title} for {repo}",
-        )
-        return ""
-
-    if primary is None:
         return run_gh_api_form_fn(
             f"repos/{repo}/issues",
             method="POST",
@@ -71,12 +75,17 @@ def sync_alert_issue(
             jq_expr=".html_url",
         )
 
-    issue_number = primary.get("number")
-    if not isinstance(issue_number, int):
-        raise RuntimeError("Matched issue number must be an integer")
-    html_url = primary.get("html_url")
-    if not isinstance(html_url, str) or not html_url:
-        raise RuntimeError("Matched issue html_url must be a non-empty string")
+    issue_number = _issue_number(primary)
+    if not should_exist:
+        run_gh_api_form_fn(
+            f"repos/{repo}/issues/{issue_number}",
+            method="PATCH",
+            fields=[("state", "closed")],
+            description=f"closing alert issue {title} for {repo}",
+        )
+        return ""
+
+    html_url = _issue_url(primary)
 
     run_gh_api_form_fn(
         f"repos/{repo}/issues/{issue_number}",

@@ -9,9 +9,11 @@ function bindTextInput(elements, { id, sliderId, min, max, parser, onCommit }) {
   });
 
   elements[id].addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.currentTarget.blur();
+    if (event.key !== "Enter") {
+      return;
     }
+
+    event.currentTarget.blur();
   });
 }
 

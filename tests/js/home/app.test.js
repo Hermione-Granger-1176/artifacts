@@ -57,7 +57,7 @@ function createBootstrapHarness({ initializeError = null, validateError = null }
 }
 
 async function importAppModule() {
-  return import(`../../js/app.js?test=${Date.now()}-${Math.random()}`);
+  return import(`../../../js/app.js?test=${Date.now()}-${Math.random()}`);
 }
 
 test.afterEach(() => {

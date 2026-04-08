@@ -31,7 +31,9 @@ def test_scaffold_artifact_creates_expected_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     apps_dir = tmp_path / "apps"
+    tests_js_apps_dir = tmp_path / "tests" / "js" / "apps"
     monkeypatch.setattr(scaffold_artifact, "APPS_DIR", apps_dir)
+    monkeypatch.setattr(scaffold_artifact, "TESTS_JS_APPS_DIR", tests_js_apps_dir)
 
     artifact_dir = scaffold_artifact.scaffold_artifact("budget-tracker")
 
@@ -43,6 +45,7 @@ def test_scaffold_artifact_creates_expected_files(
     assert (artifact_dir / "docs" / "architecture.md").exists()
     assert (artifact_dir / "docs" / "verification.md").exists()
     assert (artifact_dir / "docs" / "decisions.md").exists()
+    assert (tests_js_apps_dir / "budget-tracker").is_dir()
     assert (artifact_dir / "name.txt").read_text(encoding="utf-8") == "Budget Tracker\n"
     assert (artifact_dir / "description.txt").read_text(encoding="utf-8") == "\n"
     assert (artifact_dir / "tags.txt").read_text(encoding="utf-8") == "\n"
@@ -79,6 +82,9 @@ def test_scaffold_artifact_rejects_existing_directory(
     artifact_dir = apps_dir / "budget-tracker"
     artifact_dir.mkdir(parents=True)
     monkeypatch.setattr(scaffold_artifact, "APPS_DIR", apps_dir)
+    monkeypatch.setattr(
+        scaffold_artifact, "TESTS_JS_APPS_DIR", tmp_path / "tests" / "js" / "apps"
+    )
 
     with pytest.raises(FileExistsError, match="Artifact directory already exists"):
         scaffold_artifact.scaffold_artifact("budget-tracker")
@@ -89,12 +95,29 @@ def test_main_scaffolds_artifact_and_returns_zero(
 ) -> None:
     apps_dir = tmp_path / "apps"
     monkeypatch.setattr(scaffold_artifact, "APPS_DIR", apps_dir)
+    monkeypatch.setattr(
+        scaffold_artifact, "TESTS_JS_APPS_DIR", tmp_path / "tests" / "js" / "apps"
+    )
 
     result = scaffold_artifact.main(["budget-tracker"])
 
     captured = capsys.readouterr()
     assert result == 0
     assert "Created artifact scaffold" in captured.out
+
+
+def test_scaffold_artifact_creates_tests_directory_when_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    apps_dir = tmp_path / "apps"
+    tests_js_apps_dir = tmp_path / "tests" / "js" / "apps"
+    monkeypatch.setattr(scaffold_artifact, "APPS_DIR", apps_dir)
+    monkeypatch.setattr(scaffold_artifact, "TESTS_JS_APPS_DIR", tests_js_apps_dir)
+
+    scaffold_artifact.scaffold_artifact("budget-tracker")
+
+    assert tests_js_apps_dir.is_dir()
+    assert (tests_js_apps_dir / "budget-tracker").is_dir()
 
 
 def test_main_requires_exactly_one_argument() -> None:

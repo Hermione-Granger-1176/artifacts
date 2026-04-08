@@ -128,7 +128,7 @@ Run `make lint-yaml` for YAML structure/format checks and `make lint-workflows` 
 ## File organization
 
 - Python scripts in `scripts/`, tests in `tests/`
-- JS modules in `js/modules/`, tests in `tests/js/`
+- JS modules in `js/modules/`, tests grouped under `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, and `tests/js/workflows/`
 - Documentation in `docs/`
 - CI workflows in `.github/workflows/`, composite actions in `.github/actions/`
 - Lock files: Python locks in `locks/`, npm lock at root (`package-lock.json`)

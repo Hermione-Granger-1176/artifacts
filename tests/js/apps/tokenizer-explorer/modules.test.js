@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { scenarios } from '../../apps/tokenizer-explorer/js/modules/scenarios.js';
+import { scenarios } from '../../../../apps/tokenizer-explorer/js/modules/scenarios.js';
 
 // --- scenarios.js ---
 
@@ -36,7 +36,7 @@ test('scenario tokens are ordered by descending baseLogit', () => {
 
 // --- accordion.js ---
 
-import { initAccordion } from '../../apps/tokenizer-explorer/js/modules/accordion.js';
+import { initAccordion } from '../../../../apps/tokenizer-explorer/js/modules/accordion.js';
 
 test('initAccordion toggles card open class on trigger click', () => {
   let clickHandler;
@@ -126,7 +126,7 @@ test('initAccordion ignores clicks outside trigger', () => {
 
   initAccordion(container);
 
-  // Click on something that isn't a trigger — should not throw
+  // Click on something that isn't a trigger, should not throw.
   clickHandler({
     target: {
       closest() { return null; }
@@ -166,7 +166,7 @@ globalThis.getComputedStyle = () => ({
 });
 
 const { renderTabs, renderScenario, renderDistribution } = await import(
-  '../../apps/tokenizer-explorer/js/modules/render.js'
+  '../../../../apps/tokenizer-explorer/js/modules/render.js'
 );
 
 function setupRenderMocks() {
@@ -335,4 +335,3 @@ test('renderDistribution high temperature insight', () => {
     teardownRenderMocks();
   }
 });
-

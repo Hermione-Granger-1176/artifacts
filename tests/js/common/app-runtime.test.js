@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { initializeMatureApp } from '../../js/modules/app-runtime.js';
+import { initializeMatureApp } from '../../../js/modules/app-runtime.js';
 
 function createHarness() {
   const windowListeners = new Map();

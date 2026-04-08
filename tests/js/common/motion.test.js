@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { createMotionHelper } from '../../js/modules/motion.js';
+import { createMotionHelper } from '../../../js/modules/motion.js';
 
 describe('createMotionHelper', () => {
   it('prefersReducedMotion returns the media query match state', () => {

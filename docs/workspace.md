@@ -54,7 +54,11 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- lib/                   Tests for scripts/lib/
 |  |- lint/                  Tests for scripts/lint/
 |  |- browser/               Playwright smoke, accessibility, and flow tests
-|  |- js/                    Node unit tests for gallery and workflow modules
+|  |- js/
+|  |  |- home/               Root gallery Node unit tests
+|  |  |- common/             Shared app/runtime Node unit tests
+|  |  |- apps/               App-specific Node unit tests grouped by slug
+|  |  |- workflows/          Node tests for GitHub action modules
 |- 404.html                  GitHub Pages error page
 |- index.html                Root gallery entry point
 |- Makefile                  Primary interface for supported workspace commands (run make help)
@@ -113,6 +117,7 @@ Each artifact directory under `apps/` is expected to contain:
 - `js/app.js`: recommended app-local runtime entry for mature apps
 - `docs/architecture.md`, `docs/verification.md`, `docs/decisions.md`: recommended internal docs for mature apps
 - `README.md`: recommended app overview and folder map
+- `tests/js/apps/<slug>/`: recommended matching app-specific Node test directory, created automatically by `make new`
 - `name.txt`: required display name
 - `description.txt`: optional short description
 - `tags.txt`: optional tags, one per line
@@ -123,7 +128,7 @@ Each artifact directory under `apps/` is expected to contain:
 
 - Add or modify artifacts in `apps/`.
 - Use Makefile targets for normal local and documented workflows. See [`operations.md`](operations.md) for which targets to run in each workflow.
-- Use `make new name=my-artifact` when you want a correct starting structure quickly.
+- Use `make new name=my-artifact` when you want a correct starting structure quickly; it also creates the matching `tests/js/apps/<slug>/` directory.
 - Update generator logic in `scripts/` when derived-output behavior should change.
 - Prefer keeping tool scope in its owning config file, and avoid adding ad hoc duplicated file selection unless a target or workflow truly needs it.
 - Use `make validate` when you change top-level artifact directories or the artifact folder contract.

@@ -100,6 +100,28 @@ def missing_thumbnail_slugs(apps_root: Path = Path("apps")) -> list[str]:
     ]
 
 
+def _runtime_changed_slug(filename: str) -> str | None:
+    """Return the changed app slug when one path affects runtime behavior."""
+    parts = Path(filename).parts
+    if len(parts) < 3 or parts[0] != "apps":
+        return None
+
+    slug = parts[1]
+    if not _artifact_id_re().match(slug):
+        return None
+
+    top_level = parts[2]
+    if top_level == "docs":
+        return None
+    if top_level in APP_METADATA_FILES and len(parts) == 3:
+        return None
+    if top_level == "index.html" and len(parts) == 3:
+        return slug
+    if top_level in APP_RUNTIME_TOP_LEVELS:
+        return slug
+    return None
+
+
 def runtime_change_plan(changed_files: list[str]) -> dict[str, object]:
     """Classify runtime-impacting app changes from a changed-file list."""
     changed_slugs: set[str] = set()
@@ -110,28 +132,9 @@ def runtime_change_plan(changed_files: list[str]) -> dict[str, object]:
             shared_runtime_changed = True
             continue
 
-        parts = Path(filename).parts
-        if len(parts) < 3 or parts[0] != "apps":
-            continue
-
-        slug = parts[1]
-        if not _artifact_id_re().match(slug):
-            continue
-        top_level = parts[2]
-
-        if top_level == "index.html" and len(parts) == 3:
+        slug = _runtime_changed_slug(filename)
+        if slug is not None:
             changed_slugs.add(slug)
-            continue
-
-        if top_level in APP_RUNTIME_TOP_LEVELS:
-            changed_slugs.add(slug)
-            continue
-
-        if top_level == "docs":
-            continue
-
-        if top_level in APP_METADATA_FILES and len(parts) == 3:
-            continue
 
     app_scope = "none"
     if shared_runtime_changed:

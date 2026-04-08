@@ -144,7 +144,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
   - Step by step:
     1. Checks out the PR branch code.
     2. Installs Python, Node, and Chromium (`make setup-ci`).
-    3. Runs `make check-local`: EditorConfig check, ruff, ESLint, stylelint, yamllint, workflow lint, Python tests (100% coverage on `scripts/`), JS tests, JS coverage (95/85/95 thresholds), pip-audit, npm audit, artifact directory validation, and canonical generated-file drift verification.
+    3. Runs `make check-local`: EditorConfig check, ruff, ESLint, stylelint, yamllint, workflow lint, JS source-to-test coverage lint, Python tests (100% coverage on `scripts/`), JS tests, JS coverage (95/85/95 thresholds), pip-audit, npm audit, artifact directory validation, and canonical generated-file drift verification.
     4. If `thumbnail-scope` is not `none`: calls `scripts/ci/workflow_helpers.py invalidate-thumbnails` to delete stale `thumbnail.webp` files for apps with runtime changes, so they will be regenerated fresh.
     5. Runs `make test-browser-root`: opens the gallery in Chromium, tests search, filters, pagination, detail overlay, keyboard navigation, accessibility, `404.html`.
     6. If `browser-scope` is not `none`: runs `make test-browser-apps`. If `browser-scope` is `changed`, scopes to only the changed app slugs via `ARTIFACTS_BROWSER_APP_SLUGS`. If `all`, tests every mature app.

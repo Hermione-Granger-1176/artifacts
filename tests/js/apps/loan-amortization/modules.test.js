@@ -5,7 +5,7 @@ import {
   calcEMI,
   getExtraForPeriod,
   runSchedule
-} from '../../apps/loan-amortization/js/modules/amortization.js';
+} from '../../../../apps/loan-amortization/js/modules/amortization.js';
 import {
   createExtra,
   removeExtraById,
@@ -13,19 +13,19 @@ import {
   updateExtraField,
   summarizeExtra,
   renderExtras
-} from '../../apps/loan-amortization/js/modules/extras.js';
+} from '../../../../apps/loan-amortization/js/modules/extras.js';
 import {
   formatCurrency,
   formatDollarTick,
   parseNumber,
   escapeAttribute
-} from '../../apps/loan-amortization/js/modules/formatting.js';
-import { buildMetricsMarkup, renderMetrics } from '../../apps/loan-amortization/js/modules/metrics.js';
+} from '../../../../apps/loan-amortization/js/modules/formatting.js';
+import { buildMetricsMarkup, renderMetrics } from '../../../../apps/loan-amortization/js/modules/metrics.js';
 import {
   getBiweeklyEmiOverride,
   getFrequencyParams,
   summarizeScheduleRows
-} from '../../apps/loan-amortization/js/modules/schedule-summary.js';
+} from '../../../../apps/loan-amortization/js/modules/schedule-summary.js';
 
 // --- amortization.js ---
 
@@ -252,15 +252,15 @@ test('updateExtraField accepts allowed fields with valid values', () => {
 test('updateExtraField rejects NaN and negative values', () => {
   const extras = [createExtra(1)];
   updateExtraField(extras, 1, 'amount', 'abc');
-  assert.equal(extras[0].amount, 500); // unchanged — NaN rejected
+  assert.equal(extras[0].amount, 500); // unchanged, NaN rejected
   updateExtraField(extras, 1, 'amount', '-10');
-  assert.equal(extras[0].amount, 500); // unchanged — negative rejected
+  assert.equal(extras[0].amount, 500); // unchanged, negative rejected
 });
 
 test('updateExtraField rejects zero for period fields', () => {
   const extras = [createExtra(1)];
   updateExtraField(extras, 1, 'every', '0');
-  assert.equal(extras[0].every, 1); // unchanged — zero rejected for period field
+  assert.equal(extras[0].every, 1); // unchanged, zero rejected for period field
   updateExtraField(extras, 1, 'startPeriod', '0');
   assert.equal(extras[0].startPeriod, 1);
 });

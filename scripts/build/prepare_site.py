@@ -48,6 +48,8 @@ APP_TITLE_PLACEHOLDER = "__APP_TITLE__"
 APP_DESCRIPTION_PLACEHOLDER = "__APP_DESCRIPTION__"
 APP_SHARE_IMAGE_PLACEHOLDER = "__APP_THUMBNAIL_URL__"
 SHARE_IMAGE_PATH = "assets/social/share-preview.png"
+
+
 def _artifact_contract() -> dict[str, str]:
     """Return the validated shared artifact contract."""
     return read_artifact_contract_file(REPO_ROOT / "config" / "artifact_contract.json")
@@ -188,6 +190,13 @@ def _patch_social_metadata(site_url: str, version: str) -> None:
     index_path.write_text(content, encoding="utf-8")
 
 
+def _read_optional_text(path: Path, fallback: str = "") -> str:
+    """Return stripped file text or ``fallback`` when the file is missing or blank."""
+    if not path.exists():
+        return fallback
+    return path.read_text(encoding="utf-8").strip() or fallback
+
+
 def _patch_app_social_metadata(site_url: str, version: str) -> None:
     """Inject canonical URLs and per-app thumbnail URLs where placeholders exist."""
     apps_dir = DEPLOY_DIR / _artifact_base_path()
@@ -203,16 +212,10 @@ def _patch_app_social_metadata(site_url: str, version: str) -> None:
             continue
 
         content = index_path.read_text(encoding="utf-8")
-
-        title = app_dir.name.replace("-", " ").title()
-        name_path = app_dir / "name.txt"
-        if name_path.exists():
-            title = name_path.read_text(encoding="utf-8").strip() or title
-
-        description = ""
-        description_path = app_dir / "description.txt"
-        if description_path.exists():
-            description = description_path.read_text(encoding="utf-8").strip()
+        title = _read_optional_text(
+            app_dir / "name.txt", app_dir.name.replace("-", " ").title()
+        )
+        description = _read_optional_text(app_dir / "description.txt")
 
         app_url = urljoin(site_url, artifact_url(_artifact_contract(), app_dir.name))
         thumbnail_url = f"{urljoin(app_url, thumbnail_file())}?v={version}"
@@ -237,7 +240,7 @@ def _inline_css_imports(css_file: Path) -> None:
 
     This eliminates sequential blocking requests at runtime by concatenating
     CSS partials into a single file at build time.  Source partials remain
-    untouched — only the copy in ``_site/`` is modified.
+    untouched; only the copy in ``_site/`` is modified.
     """
     if not css_file.exists():
         return
@@ -278,7 +281,7 @@ def _inline_all_css_imports() -> None:
         ]
         if referencing:
             logger.warning(
-                "Keeping %s — still referenced by: %s",
+                "Keeping %s, still referenced by: %s",
                 partial_dir.relative_to(DEPLOY_DIR),
                 ", ".join(f.name for f in referencing),
             )

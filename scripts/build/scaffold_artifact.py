@@ -4,7 +4,8 @@
 This module backs `make new name=<artifact-name>`.
 
 It creates a new artifact directory under ``apps/`` with the required metadata
-files and a minimal HTML starting point.
+files, a minimal HTML starting point, and a matching app test directory under
+``tests/js/apps/<slug>/``.
 
 Run through the Makefile in normal workflows; direct invocation is mainly for
 maintainers working on the build internals.
@@ -15,6 +16,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from scripts import REPO_ROOT
 from scripts.build.generate_index import (
     APPS_DIR,
     DESCRIPTION_FILE,
@@ -25,6 +27,8 @@ from scripts.build.generate_index import (
     is_kebab_case,
 )
 from scripts.build.prepare_site import APP_SHARE_IMAGE_PLACEHOLDER, APP_URL_PLACEHOLDER
+
+TESTS_JS_APPS_DIR = REPO_ROOT / "tests" / "js" / "apps"
 
 
 def _title_from_slug(slug: str) -> str:
@@ -178,12 +182,14 @@ def scaffold_artifact(name: str) -> Path:
         raise ValueError("Artifact name must use kebab-case")
 
     APPS_DIR.mkdir(parents=True, exist_ok=True)
+    TESTS_JS_APPS_DIR.mkdir(parents=True, exist_ok=True)
     artifact_dir = APPS_DIR / name
     if artifact_dir.exists():
         raise FileExistsError(f"Artifact directory already exists: {artifact_dir}")
 
     title = _title_from_slug(name)
     artifact_dir.mkdir()
+    (TESTS_JS_APPS_DIR / name).mkdir(parents=True, exist_ok=True)
     (artifact_dir / "css").mkdir()
     (artifact_dir / "js").mkdir()
     (artifact_dir / "docs").mkdir()
