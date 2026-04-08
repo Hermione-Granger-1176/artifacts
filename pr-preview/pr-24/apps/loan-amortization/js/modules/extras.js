@@ -1,6 +1,11 @@
 import { escapeAttribute } from "./formatting.js";
 
-/** @param {number} nextId @returns {object} A new extra payment with default values. */
+/**
+ * Create one extra-payment model with the default recurring values.
+ *
+ * @param {number} nextId
+ * @returns {{ amount: number, every: number, id: number, period: number, startPeriod: number, type: string }}
+ */
 export function createExtra(nextId) {
   return {
     id: nextId,
@@ -12,12 +17,25 @@ export function createExtra(nextId) {
   };
 }
 
-/** @param {Array} extras @param {number} id @returns {Array} Extras with the given ID removed. */
+/**
+ * Remove one extra-payment row by id.
+ *
+ * @param {Array<{ id: number }>} extras
+ * @param {number} id
+ * @returns {Array<{ id: number }>}
+ */
 export function removeExtraById(extras, id) {
   return extras.filter((extra) => extra.id !== id);
 }
 
-/** @param {Array} extras @param {number} id @param {string} type */
+/**
+ * Update the type of one extra payment in place when it exists.
+ *
+ * @param {Array<{ id: number, type: string }>} extras
+ * @param {number} id
+ * @param {string} type
+ * @returns {void}
+ */
 export function setExtraType(extras, id, type) {
   const extra = extras.find((item) => item.id === id);
   if (extra) {
@@ -27,7 +45,15 @@ export function setExtraType(extras, id, type) {
 
 const ALLOWED_EXTRA_FIELDS = new Set(['amount', 'every', 'startPeriod', 'period']);
 
-/** @param {Array} extras @param {number} id @param {string} field @param {string} value */
+/**
+ * Update one editable numeric field for an extra payment when the input is valid.
+ *
+ * @param {Array<object>} extras
+ * @param {number} id
+ * @param {string} field
+ * @param {string} value
+ * @returns {void}
+ */
 export function updateExtraField(extras, id, field, value) {
   if (!ALLOWED_EXTRA_FIELDS.has(field)) return;
   const parsed = +value;
@@ -39,7 +65,13 @@ export function updateExtraField(extras, id, field, value) {
   }
 }
 
-/** @param {object} extra @param {string} periodLabel @returns {string} Human-readable summary. */
+/**
+ * Summarize one extra payment in the tooltip voice used by the app.
+ *
+ * @param {{ amount: number, every: number, period: number, startPeriod: number, type: string }} extra
+ * @param {string} periodLabel
+ * @returns {string}
+ */
 export function summarizeExtra(extra, periodLabel) {
   if (extra.type === "recurring") {
     return `Pays $${extra.amount.toLocaleString()} every ${
@@ -50,7 +82,16 @@ export function summarizeExtra(extra, periodLabel) {
   return `One-time payment of $${extra.amount.toLocaleString()} at ${periodLabel} ${extra.period}`;
 }
 
-/** @param {{container: HTMLElement, extras: Array, periodLabel: string}} options */
+/**
+ * Render the editable extra-payment rows for the current repayment cadence.
+ *
+ * @param {{
+ *   container: HTMLElement,
+ *   extras: Array<{ amount: number, every: number, id: number, period: number, startPeriod: number, type: string }>,
+ *   periodLabel: string
+ * }} options
+ * @returns {void}
+ */
 export function renderExtras({ container, extras, periodLabel }) {
   container.innerHTML = "";
 

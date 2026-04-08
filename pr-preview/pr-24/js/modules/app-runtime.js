@@ -1,5 +1,17 @@
 import { createRuntime } from "./runtime.js";
 
+/**
+ * Bootstrap one mature app after wiring the shared runtime and fatal error handling.
+ *
+ * @param {{
+ *   documentObj?: Document,
+ *   onErrorContext?: string,
+ *   runtimeOptions?: object,
+ *   run: ({ runtime: ReturnType<typeof createRuntime> }) => void,
+ *   windowObj?: Window
+ * }} [options={}]
+ * @returns {ReturnType<typeof createRuntime>} Shared runtime instance for the app.
+ */
 export function initializeMatureApp({
   documentObj = document,
   onErrorContext = "app initialization",

@@ -1,4 +1,10 @@
-/** @param {HTMLElement} container @param {object} values - Summary totals to display. */
+/**
+ * Render the aggregate summary cards above the amortization tables.
+ *
+ * @param {HTMLElement} container
+ * @param {object} values - Summary totals to display.
+ * @returns {void}
+ */
 export function renderTableSummary(container, values) {
   const items = [
     ["Total EMI", values.totalEmi],
@@ -22,7 +28,14 @@ export function renderTableSummary(container, values) {
   }
 }
 
-/** @param {HTMLElement} tbody @param {Array} rows @param {Function} formatCurrency */
+/**
+ * Render the per-period amortization rows.
+ *
+ * @param {HTMLElement} tbody
+ * @param {Array<object>} rows
+ * @param {(value: number) => string} formatCurrency
+ * @returns {void}
+ */
 export function renderPeriodTable(tbody, rows, formatCurrency) {
   tbody.innerHTML = "";
 
@@ -43,7 +56,16 @@ export function renderPeriodTable(tbody, rows, formatCurrency) {
   }
 }
 
-/** @param {HTMLElement} tbody @param {Array} rows @param {number} principal @param {number} periodsPerYear @param {Function} formatCurrency */
+/**
+ * Render yearly rollups derived from the full amortization row set.
+ *
+ * @param {HTMLElement} tbody
+ * @param {Array<{ balance: number, extra: number, interest: number, principal: number }>} rows
+ * @param {number} principal
+ * @param {number} periodsPerYear
+ * @param {(value: number) => string} formatCurrency
+ * @returns {void}
+ */
 export function renderYearlyTable(
   tbody,
   rows,

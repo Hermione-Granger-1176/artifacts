@@ -48,6 +48,15 @@ function topPInsight(topP, tokenCount) {
   return ` Top P=${value} keeps ${tokenCount} token${tokenCount !== 1 ? "s" : ""} whose cumulative probability reaches that threshold.`;
 }
 
+/**
+ * Render the scenario tabs and wire each button to the provided selection callback.
+ *
+ * @param {HTMLElement} container
+ * @param {{ label: string }[]} scenarios
+ * @param {number} activeIndex
+ * @param {(index: number) => void} onSelect
+ * @returns {void}
+ */
 export function renderTabs(container, scenarios, activeIndex, onSelect) {
   container.innerHTML = "";
   scenarios.forEach((scenario, index) => {
@@ -60,11 +69,32 @@ export function renderTabs(container, scenarios, activeIndex, onSelect) {
   });
 }
 
+/**
+ * Render the current scenario label and sentence prefix.
+ *
+ * @param {{ scenarioType: HTMLElement, sentencePrefix: HTMLElement }} elements
+ * @param {{ prefix: string, type: string }} scenario
+ * @returns {void}
+ */
 export function renderScenario(elements, scenario) {
   elements.scenarioType.textContent = scenario.type;
   elements.sentencePrefix.textContent = scenario.prefix;
 }
 
+/**
+ * Render the token probability chart, top-p pills, and explanatory insight copy.
+ *
+ * @param {{ bars: HTMLElement, insightBox: HTMLElement, tokenPills: HTMLElement }} elements
+ * @param {{
+ *   inTopP: Set<number>,
+ *   sorted: Array<{ idx: number, prob: number, word: string }>,
+ *   temperature: number,
+ *   topP: number,
+ *   topTokenProbability: number,
+ *   topTokens: Array<{ prob: number, word: string }>
+ * }} state
+ * @returns {void}
+ */
 export function renderDistribution(elements, state) {
   const colors = palette();
   const bars = elements.bars;

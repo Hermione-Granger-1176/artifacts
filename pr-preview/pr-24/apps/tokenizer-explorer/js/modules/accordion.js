@@ -1,3 +1,9 @@
+/**
+ * Bind click-to-toggle accordion behavior for tokenizer concept cards.
+ *
+ * @param {HTMLElement} container
+ * @returns {void}
+ */
 export function initAccordion(container) {
   container.addEventListener("click", (event) => {
     const trigger = event.target.closest(".card-trigger");

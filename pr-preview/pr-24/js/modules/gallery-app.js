@@ -51,6 +51,29 @@ function toggleSelection(selection, value) {
     : [...selection, value];
 }
 
+/** Return whether one element behaves like a text-entry control. */
+function isTextEntryElement(element) {
+  return Boolean(element && (
+    element.tagName === 'INPUT'
+    || element.tagName === 'TEXTAREA'
+    || element.isContentEditable
+  ));
+}
+
+/** Return whether a keyboard event should close the open detail overlay. */
+function shouldCloseOverlayForEscape(event, overlay) {
+  return event.key === 'Escape' && Boolean(overlay.getExpandedId());
+}
+
+/** Return whether a keyboard event should focus the gallery search input. */
+function shouldFocusSearchShortcut(event, overlay, activeElement) {
+  return (
+    event.key === '/'
+    && !overlay.getExpandedId()
+    && !isTextEntryElement(activeElement)
+  );
+}
+
 /**
  * Initialize the gallery application: resolve DOM elements, hydrate data, wire event
  * listeners, and render the initial view.
@@ -285,7 +308,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
         return;
 
       case 'Escape':
-        if (!overlay.getExpandedId()) {
+        if (!shouldCloseOverlayForEscape(event, overlay)) {
           return;
         }
 
@@ -294,7 +317,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
         return;
 
       case '/':
-        if (overlay.getExpandedId() || isTextEntryElement(documentObj.activeElement)) {
+        if (!shouldFocusSearchShortcut(event, overlay, documentObj.activeElement)) {
           return;
         }
 
@@ -481,14 +504,6 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     syncUIToState();
     pushState();
     renderContent();
-  }
-
-  function isTextEntryElement(element) {
-    return Boolean(element && (
-      element.tagName === 'INPUT'
-      || element.tagName === 'TEXTAREA'
-      || element.isContentEditable
-    ));
   }
 
   function resetFilters() {
