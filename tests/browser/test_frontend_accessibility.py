@@ -39,6 +39,7 @@ def test_root_page_has_no_blocking_axe_violations_in_light_theme(
             name="a11y-root-light",
             color_scheme="light",
             reduced_motion="reduce",
+            bypass_csp=True,
         ) as session:
             page = session.page
             assert page is not None
@@ -74,6 +75,7 @@ def test_root_page_has_no_blocking_axe_violations_in_dark_theme(
             name="a11y-root-dark",
             color_scheme="dark",
             reduced_motion="reduce",
+            bypass_csp=True,
         ) as session:
             page = session.page
             assert page is not None
@@ -107,6 +109,7 @@ def test_overlay_and_no_results_states_have_no_blocking_axe_violations(
             server.url,
             name="a11y-overlay-no-results",
             reduced_motion="reduce",
+            bypass_csp=True,
         ) as session:
             page = session.page
             assert page is not None
@@ -137,7 +140,7 @@ def test_404_page_has_no_blocking_axe_violations_and_good_contrast(
     deploy_root = build_smoke_site(tmp_path, monkeypatch)
 
     with StaticServer(deploy_root) as server, sync_playwright() as playwright:
-        with MonitoredPage(playwright, server.url, name="a11y-404") as session:
+        with MonitoredPage(playwright, server.url, name="a11y-404", bypass_csp=True) as session:
             page = session.page
             assert page is not None
             session.goto("/404.html")

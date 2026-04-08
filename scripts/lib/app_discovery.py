@@ -5,13 +5,14 @@ import json
 import re
 from pathlib import Path
 
-_CONTRACT_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "artifact_contract.json"
+from scripts import REPO_ROOT
 
 
 @functools.lru_cache(maxsize=1)
 def _load_contract() -> dict[str, str]:
     """Load and cache the shared artifact contract from ``config/artifact_contract.json``."""
-    contract = json.loads(_CONTRACT_PATH.read_text(encoding="utf-8"))
+    contract_path = REPO_ROOT / "config" / "artifact_contract.json"
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
     return contract
 
 

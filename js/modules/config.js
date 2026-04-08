@@ -229,7 +229,7 @@ export function validateArtifactsData(value, artifactContract = DEFAULT_CONFIG.a
     const path = `window.ARTIFACTS_DATA[${index}]`;
     assertShape(isPlainObject(item), `${path} must be an object`);
     assertShape(typeof item.id === 'string', `${path}.id must be a string`);
-    assertShape(matchesArtifactId(item.id, contract), `${path}.id must use kebab-case`);
+    assertShape(matchesArtifactId(item.id, contract), `${path}.id must match the artifact id pattern`);
     assertShape(typeof item.name === 'string', `${path}.name must be a string`);
     validateArtifactUrl(item.url, `${path}.url`, item.id, contract);
 

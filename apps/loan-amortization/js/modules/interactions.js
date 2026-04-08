@@ -74,7 +74,7 @@ export function bindEvents({
     sliderId: "slTenure",
     min: 1,
     max: 30,
-    parser: parseInt,
+    parser: (value) => parseInt(value, 10),
     onCommit: onTenureCommit
   });
 

@@ -363,6 +363,7 @@ class MonitoredPage:
         reduced_motion: str = "no-preference",
         allowed_console_errors: tuple[str, ...] = (),
         allowed_page_errors: tuple[str, ...] = (),
+        bypass_csp: bool = False,
     ) -> None:
         self._playwright = playwright
         self._base_url = base_url.rstrip("/") + "/"
@@ -370,6 +371,7 @@ class MonitoredPage:
         self._viewport = {"width": viewport[0], "height": viewport[1]}
         self._color_scheme = color_scheme
         self._reduced_motion = reduced_motion
+        self._bypass_csp = bypass_csp
         self._artifact_dir = _artifact_dir(name)
         self._browser = None
         self._context = None
@@ -387,6 +389,7 @@ class MonitoredPage:
             viewport=self._viewport,
             color_scheme=self._color_scheme,
             reduced_motion=self._reduced_motion,
+            bypass_csp=self._bypass_csp,
         )
         if self._artifact_dir is not None:
             self._context.tracing.start(screenshots=True, snapshots=True, sources=True)

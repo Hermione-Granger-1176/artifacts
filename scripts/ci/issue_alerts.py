@@ -74,6 +74,9 @@ def sync_alert_issue(
     issue_number = primary.get("number")
     if not isinstance(issue_number, int):
         raise RuntimeError("Matched issue number must be an integer")
+    html_url = primary.get("html_url")
+    if not isinstance(html_url, str) or not html_url:
+        raise RuntimeError("Matched issue html_url must be a non-empty string")
 
     run_gh_api_form_fn(
         f"repos/{repo}/issues/{issue_number}",
@@ -81,7 +84,4 @@ def sync_alert_issue(
         fields=fields,
         description=f"updating alert issue {title} for {repo}",
     )
-    html_url = primary.get("html_url")
-    if not isinstance(html_url, str) or not html_url:
-        raise RuntimeError("Matched issue html_url must be a non-empty string")
     return html_url

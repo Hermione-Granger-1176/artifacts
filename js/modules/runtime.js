@@ -158,7 +158,8 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
 
   windowObj.__ARTIFACTS_RUNTIME__ = state;
   documentObj.documentElement.dataset.runtimeStatus = 'booting';
-  if (typeof documentObj.addEventListener === 'function') {
+  if (typeof documentObj.addEventListener === 'function' && !windowObj.__ARTIFACTS_DIAGNOSTICS_BOUND__) {
+    windowObj.__ARTIFACTS_DIAGNOSTICS_BOUND__ = true;
     documentObj.addEventListener('click', (event) => {
       const copyButton = event.target?.closest?.('#runtime-error-copy');
       if (!copyButton) {

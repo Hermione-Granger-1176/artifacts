@@ -93,7 +93,7 @@ test('validateArtifactsData uses full-match semantics for contract id patterns',
         url: 'apps/artifact-extra/'
       }
     ], contract),
-    /window\.ARTIFACTS_DATA\[0\]\.id must use kebab-case/
+    /window\.ARTIFACTS_DATA\[0\]\.id must match the artifact id pattern/
   );
 });
 
@@ -178,7 +178,7 @@ test('validateArtifactsData requires kebab-case ids and matching urls', () => {
         url: 'apps/LoanTool/'
       }
     ]),
-    /window\.ARTIFACTS_DATA\[0\]\.id must use kebab-case/
+    /window\.ARTIFACTS_DATA\[0\]\.id must match the artifact id pattern/
   );
 
   assert.throws(
