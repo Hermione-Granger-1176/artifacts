@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import cast
 
 from scripts.ci.repo_audit import require_response_type
-from scripts.build.index_sources import artifact_url
 from scripts.lib.app_discovery import (
     _artifact_base_path,
     _load_contract,
