@@ -19,15 +19,13 @@ def issue_payloads_by_title(
     if not isinstance(payload, list):
         raise RuntimeError("Issues response must be a JSON array")
 
-    matches = []
-    for item in payload:
-        if not isinstance(item, dict):
-            continue
-        if isinstance(item.get("pull_request"), dict):
-            continue
-        if item.get("title") == title:
-            matches.append(item)
-    return matches
+    return [
+        item
+        for item in payload
+        if isinstance(item, dict)
+        and not isinstance(item.get("pull_request"), dict)
+        and item.get("title") == title
+    ]
 
 
 def sync_alert_issue(
@@ -49,23 +47,22 @@ def sync_alert_issue(
         *(("labels[]", label) for label in labels),
     ]
 
-    if should_exist:
-        if primary is not None:
-            issue_number = primary.get("number")
-            if not isinstance(issue_number, int):
-                raise RuntimeError("Matched issue number must be an integer")
-            endpoint = f"repos/{repo}/issues/{issue_number}"
-            run_gh_api_form_fn(
-                endpoint,
-                method="PATCH",
-                fields=fields,
-                description=f"updating alert issue {title} for {repo}",
-            )
-            html_url = primary.get("html_url")
-            if not isinstance(html_url, str) or not html_url:
-                raise RuntimeError("Matched issue html_url must be a non-empty string")
-            return html_url
+    if not should_exist:
+        if primary is None:
+            return ""
 
+        issue_number = primary.get("number")
+        if not isinstance(issue_number, int):
+            raise RuntimeError("Matched issue number must be an integer")
+        run_gh_api_form_fn(
+            f"repos/{repo}/issues/{issue_number}",
+            method="PATCH",
+            fields=[("state", "closed")],
+            description=f"closing alert issue {title} for {repo}",
+        )
+        return ""
+
+    if primary is None:
         return run_gh_api_form_fn(
             f"repos/{repo}/issues",
             method="POST",
@@ -74,16 +71,17 @@ def sync_alert_issue(
             jq_expr=".html_url",
         )
 
-    if primary is None:
-        return ""
-
     issue_number = primary.get("number")
     if not isinstance(issue_number, int):
         raise RuntimeError("Matched issue number must be an integer")
+
     run_gh_api_form_fn(
         f"repos/{repo}/issues/{issue_number}",
         method="PATCH",
-        fields=[("state", "closed")],
-        description=f"closing alert issue {title} for {repo}",
+        fields=fields,
+        description=f"updating alert issue {title} for {repo}",
     )
-    return ""
+    html_url = primary.get("html_url")
+    if not isinstance(html_url, str) or not html_url:
+        raise RuntimeError("Matched issue html_url must be a non-empty string")
+    return html_url

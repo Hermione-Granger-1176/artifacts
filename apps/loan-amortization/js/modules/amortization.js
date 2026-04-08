@@ -83,8 +83,8 @@ export function runSchedule(
   const cumulativeExtra = [];
   const rows = [];
 
-  while (balance > 0.01 && period < 2000) {
-    period += 1;
+  for (let nextPeriod = 1; balance > 0.01 && nextPeriod <= 2000; nextPeriod += 1) {
+    period = nextPeriod;
     const interestPart = balance * ratePerPeriod;
     let principalPart = emi - interestPart;
     let extraAmount = withExtras ? getExtraForPeriod(period, extras) : 0;

@@ -69,7 +69,7 @@ function renderMarkupSlot(slot, markup) {
 
 /**
  * Inject shared shell markup (header, error banner, scroll-to-top) into placeholder slots.
- * @param {object} [options]
+ * @param {{ documentObj?: Document, homePath?: string }} [options={}]
  * @param {Document} [options.documentObj=document] - Document to query.
  * @param {string} [options.homePath='../../'] - Relative path to the gallery root.
  * @returns {void}
@@ -94,11 +94,19 @@ export function renderAppShell({
 
 /**
  * Initialize the shared app shell with theme toggle, back navigation, and scroll-to-top.
- * @param {object} [options]
+ * @param {{
+ *   homePath?: string,
+ *   metaThemeColors?: {dark: string, light: string},
+ *   onThemeChange?: (theme: string) => void
+ * }} [options={}]
  * @param {string} [options.homePath='../../'] - Relative path to the gallery root.
  * @param {{dark: string, light: string}} [options.metaThemeColors] - Theme-color meta values.
  * @param {(theme: string) => void} [options.onThemeChange] - Callback when theme changes.
- * @returns {{applyTheme: Function, syncThemeToggle: Function, updateScrollTopVisibility: Function}}
+ * @returns {{
+ *   applyTheme: (theme: string) => void,
+ *   syncThemeToggle: () => void,
+ *   updateScrollTopVisibility: () => void
+ * }}
  */
 export function initAppShell({
   homePath = "../../",
@@ -156,28 +164,28 @@ export function initAppShell({
   }
 
   function handleBackClick() {
-    try {
-      if (!document.referrer) {
-        window.location.href = homePath;
-        return;
-      }
-
-      const referrerUrl = new URL(document.referrer);
-      if (
-        referrerUrl.origin !== window.location.origin ||
-        window.history.length <= 1
-      ) {
-        window.location.href = homePath;
-        return;
-      }
-
-      window.history.back();
+    if (!document.referrer) {
+      window.location.href = homePath;
       return;
-    } catch (_error) {
-      // Fall through to home navigation.
     }
 
-    window.location.href = homePath;
+    let referrerUrl;
+    try {
+      referrerUrl = new URL(document.referrer);
+    } catch (_error) {
+      window.location.href = homePath;
+      return;
+    }
+
+    if (
+      referrerUrl.origin !== window.location.origin ||
+      window.history.length <= 1
+    ) {
+      window.location.href = homePath;
+      return;
+    }
+
+    window.history.back();
   }
 
   function updateScrollTopVisibility() {

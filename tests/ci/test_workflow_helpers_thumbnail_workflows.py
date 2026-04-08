@@ -378,6 +378,30 @@ def test_thumbnail_plan_treats_browser_test_only_changes_as_non_runtime(
     assert plan["shared_runtime_changed"] is False
 
 
+def test_thumbnail_plan_passes_none_apps_root_to_shared_planner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = {}
+
+    def fake_thumbnail_plan(**kwargs):
+        captured.update(kwargs)
+        return {"persist_mode": "none", "reason": "stub"}
+
+    monkeypatch.setattr(
+        workflow_helpers._thumbnail_plan, "thumbnail_plan", fake_thumbnail_plan
+    )
+
+    plan = workflow_helpers.thumbnail_plan(
+        event_name="push",
+        repo="owner/repo",
+        pr_number="",
+        commit_sha="abc123",
+    )
+
+    assert plan == {"persist_mode": "none", "reason": "stub"}
+    assert captured["apps_root"] is None
+
+
 def test_validate_thumbnail_artifact_accepts_expected_files(tmp_path: Path) -> None:
     artifact_root = tmp_path / "thumb-artifact"
     write_text(

@@ -19,7 +19,7 @@ The earlier workflow shape mixed planning, build, deploy, and source-branch muta
 
 1. Mature apps share root-level app tokens, theme bootstrap, and shell behavior from `css/app-tokens.css`, `css/app-shell.css`, `js/app-theme.js`, and `js/modules/app-shell.js`.
 2. App-local CSS and JS live inside each app folder and only override app-specific layout or runtime behavior.
-3. Workflow policy is driven by a single planner in `scripts/ci/workflow_helpers.py`.
+3. Workflow policy is driven by a single planner implemented in `scripts/build/thumbnail_plan.py` and exposed to workflows through `scripts/ci/workflow_helpers.py`.
 4. Thumbnail generation runs once in the verified build path, and later jobs reuse the generated artifact instead of regenerating thumbnails.
 5. Thumbnail persistence is deny-by-default and allows only three modes:
    - `none`

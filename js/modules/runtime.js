@@ -45,15 +45,18 @@ function normalizeErrorMessage(error) {
   return 'Unknown runtime error';
 }
 
+/** Normalize console output into a single comparable line. */
 function normalizeConsoleMessage(message) {
   return String(message).replace(/\s+/g, ' ').trim();
 }
 
+/** Ignore expected bootstrap validation noise that is already surfaced in the UI. */
 function shouldIgnoreRuntimeError(message) {
   const normalizedMessage = normalizeConsoleMessage(message).toLowerCase();
   return normalizedMessage.includes('window.artifacts_data must be an array');
 }
 
+/** Build a copyable diagnostics summary for the latest runtime error. */
 function buildErrorSummary(errorRecord, documentObj, windowObj) {
   const locationHref = windowObj?.location?.href || '';
   const userAgent = windowObj?.navigator?.userAgent || '';
@@ -82,6 +85,7 @@ function buildErrorSummary(errorRecord, documentObj, windowObj) {
   return summary.join('\n');
 }
 
+/** Sync the runtime error details UI to the latest captured error. */
 function updateRuntimeDiagnostics(documentObj, state) {
   const details = documentObj.getElementById('runtime-error-details');
   const output = documentObj.getElementById('runtime-error-output');
@@ -104,6 +108,7 @@ function updateRuntimeDiagnostics(documentObj, state) {
   }
 }
 
+/** Copy the latest runtime diagnostics summary when clipboard access is available. */
 async function copyRuntimeDiagnostics(state, windowObj, documentObj) {
   const summary = state.lastError?.summary || '';
   if (!summary) {
@@ -139,7 +144,7 @@ async function copyRuntimeDiagnostics(state, windowObj, documentObj) {
  *   setupGlobalErrorHandlers: () => void,
  *   state: {
  *     ready: boolean,
- *     lastError: ({ context: string, message: string, fatal: boolean, timestamp: string }|null)
+ *     lastError: ({ context: string, message: string, fatal: boolean, timestamp: string, summary: string }|null)
  *   },
  *   writeStorage: (key: string, value: string) => boolean
  * }} Runtime API.

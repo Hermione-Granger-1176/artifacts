@@ -254,10 +254,11 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
 
             saw_thumbnail = True
             slug = Path(relative).parts[1]
-            if not shared_runtime_changed and slug not in allowed_slugs:
-                raise ValueError(
-                    f"Thumbnail artifact contains slug outside plan scope: {slug}"
-                )
+            if shared_runtime_changed or slug in allowed_slugs:
+                continue
+            raise ValueError(
+                f"Thumbnail artifact contains slug outside plan scope: {slug}"
+            )
 
     if plan.get("persist_mode") != "none" and not saw_thumbnail:
         raise ValueError(

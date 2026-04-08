@@ -4,7 +4,10 @@
 These helpers keep trust-boundary decisions and artifact validation in tested
 Python instead of inline shell.
 
-Usage:
+Workflow entry points used by GitHub Actions. For normal local use, prefer
+`make ci` wrappers instead of calling this module directly.
+
+Examples:
     python scripts/ci/workflow_helpers.py app-token-policy --event-name pull_request \
         --head-repo-fork false --pr-author login
     python scripts/ci/workflow_helpers.py read-lock-metadata --root .artifacts/lock-refresh
@@ -16,6 +19,8 @@ Usage:
     python scripts/ci/workflow_helpers.py validate-thumbnail-artifact \
         --root .artifacts/thumbnail-persist
     python scripts/ci/workflow_helpers.py audit-repo-settings --repo owner/repo
+    python scripts/ci/workflow_helpers.py sync-alert-issue --repo owner/repo \
+        --title "Alert title" --body "Alert body" --label ci --should-exist true
 """
 
 from __future__ import annotations
@@ -195,7 +200,7 @@ def thumbnail_plan(
     commit_sha: str,
     head_repo_fork: bool = False,
     pr_author: str = "",
-    apps_root: Path = Path("apps"),
+    apps_root: Path | None = None,
 ) -> dict[str, object]:
     """Return the strict thumbnail automation plan for one workflow event."""
     return _thumbnail_plan.thumbnail_plan(

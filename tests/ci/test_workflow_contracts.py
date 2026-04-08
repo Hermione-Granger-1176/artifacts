@@ -242,7 +242,10 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
         _job(audit, "audit"), "Audit repository settings"
     )
     audit_job = _job(audit, "audit")
+    audit_run = _step_run(audit_job, "Audit repository settings")
     assert audit_job["permissions"] == {"contents": "read", "issues": "write"}
+    assert "> audit-repo-settings.json 2>&1" in audit_run
+    assert 'echo "status=$status" >> "$GITHUB_OUTPUT"' in audit_run
     assert "sync-alert-issue" in _step_run(
         audit_job, "Open or update repository settings drift issue"
     )

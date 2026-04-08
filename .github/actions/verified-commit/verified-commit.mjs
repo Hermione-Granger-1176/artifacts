@@ -111,11 +111,7 @@ export async function fetchJson(url, options, dependencies = {}) {
         continue;
       }
 
-      if (error instanceof Error) {
-        throw error;
-      }
-
-      throw new Error(String(error));
+      throw error instanceof Error ? error : new Error(String(error));
     } finally {
       clearTimeout(timeout);
     }

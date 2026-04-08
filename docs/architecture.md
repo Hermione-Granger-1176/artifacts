@@ -189,7 +189,7 @@ Trigger: `push` event on `main` branch, or `workflow_dispatch`.
 
 The flow is identical to Scenario 1 with these differences:
 
-- **`plan`**: `persist-mode` is `followup-pr` (if there are missing thumbnails) or `none`. It is never `pr-branch` because there is no PR.
+- **`plan`**: `persist-mode` is `followup-pr` when runtime changes or missing thumbnails require thumbnail persistence, otherwise `none`. It is never `pr-branch` because there is no PR.
 - **`dependency-review`**: does not run (not a PR event). `publish` treats it as `skipped`, which is acceptable.
 - **`publish`**: instead of deploying a preview, deploys `_site/` to the **root** of `gh-pages`, replacing the live site. Preserves the `pr-preview/` directory so existing PR previews keep working. Uses the `deploy-site` composite action with `skip-build: true`. Verifies and browser-tests the live production URL.
 - **`persist-thumbnails`**: if `persist-mode` is `followup-pr`, creates or updates a follow-up PR on a dated branch (`ci/save-generated-thumbnails-YYYYMMDD`) targeting `main`. Uses the Harry1176 (escalation) token with `commit-mode: force-pr`. The PR body contains a marker (`<!-- artifacts:generated-thumbnails -->`) for loop detection. When this follow-up PR is later merged to `main`, the planner recognizes it via PR provenance and sets `persist-mode: none` to prevent infinite loops. Stale-check is not performed because there is no PR branch to check.
@@ -230,7 +230,7 @@ The code is fully validated but never deployed and never written back to the sou
 | `ci/refresh-action-shas-*`         | `refresh-action-shas` | When maintenance updates cannot be committed directly to the default branch | Fallback PR branch containing workflow SHA refreshes                     |
 | `gh-pages`                         | `publish`            | Every successful deploy (PR preview or main site)       | Verified commit replacing site root or preview subdirectory (Harry1176) |
 | `gh-pages`                         | `cleanup-preview`    | PR closed/merged                                        | Verified commit removing preview subdirectory (Harry1176)               |
-| `ci/save-generated-thumbnails-*`   | `persist-thumbnails` | Push to `main` with missing thumbnails                  | Follow-up PR branch with `thumbnail.webp` files (Harry1176)             |
+| `ci/save-generated-thumbnails-*`   | `persist-thumbnails` | Push to `main` with runtime-driven thumbnail changes or missing thumbnails | Follow-up PR branch with `thumbnail.webp` files (Harry1176)             |
 
 ```mermaid
 graph LR

@@ -19,13 +19,13 @@ These inconsistencies made it harder to onboard, harder to maintain, and easier 
 
 1. **The Makefile is the only interface.** No tool binary (`.venv/bin/*`, `pytest`, `ruff`, `npm run`) is invoked directly; everything goes through `make <target>`. If a target is missing, add one before using the tool.
 
-2. **Each tool's config file owns its scope.** Linting, testing, and coverage scope is defined once in the tool's config, not in the Makefile, not in package.json CLI args, not in multiple places:
+2. **Each tool's config file owns its scope.** Linting, testing, and coverage scope is defined once in the tool's config or owning script definition, not duplicated across the Makefile and multiple tool configs:
    - ruff: `pyproject.toml` (built-in excludes)
    - pytest/coverage: `pyproject.toml` (`testpaths`, `--cov=scripts/`)
    - ESLint: `eslint.config.js` (files + ignores)
    - stylelint: `stylelint.config.js` (ignoreFiles)
    - yamllint: `.yamllint.yml` (ignore)
-   - JS coverage: `package.json` (exclude patterns)
+   - JS coverage: `package.json` (coverage command, thresholds, and exclude patterns)
 
 3. **Exclude-based, not include-based.** Tools scan the repo root and exclude junk directories (`node_modules/`, `.venv/`, `_site/`). Adding a new source directory requires no config changes.
 
