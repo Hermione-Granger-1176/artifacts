@@ -15,6 +15,11 @@ def write_text(path: Path, content: str) -> None:
 
 def create_source_tree(repo_root: Path) -> None:
     write_text(
+        repo_root / "config" / "artifact_contract.json",
+        '{"artifactIdPattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", '
+        '"artifactBasePath": "apps", "thumbnailFile": "thumbnail.webp"}\n',
+    )
+    write_text(
         repo_root / "404.html",
         "".join(
             [
@@ -233,6 +238,11 @@ def test_copy_deploy_items_copies_expected_paths(
 def test_copy_deploy_items_errors_for_missing_source(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    write_text(
+        tmp_path / "config" / "artifact_contract.json",
+        '{"artifactIdPattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", '
+        '"artifactBasePath": "apps", "thumbnailFile": "thumbnail.webp"}\n',
+    )
     monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path / "_site")
 

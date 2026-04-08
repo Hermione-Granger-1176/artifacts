@@ -294,7 +294,7 @@ class RuntimeMonitor:
             return filename in loaded_css_names
 
         def track_response(response) -> None:
-            if self._should_ignore_url(response.url, _normalize_url_host(self.base_url)):
+            if self._should_ignore_url(response.url, base_host):
                 return
             if response.status < 400:
                 if response.url.endswith(".css"):

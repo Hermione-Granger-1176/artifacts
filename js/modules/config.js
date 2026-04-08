@@ -161,12 +161,12 @@ function validateArtifactContract(value, path) {
   );
   assertShape(typeof value.thumbnailFile === 'string', `${path}.thumbnailFile must be a string`);
   assertShape(
-    !value.artifactBasePath.includes('/') && !value.artifactBasePath.startsWith('.'),
-    `${path}.artifactBasePath must be one safe path segment`
+    value.artifactBasePath.length > 0 && !value.artifactBasePath.includes('/') && !value.artifactBasePath.startsWith('.'),
+    `${path}.artifactBasePath must be a non-empty safe path segment`
   );
   assertShape(
-    !value.thumbnailFile.includes('/') && !value.thumbnailFile.startsWith('.'),
-    `${path}.thumbnailFile must be one safe file name`
+    value.thumbnailFile.length > 0 && !value.thumbnailFile.includes('/') && !value.thumbnailFile.startsWith('.'),
+    `${path}.thumbnailFile must be a non-empty safe file name`
   );
 
   try {

@@ -8,16 +8,18 @@ export function renderTableSummary(container, values) {
     ["Periods", values.periods]
   ];
 
-  container.innerHTML = items
-    .map(
-      ([label, value]) => `
-        <div class="summary-stat">
-          <div class="summary-label">${label}</div>
-          <strong>${value}</strong>
-        </div>
-      `
-    )
-    .join("");
+  container.innerHTML = "";
+  for (const [label, value] of items) {
+    const stat = document.createElement("div");
+    stat.className = "summary-stat";
+    const labelEl = document.createElement("div");
+    labelEl.className = "summary-label";
+    labelEl.textContent = label;
+    const valueEl = document.createElement("strong");
+    valueEl.textContent = value;
+    stat.append(labelEl, valueEl);
+    container.appendChild(stat);
+  }
 }
 
 /** @param {HTMLElement} tbody @param {Array} rows @param {Function} formatCurrency */

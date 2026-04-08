@@ -48,12 +48,9 @@ APP_TITLE_PLACEHOLDER = "__APP_TITLE__"
 APP_DESCRIPTION_PLACEHOLDER = "__APP_DESCRIPTION__"
 APP_SHARE_IMAGE_PLACEHOLDER = "__APP_THUMBNAIL_URL__"
 SHARE_IMAGE_PATH = "assets/social/share-preview.png"
-ARTIFACT_CONTRACT_FILE = REPO_ROOT / "config" / "artifact_contract.json"
-
-
 def _artifact_contract() -> dict[str, str]:
     """Return the validated shared artifact contract."""
-    return read_artifact_contract_file(ARTIFACT_CONTRACT_FILE)
+    return read_artifact_contract_file(REPO_ROOT / "config" / "artifact_contract.json")
 
 
 def _artifact_base_path() -> str:
