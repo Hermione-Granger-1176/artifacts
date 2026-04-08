@@ -3,7 +3,7 @@
  * @param {HTMLElement} element - Element to disable for interaction.
  * @returns {void}
  */
-export function makeElementInert(element) {
+function makeElementInert(element) {
   if (element.inert) {
     return;
   }
@@ -18,7 +18,7 @@ export function makeElementInert(element) {
  * @param {HTMLElement} element - Element to restore for interaction.
  * @returns {void}
  */
-export function restoreElementInteractivity(element) {
+function restoreElementInteractivity(element) {
   if (!element.inert) {
     return;
   }

@@ -1,12 +1,15 @@
 import {
   filterAndSortArtifacts,
   hydrateArtifacts,
-  normalizeSelection,
   sortValuesByDisplayOrder,
-  splitListParam
 } from './catalog.js';
 import { getGalleryConfig, getTagLabel, getToolLabel } from './config.js';
 import { createDetailOverlay } from './detail-overlay.js';
+import {
+  buildGalleryUrl,
+  DEFAULT_GALLERY_STATE,
+  readGalleryStateFromSearch
+} from './gallery-url.js';
 import { ICONS } from './icons.js';
 import { setBackgroundContentInert } from './inert.js';
 import { createMotionHelper } from './motion.js';
@@ -18,83 +21,9 @@ import {
 } from './render.js';
 
 const ITEMS_PER_PAGE = 4;
-const THEME_COLORS = { dark: 'rgb(30, 26, 20)', light: 'rgb(245, 239, 230)' };
-const DEFAULTS = { page: 1, sort: 'newest', q: '' };
 const SCROLL_TOP_THRESHOLD = 300;
 const DETAIL_CLOSE_DELAY = 360;
 const ACTIVATION_KEYS = new Set(['Enter', ' ']);
-
-/**
- * Parse URL search params into normalized gallery state.
- * @param {{
- *   search: string,
- *   allTools: string[],
- *   allTags: string[],
- *   defaults?: { page: number, sort: string, q: string }
- * }} options - URL search input and allowed gallery values.
- * @returns {{
- *   page: number,
- *   q: string,
- *   sort: string,
- *   tools: string[],
- *   tags: string[],
- *   rawQuery: string
- * }} Normalized gallery state.
- */
-export function readGalleryStateFromSearch({ search, allTools, allTags, defaults = DEFAULTS }) {
-  const params = new URLSearchParams(search);
-  return {
-    page: Math.max(1, Number.parseInt(params.get('page'), 10) || defaults.page),
-    q: (params.get('q') || defaults.q).toLowerCase(),
-    sort: params.get('sort') === 'oldest' ? 'oldest' : defaults.sort,
-    tools: normalizeSelection(splitListParam(params.get('tool')), allTools),
-    tags: normalizeSelection(splitListParam(params.get('tag')), allTags),
-    rawQuery: params.get('q') || ''
-  };
-}
-
-/**
- * Serialize gallery state into a URL path with query string.
- * @param {{
- *   pathname: string,
- *   page: number,
- *   sort: string,
- *   q: string,
- *   tools: string[],
- *   tags: string[],
- *   defaults?: { page: number, sort: string, q: string }
- * }} options - Current gallery state values.
- * @returns {string} URL path with any non-default query parameters.
- */
-export function buildGalleryUrl({
-  pathname,
-  page,
-  sort,
-  q,
-  tools,
-  tags,
-  defaults = DEFAULTS
-}) {
-  const params = new URLSearchParams();
-  if (page > 1) {
-    params.set('page', page);
-  }
-  if (tools.length > 0) {
-    params.set('tool', tools.join(','));
-  }
-  if (tags.length > 0) {
-    params.set('tag', tags.join(','));
-  }
-  if (sort !== defaults.sort) {
-    params.set('sort', sort);
-  }
-  if (q) {
-    params.set('q', q);
-  }
-
-  const queryString = params.toString();
-  return queryString ? `${pathname}?${queryString}` : pathname;
-}
 
 /**
  * Return a required DOM element by ID.
@@ -120,6 +49,29 @@ function toggleSelection(selection, value) {
   return selection.includes(value)
     ? selection.filter((entry) => entry !== value)
     : [...selection, value];
+}
+
+/** Return whether one element behaves like a text-entry control. */
+function isTextEntryElement(element) {
+  return Boolean(element && (
+    element.tagName === 'INPUT'
+    || element.tagName === 'TEXTAREA'
+    || element.isContentEditable
+  ));
+}
+
+/** Return whether a keyboard event should close the open detail overlay. */
+function shouldCloseOverlayForEscape(event, overlay) {
+  return event.key === 'Escape' && Boolean(overlay.getExpandedId());
+}
+
+/** Return whether a keyboard event should focus the gallery search input. */
+function shouldFocusSearchShortcut(event, overlay, activeElement) {
+  return (
+    event.key === '/'
+    && !overlay.getExpandedId()
+    && !isTextEntryElement(activeElement)
+  );
 }
 
 /**
@@ -194,31 +146,31 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     detailCloseDelay: DETAIL_CLOSE_DELAY
   });
 
-  let currentPage = DEFAULTS.page;
-  let currentFilter = DEFAULTS.q;
-  let currentSort = DEFAULTS.sort;
+  let currentPage = DEFAULT_GALLERY_STATE.page;
+  let currentFilter = DEFAULT_GALLERY_STATE.q;
+  let currentSort = DEFAULT_GALLERY_STATE.sort;
   let currentTools = [];
   let currentTags = [];
   let debounceTimer = null;
   let suppressPush = false;
   let pendingFocusTarget = null;
   const filterNoteHandlers = {
-    filterNote: (value) => {
+    filterNote: (value, surface = 'desk') => {
       const resetFilter = resetFiltersByNote[value];
       if (!resetFilter) {
         return null;
       }
 
       resetFilter();
-      return { type: 'desk-note', dataset: 'filterNote', value };
+      return { type: surface === 'mobile' ? 'mobile-filter' : 'desk-note', dataset: 'filterNote', value };
     },
-    filterTool: (value) => {
+    filterTool: (value, surface = 'desk') => {
       currentTools = toggleSelection(currentTools, value);
-      return { type: 'desk-note', dataset: 'filterTool', value };
+      return { type: surface === 'mobile' ? 'mobile-filter' : 'desk-note', dataset: 'filterTool', value };
     },
-    filterTag: (value) => {
+    filterTag: (value, surface = 'desk') => {
       currentTags = toggleSelection(currentTags, value);
-      return { type: 'desk-note', dataset: 'filterTag', value };
+      return { type: surface === 'mobile' ? 'mobile-filter' : 'desk-note', dataset: 'filterTag', value };
     }
   };
   const resetFiltersByNote = {
@@ -232,8 +184,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   filterReset.innerHTML = ICONS.reset;
 
-  renderFilterNotes();
   readStateFromURL();
+  renderFilterNotes();
 
   const savedTheme = runtime.readStorage('theme', 'light') || 'light';
   applyTheme(savedTheme, false);
@@ -266,7 +218,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   });
 
   filterNotesContainer.addEventListener('click', (event) => {
-    const tab = event.target.closest('.desk-note');
+    const tab = event.target.closest('.desk-note') || event.target.closest('.mobile-filter-chip');
     if (!tab) {
       return;
     }
@@ -281,7 +233,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
 
     const [dataset, value] = filterDatasetEntry;
-    const focusTarget = filterNoteHandlers[dataset]?.(value);
+    const focusTarget = filterNoteHandlers[dataset]?.(value, tab.dataset.filterSurface || 'desk');
     if (!focusTarget) {
       return;
     }
@@ -356,7 +308,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
         return;
 
       case 'Escape':
-        if (!overlay.getExpandedId()) {
+        if (!shouldCloseOverlayForEscape(event, overlay)) {
           return;
         }
 
@@ -365,7 +317,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
         return;
 
       case '/':
-        if (overlay.getExpandedId() || isTextEntryElement(documentObj.activeElement)) {
+        if (!shouldFocusSearchShortcut(event, overlay, documentObj.activeElement)) {
           return;
         }
 
@@ -420,7 +372,10 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
     const meta = documentObj.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.setAttribute('content', THEME_COLORS[theme] || THEME_COLORS.dark);
+      const bgColor = windowObj.getComputedStyle(htmlElement).getPropertyValue('--color-bg-primary').trim();
+      if (bgColor) {
+        meta.setAttribute('content', bgColor);
+      }
     }
 
     galleryStatus.textContent = `Theme switched to ${theme} mode.`;
@@ -435,6 +390,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       toolLabel: (value) => getToolLabel(galleryConfig, value),
       tagLabel: (value) => getTagLabel(galleryConfig, value)
     });
+    updateFilterNotesState();
   }
 
   function readStateFromURL() {
@@ -482,7 +438,40 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     updateSearchClearVisibility();
     updateSortToggle();
     updateFilterResetVisibility();
-    renderFilterNotes();
+    updateFilterNotesState();
+  }
+
+  function updateFilterNotesState() {
+    const updateButtons = (selector, activeValues) => {
+      filterNotesContainer.querySelectorAll(selector).forEach((button) => {
+        const active = activeValues.includes(button.dataset.filterTool || button.dataset.filterTag || '');
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-pressed', String(active));
+      });
+    };
+
+    updateButtons('[data-filter-tool]', currentTools);
+    updateButtons('[data-filter-tag]', currentTags);
+
+    [
+      ['[data-filter-note="all-tools"]', currentTools.length === 0],
+      ['[data-filter-note="all-tags"]', currentTags.length === 0]
+    ].forEach(([selector, active]) => {
+      filterNotesContainer.querySelectorAll(selector).forEach((button) => {
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-pressed', String(active));
+      });
+    });
+
+    const toolsSummary = filterNotesContainer.querySelector('[data-filter-summary="tools"]');
+    if (toolsSummary) {
+      toolsSummary.textContent = currentTools.length > 0 ? `${currentTools.length} active` : 'All tools';
+    }
+
+    const tagsSummary = filterNotesContainer.querySelector('[data-filter-summary="tags"]');
+    if (tagsSummary) {
+      tagsSummary.textContent = currentTags.length > 0 ? `${currentTags.length} active` : 'All tags';
+    }
   }
 
   function updateSearchClearVisibility() {
@@ -517,19 +506,11 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     renderContent();
   }
 
-  function isTextEntryElement(element) {
-    return Boolean(element && (
-      element.tagName === 'INPUT'
-      || element.tagName === 'TEXTAREA'
-      || element.isContentEditable
-    ));
-  }
-
   function resetFilters() {
     currentFilter = '';
     currentTools = [];
     currentTags = [];
-    currentPage = DEFAULTS.page;
+    currentPage = DEFAULT_GALLERY_STATE.page;
     searchInput.value = '';
     applyStateChange({ focusTarget: searchInput });
   }
@@ -544,10 +525,14 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
 
     const targetResolvers = {
-      page: () => paginationContainer.querySelector(`[data-page="${target.value}"]`),
+      page: () => paginationContainer.querySelector(`[data-page="${CSS.escape(target.value)}"]`),
       'desk-note': () => {
         const selectorName = target.dataset.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
-        return filterNotesContainer.querySelector(`[data-${selectorName}="${target.value}"]`);
+        return filterNotesContainer.querySelector(`[data-${selectorName}="${CSS.escape(target.value)}"]`);
+      },
+      'mobile-filter': () => {
+        const selectorName = target.dataset.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+        return filterNotesContainer.querySelector(`[data-filter-surface="mobile"][data-${selectorName}="${CSS.escape(target.value)}"]`);
       }
     };
 

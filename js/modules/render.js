@@ -31,6 +31,42 @@ function getRotationStyle(index) {
 const labelColorMap = new Map();
 let shuffledColors = null;
 
+function getShuffledFilterColors() {
+  if (!shuffledColors) {
+    shuffledColors = [...FILTER_NOTE_COLORS];
+    for (let index = shuffledColors.length - 1; index > 0; index -= 1) {
+      const targetIndex = Math.floor(Math.random() * (index + 1));
+      [shuffledColors[index], shuffledColors[targetIndex]] = [
+        shuffledColors[targetIndex],
+        shuffledColors[index]
+      ];
+    }
+  }
+
+  return shuffledColors;
+}
+
+function createFilterControlButton({
+  active = false,
+  className,
+  color,
+  datasetName,
+  datasetValue,
+  label,
+  rotate = null,
+  surface
+}) {
+  const styleParts = [
+    `--chip-color: ${color}`,
+    `--note-color: ${color}`
+  ];
+  if (rotate !== null) {
+    styleParts.push(`--rotate: ${rotate}deg`);
+  }
+
+  return `<button class="${className}${active ? ' is-active' : ''}" data-filter-surface="${surface}" ${datasetName}="${escapeHtml(datasetValue)}" type="button" aria-controls="artifacts-grid" aria-pressed="${active}" style="${styleParts.join('; ')};">${escapeHtml(label)}</button>`;
+}
+
 function getLabelColor(name) {
   return labelColorMap.get(name) || 'var(--color-capsule-default)';
 }
@@ -88,58 +124,127 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
     return x - Math.floor(x);
   };
 
-  // Shuffle once per page load and cache for the session.
-  // Individual note rotations still use the seeded helper below for stable per-render jitter.
-  if (!shuffledColors) {
-    shuffledColors = [...FILTER_NOTE_COLORS];
-    for (let i = shuffledColors.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffledColors[i], shuffledColors[j]] = [shuffledColors[j], shuffledColors[i]];
-    }
-  }
-  const shuffled = shuffledColors;
+  const shuffled = getShuffledFilterColors();
 
   const hasActiveTools = activeTools.length > 0;
   const hasActiveTags = activeTags.length > 0;
 
-  function createDeskNoteButton({ active = false, datasetName, datasetValue, label, color, rotate }) {
-    return `<button class="desk-note${active ? ' is-active' : ''}" ${datasetName}="${escapeHtml(datasetValue)}" type="button" aria-controls="artifacts-grid" aria-pressed="${active}" style="--note-color: ${color}; --rotate: ${rotate}deg;">${escapeHtml(label)}</button>`;
-  }
-
   const leftNotes = [
-    `<button class="desk-note${hasActiveTools ? '' : ' is-active'}" data-filter-note="all-tools" type="button" aria-controls="artifacts-grid" aria-pressed="${String(!hasActiveTools)}" aria-label="All tools" style="--note-color: ${shuffled[0]}; --rotate: ${(rand() * 6 - 3).toFixed(1)}deg;">All</button>`,
+    createFilterControlButton({
+      active: !hasActiveTools,
+      className: 'desk-note',
+      color: shuffled[0],
+      datasetName: 'data-filter-note',
+      datasetValue: 'all-tools',
+      label: 'All',
+      rotate: (rand() * 6 - 3).toFixed(1),
+      surface: 'desk'
+    }),
     ...tools.map((tool, index) => {
       const color = shuffled[(index + 1) % shuffled.length];
       labelColorMap.set(tool, color);
-      return createDeskNoteButton({
+      return createFilterControlButton({
         active: activeTools.includes(tool),
+        className: 'desk-note',
         color,
         datasetName: 'data-filter-tool',
         datasetValue: tool,
         label: toolLabel(tool),
-        rotate: (rand() * 8 - 4).toFixed(1)
+        rotate: (rand() * 8 - 4).toFixed(1),
+        surface: 'desk'
       });
     })
   ];
 
   const tagColorOffset = tools.length + 1;
   const rightNotes = [
-    `<button class="desk-note${hasActiveTags ? '' : ' is-active'}" data-filter-note="all-tags" type="button" aria-controls="artifacts-grid" aria-pressed="${String(!hasActiveTags)}" aria-label="All tags" style="--note-color: ${shuffled[0]}; --rotate: ${(rand() * 6 - 3).toFixed(1)}deg;">All</button>`,
+    createFilterControlButton({
+      active: !hasActiveTags,
+      className: 'desk-note',
+      color: shuffled[0],
+      datasetName: 'data-filter-note',
+      datasetValue: 'all-tags',
+      label: 'All',
+      rotate: (rand() * 6 - 3).toFixed(1),
+      surface: 'desk'
+    }),
     ...tags.map((tag, index) => {
       const color = shuffled[(tagColorOffset + index) % shuffled.length];
       labelColorMap.set(tag, color);
-      return createDeskNoteButton({
+      return createFilterControlButton({
         active: activeTags.includes(tag),
+        className: 'desk-note',
         color,
         datasetName: 'data-filter-tag',
         datasetValue: tag,
         label: tagLabel(tag),
-        rotate: (rand() * 8 - 4).toFixed(1)
+        rotate: (rand() * 8 - 4).toFixed(1),
+        surface: 'desk'
       });
     })
   ];
 
-  return `<div class="desk-notes-left">${leftNotes.join('')}</div><div class="desk-notes-right">${rightNotes.join('')}</div>`;
+  const mobileTools = [
+    createFilterControlButton({
+      active: !hasActiveTools,
+      className: 'mobile-filter-chip',
+      color: shuffled[0],
+      datasetName: 'data-filter-note',
+      datasetValue: 'all-tools',
+      label: 'All tools',
+      surface: 'mobile'
+    }),
+    ...tools.map((tool, index) => createFilterControlButton({
+      active: activeTools.includes(tool),
+      className: 'mobile-filter-chip',
+      color: shuffled[(index + 1) % shuffled.length],
+      datasetName: 'data-filter-tool',
+      datasetValue: tool,
+      label: toolLabel(tool),
+      surface: 'mobile'
+    }))
+  ];
+  const mobileTags = [
+    createFilterControlButton({
+      active: !hasActiveTags,
+      className: 'mobile-filter-chip',
+      color: shuffled[0],
+      datasetName: 'data-filter-note',
+      datasetValue: 'all-tags',
+      label: 'All tags',
+      surface: 'mobile'
+    }),
+    ...tags.map((tag, index) => createFilterControlButton({
+      active: activeTags.includes(tag),
+      className: 'mobile-filter-chip',
+      color: shuffled[(tagColorOffset + index) % shuffled.length],
+      datasetName: 'data-filter-tag',
+      datasetValue: tag,
+      label: tagLabel(tag),
+      surface: 'mobile'
+    }))
+  ];
+
+  return `
+    <div class="desk-notes-left">${leftNotes.join('')}</div>
+    <div class="desk-notes-right">${rightNotes.join('')}</div>
+    <div class="mobile-filter-stack">
+      <section class="mobile-filter-group" aria-label="Tool filters">
+        <div class="mobile-filter-head">
+          <span class="mobile-filter-heading">Tools</span>
+          <span class="mobile-filter-summary" data-filter-summary="tools">${hasActiveTools ? `${activeTools.length} active` : 'All tools'}</span>
+        </div>
+        <div class="mobile-filter-chip-row">${mobileTools.join('')}</div>
+      </section>
+      <section class="mobile-filter-group" aria-label="Tag filters">
+        <div class="mobile-filter-head">
+          <span class="mobile-filter-heading">Tags</span>
+          <span class="mobile-filter-summary" data-filter-summary="tags">${hasActiveTags ? `${activeTags.length} active` : 'All tags'}</span>
+        </div>
+        <div class="mobile-filter-chip-row">${mobileTags.join('')}</div>
+      </section>
+    </div>
+  `;
 }
 
 /**
@@ -219,24 +324,16 @@ function createCard(item, isExpanded, index) {
  * @returns {string} Book page HTML for the current artifact grid.
  */
 export function buildGridHtml(items, expandedId) {
-  const leftItems = [];
-  const rightItems = [];
-
-  items.forEach((item, index) => {
-    // Alternating items visually balances the page heights
-    if (index % 2 === 0) {
-      leftItems.push(createCard(item, expandedId === item.id, index));
-    } else {
-      rightItems.push(createCard(item, expandedId === item.id, index));
-    }
-  });
+  const cards = items.map((item, index) => createCard(item, expandedId === item.id, index));
+  const leftCards = cards.filter((_, index) => index % 2 === 0);
+  const rightCards = cards.filter((_, index) => index % 2 !== 0);
 
   return `
     <section class="artifact-page-slice artifact-page-left" aria-label="Left book page">
-      ${leftItems.join('')}
+      ${leftCards.join('')}
     </section>
     <section class="artifact-page-slice artifact-page-right" aria-label="Right book page">
-      ${rightItems.join('')}
+      ${rightCards.join('')}
     </section>
   `;
 }

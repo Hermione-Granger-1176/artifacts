@@ -1,4 +1,9 @@
 const DEFAULT_CONFIG = {
+  artifactContract: {
+    artifactIdPattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+    artifactBasePath: 'apps',
+    thumbnailFile: 'thumbnail.webp'
+  },
   toolDisplayOrder: ['claude', 'chatgpt', 'gemini'],
   tagDisplayOrder: [],
   tools: {
@@ -9,18 +14,20 @@ const DEFAULT_CONFIG = {
   tags: {}
 };
 
-const SAFE_ARTIFACT_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const SAFE_ARTIFACT_URL_PATTERN = /^apps\/([a-z0-9]+(?:-[a-z0-9]+)*)\/$/;
-const SAFE_THUMBNAIL_PATTERN = /^apps\/([a-z0-9]+(?:-[a-z0-9]+)*)\/(thumbnail\.(?:webp|png))$/;
-
 /**
  * @typedef {{ label: string }} LabelEntry
  * @typedef {{
  *   toolDisplayOrder?: string[],
  *   tagDisplayOrder?: string[],
+ *   artifactContract?: ArtifactContract,
  *   tools?: Record<string, LabelEntry>,
  *   tags?: Record<string, LabelEntry>
  * }} GalleryConfig
+ * @typedef {{
+ *   artifactIdPattern: string,
+ *   artifactBasePath: string,
+ *   thumbnailFile: string
+ * }} ArtifactContract
  * @typedef {{
  *   id: string,
  *   name: string,
@@ -105,6 +112,71 @@ function decodeUriComponentSafely(value) {
   }
 }
 
+function getArtifactContract(value) {
+  return value || DEFAULT_CONFIG.artifactContract;
+}
+
+function compileArtifactIdRegex(contract) {
+  return new RegExp(contract.artifactIdPattern);
+}
+
+function matchesArtifactId(value, contract, compiledRegex) {
+  const regex = compiledRegex || compileArtifactIdRegex(contract);
+  const match = regex.exec(value);
+  return Boolean(match) && match.index === 0 && match[0] === value;
+}
+
+function buildArtifactUrl(contract, artifactId) {
+  return `${contract.artifactBasePath}/${artifactId}/`;
+}
+
+function buildThumbnailPath(contract, artifactId) {
+  return `${contract.artifactBasePath}/${artifactId}/${contract.thumbnailFile}`;
+}
+
+function matchesArtifactUrlShape(value, contract, compiledRegex) {
+  const parts = value.split('/');
+  return parts.length === 3
+    && parts[0] === contract.artifactBasePath
+    && parts[2] === ''
+    && matchesArtifactId(parts[1], contract, compiledRegex);
+}
+
+function matchesThumbnailShape(value, contract, compiledRegex) {
+  const parts = value.split('/');
+  return parts.length === 3
+    && parts[0] === contract.artifactBasePath
+    && parts[2] === contract.thumbnailFile
+    && matchesArtifactId(parts[1], contract, compiledRegex);
+}
+
+function validateArtifactContract(value, path) {
+  assertShape(isPlainObject(value), `${path} must be an object`);
+  assertShape(
+    typeof value.artifactIdPattern === 'string',
+    `${path}.artifactIdPattern must be a string`
+  );
+  assertShape(
+    typeof value.artifactBasePath === 'string',
+    `${path}.artifactBasePath must be a string`
+  );
+  assertShape(typeof value.thumbnailFile === 'string', `${path}.thumbnailFile must be a string`);
+  assertShape(
+    value.artifactBasePath.length > 0 && !value.artifactBasePath.includes('/') && !value.artifactBasePath.startsWith('.'),
+    `${path}.artifactBasePath must be a non-empty safe path segment`
+  );
+  assertShape(
+    value.thumbnailFile.length > 0 && !value.thumbnailFile.includes('/') && !value.thumbnailFile.startsWith('.'),
+    `${path}.thumbnailFile must be a non-empty safe file name`
+  );
+
+  try {
+    new RegExp(value.artifactIdPattern);
+  } catch {
+    assertShape(false, `${path}.artifactIdPattern must be a valid regular expression`);
+  }
+}
+
 function assertSafeRelativePath(value, path) {
   const decodedValue = decodeUriComponentSafely(value);
   assertShape(!value.includes('://'), `${path} must be a repo-relative path`);
@@ -118,24 +190,34 @@ function assertSafeRelativePath(value, path) {
   assertShape(!decodedValue.includes('..'), `${path} must not contain path traversal segments`);
 }
 
-function validateArtifactUrl(value, path, expectedId) {
+function validateArtifactUrl(value, path, expectedId, contract, compiledRegex) {
   assertShape(typeof value === 'string', `${path} must be a string`);
   assertSafeRelativePath(value, path);
-  const match = value.match(SAFE_ARTIFACT_URL_PATTERN);
-  assertShape(Boolean(match), `${path} must match apps/<artifact-id>/`);
-  if (expectedId) {
-    assertShape(match[1] === expectedId, `${path} must use the same artifact id as ${path.replace(/\.url$/, '.id')}`);
+  const expectedUrl = buildArtifactUrl(contract, expectedId);
+  if (value === expectedUrl) {
+    return;
   }
+
+  if (matchesArtifactUrlShape(value, contract, compiledRegex)) {
+    assertShape(false, `${path} must use the same artifact id as ${path.replace(/\.url$/, '.id')}`);
+  }
+
+  assertShape(false, `${path} must match ${buildArtifactUrl(contract, '<artifact-id>')}`);
 }
 
-function validateThumbnailPath(value, path, expectedId) {
+function validateThumbnailPath(value, path, expectedId, contract, compiledRegex) {
   assertShape(typeof value === 'string', `${path} must be a string`);
   assertSafeRelativePath(value, path);
-  const match = value.match(SAFE_THUMBNAIL_PATTERN);
-  assertShape(Boolean(match), `${path} must match apps/<artifact-id>/thumbnail.(webp|png)`);
-  if (expectedId) {
-    assertShape(match[1] === expectedId, `${path} must use the same artifact id as ${path.replace(/\.thumbnail$/, '.id')}`);
+  const expectedThumbnail = buildThumbnailPath(contract, expectedId);
+  if (value === expectedThumbnail) {
+    return;
   }
+
+  if (matchesThumbnailShape(value, contract, compiledRegex)) {
+    assertShape(false, `${path} must use the same artifact id as ${path.replace(/\.thumbnail$/, '.id')}`);
+  }
+
+  assertShape(false, `${path} must match ${buildThumbnailPath(contract, '<artifact-id>')}`);
 }
 
 /**
@@ -143,21 +225,25 @@ function validateThumbnailPath(value, path, expectedId) {
  * @param {*} value - Runtime bootstrap data to validate.
  * @returns {ArtifactRecord[]} Validated artifact data.
  */
-export function validateArtifactsData(value) {
+export function validateArtifactsData(value, artifactContract = DEFAULT_CONFIG.artifactContract) {
+  const contract = getArtifactContract(artifactContract);
+  validateArtifactContract(contract, 'artifactContract');
   assertShape(Array.isArray(value), 'window.ARTIFACTS_DATA must be an array');
+
+  const idRegex = compileArtifactIdRegex(contract);
 
   value.forEach((item, index) => {
     const path = `window.ARTIFACTS_DATA[${index}]`;
     assertShape(isPlainObject(item), `${path} must be an object`);
     assertShape(typeof item.id === 'string', `${path}.id must be a string`);
-    assertShape(SAFE_ARTIFACT_ID_PATTERN.test(item.id), `${path}.id must use kebab-case`);
+    assertShape(matchesArtifactId(item.id, contract, idRegex), `${path}.id must match the artifact id pattern`);
     assertShape(typeof item.name === 'string', `${path}.name must be a string`);
-    validateArtifactUrl(item.url, `${path}.url`, item.id);
+    validateArtifactUrl(item.url, `${path}.url`, item.id, contract, idRegex);
 
     validateNullableStringField(item, 'description', path);
     validateNullableStringField(item, 'thumbnail', path);
     if (item.thumbnail !== undefined && item.thumbnail !== null) {
-      validateThumbnailPath(item.thumbnail, `${path}.thumbnail`, item.id);
+      validateThumbnailPath(item.thumbnail, `${path}.thumbnail`, item.id, contract, idRegex);
     }
 
     assertShape(Array.isArray(item.tags), `${path}.tags must be an array`);
@@ -195,6 +281,10 @@ export function validateArtifactsConfig(value) {
     validator(value[key], `window.ARTIFACTS_CONFIG.${key}`);
   });
 
+  if ('artifactContract' in value) {
+    validateArtifactContract(value.artifactContract, 'window.ARTIFACTS_CONFIG.artifactContract');
+  }
+
   return value;
 }
 
@@ -204,8 +294,8 @@ export function validateArtifactsConfig(value) {
  * @returns {void}
  */
 export function validateGalleryBootstrapData(windowObj = window) {
-  validateArtifactsConfig(windowObj.ARTIFACTS_CONFIG);
-  validateArtifactsData(windowObj.ARTIFACTS_DATA);
+  const config = validateArtifactsConfig(windowObj.ARTIFACTS_CONFIG);
+  validateArtifactsData(windowObj.ARTIFACTS_DATA, getArtifactContract(config.artifactContract));
 }
 
 /**
@@ -216,6 +306,7 @@ export function validateGalleryBootstrapData(windowObj = window) {
 export function getGalleryConfig(windowObj = window) {
   const runtimeConfig = windowObj.ARTIFACTS_CONFIG || {};
   return {
+    artifactContract: getArtifactContract(runtimeConfig.artifactContract),
     toolDisplayOrder: runtimeConfig.toolDisplayOrder || DEFAULT_CONFIG.toolDisplayOrder,
     tagDisplayOrder: runtimeConfig.tagDisplayOrder || DEFAULT_CONFIG.tagDisplayOrder,
     tools: {
