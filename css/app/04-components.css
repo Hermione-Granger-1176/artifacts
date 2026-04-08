@@ -37,7 +37,7 @@
   border-radius: 6px;
   background: var(--color-tooltip-bg);
   color: var(--color-tooltip-text);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: 400;
   white-space: nowrap;
 }
@@ -109,7 +109,7 @@
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--font-size-control);
 }
 
 thead {

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import subprocess
-import sys
 import time
+
+logger = logging.getLogger(__name__)
 
 GH_API_TIMEOUT_SECONDS = 15
 GH_API_MAX_ATTEMPTS = 3
@@ -50,10 +52,11 @@ def run_gh_api(
                 f"timed out after {timeout_seconds} seconds while {description}"
             )
             if attempt < max_attempts:
-                print(
-                    f"Retrying gh api for {description} after attempt "
-                    f"{attempt}/{max_attempts} timed out.",
-                    file=sys.stderr,
+                logger.warning(
+                    "Retrying gh api for %s after attempt %d/%d timed out.",
+                    description,
+                    attempt,
+                    max_attempts,
                 )
                 sleep_fn(retry_delay_seconds * attempt)
                 continue
@@ -67,10 +70,12 @@ def run_gh_api(
         )
         last_error = stderr
         if attempt < max_attempts and is_retryable_gh_api_failure(stderr):
-            print(
-                f"Retrying gh api for {description} after attempt "
-                f"{attempt}/{max_attempts} failed: {stderr}",
-                file=sys.stderr,
+            logger.warning(
+                "Retrying gh api for %s after attempt %d/%d failed: %s",
+                description,
+                attempt,
+                max_attempts,
+                stderr,
             )
             sleep_fn(retry_delay_seconds * attempt)
             continue

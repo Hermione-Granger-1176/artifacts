@@ -226,8 +226,51 @@ def _patch_app_social_metadata(site_url: str, version: str) -> None:
         )
 
 
+def _inline_css_imports(css_file: Path) -> None:
+    """Replace ``@import url()`` statements with the contents of imported files.
+
+    This eliminates sequential blocking requests at runtime by concatenating
+    CSS partials into a single file at build time.  Source partials remain
+    untouched — only the copy in ``_site/`` is modified.
+    """
+    if not css_file.exists():
+        return
+
+    content = css_file.read_text(encoding="utf-8")
+    parent_dir = css_file.parent
+
+    def _read_import(match: re.Match[str]) -> str:
+        import_path = (parent_dir / match.group(1)).resolve()
+        if not import_path.exists():
+            return match.group(0)
+        return import_path.read_text(encoding="utf-8")
+
+    inlined = ROOT_STYLESHEET_IMPORT_PATTERN.sub(_read_import, content)
+    css_file.write_text(inlined, encoding="utf-8")
+    logger.info("Inlined CSS imports in %s", css_file.relative_to(DEPLOY_DIR))
+
+
+def _inline_all_css_imports() -> None:
+    """Inline CSS ``@import`` chains in the deploy directory."""
+    for css_entry in (
+        DEPLOY_DIR / "css" / "style.css",
+        DEPLOY_DIR / "css" / "app-shell.css",
+    ):
+        _inline_css_imports(css_entry)
+
+    for subdir in ("gallery", "app"):
+        partial_dir = DEPLOY_DIR / "css" / subdir
+        if partial_dir.is_dir():
+            shutil.rmtree(partial_dir)
+
+
 def _patch_root_stylesheet(version: str) -> None:
-    """Apply cache-busting query strings to modular stylesheet imports."""
+    """Apply cache-busting query strings to modular stylesheet imports.
+
+    After ``_inline_all_css_imports`` runs this is normally a no-op because
+    there are no remaining ``@import`` statements.  It is kept for safety in
+    case inlining is bypassed.
+    """
     stylesheet_path = DEPLOY_DIR / "css" / "style.css"
     if not stylesheet_path.exists():
         return
@@ -294,6 +337,7 @@ def prepare_site() -> None:
     commit_sha = _resolve_commit_sha()
     version = _resolve_version()
     _copy_deploy_items()
+    _inline_all_css_imports()
     _patch_index_html(version)
     _patch_social_metadata(site_url, version)
     _patch_app_social_metadata(site_url, version)

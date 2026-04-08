@@ -13,7 +13,7 @@
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--font-size-control);
   font-weight: 500;
 }
 
@@ -48,7 +48,7 @@
 .concepts-heading {
   margin-bottom: 6px;
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -78,7 +78,7 @@
 
 .hint {
   margin-top: 6px;
-  font-size: 13px;
+  font-size: var(--font-size-control);
 }
 
 .controls {
@@ -101,7 +101,7 @@
 
 .control-label,
 .control-value {
-  font-size: 13px;
+  font-size: var(--font-size-control);
 }
 
 .control-value {
@@ -114,12 +114,12 @@
   justify-content: space-between;
   margin-top: 3px;
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
 }
 
 .section-label {
   margin-bottom: var(--space-2);
-  font-size: 13px;
+  font-size: var(--font-size-control);
 }
 
 .bars {
@@ -145,7 +145,7 @@
   overflow: hidden;
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--font-size-control);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -191,7 +191,7 @@
   border-radius: 6px;
   cursor: default;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--font-size-control);
   font-weight: 500;
 }
 
@@ -204,7 +204,7 @@
 .insight {
   padding: var(--space-3) var(--space-4);
   color: var(--color-text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-control);
   line-height: 1.6;
 }
 
@@ -294,7 +294,7 @@
 
 .card-arrow {
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   transition: transform 0.2s;
 }
 
@@ -305,7 +305,7 @@
 .card-body {
   display: none;
   padding: 0 16px 14px 54px;
-  font-size: 13px;
+  font-size: var(--font-size-control);
   line-height: 1.7;
 }
 

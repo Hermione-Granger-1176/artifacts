@@ -412,6 +412,81 @@ def test_patch_app_social_metadata_skips_non_directory_entries_and_missing_index
     prepare_site._patch_app_social_metadata("https://example.com/demo/", "abc123")
 
 
+def test_inline_css_imports_concatenates_partials(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy_dir = tmp_path / "_site"
+    css_dir = deploy_dir / "css"
+    gallery_dir = css_dir / "gallery"
+    gallery_dir.mkdir(parents=True)
+    write_text(gallery_dir / "01-tokens.css", ":root { --color-bg: #fff; }\n")
+    write_text(gallery_dir / "02-reset.css", "* { margin: 0; }\n")
+    write_text(
+        css_dir / "style.css",
+        '/* gallery */\n@import url("./gallery/01-tokens.css");\n'
+        '@import url("./gallery/02-reset.css");\n',
+    )
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._inline_css_imports(css_dir / "style.css")
+
+    content = (css_dir / "style.css").read_text(encoding="utf-8")
+    assert "@import" not in content
+    assert ":root { --color-bg: #fff; }" in content
+    assert "* { margin: 0; }" in content
+
+
+def test_inline_all_css_imports_removes_partial_dirs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy_dir = tmp_path / "_site"
+    css_dir = deploy_dir / "css"
+    gallery_dir = css_dir / "gallery"
+    app_dir = css_dir / "app"
+    gallery_dir.mkdir(parents=True)
+    app_dir.mkdir(parents=True)
+    write_text(gallery_dir / "01-tokens.css", "body {}\n")
+    write_text(app_dir / "01-reset.css", "html {}\n")
+    write_text(css_dir / "style.css", '@import url("./gallery/01-tokens.css");\n')
+    write_text(css_dir / "app-shell.css", '@import url("./app/01-reset.css");\n')
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._inline_all_css_imports()
+
+    assert not gallery_dir.exists()
+    assert not app_dir.exists()
+    assert "body {}" in (css_dir / "style.css").read_text(encoding="utf-8")
+    assert "html {}" in (css_dir / "app-shell.css").read_text(encoding="utf-8")
+
+
+def test_inline_css_imports_keeps_import_when_partial_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy_dir = tmp_path / "_site"
+    css_dir = deploy_dir / "css"
+    css_dir.mkdir(parents=True)
+    write_text(
+        css_dir / "style.css",
+        '@import url("./gallery/missing.css");\n',
+    )
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._inline_css_imports(css_dir / "style.css")
+
+    content = (css_dir / "style.css").read_text(encoding="utf-8")
+    assert '@import url("./gallery/missing.css");' in content
+
+
+def test_inline_css_imports_skips_missing_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy_dir = tmp_path / "_site"
+    deploy_dir.mkdir()
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._inline_css_imports(deploy_dir / "css" / "nonexistent.css")
+
+
 def test_patch_root_stylesheet_versions_imports(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -593,7 +668,10 @@ def test_prepare_site_builds_deploy_output(
         'content="https://example.com/artifacts/assets/social/share-preview.png?v=abc123"'
         in index_content
     )
-    assert '@import url("./gallery/01-tokens.css?v=abc123");' in style_content
+    assert "@import" not in style_content
+    assert "body {}" in style_content
+    assert ".artifact-card {}" in style_content
+    assert not (deploy_dir / "css" / "gallery").exists()
     assert 'data-site-path="/artifacts/"' in error_content
     assert (deploy_dir / ".nojekyll").exists()
     assert (deploy_dir / "apps" / "sample" / "index.html").exists()

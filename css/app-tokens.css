@@ -73,7 +73,9 @@
   --font-mono: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, "Liberation Mono", "Courier New", monospace;
 
   --font-size-xs: 10px;
+  --font-size-2xs: 11px;
   --font-size-sm: 12px;
+  --font-size-control: 13px;
   --font-size-md: 14px;
   --font-size-base: 16px;
   --font-size-lg: 18px;

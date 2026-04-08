@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
@@ -263,6 +264,23 @@ def test_run_pip_audit_rejects_subprocess_failures(
     )
 
     with pytest.raises(RuntimeError, match="pip-audit failed"):
+        run_security_audit._run_pip_audit(lock_file)
+
+
+def test_run_pip_audit_raises_on_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_root = tmp_path / "repo"
+    lock_file = repo_root / "locks" / "requirements-dev.lock"
+    write_text(lock_file, "pkg==1.0\n")
+    monkeypatch.setattr(run_security_audit, "REPO_ROOT", repo_root)
+
+    def _timeout_run(*args: object, **kwargs: object) -> None:
+        raise subprocess.TimeoutExpired(["pip-audit"], kwargs.get("timeout", 120))
+
+    monkeypatch.setattr(run_security_audit.subprocess, "run", _timeout_run)
+
+    with pytest.raises(RuntimeError, match="pip-audit timed out"):
         run_security_audit._run_pip_audit(lock_file)
 
 

@@ -221,20 +221,26 @@ def _parse_dependency_findings(
 
 def _run_pip_audit(lock_file: Path) -> tuple[VulnerabilityFinding, ...]:
     """Run pip-audit for one lock file and return all reported vulnerabilities."""
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pip_audit",
-            "--requirement",
-            str(lock_file),
-            "--format",
-            "json",
-        ],
-        capture_output=True,
-        check=False,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pip_audit",
+                "--requirement",
+                str(lock_file),
+                "--format",
+                "json",
+            ],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"pip-audit timed out after 120 seconds for {_relative_path(lock_file)}"
+        ) from exc
     if result.returncode not in {0, 1}:
         stderr = result.stderr.strip() or result.stdout.strip() or "unknown error"
         raise RuntimeError(
