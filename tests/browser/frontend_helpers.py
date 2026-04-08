@@ -142,7 +142,7 @@ def build_real_site(tmp_path: Path, monkeypatch) -> Path:
     deploy_root = tmp_path / "_site"
     source_root.mkdir(parents=True, exist_ok=True)
 
-    for item in ("404.html", "apps", "assets", "css", "index.html", "js"):
+    for item in ("404.html", "apps", "assets", "config", "css", "index.html", "js"):
         source = REPO_ROOT / item
         target = source_root / item
         if source.is_dir():
