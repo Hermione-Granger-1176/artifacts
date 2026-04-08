@@ -10,20 +10,6 @@ const elements = {};
 
 let activeIndex = 0;
 
-renderAppShell();
-
-initializeMatureApp({
-  onErrorContext: "tokenizer explorer initialization",
-  run: () => {
-    cacheAppElements();
-    initAppShell({ onThemeChange: () => render() });
-    initAccordion(elements.concepts);
-    bindEvents();
-    renderTabs(elements.tabs, scenarios, activeIndex, selectScenario);
-    render();
-  }
-});
-
 const ELEMENT_IDS = [
   "tabs",
   "scenario-type",
@@ -37,6 +23,20 @@ const ELEMENT_IDS = [
   "insight-box",
   "concepts"
 ];
+
+renderAppShell();
+
+initializeMatureApp({
+  onErrorContext: "tokenizer explorer initialization",
+  run: () => {
+    cacheAppElements();
+    initAppShell({ onThemeChange: () => render() });
+    initAccordion(elements.concepts);
+    bindEvents();
+    renderTabs(elements.tabs, scenarios, activeIndex, selectScenario);
+    render();
+  }
+});
 
 function cacheAppElements() {
   const cached = cacheElements(ELEMENT_IDS);

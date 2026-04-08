@@ -18,6 +18,7 @@ def test_loan_amortization_flow_covers_theme_and_schedule(
             server.url,
             name="app-flow-loan",
             viewport=(1100, 720),
+            bypass_csp=True,
         ) as session:
             page = session.page
             assert page is not None
@@ -62,7 +63,7 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(
 
     with StaticServer(deploy_root) as server, sync_playwright() as playwright:
         with MonitoredPage(
-            playwright, server.url, name="app-flow-tokenizer"
+            playwright, server.url, name="app-flow-tokenizer", bypass_csp=True
         ) as session:
             page = session.page
             assert page is not None

@@ -158,7 +158,6 @@ def thumbnail_plan(
     head_repo_fork: bool = False,
     pr_author: str = "",
     apps_root: Path | None = None,
-    app_token_allowed_fn,
     list_changed_files_fn=list_changed_files,
     missing_thumbnail_slugs_fn=missing_thumbnail_slugs,
     runtime_change_plan_fn=runtime_change_plan,
@@ -178,11 +177,6 @@ def thumbnail_plan(
     shared_runtime_changed = cast(bool, runtime_plan["shared_runtime_changed"])
     missing_slugs = missing_thumbnail_slugs_fn(apps_root)
     affected_slugs = sorted(set(changed_slugs) | set(missing_slugs))
-    trusted_pr = event_name == "pull_request" and app_token_allowed_fn(
-        event_name=event_name,
-        head_repo_fork=head_repo_fork,
-        pr_author=pr_author,
-    )
     associated_pr_kind = (
         associated_pr_kind_for_commit_fn(repo, commit_sha)
         if event_name == "push"
@@ -200,23 +194,15 @@ def thumbnail_plan(
 
     return {
         "app_scope": cast(str, runtime_plan["app_scope"]),
-        "associated_pr_kind": associated_pr_kind,
         "browser_scope": cast(str, runtime_plan["app_scope"]),
-        "changed_files": changed_files,
         "changed_slugs": changed_slugs,
-        "head_repo_fork": head_repo_fork,
-        "missing_thumbnail_slugs": missing_slugs,
-        "persist_allowed": persist_mode != "none",
         "persist_mode": persist_mode,
-        "pr_author": pr_author,
         "reason": reason,
-        "runtime_changed": runtime_changed,
         "shared_runtime_changed": shared_runtime_changed,
         "thumbnail_scope": "all"
         if shared_runtime_changed
         else ("changed" if affected_slugs else "none"),
         "thumbnail_slugs": [] if shared_runtime_changed else affected_slugs,
-        "trusted_pr": trusted_pr,
     }
 
 

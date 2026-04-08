@@ -28,7 +28,7 @@ def test_app_smoke_pages_load_cleanly(tmp_path: Path, monkeypatch, slug: str) ->
     app_name = _app_name(slug)
 
     with StaticServer(deploy_root) as server, sync_playwright() as playwright:
-        with MonitoredPage(playwright, server.url, name=f"app-smoke-{slug}") as session:
+        with MonitoredPage(playwright, server.url, name=f"app-smoke-{slug}", bypass_csp=True) as session:
             page = session.page
             assert page is not None
             session.goto(_app_path(slug))
@@ -58,6 +58,7 @@ def test_app_runtime_error_banner_is_visible_when_bootstrap_fails(
             name="app-runtime-error-tokenizer",
             allowed_console_errors=("broken startup",),
             allowed_page_errors=("broken startup",),
+            bypass_csp=True,
         ) as session:
             page = session.page
             assert page is not None

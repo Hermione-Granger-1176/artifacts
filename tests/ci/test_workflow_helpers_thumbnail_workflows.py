@@ -374,7 +374,6 @@ def test_thumbnail_plan_treats_browser_test_only_changes_as_non_runtime(
     assert plan["browser_scope"] == "none"
     assert plan["thumbnail_scope"] == "none"
     assert plan["persist_mode"] == "none"
-    assert plan["runtime_changed"] is False
     assert plan["shared_runtime_changed"] is False
 
 

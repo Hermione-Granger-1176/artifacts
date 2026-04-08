@@ -211,7 +211,6 @@ def thumbnail_plan(
         head_repo_fork=head_repo_fork,
         pr_author=pr_author,
         apps_root=apps_root,
-        app_token_allowed_fn=app_token_allowed,
         list_changed_files_fn=list_changed_files,
         missing_thumbnail_slugs_fn=missing_thumbnail_slugs,
         runtime_change_plan_fn=runtime_change_plan,
