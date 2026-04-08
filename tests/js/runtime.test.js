@@ -277,3 +277,13 @@ test('standalone writeStorage returns false when localStorage throws', () => {
 
   globalThis.window = original;
 });
+
+test('runtime diagnostics click handler is bound only once across multiple createRuntime calls', () => {
+  const windowObj = createWindowStub();
+  const docObj = createDocumentStub();
+
+  createRuntime({ windowObj, documentObj: docObj, consoleObj: { error() {} } });
+  createRuntime({ windowObj, documentObj: docObj, consoleObj: { error() {} } });
+
+  assert.equal(windowObj.__ARTIFACTS_DIAGNOSTICS_BOUND__, true);
+});

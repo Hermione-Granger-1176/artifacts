@@ -116,6 +116,37 @@ test('renderAppShell fills shared shell placeholders', () => {
   assert.match(slots['[data-app-shell="scroll-top"]'].innerHTML, /id="scroll-top"/);
 });
 
+test('renderAppShell rejects unsafe homePath and falls back to default', () => {
+  const slot = createSlot();
+
+  renderAppShell({
+    documentObj: {
+      querySelector(selector) {
+        return selector === '[data-app-shell="header"]' ? slot : null;
+      }
+    },
+    homePath: 'javascript:alert(1)' // eslint-disable-line no-script-url
+  });
+
+  assert.match(slot.innerHTML, /href="\.\.\/\.\.\/"/);
+  assert.doesNotMatch(slot.innerHTML, /javascript/);
+});
+
+test('renderAppShell accepts valid relative homePath', () => {
+  const slot = createSlot();
+
+  renderAppShell({
+    documentObj: {
+      querySelector(selector) {
+        return selector === '[data-app-shell="header"]' ? slot : null;
+      }
+    },
+    homePath: '../custom-path/'
+  });
+
+  assert.match(slot.innerHTML, /href="\.\.\/custom-path\/"/);
+});
+
 test('renderAppShell leaves populated placeholders unchanged', () => {
   const slot = {
     childElementCount: 1,

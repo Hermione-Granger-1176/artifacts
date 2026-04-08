@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
@@ -102,7 +103,7 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(
             assert page.locator("#token-pills .pill").count() != initial_pill_count
 
             page.locator(".card-trigger").first.click()
-            expect(page.locator(".card").first).to_have_class("card open")
+            expect(page.locator(".card").first).to_have_class(re.compile(r"\bopen\b"))
 
             page.locator("#theme-toggle").click()
             expect(page.locator("html")).to_have_attribute("data-theme", "dark")

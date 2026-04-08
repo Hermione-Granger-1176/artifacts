@@ -7,6 +7,14 @@ import {
   runSchedule
 } from '../../apps/loan-amortization/js/modules/amortization.js';
 import {
+  createExtra,
+  removeExtraById,
+  setExtraType,
+  updateExtraField,
+  summarizeExtra,
+  renderExtras
+} from '../../apps/loan-amortization/js/modules/extras.js';
+import {
   formatCurrency,
   formatDollarTick,
   parseNumber,
@@ -182,4 +190,124 @@ test('buildMetricsMarkup renders savings and escapes tooltip content', () => {
   assert.match(markup, /Break-even/);
   assert.doesNotMatch(markup, /EMI \+ extras\) >/);
   assert.match(markup, /EMI \+ extras\) &gt; interest/);
+});
+
+// --- extras.js ---
+
+test('updateExtraField rejects fields not in the allowlist', () => {
+  const extras = [createExtra(1)];
+  updateExtraField(extras, 1, '__proto__', '999');
+  assert.equal(extras[0].amount, 500); // unchanged
+  updateExtraField(extras, 1, 'constructor', '1');
+  assert.equal(extras[0].amount, 500);
+});
+
+test('updateExtraField accepts allowed fields with valid values', () => {
+  const extras = [createExtra(1)];
+  updateExtraField(extras, 1, 'amount', '1000');
+  assert.equal(extras[0].amount, 1000);
+  updateExtraField(extras, 1, 'every', '3');
+  assert.equal(extras[0].every, 3);
+});
+
+test('updateExtraField rejects NaN and negative values', () => {
+  const extras = [createExtra(1)];
+  updateExtraField(extras, 1, 'amount', 'abc');
+  assert.equal(extras[0].amount, 500); // unchanged — NaN rejected
+  updateExtraField(extras, 1, 'amount', '-10');
+  assert.equal(extras[0].amount, 500); // unchanged — negative rejected
+});
+
+test('updateExtraField rejects zero for period fields', () => {
+  const extras = [createExtra(1)];
+  updateExtraField(extras, 1, 'every', '0');
+  assert.equal(extras[0].every, 1); // unchanged — zero rejected for period field
+  updateExtraField(extras, 1, 'startPeriod', '0');
+  assert.equal(extras[0].startPeriod, 1);
+});
+
+test('removeExtraById filters by id', () => {
+  const extras = [createExtra(1), createExtra(2), createExtra(3)];
+  const result = removeExtraById(extras, 2);
+  assert.equal(result.length, 2);
+  assert.deepEqual(result.map((e) => e.id), [1, 3]);
+});
+
+test('setExtraType changes the type of a matching extra', () => {
+  const extras = [createExtra(1)];
+  assert.equal(extras[0].type, 'recurring');
+  setExtraType(extras, 1, 'onetime');
+  assert.equal(extras[0].type, 'onetime');
+});
+
+test('setExtraType is a no-op for non-matching id', () => {
+  const extras = [createExtra(1)];
+  setExtraType(extras, 999, 'onetime');
+  assert.equal(extras[0].type, 'recurring');
+});
+
+test('summarizeExtra describes a recurring payment', () => {
+  const extra = { type: 'recurring', amount: 500, every: 1, startPeriod: 1 };
+  const summary = summarizeExtra(extra, 'Month');
+  assert.match(summary, /Pays \$500/);
+  assert.match(summary, /every Month/);
+  assert.match(summary, /starting from Month 1/);
+});
+
+test('summarizeExtra describes recurring with multi-period interval', () => {
+  const extra = { type: 'recurring', amount: 1000, every: 3, startPeriod: 6 };
+  const summary = summarizeExtra(extra, 'Month');
+  assert.match(summary, /every 3 Months/);
+  assert.match(summary, /starting from Month 6/);
+});
+
+test('summarizeExtra describes a one-time payment', () => {
+  const extra = { type: 'onetime', amount: 2000, period: 12 };
+  const summary = summarizeExtra(extra, 'Month');
+  assert.match(summary, /One-time payment of \$2,000/);
+  assert.match(summary, /at Month 12/);
+});
+
+test('renderExtras builds recurring and one-time DOM elements', () => {
+  const children = [];
+  const container = {
+    innerHTML: '',
+    appendChild(child) { children.push(child); }
+  };
+  // Stub document.createElement for Node.js
+  const origCreate = globalThis.document?.createElement;
+  globalThis.document = {
+    createElement(tag) {
+      const attrs = {};
+      return {
+        tagName: tag,
+        className: '',
+        dataset: {},
+        innerHTML: '',
+        setAttribute(k, v) { attrs[k] = v; },
+        getAttribute(k) { return attrs[k] ?? null; }
+      };
+    }
+  };
+
+  const extras = [
+    { id: 1, type: 'recurring', amount: 500, every: 1, startPeriod: 1 },
+    { id: 2, type: 'onetime', amount: 2000, period: 6 }
+  ];
+
+  renderExtras({ container, extras, periodLabel: 'Month' });
+
+  assert.equal(children.length, 2);
+  assert.equal(children[0].className, 'extra-item');
+  assert.match(children[0].innerHTML, /Recurring/);
+  assert.match(children[0].innerHTML, /data-field="amount"/);
+  assert.match(children[1].innerHTML, /One-time/);
+  assert.match(children[1].innerHTML, /data-field="period"/);
+
+  // Restore
+  if (origCreate) {
+    globalThis.document.createElement = origCreate;
+  } else {
+    delete globalThis.document;
+  }
 });

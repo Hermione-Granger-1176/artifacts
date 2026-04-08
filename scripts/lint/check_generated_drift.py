@@ -64,19 +64,15 @@ def _restore_snapshots(snapshots: list[FileSnapshot]) -> None:
 def check_generated_drift() -> list[Path]:
     """Run the index generator, report drift, and restore original files."""
     snapshots = _capture_snapshots(_target_files())
-    error: Exception | None = None
-    drifted: list[Path] = []
 
     try:
         generate_index.generate()
         drifted = _detect_drift(snapshots)
-    except Exception as exc:  # pragma: no cover - exercised via tests
-        error = exc
-    finally:
+    except Exception:
         _restore_snapshots(snapshots)
-
-    if error is not None:
-        raise error
+        raise
+    else:
+        _restore_snapshots(snapshots)
 
     return drifted
 

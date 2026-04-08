@@ -97,6 +97,32 @@ test('validateArtifactsData uses full-match semantics for contract id patterns',
   );
 });
 
+test('validateArtifactsData rejects empty artifactBasePath in contract', () => {
+  const emptyBaseContract = {
+    artifactIdPattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+    artifactBasePath: '',
+    thumbnailFile: 'thumbnail.webp'
+  };
+
+  assert.throws(
+    () => validateArtifactsData([], emptyBaseContract),
+    /artifactBasePath must be a non-empty safe path segment/
+  );
+});
+
+test('validateArtifactsData rejects empty thumbnailFile in contract', () => {
+  const emptyThumbContract = {
+    artifactIdPattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+    artifactBasePath: 'apps',
+    thumbnailFile: ''
+  };
+
+  assert.throws(
+    () => validateArtifactsData([], emptyThumbContract),
+    /thumbnailFile must be a non-empty safe file name/
+  );
+});
+
 test('validateArtifactsData enforces safe repo-relative paths', () => {
   assert.throws(
     () => validateArtifactsData([
