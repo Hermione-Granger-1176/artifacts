@@ -34,9 +34,9 @@ setup-ci: setup-base ## CI variant with Chromium system deps
 
 # ─── Lint ─────────────────────────────────────────────────────────────────────
 
-.PHONY: lint lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets editorconfig-check
+.PHONY: lint lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage editorconfig-check
 
-lint: editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets ## Run all linters
+lint: editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage ## Run all linters
 
 editorconfig-check: ## Check EditorConfig rules
 	$(VENV_PYTHON) scripts/lint/check_editorconfig.py
@@ -61,6 +61,9 @@ lint-doc-commands: ## Check contributor docs use Make targets
 
 lint-make-targets: ## Check documented Make targets
 	$(VENV_PYTHON) scripts/lint/check_make_targets.py
+
+lint-js-test-coverage: ## Check every JS source file has test imports
+	$(VENV_PYTHON) scripts/lint/check_js_test_coverage.py
 
 # ─── Format ───────────────────────────────────────────────────────────────────
 

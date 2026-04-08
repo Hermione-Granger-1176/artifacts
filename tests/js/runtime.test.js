@@ -278,6 +278,30 @@ test('standalone writeStorage returns false when localStorage throws', () => {
   globalThis.window = original;
 });
 
+test('runtime reportError tolerates documentObj without getElementById for diagnostics', () => {
+  const windowObj = createWindowStub();
+  // Provide getElementById for createRuntime init, then remove it to simulate
+  // a stub that lacks it when reportError tries to update diagnostics.
+  const minimalDoc = {
+    documentElement: { dataset: {} },
+    addEventListener() {},
+    getElementById() { return null; }
+  };
+
+  const runtime = createRuntime({
+    consoleObj: { error() {} },
+    documentObj: minimalDoc,
+    windowObj
+  });
+
+  // Remove getElementById after init to simulate a minimal stub
+  delete minimalDoc.getElementById;
+
+  // Should not throw even though minimalDoc now lacks getElementById
+  runtime.reportError(new Error('test'), 'test context', { fatal: true });
+  assert.equal(runtime.state.lastError.message, 'test');
+});
+
 test('runtime diagnostics click handler is bound only once across multiple createRuntime calls', () => {
   const windowObj = createWindowStub();
   const docObj = createDocumentStub();

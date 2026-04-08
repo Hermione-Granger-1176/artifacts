@@ -20,7 +20,7 @@ import {
   parseNumber,
   escapeAttribute
 } from '../../apps/loan-amortization/js/modules/formatting.js';
-import { buildMetricsMarkup } from '../../apps/loan-amortization/js/modules/metrics.js';
+import { buildMetricsMarkup, renderMetrics } from '../../apps/loan-amortization/js/modules/metrics.js';
 import {
   getBiweeklyEmiOverride,
   getFrequencyParams,
@@ -190,6 +190,45 @@ test('buildMetricsMarkup renders savings and escapes tooltip content', () => {
   assert.match(markup, /Break-even/);
   assert.doesNotMatch(markup, /EMI \+ extras\) >/);
   assert.match(markup, /EMI \+ extras\) &gt; interest/);
+});
+
+test('buildMetricsMarkup omits savings and periods-saved pills when zero', () => {
+  const markup = buildMetricsMarkup(
+    {
+      base: { emi: 300, totalInterest: 5000 },
+      extra: { totalInterest: 5000, periods: 20, breakEven: null },
+      savings: 0,
+      periodsSaved: 0,
+      totalPaid: 55000,
+      costRatio: 1.1,
+      label: 'Week'
+    },
+    (value) => `$${value}`
+  );
+
+  assert.doesNotMatch(markup, /savings-pill/);
+  assert.match(markup, /N\/A/);
+  assert.match(markup, /Weekly EMI/);
+});
+
+test('renderMetrics sets container innerHTML', () => {
+  const container = { innerHTML: '' };
+  renderMetrics(
+    container,
+    {
+      base: { emi: 500, totalInterest: 8000 },
+      extra: { totalInterest: 7000, periods: 24, breakEven: 10 },
+      savings: 1000,
+      periodsSaved: 3,
+      totalPaid: 67000,
+      costRatio: 1.12,
+      label: 'Month'
+    },
+    (value) => `$${value}`
+  );
+
+  assert.ok(container.innerHTML.length > 0);
+  assert.match(container.innerHTML, /Monthly EMI/);
 });
 
 // --- extras.js ---

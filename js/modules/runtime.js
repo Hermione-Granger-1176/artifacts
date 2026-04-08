@@ -87,6 +87,9 @@ function buildErrorSummary(errorRecord, documentObj, windowObj) {
 
 /** Sync the runtime error details UI to the latest captured error. */
 function updateRuntimeDiagnostics(documentObj, state) {
+  if (typeof documentObj.getElementById !== 'function') {
+    return;
+  }
   const details = documentObj.getElementById('runtime-error-details');
   const output = documentObj.getElementById('runtime-error-output');
   const copyButton = documentObj.getElementById('runtime-error-copy');

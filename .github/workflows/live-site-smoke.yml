@@ -69,7 +69,7 @@ jobs:
           GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
         run: |
           artifact_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          body=$(printf '%s
+          body=$(printf '%s\n' \
             'Scheduled live-site smoke checks failed.' \
             "Workflow run: $artifact_url" \
             'If artifacts were uploaded, inspect the failure screenshot, trace, and runtime logs from this run.' \
@@ -89,7 +89,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
         run: |
-          body=$(printf '%s
+          body=$(printf '%s\n' \
             'Scheduled live-site smoke checks are passing again.' \
             "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
           python3 scripts/ci/workflow_helpers.py sync-alert-issue \
