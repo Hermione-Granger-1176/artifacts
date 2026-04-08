@@ -124,7 +124,7 @@ export function createDetailOverlay({
       return true;
     }
 
-    if (activeElement === lastElement || activeElementOutsidePanel) {
+    if (!event.shiftKey && (activeElement === lastElement || activeElementOutsidePanel)) {
       event.preventDefault();
       firstElement.focus({ preventScroll: true });
       return true;

@@ -1,3 +1,4 @@
+/** @param {HTMLElement} container @param {object} values - Summary totals to display. */
 export function renderTableSummary(container, values) {
   const items = [
     ["Total EMI", values.totalEmi],
@@ -19,6 +20,7 @@ export function renderTableSummary(container, values) {
     .join("");
 }
 
+/** @param {HTMLElement} tbody @param {Array} rows @param {Function} formatCurrency */
 export function renderPeriodTable(tbody, rows, formatCurrency) {
   tbody.innerHTML = "";
 
@@ -39,6 +41,7 @@ export function renderPeriodTable(tbody, rows, formatCurrency) {
   }
 }
 
+/** @param {HTMLElement} tbody @param {Array} rows @param {number} principal @param {number} periodsPerYear @param {Function} formatCurrency */
 export function renderYearlyTable(
   tbody,
   rows,

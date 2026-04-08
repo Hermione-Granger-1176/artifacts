@@ -56,6 +56,7 @@ function colors() {
   return cachedPalette;
 }
 
+/** @returns {object} Fresh chart color palette read from CSS custom properties. */
 export function refreshPalette() {
   cachedTheme = null;
   cachedPalette = null;
@@ -522,6 +523,11 @@ function syncCharts(charts, state, formatCurrency, formatDollarTick) {
   syncPeriodChart(charts.period, state, formatDollarTick);
 }
 
+/**
+ * Create or update all loan amortization chart instances.
+ * @param {object} options - Chart data and formatting callbacks.
+ * @returns {object} Chart instances keyed by name.
+ */
 export function renderCharts({
   charts = {},
   elements,

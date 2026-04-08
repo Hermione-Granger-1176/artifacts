@@ -324,24 +324,16 @@ function createCard(item, isExpanded, index) {
  * @returns {string} Book page HTML for the current artifact grid.
  */
 export function buildGridHtml(items, expandedId) {
-  const leftItems = [];
-  const rightItems = [];
-
-  items.forEach((item, index) => {
-    // Alternating items visually balances the page heights
-    if (index % 2 === 0) {
-      leftItems.push(createCard(item, expandedId === item.id, index));
-    } else {
-      rightItems.push(createCard(item, expandedId === item.id, index));
-    }
-  });
+  const cards = items.map((item, index) => createCard(item, expandedId === item.id, index));
+  const leftCards = cards.filter((_, index) => index % 2 === 0);
+  const rightCards = cards.filter((_, index) => index % 2 !== 0);
 
   return `
     <section class="artifact-page-slice artifact-page-left" aria-label="Left book page">
-      ${leftItems.join('')}
+      ${leftCards.join('')}
     </section>
     <section class="artifact-page-slice artifact-page-right" aria-label="Right book page">
-      ${rightItems.join('')}
+      ${rightCards.join('')}
     </section>
   `;
 }

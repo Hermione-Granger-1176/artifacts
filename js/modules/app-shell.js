@@ -62,6 +62,13 @@ function renderMarkupSlot(slot, markup) {
   slot.innerHTML = markup.trim();
 }
 
+/**
+ * Inject shared shell markup (header, error banner, scroll-to-top) into placeholder slots.
+ * @param {object} [options]
+ * @param {Document} [options.documentObj=document] - Document to query.
+ * @param {string} [options.homePath='../../'] - Relative path to the gallery root.
+ * @returns {void}
+ */
 export function renderAppShell({
   documentObj = document,
   homePath = "../../"
@@ -80,6 +87,14 @@ export function renderAppShell({
   );
 }
 
+/**
+ * Initialize the shared app shell with theme toggle, back navigation, and scroll-to-top.
+ * @param {object} [options]
+ * @param {string} [options.homePath='../../'] - Relative path to the gallery root.
+ * @param {{dark: string, light: string}} [options.metaThemeColors] - Theme-color meta values.
+ * @param {(theme: string) => void} [options.onThemeChange] - Callback when theme changes.
+ * @returns {{applyTheme: Function, syncThemeToggle: Function, updateScrollTopVisibility: Function}}
+ */
 export function initAppShell({
   homePath = "../../",
   metaThemeColors = {

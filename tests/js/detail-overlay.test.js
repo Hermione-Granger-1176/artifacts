@@ -365,6 +365,23 @@ describe('detail overlay trapFocus', () => {
     assert.equal(result, false);
   });
 
+  it('does not wrap backward when Shift+Tab is on last element', () => {
+    const deps = createTestDeps();
+    const first = createFocusableElement();
+    const last = createFocusableElement();
+    deps.detailPanel._children.push(first, last);
+    deps.detailPanel.contains = (el) => el === first || el === last;
+    deps.documentObj.activeElement = last;
+
+    const overlay = createDetailOverlay(deps);
+    const artifactById = new Map([['a', { id: 'a', name: 'A', url: '/' }]]);
+    overlay.open('a', null, artifactById);
+
+    const result = overlay.trapFocus({ shiftKey: true, preventDefault() {} });
+    assert.equal(result, false);
+    assert.equal(first._focusCalled, false);
+  });
+
   it('filters out hidden and aria-hidden elements', () => {
     const deps = createTestDeps();
     const hidden = createFocusableElement(true);

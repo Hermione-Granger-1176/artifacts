@@ -1,3 +1,10 @@
+/**
+ * Calculate the equated monthly installment (EMI).
+ * @param {number} principal - Loan principal amount.
+ * @param {number} ratePerPeriod - Interest rate per period (decimal).
+ * @param {number} totalPeriods - Total number of repayment periods.
+ * @returns {number} EMI amount.
+ */
 export function calcEMI(principal, ratePerPeriod, totalPeriods) {
   if (ratePerPeriod === 0) {
     return principal / totalPeriods;
@@ -9,6 +16,12 @@ export function calcEMI(principal, ratePerPeriod, totalPeriods) {
   );
 }
 
+/**
+ * Sum extra payments applicable to a given period.
+ * @param {number} period - Current repayment period.
+ * @param {Array<{type: string, amount: number, period?: number, startPeriod?: number, every?: number}>} extras - Extra payment definitions.
+ * @returns {number} Total extra payment for the period.
+ */
 export function getExtraForPeriod(period, extras) {
   let total = 0;
 
@@ -35,6 +48,17 @@ export function getExtraForPeriod(period, extras) {
   return total;
 }
 
+/**
+ * Run a full amortization schedule and return period-by-period breakdown.
+ * @param {number} principal - Loan principal amount.
+ * @param {number} ratePerPeriod - Interest rate per period (decimal).
+ * @param {number} totalPeriods - Total number of repayment periods.
+ * @param {object} [options]
+ * @param {boolean} [options.withExtras=false] - Whether to apply extra payments.
+ * @param {number|null} [options.emiOverride=null] - Override the calculated EMI.
+ * @param {Array} [options.extras=[]] - Extra payment definitions.
+ * @returns {object} Schedule with rows, totals, chart arrays, and breakEven period.
+ */
 export function runSchedule(
   principal,
   ratePerPeriod,

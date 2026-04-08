@@ -164,10 +164,12 @@ def is_kebab_case(name: str) -> bool:
 
 
 def _validate_relative_repo_path(value: str, *, field_name: str) -> None:
+    """Validate that a value is a safe repo-relative path."""
     index_sources.validate_relative_repo_path(value, field_name=field_name)
 
 
 def _validate_artifact_item(item: ArtifactItem) -> None:
+    """Validate one artifact item against the shared contract."""
     index_sources.validate_artifact_item(
         item,
         contract=_artifact_contract(),

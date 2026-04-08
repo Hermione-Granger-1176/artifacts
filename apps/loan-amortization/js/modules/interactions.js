@@ -1,3 +1,4 @@
+/** Bind change and Enter-key handling for a text input paired with a slider. */
 function bindTextInput(elements, { id, sliderId, min, max, parser, onCommit }) {
   elements[id].addEventListener("change", function onChange() {
     const value = parser(this.value);

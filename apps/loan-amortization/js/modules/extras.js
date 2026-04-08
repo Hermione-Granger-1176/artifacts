@@ -1,5 +1,6 @@
 import { escapeAttribute } from "./formatting.js";
 
+/** @param {number} nextId @returns {object} A new extra payment with default values. */
 export function createExtra(nextId) {
   return {
     id: nextId,
@@ -11,10 +12,12 @@ export function createExtra(nextId) {
   };
 }
 
+/** @param {Array} extras @param {number} id @returns {Array} Extras with the given ID removed. */
 export function removeExtraById(extras, id) {
   return extras.filter((extra) => extra.id !== id);
 }
 
+/** @param {Array} extras @param {number} id @param {string} type */
 export function setExtraType(extras, id, type) {
   const extra = extras.find((item) => item.id === id);
   if (extra) {
@@ -22,6 +25,7 @@ export function setExtraType(extras, id, type) {
   }
 }
 
+/** @param {Array} extras @param {number} id @param {string} field @param {string} value */
 export function updateExtraField(extras, id, field, value) {
   const extra = extras.find((item) => item.id === id);
   if (extra) {
@@ -29,6 +33,7 @@ export function updateExtraField(extras, id, field, value) {
   }
 }
 
+/** @param {object} extra @param {string} periodLabel @returns {string} Human-readable summary. */
 export function summarizeExtra(extra, periodLabel) {
   if (extra.type === "recurring") {
     return `Pays $${extra.amount.toLocaleString()} every ${
@@ -39,6 +44,7 @@ export function summarizeExtra(extra, periodLabel) {
   return `One-time payment of $${extra.amount.toLocaleString()} at ${periodLabel} ${extra.period}`;
 }
 
+/** @param {{container: HTMLElement, extras: Array, periodLabel: string}} options */
 export function renderExtras({ container, extras, periodLabel }) {
   container.innerHTML = "";
 
