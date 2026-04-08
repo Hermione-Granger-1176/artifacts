@@ -25,7 +25,7 @@ from urllib.parse import urljoin
 
 from scripts import REPO_ROOT
 from scripts.build.index_sources import artifact_url, read_artifact_contract_file
-from scripts.lib.app_discovery import _thumbnail_file
+from scripts.lib.app_discovery import thumbnail_file
 from scripts.lib.path_validation import reject_symlinks
 from scripts.lib.project_config import load_artifacts_setting
 
@@ -218,7 +218,7 @@ def _patch_app_social_metadata(site_url: str, version: str) -> None:
             description = description_path.read_text(encoding="utf-8").strip()
 
         app_url = urljoin(site_url, artifact_url(_artifact_contract(), app_dir.name))
-        thumbnail_url = f"{urljoin(app_url, _thumbnail_file())}?v={version}"
+        thumbnail_url = f"{urljoin(app_url, thumbnail_file())}?v={version}"
 
         candidates = {
             APP_URL_PLACEHOLDER: app_url,

@@ -15,7 +15,7 @@ export function initializeMatureApp({
   const runtime = createRuntime({ ...runtimeOptions, documentObj, windowObj });
   runtime.setupGlobalErrorHandlers();
 
-  documentObj.addEventListener("DOMContentLoaded", () => {
+  function bootstrap() {
     if (runtime.state.lastError?.fatal) {
       windowObj.__ARTIFACT_READY__ = false;
       return;
@@ -30,7 +30,13 @@ export function initializeMatureApp({
       runtime.reportError(error, onErrorContext, { fatal: true });
       throw error;
     }
-  });
+  }
+
+  if (documentObj.readyState === "loading") {
+    documentObj.addEventListener("DOMContentLoaded", bootstrap);
+  } else {
+    bootstrap();
+  }
 
   return runtime;
 }

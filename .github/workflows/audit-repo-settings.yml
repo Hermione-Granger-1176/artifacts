@@ -50,15 +50,15 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
         run: |
-          body=$(cat <<'EOF'
+          body=$(cat <<EOF
           Repository settings drift was detected by the scheduled audit workflow.
 
           Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
           Current failure output:
-          ```text
+          \`\`\`text
           $(cat audit-repo-settings.json)
-          ```
+          \`\`\`
           EOF
           )
           issue_url=$(python3 scripts/ci/workflow_helpers.py sync-alert-issue \

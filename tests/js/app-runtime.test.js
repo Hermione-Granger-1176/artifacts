@@ -33,6 +33,7 @@ function createHarness() {
     }
   };
   const documentObj = {
+    readyState: 'loading',
     documentElement: { dataset: {} },
     addEventListener(type, handler) {
       listeners.set(type, handler);

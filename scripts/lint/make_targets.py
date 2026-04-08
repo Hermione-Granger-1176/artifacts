@@ -22,7 +22,7 @@ SKIP_DIRECTORIES = {
 }
 TARGET_PATTERN = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):(?!=)", re.MULTILINE)
 MAKE_REFERENCE_PATTERN = re.compile(
-    r"(?:[A-Z_][A-Z0-9_]*=(?:\"[^\"]*\"|'[^']*'|\S+)\s+)*"
+    r"(?:[A-Z_][A-Z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\s\"']+)\s+)*"
     r"make\s+([a-zA-Z][a-zA-Z0-9_-]*)\b"
 )
 INLINE_CODE_PATTERN = re.compile(r"`([^`\n]+)`")

@@ -25,7 +25,7 @@ def _artifact_base_path() -> str:
     return _load_contract()["artifactBasePath"]
 
 
-def _thumbnail_file() -> str:
+def thumbnail_file() -> str:
     """Return the thumbnail filename from the shared contract."""
     return _load_contract()["thumbnailFile"]
 
@@ -91,7 +91,7 @@ def discover_app_slugs(apps_root: Path = Path("apps")) -> list[str]:
 
 def missing_thumbnail_slugs(apps_root: Path = Path("apps")) -> list[str]:
     """Return app slugs that are missing their thumbnail file."""
-    thumbnail = _thumbnail_file()
+    thumbnail = thumbnail_file()
     return [
         slug
         for slug in discover_app_slugs(apps_root)

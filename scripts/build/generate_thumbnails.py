@@ -34,9 +34,9 @@ from scripts import REPO_ROOT
 from scripts.lib.app_discovery import (
     APP_RUNTIME_TOP_LEVELS,
     _artifact_base_path,
-    _thumbnail_file,
     artifact_uses_shared_app_runtime,
     shared_app_runtime_paths,
+    thumbnail_file,
 )
 
 logging.basicConfig(
@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 APPS_DIR = REPO_ROOT / _artifact_base_path()
 VIEWPORT_WIDTH = 1280
 VIEWPORT_HEIGHT = 800
-SCREENSHOT_FILE = _thumbnail_file()
+SCREENSHOT_FILE = thumbnail_file()
 SHARED_APP_RUNTIME_FILES = shared_app_runtime_paths(REPO_ROOT)
 THUMBNAIL_WIDTH = 960
 THUMBNAIL_QUALITY = 85

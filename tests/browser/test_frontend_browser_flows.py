@@ -67,7 +67,6 @@ def test_mobile_viewport_flow_keeps_gallery_usable(tmp_path: Path, monkeypatch) 
             expect(page.locator(".mobile-filter-stack")).to_be_visible()
             page.locator('.mobile-filter-chip[data-filter-tool="chatgpt"]').click()
             expect(page.locator(".artifact-card")).to_have_count(4)
-            expect(page.locator(".artifact-card")).to_have_count(4)
 
             page.get_by_role("button", name="Page 2").click()
             expect(page.locator(".artifact-card")).to_have_count(4)

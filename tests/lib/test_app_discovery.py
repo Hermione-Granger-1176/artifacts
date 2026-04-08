@@ -66,7 +66,7 @@ def test_discover_and_missing_thumbnail_helpers(tmp_path: Path) -> None:
     (apps_root / "alpha").mkdir(parents=True)
     (apps_root / "alpha" / "index.html").write_text("<html></html>\n", encoding="utf-8")
     (apps_root / "beta" / "index.html").write_text("<html></html>\n", encoding="utf-8")
-    (apps_root / "beta" / app_discovery._thumbnail_file()).write_bytes(b"thumb")
+    (apps_root / "beta" / app_discovery.thumbnail_file()).write_bytes(b"thumb")
     (apps_root / "notes").mkdir()
 
     assert app_discovery.discover_app_slugs(apps_root) == ["alpha", "beta"]
