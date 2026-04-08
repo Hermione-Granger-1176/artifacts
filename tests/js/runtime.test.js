@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createRuntime } from '../../js/modules/runtime.js';
+import { createRuntime, readStorage, writeStorage } from '../../js/modules/runtime.js';
 
 function createWindowStub() {
   const listeners = new Map();
@@ -28,10 +28,14 @@ function createWindowStub() {
 
 function createDocumentStub() {
   const runtimeErrorBanner = {
+    className: 'runtime-error hidden',
     classList: {
       removed: false,
-      remove() {
+      remove(name) {
         this.removed = true;
+        if (name === 'hidden' || name === 'visually-hidden') {
+          runtimeErrorBanner.className = 'runtime-error';
+        }
       }
     }
   };
@@ -71,7 +75,7 @@ test('runtime reports global errors', () => {
   windowObj.dispatch('error', { error: new Error('boom') });
 
   assert.equal(runtime.state.lastError.message, 'boom');
-  assert.equal(documentObj.documentElement.dataset.runtimeStatus, 'booting');
+  assert.equal(documentObj.documentElement.dataset.runtimeStatus, 'error');
 });
 
 test('runtime reveals the error banner for fatal errors', () => {
@@ -120,7 +124,21 @@ test('runtime setupGlobalErrorHandlers is idempotent and handles rejections', ()
 
   assert.equal(windowObj.__ARTIFACTS_ERROR_HANDLERS_BOUND__, true);
   assert.equal(runtime.state.lastError.message, 'async boom');
-  assert.equal(documentObj.documentElement.dataset.runtimeStatus, 'booting');
+  assert.equal(documentObj.documentElement.dataset.runtimeStatus, 'error');
+});
+
+test('runtime treats post-ready global failures as non-fatal', () => {
+  const documentObj = createDocumentStub();
+  const windowObj = createWindowStub();
+  const runtime = createRuntime({ consoleObj: { error() {} }, documentObj, windowObj });
+
+  runtime.markReady();
+  runtime.setupGlobalErrorHandlers();
+  windowObj.dispatch('error', { error: new Error('after ready') });
+
+  assert.equal(runtime.state.lastError.message, 'after ready');
+  assert.equal(runtime.state.lastError.fatal, false);
+  assert.equal(documentObj.documentElement.dataset.runtimeStatus, 'ready');
 });
 
 test('runtime suppresses expected bootstrap validation console noise', () => {
@@ -138,5 +156,61 @@ test('runtime suppresses expected bootstrap validation console noise', () => {
   );
 
   assert.deepEqual(errors, []);
-  assert.equal(runtime.shouldIgnoreRuntimeError('[Artifacts] gallery initialization: window.ARTIFACTS_DATA must be an array'), true);
+});
+
+test('standalone readStorage reads from window.localStorage', () => {
+  const storage = new Map([['color', 'blue']]);
+  const original = globalThis.window;
+  globalThis.window = {
+    localStorage: {
+      getItem(key) { return storage.get(key) ?? null; }
+    }
+  };
+
+  assert.equal(readStorage('color'), 'blue');
+  assert.equal(readStorage('missing'), null);
+  assert.equal(readStorage('missing', 'default'), 'default');
+
+  globalThis.window = original;
+});
+
+test('standalone readStorage returns fallback when localStorage throws', () => {
+  const original = globalThis.window;
+  globalThis.window = {
+    localStorage: {
+      getItem() { throw new Error('blocked'); }
+    }
+  };
+
+  assert.equal(readStorage('any', 'safe'), 'safe');
+
+  globalThis.window = original;
+});
+
+test('standalone writeStorage writes to window.localStorage', () => {
+  const storage = new Map();
+  const original = globalThis.window;
+  globalThis.window = {
+    localStorage: {
+      setItem(key, value) { storage.set(key, value); }
+    }
+  };
+
+  assert.equal(writeStorage('color', 'red'), true);
+  assert.equal(storage.get('color'), 'red');
+
+  globalThis.window = original;
+});
+
+test('standalone writeStorage returns false when localStorage throws', () => {
+  const original = globalThis.window;
+  globalThis.window = {
+    localStorage: {
+      setItem() { throw new Error('quota exceeded'); }
+    }
+  };
+
+  assert.equal(writeStorage('color', 'red'), false);
+
+  globalThis.window = original;
 });

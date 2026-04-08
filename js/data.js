@@ -28,6 +28,6 @@ window.ARTIFACTS_DATA = [
       "claude"
     ],
     "url": "apps/tokenizer-explorer/",
-    "thumbnail": null
+    "thumbnail": "apps/tokenizer-explorer/thumbnail.webp"
   }
 ];

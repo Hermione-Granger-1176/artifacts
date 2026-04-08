@@ -49,41 +49,34 @@ function createFallbackFetchImpl({ requests, existingPullRequestUrl = null, exis
   return async (url, options = {}) => {
     requests.push({ url, options });
 
-    if (url === 'https://api.github.com/graphql') {
-      const body = JSON.parse(options.body);
-      const branchName = body.variables.input.branch.branchName;
-      return branchName === 'main'
-        ? createProtectedBranchResponse()
-        : createGraphqlCommitResponse();
-    }
-
-    if (url.endsWith('/git/refs')) {
-      if (existingRefSha) {
-        return createTextResponse('Reference already exists', {
-          ok: false,
-          status: 422,
-          statusText: 'Unprocessable Entity'
-        });
+    switch (true) {
+      case url === 'https://api.github.com/graphql': {
+        const body = JSON.parse(options.body);
+        const branchName = body.variables.input.branch.branchName;
+        return branchName === 'main'
+          ? createProtectedBranchResponse()
+          : createGraphqlCommitResponse();
       }
-
-      return createJsonResponse({ ref: 'refs/heads/auto/update-artifacts-20260319' }, { status: 201 });
+      case url.endsWith('/git/refs'):
+        if (existingRefSha) {
+          return createTextResponse('Reference already exists', {
+            ok: false,
+            status: 422,
+            statusText: 'Unprocessable Entity'
+          });
+        }
+        return createJsonResponse({ ref: 'refs/heads/auto/update-artifacts-20260319' }, { status: 201 });
+      case Boolean(existingRefSha && url.includes('/git/ref/heads/auto/update-artifacts-20260319')):
+        return createJsonResponse({ object: { sha: existingRefSha } });
+      case url.includes('/pulls?'):
+        return createJsonResponse(
+          existingPullRequestUrl ? [{ html_url: existingPullRequestUrl }] : []
+        );
+      case Boolean(url.endsWith('/pulls') && !existingPullRequestUrl):
+        return createJsonResponse({ html_url: 'https://example.com/pr/123' }, { status: 201 });
+      default:
+        throw new Error(`Unexpected URL: ${url}`);
     }
-
-    if (existingRefSha && url.includes('/git/ref/heads/auto/update-artifacts-20260319')) {
-      return createJsonResponse({ object: { sha: existingRefSha } });
-    }
-
-    if (url.includes('/pulls?')) {
-      return createJsonResponse(
-        existingPullRequestUrl ? [{ html_url: existingPullRequestUrl }] : []
-      );
-    }
-
-    if (url.endsWith('/pulls') && !existingPullRequestUrl) {
-      return createJsonResponse({ html_url: 'https://example.com/pr/123' }, { status: 201 });
-    }
-
-    throw new Error(`Unexpected URL: ${url}`);
   };
 }
 
@@ -401,4 +394,88 @@ test('runVerifiedCommit reuses an existing fallback branch and open pull request
   assert.ok(outputs.includes('changed=true'));
   assert.ok(outputs.includes('result-url=https://example.com/pr/existing'));
   assert.equal(requests.some((request) => request.url.endsWith('/pulls')), false);
+});
+
+test('runVerifiedCommit force-pr mode skips direct commit attempts', async () => {
+  const outputs = [];
+  const requests = [];
+  const result = await runVerifiedCommit({
+    env: {
+      GH_TOKEN_INPUT: 'token',
+      GITHUB_OUTPUT: '/tmp/output',
+      GITHUB_REPOSITORY: 'octo/repo',
+      BASE_BRANCH: 'main',
+      EXPECTED_HEAD_SHA: 'abc123',
+      COMMIT_HEADLINE: 'Save generated app thumbnails [skip ci]',
+      FALLBACK_BRANCH_PREFIX: 'ci/save-generated-thumbnails',
+      PR_TITLE: 'Save generated app thumbnails',
+      PR_BODY: 'Body',
+      PATHSPEC_INPUT: 'apps/demo/thumbnail.webp',
+      COMMIT_MODE: 'force-pr'
+    },
+    execFileSyncImpl() {
+      return 'A	apps/demo/thumbnail.webp';
+    },
+    existsSyncImpl() {
+      return true;
+    },
+    readFileSyncImpl() {
+      return Buffer.from('payload');
+    },
+    appendFileSyncImpl(_path, value) {
+      outputs.push(value.trim());
+    },
+    consoleObj: { log() {}, error() {} },
+    fetchDependencies: {
+      fetchImpl: createFallbackFetchImpl({ requests }),
+      sleepImpl: async () => {}
+    },
+    now: new Date('2026-03-19T12:00:00Z')
+  });
+
+  assert.equal(result.resultUrl, 'https://example.com/pr/123');
+  assert.ok(requests.some((request) => request.url.endsWith('/git/refs')));
+  assert.ok(outputs.includes('changed=true'));
+});
+
+test('runVerifiedCommit direct mode throws when direct commit fails', async () => {
+  await assert.rejects(
+    () => runVerifiedCommit({
+      env: {
+        GH_TOKEN_INPUT: 'token',
+        GITHUB_OUTPUT: '/tmp/output',
+        GITHUB_REPOSITORY: 'octo/repo',
+        BASE_BRANCH: 'feature/demo',
+        EXPECTED_HEAD_SHA: 'abc123',
+        COMMIT_HEADLINE: 'Save generated app thumbnails [skip ci]',
+        FALLBACK_BRANCH_PREFIX: 'ci/save-generated-thumbnails',
+        PR_TITLE: 'Save generated app thumbnails',
+        PR_BODY: 'Body',
+        PATHSPEC_INPUT: 'apps/demo/thumbnail.webp',
+        COMMIT_MODE: 'direct'
+      },
+      execFileSyncImpl() {
+        return 'A	apps/demo/thumbnail.webp';
+      },
+      existsSyncImpl() {
+        return true;
+      },
+      readFileSyncImpl() {
+        return Buffer.from('payload');
+      },
+      appendFileSyncImpl() {},
+      consoleObj: { log() {}, error() {} },
+      fetchDependencies: {
+        fetchImpl: async () => ({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            errors: [{ message: 'protected branch' }]
+          })
+        }),
+        sleepImpl: async () => {}
+      }
+    }),
+    /protected branch/
+  );
 });

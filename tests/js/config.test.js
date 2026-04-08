@@ -13,6 +13,11 @@ import {
 test('getGalleryConfig merges runtime config with defaults', () => {
   const config = getGalleryConfig({
     ARTIFACTS_CONFIG: {
+      artifactContract: {
+        artifactIdPattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+        artifactBasePath: 'apps',
+        thumbnailFile: 'thumbnail.webp'
+      },
       toolDisplayOrder: ['claude'],
       tools: {
         claude: { label: 'Claude AI' }
@@ -22,6 +27,7 @@ test('getGalleryConfig merges runtime config with defaults', () => {
 
   assert.equal(config.tools.claude.label, 'Claude AI');
   assert.equal(config.tools.chatgpt.label, 'ChatGPT');
+  assert.equal(config.artifactContract.thumbnailFile, 'thumbnail.webp');
 });
 
 test('tool and tag labels fall back sensibly', () => {
@@ -46,6 +52,49 @@ test('validateArtifactsData accepts generated gallery records', () => {
   ];
 
   assert.equal(validateArtifactsData(data), data);
+});
+
+test('validateArtifactsData can use a generated artifact contract override', () => {
+  const data = [
+    {
+      id: 'loan-amortization',
+      name: 'Loan Amortization Schedule',
+      description: 'Interactive loan amortization calculator.',
+      tags: ['finance', 'calculator'],
+      tools: ['claude'],
+      url: 'demos/loan-amortization/',
+      thumbnail: 'demos/loan-amortization/preview.webp'
+    }
+  ];
+
+  const contract = {
+    artifactIdPattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+    artifactBasePath: 'demos',
+    thumbnailFile: 'preview.webp'
+  };
+
+  assert.equal(validateArtifactsData(data, contract), data);
+});
+
+test('validateArtifactsData uses full-match semantics for contract id patterns', () => {
+  const contract = {
+    artifactIdPattern: 'artifact',
+    artifactBasePath: 'apps',
+    thumbnailFile: 'thumbnail.webp'
+  };
+
+  assert.throws(
+    () => validateArtifactsData([
+      {
+        id: 'artifact-extra',
+        name: 'Artifact Extra',
+        tags: [],
+        tools: [],
+        url: 'apps/artifact-extra/'
+      }
+    ], contract),
+    /window\.ARTIFACTS_DATA\[0\]\.id must use kebab-case/
+  );
 });
 
 test('validateArtifactsData enforces safe repo-relative paths', () => {
@@ -189,6 +238,11 @@ test('validateArtifactsData rejects invalid artifact shapes', () => {
 
 test('validateArtifactsConfig accepts expected runtime config shape', () => {
   const config = {
+    artifactContract: {
+      artifactIdPattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+      artifactBasePath: 'apps',
+      thumbnailFile: 'thumbnail.webp'
+    },
     toolDisplayOrder: ['claude', 'chatgpt'],
     tagDisplayOrder: ['finance'],
     tools: {
@@ -206,6 +260,11 @@ test('validateArtifactsConfig rejects invalid config shapes', () => {
   assert.throws(
     () => validateArtifactsConfig(null),
     /window\.ARTIFACTS_CONFIG must be an object/
+  );
+
+  assert.throws(
+    () => validateArtifactsConfig({ artifactContract: { artifactBasePath: 'apps/nested' } }),
+    /window\.ARTIFACTS_CONFIG\.artifactContract\.artifactIdPattern must be a string/
   );
 
   assert.throws(

@@ -1,0 +1,142 @@
+/* App — Info tips, charts & tables */
+/* ================================================================
+   Info Tip (Tooltip)
+   ================================================================ */
+
+.info-tip {
+  position: relative;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-tip-bg);
+  color: var(--color-text-secondary);
+  cursor: help;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.info-tip:hover::after,
+.info-tip:hover::before,
+.info-tip:focus-visible::after,
+.info-tip:focus-visible::before {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.info-tip:hover::after,
+.info-tip:focus-visible::after {
+  content: attr(data-tip);
+  bottom: 120%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--color-tooltip-bg);
+  color: var(--color-tooltip-text);
+  font-size: 11px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.info-tip:hover::before,
+.info-tip:focus-visible::before {
+  content: "";
+  bottom: 110%;
+  border: 5px solid transparent;
+  border-top-color: var(--color-tooltip-bg);
+}
+
+.info-tip:focus-visible {
+  outline: 1px solid var(--color-blue);
+  outline-offset: 2px;
+}
+
+/* ================================================================
+   Chart Cards & Legends
+   ================================================================ */
+
+.chart-card {
+  padding: 1.25rem;
+}
+
+.chart-card h2 {
+  margin-bottom: var(--space-3);
+  color: var(--color-text-heading);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.chart-legend span {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.chart-legend-note {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   Tables
+   ================================================================ */
+
+.table-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface-alt);
+}
+
+th,
+td {
+  padding: var(--space-2) 10px;
+  text-align: right;
+}
+
+th {
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+td {
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+th:first-child,
+td:first-child {
+  text-align: center;
+}

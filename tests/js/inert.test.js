@@ -1,10 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  makeElementInert,
-  restoreElementInteractivity,
-  setBackgroundContentInert
-} from '../../js/modules/inert.js';
+import { setBackgroundContentInert } from '../../js/modules/inert.js';
 
 function createFakeElement(ariaHidden = null) {
   const attrs = {};
@@ -21,10 +17,10 @@ function createFakeElement(ariaHidden = null) {
   };
 }
 
-describe('makeElementInert', () => {
+describe('setBackgroundContentInert', () => {
   it('sets inert and aria-hidden on element', () => {
     const el = createFakeElement();
-    makeElementInert(el);
+    setBackgroundContentInert([el], true);
     assert.equal(el.inert, true);
     assert.equal(el._attrs['aria-hidden'], 'true');
     assert.equal(el.dataset.prevAriaHidden, '');
@@ -32,7 +28,7 @@ describe('makeElementInert', () => {
 
   it('preserves existing aria-hidden value', () => {
     const el = createFakeElement('false');
-    makeElementInert(el);
+    setBackgroundContentInert([el], true);
     assert.equal(el.inert, true);
     assert.equal(el._attrs['aria-hidden'], 'true');
     assert.equal(el.dataset.prevAriaHidden, 'false');
@@ -40,18 +36,16 @@ describe('makeElementInert', () => {
 
   it('is idempotent when already inert', () => {
     const el = createFakeElement();
-    makeElementInert(el);
+    setBackgroundContentInert([el], true);
     const saved = el.dataset.prevAriaHidden;
-    makeElementInert(el);
+    setBackgroundContentInert([el], true);
     assert.equal(el.dataset.prevAriaHidden, saved);
   });
-});
 
-describe('restoreElementInteractivity', () => {
   it('restores element from inert state', () => {
     const el = createFakeElement();
-    makeElementInert(el);
-    restoreElementInteractivity(el);
+    setBackgroundContentInert([el], true);
+    setBackgroundContentInert([el], false);
     assert.equal(el.inert, false);
     assert.equal(el._attrs['aria-hidden'], undefined);
     assert.equal(el.dataset.prevAriaHidden, undefined);
@@ -59,21 +53,19 @@ describe('restoreElementInteractivity', () => {
 
   it('restores previous aria-hidden value', () => {
     const el = createFakeElement('false');
-    makeElementInert(el);
-    restoreElementInteractivity(el);
+    setBackgroundContentInert([el], true);
+    setBackgroundContentInert([el], false);
     assert.equal(el.inert, false);
     assert.equal(el._attrs['aria-hidden'], 'false');
   });
 
   it('is a no-op when element is not inert', () => {
     const el = createFakeElement();
-    restoreElementInteractivity(el);
+    setBackgroundContentInert([el], false);
     assert.equal(el.inert, false);
     assert.equal(el._attrs['aria-hidden'], undefined);
   });
-});
 
-describe('setBackgroundContentInert', () => {
   it('makes all elements inert when isInert is true', () => {
     const elements = [createFakeElement(), createFakeElement()];
     setBackgroundContentInert(elements, true);

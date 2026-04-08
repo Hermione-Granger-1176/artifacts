@@ -1,0 +1,101 @@
+/* Gallery — Page chrome (error, scroll-top, footer, focus) */
+/* ================================================================
+   Runtime Error
+   ================================================================ */
+
+.runtime-error {
+  width: min(100% - 2rem, 640px);
+  margin: 1rem auto 0;
+  padding: 0.9rem 1.15rem;
+  border: 1px solid rgba(192, 57, 43, 0.35);
+  border-radius: 18px;
+  background: rgba(192, 57, 43, 0.14);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.runtime-error p {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+/* ================================================================
+   Scroll-to-Top
+   ================================================================ */
+
+.scroll-top {
+  position: fixed;
+  right: 1.4rem;
+  bottom: 1.4rem;
+  width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-solid);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
+  transition: opacity var(--transition-fast) ease, transform var(--transition-fast) ease;
+}
+
+.scroll-top[aria-hidden="true"] {
+  visibility: hidden;
+}
+
+.scroll-top.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* ================================================================
+   Footer
+   ================================================================ */
+
+.footer {
+  padding: 0 1rem 2.2rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+[data-theme="dark"] .footer {
+  color: rgba(232, 221, 208, 0.72);
+}
+
+.footer p {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.footer a {
+  color: inherit;
+}
+
+/* ================================================================
+   Focus-Visible
+   ================================================================ */
+
+#search-input:focus-visible,
+.sort-toggle:focus-visible,
+.filter-reset:focus-visible,
+.search-clear:focus-visible,
+.desk-note:focus-visible,
+.mobile-filter-chip:focus-visible,
+.artifact-card:focus-visible,
+.page-btn:focus-visible,
+.detail-close:focus-visible,
+.detail-open-link:focus-visible,
+.scroll-top:focus-visible,
+.btn-reset-link:focus-visible,
+.btn-icon:focus-visible,
+.logo-link:focus-visible,
+.skip-link:focus-visible,
+.footer a:focus-visible {
+  outline: 3px solid var(--accent-ring);
+  outline-offset: 3px;
+}

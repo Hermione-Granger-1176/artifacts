@@ -1,0 +1,165 @@
+/* App — Buttons, toggles & form inputs */
+/* ================================================================
+   Buttons
+   ================================================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.btn-add {
+  background: var(--note-blue);
+  color: var(--color-blue-text);
+}
+
+.btn-add:hover,
+.btn-add:focus-visible {
+  background: rgb(130, 180, 218);
+  outline: none;
+}
+
+/* ================================================================
+   Toggles
+   ================================================================ */
+
+.toggle-wrap,
+.sub-toggle {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.toggle-btn,
+.sub-toggle button {
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.toggle-btn {
+  border: 1px solid var(--color-border-strong);
+  min-height: 2.75rem;
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.sub-toggle button {
+  border: 1px solid var(--color-border-medium);
+  min-height: 2.75rem;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.toggle-btn.active,
+.sub-toggle button.active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.type-toggle {
+  display: flex;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.type-toggle button {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  min-height: 2.75rem;
+  padding: 5px 10px;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.type-toggle button.active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+/* ================================================================
+   Form Inputs
+   ================================================================ */
+
+.text-input,
+.select-input,
+.amount-input,
+.period-input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.text-input,
+.amount-input,
+.period-input {
+  text-align: right;
+}
+
+.text-input {
+  padding: var(--space-2) 10px;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+}
+
+.select-input {
+  padding: var(--space-2) 10px;
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.amount-input {
+  width: 110px;
+  padding: 6px 10px;
+  font-size: var(--font-size-md);
+}
+
+.period-input {
+  width: 55px;
+  padding: 6px var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+.text-input:focus,
+.select-input:focus,
+.amount-input:focus,
+.period-input:focus {
+  border-color: var(--color-blue);
+  outline: none;
+}
+
+.btn:focus-visible,
+.toggle-btn:focus-visible,
+.sub-toggle button:focus-visible,
+.type-toggle button:focus-visible,
+.text-input:focus-visible,
+.select-input:focus-visible,
+.amount-input:focus-visible,
+.period-input:focus-visible,
+.range-input:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.range-input {
+  width: 100%;
+  accent-color: var(--color-blue);
+}

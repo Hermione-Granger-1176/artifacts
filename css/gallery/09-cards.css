@@ -1,0 +1,197 @@
+/* Gallery — Artifact cards */
+/* ================================================================
+   Artifacts Grid
+   ================================================================ */
+
+.artifacts-grid {
+  /* Card size derived from fixed page height so layout is consistent */
+  --page-height: var(--book-sheet-min-height);
+  --page-pad-top: var(--gallery-page-padding-top);
+  --page-pad-bottom: var(--gallery-page-padding-bottom);
+  --slice-pad: var(--gallery-slice-padding);
+  --card-gap: var(--gallery-card-gap);
+  --book-border: 4px;
+  --card-size: calc(
+    (var(--page-height) - var(--book-border) - var(--page-pad-top) - var(--page-pad-bottom)
+      - var(--slice-pad) * 2 - var(--card-gap)) / 2
+  );
+
+  position: relative;
+  z-index: 2;
+  display: grid;
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 3.2rem;
+  align-items: start;
+  align-content: start;
+}
+
+.artifact-page-slice {
+  min-width: 0;
+  display: grid;
+  gap: var(--card-gap);
+  grid-template-rows: repeat(2, var(--card-size));
+  align-content: start;
+  transform-style: preserve-3d;
+  padding: var(--slice-pad);
+  background: var(--color-page-paper);
+  border-radius: var(--radius-note);
+  backface-visibility: hidden;
+}
+
+.artifact-page-left {
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.04),
+    inset -3px 0 6px -3px rgba(0, 0, 0, 0.04);
+}
+
+.artifact-page-right {
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.04),
+    inset 3px 0 6px -3px rgba(0, 0, 0, 0.04);
+}
+
+/* Stronger page edges during turn animation */
+.book-sheet.is-turning .artifact-page-left {
+  box-shadow: inset -4px 0 8px -3px rgba(0, 0, 0, 0.08);
+}
+
+.book-sheet.is-turning .artifact-page-right {
+  box-shadow: inset 4px 0 8px -3px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .artifact-page-left {
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.15),
+    inset -3px 0 6px -3px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="dark"] .artifact-page-right {
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.15),
+    inset 3px 0 6px -3px rgba(0, 0, 0, 0.12);
+}
+
+/* ================================================================
+   Artifact Cards (Sticky Notes)
+   ================================================================ */
+
+.artifact-card {
+  position: relative;
+  height: var(--card-size);
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  transform: rotate(var(--note-rotate));
+  transform-origin: center top;
+  transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1), filter var(--transition-fast) ease;
+  isolation: isolate;
+}
+
+.artifact-card:hover,
+.artifact-card:focus-visible,
+.artifact-card.expanded {
+  transform: translateY(-8px) rotate(var(--note-hover-rotate));
+  z-index: 2;
+}
+
+/* ================================================================
+   Card Note Paper
+   ================================================================ */
+
+.card-note {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-radius: var(--radius-note);
+  box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  background: var(--card-bg-color, var(--color-bg-card));
+}
+
+.artifact-card:hover .card-note,
+.artifact-card:focus-visible .card-note,
+.artifact-card.expanded .card-note {
+  box-shadow: 4px 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+/* ================================================================
+   Card Thumbnail
+   ================================================================ */
+
+.card-thumbnail-area {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 0.75rem 0;
+}
+
+.card-photo-frame,
+.card-thumbnail-placeholder {
+  position: relative;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: var(--radius-note);
+  overflow: hidden;
+  background: var(--color-surface-contrast);
+  border: 1px solid var(--color-border-solid);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .card-photo-frame,
+[data-theme="dark"] .card-thumbnail-placeholder {
+  background: rgba(248, 243, 234, 0.9);
+}
+
+.card-thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-thumbnail-placeholder::before {
+  content: '\2699';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: rgba(45, 31, 14, 0.3);
+  font-size: 2rem;
+}
+
+/* ================================================================
+   Card Body & Text
+   ================================================================ */
+
+.card-note-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: auto;
+  padding: 0.9rem 0.95rem 1.25rem;
+  text-align: center;
+}
+
+.card-name {
+  margin: 0;
+  width: 100%;
+  font-weight: 700;
+  line-height: 1.05;
+  font-size: 1.8rem;
+  font-family: var(--font-body);
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+[data-theme="dark"] .card-name {
+  color: var(--color-detail-dark-title);
+}

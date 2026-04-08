@@ -28,7 +28,7 @@ export function hydrateArtifacts(rawArtifacts) {
  * @param {ArtifactRecord} item - Artifact record with name, description, tags, tools, and id.
  * @returns {string} Lowercase combined search text.
  */
-export function getSearchableText(item) {
+function getSearchableText(item) {
   const description = item.description || '';
   const tags = Array.isArray(item.tags) ? item.tags.join(' ') : '';
   const tools = Array.isArray(item.tools) ? item.tools.join(' ') : '';
@@ -97,14 +97,16 @@ export function filterAndSortArtifacts(artifacts, options) {
     oldest: (left, right) => left.id.localeCompare(right.id)
   };
   const comparator = comparators[currentSort] || comparators.oldest;
+  const toolSet = new Set(currentTools);
+  const tagSet = new Set(currentTags);
 
   return artifacts
     .filter((item) => {
-      if (currentTools.length > 0 && !item.tools.some((tool) => currentTools.includes(tool))) {
+      if (toolSet.size > 0 && !item.tools.some((tool) => toolSet.has(tool))) {
         return false;
       }
 
-      if (currentTags.length > 0 && !item.tags.some((tag) => currentTags.includes(tag))) {
+      if (tagSet.size > 0 && !item.tags.some((tag) => tagSet.has(tag))) {
         return false;
       }
 

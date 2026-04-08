@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { initializeGalleryApp } from '../../js/modules/gallery-app.js';
 import {
-  initializeGalleryApp,
   buildGalleryUrl,
   readGalleryStateFromSearch
-} from '../../js/modules/gallery-app.js';
+} from '../../js/modules/gallery-url.js';
 
 class FakeClassList {
   constructor(initial = []) {
@@ -418,6 +418,17 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
     },
     clearTimeout(id) {
       timers.delete(id);
+    },
+    getComputedStyle(element) {
+      return {
+        getPropertyValue(property) {
+          if (property === '--color-bg-primary') {
+            const theme = element.getAttribute('data-theme');
+            return theme === 'dark' ? 'rgb(30, 26, 20)' : 'rgb(245, 239, 230)';
+          }
+          return '';
+        }
+      };
     }
   };
 

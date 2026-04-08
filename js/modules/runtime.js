@@ -1,3 +1,33 @@
+/**
+ * Read a value from localStorage, returning a fallback on failure.
+ * @param {string} key
+ * @param {string|null} [fallbackValue=null]
+ * @returns {string|null}
+ */
+export function readStorage(key, fallbackValue = null) {
+  try {
+    const value = window.localStorage.getItem(key);
+    return value ?? fallbackValue;
+  } catch (_error) {
+    return fallbackValue;
+  }
+}
+
+/**
+ * Write a value to localStorage, returning success status.
+ * @param {string} key
+ * @param {string} value
+ * @returns {boolean}
+ */
+export function writeStorage(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
 /** Extract a human-readable message from an error of any shape. */
 function normalizeErrorMessage(error) {
   if (error instanceof Error && error.message) {
@@ -62,12 +92,13 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
       timestamp: new Date().toISOString()
     };
 
-    if (fatal) {
-      setStatus('error');
-      if (runtimeErrorBanner) {
-        runtimeErrorBanner.classList.remove('hidden');
+      if (fatal) {
+        setStatus('error');
+        if (runtimeErrorBanner) {
+          runtimeErrorBanner.classList.remove('visually-hidden');
+          runtimeErrorBanner.classList.remove('hidden');
+        }
       }
-    }
 
     const consoleMessage = `[Artifacts] ${context}: ${state.lastError.message}`;
     if (!shouldIgnoreRuntimeError(consoleMessage)) {
@@ -93,8 +124,6 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
 
     reportError,
 
-    shouldIgnoreRuntimeError,
-
     setupGlobalErrorHandlers() {
       if (windowObj.__ARTIFACTS_ERROR_HANDLERS_BOUND__) {
         return;
@@ -103,11 +132,11 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
       windowObj.__ARTIFACTS_ERROR_HANDLERS_BOUND__ = true;
 
       windowObj.addEventListener('error', (event) => {
-        reportError(event.error || event.message, 'window error');
+        reportError(event.error || event.message, 'window error', { fatal: !state.ready });
       });
 
       windowObj.addEventListener('unhandledrejection', (event) => {
-        reportError(event.reason, 'unhandled rejection');
+        reportError(event.reason, 'unhandled rejection', { fatal: !state.ready });
       });
     },
 

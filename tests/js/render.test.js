@@ -86,6 +86,10 @@ test('buildFilterNotes marks All as active when no filters are selected', () => 
   assert.match(html, />CLAUDE</);
   assert.match(html, />CHATGPT</);
   assert.match(html, />#game</);
+  assert.match(html, /class="mobile-filter-chip is-active"[^>]*data-filter-note="all-tools"/);
+  assert.match(html, /class="mobile-filter-chip is-active"[^>]*data-filter-note="all-tags"/);
+  assert.match(html, /mobile-filter-heading">Tools</);
+  assert.match(html, /mobile-filter-summary"[^>]*>All tools</);
 });
 
 test('buildFilterNotes marks active tools and tags and deactivates All', () => {
@@ -103,6 +107,9 @@ test('buildFilterNotes marks active tools and tags and deactivates All', () => {
   assert.doesNotMatch(html, /desk-note is-active"[^>]*data-filter-tool="chatgpt"/);
   assert.doesNotMatch(html, /desk-note is-active"[^>]*data-filter-tag="game"/);
   assert.match(html, /desk-note is-active"[^>]*data-filter-tag="finance"/);
+  assert.match(html, /mobile-filter-summary"[^>]*>1 active</);
+  assert.match(html, /class="mobile-filter-chip is-active"[^>]*data-filter-tool="claude"/);
+  assert.match(html, /class="mobile-filter-chip is-active"[^>]*data-filter-tag="finance"/);
 });
 
 test('buildFilterNotes escapes HTML in labels', () => {

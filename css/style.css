@@ -1,4 +1,14 @@
 /* Root gallery stylesheet entry point */
-@import url("./root-gallery-foundation.css");
-@import url("./root-gallery-artifacts.css");
-@import url("./root-gallery-responsive.css");
+@import url("./gallery/01-tokens.css");
+@import url("./gallery/02-tokens-dark.css");
+@import url("./gallery/03-reset.css");
+@import url("./gallery/04-utilities.css");
+@import url("./gallery/05-header.css");
+@import url("./gallery/06-toolbar.css");
+@import url("./gallery/07-book.css");
+@import url("./gallery/08-desk-notes.css");
+@import url("./gallery/09-cards.css");
+@import url("./gallery/10-pagination.css");
+@import url("./gallery/11-detail.css");
+@import url("./gallery/12-chrome.css");
+@import url("./gallery/13-responsive.css");

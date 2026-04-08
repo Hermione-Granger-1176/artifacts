@@ -1,6 +1,14 @@
 import { createDetailContent } from './render.js';
 
 /**
+ * Minimum scale factors for card-to-detail expand/collapse animations.
+ * These prevent the detail panel from shrinking below a readable size
+ * when the originating card is much smaller than the overlay.
+ */
+const MIN_SCALE_X = 0.36;
+const MIN_SCALE_Y = 0.24;
+
+/**
  * Create a detail overlay controller managing the expanded artifact panel lifecycle,
  * including open/close animation, focus trapping, and background inert management.
  * @param {{
@@ -65,8 +73,8 @@ export function createDetailOverlay({
     const panelCenterY = panelRect.top + panelRect.height / 2;
     const originCenterX = originRect.left + originRect.width / 2;
     const originCenterY = originRect.top + originRect.height / 2;
-    const scaleX = Math.max(0.36, Math.min(1, originRect.width / panelRect.width));
-    const scaleY = Math.max(0.24, Math.min(1, originRect.height / panelRect.height));
+    const scaleX = Math.max(MIN_SCALE_X, Math.min(1, originRect.width / panelRect.width));
+    const scaleY = Math.max(MIN_SCALE_Y, Math.min(1, originRect.height / panelRect.height));
 
     detailPanel.style.setProperty('--detail-from-x', `${originCenterX - panelCenterX}px`);
     detailPanel.style.setProperty('--detail-from-y', `${originCenterY - panelCenterY}px`);
