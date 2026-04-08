@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: '23 8 * * 1'
 
+env:
+  PYTHONPATH: '.'
+
 jobs:
   audit:
     runs-on: ubuntu-latest

@@ -14,6 +14,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  PYTHONPATH: '.'
+
 jobs:
   commit-locks:
     if: >-
