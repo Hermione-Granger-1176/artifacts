@@ -251,7 +251,7 @@ git: ## Git commands (make git)
 
 branch: ## Create and switch to a new branch from main (make branch name=X)
 	@test -n "$(name)" || (printf 'Usage: make branch name=my-feature\n' >&2; exit 1)
-	git checkout main && git pull && git checkout -b $(name)
+	git checkout main && git pull && git checkout -b "$(name)"
 
 log: ## Show recent commit log (short)
 	git log --oneline -20
@@ -295,7 +295,7 @@ pr-comment: ## Add a comment to the current PR (make pr-comment body="msg")
 
 pr-review-comments: ## List review threads with resolution status (make pr-review-comments pr=N)
 	@test -n "$(pr_num)" || (printf 'Usage: make pr-review-comments pr_num=19\n' >&2; exit 1)
-	@gh api graphql -f query='{ repository(owner: "Hermione-Granger-1176", name: "artifacts") { pullRequest(number: $(pr_num)) { reviewThreads(first: 50) { nodes { id isResolved comments(first: 10) { nodes { body author { login } createdAt } } } } } } }'
+	@gh api graphql -F pr_num:='$(pr_num)' -f query='query($$pr_num: Int!) { repository(owner: "Hermione-Granger-1176", name: "artifacts") { pullRequest(number: $$pr_num) { reviewThreads(first: 50) { nodes { id isResolved comments(first: 10) { nodes { body author { login } createdAt } } } } } } }'
 
 pr-reply: ## Reply to a review comment (make pr-reply pr_num=N comment=ID body="msg")
 	@test -n "$(pr_num)" -a -n "$(comment)" -a -n "$(body)" || (printf 'Usage: make pr-reply pr_num=19 comment=123456 body="Fixed"\n' >&2; exit 1)
@@ -303,7 +303,7 @@ pr-reply: ## Reply to a review comment (make pr-reply pr_num=N comment=ID body="
 
 pr-resolve: ## Resolve a review thread (make pr-resolve thread=PRRT_...)
 	@test -n "$(thread)" || (printf 'Usage: make pr-resolve thread=PRRT_kwDO...\n' >&2; exit 1)
-	@gh api graphql -f query='mutation { resolveReviewThread(input: { threadId: "$(thread)" }) { thread { id isResolved } } }'
+	@gh api graphql -F thread="$(thread)" -f query='mutation($$thread: ID!) { resolveReviewThread(input: { threadId: $$thread }) { thread { id isResolved } } }'
 
 pr-merge: ## Merge the current PR (squash, delete branch)
 	gh pr merge --squash --delete-branch

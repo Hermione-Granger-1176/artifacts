@@ -52,7 +52,7 @@ export function createDetailOverlay({
   }
 
   function getCardById(id) {
-    return id ? grid.querySelector(`.artifact-card[data-id="${id}"]`) : null;
+    return id ? grid.querySelector(`.artifact-card[data-id="${CSS.escape(id)}"]`) : null;
   }
 
   function updateExpandedCardState() {

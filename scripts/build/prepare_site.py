@@ -250,6 +250,8 @@ def _inline_css_imports(css_file: Path) -> None:
 
     def _read_import(match: re.Match[str]) -> str:
         import_path = (parent_dir / match.group(1)).resolve()
+        if not import_path.is_relative_to(DEPLOY_DIR.resolve()):
+            return match.group(0)
         if not import_path.exists():
             return match.group(0)
         return import_path.read_text(encoding="utf-8")

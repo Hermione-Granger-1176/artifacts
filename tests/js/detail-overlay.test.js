@@ -2,6 +2,10 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createDetailOverlay } from '../../js/modules/detail-overlay.js';
 
+// CSS.escape is a browser API not available in Node.js
+globalThis.CSS = globalThis.CSS || {};
+globalThis.CSS.escape = globalThis.CSS.escape || ((v) => String(v).replace(/([^\w-])/g, '\\$1'));
+
 function createFakeElement(id = '') {
   const classes = new Set();
   const attrs = {};

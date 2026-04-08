@@ -206,6 +206,7 @@ def test_generate_thumbnails_writes_manifest_when_requested(
     artifact_dir = tmp_path / "loan-tool"
     _write_text(artifact_dir / "index.html", "<html></html>")
     manifest_path = tmp_path / "manifest.json"
+    monkeypatch.setattr(generate_thumbnails, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
     monkeypatch.setenv(
         generate_thumbnails.THUMBNAIL_MANIFEST_ENV_VAR, str(manifest_path)
@@ -220,6 +221,28 @@ def test_generate_thumbnails_writes_manifest_when_requested(
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert stats["skipped"] == 1
     assert payload["artifacts"] == ["loan-tool"]
+
+
+def test_generate_thumbnails_rejects_manifest_outside_repo_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    artifact_dir = repo_root / "loan-tool"
+    _write_text(artifact_dir / "index.html", "<html></html>")
+    outside_path = tmp_path / "elsewhere" / "manifest.json"
+    monkeypatch.setattr(generate_thumbnails, "REPO_ROOT", repo_root)
+    monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
+    monkeypatch.setenv(
+        generate_thumbnails.THUMBNAIL_MANIFEST_ENV_VAR, str(outside_path)
+    )
+    _patch_playwright(monkeypatch)
+    monkeypatch.setattr(
+        generate_thumbnails, "should_generate_thumbnail", lambda _path: False
+    )
+
+    with pytest.raises(ValueError, match="escapes repository root"):
+        generate_thumbnails.generate_thumbnails()
 
 
 def test_artifact_url_prefers_http_base_when_configured(tmp_path: Path) -> None:

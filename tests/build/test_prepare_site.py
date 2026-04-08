@@ -477,6 +477,27 @@ def test_inline_css_imports_keeps_import_when_partial_missing(
     assert '@import url("./gallery/missing.css");' in content
 
 
+def test_inline_css_imports_blocks_path_traversal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy_dir = tmp_path / "_site"
+    css_dir = deploy_dir / "css"
+    css_dir.mkdir(parents=True)
+    secret_file = tmp_path / "secret.css"
+    write_text(secret_file, "body { color: red; }\n")
+    write_text(
+        css_dir / "style.css",
+        '@import url("./../../secret.css");\n',
+    )
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._inline_css_imports(css_dir / "style.css")
+
+    content = (css_dir / "style.css").read_text(encoding="utf-8")
+    assert '@import url("./../../secret.css");' in content
+    assert "color: red" not in content
+
+
 def test_inline_css_imports_skips_missing_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

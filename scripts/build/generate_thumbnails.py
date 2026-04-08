@@ -203,7 +203,9 @@ def _write_manifest(artifacts: list[Path], stats: ThumbnailStats) -> None:
     if not manifest_path:
         return
 
-    destination = Path(manifest_path)
+    destination = Path(manifest_path).resolve()
+    if not destination.is_relative_to(REPO_ROOT.resolve()):
+        raise ValueError(f"Manifest path escapes repository root: {destination}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "artifacts": [artifact.name for artifact in artifacts],

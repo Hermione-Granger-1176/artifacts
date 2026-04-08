@@ -25,8 +25,11 @@ export function setExtraType(extras, id, type) {
   }
 }
 
+const ALLOWED_EXTRA_FIELDS = new Set(['amount', 'every', 'startPeriod', 'period']);
+
 /** @param {Array} extras @param {number} id @param {string} field @param {string} value */
 export function updateExtraField(extras, id, field, value) {
+  if (!ALLOWED_EXTRA_FIELDS.has(field)) return;
   const extra = extras.find((item) => item.id === id);
   if (extra) {
     extra[field] = +value;

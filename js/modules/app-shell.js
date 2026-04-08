@@ -1,5 +1,7 @@
 import { writeStorage } from "./runtime.js";
 
+const SAFE_RELATIVE_PATH_RE = /^[./a-zA-Z0-9_-]+$/;
+
 const APP_HEADER_MARKUP = `
   <header class="app-header">
     <div class="app-header-inner">
@@ -80,7 +82,7 @@ export function renderAppShell({
 } = {}) {
   renderMarkupSlot(
     documentObj.querySelector('[data-app-shell="header"]'),
-    APP_HEADER_MARKUP.replaceAll("__HOME_PATH__", homePath)
+    APP_HEADER_MARKUP.replaceAll("__HOME_PATH__", SAFE_RELATIVE_PATH_RE.test(homePath) ? homePath : "../../")
   );
   renderMarkupSlot(
     documentObj.querySelector('[data-app-shell="runtime-error"]'),

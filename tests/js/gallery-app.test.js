@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+// CSS.escape is a browser API not available in Node.js
+globalThis.CSS = globalThis.CSS || {};
+globalThis.CSS.escape = globalThis.CSS.escape || ((v) => String(v).replace(/([^\w-])/g, '\\$1'));
+
 import { initializeGalleryApp } from '../../js/modules/gallery-app.js';
 import {
   buildGalleryUrl,

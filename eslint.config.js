@@ -2,7 +2,11 @@ import globals from 'globals';
 
 const commonRules = {
   'no-console': 'off',
-  'no-undef': 'error'
+  'no-undef': 'error',
+  'no-eval': 'error',
+  'no-implied-eval': 'error',
+  'no-new-func': 'error',
+  'no-script-url': 'error'
 };
 
 export default [

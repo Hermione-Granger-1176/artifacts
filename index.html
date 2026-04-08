@@ -25,23 +25,16 @@
     content="A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT, Gemini).">
   <meta name="twitter:image" content="__ARTIFACTS_SHARE_IMAGE__">
   <meta name="twitter:image:alt" content="Preview of the Artifacts interactive gallery by Aditya Kumar Darak.">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https://img.shields.io data:; connect-src 'self'">
   <title>Artifacts | Aditya Kumar Darak</title>
-  <script>
-    try {
-      document.documentElement.dataset.theme = localStorage.getItem('theme') || 'light';
-    } catch (_error) {
-      document.documentElement.dataset.theme = 'light';
-    }
-  </script>
+  <script src="js/app-theme.js"></script>
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Fredoka+One&display=swap" rel="stylesheet"
-    media="print" onload="this.media='all'">
-  <noscript>
-    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Fredoka+One&display=swap"
-      rel="stylesheet">
-  </noscript>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Fredoka+One&display=swap"
+    rel="stylesheet">
   <link rel="icon" href="assets/icons/favicon.ico" sizes="32x32">
   <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">

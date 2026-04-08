@@ -510,14 +510,14 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
 
     const targetResolvers = {
-      page: () => paginationContainer.querySelector(`[data-page="${target.value}"]`),
+      page: () => paginationContainer.querySelector(`[data-page="${CSS.escape(target.value)}"]`),
       'desk-note': () => {
         const selectorName = target.dataset.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
-        return filterNotesContainer.querySelector(`[data-${selectorName}="${target.value}"]`);
+        return filterNotesContainer.querySelector(`[data-${selectorName}="${CSS.escape(target.value)}"]`);
       },
       'mobile-filter': () => {
         const selectorName = target.dataset.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
-        return filterNotesContainer.querySelector(`[data-filter-surface="mobile"][data-${selectorName}="${target.value}"]`);
+        return filterNotesContainer.querySelector(`[data-filter-surface="mobile"][data-${selectorName}="${CSS.escape(target.value)}"]`);
       }
     };
 
