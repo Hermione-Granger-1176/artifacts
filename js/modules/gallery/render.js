@@ -330,9 +330,7 @@ export function applyDynamicStyles(container) {
     const color = el.dataset.chipColor;
     el.style.setProperty('--chip-color', color);
     el.style.setProperty('--note-color', color);
-    if (el.dataset.rotate) {
-      el.style.setProperty('--rotate', `${el.dataset.rotate}deg`);
-    }
+    el.dataset.rotate && el.style.setProperty('--rotate', `${el.dataset.rotate}deg`);
   });
 
   container.querySelectorAll('[data-capsule-bg]').forEach((el) => {

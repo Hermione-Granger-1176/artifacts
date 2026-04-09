@@ -142,29 +142,29 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     if (overlayInstance) {
       return Promise.resolve(overlayInstance);
     }
-    if (!overlayLoading) {
-      overlayLoading = import('./detail-overlay.js')
-        .then(({ createDetailOverlay }) => {
-          overlayInstance = createDetailOverlay({
-            detailOverlay: detailOverlayEl,
-            detailPanel,
-            grid,
-            documentObj,
-            windowObj,
-            motion,
-            setBackgroundContentInert,
-            backgroundElements,
-            detailCloseDelay: DETAIL_CLOSE_DELAY
-          });
-          return overlayInstance;
-        })
-        .catch((error) => {
-          overlayLoading = null;
-          throw error;
+    overlayLoading = overlayLoading || import('./detail-overlay.js')
+      .then(({ createDetailOverlay }) => {
+        overlayInstance = createDetailOverlay({
+          detailOverlay: detailOverlayEl,
+          detailPanel,
+          grid,
+          documentObj,
+          windowObj,
+          motion,
+          setBackgroundContentInert,
+          backgroundElements,
+          detailCloseDelay: DETAIL_CLOSE_DELAY
         });
-    }
+        return overlayInstance;
+      })
+      .catch((error) => {
+        overlayLoading = null;
+        throw error;
+      });
     return overlayLoading;
   }
+
+  let overlayActionToken = 0;
 
   /** Lazy proxy for the detail overlay; methods are safe to call before the module loads. */
   const overlay = {
@@ -172,19 +172,24 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     getCardById: (id) => overlayInstance?.getCardById(id) ?? null,
     updateExpandedCardState: () => overlayInstance?.updateExpandedCardState(),
     trapFocus: (event) => overlayInstance?.trapFocus(event) ?? false,
-    close: (opts) => overlayInstance?.close(opts),
+    close: (opts) => {
+      overlayActionToken += 1;
+      return overlayInstance?.close(opts);
+    },
     async open(id, triggerCard, items) {
+      const token = ++overlayActionToken;
       try {
         const inst = await ensureOverlay();
-        inst.open(id, triggerCard, items);
+        token === overlayActionToken && inst.open(id, triggerCard, items);
       } catch (error) {
         runtime.reportError(error, 'overlay open');
       }
     },
     async toggle(id, triggerCard, items) {
+      const token = ++overlayActionToken;
       try {
         const inst = await ensureOverlay();
-        inst.toggle(id, triggerCard, items);
+        token === overlayActionToken && inst.toggle(id, triggerCard, items);
       } catch (error) {
         runtime.reportError(error, 'overlay toggle');
       }
