@@ -1,5 +1,24 @@
 /* App — Header, navigation & page shell */
 /* ================================================================
+   App Shell Placeholders — reserve layout space before JS hydrates
+   ================================================================ */
+
+[data-app-shell="header"] {
+  min-height: calc(72px + 1px);
+}
+
+[data-app-shell="header"]:empty {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+@media (max-width: 480px) {
+  [data-app-shell="header"] {
+    min-height: calc(64px + 1px);
+  }
+}
+
+/* ================================================================
    App Header
    ================================================================ */
 

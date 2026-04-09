@@ -760,3 +760,135 @@ def test_prepare_site_propagates_git_failures(
 
     with pytest.raises(subprocess.CalledProcessError):
         prepare_site.prepare_site()
+
+
+# modulepreload hint injection
+
+
+def test_resolve_module_tree_walks_imports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    write_text(tmp_path / "js" / "app.js", 'import { init } from "./modules/init.js";\n')
+    write_text(tmp_path / "js" / "modules" / "init.js", 'import { util } from "./util.js";\n')
+    write_text(tmp_path / "js" / "modules" / "util.js", "export const util = 1;\n")
+
+    deps = prepare_site._resolve_module_tree(tmp_path / "js" / "app.js")
+    dep_names = [d.name for d in deps]
+    assert "init.js" in dep_names
+    assert "util.js" in dep_names
+
+
+def test_resolve_module_tree_handles_cycles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    write_text(tmp_path / "a.js", 'import { b } from "./b.js";\n')
+    write_text(tmp_path / "b.js", 'import { a } from "./a.js";\n')
+
+    deps = prepare_site._resolve_module_tree(tmp_path / "a.js")
+    dep_names = [d.name for d in deps]
+    assert "b.js" in dep_names
+    assert len(deps) == 1
+
+
+def test_resolve_module_tree_skips_missing_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    write_text(tmp_path / "app.js", 'import { x } from "./missing.js";\n')
+
+    deps = prepare_site._resolve_module_tree(tmp_path / "app.js")
+    assert deps == []
+
+
+def test_resolve_module_tree_skips_outside_deploy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deploy = tmp_path / "deploy"
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy)
+    write_text(deploy / "app.js", 'import { x } from "../../outside.js";\n')
+    write_text(tmp_path / "outside.js", "export const x = 1;\n")
+
+    deps = prepare_site._resolve_module_tree(deploy / "app.js")
+    assert deps == []
+
+
+def test_resolve_module_tree_follows_reexports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    write_text(tmp_path / "app.js", 'import { y } from "./barrel.js";\n')
+    write_text(tmp_path / "barrel.js", 'export { y } from "./leaf.js";\n')
+    write_text(tmp_path / "leaf.js", "export const y = 1;\n")
+
+    dep_names = [d.name for d in prepare_site._resolve_module_tree(tmp_path / "app.js")]
+    assert "barrel.js" in dep_names
+    assert "leaf.js" in dep_names
+
+
+def test_inject_modulepreload_hints_adds_links(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    write_text(
+        tmp_path / "index.html",
+        '<head>\n</head>\n<body>\n<script type="module" src="js/app.js"></script>\n</body>\n',
+    )
+    write_text(tmp_path / "js" / "app.js", 'import { x } from "./lib.js";\n')
+    write_text(tmp_path / "js" / "lib.js", "export const x = 1;\n")
+
+    prepare_site._inject_modulepreload_hints()
+
+    result = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert '<link rel="modulepreload" href="js/lib.js">' in result
+    assert result.index("modulepreload") < result.index("</head>")
+
+
+def test_inject_modulepreload_hints_handles_nested_apps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    write_text(
+        tmp_path / "apps" / "demo" / "index.html",
+        '<head>\n</head>\n<body>\n<script type="module" src="./js/app.js"></script>\n</body>\n',
+    )
+    write_text(
+        tmp_path / "apps" / "demo" / "js" / "app.js",
+        'import { init } from "../../../js/modules/runtime.js";\n',
+    )
+    write_text(tmp_path / "js" / "modules" / "runtime.js", "export const init = 1;\n")
+
+    prepare_site._inject_modulepreload_hints()
+
+    result = (tmp_path / "apps" / "demo" / "index.html").read_text(encoding="utf-8")
+    assert '<link rel="modulepreload" href="../../js/modules/runtime.js">' in result
+
+
+def test_inject_modulepreload_hints_strips_query_string(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    write_text(
+        tmp_path / "index.html",
+        '<head>\n</head>\n<body>\n<script type="module" src="js/app.js?v=abc123"></script>\n</body>\n',
+    )
+    write_text(tmp_path / "js" / "app.js", 'import { x } from "./lib.js";\n')
+    write_text(tmp_path / "js" / "lib.js", "export const x = 1;\n")
+
+    prepare_site._inject_modulepreload_hints()
+
+    result = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert '<link rel="modulepreload" href="js/lib.js">' in result
+
+
+def test_inject_modulepreload_hints_skips_html_without_module_script(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    write_text(tmp_path / "plain.html", "<head>\n</head>\n<body>\n</body>\n")
+
+    prepare_site._inject_modulepreload_hints()
+
+    result = (tmp_path / "plain.html").read_text(encoding="utf-8")
+    assert "modulepreload" not in result

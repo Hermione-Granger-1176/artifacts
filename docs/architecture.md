@@ -23,7 +23,7 @@ The system has three layers:
 The deployed site is static HTML with a generated data layer.
 
 - `index.html` loads the gallery shell
-- `css/style.css` imports the modular partials in `css/gallery/`
+- `css/style.css` imports `css/fonts.css` (self-hosted `@font-face` for Caveat and Fredoka One) then the modular partials in `css/gallery/`
 - `js/app.js` bootstraps runtime validation and initializes the gallery
 - `js/modules/gallery/*` split the gallery into config validation, catalog helpers, render helpers, book-scene motion, URL state, and the main orchestrator
 - `js/modules/runtime.js`, `js/modules/element-cache.js`, `js/modules/html-escape.js` provide shared utilities used by both the gallery and app modules
@@ -66,9 +66,11 @@ The gallery never inspects artifact HTML directly. It depends entirely on genera
 ### Deployable site assembly (`scripts/build/prepare_site.py`)
 
 - Copies site files into `_site/`
+- Inlines CSS `@import` chains into single files
 - Applies cache-busting query strings to root assets
 - Injects canonical, Open Graph, and Twitter share metadata
 - Injects the configured site path into `404.html` and the web app manifest
+- Injects `<link rel="modulepreload">` hints by walking the static ES module import tree for each HTML entry point
 - Writes `deploy-metadata.json` with the deploy commit SHA and version
 - Writes `.nojekyll` for branch-based Pages deployment
 

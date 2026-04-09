@@ -3,7 +3,7 @@
 ## Root gallery entry points
 
 - `index.html` loads the root gallery shell
-- `css/gallery/` contains modular partials for the root gallery (tokens, reset, header, toolbar, book, cards, detail overlay, responsive, etc.), imported via `css/style.css`
+- `css/style.css` imports `css/fonts.css` (self-hosted `@font-face` for Caveat and Fredoka One) then the modular partials in `css/gallery/` (tokens, reset, header, toolbar, book, cards, detail overlay, responsive, etc.)
 - `js/gallery-config.js` provides generated tool/tag labels, display order, and the shared artifact path contract from `config/gallery_metadata.json` and `config/artifact_contract.json`
 - `js/data.js` provides generated artifact metadata
 - `js/app.js` bootstraps the runtime, validates generated bootstrap data, and calls `initializeGalleryApp`

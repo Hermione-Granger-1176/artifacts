@@ -25,7 +25,6 @@ ROOT_A11Y_STYLE_CONTENT = "\n".join(
 )
 ARTIFACT_DIR_ENV = "ARTIFACTS_BROWSER_ARTIFACT_DIR"
 APP_SLUGS_ENV = "ARTIFACTS_BROWSER_APP_SLUGS"
-IGNORED_EXTERNAL_HOSTS = {"fonts.googleapis.com", "fonts.gstatic.com"}
 REAL_APPS_DIR = REPO_ROOT / "apps"
 
 
@@ -240,7 +239,6 @@ class RuntimeMonitor:
     response_errors: list[str] = field(default_factory=list)
 
     def bind(self, page) -> None:
-        base_host = _normalize_url_host(self.base_url)
         # Track CSS filenames that loaded successfully so we can ignore
         # Chromium's spurious duplicate @import re-fetches from wrong paths
         # (triggered by ThreadingHTTPServer + DOM mutations).
@@ -252,11 +250,6 @@ class RuntimeMonitor:
 
             location = message.location or {}
             location_url = location.get("url", "")
-            if self._should_ignore_url(location_url, base_host) and any(
-                host in message.text for host in IGNORED_EXTERNAL_HOSTS
-            ):
-                return
-
             if _matches_allowed(message.text, self.allowed_console_errors):
                 return
 
@@ -277,7 +270,7 @@ class RuntimeMonitor:
             self.page_errors.append(message)
 
         def track_request_failure(request) -> None:
-            if self._should_ignore_url(request.url, base_host):
+            if self._should_ignore_url(request.url):
                 return
             failure = request.failure or "unknown failure"
             self.request_failures.append(f"{request.method} {request.url} -> {failure}")
@@ -297,7 +290,7 @@ class RuntimeMonitor:
             return any(p.endswith("/" + filename) or p == filename for p in loaded_css_paths)
 
         def track_response(response) -> None:
-            if self._should_ignore_url(response.url, base_host):
+            if self._should_ignore_url(response.url):
                 return
             if response.status < 400:
                 if response.url.endswith(".css"):
@@ -314,15 +307,23 @@ class RuntimeMonitor:
         page.on("requestfailed", track_request_failure)
         page.on("response", track_response)
 
-    def _should_ignore_url(self, url: str, base_host: str) -> bool:
+    def _should_ignore_url(self, url: str) -> bool:
+        """Return True only for non-HTTP URLs (data:, blob:, etc.).
+
+        This filters out non-network schemes so they are not recorded as
+        request or response failures.  It does not allowlist any external
+        HTTP(S) hosts — failed or errored requests to external origins are
+        recorded by the request/response tracking callbacks, which is the
+        intended enforcement point for the self-hosting policy.
+
+        If a future app needs to allowlist an external origin, add a host
+        set here and gate the return on membership (see git history for
+        the former ``IGNORED_EXTERNAL_HOSTS`` pattern).
+        """
         if not url:
             return False
         parts = urlsplit(url)
-        if parts.scheme not in {"http", "https"}:
-            return True
-        if parts.netloc.lower() == base_host:
-            return False
-        return parts.netloc.lower() in IGNORED_EXTERNAL_HOSTS
+        return parts.scheme not in {"http", "https"}
 
     def has_failures(self) -> bool:
         return bool(
