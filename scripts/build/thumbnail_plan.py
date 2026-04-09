@@ -159,9 +159,11 @@ def is_automated_thumbnail_commit(
     """
     if not actor or not app_bot_login or actor != app_bot_login:
         return False
-    return _all_thumbnail_files(
-        list_commit_files_fn(repo=repo, commit_sha=commit_sha)
-    )
+    try:
+        files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
+    except Exception:
+        return False
+    return _all_thumbnail_files(files)
 
 
 def thumbnail_persist_decision(
@@ -261,8 +263,11 @@ def thumbnail_plan(
         list_commit_files_fn=list_commit_files_fn,
     )
     if not skip_verification and associated_pr_kind == "thumbnail-followup":
-        skip_verification = _all_thumbnail_files(
-            list_commit_files_fn(repo=repo, commit_sha=commit_sha)
+        try:
+            commit_files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
+        except Exception:
+            commit_files = []
+        skip_verification = _all_thumbnail_files(commit_files
         )
 
     return {

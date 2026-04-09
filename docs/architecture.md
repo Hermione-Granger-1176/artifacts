@@ -191,7 +191,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
     5. Re-checks the PR HEAD SHA via `gh pr view`. If the PR branch has been pushed to since the workflow started (stale), skips the commit to avoid conflicts.
     6. If not stale: copies `thumbnail.webp` files from the artifact into the workspace, stages them with `git add`, and creates a verified commit directly on the PR branch using the Hermione1176 (primary) token with `commit-mode: direct`.
   - Reads: `thumbnail-persist-{run_id}` artifact. Writes: the PR branch (adds `apps/*/thumbnail.webp` files).
-  - This commit triggers a second workflow run (app token commits fire `synchronize` events). The planner detects it as an automated thumbnail-only commit (`skip-verification: true`) and the second run completes with only `plan` + `secret-scan` (~2-5 min instead of ~45 min).
+  - This commit triggers a second workflow run (app token commits fire `synchronize` events). The planner detects it as an automated thumbnail-only commit (`skip-verification: true`), so the follow-up run skips the full verification/publish path and completes with `plan` + `secret-scan` + `dependency-review` (~2-5 min instead of ~45 min).
 
 #### Scenario 2: Push a commit to `main`
 

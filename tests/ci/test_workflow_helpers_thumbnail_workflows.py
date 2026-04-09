@@ -837,6 +837,20 @@ def test_is_automated_thumbnail_commit_false_when_empty_actor_or_bot_login() -> 
         assert result is False
 
 
+def test_is_automated_thumbnail_commit_false_on_api_error() -> None:
+    def raise_api_error(**kw: object) -> list[str]:
+        raise RuntimeError("gh api failed")
+
+    result = thumbnail_plan.is_automated_thumbnail_commit(
+        actor="hermione1176[bot]",
+        app_bot_login="hermione1176[bot]",
+        repo="owner/repo",
+        commit_sha="abc123",
+        list_commit_files_fn=raise_api_error,
+    )
+    assert result is False
+
+
 def test_list_commit_files_returns_empty_for_empty_sha() -> None:
     result = thumbnail_plan.list_commit_files(
         repo="owner/repo",
@@ -989,6 +1003,48 @@ def test_thumbnail_plan_skip_verification_false_for_followup_with_extra_files(
     )
 
     assert plan["skip_verification"] is False
+
+
+def test_thumbnail_plan_skip_verification_false_on_followup_api_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    write_text(
+        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
+    )
+    (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api",
+        lambda *args, **kwargs: "apps/loan-amortization/thumbnail.webp\n",
+    )
+    monkeypatch.setattr(
+        workflow_helpers,
+        "associated_pr_kind_for_commit",
+        lambda repo, commit_sha: "thumbnail-followup",
+    )
+
+    def raise_api_error(**kw: object) -> list[str]:
+        raise RuntimeError("gh api failed")
+
+    monkeypatch.setattr(
+        workflow_helpers,
+        "list_commit_files",
+        raise_api_error,
+    )
+
+    plan = workflow_helpers.thumbnail_plan(
+        event_name="push",
+        repo="owner/repo",
+        pr_number="",
+        commit_sha="abc123",
+        actor="alice",
+        app_bot_login="hermione1176[bot]",
+    )
+
+    assert plan["skip_verification"] is False
+    assert plan["persist_mode"] == "none"
+    assert plan["reason"] == "merged-thumbnail-pr"
 
 
 def test_thumbnail_plan_skip_verification_defaults_to_false_without_actor(
