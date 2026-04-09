@@ -35,7 +35,7 @@ import sys
 from scripts import REPO_ROOT
 from scripts.build import index_outputs, index_sources
 from scripts.build.index_config import IndexConfig
-from scripts.lib.app_discovery import _artifact_base_path
+from scripts.lib.app_discovery import artifact_base_path
 
 logging.basicConfig(
     level=getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO),
@@ -44,7 +44,7 @@ logging.basicConfig(
 
 # -- Path constants consumed by check_generated_drift.py -----------------------
 
-APPS_DIR = REPO_ROOT / _artifact_base_path()
+APPS_DIR = REPO_ROOT / artifact_base_path()
 JS_OUTPUT_FILE = REPO_ROOT / "js" / "data.js"
 JS_CONFIG_OUTPUT_FILE = REPO_ROOT / "js" / "gallery-config.js"
 README_FILE = REPO_ROOT / "README.md"

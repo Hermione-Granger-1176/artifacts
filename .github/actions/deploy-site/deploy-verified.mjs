@@ -67,16 +67,14 @@ export function computeChanges(
     additions.push({ path: targetPath, contents: content.toString('base64') });
   }
 
-  deletions.push(
-    ...[...remoteFiles.keys()]
-      .filter((remotePath) => {
-        const skip = targetPrefix
-          ? !remotePath.startsWith(`${targetPrefix}/`)
-          : remotePath.startsWith(`${previewRoot}/`);
-        return !skip && !localSet.has(remotePath);
-      })
-      .map((remotePath) => ({ path: remotePath }))
-  );
+  for (const remotePath of remoteFiles.keys()) {
+    const skip = targetPrefix
+      ? !remotePath.startsWith(`${targetPrefix}/`)
+      : remotePath.startsWith(`${previewRoot}/`);
+    if (!skip && !localSet.has(remotePath)) {
+      deletions.push({ path: remotePath });
+    }
+  }
 
   return { additions, deletions };
 }
@@ -212,10 +210,9 @@ export async function runVerifiedDeploy({
     if (removeSubdir) {
       consoleObj.log(`Removing subdirectory: ${removeSubdir}`);
       fileChanges = computeRemoval(remoteFiles, removeSubdir);
+    } else if (!deployDir) {
+      throw new Error(`DEPLOY_DIR is required for ${deploySubdir ? 'preview' : 'full'} deploys`);
     } else {
-      if (!deployDir) {
-        throw new Error(`DEPLOY_DIR is required for ${deploySubdir ? 'preview' : 'full'} deploys`);
-      }
       const localFiles = walkDirImpl(deployDir);
       const suffix = deploySubdir ? ` → ${deploySubdir}/` : '';
       consoleObj.log(`Local deploy: ${localFiles.length} files${suffix}`);

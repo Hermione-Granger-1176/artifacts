@@ -152,7 +152,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
   - Does NOT wait for `secret-scan` or `dependency-review`. Those continue in the background.
   - Step by step:
     1. Checks out the PR branch code.
-    2. Installs Python, Node, and Chromium (`make setup-ci`).
+    2. Sets up Python and Node, restores cached Playwright browsers, then runs `make setup-ci` to install project dependencies and ensure Chromium is available.
     3. Runs `make check-local`: EditorConfig check, ruff, ESLint, stylelint, yamllint, workflow lint, JS source-to-test coverage lint, Python tests (100% coverage on `scripts/`), JS tests, JS coverage (95/85/95 thresholds), pip-audit, npm audit, artifact directory validation, and canonical generated-file drift verification.
     4. If `thumbnail-scope` is not `none`: calls `scripts/ci/workflow_helpers.py invalidate-thumbnails` to delete stale `thumbnail.webp` files for apps with runtime changes, so they will be regenerated fresh.
     5. Runs `make test-browser-root`: opens the gallery in Chromium, tests search, filters, pagination, detail overlay, keyboard navigation, accessibility, `404.html`.
@@ -173,7 +173,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
     1. Checks out the PR branch code (for `pyproject.toml` reading only, `persist-credentials: false`).
     2. Runs `ci-setup` action: calls `scripts/ci/workflow_helpers.py app-token-policy` → tokens allowed (same-repo, not fork, not Dependabot). Mints Hermione1176 (primary) and Harry1176 (escalation) tokens.
     3. Downloads the `site-{run_id}` artifact into `_site/`. Does NOT rebuild anything.
-    4. Installs Chromium for live browser tests (`make setup-ci`).
+    4. Restores cached Playwright browsers, then runs `make setup-ci` to install project dependencies and ensure Chromium is available for live browser tests.
     5. Reads site URL from `pyproject.toml`, constructs preview URL: `{site_url}/pr-preview/pr-{N}/`.
     6. Deploys `_site/` to `gh-pages` branch under `pr-preview/pr-{N}/` using `deploy-verified.mjs` with `DEPLOY_SUBDIR`. This is a verified GraphQL commit using the Harry1176 (escalation) token. Only touches that subdirectory. The main site and other PR previews are untouched.
     7. Posts a sticky comment on the PR with the preview URL (recreated on each push so the latest is always at the bottom).
@@ -295,11 +295,11 @@ graph TD
 
 ### Custom actions
 
-| Action            | Purpose                                                      | Key behavior                                                                                                                               |
-| ----------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ci-setup`        | Mint app tokens, set up Python/Node, optionally install deps | Calls `scripts/ci/workflow_helpers.py app-token-policy` to decide if tokens are allowed; blocks tokens for forks and Dependabot            |
-| `deploy-site`     | Build `_site/`, deploy to gh-pages, verify published URL     | Uses `deploy-verified.mjs` for GraphQL verified commits; calls `scripts/ci/verify_deploy.py` to poll for expected HTML and metadata        |
-| `verified-commit` | Create a verified commit or fall back to a PR                | Uses `verified-commit.mjs`; supports direct, force-pr, and direct-or-pr modes; handles branch conflict by creating a dated fallback branch |
+| Action            | Purpose                                                      | Key behavior                                                                                                                                                                                             |
+| ----------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci-setup`        | Mint app tokens, set up Python/Node, optionally install deps | Calls `scripts/ci/workflow_helpers.py app-token-policy` to decide if tokens are allowed; blocks tokens for forks and Dependabot                                                                          |
+| `deploy-site`     | Build `_site/`, deploy to gh-pages, verify published URL     | Uses `deploy-verified.mjs` for GraphQL verified commits; calls `scripts/ci/verify_deploy.py` to poll for expected HTML and metadata                                                                      |
+| `verified-commit` | Create a verified commit or fall back to a PR                | Uses `verified-commit.mjs`; supports direct, force-pr, and direct-or-pr modes; creates a dated fallback branch on conflict and force-resets it if it already exists to prevent stale commit accumulation |
 
 ### Script dependency map
 

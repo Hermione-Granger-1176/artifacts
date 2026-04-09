@@ -5,6 +5,7 @@ import {
   createBranchName,
   createGitArgs,
   fetchJson,
+  isRefAlreadyExistsError,
   isRetryableError,
   parseDiffOutput,
   runVerifiedCommit,
@@ -45,7 +46,7 @@ function createProtectedBranchResponse() {
   return createJsonResponse({ errors: [{ message: 'protected branch' }] });
 }
 
-function createFallbackFetchImpl({ requests, existingPullRequestUrl = null, existingRefSha = null }) {
+function createFallbackFetchImpl({ requests, existingPullRequestUrl = null, existingBranch = false }) {
   return async (url, options = {}) => {
     requests.push({ url, options });
 
@@ -57,17 +58,16 @@ function createFallbackFetchImpl({ requests, existingPullRequestUrl = null, exis
           ? createProtectedBranchResponse()
           : createGraphqlCommitResponse();
       }
-      case url.endsWith('/git/refs'):
-        if (existingRefSha) {
-          return createTextResponse('Reference already exists', {
-            ok: false,
-            status: 422,
-            statusText: 'Unprocessable Entity'
-          });
-        }
+      case url.includes('/matching-refs/heads/'):
+        return createJsonResponse(
+          existingBranch
+            ? [{ ref: `refs/heads/${url.split('/matching-refs/heads/')[1]}` }]
+            : []
+        );
+      case url.endsWith('/git/refs') && options.method === 'POST':
         return createJsonResponse({ ref: 'refs/heads/auto/update-artifacts-20260319' }, { status: 201 });
-      case Boolean(existingRefSha && url.includes('/git/ref/heads/auto/update-artifacts-20260319')):
-        return createJsonResponse({ object: { sha: existingRefSha } });
+      case Boolean(url.includes('/git/refs/heads/') && options.method === 'PATCH'):
+        return createJsonResponse({ ref: url.split('/git/refs/')[1], object: { sha: 'reset' } });
       case url.includes('/pulls?'):
         return createJsonResponse(
           existingPullRequestUrl ? [{ html_url: existingPullRequestUrl }] : []
@@ -187,6 +187,16 @@ test('isRetryableError handles null and abort errors', () => {
 
   assert.equal(isRetryableError(null), false);
   assert.equal(isRetryableError(abortError), true);
+});
+
+test('isRefAlreadyExistsError matches 422 Reference already exists', () => {
+  assert.equal(isRefAlreadyExistsError(null), false);
+  assert.equal(isRefAlreadyExistsError(new Error('500 Internal Server Error')), false);
+  assert.equal(isRefAlreadyExistsError(new Error('422 Unprocessable Entity: invalid ref')), false);
+  assert.equal(
+    isRefAlreadyExistsError(new Error('422 Unprocessable Entity: Reference already exists')),
+    true
+  );
 });
 
 test('createBranchName is deterministic for a given date', () => {
@@ -347,7 +357,7 @@ test('runVerifiedCommit falls back to a pull request after direct commit failure
   assert.ok(outputs.includes('result-url=https://example.com/pr/123'));
 });
 
-test('runVerifiedCommit reuses an existing fallback branch and open pull request', async () => {
+test('runVerifiedCommit force-resets an existing fallback branch and reuses open pull request', async () => {
   const outputs = [];
   const requests = [];
   const result = await runVerifiedCommit({
@@ -380,7 +390,7 @@ test('runVerifiedCommit reuses an existing fallback branch and open pull request
       fetchImpl: createFallbackFetchImpl({
         requests,
         existingPullRequestUrl: 'https://example.com/pr/existing',
-        existingRefSha: 'existing123'
+        existingBranch: true
       }),
       sleepImpl: async () => {}
     },
@@ -388,9 +398,25 @@ test('runVerifiedCommit reuses an existing fallback branch and open pull request
   });
 
   assert.equal(result.resultUrl, 'https://example.com/pr/existing');
+
   assert.ok(
-    requests.some((request) => request.url.includes('/git/ref/heads/auto/update-artifacts-20260319'))
+    requests.some((request) => request.url.includes('/matching-refs/heads/')),
+    'should check branch existence via matching-refs'
   );
+  assert.equal(
+    requests.some((request) => request.url.endsWith('/git/refs') && request.options.method === 'POST'),
+    false,
+    'should not POST to create a branch that already exists'
+  );
+
+  const patchRequest = requests.find(
+    (request) => request.url.includes('/git/refs/heads/') && request.options.method === 'PATCH'
+  );
+  assert.ok(patchRequest, 'should force-reset the existing branch via PATCH');
+  const patchBody = JSON.parse(patchRequest.options.body);
+  assert.equal(patchBody.sha, 'abc123', 'should reset to expectedHeadSha');
+  assert.equal(patchBody.force, true, 'should use force update');
+
   assert.ok(outputs.includes('changed=true'));
   assert.ok(outputs.includes('result-url=https://example.com/pr/existing'));
   assert.equal(requests.some((request) => request.url.endsWith('/pulls')), false);
@@ -477,5 +503,120 @@ test('runVerifiedCommit direct mode throws when direct commit fails', async () =
       }
     }),
     /protected branch/
+  );
+});
+
+test('runVerifiedCommit new fallback branch skips PATCH and creates via POST', async () => {
+  const requests = [];
+  const result = await runVerifiedCommit({
+    env: {
+      GH_TOKEN_INPUT: 'token',
+      GITHUB_OUTPUT: '/tmp/output',
+      GITHUB_REPOSITORY: 'octo/repo',
+      BASE_BRANCH: 'main',
+      EXPECTED_HEAD_SHA: 'abc123',
+      COMMIT_HEADLINE: 'Update generated artifacts [skip ci]',
+      FALLBACK_BRANCH_PREFIX: 'auto/update-artifacts',
+      PR_TITLE: 'Update generated artifacts',
+      PR_BODY: 'Body',
+      PATHSPEC_INPUT: 'js/data.js'
+    },
+    execFileSyncImpl() {
+      return 'A\tjs/data.js';
+    },
+    existsSyncImpl() {
+      return true;
+    },
+    readFileSyncImpl() {
+      return Buffer.from('payload');
+    },
+    appendFileSyncImpl() {},
+    consoleObj: { log() {}, error() {} },
+    fetchDependencies: {
+      fetchImpl: createFallbackFetchImpl({ requests, existingBranch: false }),
+      sleepImpl: async () => {}
+    },
+    now: new Date('2026-03-19T12:00:00Z')
+  });
+
+  assert.equal(result.resultUrl, 'https://example.com/pr/123');
+  assert.ok(
+    requests.some((request) => request.url.includes('/matching-refs/heads/')),
+    'should check branch existence via matching-refs'
+  );
+  assert.ok(
+    requests.some((request) => request.url.endsWith('/git/refs') && request.options.method === 'POST'),
+    'should POST to create the new branch'
+  );
+  assert.equal(
+    requests.some((request) => request.options.method === 'PATCH'),
+    false,
+    'should not PATCH when branch does not exist'
+  );
+});
+
+test('runVerifiedCommit recovers from race when POST returns 422 Reference already exists', async () => {
+  const requests = [];
+  const result = await runVerifiedCommit({
+    env: {
+      GH_TOKEN_INPUT: 'token',
+      GITHUB_OUTPUT: '/tmp/output',
+      GITHUB_REPOSITORY: 'octo/repo',
+      BASE_BRANCH: 'main',
+      EXPECTED_HEAD_SHA: 'abc123',
+      COMMIT_HEADLINE: 'Update generated artifacts [skip ci]',
+      FALLBACK_BRANCH_PREFIX: 'auto/update-artifacts',
+      PR_TITLE: 'Update generated artifacts',
+      PR_BODY: 'Body',
+      PATHSPEC_INPUT: 'js/data.js'
+    },
+    execFileSyncImpl() {
+      return 'A\tjs/data.js';
+    },
+    existsSyncImpl() {
+      return true;
+    },
+    readFileSyncImpl() {
+      return Buffer.from('payload');
+    },
+    appendFileSyncImpl() {},
+    consoleObj: { log() {}, error() {} },
+    fetchDependencies: {
+      fetchImpl: async (url, options = {}) => {
+        requests.push({ url, options });
+        if (url === 'https://api.github.com/graphql') {
+          const body = JSON.parse(options.body);
+          return body.variables.input.branch.branchName === 'main'
+            ? createProtectedBranchResponse()
+            : createGraphqlCommitResponse();
+        }
+        if (url.includes('/matching-refs/heads/')) {
+          return createJsonResponse([]);
+        }
+        if (url.endsWith('/git/refs') && options.method === 'POST') {
+          return createTextResponse('Reference already exists', {
+            ok: false, status: 422, statusText: 'Unprocessable Entity'
+          });
+        }
+        if (url.includes('/git/refs/heads/') && options.method === 'PATCH') {
+          return createJsonResponse({ ref: 'refs/heads/reset', object: { sha: 'abc123' } });
+        }
+        if (url.includes('/pulls?')) {
+          return createJsonResponse([]);
+        }
+        if (url.endsWith('/pulls')) {
+          return createJsonResponse({ html_url: 'https://example.com/pr/race' }, { status: 201 });
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      },
+      sleepImpl: async () => {}
+    },
+    now: new Date('2026-03-19T12:00:00Z')
+  });
+
+  assert.equal(result.resultUrl, 'https://example.com/pr/race');
+  assert.ok(
+    requests.some((request) => request.options.method === 'PATCH'),
+    'should fall through to PATCH after 422 race'
   );
 });

@@ -19,9 +19,9 @@ from pathlib import Path
 from scripts import REPO_ROOT
 from scripts.build.index_config import IndexConfig
 from scripts.build.prepare_site import APP_SHARE_IMAGE_PLACEHOLDER, APP_URL_PLACEHOLDER
-from scripts.lib.app_discovery import _artifact_base_path
+from scripts.lib.app_discovery import artifact_base_path
 
-APPS_DIR = REPO_ROOT / _artifact_base_path()
+APPS_DIR = REPO_ROOT / artifact_base_path()
 TESTS_JS_APPS_DIR = REPO_ROOT / "tests" / "js" / "apps"
 
 INDEX_FILE = "index.html"

@@ -465,13 +465,14 @@ def _minify_site_assets() -> None:
 
     for path in sorted(DEPLOY_DIR.rglob("*")):
         if path.suffix == ".css":
-            saved = _minify_file(path)
-            total_saved += saved
-            logger.debug("Minified CSS %s (saved %d bytes)", path.name, saved)
-        elif path.suffix in (".js", ".mjs") and _is_minifiable_js(path):
-            saved = _minify_file(path)
-            total_saved += saved
-            logger.debug("Minified JS %s (saved %d bytes)", path.name, saved)
+            label = "CSS"
+        elif _is_minifiable_js(path):
+            label = "JS"
+        else:
+            continue
+        saved = _minify_file(path)
+        total_saved += saved
+        logger.debug("Minified %s %s (saved %d bytes)", label, path.name, saved)
 
     logger.info("Minified site assets (saved %d bytes total)", total_saved)
 

@@ -46,10 +46,10 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |  |- gallery/            Gallery-specific JS modules (gallery-app, catalog, config, render, etc.)
 |- locks/                    Frozen Python dependency lock files
 |- scripts/
-|  |- build/                 Index generation (with index_config), thumbnails, site assembly, scaffolding
-|  |- ci/                    Workflow helpers, deploy verification, audits
+|  |- build/                 Index generation (with index_config, index_sources, index_outputs), thumbnail planning, thumbnails, site assembly, scaffolding
+|  |- ci/                    Workflow helpers, deploy verification, security audits, issue alerts
 |  |- lib/                   Shared libraries (app discovery, artifact contract, GitHub API, project config, path validation)
-|  |- lint/                  EditorConfig check, table alignment, workflow linting, doc-command validation, generated-drift detection, Make-target validation
+|  |- lint/                  EditorConfig check, table alignment, workflow linting, doc-command validation, JS test coverage lint, generated-drift detection, Make-target validation
 |- tests/
 |  |- build/                 Tests for scripts/build/
 |  |- ci/                    Tests for scripts/ci/

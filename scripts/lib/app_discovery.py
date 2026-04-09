@@ -2,11 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.lib.artifact_contract import artifact_base_path as _artifact_base_path
-from scripts.lib.artifact_contract import artifact_id_pattern as _artifact_id_pattern
-from scripts.lib.artifact_contract import thumbnail_file
+from scripts.lib.artifact_contract import (
+    artifact_base_path,
+    thumbnail_file,
+)
+from scripts.lib.artifact_contract import (
+    artifact_id_pattern as _artifact_id_pattern,
+)
 
-__all__ = ["_artifact_base_path", "thumbnail_file"]
+__all__ = ["artifact_base_path", "thumbnail_file"]
 
 
 APP_RUNTIME_TOP_LEVELS = {"css", "js", "assets"}

@@ -104,6 +104,7 @@ function validateNullableStringField(value, key, path) {
   assertShape(typeof value[key] === 'string', `${path}.${key} must be a string or null`);
 }
 
+/** Decode a URI component, returning the original value on failure. */
 function decodeUriComponentSafely(value) {
   try {
     return decodeURIComponent(value);
@@ -112,28 +113,34 @@ function decodeUriComponentSafely(value) {
   }
 }
 
+/** Return the provided artifact contract or fall back to the default. */
 function getArtifactContract(value) {
   return value || DEFAULT_CONFIG.artifactContract;
 }
 
+/** Compile the contract's artifact ID pattern into a RegExp. */
 function compileArtifactIdRegex(contract) {
   return new RegExp(contract.artifactIdPattern);
 }
 
+/** Return whether a value is a full match for the artifact ID pattern. */
 function matchesArtifactId(value, contract, compiledRegex) {
   const regex = compiledRegex || compileArtifactIdRegex(contract);
   const match = regex.exec(value);
   return Boolean(match) && match.index === 0 && match[0] === value;
 }
 
+/** Build the expected URL path for an artifact. */
 function buildArtifactUrl(contract, artifactId) {
   return `${contract.artifactBasePath}/${artifactId}/`;
 }
 
+/** Build the expected thumbnail path for an artifact. */
 function buildThumbnailPath(contract, artifactId) {
   return `${contract.artifactBasePath}/${artifactId}/${contract.thumbnailFile}`;
 }
 
+/** Return whether a URL matches the expected artifact URL structure. */
 function matchesArtifactUrlShape(value, contract, compiledRegex) {
   const parts = value.split('/');
   return parts.length === 3
@@ -142,6 +149,7 @@ function matchesArtifactUrlShape(value, contract, compiledRegex) {
     && matchesArtifactId(parts[1], contract, compiledRegex);
 }
 
+/** Return whether a path matches the expected thumbnail path structure. */
 function matchesThumbnailShape(value, contract, compiledRegex) {
   const parts = value.split('/');
   return parts.length === 3
@@ -177,6 +185,7 @@ function validateArtifactContract(value, path) {
   }
 }
 
+/** Assert that a value is a safe repo-relative path without protocol or traversal. */
 function assertSafeRelativePath(value, path) {
   const decodedValue = decodeUriComponentSafely(value);
   assertShape(!value.includes('://'), `${path} must be a repo-relative path`);

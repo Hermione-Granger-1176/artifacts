@@ -61,6 +61,7 @@ const APP_SCROLL_TOP_MARKUP = `
   </button>
 `;
 
+/** Fill a placeholder slot element with the given markup if it is still empty. */
 function renderMarkupSlot(slot, markup) {
   if (!slot || slot.childElementCount > 0) {
     return;
@@ -72,8 +73,6 @@ function renderMarkupSlot(slot, markup) {
 /**
  * Inject shared shell markup (header, error banner, scroll-to-top) into placeholder slots.
  * @param {{ documentObj?: Document, homePath?: string }} [options={}]
- * @param {Document} [options.documentObj=document] - Document to query.
- * @param {string} [options.homePath='../../'] - Relative path to the gallery root.
  * @returns {void}
  */
 export function renderAppShell({
@@ -101,9 +100,6 @@ export function renderAppShell({
  *   metaThemeColors?: {dark: string, light: string},
  *   onThemeChange?: (theme: string) => void
  * }} [options={}]
- * @param {string} [options.homePath='../../'] - Relative path to the gallery root.
- * @param {{dark: string, light: string}} [options.metaThemeColors] - Theme-color meta values.
- * @param {(theme: string) => void} [options.onThemeChange] - Callback when theme changes.
  * @returns {{
  *   applyTheme: (theme: string) => void,
  *   syncThemeToggle: () => void,

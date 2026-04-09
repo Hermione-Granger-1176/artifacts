@@ -119,6 +119,20 @@ export async function fetchJson(url, options, dependencies = {}) {
 }
 
 /**
+ * Check whether an error indicates the ref already exists (HTTP 422).
+ * @param {Error | null} error - Error to classify.
+ * @returns {boolean} Whether the error is a "Reference already exists" 422.
+ */
+export function isRefAlreadyExistsError(error) {
+  if (!error) {
+    return false;
+  }
+
+  const message = String(error.message || error);
+  return /422/.test(message) && /Reference already exists/i.test(message);
+}
+
+/**
  * Check whether an error looks transient enough to retry.
  * @param {Error | null} error - Error to classify.
  * @returns {boolean} Whether the error is transient and worth retrying.
@@ -331,26 +345,37 @@ export async function runVerifiedCommit({
   }
 
   const fallbackBranch = createBranchName(fallbackBranchPrefix, now);
-  let fallbackHeadSha = expectedHeadSha;
+  const fullRef = `refs/heads/${fallbackBranch}`;
+  const refsUrl = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
 
-  try {
-    await clients.fetchJson(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+  const matchingRefs = await clients.fetchJson(
+    `https://api.github.com/repos/${owner}/${repo}/git/matching-refs/heads/${fallbackBranch}`
+  );
+  const branchExists = matchingRefs.some((ref) => ref.ref === fullRef);
+
+  // Create or force-reset the fallback branch to the current base.
+  // The race guard handles another run creating the branch between our
+  // existence check and the POST — only "Reference already exists" 422s
+  // are recovered; all other errors propagate.
+  const needsReset = branchExists
+    || await clients.fetchJson(refsUrl, {
       method: 'POST',
-      body: JSON.stringify({
-        ref: `refs/heads/${fallbackBranch}`,
-        sha: expectedHeadSha
-      })
+      body: JSON.stringify({ ref: fullRef, sha: expectedHeadSha })
+    }).then(() => false, (error) => {
+      if (!isRefAlreadyExistsError(error)) { throw error; }
+      return true;
     });
-  } catch (_error) {
-    const existingRef = await clients.fetchJson(
-      `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${fallbackBranch}`
-    );
-    fallbackHeadSha = existingRef.object.sha;
+
+  if (needsReset) {
+    await clients.fetchJson(`${refsUrl}/heads/${fallbackBranch}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ sha: expectedHeadSha, force: true })
+    });
   }
 
   const fallbackCommit = await createCommit(
     fallbackBranch,
-    fallbackHeadSha,
+    expectedHeadSha,
     commitHeadline.replace(' [skip ci]', '')
   );
   consoleObj.log(`Created verified fallback commit: ${fallbackCommit.url}`);
