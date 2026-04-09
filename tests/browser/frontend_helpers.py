@@ -239,7 +239,6 @@ class RuntimeMonitor:
     response_errors: list[str] = field(default_factory=list)
 
     def bind(self, page) -> None:
-        base_host = _normalize_url_host(self.base_url)
         # Track CSS filenames that loaded successfully so we can ignore
         # Chromium's spurious duplicate @import re-fetches from wrong paths
         # (triggered by ThreadingHTTPServer + DOM mutations).
@@ -271,7 +270,7 @@ class RuntimeMonitor:
             self.page_errors.append(message)
 
         def track_request_failure(request) -> None:
-            if self._should_ignore_url(request.url, base_host):
+            if self._should_ignore_url(request.url):
                 return
             failure = request.failure or "unknown failure"
             self.request_failures.append(f"{request.method} {request.url} -> {failure}")
@@ -291,7 +290,7 @@ class RuntimeMonitor:
             return any(p.endswith("/" + filename) or p == filename for p in loaded_css_paths)
 
         def track_response(response) -> None:
-            if self._should_ignore_url(response.url, base_host):
+            if self._should_ignore_url(response.url):
                 return
             if response.status < 400:
                 if response.url.endswith(".css"):
@@ -308,14 +307,18 @@ class RuntimeMonitor:
         page.on("requestfailed", track_request_failure)
         page.on("response", track_response)
 
-    def _should_ignore_url(self, url: str, base_host: str) -> bool:
-        """Return True for non-HTTP URLs (data:, blob:, etc.).
+    def _should_ignore_url(self, url: str) -> bool:
+        """Return True only for non-HTTP URLs (data:, blob:, etc.).
 
-        All assets are self-hosted, so any request to an external host is
-        unexpected and should surface as a test failure.  If a future app
-        needs to allowlist an external origin, add the host to a set here
-        and gate the return on membership (see git history for the former
-        IGNORED_EXTERNAL_HOSTS pattern).
+        This filters out non-network schemes so they are not recorded as
+        request or response failures.  It does not allowlist any external
+        HTTP(S) hosts — failed or errored requests to external origins are
+        recorded by the request/response tracking callbacks, which is the
+        intended enforcement point for the self-hosting policy.
+
+        If a future app needs to allowlist an external origin, add a host
+        set here and gate the return on membership (see git history for
+        the former ``IGNORED_EXTERNAL_HOSTS`` pattern).
         """
         if not url:
             return False
