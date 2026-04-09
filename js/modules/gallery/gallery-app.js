@@ -4,7 +4,6 @@ import {
   sortValuesByDisplayOrder,
 } from './catalog.js';
 import { getGalleryConfig, getTagLabel, getToolLabel } from './config.js';
-import { createDetailOverlay } from './detail-overlay.js';
 import {
   buildGalleryUrl,
   DEFAULT_GALLERY_STATE,
@@ -15,6 +14,7 @@ import { setBackgroundContentInert } from './inert.js';
 import { createMotionHelper } from './motion.js';
 import { createBookScene } from './book-scene.js';
 import {
+  applyDynamicStyles,
   buildFilterNotes,
   buildGridHtml,
   renderPagination
@@ -134,17 +134,51 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     galleryConfig.toolDisplayOrder
   );
 
-  const overlay = createDetailOverlay({
-    detailOverlay: detailOverlayEl,
-    detailPanel,
-    grid,
-    documentObj,
-    windowObj,
-    motion,
-    setBackgroundContentInert,
-    backgroundElements,
-    detailCloseDelay: DETAIL_CLOSE_DELAY
-  });
+  let overlayInstance = null;
+  let overlayLoading = null;
+
+  /** Lazily import and initialize the detail overlay, returning the cached instance. */
+  function ensureOverlay() {
+    if (overlayInstance) {
+      return Promise.resolve(overlayInstance);
+    }
+    if (!overlayLoading) {
+      overlayLoading = import('./detail-overlay.js').then(({ createDetailOverlay }) => {
+        overlayInstance = createDetailOverlay({
+          detailOverlay: detailOverlayEl,
+          detailPanel,
+          grid,
+          documentObj,
+          windowObj,
+          motion,
+          setBackgroundContentInert,
+          backgroundElements,
+          detailCloseDelay: DETAIL_CLOSE_DELAY
+        });
+        return overlayInstance;
+      });
+    }
+    return overlayLoading;
+  }
+
+  /** Lazy proxy for the detail overlay; methods are safe to call before the module loads. */
+  const overlay = {
+    getExpandedId: () => overlayInstance?.getExpandedId() ?? null,
+    getCardById: (id) => overlayInstance?.getCardById(id) ?? null,
+    updateExpandedCardState: () => overlayInstance?.updateExpandedCardState(),
+    trapFocus: (event) => overlayInstance?.trapFocus(event) ?? false,
+    close: (opts) => overlayInstance?.close(opts),
+    async open(id, triggerCard, items) {
+      const inst = await ensureOverlay();
+      inst.open(id, triggerCard, items);
+    },
+    async toggle(id, triggerCard, items) {
+      const inst = await ensureOverlay();
+      inst.toggle(id, triggerCard, items);
+    }
+  };
+
+  grid.addEventListener('pointerenter', () => ensureOverlay(), { once: true });
 
   let currentPage = DEFAULT_GALLERY_STATE.page;
   let currentFilter = DEFAULT_GALLERY_STATE.q;
@@ -390,6 +424,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       toolLabel: (value) => getToolLabel(galleryConfig, value),
       tagLabel: (value) => getTagLabel(galleryConfig, value)
     });
+    applyDynamicStyles(filterNotesContainer);
     updateFilterNotesState();
   }
 
@@ -576,6 +611,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
     noResults.classList.add('hidden');
     grid.innerHTML = buildGridHtml(pageItems, overlay.getExpandedId());
+    applyDynamicStyles(grid);
     overlay.updateExpandedCardState();
     renderPagination(paginationContainer, currentPage, totalPages);
     restorePendingFocus();

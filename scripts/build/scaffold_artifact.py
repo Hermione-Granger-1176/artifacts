@@ -66,7 +66,7 @@ def _index_template(title: str) -> str:
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
   <title>{title} | Artifacts</title>
   <script src="../../js/app-theme.js"></script>
   <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import urllib.error
 from pathlib import Path
 
@@ -142,6 +143,35 @@ def test_normalize_metadata_path_rejects_full_url() -> None:
         match="metadata-path must be relative and must not be a full URL",
     ):
         verify_deploy._normalize_metadata_path("https://example.com/deploy.json")
+
+
+def test_verify_deploy_emits_debug_log_with_config(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(
+        verify_deploy,
+        "_fetch_text",
+        lambda url, timeout: (200, '<script src="js/app.js?v=abc"></script>'),
+    )
+    monkeypatch.setattr(
+        verify_deploy,
+        "_fetch_json",
+        lambda url, timeout: (200, {"commit_sha": "abc"}),
+    )
+    monkeypatch.setattr(verify_deploy.time, "sleep", lambda _: None)
+
+    with caplog.at_level(logging.DEBUG):
+        verify_deploy.verify_deploy(
+            "https://example.com/",
+            "?v=abc",
+            "abc",
+            attempts=1,
+            delay_seconds=0,
+            timeout_seconds=5.0,
+        )
+
+    assert "Verification config: url=https://example.com/" in caplog.text
+    assert "attempts=1" in caplog.text
 
 
 def test_verify_deploy_retries_until_expected_substring_found(

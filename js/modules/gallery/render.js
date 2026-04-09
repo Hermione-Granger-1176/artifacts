@@ -24,9 +24,10 @@ function getCardColor(index) {
   return CARD_COLORS[index % CARD_COLORS.length];
 }
 
-function getRotationStyle(index) {
+/** Return base and hover rotation values for a card at the given index. */
+function getRotationData(index) {
   const rotationIndex = index % BASE_ROTATIONS.length;
-  return `--note-rotate:${BASE_ROTATIONS[rotationIndex]}; --note-hover-rotate:${HOVER_ROTATIONS[rotationIndex]};`;
+  return { noteRotate: BASE_ROTATIONS[rotationIndex], noteHoverRotate: HOVER_ROTATIONS[rotationIndex] };
 }
 
 /** Global color map: each tag/tool name gets one color, shared across filter notes and detail capsules. */
@@ -58,15 +59,9 @@ function createFilterControlButton({
   rotate = null,
   surface
 }) {
-  const styleParts = [
-    `--chip-color: ${color}`,
-    `--note-color: ${color}`
-  ];
-  if (rotate !== null) {
-    styleParts.push(`--rotate: ${rotate}deg`);
-  }
+  const rotateAttr = rotate !== null ? ` data-rotate="${rotate}"` : '';
 
-  return `<button class="${className}${active ? ' is-active' : ''}" data-filter-surface="${surface}" ${datasetName}="${escapeHtml(datasetValue)}" type="button" aria-controls="artifacts-grid" aria-pressed="${active}" style="${styleParts.join('; ')};">${escapeHtml(label)}</button>`;
+  return `<button class="${className}${active ? ' is-active' : ''}" data-filter-surface="${surface}" ${datasetName}="${escapeHtml(datasetValue)}" data-chip-color="${escapeHtml(color)}"${rotateAttr} type="button" aria-controls="artifacts-grid" aria-pressed="${active}">${escapeHtml(label)}</button>`;
 }
 
 function getLabelColor(name) {
@@ -82,7 +77,7 @@ function buildSnippetList(items, className, emptyValue = '') {
     <div class="${className}">
       ${items
         .slice(0, 3)
-        .map((item) => `<span class="${className}-item" style="--capsule-bg: ${getLabelColor(item)}">${escapeHtml(item)}</span>`)
+        .map((item) => `<span class="${className}-item" data-capsule-bg="${escapeHtml(getLabelColor(item))}">${escapeHtml(item)}</span>`)
         .join('')}
     </div>
   `;
@@ -283,8 +278,9 @@ function createCard(item, isExpanded, index) {
     `
     : '<div class="card-thumbnail-placeholder"></div>';
 
+  const rotation = getRotationData(index);
   return `
-    <button class="artifact-card ${isExpanded ? 'expanded' : ''}" data-id="${escapeHtml(item.id)}" style="--card-bg-color: ${cardColor}; ${getRotationStyle(index)}" type="button"
+    <button class="artifact-card ${isExpanded ? 'expanded' : ''}" data-id="${escapeHtml(item.id)}" data-card-color="${cardColor}" data-note-rotate="${rotation.noteRotate}" data-note-hover-rotate="${rotation.noteHoverRotate}" type="button"
       aria-label="View details for ${escapeHtml(item.name)}" aria-expanded="${isExpanded}" aria-haspopup="dialog">
       <div class="card-note">
         <div class="card-thumbnail-area">
@@ -321,6 +317,33 @@ export function buildGridHtml(items, expandedId) {
       ${rightCards.join('')}
     </section>
   `;
+}
+
+/**
+ * Apply CSS custom properties from data attributes to elements in a container.
+ * Called after innerHTML assignment to avoid inline style attributes for CSP compliance.
+ * @param {HTMLElement} container - Parent element to walk.
+ * @returns {void}
+ */
+export function applyDynamicStyles(container) {
+  container.querySelectorAll('[data-chip-color]').forEach((el) => {
+    const color = el.dataset.chipColor;
+    el.style.setProperty('--chip-color', color);
+    el.style.setProperty('--note-color', color);
+    if (el.dataset.rotate) {
+      el.style.setProperty('--rotate', `${el.dataset.rotate}deg`);
+    }
+  });
+
+  container.querySelectorAll('[data-capsule-bg]').forEach((el) => {
+    el.style.setProperty('--capsule-bg', el.dataset.capsuleBg);
+  });
+
+  container.querySelectorAll('[data-card-color]').forEach((el) => {
+    el.style.setProperty('--card-bg-color', el.dataset.cardColor);
+    el.style.setProperty('--note-rotate', el.dataset.noteRotate);
+    el.style.setProperty('--note-hover-rotate', el.dataset.noteHoverRotate);
+  });
 }
 
 /**

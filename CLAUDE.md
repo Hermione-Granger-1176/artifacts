@@ -64,6 +64,7 @@ Each tool has one config file that owns its scope. The Makefile just calls tools
 | yamllint     | `.yamllint.yml`          | YAML rules, ignore patterns                                                |
 | JS coverage  | `package.json`           | Exclude patterns (`node_modules/`, `tests/`)                               |
 | editorconfig | `.editorconfig`          | Formatting rules per file type                                             |
+| esbuild      | `package.json`           | CSS/JS minification during site assembly (`prepare_site.py`)               |
 
 To change what gets linted/tested/covered, edit the tool's config file, nowhere else.
 

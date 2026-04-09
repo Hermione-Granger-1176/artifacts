@@ -442,6 +442,19 @@ def test_scan_artifacts_logs_warnings_for_incomplete_directories(
     assert "missing-name: has index.html but no name.txt" in caplog.text
 
 
+def test_scan_artifacts_emits_debug_log_for_apps_dir(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    apps_dir = tmp_path / "apps"
+    apps_dir.mkdir()
+    config = make_config(tmp_path, apps_dir=apps_dir)
+
+    with caplog.at_level(logging.DEBUG):
+        generate_index._scan_artifacts(config)
+
+    assert f"Scanning {apps_dir} for artifacts" in caplog.text
+
+
 def test_scan_artifacts_returns_empty_when_apps_dir_is_missing(
     tmp_path: Path,
 ) -> None:
@@ -841,6 +854,23 @@ def test_update_readme_raises_when_readme_file_is_missing(
             site_url="https://example.com/",
             gallery_metadata=config.read_gallery_metadata(),
         )
+
+
+def test_generate_emits_debug_log_with_config_paths(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    apps_dir = tmp_path / "apps"
+    config = make_config(tmp_path, apps_dir=apps_dir)
+    create_artifact(apps_dir, "demo-app")
+    write_text(config.readme_file, minimal_readme())
+    write_text(config.pyproject_file, minimal_pyproject())
+    write_text(config.gallery_metadata_file, minimal_gallery_metadata())
+
+    with caplog.at_level(logging.DEBUG):
+        generate_index.generate(config)
+
+    assert "Config: apps_dir=" in caplog.text
+    assert str(config.apps_dir) in caplog.text
 
 
 def test_generate_handles_empty_repo_state(

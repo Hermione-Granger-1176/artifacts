@@ -1,4 +1,4 @@
-import { createDetailContent } from './render.js';
+import { applyDynamicStyles, createDetailContent } from './render.js';
 
 /**
  * Minimum scale factors for card-to-detail expand/collapse animations.
@@ -143,8 +143,9 @@ export function createDetailOverlay({
     expandedId = id;
     lastExpandedTrigger = triggerCard || getCardById(id);
     detailPanel.innerHTML = createDetailContent(item);
+    applyDynamicStyles(detailPanel);
     detailPanel.setAttribute('aria-describedby', 'detail-description');
-    const cardBgColor = triggerCard && triggerCard.style ? triggerCard.style.getPropertyValue('--card-bg-color') : '';
+    const cardBgColor = triggerCard ? triggerCard.dataset.cardColor || '' : '';
     detailPanel.style.setProperty('--detail-accent', cardBgColor || 'var(--color-page-paper)');
     detailOverlay.classList.add('visible');
     detailOverlay.setAttribute('aria-hidden', 'false');

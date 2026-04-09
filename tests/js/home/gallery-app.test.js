@@ -739,8 +739,9 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
   assert.deepEqual(harness.runtime.writes.at(-1), { key: 'theme', value: 'light' });
 });
 
-test('initializeGalleryApp handles overlay and keyboard interactions', () => {
+test('initializeGalleryApp handles overlay and keyboard interactions', async () => {
   const harness = createGalleryHarness();
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
   initializeGalleryApp({
     documentObj: harness.documentObj,
@@ -750,6 +751,7 @@ test('initializeGalleryApp handles overlay and keyboard interactions', () => {
 
   const firstCard = harness.elements.grid.cards[0];
   harness.elements.grid.dispatch('click', { target: firstCard });
+  await tick();
   assert.equal(harness.elements.detailOverlay.classList.contains('open'), true);
   assert.equal(harness.elements.detailOverlay.getAttribute('aria-hidden'), 'false');
   assert.equal(harness.documentObj.activeElement, harness.elements.detailPanel.closeButton);
@@ -766,6 +768,7 @@ test('initializeGalleryApp handles overlay and keyboard interactions', () => {
     target: firstCard
   });
   assert.equal(enterEvent.defaultPrevented, true);
+  await tick();
   assert.equal(harness.elements.detailOverlay.classList.contains('open'), true);
 
   harness.documentObj.dispatch('keydown', { key: 'Escape' });
@@ -778,6 +781,7 @@ test('initializeGalleryApp handles overlay and keyboard interactions', () => {
   assert.equal(harness.documentObj.activeElement, harness.elements.searchInput);
 
   harness.elements.grid.dispatch('click', { target: firstCard });
+  await tick();
   harness.windowObj.location.search = '?page=2';
   harness.windowObj.dispatch('popstate');
   assert.equal(harness.elements.detailOverlay.classList.contains('visible'), false);

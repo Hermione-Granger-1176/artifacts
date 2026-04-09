@@ -22,7 +22,7 @@ Gallery modules (under `js/modules/gallery/`):
 - `js/modules/gallery/gallery-app.js`: DOM wiring, event handlers, URL state, filtering, pagination, theme behavior, and book-scene integration
 - `js/modules/gallery/catalog.js`: pure catalog helpers for search text, selection normalization, sorting, and pagination math
 - `js/modules/gallery/config.js`: bootstrap data validation, generated config hydration, and label helpers
-- `js/modules/gallery/detail-overlay.js`: detail panel lifecycle, open/close animation, and focus trapping
+- `js/modules/gallery/detail-overlay.js`: detail panel lifecycle, open/close animation, and focus trapping (lazily loaded via dynamic import on first use)
 - `js/modules/gallery/icons.js`: shared inline SVG icon markup
 - `js/modules/gallery/inert.js`: background element inert/interactive toggling for overlay accessibility
 - `js/modules/gallery/motion.js`: reduced-motion-aware scroll and animation helpers

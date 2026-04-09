@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 
 from scripts import REPO_ROOT
@@ -37,7 +38,7 @@ from scripts.build.index_config import IndexConfig
 from scripts.lib.app_discovery import _artifact_base_path
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO),
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
@@ -73,6 +74,7 @@ def is_kebab_case(name: str) -> bool:
 
 def _scan_artifacts(config: IndexConfig) -> list[ArtifactItem]:
     """Scan the apps/ directory for artifact directories."""
+    config.logger.debug("Scanning %s for artifacts", config.apps_dir)
     items: list[ArtifactItem] = []
     for folder in index_sources.iter_artifact_dirs(config):
         issues = index_sources.artifact_issues(folder, config=config)
@@ -117,6 +119,12 @@ def generate(config: IndexConfig | None = None) -> None:
         config = IndexConfig.create_default()
 
     config.logger.info("Starting artifact index generation")
+    config.logger.debug(
+        "Config: apps_dir=%s, js_output=%s, config_output=%s",
+        config.apps_dir,
+        config.js_output_file,
+        config.js_config_output_file,
+    )
 
     items = _scan_artifacts(config)
 
