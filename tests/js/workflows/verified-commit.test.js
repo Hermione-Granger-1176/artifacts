@@ -57,14 +57,13 @@ function createFallbackFetchImpl({ requests, existingPullRequestUrl = null, exis
           ? createProtectedBranchResponse()
           : createGraphqlCommitResponse();
       }
+      case url.includes('/matching-refs/heads/'):
+        return createJsonResponse(
+          existingBranch
+            ? [{ ref: `refs/heads/${url.split('/matching-refs/heads/')[1]}` }]
+            : []
+        );
       case url.endsWith('/git/refs') && options.method === 'POST':
-        if (existingBranch) {
-          return createTextResponse('Reference already exists', {
-            ok: false,
-            status: 422,
-            statusText: 'Unprocessable Entity'
-          });
-        }
         return createJsonResponse({ ref: 'refs/heads/auto/update-artifacts-20260319' }, { status: 201 });
       case Boolean(url.includes('/git/refs/heads/') && options.method === 'PATCH'):
         return createJsonResponse({ ref: url.split('/git/refs/')[1], object: { sha: 'reset' } });
@@ -389,6 +388,16 @@ test('runVerifiedCommit force-resets an existing fallback branch and reuses open
 
   assert.equal(result.resultUrl, 'https://example.com/pr/existing');
 
+  assert.ok(
+    requests.some((request) => request.url.includes('/matching-refs/heads/')),
+    'should check branch existence via matching-refs'
+  );
+  assert.equal(
+    requests.some((request) => request.url.endsWith('/git/refs') && request.options.method === 'POST'),
+    false,
+    'should not POST to create a branch that already exists'
+  );
+
   const patchRequest = requests.find(
     (request) => request.url.includes('/git/refs/heads/') && request.options.method === 'PATCH'
   );
@@ -483,5 +492,54 @@ test('runVerifiedCommit direct mode throws when direct commit fails', async () =
       }
     }),
     /protected branch/
+  );
+});
+
+test('runVerifiedCommit new fallback branch skips PATCH and creates via POST', async () => {
+  const requests = [];
+  const result = await runVerifiedCommit({
+    env: {
+      GH_TOKEN_INPUT: 'token',
+      GITHUB_OUTPUT: '/tmp/output',
+      GITHUB_REPOSITORY: 'octo/repo',
+      BASE_BRANCH: 'main',
+      EXPECTED_HEAD_SHA: 'abc123',
+      COMMIT_HEADLINE: 'Update generated artifacts [skip ci]',
+      FALLBACK_BRANCH_PREFIX: 'auto/update-artifacts',
+      PR_TITLE: 'Update generated artifacts',
+      PR_BODY: 'Body',
+      PATHSPEC_INPUT: 'js/data.js'
+    },
+    execFileSyncImpl() {
+      return 'A\tjs/data.js';
+    },
+    existsSyncImpl() {
+      return true;
+    },
+    readFileSyncImpl() {
+      return Buffer.from('payload');
+    },
+    appendFileSyncImpl() {},
+    consoleObj: { log() {}, error() {} },
+    fetchDependencies: {
+      fetchImpl: createFallbackFetchImpl({ requests, existingBranch: false }),
+      sleepImpl: async () => {}
+    },
+    now: new Date('2026-03-19T12:00:00Z')
+  });
+
+  assert.equal(result.resultUrl, 'https://example.com/pr/123');
+  assert.ok(
+    requests.some((request) => request.url.includes('/matching-refs/heads/')),
+    'should check branch existence via matching-refs'
+  );
+  assert.ok(
+    requests.some((request) => request.url.endsWith('/git/refs') && request.options.method === 'POST'),
+    'should POST to create the new branch'
+  );
+  assert.equal(
+    requests.some((request) => request.options.method === 'PATCH'),
+    false,
+    'should not PATCH when branch does not exist'
   );
 });

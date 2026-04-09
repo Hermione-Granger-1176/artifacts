@@ -331,18 +331,16 @@ export async function runVerifiedCommit({
   }
 
   const fallbackBranch = createBranchName(fallbackBranchPrefix, now);
+  const fullRef = `refs/heads/${fallbackBranch}`;
 
-  try {
-    await clients.fetchJson(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
-      method: 'POST',
-      body: JSON.stringify({
-        ref: `refs/heads/${fallbackBranch}`,
-        sha: expectedHeadSha
-      })
-    });
-  } catch (_error) {
-    // Branch already exists — force-reset it to the current base so stale
-    // commits from a previous run on the same day are discarded.
+  const matchingRefs = await clients.fetchJson(
+    `https://api.github.com/repos/${owner}/${repo}/git/matching-refs/heads/${fallbackBranch}`
+  );
+  const branchExists = matchingRefs.some((ref) => ref.ref === fullRef);
+
+  if (branchExists) {
+    // Force-reset to the current base so stale commits from a previous
+    // run on the same day are discarded.
     await clients.fetchJson(
       `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${fallbackBranch}`,
       {
@@ -350,6 +348,11 @@ export async function runVerifiedCommit({
         body: JSON.stringify({ sha: expectedHeadSha, force: true })
       }
     );
+  } else {
+    await clients.fetchJson(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+      method: 'POST',
+      body: JSON.stringify({ ref: fullRef, sha: expectedHeadSha })
+    });
   }
 
   const fallbackCommit = await createCommit(
