@@ -20,6 +20,7 @@ const FILTER_NOTE_COLORS = [
 const BASE_ROTATIONS = ['-1.4deg', '0.6deg', '-0.4deg', '1.2deg', '-0.9deg', '1.5deg', '0.3deg', '-1.1deg', '0.8deg', '-0.5deg', '1.3deg', '-0.7deg'];
 const HOVER_ROTATIONS = ['-0.35deg', '0.2deg', '-0.12deg', '0.4deg', '-0.25deg', '0.45deg', '0.1deg', '-0.3deg', '0.25deg', '-0.15deg', '0.36deg', '-0.2deg'];
 
+/** Return the card background color for a given index. */
 function getCardColor(index) {
   return CARD_COLORS[index % CARD_COLORS.length];
 }
@@ -34,6 +35,7 @@ function getRotationData(index) {
 const labelColorMap = new Map();
 let shuffledColors = null;
 
+/** Return the lazily-initialized Fisher-Yates shuffled filter color palette. */
 function getShuffledFilterColors() {
   if (!shuffledColors) {
     shuffledColors = [...FILTER_NOTE_COLORS];
@@ -49,6 +51,7 @@ function getShuffledFilterColors() {
   return shuffledColors;
 }
 
+/** Build an HTML string for a single filter chip button. */
 function createFilterControlButton({
   active = false,
   className,
@@ -64,10 +67,12 @@ function createFilterControlButton({
   return `<button class="${className}${active ? ' is-active' : ''}" data-filter-surface="${surface}" ${datasetName}="${escapeHtml(datasetValue)}" data-chip-color="${escapeHtml(color)}"${rotateAttr} type="button" aria-controls="artifacts-grid" aria-pressed="${active}">${escapeHtml(label)}</button>`;
 }
 
+/** Look up the assigned color for a tool or tag label. */
 function getLabelColor(name) {
   return labelColorMap.get(name) || 'var(--color-capsule-default)';
 }
 
+/** Build an HTML snippet list of up to three capsule items. */
 function buildSnippetList(items, className, emptyValue = '') {
   if (!Array.isArray(items) || items.length === 0) {
     return emptyValue;
@@ -330,7 +335,9 @@ export function applyDynamicStyles(container) {
     const color = el.dataset.chipColor;
     el.style.setProperty('--chip-color', color);
     el.style.setProperty('--note-color', color);
-    el.dataset.rotate && el.style.setProperty('--rotate', `${el.dataset.rotate}deg`);
+    if (el.dataset.rotate) {
+      el.style.setProperty('--rotate', `${el.dataset.rotate}deg`);
+    }
   });
 
   container.querySelectorAll('[data-capsule-bg]').forEach((el) => {

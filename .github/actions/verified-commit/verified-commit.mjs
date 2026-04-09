@@ -331,7 +331,6 @@ export async function runVerifiedCommit({
   }
 
   const fallbackBranch = createBranchName(fallbackBranchPrefix, now);
-  let fallbackHeadSha = expectedHeadSha;
 
   try {
     await clients.fetchJson(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
@@ -342,15 +341,20 @@ export async function runVerifiedCommit({
       })
     });
   } catch (_error) {
-    const existingRef = await clients.fetchJson(
-      `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${fallbackBranch}`
+    // Branch already exists — force-reset it to the current base so stale
+    // commits from a previous run on the same day are discarded.
+    await clients.fetchJson(
+      `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${fallbackBranch}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ sha: expectedHeadSha, force: true })
+      }
     );
-    fallbackHeadSha = existingRef.object.sha;
   }
 
   const fallbackCommit = await createCommit(
     fallbackBranch,
-    fallbackHeadSha,
+    expectedHeadSha,
     commitHeadline.replace(' [skip ci]', '')
   );
   consoleObj.log(`Created verified fallback commit: ${fallbackCommit.url}`);

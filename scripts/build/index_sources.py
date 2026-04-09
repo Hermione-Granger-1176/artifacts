@@ -40,7 +40,6 @@ def parse_lines(file_path: Path) -> list[str]:
     return [line.strip() for line in content.splitlines() if line.strip()]
 
 
-
 def artifact_id_pattern(contract: ArtifactContract) -> re.Pattern[str]:
     """Compile the artifact id pattern from the shared contract."""
     return re.compile(contract["artifactIdPattern"])

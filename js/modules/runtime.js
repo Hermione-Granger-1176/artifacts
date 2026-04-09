@@ -107,12 +107,10 @@ function updateRuntimeDiagnostics(documentObj, state) {
   }
 
   copyButton.hidden = !hasSummary;
-  if (hasSummary) {
-    return;
+  if (!hasSummary) {
+    copyButton.textContent = 'Copy error details';
+    copyButton.removeAttribute('data-copy-state');
   }
-
-  copyButton.textContent = 'Copy error details';
-  copyButton.removeAttribute('data-copy-state');
 }
 
 /** Copy the latest runtime diagnostics summary when clipboard access is available. */

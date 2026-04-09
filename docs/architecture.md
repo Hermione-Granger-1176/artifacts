@@ -295,11 +295,11 @@ graph TD
 
 ### Custom actions
 
-| Action            | Purpose                                                      | Key behavior                                                                                                                               |
-| ----------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ci-setup`        | Mint app tokens, set up Python/Node, optionally install deps | Calls `scripts/ci/workflow_helpers.py app-token-policy` to decide if tokens are allowed; blocks tokens for forks and Dependabot            |
-| `deploy-site`     | Build `_site/`, deploy to gh-pages, verify published URL     | Uses `deploy-verified.mjs` for GraphQL verified commits; calls `scripts/ci/verify_deploy.py` to poll for expected HTML and metadata        |
-| `verified-commit` | Create a verified commit or fall back to a PR                | Uses `verified-commit.mjs`; supports direct, force-pr, and direct-or-pr modes; handles branch conflict by creating a dated fallback branch |
+| Action            | Purpose                                                      | Key behavior                                                                                                                                                                                             |
+| ----------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci-setup`        | Mint app tokens, set up Python/Node, optionally install deps | Calls `scripts/ci/workflow_helpers.py app-token-policy` to decide if tokens are allowed; blocks tokens for forks and Dependabot                                                                          |
+| `deploy-site`     | Build `_site/`, deploy to gh-pages, verify published URL     | Uses `deploy-verified.mjs` for GraphQL verified commits; calls `scripts/ci/verify_deploy.py` to poll for expected HTML and metadata                                                                      |
+| `verified-commit` | Create a verified commit or fall back to a PR                | Uses `verified-commit.mjs`; supports direct, force-pr, and direct-or-pr modes; creates a dated fallback branch on conflict and force-resets it if it already exists to prevent stale commit accumulation |
 
 ### Script dependency map
 

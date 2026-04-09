@@ -8,7 +8,7 @@ from typing import cast
 
 from scripts.ci.repo_audit import require_response_type
 from scripts.lib.app_discovery import (
-    _artifact_base_path,
+    artifact_base_path,
     missing_thumbnail_slugs,
     runtime_change_plan,
 )
@@ -222,7 +222,7 @@ def thumbnail_plan(
     associated_pr_kind_for_commit_fn=associated_pr_kind_for_commit,
 ) -> dict[str, object]:
     """Return the strict thumbnail automation plan for one workflow event."""
-    apps_root = apps_root or Path(_artifact_base_path())
+    apps_root = apps_root or Path(artifact_base_path())
     changed_files = list_changed_files_fn(
         event_name=event_name,
         repo=repo,
@@ -314,7 +314,7 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
             if relative == THUMBNAIL_ARTIFACT_PLAN_FILE.as_posix():
                 continue
 
-            if not Path(relative).match(f"{_artifact_base_path()}/*/{_THUMBNAIL_FILE}"):
+            if not Path(relative).match(f"{artifact_base_path()}/*/{_THUMBNAIL_FILE}"):
                 raise ValueError(f"Unexpected file in thumbnail artifact: {relative}")
 
             saw_thumbnail = True
@@ -334,7 +334,7 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
 
 def thumbnail_targets(*, app_scope: str, changed_slugs: list[str]) -> list[Path]:
     """Return thumbnail paths that should be invalidated for the runtime scope."""
-    apps_root = Path(_artifact_base_path())
+    apps_root = Path(artifact_base_path())
 
     if app_scope == "all":
         if not apps_root.exists():

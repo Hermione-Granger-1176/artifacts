@@ -45,7 +45,7 @@ function createProtectedBranchResponse() {
   return createJsonResponse({ errors: [{ message: 'protected branch' }] });
 }
 
-function createFallbackFetchImpl({ requests, existingPullRequestUrl = null, existingRefSha = null }) {
+function createFallbackFetchImpl({ requests, existingPullRequestUrl = null, existingBranch = false }) {
   return async (url, options = {}) => {
     requests.push({ url, options });
 
@@ -57,8 +57,8 @@ function createFallbackFetchImpl({ requests, existingPullRequestUrl = null, exis
           ? createProtectedBranchResponse()
           : createGraphqlCommitResponse();
       }
-      case url.endsWith('/git/refs'):
-        if (existingRefSha) {
+      case url.endsWith('/git/refs') && options.method === 'POST':
+        if (existingBranch) {
           return createTextResponse('Reference already exists', {
             ok: false,
             status: 422,
@@ -66,8 +66,8 @@ function createFallbackFetchImpl({ requests, existingPullRequestUrl = null, exis
           });
         }
         return createJsonResponse({ ref: 'refs/heads/auto/update-artifacts-20260319' }, { status: 201 });
-      case Boolean(existingRefSha && url.includes('/git/ref/heads/auto/update-artifacts-20260319')):
-        return createJsonResponse({ object: { sha: existingRefSha } });
+      case Boolean(url.includes('/git/refs/heads/') && options.method === 'PATCH'):
+        return createJsonResponse({ ref: url.split('/git/refs/')[1], object: { sha: 'reset' } });
       case url.includes('/pulls?'):
         return createJsonResponse(
           existingPullRequestUrl ? [{ html_url: existingPullRequestUrl }] : []
@@ -347,7 +347,7 @@ test('runVerifiedCommit falls back to a pull request after direct commit failure
   assert.ok(outputs.includes('result-url=https://example.com/pr/123'));
 });
 
-test('runVerifiedCommit reuses an existing fallback branch and open pull request', async () => {
+test('runVerifiedCommit force-resets an existing fallback branch and reuses open pull request', async () => {
   const outputs = [];
   const requests = [];
   const result = await runVerifiedCommit({
@@ -380,7 +380,7 @@ test('runVerifiedCommit reuses an existing fallback branch and open pull request
       fetchImpl: createFallbackFetchImpl({
         requests,
         existingPullRequestUrl: 'https://example.com/pr/existing',
-        existingRefSha: 'existing123'
+        existingBranch: true
       }),
       sleepImpl: async () => {}
     },
@@ -388,9 +388,15 @@ test('runVerifiedCommit reuses an existing fallback branch and open pull request
   });
 
   assert.equal(result.resultUrl, 'https://example.com/pr/existing');
-  assert.ok(
-    requests.some((request) => request.url.includes('/git/ref/heads/auto/update-artifacts-20260319'))
+
+  const patchRequest = requests.find(
+    (request) => request.url.includes('/git/refs/heads/') && request.options.method === 'PATCH'
   );
+  assert.ok(patchRequest, 'should force-reset the existing branch via PATCH');
+  const patchBody = JSON.parse(patchRequest.options.body);
+  assert.equal(patchBody.sha, 'abc123', 'should reset to expectedHeadSha');
+  assert.equal(patchBody.force, true, 'should use force update');
+
   assert.ok(outputs.includes('changed=true'));
   assert.ok(outputs.includes('result-url=https://example.com/pr/existing'));
   assert.equal(requests.some((request) => request.url.endsWith('/pulls')), false);
