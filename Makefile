@@ -267,7 +267,9 @@ diff-staged: ## Show staged changes
 
 # ─── Pull requests ────────────────────────────────────────────────────────────
 
-REPO := Hermione-Granger-1176/artifacts
+REPO ?= $(strip $(shell repo="$$(git remote get-url origin 2>/dev/null | sed -nE 's|.*github\.com[:/]([^/]+/[^/.]+)(\.git)?$$|\1|p')"; \
+	if [ -z "$$repo" ]; then repo="$$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)"; fi; \
+	printf '%s' "$$repo"))
 
 .PHONY: pr pr-create pr-list pr-status pr-checks pr-diff pr-comments pr-comment pr-review-comments pr-reply pr-resolve pr-merge pr-merge-admin pr-reviewers pr-label pr-close
 
@@ -298,7 +300,10 @@ pr-comment: ## Add a comment to the current PR (make pr-comment body="msg")
 
 pr-review-comments: ## List review threads with resolution status (make pr-review-comments pr=N)
 	@test -n "$(pr_num)" || (printf 'Usage: make pr-review-comments pr_num=19\n' >&2; exit 1)
-	@gh api graphql -F pr_num:='$(pr_num)' -f query='query($$pr_num: Int!) { repository(owner: "Hermione-Granger-1176", name: "artifacts") { pullRequest(number: $$pr_num) { reviewThreads(first: 50) { nodes { id isResolved comments(first: 10) { nodes { body author { login } createdAt } } } } } } }'
+	@printf '%s\n' "$(REPO)" | grep -Eq '^[^/]+/[^/]+$$' || (printf 'Error: REPO must be set to owner/name (e.g. REPO=octocat/Hello-World)\n' >&2; exit 1)
+	@owner=$$(echo "$(REPO)" | cut -d/ -f1) && \
+	 name=$$(echo "$(REPO)" | cut -d/ -f2) && \
+	 gh api graphql -F pr_num:='$(pr_num)' -F owner="$$owner" -F name="$$name" -f query='query($$pr_num: Int!, $$owner: String!, $$name: String!) { repository(owner: $$owner, name: $$name) { pullRequest(number: $$pr_num) { reviewThreads(first: 50) { nodes { id isResolved comments(first: 10) { nodes { body author { login } createdAt } } } } } } }'
 
 pr-reply: ## Reply to a review comment (make pr-reply pr_num=N comment=ID body="msg")
 	@test -n "$(pr_num)" -a -n "$(comment)" -a -n "$(body)" || (printf 'Usage: make pr-reply pr_num=19 comment=123456 body="Fixed"\n' >&2; exit 1)

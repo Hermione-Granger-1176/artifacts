@@ -15,7 +15,8 @@ Examples:
     python scripts/ci/workflow_helpers.py invalidate-thumbnails --event-name pull_request \
         --repo owner/repo --pr-number 42
     python scripts/ci/workflow_helpers.py thumbnail-plan --event-name push \
-        --repo owner/repo --commit-sha abc123
+        --repo owner/repo --commit-sha abc123 \
+        --actor bot-login[bot] --app-bot-login bot-login[bot]
     python scripts/ci/workflow_helpers.py validate-thumbnail-artifact \
         --root .artifacts/thumbnail-persist
     python scripts/ci/workflow_helpers.py audit-repo-settings --repo owner/repo
@@ -161,6 +162,15 @@ def associated_pr_kind_for_commit(repo: str, commit_sha: str) -> str:
     )
 
 
+def list_commit_files(*, repo: str, commit_sha: str) -> list[str]:
+    """Return the changed file list for a single commit (not PR-level)."""
+    return _thumbnail_plan.list_commit_files(
+        repo=repo,
+        commit_sha=commit_sha,
+        run_gh_api_fn=_run_gh_api,
+    )
+
+
 def thumbnail_plan(
     *,
     event_name: str,
@@ -169,6 +179,8 @@ def thumbnail_plan(
     commit_sha: str,
     head_repo_fork: bool = False,
     pr_author: str = "",
+    actor: str = "",
+    app_bot_login: str = "",
     apps_root: Path | None = None,
 ) -> dict[str, object]:
     """Return the strict thumbnail automation plan for one workflow event."""
@@ -179,8 +191,11 @@ def thumbnail_plan(
         commit_sha=commit_sha,
         head_repo_fork=head_repo_fork,
         pr_author=pr_author,
+        actor=actor,
+        app_bot_login=app_bot_login,
         apps_root=apps_root,
         list_changed_files_fn=list_changed_files,
+        list_commit_files_fn=list_commit_files,
         missing_thumbnail_slugs_fn=missing_thumbnail_slugs,
         runtime_change_plan_fn=runtime_change_plan,
         associated_pr_kind_for_commit_fn=associated_pr_kind_for_commit,
@@ -309,6 +324,8 @@ def _build_parser() -> argparse.ArgumentParser:
     thumbnail_plan_parser.add_argument("--commit-sha", default="")
     thumbnail_plan_parser.add_argument("--head-repo-fork", default="false")
     thumbnail_plan_parser.add_argument("--pr-author", default="")
+    thumbnail_plan_parser.add_argument("--actor", default="")
+    thumbnail_plan_parser.add_argument("--app-bot-login", default="")
 
     thumbnail_artifact_parser = subparsers.add_parser(
         "validate-thumbnail-artifact",
@@ -383,6 +400,8 @@ def _handle_thumbnail_plan(args: argparse.Namespace) -> int:
         commit_sha=args.commit_sha,
         head_repo_fork=_parse_bool(args.head_repo_fork),
         pr_author=args.pr_author,
+        actor=args.actor,
+        app_bot_login=args.app_bot_login,
     )
     print(json.dumps(plan, sort_keys=True))
     return 0

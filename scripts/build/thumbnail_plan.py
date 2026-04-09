@@ -49,9 +49,7 @@ def is_generated_thumbnail_pr(pr_payload: object) -> bool:
     title = pr_field(pr_payload, "title")
     body = pr_field(pr_payload, "body")
     head = pr_payload.get("head")
-    head_ref = ""
-    if isinstance(head, dict):
-        head_ref = pr_field(head, "ref")
+    head_ref = pr_field(head, "ref") if isinstance(head, dict) else ""
 
     return (
         head_ref.startswith(THUMBNAIL_FOLLOWUP_BRANCH_PREFIX)
@@ -118,6 +116,56 @@ def list_changed_files(
     return [line for raw_line in stdout.splitlines() if (line := raw_line.strip())]
 
 
+def list_commit_files(
+    *,
+    repo: str,
+    commit_sha: str,
+    run_gh_api_fn=run_gh_api,
+) -> list[str]:
+    """Return the changed file list for a single commit (not PR-level)."""
+    if not commit_sha:
+        return []
+    stdout = run_gh_api_fn(
+        f"repos/{repo}/commits/{commit_sha}",
+        paginate=[],
+        jq_expr=".files[].filename",
+        description=f"listing changed files for commit {repo}@{commit_sha}",
+    )
+    return [line for raw_line in stdout.splitlines() if (line := raw_line.strip())]
+
+
+def _all_thumbnail_files(files: list[str]) -> bool:
+    """Return True when every file matches the thumbnail pattern."""
+    return bool(files) and all(re.match(THUMBNAIL_PATTERN, f) for f in files)
+
+
+def is_automated_thumbnail_commit(
+    *,
+    actor: str,
+    app_bot_login: str,
+    repo: str,
+    commit_sha: str,
+    list_commit_files_fn=list_commit_files,
+) -> bool:
+    """Return True when the triggering commit is an app-authored thumbnail-only change.
+
+    Both conditions must hold:
+    1. The workflow actor matches the trusted app bot login.
+    2. Every file in the commit matches the thumbnail pattern.
+
+    Returns False on any detection failure (empty actor, empty bot login,
+    missing commit SHA, no files, or non-thumbnail files). This ensures the
+    skip is a narrow optimization exit, never a default.
+    """
+    if not actor or not app_bot_login or actor != app_bot_login:
+        return False
+    try:
+        files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
+    except Exception:
+        return False
+    return _all_thumbnail_files(files)
+
+
 def thumbnail_persist_decision(
     *,
     event_name: str,
@@ -164,8 +212,11 @@ def thumbnail_plan(
     commit_sha: str,
     head_repo_fork: bool = False,
     pr_author: str = "",
+    actor: str = "",
+    app_bot_login: str = "",
     apps_root: Path | None = None,
     list_changed_files_fn=list_changed_files,
+    list_commit_files_fn=list_commit_files,
     missing_thumbnail_slugs_fn=missing_thumbnail_slugs,
     runtime_change_plan_fn=runtime_change_plan,
     associated_pr_kind_for_commit_fn=associated_pr_kind_for_commit,
@@ -199,6 +250,26 @@ def thumbnail_plan(
         associated_pr_kind=associated_pr_kind,
     )
 
+    # Detect automated thumbnail-only commits that need no verification.
+    # For PRs: the actor must be the trusted app bot and the commit must
+    # contain only thumbnail files. For main pushes: the PR provenance
+    # must be a thumbnail-followup and the merge commit must contain only
+    # thumbnail files. Any detection failure defaults to False (full run).
+    skip_verification = is_automated_thumbnail_commit(
+        actor=actor,
+        app_bot_login=app_bot_login,
+        repo=repo,
+        commit_sha=commit_sha,
+        list_commit_files_fn=list_commit_files_fn,
+    )
+    if not skip_verification and associated_pr_kind == "thumbnail-followup":
+        try:
+            commit_files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
+        except Exception:
+            commit_files = []
+        skip_verification = _all_thumbnail_files(commit_files
+        )
+
     return {
         "app_scope": cast(str, runtime_plan["app_scope"]),
         "browser_scope": cast(str, runtime_plan["app_scope"]),
@@ -206,6 +277,7 @@ def thumbnail_plan(
         "persist_mode": persist_mode,
         "reason": reason,
         "shared_runtime_changed": shared_runtime_changed,
+        "skip_verification": skip_verification,
         "thumbnail_scope": "all"
         if shared_runtime_changed
         else ("changed" if affected_slugs else "none"),
@@ -247,11 +319,10 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
 
             saw_thumbnail = True
             slug = Path(relative).parts[1]
-            if shared_runtime_changed or slug in allowed_slugs:
-                continue
-            raise ValueError(
-                f"Thumbnail artifact contains slug outside plan scope: {slug}"
-            )
+            if not shared_runtime_changed and slug not in allowed_slugs:
+                raise ValueError(
+                    f"Thumbnail artifact contains slug outside plan scope: {slug}"
+                )
 
     if plan.get("persist_mode") != "none" and not saw_thumbnail:
         raise ValueError(
