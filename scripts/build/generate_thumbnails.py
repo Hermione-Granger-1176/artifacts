@@ -40,7 +40,7 @@ from scripts.lib.app_discovery import (
 )
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO),
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -101,6 +101,7 @@ class ArtifactServer:
 
 def find_artifacts() -> list[Path]:
     """Find all artifact directories containing an index.html."""
+    logger.debug("Scanning %s for artifacts", APPS_DIR)
     if not APPS_DIR.exists():
         return []
     artifacts = [
@@ -144,6 +145,7 @@ def artifact_url(artifact_dir: Path) -> str:
 
 def should_generate_thumbnail(artifact_dir: Path) -> bool:
     """Return True when a thumbnail is missing or stale for one artifact."""
+    logger.debug("Checking staleness for %s", artifact_dir.name)
     thumb_path = artifact_dir / SCREENSHOT_FILE
 
     if not thumb_path.exists():

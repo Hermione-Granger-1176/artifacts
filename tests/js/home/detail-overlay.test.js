@@ -45,6 +45,9 @@ function createFakeElement(id = '') {
       if (selector.includes('artifact-card')) {
         return children;
       }
+      if (selector.startsWith('[data-')) {
+        return [];
+      }
       return children.filter((c) => c._focusable);
     },
     contains(el) { return children.includes(el); },

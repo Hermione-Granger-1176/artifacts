@@ -31,7 +31,7 @@ from scripts.lib.path_validation import reject_symlinks
 from scripts.lib.project_config import load_artifacts_setting, load_site_url
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO),
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -46,6 +46,9 @@ JS_IMPORT_PATTERN = re.compile(
     r"""(?:import|export)\s+.*?\s+from\s+['"]([^'"]+)['"]""",
     re.DOTALL,
 )
+ESBUILD_BIN = REPO_ROOT / "node_modules" / ".bin" / "esbuild"
+ESBUILD_TIMEOUT_SECONDS = 30
+VENDOR_DIR_NAME = "vendor"
 DEPLOY_METADATA_FILE = "deploy-metadata.json"
 DEPLOY_COMMIT_SHA_ENV_VAR = "ARTIFACTS_DEPLOY_COMMIT_SHA"
 DEPLOY_VERSION_ENV_VAR = "ARTIFACTS_DEPLOY_VERSION"
@@ -403,6 +406,7 @@ def _inject_modulepreload_hints() -> None:
 
         entry_href = script_match.group(1).split("?")[0]
         entry_file = (html_path.parent / entry_href).resolve()
+        logger.debug("Walking module tree from %s", entry_file)
         deps = _resolve_module_tree(entry_file)
         if not deps:
             continue
@@ -423,6 +427,55 @@ def _inject_modulepreload_hints() -> None:
         )
 
 
+def _is_minifiable_js(path: Path) -> bool:
+    """Return True when ``path`` is a JS file eligible for minification."""
+    return (
+        path.suffix in (".js", ".mjs")
+        and ".min." not in path.name
+        and VENDOR_DIR_NAME not in path.parts
+    )
+
+
+def _minify_file(file_path: Path) -> int:
+    """Minify ``file_path`` in-place using esbuild and return bytes saved."""
+    original_size = file_path.stat().st_size
+    subprocess.run(
+        [
+            str(ESBUILD_BIN),
+            str(file_path),
+            "--minify",
+            f"--outfile={file_path}",
+            "--allow-overwrite",
+        ],
+        check=True,
+        capture_output=True,
+        timeout=ESBUILD_TIMEOUT_SECONDS,
+    )
+    new_size = file_path.stat().st_size
+    return original_size - new_size
+
+
+def _minify_site_assets() -> None:
+    """Minify CSS and JS files in ``_site/`` using esbuild."""
+    if not ESBUILD_BIN.exists():
+        logger.warning("esbuild not found at %s, skipping minification", ESBUILD_BIN)
+        return
+
+    total_saved = 0
+
+    for path in sorted(DEPLOY_DIR.rglob("*")):
+        if path.suffix == ".css":
+            saved = _minify_file(path)
+            total_saved += saved
+            logger.debug("Minified CSS %s (saved %d bytes)", path.name, saved)
+        elif path.suffix in (".js", ".mjs") and _is_minifiable_js(path):
+            saved = _minify_file(path)
+            total_saved += saved
+            logger.debug("Minified JS %s (saved %d bytes)", path.name, saved)
+
+    logger.info("Minified site assets (saved %d bytes total)", total_saved)
+
+
 def prepare_site() -> None:
     """Build the deployable ``_site/`` payload for GitHub Pages."""
     logger.info("Preparing deployable site output")
@@ -430,6 +483,13 @@ def prepare_site() -> None:
     site_url = _load_site_url()
     commit_sha = _resolve_commit_sha()
     version = _resolve_version()
+    logger.debug(
+        "Config: site_path=%s, site_url=%s, version=%s, commit_sha=%s",
+        site_path,
+        site_url,
+        version,
+        commit_sha,
+    )
     _copy_deploy_items()
     _inline_all_css_imports()
     _patch_index_html(version)
@@ -439,6 +499,7 @@ def prepare_site() -> None:
     _patch_404_html(site_path)
     _patch_manifest(site_path)
     _inject_modulepreload_hints()
+    _minify_site_assets()
     _write_nojekyll()
     _write_deploy_metadata(commit_sha=commit_sha, version=version, site_path=site_path)
     logger.info("Prepared %s", DEPLOY_DIR)

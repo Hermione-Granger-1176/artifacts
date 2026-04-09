@@ -40,7 +40,7 @@ The deployed site is static HTML with a generated data layer.
 4. `js/app.js` validates bootstrap data and calls `initializeGalleryApp`
 5. `js/modules/gallery/gallery-app.js` restores URL-synced search, filters, sort, and manages theme, overlays, keyboard shortcuts, cards, and pagination
 6. `js/modules/gallery/book-scene.js` runs the book cover intro and 3D page-turn animations
-7. Clicking a card opens details and links to the artifact page under `apps/`
+7. Clicking a card lazily loads `detail-overlay.js` via dynamic `import()` and opens the detail panel; subsequent clicks use the cached module
 
 The gallery never inspects artifact HTML directly. It depends entirely on generated metadata.
 
@@ -71,6 +71,7 @@ The gallery never inspects artifact HTML directly. It depends entirely on genera
 - Injects canonical, Open Graph, and Twitter share metadata
 - Injects the configured site path into `404.html` and the web app manifest
 - Injects `<link rel="modulepreload">` hints by walking the static ES module import tree for each HTML entry point
+- Minifies CSS and JS assets using esbuild (skips vendor and already-minified files)
 - Writes `deploy-metadata.json` with the deploy commit SHA and version
 - Writes `.nojekyll` for branch-based Pages deployment
 
@@ -158,7 +159,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
     6. If `browser-scope` is not `none`: runs `make test-browser-apps`. If `browser-scope` is `changed`, scopes to only the changed app slugs via `ARTIFACTS_BROWSER_APP_SLUGS`. If `all`, tests every mature app.
     7. Runs `make thumbnails`: opens each affected app in Chromium, waits for `window.__ARTIFACT_READY__`, captures and saves `thumbnail.webp`.
     8. Runs `make index`: scans `apps/`, generates `js/data.js` and `js/gallery-config.js`, updates README.
-    9. Runs `make site`: copies into `_site/`, cache-busts assets, injects social metadata, writes `deploy-metadata.json`.
+    9. Runs `make site`: copies into `_site/`, cache-busts assets, injects social metadata, minifies CSS/JS, writes `deploy-metadata.json`.
     10. Uploads `_site/` as artifact `site-{run_id}`.
     11. If `persist-mode` is not `none` and thumbnails actually changed: packages `apps/*/thumbnail.webp` files plus `plan.json` into artifact `thumbnail-persist-{run_id}`.
   - Reads: PR branch code. Writes: nothing (only uploads artifacts to GitHub Actions storage).

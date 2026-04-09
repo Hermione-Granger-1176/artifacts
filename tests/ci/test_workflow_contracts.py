@@ -279,3 +279,26 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
         _step_uses(_job(refresh, "refresh"), "Commit changes (verified)")
         == "./.github/actions/verified-commit"
     )
+
+
+def test_setup_python_steps_cache_pip() -> None:
+    update = _load_workflow("update.yml")
+    refresh = _load_workflow("refresh-python-locks.yml")
+    ci_setup = yaml.safe_load(
+        (REPO_ROOT / ".github" / "actions" / "ci-setup" / "action.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    verify_step = _step(_job(update, "verify"), "Set up Python")
+    assert verify_step["with"]["cache"] == "pip"
+    assert verify_step["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"
+
+    refresh_step = _step(_job(refresh, "refresh-locks"), "Set up Python")
+    assert refresh_step["with"]["cache"] == "pip"
+    assert refresh_step["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"
+
+    ci_setup_steps = ci_setup["runs"]["steps"]
+    setup_python = next(s for s in ci_setup_steps if s.get("name") == "Set up Python")
+    assert setup_python["with"]["cache"] == "pip"
+    assert setup_python["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"

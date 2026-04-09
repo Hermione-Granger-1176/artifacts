@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import subprocess
 from pathlib import Path
 
@@ -57,8 +58,8 @@ def create_source_tree(repo_root: Path) -> None:
     )
     gallery_dir = repo_root / "css" / "gallery"
     gallery_dir.mkdir(parents=True, exist_ok=True)
-    write_text(gallery_dir / "01-tokens.css", "body {}\n")
-    write_text(gallery_dir / "09-cards.css", ".artifact-card {}\n")
+    write_text(gallery_dir / "01-tokens.css", "body { margin: 0; }\n")
+    write_text(gallery_dir / "09-cards.css", ".artifact-card { display: block; }\n")
     write_text(
         gallery_dir / "13-responsive.css",
         "@media (max-width: 1px) {}\n",
@@ -710,8 +711,8 @@ def test_prepare_site_builds_deploy_output(
         in index_content
     )
     assert "@import" not in style_content
-    assert "body {}" in style_content
-    assert ".artifact-card {}" in style_content
+    assert "margin" in style_content
+    assert "display" in style_content
     assert not (deploy_dir / "css" / "gallery").exists()
     assert 'data-site-path="/artifacts/"' in error_content
     assert (deploy_dir / ".nojekyll").exists()
@@ -735,6 +736,30 @@ def test_prepare_site_builds_deploy_output(
         encoding="utf-8"
     )
     assert '"start_url": "/artifacts/"' in manifest
+
+
+def test_prepare_site_emits_debug_log_with_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    create_source_tree(tmp_path)
+    pyproject = tmp_path / "pyproject.toml"
+    write_text(
+        pyproject,
+        '[tool.artifacts]\nsite_path = "/artifacts/"\nsite_url = "https://example.com/artifacts"\n',
+    )
+    deploy_dir = tmp_path / "_site"
+
+    monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(prepare_site, "PYPROJECT_FILE", pyproject)
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+    monkeypatch.setenv(prepare_site.DEPLOY_VERSION_ENV_VAR, "abc123")
+    monkeypatch.setenv(prepare_site.DEPLOY_COMMIT_SHA_ENV_VAR, "b" * 40)
+
+    with caplog.at_level(logging.DEBUG):
+        prepare_site.prepare_site()
+
+    assert "Config: site_path=" in caplog.text
+    assert "/artifacts/" in caplog.text
 
 
 def test_prepare_site_propagates_git_failures(
@@ -892,3 +917,97 @@ def test_inject_modulepreload_hints_skips_html_without_module_script(
 
     result = (tmp_path / "plain.html").read_text(encoding="utf-8")
     assert "modulepreload" not in result
+
+
+# -- minification tests --------------------------------------------------------
+
+_requires_esbuild = pytest.mark.skipif(
+    not prepare_site.ESBUILD_BIN.exists(),
+    reason="esbuild not installed",
+)
+
+
+def test_is_minifiable_js_skips_vendor_and_min_files() -> None:
+    from pathlib import PurePosixPath
+
+    assert prepare_site._is_minifiable_js(PurePosixPath("js/app.js"))
+    assert prepare_site._is_minifiable_js(PurePosixPath("js/modules/gallery.js"))
+    assert not prepare_site._is_minifiable_js(PurePosixPath("js/vendor/chart.umd.min.js"))
+    assert not prepare_site._is_minifiable_js(PurePosixPath("js/lib.min.js"))
+    assert not prepare_site._is_minifiable_js(PurePosixPath("data.json"))
+
+
+@_requires_esbuild
+def test_minify_file_reduces_css_size(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    css_content = "/* comment */\nbody {\n  color: red;\n  margin: 0;\n}\n"
+    css_file = tmp_path / "style.css"
+    write_text(css_file, css_content)
+
+    saved = prepare_site._minify_file(css_file)
+
+    result = css_file.read_text(encoding="utf-8")
+    assert saved > 0
+    assert "/* comment */" not in result
+    assert "color:" in result or "color:red" in result
+
+
+@_requires_esbuild
+def test_minify_file_reduces_js_size(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    js_content = "// comment\nexport function hello() {\n  return 'world';\n}\n"
+    js_file = tmp_path / "app.js"
+    write_text(js_file, js_content)
+
+    saved = prepare_site._minify_file(js_file)
+
+    result = js_file.read_text(encoding="utf-8")
+    assert saved > 0
+    assert "// comment" not in result
+
+
+@_requires_esbuild
+def test_minify_site_assets_processes_css_and_js(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    write_text(tmp_path / "css" / "style.css", "/* block */\nbody { margin: 0; }\n")
+    write_text(tmp_path / "js" / "app.js", "// line\nconst x = 1;\n")
+    write_text(
+        tmp_path / "js" / "vendor" / "lib.min.js",
+        "var a=1;",
+    )
+
+    vendor_content = (tmp_path / "js" / "vendor" / "lib.min.js").read_text(
+        encoding="utf-8"
+    )
+
+    prepare_site._minify_site_assets()
+
+    css_result = (tmp_path / "css" / "style.css").read_text(encoding="utf-8")
+    assert "/* block */" not in css_result
+
+    js_result = (tmp_path / "js" / "app.js").read_text(encoding="utf-8")
+    assert "// line" not in js_result
+
+    vendor_result = (tmp_path / "js" / "vendor" / "lib.min.js").read_text(
+        encoding="utf-8"
+    )
+    assert vendor_result == vendor_content
+
+
+def test_minify_site_assets_skips_when_esbuild_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    monkeypatch.setattr(prepare_site, "ESBUILD_BIN", tmp_path / "missing-bin")
+    write_text(tmp_path / "css" / "style.css", "body { margin: 0; }\n")
+
+    prepare_site._minify_site_assets()
+
+    result = (tmp_path / "css" / "style.css").read_text(encoding="utf-8")
+    assert result == "body { margin: 0; }\n"

@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 import time
 import urllib.error
@@ -28,7 +29,7 @@ from scripts import REPO_ROOT
 from scripts.lib.project_config import load_site_url, normalize_site_url
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO),
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -127,6 +128,14 @@ def verify_deploy(
     """Wait until the deployed HTML and metadata match the expected deploy."""
     if attempts < 1:
         raise ValueError("attempts must be at least 1")
+
+    logger.debug(
+        "Verification config: url=%s, attempts=%d, delay=%.1fs, timeout=%.1fs",
+        url,
+        attempts,
+        delay_seconds,
+        timeout_seconds,
+    )
 
     normalized_metadata_path = _normalize_metadata_path(metadata_path)
     last_error: str | None = None

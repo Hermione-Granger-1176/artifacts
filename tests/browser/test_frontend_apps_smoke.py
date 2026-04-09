@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -46,9 +47,11 @@ def test_app_runtime_error_banner_is_visible_when_bootstrap_fails(
     deploy_root = build_real_site(tmp_path, monkeypatch)
     app_script = deploy_root / "apps" / "tokenizer-explorer" / "js" / "app.js"
     original = app_script.read_text(encoding="utf-8")
-    broken_script = original.replace(
-        "run: () => {",
-        "run: () => { throw new Error('broken startup');",
+    broken_script = re.sub(
+        r"run:\s*\(\)\s*=>\s*\{",
+        "run:()=>{throw new Error('broken startup');",
+        original,
+        count=1,
     )
     app_script.write_text(broken_script, encoding="utf-8")
 

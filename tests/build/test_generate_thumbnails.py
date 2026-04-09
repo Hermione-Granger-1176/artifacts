@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import builtins
 import json
+import logging
 import os
 import types
 from collections.abc import Mapping, Sequence
@@ -36,6 +37,19 @@ def test_find_artifacts_returns_only_visible_dirs_with_index_html(
     artifacts = generate_thumbnails.find_artifacts()
 
     assert [artifact.name for artifact in artifacts] == ["budget-tool", "loan-tool"]
+
+
+def test_find_artifacts_emits_debug_log_for_apps_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    apps_dir = tmp_path / "apps"
+    apps_dir.mkdir()
+    monkeypatch.setattr(generate_thumbnails, "APPS_DIR", apps_dir)
+
+    with caplog.at_level(logging.DEBUG):
+        generate_thumbnails.find_artifacts()
+
+    assert f"Scanning {apps_dir} for artifacts" in caplog.text
 
 
 def test_find_artifacts_returns_empty_when_apps_dir_is_missing(

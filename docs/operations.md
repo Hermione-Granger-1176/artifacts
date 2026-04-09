@@ -146,6 +146,7 @@ All runtime assets should be self-hosted. Do not load scripts, fonts, or stylesh
 
 ## Troubleshooting
 
+- Set `LOG_LEVEL=DEBUG` before any `make` command to get verbose output from build scripts (e.g., `LOG_LEVEL=DEBUG make index`). Accepted values: `DEBUG`, `INFO` (default), `WARNING`, `ERROR`. Applies to `generate_index.py`, `generate_thumbnails.py`, `prepare_site.py`, and `verify_deploy.py`.
 - If the Playwright Python package is unavailable locally, browser Playwright suites fail during collection and `make thumbnails` exits immediately; rerun `make setup-all`.
 - If Chromium is unavailable locally, `make check-web`, `make test-browser`, and `make test-browser-live` fail; run `make setup-all` to install it.
 - `make check-local` intentionally avoids Playwright so it can stay fast on machines without Chromium.

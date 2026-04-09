@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  applyDynamicStyles,
   buildFilterNotes,
   buildGridHtml,
   createDetailContent,
@@ -125,4 +126,57 @@ test('buildFilterNotes escapes HTML in labels', () => {
   assert.match(html, /data-filter-tool="&lt;xss&gt;"/);
   assert.match(html, />&lt;xss&gt;</);
   assert.doesNotMatch(html, /<xss>/);
+});
+
+test('applyDynamicStyles sets CSS custom properties from data attributes', () => {
+  function fakeElement(dataset) {
+    const props = {};
+    return {
+      dataset,
+      style: {
+        setProperty(name, value) { props[name] = value; },
+        _props: props
+      }
+    };
+  }
+
+  const chipEl = fakeElement({ chipColor: 'rgb(1,2,3)', rotate: '5' });
+  const capsuleEl = fakeElement({ capsuleBg: 'rgb(4,5,6)' });
+  const cardEl = fakeElement({ cardColor: 'var(--c)', noteRotate: '-1deg', noteHoverRotate: '0.5deg' });
+
+  const container = {
+    querySelectorAll(selector) {
+      if (selector === '[data-chip-color]') return [chipEl];
+      if (selector === '[data-capsule-bg]') return [capsuleEl];
+      if (selector === '[data-card-color]') return [cardEl];
+      return [];
+    }
+  };
+
+  applyDynamicStyles(container);
+
+  assert.equal(chipEl.style._props['--chip-color'], 'rgb(1,2,3)');
+  assert.equal(chipEl.style._props['--note-color'], 'rgb(1,2,3)');
+  assert.equal(chipEl.style._props['--rotate'], '5deg');
+  assert.equal(capsuleEl.style._props['--capsule-bg'], 'rgb(4,5,6)');
+  assert.equal(cardEl.style._props['--card-bg-color'], 'var(--c)');
+  assert.equal(cardEl.style._props['--note-rotate'], '-1deg');
+  assert.equal(cardEl.style._props['--note-hover-rotate'], '0.5deg');
+});
+
+test('applyDynamicStyles skips rotate when data-rotate is absent', () => {
+  const props = {};
+  const el = {
+    dataset: { chipColor: 'red' },
+    style: { setProperty(name, value) { props[name] = value; } }
+  };
+
+  applyDynamicStyles({
+    querySelectorAll(selector) {
+      return selector === '[data-chip-color]' ? [el] : [];
+    }
+  });
+
+  assert.equal(props['--chip-color'], 'red');
+  assert.equal(props['--rotate'], undefined);
 });
