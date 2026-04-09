@@ -762,10 +762,12 @@ def test_prepare_site_propagates_git_failures(
         prepare_site.prepare_site()
 
 
-# ── modulepreload hint injection ──────────────────────────────────────
+# modulepreload hint injection
 
 
-def test_resolve_module_tree_walks_imports(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_module_tree_walks_imports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
     write_text(tmp_path / "js" / "app.js", 'import { init } from "./modules/init.js";\n')
     write_text(tmp_path / "js" / "modules" / "init.js", 'import { util } from "./util.js";\n')
@@ -777,7 +779,9 @@ def test_resolve_module_tree_walks_imports(tmp_path: Path, monkeypatch: pytest.M
     assert "util.js" in dep_names
 
 
-def test_resolve_module_tree_handles_cycles(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_module_tree_handles_cycles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
     write_text(tmp_path / "a.js", 'import { b } from "./b.js";\n')
     write_text(tmp_path / "b.js", 'import { a } from "./a.js";\n')
@@ -788,7 +792,9 @@ def test_resolve_module_tree_handles_cycles(tmp_path: Path, monkeypatch: pytest.
     assert len(deps) == 1
 
 
-def test_resolve_module_tree_skips_missing_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_module_tree_skips_missing_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
     write_text(tmp_path / "app.js", 'import { x } from "./missing.js";\n')
 
@@ -796,7 +802,9 @@ def test_resolve_module_tree_skips_missing_files(tmp_path: Path, monkeypatch: py
     assert deps == []
 
 
-def test_resolve_module_tree_skips_outside_deploy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_module_tree_skips_outside_deploy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     deploy = tmp_path / "deploy"
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy)
     write_text(deploy / "app.js", 'import { x } from "../../outside.js";\n')
@@ -806,7 +814,9 @@ def test_resolve_module_tree_skips_outside_deploy(tmp_path: Path, monkeypatch: p
     assert deps == []
 
 
-def test_resolve_module_tree_follows_reexports(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_module_tree_follows_reexports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
     write_text(tmp_path / "app.js", 'import { y } from "./barrel.js";\n')
     write_text(tmp_path / "barrel.js", 'export { y } from "./leaf.js";\n')
@@ -817,7 +827,9 @@ def test_resolve_module_tree_follows_reexports(tmp_path: Path, monkeypatch: pyte
     assert "leaf.js" in dep_names
 
 
-def test_inject_modulepreload_hints_adds_links(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_inject_modulepreload_hints_adds_links(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
     write_text(
         tmp_path / "index.html",
@@ -833,7 +845,9 @@ def test_inject_modulepreload_hints_adds_links(tmp_path: Path, monkeypatch: pyte
     assert result.index("modulepreload") < result.index("</head>")
 
 
-def test_inject_modulepreload_hints_handles_nested_apps(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_inject_modulepreload_hints_handles_nested_apps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
     write_text(
         tmp_path / "apps" / "demo" / "index.html",

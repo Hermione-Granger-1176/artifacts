@@ -31,6 +31,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- pull_request_template.md
 |- apps/                     Artifact folders, each with index.html and metadata
 |- assets/
+|  |- fonts/                 Self-hosted web font subsets (Caveat, Fredoka One)
 |  |- icons/                 Logo, favicon, and web app manifest
 |  |- social/                Social share preview image
 |- config/                   Gallery metadata and security audit policy
@@ -81,6 +82,8 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `index.html`, `css/style.css`, `css/gallery/*`, `js/app.js`, `js/modules/gallery/*`: root gallery UI
 - `js/modules/runtime.js`, `js/modules/element-cache.js`, `js/modules/html-escape.js`: shared JS utilities
 - `css/app-tokens.css`, `css/app-shell.css`, `js/app-theme.js`, `js/modules/app-shell.js`: shared mature-app design and interaction system
+- `assets/fonts/*`: self-hosted Latin web font subsets for gallery display fonts
+- `css/fonts.css`: `@font-face` declarations for self-hosted Caveat and Fredoka One
 - `assets/icons/*`: logo, favicon, apple touch icon, PWA manifest, and raster icons
 - `assets/social/share-preview.png`: social preview image referenced by deploy-time Open Graph and Twitter metadata
 - `config/gallery_metadata.json`: shared tool and tag display metadata used by generators to produce `js/gallery-config.js` and ordered README badges

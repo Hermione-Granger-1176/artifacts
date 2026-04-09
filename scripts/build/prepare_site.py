@@ -39,10 +39,10 @@ PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
 DEPLOY_DIR = REPO_ROOT / "_site"
 GIT_COMMAND_TIMEOUT_SECONDS = 10
 ROOT_STYLESHEET_IMPORT_PATTERN = re.compile(r'@import url\("(\./[^"?]+\.css)"\);')
-_MODULE_SCRIPT_PATTERN = re.compile(
+MODULE_SCRIPT_PATTERN = re.compile(
     r'<script\s+type="module"\s+src="([^"]+)"'
 )
-_JS_IMPORT_PATTERN = re.compile(
+JS_IMPORT_PATTERN = re.compile(
     r"""(?:import|export)\s+.*?\s+from\s+['"]([^'"]+)['"]""",
     re.DOTALL,
 )
@@ -367,17 +367,16 @@ def _resolve_module_tree(entry_file: Path) -> list[Path]:
     """
     visited: set[Path] = set()
     result: list[Path] = []
+    deploy_root = DEPLOY_DIR.resolve()
 
     def _walk(js_file: Path) -> None:
-        resolved = js_file.resolve()
-        visited.add(resolved)
+        visited.add(js_file.resolve())
 
         if not js_file.exists():
             return
 
         content = js_file.read_text(encoding="utf-8")
-        deploy_root = DEPLOY_DIR.resolve()
-        for match in _JS_IMPORT_PATTERN.finditer(content):
+        for match in JS_IMPORT_PATTERN.finditer(content):
             dep_path = (js_file.parent / match.group(1)).resolve()
             if dep_path in visited or not dep_path.is_relative_to(deploy_root):
                 continue
@@ -398,7 +397,7 @@ def _inject_modulepreload_hints() -> None:
     """
     for html_path in DEPLOY_DIR.rglob("*.html"):
         content = html_path.read_text(encoding="utf-8")
-        script_match = _MODULE_SCRIPT_PATTERN.search(content)
+        script_match = MODULE_SCRIPT_PATTERN.search(content)
         if not script_match:
             continue
 
@@ -409,12 +408,10 @@ def _inject_modulepreload_hints() -> None:
             continue
 
         html_dir = html_path.parent.resolve()
-        hints: list[str] = []
-        for dep in deps:
-            rel = os.path.relpath(dep, html_dir)
-            # Normalise to forward slashes for URLs
-            href = rel.replace(os.sep, "/")
-            hints.append(f'  <link rel="modulepreload" href="{href}">')
+        hints = [
+            f'  <link rel="modulepreload" href="{os.path.relpath(dep, html_dir).replace(os.sep, "/")}">'
+            for dep in deps
+        ]
 
         insertion = "\n".join(hints) + "\n"
         content = content.replace("</head>", insertion + "</head>")

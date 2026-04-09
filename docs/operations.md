@@ -78,16 +78,16 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 
 See [architecture.md: External GitHub settings](architecture.md#external-github-settings) for the full list of required repository settings (Pages, branch protection, app tokens, secrets, rulesets). Use `make ci` to discover the `make ci-audit-repo-settings` wrapper for the manual drift check.
 
-## Runtime dependencies
+## Vendored runtime dependencies
 
-- `apps/loan-amortization/` is the only app with external runtime CDN dependencies today.
-- Current approved CDN assets are:
+- There are no external CDN dependencies at runtime. All third-party scripts are vendored locally.
+- `apps/loan-amortization/js/vendor/` contains:
   - Chart.js `4.4.1`
   - `chartjs-plugin-annotation` `3.0.1`
   - `chartjs-plugin-datalabels` `2.2.0`
-- Each external script tag must keep a pinned version, `integrity` hash, and `crossorigin="anonymous"`.
-- When updating a CDN asset, update the version, regenerate the SRI hash, rerun the browser suites, and note the change in the app README or architecture doc.
-- Review upstream releases when touching the app or at least once per quarter so the pinned versions and SRI hashes do not quietly age out.
+- Versions are pinned and upgraded manually for stability. To upgrade, download the new UMD builds from cdnjs, replace the files in `js/vendor/`, and rerun the browser suites.
+- Vendored directories are excluded from ESLint (`**/vendor/**` in `eslint.config.js`) and lint checks (`vendor` in `scripts/lint/__init__.py` `SKIP_DIRECTORIES`).
+- See `apps/loan-amortization/docs/decisions.md` for rationale.
 
 ## Rollback and recovery
 
@@ -122,11 +122,11 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
 2. Inspect the generated diff and determine whether the source change or the generator contract is wrong.
 3. Land the source or generator fix, then rerun the strict gate.
 
-### CDN dependency outage
+### Vendored dependency update
 
-1. Check whether the failure is isolated to the external Chart.js CDN scripts in `apps/loan-amortization/index.html`.
-2. If the outage is real, either pin to an alternate approved CDN with fresh SRI hashes or temporarily vendor the scripts into the repo and update the HTML references.
-3. Run browser suites before publishing the workaround and document the decision in the app docs.
+1. Download the new UMD builds from cdnjs into `apps/loan-amortization/js/vendor/`.
+2. Update the version numbers in `apps/loan-amortization/docs/decisions.md`.
+3. Run browser suites before publishing and update the app README if the version changed.
 
 ### Security gate failure
 

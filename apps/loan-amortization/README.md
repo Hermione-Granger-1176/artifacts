@@ -12,7 +12,7 @@ Interactive loan amortization calculator with charts, extra payment scenarios, a
 
 ## Structure
 
-- `index.html` - app shell, metadata, semantic layout, and CDN script tags
+- `index.html` - app shell, metadata, and semantic layout
 - `css/app.css` - calculator-specific layout and component styling layered on top of the shared app system
 - `js/app.js` - bootstrap and top-level coordination across the smaller loan modules
 - `js/modules/amortization.js` - amortization math and schedule generation
@@ -24,13 +24,14 @@ Interactive loan amortization calculator with charts, extra payment scenarios, a
 - `js/modules/metrics.js` - metric card markup and rendering
 - `js/modules/schedule-summary.js` - cadence helpers, accelerated bi-weekly EMI, and table totals
 - `js/modules/ui.js` - DOM caching and UI state sync helpers
+- `js/vendor/` - vendored Chart.js and plugin UMD bundles
 - `docs/` - architecture notes, verification references, and implementation decisions
 
 ## Dependencies
 
-- Chart.js via CDN
-- `chartjs-plugin-annotation` via CDN
-- `chartjs-plugin-datalabels` via CDN
+- Chart.js 4.4.1 (vendored in `js/vendor/`)
+- chartjs-plugin-annotation 3.0.1 (vendored in `js/vendor/`)
+- chartjs-plugin-datalabels 2.2.0 (vendored in `js/vendor/`)
 
 ## Development notes
 

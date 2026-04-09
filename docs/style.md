@@ -53,7 +53,7 @@ Run `make lint`, `make coverage-js`, or `make check-local` to check. `make cover
 ## CSS
 
 - **Indent:** 2 spaces
-- **Entry file:** `css/style.css`, which imports partials from `css/gallery/` for the root gallery (tokens, reset, header, toolbar, book, cards, detail, responsive, etc.)
+- **Entry file:** `css/style.css`, which first imports `css/fonts.css` (self-hosted font declarations) then partials from `css/gallery/` for the root gallery (tokens, reset, header, toolbar, book, cards, detail, responsive, etc.)
 - **Shared app system:** `css/app-tokens.css` defines shared tokens; `css/app-shell.css` imports partials from `css/app/` for the shared mature-app shell patterns
 - **Linter:** stylelint, configured in `stylelint.config.js`
 - **Conventions:**
