@@ -1,4 +1,5 @@
 /* Root gallery stylesheet entry point */
+@import url("./fonts.css");
 @import url("./gallery/01-tokens.css");
 @import url("./gallery/02-tokens-dark.css");
 @import url("./gallery/03-reset.css");

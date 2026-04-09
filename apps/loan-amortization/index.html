@@ -21,16 +21,25 @@
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
   <title>Loan Amortization Schedule | Artifacts</title>
   <script src="../../js/app-theme.js"></script>
   <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
   <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
+  <link rel="preload" href="../../css/app-tokens.css" as="style">
+  <link rel="preload" href="../../css/app-shell.css" as="style">
+  <link rel="preload" href="./css/app.css" as="style">
+  <link rel="preload" href="./js/vendor/chart.umd.min.js" as="script">
+  <link rel="preload" href="./js/vendor/chartjs-plugin-annotation.min.js" as="script">
+  <link rel="preload" href="./js/vendor/chartjs-plugin-datalabels.min.js" as="script">
   <link rel="stylesheet" href="../../css/app-tokens.css">
   <link rel="stylesheet" href="../../css/app-shell.css">
   <link rel="stylesheet" href="./css/app.css">
+  <script defer src="./js/vendor/chart.umd.min.js"></script>
+  <script defer src="./js/vendor/chartjs-plugin-annotation.min.js"></script>
+  <script defer src="./js/vendor/chartjs-plugin-datalabels.min.js"></script>
 </head>
 <body>
   <div data-app-shell="header"></div>
@@ -204,9 +213,6 @@
 
   <div data-app-shell="scroll-top"></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js" integrity="sha384-oNtu+d18330MVFpltUTve1DatxCkkctlpA2AC3GulbVFOSqhHdDat3qHse/Lbuek" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js" integrity="sha384-y49Zu59jZHJL/PLKgZPv3k2WI9c0Yp3pWB76V8OBVCb0QBKS8l4Ff3YslzHVX76Y" crossorigin="anonymous"></script>
   <script type="module" src="./js/app.js"></script>
 </body>
 </html>

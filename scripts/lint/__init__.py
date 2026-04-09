@@ -13,5 +13,6 @@ SKIP_DIRECTORIES = frozenset(
         "build",
         "dist",
         "node_modules",
+        "vendor",
     }
 )

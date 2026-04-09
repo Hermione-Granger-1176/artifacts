@@ -152,6 +152,18 @@ def test_discover_source_files_skips_mjs_in_node_modules(tmp_path: Path) -> None
     assert "js/node_modules/vendor.mjs" not in relative
 
 
+def test_discover_source_files_skips_vendor(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    (root / "apps" / "my-app" / "js" / "vendor").mkdir(parents=True)
+    (root / "apps" / "my-app" / "js" / "vendor" / "lib.min.js").write_text("// vendor")
+    (root / "apps" / "my-app" / "js").mkdir(parents=True, exist_ok=True)
+    (root / "apps" / "my-app" / "js" / "app.js").write_text("export default 1;")
+    files = discover_source_files(root)
+    relative = {f.relative_to(root).as_posix() for f in files}
+    assert "apps/my-app/js/app.js" in relative
+    assert "apps/my-app/js/vendor/lib.min.js" not in relative
+
+
 def test_discover_source_files_finds_mjs(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     (root / "js").mkdir(parents=True)

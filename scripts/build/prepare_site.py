@@ -39,6 +39,13 @@ PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
 DEPLOY_DIR = REPO_ROOT / "_site"
 GIT_COMMAND_TIMEOUT_SECONDS = 10
 ROOT_STYLESHEET_IMPORT_PATTERN = re.compile(r'@import url\("(\./[^"?]+\.css)"\);')
+_MODULE_SCRIPT_PATTERN = re.compile(
+    r'<script\s+type="module"\s+src="([^"]+)"'
+)
+_JS_IMPORT_PATTERN = re.compile(
+    r"""(?:import|export)\s+.*?\s+from\s+['"]([^'"]+)['"]""",
+    re.DOTALL,
+)
 DEPLOY_METADATA_FILE = "deploy-metadata.json"
 DEPLOY_COMMIT_SHA_ENV_VAR = "ARTIFACTS_DEPLOY_COMMIT_SHA"
 DEPLOY_VERSION_ENV_VAR = "ARTIFACTS_DEPLOY_VERSION"
@@ -350,6 +357,75 @@ def _write_deploy_metadata(*, commit_sha: str, version: str, site_path: str) -> 
     )
 
 
+def _resolve_module_tree(entry_file: Path) -> list[Path]:
+    """Walk ES module imports starting from *entry_file* and return all dependencies.
+
+    Only static ``import … from "…"`` and ``export … from "…"`` are followed.
+    Dynamic ``import()`` is ignored because the browser discovers them at runtime.
+    The entry file itself is excluded from the result (it is already referenced by
+    the ``<script>`` tag).
+    """
+    visited: set[Path] = set()
+    result: list[Path] = []
+
+    def _walk(js_file: Path) -> None:
+        resolved = js_file.resolve()
+        visited.add(resolved)
+
+        if not js_file.exists():
+            return
+
+        content = js_file.read_text(encoding="utf-8")
+        deploy_root = DEPLOY_DIR.resolve()
+        for match in _JS_IMPORT_PATTERN.finditer(content):
+            dep_path = (js_file.parent / match.group(1)).resolve()
+            if dep_path in visited or not dep_path.is_relative_to(deploy_root):
+                continue
+            if dep_path.exists():
+                result.append(dep_path)
+            _walk(dep_path)
+
+    _walk(entry_file)
+    return result
+
+
+def _inject_modulepreload_hints() -> None:
+    """Inject ``<link rel="modulepreload">`` tags for every ES module dependency.
+
+    For each HTML file in ``_site/`` that contains a ``<script type="module">``,
+    the full static import tree is walked and matching ``<link>`` hints are
+    inserted before ``</head>`` so the browser can fetch all modules in parallel.
+    """
+    for html_path in DEPLOY_DIR.rglob("*.html"):
+        content = html_path.read_text(encoding="utf-8")
+        script_match = _MODULE_SCRIPT_PATTERN.search(content)
+        if not script_match:
+            continue
+
+        entry_href = script_match.group(1).split("?")[0]
+        entry_file = (html_path.parent / entry_href).resolve()
+        deps = _resolve_module_tree(entry_file)
+        if not deps:
+            continue
+
+        html_dir = html_path.parent.resolve()
+        hints: list[str] = []
+        for dep in deps:
+            rel = os.path.relpath(dep, html_dir)
+            # Normalise to forward slashes for URLs
+            href = rel.replace(os.sep, "/")
+            hints.append(f'  <link rel="modulepreload" href="{href}">')
+
+        insertion = "\n".join(hints) + "\n"
+        content = content.replace("</head>", insertion + "</head>")
+        html_path.write_text(content, encoding="utf-8")
+        logger.info(
+            "Injected %d modulepreload hint(s) in %s",
+            len(hints),
+            html_path.relative_to(DEPLOY_DIR),
+        )
+
+
 def prepare_site() -> None:
     """Build the deployable ``_site/`` payload for GitHub Pages."""
     logger.info("Preparing deployable site output")
@@ -365,6 +441,7 @@ def prepare_site() -> None:
     _patch_root_stylesheet(version)
     _patch_404_html(site_path)
     _patch_manifest(site_path)
+    _inject_modulepreload_hints()
     _write_nojekyll()
     _write_deploy_metadata(commit_sha=commit_sha, version=version, site_path=site_path)
     logger.info("Prepared %s", DEPLOY_DIR)
