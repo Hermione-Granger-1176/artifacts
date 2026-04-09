@@ -119,6 +119,20 @@ export async function fetchJson(url, options, dependencies = {}) {
 }
 
 /**
+ * Check whether an error indicates the ref already exists (HTTP 422).
+ * @param {Error | null} error - Error to classify.
+ * @returns {boolean} Whether the error is a "Reference already exists" 422.
+ */
+export function isRefAlreadyExistsError(error) {
+  if (!error) {
+    return false;
+  }
+
+  const message = String(error.message || error);
+  return /422/.test(message) && /Reference already exists/i.test(message);
+}
+
+/**
  * Check whether an error looks transient enough to retry.
  * @param {Error | null} error - Error to classify.
  * @returns {boolean} Whether the error is transient and worth retrying.
@@ -332,38 +346,31 @@ export async function runVerifiedCommit({
 
   const fallbackBranch = createBranchName(fallbackBranchPrefix, now);
   const fullRef = `refs/heads/${fallbackBranch}`;
+  const refsUrl = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
 
   const matchingRefs = await clients.fetchJson(
     `https://api.github.com/repos/${owner}/${repo}/git/matching-refs/heads/${fallbackBranch}`
   );
   const branchExists = matchingRefs.some((ref) => ref.ref === fullRef);
 
-  const resetBranch = () =>
-    clients.fetchJson(
-      `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${fallbackBranch}`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ sha: expectedHeadSha, force: true })
-      }
-    );
+  // Create or force-reset the fallback branch to the current base.
+  // The race guard handles another run creating the branch between our
+  // existence check and the POST — only "Reference already exists" 422s
+  // are recovered; all other errors propagate.
+  const needsReset = branchExists
+    || await clients.fetchJson(refsUrl, {
+      method: 'POST',
+      body: JSON.stringify({ ref: fullRef, sha: expectedHeadSha })
+    }).then(() => false, (error) => {
+      if (!isRefAlreadyExistsError(error)) { throw error; }
+      return true;
+    });
 
-  if (branchExists) {
-    // Force-reset to the current base so stale commits from a previous
-    // run on the same day are discarded.
-    await resetBranch();
-  } else {
-    try {
-      await clients.fetchJson(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
-        method: 'POST',
-        body: JSON.stringify({ ref: fullRef, sha: expectedHeadSha })
-      });
-    } catch (error) {
-      if (!/422/.test(String(error.message))) {
-        throw error;
-      }
-      // Race: another run created the branch after our check — reset it.
-      await resetBranch();
-    }
+  if (needsReset) {
+    await clients.fetchJson(`${refsUrl}/heads/${fallbackBranch}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ sha: expectedHeadSha, force: true })
+    });
   }
 
   const fallbackCommit = await createCommit(

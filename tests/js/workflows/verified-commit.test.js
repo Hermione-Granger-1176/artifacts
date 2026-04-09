@@ -5,6 +5,7 @@ import {
   createBranchName,
   createGitArgs,
   fetchJson,
+  isRefAlreadyExistsError,
   isRetryableError,
   parseDiffOutput,
   runVerifiedCommit,
@@ -186,6 +187,16 @@ test('isRetryableError handles null and abort errors', () => {
 
   assert.equal(isRetryableError(null), false);
   assert.equal(isRetryableError(abortError), true);
+});
+
+test('isRefAlreadyExistsError matches 422 Reference already exists', () => {
+  assert.equal(isRefAlreadyExistsError(null), false);
+  assert.equal(isRefAlreadyExistsError(new Error('500 Internal Server Error')), false);
+  assert.equal(isRefAlreadyExistsError(new Error('422 Unprocessable Entity: invalid ref')), false);
+  assert.equal(
+    isRefAlreadyExistsError(new Error('422 Unprocessable Entity: Reference already exists')),
+    true
+  );
 });
 
 test('createBranchName is deterministic for a given date', () => {
@@ -541,5 +552,71 @@ test('runVerifiedCommit new fallback branch skips PATCH and creates via POST', a
     requests.some((request) => request.options.method === 'PATCH'),
     false,
     'should not PATCH when branch does not exist'
+  );
+});
+
+test('runVerifiedCommit recovers from race when POST returns 422 Reference already exists', async () => {
+  const requests = [];
+  const result = await runVerifiedCommit({
+    env: {
+      GH_TOKEN_INPUT: 'token',
+      GITHUB_OUTPUT: '/tmp/output',
+      GITHUB_REPOSITORY: 'octo/repo',
+      BASE_BRANCH: 'main',
+      EXPECTED_HEAD_SHA: 'abc123',
+      COMMIT_HEADLINE: 'Update generated artifacts [skip ci]',
+      FALLBACK_BRANCH_PREFIX: 'auto/update-artifacts',
+      PR_TITLE: 'Update generated artifacts',
+      PR_BODY: 'Body',
+      PATHSPEC_INPUT: 'js/data.js'
+    },
+    execFileSyncImpl() {
+      return 'A\tjs/data.js';
+    },
+    existsSyncImpl() {
+      return true;
+    },
+    readFileSyncImpl() {
+      return Buffer.from('payload');
+    },
+    appendFileSyncImpl() {},
+    consoleObj: { log() {}, error() {} },
+    fetchDependencies: {
+      fetchImpl: async (url, options = {}) => {
+        requests.push({ url, options });
+        if (url === 'https://api.github.com/graphql') {
+          const body = JSON.parse(options.body);
+          return body.variables.input.branch.branchName === 'main'
+            ? createProtectedBranchResponse()
+            : createGraphqlCommitResponse();
+        }
+        if (url.includes('/matching-refs/heads/')) {
+          return createJsonResponse([]);
+        }
+        if (url.endsWith('/git/refs') && options.method === 'POST') {
+          return createTextResponse('Reference already exists', {
+            ok: false, status: 422, statusText: 'Unprocessable Entity'
+          });
+        }
+        if (url.includes('/git/refs/heads/') && options.method === 'PATCH') {
+          return createJsonResponse({ ref: 'refs/heads/reset', object: { sha: 'abc123' } });
+        }
+        if (url.includes('/pulls?')) {
+          return createJsonResponse([]);
+        }
+        if (url.endsWith('/pulls')) {
+          return createJsonResponse({ html_url: 'https://example.com/pr/race' }, { status: 201 });
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      },
+      sleepImpl: async () => {}
+    },
+    now: new Date('2026-03-19T12:00:00Z')
+  });
+
+  assert.equal(result.resultUrl, 'https://example.com/pr/race');
+  assert.ok(
+    requests.some((request) => request.options.method === 'PATCH'),
+    'should fall through to PATCH after 422 race'
   );
 });
