@@ -921,6 +921,11 @@ def test_inject_modulepreload_hints_skips_html_without_module_script(
 
 # -- minification tests --------------------------------------------------------
 
+_requires_esbuild = pytest.mark.skipif(
+    not prepare_site.ESBUILD_BIN.exists(),
+    reason="esbuild not installed",
+)
+
 
 def test_is_minifiable_js_skips_vendor_and_min_files() -> None:
     from pathlib import PurePosixPath
@@ -932,6 +937,7 @@ def test_is_minifiable_js_skips_vendor_and_min_files() -> None:
     assert not prepare_site._is_minifiable_js(PurePosixPath("data.json"))
 
 
+@_requires_esbuild
 def test_minify_file_reduces_css_size(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -948,6 +954,7 @@ def test_minify_file_reduces_css_size(
     assert "color:" in result or "color:red" in result
 
 
+@_requires_esbuild
 def test_minify_file_reduces_js_size(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -963,6 +970,7 @@ def test_minify_file_reduces_js_size(
     assert "// comment" not in result
 
 
+@_requires_esbuild
 def test_minify_site_assets_processes_css_and_js(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

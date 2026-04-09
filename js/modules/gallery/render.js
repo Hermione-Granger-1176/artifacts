@@ -280,7 +280,7 @@ function createCard(item, isExpanded, index) {
 
   const rotation = getRotationData(index);
   return `
-    <button class="artifact-card ${isExpanded ? 'expanded' : ''}" data-id="${escapeHtml(item.id)}" data-card-color="${cardColor}" data-note-rotate="${rotation.noteRotate}" data-note-hover-rotate="${rotation.noteHoverRotate}" type="button"
+    <button class="artifact-card ${isExpanded ? 'expanded' : ''}" data-id="${escapeHtml(item.id)}" data-card-color="${escapeHtml(cardColor)}" data-note-rotate="${escapeHtml(rotation.noteRotate)}" data-note-hover-rotate="${escapeHtml(rotation.noteHoverRotate)}" type="button"
       aria-label="View details for ${escapeHtml(item.name)}" aria-expanded="${isExpanded}" aria-haspopup="dialog">
       <div class="card-note">
         <div class="card-thumbnail-area">

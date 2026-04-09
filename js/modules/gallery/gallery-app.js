@@ -143,20 +143,25 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return Promise.resolve(overlayInstance);
     }
     if (!overlayLoading) {
-      overlayLoading = import('./detail-overlay.js').then(({ createDetailOverlay }) => {
-        overlayInstance = createDetailOverlay({
-          detailOverlay: detailOverlayEl,
-          detailPanel,
-          grid,
-          documentObj,
-          windowObj,
-          motion,
-          setBackgroundContentInert,
-          backgroundElements,
-          detailCloseDelay: DETAIL_CLOSE_DELAY
+      overlayLoading = import('./detail-overlay.js')
+        .then(({ createDetailOverlay }) => {
+          overlayInstance = createDetailOverlay({
+            detailOverlay: detailOverlayEl,
+            detailPanel,
+            grid,
+            documentObj,
+            windowObj,
+            motion,
+            setBackgroundContentInert,
+            backgroundElements,
+            detailCloseDelay: DETAIL_CLOSE_DELAY
+          });
+          return overlayInstance;
+        })
+        .catch((error) => {
+          overlayLoading = null;
+          throw error;
         });
-        return overlayInstance;
-      });
     }
     return overlayLoading;
   }
@@ -169,12 +174,20 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     trapFocus: (event) => overlayInstance?.trapFocus(event) ?? false,
     close: (opts) => overlayInstance?.close(opts),
     async open(id, triggerCard, items) {
-      const inst = await ensureOverlay();
-      inst.open(id, triggerCard, items);
+      try {
+        const inst = await ensureOverlay();
+        inst.open(id, triggerCard, items);
+      } catch (error) {
+        runtime.reportError(error, 'overlay open');
+      }
     },
     async toggle(id, triggerCard, items) {
-      const inst = await ensureOverlay();
-      inst.toggle(id, triggerCard, items);
+      try {
+        const inst = await ensureOverlay();
+        inst.toggle(id, triggerCard, items);
+      } catch (error) {
+        runtime.reportError(error, 'overlay toggle');
+      }
     }
   };
 
