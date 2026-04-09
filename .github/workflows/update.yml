@@ -156,6 +156,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('locks/requirements-dev.lock') }}
+
       - name: Install workspace dependencies
         run: make setup-ci
 
@@ -358,6 +364,13 @@ jobs:
         with:
           name: site-${{ github.run_id }}
           path: _site
+
+      - name: Cache Playwright browsers
+        if: steps.setup.outputs.token-available == 'true'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('locks/requirements-dev.lock') }}
 
       - name: Install dependencies for live browser verification
         if: steps.setup.outputs.token-available == 'true'

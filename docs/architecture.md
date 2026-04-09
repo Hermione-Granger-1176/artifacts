@@ -152,7 +152,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
   - Does NOT wait for `secret-scan` or `dependency-review`. Those continue in the background.
   - Step by step:
     1. Checks out the PR branch code.
-    2. Installs Python, Node, and Chromium (`make setup-ci`).
+    2. Restores cached Playwright browsers, then installs Python, Node, and Chromium (`make setup-ci`).
     3. Runs `make check-local`: EditorConfig check, ruff, ESLint, stylelint, yamllint, workflow lint, JS source-to-test coverage lint, Python tests (100% coverage on `scripts/`), JS tests, JS coverage (95/85/95 thresholds), pip-audit, npm audit, artifact directory validation, and canonical generated-file drift verification.
     4. If `thumbnail-scope` is not `none`: calls `scripts/ci/workflow_helpers.py invalidate-thumbnails` to delete stale `thumbnail.webp` files for apps with runtime changes, so they will be regenerated fresh.
     5. Runs `make test-browser-root`: opens the gallery in Chromium, tests search, filters, pagination, detail overlay, keyboard navigation, accessibility, `404.html`.
@@ -173,7 +173,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
     1. Checks out the PR branch code (for `pyproject.toml` reading only, `persist-credentials: false`).
     2. Runs `ci-setup` action: calls `scripts/ci/workflow_helpers.py app-token-policy` → tokens allowed (same-repo, not fork, not Dependabot). Mints Hermione1176 (primary) and Harry1176 (escalation) tokens.
     3. Downloads the `site-{run_id}` artifact into `_site/`. Does NOT rebuild anything.
-    4. Installs Chromium for live browser tests (`make setup-ci`).
+    4. Restores cached Playwright browsers, then installs Chromium for live browser tests (`make setup-ci`).
     5. Reads site URL from `pyproject.toml`, constructs preview URL: `{site_url}/pr-preview/pr-{N}/`.
     6. Deploys `_site/` to `gh-pages` branch under `pr-preview/pr-{N}/` using `deploy-verified.mjs` with `DEPLOY_SUBDIR`. This is a verified GraphQL commit using the Harry1176 (escalation) token. Only touches that subdirectory. The main site and other PR previews are untouched.
     7. Posts a sticky comment on the PR with the preview URL (recreated on each push so the latest is always at the bottom).

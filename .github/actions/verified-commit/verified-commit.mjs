@@ -338,21 +338,32 @@ export async function runVerifiedCommit({
   );
   const branchExists = matchingRefs.some((ref) => ref.ref === fullRef);
 
-  if (branchExists) {
-    // Force-reset to the current base so stale commits from a previous
-    // run on the same day are discarded.
-    await clients.fetchJson(
+  const resetBranch = () =>
+    clients.fetchJson(
       `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${fallbackBranch}`,
       {
         method: 'PATCH',
         body: JSON.stringify({ sha: expectedHeadSha, force: true })
       }
     );
+
+  if (branchExists) {
+    // Force-reset to the current base so stale commits from a previous
+    // run on the same day are discarded.
+    await resetBranch();
   } else {
-    await clients.fetchJson(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
-      method: 'POST',
-      body: JSON.stringify({ ref: fullRef, sha: expectedHeadSha })
-    });
+    try {
+      await clients.fetchJson(`https://api.github.com/repos/${owner}/${repo}/git/refs`, {
+        method: 'POST',
+        body: JSON.stringify({ ref: fullRef, sha: expectedHeadSha })
+      });
+    } catch (error) {
+      if (!/422/.test(String(error.message))) {
+        throw error;
+      }
+      // Race: another run created the branch after our check — reset it.
+      await resetBranch();
+    }
   }
 
   const fallbackCommit = await createCommit(
