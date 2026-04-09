@@ -89,6 +89,16 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
 - Vendored directories are excluded from ESLint (`**/vendor/**` in `eslint.config.js`) and lint checks (`vendor` in `scripts/lint/__init__.py` `SKIP_DIRECTORIES`).
 - See `apps/loan-amortization/docs/decisions.md` for rationale.
 
+### Self-hosted fonts
+
+- Gallery display fonts (Caveat, Fredoka One) are self-hosted as WOFF2 Latin subsets in `assets/fonts/`.
+- `@font-face` declarations live in `css/fonts.css`, imported by `css/style.css`.
+- When adding a new font, download the WOFF2 subset into `assets/fonts/`, add the `@font-face` rule to `css/fonts.css`, and verify the CSP `font-src 'self'` directive still covers it.
+
+### Adding external assets to a new artifact
+
+All runtime assets should be self-hosted. Do not load scripts, fonts, or stylesheets from external CDNs. For third-party JS libraries, download UMD builds into a `js/vendor/` directory inside the app. Browser tests will flag any unexpected external requests as failures.
+
 ## Rollback and recovery
 
 ### Bad main deploy

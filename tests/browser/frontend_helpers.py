@@ -25,7 +25,6 @@ ROOT_A11Y_STYLE_CONTENT = "\n".join(
 )
 ARTIFACT_DIR_ENV = "ARTIFACTS_BROWSER_ARTIFACT_DIR"
 APP_SLUGS_ENV = "ARTIFACTS_BROWSER_APP_SLUGS"
-IGNORED_EXTERNAL_HOSTS: set[str] = set()
 REAL_APPS_DIR = REPO_ROOT / "apps"
 
 
@@ -252,11 +251,6 @@ class RuntimeMonitor:
 
             location = message.location or {}
             location_url = location.get("url", "")
-            if self._should_ignore_url(location_url, base_host) and any(
-                host in message.text for host in IGNORED_EXTERNAL_HOSTS
-            ):
-                return
-
             if _matches_allowed(message.text, self.allowed_console_errors):
                 return
 
@@ -315,14 +309,18 @@ class RuntimeMonitor:
         page.on("response", track_response)
 
     def _should_ignore_url(self, url: str, base_host: str) -> bool:
+        """Return True for non-HTTP URLs (data:, blob:, etc.).
+
+        All assets are self-hosted, so any request to an external host is
+        unexpected and should surface as a test failure.  If a future app
+        needs to allowlist an external origin, add the host to a set here
+        and gate the return on membership (see git history for the former
+        IGNORED_EXTERNAL_HOSTS pattern).
+        """
         if not url:
             return False
         parts = urlsplit(url)
-        if parts.scheme not in {"http", "https"}:
-            return True
-        if parts.netloc.lower() == base_host:
-            return False
-        return parts.netloc.lower() in IGNORED_EXTERNAL_HOSTS
+        return parts.scheme not in {"http", "https"}
 
     def has_failures(self) -> bool:
         return bool(
