@@ -15,7 +15,8 @@ Examples:
     python scripts/ci/workflow_helpers.py invalidate-thumbnails --event-name pull_request \
         --repo owner/repo --pr-number 42
     python scripts/ci/workflow_helpers.py thumbnail-plan --event-name push \
-        --repo owner/repo --commit-sha abc123
+        --repo owner/repo --commit-sha abc123 \
+        --actor bot-login[bot] --app-bot-login bot-login[bot]
     python scripts/ci/workflow_helpers.py validate-thumbnail-artifact \
         --root .artifacts/thumbnail-persist
     python scripts/ci/workflow_helpers.py audit-repo-settings --repo owner/repo

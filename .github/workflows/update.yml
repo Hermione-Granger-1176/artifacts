@@ -71,13 +71,13 @@ jobs:
           HEAD_REPO_FORK: ${{ github.event.pull_request.head.repo.fork || 'false' }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login || '' }}
           ACTOR: ${{ github.actor }}
-          APP_BOT_LOGIN: ${{ steps.app-identity.outputs.app-slug }}[bot]
+          APP_BOT_LOGIN: ${{ steps.app-identity.outputs.app-slug && format('{0}[bot]', steps.app-identity.outputs.app-slug) || '' }}
         run: |
           plan=$(python3 scripts/ci/workflow_helpers.py thumbnail-plan \
             --event-name "${{ github.event_name }}" \
             --repo "${{ github.repository }}" \
             --pr-number "${{ github.event.pull_request.number || '' }}" \
-            --commit-sha "${{ github.sha }}" \
+            --commit-sha "${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}" \
             --head-repo-fork "$HEAD_REPO_FORK" \
             --pr-author "$PR_AUTHOR" \
             --actor "$ACTOR" \
@@ -310,7 +310,7 @@ jobs:
   # Publish only the verified `_site` artifact. This job never regenerates
   # thumbnails or mutates source branches.
   # Skipped alongside verify when the planner detects an automated
-  # thumbnail-only commit — the site was already deployed by the prior run.
+  # thumbnail-only commit. The site was already deployed by the prior run.
   publish:
     if: >-
       github.event.action != 'closed' &&

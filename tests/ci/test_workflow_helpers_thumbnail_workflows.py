@@ -767,12 +767,7 @@ def test_main_invalidate_thumbnails_returns_zero(
     assert "No thumbnails invalidated" in capsys.readouterr().out
 
 
-# --- is_automated_thumbnail_commit and skip_verification tests ---
-
-
-def test_is_automated_thumbnail_commit_true_when_actor_matches_and_files_are_thumbnails() -> (
-    None
-):
+def test_is_automated_thumbnail_commit_true_for_bot_thumbnails() -> None:
     result = thumbnail_plan.is_automated_thumbnail_commit(
         actor="hermione1176[bot]",
         app_bot_login="hermione1176[bot]",
@@ -825,7 +820,11 @@ def test_is_automated_thumbnail_commit_false_when_no_files() -> None:
 
 
 def test_is_automated_thumbnail_commit_false_when_empty_actor_or_bot_login() -> None:
-    for actor, bot_login in [("", "hermione1176[bot]"), ("hermione1176[bot]", ""), ("", "")]:
+    for actor, bot_login in [
+        ("", "hermione1176[bot]"),
+        ("hermione1176[bot]", ""),
+        ("", ""),
+    ]:
         result = thumbnail_plan.is_automated_thumbnail_commit(
             actor=actor,
             app_bot_login=bot_login,
@@ -859,7 +858,10 @@ def test_thumbnail_plan_skip_verification_true_for_bot_thumbnail_commit(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "apps/loan-amortization/js/app.js\napps/loan-amortization/thumbnail.webp\n",
+        lambda *args, **kwargs: (
+            "apps/loan-amortization/js/app.js\n"
+            "apps/loan-amortization/thumbnail.webp\n"
+        ),
     )
     # Commit-level files are only thumbnails (Hermione's commit)
     monkeypatch.setattr(
@@ -947,7 +949,7 @@ def test_thumbnail_plan_skip_verification_true_for_merged_thumbnail_followup(
     assert plan["reason"] == "merged-thumbnail-pr"
 
 
-def test_thumbnail_plan_skip_verification_false_for_merged_thumbnail_followup_with_extra_files(
+def test_thumbnail_plan_skip_verification_false_for_followup_with_extra_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
@@ -958,7 +960,10 @@ def test_thumbnail_plan_skip_verification_false_for_merged_thumbnail_followup_wi
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "apps/loan-amortization/thumbnail.webp\napps/loan-amortization/index.html\n",
+        lambda *args, **kwargs: (
+            "apps/loan-amortization/thumbnail.webp\n"
+            "apps/loan-amortization/index.html\n"
+        ),
     )
     monkeypatch.setattr(
         workflow_helpers,

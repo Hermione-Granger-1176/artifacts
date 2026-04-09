@@ -49,9 +49,7 @@ def is_generated_thumbnail_pr(pr_payload: object) -> bool:
     title = pr_field(pr_payload, "title")
     body = pr_field(pr_payload, "body")
     head = pr_payload.get("head")
-    head_ref = ""
-    if isinstance(head, dict):
-        head_ref = pr_field(head, "ref")
+    head_ref = pr_field(head, "ref") if isinstance(head, dict) else ""
 
     return (
         head_ref.startswith(THUMBNAIL_FOLLOWUP_BRANCH_PREFIX)
@@ -136,6 +134,11 @@ def list_commit_files(
     return [line for raw_line in stdout.splitlines() if (line := raw_line.strip())]
 
 
+def _all_thumbnail_files(files: list[str]) -> bool:
+    """Return True when every file matches the thumbnail pattern."""
+    return bool(files) and all(re.match(THUMBNAIL_PATTERN, f) for f in files)
+
+
 def is_automated_thumbnail_commit(
     *,
     actor: str,
@@ -152,14 +155,13 @@ def is_automated_thumbnail_commit(
 
     Returns False on any detection failure (empty actor, empty bot login,
     missing commit SHA, no files, or non-thumbnail files). This ensures the
-    skip is a narrow optimization exit — never a default.
+    skip is a narrow optimization exit, never a default.
     """
     if not actor or not app_bot_login or actor != app_bot_login:
         return False
-    files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
-    if not files:
-        return False
-    return all(re.match(THUMBNAIL_PATTERN, f) for f in files)
+    return _all_thumbnail_files(
+        list_commit_files_fn(repo=repo, commit_sha=commit_sha)
+    )
 
 
 def thumbnail_persist_decision(
@@ -259,9 +261,8 @@ def thumbnail_plan(
         list_commit_files_fn=list_commit_files_fn,
     )
     if not skip_verification and associated_pr_kind == "thumbnail-followup":
-        commit_files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
-        skip_verification = bool(commit_files) and all(
-            re.match(THUMBNAIL_PATTERN, f) for f in commit_files
+        skip_verification = _all_thumbnail_files(
+            list_commit_files_fn(repo=repo, commit_sha=commit_sha)
         )
 
     return {
@@ -313,11 +314,10 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
 
             saw_thumbnail = True
             slug = Path(relative).parts[1]
-            if shared_runtime_changed or slug in allowed_slugs:
-                continue
-            raise ValueError(
-                f"Thumbnail artifact contains slug outside plan scope: {slug}"
-            )
+            if not shared_runtime_changed and slug not in allowed_slugs:
+                raise ValueError(
+                    f"Thumbnail artifact contains slug outside plan scope: {slug}"
+                )
 
     if plan.get("persist_mode") != "none" and not saw_thumbnail:
         raise ValueError(

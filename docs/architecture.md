@@ -363,9 +363,9 @@ The `plan` job also computes `skip-verification` to eliminate redundant CI runs 
 1. The workflow actor matches the resolved app bot login (derived from `vars.APP_ID` at runtime, not hardcoded).
 2. Every file in the triggering commit matches the thumbnail pattern (`apps/*/thumbnail.webp`).
 
-Both must hold for `skip-verification` to be `true`. When set, `verify` and `publish` are skipped — only `plan` and `secret-scan` run. The same commit-level files check applies to main-branch pushes from merged thumbnail follow-up PRs, alongside the existing PR provenance detection.
+Both must hold for `skip-verification` to be `true`. When set, `verify` and `publish` are skipped; only `plan` and `secret-scan` run. The same commit-level files check applies to main-branch pushes from merged thumbnail follow-up PRs, alongside the existing PR provenance detection.
 
-Any detection failure (missing secrets, API errors, non-thumbnail files, actor mismatch) defaults to `false` — the full pipeline runs. The skip is a narrow optimization exit, not a mode change.
+Any detection failure (missing secrets, API errors, non-thumbnail files, actor mismatch) defaults to `false` (the full pipeline runs). The skip is a narrow optimization exit, not a mode change.
 
 ### External GitHub settings
 
