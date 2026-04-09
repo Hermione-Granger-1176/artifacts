@@ -17,7 +17,8 @@ import re
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+from scripts import REPO_ROOT
+
 SEPARATOR_PATTERN = re.compile(r"^[\s|:*-]+$")
 
 

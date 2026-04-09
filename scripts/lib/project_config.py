@@ -40,3 +40,13 @@ def load_artifacts_setting(pyproject_file: Path, key: str) -> str:
         raise ValueError(f"tool.artifacts.{key} must be a string")
 
     return value
+
+
+def normalize_site_url(value: str) -> str:
+    """Return a normalized canonical site URL with a trailing slash."""
+    return value.rstrip("/") + "/"
+
+
+def load_site_url(pyproject_file: Path) -> str:
+    """Load and normalize the configured canonical site URL from ``pyproject.toml``."""
+    return normalize_site_url(load_artifacts_setting(pyproject_file, "site_url"))

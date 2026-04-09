@@ -60,21 +60,6 @@ BOOL_LOOKUP = {
     "no": False,
 }
 
-GH_API_TIMEOUT_SECONDS = _gh_api.GH_API_TIMEOUT_SECONDS
-GH_API_MAX_ATTEMPTS = _gh_api.GH_API_MAX_ATTEMPTS
-GH_API_RETRY_DELAY_SECONDS = _gh_api.GH_API_RETRY_DELAY_SECONDS
-EXPECTED_REQUIRED_CHECKS = _repo_audit.EXPECTED_REQUIRED_CHECKS
-EXPECTED_REPOSITORY_VARIABLES = _repo_audit.EXPECTED_REPOSITORY_VARIABLES
-EXPECTED_REPOSITORY_SECRETS = _repo_audit.EXPECTED_REPOSITORY_SECRETS
-EXPECTED_PAGES_RULESET_RULES = _repo_audit.EXPECTED_PAGES_RULESET_RULES
-APP_RUNTIME_TOP_LEVELS = _app_discovery.APP_RUNTIME_TOP_LEVELS
-APP_METADATA_FILES = _app_discovery.APP_METADATA_FILES
-SHARED_APP_INFRA_PATHS = _app_discovery.SHARED_APP_INFRA_PATHS
-THUMBNAIL_FOLLOWUP_BRANCH_PREFIX = _thumbnail_plan.THUMBNAIL_FOLLOWUP_BRANCH_PREFIX
-THUMBNAIL_FOLLOWUP_PR_TITLE = _thumbnail_plan.THUMBNAIL_FOLLOWUP_PR_TITLE
-THUMBNAIL_FOLLOWUP_PR_MARKER = _thumbnail_plan.THUMBNAIL_FOLLOWUP_PR_MARKER
-THUMBNAIL_ARTIFACT_PLAN_FILE = _thumbnail_plan.THUMBNAIL_ARTIFACT_PLAN_FILE
-
 
 def _parse_bool(value: str) -> bool:
     """Parse a GitHub-style boolean string."""
@@ -114,11 +99,6 @@ def validate_lock_refresh_artifact(root: Path) -> None:
             )
 
 
-def _is_retryable_gh_api_failure(message: str) -> bool:
-    """Return True when ``gh api`` failed with a likely transient error."""
-    return _gh_api.is_retryable_gh_api_failure(message)
-
-
 def _run_gh_api(
     endpoint: str, *, paginate: list[str], jq_expr: str, description: str
 ) -> str:
@@ -128,11 +108,11 @@ def _run_gh_api(
         paginate=paginate,
         jq_expr=jq_expr,
         description=description,
-        max_attempts=GH_API_MAX_ATTEMPTS,
-        retry_delay_seconds=GH_API_RETRY_DELAY_SECONDS,
+        max_attempts=_gh_api.GH_API_MAX_ATTEMPTS,
+        retry_delay_seconds=_gh_api.GH_API_RETRY_DELAY_SECONDS,
         sleep_fn=time.sleep,
         subprocess_module=subprocess,
-        timeout_seconds=GH_API_TIMEOUT_SECONDS,
+        timeout_seconds=_gh_api.GH_API_TIMEOUT_SECONDS,
     )
 
 
@@ -160,27 +140,16 @@ def _run_gh_api_form(
         fields=fields,
         description=description,
         jq_expr=jq_expr,
-        max_attempts=GH_API_MAX_ATTEMPTS,
-        retry_delay_seconds=GH_API_RETRY_DELAY_SECONDS,
+        max_attempts=_gh_api.GH_API_MAX_ATTEMPTS,
+        retry_delay_seconds=_gh_api.GH_API_RETRY_DELAY_SECONDS,
         sleep_fn=time.sleep,
-        timeout_seconds=GH_API_TIMEOUT_SECONDS,
+        timeout_seconds=_gh_api.GH_API_TIMEOUT_SECONDS,
     )
 
 
-discover_app_slugs = _app_discovery.discover_app_slugs
 missing_thumbnail_slugs = _app_discovery.missing_thumbnail_slugs
 runtime_change_plan = _app_discovery.runtime_change_plan
-_pr_field = _thumbnail_plan.pr_field
-is_generated_thumbnail_pr = _thumbnail_plan.is_generated_thumbnail_pr
-read_thumbnail_plan = _thumbnail_plan.read_thumbnail_plan
 validate_thumbnail_artifact = _thumbnail_plan.validate_thumbnail_artifact
-_require_response_type = _repo_audit.require_response_type
-_collect_named_items = _repo_audit.collect_named_items
-_append_missing_items = _repo_audit.append_missing_items
-_extract_required_checks = _repo_audit.extract_required_checks
-_ruleset_targets_branch = _repo_audit.ruleset_targets_branch
-_extract_ruleset_rule_types = _repo_audit.extract_ruleset_rule_types
-_ruleset_id = _repo_audit.ruleset_id
 
 
 def associated_pr_kind_for_commit(repo: str, commit_sha: str) -> str:

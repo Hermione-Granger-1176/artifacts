@@ -13,11 +13,6 @@ def write_text(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def test_normalize_site_url_adds_trailing_slash() -> None:
-    assert verify_deploy._normalize_site_url("https://example.com/demo") == (
-        "https://example.com/demo/"
-    )
-
 
 def test_load_site_url_reads_pyproject(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

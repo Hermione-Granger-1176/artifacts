@@ -25,7 +25,7 @@ import urllib.parse
 import urllib.request
 
 from scripts import REPO_ROOT
-from scripts.lib.project_config import load_artifacts_setting
+from scripts.lib.project_config import load_site_url, normalize_site_url
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,14 +39,9 @@ DEFAULT_TIMEOUT_SECONDS = 20.0
 DEFAULT_METADATA_PATH = "deploy-metadata.json"
 
 
-def _normalize_site_url(value: str) -> str:
-    """Return a normalized site URL with a trailing slash."""
-    return value.rstrip("/") + "/"
-
-
 def _load_site_url() -> str:
     """Load the configured site URL from ``pyproject.toml``."""
-    return _normalize_site_url(load_artifacts_setting(PYPROJECT_FILE, "site_url"))
+    return load_site_url(PYPROJECT_FILE)
 
 
 def _fetch_text(url: str, timeout_seconds: float) -> tuple[int, str]:
@@ -213,7 +208,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     args = parse_args(argv)
-    url = _normalize_site_url(args.url) if args.url else _load_site_url()
+    url = normalize_site_url(args.url) if args.url else _load_site_url()
     verify_deploy(
         url,
         args.expected_substring,

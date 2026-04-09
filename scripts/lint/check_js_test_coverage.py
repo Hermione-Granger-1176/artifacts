@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from scripts import REPO_ROOT
+from scripts.lint import SKIP_DIRECTORIES as _BASE_SKIP_DIRECTORIES
 
 # Directories containing JS source files that must have test coverage.
 SOURCE_DIRS = (
@@ -41,16 +42,7 @@ _PATH_RESOLVE_PATTERN = re.compile(
     r"""path\.resolve\s*\(\s*['"]([^'"]+\.(?:js|mjs))['"]"""
 )
 
-SKIP_DIRECTORIES = frozenset(
-    {
-        ".git",
-        ".venv",
-        "__pycache__",
-        "_site",
-        "node_modules",
-        "docs",
-    }
-)
+SKIP_DIRECTORIES = _BASE_SKIP_DIRECTORIES | {"docs"}
 
 
 def _should_skip_path(path: Path) -> bool:

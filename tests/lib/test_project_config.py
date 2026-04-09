@@ -74,3 +74,22 @@ def test_load_artifacts_setting_rejects_non_string_values(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match="tool.artifacts.site_url must be a string"):
         project_config.load_artifacts_setting(pyproject, "site_url")
+
+
+def test_normalize_site_url_adds_trailing_slash() -> None:
+    assert project_config.normalize_site_url("https://example.com/demo") == (
+        "https://example.com/demo/"
+    )
+
+
+def test_normalize_site_url_preserves_existing_trailing_slash() -> None:
+    assert project_config.normalize_site_url("https://example.com/demo/") == (
+        "https://example.com/demo/"
+    )
+
+
+def test_load_site_url_reads_and_normalizes(tmp_path: Path) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    write_text(pyproject, '[tool.artifacts]\nsite_url = "https://example.com/demo"\n')
+
+    assert project_config.load_site_url(pyproject) == "https://example.com/demo/"
