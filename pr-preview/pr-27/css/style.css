@@ -1,7 +1,7 @@
 /* Root gallery stylesheet entry point */
 /* Self-hosted Latin subsets — eliminates Google Fonts round-trip on cold loads.
  * Caveat is a variable-weight font; one file covers 400/600/700.
- * See docs/decisions.md for rationale. */
+ * See docs/operations.md "Self-hosted fonts" for rationale. */
 
 @font-face {
   font-family: 'Caveat';
