@@ -18,7 +18,6 @@ from typing import cast
 
 from scripts import REPO_ROOT
 from scripts.build import index_outputs, index_sources
-from scripts.lib.app_discovery import _artifact_base_path
 from scripts.lib.artifact_contract import ArtifactContract, read_artifact_contract_file
 from scripts.lib.project_config import load_site_url
 
@@ -147,13 +146,13 @@ class IndexConfig:
     @classmethod
     def create_default(cls) -> IndexConfig:
         """Construct the production config from repository-root paths."""
-        apps_dir = REPO_ROOT / _artifact_base_path()
         artifact_contract_file = REPO_ROOT / "config" / "artifact_contract.json"
         contract = cast(
             ArtifactContract,
             read_artifact_contract_file(artifact_contract_file),
         )
         compiled_id_pattern = index_sources.artifact_id_pattern(contract)
+        apps_dir = REPO_ROOT / contract["artifactBasePath"]
 
         index_file = "index.html"
         name_file = "name.txt"

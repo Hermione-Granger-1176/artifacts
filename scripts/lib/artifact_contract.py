@@ -72,6 +72,7 @@ def thumbnail_file(contract_file: Path = CONTRACT_FILE) -> str:
     return load_contract(contract_file)["thumbnailFile"]
 
 
+@functools.cache
 def artifact_id_pattern(contract_file: Path = CONTRACT_FILE) -> re.Pattern[str]:
     """Return the compiled artifact id regex from the shared contract."""
     return re.compile(load_contract(contract_file)["artifactIdPattern"])
