@@ -35,6 +35,25 @@ a {
 
 /* App — Header, navigation & page shell */
 /* ================================================================
+   App Shell Placeholders — reserve layout space before JS hydrates
+   ================================================================ */
+
+[data-app-shell="header"] {
+  min-height: calc(72px + 1px);
+}
+
+[data-app-shell="header"]:empty {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+@media (max-width: 480px) {
+  [data-app-shell="header"] {
+    min-height: calc(64px + 1px);
+  }
+}
+
+/* ================================================================
    App Header
    ================================================================ */
 
@@ -563,18 +582,27 @@ td:first-child {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--color-border-medium);
+  border: 1px solid var(--color-red);
   border-radius: var(--radius-pill);
-  background: var(--color-surface);
-  color: var(--color-text);
+  background: var(--note-red);
+  color: var(--color-red-text);
   box-shadow: var(--shadow-sm);
   opacity: 0;
   transform: translateY(12px);
   pointer-events: none;
+  cursor: pointer;
   transition:
     opacity var(--transition-fast) ease,
     transform var(--transition-fast) ease,
-    border-color var(--transition-fast) ease;
+    border-color var(--transition-fast) ease,
+    background var(--transition-fast) ease,
+    color var(--transition-fast) ease;
+}
+
+[data-theme="dark"] .scroll-top {
+  background: rgba(163, 45, 45, 0.25);
+  border-color: var(--color-red-emphasis);
+  color: var(--color-red-emphasis);
 }
 
 .scroll-top.is-visible {
@@ -583,10 +611,32 @@ td:first-child {
   pointer-events: auto;
 }
 
-.scroll-top:hover,
+.scroll-top:hover {
+  background: var(--color-red);
+  border-color: var(--color-red);
+  color: rgb(255, 255, 255);
+}
+
 .scroll-top:focus-visible {
-  border-color: var(--color-blue);
-  outline: none;
+  background: var(--color-red);
+  border-color: var(--color-red);
+  color: rgb(255, 255, 255);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+[data-theme="dark"] .scroll-top:hover {
+  background: var(--color-red-emphasis);
+  border-color: var(--color-red-emphasis);
+  color: rgb(20, 20, 20);
+}
+
+[data-theme="dark"] .scroll-top:focus-visible {
+  background: var(--color-red-emphasis);
+  border-color: var(--color-red-emphasis);
+  color: rgb(20, 20, 20);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 }
 
 /* App — Responsive breakpoints */
