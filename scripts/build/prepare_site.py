@@ -24,8 +24,9 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 from scripts import REPO_ROOT
-from scripts.build.index_sources import artifact_url, read_artifact_contract_file
+from scripts.build.index_sources import artifact_url
 from scripts.lib.app_discovery import thumbnail_file
+from scripts.lib.artifact_contract import read_artifact_contract_file
 from scripts.lib.path_validation import reject_symlinks
 from scripts.lib.project_config import load_artifacts_setting, load_site_url
 

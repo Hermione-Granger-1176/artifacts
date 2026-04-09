@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createBookScene } from '../../../js/modules/book-scene.js';
+import { createBookScene } from '../../../js/modules/gallery/book-scene.js';
 
 class FakeClassList {
   constructor(initial = []) {

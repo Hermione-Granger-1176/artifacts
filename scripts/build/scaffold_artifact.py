@@ -17,18 +17,23 @@ import sys
 from pathlib import Path
 
 from scripts import REPO_ROOT
-from scripts.build.generate_index import (
-    APPS_DIR,
-    DESCRIPTION_FILE,
-    INDEX_FILE,
-    NAME_FILE,
-    TAGS_FILE,
-    TOOLS_FILE,
-    is_kebab_case,
-)
+from scripts.build.index_config import IndexConfig
 from scripts.build.prepare_site import APP_SHARE_IMAGE_PLACEHOLDER, APP_URL_PLACEHOLDER
+from scripts.lib.app_discovery import _artifact_base_path
 
+APPS_DIR = REPO_ROOT / _artifact_base_path()
 TESTS_JS_APPS_DIR = REPO_ROOT / "tests" / "js" / "apps"
+
+INDEX_FILE = "index.html"
+NAME_FILE = "name.txt"
+DESCRIPTION_FILE = "description.txt"
+TAGS_FILE = "tags.txt"
+TOOLS_FILE = "tools.txt"
+
+
+def is_kebab_case(name: str) -> bool:
+    """Return True when a directory name follows kebab-case."""
+    return IndexConfig.create_default().is_kebab_case(name)
 
 
 def _title_from_slug(slug: str) -> str:

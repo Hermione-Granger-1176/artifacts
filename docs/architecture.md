@@ -25,7 +25,8 @@ The deployed site is static HTML with a generated data layer.
 - `index.html` loads the gallery shell
 - `css/style.css` imports the modular partials in `css/gallery/`
 - `js/app.js` bootstraps runtime validation and initializes the gallery
-- `js/modules/*` split the gallery into config validation, catalog helpers, render helpers, book-scene motion, URL state, and the main orchestrator
+- `js/modules/gallery/*` split the gallery into config validation, catalog helpers, render helpers, book-scene motion, URL state, and the main orchestrator
+- `js/modules/runtime.js`, `js/modules/element-cache.js`, `js/modules/html-escape.js` provide shared utilities used by both the gallery and app modules
 - `js/gallery-config.js` (generated) provides shared display metadata
 - `js/data.js` (generated) provides artifact metadata
 - `css/app-tokens.css`, `css/app-shell.css`, `js/app-theme.js`, `js/modules/app-shell.js` define the shared mature-app system
@@ -37,8 +38,8 @@ The deployed site is static HTML with a generated data layer.
 2. `js/gallery-config.js` defines `window.ARTIFACTS_CONFIG`
 3. `js/data.js` defines `window.ARTIFACTS_DATA`
 4. `js/app.js` validates bootstrap data and calls `initializeGalleryApp`
-5. `js/modules/gallery-app.js` restores URL-synced search, filters, sort, and manages theme, overlays, keyboard shortcuts, cards, and pagination
-6. `js/modules/book-scene.js` runs the book cover intro and 3D page-turn animations
+5. `js/modules/gallery/gallery-app.js` restores URL-synced search, filters, sort, and manages theme, overlays, keyboard shortcuts, cards, and pagination
+6. `js/modules/gallery/book-scene.js` runs the book cover intro and 3D page-turn animations
 7. Clicking a card opens details and links to the artifact page under `apps/`
 
 The gallery never inspects artifact HTML directly. It depends entirely on generated metadata.
@@ -47,6 +48,8 @@ The gallery never inspects artifact HTML directly. It depends entirely on genera
 
 ### Metadata generation (`scripts/build/generate_index.py`)
 
+- Uses an `IndexConfig` context object (`scripts/build/index_config.py`) that centralizes all generation configuration and convenience methods
+- Loads the artifact contract via `scripts/lib/artifact_contract.py`, which provides shared contract types and path helpers used by both the index generator and app discovery
 - Scans `apps/` for valid artifact folders
 - Reads `name.txt`, `description.txt`, `tags.txt`, `tools.txt`
 - Resolves thumbnails from `thumbnail.webp`
@@ -221,16 +224,16 @@ The code is fully validated but never deployed and never written back to the sou
 
 #### Branch write summary
 
-| Branch                             | Written by           | When                                                    | What is written                                                         |
-| ---------------------------------- | -------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
-| PR branch (e.g. `feature/new-app`) | `persist-thumbnails` | Same-repo PR with runtime changes and thumbnail changes | `apps/*/thumbnail.webp` files via verified commit (Hermione1176)        |
-| Dependabot PR branch               | `commit-python-locks` | Same-repo Dependabot pip PRs when direct verified commit succeeds | `locks/requirements.lock` and `locks/requirements-dev.lock` via verified commit |
-| `ci/refresh-python-locks-*`        | `commit-python-locks` | Same-repo Dependabot pip PRs when lock refresh writeback falls back to a PR branch | Fallback PR branch containing refreshed Python lock files                |
-| `main`                             | Maintenance workflows using `verified-commit` | When a trusted maintenance workflow can commit directly to the default branch | Verified maintenance commits such as GitHub Action SHA refreshes         |
-| `ci/refresh-action-shas-*`         | `refresh-action-shas` | When maintenance updates cannot be committed directly to the default branch | Fallback PR branch containing workflow SHA refreshes                     |
-| `gh-pages`                         | `publish`            | Every successful deploy (PR preview or main site)       | Verified commit replacing site root or preview subdirectory (Harry1176) |
-| `gh-pages`                         | `cleanup-preview`    | PR closed/merged                                        | Verified commit removing preview subdirectory (Harry1176)               |
-| `ci/save-generated-thumbnails-*`   | `persist-thumbnails` | Push to `main` with runtime-driven thumbnail changes or missing thumbnails | Follow-up PR branch with `thumbnail.webp` files (Harry1176)             |
+| Branch                             | Written by                                    | When                                                                               | What is written                                                                 |
+| ---------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| PR branch (e.g. `feature/new-app`) | `persist-thumbnails`                          | Same-repo PR with runtime changes and thumbnail changes                            | `apps/*/thumbnail.webp` files via verified commit (Hermione1176)                |
+| Dependabot PR branch               | `commit-python-locks`                         | Same-repo Dependabot pip PRs when direct verified commit succeeds                  | `locks/requirements.lock` and `locks/requirements-dev.lock` via verified commit |
+| `ci/refresh-python-locks-*`        | `commit-python-locks`                         | Same-repo Dependabot pip PRs when lock refresh writeback falls back to a PR branch | Fallback PR branch containing refreshed Python lock files                       |
+| `main`                             | Maintenance workflows using `verified-commit` | When a trusted maintenance workflow can commit directly to the default branch      | Verified maintenance commits such as GitHub Action SHA refreshes                |
+| `ci/refresh-action-shas-*`         | `refresh-action-shas`                         | When maintenance updates cannot be committed directly to the default branch        | Fallback PR branch containing workflow SHA refreshes                            |
+| `gh-pages`                         | `publish`                                     | Every successful deploy (PR preview or main site)                                  | Verified commit replacing site root or preview subdirectory (Harry1176)         |
+| `gh-pages`                         | `cleanup-preview`                             | PR closed/merged                                                                   | Verified commit removing preview subdirectory (Harry1176)                       |
+| `ci/save-generated-thumbnails-*`   | `persist-thumbnails`                          | Push to `main` with runtime-driven thumbnail changes or missing thumbnails         | Follow-up PR branch with `thumbnail.webp` files (Harry1176)                     |
 
 ```mermaid
 graph LR
@@ -362,17 +365,17 @@ The workflows depend on repository settings that are not enforceable from source
 
 `workspace.md` owns the repository ownership map. This section only explains why these configuration files matter to the system design.
 
-| Config file                    | Owns                                                               |
-| ------------------------------ | ------------------------------------------------------------------ |
-| `pyproject.toml`               | Python deps, pytest/coverage/ruff settings, site URL and metadata  |
-| `package.json`                 | Node deps, JS test/coverage config, npm script commands            |
+| Config file                     | Owns                                                               |
+| ------------------------------- | ------------------------------------------------------------------ |
+| `pyproject.toml`                | Python deps, pytest/coverage/ruff settings, site URL and metadata  |
+| `package.json`                  | Node deps, JS test/coverage config, npm script commands            |
 | `config/artifact_contract.json` | Shared artifact id, URL, and thumbnail path validation contract    |
-| `eslint.config.js`             | ESLint file patterns, ignores, rules                               |
-| `stylelint.config.js`          | Stylelint rules, ignoreFiles                                       |
-| `.yamllint.yml`                | Yamllint rules, ignore patterns                                    |
-| `.editorconfig`                | Editor formatting rules per file type                              |
-| `config/gallery_metadata.json` | Tag/tool display metadata for gallery config and README badges     |
-| `config/security_audit.json`   | Python lock-file audit scope and reviewed vulnerability exceptions |
+| `eslint.config.js`              | ESLint file patterns, ignores, rules                               |
+| `stylelint.config.js`           | Stylelint rules, ignoreFiles                                       |
+| `.yamllint.yml`                 | Yamllint rules, ignore patterns                                    |
+| `.editorconfig`                 | Editor formatting rules per file type                              |
+| `config/gallery_metadata.json`  | Tag/tool display metadata for gallery config and README badges     |
+| `config/security_audit.json`    | Python lock-file audit scope and reviewed vulnerability exceptions |
 
 Each tool primarily reads its own config, and the Makefile mostly serves as the entry point that calls those tools. Prefer changing tool scope in the owning config file rather than scattering overlapping scope rules across workflow steps and scripts. See [ADR 0003](adr/0003-makefile-first-and-single-source-of-truth.md).
 

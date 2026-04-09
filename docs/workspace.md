@@ -41,12 +41,13 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- app-theme.js           Shared mature-app theme bootstrap
 |  |- data.js                Generated artifact metadata
 |  |- gallery-config.js      Generated display config
-|  |- modules/               Shared gallery and app JS modules
+|  |- modules/               Shared JS modules (runtime, element-cache, app-runtime, app-shell, html-escape)
+|  |  |- gallery/            Gallery-specific JS modules (gallery-app, catalog, config, render, etc.)
 |- locks/                    Frozen Python dependency lock files
 |- scripts/
-|  |- build/                 Index generation, thumbnails, site assembly, scaffolding
+|  |- build/                 Index generation (with index_config), thumbnails, site assembly, scaffolding
 |  |- ci/                    Workflow helpers, deploy verification, audits
-|  |- lib/                   Shared libraries (app discovery, GitHub API, project config, path validation)
+|  |- lib/                   Shared libraries (app discovery, artifact contract, GitHub API, project config, path validation)
 |  |- lint/                  EditorConfig check, table alignment, workflow linting, doc-command validation, generated-drift detection, Make-target validation
 |- tests/
 |  |- build/                 Tests for scripts/build/
@@ -77,7 +78,8 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `docs/maintenance.md`: long-term contracts, review points, and stability expectations
 - `apps/*/index.html`: artifact implementation
 - `apps/*/name.txt`, `description.txt`, `tags.txt`, `tools.txt`: artifact metadata
-- `index.html`, `css/style.css`, `css/gallery/*`, `js/app.js`, `js/modules/*`: root gallery UI
+- `index.html`, `css/style.css`, `css/gallery/*`, `js/app.js`, `js/modules/gallery/*`: root gallery UI
+- `js/modules/runtime.js`, `js/modules/element-cache.js`, `js/modules/html-escape.js`: shared JS utilities
 - `css/app-tokens.css`, `css/app-shell.css`, `js/app-theme.js`, `js/modules/app-shell.js`: shared mature-app design and interaction system
 - `assets/icons/*`: logo, favicon, apple touch icon, PWA manifest, and raster icons
 - `assets/social/share-preview.png`: social preview image referenced by deploy-time Open Graph and Twitter metadata

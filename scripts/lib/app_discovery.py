@@ -1,34 +1,12 @@
 from __future__ import annotations
 
-import functools
-import json
-import re
 from pathlib import Path
 
-from scripts import REPO_ROOT
+from scripts.lib.artifact_contract import artifact_base_path as _artifact_base_path
+from scripts.lib.artifact_contract import artifact_id_pattern as _artifact_id_pattern
+from scripts.lib.artifact_contract import thumbnail_file
 
-
-@functools.lru_cache(maxsize=1)
-def _load_contract() -> dict[str, str]:
-    """Load and cache the shared artifact contract from ``config/artifact_contract.json``."""
-    contract_path = REPO_ROOT / "config" / "artifact_contract.json"
-    contract = json.loads(contract_path.read_text(encoding="utf-8"))
-    return contract
-
-
-def _artifact_id_re() -> re.Pattern[str]:
-    """Return the compiled artifact id regex from the shared contract."""
-    return re.compile(_load_contract()["artifactIdPattern"])
-
-
-def _artifact_base_path() -> str:
-    """Return the artifact base path from the shared contract."""
-    return _load_contract()["artifactBasePath"]
-
-
-def thumbnail_file() -> str:
-    """Return the thumbnail filename from the shared contract."""
-    return _load_contract()["thumbnailFile"]
+__all__ = ["_artifact_base_path", "thumbnail_file"]
 
 
 APP_RUNTIME_TOP_LEVELS = {"css", "js", "assets"}
@@ -107,7 +85,7 @@ def _runtime_changed_slug(filename: str) -> str | None:
         return None
 
     slug = parts[1]
-    if not _artifact_id_re().match(slug):
+    if not _artifact_id_pattern().match(slug):
         return None
 
     top_level = parts[2]

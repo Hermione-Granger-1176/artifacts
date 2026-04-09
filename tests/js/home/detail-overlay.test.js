@@ -1,6 +1,6 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDetailOverlay } from '../../../js/modules/detail-overlay.js';
+import { createDetailOverlay } from '../../../js/modules/gallery/detail-overlay.js';
 
 // CSS.escape is a browser API not available in Node.js
 globalThis.CSS = globalThis.CSS || {};

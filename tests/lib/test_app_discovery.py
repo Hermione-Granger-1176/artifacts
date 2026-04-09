@@ -3,10 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import scripts.lib.app_discovery as app_discovery
+import scripts.lib.artifact_contract as artifact_contract
 
 
 def test_load_contract_returns_expected_fields() -> None:
-    contract = app_discovery._load_contract()
+    contract = artifact_contract.load_contract()
 
     assert "artifactIdPattern" in contract
     assert "artifactBasePath" in contract
