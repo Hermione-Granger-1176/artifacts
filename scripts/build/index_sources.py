@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-import json
 import re
 import urllib.parse
-from collections.abc import Callable
 from pathlib import Path
-from typing import TypedDict, cast
+from typing import TYPE_CHECKING, TypedDict
+
+from scripts.lib.artifact_contract import ArtifactContract, read_artifact_contract_file
+
+if TYPE_CHECKING:
+    from scripts.build.index_config import IndexConfig
+
+__all__ = ["read_artifact_contract_file"]
 
 
 class ArtifactItem(TypedDict):
@@ -18,12 +23,6 @@ class ArtifactItem(TypedDict):
     tools: list[str]
     url: str
     thumbnail: str | None
-
-
-class ArtifactContract(TypedDict):
-    artifactIdPattern: str
-    artifactBasePath: str
-    thumbnailFile: str
 
 
 def read_file(file_path: Path) -> str:
@@ -40,42 +39,6 @@ def parse_lines(file_path: Path) -> list[str]:
         return []
     return [line.strip() for line in content.splitlines() if line.strip()]
 
-
-def read_artifact_contract_file(contract_file: Path) -> ArtifactContract:
-    """Load and validate the shared artifact path contract."""
-    if not contract_file.exists():
-        raise FileNotFoundError(f"Artifact contract file not found: {contract_file}")
-
-    contract = json.loads(contract_file.read_text(encoding="utf-8"))
-    if not isinstance(contract, dict):
-        raise ValueError("Artifact contract must be a JSON object")
-
-    required_fields = ("artifactIdPattern", "artifactBasePath", "thumbnailFile")
-    missing = [field for field in required_fields if not contract.get(field)]
-    if missing:
-        raise ValueError("Artifact contract must include " + ", ".join(sorted(missing)))
-
-    artifact_id_pattern = contract["artifactIdPattern"]
-    artifact_base_path = contract["artifactBasePath"]
-    thumbnail_file = contract["thumbnailFile"]
-    if not all(
-        isinstance(value, str)
-        for value in (artifact_id_pattern, artifact_base_path, thumbnail_file)
-    ):
-        raise ValueError("Artifact contract values must be strings")
-
-    try:
-        re.compile(artifact_id_pattern)
-    except re.error as exc:
-        raise ValueError("Artifact contract artifactIdPattern must be valid") from exc
-    if "/" in artifact_base_path or artifact_base_path.startswith("."):
-        raise ValueError(
-            "Artifact contract artifactBasePath must be one safe path segment"
-        )
-    if "/" in thumbnail_file or thumbnail_file.startswith("."):
-        raise ValueError("Artifact contract thumbnailFile must be one safe file name")
-
-    return cast(ArtifactContract, contract)
 
 
 def artifact_id_pattern(contract: ArtifactContract) -> re.Pattern[str]:
@@ -159,29 +122,28 @@ def validate_relative_repo_path(value: str, *, field_name: str) -> None:
 def validate_artifact_item(
     item: ArtifactItem,
     *,
-    contract: ArtifactContract,
-    compiled_artifact_id_pattern: re.Pattern[str],
+    config: IndexConfig,
 ) -> None:
     """Validate one generated artifact record against the shared contract."""
     if not is_kebab_case(
-        item["id"], compiled_artifact_id_pattern=compiled_artifact_id_pattern
+        item["id"], compiled_artifact_id_pattern=config.compiled_id_pattern
     ):
         raise ValueError(f"Artifact id must use kebab-case: {item['id']}")
 
     validate_relative_repo_path(item["url"], field_name="Artifact url")
-    expected_url = artifact_url(contract, item["id"])
+    expected_url = artifact_url(config.contract, item["id"])
     if item["url"] != expected_url:
         if matches_artifact_url_shape(
             item["url"],
-            contract=contract,
-            compiled_artifact_id_pattern=compiled_artifact_id_pattern,
+            contract=config.contract,
+            compiled_artifact_id_pattern=config.compiled_id_pattern,
         ):
             raise ValueError(
                 "Artifact url must use the same artifact id as the directory name: "
                 f"{item['url']}"
             )
         raise ValueError(
-            f"Artifact url must match {artifact_url_rule(contract)}: {item['url']}"
+            f"Artifact url must match {artifact_url_rule(config.contract)}: {item['url']}"
         )
 
     thumbnail = item.get("thumbnail")
@@ -189,12 +151,12 @@ def validate_artifact_item(
         return
 
     validate_relative_repo_path(thumbnail, field_name="Artifact thumbnail")
-    expected_thumbnail = artifact_thumbnail_path(contract, item["id"])
+    expected_thumbnail = artifact_thumbnail_path(config.contract, item["id"])
     if thumbnail != expected_thumbnail:
         if matches_artifact_thumbnail_shape(
             thumbnail,
-            contract=contract,
-            compiled_artifact_id_pattern=compiled_artifact_id_pattern,
+            contract=config.contract,
+            compiled_artifact_id_pattern=config.compiled_id_pattern,
         ):
             raise ValueError(
                 "Artifact thumbnail must use the same artifact id as the directory "
@@ -202,49 +164,45 @@ def validate_artifact_item(
             )
         raise ValueError(
             "Artifact thumbnail must match "
-            f"{artifact_thumbnail_rule(contract)}: {thumbnail}"
+            f"{artifact_thumbnail_rule(config.contract)}: {thumbnail}"
         )
 
 
 def artifact_issues(
     folder: Path,
     *,
-    index_file: str,
-    name_file: str,
-    missing_required_file_issues: dict[tuple[bool, bool], str],
-    is_kebab_case_fn: Callable[[str], bool],
-    read_file_fn: Callable[[Path], str],
+    config: IndexConfig,
 ) -> list[str]:
     """Collect validation issues for one top-level artifact directory."""
     issues: list[str] = []
-    has_index = (folder / index_file).exists()
-    has_name = (folder / name_file).exists()
+    has_index = (folder / config.index_file).exists()
+    has_name = (folder / config.name_file).exists()
 
-    if not is_kebab_case_fn(folder.name):
+    if not config.is_kebab_case(folder.name):
         issues.append("directory name must use kebab-case")
 
-    missing_required_file_issue = missing_required_file_issues.get(
+    missing_required_file_issue = config.missing_file_issues.get(
         (has_index, has_name)
     )
     if missing_required_file_issue:
         issues.append(missing_required_file_issue)
 
-    if has_name and not read_file_fn(folder / name_file):
-        issues.append(f"has an empty {name_file}")
+    if has_name and not read_file(folder / config.name_file):
+        issues.append(f"has an empty {config.name_file}")
 
     return issues
 
 
-def iter_artifact_dirs(apps_dir: Path, *, logger: object) -> list[Path]:
+def iter_artifact_dirs(config: IndexConfig) -> list[Path]:
     """Return top-level visible artifact directories under apps/."""
-    if not apps_dir.exists():
-        logger.info("Directory not found: %s (skipping)", apps_dir)
+    if not config.apps_dir.exists():
+        config.logger.info("Directory not found: %s (skipping)", config.apps_dir)
         return []
 
     return sorted(
         (
             folder
-            for folder in apps_dir.iterdir()
+            for folder in config.apps_dir.iterdir()
             if folder.is_dir() and not folder.name.startswith(".")
         ),
         key=lambda folder: folder.name,
@@ -254,43 +212,33 @@ def iter_artifact_dirs(apps_dir: Path, *, logger: object) -> list[Path]:
 def resolve_thumbnail(
     folder: Path,
     *,
-    contract: ArtifactContract,
-    artifact_thumbnail_path_fn: Callable[[str], str],
+    config: IndexConfig,
 ) -> str | None:
     """Resolve the preferred thumbnail path when one exists."""
-    if not (folder / contract["thumbnailFile"]).exists():
+    if not (folder / config.contract["thumbnailFile"]).exists():
         return None
-    return artifact_thumbnail_path_fn(folder.name)
+    return config.artifact_thumbnail_path(folder.name)
 
 
 def extract_artifact(
     folder: Path,
     *,
-    name_file: str,
-    description_file: str,
-    tags_file: str,
-    tools_file: str,
-    read_file_fn: Callable[[Path], str],
-    parse_lines_fn: Callable[[Path], list[str]],
-    resolve_thumbnail_fn: Callable[[Path], str | None],
-    artifact_url_fn: Callable[[str], str],
-    validate_artifact_item_fn: Callable[[ArtifactItem], None],
-    logger: object,
+    config: IndexConfig,
 ) -> ArtifactItem | None:
     """Extract structured data from one artifact folder."""
-    name = read_file_fn(folder / name_file)
+    name = read_file(folder / config.name_file)
     if not name:
-        logger.warning("Empty name.txt in %s, skipping", folder)
+        config.logger.warning("Empty name.txt in %s, skipping", folder)
         return None
 
     item: ArtifactItem = {
         "id": folder.name,
         "name": name,
-        "description": read_file_fn(folder / description_file),
-        "tags": parse_lines_fn(folder / tags_file),
-        "tools": parse_lines_fn(folder / tools_file),
-        "url": artifact_url_fn(folder.name),
-        "thumbnail": resolve_thumbnail_fn(folder),
+        "description": read_file(folder / config.description_file),
+        "tags": parse_lines(folder / config.tags_file),
+        "tools": parse_lines(folder / config.tools_file),
+        "url": config.artifact_url(folder.name),
+        "thumbnail": resolve_thumbnail(folder, config=config),
     }
-    validate_artifact_item_fn(item)
+    validate_artifact_item(item, config=config)
     return item

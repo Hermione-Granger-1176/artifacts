@@ -17,21 +17,28 @@
 
 ## JavaScript module responsibilities
 
-- `js/modules/gallery-app.js`: DOM wiring, event handlers, URL state, filtering, pagination, theme behavior, and book-scene integration
-- `js/modules/catalog.js`: pure catalog helpers for search text, selection normalization, sorting, and pagination math
-- `js/modules/config.js`: bootstrap data validation, generated config hydration, and label helpers
-- `js/modules/detail-overlay.js`: detail panel lifecycle, open/close animation, and focus trapping
-- `js/modules/icons.js`: shared inline SVG icon markup
-- `js/modules/inert.js`: background element inert/interactive toggling for overlay accessibility
-- `js/modules/motion.js`: reduced-motion-aware scroll and animation helpers
-- `js/modules/book-scene.js`: book cover intro animation and 3D page-turn motion
-- `js/modules/render.js`: HTML generation and DOM sync helpers for cards, detail content, desk-note filters, and pagination
+Gallery modules (under `js/modules/gallery/`):
+
+- `js/modules/gallery/gallery-app.js`: DOM wiring, event handlers, URL state, filtering, pagination, theme behavior, and book-scene integration
+- `js/modules/gallery/catalog.js`: pure catalog helpers for search text, selection normalization, sorting, and pagination math
+- `js/modules/gallery/config.js`: bootstrap data validation, generated config hydration, and label helpers
+- `js/modules/gallery/detail-overlay.js`: detail panel lifecycle, open/close animation, and focus trapping
+- `js/modules/gallery/icons.js`: shared inline SVG icon markup
+- `js/modules/gallery/inert.js`: background element inert/interactive toggling for overlay accessibility
+- `js/modules/gallery/motion.js`: reduced-motion-aware scroll and animation helpers
+- `js/modules/gallery/book-scene.js`: book cover intro animation and 3D page-turn motion
+- `js/modules/gallery/render.js`: HTML generation and DOM sync helpers for cards, detail content, desk-note filters, and pagination
+- `js/modules/gallery/gallery-url.js`: URL state sync for gallery search, filters, and sort
+
+Shared modules (under `js/modules/`):
+
 - `js/modules/runtime.js`: startup status, error reporting, and guarded localStorage access
 - `js/modules/app-runtime.js`: mature-app bootstrap with fatal error handling
-- `js/modules/gallery-url.js`: URL state sync for gallery search, filters, and sort
 - `js/modules/element-cache.js`: DOM element caching by ID
+- `js/modules/app-shell.js`: runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
+- `js/modules/html-escape.js`: `escapeHtml()` and `escapeAttribute()` helpers, re-exported by `render.js` and app-local modules
 
-The root filter UI is rendered as desk notes by `buildFilterNotes()` in `js/modules/render.js` and toggled in `js/modules/gallery-app.js`.
+The root filter UI is rendered as desk notes by `buildFilterNotes()` in `js/modules/gallery/render.js` and toggled in `js/modules/gallery/gallery-app.js`.
 
 Interaction-heavy modules prefer guard clauses and small lookup maps when that keeps event routing linear and testable.
 
@@ -55,9 +62,9 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 ## Accessibility notes for the root shell
 
 - The root shell keeps keyboard focus visible across search, desk-note filters, pagination, overlay close/return, and the scroll-to-top control.
-- `js/modules/gallery-app.js` keeps the theme toggle stateful with `aria-pressed`, updates the toggle label for the next theme, and announces result/theme changes through a dedicated live region.
+- `js/modules/gallery/gallery-app.js` keeps the theme toggle stateful with `aria-pressed`, updates the toggle label for the next theme, and announces result/theme changes through a dedicated live region.
 - Artifact cards render as real `<button>` controls so keyboard and screen-reader semantics match the interaction model instead of relying on `role="button"` shims.
-- `js/modules/render.js` gives the detail description a stable ID, and `js/modules/detail-overlay.js` uses it to describe the dialog while artifact links announce that they open in a new tab.
+- `js/modules/gallery/render.js` gives the detail description a stable ID, and `js/modules/gallery/detail-overlay.js` uses it to describe the dialog while artifact links announce that they open in a new tab.
 - `404.html` has explicit focus-visible styling so fallback navigation is keyboard-safe even outside the main app shell.
 - `css/gallery/12-chrome.css` owns the root focus ring tokens and skip-link behavior; `css/gallery/09-cards.css` owns accessible contrast tuning for active pagination and detail CTA states.
 - `tests/browser/frontend_helpers.py` fails browser suites on `pageerror`, unexpected `console.error`, failed requests, and HTTP 4xx/5xx responses, and can emit screenshots, traces, and runtime logs for CI artifacts.

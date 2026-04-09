@@ -7,7 +7,10 @@ import json
 import re
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import TypedDict, cast
+from typing import TYPE_CHECKING, TypedDict, cast
+
+if TYPE_CHECKING:
+    from scripts.build.index_config import IndexConfig
 
 
 class BadgeConfig(TypedDict):
@@ -99,24 +102,22 @@ def frontend_config(
 
 
 def write_frontend_config(
-    output_file: Path,
     metadata: GalleryMetadata,
     *,
-    artifact_contract: Mapping[str, str],
-    logger: object,
+    config: IndexConfig,
 ) -> None:
     """Write the generated browser config used by the root gallery."""
-    output_file.parent.mkdir(exist_ok=True)
+    config.js_config_output_file.parent.mkdir(exist_ok=True)
     config_content = json.dumps(
-        frontend_config(metadata, artifact_contract=artifact_contract),
+        frontend_config(metadata, artifact_contract=config.contract),
         indent=2,
         ensure_ascii=False,
     )
-    output_file.write_text(
+    config.js_config_output_file.write_text(
         f"window.ARTIFACTS_CONFIG = {config_content};\n",
         encoding="utf-8",
     )
-    logger.info("Successfully generated %s", output_file)
+    config.logger.info("Successfully generated %s", config.js_config_output_file)
 
 
 def format_identifier_words(
@@ -257,51 +258,45 @@ def build_badges_block(
 
 
 def update_readme(
-    readme_file: Path,
     *,
     items: Sequence[Mapping[str, object]],
+    config: IndexConfig,
     site_url: str,
     gallery_metadata: GalleryMetadata,
-    logger: object,
-    replace_inline_marker_fn: Callable[[str, str, str], str],
-    replace_block_marker_fn: Callable[[str, str, str], str],
-    build_badges_block_fn: Callable[[set[str], list[str], dict[str, BadgeConfig]], str],
-    display_order_fn: Callable[[Sequence[MetadataEntry]], list[str]],
-    badge_config_map_fn: Callable[[Sequence[MetadataEntry]], dict[str, BadgeConfig]],
 ) -> None:
     """Update README auto-managed markers."""
-    if not readme_file.exists():
-        raise FileNotFoundError(f"README file not found: {readme_file}")
+    if not config.readme_file.exists():
+        raise FileNotFoundError(f"README file not found: {config.readme_file}")
 
     total_count = len(items)
     all_tags = {tag for item in items for tag in cast(list[str], item["tags"])}
     all_tools = {tool for item in items for tool in cast(list[str], item["tools"])}
-    readme = readme_file.read_text(encoding="utf-8")
+    readme = config.readme_file.read_text(encoding="utf-8")
     total_badge = (
         f'<img src="https://img.shields.io/badge/Total-{total_count}'
         f'-D97706?style=for-the-badge" alt="Total">'
     )
 
-    readme = replace_inline_marker_fn(readme, "SITE_URL", site_url)
-    readme = replace_inline_marker_fn(readme, "TOTAL_BADGE", total_badge)
-    readme = replace_inline_marker_fn(readme, "TOTAL_COUNT", str(total_count))
-    readme = replace_block_marker_fn(
+    readme = replace_inline_marker(readme, "SITE_URL", site_url)
+    readme = replace_inline_marker(readme, "TOTAL_BADGE", total_badge)
+    readme = replace_inline_marker(readme, "TOTAL_COUNT", str(total_count))
+    readme = replace_block_marker(
         readme,
         "TAG_BADGES",
-        build_badges_block_fn(
+        config.build_badges_block(
             all_tags,
-            display_order_fn(gallery_metadata["tags"]),
-            badge_config_map_fn(gallery_metadata["tags"]),
+            display_order(gallery_metadata["tags"]),
+            badge_config_map(gallery_metadata["tags"]),
         ),
     )
-    readme = replace_block_marker_fn(
+    readme = replace_block_marker(
         readme,
         "TOOL_BADGES",
-        build_badges_block_fn(
+        config.build_badges_block(
             all_tools,
-            display_order_fn(gallery_metadata["tools"]),
-            badge_config_map_fn(gallery_metadata["tools"]),
+            display_order(gallery_metadata["tools"]),
+            badge_config_map(gallery_metadata["tools"]),
         ),
     )
-    readme_file.write_text(readme, encoding="utf-8")
-    logger.info("Successfully updated %s", readme_file)
+    config.readme_file.write_text(readme, encoding="utf-8")
+    config.logger.info("Successfully updated %s", config.readme_file)

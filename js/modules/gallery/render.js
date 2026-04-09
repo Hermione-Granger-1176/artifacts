@@ -1,4 +1,6 @@
 import { getPageNumbers } from './catalog.js';
+export { escapeHtml } from '../html-escape.js';
+import { escapeHtml } from '../html-escape.js';
 import { ICONS } from './icons.js';
 
 const CARD_COLORS = [
@@ -86,23 +88,6 @@ function buildSnippetList(items, className, emptyValue = '') {
   `;
 }
 
-/**
- * Escape text for safe HTML insertion.
- * @param {string|null|undefined} unsafe - Raw string to escape for safe HTML insertion.
- * @returns {string} Escaped string safe for HTML templates.
- */
-export function escapeHtml(unsafe) {
-  if (unsafe == null) {
-    return '';
-  }
-
-  return String(unsafe)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
 /**
  * Build HTML for scattered filter notes resting on the desk.

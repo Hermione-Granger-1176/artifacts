@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ICONS } from '../../../js/modules/icons.js';
+import { ICONS } from '../../../js/modules/gallery/icons.js';
 
 test('ICONS exports the expected inline SVG fragments', () => {
   const keys = [

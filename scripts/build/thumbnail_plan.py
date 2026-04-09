@@ -9,10 +9,10 @@ from typing import cast
 from scripts.ci.repo_audit import require_response_type
 from scripts.lib.app_discovery import (
     _artifact_base_path,
-    _load_contract,
     missing_thumbnail_slugs,
     runtime_change_plan,
 )
+from scripts.lib.artifact_contract import load_contract as _load_contract
 from scripts.lib.gh_api import run_gh_api, run_gh_api_json
 from scripts.lib.path_validation import reject_symlinks
 

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { setBackgroundContentInert } from '../../../js/modules/inert.js';
+import { setBackgroundContentInert } from '../../../js/modules/gallery/inert.js';
 
 function createFakeElement(ariaHidden = null) {
   const attrs = {};
