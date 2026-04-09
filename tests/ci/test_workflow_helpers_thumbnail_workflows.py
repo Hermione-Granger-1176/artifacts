@@ -765,3 +765,282 @@ def test_main_invalidate_thumbnails_returns_zero(
     )
     assert exit_code == 0
     assert "No thumbnails invalidated" in capsys.readouterr().out
+
+
+# --- is_automated_thumbnail_commit and skip_verification tests ---
+
+
+def test_is_automated_thumbnail_commit_true_when_actor_matches_and_files_are_thumbnails() -> (
+    None
+):
+    result = thumbnail_plan.is_automated_thumbnail_commit(
+        actor="hermione1176[bot]",
+        app_bot_login="hermione1176[bot]",
+        repo="owner/repo",
+        commit_sha="abc123",
+        list_commit_files_fn=lambda **kw: [
+            "apps/loan-amortization/thumbnail.webp",
+            "apps/tokenizer-explorer/thumbnail.webp",
+        ],
+    )
+    assert result is True
+
+
+def test_is_automated_thumbnail_commit_false_when_non_thumbnail_file_present() -> None:
+    result = thumbnail_plan.is_automated_thumbnail_commit(
+        actor="hermione1176[bot]",
+        app_bot_login="hermione1176[bot]",
+        repo="owner/repo",
+        commit_sha="abc123",
+        list_commit_files_fn=lambda **kw: [
+            "apps/loan-amortization/thumbnail.webp",
+            "apps/loan-amortization/index.html",
+        ],
+    )
+    assert result is False
+
+
+def test_is_automated_thumbnail_commit_false_when_actor_is_human() -> None:
+    result = thumbnail_plan.is_automated_thumbnail_commit(
+        actor="alice",
+        app_bot_login="hermione1176[bot]",
+        repo="owner/repo",
+        commit_sha="abc123",
+        list_commit_files_fn=lambda **kw: [
+            "apps/loan-amortization/thumbnail.webp",
+        ],
+    )
+    assert result is False
+
+
+def test_is_automated_thumbnail_commit_false_when_no_files() -> None:
+    result = thumbnail_plan.is_automated_thumbnail_commit(
+        actor="hermione1176[bot]",
+        app_bot_login="hermione1176[bot]",
+        repo="owner/repo",
+        commit_sha="abc123",
+        list_commit_files_fn=lambda **kw: [],
+    )
+    assert result is False
+
+
+def test_is_automated_thumbnail_commit_false_when_empty_actor_or_bot_login() -> None:
+    for actor, bot_login in [("", "hermione1176[bot]"), ("hermione1176[bot]", ""), ("", "")]:
+        result = thumbnail_plan.is_automated_thumbnail_commit(
+            actor=actor,
+            app_bot_login=bot_login,
+            repo="owner/repo",
+            commit_sha="abc123",
+            list_commit_files_fn=lambda **kw: [
+                "apps/loan-amortization/thumbnail.webp",
+            ],
+        )
+        assert result is False
+
+
+def test_list_commit_files_returns_empty_for_empty_sha() -> None:
+    result = thumbnail_plan.list_commit_files(
+        repo="owner/repo",
+        commit_sha="",
+    )
+    assert result == []
+
+
+def test_thumbnail_plan_skip_verification_true_for_bot_thumbnail_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    write_text(
+        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
+    )
+    (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
+
+    # PR-level files include both code and thumbnails (whole PR)
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api",
+        lambda *args, **kwargs: "apps/loan-amortization/js/app.js\napps/loan-amortization/thumbnail.webp\n",
+    )
+    # Commit-level files are only thumbnails (Hermione's commit)
+    monkeypatch.setattr(
+        workflow_helpers,
+        "list_commit_files",
+        lambda **kw: ["apps/loan-amortization/thumbnail.webp"],
+    )
+
+    plan = workflow_helpers.thumbnail_plan(
+        event_name="pull_request",
+        repo="owner/repo",
+        pr_number="1",
+        commit_sha="abc123",
+        head_repo_fork=False,
+        pr_author="alice",
+        actor="hermione1176[bot]",
+        app_bot_login="hermione1176[bot]",
+    )
+
+    assert plan["skip_verification"] is True
+
+
+def test_thumbnail_plan_skip_verification_false_for_human_code_push(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    write_text(
+        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
+    )
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api",
+        lambda *args, **kwargs: "apps/loan-amortization/js/app.js\n",
+    )
+
+    plan = workflow_helpers.thumbnail_plan(
+        event_name="pull_request",
+        repo="owner/repo",
+        pr_number="1",
+        commit_sha="abc123",
+        head_repo_fork=False,
+        pr_author="alice",
+        actor="alice",
+        app_bot_login="hermione1176[bot]",
+    )
+
+    assert plan["skip_verification"] is False
+
+
+def test_thumbnail_plan_skip_verification_true_for_merged_thumbnail_followup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    write_text(
+        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
+    )
+    (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api",
+        lambda *args, **kwargs: "apps/loan-amortization/thumbnail.webp\n",
+    )
+    monkeypatch.setattr(
+        workflow_helpers,
+        "associated_pr_kind_for_commit",
+        lambda repo, commit_sha: "thumbnail-followup",
+    )
+    monkeypatch.setattr(
+        workflow_helpers,
+        "list_commit_files",
+        lambda **kw: ["apps/loan-amortization/thumbnail.webp"],
+    )
+
+    plan = workflow_helpers.thumbnail_plan(
+        event_name="push",
+        repo="owner/repo",
+        pr_number="",
+        commit_sha="abc123",
+        actor="alice",
+        app_bot_login="hermione1176[bot]",
+    )
+
+    assert plan["skip_verification"] is True
+    assert plan["persist_mode"] == "none"
+    assert plan["reason"] == "merged-thumbnail-pr"
+
+
+def test_thumbnail_plan_skip_verification_false_for_merged_thumbnail_followup_with_extra_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    write_text(
+        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
+    )
+    (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api",
+        lambda *args, **kwargs: "apps/loan-amortization/thumbnail.webp\napps/loan-amortization/index.html\n",
+    )
+    monkeypatch.setattr(
+        workflow_helpers,
+        "associated_pr_kind_for_commit",
+        lambda repo, commit_sha: "thumbnail-followup",
+    )
+    monkeypatch.setattr(
+        workflow_helpers,
+        "list_commit_files",
+        lambda **kw: [
+            "apps/loan-amortization/thumbnail.webp",
+            "apps/loan-amortization/index.html",
+        ],
+    )
+
+    plan = workflow_helpers.thumbnail_plan(
+        event_name="push",
+        repo="owner/repo",
+        pr_number="",
+        commit_sha="abc123",
+        actor="alice",
+        app_bot_login="hermione1176[bot]",
+    )
+
+    assert plan["skip_verification"] is False
+
+
+def test_thumbnail_plan_skip_verification_defaults_to_false_without_actor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    write_text(
+        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
+    )
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api",
+        lambda *args, **kwargs: "apps/loan-amortization/js/app.js\n",
+    )
+    monkeypatch.setattr(
+        workflow_helpers,
+        "associated_pr_kind_for_commit",
+        lambda repo, commit_sha: "none",
+    )
+
+    plan = workflow_helpers.thumbnail_plan(
+        event_name="push",
+        repo="owner/repo",
+        pr_number="",
+        commit_sha="abc123",
+    )
+
+    assert plan["skip_verification"] is False
+
+
+def test_main_thumbnail_plan_passes_actor_and_bot_login(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_plan(**kwargs: object) -> dict[str, object]:
+        captured.update(kwargs)
+        return {"persist_mode": "none", "reason": "stub", "skip_verification": False}
+
+    monkeypatch.setattr(workflow_helpers, "thumbnail_plan", fake_plan)
+
+    exit_code = workflow_helpers.main(
+        [
+            "thumbnail-plan",
+            "--event-name",
+            "pull_request",
+            "--repo",
+            "owner/repo",
+            "--pr-number",
+            "1",
+            "--actor",
+            "hermione1176[bot]",
+            "--app-bot-login",
+            "hermione1176[bot]",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["actor"] == "hermione1176[bot]"
+    assert captured["app_bot_login"] == "hermione1176[bot]"

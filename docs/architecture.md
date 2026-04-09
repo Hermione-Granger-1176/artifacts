@@ -131,7 +131,9 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
   - Calls `scripts/ci/workflow_helpers.py thumbnail-plan` with the event context.
   - Queries the GitHub API for changed files in the PR.
   - Classifies each changed file: runtime change (`index.html`, `css/`, `js/`, `assets/`), metadata change (`name.txt`, `tags.txt`, etc.), docs change, or shared infra change (`css/app-tokens.css`, `css/app-shell.css`, `js/app-theme.js`, `js/modules/app-shell.js`).
-  - Outputs: `browser-scope` (all / changed / none), `thumbnail-scope` (all / changed / none), `persist-mode` (pr-branch), `changed-slugs`, `thumbnail-slugs`, `reason`.
+  - Resolves the primary app bot login dynamically from `vars.APP_ID` / `secrets.APP_PRIVATE_KEY` via `actions/create-github-app-token` (with `continue-on-error: true` for forks and Dependabot PRs where secrets are unavailable).
+  - Computes `skip-verification`: `true` only when the workflow actor matches the resolved app bot login AND every file in the triggering commit is a thumbnail. For main pushes from merged thumbnail follow-up PRs, the commit-level files check is applied as defense-in-depth alongside existing PR provenance detection. Any detection failure defaults to `false` (full pipeline runs).
+  - Outputs: `browser-scope` (all / changed / none), `thumbnail-scope` (all / changed / none), `persist-mode` (pr-branch), `changed-slugs`, `thumbnail-slugs`, `reason`, `skip-verification`.
   - Reads: PR branch code (checkout). Writes: nothing.
 
 - **`secret-scan`** (timeout: 5 min, permissions: contents read)
@@ -145,6 +147,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
 **After `plan` completes → `verify` starts:**
 
 - **`verify`** (timeout: 20 min, permissions: contents read, pull-requests read)
+  - Skipped when the planner sets `skip-verification: true` (automated thumbnail-only commit by the trusted app bot). This eliminates redundant CI when `persist-thumbnails` commits thumbnails back to the PR branch.
   - Does NOT wait for `secret-scan` or `dependency-review`. Those continue in the background.
   - Step by step:
     1. Checks out the PR branch code.
@@ -163,6 +166,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
 **After ALL FOUR complete (plan + verify + secret-scan + dependency-review) → `publish` starts:**
 
 - **`publish`** (timeout: 25 min, permissions: contents write, issues write, pull-requests write)
+  - Skipped alongside `verify` when `skip-verification: true`.
   - Will not start if `verify` or `secret-scan` failed. `dependency-review` must succeed or be skipped.
   - Step by step:
     1. Checks out the PR branch code (for `pyproject.toml` reading only, `persist-credentials: false`).
@@ -187,6 +191,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
     5. Re-checks the PR HEAD SHA via `gh pr view`. If the PR branch has been pushed to since the workflow started (stale), skips the commit to avoid conflicts.
     6. If not stale: copies `thumbnail.webp` files from the artifact into the workspace, stages them with `git add`, and creates a verified commit directly on the PR branch using the Hermione1176 (primary) token with `commit-mode: direct`.
   - Reads: `thumbnail-persist-{run_id}` artifact. Writes: the PR branch (adds `apps/*/thumbnail.webp` files).
+  - This commit triggers a second workflow run (app token commits fire `synchronize` events). The planner detects it as an automated thumbnail-only commit (`skip-verification: true`) and the second run completes with only `plan` + `secret-scan` (~2-5 min instead of ~45 min).
 
 #### Scenario 2: Push a commit to `main`
 
@@ -197,7 +202,7 @@ The flow is identical to Scenario 1 with these differences:
 - **`plan`**: `persist-mode` is `followup-pr` when runtime changes or missing thumbnails require thumbnail persistence, otherwise `none`. It is never `pr-branch` because there is no PR.
 - **`dependency-review`**: does not run (not a PR event). `publish` treats it as `skipped`, which is acceptable.
 - **`publish`**: instead of deploying a preview, deploys `_site/` to the **root** of `gh-pages`, replacing the live site. Preserves the `pr-preview/` directory so existing PR previews keep working. Uses the `deploy-site` composite action with `skip-build: true`. Verifies and browser-tests the live production URL.
-- **`persist-thumbnails`**: if `persist-mode` is `followup-pr`, creates or updates a follow-up PR on a dated branch (`ci/save-generated-thumbnails-YYYYMMDD`) targeting `main`. Uses the Harry1176 (escalation) token with `commit-mode: force-pr`. The PR body contains a marker (`<!-- artifacts:generated-thumbnails -->`) for loop detection. When this follow-up PR is later merged to `main`, the planner recognizes it via PR provenance and sets `persist-mode: none` to prevent infinite loops. Stale-check is not performed because there is no PR branch to check.
+- **`persist-thumbnails`**: if `persist-mode` is `followup-pr`, creates or updates a follow-up PR on a dated branch (`ci/save-generated-thumbnails-YYYYMMDD`) targeting `main`. Uses the Harry1176 (escalation) token with `commit-mode: force-pr`. The PR body contains a marker (`<!-- artifacts:generated-thumbnails -->`) for loop detection. When this follow-up PR is later merged to `main`, the planner recognizes it via PR provenance and sets `persist-mode: none` to prevent infinite loops. The commit-level files check also sets `skip-verification: true` when the merge commit contains only thumbnail files, eliminating the redundant deploy. Stale-check is not performed because there is no PR branch to check.
 
 #### Scenario 3: Close or merge a PR
 
@@ -350,6 +355,17 @@ The `plan` job computes a `persist-mode` from the event context:
 | `followup-pr` | Push to main with missing thumbnails                  | New PR opened (or existing one updated) |
 
 Loop prevention: merging a follow-up thumbnail PR is detected via PR provenance (not commit message), so squash-merge settings don't break the detection.
+
+### Verification skip for automated thumbnail commits
+
+The `plan` job also computes `skip-verification` to eliminate redundant CI runs triggered by automated thumbnail commits. When `persist-thumbnails` commits thumbnails back to a PR branch (via the Hermione1176 app token), the resulting `synchronize` event triggers a second workflow run. The planner detects this by checking two conditions:
+
+1. The workflow actor matches the resolved app bot login (derived from `vars.APP_ID` at runtime, not hardcoded).
+2. Every file in the triggering commit matches the thumbnail pattern (`apps/*/thumbnail.webp`).
+
+Both must hold for `skip-verification` to be `true`. When set, `verify` and `publish` are skipped — only `plan` and `secret-scan` run. The same commit-level files check applies to main-branch pushes from merged thumbnail follow-up PRs, alongside the existing PR provenance detection.
+
+Any detection failure (missing secrets, API errors, non-thumbnail files, actor mismatch) defaults to `false` — the full pipeline runs. The skip is a narrow optimization exit, not a mode change.
 
 ### External GitHub settings
 

@@ -49,11 +49,20 @@ jobs:
       thumbnail-slugs: ${{ steps.plan.outputs.thumbnail-slugs }}
       persist-mode: ${{ steps.plan.outputs.persist-mode }}
       reason: ${{ steps.plan.outputs.reason }}
+      skip-verification: ${{ steps.plan.outputs.skip-verification }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 1
+
+      - name: Resolve primary app identity
+        id: app-identity
+        continue-on-error: true
+        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Compute browser and thumbnail plan
         id: plan
@@ -61,6 +70,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEAD_REPO_FORK: ${{ github.event.pull_request.head.repo.fork || 'false' }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login || '' }}
+          ACTOR: ${{ github.actor }}
+          APP_BOT_LOGIN: ${{ steps.app-identity.outputs.app-slug }}[bot]
         run: |
           plan=$(python3 scripts/ci/workflow_helpers.py thumbnail-plan \
             --event-name "${{ github.event_name }}" \
@@ -68,7 +79,9 @@ jobs:
             --pr-number "${{ github.event.pull_request.number || '' }}" \
             --commit-sha "${{ github.sha }}" \
             --head-repo-fork "$HEAD_REPO_FORK" \
-            --pr-author "$PR_AUTHOR")
+            --pr-author "$PR_AUTHOR" \
+            --actor "$ACTOR" \
+            --app-bot-login "$APP_BOT_LOGIN")
           echo "json=$plan" >> "$GITHUB_OUTPUT"
           PLAN_JSON="$plan" python3 - <<'PY'
           import json
@@ -82,12 +95,14 @@ jobs:
               output.write(f"thumbnail-slugs={','.join(plan['thumbnail_slugs'])}\n")
               output.write(f"persist-mode={plan['persist_mode']}\n")
               output.write(f"reason={plan['reason']}\n")
+              output.write(f"skip-verification={'true' if plan['skip_verification'] else 'false'}\n")
           PY
 
       - name: Summarize automation plan
         env:
           PLAN_PERSIST_MODE: ${{ steps.plan.outputs.persist-mode }}
           PLAN_REASON: ${{ steps.plan.outputs.reason }}
+          PLAN_SKIP_VERIFICATION: ${{ steps.plan.outputs.skip-verification }}
           PLAN_BROWSER_SCOPE: ${{ steps.plan.outputs.browser-scope }}
           PLAN_THUMBNAIL_SCOPE: ${{ steps.plan.outputs.thumbnail-scope }}
           PLAN_CHANGED_SLUGS: ${{ steps.plan.outputs.changed-slugs }}
@@ -98,6 +113,7 @@ jobs:
             echo
             echo "Persist mode: $PLAN_PERSIST_MODE"
             echo "Reason: $PLAN_REASON"
+            echo "Skip verification: $PLAN_SKIP_VERIFICATION"
             echo "Browser scope: $PLAN_BROWSER_SCOPE"
             echo "Thumbnail scope: $PLAN_THUMBNAIL_SCOPE"
             echo "Changed slugs: ${PLAN_CHANGED_SLUGS:-none}"
@@ -106,8 +122,12 @@ jobs:
 
   # Build and verify once. This is the only job allowed to run the expensive
   # thumbnail generation path. Later jobs must reuse the verified artifacts.
+  # Skipped when the planner detects an automated thumbnail-only commit
+  # (trusted app bot actor + exclusively thumbnail files in the commit).
   verify:
-    if: github.event.action != 'closed'
+    if: >-
+      github.event.action != 'closed' &&
+      needs.plan.outputs.skip-verification != 'true'
     needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -289,9 +309,12 @@ jobs:
 
   # Publish only the verified `_site` artifact. This job never regenerates
   # thumbnails or mutates source branches.
+  # Skipped alongside verify when the planner detects an automated
+  # thumbnail-only commit — the site was already deployed by the prior run.
   publish:
     if: >-
       github.event.action != 'closed' &&
+      needs.plan.outputs.skip-verification != 'true' &&
       !failure() && !cancelled() &&
       needs.verify.result == 'success' &&
       needs.secret-scan.result == 'success' &&
