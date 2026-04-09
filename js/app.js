@@ -1,5 +1,5 @@
-import { initializeGalleryApp as initializeGalleryAppModule } from './modules/gallery-app.js';
-import { validateGalleryBootstrapData as validateGalleryBootstrapDataModule } from './modules/config.js';
+import { initializeGalleryApp as initializeGalleryAppModule } from './modules/gallery/gallery-app.js';
+import { validateGalleryBootstrapData as validateGalleryBootstrapDataModule } from './modules/gallery/config.js';
 import { createRuntime as createRuntimeModule } from './modules/runtime.js';
 
 function getBootstrapDependencies(windowObj = window) {

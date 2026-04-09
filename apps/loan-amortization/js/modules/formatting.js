@@ -40,15 +40,4 @@ export function parseNumber(value) {
   return +String(value).replace(/[^0-9.\-]/g, "");
 }
 
-/**
- * Escape a string for safe use in an HTML attribute value.
- * @param {string} value - Raw string to escape.
- * @returns {string} Escaped string safe for attribute contexts.
- */
-export function escapeAttribute(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
+export { escapeAttribute } from '../../../../js/modules/html-escape.js';
