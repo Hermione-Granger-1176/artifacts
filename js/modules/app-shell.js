@@ -1,8 +1,4 @@
-import { writeStorage } from "./runtime.js";
-
-const SAFE_RELATIVE_PATH_RE = /^[./a-zA-Z0-9_-]+$/;
-
-const APP_HEADER_MARKUP = `
+import{writeStorage as b}from"./runtime.js";const k=/^[./a-zA-Z0-9_-]+$/,x=`
   <header class="app-header">
     <div class="app-header-inner">
       <div class="app-nav">
@@ -40,9 +36,7 @@ const APP_HEADER_MARKUP = `
       </button>
     </div>
   </header>
-`;
-
-const APP_RUNTIME_ERROR_MARKUP = `
+`,v=`
   <div id="runtime-error" class="runtime-error visually-hidden" role="alert" aria-live="assertive">
     <p>The app failed to initialize correctly. Reload the page, or try again later.</p>
     <details id="runtime-error-details" class="runtime-error-details" hidden>
@@ -51,185 +45,10 @@ const APP_RUNTIME_ERROR_MARKUP = `
       <button id="runtime-error-copy" class="runtime-error-copy" type="button" hidden>Copy error details</button>
     </details>
   </div>
-`;
-
-const APP_SCROLL_TOP_MARKUP = `
+`,_=`
   <button id="scroll-top" class="scroll-top" type="button" aria-label="Scroll to top" aria-hidden="true" tabindex="-1">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <polyline points="18 15 12 9 6 15"></polyline>
     </svg>
   </button>
-`;
-
-function renderMarkupSlot(slot, markup) {
-  if (!slot || slot.childElementCount > 0) {
-    return;
-  }
-
-  slot.innerHTML = markup.trim();
-}
-
-/**
- * Inject shared shell markup (header, error banner, scroll-to-top) into placeholder slots.
- * @param {{ documentObj?: Document, homePath?: string }} [options={}]
- * @param {Document} [options.documentObj=document] - Document to query.
- * @param {string} [options.homePath='../../'] - Relative path to the gallery root.
- * @returns {void}
- */
-export function renderAppShell({
-  documentObj = document,
-  homePath = "../../"
-} = {}) {
-  renderMarkupSlot(
-    documentObj.querySelector('[data-app-shell="header"]'),
-    APP_HEADER_MARKUP.replaceAll("__HOME_PATH__", SAFE_RELATIVE_PATH_RE.test(homePath) ? homePath : "../../")
-  );
-  renderMarkupSlot(
-    documentObj.querySelector('[data-app-shell="runtime-error"]'),
-    APP_RUNTIME_ERROR_MARKUP
-  );
-  renderMarkupSlot(
-    documentObj.querySelector('[data-app-shell="scroll-top"]'),
-    APP_SCROLL_TOP_MARKUP
-  );
-}
-
-/**
- * Initialize the shared app shell with theme toggle, back navigation, and scroll-to-top.
- * @param {{
- *   homePath?: string,
- *   metaThemeColors?: {dark: string, light: string},
- *   onThemeChange?: (theme: string) => void
- * }} [options={}]
- * @param {string} [options.homePath='../../'] - Relative path to the gallery root.
- * @param {{dark: string, light: string}} [options.metaThemeColors] - Theme-color meta values.
- * @param {(theme: string) => void} [options.onThemeChange] - Callback when theme changes.
- * @returns {{
- *   applyTheme: (theme: string) => void,
- *   syncThemeToggle: () => void,
- *   updateScrollTopVisibility: () => void
- * }}
- */
-export function initAppShell({
-  homePath = "../../",
-  metaThemeColors = {
-    dark: "rgb(20, 20, 20)",
-    light: "rgb(248, 248, 246)"
-  },
-  onThemeChange = () => {}
-} = {}) {
-  renderAppShell({ documentObj: document, homePath });
-  const html = document.documentElement;
-  const backButton = document.getElementById("back-button");
-  const themeToggle = document.getElementById("theme-toggle");
-  const scrollTop = document.getElementById("scroll-top");
-  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-  function currentTheme() {
-    return window.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(
-      html.getAttribute("data-theme")
-    );
-  }
-
-  function syncThemeColor(theme) {
-    if (!themeColorMeta) {
-      return;
-    }
-
-    themeColorMeta.setAttribute(
-      "content",
-      metaThemeColors[theme] || metaThemeColors.light
-    );
-  }
-
-  function syncThemeToggle() {
-    if (!themeToggle) {
-      return;
-    }
-
-    const theme = currentTheme();
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    themeToggle.setAttribute("aria-pressed", String(theme === "dark"));
-    themeToggle.setAttribute("aria-label", `Switch to ${nextTheme} theme`);
-    themeToggle.setAttribute("title", `Switch to ${nextTheme} theme`);
-  }
-
-  function applyTheme(theme) {
-    const normalizedTheme =
-      window.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(theme);
-    html.setAttribute("data-theme", normalizedTheme);
-    syncThemeColor(normalizedTheme);
-    syncThemeToggle();
-    writeStorage("theme", normalizedTheme);
-    onThemeChange(normalizedTheme);
-  }
-
-  function handleBackClick() {
-    const navigateHome = () => {
-      window.location.href = homePath;
-    };
-
-    if (!document.referrer) {
-      navigateHome();
-      return;
-    }
-
-    let referrerUrl;
-    try {
-      referrerUrl = new URL(document.referrer);
-    } catch (_error) {
-      navigateHome();
-      return;
-    }
-
-    if (
-      referrerUrl.origin !== window.location.origin ||
-      window.history.length <= 1
-    ) {
-      navigateHome();
-      return;
-    }
-
-    window.history.back();
-  }
-
-  function updateScrollTopVisibility() {
-    if (!scrollTop) {
-      return;
-    }
-
-    const isVisible = window.scrollY > 280;
-    scrollTop.classList.toggle("is-visible", isVisible);
-    scrollTop.setAttribute("aria-hidden", String(!isVisible));
-    scrollTop.tabIndex = isVisible ? 0 : -1;
-  }
-
-  if (backButton) {
-    backButton.addEventListener("click", handleBackClick);
-  }
-
-  if (themeToggle) {
-    themeToggle.addEventListener("click", () => {
-      applyTheme(currentTheme() === "dark" ? "light" : "dark");
-    });
-  }
-
-  if (scrollTop) {
-    scrollTop.addEventListener("click", () => {
-      const behavior = prefersReducedMotion.matches ? "auto" : "smooth";
-      window.scrollTo({ top: 0, behavior });
-    });
-    window.addEventListener("scroll", updateScrollTopVisibility, { passive: true });
-    updateScrollTopVisibility();
-  }
-
-  syncThemeColor(currentTheme());
-  syncThemeToggle();
-
-  return {
-    applyTheme,
-    syncThemeToggle,
-    updateScrollTopVisibility
-  };
-}
+`;function c(t,n){!t||t.childElementCount>0||(t.innerHTML=n.trim())}export function renderAppShell({documentObj:t=document,homePath:n="../../"}={}){c(t.querySelector('[data-app-shell="header"]'),x.replaceAll("__HOME_PATH__",k.test(n)?n:"../../")),c(t.querySelector('[data-app-shell="runtime-error"]'),v),c(t.querySelector('[data-app-shell="scroll-top"]'),_)}export function initAppShell({homePath:t="../../",metaThemeColors:n={dark:"rgb(20, 20, 20)",light:"rgb(248, 248, 246)"},onThemeChange:w=()=>{}}={}){renderAppShell({documentObj:document,homePath:t});const d=document.documentElement,u=document.getElementById("back-button"),i=document.getElementById("theme-toggle"),o=document.getElementById("scroll-top"),h=document.querySelector('meta[name="theme-color"]'),g=window.matchMedia("(prefers-reduced-motion: reduce)");function l(){return window.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(d.getAttribute("data-theme"))}function p(e){h&&h.setAttribute("content",n[e]||n.light)}function a(){if(!i)return;const e=l(),r=e==="dark"?"light":"dark";i.setAttribute("aria-pressed",String(e==="dark")),i.setAttribute("aria-label",`Switch to ${r} theme`),i.setAttribute("title",`Switch to ${r} theme`)}function m(e){const r=window.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(e);d.setAttribute("data-theme",r),p(r),a(),b("theme",r),w(r)}function y(){const e=()=>{window.location.href=t};if(!document.referrer){e();return}let r;try{r=new URL(document.referrer)}catch{e();return}if(r.origin!==window.location.origin||window.history.length<=1){e();return}window.history.back()}function s(){if(!o)return;const e=window.scrollY>280;o.classList.toggle("is-visible",e),o.setAttribute("aria-hidden",String(!e)),o.tabIndex=e?0:-1}return u&&u.addEventListener("click",y),i&&i.addEventListener("click",()=>{m(l()==="dark"?"light":"dark")}),o&&(o.addEventListener("click",()=>{const e=g.matches?"auto":"smooth";window.scrollTo({top:0,behavior:e})}),window.addEventListener("scroll",s,{passive:!0}),s()),p(l()),a(),{applyTheme:m,syncThemeToggle:a,updateScrollTopVisibility:s}}
