@@ -27,7 +27,7 @@ from scripts import REPO_ROOT
 from scripts.build.index_sources import artifact_url, read_artifact_contract_file
 from scripts.lib.app_discovery import thumbnail_file
 from scripts.lib.path_validation import reject_symlinks
-from scripts.lib.project_config import load_artifacts_setting
+from scripts.lib.project_config import load_artifacts_setting, load_site_url
 
 logging.basicConfig(
     level=logging.INFO,
@@ -78,14 +78,9 @@ def _load_site_path() -> str:
     return _normalize_site_path(load_artifacts_setting(PYPROJECT_FILE, "site_path"))
 
 
-def _normalize_site_url(value: str) -> str:
-    """Return a normalized canonical site URL with a trailing slash."""
-    return value.rstrip("/") + "/"
-
-
 def _load_site_url() -> str:
     """Load the configured canonical site URL from ``pyproject.toml``."""
-    return _normalize_site_url(load_artifacts_setting(PYPROJECT_FILE, "site_url"))
+    return load_site_url(PYPROJECT_FILE)
 
 
 def _read_git_output(*args: str) -> str:

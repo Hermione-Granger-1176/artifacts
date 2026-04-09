@@ -9,19 +9,10 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+from scripts import REPO_ROOT
+from scripts.lint import SKIP_DIRECTORIES
+
 EDITORCONFIG_FILE = REPO_ROOT / ".editorconfig"
-SKIP_DIRECTORIES = {
-    ".git",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".venv",
-    "__pycache__",
-    "_site",
-    "build",
-    "dist",
-    "node_modules",
-}
 BINARY_SUFFIXES = {
     ".avif",
     ".gif",

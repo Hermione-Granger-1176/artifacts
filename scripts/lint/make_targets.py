@@ -7,19 +7,10 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+from scripts import REPO_ROOT
+from scripts.lint import SKIP_DIRECTORIES
+
 MAKEFILE_PATH = REPO_ROOT / "Makefile"
-SKIP_DIRECTORIES = {
-    ".git",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".venv",
-    "__pycache__",
-    "_site",
-    "build",
-    "dist",
-    "node_modules",
-}
 TARGET_PATTERN = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):(?!=)", re.MULTILINE)
 MAKE_REFERENCE_PATTERN = re.compile(
     r"(?:[A-Z_][A-Z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\s\"']+)\s+)*"

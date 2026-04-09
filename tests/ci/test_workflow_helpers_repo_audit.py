@@ -4,21 +4,22 @@ import json
 
 import pytest
 
+import scripts.ci.repo_audit as repo_audit
 import scripts.ci.workflow_helpers as workflow_helpers
 
 
 def test_collect_named_items_skips_non_lists_and_non_dict_entries() -> None:
     assert (
-        workflow_helpers._collect_named_items({"variables": "invalid"}, "variables")
+        repo_audit.collect_named_items({"variables": "invalid"}, "variables")
         == set()
     )
-    assert workflow_helpers._collect_named_items(
+    assert repo_audit.collect_named_items(
         {"variables": ["bad", {"name": "APP_ID"}, {"name": 9}]}, "variables"
     ) == {"APP_ID"}
 
 
 def test_extract_required_checks_handles_contexts_and_checks() -> None:
-    assert workflow_helpers._extract_required_checks(
+    assert repo_audit.extract_required_checks(
         {
             "required_status_checks": {
                 "contexts": ["verify", "secret-scan"],
@@ -29,12 +30,12 @@ def test_extract_required_checks_handles_contexts_and_checks() -> None:
 
 
 def test_extract_required_checks_handles_missing_data() -> None:
-    assert workflow_helpers._extract_required_checks(None) == set()
-    assert workflow_helpers._extract_required_checks({}) == set()
+    assert repo_audit.extract_required_checks(None) == set()
+    assert repo_audit.extract_required_checks({}) == set()
 
 
 def test_ruleset_targets_branch_detects_exact_refs() -> None:
-    assert workflow_helpers._ruleset_targets_branch(
+    assert repo_audit.ruleset_targets_branch(
         {
             "target": "branch",
             "conditions": {"ref_name": {"include": ["main", "refs/heads/gh-pages"]}},
@@ -45,7 +46,7 @@ def test_ruleset_targets_branch_detects_exact_refs() -> None:
 
 def test_ruleset_targets_branch_rejects_non_matching_rulesets() -> None:
     assert (
-        workflow_helpers._ruleset_targets_branch(
+        repo_audit.ruleset_targets_branch(
             {
                 "target": "tag",
                 "conditions": {"ref_name": {"include": ["refs/heads/gh-pages"]}},
@@ -54,24 +55,24 @@ def test_ruleset_targets_branch_rejects_non_matching_rulesets() -> None:
         )
         is False
     )
-    assert workflow_helpers._ruleset_targets_branch({}, "gh-pages") is False
+    assert repo_audit.ruleset_targets_branch({}, "gh-pages") is False
 
 
 def test_ruleset_targets_branch_rejects_malformed_conditions() -> None:
     assert (
-        workflow_helpers._ruleset_targets_branch(
+        repo_audit.ruleset_targets_branch(
             {"target": "branch", "conditions": []}, "gh-pages"
         )
         is False
     )
     assert (
-        workflow_helpers._ruleset_targets_branch(
+        repo_audit.ruleset_targets_branch(
             {"target": "branch", "conditions": {"ref_name": []}}, "gh-pages"
         )
         is False
     )
     assert (
-        workflow_helpers._ruleset_targets_branch(
+        repo_audit.ruleset_targets_branch(
             {
                 "target": "branch",
                 "conditions": {"ref_name": {"include": "refs/heads/gh-pages"}},
@@ -83,16 +84,16 @@ def test_ruleset_targets_branch_rejects_malformed_conditions() -> None:
 
 
 def test_extract_ruleset_rule_types_handles_missing_and_malformed_data() -> None:
-    assert workflow_helpers._extract_ruleset_rule_types(None) == set()
-    assert workflow_helpers._extract_ruleset_rule_types({}) == set()
+    assert repo_audit.extract_ruleset_rule_types(None) == set()
+    assert repo_audit.extract_ruleset_rule_types({}) == set()
     assert (
-        workflow_helpers._extract_ruleset_rule_types({"rules": ["bad", {"type": 9}]})
+        repo_audit.extract_ruleset_rule_types({"rules": ["bad", {"type": 9}]})
         == set()
     )
 
 
 def test_extract_ruleset_rule_types_collects_rule_names() -> None:
-    assert workflow_helpers._extract_ruleset_rule_types(
+    assert repo_audit.extract_ruleset_rule_types(
         {
             "rules": [
                 {"type": "update"},
@@ -104,11 +105,11 @@ def test_extract_ruleset_rule_types_collects_rule_names() -> None:
 
 
 def test_ruleset_id_handles_missing_and_string_values() -> None:
-    assert workflow_helpers._ruleset_id(None) is None
-    assert workflow_helpers._ruleset_id({}) is None
-    assert workflow_helpers._ruleset_id({"id": 42}) == 42
-    assert workflow_helpers._ruleset_id({"id": "43"}) == 43
-    assert workflow_helpers._ruleset_id({"id": "gh-pages"}) is None
+    assert repo_audit.ruleset_id(None) is None
+    assert repo_audit.ruleset_id({}) is None
+    assert repo_audit.ruleset_id({"id": 42}) == 42
+    assert repo_audit.ruleset_id({"id": "43"}) == 43
+    assert repo_audit.ruleset_id({"id": "gh-pages"}) is None
 
 
 def test_load_ruleset_detail_uses_summary_when_conditions_exist(

@@ -113,14 +113,6 @@ def test_load_site_path_reads_pyproject(
     assert prepare_site._load_site_path() == "/artifacts/"
 
 
-def test_normalize_site_url() -> None:
-    assert prepare_site._normalize_site_url("https://example.com/demo") == (
-        "https://example.com/demo/"
-    )
-    assert prepare_site._normalize_site_url("https://example.com/demo/") == (
-        "https://example.com/demo/"
-    )
-
 
 def test_load_site_url_reads_pyproject(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

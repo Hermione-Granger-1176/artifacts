@@ -5,14 +5,15 @@ import subprocess
 import pytest
 
 import scripts.ci.workflow_helpers as workflow_helpers
+import scripts.lib.gh_api as gh_api
 from tests.ci.workflow_helpers_test_support import FakeSubprocessResult
 
 
 def test_is_retryable_gh_api_failure_matches_expected_cases() -> None:
-    assert workflow_helpers._is_retryable_gh_api_failure("503 Service Unavailable")
-    assert workflow_helpers._is_retryable_gh_api_failure("timed out while calling API")
-    assert workflow_helpers._is_retryable_gh_api_failure("network error")
-    assert not workflow_helpers._is_retryable_gh_api_failure("404 Not Found")
+    assert gh_api.is_retryable_gh_api_failure("503 Service Unavailable")
+    assert gh_api.is_retryable_gh_api_failure("timed out while calling API")
+    assert gh_api.is_retryable_gh_api_failure("network error")
+    assert not gh_api.is_retryable_gh_api_failure("404 Not Found")
 
 
 def test_run_gh_api_retries_transient_failures(
@@ -42,7 +43,7 @@ def test_run_gh_api_retries_transient_failures(
 
     assert stdout == "apps/demo/index.html\n"
     assert calls == 2
-    assert sleep_calls == [workflow_helpers.GH_API_RETRY_DELAY_SECONDS]
+    assert sleep_calls == [gh_api.GH_API_RETRY_DELAY_SECONDS]
 
 
 def test_run_gh_api_retries_timeout_then_fails(
@@ -65,8 +66,8 @@ def test_run_gh_api_retries_timeout_then_fails(
         )
 
     assert sleep_calls == [
-        workflow_helpers.GH_API_RETRY_DELAY_SECONDS,
-        workflow_helpers.GH_API_RETRY_DELAY_SECONDS * 2,
+        gh_api.GH_API_RETRY_DELAY_SECONDS,
+        gh_api.GH_API_RETRY_DELAY_SECONDS * 2,
     ]
 
 
@@ -92,7 +93,7 @@ def test_run_gh_api_fails_fast_for_non_retryable_errors(
 def test_run_gh_api_uses_final_fallback_when_attempts_disabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(workflow_helpers, "GH_API_MAX_ATTEMPTS", 0)
+    monkeypatch.setattr(workflow_helpers._gh_api, "GH_API_MAX_ATTEMPTS", 0)
 
     with pytest.raises(RuntimeError, match="unknown error"):
         workflow_helpers._run_gh_api(
@@ -174,9 +175,9 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         "fields": [("title", "Alert"), ("labels[]", "ci")],
         "description": "creating alert issue",
         "jq_expr": ".html_url",
-        "max_attempts": workflow_helpers.GH_API_MAX_ATTEMPTS,
-        "retry_delay_seconds": workflow_helpers.GH_API_RETRY_DELAY_SECONDS,
-        "timeout_seconds": workflow_helpers.GH_API_TIMEOUT_SECONDS,
+        "max_attempts": gh_api.GH_API_MAX_ATTEMPTS,
+        "retry_delay_seconds": gh_api.GH_API_RETRY_DELAY_SECONDS,
+        "timeout_seconds": gh_api.GH_API_TIMEOUT_SECONDS,
     }
 
 
