@@ -1,0 +1,92 @@
+export const scenarios = [
+  {
+    label: "Sentence 1",
+    type: "Completing a sentence",
+    prefix: "The cat sat on the",
+    tokens: [
+      { word: "mat", baseLogit: 4.2 },
+      { word: "floor", baseLogit: 3.1 },
+      { word: "roof", baseLogit: 1.8 },
+      { word: "table", baseLogit: 1.3 },
+      { word: "moon", baseLogit: 0.6 },
+      { word: "chair", baseLogit: 0.4 },
+      { word: "idea", baseLogit: 0.1 },
+      { word: "banana", baseLogit: -0.3 }
+    ]
+  },
+  {
+    label: "Sentence 2",
+    type: "Completing a sentence",
+    prefix: "She opened the door and",
+    tokens: [
+      { word: "walked", baseLogit: 4.0 },
+      { word: "stepped", baseLogit: 3.3 },
+      { word: "saw", baseLogit: 2.5 },
+      { word: "screamed", baseLogit: 1.2 },
+      { word: "laughed", baseLogit: 0.7 },
+      { word: "vanished", baseLogit: 0.2 },
+      { word: "melted", baseLogit: -0.2 },
+      { word: "exploded", baseLogit: -0.8 }
+    ]
+  },
+  {
+    label: "Code",
+    type: "Code generation",
+    prefix: "function getUser() { return",
+    tokens: [
+      { word: "this", baseLogit: 4.5 },
+      { word: "user", baseLogit: 3.8 },
+      { word: "null", baseLogit: 2.1 },
+      { word: "fetch(", baseLogit: 1.6 },
+      { word: "true", baseLogit: 0.5 },
+      { word: "[]", baseLogit: 0.1 },
+      { word: '"hi"', baseLogit: -0.4 },
+      { word: "42", baseLogit: -1.0 }
+    ]
+  },
+  {
+    label: "Creative",
+    type: "Creative writing",
+    prefix: "The lighthouse keeper stared at the",
+    tokens: [
+      { word: "sea", baseLogit: 3.5 },
+      { word: "horizon", baseLogit: 3.2 },
+      { word: "storm", baseLogit: 2.4 },
+      { word: "ghost", baseLogit: 1.5 },
+      { word: "letter", baseLogit: 1.1 },
+      { word: "abyss", baseLogit: 0.6 },
+      { word: "clock", baseLogit: 0.2 },
+      { word: "mirror", baseLogit: -0.1 }
+    ]
+  },
+  {
+    label: "Factual",
+    type: "Factual / scientific",
+    prefix: "Water boils at 100 degrees",
+    tokens: [
+      { word: "Celsius", baseLogit: 5.0 },
+      { word: "centigrade", baseLogit: 3.2 },
+      { word: "Fahrenheit", baseLogit: 0.8 },
+      { word: "Kelvin", baseLogit: 0.4 },
+      { word: "absolute", baseLogit: -0.2 },
+      { word: "hot", baseLogit: -0.6 },
+      { word: "warm", baseLogit: -1.0 },
+      { word: "exactly", baseLogit: -1.4 }
+    ]
+  },
+  {
+    label: "Chat",
+    type: "Conversational reply",
+    prefix: "Thanks for your message! I will get back to you",
+    tokens: [
+      { word: "soon", baseLogit: 4.3 },
+      { word: "shortly", baseLogit: 3.6 },
+      { word: "tomorrow", baseLogit: 2.0 },
+      { word: "later", baseLogit: 1.8 },
+      { word: "eventually", baseLogit: 0.5 },
+      { word: "never", baseLogit: -0.3 },
+      { word: "maybe", baseLogit: -0.7 },
+      { word: "idk", baseLogit: -1.5 }
+    ]
+  }
+];
