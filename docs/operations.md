@@ -31,7 +31,7 @@ Recommended workflow when changing workspace code:
 
 CI uses the same `make` targets as local development. The `verify` job in `update.yml` runs:
 
-- `make setup-ci`, `make check-local`, `make test-browser-root`, conditional `make test-browser-apps`, `make thumbnails`, `make index`, `make site`
+- `make setup-ci`, then `scripts/ci/run_parallel_checks.py` runs `lint`, `test-py`, `coverage-js`, `security`, `validate`, and `test-browser-root` concurrently, followed by conditional `make test-browser-apps`, then `make thumbnails`, `make check-generated`, `make index`, `make site`
 
 This keeps local results predictive of CI results.
 

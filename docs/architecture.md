@@ -153,15 +153,12 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
   - Step by step:
     1. Checks out the PR branch code.
     2. Sets up Python and Node, restores cached Playwright browsers, then runs `make setup-ci` to install project dependencies and ensure Chromium is available.
-    3. Runs `make check-local`: EditorConfig check, ruff, ESLint, stylelint, yamllint, workflow lint, JS source-to-test coverage lint, Python tests (100% coverage on `scripts/`), JS tests, JS coverage (95/85/95 thresholds), pip-audit, npm audit, artifact directory validation, and canonical generated-file drift verification.
-    4. If `thumbnail-scope` is not `none`: calls `scripts/ci/workflow_helpers.py invalidate-thumbnails` to delete stale `thumbnail.webp` files for apps with runtime changes, so they will be regenerated fresh.
-    5. Runs `make test-browser-root`: opens the gallery in Chromium, tests search, filters, pagination, detail overlay, keyboard navigation, accessibility, `404.html`.
-    6. If `browser-scope` is not `none`: runs `make test-browser-apps`. If `browser-scope` is `changed`, scopes to only the changed app slugs via `ARTIFACTS_BROWSER_APP_SLUGS`. If `all`, tests every mature app.
-    7. Runs `make thumbnails`: opens each affected app in Chromium, waits for `window.__ARTIFACT_READY__`, captures and saves `thumbnail.webp`.
-    8. Runs `make index`: scans `apps/`, generates `js/data.js` and `js/gallery-config.js`, updates README.
-    9. Runs `make site`: copies into `_site/`, cache-busts assets, injects social metadata, minifies CSS/JS, writes `deploy-metadata.json`.
-    10. Uploads `_site/` as artifact `site-{run_id}`.
-    11. If `persist-mode` is not `none` and thumbnails actually changed: packages `apps/*/thumbnail.webp` files plus `plan.json` into artifact `thumbnail-persist-{run_id}`.
+    3. Runs `scripts/ci/run_parallel_checks.py` to execute independent checks concurrently: `lint`, `test-py`, `coverage-js`, `security`, `validate`, and `test-browser-root`. Each check captures output; failures print unfolded logs while passes are folded with `::group::`.
+    4. If `browser-scope` is not `none`: runs `make test-browser-apps`. If `browser-scope` is `changed`, scopes to only the changed app slugs via `ARTIFACTS_BROWSER_APP_SLUGS`. If `all`, tests every mature app.
+    5. If `thumbnail-scope` is not `none`: calls `scripts/ci/workflow_helpers.py invalidate-thumbnails` to delete stale `thumbnail.webp` files for apps with runtime changes, so they will be regenerated fresh.
+    6. Runs the sequential build chain: `make thumbnails` → `make check-generated` → `make index` → `make site`.
+    7. Uploads `_site/` as artifact `site-{run_id}`.
+    8. If `persist-mode` is not `none` and thumbnails actually changed: packages `apps/*/thumbnail.webp` files plus `plan.json` into artifact `thumbnail-persist-{run_id}`.
   - Reads: PR branch code. Writes: nothing (only uploads artifacts to GitHub Actions storage).
 
 **After ALL FOUR complete (plan + verify + secret-scan + dependency-review) → `publish` starts:**
@@ -312,6 +309,7 @@ graph TD
 | `scripts/ci/workflow_helpers.py audit-repo-settings`         | audit-repo-settings workflow             | Check Pages, protection, variables, secrets, ruleset                                                         |
 | `scripts/ci/workflow_helpers.py read-lock-metadata`          | commit-python-locks workflow             | Read PR metadata from lock refresh artifact                                                                  |
 | `scripts/ci/workflow_helpers.py validate-lock-artifact`      | commit-python-locks workflow             | Validate lock refresh artifact integrity                                                                     |
+| `scripts/ci/run_parallel_checks.py`                          | verify job                               | Run independent Make targets concurrently with captured CI-friendly output                                   |
 | `scripts/ci/verify_deploy.py`                                | deploy-site action, publish job          | Poll published URL for expected HTML marker and deploy metadata SHA                                          |
 | `deploy-verified.mjs`                                        | deploy-site action, publish/cleanup jobs | Deploy to gh-pages via GraphQL verified commit; handles full site, preview subdirectory, and preview removal |
 | `verified-commit.mjs`                                        | verified-commit action                   | Create verified commit via GraphQL; fall back to PR on conflict                                              |

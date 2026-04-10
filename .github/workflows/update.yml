@@ -165,8 +165,19 @@ jobs:
       - name: Install workspace dependencies
         run: make setup-ci
 
-      - name: Run fast repository gate
-        run: make COVERAGE_OUTPUT=js-coverage.txt check-local
+      - name: Run parallel checks
+        env:
+          COVERAGE_OUTPUT: js-coverage.txt
+        run: >-
+          python3 scripts/ci/run_parallel_checks.py
+          --timeout 1200
+          lint test-py coverage-js security validate test-browser-root
+
+      - name: Run selective app browser verification
+        if: needs.plan.outputs.browser-scope != 'none'
+        env:
+          ARTIFACTS_BROWSER_APP_SLUGS: ${{ needs.plan.outputs.browser-scope == 'changed' && needs.plan.outputs.changed-slugs || '' }}
+        run: make test-browser-apps
 
       - name: Invalidate thumbnails for targeted runtime changes
         if: needs.plan.outputs.thumbnail-scope != 'none'
@@ -179,21 +190,13 @@ jobs:
           --pr-number "${{ github.event.pull_request.number || '' }}"
           --commit-sha "${{ github.sha }}"
 
-      - name: Run root browser verification
-        run: make test-browser-root
-
-      - name: Run selective app browser verification
-        if: needs.plan.outputs.browser-scope != 'none'
-        env:
-          ARTIFACTS_BROWSER_APP_SLUGS: ${{ needs.plan.outputs.browser-scope == 'changed' && needs.plan.outputs.changed-slugs || '' }}
-        run: make test-browser-apps
-
-      - name: Build verified site and thumbnails
+      - name: Build verified site
         env:
           ARTIFACTS_THUMBNAIL_SLUGS: ${{ needs.plan.outputs.thumbnail-scope == 'changed' && needs.plan.outputs.thumbnail-slugs || '' }}
           ARTIFACTS_THUMBNAIL_MANIFEST: .artifacts/thumbnail-persist/manifest.json
         run: |
           make thumbnails
+          make check-generated
           make index
           make site
 
