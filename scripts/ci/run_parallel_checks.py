@@ -38,7 +38,7 @@ def run_check(
             elapsed=time.monotonic() - start,
             output=f"Timed out after {timeout}s",
         )
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         return CheckResult(
             name=name,
             passed=False,
@@ -46,11 +46,12 @@ def run_check(
             output=f"Failed to run: {exc}",
         )
     elapsed = time.monotonic() - start
+    output = (result.stdout + result.stderr).rstrip("\n")
     return CheckResult(
         name=name,
         passed=result.returncode == 0,
         elapsed=elapsed,
-        output=(result.stdout + result.stderr).strip(),
+        output=output,
     )
 
 
@@ -99,6 +100,10 @@ def main(argv: list[str] | None = None) -> int:
             timeout = int(args[idx + 1])
         except ValueError:
             print(f"Error: invalid timeout value: {args[idx + 1]!r}.")
+            print(usage)
+            return 1
+        if timeout < 1:
+            print(f"Error: timeout must be positive, got {timeout}.")
             print(usage)
             return 1
         args = args[:idx] + args[idx + 2:]

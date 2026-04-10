@@ -50,6 +50,15 @@ def test_run_check_combines_stdout_and_stderr() -> None:
     assert result.output == "out\nerr"
 
 
+def test_run_check_preserves_internal_whitespace() -> None:
+    result = run_check(
+        "lint",
+        run_fn=_make_run_fn(stdout="  indented\n\n  block\n"),
+    )
+
+    assert result.output == "  indented\n\n  block"
+
+
 def test_run_check_handles_timeout() -> None:
     def timeout_run(cmd, **kwargs):
         raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout", 600))
@@ -161,6 +170,11 @@ def test_main_rejects_timeout_without_value() -> None:
 
 def test_main_rejects_non_numeric_timeout() -> None:
     assert main(["--timeout", "abc", "lint"]) == 1
+
+
+def test_main_rejects_non_positive_timeout() -> None:
+    assert main(["--timeout", "0", "lint"]) == 1
+    assert main(["--timeout", "-5", "lint"]) == 1
 
 
 def test_main_returns_one_with_no_targets() -> None:
