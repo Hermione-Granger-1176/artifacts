@@ -19,14 +19,32 @@ class CheckResult:
     output: str
 
 
+DEFAULT_TIMEOUT = 600
+
+
 def run_check(
-    name: str, *, timeout: int = 300, run_fn=None
+    name: str, *, timeout: int = DEFAULT_TIMEOUT, run_fn=None
 ) -> CheckResult:
     """Run a single make target and return the captured result."""
     start = time.monotonic()
-    result = (run_fn or subprocess.run)(
-        ["make", name], capture_output=True, text=True, timeout=timeout
-    )
+    try:
+        result = (run_fn or subprocess.run)(
+            ["make", name], capture_output=True, text=True, timeout=timeout
+        )
+    except subprocess.TimeoutExpired:
+        return CheckResult(
+            name=name,
+            passed=False,
+            elapsed=time.monotonic() - start,
+            output=f"Timed out after {timeout}s",
+        )
+    except OSError as exc:
+        return CheckResult(
+            name=name,
+            passed=False,
+            elapsed=time.monotonic() - start,
+            output=f"Failed to run: {exc}",
+        )
     elapsed = time.monotonic() - start
     return CheckResult(
         name=name,
@@ -37,7 +55,7 @@ def run_check(
 
 
 def run_checks(
-    targets: list[str], *, timeout: int = 300, run_fn=None
+    targets: list[str], *, timeout: int = DEFAULT_TIMEOUT, run_fn=None
 ) -> tuple[CheckResult, ...]:
     """Run all targets in parallel and return results sorted by name."""
     with ThreadPoolExecutor() as pool:
@@ -68,12 +86,18 @@ def format_results(results: tuple[CheckResult, ...]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point: run provided Make targets in parallel."""
-    targets = argv if argv is not None else sys.argv[1:]
-    if not targets:
-        print("Usage: run_parallel_checks.py target1 target2 ...")
+    args = argv if argv is not None else sys.argv[1:]
+    timeout = DEFAULT_TIMEOUT
+    if "--timeout" in args:
+        idx = args.index("--timeout")
+        timeout = int(args[idx + 1])
+        args = args[:idx] + args[idx + 2:]
+
+    if not args:
+        print("Usage: run_parallel_checks.py [--timeout N] target1 target2 ...")
         return 1
 
-    results = run_checks(targets)
+    results = run_checks(args, timeout=timeout)
     print(format_results(results))
     return 0 if all(r.passed for r in results) else 1
 

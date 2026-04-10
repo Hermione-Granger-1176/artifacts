@@ -157,8 +157,8 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
     4. If `browser-scope` is not `none`: runs `make test-browser-apps`. If `browser-scope` is `changed`, scopes to only the changed app slugs via `ARTIFACTS_BROWSER_APP_SLUGS`. If `all`, tests every mature app.
     5. If `thumbnail-scope` is not `none`: calls `scripts/ci/workflow_helpers.py invalidate-thumbnails` to delete stale `thumbnail.webp` files for apps with runtime changes, so they will be regenerated fresh.
     6. Runs the sequential build chain: `make thumbnails` → `make check-generated` → `make index` → `make site`.
-    10. Uploads `_site/` as artifact `site-{run_id}`.
-    11. If `persist-mode` is not `none` and thumbnails actually changed: packages `apps/*/thumbnail.webp` files plus `plan.json` into artifact `thumbnail-persist-{run_id}`.
+    7. Uploads `_site/` as artifact `site-{run_id}`.
+    8. If `persist-mode` is not `none` and thumbnails actually changed: packages `apps/*/thumbnail.webp` files plus `plan.json` into artifact `thumbnail-persist-{run_id}`.
   - Reads: PR branch code. Writes: nothing (only uploads artifacts to GitHub Actions storage).
 
 **After ALL FOUR complete (plan + verify + secret-scan + dependency-review) → `publish` starts:**

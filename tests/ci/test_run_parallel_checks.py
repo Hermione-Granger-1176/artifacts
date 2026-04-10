@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from types import SimpleNamespace
 
 import pytest
@@ -46,6 +47,26 @@ def test_run_check_combines_stdout_and_stderr() -> None:
     )
 
     assert result.output == "out\nerr"
+
+
+def test_run_check_handles_timeout() -> None:
+    def timeout_run(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout", 600))
+
+    result = run_check("slow", timeout=5, run_fn=timeout_run)
+
+    assert result.passed is False
+    assert "Timed out" in result.output
+
+
+def test_run_check_handles_os_error() -> None:
+    def broken_run(cmd, **kwargs):
+        raise OSError("No such file or directory: 'make'")
+
+    result = run_check("lint", run_fn=broken_run)
+
+    assert result.passed is False
+    assert "Failed to run" in result.output
 
 
 def test_run_checks_returns_sorted_results() -> None:
@@ -117,6 +138,22 @@ def test_main_returns_one_on_any_failure(monkeypatch: pytest.MonkeyPatch) -> Non
     )
 
     assert main(["lint"]) == 1
+
+
+def test_main_passes_timeout_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_timeout = {}
+
+    def recording_run(cmd, **kwargs):
+        captured_timeout["value"] = kwargs.get("timeout")
+        return SimpleNamespace(returncode=0, stdout="ok", stderr="")
+
+    monkeypatch.setattr(
+        "scripts.ci.run_parallel_checks.subprocess",
+        SimpleNamespace(run=recording_run),
+    )
+
+    assert main(["--timeout", "42", "lint"]) == 0
+    assert captured_timeout["value"] == 42
 
 
 def test_main_returns_one_with_no_targets() -> None:
