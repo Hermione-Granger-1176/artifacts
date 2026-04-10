@@ -88,13 +88,23 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entry point: run provided Make targets in parallel."""
     args = argv if argv is not None else sys.argv[1:]
     timeout = DEFAULT_TIMEOUT
+    usage = "Usage: run_parallel_checks.py [--timeout N] target1 target2 ..."
     if "--timeout" in args:
         idx = args.index("--timeout")
-        timeout = int(args[idx + 1])
+        if idx + 1 >= len(args):
+            print("Error: --timeout requires an integer value.")
+            print(usage)
+            return 1
+        try:
+            timeout = int(args[idx + 1])
+        except ValueError:
+            print(f"Error: invalid timeout value: {args[idx + 1]!r}.")
+            print(usage)
+            return 1
         args = args[:idx] + args[idx + 2:]
 
     if not args:
-        print("Usage: run_parallel_checks.py [--timeout N] target1 target2 ...")
+        print(usage)
         return 1
 
     results = run_checks(args, timeout=timeout)

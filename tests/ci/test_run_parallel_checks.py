@@ -80,19 +80,17 @@ def test_run_checks_returns_sorted_results() -> None:
 
 
 def test_run_checks_propagates_failures() -> None:
-    call_count = {"n": 0}
-
-    def alternating_run(cmd, **kwargs):
-        call_count["n"] += 1
-        fail = call_count["n"] % 2 == 0
+    def deterministic_run(cmd, **kwargs):
+        target = cmd[-1]
+        fail = target == "b"
         return SimpleNamespace(
             returncode=1 if fail else 0, stdout="", stderr="boom" if fail else ""
         )
 
-    results = run_checks(["a", "b", "c"], run_fn=alternating_run)
+    results = run_checks(["a", "b", "c"], run_fn=deterministic_run)
 
-    assert any(not r.passed for r in results)
-    assert any(r.passed for r in results)
+    assert [r.passed for r in results] == [True, False, True]
+    assert next(r for r in results if r.name == "b").output == "boom"
 
 
 def test_format_results_folds_passing_expands_failing() -> None:
@@ -154,6 +152,14 @@ def test_main_passes_timeout_flag(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert main(["--timeout", "42", "lint"]) == 0
     assert captured_timeout["value"] == 42
+
+
+def test_main_rejects_timeout_without_value() -> None:
+    assert main(["--timeout"]) == 1
+
+
+def test_main_rejects_non_numeric_timeout() -> None:
+    assert main(["--timeout", "abc", "lint"]) == 1
 
 
 def test_main_returns_one_with_no_targets() -> None:
