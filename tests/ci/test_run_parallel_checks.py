@@ -16,6 +16,7 @@ from scripts.ci.run_parallel_checks import (
 
 def _make_run_fn(*, returncode: int = 0, stdout: str = "", stderr: str = ""):
     """Return a subprocess.run stand-in with fixed output."""
+
     def fake_run(cmd, **kwargs):
         return SimpleNamespace(returncode=returncode, stdout=stdout, stderr=stderr)
     return fake_run
