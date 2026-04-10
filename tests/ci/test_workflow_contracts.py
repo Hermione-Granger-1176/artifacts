@@ -98,12 +98,13 @@ def test_update_verify_job_runs_expected_make_targets() -> None:
     verify = _job(workflow, "verify")
 
     assert "make setup-ci" in _step_run(verify, "Install workspace dependencies")
-    assert "make COVERAGE_OUTPUT=js-coverage.txt check-local" in _step_run(
-        verify, "Run fast repository gate"
-    )
-    assert "make test-browser-root" in _step_run(
-        verify, "Run root browser verification"
-    )
+
+    parallel_step = _step(verify, "Run parallel checks")
+    parallel_run = _step_run(verify, "Run parallel checks")
+    assert "run_parallel_checks.py" in parallel_run
+    for target in ("lint", "test-py", "coverage-js", "security", "validate", "test-browser-root"):
+        assert target in parallel_run
+    assert parallel_step["env"]["COVERAGE_OUTPUT"] == "js-coverage.txt"
 
     selective_browser = _step(verify, "Run selective app browser verification")
     assert selective_browser["if"] == "needs.plan.outputs.browser-scope != 'none'"
@@ -114,7 +115,7 @@ def test_update_verify_job_runs_expected_make_targets() -> None:
         verify, "Run selective app browser verification"
     )
 
-    build_step = _step(verify, "Build verified site and thumbnails")
+    build_step = _step(verify, "Build verified site")
     assert build_step["env"]["ARTIFACTS_THUMBNAIL_SLUGS"] == (
         "${{ needs.plan.outputs.thumbnail-scope == 'changed' && needs.plan.outputs.thumbnail-slugs || '' }}"
     )
@@ -122,8 +123,9 @@ def test_update_verify_job_runs_expected_make_targets() -> None:
         build_step["env"]["ARTIFACTS_THUMBNAIL_MANIFEST"]
         == ".artifacts/thumbnail-persist/manifest.json"
     )
-    build_run = _step_run(verify, "Build verified site and thumbnails")
+    build_run = _step_run(verify, "Build verified site")
     assert "make thumbnails" in build_run
+    assert "make check-generated" in build_run
     assert "make index" in build_run
     assert "make site" in build_run
 
