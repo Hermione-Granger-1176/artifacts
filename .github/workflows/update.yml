@@ -59,7 +59,7 @@ jobs:
       - name: Resolve primary app identity
         id: app-identity
         continue-on-error: true
-        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         with:
           app-id: ${{ vars.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -157,7 +157,7 @@ jobs:
           cache: npm
 
       - name: Cache Playwright browsers
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ hashFiles('locks/requirements-dev.lock') }}
@@ -228,7 +228,7 @@ jobs:
           echo "artifact-name=thumbnail-persist-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
 
       - name: Upload verified site artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: site-${{ github.run_id }}
           path: _site
@@ -237,7 +237,7 @@ jobs:
 
       - name: Upload thumbnail persistence artifact
         if: steps.thumbnail-artifact.outputs.changed == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.thumbnail-artifact.outputs.artifact-name }}
           path: .artifacts/thumbnail-persist
@@ -370,7 +370,7 @@ jobs:
 
       - name: Cache Playwright browsers
         if: steps.setup.outputs.token-available == 'true'
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ hashFiles('locks/requirements-dev.lock') }}
@@ -404,7 +404,7 @@ jobs:
 
       - name: Post PR preview link
         if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
-        uses: marocchino/sticky-pull-request-comment@d4d6b0936434b21bc8345ad45a440c5f7d2c40ff # v3
+        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3
         with:
           header: ${{ env.PREVIEW_COMMENT_HEADER }}
           recreate: true
@@ -478,7 +478,7 @@ jobs:
 
       - name: Upload live browser failure artifacts
         if: failure()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: live-browser-artifacts-${{ github.run_id }}
           path: .artifacts/browser-live
@@ -677,7 +677,7 @@ jobs:
 
       - name: Remove PR preview link comment
         if: steps.setup.outputs.token-available == 'true'
-        uses: marocchino/sticky-pull-request-comment@d4d6b0936434b21bc8345ad45a440c5f7d2c40ff # v3
+        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3
         with:
           header: ${{ env.PREVIEW_COMMENT_HEADER }}
           delete: true
