@@ -302,7 +302,7 @@ pr-comment: ## Add a comment to the current PR (body="msg" OR body_file=path for
 	  gh pr comment --body "$(body)"; \
 	fi
 
-pr-review-comments: ## List review threads with resolution status (make pr-review-comments pr=N)
+pr-review-comments: ## List review threads with resolution status (make pr-review-comments pr_num=N)
 	@test -n "$(pr_num)" || (printf 'Usage: make pr-review-comments pr_num=19\n' >&2; exit 1)
 	@printf '%s\n' "$(REPO)" | grep -Eq '^[^/]+/[^/]+$$' || (printf 'Error: REPO must be set to owner/name (e.g. REPO=octocat/Hello-World)\n' >&2; exit 1)
 	@owner=$$(echo "$(REPO)" | cut -d/ -f1) && \
