@@ -313,7 +313,9 @@ pr-reply: ## Reply to a review comment (pr_num=N comment=ID body="msg" OR body_f
 	@test -n "$(pr_num)" -a -n "$(comment)" || (printf 'Usage: make pr-reply pr_num=19 comment=123456 body="Fixed"  OR  body_file=/tmp/reply.md\n' >&2; exit 1)
 	@test -n "$(body)$(body_file)" || (printf 'Provide body="..." or body_file=path. Prefer body_file for text containing backticks, quotes, or newlines.\n' >&2; exit 1)
 	@if [ -n "$(body_file)" ]; then \
-	  gh api repos/$(REPO)/pulls/$(pr_num)/comments/$(comment)/replies -f body=@"$(body_file)"; \
+	  test -r "$(body_file)" || (printf 'Error: body_file=%s is not readable\n' "$(body_file)" >&2; exit 1); \
+	  python3 -c 'import json,sys; sys.stdout.write(json.dumps({"body": sys.stdin.read()}))' < "$(body_file)" \
+	    | gh api repos/$(REPO)/pulls/$(pr_num)/comments/$(comment)/replies --method POST --input -; \
 	else \
 	  gh api repos/$(REPO)/pulls/$(pr_num)/comments/$(comment)/replies -f body="$(body)"; \
 	fi
