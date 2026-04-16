@@ -101,6 +101,24 @@ runs:
         app-id: ${{ inputs.audit-app-id }}
         private-key: ${{ inputs.audit-app-private-key }}
 
+    - name: Validate audit token configuration
+      if: inputs.audit-app-id != '' || inputs.audit-app-private-key != ''
+      shell: bash
+      env:
+        TOKEN_POLICY_ALLOWED: ${{ steps.token-policy.outputs.allowed }}
+        AUDIT_APP_ID: ${{ inputs.audit-app-id }}
+        AUDIT_APP_PRIVATE_KEY: ${{ inputs.audit-app-private-key }}
+        AUDIT_TOKEN: ${{ steps.audit-token.outputs.token }}
+      run: |
+        if [ -z "$AUDIT_APP_ID" ] || [ -z "$AUDIT_APP_PRIVATE_KEY" ]; then
+          echo "::error::Both audit-app-id and audit-app-private-key must be provided together; got only one." >&2
+          exit 1
+        fi
+        if [ "$TOKEN_POLICY_ALLOWED" = "true" ] && [ -z "$AUDIT_TOKEN" ]; then
+          echo "::error::Audit credentials were provided, but steps.audit-token.outputs.token is empty — token minting failed or the app is not installed on this repository." >&2
+          exit 1
+        fi
+
     - name: Check GitHub App token availability
       id: token-status
       shell: bash
