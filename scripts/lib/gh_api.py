@@ -125,7 +125,13 @@ def run_gh_api(
     timeout_seconds=GH_API_TIMEOUT_SECONDS,
     required_permission: str | None = None,
 ) -> str:
-    """Run ``gh api`` with bounded retries, timeout, and contextual failures."""
+    """Run ``gh api`` with bounded retries, timeout, and contextual failures.
+
+    ``required_permission`` names the GitHub App installation permission the
+    endpoint needs (e.g. ``"administration: read"``). When the call fails with
+    ``Resource not accessible by integration``, the permission is surfaced in
+    the raised error so a 403 points directly at the missing grant.
+    """
     command = ["gh", "api", endpoint, *paginate, "--jq", jq_expr]
     return _run_gh_command(
         command,

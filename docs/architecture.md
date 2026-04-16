@@ -336,6 +336,17 @@ Three GitHub Apps provide elevated permissions beyond the default `GITHUB_TOKEN`
 | Harry1176 (escalation) | `vars.ESCALATION_APP_ID` / `secrets.ESCALATION_APP_PRIVATE_KEY` | All deploys (main, preview, cleanup), follow-up thumbnail PRs from main |
 | Percy1176 (audit)      | `vars.AUDIT_APP_ID` / `secrets.AUDIT_APP_PRIVATE_KEY`           | Read-only repo-settings audit and drift-issue lifecycle                 |
 
+Percy1176's installation must carry exactly the permissions the audit reads, so that a 403 from `scripts/ci/repo_audit.py` unambiguously means a missing grant rather than an unrelated failure:
+
+- `metadata: read` (implicit — required to call any repo endpoint)
+- `administration: read` (branch protection, rulesets)
+- `pages: read`
+- `actions_variables: read`
+- `secrets: read` (names only; the audit never reads secret values)
+- `issues: write` (drift-alert issue lifecycle — open, comment, close)
+
+Primary + escalation inputs to `ci-setup` are all-or-nothing (the action hard-fails on partial credentials in trusted contexts); audit inputs are independent, so the audit workflow passes only `audit-app-id` / `audit-app-private-key` and omits the primary credentials entirely.
+
 | Context         | Tokens available? | Deploy?        | Thumbnail persist?  |
 | --------------- | ----------------- | -------------- | ------------------- |
 | Same-repo PR    | Yes               | Preview deploy | PR branch writeback |
