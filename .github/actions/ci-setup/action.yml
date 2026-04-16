@@ -88,8 +88,9 @@ runs:
 
     - name: Validate primary token configuration
       if: >-
-        inputs.app-id != '' || inputs.app-private-key != ''
-        || inputs.escalation-app-id != '' || inputs.escalation-app-private-key != ''
+        steps.token-policy.outputs.allowed == 'true'
+        && (inputs.app-id != '' || inputs.app-private-key != ''
+        || inputs.escalation-app-id != '' || inputs.escalation-app-private-key != '')
       shell: bash
       env:
         APP_ID: ${{ inputs.app-id }}
