@@ -16,7 +16,7 @@ GH_API_RETRYABLE_ERROR_PATTERN = re.compile(
     re.IGNORECASE,
 )
 GH_API_FORBIDDEN_ERROR_PATTERN = re.compile(
-    r"\b403\b|Resource not accessible by integration",
+    r"Resource not accessible by integration",
     re.IGNORECASE,
 )
 

@@ -193,12 +193,49 @@ def test_run_gh_api_does_not_enrich_non_403_errors(
     assert "likely lacks" not in message
 
 
+def test_run_gh_api_does_not_misdiagnose_rate_limit_403(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+        result = FakeSubprocessResult(returncode=1)
+        result.stderr = "gh: API rate limit exceeded (HTTP 403)"
+        return result
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        workflow_helpers._run_gh_api(
+            "repos/owner/repo",
+            paginate=[],
+            jq_expr=".",
+            description="reading repository metadata for owner/repo",
+            required_permission="metadata: read",
+        )
+
+    message = str(exc_info.value)
+    assert "API rate limit exceeded" in message
+    assert "metadata: read" not in message
+    assert "likely lacks" not in message
+
+
 def test_is_forbidden_gh_api_failure_matches_variants() -> None:
-    assert gh_api.is_forbidden_gh_api_failure("HTTP 403: denied")
     assert gh_api.is_forbidden_gh_api_failure(
         "Resource not accessible by integration"
     )
     assert gh_api.is_forbidden_gh_api_failure("resource NOT accessible BY integration")
+    assert gh_api.is_forbidden_gh_api_failure(
+        "gh: Resource not accessible by integration (HTTP 403)"
+    )
+    assert not gh_api.is_forbidden_gh_api_failure(
+        "gh: API rate limit exceeded (HTTP 403)"
+    )
+    assert not gh_api.is_forbidden_gh_api_failure(
+        "gh: You have exceeded a secondary rate limit (HTTP 403)"
+    )
+    assert not gh_api.is_forbidden_gh_api_failure(
+        "gh: Resource protected by organization SAML enforcement (HTTP 403)"
+    )
+    assert not gh_api.is_forbidden_gh_api_failure("HTTP 403: denied")
     assert not gh_api.is_forbidden_gh_api_failure("4030 requests queued")
     assert not gh_api.is_forbidden_gh_api_failure("404 Not Found")
     assert not gh_api.is_forbidden_gh_api_failure("500 Internal Server Error")

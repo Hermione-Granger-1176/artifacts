@@ -133,7 +133,9 @@ runs:
         private-key: ${{ inputs.audit-app-private-key }}
 
     - name: Validate audit token configuration
-      if: inputs.audit-app-id != '' || inputs.audit-app-private-key != ''
+      if: >-
+        steps.token-policy.outputs.allowed == 'true'
+        && (inputs.audit-app-id != '' || inputs.audit-app-private-key != '')
       shell: bash
       env:
         TOKEN_POLICY_ALLOWED: ${{ steps.token-policy.outputs.allowed }}
