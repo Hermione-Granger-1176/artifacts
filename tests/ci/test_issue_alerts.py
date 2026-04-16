@@ -25,7 +25,7 @@ def test_issue_payloads_by_title_filters_non_matching_issues_and_prs() -> None:
     matches = issue_alerts.issue_payloads_by_title(
         "owner/repo",
         "Live site smoke check failed",
-        run_gh_api_json_fn=lambda endpoint, description: payload,
+        run_gh_api_json_fn=lambda endpoint, description, required_permission=None: payload,
     )
 
     assert matches == [payload[1]]
@@ -36,7 +36,9 @@ def test_issue_payloads_by_title_rejects_non_array_payloads() -> None:
         issue_alerts.issue_payloads_by_title(
             "owner/repo",
             "Alert",
-            run_gh_api_json_fn=lambda endpoint, description: {"invalid": True},
+            run_gh_api_json_fn=lambda endpoint, description, required_permission=None: {
+                "invalid": True
+            },
         )
 
 
@@ -44,7 +46,13 @@ def test_sync_alert_issue_creates_new_issue_when_missing() -> None:
     create_calls = []
 
     def fake_run_gh_api_form(
-        endpoint: str, *, method: str, fields, description: str, jq_expr: str = ""
+        endpoint: str,
+        *,
+        method: str,
+        fields,
+        description: str,
+        jq_expr: str = "",
+        required_permission: str | None = None,
     ) -> str:
         create_calls.append((endpoint, method, fields, description, jq_expr))
         return "https://github.com/owner/repo/issues/11"
@@ -80,7 +88,13 @@ def test_sync_alert_issue_updates_existing_issue_when_present() -> None:
     update_calls = []
 
     def fake_run_gh_api_form(
-        endpoint: str, *, method: str, fields, description: str, jq_expr: str = ""
+        endpoint: str,
+        *,
+        method: str,
+        fields,
+        description: str,
+        jq_expr: str = "",
+        required_permission: str | None = None,
     ) -> str:
         update_calls.append((endpoint, method, fields, description, jq_expr))
         return ""
@@ -117,7 +131,13 @@ def test_sync_alert_issue_closes_existing_issue_when_no_longer_needed() -> None:
     close_calls = []
 
     def fake_run_gh_api_form(
-        endpoint: str, *, method: str, fields, description: str, jq_expr: str = ""
+        endpoint: str,
+        *,
+        method: str,
+        fields,
+        description: str,
+        jq_expr: str = "",
+        required_permission: str | None = None,
     ) -> str:
         close_calls.append((endpoint, method, fields, description, jq_expr))
         return ""

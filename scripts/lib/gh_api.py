@@ -189,8 +189,14 @@ def run_gh_api_form(
     sleep_fn=time.sleep,
     subprocess_module=subprocess,
     timeout_seconds=GH_API_TIMEOUT_SECONDS,
+    required_permission: str | None = None,
 ) -> str:
-    """Run ``gh api`` with ``-f`` form fields for mutations or filtered reads."""
+    """Run ``gh api`` with ``-f`` form fields for mutations or filtered reads.
+
+    See :func:`run_gh_api` for the semantics of ``required_permission``; the
+    same 403 enrichment applies to mutations (e.g. issue lifecycle calls that
+    need ``issues: write``).
+    """
     command = ["gh", "api", "-X", method, endpoint]
     for key, value in fields:
         command.extend(["-f", f"{key}={gh_escape_data_value(value)}"])
@@ -204,4 +210,5 @@ def run_gh_api_form(
         sleep_fn=sleep_fn,
         subprocess_module=subprocess_module,
         timeout_seconds=timeout_seconds,
+        required_permission=required_permission,
     )

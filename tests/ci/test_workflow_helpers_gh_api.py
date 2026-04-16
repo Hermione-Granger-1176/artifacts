@@ -257,6 +257,7 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         retry_delay_seconds: float,
         sleep_fn,
         timeout_seconds: float,
+        required_permission: str | None = None,
     ) -> str:
         captured["endpoint"] = endpoint
         captured["method"] = method
@@ -266,6 +267,7 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         captured["max_attempts"] = max_attempts
         captured["retry_delay_seconds"] = retry_delay_seconds
         captured["timeout_seconds"] = timeout_seconds
+        captured["required_permission"] = required_permission
         return "https://example.com/issues/1"
 
     monkeypatch.setattr(
@@ -278,6 +280,7 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         fields=[("title", "Alert"), ("labels[]", "ci")],
         description="creating alert issue",
         jq_expr=".html_url",
+        required_permission="issues: write",
     )
 
     assert result == "https://example.com/issues/1"
@@ -290,6 +293,7 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         "max_attempts": gh_api.GH_API_MAX_ATTEMPTS,
         "retry_delay_seconds": gh_api.GH_API_RETRY_DELAY_SECONDS,
         "timeout_seconds": gh_api.GH_API_TIMEOUT_SECONDS,
+        "required_permission": "issues: write",
     }
 
 
@@ -307,6 +311,7 @@ def test_run_gh_api_form_escapes_leading_at_values(
         sleep_fn,
         subprocess_module,
         timeout_seconds: float,
+        required_permission: str | None = None,
     ) -> str:
         captured["command"] = command
         return "ok"
@@ -350,6 +355,7 @@ def test_low_level_run_gh_api_form_appends_jq_expression(
         sleep_fn,
         subprocess_module,
         timeout_seconds: float,
+        required_permission: str | None = None,
     ) -> str:
         captured["command"] = command
         return "ok"
@@ -394,6 +400,7 @@ def test_run_gh_api_form_omits_jq_when_not_requested(
         sleep_fn,
         subprocess_module,
         timeout_seconds: float,
+        required_permission: str | None = None,
     ) -> str:
         captured["command"] = command
         return "ok"
@@ -421,6 +428,40 @@ def test_run_gh_api_form_omits_jq_when_not_requested(
     ]
 
 
+def test_run_gh_api_form_forwards_required_permission(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = {}
+
+    def fake_run_gh_command(
+        command: list[str],
+        *,
+        description: str,
+        max_attempts: int,
+        retry_delay_seconds: float,
+        sleep_fn,
+        subprocess_module,
+        timeout_seconds: float,
+        required_permission: str | None = None,
+    ) -> str:
+        captured["required_permission"] = required_permission
+        return "ok"
+
+    monkeypatch.setattr(
+        workflow_helpers._gh_api, "_run_gh_command", fake_run_gh_command
+    )
+
+    workflow_helpers._gh_api.run_gh_api_form(
+        "repos/owner/repo/issues",
+        method="POST",
+        fields=[("title", "Alert")],
+        description="creating alert issue",
+        required_permission="issues: write",
+    )
+
+    assert captured["required_permission"] == "issues: write"
+
+
 def test_run_gh_api_form_passes_custom_subprocess_module(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -436,6 +477,7 @@ def test_run_gh_api_form_passes_custom_subprocess_module(
         sleep_fn,
         subprocess_module,
         timeout_seconds: float,
+        required_permission: str | None = None,
     ) -> str:
         captured["subprocess_module"] = subprocess_module
         return "ok"

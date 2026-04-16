@@ -142,6 +142,7 @@ def _run_gh_api_form(
     fields: list[tuple[str, str]],
     description: str,
     jq_expr: str = "",
+    required_permission: str | None = None,
 ) -> str:
     """Run ``gh api`` with form fields and the shared retry/timeout behavior."""
     return _gh_api.run_gh_api_form(
@@ -154,6 +155,7 @@ def _run_gh_api_form(
         retry_delay_seconds=_gh_api.GH_API_RETRY_DELAY_SECONDS,
         sleep_fn=time.sleep,
         timeout_seconds=_gh_api.GH_API_TIMEOUT_SECONDS,
+        required_permission=required_permission,
     )
 
 

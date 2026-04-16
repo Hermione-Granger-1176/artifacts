@@ -14,19 +14,27 @@ inputs:
     required: false
     default: ''
   app-id:
-    description: Primary GitHub App ID (Hermione1176). Omit to skip primary-token minting (audit-only callers).
+    description: >-
+      Primary GitHub App ID (Hermione1176). Primary and escalation inputs are all-or-nothing in trusted
+      contexts; omit all four to skip primary-token minting (audit-only callers).
     required: false
     default: ''
   app-private-key:
-    description: Primary GitHub App private key. Must be provided together with app-id.
+    description: >-
+      Primary GitHub App private key. All four primary/escalation inputs must be provided together in
+      trusted contexts.
     required: false
     default: ''
   escalation-app-id:
-    description: Escalation GitHub App ID (Harry1176). Must be provided together with app-id.
+    description: >-
+      Escalation GitHub App ID (Harry1176). All four primary/escalation inputs must be provided together
+      in trusted contexts.
     required: false
     default: ''
   escalation-app-private-key:
-    description: Escalation GitHub App private key. Must be provided together with app-id.
+    description: >-
+      Escalation GitHub App private key. All four primary/escalation inputs must be provided together in
+      trusted contexts.
     required: false
     default: ''
   audit-app-id:
