@@ -26,15 +26,13 @@ jobs:
         uses: ./.github/actions/ci-setup
         with:
           event-name: ${{ github.event_name }}
-          app-id: ${{ vars.APP_ID }}
-          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          escalation-app-id: ${{ vars.ESCALATION_APP_ID }}
-          escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
+          audit-app-id: ${{ vars.AUDIT_APP_ID }}
+          audit-app-private-key: ${{ secrets.AUDIT_APP_PRIVATE_KEY }}
 
       - name: Audit repository settings
         id: audit
         env:
-          GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
+          GH_TOKEN: ${{ steps.setup.outputs.audit-token }}
         run: |
           set +e
           python3 scripts/ci/workflow_helpers.py audit-repo-settings \
@@ -51,7 +49,7 @@ jobs:
         if: steps.audit.outputs.status != '0'
         id: drift-issue
         env:
-          GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
+          GH_TOKEN: ${{ steps.setup.outputs.audit-token }}
         run: |
           body=$(cat <<EOF
           Repository settings drift was detected by the scheduled audit workflow.
@@ -76,7 +74,7 @@ jobs:
       - name: Close repository settings drift issue when clean
         if: steps.audit.outputs.status == '0'
         env:
-          GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
+          GH_TOKEN: ${{ steps.setup.outputs.audit-token }}
         run: |
           body=$(cat <<'EOF'
           Repository settings drift is no longer detected.

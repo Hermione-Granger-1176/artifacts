@@ -83,6 +83,7 @@ Do not manually edit these outputs unless updating generator logic:
 - Pushes to `main` deploy the site root to `gh-pages`
 - PRs deploy previews to `gh-pages/pr-preview/pr-<number>/`
 - All deploys (main, preview, and cleanup) use the escalation app token (Harry1176) and create verified commits via the GraphQL API
+- The weekly repository-settings audit and its drift-issue lifecycle use a dedicated read-only app token (Percy1176); it has no deploy or write-to-code capability
 - Preview comments are posted by the workflow token, appear as `github-actions[bot]`, and are recreated on each push so the newest preview stays visible
 - Same-repo Dependabot pip PRs refresh Python lock files via CI workflows
 - `gh-pages` is CI-managed and should not be edited manually

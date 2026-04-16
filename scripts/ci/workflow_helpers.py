@@ -101,7 +101,12 @@ def validate_lock_refresh_artifact(root: Path) -> None:
 
 
 def _run_gh_api(
-    endpoint: str, *, paginate: list[str], jq_expr: str, description: str
+    endpoint: str,
+    *,
+    paginate: list[str],
+    jq_expr: str,
+    description: str,
+    required_permission: str | None = None,
 ) -> str:
     """Run ``gh api`` with bounded retries, timeout, and contextual failures."""
     return _gh_api.run_gh_api(
@@ -114,15 +119,19 @@ def _run_gh_api(
         sleep_fn=time.sleep,
         subprocess_module=subprocess,
         timeout_seconds=_gh_api.GH_API_TIMEOUT_SECONDS,
+        required_permission=required_permission,
     )
 
 
-def _run_gh_api_json(endpoint: str, *, description: str) -> object:
+def _run_gh_api_json(
+    endpoint: str, *, description: str, required_permission: str | None = None
+) -> object:
     """Fetch JSON from ``gh api`` and parse it into a Python object."""
     return _gh_api.run_gh_api_json(
         endpoint,
         description=description,
         run_gh_api_fn=_run_gh_api,
+        required_permission=required_permission,
     )
 
 
@@ -133,6 +142,7 @@ def _run_gh_api_form(
     fields: list[tuple[str, str]],
     description: str,
     jq_expr: str = "",
+    required_permission: str | None = None,
 ) -> str:
     """Run ``gh api`` with form fields and the shared retry/timeout behavior."""
     return _gh_api.run_gh_api_form(
@@ -145,6 +155,7 @@ def _run_gh_api_form(
         retry_delay_seconds=_gh_api.GH_API_RETRY_DELAY_SECONDS,
         sleep_fn=time.sleep,
         timeout_seconds=_gh_api.GH_API_TIMEOUT_SECONDS,
+        required_permission=required_permission,
     )
 
 

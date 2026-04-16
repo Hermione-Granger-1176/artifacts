@@ -108,7 +108,7 @@ def test_run_gh_api_json_parses_payload(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda endpoint, paginate, jq_expr, description: '{"ok": true}',
+        lambda endpoint, paginate, jq_expr, description, required_permission=None: '{"ok": true}',
     )
 
     assert workflow_helpers._run_gh_api_json(
@@ -120,13 +120,125 @@ def test_run_gh_api_json_rejects_invalid_json(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda endpoint, paginate, jq_expr, description: "not-json",
+        lambda endpoint, paginate, jq_expr, description, required_permission=None: "not-json",
     )
 
     with pytest.raises(RuntimeError, match="returned invalid JSON"):
         workflow_helpers._run_gh_api_json(
             "repos/owner/repo", description="reading repository metadata"
         )
+
+
+def test_run_gh_api_enriches_403_with_required_permission(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+        result = FakeSubprocessResult(returncode=1)
+        result.stderr = "HTTP 403: Resource not accessible by integration"
+        return result
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="'administration: read'"):
+        workflow_helpers._run_gh_api(
+            "repos/owner/repo/branches/main/protection",
+            paginate=[],
+            jq_expr=".",
+            description="reading branch protection for owner/repo:main",
+            required_permission="administration: read",
+        )
+
+
+def test_run_gh_api_hints_generic_on_403_without_permission(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+        result = FakeSubprocessResult(returncode=1)
+        result.stderr = "gh: Resource not accessible by integration (HTTP 403)"
+        return result
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="token likely lacks required permission"):
+        workflow_helpers._run_gh_api(
+            "repos/owner/repo",
+            paginate=[],
+            jq_expr=".",
+            description="reading repository metadata for owner/repo",
+        )
+
+
+def test_run_gh_api_does_not_enrich_non_403_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+        result = FakeSubprocessResult(returncode=1)
+        result.stderr = "404 Not Found"
+        return result
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        workflow_helpers._run_gh_api(
+            "repos/owner/repo/branches/main/protection",
+            paginate=[],
+            jq_expr=".",
+            description="reading branch protection for owner/repo:main",
+            required_permission="administration: read",
+        )
+
+    message = str(exc_info.value)
+    assert "404 Not Found" in message
+    assert "administration: read" not in message
+    assert "likely lacks" not in message
+
+
+def test_run_gh_api_does_not_misdiagnose_rate_limit_403(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+        result = FakeSubprocessResult(returncode=1)
+        result.stderr = "gh: API rate limit exceeded (HTTP 403)"
+        return result
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        workflow_helpers._run_gh_api(
+            "repos/owner/repo",
+            paginate=[],
+            jq_expr=".",
+            description="reading repository metadata for owner/repo",
+            required_permission="metadata: read",
+        )
+
+    message = str(exc_info.value)
+    assert "API rate limit exceeded" in message
+    assert "metadata: read" not in message
+    assert "likely lacks" not in message
+
+
+def test_is_forbidden_gh_api_failure_matches_variants() -> None:
+    assert gh_api.is_forbidden_gh_api_failure(
+        "Resource not accessible by integration"
+    )
+    assert gh_api.is_forbidden_gh_api_failure("resource NOT accessible BY integration")
+    assert gh_api.is_forbidden_gh_api_failure(
+        "gh: Resource not accessible by integration (HTTP 403)"
+    )
+    assert not gh_api.is_forbidden_gh_api_failure(
+        "gh: API rate limit exceeded (HTTP 403)"
+    )
+    assert not gh_api.is_forbidden_gh_api_failure(
+        "gh: You have exceeded a secondary rate limit (HTTP 403)"
+    )
+    assert not gh_api.is_forbidden_gh_api_failure(
+        "gh: Resource protected by organization SAML enforcement (HTTP 403)"
+    )
+    assert not gh_api.is_forbidden_gh_api_failure("HTTP 403: denied")
+    assert not gh_api.is_forbidden_gh_api_failure("4030 requests queued")
+    assert not gh_api.is_forbidden_gh_api_failure("404 Not Found")
+    assert not gh_api.is_forbidden_gh_api_failure("500 Internal Server Error")
 
 
 def test_run_gh_api_form_posts_fields_with_shared_helper(
@@ -145,6 +257,7 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         retry_delay_seconds: float,
         sleep_fn,
         timeout_seconds: float,
+        required_permission: str | None = None,
     ) -> str:
         captured["endpoint"] = endpoint
         captured["method"] = method
@@ -154,6 +267,7 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         captured["max_attempts"] = max_attempts
         captured["retry_delay_seconds"] = retry_delay_seconds
         captured["timeout_seconds"] = timeout_seconds
+        captured["required_permission"] = required_permission
         return "https://example.com/issues/1"
 
     monkeypatch.setattr(
@@ -166,6 +280,7 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         fields=[("title", "Alert"), ("labels[]", "ci")],
         description="creating alert issue",
         jq_expr=".html_url",
+        required_permission="issues: write",
     )
 
     assert result == "https://example.com/issues/1"
@@ -178,6 +293,7 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         "max_attempts": gh_api.GH_API_MAX_ATTEMPTS,
         "retry_delay_seconds": gh_api.GH_API_RETRY_DELAY_SECONDS,
         "timeout_seconds": gh_api.GH_API_TIMEOUT_SECONDS,
+        "required_permission": "issues: write",
     }
 
 
@@ -195,6 +311,7 @@ def test_run_gh_api_form_escapes_leading_at_values(
         sleep_fn,
         subprocess_module,
         timeout_seconds: float,
+        required_permission: str | None = None,
     ) -> str:
         captured["command"] = command
         return "ok"
@@ -238,6 +355,7 @@ def test_low_level_run_gh_api_form_appends_jq_expression(
         sleep_fn,
         subprocess_module,
         timeout_seconds: float,
+        required_permission: str | None = None,
     ) -> str:
         captured["command"] = command
         return "ok"
@@ -282,6 +400,7 @@ def test_run_gh_api_form_omits_jq_when_not_requested(
         sleep_fn,
         subprocess_module,
         timeout_seconds: float,
+        required_permission: str | None = None,
     ) -> str:
         captured["command"] = command
         return "ok"
@@ -309,6 +428,40 @@ def test_run_gh_api_form_omits_jq_when_not_requested(
     ]
 
 
+def test_run_gh_api_form_forwards_required_permission(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = {}
+
+    def fake_run_gh_command(
+        command: list[str],
+        *,
+        description: str,
+        max_attempts: int,
+        retry_delay_seconds: float,
+        sleep_fn,
+        subprocess_module,
+        timeout_seconds: float,
+        required_permission: str | None = None,
+    ) -> str:
+        captured["required_permission"] = required_permission
+        return "ok"
+
+    monkeypatch.setattr(
+        workflow_helpers._gh_api, "_run_gh_command", fake_run_gh_command
+    )
+
+    workflow_helpers._gh_api.run_gh_api_form(
+        "repos/owner/repo/issues",
+        method="POST",
+        fields=[("title", "Alert")],
+        description="creating alert issue",
+        required_permission="issues: write",
+    )
+
+    assert captured["required_permission"] == "issues: write"
+
+
 def test_run_gh_api_form_passes_custom_subprocess_module(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -324,6 +477,7 @@ def test_run_gh_api_form_passes_custom_subprocess_module(
         sleep_fn,
         subprocess_module,
         timeout_seconds: float,
+        required_permission: str | None = None,
     ) -> str:
         captured["subprocess_module"] = subprocess_module
         return "ok"

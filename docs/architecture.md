@@ -292,11 +292,11 @@ graph TD
 
 ### Custom actions
 
-| Action            | Purpose                                                      | Key behavior                                                                                                                                                                                             |
-| ----------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci-setup`        | Mint app tokens, set up Python/Node, optionally install deps | Calls `scripts/ci/workflow_helpers.py app-token-policy` to decide if tokens are allowed; blocks tokens for forks and Dependabot                                                                          |
-| `deploy-site`     | Build `_site/`, deploy to gh-pages, verify published URL     | Uses `deploy-verified.mjs` for GraphQL verified commits; calls `scripts/ci/verify_deploy.py` to poll for expected HTML and metadata                                                                      |
-| `verified-commit` | Create a verified commit or fall back to a PR                | Uses `verified-commit.mjs`; supports direct, force-pr, and direct-or-pr modes; creates a dated fallback branch on conflict and force-resets it if it already exists to prevent stale commit accumulation |
+| Action            | Purpose                                                                                          | Key behavior                                                                                                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci-setup`        | Mint app tokens (primary + escalation and/or audit), set up Python/Node, optionally install deps | Calls `scripts/ci/workflow_helpers.py app-token-policy` to gate minting and block tokens for forks and Dependabot; primary + escalation inputs are all-or-nothing, audit inputs are independent so audit-only callers pass only those and skip primary minting |
+| `deploy-site`     | Build `_site/`, deploy to gh-pages, verify published URL                                         | Uses `deploy-verified.mjs` for GraphQL verified commits; calls `scripts/ci/verify_deploy.py` to poll for expected HTML and metadata                                                                                                                            |
+| `verified-commit` | Create a verified commit or fall back to a PR                                                    | Uses `verified-commit.mjs`; supports direct, force-pr, and direct-or-pr modes; creates a dated fallback branch on conflict and force-resets it if it already exists to prevent stale commit accumulation                                                       |
 
 ### Script dependency map
 
@@ -328,12 +328,24 @@ graph LR
 
 ### Token model
 
-Two GitHub Apps provide elevated permissions beyond the default `GITHUB_TOKEN`:
+Three GitHub Apps provide elevated permissions beyond the default `GITHUB_TOKEN`, each scoped to a single role:
 
 | App                    | ID variable / Secret                                            | Used for                                                                |
 | ---------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | Hermione1176 (primary) | `vars.APP_ID` / `secrets.APP_PRIVATE_KEY`                       | Same-PR thumbnail writeback                                             |
 | Harry1176 (escalation) | `vars.ESCALATION_APP_ID` / `secrets.ESCALATION_APP_PRIVATE_KEY` | All deploys (main, preview, cleanup), follow-up thumbnail PRs from main |
+| Percy1176 (audit)      | `vars.AUDIT_APP_ID` / `secrets.AUDIT_APP_PRIVATE_KEY`           | Read-only repo-settings audit and drift-issue lifecycle                 |
+
+Percy1176's installation must carry exactly the permissions the audit reads, so that a 403 from `scripts/ci/repo_audit.py` unambiguously means a missing grant rather than an unrelated failure:
+
+- `metadata: read` (implicit — required to call any repo endpoint)
+- `administration: read` (branch protection, rulesets)
+- `pages: read`
+- `actions_variables: read`
+- `secrets: read` (names only; the audit never reads secret values)
+- `issues: write` (drift-alert issue lifecycle — open, comment, close)
+
+Primary + escalation inputs to `ci-setup` are all-or-nothing (the action hard-fails on partial credentials in trusted contexts); audit inputs are independent, so the audit workflow passes only `audit-app-id` / `audit-app-private-key` and omits the primary credentials entirely.
 
 | Context         | Tokens available? | Deploy?        | Thumbnail persist?  |
 | --------------- | ----------------- | -------------- | ------------------- |
@@ -371,8 +383,8 @@ Any detection failure (missing secrets, API errors, non-thumbnail files, actor m
 The workflows depend on repository settings that are not enforceable from source control alone:
 
 - GitHub Pages publishes from `gh-pages` branch root with HTTPS enforced
-- `vars.APP_ID` and `vars.ESCALATION_APP_ID` contain the GitHub App IDs
-- `secrets.APP_PRIVATE_KEY` and `secrets.ESCALATION_APP_PRIVATE_KEY` contain the private keys
+- `vars.APP_ID`, `vars.ESCALATION_APP_ID`, and `vars.AUDIT_APP_ID` contain the GitHub App IDs
+- `secrets.APP_PRIVATE_KEY`, `secrets.ESCALATION_APP_PRIVATE_KEY`, and `secrets.AUDIT_APP_PRIVATE_KEY` contain the private keys
 - `secrets.GITLEAKS_LICENSE` for the Gitleaks action
 - `main` branch protection requires `verify`, `secret-scan`, and `dependency-review` checks plus review/signing/history requirements
 - `gh-pages` branch ruleset blocks create/delete/update/force-push except for the deploy app and repo admin

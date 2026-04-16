@@ -110,12 +110,12 @@ All runtime assets should be self-hosted. Do not load scripts, fonts, or stylesh
 ### Broken PR preview
 
 1. Check whether the PR is trusted (same-repo, non-Dependabot) so preview deployment is actually allowed.
-2. Verify `APP_ID`, `APP_PRIVATE_KEY`, `ESCALATION_APP_ID`, and `ESCALATION_APP_PRIVATE_KEY` still exist and the GitHub Apps still have repository installation access.
+2. Verify `APP_ID`, `APP_PRIVATE_KEY`, `ESCALATION_APP_ID`, `ESCALATION_APP_PRIVATE_KEY`, `AUDIT_APP_ID`, and `AUDIT_APP_PRIVATE_KEY` still exist and the GitHub Apps still have repository installation access.
 3. Inspect the `publish` job summary, then download browser artifacts if live-browser verification failed after deployment.
 
 ### Token rotation or GitHub App outage
 
-1. Rotate the affected key in the GitHub App first.
+1. Rotate the affected key in the GitHub App first. Hermione1176, Harry1176, and Percy1176 all follow the same procedure.
 2. Update the matching repository secret immediately after rotation.
 3. Re-run `make ci-audit-repo-settings repo=<owner/repo>` to confirm the repo still matches the documented contract.
 4. Re-run a trusted preview deploy before relying on the next `main` publish.

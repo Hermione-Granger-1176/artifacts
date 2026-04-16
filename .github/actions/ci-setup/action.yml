@@ -14,17 +14,37 @@ inputs:
     required: false
     default: ''
   app-id:
-    description: Primary GitHub App ID (Hermione1176).
-    required: true
+    description: >-
+      Primary GitHub App ID (Hermione1176). Primary and escalation inputs are all-or-nothing in trusted
+      contexts; omit all four to skip primary-token minting (audit-only callers).
+    required: false
+    default: ''
   app-private-key:
-    description: Primary GitHub App private key.
-    required: true
+    description: >-
+      Primary GitHub App private key. All four primary/escalation inputs must be provided together in
+      trusted contexts.
+    required: false
+    default: ''
   escalation-app-id:
-    description: Escalation GitHub App ID (Harry1176).
-    required: true
+    description: >-
+      Escalation GitHub App ID (Harry1176). All four primary/escalation inputs must be provided together
+      in trusted contexts.
+    required: false
+    default: ''
   escalation-app-private-key:
-    description: Escalation GitHub App private key.
-    required: true
+    description: >-
+      Escalation GitHub App private key. All four primary/escalation inputs must be provided together in
+      trusted contexts.
+    required: false
+    default: ''
+  audit-app-id:
+    description: Audit-only GitHub App ID (Percy1176). Only the audit workflow passes this; omit elsewhere.
+    required: false
+    default: ''
+  audit-app-private-key:
+    description: Audit-only GitHub App private key (Percy1176). Only the audit workflow passes this; omit elsewhere.
+    required: false
+    default: ''
   python-version:
     description: Python version to install.
     required: false
@@ -45,8 +65,16 @@ outputs:
   escalation-token:
     description: Escalation GitHub App installation token.
     value: ${{ steps.escalation-token.outputs.token }}
+  audit-token:
+    description: >-
+      Audit-only GitHub App installation token. Empty unless audit-app credentials were supplied AND the
+      token was minted; also empty when the token policy denies minting (e.g., untrusted forks) or the
+      audit-token step was otherwise skipped.
+    value: ${{ steps.audit-token.outputs.token }}
   token-available:
-    description: Whether both tokens were minted successfully.
+    description: >-
+      Whether both primary tokens (Hermione + Harry) were minted successfully. False when primary
+      credentials were intentionally omitted (audit-only callers). Audit-token availability is orthogonal.
     value: ${{ steps.token-status.outputs.available }}
 
 runs:
@@ -66,9 +94,31 @@ runs:
         --pr-author "$PR_AUTHOR"
         >> "$GITHUB_OUTPUT"
 
+    - name: Validate primary token configuration
+      if: >-
+        steps.token-policy.outputs.allowed == 'true'
+        && (inputs.app-id != '' || inputs.app-private-key != ''
+        || inputs.escalation-app-id != '' || inputs.escalation-app-private-key != '')
+      shell: bash
+      env:
+        APP_ID: ${{ inputs.app-id }}
+        APP_PRIVATE_KEY: ${{ inputs.app-private-key }}
+        ESCALATION_APP_ID: ${{ inputs.escalation-app-id }}
+        ESCALATION_APP_PRIVATE_KEY: ${{ inputs.escalation-app-private-key }}
+      run: |
+        missing=()
+        [ -z "$APP_ID" ] && missing+=("app-id")
+        [ -z "$APP_PRIVATE_KEY" ] && missing+=("app-private-key")
+        [ -z "$ESCALATION_APP_ID" ] && missing+=("escalation-app-id")
+        [ -z "$ESCALATION_APP_PRIVATE_KEY" ] && missing+=("escalation-app-private-key")
+        if [ "${#missing[@]}" -gt 0 ]; then
+          echo "::error::Primary app inputs (app-id, app-private-key, escalation-app-id, escalation-app-private-key) must be provided together; missing: ${missing[*]}." >&2
+          exit 1
+        fi
+
     - name: Create GitHub App token
       id: app-token
-      if: steps.token-policy.outputs.allowed == 'true'
+      if: steps.token-policy.outputs.allowed == 'true' && inputs.app-id != '' && inputs.app-private-key != ''
       uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
       with:
         app-id: ${{ inputs.app-id }}
@@ -76,11 +126,39 @@ runs:
 
     - name: Create escalation token
       id: escalation-token
-      if: steps.token-policy.outputs.allowed == 'true'
+      if: steps.token-policy.outputs.allowed == 'true' && inputs.escalation-app-id != '' && inputs.escalation-app-private-key != ''
       uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
       with:
         app-id: ${{ inputs.escalation-app-id }}
         private-key: ${{ inputs.escalation-app-private-key }}
+
+    - name: Create audit token
+      id: audit-token
+      if: steps.token-policy.outputs.allowed == 'true' && inputs.audit-app-id != '' && inputs.audit-app-private-key != ''
+      uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
+      with:
+        app-id: ${{ inputs.audit-app-id }}
+        private-key: ${{ inputs.audit-app-private-key }}
+
+    - name: Validate audit token configuration
+      if: >-
+        steps.token-policy.outputs.allowed == 'true'
+        && (inputs.audit-app-id != '' || inputs.audit-app-private-key != '')
+      shell: bash
+      env:
+        TOKEN_POLICY_ALLOWED: ${{ steps.token-policy.outputs.allowed }}
+        AUDIT_APP_ID: ${{ inputs.audit-app-id }}
+        AUDIT_APP_PRIVATE_KEY: ${{ inputs.audit-app-private-key }}
+        AUDIT_TOKEN: ${{ steps.audit-token.outputs.token }}
+      run: |
+        if [ -z "$AUDIT_APP_ID" ] || [ -z "$AUDIT_APP_PRIVATE_KEY" ]; then
+          echo "::error::Both audit-app-id and audit-app-private-key must be provided together; got only one." >&2
+          exit 1
+        fi
+        if [ "$TOKEN_POLICY_ALLOWED" = "true" ] && [ -z "$AUDIT_TOKEN" ]; then
+          echo "::error::Audit credentials were provided, but steps.audit-token.outputs.token is empty — token minting failed or the app is not installed on this repository." >&2
+          exit 1
+        fi
 
     - name: Check GitHub App token availability
       id: token-status
@@ -96,7 +174,10 @@ runs:
         fi
 
     - name: Fail if a trusted run cannot mint the app tokens
-      if: steps.token-policy.outputs.allowed == 'true' && steps.token-status.outputs.available != 'true'
+      if: >-
+        steps.token-policy.outputs.allowed == 'true'
+        && inputs.app-id != ''
+        && steps.token-status.outputs.available != 'true'
       shell: bash
       env:
         APP_TOKEN: ${{ steps.app-token.outputs.token }}

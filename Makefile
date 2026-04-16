@@ -294,20 +294,31 @@ pr-diff: ## Show the diff for the current PR
 pr-comments: ## Show all comments on the current PR
 	gh pr view --comments
 
-pr-comment: ## Add a comment to the current PR (make pr-comment body="msg")
-	@test -n "$(body)" || (printf 'Usage: make pr-comment body="Looks good"\n' >&2; exit 1)
-	gh pr comment --body "$(body)"
+pr-comment: ## Add a comment to the current PR (body="msg" OR body_file=path for multiline or shell-special content)
+	@test -n "$(body)$(body_file)" || (printf 'Usage: make pr-comment body="Looks good"  OR  make pr-comment body_file=/tmp/msg.md\n' >&2; exit 1)
+	@if [ -n "$(body_file)" ]; then \
+	  gh pr comment --body-file "$(body_file)"; \
+	else \
+	  gh pr comment --body "$(body)"; \
+	fi
 
-pr-review-comments: ## List review threads with resolution status (make pr-review-comments pr=N)
+pr-review-comments: ## List review threads with resolution status (make pr-review-comments pr_num=N)
 	@test -n "$(pr_num)" || (printf 'Usage: make pr-review-comments pr_num=19\n' >&2; exit 1)
 	@printf '%s\n' "$(REPO)" | grep -Eq '^[^/]+/[^/]+$$' || (printf 'Error: REPO must be set to owner/name (e.g. REPO=octocat/Hello-World)\n' >&2; exit 1)
 	@owner=$$(echo "$(REPO)" | cut -d/ -f1) && \
 	 name=$$(echo "$(REPO)" | cut -d/ -f2) && \
-	 gh api graphql -F pr_num:='$(pr_num)' -F owner="$$owner" -F name="$$name" -f query='query($$pr_num: Int!, $$owner: String!, $$name: String!) { repository(owner: $$owner, name: $$name) { pullRequest(number: $$pr_num) { reviewThreads(first: 50) { nodes { id isResolved comments(first: 10) { nodes { body author { login } createdAt } } } } } } }'
+	 gh api graphql -F pr_num='$(pr_num)' -F owner="$$owner" -F name="$$name" -f query='query($$pr_num: Int!, $$owner: String!, $$name: String!) { repository(owner: $$owner, name: $$name) { pullRequest(number: $$pr_num) { reviewThreads(first: 50) { nodes { id isResolved path line comments(first: 10) { nodes { databaseId body author { login } createdAt } } } } } } }'
 
-pr-reply: ## Reply to a review comment (make pr-reply pr_num=N comment=ID body="msg")
-	@test -n "$(pr_num)" -a -n "$(comment)" -a -n "$(body)" || (printf 'Usage: make pr-reply pr_num=19 comment=123456 body="Fixed"\n' >&2; exit 1)
-	@gh api repos/$(REPO)/pulls/$(pr_num)/comments/$(comment)/replies -f body="$(body)"
+pr-reply: ## Reply to a review comment (pr_num=N comment=ID body="msg" OR body_file=path for multiline or shell-special content)
+	@test -n "$(pr_num)" -a -n "$(comment)" || (printf 'Usage: make pr-reply pr_num=19 comment=123456 body="Fixed"  OR  body_file=/tmp/reply.md\n' >&2; exit 1)
+	@test -n "$(body)$(body_file)" || (printf 'Provide body="..." or body_file=path. Prefer body_file for text containing backticks, quotes, or newlines.\n' >&2; exit 1)
+	@if [ -n "$(body_file)" ]; then \
+	  test -r "$(body_file)" || (printf 'Error: body_file=%s is not readable\n' "$(body_file)" >&2; exit 1); \
+	  python3 -c 'import json,sys; sys.stdout.write(json.dumps({"body": sys.stdin.read()}))' < "$(body_file)" \
+	    | gh api repos/$(REPO)/pulls/$(pr_num)/comments/$(comment)/replies --method POST --input -; \
+	else \
+	  gh api repos/$(REPO)/pulls/$(pr_num)/comments/$(comment)/replies -f body="$(body)"; \
+	fi
 
 pr-resolve: ## Resolve a review thread (make pr-resolve thread=PRRT_...)
 	@test -n "$(thread)" || (printf 'Usage: make pr-resolve thread=PRRT_kwDO...\n' >&2; exit 1)

@@ -117,7 +117,9 @@ def test_load_ruleset_detail_uses_summary_when_conditions_exist(
 ) -> None:
     calls: list[str] = []
 
-    def fail_if_called(endpoint: str, description: str) -> object:
+    def fail_if_called(
+        endpoint: str, description: str, required_permission: str | None = None
+    ) -> object:
         calls.append(endpoint)
         raise AssertionError("ruleset detail fetch should not be used")
 
@@ -138,7 +140,7 @@ def test_load_ruleset_detail_fetches_detail_for_summary_only_ruleset(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api_json",
-        lambda endpoint, description: {
+        lambda endpoint, description, required_permission=None: {
             "id": 99,
             "target": "branch",
             "conditions": {"ref_name": {"include": ["refs/heads/gh-pages"]}},
@@ -161,7 +163,9 @@ def test_load_ruleset_detail_returns_input_when_ruleset_has_no_numeric_id(
 ) -> None:
     calls: list[str] = []
 
-    def fail_if_called(endpoint: str, description: str) -> object:
+    def fail_if_called(
+        endpoint: str, description: str, required_permission: str | None = None
+    ) -> object:
         calls.append(endpoint)
         raise AssertionError("ruleset detail fetch should not be used")
 
@@ -195,12 +199,14 @@ def test_audit_repo_settings_returns_expected_summary(
             "variables": [
                 {"name": "APP_ID"},
                 {"name": "ESCALATION_APP_ID"},
+                {"name": "AUDIT_APP_ID"},
             ]
         },
         "repos/owner/repo/actions/secrets": {
             "secrets": [
                 {"name": "APP_PRIVATE_KEY"},
                 {"name": "ESCALATION_APP_PRIVATE_KEY"},
+                {"name": "AUDIT_APP_PRIVATE_KEY"},
             ]
         },
         "repos/owner/repo/rulesets": [{"id": 14, "target": "branch"}],
@@ -222,7 +228,7 @@ def test_audit_repo_settings_returns_expected_summary(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api_json",
-        lambda endpoint, description: responses[endpoint],
+        lambda endpoint, description, required_permission=None: responses[endpoint],
     )
 
     assert workflow_helpers.audit_repo_settings(repo="owner/repo") == {
@@ -262,7 +268,7 @@ def test_audit_repo_settings_rejects_unexpected_response_types(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api_json",
-        lambda endpoint, description: responses[endpoint],
+        lambda endpoint, description, required_permission=None: responses[endpoint],
     )
 
     with pytest.raises(RuntimeError, match="Repository metadata must be a JSON object"):
@@ -283,7 +289,7 @@ def test_audit_repo_settings_rejects_invalid_pages_response(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api_json",
-        lambda endpoint, description: responses[endpoint],
+        lambda endpoint, description, required_permission=None: responses[endpoint],
     )
 
     with pytest.raises(RuntimeError, match="Pages settings must be a JSON object"):
@@ -308,7 +314,7 @@ def test_audit_repo_settings_rejects_invalid_protection_response(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api_json",
-        lambda endpoint, description: responses[endpoint],
+        lambda endpoint, description, required_permission=None: responses[endpoint],
     )
 
     with pytest.raises(
@@ -335,7 +341,7 @@ def test_audit_repo_settings_rejects_invalid_variables_response(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api_json",
-        lambda endpoint, description: responses[endpoint],
+        lambda endpoint, description, required_permission=None: responses[endpoint],
     )
 
     with pytest.raises(
@@ -362,7 +368,7 @@ def test_audit_repo_settings_rejects_invalid_secrets_response(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api_json",
-        lambda endpoint, description: responses[endpoint],
+        lambda endpoint, description, required_permission=None: responses[endpoint],
     )
 
     with pytest.raises(
@@ -389,7 +395,7 @@ def test_audit_repo_settings_rejects_invalid_rulesets_response(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api_json",
-        lambda endpoint, description: responses[endpoint],
+        lambda endpoint, description, required_permission=None: responses[endpoint],
     )
 
     with pytest.raises(RuntimeError, match="Rulesets response must be a JSON array"):
@@ -426,7 +432,7 @@ def test_audit_repo_settings_reports_configuration_drift(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api_json",
-        lambda endpoint, description: responses[endpoint],
+        lambda endpoint, description, required_permission=None: responses[endpoint],
     )
 
     with pytest.raises(
@@ -440,10 +446,12 @@ def test_audit_repo_settings_reports_configuration_drift(
     assert "Pages source path is '/site' instead of '/'" in message
     assert "Pages build type is 'workflow' instead of 'legacy'" in message
     assert "Pages HTTPS is not enforced" in message
-    assert "missing repository variables: ESCALATION_APP_ID" in message
     assert (
-        "missing repository secrets: APP_PRIVATE_KEY, ESCALATION_APP_PRIVATE_KEY"
-        in message
+        "missing repository variables: AUDIT_APP_ID, ESCALATION_APP_ID" in message
+    )
+    assert (
+        "missing repository secrets: APP_PRIVATE_KEY, "
+        "AUDIT_APP_PRIVATE_KEY, ESCALATION_APP_PRIVATE_KEY" in message
     )
     assert (
         "'gh-pages' ruleset is missing rules: creation, deletion, non_fast_forward, "
@@ -474,12 +482,14 @@ def test_audit_repo_settings_requires_ruleset_targeting_pages_branch(
             "variables": [
                 {"name": "APP_ID"},
                 {"name": "ESCALATION_APP_ID"},
+                {"name": "AUDIT_APP_ID"},
             ]
         },
         "repos/owner/repo/actions/secrets": {
             "secrets": [
                 {"name": "APP_PRIVATE_KEY"},
                 {"name": "ESCALATION_APP_PRIVATE_KEY"},
+                {"name": "AUDIT_APP_PRIVATE_KEY"},
             ]
         },
         "repos/owner/repo/rulesets": [{"id": 99, "target": "branch"}],
@@ -501,7 +511,7 @@ def test_audit_repo_settings_requires_ruleset_targeting_pages_branch(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api_json",
-        lambda endpoint, description: responses[endpoint],
+        lambda endpoint, description, required_permission=None: responses[endpoint],
     )
 
     with pytest.raises(
