@@ -108,7 +108,7 @@ def test_run_gh_api_json_parses_payload(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda endpoint, paginate, jq_expr, description: '{"ok": true}',
+        lambda endpoint, paginate, jq_expr, description, required_permission=None: '{"ok": true}',
     )
 
     assert workflow_helpers._run_gh_api_json(
@@ -120,13 +120,88 @@ def test_run_gh_api_json_rejects_invalid_json(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda endpoint, paginate, jq_expr, description: "not-json",
+        lambda endpoint, paginate, jq_expr, description, required_permission=None: "not-json",
     )
 
     with pytest.raises(RuntimeError, match="returned invalid JSON"):
         workflow_helpers._run_gh_api_json(
             "repos/owner/repo", description="reading repository metadata"
         )
+
+
+def test_run_gh_api_enriches_403_with_required_permission(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+        result = FakeSubprocessResult(returncode=1)
+        result.stderr = "HTTP 403: Resource not accessible by integration"
+        return result
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="'administration: read'"):
+        workflow_helpers._run_gh_api(
+            "repos/owner/repo/branches/main/protection",
+            paginate=[],
+            jq_expr=".",
+            description="reading branch protection for owner/repo:main",
+            required_permission="administration: read",
+        )
+
+
+def test_run_gh_api_hints_generic_on_403_without_permission(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+        result = FakeSubprocessResult(returncode=1)
+        result.stderr = "gh: Resource not accessible by integration (HTTP 403)"
+        return result
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="token likely lacks required permission"):
+        workflow_helpers._run_gh_api(
+            "repos/owner/repo",
+            paginate=[],
+            jq_expr=".",
+            description="reading repository metadata for owner/repo",
+        )
+
+
+def test_run_gh_api_does_not_enrich_non_403_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+        result = FakeSubprocessResult(returncode=1)
+        result.stderr = "404 Not Found"
+        return result
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        workflow_helpers._run_gh_api(
+            "repos/owner/repo/branches/main/protection",
+            paginate=[],
+            jq_expr=".",
+            description="reading branch protection for owner/repo:main",
+            required_permission="administration: read",
+        )
+
+    message = str(exc_info.value)
+    assert "404 Not Found" in message
+    assert "administration: read" not in message
+    assert "likely lacks" not in message
+
+
+def test_is_forbidden_gh_api_failure_matches_variants() -> None:
+    assert gh_api.is_forbidden_gh_api_failure("HTTP 403: denied")
+    assert gh_api.is_forbidden_gh_api_failure(
+        "Resource not accessible by integration"
+    )
+    assert gh_api.is_forbidden_gh_api_failure("resource NOT accessible BY integration")
+    assert not gh_api.is_forbidden_gh_api_failure("4030 requests queued")
+    assert not gh_api.is_forbidden_gh_api_failure("404 Not Found")
+    assert not gh_api.is_forbidden_gh_api_failure("500 Internal Server Error")
 
 
 def test_run_gh_api_form_posts_fields_with_shared_helper(

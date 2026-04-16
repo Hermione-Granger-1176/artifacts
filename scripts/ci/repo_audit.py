@@ -136,6 +136,7 @@ def load_ruleset_detail(
     detail = run_gh_api_json_fn(
         f"repos/{repo}/rulesets/{ruleset_value}",
         description=f"reading ruleset {ruleset_value} for {repo}",
+        required_permission="administration: read",
     )
     require_response_type(
         detail, dict, f"Ruleset detail for {ruleset_value} must be a JSON object"
@@ -152,25 +153,34 @@ def audit_repo_settings(
 ) -> dict[str, object]:
     """Audit critical repository settings that the release flow depends on."""
     repository = run_gh_api_json_fn(
-        f"repos/{repo}", description=f"reading repository metadata for {repo}"
+        f"repos/{repo}",
+        description=f"reading repository metadata for {repo}",
+        required_permission="metadata: read",
     )
     pages = run_gh_api_json_fn(
-        f"repos/{repo}/pages", description=f"reading Pages settings for {repo}"
+        f"repos/{repo}/pages",
+        description=f"reading Pages settings for {repo}",
+        required_permission="pages: read",
     )
     protection = run_gh_api_json_fn(
         f"repos/{repo}/branches/{default_branch}/protection",
         description=f"reading branch protection for {repo}:{default_branch}",
+        required_permission="administration: read",
     )
     variables = run_gh_api_json_fn(
         f"repos/{repo}/actions/variables",
         description=f"listing Actions variables for {repo}",
+        required_permission="actions_variables: read",
     )
     secrets = run_gh_api_json_fn(
         f"repos/{repo}/actions/secrets",
         description=f"listing Actions secrets for {repo}",
+        required_permission="secrets: read",
     )
     rulesets = run_gh_api_json_fn(
-        f"repos/{repo}/rulesets", description=f"listing rulesets for {repo}"
+        f"repos/{repo}/rulesets",
+        description=f"listing rulesets for {repo}",
+        required_permission="administration: read",
     )
 
     require_response_type(repository, dict, "Repository metadata must be a JSON object")

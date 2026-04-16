@@ -328,12 +328,13 @@ graph LR
 
 ### Token model
 
-Two GitHub Apps provide elevated permissions beyond the default `GITHUB_TOKEN`:
+Three GitHub Apps provide elevated permissions beyond the default `GITHUB_TOKEN`, each scoped to a single role:
 
 | App                    | ID variable / Secret                                            | Used for                                                                |
 | ---------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | Hermione1176 (primary) | `vars.APP_ID` / `secrets.APP_PRIVATE_KEY`                       | Same-PR thumbnail writeback                                             |
 | Harry1176 (escalation) | `vars.ESCALATION_APP_ID` / `secrets.ESCALATION_APP_PRIVATE_KEY` | All deploys (main, preview, cleanup), follow-up thumbnail PRs from main |
+| Percy1176 (audit)      | `vars.AUDIT_APP_ID` / `secrets.AUDIT_APP_PRIVATE_KEY`           | Read-only repo-settings audit and drift-issue lifecycle                 |
 
 | Context         | Tokens available? | Deploy?        | Thumbnail persist?  |
 | --------------- | ----------------- | -------------- | ------------------- |
@@ -371,8 +372,8 @@ Any detection failure (missing secrets, API errors, non-thumbnail files, actor m
 The workflows depend on repository settings that are not enforceable from source control alone:
 
 - GitHub Pages publishes from `gh-pages` branch root with HTTPS enforced
-- `vars.APP_ID` and `vars.ESCALATION_APP_ID` contain the GitHub App IDs
-- `secrets.APP_PRIVATE_KEY` and `secrets.ESCALATION_APP_PRIVATE_KEY` contain the private keys
+- `vars.APP_ID`, `vars.ESCALATION_APP_ID`, and `vars.AUDIT_APP_ID` contain the GitHub App IDs
+- `secrets.APP_PRIVATE_KEY`, `secrets.ESCALATION_APP_PRIVATE_KEY`, and `secrets.AUDIT_APP_PRIVATE_KEY` contain the private keys
 - `secrets.GITLEAKS_LICENSE` for the Gitleaks action
 - `main` branch protection requires `verify`, `secret-scan`, and `dependency-review` checks plus review/signing/history requirements
 - `gh-pages` branch ruleset blocks create/delete/update/force-push except for the deploy app and repo admin

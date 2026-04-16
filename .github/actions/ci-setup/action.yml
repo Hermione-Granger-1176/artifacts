@@ -25,6 +25,14 @@ inputs:
   escalation-app-private-key:
     description: Escalation GitHub App private key.
     required: true
+  audit-app-id:
+    description: Audit-only GitHub App ID (Percy1176). Only the audit workflow passes this; omit elsewhere.
+    required: false
+    default: ''
+  audit-app-private-key:
+    description: Audit-only GitHub App private key (Percy1176). Only the audit workflow passes this; omit elsewhere.
+    required: false
+    default: ''
   python-version:
     description: Python version to install.
     required: false
@@ -45,8 +53,11 @@ outputs:
   escalation-token:
     description: Escalation GitHub App installation token.
     value: ${{ steps.escalation-token.outputs.token }}
+  audit-token:
+    description: Audit-only GitHub App installation token. Empty unless audit-app credentials were supplied.
+    value: ${{ steps.audit-token.outputs.token }}
   token-available:
-    description: Whether both tokens were minted successfully.
+    description: Whether both primary tokens (Hermione + Harry) were minted successfully. Audit-token availability is orthogonal.
     value: ${{ steps.token-status.outputs.available }}
 
 runs:
@@ -81,6 +92,14 @@ runs:
       with:
         app-id: ${{ inputs.escalation-app-id }}
         private-key: ${{ inputs.escalation-app-private-key }}
+
+    - name: Create audit token
+      id: audit-token
+      if: steps.token-policy.outputs.allowed == 'true' && inputs.audit-app-id != '' && inputs.audit-app-private-key != ''
+      uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3
+      with:
+        app-id: ${{ inputs.audit-app-id }}
+        private-key: ${{ inputs.audit-app-private-key }}
 
     - name: Check GitHub App token availability
       id: token-status
