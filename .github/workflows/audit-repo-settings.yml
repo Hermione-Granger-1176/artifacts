@@ -26,10 +26,6 @@ jobs:
         uses: ./.github/actions/ci-setup
         with:
           event-name: ${{ github.event_name }}
-          app-id: ${{ vars.APP_ID }}
-          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          escalation-app-id: ${{ vars.ESCALATION_APP_ID }}
-          escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
           audit-app-id: ${{ vars.AUDIT_APP_ID }}
           audit-app-private-key: ${{ secrets.AUDIT_APP_PRIVATE_KEY }}
 
