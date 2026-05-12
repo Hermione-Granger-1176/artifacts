@@ -1,0 +1,82 @@
+name: Refresh Locks
+
+on:
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHON_VERSION: '3.12'
+      NODE_VERSION: '24'
+    steps:
+      - name: Create GitHub App token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Capture default branch HEAD SHA
+        id: head
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: locks/requirements-dev.lock
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Refresh Python lock files
+        run: make lock
+
+      - name: Refresh Node lock file
+        run: make lock-node
+
+      - name: Detect lock changes
+        id: changes
+        run: |
+          git add locks package-lock.json
+          if git diff --staged --quiet -- locks package-lock.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit changes (verified)
+        if: steps.changes.outputs.changed == 'true'
+        uses: ./.github/actions/verified-commit
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          base-branch: ${{ github.event.repository.default_branch }}
+          expected-head-sha: ${{ steps.head.outputs.sha }}
+          commit-headline: "Refresh dependency lock files"
+          fallback-branch-prefix: ci/refresh-locks
+          pr-title: "Refresh dependency lock files"
+          pr-body: |
+            ## Summary
+            - Type: CI maintenance
+            - Regenerate `locks/requirements.lock`, `locks/requirements-dev.lock`, and `package-lock.json`
+            - Picks up transitive dependency bumps (including security patches) that Dependabot does not propose directly
+          pathspec: |
+            locks
+            package-lock.json
