@@ -5,6 +5,10 @@ on:
     - cron: "0 12 * * 1"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -16,12 +20,12 @@ jobs:
       PYTHON_VERSION: '3.12'
       NODE_VERSION: '24'
     steps:
-      - name: Create GitHub App token
+      - name: Create escalation token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
-        id: app-token
+        id: escalation-token
         with:
-          app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          app-id: ${{ vars.ESCALATION_APP_ID }}
+          private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
 
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -66,7 +70,7 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         uses: ./.github/actions/verified-commit
         with:
-          github-token: ${{ steps.app-token.outputs.token }}
+          github-token: ${{ steps.escalation-token.outputs.token }}
           base-branch: ${{ github.event.repository.default_branch }}
           expected-head-sha: ${{ steps.head.outputs.sha }}
           commit-headline: "Refresh dependency lock files"
@@ -80,3 +84,4 @@ jobs:
           pathspec: |
             locks
             package-lock.json
+          commit-mode: force-pr

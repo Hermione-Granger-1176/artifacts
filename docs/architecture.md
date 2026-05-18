@@ -234,8 +234,8 @@ The code is fully validated but never deployed and never written back to the sou
 | PR branch (e.g. `feature/new-app`) | `persist-thumbnails`                          | Same-repo PR with runtime changes and thumbnail changes                            | `apps/*/thumbnail.webp` files via verified commit (Hermione1176)                |
 | Dependabot PR branch               | `commit-python-locks`                         | Same-repo Dependabot pip PRs when direct verified commit succeeds                  | `locks/requirements.lock` and `locks/requirements-dev.lock` via verified commit |
 | `ci/refresh-python-locks-*`        | `commit-python-locks`                         | Same-repo Dependabot pip PRs when lock refresh writeback falls back to a PR branch | Fallback PR branch containing refreshed Python lock files                       |
-| `main`                             | Maintenance workflows using `verified-commit` | When a trusted maintenance workflow can commit directly to the default branch      | Verified maintenance commits such as GitHub Action SHA refreshes                |
-| `ci/refresh-action-shas-*`         | `refresh-action-shas`                         | When maintenance updates cannot be committed directly to the default branch        | Fallback PR branch containing workflow SHA refreshes                            |
+| `ci/refresh-action-shas-*`         | `refresh-action-shas`                         | Monthly or manually dispatched action SHA refreshes                                | Maintenance PR branch containing workflow SHA refreshes                         |
+| `ci/refresh-locks-*`               | `refresh-locks`                               | Weekly or manually dispatched dependency lock refreshes                            | Maintenance PR branch containing refreshed dependency locks                     |
 | `gh-pages`                         | `publish`                                     | Every successful deploy (PR preview or main site)                                  | Verified commit replacing site root or preview subdirectory (Harry1176)         |
 | `gh-pages`                         | `cleanup-preview`                             | PR closed/merged                                                                   | Verified commit removing preview subdirectory (Harry1176)                       |
 | `ci/save-generated-thumbnails-*`   | `persist-thumbnails`                          | Push to `main` with runtime-driven thumbnail changes or missing thumbnails         | Follow-up PR branch with `thumbnail.webp` files (Harry1176)                     |
@@ -258,8 +258,12 @@ graph TD
         refresh --> commit["commit-python-locks<br/>Download artifact<br/>Validate contents<br/>Check PR HEAD not stale<br/>Verified commit to PR branch"]
     end
 
-    subgraph "Action SHA refresh (monthly)"
-        schedule["1st of month / manual"] --> sha_refresh["refresh-action-shas<br/>Resolve latest SHAs for<br/>pinned actions in workflows<br/>Verified commit or PR"]
+    subgraph "Action SHA pinning (monthly)"
+        schedule["1st of month / manual"] --> sha_refresh["refresh-action-shas<br/>Pin non-SHA action refs<br/>in workflows<br/>Maintenance PR"]
+    end
+
+    subgraph "Dependency lock refresh (weekly)"
+        lock_schedule["Monday 12:00 UTC / manual"] --> lock_refresh["refresh-locks<br/>Run make lock and make lock-node<br/>Maintenance PR"]
     end
 
     subgraph "Repo settings audit (weekly)"
@@ -273,7 +277,9 @@ graph TD
 
 **Python lock refresh** keeps Dependabot pip PRs self-contained: when a Dependabot PR changes `pyproject.toml`, `refresh-python-locks.yml` runs `make lock` on the PR branch and uploads the refreshed lock files as an artifact. Then `commit-python-locks.yml` (triggered by `workflow_run`) downloads the artifact, validates it (checks for symlinks, required files, and PR metadata), verifies the PR branch hasn't moved, and uses the shared verified-commit flow to write the refreshed locks back to the PR branch or fall back to a maintenance PR branch when a direct write is not possible.
 
-**Action SHA refresh** runs monthly to keep pinned action references current. It scans all workflow files for `uses:` lines, resolves each ref to a commit SHA via the GitHub API, and updates the files.
+**Action SHA pinning** runs monthly as a safety net for newly added unpinned action references. It scans all workflow files for `uses:` lines whose refs are not already full 40-character SHAs, resolves those refs to commit SHAs via the GitHub API, and opens or updates a maintenance PR for any newly pinned workflow changes. It does not advance existing full-SHA pins.
+
+**Dependency lock refresh** runs weekly to keep transitive Python and Node lock-file dependencies current even when Dependabot does not propose a direct update. It runs `make lock` and `make lock-node`, then opens or updates a maintenance PR for any lock-file changes.
 
 **Repo settings audit** runs weekly and on manual dispatch. It calls `scripts/ci/workflow_helpers.py audit-repo-settings` to check that Pages, branch protection, repository variables/secrets, and the gh-pages ruleset match the expected contract. Drift is reported to the step summary, opens or updates a dedicated GitHub issue, and closes that issue automatically once the audit passes again.
 
@@ -289,6 +295,7 @@ graph TD
 | `refresh-python-locks.yml` | Same-repo Dependabot pip PR with `pyproject.toml` change | refresh-locks                                                                              |
 | `commit-python-locks.yml`  | after refresh-python-locks completes                     | commit-locks                                                                               |
 | `refresh-action-shas.yml`  | monthly 1st 3:00 UTC, manual                             | refresh                                                                                    |
+| `refresh-locks.yml`        | weekly Mon 12:00 UTC, manual                             | refresh                                                                                    |
 
 ### Custom actions
 
@@ -333,7 +340,7 @@ Three GitHub Apps provide elevated permissions beyond the default `GITHUB_TOKEN`
 | App                    | ID variable / Secret                                            | Used for                                                                |
 | ---------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | Hermione1176 (primary) | `vars.APP_ID` / `secrets.APP_PRIVATE_KEY`                       | Same-PR thumbnail writeback                                             |
-| Harry1176 (escalation) | `vars.ESCALATION_APP_ID` / `secrets.ESCALATION_APP_PRIVATE_KEY` | All deploys (main, preview, cleanup), follow-up thumbnail PRs from main |
+| Harry1176 (escalation) | `vars.ESCALATION_APP_ID` / `secrets.ESCALATION_APP_PRIVATE_KEY` | All deploys (main, preview, cleanup), scheduled maintenance PRs, follow-up thumbnail PRs from main |
 | Percy1176 (audit)      | `vars.AUDIT_APP_ID` / `secrets.AUDIT_APP_PRIVATE_KEY`           | Read-only repo-settings audit and drift-issue lifecycle                 |
 
 Percy1176's installation must carry exactly the permissions the audit reads, so that a 403 from `scripts/ci/repo_audit.py` unambiguously means a missing grant rather than an unrelated failure:
