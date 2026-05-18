@@ -300,7 +300,7 @@ def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
         refresh = _job(workflow, "refresh")
 
         assert workflow["concurrency"] == {
-            "group": "${{ github.workflow }}-${{ github.ref }}",
+            "group": "${{ github.workflow }}",
             "cancel-in-progress": False,
         }
 

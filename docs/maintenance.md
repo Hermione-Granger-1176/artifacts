@@ -24,7 +24,7 @@ This document covers long-term stability contracts and recurring upkeep. It does
 - **Dependency changes:** keep declarations and lockfiles in sync. Same-repo Dependabot pip PRs rely on `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml` to refresh Python locks back onto the PR branch when possible or through a fallback maintenance PR branch when direct writeback is not possible. Scheduled lock refreshes use `.github/workflows/refresh-locks.yml` and always open or update a maintenance PR instead of committing directly to `main`.
 - **Repository settings:** keep Pages, app IDs, app private keys, branch protection, and the `gh-pages` ruleset aligned with the contract documented in [`architecture.md`](architecture.md#external-github-settings) and audited by `.github/workflows/audit-repo-settings.yml`.
 - **Scheduled monitoring:** keep `.github/workflows/live-site-smoke.yml` and `.github/workflows/audit-repo-settings.yml` issue titles stable so their alert issues can be updated and auto-closed instead of duplicating.
-- **Pinned actions:** add new third-party actions with full SHAs immediately and let `.github/workflows/refresh-action-shas.yml` keep them current later through a maintenance PR branch instead of committing directly to `main`.
+- **Pinned actions:** add new third-party actions with full SHAs immediately. `.github/workflows/refresh-action-shas.yml` is a safety net that pins non-SHA action refs through a maintenance PR branch instead of committing directly to `main`; it does not advance existing full-SHA pins.
 
 ## When contracts change
 

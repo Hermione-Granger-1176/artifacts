@@ -258,8 +258,8 @@ graph TD
         refresh --> commit["commit-python-locks<br/>Download artifact<br/>Validate contents<br/>Check PR HEAD not stale<br/>Verified commit to PR branch"]
     end
 
-    subgraph "Action SHA refresh (monthly)"
-        schedule["1st of month / manual"] --> sha_refresh["refresh-action-shas<br/>Resolve latest SHAs for<br/>pinned actions in workflows<br/>Maintenance PR"]
+    subgraph "Action SHA pinning (monthly)"
+        schedule["1st of month / manual"] --> sha_refresh["refresh-action-shas<br/>Pin non-SHA action refs<br/>in workflows<br/>Maintenance PR"]
     end
 
     subgraph "Dependency lock refresh (weekly)"
@@ -277,7 +277,7 @@ graph TD
 
 **Python lock refresh** keeps Dependabot pip PRs self-contained: when a Dependabot PR changes `pyproject.toml`, `refresh-python-locks.yml` runs `make lock` on the PR branch and uploads the refreshed lock files as an artifact. Then `commit-python-locks.yml` (triggered by `workflow_run`) downloads the artifact, validates it (checks for symlinks, required files, and PR metadata), verifies the PR branch hasn't moved, and uses the shared verified-commit flow to write the refreshed locks back to the PR branch or fall back to a maintenance PR branch when a direct write is not possible.
 
-**Action SHA refresh** runs monthly to keep pinned action references current. It scans all workflow files for `uses:` lines, resolves each ref to a commit SHA via the GitHub API, and opens or updates a maintenance PR for the workflow changes.
+**Action SHA pinning** runs monthly as a safety net for newly added unpinned action references. It scans all workflow files for `uses:` lines whose refs are not already full 40-character SHAs, resolves those refs to commit SHAs via the GitHub API, and opens or updates a maintenance PR for any newly pinned workflow changes. It does not advance existing full-SHA pins.
 
 **Dependency lock refresh** runs weekly to keep transitive Python and Node lock-file dependencies current even when Dependabot does not propose a direct update. It runs `make lock` and `make lock-node`, then opens or updates a maintenance PR for any lock-file changes.
 
