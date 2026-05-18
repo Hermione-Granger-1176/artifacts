@@ -57,6 +57,12 @@ def _step_uses(job: dict[str, object], name: str) -> str:
     return uses
 
 
+def _step_with(job: dict[str, object], name: str) -> dict[str, object]:
+    inputs = _step(job, name).get("with")
+    assert isinstance(inputs, dict)
+    return inputs
+
+
 def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
     workflow = _load_workflow("update.yml")
     on_block = _workflow_on(workflow)
@@ -281,6 +287,30 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
         _step_uses(_job(refresh, "refresh"), "Commit changes (verified)")
         == "./.github/actions/verified-commit"
     )
+
+
+def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
+    workflows = {
+        "refresh-action-shas.yml": "ci/refresh-action-shas",
+        "refresh-locks.yml": "ci/refresh-locks",
+    }
+
+    for workflow_name, fallback_branch_prefix in workflows.items():
+        refresh = _job(_load_workflow(workflow_name), "refresh")
+
+        token_inputs = _step_with(refresh, "Create escalation token")
+        assert (
+            _step_uses(refresh, "Create escalation token")
+            == "actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3"
+        )
+        assert token_inputs["app-id"] == "${{ vars.ESCALATION_APP_ID }}"
+        assert token_inputs["private-key"] == "${{ secrets.ESCALATION_APP_PRIVATE_KEY }}"
+
+        commit_inputs = _step_with(refresh, "Commit changes (verified)")
+        assert commit_inputs["github-token"] == "${{ steps.escalation-token.outputs.token }}"
+        assert commit_inputs["base-branch"] == "${{ github.event.repository.default_branch }}"
+        assert commit_inputs["commit-mode"] == "force-pr"
+        assert commit_inputs["fallback-branch-prefix"] == fallback_branch_prefix
 
 
 def test_setup_python_steps_cache_pip() -> None:
