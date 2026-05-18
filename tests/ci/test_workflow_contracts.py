@@ -296,7 +296,13 @@ def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
     }
 
     for workflow_name, fallback_branch_prefix in workflows.items():
-        refresh = _job(_load_workflow(workflow_name), "refresh")
+        workflow = _load_workflow(workflow_name)
+        refresh = _job(workflow, "refresh")
+
+        assert workflow["concurrency"] == {
+            "group": "${{ github.workflow }}-${{ github.ref }}",
+            "cancel-in-progress": False,
+        }
 
         token_inputs = _step_with(refresh, "Create escalation token")
         assert (
