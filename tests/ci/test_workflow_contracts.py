@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
+
+CREATE_APP_TOKEN_SHA_PIN = re.compile(
+    r"^actions/create-github-app-token@[0-9a-f]{40}$"
+)
 
 
 def _load_workflow(name: str) -> dict[str, object]:
@@ -305,9 +310,10 @@ def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
         }
 
         token_inputs = _step_with(refresh, "Create escalation token")
-        assert (
-            _step_uses(refresh, "Create escalation token")
-            == "actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3"
+        token_uses = _step_uses(refresh, "Create escalation token")
+        assert CREATE_APP_TOKEN_SHA_PIN.fullmatch(token_uses), (
+            f"Expected actions/create-github-app-token pinned to a 40-char SHA, "
+            f"got {token_uses!r}"
         )
         assert token_inputs["app-id"] == "${{ vars.ESCALATION_APP_ID }}"
         assert token_inputs["private-key"] == "${{ secrets.ESCALATION_APP_PRIVATE_KEY }}"
