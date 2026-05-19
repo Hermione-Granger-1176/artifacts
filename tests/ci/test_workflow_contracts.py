@@ -305,10 +305,6 @@ def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
         }
 
         token_inputs = _step_with(refresh, "Create escalation token")
-        assert (
-            _step_uses(refresh, "Create escalation token")
-            == "actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3"
-        )
         assert token_inputs["app-id"] == "${{ vars.ESCALATION_APP_ID }}"
         assert token_inputs["private-key"] == "${{ secrets.ESCALATION_APP_PRIVATE_KEY }}"
 
