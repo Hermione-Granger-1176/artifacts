@@ -6,13 +6,15 @@ import { DIM_COLORS, EMB_VECS, EMB_PAIRS, EMB_CATEGORIES } from "./data.js";
 import { cosineSim, eucDist, verdictForSimilarity, project2D } from "./math.js";
 import { byId, cssVar, makeEl, clear, initSegmented } from "./dom.js";
 
+// Use the app-local accent tokens (not the vibrant --color-* bases): they carry
+// the WCAG-AA text colours in light mode and flip to the vibrant hues in dark.
 const TONE_VARS = {
-  teal: "--color-green",
-  accent: "--color-amber",
-  warm: "--color-blue",
+  teal: "--pc-teal",
+  accent: "--pc-accent",
+  warm: "--pc-warm",
   secondary: "--color-text-secondary",
   tertiary: "--color-text-tertiary",
-  rose: "--color-red"
+  rose: "--pc-rose"
 };
 
 function bodyFont(spec) {
@@ -202,7 +204,7 @@ function initSimilarity() {
     const verdict = verdictForSimilarity(sim);
     verdEl.textContent = verdict.label;
     verdEl.style.color = `var(${TONE_VARS[verdict.tone]})`;
-    const simTone = sim > 0.5 ? "--color-green" : sim > 0 ? "--color-blue" : "--color-red";
+    const simTone = sim > 0.5 ? "--pc-teal" : sim > 0 ? "--pc-warm" : "--pc-rose";
     simEl.style.color = `var(${simTone})`;
 
     drawCanvas(vecA, vecB);

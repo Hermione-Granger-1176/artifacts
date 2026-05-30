@@ -9,15 +9,19 @@
  */
 
 :root {
-  /* Accent roles mapped onto the shared semantic palette. The base colours are
-   * identical across themes; only surfaces/text/borders flip in dark mode.
+  /* Accent roles mapped onto the shared semantic palette, tuned for WCAG AA
+   * contrast. Light mode uses the darker `-text` variants so small and normal
+   * coloured text clears 4.5:1; the dark-theme block below flips them back to
+   * the vibrant base hues, which are bright enough on the dark surface. Surfaces
+   * and borders keep the vibrant base hue in both themes via the color-mix
+   * tokens below.
    * Defined on :root (not .pc) so the sticky nav and footer — which live outside
    * <main class="pc"> — can resolve them too. */
-  --pc-accent: var(--color-amber);
-  --pc-warm: var(--color-blue);
-  --pc-teal: var(--color-green);
-  --pc-indigo: var(--color-purple);
-  --pc-rose: var(--color-red);
+  --pc-accent: var(--color-amber-text);
+  --pc-warm: var(--color-blue-text);
+  --pc-teal: var(--color-green-text);
+  --pc-indigo: var(--color-purple-text);
+  --pc-rose: var(--color-red-text);
 
   --pc-accent-bg: color-mix(in srgb, var(--color-amber) 10%, transparent);
   --pc-warm-bg: color-mix(in srgb, var(--color-blue) 10%, transparent);
@@ -34,6 +38,22 @@
   /* Match the shared page shell + app-shell header width so every artifact and
    * this app's own header/nav line up at the same measure. */
   --pc-measure: 1000px;
+
+  /* This app uses tertiary text for many small captions and labels, where the
+   * shared tertiary grey is too light for WCAG AA. This stylesheet only loads on
+   * this page, so alias tertiary to the accessible secondary grey (which already
+   * flips per theme) rather than restating every rule. */
+  --color-text-tertiary: var(--color-text-secondary);
+}
+
+[data-theme="dark"] {
+  /* On the dark surface the vibrant base hues clear AA, so restore them for
+   * coloured text instead of the dark `-text` variants used in light mode. */
+  --pc-accent: var(--color-amber);
+  --pc-warm: var(--color-blue);
+  --pc-teal: var(--color-green);
+  --pc-indigo: var(--color-purple);
+  --pc-rose: var(--color-red);
 }
 
 /* ── Page rhythm & typography ─────────────────────────────────────────────── */
@@ -615,12 +635,14 @@ textarea.pc-input {
 .pc-matrix-label {
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
-  color: var(--color-text-tertiary);
+  color: var(--color-text);
   text-align: center;
   margin-bottom: 4px;
 }
 
-.pc-matrix-label .pc-dim { opacity: 0.5; }
+/* The dim sub-label uses a lighter-but-still-AA tone instead of opacity, which
+ * axe (correctly) counts against the contrast ratio. */
+.pc-matrix-label .pc-dim { color: var(--color-text-secondary); }
 
 .pc-matrix-grid {
   display: inline-grid;
