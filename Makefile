@@ -11,6 +11,23 @@ VENV_PIP    := $(VENV)/bin/pip
 VENV_RUFF   := $(VENV)/bin/ruff
 NPM         ?= npm
 
+# The pinned Playwright ships no browser build for very new distros (e.g. Ubuntu
+# 26.04 on WSL), so `playwright install` and browser launches abort. When the host
+# is an Ubuntu release Playwright has no build for, fall back to a supported
+# platform key; Playwright then downloads/uses its fallback build, which runs fine.
+# Exported so every Playwright target (setup-all/ci, test-browser-*, thumbnails)
+# inherits it. On a supported image (CI) this stays empty and nothing changes.
+# Override or disable by setting PLAYWRIGHT_HOST_PLATFORM_OVERRIDE in the env.
+PLAYWRIGHT_SUPPORTED_UBUNTU := 18.04 20.04 22.04 24.04
+PLAYWRIGHT_HOST_PLATFORM_OVERRIDE ?= $(shell \
+	. /etc/os-release 2>/dev/null; \
+	if [ "$$ID" = ubuntu ] && ! printf '%s' "$(PLAYWRIGHT_SUPPORTED_UBUNTU)" | grep -qw "$$VERSION_ID"; then \
+		echo ubuntu22.04-x64; \
+	fi)
+ifneq ($(strip $(PLAYWRIGHT_HOST_PLATFORM_OVERRIDE)),)
+export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE
+endif
+
 # ─── Setup ────────────────────────────────────────────────────────────────────
 
 .PHONY: install node-install setup-base setup setup-all setup-ci
