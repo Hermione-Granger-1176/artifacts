@@ -44,6 +44,7 @@ export function renderPeriodTable(tbody, rows, formatCurrency) {
     if (row.extra > 0) {
       tr.className = "extra-highlight";
     }
+    // eslint-disable-next-line no-restricted-syntax -- interpolated values are controlled numbers via formatCurrency
     tr.innerHTML = `
       <td>${row.period}</td>
       <td>${formatCurrency(row.emi)}</td>
@@ -95,6 +96,7 @@ export function renderYearlyTable(
 
     const tr = document.createElement("tr");
     tr.className = "year-row";
+    // eslint-disable-next-line no-restricted-syntax -- interpolated values are controlled numbers via formatCurrency
     tr.innerHTML = `
       <td>Year ${year}</td>
       <td>${formatCurrency(openingBalance)}</td>
