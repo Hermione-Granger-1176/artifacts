@@ -2,7 +2,9 @@
 
 # ─── Variables ────────────────────────────────────────────────────────────────
 
-PYTHON      ?= python3.12
+# Prefer python3.12 (the CI-pinned version), then fall back to 3.13/3.14 or python3.
+# Override by passing PYTHON=... on the command line or in the environment.
+PYTHON      ?= $(shell command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3)
 VENV        ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
 VENV_PIP    := $(VENV)/bin/pip

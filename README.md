@@ -4,7 +4,7 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 **Live site:** <!-- AUTO:SITE_URL -->https://hermione-granger-1176.github.io/artifacts/<!-- /AUTO:SITE_URL -->
 
-<!-- AUTO:TOTAL_BADGE --><img src="https://img.shields.io/badge/Total-2-D97706?style=for-the-badge" alt="Total"><!-- /AUTO:TOTAL_BADGE -->
+<!-- AUTO:TOTAL_BADGE --><img src="https://img.shields.io/badge/Total-3-D97706?style=for-the-badge" alt="Total"><!-- /AUTO:TOTAL_BADGE -->
 
 ## Topics
 
@@ -25,7 +25,7 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 ## Snapshot
 
-- <!-- AUTO:TOTAL_COUNT -->2<!-- /AUTO:TOTAL_COUNT --> artifacts published
+- <!-- AUTO:TOTAL_COUNT -->3<!-- /AUTO:TOTAL_COUNT --> artifacts published
 - Browse the live website for searchable thumbnails, multi-select filters, theme persistence, and detail overlays.
 
 ## Docs
