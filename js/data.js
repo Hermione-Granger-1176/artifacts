@@ -28,7 +28,7 @@ window.ARTIFACTS_DATA = [
       "claude"
     ],
     "url": "apps/prompt-caching/",
-    "thumbnail": null
+    "thumbnail": "apps/prompt-caching/thumbnail.webp"
   },
   {
     "id": "tokenizer-explorer",
