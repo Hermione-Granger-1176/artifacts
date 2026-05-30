@@ -1008,6 +1008,27 @@ def test_validate_artifact_item_rejects_bad_url_shape(tmp_path: Path) -> None:
         )
 
 
+def test_validate_artifact_item_accepts_null_thumbnail(tmp_path: Path) -> None:
+    # Generation now always emits the contract thumbnail path, but a null
+    # thumbnail remains a valid legacy/external value and must pass untouched.
+    config = make_config(tmp_path)
+    assert (
+        index_sources.validate_artifact_item(
+            {
+                "id": "loan-tool",
+                "name": "Loan Tool",
+                "description": "",
+                "tags": [],
+                "tools": [],
+                "url": "apps/loan-tool/",
+                "thumbnail": None,
+            },
+            config=config,
+        )
+        is None
+    )
+
+
 def test_validate_artifact_item_rejects_bad_thumbnail_shape(tmp_path: Path) -> None:
     config = make_config(tmp_path)
     with pytest.raises(ValueError, match="Artifact thumbnail must match"):
