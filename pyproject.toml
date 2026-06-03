@@ -19,7 +19,7 @@ dev = [
   "pip-audit==2.10.0",
   "pytest-cov==7.1.0",
   "pytest==9.0.3",
-  "ruff==0.15.13",
+  "ruff==0.15.15",
   "yamllint==1.38.0",
 ]
 
