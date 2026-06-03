@@ -7,7 +7,7 @@ cyclonedx-python-lib==11.7.0
 defusedxml==0.7.1
 filelock==3.29.0
 greenlet==3.5.1
-idna==3.17
+idna==3.18
 iniconfig==2.3.0
 license-expression==30.4.4
 markdown-it-py==4.2.0
@@ -32,7 +32,7 @@ pytest-cov==7.1.0
 PyYAML==6.0.3
 requests==2.34.2
 rich==15.0.0
-ruff==0.15.13
+ruff==0.15.15
 sortedcontainers==2.4.0
 tomli==2.4.1
 tomli_w==1.2.0
