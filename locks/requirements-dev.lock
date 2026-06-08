@@ -3,9 +3,9 @@ CacheControl==0.14.4
 certifi==2026.5.20
 charset-normalizer==3.4.7
 coverage==7.14.1
-cyclonedx-python-lib==11.7.0
+cyclonedx-python-lib==11.9.0
 defusedxml==0.7.1
-filelock==3.29.0
+filelock==3.29.1
 greenlet==3.5.1
 idna==3.18
 iniconfig==2.3.0
