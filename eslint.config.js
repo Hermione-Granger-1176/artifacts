@@ -6,7 +6,16 @@ const commonRules = {
   'no-eval': 'error',
   'no-implied-eval': 'error',
   'no-new-func': 'error',
-  'no-script-url': 'error'
+  'no-script-url': 'error',
+  'no-restricted-syntax': [
+    'error',
+    {
+      selector:
+        "AssignmentExpression[left.property.name=/^(inner|outer)HTML$/][right.type='TemplateLiteral']",
+      message:
+        'Do not assign a template literal directly to innerHTML/outerHTML. Build markup in a helper that escapes interpolated values with js/modules/html-escape.js, or use textContent/createElement.'
+    }
+  ]
 };
 
 export default [

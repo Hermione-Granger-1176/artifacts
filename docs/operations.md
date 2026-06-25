@@ -13,6 +13,8 @@ make ci         # show all CI sub-commands
 make git        # show all git sub-commands
 ```
 
+On a Linux distro newer than the pinned Playwright supports (for example Ubuntu 26.04 on WSL), `playwright install` and browser launches abort with `Playwright does not support chromium on <distro>`. The Makefile detects this and exports `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE` (a supported fallback platform key) for every Playwright target, so `make setup-all`, `make test-browser-*`, and `make thumbnails` work unchanged. CI runs on a supported image where the override stays empty. Override or disable it by setting `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE` in your environment.
+
 Recommended workflow when changing workspace code:
 
 1. `make new name=my-artifact` if you want a scaffold instead of creating files by hand. It also creates the matching `tests/js/apps/<slug>/` directory for app-specific Node tests.
