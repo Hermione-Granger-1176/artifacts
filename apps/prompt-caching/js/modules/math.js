@@ -191,9 +191,10 @@ export function project2D(vecA, vecB, vecs) {
   let bestDim = 0;
   let bestVar = 0;
   for (let d = 0; d < dims; d += 1) {
+    const mean = words.reduce((sum, word) => sum + vecs[word][d], 0) / words.length;
     let variance = 0;
     for (const word of words) {
-      variance += (vecs[word][d] - 0.2) ** 2;
+      variance += (vecs[word][d] - mean) ** 2;
     }
     const adjusted = variance * (1 - ax1[d] * ax1[d]);
     if (adjusted > bestVar) {

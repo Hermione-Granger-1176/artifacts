@@ -164,6 +164,19 @@ test('project2D tolerates identical A and B vectors (zero direction)', () => {
   }
 });
 
+test('project2D selects the orthogonal axis with the highest true variance', () => {
+  const vecs = {
+    a: [0, 10, 0],
+    b: [1, 10.1, 0.2],
+    c: [2, 9.9, 0.4]
+  };
+  const projected = project2D([0, 10, 0], [1, 10, 0], vecs);
+  assert.deepEqual(
+    projected.map((point) => point.y),
+    [0, 0.2, 0.4]
+  );
+});
+
 // --- data integrity ---
 
 test('SECTIONS lists nine unique anchored stages', () => {
