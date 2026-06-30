@@ -37,6 +37,14 @@ export function initEmbeddings() {
   };
 }
 
+function activateOnKeyboard(event, action) {
+  if (event.key !== "Enter" && event.key !== " ") {
+    return;
+  }
+  event.preventDefault();
+  action();
+}
+
 function initDimensions() {
   const canvas = byId("dimCanvas");
   const caption = byId("dimCaption");
@@ -148,6 +156,7 @@ function initSimilarity() {
     span.setAttribute("role", "button");
     span.tabIndex = 0;
     span.addEventListener("click", () => clickWord(word));
+    span.addEventListener("keydown", (event) => activateOnKeyboard(event, () => clickWord(word)));
     cloud.appendChild(span);
     wordEls.set(word, span);
   }
@@ -162,6 +171,14 @@ function initSimilarity() {
         selB = b;
         selecting = "a";
         refresh();
+      });
+      tag.addEventListener("keydown", (event) => {
+        activateOnKeyboard(event, () => {
+          selA = a;
+          selB = b;
+          selecting = "a";
+          refresh();
+        });
       });
       suggestions.appendChild(tag);
     }

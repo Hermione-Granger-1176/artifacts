@@ -97,7 +97,10 @@ test('embeddings drives the dimension explorer and similarity playground', () =>
     const words = h.el('embCloud').children;
     words[0].fire('click'); // pick A
     words[1].fire('click'); // pick B
+    words[2].fire('keydown', { key: 'Enter', preventDefault() {} }); // keyboard pick A
+    words[3].fire('keydown', { key: ' ', preventDefault() {} }); // keyboard pick B
     h.el('embSuggestions').children[0].fire('click'); // quick pair
+    h.el('embSuggestions').children[1].fire('keydown', { key: 'Enter', preventDefault() {} }); // keyboard quick pair
     h.el('embSwapBtn').fire('click');
 
     api.redraw();

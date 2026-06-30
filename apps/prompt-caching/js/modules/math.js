@@ -105,11 +105,16 @@ export function eucDist(a, b) {
 }
 
 /**
- * Numerically simple softmax over raw scores. `-Infinity` scores map to weight 0
+ * Numerically stable softmax over raw scores. `-Infinity` scores map to weight 0
  * (used by the causal mask). Always sums to ~1 when at least one score is finite.
  */
 export function softmax(scores) {
-  const exps = scores.map((s) => Math.exp(s));
+  const finiteScores = scores.filter(Number.isFinite);
+  if (finiteScores.length === 0) {
+    return scores.map(() => 0);
+  }
+  const maxScore = Math.max(...finiteScores);
+  const exps = scores.map((s) => (Number.isFinite(s) ? Math.exp(s - maxScore) : 0));
   const sum = exps.reduce((acc, value) => acc + value, 0);
   if (sum === 0) {
     return scores.map(() => 0);
