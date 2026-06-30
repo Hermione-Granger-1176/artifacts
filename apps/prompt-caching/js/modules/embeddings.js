@@ -154,6 +154,7 @@ function initSimilarity() {
     const span = makeEl("span", "emb-word", word);
     span.dataset.word = word;
     span.setAttribute("role", "button");
+    span.setAttribute("aria-label", `Select word ${word}`);
     span.tabIndex = 0;
     span.addEventListener("click", () => clickWord(word));
     span.addEventListener("keydown", (event) => activateOnKeyboard(event, () => clickWord(word)));
@@ -165,6 +166,7 @@ function initSimilarity() {
     for (const [a, b] of EMB_PAIRS) {
       const tag = makeEl("span", "emb-tag", `${a} / ${b}`);
       tag.setAttribute("role", "button");
+      tag.setAttribute("aria-label", `Compare ${a} and ${b}`);
       tag.tabIndex = 0;
       tag.addEventListener("click", () => {
         selA = a;
