@@ -1,0 +1,6 @@
+# Code owners for this repository.
+# Listed owners are requested for review automatically on pull requests that
+# touch matching paths. See https://docs.github.com/articles/about-code-owners.
+
+# Default owner for everything.
+* @Hermione-Granger-1176

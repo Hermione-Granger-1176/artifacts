@@ -46,7 +46,8 @@ Run `make lint` or `make check-local` to check. Those targets also run the Edito
   - HTML escaping via `escapeHtml()` for all dynamic content in templates
   - Dependency injection via function parameters, not globals
 - **DOM access:** use `documentObj`/`windowObj` parameters for testability
-- **No `eval`**, no `document.write`, no `innerHTML` with unescaped user input
+- **No `eval`**, no `document.write`
+- **`innerHTML`/`outerHTML`:** every interpolated value must be a literal you control or escaped via `escapeHtml()`/`escapeAttribute()` from `js/modules/html-escape.js`. Assigning a template literal directly to `innerHTML`/`outerHTML` is blocked by ESLint (`no-restricted-syntax`); build the markup in a helper that escapes, or use `textContent`/`createElement` instead
 
 Run `make lint`, `make coverage-js`, or `make check-local` to check. `make coverage-js` enforces the current baseline across all source files imported by tests. Thresholds and exclusions are configured in `package.json`.
 
@@ -93,7 +94,7 @@ Run `make lint-yaml` for YAML structure/format checks and `make lint-workflows` 
 ## Makefile
 
 - **Indent:** tabs (required by Make)
-- **Variables:** uppercase with `?=` defaults (e.g., `PYTHON ?= python3.12`)
+- **Variables:** uppercase with `?=` defaults; `PYTHON` auto-detects the first available of `python3.12` (CI-pinned), `python3.13`, `python3.14`, or `python3`, and is overridable via an env var, e.g. `PYTHON=python3.13 make setup`
 
 ## Markdown
 

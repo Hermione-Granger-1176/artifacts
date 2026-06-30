@@ -15,6 +15,22 @@ window.ARTIFACTS_DATA = [
     "thumbnail": "apps/loan-amortization/thumbnail.webp"
   },
   {
+    "id": "prompt-caching",
+    "name": "Prompt Caching, Demystified",
+    "description": "Interactive explainer on how LLM prompt caching works — walk the tokenizer, embeddings, attention, and the KV cache that providers reuse to cut cost and latency.",
+    "tags": [
+      "ai",
+      "llm",
+      "education",
+      "visualization"
+    ],
+    "tools": [
+      "claude"
+    ],
+    "url": "apps/prompt-caching/",
+    "thumbnail": "apps/prompt-caching/thumbnail.webp"
+  },
+  {
     "id": "tokenizer-explorer",
     "name": "Tokenizer: Temperature & Top P Explorer",
     "description": "Interactive explainer for LLM next-token probabilities, temperature scaling, and top-p sampling.",
