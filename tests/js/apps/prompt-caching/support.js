@@ -25,6 +25,10 @@ function matchesCompound(node, compound) {
       if (!node.classList.contains(tok.slice(1))) {
         return false;
       }
+    } else if (tok.startsWith("#")) {
+      if (node.id !== tok.slice(1)) {
+        return false;
+      }
     } else if (tok.startsWith(":not(")) {
       if (matchesCompound(node, tok.slice(5, -1))) {
         return false;
@@ -44,7 +48,7 @@ function matchesCompound(node, compound) {
           return false;
         }
       }
-    } else if (!tok.startsWith("#")) {
+    } else {
       if ((node.tagName || "").toLowerCase() !== tok.toLowerCase()) {
         return false;
       }

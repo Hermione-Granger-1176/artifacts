@@ -77,6 +77,7 @@ function initCacheAnimation() {
       clearInterval(timer);
     }
     step = -1;
+    renderState();
     playBtn.disabled = true;
     timer = setInterval(() => {
       step += 1;
