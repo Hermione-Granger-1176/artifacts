@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createHarness } from './support.js';
+import { createHarness, makeEl as harnessMakeEl } from './support.js';
 import { byId, cssVar, makeEl as domMakeEl, clear } from '../../../../apps/prompt-caching/js/modules/dom.js';
 import { initNavigation } from '../../../../apps/prompt-caching/js/modules/navigation.js';
 import { initTokenizer } from '../../../../apps/prompt-caching/js/modules/tokenizer.js';
@@ -37,6 +37,22 @@ test('dom helpers read, build, and clear nodes', () => {
     assert.equal(typeof cssVar('--color-amber'), 'string');
     // makeEl with no text leaves textContent empty.
     assert.equal(domMakeEl('div').textContent, '');
+  });
+});
+
+test('test harness query selectors honor id selectors', () => {
+  withHarness((h) => {
+    const first = harnessMakeEl('span');
+    first.id = 'first-target';
+    first.className = 'chip';
+    const second = harnessMakeEl('span');
+    second.id = 'second-target';
+    second.className = 'chip';
+    h.el('navFill').append(first, second);
+
+    assert.equal(h.el('navFill').querySelector('#second-target'), second);
+    assert.equal(h.el('navFill').querySelector('span#first-target.chip'), first);
+    assert.equal(h.el('navFill').querySelector('#missing-target'), null);
   });
 });
 
@@ -188,6 +204,20 @@ test('kv cache animation plays and the compare toggle switches modes', () => {
     h.el('cacheCompareToggle').children[1].fire('click'); // with cache
     h.el('cacheCompareToggle').children[0].fire('click'); // no cache
     assert.ok(h.el('cacheCompareVis').children.length > 0);
+  });
+});
+
+test('kv cache animation clears stale rows before replaying', () => {
+  withHarness((h) => {
+    initKvCache();
+    h.el('cachePlayBtn').fire('click');
+    [...h.intervals.values()][0]();
+    assert.equal(h.el('kCacheVis').children[0].className, 'cache-row is-new');
+
+    h.el('cachePlayBtn').fire('click');
+
+    assert.equal(h.el('kCacheVis').children[0].className, 'pc-empty');
+    assert.equal(h.el('vCacheVis').children[0].className, 'pc-empty');
   });
 });
 
