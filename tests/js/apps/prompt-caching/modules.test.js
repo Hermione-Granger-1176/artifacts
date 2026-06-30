@@ -37,7 +37,7 @@ test('bpeTokenize keeps known whole words intact and is deterministic', () => {
   assert.deepEqual(once, ['the', ' ', 'cat', ' ', 'sat']);
 });
 
-test('bpeTokenize lowercases to match the vocabulary', () => {
+test('bpeTokenize matches vocabulary case-insensitively while preserving input case', () => {
   // "Cat" is not in the set verbatim but "cat" is, exercising the toLowerCase path.
   assert.deepEqual(bpeTokenize('Cat'), ['Cat']);
 });
@@ -93,6 +93,15 @@ test('softmax produces a distribution that sums to 1', () => {
 
 test('softmax returns zeros when every score is masked to -Infinity', () => {
   assert.deepEqual(softmax([-Infinity, -Infinity]), [0, 0]);
+});
+
+test('softmax stays finite for large scores and masked values', () => {
+  const weights = softmax([1000, 1001, -Infinity]);
+  const sum = weights.reduce((acc, value) => acc + value, 0);
+  assert.ok(weights.every(Number.isFinite));
+  assert.ok(Math.abs(sum - 1) < 1e-9);
+  assert.equal(weights[2], 0);
+  assert.ok(weights[1] > weights[0]);
 });
 
 // --- savingsMonthly ---
