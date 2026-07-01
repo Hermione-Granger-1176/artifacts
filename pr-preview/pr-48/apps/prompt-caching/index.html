@@ -10,13 +10,13 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/">
   <meta property="og:site_name" content="Artifacts">
-  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=790e495">
-  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=790e495">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=09b2a2a">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=09b2a2a">
   <meta property="og:image:alt" content="Preview card for the Prompt Caching, Demystified app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Prompt Caching, Demystified | Artifacts">
   <meta name="twitter:description" content="Interactive explainer on how LLM prompt caching works — walk the tokenizer, embeddings, attention, and the KV cache that providers reuse to cut cost and latency.">
-  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=790e495">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=09b2a2a">
   <meta name="twitter:image:alt" content="Preview card for the Prompt Caching, Demystified app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -174,7 +174,7 @@ print(decode(tokens))</pre>
           </div>
         </div>
         <div id="tokenOutput" class="pc-token-output"></div>
-        <p class="pc-note pc-mt">This simulates BPE-style tokenization. Common words stay as single tokens. Uncommon words get split into learned subword pieces. Whitespace is shown as separate token(s) in this demo. Token IDs are deterministic hashes, not real vocabulary lookups.</p>
+        <p class="pc-note pc-mt">This simulates BPE-style tokenization. Common words stay as single tokens. Uncommon words get split into learned subword pieces. Whitespace is shown as separate token(s) in Text mode and counted in totals; Token IDs mode skips whitespace tokens. Token IDs are deterministic hashes, not real vocabulary lookups.</p>
       </div>
       <h3>Why this matters for caching</h3>
       <p>Tokenization is deterministic. The same text always produces the same token sequence. This is critical for caching: if your second request starts with the same text, the provider knows it will produce the exact same token IDs, which means the same K and V matrices can be reused.</p>
