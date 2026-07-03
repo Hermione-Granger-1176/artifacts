@@ -127,7 +127,7 @@ def make_config(
         gallery_foundation_file=(
             gallery_foundation_file
             if gallery_foundation_file is not None
-            else tmp_path / "css" / "gallery" / "01-tokens.css"
+            else tmp_path / "css" / "style.css"
         ),
         index_file=index_file,
         name_file=name_file,
@@ -242,9 +242,7 @@ def test_read_artifact_contract_requires_existing_file(
 def test_fallback_badge_color_uses_shared_note_palette(
     tmp_path: Path,
 ) -> None:
-    gallery_dir = tmp_path / "css" / "gallery"
-    gallery_dir.mkdir(parents=True, exist_ok=True)
-    tokens_file = gallery_dir / "01-tokens.css"
+    tokens_file = tmp_path / "css" / "style.css"
     write_text(
         tokens_file,
         """
@@ -264,7 +262,7 @@ def test_fallback_badge_color_uses_default_when_palette_file_is_missing(
 ) -> None:
     config = make_config(
         tmp_path,
-        gallery_foundation_file=tmp_path / "css" / "gallery" / "missing-tokens.css",
+        gallery_foundation_file=tmp_path / "css" / "missing-style.css",
     )
 
     assert config.note_palette == ()

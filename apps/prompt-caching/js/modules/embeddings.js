@@ -6,7 +6,7 @@ import { DIM_COLORS, EMB_VECS, EMB_PAIRS, EMB_CATEGORIES } from "./data.js";
 import { cosineSim, eucDist, verdictForSimilarity, project2D } from "./math.js";
 import { byId, cssVar, makeEl, clear, initSegmented } from "./dom.js";
 
-// Use the app-local accent tokens (not the vibrant --color-* bases): they carry
+// Use the prompt-specific accent tokens (not the vibrant --color-* bases): they carry
 // the WCAG-AA text colours in light mode and flip to the vibrant hues in dark.
 const TONE_VARS = {
   teal: "--pc-teal",

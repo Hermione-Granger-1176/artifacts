@@ -17,7 +17,7 @@ window.ARTIFACTS_DATA = [
   {
     "id": "prompt-caching",
     "name": "Prompt Caching, Demystified",
-    "description": "Interactive explainer on how LLM prompt caching works — walk the tokenizer, embeddings, attention, and the KV cache that providers reuse to cut cost and latency.",
+    "description": "Interactive explainer on how LLM prompt caching works, from tokenizer to embeddings, attention, and the KV cache that providers reuse to cut cost and latency.",
     "tags": [
       "ai",
       "llm",

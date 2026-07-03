@@ -109,8 +109,8 @@ export function renderAppShell({
 export function initAppShell({
   homePath = "../../",
   metaThemeColors = {
-    dark: "rgb(20, 20, 20)",
-    light: "rgb(248, 248, 246)"
+    dark: "rgb(30, 26, 20)",
+    light: "rgb(245, 239, 230)"
   },
   onThemeChange = () => {}
 } = {}) {

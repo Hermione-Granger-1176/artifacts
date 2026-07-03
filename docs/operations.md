@@ -70,7 +70,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 ## Thumbnail policy
 
 - `thumbnail.webp` is the preferred generated format.
-- Local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date. CI auto-invalidates thumbnails for apps whose runtime changed (`index.html`, `css/**`, `js/**`, `assets/**`) or when shared app-shell files changed, using `scripts/ci/workflow_helpers.py invalidate-thumbnails`.
+- Local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date. CI auto-invalidates thumbnails for apps whose runtime changed (`index.html`, `js/**`, `assets/**`) or when shared site assets changed, using `scripts/ci/workflow_helpers.py invalidate-thumbnails`.
 - CI does not trigger mature-app browser suites for app docs or metadata-only edits; the thumbnail plan uses the same runtime-change classification to scope mature-app browser runs.
 - CI sets `ARTIFACTS_STRICT_THUMBNAILS=1`, so any attempted thumbnail failure fails the workflow instead of being logged as a warning.
 - Local working copies do not need checked-in thumbnails to function during development.
@@ -94,8 +94,8 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
 ### Self-hosted fonts
 
 - Gallery display fonts (Caveat, Fredoka One) are self-hosted as WOFF2 Latin subsets in `assets/fonts/`.
-- `@font-face` declarations live in `css/fonts.css`, imported by `css/style.css`.
-- When adding a new font, download the WOFF2 subset into `assets/fonts/`, add the `@font-face` rule to `css/fonts.css`, and verify the CSP `font-src 'self'` directive still covers it.
+- `@font-face` declarations live in `css/style.css`.
+- When adding a new font, download the WOFF2 subset into `assets/fonts/`, add the `@font-face` rule to `css/style.css`, and verify the CSP `font-src 'self'` directive still covers it.
 
 ### Adding external assets to a new artifact
 

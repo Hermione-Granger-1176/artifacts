@@ -35,7 +35,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- icons/                 Logo, favicon, and web app manifest
 |  |- social/                Social share preview image
 |- config/                   Gallery metadata and security audit policy
-|- css/                      Root gallery styles and shared app design tokens
+|- css/                      Single shared site stylesheet
 |- docs/                     Workspace documentation and ADRs
 |- js/
 |  |- app.js                 Root gallery entry point
@@ -79,11 +79,11 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `docs/maintenance.md`: long-term contracts, review points, and stability expectations
 - `apps/*/index.html`: artifact implementation
 - `apps/*/name.txt`, `description.txt`, `tags.txt`, `tools.txt`: artifact metadata
-- `index.html`, `css/style.css`, `css/gallery/*`, `js/app.js`, `js/modules/gallery/*`: root gallery UI
+- `index.html`, `css/style.css`, `js/app.js`, `js/modules/gallery/*`: root gallery UI and shared app styling
 - `js/modules/runtime.js`, `js/modules/element-cache.js`, `js/modules/html-escape.js`: shared JS utilities
-- `css/app-tokens.css`, `css/app-shell.css`, `js/app-theme.js`, `js/modules/app-shell.js`: shared mature-app design and interaction system
+- `js/app-theme.js`, `js/modules/app-shell.js`: shared mature-app theme and interaction system
 - `assets/fonts/*`: self-hosted Latin web font subsets for gallery display fonts
-- `css/fonts.css`: `@font-face` declarations for self-hosted Caveat and Fredoka One
+- `css/style.css`: `@font-face` declarations for self-hosted Caveat and Fredoka One
 - `assets/icons/*`: logo, favicon, apple touch icon, PWA manifest, and raster icons
 - `assets/social/share-preview.png`: social preview image referenced by deploy-time Open Graph and Twitter metadata
 - `config/gallery_metadata.json`: shared tool and tag display metadata used by generators to produce `js/gallery-config.js` and ordered README badges
@@ -118,7 +118,6 @@ The website is the canonical artifact catalog. `README.md` intentionally keeps o
 Each artifact directory under `apps/` is expected to contain:
 
 - `index.html`: required entry point
-- `css/app.css`: recommended app-local visual overrides for mature apps
 - `js/app.js`: recommended app-local runtime entry for mature apps
 - `docs/architecture.md`, `docs/verification.md`, `docs/decisions.md`: recommended internal docs for mature apps
 - `README.md`: recommended app overview and folder map

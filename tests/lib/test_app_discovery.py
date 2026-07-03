@@ -20,8 +20,7 @@ def test_shared_app_runtime_paths_are_rooted() -> None:
     repo_root = Path("/tmp/repo")
 
     assert app_discovery.shared_app_runtime_paths(repo_root) == (
-        repo_root / "css" / "app-tokens.css",
-        repo_root / "css" / "app-shell.css",
+        repo_root / "css" / "style.css",
         repo_root / "js" / "app-theme.js",
         repo_root / "js" / "modules" / "app-shell.js",
     )
@@ -37,9 +36,8 @@ def test_artifact_uses_shared_app_runtime_detects_local_entrypoints(
 
     (artifact_dir / "css").mkdir()
     (artifact_dir / "css" / "app.css").write_text(".page {}\n", encoding="utf-8")
-    assert app_discovery.artifact_uses_shared_app_runtime(artifact_dir) is True
+    assert app_discovery.artifact_uses_shared_app_runtime(artifact_dir) is False
 
-    (artifact_dir / "css" / "app.css").unlink()
     (artifact_dir / "js").mkdir(exist_ok=True)
     (artifact_dir / "js" / "app.js").write_text("export {};\n", encoding="utf-8")
     assert app_discovery.artifact_uses_shared_app_runtime(artifact_dir) is True
@@ -84,7 +82,7 @@ def test_runtime_change_plan_handles_changed_and_shared_runtime_paths() -> None:
             "apps/loan-tool/index.html",
             "apps/loan-tool/js/app.js",
             "apps/budget-tool/assets/chart.json",
-            "js/app-theme.js",
+            "css/style.css",
         ]
     )
 

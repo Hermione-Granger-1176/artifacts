@@ -253,7 +253,7 @@ def list_changed_files(
 def invalidate_thumbnails(
     *, event_name: str, repo: str, pr_number: str, commit_sha: str
 ) -> list[str]:
-    """Delete thumbnails for apps whose runtime or shared app shell changed."""
+    """Delete thumbnails for apps whose runtime or shared site assets changed."""
     return _thumbnail_plan.invalidate_thumbnails(
         event_name=event_name,
         repo=repo,

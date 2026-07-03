@@ -17,8 +17,8 @@ The earlier workflow shape mixed planning, build, deploy, and source-branch muta
 
 ## Decision
 
-1. Mature apps share root-level app tokens, theme bootstrap, and shell behavior from `css/app-tokens.css`, `css/app-shell.css`, `js/app-theme.js`, and `js/modules/app-shell.js`.
-2. App-local CSS and JS live inside each app folder and only override app-specific layout or runtime behavior.
+1. Mature apps share root-level styling from `css/style.css` and shell behavior from `js/app-theme.js` and `js/modules/app-shell.js`.
+2. App-local JS lives inside each app folder and only owns app-specific runtime behavior. App-specific layout selectors live in the shared stylesheet and are scoped by `app-<slug>` body classes.
 3. Workflow policy is driven by a single planner implemented in `scripts/build/thumbnail_plan.py` and exposed to workflows through `scripts/ci/workflow_helpers.py`.
 4. Thumbnail generation runs once in the verified build path, and later jobs reuse the generated artifact instead of regenerating thumbnails.
 5. Thumbnail persistence is deny-by-default and allows only three modes:
@@ -31,7 +31,7 @@ The earlier workflow shape mixed planning, build, deploy, and source-branch muta
 
 ## Consequences
 
-- Shared app styling is easier to evolve because the shell and tokens live in one shipped system.
+- Shared app styling is easier to evolve because the shell, tokens, and app layout selectors live in one shipped stylesheet.
 - Thumbnail generation more closely matches the real app runtime because it waits for app readiness and uses the shared app shell over HTTP.
 - Workflow YAML is more readable because it delegates policy to tested helpers and keeps build, deploy, and persistence responsibilities separate.
 - Source-branch mutation is tightly scoped to trusted runtime changes and validated thumbnail artifacts only.

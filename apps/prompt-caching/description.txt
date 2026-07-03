@@ -1,1 +1,1 @@
-Interactive explainer on how LLM prompt caching works — walk the tokenizer, embeddings, attention, and the KV cache that providers reuse to cut cost and latency.
+Interactive explainer on how LLM prompt caching works, from tokenizer to embeddings, attention, and the KV cache that providers reuse to cut cost and latency.

@@ -3,17 +3,17 @@
 ## Root gallery entry points
 
 - `index.html` loads the root gallery shell
-- `css/style.css` imports `css/fonts.css` (self-hosted `@font-face` for Caveat and Fredoka One) then the modular partials in `css/gallery/` (tokens, reset, header, toolbar, book, cards, detail overlay, responsive, etc.)
+- `css/style.css` is the only site stylesheet. It contains self-hosted font declarations, gallery styling, shared app shell styling, and app-specific layout selectors scoped by body classes.
 - `js/gallery-config.js` provides generated tool/tag labels, display order, and the shared artifact path contract from `config/gallery_metadata.json` and `config/artifact_contract.json`
 - `js/data.js` provides generated artifact metadata
 - `js/app.js` bootstraps the runtime, validates generated bootstrap data, and calls `initializeGalleryApp`
 
 ## Shared app system
 
-- `css/app-tokens.css` owns the shared bookmark-note palette, light/dark neutrals, font stacks, and app token rules
-- `css/app-shell.css` owns the shared mature-app header, buttons, inputs, tables, tooltips, and scroll-to-top styling
-- `js/app-theme.js` applies the saved mature-app theme before shared CSS loads, and `js/modules/app-shell.js` owns runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
-- Mature app pages import those shared files first, then add app-local CSS and JS inside `apps/<slug>/`
+- `css/style.css` owns the shared bookmark-note palette, light and dark themes, root gallery styling, app shell styling, and current app-specific layout selectors
+- `js/app-theme.js` applies the saved mature-app theme before CSS loads
+- `js/modules/app-shell.js` owns runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
+- Mature app pages import `../../css/style.css`, use `artifact-app` plus an `app-<slug>` body class, and keep app-local JavaScript inside `apps/<slug>/`
 
 ## JavaScript module responsibilities
 
@@ -66,7 +66,7 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - Artifact cards render as real `<button>` controls so keyboard and screen-reader semantics match the interaction model instead of relying on `role="button"` shims.
 - `js/modules/gallery/render.js` gives the detail description a stable ID, and `js/modules/gallery/detail-overlay.js` uses it to describe the dialog while artifact links announce that they open in a new tab.
 - `404.html` has explicit focus-visible styling so fallback navigation is keyboard-safe even outside the main app shell.
-- `css/gallery/12-chrome.css` owns the root focus ring tokens and skip-link behavior; `css/gallery/09-cards.css` owns accessible contrast tuning for active pagination and detail CTA states.
+- `css/style.css` owns focus ring tokens, skip-link behavior, and accessible contrast tuning for active pagination and detail CTA states.
 - `tests/browser/frontend_helpers.py` fails browser suites on `pageerror`, unexpected `console.error`, failed requests, and HTTP 4xx/5xx responses, and can emit screenshots, traces, and runtime logs for CI artifacts.
 
 ## Local vs CI expectations

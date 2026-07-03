@@ -265,15 +265,23 @@ help: ## Show this help
 
 # ─── Git ──────────────────────────────────────────────────────────────────────
 
-.PHONY: git branch log diff diff-staged
+.PHONY: git branch commit log diff diff-staged
 
 git: ## Git commands (make git)
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' ' \
-		/^(branch|log|diff|diff-staged):/ { printf "    %-20s %s\n", $$1, $$2 }'
+		/^(branch|commit|log|diff|diff-staged):/ { printf "    %-20s %s\n", $$1, $$2 }'
 
 branch: ## Create and switch to a new branch from main (make branch name=X)
 	@test -n "$(name)" || (printf 'Usage: make branch name=my-feature\n' >&2; exit 1)
 	git checkout main && git pull && git checkout -b "$(name)"
+
+commit: ## Commit staged changes (make commit message="..." OR message_file=path)
+	@test -n "$(message)$(message_file)" || (printf 'Usage: make commit message="Commit message" OR message_file=/tmp/message.txt\n' >&2; exit 1)
+	@if [ -n "$(message_file)" ]; then \
+	  git commit -F "$(message_file)"; \
+	else \
+	  git commit -m "$(message)"; \
+	fi
 
 log: ## Show recent commit log (short)
 	git log --oneline -20

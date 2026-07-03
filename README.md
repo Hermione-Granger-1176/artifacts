@@ -43,14 +43,12 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 ## Structure
 
-Each artifact lives in its own directory under `apps/` with an `index.html` entry point. Mature apps now share a root-level app system in `css/app-tokens.css`, `css/app-shell.css`, `js/app-theme.js`, and `js/modules/app-shell.js`, then layer app-local CSS and JS on top.
+Each artifact lives in its own directory under `apps/` with an `index.html` entry point. All pages share the single site stylesheet at `css/style.css`. Mature apps keep their own JavaScript and docs while reusing `js/app-theme.js` and `js/modules/app-shell.js` for the shared app shell.
 
 ```text
 apps/
   artifact-name/
     index.html        # Required entry point
-    css/
-      app.css         # App-local visual overrides
     js/
       app.js          # App-local behavior
     docs/

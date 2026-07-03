@@ -166,7 +166,7 @@ class IndexConfig:
             gallery_metadata_file=REPO_ROOT / "config" / "gallery_metadata.json",
             js_output_file=REPO_ROOT / "js" / "data.js",
             js_config_output_file=REPO_ROOT / "js" / "gallery-config.js",
-            gallery_foundation_file=REPO_ROOT / "css" / "gallery" / "01-tokens.css",
+            gallery_foundation_file=REPO_ROOT / "css" / "style.css",
             index_file=index_file,
             name_file=name_file,
             description_file="description.txt",

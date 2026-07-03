@@ -114,9 +114,8 @@ def test_should_generate_thumbnail_when_runtime_dependency_is_newer(
     artifact_dir = repo_root / "apps" / "loan-tool"
     thumb_path = artifact_dir / generate_thumbnails.SCREENSHOT_FILE
     _write_text(artifact_dir / "index.html", "<html></html>")
-    _write_text(artifact_dir / "css" / "app.css", ".card {}\n")
-    _write_text(repo_root / "css" / "app-tokens.css", ":root {}\n")
-    _write_text(repo_root / "css" / "app-shell.css", ".app-header {}\n")
+    _write_text(artifact_dir / "js" / "app.js", "export {};\n")
+    _write_text(repo_root / "css" / "style.css", "body {}\n")
     _write_text(repo_root / "js" / "app-theme.js", "window.ok = true;\n")
     _write_text(
         repo_root / "js" / "modules" / "app-shell.js", "export const ok = true;\n"
@@ -128,8 +127,7 @@ def test_should_generate_thumbnail_when_runtime_dependency_is_newer(
         generate_thumbnails,
         "SHARED_APP_RUNTIME_FILES",
         (
-            repo_root / "css" / "app-tokens.css",
-            repo_root / "css" / "app-shell.css",
+            repo_root / "css" / "style.css",
             repo_root / "js" / "app-theme.js",
             repo_root / "js" / "modules" / "app-shell.js",
         ),
@@ -138,24 +136,25 @@ def test_should_generate_thumbnail_when_runtime_dependency_is_newer(
     assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is False
 
     future_mtime = thumb_path.stat().st_mtime + 2
-    os.utime(artifact_dir / "css" / "app.css", (future_mtime, future_mtime))
+    os.utime(artifact_dir / "js" / "app.js", (future_mtime, future_mtime))
 
     assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is True
 
 
-def test_should_generate_thumbnail_when_shared_app_shell_is_newer(
+def test_should_generate_thumbnail_when_shared_stylesheet_is_newer(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repo_root = tmp_path / "repo"
     artifact_dir = repo_root / "apps" / "loan-tool"
     thumb_path = artifact_dir / generate_thumbnails.SCREENSHOT_FILE
     _write_text(artifact_dir / "index.html", "<html></html>")
-    _write_text(artifact_dir / "css" / "app.css", ".card {}\n")
-    app_shell = repo_root / "js" / "modules" / "app-shell.js"
-    _write_text(repo_root / "css" / "app-tokens.css", ":root {}\n")
-    _write_text(repo_root / "css" / "app-shell.css", ".app-header {}\n")
+    _write_text(artifact_dir / "js" / "app.js", "export {};\n")
+    stylesheet = repo_root / "css" / "style.css"
+    _write_text(stylesheet, "body {}\n")
     _write_text(repo_root / "js" / "app-theme.js", "window.ok = true;\n")
-    _write_text(app_shell, "export const ok = true;\n")
+    _write_text(
+        repo_root / "js" / "modules" / "app-shell.js", "export const ok = true;\n"
+    )
     thumb_path.write_bytes(b"thumb")
 
     monkeypatch.setattr(generate_thumbnails, "REPO_ROOT", repo_root)
@@ -163,17 +162,16 @@ def test_should_generate_thumbnail_when_shared_app_shell_is_newer(
         generate_thumbnails,
         "SHARED_APP_RUNTIME_FILES",
         (
-            repo_root / "css" / "app-tokens.css",
-            repo_root / "css" / "app-shell.css",
+            stylesheet,
             repo_root / "js" / "app-theme.js",
-            app_shell,
+            repo_root / "js" / "modules" / "app-shell.js",
         ),
     )
 
     assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is False
 
     future_mtime = thumb_path.stat().st_mtime + 2
-    os.utime(app_shell, (future_mtime, future_mtime))
+    os.utime(stylesheet, (future_mtime, future_mtime))
 
     assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is True
 

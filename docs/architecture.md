@@ -23,18 +23,18 @@ The system has three layers:
 The deployed site is static HTML with a generated data layer.
 
 - `index.html` loads the gallery shell
-- `css/style.css` imports `css/fonts.css` (self-hosted `@font-face` for Caveat and Fredoka One) then the modular partials in `css/gallery/`
+- `css/style.css` is the single site stylesheet for the root gallery, shared app shell, and artifact-specific layout rules
 - `js/app.js` bootstraps runtime validation and initializes the gallery
 - `js/modules/gallery/*` split the gallery into config validation, catalog helpers, render helpers, book-scene motion, URL state, and the main orchestrator
 - `js/modules/runtime.js`, `js/modules/element-cache.js`, `js/modules/html-escape.js` provide shared utilities used by both the gallery and app modules
 - `js/gallery-config.js` (generated) provides shared display metadata
 - `js/data.js` (generated) provides artifact metadata
-- `css/app-tokens.css`, `css/app-shell.css`, `js/app-theme.js`, `js/modules/app-shell.js` define the shared mature-app system
-- `apps/*/index.html` pages are the artifact entry points, with app-local CSS, JS, and docs alongside them
+- `js/app-theme.js` and `js/modules/app-shell.js` define the shared mature-app runtime system
+- `apps/*/index.html` pages are the artifact entry points, with app-local JS and docs alongside them
 
 ### How the gallery loads
 
-1. `index.html` loads stylesheets and scripts
+1. `index.html` loads the stylesheet and scripts
 2. `js/gallery-config.js` defines `window.ARTIFACTS_CONFIG`
 3. `js/data.js` defines `window.ARTIFACTS_DATA`
 4. `js/app.js` validates bootstrap data and calls `initializeGalleryApp`
@@ -131,7 +131,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
 - **`plan`** (timeout: 5 min, permissions: contents read, pull-requests read)
   - Calls `scripts/ci/workflow_helpers.py thumbnail-plan` with the event context.
   - Queries the GitHub API for changed files in the PR.
-  - Classifies each changed file: runtime change (`index.html`, `css/`, `js/`, `assets/`), metadata change (`name.txt`, `tags.txt`, etc.), docs change, or shared infra change (`css/app-tokens.css`, `css/app-shell.css`, `js/app-theme.js`, `js/modules/app-shell.js`).
+  - Classifies each changed file: runtime change (`index.html`, `js/`, `assets/`), metadata change (`name.txt`, `tags.txt`, etc.), docs change, or shared infra change (`css/style.css`, `js/app-theme.js`, `js/modules/app-shell.js`).
   - Resolves the primary app bot login dynamically from `vars.APP_ID` / `secrets.APP_PRIVATE_KEY` via `actions/create-github-app-token` (with `continue-on-error: true` for forks and Dependabot PRs where secrets are unavailable).
   - Computes `skip-verification`: `true` only when the workflow actor matches the resolved app bot login AND every file in the triggering commit is a thumbnail. For main pushes from merged thumbnail follow-up PRs, the commit-level files check is applied as defense-in-depth alongside existing PR provenance detection. Any detection failure defaults to `false` (full pipeline runs).
   - Outputs: `browser-scope` (all / changed / none), `thumbnail-scope` (all / changed / none), `persist-mode` (pr-branch), `changed-slugs`, `thumbnail-slugs`, `reason`, `skip-verification`.
@@ -345,12 +345,12 @@ Three GitHub Apps provide elevated permissions beyond the default `GITHUB_TOKEN`
 
 Percy1176's installation must carry exactly the permissions the audit reads, so that a 403 from `scripts/ci/repo_audit.py` unambiguously means a missing grant rather than an unrelated failure:
 
-- `metadata: read` (implicit — required to call any repo endpoint)
+- `metadata: read` (implicit, required to call any repo endpoint)
 - `administration: read` (branch protection, rulesets)
 - `pages: read`
 - `actions_variables: read`
 - `secrets: read` (names only; the audit never reads secret values)
-- `issues: write` (drift-alert issue lifecycle — open, comment, close)
+- `issues: write` (drift-alert issue lifecycle: open, comment, close)
 
 Primary + escalation inputs to `ci-setup` are all-or-nothing (the action hard-fails on partial credentials in trusted contexts); audit inputs are independent, so the audit workflow passes only `audit-app-id` / `audit-app-private-key` and omits the primary credentials entirely.
 
