@@ -4,9 +4,7 @@ Editor and language conventions for the artifacts workspace. These rules are enf
 
 ## Editor configuration
 
-The `.editorconfig` file at the repository root defines per-filetype settings.
-Most editors and IDEs support it natively or through a plugin.
-`make editorconfig-check` enforces the supported rules for covered repository files in automation, while `make lint` layers language-specific linters on top. Both targets are discoverable through `make help`.
+The `.editorconfig` file at the repository root defines per-filetype settings. Most editors and IDEs support it natively or through a plugin. `make editorconfig-check` enforces the supported rules for covered repository files in automation, while `make lint` layers language-specific linters on top. Both targets are discoverable through `make help`.
 
 Summary of settings:
 
@@ -25,10 +23,11 @@ Summary of settings:
 - **Docstrings:** required on all public functions, one-line or multi-line Google style
 - **Type hints:** use `from __future__ import annotations` for modern syntax
 - **Imports:** sorted by isort (enforced by ruff rule I)
+- **Dead code:** vulture checks scripts and tests using the shared `pyproject.toml` configuration
 - **Private functions:** prefix with a leading underscore
 - **Entry points:** guard `if __name__ == "__main__":` blocks with `# pragma: no cover`
 
-Run `make lint` or `make check-local` to check. Those targets also run the EditorConfig validation used in CI.
+Run `make lint`, `make format-check`, or `make check-local` to check. Those targets also run the EditorConfig and formatting validation used in CI.
 
 ## JavaScript
 
@@ -49,7 +48,7 @@ Run `make lint` or `make check-local` to check. Those targets also run the Edito
 - **No `eval`**, no `document.write`
 - **`innerHTML`/`outerHTML`:** every interpolated value must be a literal you control or escaped via `escapeHtml()`/`escapeAttribute()` from `js/modules/html-escape.js`. Assigning a template literal directly to `innerHTML`/`outerHTML` is blocked by ESLint (`no-restricted-syntax`); build the markup in a helper that escapes, or use `textContent`/`createElement` instead
 
-Run `make lint`, `make coverage-js`, or `make check-local` to check. `make coverage-js` enforces the current baseline across all source files imported by tests. Thresholds and exclusions are configured in `package.json`.
+Run `make lint`, `make dead-code-js`, `make coverage-js`, or `make check-local` to check. `make coverage-js` enforces the current baseline across all source files imported by tests. Thresholds and exclusions are configured in `package.json`; Knip scope is configured in `config/knip.json`.
 
 ## CSS
 
@@ -88,6 +87,8 @@ Run `make lint-css` or `make lint` to check.
 - **Indent:** 2 spaces
 - **Linter:** yamllint with repository overrides in `.yamllint.yml`
 - **GitHub Actions:** pin third-party actions to full commit SHAs with a version comment (e.g., `actions/checkout@abc123 # v6`)
+
+Prettier also owns docs, metadata, workflow, and tooling-script formatting through `config/prettierrc.json` and `config/prettierignore`. Run `make format-check` to verify it and `make fmt-prettier` only when you intentionally want to rewrite formatted files.
 
 Run `make lint-yaml` for YAML structure/format checks and `make lint-workflows` for workflow-specific action linting.
 

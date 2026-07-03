@@ -8,7 +8,7 @@
   `math.js` and asserts the integrity of `data.js` (vocab ordering, attention rows
   summing to ~1, embedding catalogue completeness, section/summary shape).
 - Coverage of the tested modules: `math.js` 100% lines / ~96% branches / 100%
-  functions, `data.js` 100% — comfortably above the repo gate (95/85/95).
+  functions, `data.js` 100%. This is comfortably above the repo gate (95/85/95).
 - `make check-local` runs lint (ESLint/stylelint), the JS tests, coverage,
   security audit, artifact validation, and generated-drift checks.
 
