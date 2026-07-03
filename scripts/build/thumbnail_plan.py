@@ -267,8 +267,7 @@ def thumbnail_plan(
             commit_files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
         except Exception:
             commit_files = []
-        skip_verification = _all_thumbnail_files(commit_files
-        )
+        skip_verification = _all_thumbnail_files(commit_files)
 
     return {
         "app_scope": cast(str, runtime_plan["app_scope"]),

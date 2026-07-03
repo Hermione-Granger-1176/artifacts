@@ -22,9 +22,7 @@ class CheckResult:
 DEFAULT_TIMEOUT = 600
 
 
-def run_check(
-    name: str, *, timeout: int = DEFAULT_TIMEOUT, run_fn=None
-) -> CheckResult:
+def run_check(name: str, *, timeout: int = DEFAULT_TIMEOUT, run_fn=None) -> CheckResult:
     """Run a single make target and return the captured result."""
     start = time.monotonic()
     try:
@@ -106,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Error: timeout must be positive, got {timeout}.")
             print(usage)
             return 1
-        args = args[:idx] + args[idx + 2:]
+        args = args[:idx] + args[idx + 2 :]
 
     if not args:
         print(usage)

@@ -39,9 +39,7 @@ PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
 DEPLOY_DIR = REPO_ROOT / "_site"
 GIT_COMMAND_TIMEOUT_SECONDS = 10
 ROOT_STYLESHEET_IMPORT_PATTERN = re.compile(r'@import url\("(\./[^"?]+\.css)"\);')
-MODULE_SCRIPT_PATTERN = re.compile(
-    r'<script\s+type="module"\s+src="([^"]+)"'
-)
+MODULE_SCRIPT_PATTERN = re.compile(r'<script\s+type="module"\s+src="([^"]+)"')
 JS_IMPORT_PATTERN = re.compile(
     r"""(?:import|export)\s+.*?\s+from\s+['"]([^'"]+)['"]""",
     re.DOTALL,

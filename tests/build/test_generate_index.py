@@ -231,9 +231,7 @@ def test_read_artifact_contract_requires_existing_file(
     tmp_path: Path,
 ) -> None:
     with pytest.raises(FileNotFoundError, match="Artifact contract file not found"):
-        read_artifact_contract_file(
-            tmp_path / "config" / "artifact_contract.json"
-        )
+        read_artifact_contract_file(tmp_path / "config" / "artifact_contract.json")
 
 
 # -- Palette and badge color tests --------------------------------------------
@@ -752,9 +750,7 @@ def test_frontend_config_contains_display_labels(tmp_path: Path) -> None:
         ],
     }
 
-    fc = index_outputs.frontend_config(
-        metadata, artifact_contract=config.contract
-    )
+    fc = index_outputs.frontend_config(metadata, artifact_contract=config.contract)
 
     tools = fc["tools"]
 
@@ -895,7 +891,7 @@ def test_generate_raises_for_duplicate_artifact_ids(
     monkeypatch.setattr(
         generate_index,
         "_scan_artifacts",
-        lambda cfg: [
+        lambda _cfg: [
             {
                 "id": "duplicate",
                 "name": "One",
@@ -1121,8 +1117,7 @@ def test_helper_wrappers_delegate_expected_contract_and_metadata_logic(
     assert config.artifact_thumbnail_rule() == "apps/<artifact-id>/thumbnail.webp"
     assert config.matches_artifact_url_shape("apps/loan-tool/") is True
     assert (
-        config.matches_artifact_thumbnail_shape("apps/loan-tool/thumbnail.webp")
-        is True
+        config.matches_artifact_thumbnail_shape("apps/loan-tool/thumbnail.webp") is True
     )
     index_sources.validate_relative_repo_path(
         "apps/loan-tool/thumbnail.webp",

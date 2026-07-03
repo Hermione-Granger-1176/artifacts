@@ -76,7 +76,7 @@ class ThumbnailStats(TypedDict):
 class QuietStaticHandler(SimpleHTTPRequestHandler):
     """Static file handler that suppresses per-request logging."""
 
-    def log_message(self, format: str, *args: object) -> None:  # noqa: A003
+    def log_message(self, _format: str, *args: object) -> None:
         return
 
 
@@ -93,7 +93,7 @@ class ArtifactServer:
         self._thread.start()
         return self
 
-    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+    def __exit__(self, exc_type: object, exc: object, _tb: object) -> None:
         self._httpd.shutdown()
         self._httpd.server_close()
         self._thread.join(timeout=5)

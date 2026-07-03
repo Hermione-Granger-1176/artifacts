@@ -167,7 +167,7 @@ test('attention steps, grid hover, and softmax sliders all respond', () => {
     checkbox.checked = false;
     checkbox.fire('change');
 
-    // Step 4: softmax weights — masked (c>r) and real (c<=r) cells
+    // Step 4: softmax weights with masked (c>r) and real (c<=r) cells
     h.el('attnStepper').children[3].fire('click');
     const weightCells = visual.querySelectorAll('[data-mx="wt4"].clickable');
     weightCells.find((c) => c.dataset.r === '0' && c.dataset.c === '1').fire('click'); // masked

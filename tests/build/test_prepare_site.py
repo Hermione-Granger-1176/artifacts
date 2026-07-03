@@ -115,7 +115,6 @@ def test_load_site_path_reads_pyproject(
     assert prepare_site._load_site_path() == "/artifacts/"
 
 
-
 def test_load_site_url_reads_pyproject(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -257,9 +256,7 @@ def test_copy_deploy_items_rejects_symlinked_inputs(
     monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path / "_site")
 
-    with pytest.raises(
-        ValueError, match="Refusing to process tree containing symlink"
-    ):
+    with pytest.raises(ValueError, match="Refusing to process tree containing symlink"):
         prepare_site._copy_deploy_items()
 
 
@@ -506,7 +503,10 @@ def test_inline_all_css_imports_keeps_partial_dir_when_still_referenced(
     gallery_dir.mkdir(parents=True)
     write_text(gallery_dir / "01-tokens.css", "body {}\n")
     # After inlining, a surviving reference (e.g. source comment) keeps the dir.
-    write_text(css_dir / "style.css", '@import url("./gallery/01-tokens.css");\n/* sourced from ./gallery/ */\n')
+    write_text(
+        css_dir / "style.css",
+        '@import url("./gallery/01-tokens.css");\n/* sourced from ./gallery/ */\n',
+    )
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
 
     prepare_site._inline_all_css_imports()
@@ -829,8 +829,12 @@ def test_resolve_module_tree_walks_imports(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
-    write_text(tmp_path / "js" / "app.js", 'import { init } from "./modules/init.js";\n')
-    write_text(tmp_path / "js" / "modules" / "init.js", 'import { util } from "./util.js";\n')
+    write_text(
+        tmp_path / "js" / "app.js", 'import { init } from "./modules/init.js";\n'
+    )
+    write_text(
+        tmp_path / "js" / "modules" / "init.js", 'import { util } from "./util.js";\n'
+    )
     write_text(tmp_path / "js" / "modules" / "util.js", "export const util = 1;\n")
 
     deps = prepare_site._resolve_module_tree(tmp_path / "js" / "app.js")
@@ -967,7 +971,9 @@ def test_is_minifiable_js_skips_vendor_and_min_files() -> None:
 
     assert prepare_site._is_minifiable_js(PurePosixPath("js/app.js"))
     assert prepare_site._is_minifiable_js(PurePosixPath("js/modules/gallery.js"))
-    assert not prepare_site._is_minifiable_js(PurePosixPath("js/vendor/chart.umd.min.js"))
+    assert not prepare_site._is_minifiable_js(
+        PurePosixPath("js/vendor/chart.umd.min.js")
+    )
     assert not prepare_site._is_minifiable_js(PurePosixPath("js/lib.min.js"))
     assert not prepare_site._is_minifiable_js(PurePosixPath("data.json"))
 

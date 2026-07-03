@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
-import { createApiClients } from '../verified-commit/verified-commit.mjs';
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { createApiClients } from "../verified-commit/verified-commit.mjs";
 
 /**
  * Compute the Git blob SHA for a buffer (matches how Git hashes blobs).
@@ -10,7 +10,7 @@ import { createApiClients } from '../verified-commit/verified-commit.mjs';
  */
 export function gitBlobSha(content) {
   const header = `blob ${content.length}\0`;
-  return createHash('sha1').update(header).update(content).digest('hex');
+  return createHash("sha1").update(header).update(content).digest("hex");
 }
 
 /**
@@ -26,7 +26,7 @@ export function walkDir(dir, root = dir, deps = { readdirSync: fs.readdirSync })
     if (entry.isDirectory()) {
       return walkDir(full, root, deps);
     }
-    return [path.relative(root, full).replace(/\\/g, '/')];
+    return [path.relative(root, full).replace(/\\/g, "/")];
   });
 }
 
@@ -44,8 +44,12 @@ export function walkDir(dir, root = dir, deps = { readdirSync: fs.readdirSync })
  *   GraphQL file payloads.
  */
 export function computeChanges(
-  localFiles, remoteFiles, previewRoot, deployDir,
-  targetPrefix = '', deps = {}
+  localFiles,
+  remoteFiles,
+  previewRoot,
+  deployDir,
+  targetPrefix = "",
+  deps = {},
 ) {
   const { readFileSync = fs.readFileSync } = deps;
   const additions = [];
@@ -64,7 +68,7 @@ export function computeChanges(
       continue;
     }
 
-    additions.push({ path: targetPath, contents: content.toString('base64') });
+    additions.push({ path: targetPath, contents: content.toString("base64") });
   }
 
   for (const remotePath of remoteFiles.keys()) {
@@ -102,24 +106,22 @@ export function computeRemoval(remoteFiles, subdirPrefix) {
  */
 async function fetchBranchState(clients, branch, consoleObj) {
   const ref = await clients.fetchJson(
-    `https://api.github.com/repos/${clients.owner}/${clients.repo}/git/ref/heads/${branch}`
+    `https://api.github.com/repos/${clients.owner}/${clients.repo}/git/ref/heads/${branch}`,
   );
   const headSha = ref.object.sha;
   consoleObj.log(`Current ${branch} HEAD: ${headSha}`);
 
   // Fetch commit to get tree SHA (the trees API needs a tree SHA, not a commit SHA).
   const commit = await clients.fetchJson(
-    `https://api.github.com/repos/${clients.owner}/${clients.repo}/git/commits/${headSha}`
+    `https://api.github.com/repos/${clients.owner}/${clients.repo}/git/commits/${headSha}`,
   );
   const treeSha = commit.tree.sha;
 
   const tree = await clients.fetchJson(
-    `https://api.github.com/repos/${clients.owner}/${clients.repo}/git/trees/${treeSha}?recursive=1`
+    `https://api.github.com/repos/${clients.owner}/${clients.repo}/git/trees/${treeSha}?recursive=1`,
   );
   const remoteFiles = new Map(
-    tree.tree
-      .filter((item) => item.type === 'blob')
-      .map((item) => [item.path, item.sha])
+    tree.tree.filter((item) => item.type === "blob").map((item) => [item.path, item.sha]),
   );
   consoleObj.log(`Remote tree: ${remoteFiles.size} files`);
 
@@ -148,12 +150,12 @@ async function createVerifiedCommit(clients, branch, headSha, headline, fileChan
     input: {
       branch: {
         repositoryNameWithOwner: `${clients.owner}/${clients.repo}`,
-        branchName: branch
+        branchName: branch,
       },
       expectedHeadOid: headSha,
       message: { headline },
-      fileChanges
-    }
+      fileChanges,
+    },
   });
 
   return data.createCommitOnBranch.commit;
@@ -184,19 +186,19 @@ export async function runVerifiedDeploy({
   consoleObj = console,
   fetchDependencies = {},
   readFileSyncImpl = fs.readFileSync,
-  walkDirImpl = (dir) => walkDir(dir)
+  walkDirImpl = (dir) => walkDir(dir),
 } = {}) {
   const token = env.GH_TOKEN;
-  const pagesBranch = env.PAGES_BRANCH || 'gh-pages';
-  const previewRoot = env.PREVIEW_ROOT || 'pr-preview';
-  const commitMessage = env.COMMIT_MESSAGE || 'Deploy site';
-  const deployDir = env.DEPLOY_DIR || '';
-  const deploySubdir = env.DEPLOY_SUBDIR || '';
-  const removeSubdir = env.REMOVE_SUBDIR || '';
-  const [owner, repo] = (env.GITHUB_REPOSITORY || '').split('/');
+  const pagesBranch = env.PAGES_BRANCH || "gh-pages";
+  const previewRoot = env.PREVIEW_ROOT || "pr-preview";
+  const commitMessage = env.COMMIT_MESSAGE || "Deploy site";
+  const deployDir = env.DEPLOY_DIR || "";
+  const deploySubdir = env.DEPLOY_SUBDIR || "";
+  const removeSubdir = env.REMOVE_SUBDIR || "";
+  const [owner, repo] = (env.GITHUB_REPOSITORY || "").split("/");
 
   if (!token || !owner || !repo) {
-    throw new Error('Missing required GitHub environment for deploy action');
+    throw new Error("Missing required GitHub environment for deploy action");
   }
 
   const clients = createApiClients({ owner, repo, token, fetchDependencies });
@@ -211,28 +213,33 @@ export async function runVerifiedDeploy({
       consoleObj.log(`Removing subdirectory: ${removeSubdir}`);
       fileChanges = computeRemoval(remoteFiles, removeSubdir);
     } else if (!deployDir) {
-      throw new Error(`DEPLOY_DIR is required for ${deploySubdir ? 'preview' : 'full'} deploys`);
+      throw new Error(`DEPLOY_DIR is required for ${deploySubdir ? "preview" : "full"} deploys`);
     } else {
       const localFiles = walkDirImpl(deployDir);
-      const suffix = deploySubdir ? ` → ${deploySubdir}/` : '';
+      const suffix = deploySubdir ? ` → ${deploySubdir}/` : "";
       consoleObj.log(`Local deploy: ${localFiles.length} files${suffix}`);
-      fileChanges = computeChanges(
-        localFiles, remoteFiles, previewRoot, deployDir, deploySubdir,
-        { readFileSync: readFileSyncImpl }
-      );
+      fileChanges = computeChanges(localFiles, remoteFiles, previewRoot, deployDir, deploySubdir, {
+        readFileSync: readFileSyncImpl,
+      });
     }
 
     const { additions, deletions } = fileChanges;
 
     if (additions.length === 0 && deletions.length === 0) {
-      consoleObj.log('No changes to deploy');
-      return { deployed: false, commitUrl: '' };
+      consoleObj.log("No changes to deploy");
+      return { deployed: false, commitUrl: "" };
     }
 
     consoleObj.log(`Deploying: ${additions.length} additions, ${deletions.length} deletions`);
 
     try {
-      const commit = await createVerifiedCommit(clients, pagesBranch, headSha, commitMessage, fileChanges);
+      const commit = await createVerifiedCommit(
+        clients,
+        pagesBranch,
+        headSha,
+        commitMessage,
+        fileChanges,
+      );
       consoleObj.log(`Created verified deploy commit: ${commit.url}`);
       return { deployed: true, commitUrl: commit.url };
     } catch (error) {

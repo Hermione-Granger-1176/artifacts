@@ -8,55 +8,55 @@ inputs:
   head-repo-fork:
     description: Whether the PR head repo is a fork.
     required: false
-    default: 'false'
+    default: "false"
   pr-author:
     description: PR author login for token policy.
     required: false
-    default: ''
+    default: ""
   app-id:
     description: >-
       Primary GitHub App ID (Hermione1176). Primary and escalation inputs are all-or-nothing in trusted
       contexts; omit all four to skip primary-token minting (audit-only callers).
     required: false
-    default: ''
+    default: ""
   app-private-key:
     description: >-
       Primary GitHub App private key. All four primary/escalation inputs must be provided together in
       trusted contexts.
     required: false
-    default: ''
+    default: ""
   escalation-app-id:
     description: >-
       Escalation GitHub App ID (Harry1176). All four primary/escalation inputs must be provided together
       in trusted contexts.
     required: false
-    default: ''
+    default: ""
   escalation-app-private-key:
     description: >-
       Escalation GitHub App private key. All four primary/escalation inputs must be provided together in
       trusted contexts.
     required: false
-    default: ''
+    default: ""
   audit-app-id:
     description: Audit-only GitHub App ID (Percy1176). Only the audit workflow passes this; omit elsewhere.
     required: false
-    default: ''
+    default: ""
   audit-app-private-key:
     description: Audit-only GitHub App private key (Percy1176). Only the audit workflow passes this; omit elsewhere.
     required: false
-    default: ''
+    default: ""
   python-version:
     description: Python version to install.
     required: false
-    default: '3.12'
+    default: "3.12"
   node-version:
     description: Node.js version to install (empty to skip).
     required: false
-    default: ''
+    default: ""
   install-deps:
     description: Whether to run make setup-ci.
     required: false
-    default: 'false'
+    default: "false"
 
 outputs:
   app-token:
@@ -156,7 +156,7 @@ runs:
           exit 1
         fi
         if [ "$TOKEN_POLICY_ALLOWED" = "true" ] && [ -z "$AUDIT_TOKEN" ]; then
-          echo "::error::Audit credentials were provided, but steps.audit-token.outputs.token is empty — token minting failed or the app is not installed on this repository." >&2
+          echo "::error::Audit credentials were provided, but steps.audit-token.outputs.token is empty. Token minting failed or the app is not installed on this repository." >&2
           exit 1
         fi
 

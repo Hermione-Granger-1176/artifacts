@@ -14,7 +14,6 @@ def write_text(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-
 def test_load_site_url_reads_pyproject(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -59,7 +58,7 @@ def test_fetch_text_reads_status_and_decodes_response(
         def __enter__(self) -> FakeResponse:
             return self
 
-        def __exit__(self, exc_type, exc, tb) -> None:
+        def __exit__(self, exc_type, exc, _tb) -> None:
             return None
 
         def getcode(self) -> int:

@@ -447,7 +447,7 @@ class FakeAsyncPlaywright:
         )
         return self.playwright
 
-    async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+    async def __aexit__(self, exc_type: object, exc: object, _tb: object) -> None:
         return None
 
 

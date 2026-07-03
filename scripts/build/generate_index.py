@@ -72,6 +72,7 @@ def is_kebab_case(name: str) -> bool:
 
 # -- Internal helpers ----------------------------------------------------------
 
+
 def _scan_artifacts(config: IndexConfig) -> list[ArtifactItem]:
     """Scan the apps/ directory for artifact directories."""
     config.logger.debug("Scanning %s for artifacts", config.apps_dir)
@@ -92,6 +93,7 @@ def _scan_artifacts(config: IndexConfig) -> list[ArtifactItem]:
 
 
 # -- Public API ----------------------------------------------------------------
+
 
 def validate(config: IndexConfig | None = None) -> None:
     """Validate artifact directory structure before generation."""

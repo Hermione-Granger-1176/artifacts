@@ -10,8 +10,7 @@ import scripts.ci.workflow_helpers as workflow_helpers
 
 def test_collect_named_items_skips_non_lists_and_non_dict_entries() -> None:
     assert (
-        repo_audit.collect_named_items({"variables": "invalid"}, "variables")
-        == set()
+        repo_audit.collect_named_items({"variables": "invalid"}, "variables") == set()
     )
     assert repo_audit.collect_named_items(
         {"variables": ["bad", {"name": "APP_ID"}, {"name": 9}]}, "variables"
@@ -87,8 +86,7 @@ def test_extract_ruleset_rule_types_handles_missing_and_malformed_data() -> None
     assert repo_audit.extract_ruleset_rule_types(None) == set()
     assert repo_audit.extract_ruleset_rule_types({}) == set()
     assert (
-        repo_audit.extract_ruleset_rule_types({"rules": ["bad", {"type": 9}]})
-        == set()
+        repo_audit.extract_ruleset_rule_types({"rules": ["bad", {"type": 9}]}) == set()
     )
 
 
@@ -446,9 +444,7 @@ def test_audit_repo_settings_reports_configuration_drift(
     assert "Pages source path is '/site' instead of '/'" in message
     assert "Pages build type is 'workflow' instead of 'legacy'" in message
     assert "Pages HTTPS is not enforced" in message
-    assert (
-        "missing repository variables: AUDIT_APP_ID, ESCALATION_APP_ID" in message
-    )
+    assert "missing repository variables: AUDIT_APP_ID, ESCALATION_APP_ID" in message
     assert (
         "missing repository secrets: APP_PRIVATE_KEY, "
         "AUDIT_APP_PRIVATE_KEY, ESCALATION_APP_PRIVATE_KEY" in message

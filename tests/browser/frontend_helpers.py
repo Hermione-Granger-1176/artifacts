@@ -58,7 +58,10 @@ def build_smoke_site(
     copy_tree(REPO_ROOT / "js", source_root / "js")
     config_dir = source_root / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(REPO_ROOT / "config" / "artifact_contract.json", config_dir / "artifact_contract.json")
+    shutil.copy2(
+        REPO_ROOT / "config" / "artifact_contract.json",
+        config_dir / "artifact_contract.json",
+    )
 
     config = {
         "toolDisplayOrder": ["claude", "chatgpt", "gemini"],
@@ -189,7 +192,7 @@ class StaticServer:
         self._thread.start()
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> None:
+    def __exit__(self, exc_type, exc, _tb) -> None:
         self._httpd.shutdown()
         self._httpd.server_close()
         self._thread.join(timeout=5)
@@ -204,10 +207,6 @@ def launch_browser(playwright):
         if REQUIRE_BROWSER_TESTS:
             pytest.fail("Playwright Chromium is required for this test run")
         pytest.skip("Playwright Chromium is not installed")
-
-
-def _normalize_url_host(url: str) -> str:
-    return urlsplit(url).netloc.lower()
 
 
 def _sanitize_artifact_name(value: str) -> str:
@@ -286,7 +285,9 @@ class RuntimeMonitor:
             if status != 404 or not url.endswith(".css"):
                 return False
             filename = url.rsplit("/", 1)[-1]
-            return any(p.endswith("/" + filename) or p == filename for p in loaded_css_paths)
+            return any(
+                p.endswith("/" + filename) or p == filename for p in loaded_css_paths
+            )
 
         def track_response(response) -> None:
             if self._should_ignore_url(response.url):
@@ -367,7 +368,6 @@ class MonitoredPage:
     ) -> None:
         self._playwright = playwright
         self._base_url = base_url.rstrip("/") + "/"
-        self._name = name
         self._viewport = {"width": viewport[0], "height": viewport[1]}
         self._color_scheme = color_scheme
         self._reduced_motion = reduced_motion
@@ -407,10 +407,7 @@ class MonitoredPage:
             target = urljoin(self._base_url, path.lstrip("/"))
         self.page.goto(target, wait_until=wait_until)
 
-    def assert_runtime_clean(self) -> None:
-        self.monitor.assert_clean()
-
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type, exc, _tb) -> bool:
         monitor_error: AssertionError | None = None
         try:
             if exc_type is None:

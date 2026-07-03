@@ -773,7 +773,7 @@ def test_is_automated_thumbnail_commit_true_for_bot_thumbnails() -> None:
         app_bot_login="hermione1176[bot]",
         repo="owner/repo",
         commit_sha="abc123",
-        list_commit_files_fn=lambda **kw: [
+        list_commit_files_fn=lambda **_kw: [
             "apps/loan-amortization/thumbnail.webp",
             "apps/tokenizer-explorer/thumbnail.webp",
         ],
@@ -787,7 +787,7 @@ def test_is_automated_thumbnail_commit_false_when_non_thumbnail_file_present() -
         app_bot_login="hermione1176[bot]",
         repo="owner/repo",
         commit_sha="abc123",
-        list_commit_files_fn=lambda **kw: [
+        list_commit_files_fn=lambda **_kw: [
             "apps/loan-amortization/thumbnail.webp",
             "apps/loan-amortization/index.html",
         ],
@@ -801,7 +801,7 @@ def test_is_automated_thumbnail_commit_false_when_actor_is_human() -> None:
         app_bot_login="hermione1176[bot]",
         repo="owner/repo",
         commit_sha="abc123",
-        list_commit_files_fn=lambda **kw: [
+        list_commit_files_fn=lambda **_kw: [
             "apps/loan-amortization/thumbnail.webp",
         ],
     )
@@ -814,7 +814,7 @@ def test_is_automated_thumbnail_commit_false_when_no_files() -> None:
         app_bot_login="hermione1176[bot]",
         repo="owner/repo",
         commit_sha="abc123",
-        list_commit_files_fn=lambda **kw: [],
+        list_commit_files_fn=lambda **_kw: [],
     )
     assert result is False
 
@@ -830,7 +830,7 @@ def test_is_automated_thumbnail_commit_false_when_empty_actor_or_bot_login() -> 
             app_bot_login=bot_login,
             repo="owner/repo",
             commit_sha="abc123",
-            list_commit_files_fn=lambda **kw: [
+            list_commit_files_fn=lambda **_kw: [
                 "apps/loan-amortization/thumbnail.webp",
             ],
         )
@@ -838,7 +838,7 @@ def test_is_automated_thumbnail_commit_false_when_empty_actor_or_bot_login() -> 
 
 
 def test_is_automated_thumbnail_commit_false_on_api_error() -> None:
-    def raise_api_error(**kw: object) -> list[str]:
+    def raise_api_error(**_kw: object) -> list[str]:
         raise RuntimeError("gh api failed")
 
     result = thumbnail_plan.is_automated_thumbnail_commit(
@@ -873,15 +873,14 @@ def test_thumbnail_plan_skip_verification_true_for_bot_thumbnail_commit(
         workflow_helpers,
         "_run_gh_api",
         lambda *args, **kwargs: (
-            "apps/loan-amortization/js/app.js\n"
-            "apps/loan-amortization/thumbnail.webp\n"
+            "apps/loan-amortization/js/app.js\napps/loan-amortization/thumbnail.webp\n"
         ),
     )
     # Commit-level files are only thumbnails (Hermione's commit)
     monkeypatch.setattr(
         workflow_helpers,
         "list_commit_files",
-        lambda **kw: ["apps/loan-amortization/thumbnail.webp"],
+        lambda **_kw: ["apps/loan-amortization/thumbnail.webp"],
     )
 
     plan = workflow_helpers.thumbnail_plan(
@@ -946,7 +945,7 @@ def test_thumbnail_plan_skip_verification_true_for_merged_thumbnail_followup(
     monkeypatch.setattr(
         workflow_helpers,
         "list_commit_files",
-        lambda **kw: ["apps/loan-amortization/thumbnail.webp"],
+        lambda **_kw: ["apps/loan-amortization/thumbnail.webp"],
     )
 
     plan = workflow_helpers.thumbnail_plan(
@@ -975,8 +974,7 @@ def test_thumbnail_plan_skip_verification_false_for_followup_with_extra_files(
         workflow_helpers,
         "_run_gh_api",
         lambda *args, **kwargs: (
-            "apps/loan-amortization/thumbnail.webp\n"
-            "apps/loan-amortization/index.html\n"
+            "apps/loan-amortization/thumbnail.webp\napps/loan-amortization/index.html\n"
         ),
     )
     monkeypatch.setattr(
@@ -987,7 +985,7 @@ def test_thumbnail_plan_skip_verification_false_for_followup_with_extra_files(
     monkeypatch.setattr(
         workflow_helpers,
         "list_commit_files",
-        lambda **kw: [
+        lambda **_kw: [
             "apps/loan-amortization/thumbnail.webp",
             "apps/loan-amortization/index.html",
         ],
@@ -1024,7 +1022,7 @@ def test_thumbnail_plan_skip_verification_false_on_followup_api_error(
         lambda repo, commit_sha: "thumbnail-followup",
     )
 
-    def raise_api_error(**kw: object) -> list[str]:
+    def raise_api_error(**_kw: object) -> list[str]:
         raise RuntimeError("gh api failed")
 
     monkeypatch.setattr(

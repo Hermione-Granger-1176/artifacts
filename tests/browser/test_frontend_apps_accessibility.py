@@ -27,7 +27,9 @@ def test_app_pages_have_no_blocking_axe_violations(
     deploy_root = build_real_site(tmp_path, monkeypatch)
 
     with StaticServer(deploy_root) as server, sync_playwright() as playwright:
-        with MonitoredPage(playwright, server.url, name=f"app-a11y-{slug}", bypass_csp=True) as session:
+        with MonitoredPage(
+            playwright, server.url, name=f"app-a11y-{slug}", bypass_csp=True
+        ) as session:
             page = session.page
             assert page is not None
             session.goto(_app_path(slug))

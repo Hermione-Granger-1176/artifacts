@@ -14,9 +14,7 @@ __all__ = ["artifact_base_path", "thumbnail_file"]
 
 
 APP_RUNTIME_TOP_LEVELS = {"js", "assets"}
-APP_SHARED_RUNTIME_MARKERS = (
-    Path("js/app.js"),
-)
+APP_SHARED_RUNTIME_MARKERS = (Path("js/app.js"),)
 APP_METADATA_FILES = {
     "name.txt",
     "description.txt",
