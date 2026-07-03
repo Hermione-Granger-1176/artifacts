@@ -19,15 +19,15 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  PYTHONPATH: '.'
-  PYTHON_VERSION: '3.12'
-  NODE_VERSION: '24'
+  PYTHONPATH: "."
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "24"
   PAGES_BRANCH: gh-pages
   PREVIEW_ROOT: pr-preview
   PREVIEW_COMMENT_HEADER: pr-preview
-  VERIFY_DEPLOY_ATTEMPTS: '18'
-  VERIFY_DEPLOY_DELAY_SECONDS: '10'
-  ARTIFACTS_STRICT_THUMBNAILS: '1'
+  VERIFY_DEPLOY_ATTEMPTS: "18"
+  VERIFY_DEPLOY_DELAY_SECONDS: "10"
+  ARTIFACTS_STRICT_THUMBNAILS: "1"
   GENERATED_OUTPUT_ARGS: js/data.js js/gallery-config.js README.md apps
 
 jobs:
@@ -171,7 +171,7 @@ jobs:
         run: >-
           python3 scripts/ci/run_parallel_checks.py
           --timeout 1200
-          lint test-py coverage-js security validate test-browser-root
+          format-check lint test-py coverage-js dead-code security validate test-browser-root
 
       - name: Run selective app browser verification
         if: needs.plan.outputs.browser-scope != 'none'
@@ -447,7 +447,7 @@ jobs:
           pages-branch: ${{ env.PAGES_BRANCH }}
           preview-root: ${{ env.PREVIEW_ROOT }}
           commit-sha: ${{ github.sha }}
-          skip-build: 'true'
+          skip-build: "true"
           verify-attempts: ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
           verify-delay-seconds: ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
 

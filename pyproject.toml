@@ -20,6 +20,7 @@ dev = [
   "pytest-cov==7.1.0",
   "pytest==9.0.3",
   "ruff==0.15.15",
+  "vulture==2.14",
   "yamllint==1.38.0",
 ]
 
@@ -43,3 +44,8 @@ line-length = 88
 [tool.ruff.lint]
 select = ["B", "E", "F", "I", "UP", "W"]
 ignore = ["E501"]
+
+[tool.vulture]
+paths = ["scripts", "tests"]
+min_confidence = 100
+sort_by_size = true

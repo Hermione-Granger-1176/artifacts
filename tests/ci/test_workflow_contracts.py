@@ -8,9 +8,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 
-CREATE_APP_TOKEN_SHA_PIN = re.compile(
-    r"^actions/create-github-app-token@[0-9a-f]{40}$"
-)
+CREATE_APP_TOKEN_SHA_PIN = re.compile(r"^actions/create-github-app-token@[0-9a-f]{40}$")
 
 
 def _load_workflow(name: str) -> dict[str, object]:
@@ -113,7 +111,16 @@ def test_update_verify_job_runs_expected_make_targets() -> None:
     parallel_step = _step(verify, "Run parallel checks")
     parallel_run = _step_run(verify, "Run parallel checks")
     assert "run_parallel_checks.py" in parallel_run
-    for target in ("lint", "test-py", "coverage-js", "security", "validate", "test-browser-root"):
+    for target in (
+        "format-check",
+        "lint",
+        "test-py",
+        "coverage-js",
+        "dead-code",
+        "security",
+        "validate",
+        "test-browser-root",
+    ):
         assert target in parallel_run
     assert parallel_step["env"]["COVERAGE_OUTPUT"] == "js-coverage.txt"
 
@@ -316,11 +323,19 @@ def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
             f"got {token_uses!r}"
         )
         assert token_inputs["app-id"] == "${{ vars.ESCALATION_APP_ID }}"
-        assert token_inputs["private-key"] == "${{ secrets.ESCALATION_APP_PRIVATE_KEY }}"
+        assert (
+            token_inputs["private-key"] == "${{ secrets.ESCALATION_APP_PRIVATE_KEY }}"
+        )
 
         commit_inputs = _step_with(refresh, "Commit changes (verified)")
-        assert commit_inputs["github-token"] == "${{ steps.escalation-token.outputs.token }}"
-        assert commit_inputs["base-branch"] == "${{ github.event.repository.default_branch }}"
+        assert (
+            commit_inputs["github-token"]
+            == "${{ steps.escalation-token.outputs.token }}"
+        )
+        assert (
+            commit_inputs["base-branch"]
+            == "${{ github.event.repository.default_branch }}"
+        )
         assert commit_inputs["commit-mode"] == "force-pr"
         assert commit_inputs["fallback-branch-prefix"] == fallback_branch_prefix
 
@@ -340,9 +355,13 @@ def test_setup_python_steps_cache_pip() -> None:
 
     refresh_step = _step(_job(refresh, "refresh-locks"), "Set up Python")
     assert refresh_step["with"]["cache"] == "pip"
-    assert refresh_step["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"
+    assert (
+        refresh_step["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"
+    )
 
     ci_setup_steps = ci_setup["runs"]["steps"]
     setup_python = next(s for s in ci_setup_steps if s.get("name") == "Set up Python")
     assert setup_python["with"]["cache"] == "pip"
-    assert setup_python["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"
+    assert (
+        setup_python["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"
+    )

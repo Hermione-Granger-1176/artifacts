@@ -45,6 +45,33 @@ COMMAND_RULES = (
         requires_full_snippet_match=True,
     ),
     CommandRule(
+        re.compile(r"^\s*(?:npm\s+run\s+format)\s*$"),
+        "fmt-prettier",
+        requires_full_snippet_match=True,
+    ),
+    CommandRule(
+        re.compile(r"^\s*(?:npm\s+run\s+format:check)\s*$"),
+        "format-prettier-check",
+        requires_full_snippet_match=True,
+    ),
+    CommandRule(
+        re.compile(r"^\s*(?:npm\s+run\s+dead-code|knip)\s*$"),
+        "dead-code-js",
+        requires_full_snippet_match=True,
+    ),
+    CommandRule(
+        re.compile(
+            r"^\s*(?:(?:\.venv/bin/)?vulture|python(?:3(?:\.\d+)?)?\s+-m\s+vulture)\s*$"
+        ),
+        "dead-code-py",
+        requires_full_snippet_match=True,
+    ),
+    CommandRule(
+        re.compile(r"^\s*(?:\.venv/bin/)?ruff\s+format\s+--check\s*\.\s*$"),
+        "format-py-check",
+        requires_full_snippet_match=True,
+    ),
+    CommandRule(
         re.compile(
             r"\b(?:python(?:3(?:\.\d+)?)?\s+-m\s+pytest|(?:\.venv/bin/)?pytest)\b"
         ),

@@ -11,6 +11,10 @@ VENV_PIP    := $(VENV)/bin/pip
 VENV_RUFF   := $(VENV)/bin/ruff
 NPM         ?= npm
 
+# Entry point for tested GitHub PR/CI helpers. Keep Make targets as thin
+# wrappers so GitHub behavior is testable Python instead of inline shell.
+GH = PYTHONPATH=. $(VENV_PYTHON) -m scripts.gh.cli
+
 # The pinned Playwright ships no browser build for very new distros (e.g. Ubuntu
 # 26.04 on WSL), so `playwright install` and browser launches abort. When the host
 # is an Ubuntu release Playwright has no build for, fall back to a supported
@@ -28,34 +32,38 @@ ifneq ($(strip $(PLAYWRIGHT_HOST_PLATFORM_OVERRIDE)),)
 export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE
 endif
 
-# ─── Setup ────────────────────────────────────────────────────────────────────
+# ─── Setup @setup ─────────────────────────────────────────────────────────────
 
-.PHONY: install node-install setup-base setup setup-all setup-ci
+.PHONY: install node-install setup-base setup setup-all setup-ci setup-playwright setup-playwright-ci
 
-install:
+install: ## Install locked Python deps into the virtual environment
 	$(PYTHON) -m venv $(VENV)
 	$(VENV_PYTHON) -m pip install --upgrade pip
 	$(VENV_PIP) install -r locks/requirements-dev.lock
 	$(VENV_PIP) install --no-deps -e .
 
-node-install:
+node-install: ## Install locked Node deps
 	$(NPM) ci
 
-setup-base: install node-install
+setup-base: install node-install ## Install Python and Node deps
 
 setup: setup-base ## Install Python and Node deps (fast, no Chromium)
 
-setup-all: setup-base ## Full setup including Chromium for browser tests
+setup-all: setup-base setup-playwright ## Full setup including Chromium for browser tests
+
+setup-ci: setup-base setup-playwright-ci ## CI variant with Chromium system deps
+
+setup-playwright: ## Install Chromium for browser tests
 	$(VENV)/bin/playwright install chromium
 
-setup-ci: setup-base ## CI variant with Chromium system deps
+setup-playwright-ci: ## Install Chromium with system deps
 	$(VENV)/bin/playwright install chromium --with-deps
 
-# ─── Lint ─────────────────────────────────────────────────────────────────────
+# ─── Lint @lint ───────────────────────────────────────────────────────────────
 
-.PHONY: lint lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage editorconfig-check
+.PHONY: lint lint-py lint-js lint-css lint-yaml lint-workflows workflow-lint lint-doc-commands lint-make-targets lint-js-test-coverage editorconfig-check check-overrides
 
-lint: editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage ## Run all linters
+lint: editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage check-overrides ## Run all linters
 
 editorconfig-check: ## Check EditorConfig rules
 	$(VENV_PYTHON) scripts/lint/check_editorconfig.py
@@ -75,6 +83,8 @@ lint-yaml: ## Run yamllint only
 lint-workflows: ## Run workflow linter only
 	$(NPM) run lint:workflows
 
+workflow-lint: lint-workflows ## Alias for lint-workflows
+
 lint-doc-commands: ## Check contributor docs use Make targets
 	$(VENV_PYTHON) scripts/lint/check_doc_commands.py
 
@@ -84,11 +94,16 @@ lint-make-targets: ## Check documented Make targets
 lint-js-test-coverage: ## Check every JS source file has test imports
 	$(VENV_PYTHON) scripts/lint/check_js_test_coverage.py
 
-# ─── Format ───────────────────────────────────────────────────────────────────
+check-overrides: ## Check npm overrides are still needed
+	$(NPM) run check:overrides
 
-.PHONY: fmt fmt-py fmt-js fmt-css
+# ─── Format @format ───────────────────────────────────────────────────────────
 
-fmt: fmt-py fmt-js fmt-css ## Auto-fix all (ruff, eslint, stylelint)
+.PHONY: fmt fmt-py fmt-js fmt-css fmt-prettier format format-check format-py-check format-prettier-check
+
+fmt: fmt-py fmt-js fmt-css fmt-prettier ## Auto-fix all formatting and lint fixes
+
+format: fmt ## Alias for fmt
 
 fmt-py: ## Auto-fix Python (ruff check --fix + ruff format)
 	$(VENV_RUFF) check --fix .
@@ -100,14 +115,37 @@ fmt-js: ## Auto-fix JavaScript (eslint --fix)
 fmt-css: ## Auto-fix CSS (stylelint --fix)
 	$(NPM) run lint:css -- --fix
 
-# ─── Test ─────────────────────────────────────────────────────────────────────
+fmt-prettier: ## Auto-format docs, metadata, workflows, and tooling scripts
+	$(NPM) run format
+
+format-check: format-py-check format-prettier-check ## Check Python and Prettier formatting
+
+format-py-check: ## Check Python formatting only
+	$(VENV_RUFF) format --check .
+
+format-prettier-check: ## Check Prettier-managed files only
+	$(NPM) run format:check
+
+# ─── Dead code @deadcode ──────────────────────────────────────────────────────
+
+.PHONY: dead-code dead-code-py dead-code-js
+
+dead-code: dead-code-py dead-code-js ## Detect unused Python and JavaScript code
+
+dead-code-py: ## Detect unused Python code with vulture
+	$(VENV_PYTHON) -m vulture
+
+dead-code-js: ## Detect unused JavaScript files, exports, and dependencies
+	$(NPM) run dead-code
+
+# ─── Test @test ───────────────────────────────────────────────────────────────
 
 .PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-live coverage-js
 
 test: test-py test-js ## Run non-browser Python tests + JS tests
 
-test-py: ## Run Python tests only (with coverage)
-	$(VENV_PYTHON) -m pytest --ignore=tests/browser
+test-py: ## Run Python tests only (with coverage, pass ARGS="-k name --no-cov" for a subset)
+	$(VENV_PYTHON) -m pytest --ignore=tests/browser $(ARGS)
 
 test-ci: ## Run CI Python tests only
 	$(VENV_PYTHON) -m pytest --no-cov tests/ci
@@ -159,7 +197,7 @@ coverage-js: ## Run JS tests with coverage enforcement
 		$(NPM) run test:coverage; \
 	fi
 
-# ─── Build ────────────────────────────────────────────────────────────────────
+# ─── Build @build ─────────────────────────────────────────────────────────────
 
 .PHONY: validate thumbnails index site generate new
 
@@ -181,9 +219,18 @@ new: ## Scaffold a new artifact directory (make new name=X)
 	@test -n "$(name)" || (printf 'Usage: make new name=my-artifact\n' >&2; exit 1)
 	$(VENV_PYTHON) scripts/build/scaffold_artifact.py "$(name)"
 
-# ─── Quality gates ────────────────────────────────────────────────────────────
+# ─── Quality gates @quality ───────────────────────────────────────────────────
 
-.PHONY: security audit-fix-node check-generated check-local check-web check
+.PHONY: ci-python ci-web ci ci-fast security audit-fix-node check-generated check-local check-fast check-web check fix
+
+ci-python: format-py-check lint-py dead-code-py test-py ## Python CI gate
+
+ci-web: format-prettier-check lint-js lint-css lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage check-overrides dead-code-js test-js coverage-js ## Web and docs CI gate
+
+ci: ci-python ci-web security validate check-generated ## Full local CI gate without browser tests
+
+ci-fast: ## Run the non-browser CI checks in parallel
+	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py format-check lint test-py coverage-js dead-code security validate check-generated
 
 security: ## Run dependency audits (pip-audit + npm audit)
 	$(VENV_PYTHON) scripts/ci/run_security_audit.py
@@ -195,15 +242,19 @@ audit-fix-node: ## Apply available npm audit fixes to package-lock.json
 check-generated: ## Check canonical generated files are up to date
 	$(VENV_PYTHON) scripts/lint/check_generated_drift.py
 
-check-local: lint test coverage-js security validate check-generated ## Fast gate: lint + test + coverage + security + validate + generated drift
+check-local: ci ## Alias for the full local CI gate
+
+check-fast: ci-fast ## Alias for ci-fast
 
 check-web: test-browser thumbnails ## Browser gate: test-browser + thumbnails
 
 check: check-local check-web index site ## Full gate: check-local + check-web + index + site
 
-# ─── Utilities ────────────────────────────────────────────────────────────────
+fix: fmt check-local ## Auto-fix formatting, then run the fast local gate
 
-.PHONY: lock lock-node fix-deps align-tables status clean help
+# ─── Utilities @util ──────────────────────────────────────────────────────────
+
+.PHONY: lock lock-node fix-deps align-tables status clean help help-json
 
 lock: ## Refresh Python lock files after dependency changes
 	@runtime_dir=$$(mktemp -d) && dev_dir=$$(mktemp -d) && \
@@ -244,46 +295,94 @@ status: ## Show workspace health (git, venv, node, generated files)
 	@test -f js/gallery-config.js && echo "OK: js/gallery-config.js" || echo "STALE: run make index"
 	@test -d _site && echo "OK: _site/" || echo "NOT BUILT: run make site"
 
-clean: ## Remove venv, caches, node_modules, _site
-	rm -rf $(VENV) .pytest_cache .ruff_cache build dist *.egg-info node_modules _site .coverage
+clean: ## Remove local environments, build outputs, and caches
+	rm -rf $(VENV) node_modules _site .artifacts .pytest_cache .ruff_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
 
-help: ## Show this help
+help: ## Show command groups (expand one with make help-<group>)
+	@printf '\n  \033[1mmake <target>\033[0m   ·   expand a group: \033[1mmake help-<group>\033[0m   ·   machine-readable: \033[1mmake help-json\033[0m\n'
+	@printf '\n  \033[1mGroups\033[0m\n'
 	@awk ' \
-		/^# ─── .+ ───/ { \
-			gsub(/^# ─── | ─+$$/, ""); \
-			section = $$0; \
-			printed = 0; \
-			drilldown = (section == "Git" || section == "Pull requests" || section == "CI"); \
-		} \
-		/^[a-zA-Z_-]+:.*## / { \
-			if (section && !printed) { printf "\n  \033[1m%s\033[0m\n", section; printed = 1 } \
-			sub(/:.*/,  "", $$1); \
-			desc = $$0; sub(/.*## /, "", desc); \
-			if (!drilldown || $$1 == "git" || $$1 == "pr" || $$1 == "ci") \
-				printf "    %-20s %s\n", $$1, desc; \
+		/^# ─── .*@/ { \
+			line = $$0; sub(/^# ─── /, "", line); \
+			ti = index(line, " @"); \
+			if (ti == 0) next; \
+			title = substr(line, 1, ti - 1); \
+			rest = substr(line, ti + 2); sp = index(rest, " "); \
+			slug = (sp ? substr(rest, 1, sp - 1) : rest); \
+			printf "    %-12s %s\n", slug, title; \
 		}' $(MAKEFILE_LIST)
+	@printf '\n'
 
-# ─── Git ──────────────────────────────────────────────────────────────────────
+help-%: ## List the commands in one group (e.g. make help-pr)
+	@awk -v want="$*" ' \
+		/^# ─── / { \
+			line = $$0; sub(/^# ─── /, "", line); ti = index(line, " @"); \
+			if (ti > 0) { rest = substr(line, ti + 2); sp = index(rest, " "); \
+				slug = (sp ? substr(rest, 1, sp - 1) : rest); title = substr(line, 1, ti - 1); } \
+			else { slug = ""; title = line; sub(/ *─+$$/, "", title); } \
+			inwant = (slug != "" && slug == want); \
+			if (inwant) printf "\n  \033[1m%s\033[0m\n", title; \
+			next; \
+		} \
+		inwant && /^[a-zA-Z0-9_-]+:.*## / { \
+			target = $$1; sub(/:.*/, "", target); \
+			desc = $$0; sub(/.*## /, "", desc); \
+			printf "    %-22s %s\n", target, desc; \
+		}' $(MAKEFILE_LIST)
+	@printf '\n'
 
-.PHONY: git branch commit log diff diff-staged
+help-json: ## Emit groups and commands as JSON
+	@awk ' \
+		BEGIN { printf "{\"groups\":["; ng = 0; nc = 0; cmds = ""; slug = "" } \
+		/^# ─── / { \
+			line = $$0; sub(/^# ─── /, "", line); ti = index(line, " @"); \
+			if (ti == 0) { slug = ""; next; } \
+			rest = substr(line, ti + 2); sp = index(rest, " "); \
+			slug = (sp ? substr(rest, 1, sp - 1) : rest); title = substr(line, 1, ti - 1); \
+			gsub(/"/, "\\\"", title); \
+			printf "%s{\"slug\":\"%s\",\"title\":\"%s\"}", (ng++ ? "," : ""), slug, title; \
+			next; \
+		} \
+		/^[a-zA-Z0-9_-]+:.*## / { \
+			if (slug == "") next; \
+			target = $$1; sub(/:.*/, "", target); \
+			desc = $$0; sub(/.*## /, "", desc); gsub(/"/, "\\\"", desc); \
+			cmds = cmds (nc++ ? "," : "") "{\"name\":\"" target "\",\"group\":\"" slug "\",\"desc\":\"" desc "\"}"; \
+		} \
+		END { printf "],\"commands\":[%s]}\n", cmds }' $(MAKEFILE_LIST)
+
+# ─── Git @git ─────────────────────────────────────────────────────────────────
+
+.PHONY: git branch stage stage-all commit push log diff diff-staged
 
 git: ## Git commands (make git)
-	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' ' \
-		/^(branch|commit|log|diff|diff-staged):/ { printf "    %-20s %s\n", $$1, $$2 }'
+	@$(MAKE) --no-print-directory help-git
 
-branch: ## Create and switch to a new branch from main (make branch name=X)
-	@test -n "$(name)" || (printf 'Usage: make branch name=my-feature\n' >&2; exit 1)
-	git checkout main && git pull && git checkout -b "$(name)"
+branch: ## Create and switch to a new branch off main, or off base for a stacked branch (make branch name=X [base=branch])
+	@test -n "$(name)" || (printf 'Usage: make branch name=my-feature [base=other-branch]\n' >&2; exit 1)
+	git checkout "$(if $(base),$(base),main)" && \
+	if git rev-parse --symbolic-full-name --abbrev-ref '@{u}' >/dev/null 2>&1; then git pull; fi && \
+	git checkout -b "$(name)"
 
-commit: ## Commit staged changes (make commit message="..." OR message_file=path)
+stage: ## Stage selected files (make stage files="path ...")
+	@test -n "$(files)" || (printf 'Usage: make stage files="path ..."\n' >&2; exit 1)
+	git add -- $(files)
+
+stage-all: ## Stage all workspace changes
+	git add -A
+
+commit: ## Commit staged changes (make commit message="..." OR message_file=path [amend=1])
 	@test -n "$(message)$(message_file)" || (printf 'Usage: make commit message="Commit message" OR message_file=/tmp/message.txt\n' >&2; exit 1)
 	@if [ -n "$(message_file)" ]; then \
-	  git commit -F "$(message_file)"; \
+	  git commit $(if $(amend),--amend) -F "$(message_file)"; \
 	else \
-	  git commit -m "$(message)"; \
+	  git commit $(if $(amend),--amend) -m "$(message)"; \
 	fi
 
-log: ## Show recent commit log (short)
+push: ## Push the current branch to origin
+	git push -u origin HEAD
+
+log: ## Show recent commit log
 	git log --oneline -20
 
 diff: ## Show unstaged changes
@@ -292,19 +391,32 @@ diff: ## Show unstaged changes
 diff-staged: ## Show staged changes
 	git diff --cached
 
-# ─── Pull requests ────────────────────────────────────────────────────────────
+# ─── Pull requests @pr ────────────────────────────────────────────────────────
 
 REPO ?= $(strip $(shell repo="$$(git remote get-url origin 2>/dev/null | sed -nE 's|.*github\.com[:/]([^/]+/[^/.]+)(\.git)?$$|\1|p')"; \
 	if [ -z "$$repo" ]; then repo="$$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)"; fi; \
 	printf '%s' "$$repo"))
+PR_NUM = $(if $(pr_num),$(pr_num),$(strip $(shell gh pr view --json number -q .number 2>/dev/null)))
 
-.PHONY: pr pr-create pr-list pr-status pr-checks pr-diff pr-comments pr-comment pr-review-comments pr-reply pr-resolve pr-merge pr-merge-admin pr-reviewers pr-label pr-close
+.PHONY: pr pr-create pr-edit pr-list pr-status pr-checks pr-diff pr-comments pr-comment pr-review-comments pr-reply pr-resolve pr-address pr-comments-list pr-comment-delete pr-summary pr-merge pr-merge-admin pr-reviewers pr-label pr-close
 
 pr: ## PR commands (make pr)
-	@grep -E '^pr-[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{ printf "    %-20s %s\n", $$1, $$2 }'
+	@$(MAKE) --no-print-directory help-pr
 
-pr-create: ## Open a pull request for the current branch
-	gh pr create --fill
+pr-create: ## Open a pull request for the current branch (make pr-create [base=branch])
+	gh pr create --fill $(if $(base),--base "$(base)")
+
+pr-edit: export PR_EDIT_TITLE := $(title)
+pr-edit: export PR_EDIT_BODY := $(body)
+pr-edit: ## Edit the current PR title or body (make pr-edit title="..." [body="..."] [pr_num=N])
+	@test -n "$$PR_EDIT_TITLE$$PR_EDIT_BODY" || { printf 'Usage: make pr-edit title="New title" [body="..."] [pr_num=N]\n' >&2; exit 1; }
+	@set -e; \
+	tmp=""; \
+	trap 'test -n "$$tmp" && rm -f "$$tmp"' EXIT; \
+	set -- $(if $(PR_NUM),$(PR_NUM)); \
+	if [ -n "$$PR_EDIT_TITLE" ]; then set -- "$$@" --title "$$PR_EDIT_TITLE"; fi; \
+	if [ -n "$$PR_EDIT_BODY" ]; then tmp=$$(mktemp); printf '%s' "$$PR_EDIT_BODY" > "$$tmp"; set -- "$$@" --body-file "$$tmp"; fi; \
+	gh pr edit "$$@"
 
 pr-list: ## List open pull requests
 	gh pr list
@@ -312,8 +424,8 @@ pr-list: ## List open pull requests
 pr-status: ## Show current PR status and CI checks
 	gh pr checks
 
-pr-checks: ## Watch CI checks until done (5 min poll, 2 max)
-	timeout 600 gh pr checks --watch --interval 300 --fail-fast || true
+pr-checks: ## Watch CI checks until done
+	gh pr checks --watch --fail-fast || true
 
 pr-diff: ## Show the diff for the current PR
 	gh pr diff
@@ -329,27 +441,42 @@ pr-comment: ## Add a comment to the current PR (body="msg" OR body_file=path for
 	  gh pr comment --body "$(body)"; \
 	fi
 
-pr-review-comments: ## List review threads with resolution status (make pr-review-comments pr_num=N)
-	@test -n "$(pr_num)" || (printf 'Usage: make pr-review-comments pr_num=19\n' >&2; exit 1)
-	@printf '%s\n' "$(REPO)" | grep -Eq '^[^/]+/[^/]+$$' || (printf 'Error: REPO must be set to owner/name (e.g. REPO=octocat/Hello-World)\n' >&2; exit 1)
-	@owner=$$(echo "$(REPO)" | cut -d/ -f1) && \
-	 name=$$(echo "$(REPO)" | cut -d/ -f2) && \
-	 gh api graphql -F pr_num='$(pr_num)' -F owner="$$owner" -F name="$$name" -f query='query($$pr_num: Int!, $$owner: String!, $$name: String!) { repository(owner: $$owner, name: $$name) { pullRequest(number: $$pr_num) { reviewThreads(first: 50) { nodes { id isResolved path line comments(first: 10) { nodes { databaseId body author { login } createdAt } } } } } } }'
+pr-review-comments: ## List review threads with thread ids (make pr-review-comments [pr_num=N] [show=all])
+	@$(GH) list $(if $(pr_num),--pr $(pr_num)) $(if $(filter all,$(show)),--all)
 
-pr-reply: ## Reply to a review comment (pr_num=N comment=ID body="msg" OR body_file=path for multiline or shell-special content)
-	@test -n "$(pr_num)" -a -n "$(comment)" || (printf 'Usage: make pr-reply pr_num=19 comment=123456 body="Fixed"  OR  body_file=/tmp/reply.md\n' >&2; exit 1)
-	@test -n "$(body)$(body_file)" || (printf 'Provide body="..." or body_file=path. Prefer body_file for text containing backticks, quotes, or newlines.\n' >&2; exit 1)
+pr-reply: export PR_REPLY_BODY := $(body)
+pr-reply: ## Reply to a review thread (make pr-reply thread=PRRT_... body="msg" OR body_file=path)
+	@test -n "$(thread)" || (printf 'Usage: make pr-reply thread=PRRT_... body="Fixed"  OR  body_file=/tmp/reply.md\n' >&2; exit 1)
 	@if [ -n "$(body_file)" ]; then \
-	  test -r "$(body_file)" || (printf 'Error: body_file=%s is not readable\n' "$(body_file)" >&2; exit 1); \
-	  python3 -c 'import json,sys; sys.stdout.write(json.dumps({"body": sys.stdin.read()}))' < "$(body_file)" \
-	    | gh api repos/$(REPO)/pulls/$(pr_num)/comments/$(comment)/replies --method POST --input -; \
+	  $(GH) reply --thread "$(thread)" --body-file "$(body_file)"; \
 	else \
-	  gh api repos/$(REPO)/pulls/$(pr_num)/comments/$(comment)/replies -f body="$(body)"; \
+	  test -n "$$PR_REPLY_BODY" || (printf 'Provide body="..." or body_file=path.\n' >&2; exit 1); \
+	  $(GH) reply --thread "$(thread)" --body "$$PR_REPLY_BODY"; \
 	fi
 
 pr-resolve: ## Resolve a review thread (make pr-resolve thread=PRRT_...)
-	@test -n "$(thread)" || (printf 'Usage: make pr-resolve thread=PRRT_kwDO...\n' >&2; exit 1)
-	@gh api graphql -F thread="$(thread)" -f query='mutation($$thread: ID!) { resolveReviewThread(input: { threadId: $$thread }) { thread { id isResolved } } }'
+	@test -n "$(thread)" || (printf 'Usage: make pr-resolve thread=PRRT_...\n' >&2; exit 1)
+	@$(GH) resolve --thread "$(thread)"
+
+pr-address: export PR_ADDRESS_BODY := $(body)
+pr-address: ## Reply to and resolve a review thread (make pr-address thread=PRRT_... body="msg" OR body_file=path)
+	@test -n "$(thread)" || (printf 'Usage: make pr-address thread=PRRT_... body="Fixed"  OR  body_file=/tmp/reply.md\n' >&2; exit 1)
+	@if [ -n "$(body_file)" ]; then \
+	  $(GH) address --thread "$(thread)" --body-file "$(body_file)"; \
+	else \
+	  test -n "$$PR_ADDRESS_BODY" || (printf 'Provide body="..." or body_file=path.\n' >&2; exit 1); \
+	  $(GH) address --thread "$(thread)" --body "$$PR_ADDRESS_BODY"; \
+	fi
+
+pr-comments-list: ## List individual review comments with node ids (make pr-comments-list [pr_num=N])
+	@$(GH) list-comments $(if $(pr_num),--pr $(pr_num))
+
+pr-comment-delete: ## Delete a review comment by node id (make pr-comment-delete comment=PRRC_...)
+	@test -n "$(comment)" || (printf 'Usage: make pr-comment-delete comment=PRRC_...\n' >&2; exit 1)
+	@$(GH) delete-comment --comment "$(comment)"
+
+pr-summary: ## One-screen PR overview: state, CI rollup, open threads (make pr-summary [pr_num=N])
+	@$(GH) summary $(if $(pr_num),--pr $(pr_num))
 
 pr-merge: ## Merge the current PR (squash, delete branch)
 	gh pr merge --squash --delete-branch
@@ -368,18 +495,18 @@ pr-label: ## Add labels (make pr-label labels="bug")
 pr-close: ## Close the current PR and delete branch
 	gh pr close --delete-branch
 
-# ─── CI ───────────────────────────────────────────────────────────────────────
+# ─── CI @ci ───────────────────────────────────────────────────────────────────
 
-.PHONY: ci ci-runs ci-watch ci-audit-repo-settings issues
-
-ci: ## CI commands (make ci)
-	@grep -E '^(ci-|issues)[a-zA-Z_-]*:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{ printf "    %-20s %s\n", $$1, $$2 }'
+.PHONY: ci-runs ci-watch ci-failures ci-audit-repo-settings issues
 
 ci-runs: ## List recent CI workflow runs
 	gh run list -L 10
 
 ci-watch: ## Watch the latest CI run until done
 	gh run watch
+
+ci-failures: ## Show failed-step logs for this branch's latest run (make ci-failures [run=ID])
+	@$(GH) ci-failures $(if $(run),--run $(run))
 
 ci-audit-repo-settings: ## Audit GitHub repo settings drift (make ci-audit-repo-settings [repo=owner/name])
 	$(VENV_PYTHON) scripts/ci/workflow_helpers.py audit-repo-settings \

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "js/app.js",
+    "js/app-theme.js",
+    "apps/*/js/app.js",
+    ".github/actions/**/*.mjs",
+    "scripts/lint/*.mjs"
+  ],
+  "project": [
+    "js/**/*.js",
+    "apps/*/js/**/*.js",
+    "tests/js/**/*.js",
+    "scripts/**/*.mjs",
+    ".github/actions/**/*.mjs"
+  ],
+  "ignore": ["apps/*/js/vendor/*.js", "js/data.js", "js/gallery-config.js"],
+  "ignoreDependencies": ["axe-core", "esbuild"]
+}
