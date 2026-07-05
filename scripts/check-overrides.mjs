@@ -18,10 +18,12 @@
 import { execSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const fix = process.argv.includes("--fix");
-const rootDir = resolve(import.meta.dirname, "..");
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const rootDir = resolve(scriptDir, "..");
 const pkgPath = join(rootDir, "package.json");
 const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
 const overrides = pkg.overrides ?? {};

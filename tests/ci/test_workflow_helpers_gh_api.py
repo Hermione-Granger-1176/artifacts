@@ -163,7 +163,7 @@ def test_run_gh_api_hints_generic_on_403_without_permission(
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
 
-    with pytest.raises(RuntimeError, match="token likely lacks required permission"):
+    with pytest.raises(RuntimeError, match="Token likely lacks required permission"):
         workflow_helpers._run_gh_api(
             "repos/owner/repo",
             paginate=[],

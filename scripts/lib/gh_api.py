@@ -44,7 +44,7 @@ def _build_failure_message(
             f"Raw: {stderr}"
         )
     return (
-        f"gh api {description} failed: HTTP 403. token likely lacks required "
+        f"gh api {description} failed: HTTP 403. Token likely lacks required "
         f"permission. Raw: {stderr}"
     )
 
