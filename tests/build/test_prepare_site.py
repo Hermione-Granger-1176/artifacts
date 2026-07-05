@@ -65,6 +65,7 @@ def create_source_tree(repo_root: Path) -> None:
         "@media (max-width: 1px) {}\n",
     )
     write_text(repo_root / "js" / "app.js", "console.log('app')\n")
+    write_text(repo_root / "js" / "app-theme.js", "console.log('theme')\n")
     write_text(
         repo_root / "js" / "gallery-config.js", "window.ARTIFACTS_CONFIG = {};\n"
     )
@@ -85,9 +86,12 @@ def create_source_tree(repo_root: Path) -> None:
                 '<meta property="og:title" content="__APP_TITLE__">\n',
                 '<meta property="og:description" content="__APP_DESCRIPTION__">\n',
                 '<link rel="stylesheet" href="../../css/style.css">\n',
+                '<script src="../../js/app-theme.js"></script>\n',
+                '<script type="module" src="./js/app.js"></script>\n',
             ]
         ),
     )
+    write_text(repo_root / "apps" / "sample" / "js" / "app.js", "console.log('app')\n")
     (repo_root / "apps" / "sample" / "thumbnail.webp").write_bytes(b"webp")
     write_text(
         repo_root / "assets" / "icons" / "manifest.webmanifest",
@@ -297,18 +301,29 @@ def test_patch_index_html_applies_cache_busting(
     assert 'src="js/app.js?v=abc123"' in content
 
 
-def test_patch_app_asset_references_versions_shared_stylesheet(
+def test_patch_app_asset_references_versions_app_assets(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     deploy_dir = tmp_path / "_site"
     app_index = deploy_dir / "apps" / "sample" / "index.html"
-    write_text(app_index, '<link rel="stylesheet" href="../../css/style.css">\n')
+    write_text(
+        app_index,
+        "".join(
+            [
+                '<link rel="stylesheet" href="../../css/style.css">\n',
+                '<script src="../../js/app-theme.js"></script>\n',
+                '<script type="module" src="./js/app.js"></script>\n',
+            ]
+        ),
+    )
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
 
     prepare_site._patch_app_asset_references("abc123")
 
     content = app_index.read_text(encoding="utf-8")
     assert 'href="../../css/style.css?v=abc123"' in content
+    assert 'src="../../js/app-theme.js?v=abc123"' in content
+    assert 'src="./js/app.js?v=abc123"' in content
 
 
 def test_patch_app_asset_references_skips_missing_apps_dir(
@@ -760,6 +775,8 @@ def test_prepare_site_builds_deploy_output(
         in sample_content
     )
     assert 'href="../../css/style.css?v=abc123"' in sample_content
+    assert 'src="../../js/app-theme.js?v=abc123"' in sample_content
+    assert 'src="./js/app.js?v=abc123"' in sample_content
     assert (deploy_dir / "assets" / "icons" / "favicon.ico").exists()
     assert (deploy_dir / "assets" / "social" / "share-preview.png").exists()
     metadata = (deploy_dir / prepare_site.DEPLOY_METADATA_FILE).read_text(

@@ -185,13 +185,15 @@ def _patch_index_html(version: str) -> None:
 
 
 def _patch_app_asset_references(version: str) -> None:
-    """Apply cache-busting query strings to shared app asset references."""
+    """Apply cache-busting query strings to app asset references."""
     apps_dir = DEPLOY_DIR / _artifact_base_path()
     if not apps_dir.exists():
         return
 
     replacements = {
         'href="../../css/style.css"': f'href="../../css/style.css?v={version}"',
+        'src="../../js/app-theme.js"': f'src="../../js/app-theme.js?v={version}"',
+        'src="./js/app.js"': f'src="./js/app.js?v={version}"',
     }
 
     for app_dir in apps_dir.iterdir():
