@@ -5,6 +5,7 @@
     "js/app-theme.js",
     "apps/*/js/app.js",
     ".github/actions/**/*.mjs",
+    "scripts/*.mjs",
     "scripts/lint/*.mjs"
   ],
   "project": [
