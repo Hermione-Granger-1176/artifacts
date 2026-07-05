@@ -180,9 +180,7 @@ def artifact_issues(
     if not config.is_kebab_case(folder.name):
         issues.append("directory name must use kebab-case")
 
-    missing_required_file_issue = config.missing_file_issues.get(
-        (has_index, has_name)
-    )
+    missing_required_file_issue = config.missing_file_issues.get((has_index, has_name))
     if missing_required_file_issue:
         issues.append(missing_required_file_issue)
 

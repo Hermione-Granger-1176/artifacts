@@ -25,7 +25,9 @@ def test_issue_payloads_by_title_filters_non_matching_issues_and_prs() -> None:
     matches = issue_alerts.issue_payloads_by_title(
         "owner/repo",
         "Live site smoke check failed",
-        run_gh_api_json_fn=lambda endpoint, description, required_permission=None: payload,
+        run_gh_api_json_fn=lambda endpoint, description, required_permission=None: (
+            payload
+        ),
     )
 
     assert matches == [payload[1]]

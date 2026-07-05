@@ -140,7 +140,9 @@ def test_404_page_has_no_blocking_axe_violations_and_good_contrast(
     deploy_root = build_smoke_site(tmp_path, monkeypatch)
 
     with StaticServer(deploy_root) as server, sync_playwright() as playwright:
-        with MonitoredPage(playwright, server.url, name="a11y-404", bypass_csp=True) as session:
+        with MonitoredPage(
+            playwright, server.url, name="a11y-404", bypass_csp=True
+        ) as session:
             page = session.page
             assert page is not None
             session.goto("/404.html")

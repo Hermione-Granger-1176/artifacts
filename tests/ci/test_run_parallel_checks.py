@@ -19,6 +19,7 @@ def _make_run_fn(*, returncode: int = 0, stdout: str = "", stderr: str = ""):
 
     def fake_run(cmd, **kwargs):
         return SimpleNamespace(returncode=returncode, stdout=stdout, stderr=stderr)
+
     return fake_run
 
 
@@ -32,9 +33,7 @@ def test_run_check_captures_passing_target() -> None:
 
 
 def test_run_check_captures_failing_target() -> None:
-    result = run_check(
-        "test-py", run_fn=_make_run_fn(returncode=1, stderr="FAILED\n")
-    )
+    result = run_check("test-py", run_fn=_make_run_fn(returncode=1, stderr="FAILED\n"))
 
     assert result.name == "test-py"
     assert result.passed is False
@@ -121,9 +120,7 @@ def test_format_results_folds_passing_expands_failing() -> None:
 
 
 def test_format_results_no_error_line_when_all_pass() -> None:
-    results = (
-        CheckResult(name="lint", passed=True, elapsed=1.0, output="ok"),
-    )
+    results = (CheckResult(name="lint", passed=True, elapsed=1.0, output="ok"),)
 
     output = format_results(results)
 

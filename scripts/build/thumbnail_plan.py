@@ -267,8 +267,7 @@ def thumbnail_plan(
             commit_files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
         except Exception:
             commit_files = []
-        skip_verification = _all_thumbnail_files(commit_files
-        )
+        skip_verification = _all_thumbnail_files(commit_files)
 
     return {
         "app_scope": cast(str, runtime_plan["app_scope"]),
@@ -364,7 +363,7 @@ def invalidate_thumbnails(
     list_changed_files_fn=list_changed_files,
     runtime_change_plan_fn=runtime_change_plan,
 ) -> list[str]:
-    """Delete thumbnails for apps whose runtime or shared app shell changed."""
+    """Delete thumbnails for apps whose runtime or shared site assets changed."""
     changed_files = list_changed_files_fn(
         event_name=event_name,
         repo=repo,

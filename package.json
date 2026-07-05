@@ -3,9 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check:overrides": "node scripts/check-overrides.mjs",
+    "dead-code": "knip --config config/knip.json",
+    "format": "prettier --config config/prettierrc.json --ignore-path config/prettierignore --no-error-on-unmatched-pattern --write \"*.{json,md,yml,yaml}\" \"config/**/*.{json,js,mjs,yml,yaml}\" \"docs/**/*.md\" \".github/**/*.{json,md,yml,yaml,mjs}\" \"scripts/**/*.{js,mjs}\"",
+    "format:check": "prettier --config config/prettierrc.json --ignore-path config/prettierignore --no-error-on-unmatched-pattern --check \"*.{json,md,yml,yaml}\" \"config/**/*.{json,js,mjs,yml,yaml}\" \"docs/**/*.md\" \".github/**/*.{json,md,yml,yaml,mjs}\" \"scripts/**/*.{js,mjs}\"",
     "lint": "npm run lint:js && npm run lint:css && npm run lint:workflows",
-    "lint:js": "eslint .",
     "lint:css": "stylelint \"**/*.css\"",
+    "lint:js": "eslint .",
     "lint:workflows": "node scripts/lint/lint-workflows.mjs",
     "test": "node --test \"tests/js/**/*.test.js\"",
     "test:coverage": "node --experimental-test-coverage --test-coverage-lines=95 --test-coverage-branches=85 --test-coverage-functions=95 --test-coverage-exclude=node_modules/** --test-coverage-exclude=tests/** --test \"tests/js/**/*.test.js\""
@@ -16,6 +20,8 @@
     "esbuild": "0.28.1",
     "eslint": "10.6.0",
     "globals": "17.7.0",
+    "knip": "6.24.0",
+    "prettier": "3.9.4",
     "stylelint": "17.14.0"
   }
 }

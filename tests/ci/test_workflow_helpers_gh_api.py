@@ -108,7 +108,9 @@ def test_run_gh_api_json_parses_payload(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda endpoint, paginate, jq_expr, description, required_permission=None: '{"ok": true}',
+        lambda endpoint, paginate, jq_expr, description, required_permission=None: (
+            '{"ok": true}'
+        ),
     )
 
     assert workflow_helpers._run_gh_api_json(
@@ -120,7 +122,9 @@ def test_run_gh_api_json_rejects_invalid_json(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda endpoint, paginate, jq_expr, description, required_permission=None: "not-json",
+        lambda endpoint, paginate, jq_expr, description, required_permission=None: (
+            "not-json"
+        ),
     )
 
     with pytest.raises(RuntimeError, match="returned invalid JSON"):
@@ -159,7 +163,7 @@ def test_run_gh_api_hints_generic_on_403_without_permission(
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
 
-    with pytest.raises(RuntimeError, match="token likely lacks required permission"):
+    with pytest.raises(RuntimeError, match="Token likely lacks required permission"):
         workflow_helpers._run_gh_api(
             "repos/owner/repo",
             paginate=[],
@@ -219,9 +223,7 @@ def test_run_gh_api_does_not_misdiagnose_rate_limit_403(
 
 
 def test_is_forbidden_gh_api_failure_matches_variants() -> None:
-    assert gh_api.is_forbidden_gh_api_failure(
-        "Resource not accessible by integration"
-    )
+    assert gh_api.is_forbidden_gh_api_failure("Resource not accessible by integration")
     assert gh_api.is_forbidden_gh_api_failure("resource NOT accessible BY integration")
     assert gh_api.is_forbidden_gh_api_failure(
         "gh: Resource not accessible by integration (HTTP 403)"

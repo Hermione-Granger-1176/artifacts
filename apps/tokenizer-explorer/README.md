@@ -13,7 +13,6 @@ Interactive explainer for LLM next-token probabilities, temperature scaling, and
 ## Structure
 
 - `index.html` - app shell, semantic content, metadata, and header
-- `css/app.css` - tokenizer-specific layout and visual overrides on top of the shared app system
 - `js/app.js` - bootstrap, tab selection, and render loop orchestration
 - `js/modules/scenarios.js` - scenario dataset
 - `js/modules/sampling.js` - softmax and top-p selection logic
@@ -28,5 +27,5 @@ Interactive explainer for LLM next-token probabilities, temperature scaling, and
 ## Development notes
 
 - Keep authored colors in `rgb()` and `rgba()` form only
-- Reuse the shared bookmark-note token system before adding new colors
+- Reuse the shared bookmark-note token system in `../../css/style.css` before adding new colors
 - Preserve the conceptual behavior of the sliders and top-p cutoff when refactoring markup or structure

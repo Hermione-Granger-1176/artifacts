@@ -39,12 +39,12 @@ def _build_failure_message(
         return f"gh api {description} failed: {stderr}"
     if required_permission:
         return (
-            f"gh api {description} failed: HTTP 403 — the GitHub App minting "
+            f"gh api {description} failed: HTTP 403. The GitHub App minting "
             f"this token likely lacks permission '{required_permission}'. "
             f"Raw: {stderr}"
         )
     return (
-        f"gh api {description} failed: HTTP 403 — token likely lacks required "
+        f"gh api {description} failed: HTTP 403. Token likely lacks required "
         f"permission. Raw: {stderr}"
     )
 

@@ -27,7 +27,9 @@ def test_app_pages_have_no_blocking_axe_violations(
     deploy_root = build_real_site(tmp_path, monkeypatch)
 
     with StaticServer(deploy_root) as server, sync_playwright() as playwright:
-        with MonitoredPage(playwright, server.url, name=f"app-a11y-{slug}", bypass_csp=True) as session:
+        with MonitoredPage(
+            playwright, server.url, name=f"app-a11y-{slug}", bypass_csp=True
+        ) as session:
             page = session.page
             assert page is not None
             session.goto(_app_path(slug))
@@ -42,7 +44,7 @@ def test_app_pages_have_no_blocking_axe_violations(
                 page.locator("#theme-toggle").click()
                 expect(page.locator("html")).to_have_attribute("data-theme", "dark")
                 expect(page.locator('meta[name="theme-color"]')).to_have_attribute(
-                    "content", "rgb(20, 20, 20)"
+                    "content", "rgb(30, 26, 20)"
                 )
                 assert_minimum_contrast(page, "#btnAdd", minimum_ratio=4.5)
 
@@ -54,7 +56,7 @@ def test_app_pages_have_no_blocking_axe_violations(
                 page.locator("#theme-toggle").click()
                 expect(page.locator("html")).to_have_attribute("data-theme", "dark")
                 expect(page.locator('meta[name="theme-color"]')).to_have_attribute(
-                    "content", "rgb(20, 20, 20)"
+                    "content", "rgb(30, 26, 20)"
                 )
                 assert_minimum_contrast(page, "#tabs .tab.active", minimum_ratio=4.5)
                 assert_minimum_contrast(

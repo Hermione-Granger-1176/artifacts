@@ -12,6 +12,10 @@ from scripts.lint import SKIP_DIRECTORIES
 
 MAKEFILE_PATH = REPO_ROOT / "Makefile"
 TARGET_PATTERN = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):(?!=)", re.MULTILINE)
+GROUP_PATTERN = re.compile(
+    r"^# ─── .+? @([A-Za-z][A-Za-z0-9_-]*) .*",
+    re.MULTILINE,
+)
 MAKE_REFERENCE_PATTERN = re.compile(
     r"(?:[A-Z_][A-Z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\s\"']+)\s+)*"
     r"make\s+([a-zA-Z][a-zA-Z0-9_-]*)\b"
@@ -38,11 +42,14 @@ class MakeReference:
 
 def parse_makefile_targets(content: str) -> set[str]:
     """Return invokable target names declared in Makefile content."""
-    return {
+    targets = {
         match.group(1)
         for match in TARGET_PATTERN.finditer(content)
         if not match.group(1).startswith(".")
     }
+    if re.search(r"^help-%:", content, re.MULTILINE):
+        targets.update(f"help-{slug}" for slug in GROUP_PATTERN.findall(content))
+    return targets
 
 
 def load_makefile_targets(path: Path | None = None) -> set[str]:

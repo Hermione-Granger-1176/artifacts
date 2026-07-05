@@ -1,0 +1,10 @@
+.artifacts/
+.coverage
+.venv/
+_site/
+coverage/
+htmlcov/
+locks/
+node_modules/
+playwright-report/
+test-results/

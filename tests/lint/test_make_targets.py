@@ -22,6 +22,18 @@ def test_parse_makefile_targets_skips_special_targets() -> None:
     assert targets == {"setup", "lint-js"}
 
 
+def test_parse_makefile_targets_adds_group_help_targets() -> None:
+    targets = make_targets.parse_makefile_targets(
+        "# ─── Pull requests @pr ───\n"
+        "pr: ## PR commands\n"
+        "# ─── Quality gates @quality ───\n"
+        "check-local: ## Run checks\n"
+        "help-%: ## List one group\n"
+    )
+
+    assert {"help-pr", "help-quality"}.issubset(targets)
+
+
 def test_iter_markdown_files_skips_build_directories(tmp_path: Path) -> None:
     write_text(tmp_path / "README.md", "# Root\n")
     write_text(tmp_path / "docs" / "guide.md", "# Guide\n")
@@ -209,6 +221,15 @@ def test_find_replacement_targets_covers_additional_make_equivalents() -> None:
     )
 
     assert targets == ["lock-node", "fmt-js", "fmt-css"]
+
+
+def test_find_replacement_targets_covers_quality_tooling() -> None:
+    targets = check_doc_commands.find_replacement_targets(
+        "npm run format:check && python -m vulture && npm run dead-code",
+        {"format-prettier-check", "dead-code-py", "dead-code-js"},
+    )
+
+    assert targets == ["format-prettier-check", "dead-code-py", "dead-code-js"]
 
 
 def test_find_replacement_targets_ignores_descriptive_tool_names() -> None:

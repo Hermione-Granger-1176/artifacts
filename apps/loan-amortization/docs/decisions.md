@@ -11,7 +11,7 @@ The page depends on Chart.js 4.4.1 plus two plugins (chartjs-plugin-annotation 3
 - **Cold-load performance**: CDN delivery added 1-3 seconds per page load due to external DNS resolution, TLS handshake, and download. Vendoring serves all scripts from the same GitHub Pages origin over an existing HTTP/2 connection.
 - **Resilience**: no runtime dependency on CDN availability or URL stability.
 - **Full UMD builds**: Chart.js offers tree-shakeable ESM imports (~50-70 KB vs ~200 KB UMD), but that requires a JS bundler. The project uses plain `<script>` tags to stay portable, so the UMD build is the right trade-off.
-- **Stability over freshness**: versions are pinned and upgraded manually. No automated update bot — intentional to avoid surprise breakage.
+- **Stability over freshness**: versions are pinned and upgraded manually. No automated update bot. This is intentional to avoid surprise breakage.
 
 ## Why inline SVG logo in the header
 

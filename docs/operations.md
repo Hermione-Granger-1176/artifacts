@@ -9,7 +9,8 @@ make help       # see all available targets (auto-generated, two-level)
 make setup      # fast: Python + Node deps, no Chromium
 make setup-all  # full: also installs Chromium for browser tests and thumbnails
 make pr         # show all PR sub-commands
-make ci         # show all CI sub-commands
+make ci         # full non-browser local CI gate
+make help-ci    # show CI and GitHub run sub-commands
 make git        # show all git sub-commands
 ```
 
@@ -21,8 +22,7 @@ Recommended workflow when changing workspace code:
 2. `make setup` for fast local work, or `make setup-all` if you also need Chromium.
 3. Edit files.
 4. Run `make check-local`.
-5. Run `make check-web` when you touch shared browser behavior or need fresh thumbnails.
-   For targeted mature-app browser work, use `ARTIFACTS_BROWSER_APP_SLUGS="app-slug" make test-browser-apps`.
+5. Run `make check-web` when you touch shared browser behavior or need fresh thumbnails. For targeted mature-app browser work, use `ARTIFACTS_BROWSER_APP_SLUGS="app-slug" make test-browser-apps`.
 6. Run `make check` before opening a PR when you want the full CI-equivalent local gate.
 7. Run `make validate` if you changed top-level artifact directories and want an explicit structure check.
 8. Run `make index` if metadata or README markers may have changed.
@@ -33,7 +33,7 @@ Recommended workflow when changing workspace code:
 
 CI uses the same `make` targets as local development. The `verify` job in `update.yml` runs:
 
-- `make setup-ci`, then `scripts/ci/run_parallel_checks.py` runs `lint`, `test-py`, `coverage-js`, `security`, `validate`, and `test-browser-root` concurrently, followed by conditional `make test-browser-apps`, then `make thumbnails`, `make check-generated`, `make index`, `make site`
+- `make setup-ci`, then `scripts/ci/run_parallel_checks.py` runs `format-check`, `lint`, `test-py`, `coverage-js`, `dead-code`, `security`, `validate`, and `test-browser-root` concurrently, followed by conditional `make test-browser-apps`, then `make thumbnails`, `make check-generated`, `make index`, `make site`
 
 This keeps local results predictive of CI results.
 
@@ -50,6 +50,9 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - `make lint-doc-commands` checks contributor-facing docs for direct commands that should use Make targets instead.
 - `make lint-make-targets` verifies that documented `make <target>` references still exist in `Makefile`.
 - `make lint-js-test-coverage` verifies that every JS or MJS source file under the tracked source roots is imported by at least one test file.
+- `make format-check` verifies ruff formatting plus Prettier-managed docs, metadata, workflows, and tooling scripts without writing files.
+- `make dead-code` runs vulture for Python and Knip for JavaScript files, exports, and dependency usage.
+- `make check-overrides` reports whether npm `overrides` are still needed when that package field exists.
 - `pytest` enforces 100% line coverage for the `scripts` package.
 - `make test-ci` runs the CI-focused Python tests under `tests/ci/`.
 - `make test-ci-workflows` runs narrow contract tests against `.github/workflows/*.yml` so local and CI checks can catch workflow-structure drift early.
@@ -60,7 +63,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - Playwright browser suites validate both the built root gallery and mature app pages through `make test-browser`, while CI selectively scopes mature app suites with `ARTIFACTS_BROWSER_APP_SLUGS`.
 - `make test-browser-live` verifies an already-published site in a real browser when `ARTIFACTS_LIVE_SITE_URL` is set, and CI captures failure screenshots/traces/logs through `ARTIFACTS_BROWSER_ARTIFACT_DIR`.
 - Scheduled CI monitoring now uses GitHub-native issue alerts: `.github/workflows/audit-repo-settings.yml` opens/closes a single repository-settings drift issue, and `.github/workflows/live-site-smoke.yml` opens/closes a single live-site smoke issue.
-- `make check-local` is the fast local gate without browser Playwright suites or thumbnail generation, and it includes the JS source-to-test coverage lint plus the canonical generated-file drift check.
+- `make ci` is the full non-browser local gate without browser Playwright suites or thumbnail generation, and it includes formatting, linting, tests, coverage, dead-code checks, dependency audits, validation, and canonical generated-file drift checks. `make check-local` is an alias.
 - `make test-browser-root-smoke`, `make test-browser-root-accessibility`, and `make test-browser-root-flows` let you run the root gallery Playwright suites separately.
 - `make test-browser-apps-smoke`, `make test-browser-apps-accessibility`, and `make test-browser-apps-flows` let you run the mature app Playwright suites separately while preserving `make test-browser-apps` as the aggregate app gate.
 - `make check-web` is the browser-only gate for the aggregate root/app browser suites and thumbnails.
@@ -70,7 +73,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 ## Thumbnail policy
 
 - `thumbnail.webp` is the preferred generated format.
-- Local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date. CI auto-invalidates thumbnails for apps whose runtime changed (`index.html`, `css/**`, `js/**`, `assets/**`) or when shared app-shell files changed, using `scripts/ci/workflow_helpers.py invalidate-thumbnails`.
+- Local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date. CI auto-invalidates thumbnails for apps whose runtime changed (`index.html`, `js/**`, `assets/**`) or when shared site assets changed, using `scripts/ci/workflow_helpers.py invalidate-thumbnails`.
 - CI does not trigger mature-app browser suites for app docs or metadata-only edits; the thumbnail plan uses the same runtime-change classification to scope mature-app browser runs.
 - CI sets `ARTIFACTS_STRICT_THUMBNAILS=1`, so any attempted thumbnail failure fails the workflow instead of being logged as a warning.
 - Local working copies do not need checked-in thumbnails to function during development.
@@ -78,7 +81,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 
 ## Required GitHub settings
 
-See [architecture.md: External GitHub settings](architecture.md#external-github-settings) for the full list of required repository settings (Pages, branch protection, app tokens, secrets, rulesets). Use `make ci` to discover the `make ci-audit-repo-settings` wrapper for the manual drift check.
+See [architecture.md: External GitHub settings](architecture.md#external-github-settings) for the full list of required repository settings (Pages, branch protection, app tokens, secrets, rulesets). Use `make help-ci` to discover the `make ci-audit-repo-settings` wrapper for the manual drift check.
 
 ## Vendored runtime dependencies
 
@@ -94,8 +97,8 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
 ### Self-hosted fonts
 
 - Gallery display fonts (Caveat, Fredoka One) are self-hosted as WOFF2 Latin subsets in `assets/fonts/`.
-- `@font-face` declarations live in `css/fonts.css`, imported by `css/style.css`.
-- When adding a new font, download the WOFF2 subset into `assets/fonts/`, add the `@font-face` rule to `css/fonts.css`, and verify the CSP `font-src 'self'` directive still covers it.
+- `@font-face` declarations live in `css/style.css`.
+- When adding a new font, download the WOFF2 subset into `assets/fonts/`, add the `@font-face` rule to `css/style.css`, and verify the CSP `font-src 'self'` directive still covers it.
 
 ### Adding external assets to a new artifact
 
@@ -154,7 +157,7 @@ All runtime assets should be self-hosted. Do not load scripts, fonts, or stylesh
 - If the Playwright Python package is unavailable locally, browser Playwright suites fail during collection and `make thumbnails` exits immediately; rerun `make setup-all`.
 - If Chromium is unavailable locally, `make check-web`, `make test-browser`, and `make test-browser-live` fail; run `make setup-all` to install it.
 - `make check-local` intentionally avoids Playwright so it can stay fast on machines without Chromium.
-- If you need to manually audit repository settings drift outside the scheduled workflow, run `make ci` to discover `make ci-audit-repo-settings`, then pass `repo=<owner/repo>` when auditing a different repository.
+- If you need to manually audit repository settings drift outside the scheduled workflow, run `make help-ci` to discover `make ci-audit-repo-settings`, then pass `repo=<owner/repo>` when auditing a different repository.
 - If you want to inspect the deployable output locally, run `make site` and serve `_site/` from a static file server.
 - If `make security` fails on `npm audit`, the issue is in the current workspace dependency graph and needs triage before release.
 - If `make security` fails on the Python audit, either a new vulnerability needs triage, an exception review date has expired, an exception no longer matches the current lock files, or a fix is now available and the temporary exception must be removed.

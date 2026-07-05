@@ -1,7 +1,4 @@
 {
-  "python_lock_files": [
-    "locks/requirements.lock",
-    "locks/requirements-dev.lock"
-  ],
+  "python_lock_files": ["locks/requirements.lock", "locks/requirements-dev.lock"],
   "python_vulnerability_exceptions": []
 }

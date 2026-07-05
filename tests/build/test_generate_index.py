@@ -127,7 +127,7 @@ def make_config(
         gallery_foundation_file=(
             gallery_foundation_file
             if gallery_foundation_file is not None
-            else tmp_path / "css" / "gallery" / "01-tokens.css"
+            else tmp_path / "css" / "style.css"
         ),
         index_file=index_file,
         name_file=name_file,
@@ -231,9 +231,7 @@ def test_read_artifact_contract_requires_existing_file(
     tmp_path: Path,
 ) -> None:
     with pytest.raises(FileNotFoundError, match="Artifact contract file not found"):
-        read_artifact_contract_file(
-            tmp_path / "config" / "artifact_contract.json"
-        )
+        read_artifact_contract_file(tmp_path / "config" / "artifact_contract.json")
 
 
 # -- Palette and badge color tests --------------------------------------------
@@ -242,9 +240,7 @@ def test_read_artifact_contract_requires_existing_file(
 def test_fallback_badge_color_uses_shared_note_palette(
     tmp_path: Path,
 ) -> None:
-    gallery_dir = tmp_path / "css" / "gallery"
-    gallery_dir.mkdir(parents=True, exist_ok=True)
-    tokens_file = gallery_dir / "01-tokens.css"
+    tokens_file = tmp_path / "css" / "style.css"
     write_text(
         tokens_file,
         """
@@ -264,7 +260,7 @@ def test_fallback_badge_color_uses_default_when_palette_file_is_missing(
 ) -> None:
     config = make_config(
         tmp_path,
-        gallery_foundation_file=tmp_path / "css" / "gallery" / "missing-tokens.css",
+        gallery_foundation_file=tmp_path / "css" / "missing-style.css",
     )
 
     assert config.note_palette == ()
@@ -754,9 +750,7 @@ def test_frontend_config_contains_display_labels(tmp_path: Path) -> None:
         ],
     }
 
-    fc = index_outputs.frontend_config(
-        metadata, artifact_contract=config.contract
-    )
+    fc = index_outputs.frontend_config(metadata, artifact_contract=config.contract)
 
     tools = fc["tools"]
 
@@ -897,7 +891,7 @@ def test_generate_raises_for_duplicate_artifact_ids(
     monkeypatch.setattr(
         generate_index,
         "_scan_artifacts",
-        lambda cfg: [
+        lambda _cfg: [
             {
                 "id": "duplicate",
                 "name": "One",
@@ -1123,8 +1117,7 @@ def test_helper_wrappers_delegate_expected_contract_and_metadata_logic(
     assert config.artifact_thumbnail_rule() == "apps/<artifact-id>/thumbnail.webp"
     assert config.matches_artifact_url_shape("apps/loan-tool/") is True
     assert (
-        config.matches_artifact_thumbnail_shape("apps/loan-tool/thumbnail.webp")
-        is True
+        config.matches_artifact_thumbnail_shape("apps/loan-tool/thumbnail.webp") is True
     )
     index_sources.validate_relative_repo_path(
         "apps/loan-tool/thumbnail.webp",
