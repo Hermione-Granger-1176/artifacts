@@ -12,7 +12,7 @@
 
 ## Module map
 
-- `js/vendor/` — vendored Chart.js 4.4.1, chartjs-plugin-annotation 3.0.1, chartjs-plugin-datalabels 2.2.0 (loaded via `<script defer>` with `<link rel="preload">` hints)
+- `js/vendor/`: vendored Chart.js 4.4.1, chartjs-plugin-annotation 3.0.1, chartjs-plugin-datalabels 2.2.0 (loaded via `<script defer>` with `<link rel="preload">` hints)
 - `js/app.js`
   - owns bootstrap, mutable app state, and high-level recalc orchestration
 - `../../../js/modules/app-shell.js`
