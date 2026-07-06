@@ -60,9 +60,7 @@ COMMAND_RULES = (
         requires_full_snippet_match=True,
     ),
     CommandRule(
-        re.compile(
-            r"^\s*(?:(?:\.venv/bin/)?vulture|python(?:3(?:\.\d+)?)?\s+-m\s+vulture)\s*$"
-        ),
+        re.compile(r"^\s*(?:(?:\.venv/bin/)?vulture|python(?:3(?:\.\d+)?)?\s+-m\s+vulture)\s*$"),
         "dead-code-py",
         requires_full_snippet_match=True,
     ),
@@ -72,9 +70,7 @@ COMMAND_RULES = (
         requires_full_snippet_match=True,
     ),
     CommandRule(
-        re.compile(
-            r"\b(?:python(?:3(?:\.\d+)?)?\s+-m\s+pytest|(?:\.venv/bin/)?pytest)\b"
-        ),
+        re.compile(r"\b(?:python(?:3(?:\.\d+)?)?\s+-m\s+pytest|(?:\.venv/bin/)?pytest)\b"),
         "test-py",
         requires_full_snippet_match=False,
     ),
@@ -131,9 +127,7 @@ COMMAND_RULES = (
         requires_full_snippet_match=True,
     ),
     CommandRule(
-        re.compile(
-            r"^\s*python(?:3(?:\.\d+)?)?\s+scripts/lint/check_editorconfig\.py\s*$"
-        ),
+        re.compile(r"^\s*python(?:3(?:\.\d+)?)?\s+scripts/lint/check_editorconfig\.py\s*$"),
         "editorconfig-check",
         requires_full_snippet_match=True,
     ),
@@ -143,16 +137,12 @@ COMMAND_RULES = (
         requires_full_snippet_match=True,
     ),
     CommandRule(
-        re.compile(
-            r"^\s*python(?:3(?:\.\d+)?)?\s+scripts/build/generate_thumbnails\.py\s*$"
-        ),
+        re.compile(r"^\s*python(?:3(?:\.\d+)?)?\s+scripts/build/generate_thumbnails\.py\s*$"),
         "thumbnails",
         requires_full_snippet_match=True,
     ),
     CommandRule(
-        re.compile(
-            r"^\s*python(?:3(?:\.\d+)?)?\s+scripts/build/generate_index\.py\s*$"
-        ),
+        re.compile(r"^\s*python(?:3(?:\.\d+)?)?\s+scripts/build/generate_index\.py\s*$"),
         "index",
         requires_full_snippet_match=True,
     ),
@@ -162,9 +152,7 @@ COMMAND_RULES = (
         requires_full_snippet_match=True,
     ),
     CommandRule(
-        re.compile(
-            r"^\s*python(?:3(?:\.\d+)?)?\s+scripts/build/scaffold_artifact\.py\s*$"
-        ),
+        re.compile(r"^\s*python(?:3(?:\.\d+)?)?\s+scripts/build/scaffold_artifact\.py\s*$"),
         "new",
         requires_full_snippet_match=True,
     ),
@@ -173,9 +161,7 @@ COMMAND_RULES = (
     CommandRule(re.compile(r"^\s*gh\s+pr\s+checks\s+--watch\s*$"), "pr-checks", True),
     CommandRule(re.compile(r"^\s*gh\s+pr\s+checks\s*$"), "pr-status", True),
     CommandRule(re.compile(r"^\s*gh\s+pr\s+diff\s*$"), "pr-diff", True),
-    CommandRule(
-        re.compile(r"^\s*gh\s+pr\s+view\s+--comments\s*$"), "pr-comments", True
-    ),
+    CommandRule(re.compile(r"^\s*gh\s+pr\s+view\s+--comments\s*$"), "pr-comments", True),
     CommandRule(re.compile(r"^\s*gh\s+run\s+list\s*$"), "ci-runs", True),
     CommandRule(re.compile(r"^\s*gh\s+run\s+watch\s*$"), "ci-watch", True),
     CommandRule(re.compile(r"^\s*gh\s+issue\s+list\s*$"), "issues", True),
@@ -265,15 +251,11 @@ def _snippet_is_actionable(line: str, snippet: str) -> bool:
         return True
     if PLAIN_BULLET_PREFIX_PATTERN.match(prefix):
         stripped_suffix = suffix.lstrip()
-        return stripped_suffix.startswith(
-            ("(", "if ", "when ", "before ", "to ", "for ")
-        )
+        return stripped_suffix.startswith(("(", "if ", "when ", "before ", "to ", "for "))
     return bool(INSTRUCTION_PREFIX_PATTERN.search(local_prefix))
 
 
-def check_file(
-    path: Path, known_targets: set[str], root: Path | None = None
-) -> list[str]:
+def check_file(path: Path, known_targets: set[str], root: Path | None = None) -> list[str]:
     """Return direct-command violations for one contributor-facing doc."""
     workspace_root = root or REPO_ROOT
     relative_path = path.relative_to(workspace_root).as_posix()
@@ -286,7 +268,8 @@ def check_file(
             continue
         for target in find_replacement_targets(snippet.text, known_targets):
             violations.append(
-                f"{relative_path}:{snippet.line_number}: use `make {target}` instead of `{snippet.text}`"
+                f"{relative_path}:{snippet.line_number}: "
+                f"use `make {target}` instead of `{snippet.text}`"
             )
     return violations
 

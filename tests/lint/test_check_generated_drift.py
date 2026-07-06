@@ -9,13 +9,13 @@ import scripts.lint.check_generated_drift as check_generated_drift
 
 
 def write_text(path: Path, content: str) -> None:
+    """Write text."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
 
-def configure_targets(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> tuple[Path, Path, Path]:
+def configure_targets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path, Path]:
+    """Configure targets."""
     readme_file = tmp_path / "README.md"
     js_output_file = tmp_path / "js" / "data.js"
     js_config_output_file = tmp_path / "js" / "gallery-config.js"
@@ -30,9 +30,8 @@ def configure_targets(
 def test_check_generated_drift_returns_changed_files_and_restores_contents(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    readme_file, js_output_file, js_config_output_file = configure_targets(
-        tmp_path, monkeypatch
-    )
+    """Check generated drift returns changed files and restores contents."""
+    readme_file, js_output_file, js_config_output_file = configure_targets(tmp_path, monkeypatch)
     write_text(readme_file, "original readme\n")
     write_text(js_output_file, "original data\n")
     write_text(js_config_output_file, "original config\n")
@@ -55,9 +54,8 @@ def test_check_generated_drift_returns_changed_files_and_restores_contents(
 def test_check_generated_drift_removes_created_files_when_original_is_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    readme_file, js_output_file, js_config_output_file = configure_targets(
-        tmp_path, monkeypatch
-    )
+    """Check generated drift removes created files when original is missing."""
+    readme_file, js_output_file, js_config_output_file = configure_targets(tmp_path, monkeypatch)
     write_text(readme_file, "original readme\n")
     write_text(js_output_file, "original data\n")
 
@@ -72,12 +70,27 @@ def test_check_generated_drift_removes_created_files_when_original_is_missing(
     assert not js_config_output_file.exists()
 
 
+def test_check_generated_drift_skips_files_missing_before_and_after(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Check generated drift leaves files alone that never existed."""
+    readme_file, js_output_file, js_config_output_file = configure_targets(tmp_path, monkeypatch)
+    write_text(readme_file, "original readme\n")
+
+    monkeypatch.setattr(generate_index, "generate", lambda: None)
+
+    drifted = check_generated_drift.check_generated_drift()
+
+    assert drifted == []
+    assert not js_output_file.exists()
+    assert not js_config_output_file.exists()
+
+
 def test_check_generated_drift_restores_files_when_generator_raises(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    readme_file, js_output_file, js_config_output_file = configure_targets(
-        tmp_path, monkeypatch
-    )
+    """Check generated drift restores files when generator raises."""
+    readme_file, js_output_file, js_config_output_file = configure_targets(tmp_path, monkeypatch)
     write_text(readme_file, "original readme\n")
     write_text(js_output_file, "original data\n")
     write_text(js_config_output_file, "original config\n")
@@ -99,6 +112,7 @@ def test_check_generated_drift_restores_files_when_generator_raises(
 def test_main_reports_success(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Main reports success."""
     monkeypatch.setattr(check_generated_drift, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(check_generated_drift, "check_generated_drift", lambda: [])
 
@@ -111,6 +125,7 @@ def test_main_reports_success(
 def test_main_reports_changed_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Main reports changed files."""
     monkeypatch.setattr(check_generated_drift, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(
         check_generated_drift,
@@ -130,6 +145,8 @@ def test_main_reports_changed_files(
 def test_main_reports_generator_failure(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Main reports generator failure."""
+
     def fail() -> list[Path]:
         raise ValueError("broken")
 

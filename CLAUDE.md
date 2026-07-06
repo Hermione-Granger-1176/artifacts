@@ -54,7 +54,7 @@ Key entry points:
 - `make pr`: show all PR commands (create, list, merge, comments, review, resolve, etc.)
 - `make help-ci`: show CI/GitHub run commands (runs, watch, failed logs, repo audit)
 - `make git`: show all git commands (branch, commit, push, log, diff)
-- `make status`: quick workspace health check
+- `make status`: workspace health check (git, deps, lock currency, generated files, PR summary)
 
 Python dependencies and workspace metadata live in `pyproject.toml`, while frozen installs live in `locks/requirements*.lock` and `package-lock.json`.
 

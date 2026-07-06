@@ -14,12 +14,15 @@ maintainers working on the build internals.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
 from scripts.build.index_config import IndexConfig
 from scripts.build.prepare_site import APP_SHARE_IMAGE_PLACEHOLDER, APP_URL_PLACEHOLDER
 from scripts.lib.app_discovery import artifact_base_path
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 APPS_DIR = REPO_ROOT / artifact_base_path()
 TESTS_JS_APPS_DIR = REPO_ROOT / "tests" / "js" / "apps"
@@ -44,15 +47,24 @@ def _title_from_slug(slug: str) -> str:
 def _index_template(title: str, slug: str | None = None) -> str:
     """Return a mature HTML starting point for a new artifact."""
     app_class = f" app-{slug}" if slug else ""
+    description = "Replace this description with a concise summary of your artifact."
+    lede = (
+        "Replace this scaffold with your artifact and keep shared visual "
+        "styling in the root stylesheet."
+    )
+    csp = (
+        "default-src 'self'; script-src 'self'; style-src 'self'; "
+        "img-src 'self' data:; connect-src 'self'"
+    )
     return f"""<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Replace this description with a concise summary of your artifact.">
+  <meta name="description" content="{description}">
   <link rel="canonical" href="{APP_URL_PLACEHOLDER}">
   <meta property="og:title" content="{title} | Artifacts">
-  <meta property="og:description" content="Replace this description with a concise summary of your artifact.">
+  <meta property="og:description" content="{description}">
   <meta property="og:type" content="website">
   <meta property="og:url" content="{APP_URL_PLACEHOLDER}">
   <meta property="og:site_name" content="Artifacts">
@@ -61,13 +73,12 @@ def _index_template(title: str, slug: str | None = None) -> str:
   <meta property="og:image:alt" content="Preview card for the {title} app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{title} | Artifacts">
-  <meta name="twitter:description" content="Replace this description with a concise summary of your artifact.">
+  <meta name="twitter:description" content="{description}">
   <meta name="twitter:image" content="{APP_SHARE_IMAGE_PLACEHOLDER}">
   <meta name="twitter:image:alt" content="Preview card for the {title} app.">
   <meta name="theme-color" content="rgb(245, 239, 230)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="{csp}">
   <title>{title} | Artifacts</title>
   <script src="../../js/app-theme.js"></script>
   <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
@@ -84,7 +95,7 @@ def _index_template(title: str, slug: str | None = None) -> str:
 
     <header class="page-intro">
       <h1 class="page-title">{title}</h1>
-      <p class="page-lede">Replace this scaffold with your artifact and keep shared visual styling in the root stylesheet.</p>
+      <p class="page-lede">{lede}</p>
     </header>
 
     <section class="page-card placeholder-card">
@@ -173,9 +184,7 @@ def scaffold_artifact(name: str) -> Path:
     (TESTS_JS_APPS_DIR / name).mkdir(parents=True, exist_ok=True)
     (artifact_dir / "js").mkdir()
     (artifact_dir / "docs").mkdir()
-    (artifact_dir / INDEX_FILE).write_text(
-        _index_template(title, name), encoding="utf-8"
-    )
+    (artifact_dir / INDEX_FILE).write_text(_index_template(title, name), encoding="utf-8")
     (artifact_dir / "js" / "app.js").write_text(_app_js_template(), encoding="utf-8")
     (artifact_dir / "README.md").write_text(_readme_template(title), encoding="utf-8")
     (artifact_dir / "docs" / "architecture.md").write_text(

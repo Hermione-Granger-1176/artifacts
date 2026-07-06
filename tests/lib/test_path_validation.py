@@ -8,6 +8,7 @@ from scripts.lib.path_validation import reject_symlinks
 
 
 def test_clean_tree_passes(tmp_path: Path) -> None:
+    """Clean tree passes."""
     sub = tmp_path / "a" / "b"
     sub.mkdir(parents=True)
     (sub / "file.txt").write_text("ok", encoding="utf-8")
@@ -17,6 +18,7 @@ def test_clean_tree_passes(tmp_path: Path) -> None:
 
 
 def test_symlink_file_raises(tmp_path: Path) -> None:
+    """Symlink file raises."""
     real = tmp_path / "real.txt"
     real.write_text("content", encoding="utf-8")
     link = tmp_path / "link.txt"
@@ -27,6 +29,7 @@ def test_symlink_file_raises(tmp_path: Path) -> None:
 
 
 def test_symlink_directory_raises(tmp_path: Path) -> None:
+    """Symlink directory raises."""
     real_dir = tmp_path / "real_dir"
     real_dir.mkdir()
     link_dir = tmp_path / "link_dir"
@@ -37,6 +40,7 @@ def test_symlink_directory_raises(tmp_path: Path) -> None:
 
 
 def test_nested_symlink_raises(tmp_path: Path) -> None:
+    """Nested symlink raises."""
     nested = tmp_path / "a" / "b" / "c"
     nested.mkdir(parents=True)
     real = nested / "real.txt"

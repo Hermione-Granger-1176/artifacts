@@ -31,9 +31,7 @@ class FakeGh:
         self.routes = routes
         self.calls: list[list[str]] = []
 
-    def __call__(
-        self, cmd: Sequence[str], **_kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    def __call__(self, cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
         """Return the response whose predicate matches, or fail the test."""
         command = list(cmd)
         self.calls.append(command)
@@ -178,9 +176,7 @@ def _threads_page(
                             "path": "f.py",
                             "line": 1,
                             "comments": {
-                                "nodes": [
-                                    {"body": "x", "url": "u", "author": {"login": "r"}}
-                                ]
+                                "nodes": [{"body": "x", "url": "u", "author": {"login": "r"}}]
                             },
                         }
                     ],
@@ -200,9 +196,7 @@ def test_list_threads_follows_pagination() -> None:
     )
     calls: list[list[str]] = []
 
-    def runner(
-        cmd: Sequence[str], **_kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
         command = list(cmd)
         calls.append(command)
         if has("repo", "view")(command):
@@ -342,6 +336,45 @@ def test_pr_summary_includes_meta_and_threads() -> None:
     assert "thread=PRRT_open1" in text
 
 
+def test_pr_summary_omits_thread_block_when_no_open_threads() -> None:
+    """Summaries skip the thread listing when every thread is resolved."""
+    meta = {
+        "number": 8,
+        "title": "Quiet PR",
+        "state": "OPEN",
+        "url": "https://example/pr/8",
+        "statusCheckRollup": [{"conclusion": "SUCCESS"}],
+    }
+    empty_threads = {
+        "data": {
+            "repository": {
+                "pullRequest": {
+                    "reviewThreads": {
+                        "pageInfo": {"hasNextPage": False, "endCursor": None},
+                        "nodes": [],
+                    }
+                }
+            }
+        }
+    }
+    runner = FakeGh(
+        [
+            (has("pr", "view"), completed_process(0, json.dumps(meta))),
+            (
+                has("repo", "view"),
+                completed_process(0, json.dumps({"nameWithOwner": "o/r"})),
+            ),
+            (has("graphql"), completed_process(0, json.dumps(empty_threads))),
+        ]
+    )
+
+    text = pr_review.pr_summary(8, run_fn=runner)
+
+    assert "open review threads: 0" in text
+    assert "thread=" not in text
+    assert not text.endswith("\n")
+
+
 def test_resolve_repo_falls_back_to_remote() -> None:
     """Parse owner/name from the git remote when gh repo view fails."""
     runner = FakeGh(
@@ -428,18 +461,14 @@ def test_resolve_repo_raises_when_unresolvable() -> None:
 
 def test_current_pr_number_parses_gh_output() -> None:
     """Read the PR number for the current branch."""
-    runner = FakeGh(
-        [(has("pr", "view"), completed_process(0, json.dumps({"number": 19})))]
-    )
+    runner = FakeGh([(has("pr", "view"), completed_process(0, json.dumps({"number": 19})))])
 
     assert gh_runner.current_pr_number(run_fn=runner) == 19
 
 
 def test_current_pr_number_raises_without_pr() -> None:
     """Raise a friendly error when the branch has no PR."""
-    runner = FakeGh(
-        [(has("pr", "view"), completed_process(1, "", "no pull requests found"))]
-    )
+    runner = FakeGh([(has("pr", "view"), completed_process(1, "", "no pull requests found"))])
 
     with pytest.raises(GhError):
         gh_runner.current_pr_number(run_fn=runner)
@@ -538,9 +567,7 @@ def test_list_comments_paginates_threads_and_comments() -> None:
     )
     calls: list[list[str]] = []
 
-    def runner(
-        cmd: Sequence[str], **_kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
         command = list(cmd)
         calls.append(command)
         if has("repo", "view")(command):
@@ -558,19 +585,13 @@ def test_list_comments_paginates_threads_and_comments() -> None:
     ]
     graphql_calls = [command for command in calls if has("graphql")(command)]
     assert len(graphql_calls) == 3
-    assert any(
-        "after=CCUR" in command for command in graphql_calls
-    )  # comment pagination
-    assert any(
-        "after=TCUR" in command for command in graphql_calls
-    )  # thread pagination
+    assert any("after=CCUR" in command for command in graphql_calls)  # comment pagination
+    assert any("after=TCUR" in command for command in graphql_calls)  # thread pagination
 
 
 def test_format_comments_shows_first_line_only() -> None:
     """Rendering is one greppable line per comment, first body line only."""
-    comment = pr_review.ReviewComment(
-        "PRRC_first", "reviewer", "Note here\nsecond line", "u"
-    )
+    comment = pr_review.ReviewComment("PRRC_first", "reviewer", "Note here\nsecond line", "u")
 
     text = pr_review.format_comments([comment])
 
@@ -612,9 +633,7 @@ def test_main_delete_comment_invokes_helper(
 ) -> None:
     """The delete-comment command deletes by node id and confirms."""
     deleted: list[str] = []
-    monkeypatch.setattr(
-        pr_review, "delete_review_comment", lambda comment: deleted.append(comment)
-    )
+    monkeypatch.setattr(pr_review, "delete_review_comment", lambda comment: deleted.append(comment))
 
     exit_code = cli.main(["delete-comment", "--comment", "PRRC_x"])
 

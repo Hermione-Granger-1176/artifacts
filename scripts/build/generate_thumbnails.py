@@ -17,6 +17,7 @@ maintainers working on the build internals.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -66,6 +67,8 @@ ARTIFACT_BASE_URL = ""
 
 
 class ThumbnailStats(TypedDict):
+    """Tally of thumbnail outcomes across a generation run."""
+
     total: int
     attempted: int
     generated: int
@@ -76,7 +79,8 @@ class ThumbnailStats(TypedDict):
 class QuietStaticHandler(SimpleHTTPRequestHandler):
     """Static file handler that suppresses per-request logging."""
 
-    def log_message(self, _format: str, *args: object) -> None:
+    def log_message(self, _format: str, *_args: object) -> None:
+        """Discard the default per-request logging from the base handler."""
         return
 
 
@@ -90,10 +94,12 @@ class ArtifactServer:
         self.url = f"http://127.0.0.1:{self._httpd.server_address[1]}"
 
     def __enter__(self) -> ArtifactServer:
+        """Start the background server thread and return the running server."""
         self._thread.start()
         return self
 
     def __exit__(self, exc_type: object, exc: object, _tb: object) -> None:
+        """Shut down the server and join its thread on context exit."""
         self._httpd.shutdown()
         self._httpd.server_close()
         self._thread.join(timeout=5)
@@ -107,9 +113,7 @@ def find_artifacts() -> list[Path]:
     artifacts = [
         item
         for item in sorted(APPS_DIR.iterdir())
-        if item.is_dir()
-        and not item.name.startswith(".")
-        and (item / "index.html").exists()
+        if item.is_dir() and not item.name.startswith(".") and (item / "index.html").exists()
     ]
 
     configured_slugs = [
@@ -186,7 +190,6 @@ def _summarize(stats: ThumbnailStats) -> str:
 
 def _retry_delay_seconds(attempt: int) -> float:
     """Return a bounded exponential backoff for retry attempt numbers."""
-
     return min(
         SCREENSHOT_RETRY_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)),
         SCREENSHOT_RETRY_BACKOFF_MAX_SECONDS,
@@ -195,7 +198,6 @@ def _retry_delay_seconds(attempt: int) -> float:
 
 def _strict_thumbnail_failures_enabled() -> bool:
     """Return True when any attempted thumbnail failure should fail the run."""
-
     return os.environ.get(STRICT_THUMBNAILS_ENV_VAR) == "1"
 
 
@@ -218,14 +220,11 @@ def _write_manifest(artifacts: list[Path], stats: ThumbnailStats) -> None:
 
 async def _capture_screenshot(page: Any, file_url: str, artifact_name: str) -> bytes:
     """Capture one artifact screenshot with bounded retries for transient failures."""
-
-    last_error: Exception | None = None
-
-    for attempt in range(1, SCREENSHOT_RETRY_ATTEMPTS + 1):
+    attempt = 0
+    while True:
+        attempt += 1
         try:
-            await page.goto(
-                file_url, wait_until="networkidle", timeout=NAVIGATION_TIMEOUT_MS
-            )
+            await page.goto(file_url, wait_until="networkidle", timeout=NAVIGATION_TIMEOUT_MS)
             await page.wait_for_function(
                 "window.__ARTIFACT_READY__ !== false",
                 timeout=READY_SIGNAL_TIMEOUT_MS,
@@ -233,9 +232,8 @@ async def _capture_screenshot(page: Any, file_url: str, artifact_name: str) -> b
             await page.wait_for_timeout(POST_LOAD_DELAY_MS)
             return await page.screenshot(type="png")
         except Exception as exc:
-            last_error = exc
             if attempt >= SCREENSHOT_RETRY_ATTEMPTS:
-                break
+                raise
             delay_seconds = _retry_delay_seconds(attempt)
             logger.warning(
                 "Retrying %s after screenshot attempt %d/%d failed: %s",
@@ -245,9 +243,6 @@ async def _capture_screenshot(page: Any, file_url: str, artifact_name: str) -> b
                 exc,
             )
             await asyncio.sleep(delay_seconds)
-
-    assert last_error is not None
-    raise last_error
 
 
 async def _process_artifact(
@@ -271,9 +266,7 @@ async def _process_artifact(
             thumb_path = artifact_dir / SCREENSHOT_FILE
             file_url = artifact_url(artifact_dir)
 
-            screenshot_bytes = await _capture_screenshot(
-                page, file_url, artifact_dir.name
-            )
+            screenshot_bytes = await _capture_screenshot(page, file_url, artifact_dir.name)
             save_thumbnail(screenshot_bytes, thumb_path)
             logger.info("  -> %s", thumb_path.name)
             return "generated"
@@ -282,15 +275,11 @@ async def _process_artifact(
             return "failed"
         finally:
             if page is not None:
-                try:
+                with contextlib.suppress(Exception):
                     await page.close()
-                except Exception:
-                    pass
 
 
-async def _run_generation(
-    artifacts: list[Path], async_playwright_cm: Any
-) -> ThumbnailStats:
+async def _run_generation(artifacts: list[Path], async_playwright_cm: Any) -> ThumbnailStats:
     """Run concurrent thumbnail generation and return aggregated stats."""
     stats: ThumbnailStats = {
         "total": len(artifacts),
@@ -312,9 +301,7 @@ async def _run_generation(
 
             for result in results:
                 status: ThumbnailStatus = (
-                    "failed"
-                    if isinstance(result, Exception)
-                    else cast(ThumbnailStatus, result)
+                    "failed" if isinstance(result, Exception) else cast("ThumbnailStatus", result)
                 )
                 stats[status] += 1
                 if status != "skipped":
@@ -329,9 +316,7 @@ async def _run_generation(
         raise RuntimeError("Thumbnail generation failed for every attempted artifact")
 
     if stats["failed"] > 0 and _strict_thumbnail_failures_enabled():
-        raise RuntimeError(
-            "Thumbnail generation failed for one or more attempted artifacts"
-        )
+        raise RuntimeError("Thumbnail generation failed for one or more attempted artifacts")
 
     return stats
 
@@ -363,7 +348,7 @@ def generate_thumbnails() -> ThumbnailStats:
         sys.exit(1)
 
     with ArtifactServer(REPO_ROOT) as server:
-        global ARTIFACT_BASE_URL  # noqa: PLW0603
+        global ARTIFACT_BASE_URL
         ARTIFACT_BASE_URL = server.url.rstrip("/")
         try:
             stats = asyncio.run(_run_generation(artifacts, async_playwright))

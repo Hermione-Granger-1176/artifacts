@@ -67,6 +67,7 @@ def _step_with(job: dict[str, object], name: str) -> dict[str, object]:
 
 
 def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
+    """Update workflow keeps expected triggers and jobs."""
     workflow = _load_workflow("update.yml")
     on_block = _workflow_on(workflow)
 
@@ -103,6 +104,7 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
 
 
 def test_update_verify_job_runs_expected_make_targets() -> None:
+    """Update verify job runs expected make targets."""
     workflow = _load_workflow("update.yml")
     verify = _job(workflow, "verify")
 
@@ -127,15 +129,15 @@ def test_update_verify_job_runs_expected_make_targets() -> None:
     selective_browser = _step(verify, "Run selective app browser verification")
     assert selective_browser["if"] == "needs.plan.outputs.browser-scope != 'none'"
     assert selective_browser["env"]["ARTIFACTS_BROWSER_APP_SLUGS"] == (
-        "${{ needs.plan.outputs.browser-scope == 'changed' && needs.plan.outputs.changed-slugs || '' }}"
+        "${{ needs.plan.outputs.browser-scope == 'changed' "
+        "&& needs.plan.outputs.changed-slugs || '' }}"
     )
-    assert "make test-browser-apps" in _step_run(
-        verify, "Run selective app browser verification"
-    )
+    assert "make test-browser-apps" in _step_run(verify, "Run selective app browser verification")
 
     build_step = _step(verify, "Build verified site")
     assert build_step["env"]["ARTIFACTS_THUMBNAIL_SLUGS"] == (
-        "${{ needs.plan.outputs.thumbnail-scope == 'changed' && needs.plan.outputs.thumbnail-slugs || '' }}"
+        "${{ needs.plan.outputs.thumbnail-scope == 'changed' "
+        "&& needs.plan.outputs.thumbnail-slugs || '' }}"
     )
     assert (
         build_step["env"]["ARTIFACTS_THUMBNAIL_MANIFEST"]
@@ -160,6 +162,7 @@ def test_update_verify_job_runs_expected_make_targets() -> None:
 
 
 def test_update_publish_job_reuses_verified_site_artifact() -> None:
+    """Update publish job reuses verified site artifact."""
     workflow = _load_workflow("update.yml")
     publish = _job(workflow, "publish")
 
@@ -199,9 +202,7 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
         "path": "${{ env.PAGES_PUBLISH_DIR }}",
         "include-hidden-files": True,
     }
-    assert _step_uses(publish, "Deploy GitHub Pages artifact").startswith(
-        "actions/deploy-pages@"
-    )
+    assert _step_uses(publish, "Deploy GitHub Pages artifact").startswith("actions/deploy-pages@")
     assert _step_with(publish, "Deploy GitHub Pages artifact")["timeout"] == (
         "${{ env.PAGES_DEPLOY_TIMEOUT_MS }}"
     )
@@ -214,9 +215,7 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     )
 
     publish_runs = "\n".join(
-        step.get("run", "")
-        for step in _steps(publish)
-        if isinstance(step.get("run"), str)
+        step.get("run", "") for step in _steps(publish) if isinstance(step.get("run"), str)
     )
     assert "make thumbnails" not in publish_runs
     assert "make index" not in publish_runs
@@ -224,17 +223,14 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
 
 
 def test_update_publish_job_writes_classic_deployment_records() -> None:
+    """Update publish job writes classic deployment records."""
     workflow = _load_workflow("update.yml")
     publish = _job(workflow, "publish")
 
     main_guard = (
-        "github.event_name != 'pull_request' && "
-        "steps.setup.outputs.token-available == 'true'"
+        "github.event_name != 'pull_request' && steps.setup.outputs.token-available == 'true'"
     )
-    log_url = (
-        "${{ github.server_url }}/${{ github.repository }}"
-        "/actions/runs/${{ github.run_id }}"
-    )
+    log_url = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
     create = _step(publish, "Create main deployment record")
     assert create["id"] == "deployment-record"
@@ -274,15 +270,13 @@ def test_update_publish_job_writes_classic_deployment_records() -> None:
 
 
 def test_update_thumbnail_persistence_and_cleanup_stay_bounded() -> None:
+    """Update thumbnail persistence and cleanup stay bounded."""
     workflow = _load_workflow("update.yml")
     persist = _job(workflow, "persist-thumbnails")
     cleanup = _job(workflow, "cleanup-preview")
 
     validate_run = _step_run(persist, "Validate thumbnail artifact")
-    assert (
-        "validate-thumbnail-artifact --root .artifacts/thumbnail-persist"
-        in validate_run
-    )
+    assert "validate-thumbnail-artifact --root .artifacts/thumbnail-persist" in validate_run
     assert 'echo "json=$plan" >> "$GITHUB_OUTPUT"' in validate_run
     assert (
         _step_uses(persist, "Persist thumbnails into the same PR branch")
@@ -309,9 +303,7 @@ def test_update_thumbnail_persistence_and_cleanup_stay_bounded() -> None:
         "cancel-in-progress": False,
     }
     assert _step(cleanup, "CI setup")["with"]["event-name"] == "pull_request"
-    assert "commit=$CLEANUP_COMMIT" in _step_run(
-        cleanup, "Resolve gh-pages cleanup commit"
-    )
+    assert "commit=$CLEANUP_COMMIT" in _step_run(cleanup, "Resolve gh-pages cleanup commit")
     assert "git archive" in _step_run(cleanup, "Materialize GitHub Pages payload")
     assert _step_uses(cleanup, "Upload GitHub Pages artifact").startswith(
         "actions/upload-pages-artifact@"
@@ -323,6 +315,7 @@ def test_update_thumbnail_persistence_and_cleanup_stay_bounded() -> None:
 
 
 def test_refresh_python_locks_workflow_uses_dependabot_and_make_lock_contract() -> None:
+    """Refresh python locks workflow uses dependabot and make lock contract."""
     workflow = _load_workflow("refresh-python-locks.yml")
     on_block = _workflow_on(workflow)
     refresh = _job(workflow, "refresh-locks")
@@ -338,9 +331,8 @@ def test_refresh_python_locks_workflow_uses_dependabot_and_make_lock_contract() 
     )
 
 
-def test_commit_python_locks_workflow_keeps_validation_and_verified_commit_steps() -> (
-    None
-):
+def test_commit_python_locks_workflow_keeps_validation_and_verified_commit_steps() -> None:
+    """Commit python locks workflow keeps validation and verified commit steps."""
     workflow = _load_workflow("commit-python-locks.yml")
     on_block = _workflow_on(workflow)
     commit = _job(workflow, "commit-locks")
@@ -350,24 +342,21 @@ def test_commit_python_locks_workflow_keeps_validation_and_verified_commit_steps
     assert "Refresh Python Locks" in commit["if"]
     assert "workflow_run.event == 'pull_request'" in commit["if"]
     assert "read-lock-metadata" in _step_run(commit, "Read refresh metadata")
-    assert "validate-lock-artifact" in _step_run(
-        commit, "Validate downloaded artifact contents"
-    )
+    assert "validate-lock-artifact" in _step_run(commit, "Validate downloaded artifact contents")
     assert _step_uses(commit, "Commit refreshed Python lock files (verified)") == (
         "./.github/actions/verified-commit"
     )
 
 
 def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
+    """Audit and refresh action workflows keep expected entrypoints."""
     audit = _load_workflow("audit-repo-settings.yml")
     live_smoke = _load_workflow("live-site-smoke.yml")
     refresh = _load_workflow("refresh-action-shas.yml")
 
     assert set(_workflow_on(audit)) == {"workflow_dispatch", "schedule"}
     assert _workflow_on(audit)["schedule"] == [{"cron": "23 8 * * 1"}]
-    assert "audit-repo-settings" in _step_run(
-        _job(audit, "audit"), "Audit repository settings"
-    )
+    assert "audit-repo-settings" in _step_run(_job(audit, "audit"), "Audit repository settings")
     audit_job = _job(audit, "audit")
     audit_run = _step_run(audit_job, "Audit repository settings")
     assert audit_job["permissions"] == {"contents": "read", "issues": "write"}
@@ -386,19 +375,13 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert smoke_job["permissions"] == {"contents": "read", "issues": "write"}
     assert _step_uses(smoke_job, "CI setup") == "./.github/actions/ci-setup"
     assert (
-        _step_run(smoke_job, "Run published-site browser verification")
-        .strip()
-        .startswith("set +e")
+        _step_run(smoke_job, "Run published-site browser verification").strip().startswith("set +e")
     )
     assert "make test-browser-live" in _step_run(
         smoke_job, "Run published-site browser verification"
     )
-    assert "sync-alert-issue" in _step_run(
-        smoke_job, "Open or update live-site smoke issue"
-    )
-    assert "sync-alert-issue" in _step_run(
-        smoke_job, "Close live-site smoke issue when clean"
-    )
+    assert "sync-alert-issue" in _step_run(smoke_job, "Open or update live-site smoke issue")
+    assert "sync-alert-issue" in _step_run(smoke_job, "Close live-site smoke issue when clean")
 
     assert set(_workflow_on(refresh)) == {"schedule", "workflow_dispatch"}
     assert _workflow_on(refresh)["schedule"] == [{"cron": "0 3 1 * *"}]
@@ -409,6 +392,7 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
 
 
 def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
+    """Scheduled maintenance workflows always create pull requests."""
     workflows = {
         "refresh-action-shas.yml": "ci/refresh-action-shas",
         "refresh-locks.yml": "ci/refresh-locks",
@@ -426,34 +410,24 @@ def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
         token_inputs = _step_with(refresh, "Create escalation token")
         token_uses = _step_uses(refresh, "Create escalation token")
         assert CREATE_APP_TOKEN_SHA_PIN.fullmatch(token_uses), (
-            f"Expected actions/create-github-app-token pinned to a 40-char SHA, "
-            f"got {token_uses!r}"
+            f"Expected actions/create-github-app-token pinned to a 40-char SHA, got {token_uses!r}"
         )
         assert token_inputs["app-id"] == "${{ vars.ESCALATION_APP_ID }}"
-        assert (
-            token_inputs["private-key"] == "${{ secrets.ESCALATION_APP_PRIVATE_KEY }}"
-        )
+        assert token_inputs["private-key"] == "${{ secrets.ESCALATION_APP_PRIVATE_KEY }}"
 
         commit_inputs = _step_with(refresh, "Commit changes (verified)")
-        assert (
-            commit_inputs["github-token"]
-            == "${{ steps.escalation-token.outputs.token }}"
-        )
-        assert (
-            commit_inputs["base-branch"]
-            == "${{ github.event.repository.default_branch }}"
-        )
+        assert commit_inputs["github-token"] == "${{ steps.escalation-token.outputs.token }}"
+        assert commit_inputs["base-branch"] == "${{ github.event.repository.default_branch }}"
         assert commit_inputs["commit-mode"] == "force-pr"
         assert commit_inputs["fallback-branch-prefix"] == fallback_branch_prefix
 
 
 def test_setup_python_steps_cache_pip() -> None:
+    """Setup python steps cache pip."""
     update = _load_workflow("update.yml")
     refresh = _load_workflow("refresh-python-locks.yml")
     ci_setup = yaml.safe_load(
-        (REPO_ROOT / ".github" / "actions" / "ci-setup" / "action.yml").read_text(
-            encoding="utf-8"
-        )
+        (REPO_ROOT / ".github" / "actions" / "ci-setup" / "action.yml").read_text(encoding="utf-8")
     )
 
     verify_step = _step(_job(update, "verify"), "Set up Python")
@@ -462,13 +436,9 @@ def test_setup_python_steps_cache_pip() -> None:
 
     refresh_step = _step(_job(refresh, "refresh-locks"), "Set up Python")
     assert refresh_step["with"]["cache"] == "pip"
-    assert (
-        refresh_step["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"
-    )
+    assert refresh_step["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"
 
     ci_setup_steps = ci_setup["runs"]["steps"]
     setup_python = next(s for s in ci_setup_steps if s.get("name") == "Set up Python")
     assert setup_python["with"]["cache"] == "pip"
-    assert (
-        setup_python["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"
-    )
+    assert setup_python["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"

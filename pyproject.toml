@@ -33,19 +33,60 @@ site_path = "/artifacts/"
 repository_url = "https://github.com/Hermione-Granger-1176/artifacts"
 
 [tool.pytest.ini_options]
-addopts = "-ra --cov=scripts/ --cov-report=term-missing --cov-fail-under=100"
+addopts = "-v --strict-markers --strict-config -ra --cov=scripts/ --cov-report=term-missing --cov-fail-under=100"
 testpaths = ["tests"]
 norecursedirs = [".git", ".venv", "node_modules", "_site", "__pycache__", "*.egg-info"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["scripts"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+  "@overload",
+]
 
 [tool.ruff]
 target-version = "py312"
-line-length = 88
+line-length = 100
 
 [tool.ruff.lint]
-select = ["B", "E", "F", "I", "UP", "W"]
-ignore = ["E501"]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "ARG", "SIM", "TC", "PTH", "RUF", "D"]
+ignore = ["D100", "D104", "D107"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D102", "TC003"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["scripts"]
 
 [tool.vulture]
 paths = ["scripts", "tests"]
-min_confidence = 100
+min_confidence = 60
+# TypedDict fields are read through string keys, so vulture only sees the
+# declarations: ThumbnailStats (attempted/generated/skipped), BadgeConfig
+# (alt/logo/logo_color), ArtifactItem (id), and ArtifactContract
+# (artifactIdPattern/artifactBasePath/thumbnailFile).
+ignore_names = [
+  "attempted",
+  "generated",
+  "skipped",
+  "alt",
+  "logo",
+  "logo_color",
+  "id",
+  "artifactIdPattern",
+  "artifactBasePath",
+  "thumbnailFile",
+]
 sort_by_size = true

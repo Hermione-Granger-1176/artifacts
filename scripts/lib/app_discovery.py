@@ -39,21 +39,16 @@ SHARED_APP_BROWSER_IMPACT_PATHS = {
     *SHARED_APP_RUNTIME_PATHS,
     *SHARED_APP_BROWSER_TEST_PATHS,
 }
-SHARED_APP_INFRA_PATHS = SHARED_APP_RUNTIME_IMPACT_PATHS
 
 
 def shared_app_runtime_paths(repo_root: Path) -> tuple[Path, ...]:
     """Return shared app runtime files rooted at ``repo_root``."""
-    return tuple(
-        repo_root / relative_path for relative_path in SHARED_APP_RUNTIME_FILES
-    )
+    return tuple(repo_root / relative_path for relative_path in SHARED_APP_RUNTIME_FILES)
 
 
 def artifact_uses_shared_app_runtime(artifact_dir: Path) -> bool:
     """Return whether one artifact opts into the shared app runtime."""
-    return any(
-        (artifact_dir / marker).exists() for marker in APP_SHARED_RUNTIME_MARKERS
-    )
+    return any((artifact_dir / marker).exists() for marker in APP_SHARED_RUNTIME_MARKERS)
 
 
 def discover_app_slugs(apps_root: Path = Path("apps")) -> list[str]:

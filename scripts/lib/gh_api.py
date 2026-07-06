@@ -31,9 +31,7 @@ def is_forbidden_gh_api_failure(message: str) -> bool:
     return bool(GH_API_FORBIDDEN_ERROR_PATTERN.search(message))
 
 
-def _build_failure_message(
-    description: str, stderr: str, required_permission: str | None
-) -> str:
+def _build_failure_message(description: str, stderr: str, required_permission: str | None) -> str:
     """Return the error message for a failed ``gh api`` call."""
     if not is_forbidden_gh_api_failure(stderr):
         return f"gh api {description} failed: {stderr}"
@@ -73,9 +71,7 @@ def _run_gh_command(
                 timeout=timeout_seconds,
             )
         except subprocess.TimeoutExpired as exc:
-            last_error = (
-                f"timed out after {timeout_seconds} seconds while {description}"
-            )
+            last_error = f"timed out after {timeout_seconds} seconds while {description}"
             if attempt < max_attempts:
                 logger.warning(
                     "Retrying gh api for %s after attempt %d/%d timed out.",
@@ -90,9 +86,7 @@ def _run_gh_command(
         if result.returncode == 0:
             return result.stdout
 
-        stderr = (
-            result.stderr.strip() or result.stdout.strip() or "unknown gh api error"
-        )
+        stderr = result.stderr.strip() or result.stdout.strip() or "unknown gh api error"
         last_error = stderr
         if attempt < max_attempts and is_retryable_gh_api_failure(stderr):
             logger.warning(
@@ -105,9 +99,7 @@ def _run_gh_command(
             sleep_fn(retry_delay_seconds * attempt)
             continue
 
-        raise RuntimeError(
-            _build_failure_message(description, stderr, required_permission)
-        )
+        raise RuntimeError(_build_failure_message(description, stderr, required_permission))
 
     raise RuntimeError(f"gh api {description} failed: {last_error or 'unknown error'}")
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts.lint.make_targets import (
     MAKEFILE_PATH,
@@ -15,10 +15,11 @@ from scripts.lint.make_targets import (
     load_makefile_targets,
 )
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def check_file(
-    path: Path, known_targets: set[str], root: Path | None = None
-) -> list[str]:
+
+def check_file(path: Path, known_targets: set[str], root: Path | None = None) -> list[str]:
     """Return unknown documented Make target references for one file."""
     workspace_root = root or REPO_ROOT
     relative_path = path.relative_to(workspace_root).as_posix()
@@ -34,9 +35,7 @@ def run_check(paths: list[Path] | None = None, root: Path | None = None) -> list
     """Run the documented Make target check and return all violations."""
     workspace_root = root or REPO_ROOT
     known_targets = load_makefile_targets(workspace_root / "Makefile")
-    candidate_paths = (
-        paths if paths is not None else iter_markdown_files(workspace_root)
-    )
+    candidate_paths = paths if paths is not None else iter_markdown_files(workspace_root)
     violations: list[str] = []
     for path in candidate_paths:
         violations.extend(check_file(path, known_targets, root=workspace_root))

@@ -11,11 +11,13 @@ import scripts.ci.run_security_audit as run_security_audit
 
 
 def write_text(path: Path, content: str) -> None:
+    """Write text."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
 
 def test_load_security_audit_exceptions_reads_valid_config(tmp_path: Path) -> None:
+    """Load security audit exceptions reads valid config."""
     config_file = tmp_path / "security_audit.json"
     write_text(
         config_file,
@@ -47,6 +49,7 @@ def test_load_security_audit_exceptions_reads_valid_config(tmp_path: Path) -> No
 def test_load_security_audit_exceptions_rejects_invalid_review_date(
     tmp_path: Path,
 ) -> None:
+    """Load security audit exceptions rejects invalid review date."""
     config_file = tmp_path / "security_audit.json"
     write_text(
         config_file,
@@ -71,11 +74,13 @@ def test_load_security_audit_exceptions_rejects_invalid_review_date(
 
 
 def test_load_security_audit_config_rejects_missing_file(tmp_path: Path) -> None:
+    """Load security audit config rejects missing file."""
     with pytest.raises(FileNotFoundError, match="Security audit config file not found"):
         run_security_audit._load_security_audit_config(tmp_path / "missing.json")
 
 
 def test_load_security_audit_config_rejects_non_object_root(tmp_path: Path) -> None:
+    """Load security audit config rejects non object root."""
     config_file = tmp_path / "security_audit.json"
     write_text(config_file, "[]")
 
@@ -86,6 +91,7 @@ def test_load_security_audit_config_rejects_non_object_root(tmp_path: Path) -> N
 def test_python_lock_files_reads_configured_paths(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Python lock files reads configured paths."""
     repo_root = tmp_path / "repo"
     config_file = repo_root / "config" / "security_audit.json"
     lock_a = repo_root / "locks" / "requirements.lock"
@@ -111,6 +117,7 @@ def test_python_lock_files_reads_configured_paths(
 def test_python_lock_files_falls_back_to_defaults(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Python lock files falls back to defaults."""
     repo_root = tmp_path / "repo"
     config_file = repo_root / "config" / "security_audit.json"
     lock_a = repo_root / "locks" / "requirements.lock"
@@ -127,6 +134,7 @@ def test_python_lock_files_falls_back_to_defaults(
 
 
 def test_python_lock_files_rejects_invalid_config_shape(tmp_path: Path) -> None:
+    """Python lock files rejects invalid config shape."""
     config_file = tmp_path / "security_audit.json"
     write_text(
         config_file,
@@ -140,6 +148,7 @@ def test_python_lock_files_rejects_invalid_config_shape(tmp_path: Path) -> None:
 def test_python_lock_files_rejects_missing_configured_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Python lock files rejects missing configured file."""
     repo_root = tmp_path / "repo"
     config_file = repo_root / "config" / "security_audit.json"
     write_text(
@@ -155,6 +164,7 @@ def test_python_lock_files_rejects_missing_configured_file(
 def test_load_security_audit_exceptions_rejects_invalid_entries_list(
     tmp_path: Path,
 ) -> None:
+    """Load security audit exceptions rejects invalid entries list."""
     config_file = tmp_path / "security_audit.json"
     write_text(config_file, '{"python_vulnerability_exceptions": {}}')
 
@@ -165,6 +175,7 @@ def test_load_security_audit_exceptions_rejects_invalid_entries_list(
 def test_load_security_audit_exceptions_rejects_non_object_entry(
     tmp_path: Path,
 ) -> None:
+    """Load security audit exceptions rejects non object entry."""
     config_file = tmp_path / "security_audit.json"
     write_text(config_file, '{"python_vulnerability_exceptions": ["bad"]}')
 
@@ -175,6 +186,7 @@ def test_load_security_audit_exceptions_rejects_non_object_entry(
 def test_load_security_audit_exceptions_rejects_missing_required_fields(
     tmp_path: Path,
 ) -> None:
+    """Load security audit exceptions rejects missing required fields."""
     config_file = tmp_path / "security_audit.json"
     write_text(config_file, '{"python_vulnerability_exceptions": [{"id": "CVE-1"}]}')
 
@@ -185,6 +197,7 @@ def test_load_security_audit_exceptions_rejects_missing_required_fields(
 def test_load_security_audit_exceptions_rejects_invalid_ignore_flag(
     tmp_path: Path,
 ) -> None:
+    """Load security audit exceptions rejects invalid ignore flag."""
     config_file = tmp_path / "security_audit.json"
     write_text(
         config_file,
@@ -211,6 +224,7 @@ def test_load_security_audit_exceptions_rejects_invalid_ignore_flag(
 def test_relative_path_returns_repo_relative(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Relative path returns repo relative."""
     repo_root = tmp_path / "repo"
     lock_file = repo_root / "locks" / "requirements.lock"
     write_text(lock_file, "pkg==1.0\n")
@@ -219,9 +233,8 @@ def test_relative_path_returns_repo_relative(
     assert run_security_audit._relative_path(lock_file) == "locks/requirements.lock"
 
 
-def test_run_pip_audit_parses_valid_output(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_pip_audit_parses_valid_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run pip audit parses valid output."""
     repo_root = tmp_path / "repo"
     lock_file = repo_root / "locks" / "requirements-dev.lock"
     write_text(lock_file, "pkg==1.0\n")
@@ -229,9 +242,13 @@ def test_run_pip_audit_parses_valid_output(
     monkeypatch.setattr(
         run_security_audit.subprocess,
         "run",
-        lambda *args, **kwargs: SimpleNamespace(
+        lambda *_args, **_kwargs: SimpleNamespace(
             returncode=1,
-            stdout='{"dependencies": [{"name": "pygments", "version": "2.19.2", "vulns": [{"id": "CVE-2026-4539", "aliases": ["GHSA-5239-wwwm-4pmq"], "fix_versions": []}]}]}',
+            stdout=(
+                '{"dependencies": [{"name": "pygments", "version": "2.19.2", '
+                '"vulns": [{"id": "CVE-2026-4539", '
+                '"aliases": ["GHSA-5239-wwwm-4pmq"], "fix_versions": []}]}]}'
+            ),
             stderr="",
         ),
     )
@@ -253,6 +270,7 @@ def test_run_pip_audit_parses_valid_output(
 def test_run_pip_audit_rejects_subprocess_failures(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Run pip audit rejects subprocess failures."""
     repo_root = tmp_path / "repo"
     lock_file = repo_root / "locks" / "requirements-dev.lock"
     write_text(lock_file, "pkg==1.0\n")
@@ -260,22 +278,21 @@ def test_run_pip_audit_rejects_subprocess_failures(
     monkeypatch.setattr(
         run_security_audit.subprocess,
         "run",
-        lambda *args, **kwargs: SimpleNamespace(returncode=2, stdout="", stderr="boom"),
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=2, stdout="", stderr="boom"),
     )
 
     with pytest.raises(RuntimeError, match="pip-audit failed"):
         run_security_audit._run_pip_audit(lock_file)
 
 
-def test_run_pip_audit_raises_on_timeout(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_pip_audit_raises_on_timeout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run pip audit raises on timeout."""
     repo_root = tmp_path / "repo"
     lock_file = repo_root / "locks" / "requirements-dev.lock"
     write_text(lock_file, "pkg==1.0\n")
     monkeypatch.setattr(run_security_audit, "REPO_ROOT", repo_root)
 
-    def _timeout_run(*args: object, **kwargs: object) -> None:
+    def _timeout_run(*_args: object, **kwargs: object) -> None:
         raise subprocess.TimeoutExpired(["pip-audit"], kwargs.get("timeout", 120))
 
     monkeypatch.setattr(run_security_audit.subprocess, "run", _timeout_run)
@@ -287,6 +304,7 @@ def test_run_pip_audit_raises_on_timeout(
 def test_run_pip_audit_rejects_invalid_json(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Run pip audit rejects invalid json."""
     repo_root = tmp_path / "repo"
     lock_file = repo_root / "locks" / "requirements-dev.lock"
     write_text(lock_file, "pkg==1.0\n")
@@ -294,9 +312,7 @@ def test_run_pip_audit_rejects_invalid_json(
     monkeypatch.setattr(
         run_security_audit.subprocess,
         "run",
-        lambda *args, **kwargs: SimpleNamespace(
-            returncode=1, stdout="not-json", stderr=""
-        ),
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=1, stdout="not-json", stderr=""),
     )
 
     with pytest.raises(ValueError, match="invalid JSON"):
@@ -310,13 +326,16 @@ def test_run_pip_audit_rejects_invalid_json(
         '{"dependencies": [1]}',
         '{"dependencies": [{"name": "pkg", "version": "1.0", "vulns": {}}]}',
         '{"dependencies": [{"name": "pkg", "version": "1.0", "vulns": [1]}]}',
-        '{"dependencies": [{"name": "pkg", "version": "1.0", "vulns": [{"id": "CVE-1", "aliases": {}}]}]}',
-        '{"dependencies": [{"name": "pkg", "version": "1.0", "vulns": [{"id": "CVE-1", "aliases": [], "fix_versions": {}}]}]}',
+        '{"dependencies": [{"name": "pkg", "version": "1.0", '
+        '"vulns": [{"id": "CVE-1", "aliases": {}}]}]}',
+        '{"dependencies": [{"name": "pkg", "version": "1.0", '
+        '"vulns": [{"id": "CVE-1", "aliases": [], "fix_versions": {}}]}]}',
     ],
 )
 def test_run_pip_audit_rejects_invalid_dependency_shape(
     payload: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Run pip audit rejects invalid dependency shape."""
     repo_root = tmp_path / "repo"
     lock_file = repo_root / "locks" / "requirements-dev.lock"
     write_text(lock_file, "pkg==1.0\n")
@@ -325,7 +344,7 @@ def test_run_pip_audit_rejects_invalid_dependency_shape(
     monkeypatch.setattr(
         run_security_audit.subprocess,
         "run",
-        lambda *args, **kwargs: SimpleNamespace(
+        lambda *_args, **_kwargs: SimpleNamespace(
             returncode=1,
             stdout=payload,
             stderr="",
@@ -337,6 +356,7 @@ def test_run_pip_audit_rejects_invalid_dependency_shape(
 
 
 def test_audit_python_dependencies_reports_unused_exception() -> None:
+    """Audit python dependencies reports unused exception."""
     exceptions = (
         run_security_audit.VulnerabilityExceptionEntry(
             vulnerability_id="CVE-2026-4539",
@@ -363,6 +383,7 @@ def test_audit_python_dependencies_reports_unused_exception() -> None:
 def test_audit_python_dependencies_allows_reviewed_unfixed_vulnerability(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Audit python dependencies allows reviewed unfixed vulnerability."""
     exceptions = (
         run_security_audit.VulnerabilityExceptionEntry(
             vulnerability_id="CVE-2026-4539",
@@ -398,6 +419,7 @@ def test_audit_python_dependencies_allows_reviewed_unfixed_vulnerability(
 def test_audit_python_dependencies_rejects_exception_when_fix_exists(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Audit python dependencies rejects exception when fix exists."""
     exceptions = (
         run_security_audit.VulnerabilityExceptionEntry(
             vulnerability_id="CVE-2026-4539",
@@ -428,13 +450,16 @@ def test_audit_python_dependencies_rejects_exception_when_fix_exists(
 
     assert ignored == ()
     assert errors == (
-        "Python vulnerability exception must be removed because fixes are available: locks/requirements-dev.lock pygments CVE-2026-4539 fix_versions=2.19.3",
+        "Python vulnerability exception must be removed because fixes are "
+        "available: locks/requirements-dev.lock pygments CVE-2026-4539 "
+        "fix_versions=2.19.3",
     )
 
 
 def test_audit_python_dependencies_rejects_expired_exception(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Audit python dependencies rejects expired exception."""
     exceptions = (
         run_security_audit.VulnerabilityExceptionEntry(
             vulnerability_id="CVE-2026-4539",
@@ -465,13 +490,15 @@ def test_audit_python_dependencies_rejects_expired_exception(
 
     assert ignored == ()
     assert errors == (
-        "Expired Python vulnerability exception: locks/requirements-dev.lock pygments CVE-2026-4539 review_by=2026-03-01",
+        "Expired Python vulnerability exception: locks/requirements-dev.lock "
+        "pygments CVE-2026-4539 review_by=2026-03-01",
     )
 
 
 def test_audit_python_dependencies_rejects_unreviewed_vulnerability(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Audit python dependencies rejects unreviewed vulnerability."""
     findings = (
         run_security_audit.VulnerabilityFinding(
             vulnerability_id="CVE-2026-4539",
@@ -492,13 +519,15 @@ def test_audit_python_dependencies_rejects_unreviewed_vulnerability(
 
     assert ignored == ()
     assert errors == (
-        "Unreviewed Python vulnerability: locks/requirements-dev.lock pygments 2.19.2 CVE-2026-4539",
+        "Unreviewed Python vulnerability: locks/requirements-dev.lock "
+        "pygments 2.19.2 CVE-2026-4539",
     )
 
 
 def test_main_reports_success_with_reviewed_exceptions(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Main reports success with reviewed exceptions."""
     exception = run_security_audit.VulnerabilityExceptionEntry(
         vulnerability_id="CVE-2026-4539",
         package="pygments",
@@ -528,7 +557,7 @@ def test_main_reports_success_with_reviewed_exceptions(
     monkeypatch.setattr(
         run_security_audit,
         "_audit_python_dependencies",
-        lambda **kwargs: (((finding, exception),), ()),
+        lambda *_args, **_kwargs: (((finding, exception),), ()),
     )
 
     assert run_security_audit.main() == 0
@@ -540,14 +569,13 @@ def test_main_reports_success_with_reviewed_exceptions(
 def test_main_reports_errors(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr(
-        run_security_audit, "_load_security_audit_exceptions", lambda: ()
-    )
+    """Main reports errors."""
+    monkeypatch.setattr(run_security_audit, "_load_security_audit_exceptions", lambda: ())
     monkeypatch.setattr(run_security_audit, "_python_lock_files", lambda: ())
     monkeypatch.setattr(
         run_security_audit,
         "_audit_python_dependencies",
-        lambda **kwargs: ((), ("boom",)),
+        lambda *_args, **_kwargs: ((), ("boom",)),
     )
 
     assert run_security_audit.main() == 1

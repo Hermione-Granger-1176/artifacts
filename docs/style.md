@@ -16,14 +16,16 @@ Summary of settings:
 ## Python
 
 - **Indent:** 4 spaces
-- **Line length:** 88 characters (black-compatible)
+- **Line length:** 100 characters, enforced by ruff lint and format
 - **Linter:** ruff, configured in `pyproject.toml`
-- **Rule sets:** B (bugbear), E (pycodestyle), F (pyflakes), I (isort), UP (pyupgrade), W (warnings)
+- **Rule sets:** E/W (pycodestyle), F (pyflakes), I (isort), B (bugbear), C4 (comprehensions), UP (pyupgrade), ARG (unused arguments), SIM (simplify), TC (type-checking imports), PTH (pathlib), RUF (ruff-specific), D (pydocstyle)
 - **Target:** Python 3.12+
-- **Docstrings:** required on all public functions, one-line or multi-line Google style
+- **Docstrings:** required on public functions, classes, and methods (ruff D rules), one-line or multi-line Google style
 - **Type hints:** use `from __future__ import annotations` for modern syntax
-- **Imports:** sorted by isort (enforced by ruff rule I)
-- **Dead code:** vulture checks scripts and tests using the shared `pyproject.toml` configuration
+- **Imports:** sorted by isort (enforced by ruff rule I); imports used only in annotations move into `if TYPE_CHECKING:` blocks (ruff TC rules)
+- **Dead code:** vulture checks scripts and tests at minimum confidence 60 using the shared `pyproject.toml` configuration; names that vulture cannot see used dynamically (for example TypedDict fields) live in `ignore_names`
+- **Coverage:** pytest enforces 100% line and branch coverage for `scripts/`
+- **Warnings:** pytest promotes warnings to errors (`filterwarnings`), so fix warnings at the source
 - **Private functions:** prefix with a leading underscore
 - **Entry points:** guard `if __name__ == "__main__":` blocks with `# pragma: no cover`
 

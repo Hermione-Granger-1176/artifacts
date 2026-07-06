@@ -24,6 +24,7 @@ def _write_text(path: Path, content: str) -> None:
 def test_find_artifacts_returns_only_visible_dirs_with_index_html(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Find artifacts returns only visible dirs with index html."""
     apps_dir = tmp_path / "apps"
     apps_dir.mkdir()
 
@@ -42,6 +43,7 @@ def test_find_artifacts_returns_only_visible_dirs_with_index_html(
 def test_find_artifacts_emits_debug_log_for_apps_dir(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
+    """Find artifacts emits debug log for apps dir."""
     apps_dir = tmp_path / "apps"
     apps_dir.mkdir()
     monkeypatch.setattr(generate_thumbnails, "APPS_DIR", apps_dir)
@@ -55,6 +57,7 @@ def test_find_artifacts_emits_debug_log_for_apps_dir(
 def test_find_artifacts_returns_empty_when_apps_dir_is_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Find artifacts returns empty when apps dir is missing."""
     monkeypatch.setattr(generate_thumbnails, "APPS_DIR", tmp_path / "missing-apps")
 
     assert generate_thumbnails.find_artifacts() == []
@@ -63,6 +66,7 @@ def test_find_artifacts_returns_empty_when_apps_dir_is_missing(
 def test_find_artifacts_honors_configured_slug_scope(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Find artifacts honors configured slug scope."""
     apps_dir = tmp_path / "apps"
     apps_dir.mkdir()
     _write_text(apps_dir / "loan-tool" / "index.html", "<html></html>")
@@ -76,6 +80,7 @@ def test_find_artifacts_honors_configured_slug_scope(
 
 
 def test_save_thumbnail_resizes_and_writes_webp(tmp_path: Path) -> None:
+    """Save thumbnail resizes and writes webp."""
     source = Image.new("RGB", (1920, 1080), color="#202020")
     buffer = BytesIO()
     source.save(buffer, format="PNG")
@@ -90,6 +95,7 @@ def test_save_thumbnail_resizes_and_writes_webp(tmp_path: Path) -> None:
 
 
 def test_should_generate_thumbnail_when_missing_or_stale(tmp_path: Path) -> None:
+    """Should generate thumbnail when missing or stale."""
     artifact_dir = tmp_path / "loan-tool"
     _write_text(artifact_dir / "index.html", "<html></html>")
 
@@ -110,6 +116,7 @@ def test_should_generate_thumbnail_when_missing_or_stale(tmp_path: Path) -> None
 def test_should_generate_thumbnail_when_runtime_dependency_is_newer(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Should generate thumbnail when runtime dependency is newer."""
     repo_root = tmp_path / "repo"
     artifact_dir = repo_root / "apps" / "loan-tool"
     thumb_path = artifact_dir / generate_thumbnails.SCREENSHOT_FILE
@@ -117,9 +124,7 @@ def test_should_generate_thumbnail_when_runtime_dependency_is_newer(
     _write_text(artifact_dir / "js" / "app.js", "export {};\n")
     _write_text(repo_root / "css" / "style.css", "body {}\n")
     _write_text(repo_root / "js" / "app-theme.js", "window.ok = true;\n")
-    _write_text(
-        repo_root / "js" / "modules" / "app-shell.js", "export const ok = true;\n"
-    )
+    _write_text(repo_root / "js" / "modules" / "app-shell.js", "export const ok = true;\n")
     thumb_path.write_bytes(b"thumb")
 
     monkeypatch.setattr(generate_thumbnails, "REPO_ROOT", repo_root)
@@ -144,6 +149,7 @@ def test_should_generate_thumbnail_when_runtime_dependency_is_newer(
 def test_should_generate_thumbnail_when_shared_stylesheet_is_newer(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Should generate thumbnail when shared stylesheet is newer."""
     repo_root = tmp_path / "repo"
     artifact_dir = repo_root / "apps" / "loan-tool"
     thumb_path = artifact_dir / generate_thumbnails.SCREENSHOT_FILE
@@ -152,9 +158,7 @@ def test_should_generate_thumbnail_when_shared_stylesheet_is_newer(
     stylesheet = repo_root / "css" / "style.css"
     _write_text(stylesheet, "body {}\n")
     _write_text(repo_root / "js" / "app-theme.js", "window.ok = true;\n")
-    _write_text(
-        repo_root / "js" / "modules" / "app-shell.js", "export const ok = true;\n"
-    )
+    _write_text(repo_root / "js" / "modules" / "app-shell.js", "export const ok = true;\n")
     thumb_path.write_bytes(b"thumb")
 
     monkeypatch.setattr(generate_thumbnails, "REPO_ROOT", repo_root)
@@ -177,6 +181,7 @@ def test_should_generate_thumbnail_when_shared_stylesheet_is_newer(
 
 
 def test_summarize_formats_stats() -> None:
+    """Summarize formats stats."""
     summary = generate_thumbnails._summarize(
         {
             "total": 3,
@@ -192,6 +197,7 @@ def test_summarize_formats_stats() -> None:
 
 
 def test_retry_delay_seconds_is_bounded() -> None:
+    """Retry delay seconds is bounded."""
     assert generate_thumbnails._retry_delay_seconds(1) == 0.5
     assert generate_thumbnails._retry_delay_seconds(2) == 1.0
     assert generate_thumbnails._retry_delay_seconds(3) == 2.0
@@ -201,6 +207,7 @@ def test_retry_delay_seconds_is_bounded() -> None:
 def test_generate_thumbnails_returns_early_when_no_artifacts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Generate thumbnails returns early when no artifacts."""
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [])
 
     assert generate_thumbnails.generate_thumbnails() == {
@@ -215,18 +222,15 @@ def test_generate_thumbnails_returns_early_when_no_artifacts(
 def test_generate_thumbnails_writes_manifest_when_requested(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """Generate thumbnails writes manifest when requested."""
     artifact_dir = tmp_path / "loan-tool"
     _write_text(artifact_dir / "index.html", "<html></html>")
     manifest_path = tmp_path / "manifest.json"
     monkeypatch.setattr(generate_thumbnails, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
-    monkeypatch.setenv(
-        generate_thumbnails.THUMBNAIL_MANIFEST_ENV_VAR, str(manifest_path)
-    )
+    monkeypatch.setenv(generate_thumbnails.THUMBNAIL_MANIFEST_ENV_VAR, str(manifest_path))
     _patch_playwright(monkeypatch)
-    monkeypatch.setattr(
-        generate_thumbnails, "should_generate_thumbnail", lambda _path: False
-    )
+    monkeypatch.setattr(generate_thumbnails, "should_generate_thumbnail", lambda _path: False)
 
     stats = generate_thumbnails.generate_thumbnails()
 
@@ -238,6 +242,7 @@ def test_generate_thumbnails_writes_manifest_when_requested(
 def test_generate_thumbnails_rejects_manifest_outside_repo_root(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """Generate thumbnails rejects manifest outside repo root."""
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     artifact_dir = repo_root / "loan-tool"
@@ -245,19 +250,16 @@ def test_generate_thumbnails_rejects_manifest_outside_repo_root(
     outside_path = tmp_path / "elsewhere" / "manifest.json"
     monkeypatch.setattr(generate_thumbnails, "REPO_ROOT", repo_root)
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
-    monkeypatch.setenv(
-        generate_thumbnails.THUMBNAIL_MANIFEST_ENV_VAR, str(outside_path)
-    )
+    monkeypatch.setenv(generate_thumbnails.THUMBNAIL_MANIFEST_ENV_VAR, str(outside_path))
     _patch_playwright(monkeypatch)
-    monkeypatch.setattr(
-        generate_thumbnails, "should_generate_thumbnail", lambda _path: False
-    )
+    monkeypatch.setattr(generate_thumbnails, "should_generate_thumbnail", lambda _path: False)
 
     with pytest.raises(ValueError, match="escapes repository root"):
         generate_thumbnails.generate_thumbnails()
 
 
 def test_artifact_url_prefers_http_base_when_configured(tmp_path: Path) -> None:
+    """Artifact url prefers http base when configured."""
     artifact_dir = tmp_path / "apps" / "loan-tool"
     artifact_dir.mkdir(parents=True)
     previous_base_url = generate_thumbnails.ARTIFACT_BASE_URL
@@ -272,6 +274,7 @@ def test_artifact_url_prefers_http_base_when_configured(tmp_path: Path) -> None:
 
 
 def test_artifact_url_falls_back_to_file_uri(tmp_path: Path) -> None:
+    """Artifact url falls back to file uri."""
     artifact_dir = tmp_path / "apps" / "loan-tool"
     _write_text(artifact_dir / "index.html", "<html></html>")
     previous_base_url = generate_thumbnails.ARTIFACT_BASE_URL
@@ -283,12 +286,14 @@ def test_artifact_url_falls_back_to_file_uri(tmp_path: Path) -> None:
 
 
 def test_quiet_static_handler_log_message_is_noop() -> None:
+    """Quiet static handler log message is noop."""
     generate_thumbnails.QuietStaticHandler.log_message(object(), "%s", "ignored")
 
 
 def test_generate_thumbnails_exits_when_playwright_is_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Generate thumbnails exits when playwright is missing."""
     artifact_dir = tmp_path / "loan-tool"
     _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
@@ -316,6 +321,8 @@ def test_generate_thumbnails_exits_when_playwright_is_missing(
 
 
 class FakePage:
+    """Fake Page."""
+
     def __init__(
         self,
         fail_goto: bool = False,
@@ -358,6 +365,8 @@ class FakePage:
 
 
 class FakeBrowser:
+    """Fake Browser."""
+
     def __init__(
         self,
         fail_goto: bool = False,
@@ -374,9 +383,7 @@ class FakeBrowser:
         self.closed = False
         self.pages: list[FakePage] = []
 
-    async def new_page(
-        self, viewport: dict[str, int], device_scale_factor: int
-    ) -> FakePage:
+    async def new_page(self, viewport: dict[str, int], device_scale_factor: int) -> FakePage:
         if self._fail_new_page:
             raise RuntimeError("new_page failed")
         assert viewport == {
@@ -398,6 +405,8 @@ class FakeBrowser:
 
 
 class FakePlaywright:
+    """Fake Playwright."""
+
     def __init__(
         self,
         fail_goto: bool = False,
@@ -422,6 +431,8 @@ class FakePlaywright:
 
 
 class FakeAsyncPlaywright:
+    """Fake Async Playwright."""
+
     def __init__(
         self,
         fail_goto: bool = False,
@@ -438,6 +449,7 @@ class FakeAsyncPlaywright:
         self.playwright: FakePlaywright | None = None
 
     async def __aenter__(self) -> FakePlaywright:
+        """Enter the async context manager and return the resource."""
         self.playwright = FakePlaywright(
             fail_goto=self._fail_goto,
             transient_failures=self._transient_failures,
@@ -448,6 +460,7 @@ class FakeAsyncPlaywright:
         return self.playwright
 
     async def __aexit__(self, exc_type: object, exc: object, _tb: object) -> None:
+        """Exit the async context manager and release the resource."""
         return None
 
 
@@ -498,6 +511,7 @@ def _patch_sleep(monkeypatch: pytest.MonkeyPatch) -> list[float]:
 def test_generate_thumbnails_processes_artifacts_and_closes_browser(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Generate thumbnails processes artifacts and closes browser."""
     artifact_dir = tmp_path / "loan-tool"
     _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
@@ -510,9 +524,7 @@ def test_generate_thumbnails_processes_artifacts_and_closes_browser(
         "save_thumbnail",
         lambda image_bytes, thumb_path: save_calls.append((image_bytes, thumb_path)),
     )
-    monkeypatch.setattr(
-        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
-    )
+    monkeypatch.setattr(generate_thumbnails, "should_generate_thumbnail", lambda _path: True)
 
     stats = generate_thumbnails.generate_thumbnails()
 
@@ -526,20 +538,17 @@ def test_generate_thumbnails_processes_artifacts_and_closes_browser(
         "skipped": 0,
         "failed": 0,
     }
-    assert save_calls == [
-        (b"png-bytes", artifact_dir / generate_thumbnails.SCREENSHOT_FILE)
-    ]
+    assert save_calls == [(b"png-bytes", artifact_dir / generate_thumbnails.SCREENSHOT_FILE)]
 
 
 def test_generate_thumbnails_skips_up_to_date_artifacts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Generate thumbnails skips up to date artifacts."""
     artifact_dir = tmp_path / "loan-tool"
     _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
-    monkeypatch.setattr(
-        generate_thumbnails, "should_generate_thumbnail", lambda _path: False
-    )
+    monkeypatch.setattr(generate_thumbnails, "should_generate_thumbnail", lambda _path: False)
 
     _patch_playwright(monkeypatch)
 
@@ -555,12 +564,11 @@ def test_generate_thumbnails_skips_up_to_date_artifacts(
 def test_generate_thumbnails_retries_transient_failures_then_succeeds(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Generate thumbnails retries transient failures then succeeds."""
     artifact_dir = tmp_path / "loan-tool"
     _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
-    monkeypatch.setattr(
-        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
-    )
+    monkeypatch.setattr(generate_thumbnails, "should_generate_thumbnail", lambda _path: True)
 
     save_calls: list[tuple[bytes, Path]] = []
 
@@ -582,9 +590,7 @@ def test_generate_thumbnails_retries_transient_failures_then_succeeds(
         "skipped": 0,
         "failed": 0,
     }
-    assert save_calls == [
-        (b"png-bytes", artifact_dir / generate_thumbnails.SCREENSHOT_FILE)
-    ]
+    assert save_calls == [(b"png-bytes", artifact_dir / generate_thumbnails.SCREENSHOT_FILE)]
 
 
 def test_generate_thumbnails_logs_warning_for_failed_screenshot(
@@ -592,12 +598,11 @@ def test_generate_thumbnails_logs_warning_for_failed_screenshot(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    """Generate thumbnails logs warning for failed screenshot."""
     artifact_dir = tmp_path / "loan-tool"
     _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
-    monkeypatch.setattr(
-        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
-    )
+    monkeypatch.setattr(generate_thumbnails, "should_generate_thumbnail", lambda _path: True)
 
     caplog.set_level("WARNING")
     fake_cm = _patch_playwright(monkeypatch, fail_goto=True)
@@ -606,9 +611,7 @@ def test_generate_thumbnails_logs_warning_for_failed_screenshot(
     with pytest.raises(RuntimeError, match="failed for every attempted artifact"):
         generate_thumbnails.generate_thumbnails()
 
-    assert any(
-        "Failed to screenshot loan-tool" in record.message for record in caplog.records
-    )
+    assert any("Failed to screenshot loan-tool" in record.message for record in caplog.records)
     assert fake_cm.playwright is not None
     assert fake_cm.playwright.browser.closed is True
     assert all(page.closed for page in fake_cm.playwright.browser.pages)
@@ -617,12 +620,11 @@ def test_generate_thumbnails_logs_warning_for_failed_screenshot(
 def test_generate_thumbnails_raises_when_all_attempts_fail(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Generate thumbnails raises when all attempts fail."""
     artifact_dir = tmp_path / "loan-tool"
     _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
-    monkeypatch.setattr(
-        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
-    )
+    monkeypatch.setattr(generate_thumbnails, "should_generate_thumbnail", lambda _path: True)
 
     _patch_playwright(monkeypatch, fail_goto=True)
     _patch_sleep(monkeypatch)
@@ -634,6 +636,7 @@ def test_generate_thumbnails_raises_when_all_attempts_fail(
 def test_generate_thumbnails_processes_multiple_artifacts_concurrently(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Generate thumbnails processes multiple artifacts concurrently."""
     dirs = []
     for name in ("alpha", "beta", "gamma"):
         d = tmp_path / name
@@ -641,9 +644,7 @@ def test_generate_thumbnails_processes_multiple_artifacts_concurrently(
         dirs.append(d)
 
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: dirs)
-    monkeypatch.setattr(
-        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
-    )
+    monkeypatch.setattr(generate_thumbnails, "should_generate_thumbnail", lambda _path: True)
 
     save_calls: list[tuple[bytes, Path]] = []
 
@@ -672,12 +673,11 @@ def test_generate_thumbnails_processes_multiple_artifacts_concurrently(
 def test_generate_thumbnails_handles_page_creation_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Generate thumbnails handles page creation failure."""
     artifact_dir = tmp_path / "loan-tool"
     _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
-    monkeypatch.setattr(
-        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
-    )
+    monkeypatch.setattr(generate_thumbnails, "should_generate_thumbnail", lambda _path: True)
 
     fake_cm = _patch_playwright(monkeypatch, fail_new_page=True)
     _patch_sleep(monkeypatch)
@@ -692,12 +692,11 @@ def test_generate_thumbnails_handles_page_creation_failure(
 def test_generate_thumbnails_tolerates_page_close_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Generate thumbnails tolerates page close failure."""
     artifact_dir = tmp_path / "loan-tool"
     _write_text(artifact_dir / "index.html", "<html></html>")
     monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [artifact_dir])
-    monkeypatch.setattr(
-        generate_thumbnails, "should_generate_thumbnail", lambda _path: True
-    )
+    monkeypatch.setattr(generate_thumbnails, "should_generate_thumbnail", lambda _path: True)
 
     save_calls: list[tuple[bytes, Path]] = []
 
@@ -725,14 +724,13 @@ def test_generate_thumbnails_tolerates_page_close_failure(
 def test_generate_thumbnails_tolerates_partial_failures_by_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Generate thumbnails tolerates partial failures by default."""
     successful = tmp_path / "alpha"
     failing = tmp_path / "beta"
     _write_text(successful / "index.html", "<html></html>")
     _write_text(failing / "index.html", "<html></html>")
 
-    monkeypatch.setattr(
-        generate_thumbnails, "find_artifacts", lambda: [successful, failing]
-    )
+    monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [successful, failing])
     monkeypatch.delenv(generate_thumbnails.STRICT_THUMBNAILS_ENV_VAR, raising=False)
 
     original_process = generate_thumbnails._process_artifact
@@ -763,14 +761,13 @@ def test_generate_thumbnails_tolerates_partial_failures_by_default(
 def test_generate_thumbnails_strict_mode_fails_on_partial_failures(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Generate thumbnails strict mode fails on partial failures."""
     successful = tmp_path / "alpha"
     failing = tmp_path / "beta"
     _write_text(successful / "index.html", "<html></html>")
     _write_text(failing / "index.html", "<html></html>")
 
-    monkeypatch.setattr(
-        generate_thumbnails, "find_artifacts", lambda: [successful, failing]
-    )
+    monkeypatch.setattr(generate_thumbnails, "find_artifacts", lambda: [successful, failing])
     monkeypatch.setenv(generate_thumbnails.STRICT_THUMBNAILS_ENV_VAR, "1")
 
     original_process = generate_thumbnails._process_artifact
@@ -785,7 +782,5 @@ def test_generate_thumbnails_strict_mode_fails_on_partial_failures(
 
     _patch_playwright(monkeypatch)
 
-    with pytest.raises(
-        RuntimeError, match="failed for one or more attempted artifacts"
-    ):
+    with pytest.raises(RuntimeError, match="failed for one or more attempted artifacts"):
         generate_thumbnails.generate_thumbnails()

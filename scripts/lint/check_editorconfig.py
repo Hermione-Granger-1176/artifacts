@@ -7,10 +7,13 @@ import argparse
 import fnmatch
 import sys
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
 from scripts.lint import SKIP_DIRECTORIES
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 EDITORCONFIG_FILE = REPO_ROOT / ".editorconfig"
 BINARY_SUFFIXES = {
@@ -76,9 +79,7 @@ def load_editorconfig(path: Path | None = None) -> list[EditorConfigSection]:
     return parse_editorconfig(config_path.read_text(encoding="utf-8"))
 
 
-def resolve_settings(
-    sections: list[EditorConfigSection], relative_path: str
-) -> dict[str, str]:
+def resolve_settings(sections: list[EditorConfigSection], relative_path: str) -> dict[str, str]:
     """Resolve effective settings for one repository-relative path."""
     settings: dict[str, str] = {}
     for section in sections:
@@ -103,15 +104,13 @@ def should_check_file(sections: list[EditorConfigSection], relative_path: str) -
 
 
 def iter_workspace_files(root: Path | None = None) -> list[Path]:
-    """Return repository files while skipping configured cache, build, and dependency directories."""
+    """Return repository files, skipping configured cache, build, and dependency dirs."""
     workspace_root = root or REPO_ROOT
     return [
         path
         for path in sorted(workspace_root.rglob("*"))
         if path.is_file()
-        and not any(
-            part in SKIP_DIRECTORIES for part in path.relative_to(workspace_root).parts
-        )
+        and not any(part in SKIP_DIRECTORIES for part in path.relative_to(workspace_root).parts)
     ]
 
 
@@ -164,13 +163,9 @@ def check_file(path: Path, relative_path: str, settings: dict[str, str]) -> list
         leading = _leading_whitespace(line)
         match indent_style:
             case "space" if "\t" in leading:
-                violations.append(
-                    f"{relative_path}:{line_number}: tab used for indentation"
-                )
+                violations.append(f"{relative_path}:{line_number}: tab used for indentation")
             case "tab" if leading and not leading.startswith("\t"):
-                violations.append(
-                    f"{relative_path}:{line_number}: spaces used for indentation"
-                )
+                violations.append(f"{relative_path}:{line_number}: spaces used for indentation")
 
     return violations
 
@@ -179,9 +174,7 @@ def run_check(paths: list[Path] | None = None, root: Path | None = None) -> list
     """Run supported EditorConfig checks for covered paths and return violations."""
     workspace_root = root or REPO_ROOT
     sections = load_editorconfig(workspace_root / ".editorconfig")
-    candidate_paths = (
-        paths if paths is not None else iter_workspace_files(workspace_root)
-    )
+    candidate_paths = paths if paths is not None else iter_workspace_files(workspace_root)
 
     violations: list[str] = []
     for path in candidate_paths:

@@ -76,9 +76,7 @@ def test_failure_digest_reports_in_progress() -> None:
 def test_failure_digest_includes_failed_logs() -> None:
     """Failed runs include the failed-step logs."""
     runner = _run_list(7, status="completed", conclusion="failure")
-    runner.routes.append(
-        (has("--log-failed"), completed_process(0, "pytest exploded\n"))
-    )
+    runner.routes.append((has("--log-failed"), completed_process(0, "pytest exploded\n")))
 
     digest = ci_status.failure_digest(branch="feature", run_fn=runner)
 

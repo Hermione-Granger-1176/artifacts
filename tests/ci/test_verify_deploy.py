@@ -10,13 +10,13 @@ import scripts.ci.verify_deploy as verify_deploy
 
 
 def write_text(path: Path, content: str) -> None:
+    """Write text."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
 
-def test_load_site_url_reads_pyproject(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_load_site_url_reads_pyproject(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Load site url reads pyproject."""
     pyproject = tmp_path / "pyproject.toml"
     write_text(pyproject, '[tool.artifacts]\nsite_url = "https://example.com/demo"\n')
     monkeypatch.setattr(verify_deploy, "PYPROJECT_FILE", pyproject)
@@ -27,26 +27,30 @@ def test_load_site_url_reads_pyproject(
 def test_load_site_url_errors_for_missing_pyproject(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Load site url errors for missing pyproject."""
     monkeypatch.setattr(verify_deploy, "PYPROJECT_FILE", tmp_path / "pyproject.toml")
 
-    with pytest.raises(FileNotFoundError, match="pyproject.toml not found"):
+    with pytest.raises(FileNotFoundError, match=r"pyproject\.toml not found"):
         verify_deploy._load_site_url()
 
 
 def test_load_site_url_errors_for_missing_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Load site url errors for missing config."""
     pyproject = tmp_path / "pyproject.toml"
     write_text(pyproject, "[tool.other]\nvalue = true\n")
     monkeypatch.setattr(verify_deploy, "PYPROJECT_FILE", pyproject)
 
-    with pytest.raises(ValueError, match="Missing tool.artifacts.site_url"):
+    with pytest.raises(ValueError, match=r"Missing tool\.artifacts\.site_url"):
         verify_deploy._load_site_url()
 
 
 def test_fetch_text_reads_status_and_decodes_response(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Fetch text reads status and decodes response."""
+
     class FakeHeaders:
         def get_content_charset(self, default: str) -> str:
             assert default == "utf-8"
@@ -70,7 +74,7 @@ def test_fetch_text_reads_status_and_decodes_response(
     monkeypatch.setattr(
         verify_deploy.urllib.request,
         "urlopen",
-        lambda url, timeout: FakeResponse(),
+        lambda *_args, **_kwargs: FakeResponse(),
     )
 
     assert verify_deploy._fetch_text("https://example.com/demo/", 5.0) == (
@@ -80,25 +84,25 @@ def test_fetch_text_reads_status_and_decodes_response(
 
 
 def test_fetch_json_parses_valid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fetch json parses valid json."""
     monkeypatch.setattr(
         verify_deploy,
         "_fetch_text",
-        lambda url, timeout_seconds: (200, '{"commit_sha": "abc123"}'),
+        lambda *_args, **_kwargs: (200, '{"commit_sha": "abc123"}'),
     )
 
-    assert verify_deploy._fetch_json(
-        "https://example.com/deploy-metadata.json", 5.0
-    ) == (
+    assert verify_deploy._fetch_json("https://example.com/deploy-metadata.json", 5.0) == (
         200,
         {"commit_sha": "abc123"},
     )
 
 
 def test_fetch_json_rejects_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fetch json rejects invalid json."""
     monkeypatch.setattr(
         verify_deploy,
         "_fetch_text",
-        lambda url, timeout_seconds: (200, "not-json"),
+        lambda *_args, **_kwargs: (200, "not-json"),
     )
 
     with pytest.raises(RuntimeError, match="returned invalid JSON"):
@@ -106,30 +110,33 @@ def test_fetch_json_rejects_invalid_json(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_build_metadata_url_joins_root_and_metadata_path() -> None:
+    """Build metadata url joins root and metadata path."""
     assert (
-        verify_deploy._build_metadata_url(
-            "https://example.com/demo/", "deploy-metadata.json"
-        )
+        verify_deploy._build_metadata_url("https://example.com/demo/", "deploy-metadata.json")
         == "https://example.com/demo/deploy-metadata.json"
     )
 
 
 def test_validate_metadata_payload_rejects_non_object() -> None:
+    """Validate metadata payload rejects non object."""
     with pytest.raises(RuntimeError, match="returned non-object deploy metadata"):
         verify_deploy._validate_metadata_payload([], "abc123")
 
 
 def test_validate_metadata_payload_rejects_wrong_sha() -> None:
+    """Validate metadata payload rejects wrong sha."""
     with pytest.raises(RuntimeError, match="reported commit SHA"):
         verify_deploy._validate_metadata_payload({"commit_sha": "wrong"}, "abc123")
 
 
 def test_normalize_metadata_path_rejects_blank_value() -> None:
+    """Normalize metadata path rejects blank value."""
     with pytest.raises(ValueError, match="metadata-path must not be empty"):
         verify_deploy._normalize_metadata_path("   ")
 
 
 def test_normalize_metadata_path_rejects_leading_slash() -> None:
+    """Normalize metadata path rejects leading slash."""
     with pytest.raises(
         ValueError, match="metadata-path must be relative and must not start with '/'"
     ):
@@ -137,6 +144,7 @@ def test_normalize_metadata_path_rejects_leading_slash() -> None:
 
 
 def test_normalize_metadata_path_rejects_full_url() -> None:
+    """Normalize metadata path rejects full url."""
     with pytest.raises(
         ValueError,
         match="metadata-path must be relative and must not be a full URL",
@@ -147,15 +155,16 @@ def test_normalize_metadata_path_rejects_full_url() -> None:
 def test_verify_deploy_emits_debug_log_with_config(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
+    """Verify deploy emits debug log with config."""
     monkeypatch.setattr(
         verify_deploy,
         "_fetch_text",
-        lambda url, timeout: (200, '<script src="js/app.js?v=abc"></script>'),
+        lambda *_args, **_kwargs: (200, '<script src="js/app.js?v=abc"></script>'),
     )
     monkeypatch.setattr(
         verify_deploy,
         "_fetch_json",
-        lambda url, timeout: (200, {"commit_sha": "abc"}),
+        lambda *_args, **_kwargs: (200, {"commit_sha": "abc"}),
     )
     monkeypatch.setattr(verify_deploy.time, "sleep", lambda _: None)
 
@@ -176,6 +185,7 @@ def test_verify_deploy_emits_debug_log_with_config(
 def test_verify_deploy_retries_until_expected_substring_found(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify deploy retries until expected substring found."""
     responses = iter(
         [
             (200, "<html>stale</html>"),
@@ -195,7 +205,7 @@ def test_verify_deploy_retries_until_expected_substring_found(
         seen_urls.append(url)
         return next(responses)
 
-    def fake_fetch_json(url: str, timeout_seconds: float) -> tuple[int, object]:
+    def fake_fetch_json(url: str, _timeout_seconds: float) -> tuple[int, object]:
         seen_urls.append(url)
         return next(metadata_responses)
 
@@ -222,6 +232,7 @@ def test_verify_deploy_retries_until_expected_substring_found(
 def test_verify_deploy_retries_non_200_status_codes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify deploy retries non 200 status codes."""
     responses = iter(
         [
             (503, "<html>stale</html>"),
@@ -235,11 +246,9 @@ def test_verify_deploy_retries_non_200_status_codes(
     )
     sleep_calls: list[float] = []
 
+    monkeypatch.setattr(verify_deploy, "_fetch_text", lambda *_args, **_kwargs: next(responses))
     monkeypatch.setattr(
-        verify_deploy, "_fetch_text", lambda url, timeout: next(responses)
-    )
-    monkeypatch.setattr(
-        verify_deploy, "_fetch_json", lambda url, timeout: next(metadata_responses)
+        verify_deploy, "_fetch_json", lambda *_args, **_kwargs: next(metadata_responses)
     )
     monkeypatch.setattr(verify_deploy.time, "sleep", sleep_calls.append)
 
@@ -258,11 +267,13 @@ def test_verify_deploy_retries_non_200_status_codes(
 def test_verify_deploy_fails_after_all_attempts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_fetch(url: str, timeout_seconds: float) -> tuple[int, str]:
+    """Verify deploy fails after all attempts."""
+
+    def fake_fetch(_url: str, _timeout_seconds: float) -> tuple[int, str]:
         raise urllib.error.URLError("temporary failure")
 
     monkeypatch.setattr(verify_deploy, "_fetch_text", fake_fetch)
-    monkeypatch.setattr(verify_deploy.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(verify_deploy.time, "sleep", lambda *_args, **_kwargs: None)
 
     with pytest.raises(RuntimeError, match="Failed to verify deployed URL"):
         verify_deploy.verify_deploy(
@@ -276,6 +287,7 @@ def test_verify_deploy_fails_after_all_attempts(
 
 
 def test_verify_deploy_requires_positive_attempt_count() -> None:
+    """Verify deploy requires positive attempt count."""
     with pytest.raises(ValueError, match="attempts must be at least 1"):
         verify_deploy.verify_deploy(
             "https://example.com/demo/",
@@ -288,6 +300,7 @@ def test_verify_deploy_requires_positive_attempt_count() -> None:
 def test_verify_deploy_retries_when_metadata_sha_is_wrong(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify deploy retries when metadata sha is wrong."""
     responses = iter([(200, '<script src="js/app.js?v=abc123"></script>')] * 2)
     metadata_responses = iter(
         [
@@ -297,11 +310,9 @@ def test_verify_deploy_retries_when_metadata_sha_is_wrong(
     )
     sleep_calls: list[float] = []
 
+    monkeypatch.setattr(verify_deploy, "_fetch_text", lambda *_args, **_kwargs: next(responses))
     monkeypatch.setattr(
-        verify_deploy, "_fetch_text", lambda url, timeout: next(responses)
-    )
-    monkeypatch.setattr(
-        verify_deploy, "_fetch_json", lambda url, timeout: next(metadata_responses)
+        verify_deploy, "_fetch_json", lambda *_args, **_kwargs: next(metadata_responses)
     )
     monkeypatch.setattr(verify_deploy.time, "sleep", sleep_calls.append)
 
@@ -320,6 +331,7 @@ def test_verify_deploy_retries_when_metadata_sha_is_wrong(
 def test_verify_deploy_retries_when_metadata_status_is_non_200(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify deploy retries when metadata status is non 200."""
     responses = iter([(200, '<script src="js/app.js?v=abc123"></script>')] * 2)
     metadata_responses = iter(
         [
@@ -329,11 +341,9 @@ def test_verify_deploy_retries_when_metadata_status_is_non_200(
     )
     sleep_calls: list[float] = []
 
+    monkeypatch.setattr(verify_deploy, "_fetch_text", lambda *_args, **_kwargs: next(responses))
     monkeypatch.setattr(
-        verify_deploy, "_fetch_text", lambda url, timeout: next(responses)
-    )
-    monkeypatch.setattr(
-        verify_deploy, "_fetch_json", lambda url, timeout: next(metadata_responses)
+        verify_deploy, "_fetch_json", lambda *_args, **_kwargs: next(metadata_responses)
     )
     monkeypatch.setattr(verify_deploy.time, "sleep", sleep_calls.append)
 
@@ -350,6 +360,7 @@ def test_verify_deploy_retries_when_metadata_status_is_non_200(
 
 
 def test_main_uses_explicit_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Main uses explicit url."""
     observed: dict[str, object] = {}
 
     def fake_verify_deploy(
@@ -408,9 +419,8 @@ def test_main_uses_explicit_url(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_main_uses_configured_site_url(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        verify_deploy, "_load_site_url", lambda: "https://example.com/demo/"
-    )
+    """Main uses configured site url."""
+    monkeypatch.setattr(verify_deploy, "_load_site_url", lambda: "https://example.com/demo/")
     seen: dict[str, str] = {}
 
     def fake_verify_deploy(
@@ -418,10 +428,8 @@ def test_main_uses_configured_site_url(monkeypatch: pytest.MonkeyPatch) -> None:
         expected_substring: str,
         expected_commit_sha: str,
         *,
-        attempts: int,
-        delay_seconds: float,
-        timeout_seconds: float,
         metadata_path: str,
+        **_kwargs: object,
     ) -> None:
         seen["url"] = url
         seen["expected_substring"] = expected_substring

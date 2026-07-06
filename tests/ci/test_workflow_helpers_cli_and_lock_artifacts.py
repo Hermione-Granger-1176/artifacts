@@ -10,6 +10,7 @@ from tests.ci.workflow_helpers_test_support import write_text
 
 
 def test_parse_bool_accepts_common_values() -> None:
+    """Parse bool accepts common values."""
     assert workflow_helpers._parse_bool("true") is True
     assert workflow_helpers._parse_bool("1") is True
     assert workflow_helpers._parse_bool("false") is False
@@ -17,17 +18,20 @@ def test_parse_bool_accepts_common_values() -> None:
 
 
 def test_parse_bool_rejects_invalid_values() -> None:
+    """Parse bool rejects invalid values."""
     with pytest.raises(ValueError, match="Invalid boolean value"):
         workflow_helpers._parse_bool("maybe")
 
 
 def test_app_token_allowed_for_non_pull_request_events() -> None:
+    """App token allowed for non pull request events."""
     assert workflow_helpers.app_token_allowed(
         event_name="push", head_repo_fork=False, pr_author="dependabot[bot]"
     )
 
 
 def test_app_token_allowed_rejects_forks_and_dependabot_prs() -> None:
+    """App token allowed rejects forks and dependabot prs."""
     assert (
         workflow_helpers.app_token_allowed(
             event_name="pull_request", head_repo_fork=True, pr_author="alice"
@@ -51,6 +55,7 @@ def test_app_token_allowed_rejects_forks_and_dependabot_prs() -> None:
 
 
 def test_read_lock_refresh_metadata_reads_required_values(tmp_path: Path) -> None:
+    """Read lock refresh metadata reads required values."""
     write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
     write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
     write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/pip/demo\n")
@@ -63,6 +68,7 @@ def test_read_lock_refresh_metadata_reads_required_values(tmp_path: Path) -> Non
 
 
 def test_validate_lock_refresh_artifact_accepts_expected_files(tmp_path: Path) -> None:
+    """Validate lock refresh artifact accepts expected files."""
     write_text(tmp_path / "locks" / "requirements.lock", "pkg==1.0\n")
     write_text(tmp_path / "locks" / "requirements-dev.lock", "pkg==1.0\n")
     write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
@@ -74,6 +80,7 @@ def test_validate_lock_refresh_artifact_accepts_expected_files(tmp_path: Path) -
 
 @pytest.mark.skipif(not hasattr(Path, "symlink_to"), reason="symlinks unavailable")
 def test_validate_lock_refresh_artifact_rejects_symlinks(tmp_path: Path) -> None:
+    """Validate lock refresh artifact rejects symlinks."""
     write_text(tmp_path / "locks" / "requirements.lock", "pkg==1.0\n")
     write_text(tmp_path / "locks" / "requirements-dev.lock", "pkg==1.0\n")
     write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
@@ -91,6 +98,7 @@ def test_validate_lock_refresh_artifact_rejects_symlinks(tmp_path: Path) -> None
 def test_validate_lock_refresh_artifact_rejects_symlinked_directories(
     tmp_path: Path,
 ) -> None:
+    """Validate lock refresh artifact rejects symlinked directories."""
     write_text(tmp_path / "locks" / "requirements.lock", "pkg==1.0\n")
     write_text(tmp_path / "locks" / "requirements-dev.lock", "pkg==1.0\n")
     write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
@@ -98,26 +106,24 @@ def test_validate_lock_refresh_artifact_rejects_symlinked_directories(
     write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/pip/demo\n")
     linked_dir = tmp_path / "linked-dir"
     linked_dir.mkdir()
-    (tmp_path / ".artifacts" / "nested-link").symlink_to(
-        linked_dir, target_is_directory=True
-    )
+    (tmp_path / ".artifacts" / "nested-link").symlink_to(linked_dir, target_is_directory=True)
 
     with pytest.raises(ValueError, match="Refusing to process tree containing symlink"):
         workflow_helpers.validate_lock_refresh_artifact(tmp_path)
 
 
 def test_validate_lock_refresh_artifact_rejects_missing_files(tmp_path: Path) -> None:
+    """Validate lock refresh artifact rejects missing files."""
     write_text(tmp_path / "locks" / "requirements.lock", "pkg==1.0\n")
 
-    with pytest.raises(
-        ValueError, match="Required artifact file missing or not a regular file"
-    ):
+    with pytest.raises(ValueError, match="Required artifact file missing or not a regular file"):
         workflow_helpers.validate_lock_refresh_artifact(tmp_path)
 
 
 def test_main_app_token_policy_prints_allowed(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """Main app token policy prints allowed."""
     exit_code = workflow_helpers.main(
         [
             "app-token-policy",
@@ -137,6 +143,7 @@ def test_main_app_token_policy_prints_allowed(
 def test_main_read_lock_metadata_prints_json(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Main read lock metadata prints json."""
     write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
     write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
     write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/pip/demo\n")
@@ -152,25 +159,25 @@ def test_main_read_lock_metadata_prints_json(
 
 
 def test_main_validate_lock_artifact_returns_zero(tmp_path: Path) -> None:
+    """Main validate lock artifact returns zero."""
     write_text(tmp_path / "locks" / "requirements.lock", "pkg==1.0\n")
     write_text(tmp_path / "locks" / "requirements-dev.lock", "pkg==1.0\n")
     write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
     write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
     write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/pip/demo\n")
 
-    assert (
-        workflow_helpers.main(["validate-lock-artifact", "--root", str(tmp_path)]) == 0
-    )
+    assert workflow_helpers.main(["validate-lock-artifact", "--root", str(tmp_path)]) == 0
 
 
 def test_main_rejects_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Main rejects unknown command."""
     import argparse
 
     fake_ns = argparse.Namespace(command="nonexistent")
     monkeypatch.setattr(
         workflow_helpers,
         "_build_parser",
-        lambda: type("P", (), {"parse_args": lambda self, argv=None: fake_ns})(),
+        lambda: type("P", (), {"parse_args": lambda *_args, **_kwargs: fake_ns})(),
     )
     with pytest.raises(ValueError, match="Unsupported command"):
         workflow_helpers.main([])
@@ -179,10 +186,11 @@ def test_main_rejects_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_main_sync_alert_issue_prints_issue_url(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Main sync alert issue prints issue url."""
     monkeypatch.setattr(
         workflow_helpers,
         "sync_alert_issue",
-        lambda **kwargs: "https://github.com/owner/repo/issues/3",
+        lambda *_args, **_kwargs: "https://github.com/owner/repo/issues/3",
     )
 
     exit_code = workflow_helpers.main(

@@ -61,11 +61,7 @@ def extract_required_checks(protection: object) -> set[str]:
 
     contexts = required_status_checks.get("contexts")
     checks = required_status_checks.get("checks")
-    names = {
-        str(context)
-        for context in (contexts or [])
-        if isinstance(context, str) and context
-    }
+    names = {str(context) for context in (contexts or []) if isinstance(context, str) and context}
     names.update(
         str(item.get("context"))
         for item in (checks or [])
@@ -143,10 +139,8 @@ def load_ruleset_detail(
         description=f"reading ruleset {ruleset_value} for {repo}",
         required_permission="administration: read",
     )
-    require_response_type(
-        detail, dict, f"Ruleset detail for {ruleset_value} must be a JSON object"
-    )
-    return cast(dict[str, object], detail)
+    require_response_type(detail, dict, f"Ruleset detail for {ruleset_value} must be a JSON object")
+    return cast("dict[str, object]", detail)
 
 
 def audit_repo_settings(
@@ -190,23 +184,17 @@ def audit_repo_settings(
 
     require_response_type(repository, dict, "Repository metadata must be a JSON object")
     require_response_type(pages, dict, "Pages settings must be a JSON object")
-    require_response_type(
-        protection, dict, "Branch protection settings must be a JSON object"
-    )
-    require_response_type(
-        variables, dict, "Actions variables response must be a JSON object"
-    )
-    require_response_type(
-        secrets, dict, "Actions secrets response must be a JSON object"
-    )
+    require_response_type(protection, dict, "Branch protection settings must be a JSON object")
+    require_response_type(variables, dict, "Actions variables response must be a JSON object")
+    require_response_type(secrets, dict, "Actions secrets response must be a JSON object")
     require_response_type(rulesets, list, "Rulesets response must be a JSON array")
 
-    repository = cast(dict[str, object], repository)
-    pages = cast(dict[str, object], pages)
-    protection = cast(dict[str, object], protection)
-    variables = cast(dict[str, object], variables)
-    secrets = cast(dict[str, object], secrets)
-    rulesets = cast(list[object], rulesets)
+    repository = cast("dict[str, object]", repository)
+    pages = cast("dict[str, object]", pages)
+    protection = cast("dict[str, object]", protection)
+    variables = cast("dict[str, object]", variables)
+    secrets = cast("dict[str, object]", secrets)
+    rulesets = cast("list[object]", rulesets)
     detailed_rulesets = [
         load_ruleset_detail(repo, ruleset, run_gh_api_json_fn=run_gh_api_json_fn)
         for ruleset in rulesets
@@ -215,9 +203,7 @@ def audit_repo_settings(
     issues = []
     actual_default_branch = repository.get("default_branch")
     if actual_default_branch != default_branch:
-        issues.append(
-            f"default branch is {actual_default_branch!r} instead of {default_branch!r}"
-        )
+        issues.append(f"default branch is {actual_default_branch!r} instead of {default_branch!r}")
 
     raw_pages_source = pages.get("source")
     pages_source = raw_pages_source if isinstance(raw_pages_source, dict) else {}
@@ -234,8 +220,7 @@ def audit_repo_settings(
             issues.append(f"Pages source path is {pages_source_path!r} instead of '/'")
     if pages_build_type != EXPECTED_PAGES_BUILD_TYPE:
         issues.append(
-            f"Pages build type is {pages_build_type!r} "
-            f"instead of {EXPECTED_PAGES_BUILD_TYPE!r}"
+            f"Pages build type is {pages_build_type!r} instead of {EXPECTED_PAGES_BUILD_TYPE!r}"
         )
     if pages_https_enforced is not True:
         issues.append("Pages HTTPS is not enforced")
@@ -246,8 +231,7 @@ def audit_repo_settings(
     missing_checks = EXPECTED_REQUIRED_CHECKS - required_checks
     if missing_checks:
         issues.append(
-            f"{branch_label} is missing required checks: "
-            + ", ".join(sorted(missing_checks))
+            f"{branch_label} is missing required checks: " + ", ".join(sorted(missing_checks))
         )
 
     review_settings = protection.get("required_pull_request_reviews")
@@ -286,11 +270,7 @@ def audit_repo_settings(
     )
 
     pages_ruleset = next(
-        (
-            ruleset
-            for ruleset in detailed_rulesets
-            if ruleset_targets_branch(ruleset, pages_branch)
-        ),
+        (ruleset for ruleset in detailed_rulesets if ruleset_targets_branch(ruleset, pages_branch)),
         None,
     )
     if pages_ruleset is None:
