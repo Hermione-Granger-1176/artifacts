@@ -22,10 +22,10 @@ Do not hand-edit generated outputs unless you are intentionally changing the gen
 
 ## Dependency updates
 
-- Python dependencies live in `pyproject.toml` and are frozen in `locks/requirements.lock` and `locks/requirements-dev.lock`.
+- Python dependencies live in `pyproject.toml` and are frozen in `uv.lock`.
 - Node tooling lives in `package.json` and `package-lock.json`.
-- Same-repo Dependabot pip PRs auto-refresh the Python lock files through `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml`, but local/manual dependency edits still need `make lock`.
-- After changing Python dependency declarations, regenerate the Python lock files with `make lock`.
+- Same-repo Dependabot uv PRs auto-refresh `uv.lock` through `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml`, but local/manual dependency edits still need `make lock`.
+- After changing Python dependency declarations, regenerate `uv.lock` with `make lock`.
 - After changing Node dependencies, refresh `package-lock.json` before rerunning the relevant `make` setup or check targets.
 - `axe-core` is pinned in `package-lock.json` because the Playwright accessibility suite injects it into real browser sessions.
 - Workspace-only maintenance changes do not need a standalone changelog entry; app release notes stay app-specific.

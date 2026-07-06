@@ -14,6 +14,8 @@ make help-ci    # show CI and GitHub run sub-commands
 make git        # show all git sub-commands
 ```
 
+Local Python dependency setup uses uv. Ensure `uv` is on PATH before running setup, install, lock, or security targets.
+
 On a Linux distro newer than the pinned Playwright supports (for example Ubuntu 26.04 on WSL), `playwright install` and browser launches abort with `Playwright does not support chromium on <distro>`. The Makefile detects this and exports `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE` (a supported fallback platform key) for every Playwright target, so `make setup-all`, `make test-browser-*`, and `make thumbnails` work unchanged. CI runs on a supported image where the override stays empty. Override or disable it by setting `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE` in your environment.
 
 Recommended workflow when changing workspace code:
@@ -58,7 +60,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - `make test-ci-workflows` runs narrow contract tests against `.github/workflows/*.yml` so local and CI checks can catch workflow-structure drift early.
 - `node --test` covers the grouped Node suites under `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, and `tests/js/workflows/`.
 - `make coverage-js` uses Node's built-in experimental coverage output and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across all source files imported by the grouped `tests/js/` suites. Coverage excludes `node_modules/` and `tests/`; thresholds and exclusions are configured in `package.json`.
-- `make security` mirrors the practical local dependency audits in CI; the Python side runs a policy-driven audit over the configured lock files and reviewed vulnerability exceptions in `config/security_audit.json`, matches exceptions by lock file, package, and vulnerability id or alias, and fails expired, unused, or now-fixable exceptions, while Gitleaks and GitHub dependency review remain CI-only because this repo does not vendor those scanners locally.
+- `make security` mirrors the practical local dependency audits in CI; the Python side exports the frozen uv dependency graph to a temporary requirements file, runs a policy-driven audit against it, matches reviewed exceptions in `config/security_audit.json` by package and vulnerability id or alias, and fails expired, unused, or now-fixable exceptions, while Gitleaks and GitHub dependency review remain CI-only because this repo does not vendor those scanners locally.
 - `make check-generated` reruns the index generator in a restore-safe mode and fails if `README.md`, `js/data.js`, or `js/gallery-config.js` would drift from tracked source inputs.
 - Playwright browser suites validate both the built root gallery and mature app pages through `make test-browser`, while CI selectively scopes mature app suites with `ARTIFACTS_BROWSER_APP_SLUGS`.
 - `make test-browser-live` verifies an already-published site in a real browser when `ARTIFACTS_LIVE_SITE_URL` is set, and CI captures failure screenshots/traces/logs through `ARTIFACTS_BROWSER_ARTIFACT_DIR`.
@@ -160,7 +162,7 @@ All runtime assets should be self-hosted. Do not load scripts, fonts, or stylesh
 - If you need to manually audit repository settings drift outside the scheduled workflow, run `make help-ci` to discover `make ci-audit-repo-settings`, then pass `repo=<owner/repo>` when auditing a different repository.
 - If you want to inspect the deployable output locally, run `make site` and serve `_site/` from a static file server.
 - If `make security` fails on `npm audit`, the issue is in the current workspace dependency graph and needs triage before release.
-- If `make security` fails on the Python audit, either a new vulnerability needs triage, an exception review date has expired, an exception no longer matches the current lock files, or a fix is now available and the temporary exception must be removed.
+- If `make security` fails on the Python audit, either a new vulnerability needs triage, an exception review date has expired, an exception no longer matches the exported uv dependency graph, or a fix is now available and the temporary exception must be removed.
 - If the post-deploy verifier flakes, inspect both the published `?v=<sha>` asset query strings and the deployed `deploy-metadata.json` payload before rerunning.
 - If live browser verification fails in CI, download the `live-browser-artifacts-<run_id>` artifact for screenshots, traces, and runtime error logs.
 - If the daily live-site smoke workflow fails, inspect the `live-site-smoke-artifacts-<run_id>` artifact and the automatically managed GitHub issue before rerunning.

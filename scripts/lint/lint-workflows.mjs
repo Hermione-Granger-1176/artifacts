@@ -18,11 +18,11 @@ async function listWorkflowFiles() {
 }
 
 async function main() {
-  const lint = await createLinter();
   const workflowFiles = await listWorkflowFiles();
   let hasErrors = false;
 
   for (const relativePath of workflowFiles) {
+    const lint = await createLinter();
     const filePath = path.join(REPO_ROOT, relativePath);
     const content = await readFile(filePath, "utf-8");
     const results = lint(content, relativePath);

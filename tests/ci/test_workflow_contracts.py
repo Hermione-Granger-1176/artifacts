@@ -322,14 +322,17 @@ def test_refresh_python_locks_workflow_uses_dependabot_and_make_lock_contract() 
     refresh = _job(workflow, "refresh-locks")
 
     assert on_block["pull_request"]["branches"] == ["main"]
-    assert on_block["pull_request"]["paths"] == ["pyproject.toml"]
+    assert on_block["pull_request"]["paths"] == ["pyproject.toml", "uv.lock"]
     assert on_block["pull_request"]["types"] == ["opened", "reopened", "synchronize"]
     assert "dependabot[bot]" in refresh["if"]
-    assert "dependabot/pip/" in refresh["if"]
+    assert "dependabot/uv/" in refresh["if"]
+    assert _step_run(refresh, "Install uv").strip() == "python -m pip install --upgrade pip uv"
     assert _step_run(refresh, "Refresh Python lock files").strip() == "make lock"
+    upload_step = _step(refresh, "Upload refreshed Python lock files")
     assert _step_uses(refresh, "Upload refreshed Python lock files").startswith(
         "actions/upload-artifact@"
     )
+    assert upload_step["with"]["path"].splitlines()[0] == "uv.lock"
 
 
 def test_commit_python_locks_workflow_keeps_validation_and_verified_commit_steps() -> None:
@@ -342,8 +345,13 @@ def test_commit_python_locks_workflow_keeps_validation_and_verified_commit_steps
     assert on_block["workflow_run"]["types"] == ["completed"]
     assert "Refresh Python Locks" in commit["if"]
     assert "workflow_run.event == 'pull_request'" in commit["if"]
+    assert commit["env"]["LOCK_FILE_PATHSPEC"] == "uv.lock"
+    assert "LOCK_FILE_ARGS" not in commit["env"]
     assert "read-lock-metadata" in _step_run(commit, "Read refresh metadata")
     assert "validate-lock-artifact" in _step_run(commit, "Validate downloaded artifact contents")
+    assert _step_run(commit, "Copy refreshed Python lock files into workspace").strip() == (
+        'cp "$LOCK_REFRESH_ROOT/uv.lock" uv.lock'
+    )
     assert _step_uses(commit, "Commit refreshed Python lock files (verified)") == (
         "./.github/actions/verified-commit"
     )
@@ -423,8 +431,8 @@ def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
         assert commit_inputs["fallback-branch-prefix"] == fallback_branch_prefix
 
 
-def test_setup_python_steps_cache_pip() -> None:
-    """Setup python steps cache pip."""
+def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
+    """Setup python steps cache uv lock and uv downloads."""
     update = _load_workflow("update.yml")
     refresh = _load_workflow("refresh-python-locks.yml")
     ci_setup = yaml.safe_load(
@@ -433,13 +441,46 @@ def test_setup_python_steps_cache_pip() -> None:
 
     verify_step = _step(_job(update, "verify"), "Set up Python")
     assert verify_step["with"]["cache"] == "pip"
-    assert verify_step["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"
+    assert verify_step["with"]["cache-dependency-path"] == "uv.lock"
+    verify_uv_cache = _step(_job(update, "verify"), "Cache uv downloads")
+    assert _step_uses(_job(update, "verify"), "Cache uv downloads") == (
+        "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
+    )
+    assert verify_uv_cache["with"]["path"] == "~/.cache/uv"
+    assert verify_uv_cache["with"]["key"] == (
+        "uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('uv.lock') }}"
+    )
+    assert (
+        "uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-" in verify_uv_cache["with"]["restore-keys"]
+    )
+    assert _step_run(_job(update, "verify"), "Install uv").strip() == (
+        "python -m pip install --upgrade pip uv"
+    )
+    assert _step_with(_job(update, "verify"), "Cache Playwright browsers")["key"] == (
+        "playwright-${{ hashFiles('uv.lock') }}"
+    )
+    assert _step_with(_job(update, "publish"), "Cache Playwright browsers")["key"] == (
+        "playwright-${{ hashFiles('uv.lock') }}"
+    )
+    publish_uv_install = _step_run(
+        _job(update, "publish"), "Install uv for live browser verification"
+    )
+    assert publish_uv_install.strip() == "python -m pip install --upgrade pip uv"
 
     refresh_step = _step(_job(refresh, "refresh-locks"), "Set up Python")
     assert refresh_step["with"]["cache"] == "pip"
-    assert refresh_step["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"
+    assert refresh_step["with"]["cache-dependency-path"] == "uv.lock"
 
     ci_setup_steps = ci_setup["runs"]["steps"]
     setup_python = next(s for s in ci_setup_steps if s.get("name") == "Set up Python")
     assert setup_python["with"]["cache"] == "pip"
-    assert setup_python["with"]["cache-dependency-path"] == "locks/requirements-dev.lock"
+    assert setup_python["with"]["cache-dependency-path"] == "uv.lock"
+    ci_uv_cache = next(s for s in ci_setup_steps if s.get("name") == "Cache uv downloads")
+    assert ci_uv_cache["uses"] == "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
+    assert ci_uv_cache["with"]["path"] == "~/.cache/uv"
+    assert ci_uv_cache["with"]["key"] == (
+        "uv-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('uv.lock') }}"
+    )
+    assert (
+        "uv-${{ runner.os }}-${{ inputs.python-version }}-" in ci_uv_cache["with"]["restore-keys"]
+    )

@@ -5,9 +5,9 @@
 # Prefer python3.12 (the CI-pinned version), then fall back to 3.13/3.14 or python3.
 # Override by passing PYTHON=... on the command line or in the environment.
 PYTHON      ?= $(shell command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3)
+UV          ?= uv
 VENV        ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
-VENV_PIP    := $(VENV)/bin/pip
 VENV_RUFF   := $(VENV)/bin/ruff
 NPM         ?= npm
 
@@ -37,10 +37,7 @@ endif
 .PHONY: install node-install setup-base setup setup-all setup-ci setup-playwright setup-playwright-ci
 
 install: ## Install locked Python deps into the virtual environment
-	$(PYTHON) -m venv $(VENV)
-	$(VENV_PYTHON) -m pip install --upgrade pip
-	$(VENV_PIP) install -r locks/requirements-dev.lock
-	$(VENV_PIP) install --no-deps -e .
+	UV_PROJECT_ENVIRONMENT=$(VENV) $(UV) sync --all-groups --frozen --python $(PYTHON)
 
 node-install: ## Install locked Node deps
 	$(NPM) ci
@@ -230,7 +227,7 @@ new: ## Scaffold a new artifact directory (make new name=X)
 
 # ─── Quality gates @quality ───────────────────────────────────────────────────
 
-.PHONY: ci-python ci-web ci ci-fast security audit-fix-node check-generated check-local check-fast check-web check fix
+.PHONY: ci-python ci-web ci ci-fast security audit-python audit-node audit-fix-node check-generated check-local check-fast check-web check fix
 
 ci-python: format-py-check lint-py dead-code-py test-py ## Python CI gate
 
@@ -241,8 +238,14 @@ ci: ci-python ci-web security validate check-generated ## Full local CI gate wit
 ci-fast: ## Run the non-browser CI checks in parallel
 	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py format-check lint typecheck test-py coverage-js dead-code security validate check-generated
 
-security: ## Run dependency audits (pip-audit + npm audit)
-	$(VENV_PYTHON) scripts/ci/run_security_audit.py
+security: audit-python audit-node ## Run dependency audits
+
+audit-python: ## Export locked Python deps and run pip-audit
+	mkdir -p .artifacts
+	$(UV) export --all-groups --frozen --no-emit-project --format requirements.txt --output-file .artifacts/requirements-audit.txt
+	$(VENV_PYTHON) scripts/ci/run_security_audit.py --requirements .artifacts/requirements-audit.txt
+
+audit-node: ## Run npm dependency audit
 	$(NPM) audit
 
 audit-fix-node: ## Apply available npm audit fixes to package-lock.json
@@ -265,17 +268,8 @@ fix: fmt check-local ## Auto-fix formatting, then run the fast local gate
 
 .PHONY: lock lock-node fix-deps align-tables status clean help help-json
 
-lock: ## Refresh Python lock files after dependency changes
-	@runtime_dir=$$(mktemp -d) && dev_dir=$$(mktemp -d) && \
-	trap 'rm -rf "$$runtime_dir" "$$dev_dir"' EXIT && \
-	$(PYTHON) -m venv "$$runtime_dir" && \
-	$(PYTHON) -m venv "$$dev_dir" && \
-	"$$runtime_dir/bin/pip" install --upgrade pip && \
-	"$$dev_dir/bin/pip" install --upgrade pip && \
-	"$$runtime_dir/bin/pip" install -e . && \
-	"$$dev_dir/bin/pip" install -e ".[dev]" && \
-	"$$runtime_dir/bin/pip" freeze --exclude-editable > locks/requirements.lock && \
-	"$$dev_dir/bin/pip" freeze --exclude-editable > locks/requirements-dev.lock
+lock: ## Refresh uv.lock after Python dependency changes
+	$(UV) lock
 
 lock-node: ## Refresh package-lock.json after Node dependency changes
 	$(NPM) install --package-lock-only
@@ -283,7 +277,8 @@ lock-node: ## Refresh package-lock.json after Node dependency changes
 fix-deps: ## Refresh locks, reinstall, and npm audit fix
 	$(MAKE) lock
 	$(MAKE) lock-node
-	$(VENV_PIP) install -r locks/requirements-dev.lock
+	$(MAKE) install
+	$(MAKE) node-install
 	$(MAKE) audit-fix-node
 
 align-tables: ## Align markdown table pipes across all docs
@@ -298,6 +293,7 @@ status: ## Show workspace health (git, venv, node, generated files, PR)
 	@echo
 	@echo "=== Node ==="
 	@test -d node_modules && echo "OK: node_modules exists" || echo "MISSING: run make setup"
+	@$(UV) lock --check >/dev/null 2>&1 && echo "OK: uv.lock is current" || echo "STALE: run make lock"
 	@$(NPM) install --package-lock-only --ignore-scripts --dry-run >/dev/null 2>&1 && echo "OK: package-lock.json is current" || echo "STALE: run make lock-node"
 	@echo
 	@echo "=== Generated files ==="
