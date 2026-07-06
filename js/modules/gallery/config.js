@@ -1,19 +1,3 @@
-const DEFAULT_CONFIG = {
-  artifactContract: {
-    artifactIdPattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
-    artifactBasePath: 'apps',
-    thumbnailFile: 'thumbnail.webp'
-  },
-  toolDisplayOrder: ['claude', 'chatgpt', 'gemini'],
-  tagDisplayOrder: [],
-  tools: {
-    claude: { label: 'Claude' },
-    chatgpt: { label: 'ChatGPT' },
-    gemini: { label: 'Gemini' }
-  },
-  tags: {}
-};
-
 /**
  * @typedef {{ label: string }} LabelEntry
  * @typedef {{
@@ -37,7 +21,28 @@ const DEFAULT_CONFIG = {
  *   tags: string[],
  *   tools: string[]
  * }} ArtifactRecord
+ * @typedef {Window & {
+ *   ARTIFACTS_CONFIG?: GalleryConfig,
+ *   ARTIFACTS_DATA?: ArtifactRecord[]
+ * }} GalleryWindow
  */
+
+/** @type {Required<GalleryConfig>} */
+const DEFAULT_CONFIG = {
+  artifactContract: {
+    artifactIdPattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+    artifactBasePath: 'apps',
+    thumbnailFile: 'thumbnail.webp'
+  },
+  toolDisplayOrder: ['claude', 'chatgpt', 'gemini'],
+  tagDisplayOrder: [],
+  tools: {
+    claude: { label: 'Claude' },
+    chatgpt: { label: 'ChatGPT' },
+    gemini: { label: 'Gemini' }
+  },
+  tags: {}
+};
 
 /**
  * Return whether a value is a plain object.
@@ -277,12 +282,15 @@ export function validateArtifactsData(value, artifactContract = DEFAULT_CONFIG.a
 export function validateArtifactsConfig(value) {
   assertShape(isPlainObject(value), 'window.ARTIFACTS_CONFIG must be an object');
 
-  [
+  /** @type {Array<[string, (value: *, path: string) => void]>} */
+  const validators = [
     ['toolDisplayOrder', validateStringArray],
     ['tagDisplayOrder', validateStringArray],
     ['tools', validateLabelMap],
     ['tags', validateLabelMap]
-  ].forEach(([key, validator]) => {
+  ];
+
+  validators.forEach(([key, validator]) => {
     if (!(key in value)) {
       return;
     }
@@ -303,8 +311,9 @@ export function validateArtifactsConfig(value) {
  * @returns {void}
  */
 export function validateGalleryBootstrapData(windowObj = window) {
-  const config = validateArtifactsConfig(windowObj.ARTIFACTS_CONFIG);
-  validateArtifactsData(windowObj.ARTIFACTS_DATA, getArtifactContract(config.artifactContract));
+  const galleryWindow = /** @type {GalleryWindow} */ (windowObj);
+  const config = validateArtifactsConfig(galleryWindow.ARTIFACTS_CONFIG);
+  validateArtifactsData(galleryWindow.ARTIFACTS_DATA, getArtifactContract(config.artifactContract));
 }
 
 /**
@@ -313,7 +322,8 @@ export function validateGalleryBootstrapData(windowObj = window) {
  * @returns {Required<GalleryConfig>} Merged gallery config.
  */
 export function getGalleryConfig(windowObj = window) {
-  const runtimeConfig = windowObj.ARTIFACTS_CONFIG || {};
+  const galleryWindow = /** @type {GalleryWindow} */ (windowObj);
+  const runtimeConfig = galleryWindow.ARTIFACTS_CONFIG || {};
   return {
     artifactContract: getArtifactContract(runtimeConfig.artifactContract),
     toolDisplayOrder: runtimeConfig.toolDisplayOrder || DEFAULT_CONFIG.toolDisplayOrder,

@@ -126,6 +126,15 @@ format-py-check: ## Check Python formatting only
 format-prettier-check: ## Check Prettier-managed files only
 	$(NPM) run format:check
 
+# ─── Typecheck @typecheck ────────────────────────────────────────────────────
+
+.PHONY: typecheck typecheck-web
+
+typecheck: typecheck-web ## Run all type checks
+
+typecheck-web: ## Run TypeScript checkJs on hand-written js/ modules
+	$(NPM) run typecheck:web
+
 # ─── Dead code @deadcode ──────────────────────────────────────────────────────
 
 .PHONY: dead-code dead-code-py dead-code-js
@@ -225,12 +234,12 @@ new: ## Scaffold a new artifact directory (make new name=X)
 
 ci-python: format-py-check lint-py dead-code-py test-py ## Python CI gate
 
-ci-web: format-prettier-check lint-js lint-css lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage check-overrides dead-code-js test-js coverage-js ## Web and docs CI gate
+ci-web: format-prettier-check lint-js lint-css typecheck-web lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage check-overrides dead-code-js test-js coverage-js ## Web and docs CI gate
 
 ci: ci-python ci-web security validate check-generated ## Full local CI gate without browser tests
 
 ci-fast: ## Run the non-browser CI checks in parallel
-	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py format-check lint test-py coverage-js dead-code security validate check-generated
+	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py format-check lint typecheck test-py coverage-js dead-code security validate check-generated
 
 security: ## Run dependency audits (pip-audit + npm audit)
 	$(VENV_PYTHON) scripts/ci/run_security_audit.py

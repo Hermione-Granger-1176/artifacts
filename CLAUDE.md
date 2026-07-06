@@ -4,7 +4,7 @@ Collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT, G
 
 ## Rules
 
-1. **The Makefile is the only interface.** Never run `.venv/bin/*`, `pytest`, `ruff`, `npm run`, `npx`, `playwright`, or `gh` directly. Always use `make <target>`. If unsure what's available, run `make help` first. The list is auto-generated from the Makefile.
+1. **The Makefile is the only interface.** Never run `.venv/bin/*`, `pytest`, `ruff`, `npm run`, `npx`, `tsc`, `playwright`, or `gh` directly. Always use `make <target>`. If unsure what's available, run `make help` first. The list is auto-generated from the Makefile.
 2. **Use the `make pr` / `make git` / `make help-ci` targets for GitHub work.** Prefer `make pr-review-comments`, `make pr-address`, `make pr-reply`, `make pr-resolve`, `make pr-summary`, `make pr-checks`, `make ci-failures`, and `make push` over raw `gh` or `git` commands. `make pr-review-comments` prints `thread=PRRT_...` ids; pass that id straight to `make pr-reply`, `make pr-resolve`, or `make pr-address`.
 3. **If a target is missing, add it.** Put `## description` after the target name in the Makefile and it appears in `make help` automatically.
 4. **Each tool has one config file.** To change what gets linted/tested/covered, edit the tool's config, nowhere else. See the tool configuration table below.
@@ -36,7 +36,7 @@ When adding a user-provided artifact, prefer the minimal path: scaffold, copy HT
 
 ## Local commands
 
-**Run `make help` for command groups, then `make help-<group>` to expand one** (for example `make help-pr`, `make help-quality`, or `make help-build`). `make help-json` emits the same surface for tooling. Groups: setup, lint, format, deadcode, test, build, quality, util, git, pr, ci. Everything is auto-generated from `## comment` annotations and `# ─── Title @slug ───` section headers in the Makefile.
+**Run `make help` for command groups, then `make help-<group>` to expand one** (for example `make help-pr`, `make help-quality`, or `make help-build`). `make help-json` emits the same surface for tooling. Groups: setup, lint, format, typecheck, deadcode, test, build, quality, util, git, pr, ci. Everything is auto-generated from `## comment` annotations and `# ─── Title @slug ───` section headers in the Makefile.
 
 Key entry points:
 
@@ -93,6 +93,7 @@ Each tool has one config file that owns its scope. The Makefile just calls tools
 | stylelint | `stylelint.config.js` | CSS rules, ignoreFiles |
 | yamllint | `.yamllint.yml` | YAML rules, ignore patterns |
 | JS coverage | `package.json` | Exclude patterns (`node_modules/`, `tests/`) |
+| tsc (checkJs) | `config/jsconfig.json` | TypeScript checkJs gate for hand-written js/ modules |
 | Prettier | `config/prettierrc.json` | Docs, metadata, workflow, and tooling formatting |
 | Knip | `config/knip.json` | JS dead-code, unused exports, and unused dependency detection |
 | vulture | `pyproject.toml` | Python dead-code detection |

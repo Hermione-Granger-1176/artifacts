@@ -26,6 +26,26 @@ const DETAIL_CLOSE_DELAY = 360;
 const ACTIVATION_KEYS = new Set(['Enter', ' ']);
 
 /**
+ * @typedef {{
+ *   id: string,
+ *   name: string,
+ *   description?: string | null,
+ *   tags: string[],
+ *   tools: string[],
+ *   url: string,
+ *   thumbnail?: string | null,
+ *   searchText?: string
+ * }} ArtifactRecord
+ * @typedef {Window & { ARTIFACTS_DATA?: ArtifactRecord[] }} GalleryWindow
+ * @typedef {{
+ *   dataset?: string,
+ *   type: 'page' | 'desk-note' | 'mobile-filter',
+ *   value: string
+ * }} FocusTargetDescriptor
+ * @typedef {HTMLElement | FocusTargetDescriptor | null} FocusTarget
+ */
+
+/**
  * Return a required DOM element by ID.
  * @param {Document} documentObj - Document containing the gallery shell.
  * @param {string} id - Required element ID.
@@ -36,7 +56,7 @@ function requireElement(documentObj, id) {
   if (!element) {
     throw new Error(`Missing required element: #${id}`);
   }
-  return element;
+  return /** @type {HTMLElement} */ (element);
 }
 
 /**
@@ -51,12 +71,17 @@ function toggleSelection(selection, value) {
     : [...selection, value];
 }
 
-/** Return whether one element behaves like a text-entry control. */
+/**
+ * Return whether one element behaves like a text-entry control.
+ * @param {Element | null} element - Element to inspect.
+ * @returns {boolean} Whether the element accepts text entry.
+ */
 function isTextEntryElement(element) {
+  const htmlElement = /** @type {HTMLElement | null} */ (element);
   return Boolean(element && (
     element.tagName === 'INPUT'
     || element.tagName === 'TEXTAREA'
-    || element.isContentEditable
+    || htmlElement?.isContentEditable
   ));
 }
 
@@ -87,17 +112,19 @@ function shouldFocusSearchShortcut(event, overlay, activeElement) {
  *     writeStorage: (key: string, value: string) => boolean
  *   },
  *   windowObj?: Window
- * }} [options={}] - Injected document, runtime, and window dependencies.
+ * }} options - Injected document, runtime, and window dependencies.
  * @returns {void}
  */
-export function initializeGalleryApp({ documentObj = document, runtime, windowObj = window } = {}) {
+export function initializeGalleryApp({ documentObj = document, runtime, windowObj = window }) {
   if (!runtime) {
     throw new Error('A runtime instance is required to initialize the gallery');
   }
 
+  const appRuntime = runtime;
+  const galleryWindow = /** @type {GalleryWindow} */ (windowObj);
   const grid = requireElement(documentObj, 'artifacts-grid');
-  const searchInput = requireElement(documentObj, 'search-input');
-  const searchClear = requireElement(documentObj, 'search-clear');
+  const searchInput = /** @type {HTMLInputElement} */ (requireElement(documentObj, 'search-input'));
+  const searchClear = /** @type {HTMLButtonElement} */ (requireElement(documentObj, 'search-clear'));
   const sortToggle = requireElement(documentObj, 'sort-toggle');
   const filterReset = requireElement(documentObj, 'filter-reset');
   const themeToggle = requireElement(documentObj, 'theme-toggle');
@@ -111,18 +138,18 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   const galleryStatus = requireElement(documentObj, 'gallery-status');
   const htmlElement = documentObj.documentElement;
 
-  const backgroundElements = [
+  const backgroundElements = /** @type {HTMLElement[]} */ ([
     documentObj.querySelector('.header'),
     documentObj.querySelector('.container'),
     documentObj.querySelector('.footer'),
     scrollTopBtn
-  ].filter(Boolean);
+  ].filter(Boolean));
 
   const prefersReducedMotionQuery = windowObj.matchMedia('(prefers-reduced-motion: reduce)');
   const motion = createMotionHelper(prefersReducedMotionQuery, windowObj);
   const bookScene = createBookScene({ documentObj, windowObj, motion });
   const galleryConfig = getGalleryConfig(windowObj);
-  const rawArtifacts = Array.isArray(windowObj.ARTIFACTS_DATA) ? windowObj.ARTIFACTS_DATA : [];
+  const rawArtifacts = Array.isArray(galleryWindow.ARTIFACTS_DATA) ? galleryWindow.ARTIFACTS_DATA : [];
   const allArtifacts = hydrateArtifacts(rawArtifacts);
   const artifactById = new Map(allArtifacts.map((item) => [item.id, item]));
   const allTags = sortValuesByDisplayOrder(
@@ -134,7 +161,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     galleryConfig.toolDisplayOrder
   );
 
+  /** @type {ReturnType<import('./detail-overlay.js').createDetailOverlay> | null} */
   let overlayInstance = null;
+  /** @type {Promise<ReturnType<import('./detail-overlay.js').createDetailOverlay>> | null} */
   let overlayLoading = null;
 
   /** Lazily import and initialize the detail overlay, returning the cached instance. */
@@ -182,7 +211,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
         const inst = await ensureOverlay();
         token === overlayActionToken && inst.open(id, triggerCard, items);
       } catch (error) {
-        runtime.reportError(error, 'overlay open');
+        appRuntime.reportError(error, 'overlay open');
       }
     },
     async toggle(id, triggerCard, items) {
@@ -191,7 +220,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
         const inst = await ensureOverlay();
         token === overlayActionToken && inst.toggle(id, triggerCard, items);
       } catch (error) {
-        runtime.reportError(error, 'overlay toggle');
+        appRuntime.reportError(error, 'overlay toggle');
       }
     }
   };
@@ -201,11 +230,15 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   let currentPage = DEFAULT_GALLERY_STATE.page;
   let currentFilter = DEFAULT_GALLERY_STATE.q;
   let currentSort = DEFAULT_GALLERY_STATE.sort;
+  /** @type {string[]} */
   let currentTools = [];
+  /** @type {string[]} */
   let currentTags = [];
   let debounceTimer = null;
   let suppressPush = false;
+  /** @type {FocusTarget} */
   let pendingFocusTarget = null;
+  /** @type {Record<string, (value: string, surface?: string) => FocusTargetDescriptor | null>} */
   const filterNoteHandlers = {
     filterNote: (value, surface = 'desk') => {
       const resetFilter = resetFiltersByNote[value];
@@ -239,7 +272,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   readStateFromURL();
   renderFilterNotes();
 
-  const savedTheme = runtime.readStorage('theme', 'light') || 'light';
+  const savedTheme = appRuntime.readStorage('theme', 'light') || 'light';
   applyTheme(savedTheme, false);
   updateScrollTopVisibility(false);
 
@@ -253,10 +286,10 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
   });
 
-  searchInput.addEventListener('input', (event) => {
+  searchInput.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = windowObj.setTimeout(() => {
-      currentFilter = event.target.value.toLowerCase();
+      currentFilter = searchInput.value.toLowerCase();
       currentPage = 1;
       applyStateChange();
     }, 150);
@@ -270,21 +303,30 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   });
 
   filterNotesContainer.addEventListener('click', (event) => {
-    const tab = event.target.closest('.desk-note') || event.target.closest('.mobile-filter-chip');
+    const target = /** @type {Element | null} */ (event.target);
+    const tab = /** @type {HTMLElement | null} */ (
+      target?.closest('.desk-note') || target?.closest('.mobile-filter-chip') || null
+    );
     if (!tab) {
       return;
     }
 
-    const filterDatasetEntry = [
+    /** @type {Array<[string, string | undefined]>} */
+    const filterDatasetEntries = [
       ['filterNote', tab.dataset.filterNote],
       ['filterTool', tab.dataset.filterTool],
       ['filterTag', tab.dataset.filterTag]
-    ].find(([, value]) => Boolean(value));
+    ];
+    const filterDatasetEntry = filterDatasetEntries.find(([, value]) => Boolean(value));
     if (!filterDatasetEntry) {
       return;
     }
 
     const [dataset, value] = filterDatasetEntry;
+    if (!value) {
+      return;
+    }
+
     const focusTarget = filterNoteHandlers[dataset]?.(value, tab.dataset.filterSurface || 'desk');
     if (!focusTarget) {
       return;
@@ -304,18 +346,20 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   noResultsReset.addEventListener('click', resetFilters);
 
   detailOverlayEl.addEventListener('click', (event) => {
-    if (event.target.closest('[data-close-detail]')) {
+    const target = /** @type {Element | null} */ (event.target);
+    if (target?.closest('[data-close-detail]')) {
       overlay.close();
     }
   });
 
   grid.addEventListener('click', (event) => {
-    const card = event.target.closest('.artifact-card');
+    const target = /** @type {Element | null} */ (event.target);
+    const card = /** @type {HTMLElement | null} */ (target?.closest('.artifact-card') || null);
     if (!card) {
       return;
     }
 
-    overlay.toggle(card.dataset.id, card, artifactById);
+    overlay.toggle(/** @type {string} */ (card.dataset.id), card, artifactById);
   });
 
   grid.addEventListener('keydown', (event) => {
@@ -323,22 +367,24 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return;
     }
 
-    const card = event.target.closest('.artifact-card');
+    const target = /** @type {Element | null} */ (event.target);
+    const card = /** @type {HTMLElement | null} */ (target?.closest('.artifact-card') || null);
     if (!card) {
       return;
     }
 
     event.preventDefault();
-    overlay.toggle(card.dataset.id, card, artifactById);
+    overlay.toggle(/** @type {string} */ (card.dataset.id), card, artifactById);
   });
 
   paginationContainer.addEventListener('click', async (event) => {
-    const button = event.target.closest('[data-page]');
+    const target = /** @type {Element | null} */ (event.target);
+    const button = /** @type {HTMLButtonElement | null} */ (target?.closest('[data-page]') || null);
     if (!button || button.disabled) {
       return;
     }
 
-    const page = Number.parseInt(button.dataset.page, 10);
+    const page = Number.parseInt(button.dataset.page || '', 10);
     if (!page || page === currentPage) {
       return;
     }
@@ -419,7 +465,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     themeToggle.setAttribute('aria-label', `Switch to ${nextTheme} theme`);
     themeToggle.setAttribute('title', `Switch to ${nextTheme} theme`);
     if (persist) {
-      runtime.writeStorage('theme', theme);
+      appRuntime.writeStorage('theme', theme);
     }
 
     const meta = documentObj.querySelector('meta[name="theme-color"]');
@@ -496,7 +542,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   function updateFilterNotesState() {
     const updateButtons = (selector, activeValues) => {
-      filterNotesContainer.querySelectorAll(selector).forEach((button) => {
+      filterNotesContainer.querySelectorAll(selector).forEach((element) => {
+        const button = /** @type {HTMLElement} */ (element);
         const active = activeValues.includes(button.dataset.filterTool || button.dataset.filterTag || '');
         button.classList.toggle('is-active', active);
         button.setAttribute('aria-pressed', String(active));
@@ -506,11 +553,15 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     updateButtons('[data-filter-tool]', currentTools);
     updateButtons('[data-filter-tag]', currentTags);
 
-    [
+    /** @type {Array<[string, boolean]>} */
+    const filterNoteStates = [
       ['[data-filter-note="all-tools"]', currentTools.length === 0],
       ['[data-filter-note="all-tags"]', currentTags.length === 0]
-    ].forEach(([selector, active]) => {
-      filterNotesContainer.querySelectorAll(selector).forEach((button) => {
+    ];
+
+    filterNoteStates.forEach(([selector, active]) => {
+      filterNotesContainer.querySelectorAll(selector).forEach((element) => {
+        const button = /** @type {HTMLElement} */ (element);
         button.classList.toggle('is-active', active);
         button.setAttribute('aria-pressed', String(active));
       });
@@ -551,6 +602,11 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     filterReset.classList.toggle('hidden', !hasActiveFilters);
   }
 
+  /**
+   * Apply gallery state changes, then optionally restore focus to a target.
+   * @param {{ focusTarget?: FocusTarget }} [options={}] - Optional focus target.
+   * @returns {void}
+   */
   function applyStateChange({ focusTarget = null } = {}) {
     overlay.close({ restoreFocus: false, immediate: true });
     pendingFocusTarget = focusTarget;
@@ -573,23 +629,31 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return null;
     }
 
-    if (typeof target.focus === 'function' && documentObj.body.contains(target)) {
-      return target;
+    const focusableTarget = /** @type {HTMLElement} */ (target);
+    if (typeof focusableTarget.focus === 'function' && documentObj.body.contains(focusableTarget)) {
+      return focusableTarget;
     }
 
+    const descriptor = /** @type {FocusTargetDescriptor} */ (target);
     const targetResolvers = {
-      page: () => paginationContainer.querySelector(`[data-page="${CSS.escape(target.value)}"]`),
+      page: () => /** @type {HTMLElement | null} */ (
+        paginationContainer.querySelector(`[data-page="${CSS.escape(descriptor.value)}"]`)
+      ),
       'desk-note': () => {
-        const selectorName = target.dataset.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
-        return filterNotesContainer.querySelector(`[data-${selectorName}="${CSS.escape(target.value)}"]`);
+        const selectorName = (descriptor.dataset || '').replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+        return /** @type {HTMLElement | null} */ (
+          filterNotesContainer.querySelector(`[data-${selectorName}="${CSS.escape(descriptor.value)}"]`)
+        );
       },
       'mobile-filter': () => {
-        const selectorName = target.dataset.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
-        return filterNotesContainer.querySelector(`[data-filter-surface="mobile"][data-${selectorName}="${CSS.escape(target.value)}"]`);
+        const selectorName = (descriptor.dataset || '').replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+        return /** @type {HTMLElement | null} */ (
+          filterNotesContainer.querySelector(`[data-filter-surface="mobile"][data-${selectorName}="${CSS.escape(descriptor.value)}"]`)
+        );
       }
     };
 
-    return targetResolvers[target.type]?.() || null;
+    return targetResolvers[descriptor.type]?.() || null;
   }
 
   function restorePendingFocus() {

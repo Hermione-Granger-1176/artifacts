@@ -116,6 +116,7 @@ def test_update_verify_job_runs_expected_make_targets() -> None:
     for target in (
         "format-check",
         "lint",
+        "typecheck",
         "test-py",
         "coverage-js",
         "dead-code",

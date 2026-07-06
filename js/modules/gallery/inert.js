@@ -23,10 +23,11 @@ function restoreElementInteractivity(element) {
     return;
   }
 
-  if (element.dataset.prevAriaHidden === '') {
+  const previousAriaHidden = element.dataset.prevAriaHidden;
+  if (previousAriaHidden === '' || previousAriaHidden === undefined) {
     element.removeAttribute('aria-hidden');
   } else {
-    element.setAttribute('aria-hidden', element.dataset.prevAriaHidden);
+    element.setAttribute('aria-hidden', previousAriaHidden);
   }
 
   delete element.dataset.prevAriaHidden;

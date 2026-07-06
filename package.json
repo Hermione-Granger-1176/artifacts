@@ -12,7 +12,8 @@
     "lint:js": "eslint .",
     "lint:workflows": "node scripts/lint/lint-workflows.mjs",
     "test": "node --test \"tests/js/**/*.test.js\"",
-    "test:coverage": "node --experimental-test-coverage --test-coverage-lines=95 --test-coverage-branches=85 --test-coverage-functions=95 --test-coverage-exclude=node_modules/** --test-coverage-exclude=tests/** --test \"tests/js/**/*.test.js\""
+    "test:coverage": "node --experimental-test-coverage --test-coverage-lines=95 --test-coverage-branches=85 --test-coverage-functions=95 --test-coverage-exclude=node_modules/** --test-coverage-exclude=tests/** --test \"tests/js/**/*.test.js\"",
+    "typecheck:web": "tsc --noEmit --project config/jsconfig.json"
   },
   "devDependencies": {
     "actionlint": "2.0.6",
@@ -22,6 +23,7 @@
     "globals": "17.7.0",
     "knip": "6.24.0",
     "prettier": "3.9.4",
-    "stylelint": "17.14.0"
+    "stylelint": "17.14.0",
+    "typescript": "6.0.3"
   }
 }
