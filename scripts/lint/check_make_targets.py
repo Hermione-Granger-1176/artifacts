@@ -7,9 +7,9 @@ import argparse
 import sys
 from typing import TYPE_CHECKING
 
+from scripts import REPO_ROOT
 from scripts.lint.make_targets import (
     MAKEFILE_PATH,
-    REPO_ROOT,
     extract_make_references,
     iter_markdown_files,
     load_makefile_targets,

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from scripts.build.index_config import IndexConfig
+    from scripts.lib.artifact_contract import ArtifactContract
 
 
 class BadgeConfig(TypedDict):
@@ -88,7 +89,7 @@ def badge_config_map(entries: Sequence[MetadataEntry]) -> dict[str, BadgeConfig]
 
 
 def frontend_config(
-    metadata: GalleryMetadata, *, artifact_contract: Mapping[str, str]
+    metadata: GalleryMetadata, *, artifact_contract: ArtifactContract
 ) -> dict[str, object]:
     """Build the browser config object consumed by the gallery UI."""
     return {

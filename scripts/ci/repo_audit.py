@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from scripts.lib.gh_api import run_gh_api_json
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 EXPECTED_REQUIRED_CHECKS = {"verify", "secret-scan", "dependency-review"}
 EXPECTED_REPOSITORY_VARIABLES = {"APP_ID", "ESCALATION_APP_ID", "AUDIT_APP_ID"}
@@ -124,7 +127,7 @@ def load_ruleset_detail(
     repo: str,
     ruleset: object,
     *,
-    run_gh_api_json_fn=run_gh_api_json,
+    run_gh_api_json_fn: Callable[..., object] = run_gh_api_json,
 ) -> object:
     """Fetch one ruleset detail payload when the summary response is incomplete."""
     if isinstance(ruleset, dict) and isinstance(ruleset.get("conditions"), dict):
@@ -148,7 +151,7 @@ def audit_repo_settings(
     repo: str,
     default_branch: str = "main",
     pages_branch: str = "gh-pages",
-    run_gh_api_json_fn=run_gh_api_json,
+    run_gh_api_json_fn: Callable[..., object] = run_gh_api_json,
 ) -> dict[str, object]:
     """Audit critical repository settings that the release flow depends on."""
     repository = run_gh_api_json_fn(

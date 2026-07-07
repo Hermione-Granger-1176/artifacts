@@ -9,8 +9,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from scripts import REPO_ROOT
 from scripts.lint.make_targets import (
-    REPO_ROOT,
     extract_markdown_code_snippets,
     load_makefile_targets,
 )

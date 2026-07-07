@@ -130,7 +130,8 @@ def find_artifacts() -> list[Path]:
 
 def save_thumbnail(image_bytes: bytes, thumb_path: Path) -> None:
     """Resize a screenshot and save it as an optimized WebP thumbnail."""
-    with Image.open(BytesIO(image_bytes)) as image:
+    with Image.open(BytesIO(image_bytes)) as opened:
+        image: Image.Image = opened
         width = min(THUMBNAIL_WIDTH, image.width)
         height = round(image.height * width / image.width)
         if (width, height) != image.size:
@@ -190,9 +191,11 @@ def _summarize(stats: ThumbnailStats) -> str:
 
 def _retry_delay_seconds(attempt: int) -> float:
     """Return a bounded exponential backoff for retry attempt numbers."""
-    return min(
-        SCREENSHOT_RETRY_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)),
-        SCREENSHOT_RETRY_BACKOFF_MAX_SECONDS,
+    return float(
+        min(
+            SCREENSHOT_RETRY_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)),
+            SCREENSHOT_RETRY_BACKOFF_MAX_SECONDS,
+        )
     )
 
 
@@ -230,7 +233,7 @@ async def _capture_screenshot(page: Any, file_url: str, artifact_name: str) -> b
                 timeout=READY_SIGNAL_TIMEOUT_MS,
             )
             await page.wait_for_timeout(POST_LOAD_DELAY_MS)
-            return await page.screenshot(type="png")
+            return cast("bytes", await page.screenshot(type="png"))
         except Exception as exc:
             if attempt >= SCREENSHOT_RETRY_ATTEMPTS:
                 raise

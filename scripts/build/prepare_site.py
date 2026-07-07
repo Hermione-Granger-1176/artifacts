@@ -33,6 +33,8 @@ from scripts.lib.project_config import load_artifacts_setting, load_site_url
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from scripts.lib.artifact_contract import ArtifactContract
+
 logging.basicConfig(
     level=getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO),
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -62,7 +64,7 @@ APP_SHARE_IMAGE_PLACEHOLDER = "__APP_THUMBNAIL_URL__"
 SHARE_IMAGE_PATH = "assets/social/share-preview.png"
 
 
-def _artifact_contract() -> dict[str, str]:
+def _artifact_contract() -> ArtifactContract:
     """Return the validated shared artifact contract."""
     return read_artifact_contract_file(REPO_ROOT / "config" / "artifact_contract.json")
 

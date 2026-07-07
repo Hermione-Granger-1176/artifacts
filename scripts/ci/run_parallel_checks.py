@@ -5,8 +5,11 @@ from __future__ import annotations
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+
+RunFunction = Callable[..., subprocess.CompletedProcess[str]]
 
 
 @dataclass(frozen=True)
@@ -22,7 +25,9 @@ class CheckResult:
 DEFAULT_TIMEOUT = 600
 
 
-def run_check(name: str, *, timeout: int = DEFAULT_TIMEOUT, run_fn=None) -> CheckResult:
+def run_check(
+    name: str, *, timeout: int = DEFAULT_TIMEOUT, run_fn: RunFunction | None = None
+) -> CheckResult:
     """Run a single make target and return the captured result."""
     start = time.monotonic()
     try:
@@ -54,7 +59,7 @@ def run_check(name: str, *, timeout: int = DEFAULT_TIMEOUT, run_fn=None) -> Chec
 
 
 def run_checks(
-    targets: list[str], *, timeout: int = DEFAULT_TIMEOUT, run_fn=None
+    targets: list[str], *, timeout: int = DEFAULT_TIMEOUT, run_fn: RunFunction | None = None
 ) -> tuple[CheckResult, ...]:
     """Run all targets in parallel and return results sorted by name."""
     with ThreadPoolExecutor() as pool:

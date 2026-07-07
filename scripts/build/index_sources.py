@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
     from scripts.build.index_config import IndexConfig
 
-__all__ = ["read_artifact_contract_file"]
+__all__ = ["ArtifactContract", "read_artifact_contract_file"]
 
 
 class ArtifactItem(TypedDict):
