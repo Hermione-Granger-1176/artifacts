@@ -563,6 +563,9 @@ def test_list_comments_bad_top_level_pageinfo_raises() -> None:
     )
     with pytest.raises(GhError):
         pr_review.list_comments(7, run_fn=runner)
+
+
+def test_parse_threads_maps_fields() -> None:
     """Map a GraphQL payload into ReviewThread objects."""
     threads = pr_review.parse_threads(THREADS_PAYLOAD["data"])
 

@@ -358,7 +358,6 @@ def _remaining_thread_comments(
         page_info = connection.get("pageInfo")
         if not isinstance(page_info, dict):
             raise GhError(f"review thread {thread_id} pageInfo shape is unexpected")
-        after = page_info.get("endCursor")
     return comments
 
 
