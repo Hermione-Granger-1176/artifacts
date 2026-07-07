@@ -5,13 +5,13 @@ Collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT, G
 ## Rules
 
 1. **The Makefile is the only interface.** Never run `.venv/bin/*`, `pytest`, `ruff`, `mypy`, `npm run`, `npx`, `tsc`, `playwright`, or `gh` directly. Always use `make <target>`. If unsure what's available, run `make help` first. The list is auto-generated from the Makefile.
-2. **Use the `make pr` / `make git` / `make help-ci` targets for GitHub work.** Prefer `make pr-review-comments`, `make pr-address`, `make pr-reply`, `make pr-resolve`, `make pr-summary`, `make pr-checks`, `make ci-failures`, and `make push` over raw `gh` or `git` commands. `make pr-review-comments` prints `thread=PRRT_...` ids; pass that id straight to `make pr-reply`, `make pr-resolve`, or `make pr-address`.
+2. **Use the `make pr` / `make git` / `make help-ci` targets for GitHub work.** Prefer `make pr-review-comments`, `make pr-address`, `make pr-reply`, `make pr-resolve`, `make pr-summary`, `make pr-checks`, `make ci-failures`, and `make push` over raw `gh` or `git` commands. `make pr-review-comments` prints `thread=PRRT_...` ids; pass that id straight to `make pr-reply`, `make pr-resolve`, or `make pr-address`. The PR number is auto-detected from the current branch (override with `pr_num=N`). Never pass extra flags like `--jq` to a make target, since make parses them itself and errors.
 3. **If a target is missing, add it.** Put `## description` after the target name in the Makefile and it appears in `make help` automatically.
-4. **Each tool has one config file.** To change what gets linted/tested/covered, edit the tool's config, nowhere else. See the tool configuration table below.
-5. **Configs auto-discover from roots.** Point tools at directory roots, globs, or shared config files so new artifacts, scripts, and tests are covered automatically. Avoid per-file source lists unless the tool requires them.
+4. **Each tool has one config file.** To change what gets linted/tested/typed, edit the tool's config, nowhere else. See the tool configuration table below.
+5. **Configs auto-discover from roots; never enumerate files in multiple places.** Point tools at directory roots, globs, or shared config files so new artifacts, scripts, and tests are covered automatically. Don't repeat per-file source lists; that rots the day someone adds a file and forgets. Tool config-file location pointers are fine; per-file source lists are not.
 6. **Read before acting.** Read the Makefile and existing code before proposing changes. Don't reinvent what already exists.
 7. **Don't run auto-fix commands** (`make align-tables`, `make fmt`, `make format`, etc.) unless the user asks.
-8. **Don't commit, push, or open/merge PRs unless asked.** Make and verify changes in the working tree and stop there until the user asks for GitHub actions.
+8. **Don't commit, push, or open/merge PRs unless asked.** Make and verify changes in the working tree and stop there until the user asks for GitHub actions. For small tooling/doc tweaks, fold them into the current in-progress branch instead of opening a separate PR.
 
 ## Structure
 
@@ -100,9 +100,10 @@ Each tool has one config file that owns its scope. The Makefile just calls tools
 | Knip | `config/knip.json` | JS dead-code, unused exports, and unused dependency detection |
 | vulture | `pyproject.toml` | Python dead-code detection |
 | editorconfig | `.editorconfig` | Formatting rules per file type |
+| pre-commit | `.pre-commit-config.yaml` | Local Git hook stages (whitespace, lint, format, typecheck, and test gates) |
 | esbuild | `package.json` | CSS/JS minification during site assembly (`prepare_site.py`) |
 
-To change what gets linted/tested/covered, edit the tool's config file, nowhere else.
+To change what gets linted/tested/typed, edit the tool's config file, nowhere else.
 
 ## Auto-generated files
 

@@ -9,7 +9,6 @@ UV          ?= uv
 UVX         ?= uvx
 VENV        ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
-VENV_RUFF   := $(VENV)/bin/ruff
 NPM         ?= npm
 
 # Python source tree that mypy strict-checks. Tests are intentionally excluded.
@@ -73,7 +72,7 @@ editorconfig-check: ## Check EditorConfig rules
 	$(VENV_PYTHON) scripts/lint/check_editorconfig.py
 
 lint-py: ## Run ruff only
-	$(VENV_RUFF) check .
+	$(VENV_PYTHON) -m ruff check .
 
 lint-js: ## Run eslint only
 	$(NPM) run lint:js
@@ -110,8 +109,8 @@ fmt: fmt-py fmt-js fmt-css fmt-prettier ## Auto-fix all formatting and lint fixe
 format: fmt ## Alias for fmt
 
 fmt-py: ## Auto-fix Python (ruff check --fix + ruff format)
-	$(VENV_RUFF) check --fix .
-	$(VENV_RUFF) format .
+	$(VENV_PYTHON) -m ruff check --fix .
+	$(VENV_PYTHON) -m ruff format .
 
 fmt-js: ## Auto-fix JavaScript (eslint --fix)
 	$(NPM) run lint:js -- --fix
@@ -125,7 +124,7 @@ fmt-prettier: ## Auto-format docs, metadata, workflows, and tooling scripts
 format-check: format-py-check format-prettier-check ## Check Python and Prettier formatting
 
 format-py-check: ## Check Python formatting only
-	$(VENV_RUFF) format --check .
+	$(VENV_PYTHON) -m ruff format --check .
 
 format-prettier-check: ## Check Prettier-managed files only
 	$(NPM) run format:check
