@@ -212,8 +212,13 @@ def list_threads(
                 "Unexpected reviewThreads pageInfo shape in GraphQL response."
             )
         after = page_info.get("endCursor")
-        if not page_info.get("hasNextPage") or not after:
+        has_next = page_info.get("hasNextPage")
+        if not has_next:
             break
+        if not after:
+            raise GhError(
+                "Unexpected reviewThreads pageInfo shape in GraphQL response."
+            )
 
     if include_resolved:
         return threads
@@ -297,7 +302,12 @@ def _remaining_thread_comments(
         raise GhError(f"review thread {thread_id} pageInfo shape is unexpected")
     comments: list[ReviewComment] = []
     after = page_info.get("endCursor")
-    while page_info.get("hasNextPage") and after:
+    while page_info.get("hasNextPage"):
+        if not after:
+            raise GhError(
+                f"review thread {thread_id} pageInfo shape is unexpected: "
+                "hasNextPage reported without an endCursor"
+            )
         result = gh_runner.graphql(
             _THREAD_COMMENTS_QUERY,
             variables={"thread": thread_id, "after": after},
@@ -371,8 +381,13 @@ def list_comments(
                 "Unexpected reviewThreads pageInfo shape in GraphQL response."
             )
         after = page_info.get("endCursor")
-        if not page_info.get("hasNextPage") or not after:
+        has_next = page_info.get("hasNextPage")
+        if not has_next:
             break
+        if not after:
+            raise GhError(
+                "Unexpected reviewThreads pageInfo shape in GraphQL response."
+            )
     return comments
 
 

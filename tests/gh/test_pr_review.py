@@ -197,6 +197,11 @@ def test_remaining_thread_comments_rejects_non_dict_page_info() -> None:
         pr_review._remaining_thread_comments("PRRT_x", "not a dict")
 
 
+def test_remaining_thread_comments_hasnext_without_cursor_raises() -> None:
+    with pytest.raises(GhError):
+        pr_review._remaining_thread_comments("PRRT_x", {"hasNextPage": True})
+
+
 def test_remaining_thread_comments_bad_pageinfo_shape() -> None:
     def runner(
         cmd: Sequence[str], **_kwargs: object
@@ -251,6 +256,25 @@ def test_list_threads_pageinfo_not_dict_raises() -> None:
             "data": {
                 "repository": {
                     "pullRequest": {"reviewThreads": {"nodes": [], "pageInfo": "bad"}}
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_threads(7, run_fn=runner)
+
+
+def test_list_threads_hasnext_without_cursor_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [{"id": "X"}],
+                            "pageInfo": {"hasNextPage": True},
+                        }
+                    }
                 }
             }
         }
@@ -374,6 +398,25 @@ def test_list_comments_bad_thread_pageinfo_raises() -> None:
                                 }
                             ],
                             "pageInfo": {},
+                        }
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_comments(7, run_fn=runner)
+
+
+def test_list_comments_hasnext_without_cursor_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [{"id": "X", "comments": {"nodes": []}}],
+                            "pageInfo": {"hasNextPage": True},
                         }
                     }
                 }
