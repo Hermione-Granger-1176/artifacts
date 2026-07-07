@@ -463,6 +463,10 @@ def _rollup_summary(rollup: list[dict[str, Any]]) -> str:
         return "none"
     counts: Counter[str] = Counter()
     for check in rollup:
+        if not isinstance(check, dict):
+            raise GhError(
+                "Unexpected statusCheckRollup entry shape in PR view response."
+            )
         outcome = check.get("conclusion") or check.get("state") or "PENDING"
         counts[str(outcome).lower()] += 1
     return ", ".join(f"{count} {label}" for label, count in sorted(counts.items()))

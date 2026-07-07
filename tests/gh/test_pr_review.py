@@ -1093,6 +1093,11 @@ def test_rollup_summary_empty() -> None:
     assert pr_review._rollup_summary([]) == "none"
 
 
+def test_rollup_summary_rejects_non_dict_entry() -> None:
+    with pytest.raises(GhError):
+        pr_review._rollup_summary([{"conclusion": "SUCCESS"}, "not a dict"])
+
+
 def test_owner_name_rejects_invalid_slug(monkeypatch: pytest.MonkeyPatch) -> None:
     """The owner/name splitter rejects a malformed slug."""
     monkeypatch.setattr(gh_runner, "resolve_repo", lambda **_kwargs: "owner/")
