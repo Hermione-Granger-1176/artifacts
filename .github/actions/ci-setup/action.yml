@@ -193,7 +193,16 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
         cache: pip
-        cache-dependency-path: locks/requirements-dev.lock
+        cache-dependency-path: uv.lock
+
+    - name: Cache uv downloads
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/uv
+        key: uv-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('uv.lock') }}
+        restore-keys: |
+          uv-${{ runner.os }}-${{ inputs.python-version }}-
+          uv-${{ runner.os }}-
 
     - name: Set up Node.js
       if: inputs.node-version != ''
@@ -201,6 +210,11 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
         cache: npm
+
+    - name: Install uv
+      if: inputs.install-deps == 'true'
+      shell: bash
+      run: python -m pip install --upgrade pip uv
 
     - name: Install workspace dependencies
       if: inputs.install-deps == 'true'

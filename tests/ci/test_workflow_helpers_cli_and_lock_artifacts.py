@@ -58,10 +58,10 @@ def test_read_lock_refresh_metadata_reads_required_values(tmp_path: Path) -> Non
     """Read lock refresh metadata reads required values."""
     write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
     write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
-    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/pip/demo\n")
+    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/uv/demo\n")
 
     assert workflow_helpers.read_lock_refresh_metadata(tmp_path) == {
-        "head-ref": "dependabot/pip/demo",
+        "head-ref": "dependabot/uv/demo",
         "head-sha": "abc123",
         "pr-number": "8",
     }
@@ -69,11 +69,10 @@ def test_read_lock_refresh_metadata_reads_required_values(tmp_path: Path) -> Non
 
 def test_validate_lock_refresh_artifact_accepts_expected_files(tmp_path: Path) -> None:
     """Validate lock refresh artifact accepts expected files."""
-    write_text(tmp_path / "locks" / "requirements.lock", "pkg==1.0\n")
-    write_text(tmp_path / "locks" / "requirements-dev.lock", "pkg==1.0\n")
+    write_text(tmp_path / "uv.lock", "version = 1\n")
     write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
     write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
-    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/pip/demo\n")
+    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/uv/demo\n")
 
     workflow_helpers.validate_lock_refresh_artifact(tmp_path)
 
@@ -81,11 +80,10 @@ def test_validate_lock_refresh_artifact_accepts_expected_files(tmp_path: Path) -
 @pytest.mark.skipif(not hasattr(Path, "symlink_to"), reason="symlinks unavailable")
 def test_validate_lock_refresh_artifact_rejects_symlinks(tmp_path: Path) -> None:
     """Validate lock refresh artifact rejects symlinks."""
-    write_text(tmp_path / "locks" / "requirements.lock", "pkg==1.0\n")
-    write_text(tmp_path / "locks" / "requirements-dev.lock", "pkg==1.0\n")
+    write_text(tmp_path / "uv.lock", "version = 1\n")
     write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
     write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
-    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/pip/demo\n")
+    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/uv/demo\n")
     linked = tmp_path / "linked.txt"
     write_text(linked, "secret\n")
     (tmp_path / ".artifacts" / "escape.txt").symlink_to(linked)
@@ -99,11 +97,10 @@ def test_validate_lock_refresh_artifact_rejects_symlinked_directories(
     tmp_path: Path,
 ) -> None:
     """Validate lock refresh artifact rejects symlinked directories."""
-    write_text(tmp_path / "locks" / "requirements.lock", "pkg==1.0\n")
-    write_text(tmp_path / "locks" / "requirements-dev.lock", "pkg==1.0\n")
+    write_text(tmp_path / "uv.lock", "version = 1\n")
     write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
     write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
-    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/pip/demo\n")
+    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/uv/demo\n")
     linked_dir = tmp_path / "linked-dir"
     linked_dir.mkdir()
     (tmp_path / ".artifacts" / "nested-link").symlink_to(linked_dir, target_is_directory=True)
@@ -114,7 +111,7 @@ def test_validate_lock_refresh_artifact_rejects_symlinked_directories(
 
 def test_validate_lock_refresh_artifact_rejects_missing_files(tmp_path: Path) -> None:
     """Validate lock refresh artifact rejects missing files."""
-    write_text(tmp_path / "locks" / "requirements.lock", "pkg==1.0\n")
+    write_text(tmp_path / "uv.lock", "version = 1\n")
 
     with pytest.raises(ValueError, match="Required artifact file missing or not a regular file"):
         workflow_helpers.validate_lock_refresh_artifact(tmp_path)
@@ -146,13 +143,13 @@ def test_main_read_lock_metadata_prints_json(
     """Main read lock metadata prints json."""
     write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
     write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
-    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/pip/demo\n")
+    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/uv/demo\n")
 
     exit_code = workflow_helpers.main(["read-lock-metadata", "--root", str(tmp_path)])
 
     assert exit_code == 0
     assert json.loads(capsys.readouterr().out) == {
-        "head-ref": "dependabot/pip/demo",
+        "head-ref": "dependabot/uv/demo",
         "head-sha": "abc123",
         "pr-number": "8",
     }
@@ -160,11 +157,10 @@ def test_main_read_lock_metadata_prints_json(
 
 def test_main_validate_lock_artifact_returns_zero(tmp_path: Path) -> None:
     """Main validate lock artifact returns zero."""
-    write_text(tmp_path / "locks" / "requirements.lock", "pkg==1.0\n")
-    write_text(tmp_path / "locks" / "requirements-dev.lock", "pkg==1.0\n")
+    write_text(tmp_path / "uv.lock", "version = 1\n")
     write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
     write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
-    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/pip/demo\n")
+    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/uv/demo\n")
 
     assert workflow_helpers.main(["validate-lock-artifact", "--root", str(tmp_path)]) == 0
 

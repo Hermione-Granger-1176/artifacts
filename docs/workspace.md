@@ -44,7 +44,6 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- gallery-config.js      Generated display config
 |  |- modules/               Shared JS modules (runtime, element-cache, app-runtime, app-shell, html-escape)
 |  |  |- gallery/            Gallery-specific JS modules (gallery-app, catalog, config, render, etc.)
-|- locks/                    Frozen Python dependency lock files
 |- scripts/
 |  |- build/                 Index generation (with index_config, index_sources, index_outputs), thumbnail planning, thumbnails, site assembly, scaffolding
 |  |- ci/                    Workflow helpers, deploy verification, security audits, issue alerts, parallel check runner
@@ -65,6 +64,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |- index.html                Root gallery entry point
 |- Makefile                  Primary interface for supported workspace commands (run make help)
 |- pyproject.toml            Python deps, tool config, site metadata
+|- uv.lock                   Frozen Python dependency graph
 |- package.json              Node deps, npm scripts, JS test/coverage config
 |- eslint.config.js          ESLint scope and rules
 |- stylelint.config.js       Stylelint scope and rules
@@ -88,10 +88,10 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `assets/social/share-preview.png`: social preview image referenced by deploy-time Open Graph and Twitter metadata
 - `config/gallery_metadata.json`: shared tool and tag display metadata used by generators to produce `js/gallery-config.js` and ordered README badges
 - `config/artifact_contract.json`: shared artifact id, URL, and thumbnail-path contract emitted into `js/gallery-config.js` and enforced by Python build validation
-- `config/security_audit.json`: source of truth for Python security-audit lock files and reviewed vulnerability exceptions
+- `config/security_audit.json`: source of truth for reviewed Python vulnerability exceptions
 - `docs/adr/*`: accepted cross-cutting decisions about the root publishing platform
 - `pyproject.toml`: Python dependency declarations, tool configuration, and workspace metadata
-- `locks/requirements.lock`, `locks/requirements-dev.lock`: frozen Python dependency graphs
+- `uv.lock`: frozen Python dependency graph
 - `package.json`: Node dependency declarations, npm scripts, and JS test/coverage configuration where applicable
 - `package-lock.json`: frozen Node dependency graph
 - `scripts/build/prepare_site.py`: deploy-time site assembly, cache busting, canonical/share metadata injection, site path injection, and CSS/JS minification via esbuild
@@ -136,5 +136,5 @@ Each artifact directory under `apps/` is expected to contain:
 - Update generator logic in `scripts/` when derived-output behavior should change.
 - Prefer keeping tool scope in its owning config file, and avoid adding ad hoc duplicated file selection unless a target or workflow truly needs it.
 - Use `make validate` when you change top-level artifact directories or the artifact folder contract.
-- Keep site configuration, dependency declarations, and lockfiles in their owning files, primarily `pyproject.toml`, `package.json`, `package-lock.json`, `locks/*.lock`, and `config/*.json`.
+- Keep site configuration, dependency declarations, and lockfiles in their owning files, primarily `pyproject.toml`, `uv.lock`, `package.json`, `package-lock.json`, and `config/*.json`.
 - If a repo-level ownership boundary changes, update this document and link to the owning adjacent doc instead of copying the same rule into multiple docs.

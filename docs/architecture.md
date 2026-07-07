@@ -152,7 +152,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
   - Does NOT wait for `secret-scan` or `dependency-review`. Those continue in the background.
   - Step by step:
     1. Checks out the PR branch code.
-    2. Sets up Python and Node, restores cached Playwright browsers, then runs `make setup-ci` to install project dependencies and ensure Chromium is available.
+    2. Sets up Python and Node, restores cached uv downloads and Playwright browsers, then runs `make setup-ci` to install project dependencies and ensure Chromium is available.
     3. Runs `scripts/ci/run_parallel_checks.py` to execute independent checks concurrently: `format-check`, `lint`, `test-py`, `coverage-js`, `dead-code`, `security`, `validate`, and `test-browser-root`. Each check captures output; failures print unfolded logs while passes are folded with `::group::`.
     4. If `browser-scope` is not `none`: runs `make test-browser-apps`. If `browser-scope` is `changed`, scopes to only the changed app slugs via `ARTIFACTS_BROWSER_APP_SLUGS`. If `all`, tests every mature app.
     5. If `thumbnail-scope` is not `none`: calls `scripts/ci/workflow_helpers.py invalidate-thumbnails` to delete stale `thumbnail.webp` files for apps with runtime changes, so they will be regenerated fresh.
@@ -233,8 +233,8 @@ The code is fully validated but never deployed and never written back to the sou
 | Branch | Written by | When | What is written |
 | --- | --- | --- | --- |
 | PR branch (e.g. `feature/new-app`) | `persist-thumbnails` | Same-repo PR with runtime changes and thumbnail changes | `apps/*/thumbnail.webp` files via verified commit (Hermione1176) |
-| Dependabot PR branch | `commit-python-locks` | Same-repo Dependabot pip PRs when direct verified commit succeeds | `locks/requirements.lock` and `locks/requirements-dev.lock` via verified commit |
-| `ci/refresh-python-locks-*` | `commit-python-locks` | Same-repo Dependabot pip PRs when lock refresh writeback falls back to a PR branch | Fallback PR branch containing refreshed Python lock files |
+| Dependabot PR branch | `commit-python-locks` | Same-repo Dependabot uv PRs when direct verified commit succeeds | `uv.lock` via verified commit |
+| `ci/refresh-python-locks-*` | `commit-python-locks` | Same-repo Dependabot uv PRs when lock refresh writeback falls back to a PR branch | Fallback PR branch containing refreshed `uv.lock` |
 | `ci/refresh-action-shas-*` | `refresh-action-shas` | Monthly or manually dispatched action SHA refreshes | Maintenance PR branch containing workflow SHA refreshes |
 | `ci/refresh-locks-*` | `refresh-locks` | Weekly or manually dispatched dependency lock refreshes | Maintenance PR branch containing refreshed dependency locks |
 | `gh-pages` | `publish` | Every successful deploy (PR preview or main site) | Verified commit replacing site root or preview subdirectory (Harry1176) |
@@ -254,8 +254,8 @@ graph LR
 
 ```mermaid
 graph TD
-    subgraph "Python lock refresh (Dependabot pip PRs)"
-        dep_pr["Dependabot PR changes pyproject.toml"] --> refresh["refresh-python-locks<br/>Compute new lock files<br/>Upload as artifact"]
+    subgraph "Python lock refresh (Dependabot uv PRs)"
+        dep_pr["Dependabot PR changes pyproject.toml or uv.lock"] --> refresh["refresh-python-locks<br/>Compute uv.lock<br/>Upload as artifact"]
         refresh --> commit["commit-python-locks<br/>Download artifact<br/>Validate contents<br/>Check PR HEAD not stale<br/>Verified commit to PR branch"]
     end
 
@@ -276,7 +276,7 @@ graph TD
     end
 ```
 
-**Python lock refresh** keeps Dependabot pip PRs self-contained: when a Dependabot PR changes `pyproject.toml`, `refresh-python-locks.yml` runs `make lock` on the PR branch and uploads the refreshed lock files as an artifact. Then `commit-python-locks.yml` (triggered by `workflow_run`) downloads the artifact, validates it (checks for symlinks, required files, and PR metadata), verifies the PR branch hasn't moved, and uses the shared verified-commit flow to write the refreshed locks back to the PR branch or fall back to a maintenance PR branch when a direct write is not possible.
+**Python lock refresh** keeps Dependabot uv PRs self-contained: when a Dependabot PR changes `pyproject.toml` or `uv.lock`, `refresh-python-locks.yml` runs `make lock` on the PR branch and uploads the refreshed `uv.lock` as an artifact. Then `commit-python-locks.yml` (triggered by `workflow_run`) downloads the artifact, validates it (checks for symlinks, required files, and PR metadata), verifies the PR branch hasn't moved, and uses the shared verified-commit flow to write the refreshed lock back to the PR branch or fall back to a maintenance PR branch when a direct write is not possible.
 
 **Action SHA pinning** runs monthly as a safety net for newly added unpinned action references. It scans all workflow files for `uses:` lines whose refs are not already full 40-character SHAs, resolves those refs to commit SHAs via the GitHub API, and opens or updates a maintenance PR for any newly pinned workflow changes. It does not advance existing full-SHA pins.
 
@@ -293,7 +293,7 @@ graph TD
 | `update.yml` | push to main, PR (open/sync/close), manual | plan, verify, secret-scan, dependency-review, publish, persist-thumbnails, cleanup-preview |
 | `audit-repo-settings.yml` | weekly Mon 8:23 UTC, manual | audit |
 | `live-site-smoke.yml` | daily 06:17 UTC, manual | smoke |
-| `refresh-python-locks.yml` | Same-repo Dependabot pip PR with `pyproject.toml` change | refresh-locks |
+| `refresh-python-locks.yml` | Same-repo Dependabot uv PR with `pyproject.toml` or `uv.lock` change | refresh-locks |
 | `commit-python-locks.yml` | after refresh-python-locks completes | commit-locks |
 | `refresh-action-shas.yml` | monthly 1st 3:00 UTC, manual | refresh |
 | `refresh-locks.yml` | weekly Mon 12:00 UTC, manual | refresh |

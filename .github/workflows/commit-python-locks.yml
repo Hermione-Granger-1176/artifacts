@@ -28,10 +28,7 @@ jobs:
     env:
       LOCK_REFRESH_ARTIFACT_NAME: python-lock-refresh-${{ github.event.workflow_run.pull_requests[0].number }}
       LOCK_REFRESH_ROOT: .artifacts/lock-refresh
-      LOCK_FILE_ARGS: locks/requirements.lock locks/requirements-dev.lock
-      LOCK_FILE_PATHSPEC: |
-        locks/requirements.lock
-        locks/requirements-dev.lock
+      LOCK_FILE_PATHSPEC: uv.lock
     permissions:
       actions: read
       contents: write
@@ -97,16 +94,14 @@ jobs:
 
       - name: Copy refreshed Python lock files into workspace
         if: steps.artifact.outputs.available == 'true' && steps.branch-state.outputs.stale != 'true'
-        run: |
-          cp "$LOCK_REFRESH_ROOT/locks/requirements.lock" locks/requirements.lock
-          cp "$LOCK_REFRESH_ROOT/locks/requirements-dev.lock" locks/requirements-dev.lock
+        run: cp "$LOCK_REFRESH_ROOT/uv.lock" uv.lock
 
       - name: Detect Python lock file changes
         if: steps.artifact.outputs.available == 'true' && steps.branch-state.outputs.stale != 'true'
         id: changes
         run: |
-          git add ${LOCK_FILE_ARGS}
-          if git diff --staged --quiet -- ${LOCK_FILE_ARGS}; then
+          git add "$LOCK_FILE_PATHSPEC"
+          if git diff --staged --quiet -- "$LOCK_FILE_PATHSPEC"; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -125,6 +120,6 @@ jobs:
           pr-body: |
             ## Summary
             - Type: CI maintenance
-            - Refresh `locks/requirements.lock` and `locks/requirements-dev.lock` to match the Dependabot Python update
+            - Refresh `uv.lock` to match the Dependabot Python update
             - Keep Python installs reproducible in local and CI workflows
           pathspec: ${{ env.LOCK_FILE_PATHSPEC }}

@@ -26,7 +26,7 @@ const commonRules = {
 
 export default [
   {
-    ignores: ['node_modules/**', '.venv/**', '_site/**', 'locks/**', 'assets/**', 'config/**', '**/vendor/**']
+    ignores: ['node_modules/**', '.venv/**', '_site/**', 'assets/**', 'config/**', '**/vendor/**']
   },
   {
     files: ['js/**/*.js', 'apps/**/*.js'],
