@@ -1152,3 +1152,13 @@ def test_request_copilot_review_propagates_error() -> None:
 
     with pytest.raises(GhError):
         pr_review.request_copilot_review(7, run_fn=runner)
+
+
+def test_remaining_thread_comments_result_not_dict_raises() -> None:
+    def runner(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return completed_process(0, json.dumps({"data": "not a mapping"}))
+
+    with pytest.raises(GhError):
+        pr_review._remaining_thread_comments(
+            "PRRT_x", {"hasNextPage": True, "endCursor": "C"}, run_fn=runner
+        )

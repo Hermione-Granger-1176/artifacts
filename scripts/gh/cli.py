@@ -16,6 +16,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from . import ci_status, pr_review
+from .gh_runner import GhError
 
 
 def _add_body_options(parser: argparse.ArgumentParser) -> None:
@@ -31,7 +32,7 @@ def _body_text(args: argparse.Namespace) -> str:
         try:
             return Path(args.body_file).read_text(encoding="utf-8")
         except OSError as exc:
-            raise RuntimeError(
+            raise GhError(
                 f"could not read --body-file {args.body_file}: {exc}"
             ) from exc
     return str(args.body)
@@ -201,6 +202,6 @@ def main(argv: list[str] | None = None) -> int:
 if __name__ == "__main__":  # pragma: no cover
     try:
         raise SystemExit(main())
-    except (RuntimeError, ValueError) as exc:
+    except (GhError, ValueError) as exc:
         print(exc, file=sys.stderr)
         raise SystemExit(1) from exc

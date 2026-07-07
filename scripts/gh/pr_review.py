@@ -313,6 +313,10 @@ def _remaining_thread_comments(
             variables={"thread": thread_id, "after": after},
             run_fn=run_fn,
         )
+        if not isinstance(result, dict):
+            raise GhError(
+                f"review thread {thread_id} GraphQL response is not a mapping"
+            )
         node = result.get("node")
         if not isinstance(node, dict) or "comments" not in node:
             raise GhError(f"review thread {thread_id} not found or inaccessible")
