@@ -192,6 +192,11 @@ def test_remaining_thread_comments_bad_connection_shape() -> None:
         pr_review._remaining_thread_comments("PRRT_x", page_info, run_fn=runner)
 
 
+def test_remaining_thread_comments_rejects_non_dict_page_info() -> None:
+    with pytest.raises(GhError):
+        pr_review._remaining_thread_comments("PRRT_x", "not a dict")
+
+
 def test_remaining_thread_comments_bad_pageinfo_shape() -> None:
     def runner(
         cmd: Sequence[str], **_kwargs: object
@@ -341,6 +346,34 @@ def test_list_comments_bad_pageinfo_raises() -> None:
                                 {"id": "X", "comments": {"nodes": [], "pageInfo": {}}}
                             ],
                             "pageInfo": "bad",
+                        }
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_comments(7, run_fn=runner)
+
+
+def test_list_comments_bad_thread_pageinfo_raises() -> None:
+    """A truthy non-dict thread comments.pageInfo must raise GhError, not crash."""
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [
+                                {
+                                    "id": "X",
+                                    "comments": {
+                                        "nodes": [],
+                                        "pageInfo": "not a dict",
+                                    },
+                                }
+                            ],
+                            "pageInfo": {},
                         }
                     }
                 }

@@ -293,6 +293,8 @@ def _remaining_thread_comments(
     thread_id: str, page_info: dict[str, Any], *, run_fn: RunFunction | None = None
 ) -> list[ReviewComment]:
     """Page a single thread's comments beyond the first 100 already collected."""
+    if not isinstance(page_info, dict):
+        raise GhError(f"review thread {thread_id} pageInfo shape is unexpected")
     comments: list[ReviewComment] = []
     after = page_info.get("endCursor")
     while page_info.get("hasNextPage") and after:
@@ -353,9 +355,14 @@ def list_comments(
             if not isinstance(thread_comments, dict):
                 raise GhError("Unexpected thread comments shape in GraphQL response.")
             comments.extend(_parse_comment_nodes(thread_comments.get("nodes") or []))
+            thread_page_info = thread_comments.get("pageInfo")
+            if thread_page_info is not None and not isinstance(thread_page_info, dict):
+                raise GhError(
+                    "Unexpected thread comments pageInfo shape in GraphQL response."
+                )
             comments.extend(
                 _remaining_thread_comments(
-                    str(node_id), thread_comments.get("pageInfo") or {}, run_fn=run_fn
+                    str(node_id), thread_page_info or {}, run_fn=run_fn
                 )
             )
         page_info = connection.get("pageInfo")
