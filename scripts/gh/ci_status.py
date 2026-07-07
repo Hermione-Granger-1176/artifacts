@@ -26,7 +26,9 @@ class RunInfo:
     url: str
 
 
-def latest_run(branch: str | None = None, *, run_fn: RunFunction | None = None) -> RunInfo:
+def latest_run(
+    branch: str | None = None, *, run_fn: RunFunction | None = None
+) -> RunInfo:
     """Return the most recent workflow run for ``branch`` (current when omitted)."""
     branch = branch or gh_runner.current_branch(run_fn=run_fn)
     runs = gh_runner.gh_json(
@@ -43,8 +45,10 @@ def latest_run(branch: str | None = None, *, run_fn: RunFunction | None = None) 
         raise GhError(f"Workflow run for branch {branch!r} is missing databaseId.")
     try:
         run_id = int(raw_id)
-    except (TypeError, ValueError):
-        raise GhError(f"Workflow run databaseId is not an integer: {raw_id!r}.")
+    except (TypeError, ValueError) as exc:
+        raise GhError(
+            f"Workflow run databaseId is not an integer: {raw_id!r}."
+        ) from exc
     return RunInfo(
         run_id=run_id,
         status=str(run.get("status") or ""),

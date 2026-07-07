@@ -150,7 +150,9 @@ def test_parse_comment_nodes_rejects_missing_id() -> None:
 
 
 def test_remaining_thread_comments_bad_connection_shape() -> None:
-    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+    def runner(
+        cmd: Sequence[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
         return completed_process(0, json.dumps({"data": {"node": {"comments": "bad"}}}))
 
     page_info = {"hasNextPage": True, "endCursor": "CUR"}
@@ -159,10 +161,14 @@ def test_remaining_thread_comments_bad_connection_shape() -> None:
 
 
 def test_remaining_thread_comments_bad_pageinfo_shape() -> None:
-    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+    def runner(
+        cmd: Sequence[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
         return completed_process(
             0,
-            json.dumps({"data": {"node": {"comments": {"nodes": [], "pageInfo": "bad"}}}}),
+            json.dumps(
+                {"data": {"node": {"comments": {"nodes": [], "pageInfo": "bad"}}}}
+            ),
         )
 
     page_info = {"hasNextPage": True, "endCursor": "CUR"}
@@ -173,7 +179,10 @@ def test_remaining_thread_comments_bad_pageinfo_shape() -> None:
 def _threads_runner(payload: dict[str, Any]) -> FakeGh:
     return FakeGh(
         [
-            (has("repo", "view"), completed_process(0, json.dumps({"nameWithOwner": "o/r"}))),
+            (
+                has("repo", "view"),
+                completed_process(0, json.dumps({"nameWithOwner": "o/r"})),
+            ),
             (has("pr", "view"), completed_process(0, json.dumps({"number": 7}))),
             (has("graphql"), completed_process(0, json.dumps(payload))),
         ]
@@ -186,7 +195,10 @@ def test_list_threads_nodes_not_list_raises() -> None:
             "data": {
                 "repository": {
                     "pullRequest": {
-                        "reviewThreads": {"nodes": "x", "pageInfo": {"hasNextPage": False}}
+                        "reviewThreads": {
+                            "nodes": "x",
+                            "pageInfo": {"hasNextPage": False},
+                        }
                     }
                 }
             }
@@ -201,9 +213,7 @@ def test_list_threads_pageinfo_not_dict_raises() -> None:
         {
             "data": {
                 "repository": {
-                    "pullRequest": {
-                        "reviewThreads": {"nodes": [], "pageInfo": "bad"}
-                    }
+                    "pullRequest": {"reviewThreads": {"nodes": [], "pageInfo": "bad"}}
                 }
             }
         }
@@ -218,7 +228,10 @@ def test_list_comments_nodes_not_list_raises() -> None:
             "data": {
                 "repository": {
                     "pullRequest": {
-                        "reviewThreads": {"nodes": "x", "pageInfo": {"hasNextPage": False}}
+                        "reviewThreads": {
+                            "nodes": "x",
+                            "pageInfo": {"hasNextPage": False},
+                        }
                     }
                 }
             }
@@ -234,7 +247,10 @@ def test_list_comments_null_node_raises() -> None:
             "data": {
                 "repository": {
                     "pullRequest": {
-                        "reviewThreads": {"nodes": [None], "pageInfo": {"hasNextPage": False}}
+                        "reviewThreads": {
+                            "nodes": [None],
+                            "pageInfo": {"hasNextPage": False},
+                        }
                     }
                 }
             }
@@ -250,7 +266,10 @@ def test_list_comments_node_missing_id_raises() -> None:
             "data": {
                 "repository": {
                     "pullRequest": {
-                        "reviewThreads": {"nodes": [{}], "pageInfo": {"hasNextPage": False}}
+                        "reviewThreads": {
+                            "nodes": [{}],
+                            "pageInfo": {"hasNextPage": False},
+                        }
                     }
                 }
             }
@@ -286,7 +305,9 @@ def test_list_comments_bad_pageinfo_raises() -> None:
                 "repository": {
                     "pullRequest": {
                         "reviewThreads": {
-                            "nodes": [{"id": "X", "comments": {"nodes": [], "pageInfo": {}}}],
+                            "nodes": [
+                                {"id": "X", "comments": {"nodes": [], "pageInfo": {}}}
+                            ],
                             "pageInfo": "bad",
                         }
                     }
@@ -327,7 +348,9 @@ def _threads_page(
                             "path": "f.py",
                             "line": 1,
                             "comments": {
-                                "nodes": [{"body": "x", "url": "u", "author": {"login": "r"}}]
+                                "nodes": [
+                                    {"body": "x", "url": "u", "author": {"login": "r"}}
+                                ]
                             },
                         }
                     ],
@@ -347,7 +370,9 @@ def test_list_threads_follows_pagination() -> None:
     )
     calls: list[list[str]] = []
 
-    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+    def runner(
+        cmd: Sequence[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
         command = list(cmd)
         calls.append(command)
         if has("repo", "view")(command):
@@ -612,14 +637,18 @@ def test_resolve_repo_raises_when_unresolvable() -> None:
 
 def test_current_pr_number_parses_gh_output() -> None:
     """Read the PR number for the current branch."""
-    runner = FakeGh([(has("pr", "view"), completed_process(0, json.dumps({"number": 19})))])
+    runner = FakeGh(
+        [(has("pr", "view"), completed_process(0, json.dumps({"number": 19})))]
+    )
 
     assert gh_runner.current_pr_number(run_fn=runner) == 19
 
 
 def test_current_pr_number_raises_without_pr() -> None:
     """Raise a friendly error when the branch has no PR."""
-    runner = FakeGh([(has("pr", "view"), completed_process(1, "", "no pull requests found"))])
+    runner = FakeGh(
+        [(has("pr", "view"), completed_process(1, "", "no pull requests found"))]
+    )
 
     with pytest.raises(GhError):
         gh_runner.current_pr_number(run_fn=runner)
@@ -718,7 +747,9 @@ def test_list_comments_paginates_threads_and_comments() -> None:
     )
     calls: list[list[str]] = []
 
-    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+    def runner(
+        cmd: Sequence[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
         command = list(cmd)
         calls.append(command)
         if has("repo", "view")(command):
@@ -736,13 +767,19 @@ def test_list_comments_paginates_threads_and_comments() -> None:
     ]
     graphql_calls = [command for command in calls if has("graphql")(command)]
     assert len(graphql_calls) == 3
-    assert any("after=CCUR" in command for command in graphql_calls)  # comment pagination
-    assert any("after=TCUR" in command for command in graphql_calls)  # thread pagination
+    assert any(
+        "after=CCUR" in command for command in graphql_calls
+    )  # comment pagination
+    assert any(
+        "after=TCUR" in command for command in graphql_calls
+    )  # thread pagination
 
 
 def test_format_comments_shows_first_line_only() -> None:
     """Rendering is one greppable line per comment, first body line only."""
-    comment = pr_review.ReviewComment("PRRC_first", "reviewer", "Note here\nsecond line", "u")
+    comment = pr_review.ReviewComment(
+        "PRRC_first", "reviewer", "Note here\nsecond line", "u"
+    )
 
     text = pr_review.format_comments([comment])
 
@@ -784,7 +821,9 @@ def test_main_delete_comment_invokes_helper(
 ) -> None:
     """The delete-comment command deletes by node id and confirms."""
     deleted: list[str] = []
-    monkeypatch.setattr(pr_review, "delete_review_comment", lambda comment: deleted.append(comment))
+    monkeypatch.setattr(
+        pr_review, "delete_review_comment", lambda comment: deleted.append(comment)
+    )
 
     exit_code = cli.main(["delete-comment", "--comment", "PRRC_x"])
 
@@ -919,7 +958,9 @@ def test_pr_summary_non_dict_meta_raises(monkeypatch: pytest.MonkeyPatch) -> Non
     """A non-dict ``gh pr view`` payload is surfaced as a GhError."""
     monkeypatch.setattr(pr_review, "list_threads", lambda *args, **kwargs: [])
 
-    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+    def runner(
+        cmd: Sequence[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
         return completed_process(0, json.dumps([1, 2]))
 
     with pytest.raises(GhError):
@@ -929,7 +970,9 @@ def test_pr_summary_non_dict_meta_raises(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_remaining_thread_comments_null_node_raises() -> None:
     """A null node from GraphQL is surfaced as a GhError naming the thread id."""
 
-    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+    def runner(
+        cmd: Sequence[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
         return completed_process(0, json.dumps({"data": {"node": None}}))
 
     page_info = {"hasNextPage": True, "endCursor": "CUR"}

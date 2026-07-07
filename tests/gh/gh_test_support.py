@@ -28,7 +28,9 @@ class FakeGh:
         self.routes = routes
         self.calls: list[list[str]] = []
 
-    def __call__(self, cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+    def __call__(
+        self, cmd: Sequence[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
         """Return the response whose predicate matches, or fail the test."""
         command = list(cmd)
         self.calls.append(command)
