@@ -642,6 +642,12 @@ def test_main_reply_reads_body_file(
     assert "Replied to PRRT_x" in capsys.readouterr().out
 
 
+def test_main_reply_missing_body_file_raises_runtime_error() -> None:
+    """A missing or unreadable --body-file raises a RuntimeError naming the path."""
+    with pytest.raises(RuntimeError, match="nonexistent"):
+        cli.main(["reply", "--thread", "PRRT_x", "--body-file", "/nonexistent/path.md"])
+
+
 def test_main_resolve_invokes_helper(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
