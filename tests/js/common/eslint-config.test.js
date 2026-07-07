@@ -6,6 +6,8 @@ import config from '../../../config/eslint.config.js';
 
 const jsConfig = config.find((entry) => entry.files?.includes('js/**/*.js'));
 
+assert.ok(jsConfig, 'expected a config entry covering js/**/*.js');
+
 function lintSource(source) {
   const linter = new Linter();
   return linter.verify(source, jsConfig, { filename: 'js/example.js' });
