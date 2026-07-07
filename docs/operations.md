@@ -8,6 +8,7 @@ Use the Makefile instead of ad hoc shell commands.
 make help       # see all available targets (auto-generated, two-level)
 make setup      # fast: Python + Node deps, no Chromium
 make setup-all  # full: also installs Chromium for browser tests and thumbnails
+make install-hooks  # install the local pre-commit Git hooks
 make pr         # show all PR sub-commands
 make ci         # full non-browser local CI gate
 make help-ci    # show CI and GitHub run sub-commands
@@ -21,7 +22,7 @@ On a Linux distro newer than the pinned Playwright supports (for example Ubuntu 
 Recommended workflow when changing workspace code:
 
 1. `make new name=my-artifact` if you want a scaffold instead of creating files by hand. It also creates the matching `tests/js/apps/<slug>/` directory for app-specific Node tests.
-2. `make setup` for fast local work, or `make setup-all` if you also need Chromium.
+2. `make setup` for fast local work, or `make setup-all` if you also need Chromium. Run `make install-hooks` once to enable the local pre-commit Git hooks.
 3. Edit files.
 4. Run `make check-local`.
 5. Run `make check-web` when you touch shared browser behavior or need fresh thumbnails. For targeted mature-app browser work, use `ARTIFACTS_BROWSER_APP_SLUGS="app-slug" make test-browser-apps`.

@@ -6,6 +6,7 @@
 # Override by passing PYTHON=... on the command line or in the environment.
 PYTHON      ?= $(shell command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3)
 UV          ?= uv
+UVX         ?= uvx
 VENV        ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
 VENV_RUFF   := $(VENV)/bin/ruff
@@ -37,13 +38,16 @@ endif
 
 # ─── Setup @setup ─────────────────────────────────────────────────────────────
 
-.PHONY: install node-install setup-base setup setup-all setup-ci setup-playwright setup-playwright-ci
+.PHONY: install node-install install-hooks setup-base setup setup-all setup-ci setup-playwright setup-playwright-ci
 
 install: ## Install locked Python deps into the virtual environment
 	UV_PROJECT_ENVIRONMENT=$(VENV) $(UV) sync --all-groups --frozen --python $(PYTHON)
 
 node-install: ## Install locked Node deps
 	$(NPM) ci
+
+install-hooks: ## Install local pre-commit Git hooks
+	$(UVX) pre-commit install
 
 setup-base: install node-install ## Install Python and Node deps
 
