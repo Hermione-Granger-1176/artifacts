@@ -401,8 +401,8 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     )
 
 
-def test_codeql_workflow_scans_javascript_and_python_with_shared_config() -> None:
-    """CodeQL workflow scans JavaScript and Python with the shared config."""
+def test_codeql_workflow_scans_supported_languages_with_shared_config() -> None:
+    """CodeQL workflow scans JavaScript, Python, and Actions with the shared config."""
     workflow = _load_workflow("codeql.yml")
     on_block = _workflow_on(workflow)
 
@@ -417,11 +417,12 @@ def test_codeql_workflow_scans_javascript_and_python_with_shared_config() -> Non
         "security-events": "write",
     }
 
-    assert set(_jobs(workflow)) == {"analyze-javascript", "analyze-python"}
+    assert set(_jobs(workflow)) == {"analyze-javascript", "analyze-python", "analyze-actions"}
 
     languages = {
         "analyze-javascript": "javascript-typescript",
         "analyze-python": "python",
+        "analyze-actions": "actions",
     }
     for job_name, language in languages.items():
         job = _job(workflow, job_name)
