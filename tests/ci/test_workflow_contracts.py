@@ -9,6 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 
 CREATE_APP_TOKEN_SHA_PIN = re.compile(r"^actions/create-github-app-token@[0-9a-f]{40}$")
+CODEQL_ACTION_SHA_PIN = re.compile(r"^github/codeql-action/(init|autobuild|analyze)@[0-9a-f]{40}$")
 
 
 def _load_workflow(name: str) -> dict[str, object]:
@@ -398,6 +399,92 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
         _step_uses(_job(refresh, "refresh"), "Commit changes (verified)")
         == "./.github/actions/verified-commit"
     )
+
+
+def test_codeql_workflow_scans_javascript_and_python_with_shared_config() -> None:
+    """CodeQL workflow scans JavaScript and Python with the shared config."""
+    workflow = _load_workflow("codeql.yml")
+    on_block = _workflow_on(workflow)
+
+    assert set(on_block) == {"push", "pull_request", "schedule"}
+    assert on_block["push"]["branches"] == ["main"]
+    assert on_block["pull_request"]["branches"] == ["main"]
+    assert on_block["schedule"] == [{"cron": "30 6 * * 1"}]
+
+    assert workflow["permissions"] == {
+        "actions": "read",
+        "contents": "read",
+        "security-events": "write",
+    }
+
+    assert set(_jobs(workflow)) == {"analyze-javascript", "analyze-python"}
+
+    languages = {
+        "analyze-javascript": "javascript-typescript",
+        "analyze-python": "python",
+    }
+    for job_name, language in languages.items():
+        job = _job(workflow, job_name)
+        init_inputs = _step_with(job, "Initialize CodeQL")
+        assert init_inputs["languages"] == language
+        assert init_inputs["config-file"] == "./.github/codeql/codeql-config.yml"
+        assert _step_with(job, "Perform CodeQL Analysis")["category"] == f"/language:{language}"
+        for step_name in ("Initialize CodeQL", "Autobuild", "Perform CodeQL Analysis"):
+            uses = _step_uses(job, step_name)
+            assert CODEQL_ACTION_SHA_PIN.fullmatch(uses), (
+                f"Expected github/codeql-action pinned to a 40-char SHA, got {uses!r}"
+            )
+
+
+def test_codeql_config_ignores_generated_and_vendored_paths() -> None:
+    """CodeQL config ignores generated and vendored paths."""
+    config = yaml.safe_load(
+        (REPO_ROOT / ".github" / "codeql" / "codeql-config.yml").read_text(encoding="utf-8")
+    )
+    assert isinstance(config, dict)
+    assert config["paths-ignore"] == [
+        "tests",
+        "apps/*/js/vendor",
+        "js/data.js",
+        "js/gallery-config.js",
+    ]
+
+
+def test_dependency_audit_workflow_runs_audits_and_syncs_alert_issue() -> None:
+    """Dependency audit workflow runs audits and syncs the alert issue."""
+    workflow = _load_workflow("dependency-audit.yml")
+    on_block = _workflow_on(workflow)
+
+    assert set(on_block) == {"workflow_dispatch", "schedule"}
+    assert on_block["schedule"] == [{"cron": "0 6 * * 1"}]
+
+    assert set(_jobs(workflow)) == {"audit"}
+    audit = _job(workflow, "audit")
+    assert audit["permissions"] == {"contents": "read", "issues": "write"}
+    assert _step_uses(audit, "CI setup") == "./.github/actions/ci-setup"
+
+    audit_run = _step_run(audit, "Run dependency audits")
+    assert audit_run.startswith("set +e")
+    for target in ("make audit-python", "make audit-node", "make check-overrides"):
+        assert target in audit_run
+    assert 'echo "status=$status" >> "$GITHUB_OUTPUT"' in audit_run
+    assert audit_run.rstrip().endswith("exit 0")
+
+    open_step = _step(audit, "Open or update dependency audit issue")
+    assert open_step["if"] == "steps.audit.outputs.status != '0'"
+    open_run = _step_run(audit, "Open or update dependency audit issue")
+    assert "sync-alert-issue" in open_run
+    assert "--should-exist true" in open_run
+
+    close_step = _step(audit, "Close dependency audit issue when clean")
+    assert close_step["if"] == "steps.audit.outputs.status == '0'"
+    close_run = _step_run(audit, "Close dependency audit issue when clean")
+    assert "sync-alert-issue" in close_run
+    assert "--should-exist false" in close_run
+
+    fail_step = _step(audit, "Fail workflow when audit detects issues")
+    assert fail_step["if"] == "steps.audit.outputs.status != '0'"
+    assert _step_run(audit, "Fail workflow when audit detects issues").strip() == "exit 1"
 
 
 def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
