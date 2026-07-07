@@ -35,7 +35,7 @@ Run `make lint`, `make format-check`, or `make check-local` to check. Those targ
 
 - **Indent:** 2 spaces
 - **Line length:** not enforced, but keep lines readable
-- **Linter:** ESLint 10 (flat config), configured in `eslint.config.js`
+- **Linter:** ESLint 10 (flat config), configured in `config/eslint.config.js`
 - **Module format:** ES modules (`import`/`export`), no CommonJS
 - **JSDoc:** required on all exported functions and significant private functions
 - **Naming:** camelCase for variables and functions, PascalCase for classes
@@ -57,7 +57,7 @@ Run `make lint`, `make dead-code-js`, `make coverage-js`, or `make check-local` 
 - **Indent:** 2 spaces
 - **Entry file:** `css/style.css`, the single stylesheet for the whole site
 - **Shared app system:** app tokens, shared shell rules, and current app-specific layout selectors live in `css/style.css`
-- **Linter:** stylelint, configured in `stylelint.config.js`
+- **Linter:** stylelint, configured in `config/stylelint.config.js`
 - **Conventions:**
   - BEM-inspired class names (e.g., `.artifact-card`, `.detail-close`)
   - CSS custom properties for theming and shared geometry (for example `--color-bg-primary`, `--text-primary`, `--accent`, `--book-sheet-min-height`, `--gallery-*`, `--desk-note-*`, and shared app-shell aliases)

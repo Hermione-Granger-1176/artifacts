@@ -409,8 +409,8 @@ The workflows depend on repository settings that are not enforceable from source
 | `pyproject.toml` | Python deps, pytest/coverage/ruff settings, site URL and metadata |
 | `package.json` | Node deps, JS test/coverage config, npm script commands |
 | `config/artifact_contract.json` | Shared artifact id, URL, and thumbnail path validation contract |
-| `eslint.config.js` | ESLint file patterns, ignores, rules |
-| `stylelint.config.js` | Stylelint rules, ignoreFiles |
+| `config/eslint.config.js` | ESLint file patterns, ignores, rules |
+| `config/stylelint.config.js` | Stylelint rules, ignoreFiles |
 | `.yamllint.yml` | Yamllint rules, ignore patterns |
 | `.editorconfig` | Editor formatting rules per file type |
 | `config/gallery_metadata.json` | Tag/tool display metadata for gallery config and README badges |

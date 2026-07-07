@@ -22,8 +22,8 @@ These inconsistencies made it harder to onboard, harder to maintain, and easier 
 2. **Each tool's config file owns its scope.** Linting, testing, and coverage scope is defined once in the tool's config or owning script definition, not duplicated across the Makefile and multiple tool configs:
    - ruff: `pyproject.toml` (built-in excludes)
    - pytest/coverage: `pyproject.toml` (`testpaths`, `--cov=scripts/`)
-   - ESLint: `eslint.config.js` (files + ignores)
-   - stylelint: `stylelint.config.js` (ignoreFiles)
+   - ESLint: `config/eslint.config.js` (files + ignores)
+   - stylelint: `config/stylelint.config.js` (ignoreFiles)
    - yamllint: `.yamllint.yml` (ignore)
    - JS coverage: `package.json` (coverage command, thresholds, and exclude patterns)
 

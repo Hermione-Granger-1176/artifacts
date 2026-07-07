@@ -46,8 +46,8 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 
 - `make editorconfig-check` enforces supported `.editorconfig` rules such as LF endings, final-newline policy, trailing whitespace trimming, and indentation style for covered repository files, while skipping configured cache/build/dependency directories and binary assets.
 - `ruff` scans the repo root; built-in excludes skip `.venv/`, `node_modules/`, etc. Config: `pyproject.toml`.
-- `eslint` scans the repo root; file patterns and ignores are in `eslint.config.js`.
-- `stylelint` scans all `**/*.css`; ignores are in `stylelint.config.js`.
+- `eslint` scans the repo root; file patterns and ignores are in `config/eslint.config.js`.
+- `stylelint` scans all `**/*.css`; ignores are in `config/stylelint.config.js`.
 - `yamllint` scans the repo root; ignores are in `.yamllint.yml`.
 - Workflow linting runs through `scripts/lint/lint-workflows.mjs`, which wraps `actionlint` across `.github/workflows/*.yml` and `.github/workflows/*.yaml`.
 - `make lint-doc-commands` checks contributor-facing docs for direct commands that should use Make targets instead.
@@ -94,7 +94,7 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
   - `chartjs-plugin-annotation` `3.0.1`
   - `chartjs-plugin-datalabels` `2.2.0`
 - Versions are pinned and upgraded manually for stability. To upgrade, download the new UMD builds from cdnjs, replace the files in `js/vendor/`, and rerun the browser suites.
-- Vendored directories are excluded from ESLint (`**/vendor/**` in `eslint.config.js`) and lint checks (`vendor` in `scripts/lint/__init__.py` `SKIP_DIRECTORIES`).
+- Vendored directories are excluded from ESLint (`**/vendor/**` in `config/eslint.config.js`) and lint checks (`vendor` in `scripts/lint/__init__.py` `SKIP_DIRECTORIES`).
 - See `apps/loan-amortization/docs/decisions.md` for rationale.
 
 ### Self-hosted fonts

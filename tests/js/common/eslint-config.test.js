@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Linter } from 'eslint';
 
-import config from '../../../eslint.config.js';
+import config from '../../../config/eslint.config.js';
 
 const jsConfig = config.find((entry) => entry.files?.includes('js/**/*.js'));
 
