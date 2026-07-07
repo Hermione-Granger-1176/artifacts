@@ -173,7 +173,7 @@ jobs:
         run: >-
           python3 scripts/ci/run_parallel_checks.py
           --timeout 1200
-          format-check lint test-py coverage-js dead-code security validate test-browser-root
+          format-check lint typecheck test-py coverage-js dead-code security validate test-browser-root
 
       - name: Run selective app browser verification
         if: needs.plan.outputs.browser-scope != 'none'
