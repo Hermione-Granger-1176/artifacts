@@ -5,7 +5,8 @@ repos:
       # Artifact metadata files keep their .editorconfig unset rules and
       # vendored assets stay byte-identical to upstream, so both are exempt
       # from whitespace and final-newline normalization. Markdown and lock
-      # files keep trailing whitespace per .editorconfig trim rules.
+      # files set trim_trailing_whitespace = false in .editorconfig, so they
+      # are excluded from the trailing-whitespace hook.
       - id: trailing-whitespace
         exclude: (^apps/.*(/vendor/|\.(txt|webp|png|svg|ico)$)|\.(md|lock)$)
       - id: end-of-file-fixer
