@@ -345,6 +345,7 @@ jobs:
     permissions:
       actions: read
       contents: write
+      deployments: write
       issues: write
       pages: write
       pull-requests: write
@@ -476,6 +477,31 @@ jobs:
         with:
           timeout: ${{ env.PAGES_DEPLOY_TIMEOUT_MS }}
 
+      # Workflow-based Pages deploys do not write classic deployment records, so
+      # create one ourselves for main-site publishes to keep the Deployments page
+      # and github-pages environment badge honest. Previews and cleanup are excluded.
+      - name: Create main deployment record
+        id: deployment-record
+        if: github.event_name != 'pull_request' && steps.setup.outputs.token-available == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # required_contexts must be an empty JSON array, which plain -f cannot
+          # express, so send the whole body as JSON through --input -.
+          deployment_id=$(gh api "repos/${{ github.repository }}/deployments" \
+            --input - --jq '.id' <<'JSON'
+          {
+            "ref": "${{ github.sha }}",
+            "environment": "github-pages",
+            "auto_merge": false,
+            "required_contexts": [],
+            "production_environment": true,
+            "description": "Main site GitHub Pages deploy"
+          }
+          JSON
+          )
+          echo "id=$deployment_id" >> "$GITHUB_OUTPUT"
+
       - name: Post PR preview link
         if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
         uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3
@@ -537,6 +563,16 @@ jobs:
           ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-live/main-site
         run: make test-browser-live
 
+      - name: Mark main deployment successful
+        if: github.event_name != 'pull_request' && steps.setup.outputs.token-available == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh api "repos/${{ github.repository }}/deployments/${{ steps.deployment-record.outputs.id }}/statuses"
+          -f state=success
+          -f environment_url="${{ steps.live-site-url.outputs.url }}"
+          -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
       - name: Summarize publish
         if: always()
         run: |
@@ -556,6 +592,15 @@ jobs:
           path: .artifacts/browser-live
           if-no-files-found: ignore
           overwrite: true
+
+      - name: Mark main deployment failed
+        if: failure() && steps.deployment-record.outputs.id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh api "repos/${{ github.repository }}/deployments/${{ steps.deployment-record.outputs.id }}/statuses"
+          -f state=failure
+          -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   # Persist thumbnails only when the planner explicitly allows it.
   # This job never regenerates thumbnails. It only applies the validated

@@ -106,6 +106,7 @@ All runtime assets should be self-hosted. Do not load scripts, fonts, or stylesh
 1. Identify the last known-good commit on `main`.
 2. Trigger the strict deploy workflow for that commit through the normal push/manual path so the repo rebuilds `_site/` and deploys from a verified artifact again.
 3. Verify the published site serves the expected `deploy-metadata.json` SHA and cache-busted asset query strings before declaring recovery complete.
+4. If the site is healthy but the Deployments page or `github-pages` environment badge looks stale, check the `Create main deployment record` and `Mark main deployment successful` steps in the latest `publish` run. Those steps write the classic deployment record for main-site publishes, so a failure there (not the deploy itself) is the usual cause of a frozen badge.
 
 ### Broken PR preview
 

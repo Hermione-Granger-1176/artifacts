@@ -162,6 +162,7 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     assert publish["permissions"] == {
         "actions": "read",
         "contents": "write",
+        "deployments": "write",
         "issues": "write",
         "pages": "write",
         "pull-requests": "write",
@@ -213,6 +214,58 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     assert "make thumbnails" not in publish_runs
     assert "make index" not in publish_runs
     assert "make site" not in publish_runs
+
+
+def test_update_publish_job_writes_classic_deployment_records() -> None:
+    workflow = _load_workflow("update.yml")
+    publish = _job(workflow, "publish")
+
+    main_guard = (
+        "github.event_name != 'pull_request' && "
+        "steps.setup.outputs.token-available == 'true'"
+    )
+    log_url = (
+        "${{ github.server_url }}/${{ github.repository }}"
+        "/actions/runs/${{ github.run_id }}"
+    )
+
+    create = _step(publish, "Create main deployment record")
+    assert create["id"] == "deployment-record"
+    assert create["if"] == main_guard
+    assert create["env"]["GH_TOKEN"] == "${{ github.token }}"
+    create_run = _step_run(publish, "Create main deployment record")
+    assert "repos/${{ github.repository }}/deployments" in create_run
+    assert "--input -" in create_run
+    assert '"required_contexts": []' in create_run
+    assert '"ref": "${{ github.sha }}"' in create_run
+    assert '"environment": "github-pages"' in create_run
+    assert '"production_environment": true' in create_run
+    assert 'echo "id=$deployment_id" >> "$GITHUB_OUTPUT"' in create_run
+
+    success = _step(publish, "Mark main deployment successful")
+    assert success["if"] == main_guard
+    assert success["env"]["GH_TOKEN"] == "${{ github.token }}"
+    success_run = _step_run(publish, "Mark main deployment successful")
+    assert (
+        "repos/${{ github.repository }}/deployments/"
+        "${{ steps.deployment-record.outputs.id }}/statuses" in success_run
+    )
+    assert "-f state=success" in success_run
+    assert (
+        '-f environment_url="${{ steps.live-site-url.outputs.url }}"' in success_run
+    )
+    assert f'-f log_url="{log_url}"' in success_run
+
+    failure = _step(publish, "Mark main deployment failed")
+    assert failure["if"] == "failure() && steps.deployment-record.outputs.id != ''"
+    assert failure["env"]["GH_TOKEN"] == "${{ github.token }}"
+    failure_run = _step_run(publish, "Mark main deployment failed")
+    assert (
+        "repos/${{ github.repository }}/deployments/"
+        "${{ steps.deployment-record.outputs.id }}/statuses" in failure_run
+    )
+    assert "-f state=failure" in failure_run
+    assert f'-f log_url="{log_url}"' in failure_run
 
 
 def test_update_thumbnail_persistence_and_cleanup_stay_bounded() -> None:
