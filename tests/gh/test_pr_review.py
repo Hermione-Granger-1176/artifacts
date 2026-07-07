@@ -135,14 +135,33 @@ def test_parse_nodes_null_comments_is_empty() -> None:
     assert [thread.thread_id for thread in threads] == ["PRRT_x"]
 
 
-def test_parse_comment_nodes_rejects_non_list() -> None:
+def test_parse_nodes_rejects_non_dict_comments() -> None:
     with pytest.raises(GhError):
-        pr_review._parse_comment_nodes(123)
+        pr_review._parse_nodes([{"id": "PRRT_x", "comments": "not a dict"}])
+
+
+def test_parse_nodes_rejects_non_list_comment_nodes() -> None:
+    with pytest.raises(GhError):
+        pr_review._parse_nodes([{"id": "PRRT_x", "comments": {"nodes": "not a list"}}])
+
+
+def test_parse_nodes_rejects_non_dict_first_comment() -> None:
+    with pytest.raises(GhError):
+        pr_review._parse_nodes(
+            [{"id": "PRRT_x", "comments": {"nodes": ["not a dict"]}}]
+        )
+
+
+def test_parse_nodes_rejects_non_dict_author() -> None:
+    with pytest.raises(GhError):
+        pr_review._parse_nodes(
+            [{"id": "PRRT_x", "comments": {"nodes": [{"author": "not a dict"}]}}]
+        )
 
 
 def test_parse_comment_nodes_rejects_non_dict() -> None:
     with pytest.raises(GhError):
-        pr_review._parse_comment_nodes([{}])
+        pr_review._parse_comment_nodes(123)
 
 
 def test_parse_comment_nodes_rejects_non_dict_element() -> None:
@@ -153,6 +172,13 @@ def test_parse_comment_nodes_rejects_non_dict_element() -> None:
 def test_parse_comment_nodes_rejects_missing_id() -> None:
     with pytest.raises(GhError):
         pr_review._parse_comment_nodes([{"url": "x"}])
+
+
+def test_parse_comment_nodes_rejects_non_dict_author() -> None:
+    with pytest.raises(GhError):
+        pr_review._parse_comment_nodes(
+            [{"id": "IC_x", "author": "not a dict", "url": "u", "body": "b"}]
+        )
 
 
 def test_remaining_thread_comments_bad_connection_shape() -> None:

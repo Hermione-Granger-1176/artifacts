@@ -141,9 +141,25 @@ def _parse_nodes(nodes: list[Any]) -> list[ReviewThread]:
         thread_id = node.get("id")
         if not thread_id:
             raise GhError("Review thread node missing id in GraphQL response.")
-        comments = (node.get("comments") or {}).get("nodes", [])
+        raw_comments = node.get("comments")
+        if raw_comments is not None and not isinstance(raw_comments, dict):
+            raise GhError(
+                "Unexpected review thread comments shape in GraphQL response."
+            )
+        comments = (raw_comments or {}).get("nodes", [])
+        if not isinstance(comments, list):
+            raise GhError(
+                "Unexpected review thread comments nodes shape in GraphQL response."
+            )
         first = comments[0] if comments else {}
-        author = first.get("author") or {}
+        if not isinstance(first, dict):
+            raise GhError(
+                "Unexpected review thread comment node shape in GraphQL response."
+            )
+        author = first.get("author")
+        if author is not None and not isinstance(author, dict):
+            raise GhError("Unexpected review comment author shape in GraphQL response.")
+        author = author or {}
         threads.append(
             ReviewThread(
                 thread_id=str(thread_id),
@@ -258,7 +274,10 @@ def _parse_comment_nodes(nodes: list[Any]) -> list[ReviewComment]:
         comment_id = comment.get("id")
         if not comment_id:
             raise GhError("Review comment node missing id in GraphQL response.")
-        author = comment.get("author") or {}
+        author = comment.get("author")
+        if author is not None and not isinstance(author, dict):
+            raise GhError("Unexpected review comment author shape in GraphQL response.")
+        author = author or {}
         comments.append(
             ReviewComment(
                 comment_id=str(comment_id),
