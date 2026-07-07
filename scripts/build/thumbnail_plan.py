@@ -4,7 +4,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from scripts.ci.repo_audit import require_response_type
 from scripts.lib.app_discovery import (
@@ -15,6 +15,9 @@ from scripts.lib.app_discovery import (
 from scripts.lib.artifact_contract import load_contract as _load_contract
 from scripts.lib.gh_api import run_gh_api, run_gh_api_json
 from scripts.lib.path_validation import reject_symlinks
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def _build_thumbnail_pattern() -> str:
@@ -62,7 +65,7 @@ def associated_pr_kind_for_commit(
     repo: str,
     commit_sha: str,
     *,
-    run_gh_api_json_fn=run_gh_api_json,
+    run_gh_api_json_fn: Callable[..., object] = run_gh_api_json,
 ) -> str:
     """Return the associated PR kind for a commit on ``main`` pushes."""
     if not commit_sha:
@@ -89,7 +92,7 @@ def list_changed_files(
     repo: str,
     pr_number: str,
     commit_sha: str,
-    run_gh_api_fn=run_gh_api,
+    run_gh_api_fn: Callable[..., str] = run_gh_api,
 ) -> list[str]:
     """Return the changed file list for a pull request or push event."""
     request = {
@@ -120,7 +123,7 @@ def list_commit_files(
     *,
     repo: str,
     commit_sha: str,
-    run_gh_api_fn=run_gh_api,
+    run_gh_api_fn: Callable[..., str] = run_gh_api,
 ) -> list[str]:
     """Return the changed file list for a single commit (not PR-level)."""
     if not commit_sha:
@@ -145,7 +148,7 @@ def is_automated_thumbnail_commit(
     app_bot_login: str,
     repo: str,
     commit_sha: str,
-    list_commit_files_fn=list_commit_files,
+    list_commit_files_fn: Callable[..., list[str]] = list_commit_files,
 ) -> bool:
     """Return True when the triggering commit is an app-authored thumbnail-only change.
 
@@ -215,11 +218,11 @@ def thumbnail_plan(
     actor: str = "",
     app_bot_login: str = "",
     apps_root: Path | None = None,
-    list_changed_files_fn=list_changed_files,
-    list_commit_files_fn=list_commit_files,
-    missing_thumbnail_slugs_fn=missing_thumbnail_slugs,
-    runtime_change_plan_fn=runtime_change_plan,
-    associated_pr_kind_for_commit_fn=associated_pr_kind_for_commit,
+    list_changed_files_fn: Callable[..., list[str]] = list_changed_files,
+    list_commit_files_fn: Callable[..., list[str]] = list_commit_files,
+    missing_thumbnail_slugs_fn: Callable[..., list[str]] = missing_thumbnail_slugs,
+    runtime_change_plan_fn: Callable[..., dict[str, object]] = runtime_change_plan,
+    associated_pr_kind_for_commit_fn: Callable[..., str] = associated_pr_kind_for_commit,
 ) -> dict[str, object]:
     """Return the strict thumbnail automation plan for one workflow event."""
     apps_root = apps_root or Path(artifact_base_path())
@@ -354,8 +357,8 @@ def invalidate_thumbnails(
     repo: str,
     pr_number: str,
     commit_sha: str,
-    list_changed_files_fn=list_changed_files,
-    runtime_change_plan_fn=runtime_change_plan,
+    list_changed_files_fn: Callable[..., list[str]] = list_changed_files,
+    runtime_change_plan_fn: Callable[..., dict[str, object]] = runtime_change_plan,
 ) -> list[str]:
     """Delete thumbnails for apps whose runtime or shared site assets changed."""
     changed_files = list_changed_files_fn(

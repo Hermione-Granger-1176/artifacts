@@ -4,7 +4,7 @@ Collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT, G
 
 ## Rules
 
-1. **The Makefile is the only interface.** Never run `.venv/bin/*`, `pytest`, `ruff`, `npm run`, `npx`, `tsc`, `playwright`, or `gh` directly. Always use `make <target>`. If unsure what's available, run `make help` first. The list is auto-generated from the Makefile.
+1. **The Makefile is the only interface.** Never run `.venv/bin/*`, `pytest`, `ruff`, `mypy`, `npm run`, `npx`, `tsc`, `playwright`, or `gh` directly. Always use `make <target>`. If unsure what's available, run `make help` first. The list is auto-generated from the Makefile.
 2. **Use the `make pr` / `make git` / `make help-ci` targets for GitHub work.** Prefer `make pr-review-comments`, `make pr-address`, `make pr-reply`, `make pr-resolve`, `make pr-summary`, `make pr-checks`, `make ci-failures`, and `make push` over raw `gh` or `git` commands. `make pr-review-comments` prints `thread=PRRT_...` ids; pass that id straight to `make pr-reply`, `make pr-resolve`, or `make pr-address`.
 3. **If a target is missing, add it.** Put `## description` after the target name in the Makefile and it appears in `make help` automatically.
 4. **Each tool has one config file.** To change what gets linted/tested/covered, edit the tool's config, nowhere else. See the tool configuration table below.
@@ -94,6 +94,7 @@ Each tool has one config file that owns its scope. The Makefile just calls tools
 | yamllint | `.yamllint.yml` | YAML rules, ignore patterns |
 | JS coverage | `package.json` | Exclude patterns (`node_modules/`, `tests/`) |
 | tsc (checkJs) | `config/jsconfig.json` | TypeScript checkJs gate for hand-written js/ modules |
+| mypy | `pyproject.toml` | Strict Python type checking over `scripts/` |
 | Prettier | `config/prettierrc.json` | Docs, metadata, workflow, and tooling formatting |
 | Knip | `config/knip.json` | JS dead-code, unused exports, and unused dependency detection |
 | vulture | `pyproject.toml` | Python dead-code detection |

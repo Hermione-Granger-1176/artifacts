@@ -5,8 +5,30 @@ import logging
 import re
 import subprocess
 import time
+from collections.abc import Callable
+from typing import Protocol
 
 logger = logging.getLogger(__name__)
+
+SleepFunction = Callable[[float], object]
+RunGhApiFunction = Callable[..., str]
+
+
+class SubprocessModule(Protocol):
+    """Structural type for the ``subprocess`` module seam used in retries."""
+
+    def run(
+        self,
+        args: list[str],
+        *,
+        capture_output: bool,
+        text: bool,
+        check: bool,
+        timeout: float,
+    ) -> subprocess.CompletedProcess[str]:
+        """Run a command and return its completed process, matching ``subprocess.run``."""
+        raise NotImplementedError(args, capture_output, text, check, timeout)
+
 
 GH_API_TIMEOUT_SECONDS = 15
 GH_API_MAX_ATTEMPTS = 3
@@ -51,11 +73,11 @@ def _run_gh_command(
     command: list[str],
     *,
     description: str,
-    max_attempts=GH_API_MAX_ATTEMPTS,
-    retry_delay_seconds=GH_API_RETRY_DELAY_SECONDS,
-    sleep_fn=time.sleep,
-    subprocess_module=subprocess,
-    timeout_seconds=GH_API_TIMEOUT_SECONDS,
+    max_attempts: int = GH_API_MAX_ATTEMPTS,
+    retry_delay_seconds: float = GH_API_RETRY_DELAY_SECONDS,
+    sleep_fn: SleepFunction = time.sleep,
+    subprocess_module: SubprocessModule = subprocess,
+    timeout_seconds: int = GH_API_TIMEOUT_SECONDS,
     required_permission: str | None = None,
 ) -> str:
     """Run one ``gh`` command with bounded retries and contextual failures."""
@@ -110,11 +132,11 @@ def run_gh_api(
     paginate: list[str],
     jq_expr: str,
     description: str,
-    max_attempts=GH_API_MAX_ATTEMPTS,
-    retry_delay_seconds=GH_API_RETRY_DELAY_SECONDS,
-    sleep_fn=time.sleep,
-    subprocess_module=subprocess,
-    timeout_seconds=GH_API_TIMEOUT_SECONDS,
+    max_attempts: int = GH_API_MAX_ATTEMPTS,
+    retry_delay_seconds: float = GH_API_RETRY_DELAY_SECONDS,
+    sleep_fn: SleepFunction = time.sleep,
+    subprocess_module: SubprocessModule = subprocess,
+    timeout_seconds: int = GH_API_TIMEOUT_SECONDS,
     required_permission: str | None = None,
 ) -> str:
     """Run ``gh api`` with bounded retries, timeout, and contextual failures.
@@ -141,7 +163,7 @@ def run_gh_api_json(
     endpoint: str,
     *,
     description: str,
-    run_gh_api_fn=run_gh_api,
+    run_gh_api_fn: RunGhApiFunction = run_gh_api,
     required_permission: str | None = None,
 ) -> object:
     """Fetch JSON from ``gh api`` and parse it into a Python object."""
@@ -176,11 +198,11 @@ def run_gh_api_form(
     fields: list[tuple[str, str]],
     description: str,
     jq_expr: str = "",
-    max_attempts=GH_API_MAX_ATTEMPTS,
-    retry_delay_seconds=GH_API_RETRY_DELAY_SECONDS,
-    sleep_fn=time.sleep,
-    subprocess_module=subprocess,
-    timeout_seconds=GH_API_TIMEOUT_SECONDS,
+    max_attempts: int = GH_API_MAX_ATTEMPTS,
+    retry_delay_seconds: float = GH_API_RETRY_DELAY_SECONDS,
+    sleep_fn: SleepFunction = time.sleep,
+    subprocess_module: SubprocessModule = subprocess,
+    timeout_seconds: int = GH_API_TIMEOUT_SECONDS,
     required_permission: str | None = None,
 ) -> str:
     """Run ``gh api`` with ``-f`` form fields for mutations or filtered reads.

@@ -11,6 +11,9 @@ VENV_PYTHON := $(VENV)/bin/python
 VENV_RUFF   := $(VENV)/bin/ruff
 NPM         ?= npm
 
+# Python source tree that mypy strict-checks. Tests are intentionally excluded.
+PY_TYPE_PATHS := scripts/
+
 # Entry point for tested GitHub PR/CI helpers. Keep Make targets as thin
 # wrappers so GitHub behavior is testable Python instead of inline shell.
 GH = PYTHONPATH=. $(VENV_PYTHON) -m scripts.gh.cli
@@ -125,9 +128,12 @@ format-prettier-check: ## Check Prettier-managed files only
 
 # ─── Typecheck @typecheck ────────────────────────────────────────────────────
 
-.PHONY: typecheck typecheck-web
+.PHONY: typecheck typecheck-py typecheck-web
 
-typecheck: typecheck-web ## Run all type checks
+typecheck: typecheck-py typecheck-web ## Run all type checks
+
+typecheck-py: ## Run mypy strict type checking over scripts/
+	$(VENV_PYTHON) -m mypy $(PY_TYPE_PATHS)
 
 typecheck-web: ## Run TypeScript checkJs on hand-written js/ modules
 	$(NPM) run typecheck:web
@@ -229,7 +235,7 @@ new: ## Scaffold a new artifact directory (make new name=X)
 
 .PHONY: ci-python ci-web ci ci-fast security audit-python audit-node audit-fix-node check-generated check-local check-fast check-web check fix
 
-ci-python: format-py-check lint-py dead-code-py test-py ## Python CI gate
+ci-python: format-py-check lint-py typecheck-py dead-code-py test-py ## Python CI gate
 
 ci-web: format-prettier-check lint-js lint-css typecheck-web lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage check-overrides dead-code-js test-js coverage-js ## Web and docs CI gate
 
@@ -305,7 +311,7 @@ status: ## Show workspace health (git, venv, node, generated files, PR)
 	@$(GH) summary || true
 
 clean: ## Remove local environments, build outputs, and caches
-	rm -rf $(VENV) node_modules _site .artifacts .pytest_cache .ruff_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
+	rm -rf $(VENV) node_modules _site .artifacts .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
 
 help: ## Show command groups (expand one with make help-<group>)
 	@printf '\n  \033[1mmake <target>\033[0m   ·   expand a group: \033[1mmake help-<group>\033[0m   ·   machine-readable: \033[1mmake help-json\033[0m\n'

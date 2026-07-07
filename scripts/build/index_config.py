@@ -13,7 +13,7 @@ import functools
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
 from scripts.build import index_outputs, index_sources
@@ -136,10 +136,7 @@ class IndexConfig:
 
     def read_gallery_metadata(self) -> index_outputs.GalleryMetadata:
         """Load shared gallery metadata used by generators and the frontend."""
-        return cast(
-            "index_outputs.GalleryMetadata",
-            index_outputs.read_gallery_metadata(self.gallery_metadata_file),
-        )
+        return index_outputs.read_gallery_metadata(self.gallery_metadata_file)
 
     # -- class method to build the production config -----------------------
 
@@ -147,10 +144,7 @@ class IndexConfig:
     def create_default(cls) -> IndexConfig:
         """Construct the production config from repository-root paths."""
         artifact_contract_file = REPO_ROOT / "config" / "artifact_contract.json"
-        contract = cast(
-            "ArtifactContract",
-            read_artifact_contract_file(artifact_contract_file),
-        )
+        contract = read_artifact_contract_file(artifact_contract_file)
         compiled_id_pattern = index_sources.artifact_id_pattern(contract)
         apps_dir = REPO_ROOT / contract["artifactBasePath"]
 
