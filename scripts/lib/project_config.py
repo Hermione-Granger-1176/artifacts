@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import tomllib
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def load_artifacts_config(pyproject_file: Path) -> dict[str, object]:

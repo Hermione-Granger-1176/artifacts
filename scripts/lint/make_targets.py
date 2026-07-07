@@ -5,10 +5,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
 from scripts.lint import SKIP_DIRECTORIES
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 MAKEFILE_PATH = REPO_ROOT / "Makefile"
 TARGET_PATTERN = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):(?!=)", re.MULTILINE)
@@ -64,9 +67,7 @@ def iter_markdown_files(root: Path | None = None) -> list[Path]:
     return [
         path
         for path in sorted(workspace_root.rglob("*.md"))
-        if not any(
-            part in SKIP_DIRECTORIES for part in path.relative_to(workspace_root).parts
-        )
+        if not any(part in SKIP_DIRECTORIES for part in path.relative_to(workspace_root).parts)
     ]
 
 

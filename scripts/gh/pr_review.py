@@ -117,13 +117,9 @@ def _review_threads(data: Any) -> dict[str, Any]:
             array), which would otherwise surface as an opaque ``TypeError``.
     """
     repository = data.get("repository") if isinstance(data, dict) else None
-    pull_request = (
-        repository.get("pullRequest") if isinstance(repository, dict) else None
-    )
+    pull_request = repository.get("pullRequest") if isinstance(repository, dict) else None
     if not isinstance(pull_request, dict):
-        raise GhError(
-            "No pull request in GraphQL response (invalid or inaccessible PR?)."
-        )
+        raise GhError("No pull request in GraphQL response (invalid or inaccessible PR?).")
     connection: dict[str, Any] = pull_request["reviewThreads"]
     return connection
 
@@ -188,9 +184,7 @@ def list_threads(
     return [thread for thread in threads if thread.state == "open"]
 
 
-def reply_to_thread(
-    thread_id: str, body: str, *, run_fn: RunFunction | None = None
-) -> None:
+def reply_to_thread(thread_id: str, body: str, *, run_fn: RunFunction | None = None) -> None:
     """Reply to a review thread by its node id.
 
     Posting a reply is not idempotent, so it does not auto-retry: a lost
@@ -213,9 +207,7 @@ def resolve_thread(thread_id: str, *, run_fn: RunFunction | None = None) -> None
     )
 
 
-def address_thread(
-    thread_id: str, body: str, *, run_fn: RunFunction | None = None
-) -> None:
+def address_thread(thread_id: str, body: str, *, run_fn: RunFunction | None = None) -> None:
     """Reply to a review thread and then resolve it, in that order."""
     reply_to_thread(thread_id, body, run_fn=run_fn)
     resolve_thread(thread_id, run_fn=run_fn)
@@ -304,9 +296,7 @@ def list_comments(
     return comments
 
 
-def delete_review_comment(
-    comment_id: str, *, run_fn: RunFunction | None = None
-) -> None:
+def delete_review_comment(comment_id: str, *, run_fn: RunFunction | None = None) -> None:
     """Delete a single review comment by its node id.
 
     Deletion is destructive and not idempotent (a retry would error on the

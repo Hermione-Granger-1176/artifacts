@@ -58,19 +58,14 @@ def run_checks(
 ) -> tuple[CheckResult, ...]:
     """Run all targets in parallel and return results sorted by name."""
     with ThreadPoolExecutor() as pool:
-        futures = {
-            pool.submit(run_check, t, timeout=timeout, run_fn=run_fn): t
-            for t in targets
-        }
+        futures = {pool.submit(run_check, t, timeout=timeout, run_fn=run_fn): t for t in targets}
         results = [future.result() for future in as_completed(futures)]
     return tuple(sorted(results, key=lambda r: r.name))
 
 
 def format_results(results: tuple[CheckResult, ...]) -> str:
     """Build CI log output: summary, folded pass logs, expanded fail logs."""
-    summary = [
-        f"{'✓' if r.passed else '✗'} {r.name} ({r.elapsed:.1f}s)" for r in results
-    ]
+    summary = [f"{'✓' if r.passed else '✗'} {r.name} ({r.elapsed:.1f}s)" for r in results]
     logs = []
     for r in results:
         header = f"::group::{r.name}" if r.passed else f"--- {r.name} (failed) ---"

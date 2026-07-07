@@ -26,9 +26,7 @@ class RunInfo:
     url: str
 
 
-def latest_run(
-    branch: str | None = None, *, run_fn: RunFunction | None = None
-) -> RunInfo:
+def latest_run(branch: str | None = None, *, run_fn: RunFunction | None = None) -> RunInfo:
     """Return the most recent workflow run for ``branch`` (current when omitted)."""
     branch = branch or gh_runner.current_branch(run_fn=run_fn)
     runs = gh_runner.gh_json(

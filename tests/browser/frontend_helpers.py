@@ -29,10 +29,12 @@ REAL_APPS_DIR = REPO_ROOT / "apps"
 
 
 def copy_tree(source: Path, target: Path) -> None:
+    """Copy tree."""
     shutil.copytree(source, target, dirs_exist_ok=True)
 
 
 def write_text(path: Path, content: str) -> None:
+    """Write text."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
@@ -46,6 +48,7 @@ def build_smoke_site(
     config_override=None,
     artifacts_override=None,
 ) -> Path:
+    """Build smoke site."""
     source_root = tmp_path / "source"
     deploy_root = tmp_path / "_site"
     source_root.mkdir(parents=True, exist_ok=True)
@@ -140,6 +143,7 @@ def build_smoke_site(
 
 
 def build_real_site(tmp_path: Path, monkeypatch) -> Path:
+    """Build real site."""
     source_root = tmp_path / "source"
     deploy_root = tmp_path / "_site"
     source_root.mkdir(parents=True, exist_ok=True)
@@ -165,16 +169,16 @@ def build_real_site(tmp_path: Path, monkeypatch) -> Path:
 
 
 def discover_app_slugs() -> list[str]:
+    """Discover app slugs."""
     return sorted(
         path.name
         for path in REAL_APPS_DIR.iterdir()
-        if path.is_dir()
-        and (path / "index.html").exists()
-        and (path / "js" / "app.js").exists()
+        if path.is_dir() and (path / "index.html").exists() and (path / "js" / "app.js").exists()
     )
 
 
 def selected_app_slugs() -> list[str]:
+    """Selected app slugs."""
     configured = os.environ.get(APP_SLUGS_ENV, "").strip()
     if not configured:
         return discover_app_slugs()
@@ -182,6 +186,8 @@ def selected_app_slugs() -> list[str]:
 
 
 class StaticServer:
+    """Static Server."""
+
     def __init__(self, directory: Path) -> None:
         handler = partial(SimpleHTTPRequestHandler, directory=str(directory))
         self._httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
@@ -189,16 +195,19 @@ class StaticServer:
         self.url = f"http://127.0.0.1:{self._httpd.server_address[1]}"
 
     def __enter__(self) -> StaticServer:
+        """Enter the context manager and return the resource."""
         self._thread.start()
         return self
 
     def __exit__(self, exc_type, exc, _tb) -> None:
+        """Exit the context manager and release the resource."""
         self._httpd.shutdown()
         self._httpd.server_close()
         self._thread.join(timeout=5)
 
 
 def launch_browser(playwright):
+    """Launch browser."""
     try:
         return playwright.chromium.launch()
     except Exception as exc:  # pragma: no cover - environment specific
@@ -228,6 +237,8 @@ def _matches_allowed(message: str, allowed_patterns: tuple[str, ...]) -> bool:
 
 @dataclass
 class RuntimeMonitor:
+    """Runtime Monitor."""
+
     base_url: str
     allowed_console_errors: tuple[str, ...] = ()
     allowed_page_errors: tuple[str, ...] = ()
@@ -285,9 +296,7 @@ class RuntimeMonitor:
             if status != 404 or not url.endswith(".css"):
                 return False
             filename = url.rsplit("/", 1)[-1]
-            return any(
-                p.endswith("/" + filename) or p == filename for p in loaded_css_paths
-            )
+            return any(p.endswith("/" + filename) or p == filename for p in loaded_css_paths)
 
         def track_response(response) -> None:
             if self._should_ignore_url(response.url):
@@ -327,10 +336,7 @@ class RuntimeMonitor:
 
     def has_failures(self) -> bool:
         return bool(
-            self.console_errors
-            or self.page_errors
-            or self.request_failures
-            or self.response_errors
+            self.console_errors or self.page_errors or self.request_failures or self.response_errors
         )
 
     def failure_summary(self) -> str:
@@ -340,9 +346,7 @@ class RuntimeMonitor:
         if self.console_errors:
             sections.append("Console errors:\n- " + "\n- ".join(self.console_errors))
         if self.request_failures:
-            sections.append(
-                "Request failures:\n- " + "\n- ".join(self.request_failures)
-            )
+            sections.append("Request failures:\n- " + "\n- ".join(self.request_failures))
         if self.response_errors:
             sections.append("HTTP errors:\n- " + "\n- ".join(self.response_errors))
         return "\n\n".join(sections)
@@ -353,6 +357,8 @@ class RuntimeMonitor:
 
 
 class MonitoredPage:
+    """Monitored Page."""
+
     def __init__(
         self,
         playwright,
@@ -384,6 +390,7 @@ class MonitoredPage:
         self.page = None
 
     def __enter__(self) -> MonitoredPage:
+        """Enter the context manager and return the resource."""
         self._browser = launch_browser(self._playwright)
         self._context = self._browser.new_context(
             viewport=self._viewport,
@@ -408,6 +415,7 @@ class MonitoredPage:
         self.page.goto(target, wait_until=wait_until)
 
     def __exit__(self, exc_type, exc, _tb) -> bool:
+        """Exit the context manager and release the resource."""
         monitor_error: AssertionError | None = None
         try:
             if exc_type is None:
@@ -416,17 +424,11 @@ class MonitoredPage:
                 except AssertionError as caught:
                     monitor_error = caught
             should_capture = exc_type is not None or self.monitor.has_failures()
-            if (
-                self._artifact_dir is not None
-                and self.page is not None
-                and should_capture
-            ):
+            if self._artifact_dir is not None and self.page is not None and should_capture:
                 self._write_artifacts()
             if self._context is not None and self._trace_started:
                 if self._artifact_dir is not None and should_capture:
-                    self._context.tracing.stop(
-                        path=str(self._artifact_dir / "trace.zip")
-                    )
+                    self._context.tracing.stop(path=str(self._artifact_dir / "trace.zip"))
                 else:
                     self._context.tracing.stop()
         finally:
@@ -444,22 +446,18 @@ class MonitoredPage:
             return
 
         if not self.page.is_closed():
-            self.page.screenshot(
-                path=str(self._artifact_dir / "failure.png"), full_page=True
-            )
+            self.page.screenshot(path=str(self._artifact_dir / "failure.png"), full_page=True)
 
         (self._artifact_dir / "runtime-failures.txt").write_text(
             self.monitor.failure_summary() or "No runtime failures recorded.\n",
             encoding="utf-8",
         )
         (self._artifact_dir / "page-errors.txt").write_text(
-            "\n".join(self.monitor.page_errors)
-            + ("\n" if self.monitor.page_errors else ""),
+            "\n".join(self.monitor.page_errors) + ("\n" if self.monitor.page_errors else ""),
             encoding="utf-8",
         )
         (self._artifact_dir / "console-errors.txt").write_text(
-            "\n".join(self.monitor.console_errors)
-            + ("\n" if self.monitor.console_errors else ""),
+            "\n".join(self.monitor.console_errors) + ("\n" if self.monitor.console_errors else ""),
             encoding="utf-8",
         )
         (self._artifact_dir / "request-failures.txt").write_text(
@@ -475,6 +473,7 @@ class MonitoredPage:
 
 
 def ensure_axe_loaded(page) -> None:
+    """Ensure axe loaded."""
     if page.evaluate("Boolean(window.axe)"):
         return
     if not AXE_SOURCE_FILE.exists():
@@ -483,15 +482,15 @@ def ensure_axe_loaded(page) -> None:
 
 
 def ensure_axe_styles(page) -> None:
+    """Ensure axe styles."""
     needs_root_styles = page.evaluate(
-        "Boolean(document.querySelector('link[href*=\"css/style.css\"]') || document.getElementById('artifacts-grid'))"
+        "Boolean(document.querySelector('link[href*=\"css/style.css\"]') "
+        "|| document.getElementById('artifacts-grid'))"
     )
     if not needs_root_styles:
         return
 
-    already_injected = page.evaluate(
-        "Boolean(document.getElementById('axe-inline-styles'))"
-    )
+    already_injected = page.evaluate("Boolean(document.getElementById('axe-inline-styles'))")
     if already_injected:
         return
 
@@ -517,6 +516,7 @@ def run_axe(
     exclude: list[str] | None = None,
     run_only: list[str] | None = None,
 ):
+    """Run axe."""
     ensure_axe_loaded(page)
     ensure_axe_styles(page)
     context: dict[str, list[list[str]]] | None = None
@@ -542,10 +542,9 @@ def run_axe(
 def assert_no_blocking_axe_violations(
     results, *, impacts: tuple[str, ...] = ("serious", "critical")
 ) -> None:
+    """Assert no blocking axe violations."""
     violations = [
-        violation
-        for violation in results["violations"]
-        if violation.get("impact") in impacts
+        violation for violation in results["violations"] if violation.get("impact") in impacts
     ]
     if not violations:
         return
@@ -564,6 +563,7 @@ def assert_no_blocking_axe_violations(
 def contrast_ratio(
     page, selector: str, *, background_selector: str | None = None
 ) -> dict[str, object]:
+    """Contrast ratio."""
     return page.evaluate(
         r"""({ selector, backgroundSelector }) => {
             function parseColor(value) {
@@ -659,15 +659,14 @@ def assert_minimum_contrast(
     minimum_ratio: float = 4.5,
     background_selector: str | None = None,
 ) -> None:
+    """Assert minimum contrast."""
     result = cast(
-        dict[str, Any],
+        "dict[str, Any]",
         contrast_ratio(page, selector, background_selector=background_selector),
     )
     ratio_value = result.get("ratio")
     if not isinstance(ratio_value, (int, float)):
-        raise AssertionError(
-            f"Contrast ratio for {selector} was not numeric: {ratio_value!r}"
-        )
+        raise AssertionError(f"Contrast ratio for {selector} was not numeric: {ratio_value!r}")
     ratio = float(ratio_value)
     if ratio >= minimum_ratio:
         return

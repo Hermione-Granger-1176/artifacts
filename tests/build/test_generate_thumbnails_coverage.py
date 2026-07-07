@@ -9,6 +9,7 @@ import scripts.build.generate_thumbnails as generate_thumbnails
 
 
 def test_save_thumbnail_converts_non_rgb_images(tmp_path: Path) -> None:
+    """Save thumbnail converts non rgb images."""
     source = Image.new("L", (640, 360), color=128)
     buffer = BytesIO()
     source.save(buffer, format="PNG")
@@ -22,6 +23,7 @@ def test_save_thumbnail_converts_non_rgb_images(tmp_path: Path) -> None:
 
 
 def test_save_thumbnail_converts_alpha_images(tmp_path: Path) -> None:
+    """Save thumbnail converts alpha images."""
     source = Image.new("LA", (640, 360), color=(128, 200))
     buffer = BytesIO()
     source.save(buffer, format="PNG")

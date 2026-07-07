@@ -280,7 +280,7 @@ fix-deps: ## Refresh locks, reinstall, and npm audit fix
 align-tables: ## Align markdown table pipes across all docs
 	$(VENV_PYTHON) scripts/lint/align_tables.py
 
-status: ## Show workspace health (git, venv, node, generated files)
+status: ## Show workspace health (git, venv, node, generated files, PR)
 	@echo "=== Git ==="
 	@git status -sb
 	@echo
@@ -289,11 +289,15 @@ status: ## Show workspace health (git, venv, node, generated files)
 	@echo
 	@echo "=== Node ==="
 	@test -d node_modules && echo "OK: node_modules exists" || echo "MISSING: run make setup"
+	@$(NPM) install --package-lock-only --ignore-scripts --dry-run >/dev/null 2>&1 && echo "OK: package-lock.json is current" || echo "STALE: run make lock-node"
 	@echo
 	@echo "=== Generated files ==="
 	@test -f js/data.js && echo "OK: js/data.js" || echo "STALE: run make index"
 	@test -f js/gallery-config.js && echo "OK: js/gallery-config.js" || echo "STALE: run make index"
 	@test -d _site && echo "OK: _site/" || echo "NOT BUILT: run make site"
+	@echo
+	@echo "=== Pull request ==="
+	@$(GH) summary || true
 
 clean: ## Remove local environments, build outputs, and caches
 	rm -rf $(VENV) node_modules _site .artifacts .pytest_cache .ruff_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info

@@ -10,6 +10,7 @@ from tests.ci.workflow_helpers_test_support import FakeSubprocessResult
 
 
 def test_is_retryable_gh_api_failure_matches_expected_cases() -> None:
+    """Is retryable gh api failure matches expected cases."""
     assert gh_api.is_retryable_gh_api_failure("503 Service Unavailable")
     assert gh_api.is_retryable_gh_api_failure("timed out while calling API")
     assert gh_api.is_retryable_gh_api_failure("network error")
@@ -19,10 +20,11 @@ def test_is_retryable_gh_api_failure_matches_expected_cases() -> None:
 def test_run_gh_api_retries_transient_failures(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Run gh api retries transient failures."""
     calls = 0
     sleep_calls: list[float] = []
 
-    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
         nonlocal calls
         calls += 1
         if calls == 1:
@@ -49,9 +51,10 @@ def test_run_gh_api_retries_transient_failures(
 def test_run_gh_api_retries_timeout_then_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Run gh api retries timeout then fails."""
     sleep_calls: list[float] = []
 
-    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
         raise subprocess.TimeoutExpired(["gh", "api"], 15)
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
@@ -74,7 +77,9 @@ def test_run_gh_api_retries_timeout_then_fails(
 def test_run_gh_api_fails_fast_for_non_retryable_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+    """Run gh api fails fast for non retryable errors."""
+
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
         result = FakeSubprocessResult(returncode=1)
         result.stderr = "404 Not Found"
         return result
@@ -93,6 +98,7 @@ def test_run_gh_api_fails_fast_for_non_retryable_errors(
 def test_run_gh_api_uses_final_fallback_when_attempts_disabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Run gh api uses final fallback when attempts disabled."""
     monkeypatch.setattr(workflow_helpers._gh_api, "GH_API_MAX_ATTEMPTS", 0)
 
     with pytest.raises(RuntimeError, match="unknown error"):
@@ -105,12 +111,11 @@ def test_run_gh_api_uses_final_fallback_when_attempts_disabled(
 
 
 def test_run_gh_api_json_parses_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run gh api json parses payload."""
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda endpoint, paginate, jq_expr, description, required_permission=None: (
-            '{"ok": true}'
-        ),
+        lambda *_args, **_kwargs: '{"ok": true}',
     )
 
     assert workflow_helpers._run_gh_api_json(
@@ -119,12 +124,11 @@ def test_run_gh_api_json_parses_payload(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_run_gh_api_json_rejects_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run gh api json rejects invalid json."""
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda endpoint, paginate, jq_expr, description, required_permission=None: (
-            "not-json"
-        ),
+        lambda *_args, **_kwargs: "not-json",
     )
 
     with pytest.raises(RuntimeError, match="returned invalid JSON"):
@@ -136,7 +140,9 @@ def test_run_gh_api_json_rejects_invalid_json(monkeypatch: pytest.MonkeyPatch) -
 def test_run_gh_api_enriches_403_with_required_permission(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+    """Run gh api enriches 403 with required permission."""
+
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
         result = FakeSubprocessResult(returncode=1)
         result.stderr = "HTTP 403: Resource not accessible by integration"
         return result
@@ -156,7 +162,9 @@ def test_run_gh_api_enriches_403_with_required_permission(
 def test_run_gh_api_hints_generic_on_403_without_permission(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+    """Run gh api hints generic on 403 without permission."""
+
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
         result = FakeSubprocessResult(returncode=1)
         result.stderr = "gh: Resource not accessible by integration (HTTP 403)"
         return result
@@ -175,7 +183,9 @@ def test_run_gh_api_hints_generic_on_403_without_permission(
 def test_run_gh_api_does_not_enrich_non_403_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+    """Run gh api does not enrich non 403 errors."""
+
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
         result = FakeSubprocessResult(returncode=1)
         result.stderr = "404 Not Found"
         return result
@@ -200,7 +210,9 @@ def test_run_gh_api_does_not_enrich_non_403_errors(
 def test_run_gh_api_does_not_misdiagnose_rate_limit_403(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+    """Run gh api does not misdiagnose rate limit 403."""
+
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
         result = FakeSubprocessResult(returncode=1)
         result.stderr = "gh: API rate limit exceeded (HTTP 403)"
         return result
@@ -223,14 +235,13 @@ def test_run_gh_api_does_not_misdiagnose_rate_limit_403(
 
 
 def test_is_forbidden_gh_api_failure_matches_variants() -> None:
+    """Is forbidden gh api failure matches variants."""
     assert gh_api.is_forbidden_gh_api_failure("Resource not accessible by integration")
     assert gh_api.is_forbidden_gh_api_failure("resource NOT accessible BY integration")
     assert gh_api.is_forbidden_gh_api_failure(
         "gh: Resource not accessible by integration (HTTP 403)"
     )
-    assert not gh_api.is_forbidden_gh_api_failure(
-        "gh: API rate limit exceeded (HTTP 403)"
-    )
+    assert not gh_api.is_forbidden_gh_api_failure("gh: API rate limit exceeded (HTTP 403)")
     assert not gh_api.is_forbidden_gh_api_failure(
         "gh: You have exceeded a secondary rate limit (HTTP 403)"
     )
@@ -246,6 +257,7 @@ def test_is_forbidden_gh_api_failure_matches_variants() -> None:
 def test_run_gh_api_form_posts_fields_with_shared_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Run gh api form posts fields with shared helper."""
     captured = {}
 
     def fake_run_gh_api_form(
@@ -257,9 +269,9 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         jq_expr: str = "",
         max_attempts: int,
         retry_delay_seconds: float,
-        sleep_fn,
         timeout_seconds: float,
         required_permission: str | None = None,
+        **_kwargs: object,
     ) -> str:
         captured["endpoint"] = endpoint
         captured["method"] = method
@@ -272,9 +284,7 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         captured["required_permission"] = required_permission
         return "https://example.com/issues/1"
 
-    monkeypatch.setattr(
-        workflow_helpers._gh_api, "run_gh_api_form", fake_run_gh_api_form
-    )
+    monkeypatch.setattr(workflow_helpers._gh_api, "run_gh_api_form", fake_run_gh_api_form)
 
     result = workflow_helpers._run_gh_api_form(
         "repos/owner/repo/issues",
@@ -302,25 +312,17 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
 def test_run_gh_api_form_escapes_leading_at_values(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Run gh api form escapes leading at values."""
     captured = {}
 
     def fake_run_gh_command(
         command: list[str],
-        *,
-        description: str,
-        max_attempts: int,
-        retry_delay_seconds: float,
-        sleep_fn,
-        subprocess_module,
-        timeout_seconds: float,
-        required_permission: str | None = None,
+        **_kwargs: object,
     ) -> str:
         captured["command"] = command
         return "ok"
 
-    monkeypatch.setattr(
-        workflow_helpers._gh_api, "_run_gh_command", fake_run_gh_command
-    )
+    monkeypatch.setattr(workflow_helpers._gh_api, "_run_gh_command", fake_run_gh_command)
 
     result = workflow_helpers._gh_api.run_gh_api_form(
         "repos/owner/repo/issues",
@@ -346,25 +348,17 @@ def test_run_gh_api_form_escapes_leading_at_values(
 def test_low_level_run_gh_api_form_appends_jq_expression(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Low level run gh api form appends jq expression."""
     captured = {}
 
     def fake_run_gh_command(
         command: list[str],
-        *,
-        description: str,
-        max_attempts: int,
-        retry_delay_seconds: float,
-        sleep_fn,
-        subprocess_module,
-        timeout_seconds: float,
-        required_permission: str | None = None,
+        **_kwargs: object,
     ) -> str:
         captured["command"] = command
         return "ok"
 
-    monkeypatch.setattr(
-        workflow_helpers._gh_api, "_run_gh_command", fake_run_gh_command
-    )
+    monkeypatch.setattr(workflow_helpers._gh_api, "_run_gh_command", fake_run_gh_command)
 
     result = workflow_helpers._gh_api.run_gh_api_form(
         "repos/owner/repo/issues",
@@ -391,25 +385,17 @@ def test_low_level_run_gh_api_form_appends_jq_expression(
 def test_run_gh_api_form_omits_jq_when_not_requested(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Run gh api form omits jq when not requested."""
     captured = {}
 
     def fake_run_gh_command(
         command: list[str],
-        *,
-        description: str,
-        max_attempts: int,
-        retry_delay_seconds: float,
-        sleep_fn,
-        subprocess_module,
-        timeout_seconds: float,
-        required_permission: str | None = None,
+        **_kwargs: object,
     ) -> str:
         captured["command"] = command
         return "ok"
 
-    monkeypatch.setattr(
-        workflow_helpers._gh_api, "_run_gh_command", fake_run_gh_command
-    )
+    monkeypatch.setattr(workflow_helpers._gh_api, "_run_gh_command", fake_run_gh_command)
 
     result = workflow_helpers._gh_api.run_gh_api_form(
         "repos/owner/repo/issues/7",
@@ -433,25 +419,19 @@ def test_run_gh_api_form_omits_jq_when_not_requested(
 def test_run_gh_api_form_forwards_required_permission(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Run gh api form forwards required permission."""
     captured = {}
 
     def fake_run_gh_command(
-        command: list[str],
+        _command: list[str],
         *,
-        description: str,
-        max_attempts: int,
-        retry_delay_seconds: float,
-        sleep_fn,
-        subprocess_module,
-        timeout_seconds: float,
         required_permission: str | None = None,
+        **_kwargs: object,
     ) -> str:
         captured["required_permission"] = required_permission
         return "ok"
 
-    monkeypatch.setattr(
-        workflow_helpers._gh_api, "_run_gh_command", fake_run_gh_command
-    )
+    monkeypatch.setattr(workflow_helpers._gh_api, "_run_gh_command", fake_run_gh_command)
 
     workflow_helpers._gh_api.run_gh_api_form(
         "repos/owner/repo/issues",
@@ -467,26 +447,20 @@ def test_run_gh_api_form_forwards_required_permission(
 def test_run_gh_api_form_passes_custom_subprocess_module(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Run gh api form passes custom subprocess module."""
     captured = {}
     fake_subprocess_module = object()
 
     def fake_run_gh_command(
-        command: list[str],
+        _command: list[str],
         *,
-        description: str,
-        max_attempts: int,
-        retry_delay_seconds: float,
-        sleep_fn,
         subprocess_module,
-        timeout_seconds: float,
-        required_permission: str | None = None,
+        **_kwargs: object,
     ) -> str:
         captured["subprocess_module"] = subprocess_module
         return "ok"
 
-    monkeypatch.setattr(
-        workflow_helpers._gh_api, "_run_gh_command", fake_run_gh_command
-    )
+    monkeypatch.setattr(workflow_helpers._gh_api, "_run_gh_command", fake_run_gh_command)
 
     result = workflow_helpers._gh_api.run_gh_api_form(
         "repos/owner/repo/issues/7",
@@ -503,15 +477,14 @@ def test_run_gh_api_form_passes_custom_subprocess_module(
 def test_sync_alert_issue_delegates_to_issue_alerts_module(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Sync alert issue delegates to issue alerts module."""
     captured = {}
 
     def fake_sync_alert_issue(**kwargs) -> str:
         captured.update(kwargs)
         return "https://github.com/owner/repo/issues/7"
 
-    monkeypatch.setattr(
-        workflow_helpers._issue_alerts, "sync_alert_issue", fake_sync_alert_issue
-    )
+    monkeypatch.setattr(workflow_helpers._issue_alerts, "sync_alert_issue", fake_sync_alert_issue)
 
     issue_url = workflow_helpers.sync_alert_issue(
         repo="owner/repo",
@@ -528,16 +501,14 @@ def test_sync_alert_issue_delegates_to_issue_alerts_module(
     assert captured["body"] == "Updated body"
     assert captured["labels"] == ["ci"]
     assert captured["should_exist"] is True
-    assert (
-        captured["issue_payloads_by_title_fn"]
-        is workflow_helpers._issue_payloads_by_title
-    )
+    assert captured["issue_payloads_by_title_fn"] is workflow_helpers._issue_payloads_by_title
     assert captured["run_gh_api_form_fn"] is workflow_helpers._run_gh_api_form
 
 
 def test_issue_payloads_by_title_delegates_to_issue_alerts_module(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Issue payloads by title delegates to issue alerts module."""
     captured = {}
 
     def fake_issue_payloads_by_title(repo: str, title: str, *, run_gh_api_json_fn):
@@ -552,9 +523,7 @@ def test_issue_payloads_by_title_delegates_to_issue_alerts_module(
         fake_issue_payloads_by_title,
     )
 
-    assert workflow_helpers._issue_payloads_by_title("owner/repo", "Alert") == [
-        {"number": 1}
-    ]
+    assert workflow_helpers._issue_payloads_by_title("owner/repo", "Alert") == [{"number": 1}]
     assert captured["repo"] == "owner/repo"
     assert captured["title"] == "Alert"
     assert captured["run_gh_api_json_fn"] is workflow_helpers._run_gh_api_json

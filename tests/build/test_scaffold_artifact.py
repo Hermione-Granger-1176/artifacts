@@ -8,10 +8,12 @@ import scripts.build.scaffold_artifact as scaffold_artifact
 
 
 def test_title_from_slug_formats_words() -> None:
+    """Title from slug formats words."""
     assert scaffold_artifact._title_from_slug("budget-tracker") == "Budget Tracker"
 
 
 def test_index_template_includes_title() -> None:
+    """Index template includes title."""
     template = scaffold_artifact._index_template("Budget Tracker")
 
     assert "<title>Budget Tracker | Artifacts</title>" in template
@@ -29,6 +31,7 @@ def test_index_template_includes_title() -> None:
 def test_scaffold_artifact_creates_expected_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Scaffold artifact creates expected files."""
     apps_dir = tmp_path / "apps"
     tests_js_apps_dir = tmp_path / "tests" / "js" / "apps"
     monkeypatch.setattr(scaffold_artifact, "APPS_DIR", apps_dir)
@@ -65,11 +68,13 @@ def test_scaffold_artifact_creates_expected_files(
 
 
 def test_scaffold_artifact_rejects_missing_name() -> None:
+    """Scaffold artifact rejects missing name."""
     with pytest.raises(ValueError, match="Artifact name is required"):
         scaffold_artifact.scaffold_artifact("")
 
 
 def test_scaffold_artifact_rejects_non_kebab_case_name() -> None:
+    """Scaffold artifact rejects non kebab case name."""
     with pytest.raises(ValueError, match="Artifact name must use kebab-case"):
         scaffold_artifact.scaffold_artifact("BudgetTracker")
 
@@ -77,13 +82,12 @@ def test_scaffold_artifact_rejects_non_kebab_case_name() -> None:
 def test_scaffold_artifact_rejects_existing_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Scaffold artifact rejects existing directory."""
     apps_dir = tmp_path / "apps"
     artifact_dir = apps_dir / "budget-tracker"
     artifact_dir.mkdir(parents=True)
     monkeypatch.setattr(scaffold_artifact, "APPS_DIR", apps_dir)
-    monkeypatch.setattr(
-        scaffold_artifact, "TESTS_JS_APPS_DIR", tmp_path / "tests" / "js" / "apps"
-    )
+    monkeypatch.setattr(scaffold_artifact, "TESTS_JS_APPS_DIR", tmp_path / "tests" / "js" / "apps")
 
     with pytest.raises(FileExistsError, match="Artifact directory already exists"):
         scaffold_artifact.scaffold_artifact("budget-tracker")
@@ -92,11 +96,10 @@ def test_scaffold_artifact_rejects_existing_directory(
 def test_main_scaffolds_artifact_and_returns_zero(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Main scaffolds artifact and returns zero."""
     apps_dir = tmp_path / "apps"
     monkeypatch.setattr(scaffold_artifact, "APPS_DIR", apps_dir)
-    monkeypatch.setattr(
-        scaffold_artifact, "TESTS_JS_APPS_DIR", tmp_path / "tests" / "js" / "apps"
-    )
+    monkeypatch.setattr(scaffold_artifact, "TESTS_JS_APPS_DIR", tmp_path / "tests" / "js" / "apps")
 
     result = scaffold_artifact.main(["budget-tracker"])
 
@@ -108,6 +111,7 @@ def test_main_scaffolds_artifact_and_returns_zero(
 def test_scaffold_artifact_creates_tests_directory_when_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Scaffold artifact creates tests directory when missing."""
     apps_dir = tmp_path / "apps"
     tests_js_apps_dir = tmp_path / "tests" / "js" / "apps"
     monkeypatch.setattr(scaffold_artifact, "APPS_DIR", apps_dir)
@@ -120,5 +124,6 @@ def test_scaffold_artifact_creates_tests_directory_when_missing(
 
 
 def test_main_requires_exactly_one_argument() -> None:
+    """Main requires exactly one argument."""
     with pytest.raises(ValueError, match="Usage: make new name=<artifact-name>"):
         scaffold_artifact.main([])
