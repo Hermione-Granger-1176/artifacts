@@ -38,8 +38,15 @@ def latest_run(branch: str | None = None, *, run_fn: RunFunction | None = None) 
     run = runs[0]
     if not isinstance(run, dict):
         raise GhError(f"Unexpected workflow run payload for branch {branch!r}.")
+    raw_id = run.get("databaseId")
+    if raw_id is None:
+        raise GhError(f"Workflow run for branch {branch!r} is missing databaseId.")
+    try:
+        run_id = int(raw_id)
+    except (TypeError, ValueError):
+        raise GhError(f"Workflow run databaseId is not an integer: {raw_id!r}.")
     return RunInfo(
-        run_id=int(run["databaseId"]),
+        run_id=run_id,
         status=str(run.get("status") or ""),
         conclusion=str(run.get("conclusion") or ""),
         workflow=str(run.get("workflowName") or ""),

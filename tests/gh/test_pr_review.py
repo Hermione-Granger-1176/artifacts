@@ -114,6 +114,190 @@ COMMENTS_PAYLOAD = _comments_page(
 )
 
 
+def test_parse_nodes_rejects_non_list() -> None:
+    with pytest.raises(GhError):
+        pr_review._parse_nodes("not a list")
+
+
+def test_parse_nodes_rejects_non_dict_node() -> None:
+    with pytest.raises(GhError):
+        pr_review._parse_nodes([None])
+
+
+def test_parse_nodes_rejects_node_missing_id() -> None:
+    with pytest.raises(GhError):
+        pr_review._parse_nodes([{}])
+
+
+def test_parse_comment_nodes_rejects_non_list() -> None:
+    with pytest.raises(GhError):
+        pr_review._parse_comment_nodes(123)
+
+
+def test_parse_comment_nodes_rejects_non_dict() -> None:
+    with pytest.raises(GhError):
+        pr_review._parse_comment_nodes([{}])
+
+
+def test_parse_comment_nodes_rejects_non_dict_element() -> None:
+    with pytest.raises(GhError):
+        pr_review._parse_comment_nodes([None])
+
+
+def test_parse_comment_nodes_rejects_missing_id() -> None:
+    with pytest.raises(GhError):
+        pr_review._parse_comment_nodes([{"url": "x"}])
+
+
+def test_remaining_thread_comments_bad_connection_shape() -> None:
+    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return completed_process(0, json.dumps({"data": {"node": {"comments": "bad"}}}))
+
+    page_info = {"hasNextPage": True, "endCursor": "CUR"}
+    with pytest.raises(GhError):
+        pr_review._remaining_thread_comments("PRRT_x", page_info, run_fn=runner)
+
+
+def test_remaining_thread_comments_bad_pageinfo_shape() -> None:
+    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return completed_process(
+            0,
+            json.dumps({"data": {"node": {"comments": {"nodes": [], "pageInfo": "bad"}}}}),
+        )
+
+    page_info = {"hasNextPage": True, "endCursor": "CUR"}
+    with pytest.raises(GhError):
+        pr_review._remaining_thread_comments("PRRT_x", page_info, run_fn=runner)
+
+
+def _threads_runner(payload: dict[str, Any]) -> FakeGh:
+    return FakeGh(
+        [
+            (has("repo", "view"), completed_process(0, json.dumps({"nameWithOwner": "o/r"}))),
+            (has("pr", "view"), completed_process(0, json.dumps({"number": 7}))),
+            (has("graphql"), completed_process(0, json.dumps(payload))),
+        ]
+    )
+
+
+def test_list_threads_nodes_not_list_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {"nodes": "x", "pageInfo": {"hasNextPage": False}}
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_threads(7, run_fn=runner)
+
+
+def test_list_threads_pageinfo_not_dict_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {"nodes": [], "pageInfo": "bad"}
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_threads(7, run_fn=runner)
+
+
+def test_list_comments_nodes_not_list_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {"nodes": "x", "pageInfo": {"hasNextPage": False}}
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_comments(7, run_fn=runner)
+
+
+def test_list_comments_null_node_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {"nodes": [None], "pageInfo": {"hasNextPage": False}}
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_comments(7, run_fn=runner)
+
+
+def test_list_comments_node_missing_id_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {"nodes": [{}], "pageInfo": {"hasNextPage": False}}
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_comments(7, run_fn=runner)
+
+
+def test_list_comments_node_missing_comments_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [{"id": "X"}],
+                            "pageInfo": {"hasNextPage": False},
+                        }
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_comments(7, run_fn=runner)
+
+
+def test_list_comments_bad_pageinfo_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [{"id": "X", "comments": {"nodes": [], "pageInfo": {}}}],
+                            "pageInfo": "bad",
+                        }
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_comments(7, run_fn=runner)
+
+
 def test_parse_threads_maps_fields() -> None:
     """Map a GraphQL payload into ReviewThread objects."""
     threads = pr_review.parse_threads(THREADS_PAYLOAD["data"])

@@ -60,6 +60,63 @@ def test_latest_run_element_not_dict_raises() -> None:
         ci_status.latest_run("feature", run_fn=runner)
 
 
+def test_latest_run_missing_database_id_raises() -> None:
+    """A run payload without databaseId is surfaced as a GhError."""
+    runner = FakeGh(
+        [
+            (has("rev-parse"), completed_process(0, "feature\n")),
+            (
+                has("run", "list"),
+                completed_process(
+                    0,
+                    json.dumps(
+                        [
+                            {
+                                "status": "completed",
+                                "conclusion": "failure",
+                                "workflowName": "CI",
+                                "headBranch": "feature",
+                                "url": "https://example/run",
+                            }
+                        ]
+                    ),
+                ),
+            ),
+        ]
+    )
+    with pytest.raises(GhError):
+        ci_status.latest_run("feature", run_fn=runner)
+
+
+def test_latest_run_non_int_database_id_raises() -> None:
+    """A non-integer databaseId is surfaced as a GhError."""
+    runner = FakeGh(
+        [
+            (has("rev-parse"), completed_process(0, "feature\n")),
+            (
+                has("run", "list"),
+                completed_process(
+                    0,
+                    json.dumps(
+                        [
+                            {
+                                "databaseId": "abc",
+                                "status": "completed",
+                                "conclusion": "failure",
+                                "workflowName": "CI",
+                                "headBranch": "feature",
+                                "url": "https://example/run",
+                            }
+                        ]
+                    ),
+                ),
+            ),
+        ]
+    )
+    with pytest.raises(GhError):
+        ci_status.latest_run("feature", run_fn=runner)
+
+
 def test_latest_run_reads_first_entry() -> None:
     """Return the newest run for the current branch."""
     runner = _run_list(123, status="completed", conclusion="failure")
