@@ -327,7 +327,7 @@ def current_pr_number(*, run_fn: RunFunction | None = None) -> int:
         raise
     except GhError as exc:
         detail = str(exc).lower()
-        if "no pull request" in detail or "could not resolve" in detail:
+        if "no pull request" in detail or "could not resolve to a" in detail:
             raise GhError("No pull request found for the current branch.") from exc
         raise
     try:

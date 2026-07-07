@@ -286,3 +286,19 @@ def test_current_pr_number_passes_through_real_errors() -> None:
     with pytest.raises(GhError) as exc:
         gh_runner.current_pr_number(run_fn=runner)
     assert "No pull request found" not in str(exc.value)
+
+
+def test_current_pr_number_passes_through_dns_errors() -> None:
+    """A 'could not resolve host' network error is not masked as a missing PR."""
+    runner = FakeGh(
+        [
+            (
+                has("pr", "view"),
+                completed_process(1, "", "could not resolve host: github.com"),
+            )
+        ]
+    )
+
+    with pytest.raises(GhError) as exc:
+        gh_runner.current_pr_number(run_fn=runner)
+    assert "No pull request found" not in str(exc.value)
