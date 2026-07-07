@@ -717,6 +717,17 @@ def test_main_ci_failures_prints_digest(
     assert capsys.readouterr().out.strip() == "run 99"
 
 
+def test_remaining_thread_comments_null_node_raises() -> None:
+    """A null node from GraphQL is surfaced as a GhError naming the thread id."""
+
+    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return completed_process(0, json.dumps({"data": {"node": None}}))
+
+    page_info = {"hasNextPage": True, "endCursor": "CUR"}
+    with pytest.raises(GhError):
+        pr_review._remaining_thread_comments("PRRT_x", page_info, run_fn=runner)
+
+
 def test_rollup_summary_empty() -> None:
     """An empty check rollup is rendered as none."""
     assert pr_review._rollup_summary([]) == "none"

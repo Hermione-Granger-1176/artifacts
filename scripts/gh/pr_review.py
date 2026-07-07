@@ -246,11 +246,14 @@ def _remaining_thread_comments(
     comments: list[ReviewComment] = []
     after = page_info.get("endCursor")
     while page_info.get("hasNextPage") and after:
-        node = gh_runner.graphql(
+        result = gh_runner.graphql(
             _THREAD_COMMENTS_QUERY,
             variables={"thread": thread_id, "after": after},
             run_fn=run_fn,
-        )["node"]
+        )
+        node = result.get("node")
+        if not isinstance(node, dict) or "comments" not in node:
+            raise GhError(f"review thread {thread_id} not found or inaccessible")
         connection = node["comments"]
         comments.extend(_parse_comment_nodes(connection["nodes"]))
         page_info = connection["pageInfo"]
