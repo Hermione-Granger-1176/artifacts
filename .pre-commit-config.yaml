@@ -1,0 +1,52 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      # Artifact metadata files keep their .editorconfig unset rules and
+      # vendored assets stay byte-identical to upstream, so both are exempt
+      # from whitespace and final-newline normalization. Markdown and lock
+      # files set trim_trailing_whitespace = false in .editorconfig, so they
+      # are excluded from the trailing-whitespace hook.
+      - id: trailing-whitespace
+        exclude: (^apps/.*(/vendor/|\.(txt|webp|png|svg|ico)$)|\.(md|lock)$)
+      - id: end-of-file-fixer
+        exclude: ^apps/.*(/vendor/|\.(txt|webp|png|svg|ico)$)
+      - id: check-merge-conflict
+      - id: check-yaml
+
+  - repo: local
+    hooks:
+      # Hooks below delegate to `make` targets that exist on main today. The
+      # typecheck-py, format-prettier-check, and typecheck-web hooks are added
+      # by later split PRs (mypy-strict, config-files, ts-checkJs) once their
+      # make targets and tooling land, so this config stays runnable now.
+      - id: lint-py
+        name: lint-py
+        entry: make lint-py
+        language: system
+        pass_filenames: false
+      - id: fmt-py
+        name: fmt-py
+        entry: make fmt-py
+        language: system
+        pass_filenames: false
+      - id: eslint
+        name: eslint
+        entry: make lint-js
+        language: system
+        pass_filenames: false
+      - id: stylelint
+        name: stylelint
+        entry: make lint-css
+        language: system
+        pass_filenames: false
+      - id: pytest
+        name: pytest
+        entry: make test-py
+        language: system
+        pass_filenames: false
+      - id: node-test
+        name: node-test
+        entry: make test-js
+        language: system
+        pass_filenames: false
