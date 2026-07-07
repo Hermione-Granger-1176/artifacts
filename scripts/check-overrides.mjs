@@ -85,7 +85,7 @@ if (allResult.ok) {
     writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
     console.log("\nRemoved all overrides from package.json.");
     console.log("Updating lockfile...");
-    execSync("npm install", { cwd: rootDir, stdio: "inherit" });
+    execSync("npm install --ignore-scripts", { cwd: rootDir, stdio: "inherit" });
     console.log("Done.");
     process.exit(0);
   }

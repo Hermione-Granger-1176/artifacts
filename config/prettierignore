@@ -7,3 +7,5 @@ htmlcov/
 node_modules/
 playwright-report/
 test-results/
+js/data.js
+js/gallery-config.js
