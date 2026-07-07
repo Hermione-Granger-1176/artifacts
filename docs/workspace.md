@@ -48,11 +48,13 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |- scripts/
 |  |- build/                 Index generation (with index_config, index_sources, index_outputs), thumbnail planning, thumbnails, site assembly, scaffolding
 |  |- ci/                    Workflow helpers, deploy verification, security audits, issue alerts, parallel check runner
+|  |- gh/                    GitHub CLI backed PR review and CI triage helpers
 |  |- lib/                   Shared libraries (app discovery, artifact contract, GitHub API, project config, path validation)
 |  |- lint/                  EditorConfig check, table alignment, workflow linting, doc-command validation, JS test coverage lint, generated-drift detection, Make-target validation
 |- tests/
 |  |- build/                 Tests for scripts/build/
 |  |- ci/                    Tests for scripts/ci/
+|  |- gh/                    Tests for scripts/gh/
 |  |- lib/                   Tests for scripts/lib/
 |  |- lint/                  Tests for scripts/lint/
 |  |- browser/               Playwright smoke, accessibility, and flow tests
@@ -96,6 +98,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `package-lock.json`: frozen Node dependency graph
 - `scripts/build/prepare_site.py`: deploy-time site assembly, cache busting, canonical/share metadata injection, site path injection, and CSS/JS minification via esbuild
 - `scripts/ci/verify_deploy.py`: post-deploy polling and verification for published Pages URLs against cache-busted HTML and deploy metadata
+- `scripts/gh/`: internal GitHub CLI backed helpers for PR review-thread workflows and CI run triage, covered by `tests/gh/`
 - `.github/actions/verified-commit/action.yml` and `.github/actions/verified-commit/verified-commit.mjs`: shared verified commit and PR fallback logic for CI
 - `.github/actions/deploy-site/action.yml` and `.github/actions/deploy-site/deploy-verified.mjs`: verified deploy logic for `gh-pages` (full site, preview deploy, and preview removal)
 - `.github/workflows/update.yml`: main automation workflow for pushes, PR previews, and manual runs

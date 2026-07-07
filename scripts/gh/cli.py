@@ -28,12 +28,12 @@ def _add_body_options(parser: argparse.ArgumentParser) -> None:
 
 def _body_text(args: argparse.Namespace) -> str:
     """Return the body text from ``--body`` or ``--body-file``."""
-    if args.body_file:
+    if args.body_file is not None:
         try:
             return Path(args.body_file).read_text(encoding="utf-8")
         except OSError as exc:
             raise GhError(
-                f"could not read --body-file {args.body_file}: {exc}"
+                f"Could not read --body-file {args.body_file}: {exc}"
             ) from exc
     return str(args.body)
 

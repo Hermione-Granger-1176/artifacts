@@ -145,6 +145,11 @@ def test_parse_nodes_rejects_non_list_comment_nodes() -> None:
         pr_review._parse_nodes([{"id": "PRRT_x", "comments": {"nodes": "not a list"}}])
 
 
+def test_parse_nodes_rejects_missing_comment_nodes() -> None:
+    with pytest.raises(GhError):
+        pr_review._parse_nodes([{"id": "PRRT_x", "comments": {}}])
+
+
 def test_parse_nodes_rejects_non_dict_first_comment() -> None:
     with pytest.raises(GhError):
         pr_review._parse_nodes(
@@ -224,6 +229,30 @@ def test_remaining_thread_comments_bad_pageinfo_shape() -> None:
             0,
             json.dumps(
                 {"data": {"node": {"comments": {"nodes": [], "pageInfo": "bad"}}}}
+            ),
+        )
+
+    page_info = {"hasNextPage": True, "endCursor": "CUR"}
+    with pytest.raises(GhError):
+        pr_review._remaining_thread_comments("PRRT_x", page_info, run_fn=runner)
+
+
+def test_remaining_thread_comments_missing_nodes_raises() -> None:
+    def runner(
+        cmd: Sequence[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        return completed_process(
+            0,
+            json.dumps(
+                {
+                    "data": {
+                        "node": {
+                            "comments": {
+                                "pageInfo": {"hasNextPage": False, "endCursor": None}
+                            }
+                        }
+                    }
+                }
             ),
         )
 
@@ -450,6 +479,32 @@ def test_list_comments_bad_thread_pageinfo_raises() -> None:
                                 }
                             ],
                             "pageInfo": {},
+                        }
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_comments(7, run_fn=runner)
+
+
+def test_list_comments_missing_thread_nodes_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [
+                                {
+                                    "id": "X",
+                                    "comments": {
+                                        "pageInfo": {"hasNextPage": False}
+                                    },
+                                }
+                            ],
+                            "pageInfo": {"hasNextPage": False},
                         }
                     }
                 }
@@ -1111,9 +1166,9 @@ def test_main_reply_reads_body_file(
     assert "Replied to PRRT_x" in capsys.readouterr().out
 
 
-def test_main_reply_missing_body_file_raises_runtime_error() -> None:
-    """A missing or unreadable --body-file raises a RuntimeError naming the path."""
-    with pytest.raises(RuntimeError, match="nonexistent"):
+def test_main_reply_missing_body_file_raises_gh_error() -> None:
+    """A missing or unreadable --body-file raises a GhError naming the path."""
+    with pytest.raises(GhError, match="Could not read --body-file .*nonexistent"):
         cli.main(["reply", "--thread", "PRRT_x", "--body-file", "/nonexistent/path.md"])
 
 
