@@ -36,6 +36,30 @@ def _run_list(database_id: int, *, status: str, conclusion: str) -> FakeGh:
     )
 
 
+def test_latest_run_non_list_payload_raises() -> None:
+    """A non-list ``gh run list`` payload is surfaced as a GhError."""
+    runner = FakeGh(
+        [
+            (has("rev-parse"), completed_process(0, "feature\n")),
+            (has("run", "list"), completed_process(0, json.dumps({}))),
+        ]
+    )
+    with pytest.raises(GhError):
+        ci_status.latest_run("feature", run_fn=runner)
+
+
+def test_latest_run_element_not_dict_raises() -> None:
+    """A list whose entries are not dicts is surfaced as a GhError."""
+    runner = FakeGh(
+        [
+            (has("rev-parse"), completed_process(0, "feature\n")),
+            (has("run", "list"), completed_process(0, json.dumps([123]))),
+        ]
+    )
+    with pytest.raises(GhError):
+        ci_status.latest_run("feature", run_fn=runner)
+
+
 def test_latest_run_reads_first_entry() -> None:
     """Return the newest run for the current branch."""
     runner = _run_list(123, status="completed", conclusion="failure")

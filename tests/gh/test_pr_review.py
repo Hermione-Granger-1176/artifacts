@@ -717,6 +717,31 @@ def test_main_ci_failures_prints_digest(
     assert capsys.readouterr().out.strip() == "run 99"
 
 
+def test_review_threads_missing_connection_raises() -> None:
+    """A pullRequest without reviewThreads is surfaced as a GhError."""
+    with pytest.raises(GhError):
+        pr_review._review_threads({"repository": {"pullRequest": {}}})
+
+
+def test_review_threads_non_dict_connection_raises() -> None:
+    """A reviewThreads value that isn't a mapping is surfaced as a GhError."""
+    with pytest.raises(GhError):
+        pr_review._review_threads(
+            {"repository": {"pullRequest": {"reviewThreads": []}}}
+        )
+
+
+def test_pr_summary_non_dict_meta_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A non-dict ``gh pr view`` payload is surfaced as a GhError."""
+    monkeypatch.setattr(pr_review, "list_threads", lambda *args, **kwargs: [])
+
+    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return completed_process(0, json.dumps([1, 2]))
+
+    with pytest.raises(GhError):
+        pr_review.pr_summary(7, run_fn=runner)
+
+
 def test_remaining_thread_comments_null_node_raises() -> None:
     """A null node from GraphQL is surfaced as a GhError naming the thread id."""
 

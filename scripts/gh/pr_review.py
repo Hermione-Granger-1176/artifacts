@@ -120,7 +120,9 @@ def _review_threads(data: Any) -> dict[str, Any]:
     pull_request = repository.get("pullRequest") if isinstance(repository, dict) else None
     if not isinstance(pull_request, dict):
         raise GhError("No pull request in GraphQL response (invalid or inaccessible PR?).")
-    connection: dict[str, Any] = pull_request["reviewThreads"]
+    connection = pull_request.get("reviewThreads")
+    if not isinstance(connection, dict):
+        raise GhError("No review threads in GraphQL response (unexpected shape?).")
     return connection
 
 
@@ -348,6 +350,8 @@ def pr_summary(pr: int | None = None, *, run_fn: RunFunction | None = None) -> s
         ["pr", "view", str(pr), "--json", "number,title,state,url,statusCheckRollup"],
         run_fn=run_fn,
     )
+    if not isinstance(meta, dict):
+        raise GhError(f"Unexpected PR view response shape for PR {pr}.")
     open_threads = list_threads(pr, include_resolved=False, run_fn=run_fn)
     lines = [
         f"PR #{meta.get('number')} [{meta.get('state')}] {meta.get('title')}",

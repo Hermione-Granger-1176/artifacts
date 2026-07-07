@@ -33,9 +33,11 @@ def latest_run(branch: str | None = None, *, run_fn: RunFunction | None = None) 
         ["run", "list", "--branch", branch, "--limit", "1", "--json", _RUN_FIELDS],
         run_fn=run_fn,
     )
-    if not runs:
+    if not isinstance(runs, list) or not runs:
         raise GhError(f"No workflow runs found for branch {branch!r}.")
     run = runs[0]
+    if not isinstance(run, dict):
+        raise GhError(f"Unexpected workflow run payload for branch {branch!r}.")
     return RunInfo(
         run_id=int(run["databaseId"]),
         status=str(run.get("status") or ""),
