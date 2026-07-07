@@ -1104,3 +1104,51 @@ def test_owner_name_rejects_invalid_slug(monkeypatch: pytest.MonkeyPatch) -> Non
 
     with pytest.raises(GhError):
         pr_review._owner_name()
+
+
+def _copilot_runner(seen: dict[str, list[list[str]]]) -> Any:
+    """Fake runner that records invocations and returns a PR number on view."""
+
+    def runner(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        seen.setdefault("cmds", []).append(list(cmd))
+        if cmd[1:3] == ["pr", "view"]:
+            return completed_process(0, json.dumps({"number": 7}))
+        return completed_process(0, "")
+
+    return runner
+
+
+def test_request_copilot_review_requests_reviewer() -> None:
+    seen: dict[str, list[list[str]]] = {}
+    pr_review.request_copilot_review(7, run_fn=_copilot_runner(seen))
+    assert seen["cmds"][-1] == [
+        "gh",
+        "pr",
+        "edit",
+        "7",
+        "--add-reviewer",
+        "@copilot",
+    ]
+
+
+def test_request_copilot_review_defaults_to_current_pr() -> None:
+    seen: dict[str, list[list[str]]] = {}
+    pr_review.request_copilot_review(run_fn=_copilot_runner(seen))
+    assert [
+        "gh",
+        "pr",
+        "edit",
+        "7",
+        "--add-reviewer",
+        "@copilot",
+    ] in seen["cmds"]
+
+
+def test_request_copilot_review_propagates_error() -> None:
+    def runner(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        if cmd[1:3] == ["pr", "view"]:
+            return completed_process(0, json.dumps({"number": 7}))
+        raise GhError("graphql: rate limited")
+
+    with pytest.raises(GhError):
+        pr_review.request_copilot_review(7, run_fn=runner)

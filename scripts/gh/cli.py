@@ -1,9 +1,10 @@
 """Command-line dispatcher for the GitHub PR/CI helpers.
 
-Run as ``python -m scripts.gh.cli <command>``. Each ``<command> --help``
-documents its options, so an agent can discover the full surface without
-re-deriving any ``gh`` plumbing. The Makefile does not wrap these commands
-yet; wiring them into pr-*/ci-* targets is planned for a later PR.
+Internal entrypoint for the PR/CI helper commands. The Makefile is the sole
+supported contributor interface and will wrap these commands in pr-*/ci-* targets
+in a later PR, so this module is not meant to be invoked directly by contributors.
+Each subcommand documents its own options via ``--help`` so the command surface
+can be discovered without re-deriving any ``gh`` plumbing.
 """
 
 from __future__ import annotations
@@ -100,6 +101,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--run", type=int, help="Run id (default: latest for this branch)"
     )
 
+    copilot_parser = subparsers.add_parser(
+        "copilot-review", help="Request a Copilot code review on the PR"
+    )
+    copilot_parser.add_argument(
+        "--pr", type=int, help="PR number (default: current branch)"
+    )
+
     return parser
 
 
@@ -163,6 +171,13 @@ def _handle_ci_failures(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_copilot_review(args: argparse.Namespace) -> int:
+    """Request a Copilot code review on the PR."""
+    pr_review.request_copilot_review(args.pr)
+    print("Requested Copilot review")
+    return 0
+
+
 COMMAND_HANDLERS = {
     "list": _handle_list,
     "reply": _handle_reply,
@@ -172,6 +187,7 @@ COMMAND_HANDLERS = {
     "delete-comment": _handle_delete_comment,
     "summary": _handle_summary,
     "ci-failures": _handle_ci_failures,
+    "copilot-review": _handle_copilot_review,
 }
 
 
