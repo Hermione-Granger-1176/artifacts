@@ -1,8 +1,9 @@
 """Command-line dispatcher for the GitHub PR/CI helpers.
 
-Run as ``python -m scripts.gh.cli <command>``. The Makefile wraps each command
-in a thin target, and ``<command> --help`` documents its options, so an agent
-can discover the full surface without re-deriving any ``gh`` plumbing.
+Run as ``python -m scripts.gh.cli <command>``. Each ``<command> --help``
+documents its options, so an agent can discover the full surface without
+re-deriving any ``gh`` plumbing. The Makefile does not wrap these commands
+yet; wiring them into pr-*/ci-* targets is planned for a later PR.
 """
 
 from __future__ import annotations
@@ -26,7 +27,12 @@ def _add_body_options(parser: argparse.ArgumentParser) -> None:
 def _body_text(args: argparse.Namespace) -> str:
     """Return the body text from ``--body`` or ``--body-file``."""
     if args.body_file:
-        return Path(args.body_file).read_text(encoding="utf-8")
+        try:
+            return Path(args.body_file).read_text(encoding="utf-8")
+        except OSError as exc:
+            raise RuntimeError(
+                f"could not read --body-file {args.body_file}: {exc}"
+            ) from exc
     return str(args.body)
 
 

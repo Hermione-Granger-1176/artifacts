@@ -6,7 +6,7 @@ import pytest
 
 from scripts.gh import ci_status
 from scripts.gh.gh_runner import GhError
-from tests.gh.test_pr_review import FakeGh, completed_process, has
+from tests.gh.gh_test_support import FakeGh, completed_process, has
 
 
 def _run(database_id: int, *, status: str, conclusion: str) -> str:
