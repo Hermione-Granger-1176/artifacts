@@ -9,7 +9,7 @@ This document covers long-term stability contracts and recurring upkeep. It does
 ## Stability contracts
 
 - `Makefile` remains the supported entry point for normal local workflows and the primary entry point for shared CI verification gates.
-- Tool scope should live in its owning config file, primarily `pyproject.toml`, `package.json`, `eslint.config.js`, `stylelint.config.js`, `.yamllint.yml`, and `.editorconfig`. Avoid adding overlapping scope rules in multiple places unless a workflow truly needs a narrow exception.
+- Tool scope should live in its owning config file, primarily `pyproject.toml`, `package.json`, `config/eslint.config.js`, `config/stylelint.config.js`, `.yamllint.yml`, and `.editorconfig`. Avoid adding overlapping scope rules in multiple places unless a workflow truly needs a narrow exception.
 - `pyproject.toml` under `[tool.artifacts]` owns the canonical site URL, site path, and repository URL.
 - Generated outputs such as `js/data.js`, `js/gallery-config.js`, README auto markers, `apps/*/thumbnail.webp`, and `_site/` stay outputs. Change their source inputs or generators instead of hand-editing them.
 - `_site/` is the deploy artifact, and `gh-pages` is CI-managed deploy state. Neither should be maintained manually.

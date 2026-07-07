@@ -34,7 +34,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- fonts/                 Self-hosted web font subsets (Caveat, Fredoka One)
 |  |- icons/                 Logo, favicon, and web app manifest
 |  |- social/                Social share preview image
-|- config/                   Gallery metadata and security audit policy
+|- config/                   Gallery metadata, tool configs (eslint, stylelint, and more), and security audit policy
 |- css/                      Single shared site stylesheet
 |- docs/                     Workspace documentation and ADRs
 |- js/
@@ -66,8 +66,6 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |- pyproject.toml            Python deps, tool config, site metadata
 |- uv.lock                   Frozen Python dependency graph
 |- package.json              Node deps, npm scripts, JS test/coverage config
-|- eslint.config.js          ESLint scope and rules
-|- stylelint.config.js       Stylelint scope and rules
 |- .yamllint.yml             Yamllint scope and rules
 ```
 

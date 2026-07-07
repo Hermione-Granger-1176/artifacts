@@ -90,8 +90,8 @@ Each tool has one config file that owns its scope. The Makefile just calls tools
 | --- | --- | --- |
 | ruff | `pyproject.toml` | Python lint/format rules; built-in excludes skip `.venv/`, `node_modules/` |
 | pytest | `pyproject.toml` | Test paths, coverage target (`scripts/`), 100% threshold |
-| ESLint | `eslint.config.js` | JS file patterns, ignores, rules |
-| stylelint | `stylelint.config.js` | CSS rules, ignoreFiles |
+| ESLint | `config/eslint.config.js` | JS file patterns, ignores, rules |
+| stylelint | `config/stylelint.config.js` | CSS rules, ignoreFiles |
 | yamllint | `.yamllint.yml` | YAML rules, ignore patterns |
 | JS coverage | `package.json` | Exclude patterns (`node_modules/`, `tests/`) |
 | tsc (checkJs) | `config/jsconfig.json` | TypeScript checkJs gate for hand-written js/ modules |
