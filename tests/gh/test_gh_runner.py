@@ -8,7 +8,7 @@ import pytest
 
 from scripts.gh import gh_runner, pr_review
 from scripts.gh.gh_runner import GhError, GhRateLimitError
-from tests.gh.gh_test_support import completed_process
+from tests.gh.gh_test_support import FakeGh, completed_process, has
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -260,3 +260,29 @@ def test_current_pr_number_rejects_missing_number() -> None:
 
     with pytest.raises(GhError, match="Could not read PR number"):
         gh_runner.current_pr_number(run_fn=runner)
+
+
+def test_current_pr_number_masks_only_not_found() -> None:
+    """Genuine not-found errors become the friendly no-PR message."""
+    runner = FakeGh(
+        [
+            (
+                has("pr", "view"),
+                completed_process(1, "", "no pull requests found for branch x"),
+            )
+        ]
+    )
+
+    with pytest.raises(GhError, match="No pull request found"):
+        gh_runner.current_pr_number(run_fn=runner)
+
+
+def test_current_pr_number_passes_through_real_errors() -> None:
+    """Auth/binary failures are not masked as a missing PR."""
+    runner = FakeGh(
+        [(has("pr", "view"), completed_process(1, "", "GraphQL: 401 Unauthorized"))]
+    )
+
+    with pytest.raises(GhError) as exc:
+        gh_runner.current_pr_number(run_fn=runner)
+    assert "No pull request found" not in str(exc.value)

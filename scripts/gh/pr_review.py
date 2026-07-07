@@ -117,9 +117,13 @@ def _review_threads(data: Any) -> dict[str, Any]:
             array), which would otherwise surface as an opaque ``TypeError``.
     """
     repository = data.get("repository") if isinstance(data, dict) else None
-    pull_request = repository.get("pullRequest") if isinstance(repository, dict) else None
+    pull_request = (
+        repository.get("pullRequest") if isinstance(repository, dict) else None
+    )
     if not isinstance(pull_request, dict):
-        raise GhError("No pull request in GraphQL response (invalid or inaccessible PR?).")
+        raise GhError(
+            "No pull request in GraphQL response (invalid or inaccessible PR?)."
+        )
     connection = pull_request.get("reviewThreads")
     if not isinstance(connection, dict):
         raise GhError("No review threads in GraphQL response (unexpected shape?).")
@@ -137,7 +141,7 @@ def _parse_nodes(nodes: list[Any]) -> list[ReviewThread]:
         thread_id = node.get("id")
         if not thread_id:
             raise GhError("Review thread node missing id in GraphQL response.")
-        comments = node.get("comments", {}).get("nodes", [])
+        comments = (node.get("comments") or {}).get("nodes", [])
         first = comments[0] if comments else {}
         author = first.get("author") or {}
         threads.append(
@@ -188,7 +192,9 @@ def list_threads(
         threads.extend(_parse_nodes(nodes))
         page_info = connection.get("pageInfo")
         if not isinstance(page_info, dict):
-            raise GhError("Unexpected reviewThreads pageInfo shape in GraphQL response.")
+            raise GhError(
+                "Unexpected reviewThreads pageInfo shape in GraphQL response."
+            )
         after = page_info.get("endCursor")
         if not page_info.get("hasNextPage") or not after:
             break
@@ -198,7 +204,9 @@ def list_threads(
     return [thread for thread in threads if thread.state == "open"]
 
 
-def reply_to_thread(thread_id: str, body: str, *, run_fn: RunFunction | None = None) -> None:
+def reply_to_thread(
+    thread_id: str, body: str, *, run_fn: RunFunction | None = None
+) -> None:
     """Reply to a review thread by its node id.
 
     Posting a reply is not idempotent, so it does not auto-retry: a lost
@@ -221,7 +229,9 @@ def resolve_thread(thread_id: str, *, run_fn: RunFunction | None = None) -> None
     )
 
 
-def address_thread(thread_id: str, body: str, *, run_fn: RunFunction | None = None) -> None:
+def address_thread(
+    thread_id: str, body: str, *, run_fn: RunFunction | None = None
+) -> None:
     """Reply to a review thread and then resolve it, in that order."""
     reply_to_thread(thread_id, body, run_fn=run_fn)
     resolve_thread(thread_id, run_fn=run_fn)
@@ -314,7 +324,9 @@ def list_comments(
             raise GhError("Unexpected reviewThreads.nodes shape in GraphQL response.")
         for node in nodes:
             if not isinstance(node, dict):
-                raise GhError("Unexpected review thread node shape in GraphQL response.")
+                raise GhError(
+                    "Unexpected review thread node shape in GraphQL response."
+                )
             node_id = node.get("id")
             if not node_id:
                 raise GhError("Review thread node missing id in GraphQL response.")
@@ -329,14 +341,18 @@ def list_comments(
             )
         page_info = connection.get("pageInfo")
         if not isinstance(page_info, dict):
-            raise GhError("Unexpected reviewThreads pageInfo shape in GraphQL response.")
+            raise GhError(
+                "Unexpected reviewThreads pageInfo shape in GraphQL response."
+            )
         after = page_info.get("endCursor")
         if not page_info.get("hasNextPage") or not after:
             break
     return comments
 
 
-def delete_review_comment(comment_id: str, *, run_fn: RunFunction | None = None) -> None:
+def delete_review_comment(
+    comment_id: str, *, run_fn: RunFunction | None = None
+) -> None:
     """Delete a single review comment by its node id.
 
     Deletion is destructive and not idempotent (a retry would error on the

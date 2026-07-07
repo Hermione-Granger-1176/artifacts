@@ -129,6 +129,12 @@ def test_parse_nodes_rejects_node_missing_id() -> None:
         pr_review._parse_nodes([{}])
 
 
+def test_parse_nodes_null_comments_is_empty() -> None:
+    """A thread whose comments field is explicitly null still parses."""
+    threads = pr_review._parse_nodes([{"id": "PRRT_x", "comments": None}])
+    assert [thread.thread_id for thread in threads] == ["PRRT_x"]
+
+
 def test_parse_comment_nodes_rejects_non_list() -> None:
     with pytest.raises(GhError):
         pr_review._parse_comment_nodes(123)

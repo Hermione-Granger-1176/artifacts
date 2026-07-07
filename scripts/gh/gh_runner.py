@@ -243,7 +243,8 @@ def graphql(
         # Trust the structured error type first; fall back to string heuristics
         # only when the type is absent or unrecognized.
         rate_limited = any(
-            isinstance(error, dict) and error.get("type") == "RATE_LIMITED" for error in errors
+            isinstance(error, dict) and error.get("type") == "RATE_LIMITED"
+            for error in errors
         )
         if rate_limited or _classify(message) == "rate_limit":
             raise GhRateLimitError(f"GitHub rate limit reported by GraphQL: {message}")
@@ -261,7 +262,9 @@ def resolve_repo(*, run_fn: RunFunction | None = None) -> str:
     """
     try:
         slug = gh_json(["repo", "view", "--json", "nameWithOwner"], run_fn=run_fn)
-        owner_name = str(slug.get("nameWithOwner", "")) if isinstance(slug, dict) else ""
+        owner_name = (
+            str(slug.get("nameWithOwner", "")) if isinstance(slug, dict) else ""
+        )
     except GhError:
         owner_name = ""
 
@@ -269,7 +272,9 @@ def resolve_repo(*, run_fn: RunFunction | None = None) -> str:
         owner_name = _repo_from_remote(run_fn=run_fn)
 
     if not _is_owner_name(owner_name):
-        raise GhError("Could not resolve owner/name; set a GitHub remote or run inside a repo.")
+        raise GhError(
+            "Could not resolve owner/name; set a GitHub remote or run inside a repo."
+        )
     return owner_name
 
 
@@ -288,7 +293,9 @@ def _repo_from_remote(*, run_fn: RunFunction | None = None) -> str:
     remote_path = _github_remote_path(url)
     if not remote_path:
         return ""
-    segments = [segment for segment in remote_path.removesuffix(".git").split("/") if segment]
+    segments = [
+        segment for segment in remote_path.removesuffix(".git").split("/") if segment
+    ]
     if len(segments) < 2:
         return ""
     owner_name = "/".join(segments[-2:])
@@ -319,7 +326,10 @@ def current_pr_number(*, run_fn: RunFunction | None = None) -> int:
     except GhRateLimitError:
         raise
     except GhError as exc:
-        raise GhError("No pull request found for the current branch.") from exc
+        detail = str(exc).lower()
+        if "no pull request" in detail or "could not resolve" in detail:
+            raise GhError("No pull request found for the current branch.") from exc
+        raise
     try:
         return int(data["number"])
     except (KeyError, TypeError, ValueError) as exc:
