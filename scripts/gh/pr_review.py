@@ -179,6 +179,19 @@ def parse_threads(data: Any) -> list[ReviewThread]:
     return _parse_nodes(_review_threads(data).get("nodes"))
 
 
+def _page_has_next(page_info: dict[str, Any], message: str) -> bool:
+    """Return ``pageInfo.hasNextPage`` as a bool, raising on a malformed value.
+
+    The GraphQL ``PageInfo.hasNextPage`` field is non-null, so a valid response
+    always carries it. A missing or non-boolean value is therefore malformed and
+    surfaces as ``GhError`` rather than silently truncating pagination.
+    """
+    has_next = page_info.get("hasNextPage")
+    if not isinstance(has_next, bool):
+        raise GhError(message)
+    return has_next
+
+
 def list_threads(
     pr: int | None = None,
     *,
@@ -212,8 +225,9 @@ def list_threads(
                 "Unexpected reviewThreads pageInfo shape in GraphQL response."
             )
         after = page_info.get("endCursor")
-        has_next = page_info.get("hasNextPage")
-        if not has_next:
+        if not _page_has_next(
+            page_info, "Unexpected reviewThreads pageInfo shape in GraphQL response."
+        ):
             break
         if not after:
             raise GhError(
@@ -300,9 +314,17 @@ def _remaining_thread_comments(
     """Page a single thread's comments beyond the first 100 already collected."""
     if not isinstance(page_info, dict):
         raise GhError(f"review thread {thread_id} pageInfo shape is unexpected")
+    if not page_info:
+        return []
     comments: list[ReviewComment] = []
     after = page_info.get("endCursor")
-    while page_info.get("hasNextPage"):
+    while True:
+        if not _page_has_next(
+            page_info,
+            f"review thread {thread_id} pageInfo shape is unexpected: "
+            "hasNextPage must be a boolean",
+        ):
+            break
         if not after:
             raise GhError(
                 f"review thread {thread_id} pageInfo shape is unexpected: "
@@ -385,8 +407,9 @@ def list_comments(
                 "Unexpected reviewThreads pageInfo shape in GraphQL response."
             )
         after = page_info.get("endCursor")
-        has_next = page_info.get("hasNextPage")
-        if not has_next:
+        if not _page_has_next(
+            page_info, "Unexpected reviewThreads pageInfo shape in GraphQL response."
+        ):
             break
         if not after:
             raise GhError(

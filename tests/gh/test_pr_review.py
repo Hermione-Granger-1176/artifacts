@@ -202,6 +202,13 @@ def test_remaining_thread_comments_hasnext_without_cursor_raises() -> None:
         pr_review._remaining_thread_comments("PRRT_x", {"hasNextPage": True})
 
 
+def test_remaining_thread_comments_bad_hasnext_type_raises() -> None:
+    with pytest.raises(GhError):
+        pr_review._remaining_thread_comments(
+            "PRRT_x", {"hasNextPage": "yes", "endCursor": "CUR"}
+        )
+
+
 def test_remaining_thread_comments_bad_pageinfo_shape() -> None:
     def runner(
         cmd: Sequence[str], **_kwargs: object
@@ -273,6 +280,25 @@ def test_list_threads_hasnext_without_cursor_raises() -> None:
                         "reviewThreads": {
                             "nodes": [{"id": "X"}],
                             "pageInfo": {"hasNextPage": True},
+                        }
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_threads(7, run_fn=runner)
+
+
+def test_list_threads_bad_hasnext_type_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [{"id": "X"}],
+                            "pageInfo": {"hasNextPage": "yes"},
                         }
                     }
                 }
@@ -417,6 +443,25 @@ def test_list_comments_hasnext_without_cursor_raises() -> None:
                         "reviewThreads": {
                             "nodes": [{"id": "X", "comments": {"nodes": []}}],
                             "pageInfo": {"hasNextPage": True},
+                        }
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_comments(7, run_fn=runner)
+
+
+def test_list_comments_bad_hasnext_type_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [{"id": "X", "comments": {"nodes": []}}],
+                            "pageInfo": {"hasNextPage": 1},
                         }
                     }
                 }
