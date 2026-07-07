@@ -42,6 +42,7 @@ Key entry points:
 
 - `make setup`: fast default (Python + Node deps, no Chromium)
 - `make setup-all`: full setup including Chromium for browser tests and thumbnails. Use only when browser work is explicitly needed.
+- `make install-hooks`: install the local pre-commit Git hooks
 - `make ci`: full non-browser local CI gate
 - `make ci-fast`: parallel non-browser local CI gate
 - `make check-local`: alias for `make ci`

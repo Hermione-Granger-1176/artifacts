@@ -2,6 +2,9 @@
   "name": "artifacts-workspace",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "check:overrides": "node scripts/check-overrides.mjs",
     "dead-code": "knip --config config/knip.json",
