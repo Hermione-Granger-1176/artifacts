@@ -175,16 +175,18 @@ async function createVerifiedCommit(clients, branch, headSha, headline, fileChan
  *   consoleObj?: Console,
  *   fetchDependencies?: object,
  *   readFileSyncImpl?: typeof fs.readFileSync,
- *   walkDirImpl?: (dir: string) => string[]
+ *   walkDirImpl?: (dir: string) => string[],
+ *   appendFileSyncImpl?: typeof fs.appendFileSync
  * }} [deps={}] - Injectable environment, fs, and fetch overrides.
- * @returns {Promise<{ deployed: boolean, commitUrl: string }>} Deploy result metadata.
+ * @returns {Promise<{ deployed: boolean, commitUrl: string, commitSha: string }>} Deploy result metadata.
  */
 export async function runVerifiedDeploy({
   env = process.env,
   consoleObj = console,
   fetchDependencies = {},
   readFileSyncImpl = fs.readFileSync,
-  walkDirImpl = (dir) => walkDir(dir)
+  walkDirImpl = (dir) => walkDir(dir),
+  appendFileSyncImpl = fs.appendFileSync
 } = {}) {
   const token = env.GH_TOKEN;
   const pagesBranch = env.PAGES_BRANCH || 'gh-pages';
@@ -226,7 +228,9 @@ export async function runVerifiedDeploy({
 
     if (additions.length === 0 && deletions.length === 0) {
       consoleObj.log('No changes to deploy');
-      return { deployed: false, commitUrl: '' };
+      const result = { deployed: false, commitUrl: '', commitSha: headSha };
+      writeGitHubOutputs(result, env, appendFileSyncImpl);
+      return result;
     }
 
     consoleObj.log(`Deploying: ${additions.length} additions, ${deletions.length} deletions`);
@@ -234,7 +238,9 @@ export async function runVerifiedDeploy({
     try {
       const commit = await createVerifiedCommit(clients, pagesBranch, headSha, commitMessage, fileChanges);
       consoleObj.log(`Created verified deploy commit: ${commit.url}`);
-      return { deployed: true, commitUrl: commit.url };
+      const result = { deployed: true, commitUrl: commit.url, commitSha: commit.oid };
+      writeGitHubOutputs(result, env, appendFileSyncImpl);
+      return result;
     } catch (error) {
       if (attempt < maxAttempts && /expectedHeadOid/i.test(String(error.message || error))) {
         consoleObj.log(`Branch moved (attempt ${attempt}/${maxAttempts}), refetching and retrying`);
@@ -243,6 +249,30 @@ export async function runVerifiedDeploy({
       throw error;
     }
   }
+}
+
+/**
+ * Write deploy result metadata to the GitHub Actions output file when present.
+ * @param {{ deployed: boolean, commitUrl: string, commitSha: string }} result - Deploy result.
+ * @param {NodeJS.ProcessEnv} env - Environment containing GITHUB_OUTPUT.
+ * @param {typeof fs.appendFileSync} appendFileSyncImpl - Injectable file append helper.
+ */
+export function writeGitHubOutputs(result, env = process.env, appendFileSyncImpl = fs.appendFileSync) {
+  const outputPath = env.GITHUB_OUTPUT;
+  if (!outputPath) {
+    return;
+  }
+
+  appendFileSyncImpl(
+    outputPath,
+    [
+      `deployed=${result.deployed ? 'true' : 'false'}`,
+      `commit-url=${result.commitUrl}`,
+      `commit-sha=${result.commitSha}`,
+      ''
+    ].join('\n'),
+    'utf8'
+  );
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

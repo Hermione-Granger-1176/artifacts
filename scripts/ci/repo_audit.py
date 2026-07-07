@@ -11,6 +11,7 @@ EXPECTED_REPOSITORY_SECRETS = {
     "ESCALATION_APP_PRIVATE_KEY",
     "AUDIT_APP_PRIVATE_KEY",
 }
+EXPECTED_PAGES_BUILD_TYPE = "workflow"
 EXPECTED_PAGES_RULESET_RULES = {
     "creation",
     "deletion",
@@ -224,14 +225,18 @@ def audit_repo_settings(
     pages_source_path = pages_source.get("path") or "/"
     pages_build_type = pages.get("build_type")
     pages_https_enforced = pages.get("https_enforced")
-    if pages_source_branch != pages_branch:
+    if pages_build_type == "legacy":
+        if pages_source_branch != pages_branch:
+            issues.append(
+                f"Pages source branch is {pages_source_branch!r} instead of {pages_branch!r}"
+            )
+        if pages_source_path != "/":
+            issues.append(f"Pages source path is {pages_source_path!r} instead of '/'")
+    if pages_build_type != EXPECTED_PAGES_BUILD_TYPE:
         issues.append(
-            f"Pages source branch is {pages_source_branch!r} instead of {pages_branch!r}"
+            f"Pages build type is {pages_build_type!r} "
+            f"instead of {EXPECTED_PAGES_BUILD_TYPE!r}"
         )
-    if pages_source_path != "/":
-        issues.append(f"Pages source path is {pages_source_path!r} instead of '/'")
-    if pages_build_type != "legacy":
-        issues.append(f"Pages build type is {pages_build_type!r} instead of 'legacy'")
     if pages_https_enforced is not True:
         issues.append("Pages HTTPS is not enforced")
 

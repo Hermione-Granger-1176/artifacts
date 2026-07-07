@@ -79,9 +79,10 @@ Do not manually edit these outputs unless updating generator logic:
 
 ## Deployment
 
-- GitHub Pages serves from the `gh-pages` branch root
-- Pushes to `main` deploy the site root to `gh-pages`
-- PRs deploy previews to `gh-pages/pr-preview/pr-<number>/`
+- GitHub Pages is configured for GitHub Actions publishing
+- The `gh-pages` branch remains the CI-managed deploy state for the live site root and PR preview subtrees
+- Pushes to `main` update the site root in `gh-pages`, then publish the full branch tree with the official Pages Actions
+- PRs update previews under `gh-pages/pr-preview/pr-<number>/`, then publish the full branch tree with the official Pages Actions
 - All deploys (main, preview, and cleanup) use the escalation app token (Harry1176) and create verified commits via the GraphQL API
 - The weekly repository-settings audit and its drift-issue lifecycle use a dedicated read-only app token (Percy1176); it has no deploy or write-to-code capability
 - Preview comments are posted by the workflow token, appear as `github-actions[bot]`, and are recreated on each push so the newest preview stays visible

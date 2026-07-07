@@ -1,5 +1,5 @@
 name: Deploy site to GitHub Pages
-description: Build _site/, deploy to gh-pages with a verified commit, and verify the published URL.
+description: Build _site/ and commit the deploy tree to gh-pages with a verified commit.
 
 inputs:
   token:
@@ -24,22 +24,23 @@ inputs:
     description: Skip make site if _site/ is already prepared.
     required: false
     default: 'false'
-  verify-attempts:
-    description: Number of polling attempts for deploy verification.
-    required: false
-    default: '18'
-  verify-delay-seconds:
-    description: Seconds between polling attempts.
-    required: false
-    default: '10'
 
 outputs:
   short-sha:
     description: Short SHA used for cache-busting asset URLs.
     value: ${{ steps.deploy-version.outputs.short-sha }}
   deploy-commit-sha:
-    description: Full commit SHA used for deploy metadata verification.
+    description: Full source commit SHA used for deploy metadata verification.
     value: ${{ steps.deploy-version.outputs.commit-sha }}
+  source-commit-sha:
+    description: Full source commit SHA used for deploy metadata verification.
+    value: ${{ steps.deploy-version.outputs.commit-sha }}
+  pages-commit-sha:
+    description: Full gh-pages commit SHA after the deploy tree update.
+    value: ${{ steps.gh-pages-deploy.outputs.commit-sha }}
+  deployed:
+    description: Whether the gh-pages tree changed.
+    value: ${{ steps.gh-pages-deploy.outputs.deployed }}
 
 runs:
   using: composite
@@ -61,6 +62,7 @@ runs:
         echo "commit-sha=${{ inputs.commit-sha }}" >> "$GITHUB_OUTPUT"
 
     - name: Deploy to gh-pages
+      id: gh-pages-deploy
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.token }}
@@ -70,12 +72,3 @@ runs:
         DEPLOY_DIR: ${{ inputs.deploy-dir }}
         GITHUB_REPOSITORY: ${{ github.repository }}
       run: node ./.github/actions/deploy-site/deploy-verified.mjs
-
-    - name: Verify published site
-      shell: bash
-      run: >-
-        python3 scripts/ci/verify_deploy.py
-        --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
-        --expected-commit-sha "${{ steps.deploy-version.outputs.commit-sha }}"
-        --attempts ${{ inputs.verify-attempts }}
-        --delay-seconds ${{ inputs.verify-delay-seconds }}

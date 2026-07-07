@@ -122,9 +122,10 @@ All runtime assets should be self-hosted. Do not load scripts, fonts, or stylesh
 
 ### `gh-pages` branch or Pages root drift
 
-1. Confirm GitHub Pages is still branch-based from `gh-pages` with path `/`.
+1. Confirm GitHub Pages source is still set to GitHub Actions.
 2. Confirm the `gh-pages` ruleset still targets `refs/heads/gh-pages` and still blocks create/delete/update/force-push operations except for approved bypass actors.
 3. If the branch contents are wrong, redeploy a known-good `main` commit instead of repairing `gh-pages` manually so the verified artifact path stays the source of truth.
+4. If Pages deployments fail before verification starts, inspect the explicit `Deploy GitHub Pages artifact` step in `update.yml` rather than the old hidden `pages-build-deployment` workflow.
 
 ### Generated-file drift in CI
 

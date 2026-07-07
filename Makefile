@@ -246,11 +246,11 @@ help: ## Show this help
 
 # ─── Git ──────────────────────────────────────────────────────────────────────
 
-.PHONY: git branch log diff diff-staged
+.PHONY: git branch log log-file diff diff-staged
 
 git: ## Git commands (make git)
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' ' \
-		/^(branch|log|diff|diff-staged):/ { printf "    %-20s %s\n", $$1, $$2 }'
+		/^(branch|log|log-file|diff|diff-staged):/ { printf "    %-20s %s\n", $$1, $$2 }'
 
 branch: ## Create and switch to a new branch from main (make branch name=X)
 	@test -n "$(name)" || (printf 'Usage: make branch name=my-feature\n' >&2; exit 1)
@@ -258,6 +258,10 @@ branch: ## Create and switch to a new branch from main (make branch name=X)
 
 log: ## Show recent commit log (short)
 	git log --oneline -20
+
+log-file: ## Show recent commit log for one file (make log-file path=FILE)
+	@test -n "$(path)" || (printf 'Usage: make log-file path=.github/workflows/update.yml\n' >&2; exit 1)
+	git log --date=short --pretty=format:'%h %ad %s' -20 -- "$(path)"
 
 diff: ## Show unstaged changes
 	git diff
@@ -343,13 +347,28 @@ pr-close: ## Close the current PR and delete branch
 
 # ─── CI ───────────────────────────────────────────────────────────────────────
 
-.PHONY: ci ci-runs ci-watch ci-audit-repo-settings issues
+.PHONY: ci ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-audit-repo-settings issues
 
 ci: ## CI commands (make ci)
 	@grep -E '^(ci-|issues)[a-zA-Z_-]*:.*##' $(MAKEFILE_LIST) | awk -F ':.*## ' '{ printf "    %-20s %s\n", $$1, $$2 }'
 
 ci-runs: ## List recent CI workflow runs
-	gh run list -L 10
+	gh run list -L "$(if $(limit),$(limit),10)"
+
+ci-pages-runs: ## List recent GitHub Pages deployment runs
+	gh run list -L "$(if $(limit),$(limit),20)" --workflow pages-build-deployment --branch "$(if $(branch),$(branch),gh-pages)"
+
+ci-run: ## Show one CI workflow run (make ci-run run=ID)
+	@test -n "$(run)" || (printf 'Usage: make ci-run run=123456\n' >&2; exit 1)
+	gh run view "$(run)"
+
+ci-run-log: ## Show failed logs for one CI workflow run (make ci-run-log run=ID)
+	@test -n "$(run)" || (printf 'Usage: make ci-run-log run=123456\n' >&2; exit 1)
+	gh run view "$(run)" --log-failed
+
+ci-job-log: ## Show logs for one CI job (make ci-job-log run=ID job=ID)
+	@test -n "$(run)" -a -n "$(job)" || (printf 'Usage: make ci-job-log run=123456 job=789\n' >&2; exit 1)
+	gh run view "$(run)" --job "$(job)" --log
 
 ci-watch: ## Watch the latest CI run until done
 	gh run watch

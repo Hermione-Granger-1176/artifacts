@@ -182,9 +182,8 @@ def test_audit_repo_settings_returns_expected_summary(
     responses = {
         "repos/owner/repo": {"default_branch": "main"},
         "repos/owner/repo/pages": {
-            "build_type": "legacy",
+            "build_type": "workflow",
             "https_enforced": True,
-            "source": {"branch": "gh-pages", "path": "/"},
         },
         "repos/owner/repo/branches/main/protection": {
             "required_status_checks": {
@@ -242,8 +241,8 @@ def test_audit_repo_settings_returns_expected_summary(
             "update",
         ],
         "gh-pages-ruleset": True,
-        "pages-branch": "gh-pages",
-        "pages-build-type": "legacy",
+        "pages-branch": None,
+        "pages-build-type": "workflow",
         "pages-https-enforced": True,
         "pages-path": "/",
         "required-checks": ["dependency-review", "secret-scan", "verify"],
@@ -256,7 +255,7 @@ def test_audit_repo_settings_rejects_unexpected_response_types(
     responses = {
         "repos/owner/repo": [],
         "repos/owner/repo/pages": {
-            "build_type": "legacy",
+            "build_type": "workflow",
             "https_enforced": True,
             "source": {"branch": "gh-pages", "path": "/"},
         },
@@ -302,7 +301,7 @@ def test_audit_repo_settings_rejects_invalid_protection_response(
     responses = {
         "repos/owner/repo": {"default_branch": "main"},
         "repos/owner/repo/pages": {
-            "build_type": "legacy",
+            "build_type": "workflow",
             "https_enforced": True,
             "source": {"branch": "gh-pages", "path": "/"},
         },
@@ -329,7 +328,7 @@ def test_audit_repo_settings_rejects_invalid_variables_response(
     responses = {
         "repos/owner/repo": {"default_branch": "main"},
         "repos/owner/repo/pages": {
-            "build_type": "legacy",
+            "build_type": "workflow",
             "https_enforced": True,
             "source": {"branch": "gh-pages", "path": "/"},
         },
@@ -356,7 +355,7 @@ def test_audit_repo_settings_rejects_invalid_secrets_response(
     responses = {
         "repos/owner/repo": {"default_branch": "main"},
         "repos/owner/repo/pages": {
-            "build_type": "legacy",
+            "build_type": "workflow",
             "https_enforced": True,
             "source": {"branch": "gh-pages", "path": "/"},
         },
@@ -383,7 +382,7 @@ def test_audit_repo_settings_rejects_invalid_rulesets_response(
     responses = {
         "repos/owner/repo": {"default_branch": "main"},
         "repos/owner/repo/pages": {
-            "build_type": "legacy",
+            "build_type": "workflow",
             "https_enforced": True,
             "source": {"branch": "gh-pages", "path": "/"},
         },
@@ -408,7 +407,7 @@ def test_audit_repo_settings_reports_configuration_drift(
     responses = {
         "repos/owner/repo": {"default_branch": "trunk"},
         "repos/owner/repo/pages": {
-            "build_type": "workflow",
+            "build_type": "legacy",
             "https_enforced": False,
             "source": {"branch": "docs", "path": "/site"},
         },
@@ -444,7 +443,7 @@ def test_audit_repo_settings_reports_configuration_drift(
     assert "default branch is 'trunk' instead of 'main'" in message
     assert "Pages source branch is 'docs' instead of 'gh-pages'" in message
     assert "Pages source path is '/site' instead of '/'" in message
-    assert "Pages build type is 'workflow' instead of 'legacy'" in message
+    assert "Pages build type is 'legacy' instead of 'workflow'" in message
     assert "Pages HTTPS is not enforced" in message
     assert (
         "missing repository variables: AUDIT_APP_ID, ESCALATION_APP_ID" in message
@@ -465,7 +464,7 @@ def test_audit_repo_settings_requires_ruleset_targeting_pages_branch(
     responses = {
         "repos/owner/repo": {"default_branch": "main"},
         "repos/owner/repo/pages": {
-            "build_type": "legacy",
+            "build_type": "workflow",
             "https_enforced": True,
             "source": {"branch": "gh-pages", "path": "/"},
         },

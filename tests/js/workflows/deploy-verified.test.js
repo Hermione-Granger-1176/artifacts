@@ -7,7 +7,8 @@ import {
   walkDir,
   computeChanges,
   computeRemoval,
-  runVerifiedDeploy
+  runVerifiedDeploy,
+  writeGitHubOutputs
 } from '../../../.github/actions/deploy-site/deploy-verified.mjs';
 
 /** Compute the expected Git blob SHA for a string. */
@@ -210,6 +211,8 @@ test('runVerifiedDeploy creates a verified commit for full deploy', async () => 
   assert.equal(graphqlInput.fileChanges.additions.length, 1);
   assert.deepEqual(graphqlInput.fileChanges.deletions, [{ path: 'stale.css' }]);
   assert.ok(result.deployed);
+  assert.equal(result.commitSha, 'abc');
+  assert.equal(result.commitUrl, 'https://github.com/o/r/commit/abc');
 });
 
 test('runVerifiedDeploy returns deployed false when nothing changed', async () => {
@@ -257,6 +260,8 @@ test('runVerifiedDeploy returns deployed false when nothing changed', async () =
   });
 
   assert.equal(result.deployed, false, 'should not deploy when content matches');
+  assert.equal(result.commitSha, 'abc');
+  assert.equal(result.commitUrl, '');
   assert.equal(graphqlCalled, false, 'GraphQL should not be called');
 });
 
@@ -305,6 +310,7 @@ test('runVerifiedDeploy handles preview deploy mode', async () => {
   });
 
   assert.ok(result.deployed);
+  assert.equal(result.commitSha, 'p');
   assert.equal(graphqlInput.fileChanges.additions[0].path, 'pr-preview/pr-42/index.html');
 });
 
@@ -408,6 +414,7 @@ test('runVerifiedDeploy handles preview remove mode', async () => {
   });
 
   assert.ok(result.deployed);
+  assert.equal(result.commitSha, 'r');
   assert.deepEqual(graphqlInput.fileChanges.additions, []);
   assert.equal(graphqlInput.fileChanges.deletions.length, 2);
 });
@@ -442,6 +449,7 @@ test('runVerifiedDeploy returns deployed false for empty removal', async () => {
   });
 
   assert.equal(result.deployed, false);
+  assert.equal(result.commitSha, 'h');
 });
 
 test('runVerifiedDeploy throws on missing environment', async () => {
@@ -449,4 +457,43 @@ test('runVerifiedDeploy throws on missing environment', async () => {
     () => runVerifiedDeploy({ env: {} }),
     /Missing required GitHub environment for deploy action/
   );
+});
+
+test('writeGitHubOutputs writes deploy metadata when output file is present', () => {
+  let observedPath = null;
+  let observedData = null;
+
+  writeGitHubOutputs(
+    { deployed: true, commitUrl: 'https://github.com/o/r/commit/abc', commitSha: 'abc' },
+    { GITHUB_OUTPUT: '/tmp/github-output' },
+    (filePath, data, encoding) => {
+      observedPath = filePath;
+      observedData = { data, encoding };
+    }
+  );
+
+  assert.equal(observedPath, '/tmp/github-output');
+  assert.deepEqual(observedData, {
+    data: [
+      'deployed=true',
+      'commit-url=https://github.com/o/r/commit/abc',
+      'commit-sha=abc',
+      ''
+    ].join('\n'),
+    encoding: 'utf8'
+  });
+});
+
+test('writeGitHubOutputs skips writes when output file is absent', () => {
+  let wrote = false;
+
+  writeGitHubOutputs(
+    { deployed: false, commitUrl: '', commitSha: 'abc' },
+    {},
+    () => {
+      wrote = true;
+    }
+  );
+
+  assert.equal(wrote, false);
 });

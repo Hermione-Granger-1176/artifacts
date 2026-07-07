@@ -156,6 +156,21 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     workflow = _load_workflow("update.yml")
     publish = _job(workflow, "publish")
 
+    assert workflow["env"]["PAGES_DEPLOY_TIMEOUT_MS"] == "240000"
+    assert workflow["env"]["VERIFY_DEPLOY_ATTEMPTS"] == "12"
+    assert workflow["env"]["VERIFY_DEPLOY_DELAY_SECONDS"] == "5"
+    assert publish["permissions"] == {
+        "actions": "read",
+        "contents": "write",
+        "issues": "write",
+        "pages": "write",
+        "pull-requests": "write",
+        "id-token": "write",
+    }
+    assert publish["concurrency"] == {
+        "group": "pages-publish-${{ github.repository }}",
+        "cancel-in-progress": False,
+    }
     assert _step_uses(publish, "Download verified site artifact").startswith(
         "actions/download-artifact@"
     )
@@ -165,6 +180,24 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     )
     assert _step_uses(publish, "Deploy main site") == "./.github/actions/deploy-site"
     assert _step(publish, "Deploy main site")["with"]["skip-build"] == "true"
+    assert "commit=$commit" in _step_run(publish, "Resolve gh-pages publish commit")
+    materialize_run = _step_run(publish, "Materialize GitHub Pages payload")
+    assert "git archive" in materialize_run
+    assert "reject_symlinks(root)" in materialize_run
+    assert _step_uses(publish, "Upload GitHub Pages artifact").startswith(
+        "actions/upload-pages-artifact@"
+    )
+    assert _step_with(publish, "Upload GitHub Pages artifact") == {
+        "path": "${{ env.PAGES_PUBLISH_DIR }}",
+        "include-hidden-files": True,
+    }
+    assert _step_uses(publish, "Deploy GitHub Pages artifact").startswith(
+        "actions/deploy-pages@"
+    )
+    assert _step_with(publish, "Deploy GitHub Pages artifact")["timeout"] == (
+        "${{ env.PAGES_DEPLOY_TIMEOUT_MS }}"
+    )
+    assert "verify_deploy.py" in _step_run(publish, "Verify main site deployment")
     assert _step_run(publish, "Run PR preview browser verification").strip() == (
         "make test-browser-live"
     )
@@ -204,7 +237,30 @@ def test_update_thumbnail_persistence_and_cleanup_stay_bounded() -> None:
     assert cleanup["if"] == (
         "github.event_name == 'pull_request' && github.event.action == 'closed'"
     )
+    assert cleanup["timeout-minutes"] == 8
+    assert cleanup["permissions"] == {
+        "actions": "read",
+        "contents": "write",
+        "issues": "write",
+        "pages": "write",
+        "pull-requests": "write",
+        "id-token": "write",
+    }
+    assert cleanup["concurrency"] == {
+        "group": "pages-publish-${{ github.repository }}",
+        "cancel-in-progress": False,
+    }
     assert _step(cleanup, "CI setup")["with"]["event-name"] == "pull_request"
+    assert "commit=$CLEANUP_COMMIT" in _step_run(
+        cleanup, "Resolve gh-pages cleanup commit"
+    )
+    assert "git archive" in _step_run(cleanup, "Materialize GitHub Pages payload")
+    assert _step_uses(cleanup, "Upload GitHub Pages artifact").startswith(
+        "actions/upload-pages-artifact@"
+    )
+    assert _step_with(cleanup, "Deploy GitHub Pages artifact")["timeout"] == (
+        "${{ env.PAGES_DEPLOY_TIMEOUT_MS }}"
+    )
     assert _step(cleanup, "Remove PR preview link comment")["with"]["delete"] is True
 
 

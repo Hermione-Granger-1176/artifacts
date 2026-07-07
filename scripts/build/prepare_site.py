@@ -5,7 +5,7 @@ This module backs `make site`.
 
 It copies the deployable static site into ``_site/``, then applies deploy-time
 adjustments such as cache-busting query strings, the configured 404 fallback
-path, and the ``.nojekyll`` marker needed for branch-based GitHub Pages.
+path, and the ``.nojekyll`` marker needed by GitHub Pages.
 
 Run through the Makefile in normal workflows; direct invocation is mainly for
 maintainers working on the build internals.

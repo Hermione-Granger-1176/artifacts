@@ -95,8 +95,8 @@ graph TD
 
     publish -->|"All gates pass"| publish_decision{Event type?}
 
-    publish_decision -->|PR + tokens| pr_deploy["Deploy preview to<br/>gh-pages/pr-preview/pr-N/<br/>↓<br/>Verify preview URL<br/>↓<br/>Browser-test preview"]
-    publish_decision -->|push/dispatch + tokens| main_deploy["Deploy to gh-pages root<br/>↓<br/>Verify live URL<br/>↓<br/>Browser-test live site"]
+    publish_decision -->|PR + tokens| pr_deploy["Commit preview to<br/>gh-pages/pr-preview/pr-N/<br/>↓<br/>Publish full gh-pages tree<br/>with Pages Actions<br/>↓<br/>Verify preview URL<br/>↓<br/>Browser-test preview"]
+    publish_decision -->|push/dispatch + tokens| main_deploy["Commit site root to gh-pages<br/>↓<br/>Publish full gh-pages tree<br/>with Pages Actions<br/>↓<br/>Verify live URL<br/>↓<br/>Browser-test live site"]
     publish_decision -->|No tokens<br/>fork/Dependabot| skip["Log 'preview skipped'"]
 
     plan --> persist["persist-thumbnails"]
@@ -163,7 +163,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
 
 **After ALL FOUR complete (plan + verify + secret-scan + dependency-review) → `publish` starts:**
 
-- **`publish`** (timeout: 25 min, permissions: contents write, issues write, pull-requests write)
+- **`publish`** (timeout: 25 min, permissions: actions read, contents write, issues write, pages write, pull-requests write, id-token write)
   - Skipped alongside `verify` when `skip-verification: true`.
   - Will not start if `verify` or `secret-scan` failed. `dependency-review` must succeed or be skipped.
   - Step by step:
@@ -172,11 +172,12 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
     3. Downloads the `site-{run_id}` artifact into `_site/`. Does NOT rebuild anything.
     4. Restores cached Playwright browsers, then runs `make setup-ci` to install project dependencies and ensure Chromium is available for live browser tests.
     5. Reads site URL from `pyproject.toml`, constructs preview URL: `{site_url}/pr-preview/pr-{N}/`.
-    6. Deploys `_site/` to `gh-pages` branch under `pr-preview/pr-{N}/` using `deploy-verified.mjs` with `DEPLOY_SUBDIR`. This is a verified GraphQL commit using the Harry1176 (escalation) token. Only touches that subdirectory. The main site and other PR previews are untouched.
-    7. Posts a sticky comment on the PR with the preview URL (recreated on each push so the latest is always at the bottom).
-    8. Calls `scripts/ci/verify_deploy.py` to poll the preview URL until it serves the expected cache-busted HTML and `deploy-metadata.json` SHA.
-    9. Runs `make test-browser-live` against the preview URL in Chromium.
-  - Reads: `site-{run_id}` artifact. Writes: `gh-pages` branch (preview subdirectory only), PR comment.
+    6. Commits `_site/` to `gh-pages` under `pr-preview/pr-{N}/` using `deploy-verified.mjs` with `DEPLOY_SUBDIR`. This is a verified GraphQL commit using the Harry1176 (escalation) token. Only touches that subdirectory. The main site and other PR previews are untouched.
+    7. Fetches the exact `gh-pages` commit it just produced, materializes the full branch tree into `.artifacts/pages-publish`, rejects symlinks, keeps `.nojekyll`, uploads that full tree with `actions/upload-pages-artifact`, and deploys it with `actions/deploy-pages`.
+    8. Posts a sticky comment on the PR with the preview URL (recreated on each push so the latest is always at the bottom).
+    9. Calls `scripts/ci/verify_deploy.py` to poll the preview URL until it serves the expected cache-busted HTML and `deploy-metadata.json` SHA.
+    10. Runs `make test-browser-live` against the preview URL in Chromium.
+  - Reads: `site-{run_id}` artifact. Writes: `gh-pages` branch (preview subdirectory only), GitHub Pages deployment, PR comment.
 
 **After `publish` succeeds AND `persist-mode` is not `none` AND thumbnails changed → `persist-thumbnails` starts:**
 
@@ -199,7 +200,7 @@ The flow is identical to Scenario 1 with these differences:
 
 - **`plan`**: `persist-mode` is `followup-pr` when runtime changes or missing thumbnails require thumbnail persistence, otherwise `none`. It is never `pr-branch` because there is no PR.
 - **`dependency-review`**: does not run (not a PR event). `publish` treats it as `skipped`, which is acceptable.
-- **`publish`**: instead of deploying a preview, deploys `_site/` to the **root** of `gh-pages`, replacing the live site. Preserves the `pr-preview/` directory so existing PR previews keep working. Uses the `deploy-site` composite action with `skip-build: true`. Verifies and browser-tests the live production URL.
+- **`publish`**: instead of deploying a preview, commits `_site/` to the **root** of `gh-pages`, replacing the live site state. Preserves the `pr-preview/` directory so existing PR previews keep working. Uses the `deploy-site` composite action with `skip-build: true`, then uploads and deploys the full `gh-pages` tree with the official Pages Actions. Verifies and browser-tests the live production URL.
 - **`persist-thumbnails`**: if `persist-mode` is `followup-pr`, creates or updates a follow-up PR on a dated branch (`ci/save-generated-thumbnails-YYYYMMDD`) targeting `main`. Uses the Harry1176 (escalation) token with `commit-mode: force-pr`. The PR body contains a marker (`<!-- artifacts:generated-thumbnails -->`) for loop detection. When this follow-up PR is later merged to `main`, the planner recognizes it via PR provenance and sets `persist-mode: none` to prevent infinite loops. The commit-level files check also sets `skip-verification: true` when the merge commit contains only thumbnail files, eliminating the redundant deploy. Stale-check is not performed because there is no PR branch to check.
 
 #### Scenario 3: Close or merge a PR
@@ -208,11 +209,11 @@ Trigger: `pull_request` event with `action: closed`.
 
 Only `cleanup-preview` runs. No other jobs run.
 
-- **`cleanup-preview`** (timeout: 5 min, permissions: contents write, issues write, pull-requests write)
+- **`cleanup-preview`** (timeout: 8 min, permissions: actions read, contents write, issues write, pages write, pull-requests write, id-token write)
   - Runs `ci-setup` to mint tokens (note: uses hardcoded `event-name: pull_request`, not `github.event_name`).
-  - If tokens available: removes `pr-preview/pr-{N}/` from `gh-pages` using `deploy-verified.mjs` with `REMOVE_SUBDIR`. Deletes the sticky preview comment.
+  - If tokens available: removes `pr-preview/pr-{N}/` from `gh-pages` using `deploy-verified.mjs` with `REMOVE_SUBDIR`, uploads and deploys the full updated `gh-pages` tree with the official Pages Actions, then deletes the sticky preview comment.
   - If tokens unavailable (fork/Dependabot): does nothing. There was no preview to clean up.
-  - Reads: nothing. Writes: `gh-pages` branch (removes preview subdirectory), deletes PR comment.
+  - Reads: nothing. Writes: `gh-pages` branch (removes preview subdirectory), GitHub Pages deployment, deletes PR comment.
 
 #### Scenario 4: Fork PR or Dependabot PR
 
@@ -302,7 +303,7 @@ graph TD
 | Action            | Purpose                                                                                          | Key behavior                                                                                                                                                                                                                                                   |
 | ----------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ci-setup`        | Mint app tokens (primary + escalation and/or audit), set up Python/Node, optionally install deps | Calls `scripts/ci/workflow_helpers.py app-token-policy` to gate minting and block tokens for forks and Dependabot; primary + escalation inputs are all-or-nothing, audit inputs are independent so audit-only callers pass only those and skip primary minting |
-| `deploy-site`     | Build `_site/`, deploy to gh-pages, verify published URL                                         | Uses `deploy-verified.mjs` for GraphQL verified commits; calls `scripts/ci/verify_deploy.py` to poll for expected HTML and metadata                                                                                                                            |
+| `deploy-site`     | Build `_site/` and commit the deploy tree to gh-pages                                            | Uses `deploy-verified.mjs` for GraphQL verified commits; the workflow publishes the full `gh-pages` tree with the official Pages Actions and then calls `scripts/ci/verify_deploy.py` to poll for expected HTML and metadata                                  |
 | `verified-commit` | Create a verified commit or fall back to a PR                                                    | Uses `verified-commit.mjs`; supports direct, force-pr, and direct-or-pr modes; creates a dated fallback branch on conflict and force-resets it if it already exists to prevent stale commit accumulation                                                       |
 
 ### Script dependency map
@@ -317,7 +318,7 @@ graph TD
 | `scripts/ci/workflow_helpers.py read-lock-metadata`          | commit-python-locks workflow             | Read PR metadata from lock refresh artifact                                                                  |
 | `scripts/ci/workflow_helpers.py validate-lock-artifact`      | commit-python-locks workflow             | Validate lock refresh artifact integrity                                                                     |
 | `scripts/ci/run_parallel_checks.py`                          | verify job                               | Run independent Make targets concurrently with captured CI-friendly output                                   |
-| `scripts/ci/verify_deploy.py`                                | deploy-site action, publish job          | Poll published URL for expected HTML marker and deploy metadata SHA                                          |
+| `scripts/ci/verify_deploy.py`                                | publish job                              | Poll published URL for expected HTML marker and deploy metadata SHA                                          |
 | `deploy-verified.mjs`                                        | deploy-site action, publish/cleanup jobs | Deploy to gh-pages via GraphQL verified commit; handles full site, preview subdirectory, and preview removal |
 | `verified-commit.mjs`                                        | verified-commit action                   | Create verified commit via GraphQL; fall back to PR on conflict                                              |
 
@@ -389,7 +390,8 @@ Any detection failure (missing secrets, API errors, non-thumbnail files, actor m
 
 The workflows depend on repository settings that are not enforceable from source control alone:
 
-- GitHub Pages publishes from `gh-pages` branch root with HTTPS enforced
+- GitHub Pages source is set to GitHub Actions with HTTPS enforced
+- `gh-pages` remains the CI-managed deploy state branch for the live root and PR preview subtrees
 - `vars.APP_ID`, `vars.ESCALATION_APP_ID`, and `vars.AUDIT_APP_ID` contain the GitHub App IDs
 - `secrets.APP_PRIVATE_KEY`, `secrets.ESCALATION_APP_PRIVATE_KEY`, and `secrets.AUDIT_APP_PRIVATE_KEY` contain the private keys
 - `secrets.GITLEAKS_LICENSE` for the Gitleaks action

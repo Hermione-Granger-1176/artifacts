@@ -23,10 +23,12 @@ env:
   PYTHON_VERSION: '3.12'
   NODE_VERSION: '24'
   PAGES_BRANCH: gh-pages
+  PAGES_DEPLOY_TIMEOUT_MS: '240000'
+  PAGES_PUBLISH_DIR: .artifacts/pages-publish
   PREVIEW_ROOT: pr-preview
   PREVIEW_COMMENT_HEADER: pr-preview
-  VERIFY_DEPLOY_ATTEMPTS: '18'
-  VERIFY_DEPLOY_DELAY_SECONDS: '10'
+  VERIFY_DEPLOY_ATTEMPTS: '12'
+  VERIFY_DEPLOY_DELAY_SECONDS: '5'
   ARTIFACTS_STRICT_THUMBNAILS: '1'
   GENERATED_OUTPUT_ARGS: js/data.js js/gallery-config.js README.md apps
 
@@ -337,10 +339,16 @@ jobs:
       - dependency-review
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    concurrency:
+      group: pages-publish-${{ github.repository }}
+      cancel-in-progress: false
     permissions:
+      actions: read
       contents: write
       issues: write
+      pages: write
       pull-requests: write
+      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -391,6 +399,7 @@ jobs:
           echo "url=${site_url}/${{ env.PREVIEW_ROOT }}/pr-${{ github.event.pull_request.number }}/" >> "$GITHUB_OUTPUT"
 
       - name: Deploy PR preview
+        id: pr-deploy
         if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
         env:
           GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
@@ -401,6 +410,71 @@ jobs:
           DEPLOY_SUBDIR: ${{ env.PREVIEW_ROOT }}/pr-${{ github.event.pull_request.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: node ./.github/actions/deploy-site/deploy-verified.mjs
+
+      - name: Deploy main site
+        id: main-deploy
+        if: github.event_name != 'pull_request' && steps.setup.outputs.token-available == 'true'
+        uses: ./.github/actions/deploy-site
+        with:
+          token: ${{ steps.setup.outputs.escalation-token }}
+          pages-branch: ${{ env.PAGES_BRANCH }}
+          preview-root: ${{ env.PREVIEW_ROOT }}
+          commit-sha: ${{ github.sha }}
+          skip-build: 'true'
+
+      - name: Resolve gh-pages publish commit
+        id: pages-publish
+        if: steps.setup.outputs.token-available == 'true'
+        env:
+          PR_DEPLOY_COMMIT: ${{ steps.pr-deploy.outputs.commit-sha }}
+          MAIN_DEPLOY_COMMIT: ${{ steps.main-deploy.outputs.pages-commit-sha }}
+        run: |
+          commit="${PR_DEPLOY_COMMIT:-$MAIN_DEPLOY_COMMIT}"
+          if [ -z "$commit" ]; then
+            echo "No gh-pages commit output was produced." >&2
+            exit 1
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Materialize GitHub Pages payload
+        if: steps.setup.outputs.token-available == 'true'
+        run: |
+          rm -rf "$PAGES_PUBLISH_DIR"
+          mkdir -p "$PAGES_PUBLISH_DIR"
+
+          git fetch --depth=1 origin "+${PAGES_BRANCH}:refs/remotes/origin/${PAGES_BRANCH}"
+          actual_sha=$(git rev-parse "refs/remotes/origin/${PAGES_BRANCH}")
+          expected_sha="${{ steps.pages-publish.outputs.commit }}"
+          if [ "$actual_sha" != "$expected_sha" ]; then
+            echo "Expected ${PAGES_BRANCH} at ${expected_sha}, found ${actual_sha}." >&2
+            exit 1
+          fi
+
+          git archive "$actual_sha" | tar -x -C "$PAGES_PUBLISH_DIR"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          from scripts.lib.path_validation import reject_symlinks
+
+          root = Path(os.environ["PAGES_PUBLISH_DIR"])
+          reject_symlinks(root)
+          (root / ".nojekyll").touch()
+          PY
+
+      - name: Upload GitHub Pages artifact
+        if: steps.setup.outputs.token-available == 'true'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ env.PAGES_PUBLISH_DIR }}
+          include-hidden-files: true
+
+      - name: Deploy GitHub Pages artifact
+        id: pages-deploy
+        if: steps.setup.outputs.token-available == 'true'
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+        with:
+          timeout: ${{ env.PAGES_DEPLOY_TIMEOUT_MS }}
 
       - name: Post PR preview link
         if: github.event_name == 'pull_request' && steps.setup.outputs.token-available == 'true'
@@ -439,24 +513,22 @@ jobs:
             echo "Preview deployment is skipped because the app token is unavailable (fork or Dependabot PR)."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Deploy main site
-        if: github.event_name != 'pull_request' && steps.setup.outputs.token-available == 'true'
-        uses: ./.github/actions/deploy-site
-        with:
-          token: ${{ steps.setup.outputs.escalation-token }}
-          pages-branch: ${{ env.PAGES_BRANCH }}
-          preview-root: ${{ env.PREVIEW_ROOT }}
-          commit-sha: ${{ github.sha }}
-          skip-build: 'true'
-          verify-attempts: ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
-          verify-delay-seconds: ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
-
       - name: Resolve live site URL
         if: github.event_name != 'pull_request'
         id: live-site-url
         run: |
           site_url=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['tool']['artifacts']['site_url'])")
           echo "url=${site_url}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify main site deployment
+        if: github.event_name != 'pull_request' && steps.setup.outputs.token-available == 'true'
+        run: >-
+          python3 scripts/ci/verify_deploy.py
+          --url "${{ steps.live-site-url.outputs.url }}"
+          --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
+          --expected-commit-sha "${{ github.sha }}"
+          --attempts ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
+          --delay-seconds ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
 
       - name: Run live main site browser verification
         if: github.event_name != 'pull_request' && steps.setup.outputs.token-available == 'true'
@@ -640,11 +712,17 @@ jobs:
   cleanup-preview:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
+    concurrency:
+      group: pages-publish-${{ github.repository }}
+      cancel-in-progress: false
     permissions:
+      actions: read
       contents: write
       issues: write
+      pages: write
       pull-requests: write
+      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -665,6 +743,7 @@ jobs:
           escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
 
       - name: Remove PR preview deployment
+        id: preview-removal
         if: steps.setup.outputs.token-available == 'true'
         env:
           GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
@@ -674,6 +753,58 @@ jobs:
           REMOVE_SUBDIR: ${{ env.PREVIEW_ROOT }}/pr-${{ github.event.pull_request.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: node ./.github/actions/deploy-site/deploy-verified.mjs
+
+      - name: Resolve gh-pages cleanup commit
+        id: pages-cleanup
+        if: steps.setup.outputs.token-available == 'true'
+        env:
+          CLEANUP_COMMIT: ${{ steps.preview-removal.outputs.commit-sha }}
+        run: |
+          if [ -z "$CLEANUP_COMMIT" ]; then
+            echo "No gh-pages cleanup commit output was produced." >&2
+            exit 1
+          fi
+          echo "commit=$CLEANUP_COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Materialize GitHub Pages payload
+        if: steps.setup.outputs.token-available == 'true'
+        run: |
+          rm -rf "$PAGES_PUBLISH_DIR"
+          mkdir -p "$PAGES_PUBLISH_DIR"
+
+          git fetch --depth=1 origin "+${PAGES_BRANCH}:refs/remotes/origin/${PAGES_BRANCH}"
+          actual_sha=$(git rev-parse "refs/remotes/origin/${PAGES_BRANCH}")
+          expected_sha="${{ steps.pages-cleanup.outputs.commit }}"
+          if [ "$actual_sha" != "$expected_sha" ]; then
+            echo "Expected ${PAGES_BRANCH} at ${expected_sha}, found ${actual_sha}." >&2
+            exit 1
+          fi
+
+          git archive "$actual_sha" | tar -x -C "$PAGES_PUBLISH_DIR"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          from scripts.lib.path_validation import reject_symlinks
+
+          root = Path(os.environ["PAGES_PUBLISH_DIR"])
+          reject_symlinks(root)
+          (root / ".nojekyll").touch()
+          PY
+
+      - name: Upload GitHub Pages artifact
+        if: steps.setup.outputs.token-available == 'true'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ env.PAGES_PUBLISH_DIR }}
+          include-hidden-files: true
+
+      - name: Deploy GitHub Pages artifact
+        id: pages-deploy
+        if: steps.setup.outputs.token-available == 'true'
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+        with:
+          timeout: ${{ env.PAGES_DEPLOY_TIMEOUT_MS }}
 
       - name: Remove PR preview link comment
         if: steps.setup.outputs.token-available == 'true'
