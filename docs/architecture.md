@@ -274,6 +274,14 @@ graph TD
     subgraph "Live smoke (daily)"
         smoke_schedule["Daily 06:17 UTC / manual"] --> live_smoke["live-site-smoke<br/>Run make test-browser-live<br/>against published site<br/>Open or close alert issue"]
     end
+
+    subgraph "CodeQL scan (push, PR, weekly)"
+        codeql_trigger["push to main / PR to main<br/>Monday 06:30 UTC"] --> codeql["codeql<br/>Analyze JavaScript and Python<br/>Upload results to code scanning"]
+    end
+
+    subgraph "Dependency audit (weekly)"
+        audit_dep_schedule["Monday 06:00 UTC / manual"] --> dep_audit["dependency-audit<br/>Run make audit-python, audit-node,<br/>check-overrides<br/>Open or close alert issue"]
+    end
 ```
 
 **Python lock refresh** keeps Dependabot uv PRs self-contained: when a Dependabot PR changes `pyproject.toml` or `uv.lock`, `refresh-python-locks.yml` runs `make lock` on the PR branch and uploads the refreshed `uv.lock` as an artifact. Then `commit-python-locks.yml` (triggered by `workflow_run`) downloads the artifact, validates it (checks for symlinks, required files, and PR metadata), verifies the PR branch hasn't moved, and uses the shared verified-commit flow to write the refreshed lock back to the PR branch or fall back to a maintenance PR branch when a direct write is not possible.
@@ -286,6 +294,10 @@ graph TD
 
 **Live site smoke** runs daily and on manual dispatch. It executes `make test-browser-live` against the published site URL, uploads Playwright failure artifacts on regression, opens or updates a dedicated GitHub issue when the live smoke test fails, and closes that issue automatically once the live site passes again.
 
+**CodeQL** runs on every push to `main`, every pull request to `main`, and weekly on Monday. It analyzes JavaScript/TypeScript and Python in separate jobs, scopes the scan with `.github/codeql/codeql-config.yml` (which ignores tests, vendored app scripts, and generated gallery data), and uploads results to GitHub code scanning. It runs with least-privilege permissions (`security-events: write` plus read access) and needs no app tokens.
+
+**Dependency audit** runs weekly on Monday and on manual dispatch. It runs `make audit-python`, `make audit-node`, and `make check-overrides` under `set +e`, records the combined pass or fail state, then uses `scripts/ci/workflow_helpers.py sync-alert-issue` to open or update a dedicated GitHub issue when the audit fails and close it once the audit passes again. A final step fails the run when any audit failed. It uses the plain workflow token (`issues: write`), not an app token.
+
 ### Workflow reference
 
 | File | Triggers | Jobs |
@@ -293,6 +305,8 @@ graph TD
 | `update.yml` | push to main, PR (open/sync/close), manual | plan, verify, secret-scan, dependency-review, publish, persist-thumbnails, cleanup-preview |
 | `audit-repo-settings.yml` | weekly Mon 8:23 UTC, manual | audit |
 | `live-site-smoke.yml` | daily 06:17 UTC, manual | smoke |
+| `codeql.yml` | push to main, PR to main, weekly Mon 6:30 UTC | analyze-javascript, analyze-python |
+| `dependency-audit.yml` | weekly Mon 6:00 UTC, manual | audit |
 | `refresh-python-locks.yml` | Same-repo Dependabot uv PR with `pyproject.toml` or `uv.lock` change | refresh-locks |
 | `commit-python-locks.yml` | after refresh-python-locks completes | commit-locks |
 | `refresh-action-shas.yml` | monthly 1st 3:00 UTC, manual | refresh |
