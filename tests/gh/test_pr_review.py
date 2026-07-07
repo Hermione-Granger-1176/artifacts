@@ -209,6 +209,13 @@ def test_remaining_thread_comments_bad_hasnext_type_raises() -> None:
         )
 
 
+def test_remaining_thread_comments_bad_endcursor_type_raises() -> None:
+    with pytest.raises(GhError):
+        pr_review._remaining_thread_comments(
+            "PRRT_x", {"hasNextPage": True, "endCursor": 123}
+        )
+
+
 def test_remaining_thread_comments_bad_pageinfo_shape() -> None:
     def runner(
         cmd: Sequence[str], **_kwargs: object
@@ -299,6 +306,25 @@ def test_list_threads_bad_hasnext_type_raises() -> None:
                         "reviewThreads": {
                             "nodes": [{"id": "X"}],
                             "pageInfo": {"hasNextPage": "yes"},
+                        }
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_threads(7, run_fn=runner)
+
+
+def test_list_threads_bad_endcursor_type_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [{"id": "X"}],
+                            "pageInfo": {"hasNextPage": True, "endCursor": 123},
                         }
                     }
                 }
@@ -472,7 +498,71 @@ def test_list_comments_bad_hasnext_type_raises() -> None:
         pr_review.list_comments(7, run_fn=runner)
 
 
-def test_parse_threads_maps_fields() -> None:
+def test_list_comments_bad_endcursor_type_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [{"id": "X", "comments": {"nodes": []}}],
+                            "pageInfo": {"hasNextPage": True, "endCursor": 123},
+                        }
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_comments(7, run_fn=runner)
+
+
+def test_list_comments_missing_thread_pageinfo_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [
+                                {"id": "X", "comments": {"nodes": [], "pageInfo": None}}
+                            ],
+                            "pageInfo": {"hasNextPage": False},
+                        }
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_comments(7, run_fn=runner)
+
+
+def test_list_comments_bad_top_level_pageinfo_raises() -> None:
+    runner = _threads_runner(
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [
+                                {
+                                    "id": "X",
+                                    "comments": {
+                                        "nodes": [],
+                                        "pageInfo": {"hasNextPage": False},
+                                    },
+                                }
+                            ],
+                            "pageInfo": "bad",
+                        }
+                    }
+                }
+            }
+        }
+    )
+    with pytest.raises(GhError):
+        pr_review.list_comments(7, run_fn=runner)
     """Map a GraphQL payload into ReviewThread objects."""
     threads = pr_review.parse_threads(THREADS_PAYLOAD["data"])
 

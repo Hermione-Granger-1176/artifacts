@@ -192,6 +192,20 @@ def _page_has_next(page_info: dict[str, Any], message: str) -> bool:
     return has_next
 
 
+def _require_end_cursor(page_info: dict[str, Any], message: str) -> str:
+    """Return ``pageInfo.endCursor`` as a non-empty string, or raise ``GhError``.
+
+    Only call this after ``_page_has_next`` has confirmed ``hasNextPage`` is true,
+    since pagination must then continue from this cursor. A missing, non-string,
+    or empty ``endCursor`` is malformed and surfaces as a clear error instead of
+    being forwarded into the next query as a confusing value.
+    """
+    after = page_info.get("endCursor")
+    if not isinstance(after, str) or not after:
+        raise GhError(message)
+    return after
+
+
 def list_threads(
     pr: int | None = None,
     *,
@@ -224,15 +238,13 @@ def list_threads(
             raise GhError(
                 "Unexpected reviewThreads pageInfo shape in GraphQL response."
             )
-        after = page_info.get("endCursor")
         if not _page_has_next(
             page_info, "Unexpected reviewThreads pageInfo shape in GraphQL response."
         ):
             break
-        if not after:
-            raise GhError(
-                "Unexpected reviewThreads pageInfo shape in GraphQL response."
-            )
+        after = _require_end_cursor(
+            page_info, "Unexpected reviewThreads pageInfo shape in GraphQL response."
+        )
 
     if include_resolved:
         return threads
@@ -314,10 +326,7 @@ def _remaining_thread_comments(
     """Page a single thread's comments beyond the first 100 already collected."""
     if not isinstance(page_info, dict):
         raise GhError(f"review thread {thread_id} pageInfo shape is unexpected")
-    if not page_info:
-        return []
     comments: list[ReviewComment] = []
-    after = page_info.get("endCursor")
     while True:
         if not _page_has_next(
             page_info,
@@ -325,11 +334,11 @@ def _remaining_thread_comments(
             "hasNextPage must be a boolean",
         ):
             break
-        if not after:
-            raise GhError(
-                f"review thread {thread_id} pageInfo shape is unexpected: "
-                "hasNextPage reported without an endCursor"
-            )
+        after = _require_end_cursor(
+            page_info,
+            f"review thread {thread_id} pageInfo shape is unexpected: "
+            "hasNextPage reported without an endCursor",
+        )
         result = gh_runner.graphql(
             _THREAD_COMMENTS_QUERY,
             variables={"thread": thread_id, "after": after},
@@ -392,13 +401,13 @@ def list_comments(
                 raise GhError("Unexpected thread comments shape in GraphQL response.")
             comments.extend(_parse_comment_nodes(thread_comments.get("nodes") or []))
             thread_page_info = thread_comments.get("pageInfo")
-            if thread_page_info is not None and not isinstance(thread_page_info, dict):
+            if not isinstance(thread_page_info, dict):
                 raise GhError(
                     "Unexpected thread comments pageInfo shape in GraphQL response."
                 )
             comments.extend(
                 _remaining_thread_comments(
-                    str(node_id), thread_page_info or {}, run_fn=run_fn
+                    str(node_id), thread_page_info, run_fn=run_fn
                 )
             )
         page_info = connection.get("pageInfo")
@@ -406,15 +415,13 @@ def list_comments(
             raise GhError(
                 "Unexpected reviewThreads pageInfo shape in GraphQL response."
             )
-        after = page_info.get("endCursor")
         if not _page_has_next(
             page_info, "Unexpected reviewThreads pageInfo shape in GraphQL response."
         ):
             break
-        if not after:
-            raise GhError(
-                "Unexpected reviewThreads pageInfo shape in GraphQL response."
-            )
+        after = _require_end_cursor(
+            page_info, "Unexpected reviewThreads pageInfo shape in GraphQL response."
+        )
     return comments
 
 
