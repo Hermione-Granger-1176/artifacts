@@ -293,7 +293,7 @@ graph TD
 | `update.yml`               | push to main, PR (open/sync/close), manual               | plan, verify, secret-scan, dependency-review, publish, persist-thumbnails, cleanup-preview |
 | `audit-repo-settings.yml`  | weekly Mon 8:23 UTC, manual                              | audit                                                                                      |
 | `live-site-smoke.yml`      | daily 06:17 UTC, manual                                  | smoke                                                                                      |
-| `refresh-python-locks.yml` | Same-repo Dependabot pip PR with `pyproject.toml` change | refresh-locks                                                                              |
+| `refresh-python-locks.yml` | Same-repo Dependabot uv PR (`pyproject.toml`, `uv.lock`) | refresh-locks                                                                              |
 | `commit-python-locks.yml`  | after refresh-python-locks completes                     | commit-locks                                                                               |
 | `refresh-action-shas.yml`  | monthly 1st 3:00 UTC, manual                             | refresh                                                                                    |
 | `refresh-locks.yml`        | weekly Mon 12:00 UTC, manual                             | refresh                                                                                    |

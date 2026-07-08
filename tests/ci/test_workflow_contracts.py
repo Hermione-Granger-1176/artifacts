@@ -333,6 +333,7 @@ def test_refresh_python_locks_workflow_uses_dependabot_and_make_lock_contract() 
     assert on_block["pull_request"]["paths"] == ["pyproject.toml", "uv.lock"]
     assert on_block["pull_request"]["types"] == ["opened", "reopened", "synchronize"]
     assert "dependabot[bot]" in refresh["if"]
+    assert "github.actor == 'dependabot[bot]'" in refresh["if"]
     assert "dependabot/uv/" in refresh["if"]
     assert (
         _step_run(refresh, "Install uv").strip()
