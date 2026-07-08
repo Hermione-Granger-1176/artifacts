@@ -3,7 +3,7 @@ name: "CodeQL config"
 # Generated gallery data plus vendored and test code do not ship as first-party
 # runtime source, so keep them out of the CodeQL scan.
 paths-ignore:
-  - tests
-  - apps/*/js/vendor
+  - tests/**
+  - apps/*/js/vendor/**
   - js/data.js
   - js/gallery-config.js

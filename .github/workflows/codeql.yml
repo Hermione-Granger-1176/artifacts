@@ -1,6 +1,7 @@
 name: CodeQL
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -8,7 +9,7 @@ on:
     branches:
       - main
   schedule:
-    # Staggered from dependency-audit.yml (06:00 Mon) to avoid runner contention.
+    # Weekly scan, staggered to avoid runner contention with other scheduled workflows.
     - cron: "30 6 * * 1"
 
 permissions:
