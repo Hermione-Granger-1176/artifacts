@@ -280,25 +280,28 @@ def _audit_python_dependencies(
             continue
 
         matched_exception_keys.update(entry.key for entry in matching_exceptions)
-        matching_exception = matching_exceptions[0]
-        if today > matching_exception.review_by:
-            errors.append(
-                "Expired Python vulnerability exception: "
-                f"{matching_exception.package} {matching_exception.vulnerability_id} "
-                f"review_by={matching_exception.review_by.isoformat()}"
-            )
+        finding_errors = []
+        for matching_exception in matching_exceptions:
+            if today > matching_exception.review_by:
+                finding_errors.append(
+                    "Expired Python vulnerability exception: "
+                    f"{matching_exception.package} "
+                    f"{matching_exception.vulnerability_id} "
+                    f"review_by={matching_exception.review_by.isoformat()}"
+                )
+            elif matching_exception.ignore_only_without_fix and finding.fix_versions:
+                finding_errors.append(
+                    "Python vulnerability exception must be removed because fixes "
+                    "are available: "
+                    f"{finding.package} {finding.vulnerability_id} "
+                    f"fix_versions={', '.join(finding.fix_versions)}"
+                )
+
+        if finding_errors:
+            errors.extend(finding_errors)
             continue
 
-        if matching_exception.ignore_only_without_fix and finding.fix_versions:
-            errors.append(
-                "Python vulnerability exception must be removed because fixes "
-                "are available: "
-                f"{finding.package} {finding.vulnerability_id} "
-                f"fix_versions={', '.join(finding.fix_versions)}"
-            )
-            continue
-
-        ignored.append((finding, matching_exception))
+        ignored.append((finding, matching_exceptions[0]))
 
     for exception in exceptions:
         if exception.key not in matched_exception_keys:

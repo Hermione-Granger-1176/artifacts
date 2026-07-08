@@ -441,6 +441,49 @@ def test_audit_python_dependencies_marks_all_matching_exceptions_used(
     assert errors == ()
 
 
+def test_audit_python_dependencies_validates_every_matching_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    exceptions = (
+        run_security_audit.VulnerabilityExceptionEntry(
+            vulnerability_id="CVE-2026-4539",
+            package="pygments",
+            reason="No patched release yet.",
+            review_by=date(2026, 4, 25),
+            ignore_only_without_fix=True,
+        ),
+        run_security_audit.VulnerabilityExceptionEntry(
+            vulnerability_id="GHSA-5239-wwwm-4pmq",
+            package="pygments",
+            reason="Alias entry for the same advisory.",
+            review_by=date(2026, 2, 25),
+            ignore_only_without_fix=True,
+        ),
+    )
+    findings = (
+        run_security_audit.VulnerabilityFinding(
+            vulnerability_id="CVE-2026-4539",
+            aliases=("GHSA-5239-wwwm-4pmq",),
+            package="pygments",
+            version="2.19.2",
+            fix_versions=(),
+        ),
+    )
+    monkeypatch.setattr(run_security_audit, "_run_pip_audit", lambda _: findings)
+
+    ignored, errors = run_security_audit._audit_python_dependencies(
+        today=date(2026, 3, 25),
+        exceptions=exceptions,
+        requirements_file=Path(".artifacts/requirements-audit.txt"),
+    )
+
+    assert ignored == ()
+    assert errors == (
+        "Expired Python vulnerability exception: "
+        "pygments GHSA-5239-wwwm-4pmq review_by=2026-02-25",
+    )
+
+
 def test_audit_python_dependencies_rejects_exception_when_fix_exists(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
