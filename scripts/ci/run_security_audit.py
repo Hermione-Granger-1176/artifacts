@@ -81,6 +81,7 @@ def _load_security_audit_exceptions(
         )
 
     exceptions: list[VulnerabilityExceptionEntry] = []
+    seen_keys: set[tuple[str, str]] = set()
     for index, entry in enumerate(entries):
         entry_path = f"python_vulnerability_exceptions[{index}]"
         if not isinstance(entry, dict):
@@ -110,15 +111,20 @@ def _load_security_audit_exceptions(
                 f"{entry_path}"
             ) from exc
 
-        exceptions.append(
-            VulnerabilityExceptionEntry(
-                vulnerability_id=str(entry["id"]),
-                package=str(entry["package"]),
-                reason=str(entry["reason"]),
-                review_by=review_by,
-                ignore_only_without_fix=ignore_only_without_fix,
-            )
+        exception = VulnerabilityExceptionEntry(
+            vulnerability_id=str(entry["id"]),
+            package=str(entry["package"]),
+            reason=str(entry["reason"]),
+            review_by=review_by,
+            ignore_only_without_fix=ignore_only_without_fix,
         )
+        if exception.key in seen_keys:
+            raise ValueError(
+                "Security audit exceptions must not duplicate a package and "
+                f"vulnerability id pair: {entry_path}"
+            )
+        seen_keys.add(exception.key)
+        exceptions.append(exception)
 
     return tuple(exceptions)
 

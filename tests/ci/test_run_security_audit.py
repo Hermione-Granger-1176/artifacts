@@ -50,6 +50,39 @@ def test_load_security_audit_exceptions_reads_valid_config(tmp_path: Path) -> No
     assert exceptions[1].ignore_only_without_fix is False
 
 
+def test_load_security_audit_exceptions_rejects_duplicate_entries(
+    tmp_path: Path,
+) -> None:
+    config_file = tmp_path / "security_audit.json"
+    write_text(
+        config_file,
+        """
+{
+  "python_vulnerability_exceptions": [
+    {
+      "id": "CVE-2026-4539",
+      "package": "pygments",
+      "reason": "No patched release yet.",
+      "review_by": "2026-04-25"
+    },
+    {
+      "id": "CVE-2026-4539",
+      "package": "Pygments",
+      "reason": "Duplicate entry added by mistake.",
+      "review_by": "2026-05-25"
+    }
+  ]
+}
+""".strip(),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"must not duplicate.*python_vulnerability_exceptions\[1\]",
+    ):
+        run_security_audit._load_security_audit_exceptions(config_file)
+
+
 def test_load_security_audit_exceptions_rejects_invalid_review_date(
     tmp_path: Path,
 ) -> None:
