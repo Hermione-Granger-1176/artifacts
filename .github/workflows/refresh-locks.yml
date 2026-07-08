@@ -42,7 +42,10 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: locks/requirements-dev.lock
+          cache-dependency-path: uv.lock
+
+      - name: Install uv
+        run: python -m pip install --upgrade pip uv
 
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
@@ -59,8 +62,8 @@ jobs:
       - name: Detect lock changes
         id: changes
         run: |
-          git add locks package-lock.json
-          if git diff --staged --quiet -- locks package-lock.json; then
+          git add uv.lock package-lock.json
+          if git diff --staged --quiet -- uv.lock package-lock.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -79,9 +82,9 @@ jobs:
           pr-body: |
             ## Summary
             - Type: CI maintenance
-            - Regenerate `locks/requirements.lock`, `locks/requirements-dev.lock`, and `package-lock.json`
+            - Regenerate `uv.lock` and `package-lock.json`
             - Picks up transitive dependency bumps (including security patches) that Dependabot does not propose directly
           pathspec: |
-            locks
+            uv.lock
             package-lock.json
           commit-mode: force-pr

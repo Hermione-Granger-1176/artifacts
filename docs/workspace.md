@@ -44,7 +44,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- gallery-config.js      Generated display config
 |  |- modules/               Shared JS modules (runtime, element-cache, app-runtime, app-shell, html-escape)
 |  |  |- gallery/            Gallery-specific JS modules (gallery-app, catalog, config, render, etc.)
-|- locks/                    Frozen Python dependency lock files
+|- uv.lock                   Frozen Python dependency graph
 |- scripts/
 |  |- build/                 Index generation (with index_config, index_sources, index_outputs), thumbnail planning, thumbnails, site assembly, scaffolding
 |  |- ci/                    Workflow helpers, deploy verification, security audits, issue alerts, parallel check runner
@@ -90,10 +90,10 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `assets/social/share-preview.png`: social preview image referenced by deploy-time Open Graph and Twitter metadata
 - `config/gallery_metadata.json`: shared tool and tag display metadata used by generators to produce `js/gallery-config.js` and ordered README badges
 - `config/artifact_contract.json`: shared artifact id, URL, and thumbnail-path contract emitted into `js/gallery-config.js` and enforced by Python build validation
-- `config/security_audit.json`: source of truth for Python security-audit lock files and reviewed vulnerability exceptions
+- `config/security_audit.json`: source of truth for reviewed Python vulnerability exceptions
 - `docs/adr/*`: accepted cross-cutting decisions about the root publishing platform
 - `pyproject.toml`: Python dependency declarations, tool configuration, and workspace metadata
-- `locks/requirements.lock`, `locks/requirements-dev.lock`: frozen Python dependency graphs
+- `uv.lock`: frozen Python dependency graph
 - `package.json`: Node dependency declarations, npm scripts, and JS test/coverage configuration where applicable
 - `package-lock.json`: frozen Node dependency graph
 - `scripts/build/prepare_site.py`: deploy-time site assembly, cache busting, canonical/share metadata injection, site path injection, and CSS/JS minification via esbuild
