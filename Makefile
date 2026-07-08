@@ -3,10 +3,10 @@
 # ─── Variables ────────────────────────────────────────────────────────────────
 
 PYTHON      ?= python3.12
+UV          ?= uv
+UVX         ?= uvx
 VENV        ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
-VENV_PIP    := $(VENV)/bin/pip
-VENV_RUFF   := $(VENV)/bin/ruff
 NPM         ?= npm
 
 # ─── Setup ────────────────────────────────────────────────────────────────────
@@ -14,10 +14,7 @@ NPM         ?= npm
 .PHONY: install node-install setup-base setup setup-all setup-ci
 
 install:
-	$(PYTHON) -m venv $(VENV)
-	$(VENV_PYTHON) -m pip install --upgrade pip
-	$(VENV_PIP) install -r locks/requirements-dev.lock
-	$(VENV_PIP) install --no-deps -e .
+	UV_PROJECT_ENVIRONMENT=$(VENV) $(UV) sync --all-groups --frozen --python $(PYTHON)
 
 node-install:
 	$(NPM) ci
@@ -42,7 +39,7 @@ editorconfig-check: ## Check EditorConfig rules
 	$(VENV_PYTHON) scripts/lint/check_editorconfig.py
 
 lint-py: ## Run ruff only
-	$(VENV_RUFF) check .
+	$(VENV_PYTHON) -m ruff check .
 
 lint-js: ## Run eslint only
 	$(NPM) run lint:js
@@ -72,8 +69,8 @@ lint-js-test-coverage: ## Check every JS source file has test imports
 fmt: fmt-py fmt-js fmt-css ## Auto-fix all (ruff, eslint, stylelint)
 
 fmt-py: ## Auto-fix Python (ruff check --fix + ruff format)
-	$(VENV_RUFF) check --fix .
-	$(VENV_RUFF) format .
+	$(VENV_PYTHON) -m ruff check --fix .
+	$(VENV_PYTHON) -m ruff format .
 
 fmt-js: ## Auto-fix JavaScript (eslint --fix)
 	$(NPM) run lint:js -- --fix
@@ -167,7 +164,9 @@ new: ## Scaffold a new artifact directory (make new name=X)
 .PHONY: security audit-fix-node check-generated check-local check-web check
 
 security: ## Run dependency audits (pip-audit + npm audit)
-	$(VENV_PYTHON) scripts/ci/run_security_audit.py
+	mkdir -p .artifacts
+	$(UV) export --all-groups --frozen --no-emit-project --format requirements.txt --output-file .artifacts/requirements-audit.txt
+	$(VENV_PYTHON) scripts/ci/run_security_audit.py --requirements .artifacts/requirements-audit.txt
 	$(NPM) audit
 
 audit-fix-node: ## Apply available npm audit fixes to package-lock.json
@@ -186,17 +185,8 @@ check: check-local check-web index site ## Full gate: check-local + check-web + 
 
 .PHONY: lock lock-node fix-deps align-tables status clean help
 
-lock: ## Refresh Python lock files after dependency changes
-	@runtime_dir=$$(mktemp -d) && dev_dir=$$(mktemp -d) && \
-	trap 'rm -rf "$$runtime_dir" "$$dev_dir"' EXIT && \
-	$(PYTHON) -m venv "$$runtime_dir" && \
-	$(PYTHON) -m venv "$$dev_dir" && \
-	"$$runtime_dir/bin/pip" install --upgrade pip && \
-	"$$dev_dir/bin/pip" install --upgrade pip && \
-	"$$runtime_dir/bin/pip" install -e . && \
-	"$$dev_dir/bin/pip" install -e ".[dev]" && \
-	"$$runtime_dir/bin/pip" freeze --exclude-editable > locks/requirements.lock && \
-	"$$dev_dir/bin/pip" freeze --exclude-editable > locks/requirements-dev.lock
+lock: ## Refresh uv.lock after Python dependency changes
+	$(UV) lock
 
 lock-node: ## Refresh package-lock.json after Node dependency changes
 	$(NPM) install --package-lock-only
@@ -204,7 +194,8 @@ lock-node: ## Refresh package-lock.json after Node dependency changes
 fix-deps: ## Refresh locks, reinstall, and npm audit fix
 	$(MAKE) lock
 	$(MAKE) lock-node
-	$(VENV_PIP) install -r locks/requirements-dev.lock
+	$(MAKE) install
+	$(MAKE) node-install
 	$(MAKE) audit-fix-node
 
 align-tables: ## Align markdown table pipes across all docs

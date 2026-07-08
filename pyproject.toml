@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=69"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "artifacts-tools"
@@ -14,7 +14,7 @@ dependencies = [
   "playwright==1.61.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
   "pip-audit==2.10.1",
   "pytest-cov==7.1.0",
@@ -23,8 +23,8 @@ dev = [
   "yamllint==1.38.0",
 ]
 
-[tool.setuptools.packages.find]
-include = ["scripts*"]
+[tool.hatch.build.targets.wheel]
+packages = ["scripts"]
 
 [tool.artifacts]
 site_url = "https://hermione-granger-1176.github.io/artifacts/"

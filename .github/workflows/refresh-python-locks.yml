@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - pyproject.toml
+      - uv.lock
     types:
       - opened
       - reopened
@@ -23,7 +24,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       github.event.pull_request.user.login == 'dependabot[bot]' &&
-      startsWith(github.event.pull_request.head.ref, 'dependabot/pip/') &&
+      startsWith(github.event.pull_request.head.ref, 'dependabot/uv/') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -46,7 +47,10 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: locks/requirements-dev.lock
+          cache-dependency-path: uv.lock
+
+      - name: Install uv
+        run: python -m pip install --upgrade pip uv
 
       - name: Refresh Python lock files
         run: make lock
@@ -67,8 +71,7 @@ jobs:
         with:
           name: ${{ env.LOCK_REFRESH_ARTIFACT_NAME }}
           path: |
-            locks/requirements.lock
-            locks/requirements-dev.lock
+            uv.lock
             ${{ env.LOCK_REFRESH_ROOT }}/pr-number.txt
             ${{ env.LOCK_REFRESH_ROOT }}/head-sha.txt
             ${{ env.LOCK_REFRESH_ROOT }}/head-ref.txt

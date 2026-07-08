@@ -46,9 +46,12 @@ LOCK_ARTIFACT_FILES = {
     "head-ref": Path(".artifacts/head-ref.txt"),
 }
 
+LOCK_ARTIFACT_LOCK_FILES = {
+    "uv": Path("uv.lock"),
+}
+
 LOCK_ARTIFACT_REQUIRED_FILES = {
-    "requirements": Path("locks/requirements.lock"),
-    "requirements-dev": Path("locks/requirements-dev.lock"),
+    **LOCK_ARTIFACT_LOCK_FILES,
     **LOCK_ARTIFACT_FILES,
 }
 

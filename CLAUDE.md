@@ -49,7 +49,7 @@ Key entry points:
 - `make git`: show all git commands (branch, log, diff)
 - `make status`: quick workspace health check
 
-Python dependencies and workspace metadata live in `pyproject.toml`, while frozen installs live in `locks/requirements*.lock` and `package-lock.json`.
+Python dependencies and workspace metadata live in `pyproject.toml`, while frozen installs live in `uv.lock` and `package-lock.json`. Local Python setup requires `uv` on PATH.
 
 ## Tool configuration
 
@@ -87,7 +87,7 @@ Do not manually edit these outputs unless updating generator logic:
 - All deploys (main, preview, and cleanup) use the escalation app token (Harry1176) and create verified commits via the GraphQL API
 - The weekly repository-settings audit and its drift-issue lifecycle use a dedicated read-only app token (Percy1176); it has no deploy or write-to-code capability
 - Preview comments are posted by the workflow token, appear as `github-actions[bot]`, and are recreated on each push so the newest preview stays visible
-- Same-repo Dependabot pip PRs refresh Python lock files via CI workflows
+- Same-repo Dependabot uv PRs refresh `uv.lock` via CI workflows
 - `gh-pages` is CI-managed and should not be edited manually
 
 ## Docs
