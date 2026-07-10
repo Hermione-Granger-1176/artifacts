@@ -355,7 +355,7 @@ export async function runVerifiedCommit({
 
   // Create or force-reset the fallback branch to the current base.
   // The race guard handles another run creating the branch between our
-  // existence check and the POST — only "Reference already exists" 422s
+  // existence check and the POST. Only "Reference already exists" 422s
   // are recovered; all other errors propagate.
   const needsReset =
     branchExists ||
