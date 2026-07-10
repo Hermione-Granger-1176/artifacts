@@ -469,7 +469,7 @@ def pr_summary(pr: int | None = None, *, run_fn: RunFunction | None = None) -> s
     lines = [
         f"PR #{meta.get('number')} [{meta.get('state')}] {meta.get('title')}",
         f"  {meta.get('url')}",
-        f"  checks: {_rollup_summary(meta.get('statusCheckRollup') or [])}",
+        f"  checks: {rollup_summary(meta.get('statusCheckRollup') or [])}",
         f"  open review threads: {len(open_threads)}",
     ]
     if open_threads:
@@ -502,7 +502,7 @@ def request_copilot_review(pr: int | None = None, *, run_fn: RunFunction | None 
         raise GhError(f"Failed to request Copilot review on PR #{pr}: {exc}") from exc
 
 
-def _rollup_summary(rollup: list[dict[str, Any]]) -> str:
+def rollup_summary(rollup: list[dict[str, Any]]) -> str:
     """Summarize a ``statusCheckRollup`` list as a conclusion tally."""
     if not rollup:
         return "none"

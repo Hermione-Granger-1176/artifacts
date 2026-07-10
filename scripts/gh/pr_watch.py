@@ -117,7 +117,7 @@ def poll_once(
         if not checks_only:
             raise GhError(f"Unexpected reviews shape in PR view response for PR {pr}.")
         reviews = []
-    rollup_tally = pr_review._rollup_summary(rollup)
+    rollup_tally = pr_review.rollup_summary(rollup)
     try:
         new_review_count = _new_copilot_review_count(reviews, since)
     except GhError:
