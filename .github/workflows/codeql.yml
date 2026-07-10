@@ -9,7 +9,7 @@ on:
     branches:
       - main
   schedule:
-    # Weekly scan, staggered to avoid runner contention with other scheduled workflows.
+    # Staggered from dependency-audit.yml (06:00 Mon) to avoid runner contention.
     - cron: "30 6 * * 1"
 
 permissions:

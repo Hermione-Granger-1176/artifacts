@@ -3,10 +3,10 @@ name: Live Site Smoke
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 6 * * *'
+    - cron: "17 6 * * *"
 
 env:
-  PYTHONPATH: '.'
+  PYTHONPATH: "."
 
 jobs:
   smoke:
@@ -30,9 +30,9 @@ jobs:
           app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
           escalation-app-id: ${{ vars.ESCALATION_APP_ID }}
           escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
-          python-version: '3.12'
-          node-version: '24'
-          install-deps: 'true'
+          python-version: "3.12"
+          node-version: "24"
+          install-deps: "true"
 
       - name: Resolve live site URL
         id: site-url

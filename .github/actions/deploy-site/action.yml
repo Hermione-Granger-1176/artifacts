@@ -23,7 +23,7 @@ inputs:
   skip-build:
     description: Skip make site if _site/ is already prepared.
     required: false
-    default: 'false'
+    default: "false"
 
 outputs:
   short-sha:
