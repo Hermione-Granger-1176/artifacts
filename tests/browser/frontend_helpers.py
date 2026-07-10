@@ -251,10 +251,10 @@ class RuntimeMonitor:
     response_errors: list[str] = field(default_factory=list)
 
     def bind(self, page) -> None:
+        """Attach listeners that record console, page, and network failures."""
         # Track CSS filenames that loaded successfully so we can ignore
         # Chromium's spurious duplicate @import re-fetches from wrong paths
         # (triggered by ThreadingHTTPServer + DOM mutations).
-        """Bind."""
         loaded_css_paths: set[str] = set()
 
         def track_console(message) -> None:
