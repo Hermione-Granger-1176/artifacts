@@ -7,15 +7,10 @@ htmlcov/
 node_modules/
 playwright-report/
 test-results/
-js/data.js
-js/gallery-config.js
-CLAUDE.md
-README.md
-docs/architecture.md
-.github/
-../js/data.js
-../js/gallery-config.js
+# Patterns containing a path separator resolve relative to this file's
+# directory (gitignore semantics), so ../ anchors them to the repo root.
+# Deferred: these docs are rewritten by later split PRs and get their
+# prettier formatting there to avoid churn in this one.
 ../CLAUDE.md
 ../README.md
 ../docs/architecture.md
-../.github/

@@ -133,7 +133,7 @@ typecheck: typecheck-py typecheck-web ## Run all type checks
 typecheck-py: ## Run mypy strict type checking over scripts/
 	$(VENV_PYTHON) -m mypy $(PY_TYPE_PATHS)
 
-typecheck-web: ## Run TypeScript checkJs on hand-written js/ modules
+typecheck-web: ## Run tsc over js/ modules (checkJs turns on with the typed frontend)
 	$(NPM) run typecheck:web
 
 # ─── Dead code ────────────────────────────────────────────────────────────────
