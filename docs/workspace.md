@@ -34,7 +34,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- fonts/                 Self-hosted web font subsets (Caveat, Fredoka One)
 |  |- icons/                 Logo, favicon, and web app manifest
 |  |- social/                Social share preview image
-|- config/                   Gallery metadata and security audit policy
+|- config/                   Gallery metadata, tool configs (eslint, stylelint, and more), and security audit policy
 |- css/                      Root gallery styles and shared app design tokens
 |- docs/                     Workspace documentation and ADRs
 |- js/
@@ -44,7 +44,6 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- gallery-config.js      Generated display config
 |  |- modules/               Shared JS modules (runtime, element-cache, app-runtime, app-shell, html-escape)
 |  |  |- gallery/            Gallery-specific JS modules (gallery-app, catalog, config, render, etc.)
-|- uv.lock                   Frozen Python dependency graph
 |- scripts/
 |  |- build/                 Index generation (with index_config, index_sources, index_outputs), thumbnail planning, thumbnails, site assembly, scaffolding
 |  |- ci/                    Workflow helpers, deploy verification, security audits, issue alerts, parallel check runner
@@ -67,9 +66,8 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |- index.html                Root gallery entry point
 |- Makefile                  Primary interface for supported workspace commands (run make help)
 |- pyproject.toml            Python deps, tool config, site metadata
+|- uv.lock                   Frozen Python dependency graph
 |- package.json              Node deps, npm scripts, JS test/coverage config
-|- eslint.config.js          ESLint scope and rules
-|- stylelint.config.js       Stylelint scope and rules
 |- .yamllint.yml             Yamllint scope and rules
 ```
 
@@ -140,5 +138,5 @@ Each artifact directory under `apps/` is expected to contain:
 - Update generator logic in `scripts/` when derived-output behavior should change.
 - Prefer keeping tool scope in its owning config file, and avoid adding ad hoc duplicated file selection unless a target or workflow truly needs it.
 - Use `make validate` when you change top-level artifact directories or the artifact folder contract.
-- Keep site configuration, dependency declarations, and lockfiles in their owning files, primarily `pyproject.toml`, `package.json`, `package-lock.json`, `locks/*.lock`, and `config/*.json`.
+- Keep site configuration, dependency declarations, and lockfiles in their owning files, primarily `pyproject.toml`, `uv.lock`, `package.json`, `package-lock.json`, and `config/*.json`.
 - If a repo-level ownership boundary changes, update this document and link to the owning adjacent doc instead of copying the same rule into multiple docs.

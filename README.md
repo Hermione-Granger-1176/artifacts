@@ -79,7 +79,7 @@ CI is intentionally strict for the root publishing platform: dependency review, 
 
 - Run `make help` first; the Makefile is the supported interface for local setup, checks, generation, and GitHub workflow helpers.
 - Use `make setup` for the default local toolchain, or `make setup-all` when you also need Chromium for browser tests and thumbnail generation.
-- Use `make check-local` for the fast local gate, including canonical generated-file drift checks, `make check-web` when browser coverage or thumbnails matter, and `make check` for the full CI-equivalent local gate.
+- Use `make ci` or `make check-local` for the non-browser local gate, including formatting, linting, tests, coverage, dead-code checks, dependency audits, validation, and canonical generated-file drift checks. Use `make check-web` when browser coverage or thumbnails matter, and `make check` for the full CI-equivalent local gate.
 - Use `make validate`, `make generate`, `make site`, and `make lock` when you need explicit structure checks, derived-file refreshes, deploy-payload inspection, or Python lock refreshes.
 - For the full day-to-day workflow, CI behavior, dependency expectations, and troubleshooting, see [`docs/operations.md`](docs/operations.md), [`docs/workspace.md`](docs/workspace.md), and [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md).
 

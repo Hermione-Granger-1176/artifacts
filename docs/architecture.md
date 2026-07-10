@@ -319,6 +319,7 @@ graph TD
 | `scripts/ci/workflow_helpers.py validate-lock-artifact`      | commit-python-locks workflow             | Validate lock refresh artifact integrity                                                                     |
 | `scripts/ci/run_parallel_checks.py`                          | verify job                               | Run independent Make targets concurrently with captured CI-friendly output                                   |
 | `scripts/ci/verify_deploy.py`                                | publish job                              | Poll published URL for expected HTML marker and deploy metadata SHA                                          |
+| `scripts/gh/cli.py`                                          | local `make pr-*` and `make ci-failures` targets | Provide tested GitHub PR review-thread and failed-CI helpers                                                 |
 | `deploy-verified.mjs`                                        | deploy-site action, publish/cleanup jobs | Deploy to gh-pages via GraphQL verified commit; handles full site, preview subdirectory, and preview removal |
 | `verified-commit.mjs`                                        | verified-commit action                   | Create verified commit via GraphQL; fall back to PR on conflict                                              |
 

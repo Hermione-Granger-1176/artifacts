@@ -22,18 +22,18 @@ These inconsistencies made it harder to onboard, harder to maintain, and easier 
 2. **Each tool's config file owns its scope.** Linting, testing, and coverage scope is defined once in the tool's config or owning script definition, not duplicated across the Makefile and multiple tool configs:
    - ruff: `pyproject.toml` (built-in excludes)
    - pytest/coverage: `pyproject.toml` (`testpaths`, `--cov=scripts/`)
-   - ESLint: `eslint.config.js` (files + ignores)
-   - stylelint: `stylelint.config.js` (ignoreFiles)
+   - ESLint: `config/eslint.config.js` (files + ignores)
+   - stylelint: `config/stylelint.config.js` (ignoreFiles)
    - yamllint: `.yamllint.yml` (ignore)
    - JS coverage: `package.json` (coverage command, thresholds, and exclude patterns)
 
 3. **Exclude-based, not include-based.** Tools scan the repo root and exclude junk directories (`node_modules/`, `.venv/`, `_site/`). Adding a new source directory requires no config changes.
 
-4. **Scripts organized by concern.** `scripts/` is split into subpackages: `build/`, `ci/`, `lib/`, `lint/`. A centralized `REPO_ROOT` in `scripts/__init__.py` replaces per-file path computation.
+4. **Scripts organized by concern.** `scripts/` is split into subpackages: `build/`, `ci/`, `gh/`, `lib/`, `lint/`. A centralized `REPO_ROOT` in `scripts/__init__.py` replaces per-file path computation.
 
-5. **Tests mirror scripts.** `tests/` has matching subdirectories: `build/`, `ci/`, `lib/`, `lint/`, plus `browser/` for Playwright and grouped `js/` suites for home, shared, app-specific, and workflow-focused Node tests.
+5. **Tests mirror scripts.** `tests/` has matching subdirectories: `build/`, `ci/`, `gh/`, `lib/`, `lint/`, plus `browser/` for Playwright and grouped `js/` suites for home, shared, app-specific, and workflow-focused Node tests.
 
-6. **Auto-generated two-level help.** `make help` is generated from `## comment` annotations on targets and `# ─── Section ───` headers in the Makefile. Adding a target with `##` makes it appear automatically. `make pr`, `make ci`, and `make git` drill into sub-commands.
+6. **Auto-generated grouped help.** `make help` is generated from `## comment` annotations on targets and `# ─── Section @slug ───` headers in the Makefile. Adding a target with `##` makes it appear automatically. `make help-pr`, `make help-ci`, and `make help-git` drill into sub-commands.
 
 7. **Setup is two-level.** `make setup` is the fast default (no Chromium). `make setup-all` includes Chromium for browser tests and thumbnails.
 

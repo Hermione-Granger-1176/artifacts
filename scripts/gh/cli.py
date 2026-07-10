@@ -1,10 +1,8 @@
 """Command-line dispatcher for the GitHub PR/CI helpers.
 
-Internal entrypoint for the PR/CI helper commands. The Makefile is the sole
-supported contributor interface and will wrap these commands in pr-*/ci-* targets
-in a later PR, so this module is not meant to be invoked directly by contributors.
-Each subcommand documents its own options via ``--help`` so the command surface
-can be discovered without re-deriving any ``gh`` plumbing.
+Run as ``python -m scripts.gh.cli <command>``. The Makefile wraps each command
+in a thin target, and ``<command> --help`` documents its options, so an agent
+can discover the full surface without re-deriving any ``gh`` plumbing.
 """
 
 from __future__ import annotations
