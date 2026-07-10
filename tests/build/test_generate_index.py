@@ -429,15 +429,15 @@ def test_scan_artifacts_filters_hidden_and_invalid_dirs(
     assert [item["id"] for item in items] == ["a-first", "z-last"]
 
 
-def test_scan_artifacts_skips_empty_extracted_items(
+def test_scan_artifacts_skips_folders_where_extraction_returns_none(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test scan artifacts skips empty extracted items."""
+    """Scan artifacts drops folders whose extraction yields no item."""
     apps_dir = tmp_path / "apps"
     apps_dir.mkdir()
-    create_artifact(apps_dir, "empty-item", title="Empty Item")
-    config = make_config(tmp_path, apps_dir=apps_dir)
+    create_artifact(apps_dir, "valid-artifact")
 
+    config = make_config(tmp_path, apps_dir=apps_dir)
     monkeypatch.setattr(index_sources, "extract_artifact", lambda *_args, **_kwargs: None)
 
     assert generate_index._scan_artifacts(config) == []
@@ -1055,6 +1055,28 @@ def test_validate_artifact_item_rejects_bad_url_shape(tmp_path: Path) -> None:
             },
             config=config,
         )
+
+
+def test_validate_artifact_item_accepts_null_thumbnail(tmp_path: Path) -> None:
+    """Validate artifact item accepts null thumbnail."""
+    # Generation now always emits the contract thumbnail path, but a null
+    # thumbnail remains a valid legacy/external value and must pass untouched.
+    config = make_config(tmp_path)
+    assert (
+        index_sources.validate_artifact_item(
+            {
+                "id": "loan-tool",
+                "name": "Loan Tool",
+                "description": "",
+                "tags": [],
+                "tools": [],
+                "url": "apps/loan-tool/",
+                "thumbnail": None,
+            },
+            config=config,
+        )
+        is None
+    )
 
 
 def test_validate_artifact_item_rejects_bad_thumbnail_shape(tmp_path: Path) -> None:

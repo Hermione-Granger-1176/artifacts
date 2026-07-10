@@ -207,10 +207,16 @@ def resolve_thumbnail(
     folder: Path,
     *,
     config: IndexConfig,
-) -> str | None:
-    """Resolve the preferred thumbnail path when one exists."""
-    if not (folder / config.contract["thumbnailFile"]).exists():
-        return None
+) -> str:
+    """Return the canonical thumbnail path for an artifact.
+
+    Every artifact is guaranteed a thumbnail by the build/deploy pipeline (CI
+    renders and persists ``thumbnail.webp``), so the path is a stable contract
+    value, not a presence flag. Decoupling it from on-disk presence keeps the
+    generated-drift check stable no matter when thumbnails are rendered,
+    invalidated, or persisted - which is what lets a brand-new app land with a
+    correct ``data.js`` before its webp has been generated yet.
+    """
     return config.artifact_thumbnail_path(folder.name)
 
 
