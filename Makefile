@@ -242,12 +242,15 @@ new: ## Scaffold a new artifact directory (make new name=X)
 
 ci-python: format-py-check lint-py typecheck-py dead-code-py test-py ## Python CI gate
 
-ci-web: format-prettier-check lint-js lint-css typecheck-web lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage check-overrides dead-code-js test-js coverage-js ## Web and docs CI gate
+ci-web: editorconfig-check format-prettier-check lint-js lint-css lint-yaml typecheck-web lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage check-overrides dead-code-js test-js coverage-js ## Web and docs CI gate
 
 ci: ci-python ci-web security validate check-generated ## Full local CI gate without browser tests
 
+# check-generated runs after the parallel batch because it rewrites and
+# restores generated files in place, which would race concurrent readers.
 ci-fast: ## Run the non-browser CI checks in parallel
-	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py format-check lint typecheck test-py coverage-js dead-code security validate check-generated
+	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py format-check lint typecheck test-py coverage-js dead-code security validate
+	@$(MAKE) --no-print-directory check-generated
 
 security: audit-python audit-node ## Run dependency audits
 
