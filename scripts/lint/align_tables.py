@@ -66,16 +66,13 @@ def align_table(lines: list[str]) -> list[str]:
     content_rows = [row for row in rows if not is_separator_row(row)]
 
     widths = [
-        max(3, max((len(row[col]) for row in content_rows), default=0))
-        for col in range(col_count)
+        max(3, max((len(row[col]) for row in content_rows), default=0)) for col in range(col_count)
     ]
 
     return [
         build_separator(widths, row)
         if is_separator_row(row)
-        else "| "
-        + " | ".join(cell.ljust(widths[i]) for i, cell in enumerate(row))
-        + " |"
+        else "| " + " | ".join(cell.ljust(widths[i]) for i, cell in enumerate(row)) + " |"
         for row in rows
     ]
 
@@ -125,18 +122,14 @@ def find_markdown_files() -> list[Path]:
         p
         for p in REPO_ROOT.rglob("*.md")
         if not any(
-            part.startswith(".") or part in excluded
-            for part in p.relative_to(REPO_ROOT).parts
+            part.startswith(".") or part in excluded for part in p.relative_to(REPO_ROOT).parts
         )
     )
 
 
 def main() -> None:
     """Entry point: align tables in the given files or all repo .md files."""
-    if len(sys.argv) > 1:
-        files = [Path(arg) for arg in sys.argv[1:]]
-    else:
-        files = find_markdown_files()
+    files = [Path(arg) for arg in sys.argv[1:]] if len(sys.argv) > 1 else find_markdown_files()
 
     changed_count = 0
     for path in files:

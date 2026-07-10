@@ -76,9 +76,7 @@ def _load_security_audit_exceptions(
     payload = _load_security_audit_config(config_file)
     entries = payload.get("python_vulnerability_exceptions", [])
     if not isinstance(entries, list):
-        raise ValueError(
-            "Security audit config 'python_vulnerability_exceptions' must be a list"
-        )
+        raise ValueError("Security audit config 'python_vulnerability_exceptions' must be a list")
 
     exceptions: list[VulnerabilityExceptionEntry] = []
     seen_keys: set[tuple[str, str]] = set()
@@ -91,9 +89,7 @@ def _load_security_audit_exceptions(
         missing = [field for field in required_fields if not entry.get(field)]
         if missing:
             raise ValueError(
-                "Security audit exceptions must include "
-                + ", ".join(missing)
-                + f": {entry_path}"
+                "Security audit exceptions must include " + ", ".join(missing) + f": {entry_path}"
             )
 
         ignore_only_without_fix = entry.get("ignore_only_without_fix", False)
@@ -107,8 +103,7 @@ def _load_security_audit_exceptions(
             review_by = date.fromisoformat(str(entry["review_by"]))
         except ValueError as exc:
             raise ValueError(
-                "Security audit exception 'review_by' must use YYYY-MM-DD: "
-                f"{entry_path}"
+                f"Security audit exception 'review_by' must use YYYY-MM-DD: {entry_path}"
             ) from exc
 
         exception = VulnerabilityExceptionEntry(
@@ -144,20 +139,15 @@ def _parse_vulnerability(
         )
 
     aliases = vulnerability.get("aliases", [])
-    if not isinstance(aliases, list) or not all(
-        isinstance(alias, str) for alias in aliases
-    ):
-        raise ValueError(
-            f"pip-audit aliases must be string lists for {relative_requirements_file}"
-        )
+    if not isinstance(aliases, list) or not all(isinstance(alias, str) for alias in aliases):
+        raise ValueError(f"pip-audit aliases must be string lists for {relative_requirements_file}")
 
     fix_versions = vulnerability.get("fix_versions", [])
     if not isinstance(fix_versions, list) or not all(
         isinstance(fix_version, str) for fix_version in fix_versions
     ):
         raise ValueError(
-            "pip-audit fix_versions must be string lists for "
-            f"{relative_requirements_file}"
+            f"pip-audit fix_versions must be string lists for {relative_requirements_file}"
         )
 
     return VulnerabilityFinding(
@@ -220,14 +210,11 @@ def _run_pip_audit(requirements_file: Path) -> tuple[VulnerabilityFinding, ...]:
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(
-            "pip-audit timed out after 120 seconds for "
-            f"{_relative_path(requirements_file)}"
+            f"pip-audit timed out after 120 seconds for {_relative_path(requirements_file)}"
         ) from exc
     if result.returncode not in {0, 1}:
         stderr = result.stderr.strip() or result.stdout.strip() or "unknown error"
-        raise RuntimeError(
-            f"pip-audit failed for {_relative_path(requirements_file)}: {stderr}"
-        )
+        raise RuntimeError(f"pip-audit failed for {_relative_path(requirements_file)}: {stderr}")
 
     try:
         payload = json.loads(result.stdout)
@@ -322,22 +309,16 @@ def _audit_python_dependencies(
 def _resolve_requirements_file(requirements_file: Path) -> Path:
     """Resolve and validate the exported requirements file path."""
     resolved = (
-        requirements_file
-        if requirements_file.is_absolute()
-        else REPO_ROOT / requirements_file
+        requirements_file if requirements_file.is_absolute() else REPO_ROOT / requirements_file
     )
     if not resolved.is_file():
-        raise FileNotFoundError(
-            f"Python security requirements file not found: {resolved}"
-        )
+        raise FileNotFoundError(f"Python security requirements file not found: {resolved}")
     return resolved
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments."""
-    parser = argparse.ArgumentParser(
-        description="Run the Python dependency security audit"
-    )
+    parser = argparse.ArgumentParser(description="Run the Python dependency security audit")
     parser.add_argument(
         "--requirements",
         required=True,

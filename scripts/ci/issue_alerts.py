@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from scripts.lib.gh_api import run_gh_api_form, run_gh_api_json
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 ISSUE_TITLE_MATCH_LIMIT = 100
 
@@ -9,7 +14,7 @@ def issue_payloads_by_title(
     repo: str,
     title: str,
     *,
-    run_gh_api_json_fn=run_gh_api_json,
+    run_gh_api_json_fn: Callable[..., object] = run_gh_api_json,
 ) -> list[dict[str, object]]:
     """Return open issue payloads whose title exactly matches ``title``."""
     payload = run_gh_api_json_fn(
@@ -52,8 +57,8 @@ def sync_alert_issue(
     body: str,
     labels: list[str],
     should_exist: bool,
-    issue_payloads_by_title_fn=issue_payloads_by_title,
-    run_gh_api_form_fn=run_gh_api_form,
+    issue_payloads_by_title_fn: Callable[..., list[dict[str, object]]] = issue_payloads_by_title,
+    run_gh_api_form_fn: Callable[..., str] = run_gh_api_form,
 ) -> str:
     """Create, update, close, or reuse one alert issue addressed by exact title."""
     matches = issue_payloads_by_title_fn(repo, title)

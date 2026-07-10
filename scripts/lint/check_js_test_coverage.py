@@ -38,9 +38,7 @@ _IMPORT_PATTERN = re.compile(
 _DYNAMIC_IMPORT_PATTERN = re.compile(r"""import\s*\(\s*[`'"]([^`'"?]+)""")
 
 # Matches path.resolve('js/file.js'), used by tests that load via fs/vm
-_PATH_RESOLVE_PATTERN = re.compile(
-    r"""path\.resolve\s*\(\s*['"]([^'"]+\.(?:js|mjs))['"]"""
-)
+_PATH_RESOLVE_PATTERN = re.compile(r"""path\.resolve\s*\(\s*['"]([^'"]+\.(?:js|mjs))['"]""")
 
 SKIP_DIRECTORIES = _BASE_SKIP_DIRECTORIES | {"docs"}
 
@@ -120,9 +118,7 @@ def run_check(root: Path | None = None) -> list[str]:
     for source_file, is_covered in sorted(coverage.items()):
         if not is_covered:
             relative = source_file.relative_to(workspace_root).as_posix()
-            violations.append(
-                f"{relative}: not imported by any test file in {TEST_DIR}/"
-            )
+            violations.append(f"{relative}: not imported by any test file in {TEST_DIR}/")
 
     return violations
 
@@ -154,9 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"JS test coverage check passed: {covered}/{total} source files covered")
         return 0
 
-    print(
-        f"JS test coverage check failed: {total - covered} file(s) missing test imports"
-    )
+    print(f"JS test coverage check failed: {total - covered} file(s) missing test imports")
     for violation in violations:
         print(f"  {violation}")
     return 1

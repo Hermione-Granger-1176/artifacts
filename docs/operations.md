@@ -8,19 +8,21 @@ Use the Makefile instead of ad hoc shell commands.
 make help       # see all available targets (auto-generated, two-level)
 make setup      # fast: Python + Node deps, no Chromium
 make setup-all  # full: also installs Chromium for browser tests and thumbnails
+make install-hooks # install local pre-commit hooks
 make pr         # show all PR sub-commands
 make ci         # show all CI sub-commands
 make git        # show all git sub-commands
 ```
 
+Local Python dependency setup uses uv. Ensure `uv` is on PATH before running setup, install, lock, or security targets. On newer Linux hosts where Playwright has no native browser build, the Makefile exports a supported `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE` fallback for Playwright install, browser test, and thumbnail targets.
+
 Recommended workflow when changing workspace code:
 
 1. `make new name=my-artifact` if you want a scaffold instead of creating files by hand. It also creates the matching `tests/js/apps/<slug>/` directory for app-specific Node tests.
-2. `make setup` for fast local work, or `make setup-all` if you also need Chromium.
+2. `make setup` for fast local work, or `make setup-all` if you also need Chromium. Run `make install-hooks` once if you want local pre-commit checks.
 3. Edit files.
 4. Run `make check-local`.
-5. Run `make check-web` when you touch shared browser behavior or need fresh thumbnails.
-   For targeted mature-app browser work, use `ARTIFACTS_BROWSER_APP_SLUGS="app-slug" make test-browser-apps`.
+5. Run `make check-web` when you touch shared browser behavior or need fresh thumbnails. For targeted mature-app browser work, use `ARTIFACTS_BROWSER_APP_SLUGS="app-slug" make test-browser-apps`.
 6. Run `make check` before opening a PR when you want the full CI-equivalent local gate.
 7. Run `make validate` if you changed top-level artifact directories and want an explicit structure check.
 8. Run `make index` if metadata or README markers may have changed.
@@ -41,14 +43,18 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 
 - `make editorconfig-check` enforces supported `.editorconfig` rules such as LF endings, final-newline policy, trailing whitespace trimming, and indentation style for covered repository files, while skipping configured cache/build/dependency directories and binary assets.
 - `ruff` scans the repo root; built-in excludes skip `.venv/`, `node_modules/`, etc. Config: `pyproject.toml`.
-- `eslint` scans the repo root; file patterns and ignores are in `eslint.config.js`.
-- `stylelint` scans all `**/*.css`; ignores are in `stylelint.config.js`.
+- `eslint` scans the repo root; file patterns and ignores are in `config/eslint.config.js`.
+- `stylelint` scans all `**/*.css`; ignores are in `config/stylelint.config.js`.
 - `yamllint` scans the repo root; ignores are in `.yamllint.yml`.
 - Workflow linting runs through `scripts/lint/lint-workflows.mjs`, which wraps `actionlint` across `.github/workflows/*.yml` and `.github/workflows/*.yaml`.
 - `make lint-doc-commands` checks contributor-facing docs for direct commands that should use Make targets instead.
 - `make lint-make-targets` verifies that documented `make <target>` references still exist in `Makefile`.
 - `make lint-js-test-coverage` verifies that every JS or MJS source file under the tracked source roots is imported by at least one test file.
-- `pytest` enforces 100% line coverage for the `scripts` package.
+- `make check-overrides` reports whether npm `overrides` entries are still needed when that package field exists.
+- `make format-check` verifies ruff formatting plus Prettier-managed docs, metadata, config, and tooling scripts without writing files.
+- `make typecheck` runs mypy strict over `scripts/` and the web typecheck target from `config/jsconfig.json`.
+- `make dead-code` runs vulture for Python and Knip for JavaScript files, exports, and dependency usage.
+- `pytest` enforces 100% line and branch coverage for the `scripts` package and treats warnings as errors.
 - `make test-ci` runs the CI-focused Python tests under `tests/ci/`.
 - `make test-ci-workflows` runs narrow contract tests against `.github/workflows/*.yml` so local and CI checks can catch workflow-structure drift early.
 - `node --test` covers the grouped Node suites under `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, and `tests/js/workflows/`.

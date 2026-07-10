@@ -5,15 +5,19 @@ from __future__ import annotations
 import functools
 import json
 import re
-from pathlib import Path
-from typing import TypedDict, cast
+from typing import TYPE_CHECKING, TypedDict, cast
 
 from scripts import REPO_ROOT
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 CONTRACT_FILE = REPO_ROOT / "config" / "artifact_contract.json"
 
 
 class ArtifactContract(TypedDict):
+    """Validated shape of ``config/artifact_contract.json``."""
+
     artifactIdPattern: str
     artifactBasePath: str
     thumbnailFile: str
@@ -47,13 +51,11 @@ def read_artifact_contract_file(contract_file: Path) -> ArtifactContract:
     except re.error as exc:
         raise ValueError("Artifact contract artifactIdPattern must be valid") from exc
     if "/" in artifact_base_path or artifact_base_path.startswith("."):
-        raise ValueError(
-            "Artifact contract artifactBasePath must be one safe path segment"
-        )
+        raise ValueError("Artifact contract artifactBasePath must be one safe path segment")
     if "/" in thumbnail_file or thumbnail_file.startswith("."):
         raise ValueError("Artifact contract thumbnailFile must be one safe file name")
 
-    return cast(ArtifactContract, contract)
+    return cast("ArtifactContract", contract)
 
 
 @functools.cache

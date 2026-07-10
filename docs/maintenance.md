@@ -9,7 +9,7 @@ This document covers long-term stability contracts and recurring upkeep. It does
 ## Stability contracts
 
 - `Makefile` remains the supported entry point for normal local workflows and the primary entry point for shared CI verification gates.
-- Tool scope should live in its owning config file, primarily `pyproject.toml`, `package.json`, `eslint.config.js`, `stylelint.config.js`, `.yamllint.yml`, and `.editorconfig`. Avoid adding overlapping scope rules in multiple places unless a workflow truly needs a narrow exception.
+- Tool scope should live in its owning config file, primarily `pyproject.toml`, `package.json`, `config/eslint.config.js`, `config/stylelint.config.js`, `config/jsconfig.json`, `config/knip.json`, `config/prettierrc.json`, `config/prettierignore`, `.yamllint.yml`, and `.editorconfig`. Avoid adding overlapping scope rules in multiple places unless a workflow truly needs a narrow exception.
 - `pyproject.toml` under `[tool.artifacts]` owns the canonical site URL, site path, and repository URL.
 - Generated outputs such as `js/data.js`, `js/gallery-config.js`, README auto markers, `apps/*/thumbnail.webp`, and `_site/` stay outputs. Change their source inputs or generators instead of hand-editing them.
 - `_site/` is the deploy artifact, and `gh-pages` is CI-managed deploy state. Neither should be maintained manually.
@@ -22,6 +22,7 @@ This document covers long-term stability contracts and recurring upkeep. It does
 - **Workflow changes:** keep action references pinned to full commit SHAs, preserve read-only verification before write-capable publish steps, and keep preview deploy and preview cleanup behavior symmetric.
 - **Generator changes:** update matching tests, keep `make validate` aligned with the artifact folder contract, and update workspace docs when ownership or generated-output boundaries change.
 - **Dependency changes:** keep declarations and lockfiles in sync. Same-repo Dependabot pip PRs rely on `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml` to refresh Python locks back onto the PR branch when possible or through a fallback maintenance PR branch when direct writeback is not possible. Scheduled lock refreshes use `.github/workflows/refresh-locks.yml` and always open or update a maintenance PR instead of committing directly to `main`.
+- **Strictness changes:** keep `make lint`, `make typecheck`, `make dead-code`, `make format-check`, and `make test-py` green together. Add or update focused tests when branch coverage or vulture findings change.
 - **Repository settings:** keep Pages, app IDs, app private keys, branch protection, and the `gh-pages` ruleset aligned with the contract documented in [`architecture.md`](architecture.md#external-github-settings) and audited by `.github/workflows/audit-repo-settings.yml`.
 - **Scheduled monitoring:** keep `.github/workflows/live-site-smoke.yml` and `.github/workflows/audit-repo-settings.yml` issue titles stable so their alert issues can be updated and auto-closed instead of duplicating.
 - **Pinned actions:** add new third-party actions with full SHAs immediately. `.github/workflows/refresh-action-shas.yml` is a safety net that pins non-SHA action refs through a maintenance PR branch instead of committing directly to `main`; it does not advance existing full-SHA pins.

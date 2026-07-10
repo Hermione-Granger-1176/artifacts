@@ -23,9 +23,7 @@ class SequenceRunner:
         self.outcomes = list(outcomes)
         self.calls = 0
 
-    def __call__(
-        self, _cmd: Sequence[str], **_kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    def __call__(self, _cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
         """Return (or raise) the next queued outcome and count the call."""
         self.calls += 1
         outcome = self.outcomes.pop(0)
@@ -45,9 +43,7 @@ def _no_sleep(monkeypatch: pytest.MonkeyPatch) -> list[float]:
 
 def test_classify_distinguishes_failure_kinds() -> None:
     """Rate-limit, transient, and fatal stderr are classified correctly."""
-    assert (
-        gh_runner._classify("You have exceeded a secondary rate limit") == "rate_limit"
-    )
+    assert gh_runner._classify("You have exceeded a secondary rate limit") == "rate_limit"
     assert gh_runner._classify("Server Error (HTTP 502)") == "transient"
     assert gh_runner._classify("Not Found (HTTP 404)") == "fatal"
 
@@ -279,9 +275,7 @@ def test_current_pr_number_masks_only_not_found() -> None:
 
 def test_current_pr_number_passes_through_real_errors() -> None:
     """Auth/binary failures are not masked as a missing PR."""
-    runner = FakeGh(
-        [(has("pr", "view"), completed_process(1, "", "GraphQL: 401 Unauthorized"))]
-    )
+    runner = FakeGh([(has("pr", "view"), completed_process(1, "", "GraphQL: 401 Unauthorized"))])
 
     with pytest.raises(GhError) as exc:
         gh_runner.current_pr_number(run_fn=runner)

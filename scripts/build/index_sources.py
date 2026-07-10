@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import re
 import urllib.parse
-from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 
 from scripts.lib.artifact_contract import ArtifactContract, read_artifact_contract_file
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from scripts.build.index_config import IndexConfig
 
-__all__ = ["read_artifact_contract_file"]
+__all__ = ["ArtifactContract", "read_artifact_contract_file"]
 
 
 class ArtifactItem(TypedDict):
@@ -124,9 +125,7 @@ def validate_artifact_item(
     config: IndexConfig,
 ) -> None:
     """Validate one generated artifact record against the shared contract."""
-    if not is_kebab_case(
-        item["id"], compiled_artifact_id_pattern=config.compiled_id_pattern
-    ):
+    if not is_kebab_case(item["id"], compiled_artifact_id_pattern=config.compiled_id_pattern):
         raise ValueError(f"Artifact id must use kebab-case: {item['id']}")
 
     validate_relative_repo_path(item["url"], field_name="Artifact url")
@@ -138,8 +137,7 @@ def validate_artifact_item(
             compiled_artifact_id_pattern=config.compiled_id_pattern,
         ):
             raise ValueError(
-                "Artifact url must use the same artifact id as the directory name: "
-                f"{item['url']}"
+                f"Artifact url must use the same artifact id as the directory name: {item['url']}"
             )
         raise ValueError(
             f"Artifact url must match {artifact_url_rule(config.contract)}: {item['url']}"
@@ -162,8 +160,7 @@ def validate_artifact_item(
                 f"name: {thumbnail}"
             )
         raise ValueError(
-            "Artifact thumbnail must match "
-            f"{artifact_thumbnail_rule(config.contract)}: {thumbnail}"
+            f"Artifact thumbnail must match {artifact_thumbnail_rule(config.contract)}: {thumbnail}"
         )
 
 
@@ -180,9 +177,7 @@ def artifact_issues(
     if not config.is_kebab_case(folder.name):
         issues.append("directory name must use kebab-case")
 
-    missing_required_file_issue = config.missing_file_issues.get(
-        (has_index, has_name)
-    )
+    missing_required_file_issue = config.missing_file_issues.get((has_index, has_name))
     if missing_required_file_issue:
         issues.append(missing_required_file_issue)
 

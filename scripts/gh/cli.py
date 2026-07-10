@@ -32,9 +32,7 @@ def _body_text(args: argparse.Namespace) -> str:
         try:
             return Path(args.body_file).read_text(encoding="utf-8")
         except OSError as exc:
-            raise GhError(
-                f"Could not read --body-file {args.body_file}: {exc}"
-            ) from exc
+            raise GhError(f"Could not read --body-file {args.body_file}: {exc}") from exc
     return str(args.body)
 
 
@@ -45,9 +43,7 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     list_parser = subparsers.add_parser("list", help="List pull-request review threads")
-    list_parser.add_argument(
-        "--pr", type=int, help="PR number (default: current branch)"
-    )
+    list_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
     list_parser.add_argument(
         "--all",
         action="store_true",
@@ -62,9 +58,7 @@ def _build_parser() -> argparse.ArgumentParser:
     reply_parser.add_argument("--thread", required=True, help="Thread id (PRRT_...)")
     _add_body_options(reply_parser)
 
-    resolve_parser = subparsers.add_parser(
-        "resolve", help="Resolve a review thread by id"
-    )
+    resolve_parser = subparsers.add_parser("resolve", help="Resolve a review thread by id")
     resolve_parser.add_argument("--thread", required=True, help="Thread id (PRRT_...)")
 
     address_parser = subparsers.add_parser(
@@ -76,9 +70,7 @@ def _build_parser() -> argparse.ArgumentParser:
     list_comments_parser = subparsers.add_parser(
         "list-comments", help="List individual review comments with node ids"
     )
-    list_comments_parser.add_argument(
-        "--pr", type=int, help="PR number (default: current branch)"
-    )
+    list_comments_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
     list_comments_parser.add_argument(
         "--json", action="store_true", dest="as_json", help="Emit machine-readable JSON"
     )
@@ -91,23 +83,17 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     summary_parser = subparsers.add_parser("summary", help="One-screen PR overview")
-    summary_parser.add_argument(
-        "--pr", type=int, help="PR number (default: current branch)"
-    )
+    summary_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
 
     ci_parser = subparsers.add_parser(
         "ci-failures", help="Show failed-step logs for the latest run"
     )
-    ci_parser.add_argument(
-        "--run", type=int, help="Run id (default: latest for this branch)"
-    )
+    ci_parser.add_argument("--run", type=int, help="Run id (default: latest for this branch)")
 
     copilot_parser = subparsers.add_parser(
         "copilot-review", help="Request a Copilot code review on the PR"
     )
-    copilot_parser.add_argument(
-        "--pr", type=int, help="PR number (default: current branch)"
-    )
+    copilot_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
 
     return parser
 

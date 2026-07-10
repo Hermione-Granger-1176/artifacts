@@ -69,14 +69,10 @@ def _build_cache_busted_url(url: str, attempt: int) -> str:
     parsed = urllib.parse.urlsplit(url)
     query = urllib.parse.parse_qs(parsed.query)
     query["artifacts-deploy-check"] = [str(attempt)]
-    return urllib.parse.urlunsplit(
-        parsed._replace(query=urllib.parse.urlencode(query, doseq=True))
-    )
+    return urllib.parse.urlunsplit(parsed._replace(query=urllib.parse.urlencode(query, doseq=True)))
 
 
-def _validate_deploy_response(
-    status_code: int, body: str, expected_substring: str
-) -> None:
+def _validate_deploy_response(status_code: int, body: str, expected_substring: str) -> None:
     """Raise when a fetched deploy response is not the expected version."""
     if status_code != 200:
         raise RuntimeError(f"returned HTTP {status_code}")
@@ -110,8 +106,7 @@ def _validate_metadata_payload(payload: object, expected_commit_sha: str) -> Non
     commit_sha = payload.get("commit_sha")
     if commit_sha != expected_commit_sha:
         raise RuntimeError(
-            "reported commit SHA "
-            f"{commit_sha!r} instead of expected {expected_commit_sha!r}"
+            f"reported commit SHA {commit_sha!r} instead of expected {expected_commit_sha!r}"
         )
 
 

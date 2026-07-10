@@ -16,6 +16,4 @@ def reject_symlinks(root: Path) -> None:
         for name in chain(dirnames, filenames):
             path = Path(walk_root) / name
             if path.is_symlink():
-                raise ValueError(
-                    f"Refusing to process tree containing symlink: {path}"
-                )
+                raise ValueError(f"Refusing to process tree containing symlink: {path}")

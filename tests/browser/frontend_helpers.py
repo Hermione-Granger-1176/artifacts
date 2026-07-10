@@ -29,10 +29,12 @@ REAL_APPS_DIR = REPO_ROOT / "apps"
 
 
 def copy_tree(source: Path, target: Path) -> None:
+    """Copy tree."""
     shutil.copytree(source, target, dirs_exist_ok=True)
 
 
 def write_text(path: Path, content: str) -> None:
+    """Write text."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
@@ -46,6 +48,7 @@ def build_smoke_site(
     config_override=None,
     artifacts_override=None,
 ) -> Path:
+    """Build smoke site."""
     source_root = tmp_path / "source"
     deploy_root = tmp_path / "_site"
     source_root.mkdir(parents=True, exist_ok=True)
@@ -58,7 +61,10 @@ def build_smoke_site(
     copy_tree(REPO_ROOT / "js", source_root / "js")
     config_dir = source_root / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(REPO_ROOT / "config" / "artifact_contract.json", config_dir / "artifact_contract.json")
+    shutil.copy2(
+        REPO_ROOT / "config" / "artifact_contract.json",
+        config_dir / "artifact_contract.json",
+    )
 
     config = {
         "toolDisplayOrder": ["claude", "chatgpt", "gemini"],
@@ -137,6 +143,7 @@ def build_smoke_site(
 
 
 def build_real_site(tmp_path: Path, monkeypatch) -> Path:
+    """Build real site."""
     source_root = tmp_path / "source"
     deploy_root = tmp_path / "_site"
     source_root.mkdir(parents=True, exist_ok=True)
@@ -162,6 +169,7 @@ def build_real_site(tmp_path: Path, monkeypatch) -> Path:
 
 
 def discover_app_slugs() -> list[str]:
+    """Discover app slugs."""
     return sorted(
         path.name
         for path in REAL_APPS_DIR.iterdir()
@@ -173,6 +181,7 @@ def discover_app_slugs() -> list[str]:
 
 
 def selected_app_slugs() -> list[str]:
+    """Selected app slugs."""
     configured = os.environ.get(APP_SLUGS_ENV, "").strip()
     if not configured:
         return discover_app_slugs()
@@ -180,6 +189,8 @@ def selected_app_slugs() -> list[str]:
 
 
 class StaticServer:
+    """StaticServer."""
+
     def __init__(self, directory: Path) -> None:
         handler = partial(SimpleHTTPRequestHandler, directory=str(directory))
         self._httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
@@ -187,16 +198,19 @@ class StaticServer:
         self.url = f"http://127.0.0.1:{self._httpd.server_address[1]}"
 
     def __enter__(self) -> StaticServer:
+        """Enter the context manager."""
         self._thread.start()
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> None:
+    def __exit__(self, _exc_type, _exc, _tb) -> None:
+        """Exit the context manager."""
         self._httpd.shutdown()
         self._httpd.server_close()
         self._thread.join(timeout=5)
 
 
 def launch_browser(playwright):
+    """Launch browser."""
     try:
         return playwright.chromium.launch()
     except Exception as exc:  # pragma: no cover - environment specific
@@ -205,10 +219,6 @@ def launch_browser(playwright):
         if REQUIRE_BROWSER_TESTS:
             pytest.fail("Playwright Chromium is required for this test run")
         pytest.skip("Playwright Chromium is not installed")
-
-
-def _normalize_url_host(url: str) -> str:
-    return urlsplit(url).netloc.lower()
 
 
 def _sanitize_artifact_name(value: str) -> str:
@@ -230,6 +240,8 @@ def _matches_allowed(message: str, allowed_patterns: tuple[str, ...]) -> bool:
 
 @dataclass
 class RuntimeMonitor:
+    """RuntimeMonitor."""
+
     base_url: str
     allowed_console_errors: tuple[str, ...] = ()
     allowed_page_errors: tuple[str, ...] = ()
@@ -242,9 +254,11 @@ class RuntimeMonitor:
         # Track CSS filenames that loaded successfully so we can ignore
         # Chromium's spurious duplicate @import re-fetches from wrong paths
         # (triggered by ThreadingHTTPServer + DOM mutations).
+        """Bind."""
         loaded_css_paths: set[str] = set()
 
         def track_console(message) -> None:
+            """Track console."""
             if message.type != "error":
                 return
 
@@ -264,12 +278,14 @@ class RuntimeMonitor:
             self.console_errors.append(message.text)
 
         def track_page_error(error) -> None:
+            """Track page error."""
             message = str(error)
             if _matches_allowed(message, self.allowed_page_errors):
                 return
             self.page_errors.append(message)
 
         def track_request_failure(request) -> None:
+            """Track request failure."""
             if self._should_ignore_url(request.url):
                 return
             failure = request.failure or "unknown failure"
@@ -290,6 +306,7 @@ class RuntimeMonitor:
             return any(p.endswith("/" + filename) or p == filename for p in loaded_css_paths)
 
         def track_response(response) -> None:
+            """Track response."""
             if self._should_ignore_url(response.url):
                 return
             if response.status < 400:
@@ -312,9 +329,9 @@ class RuntimeMonitor:
 
         This filters out non-network schemes so they are not recorded as
         request or response failures.  It does not allowlist any external
-        HTTP(S) hosts — failed or errored requests to external origins are
-        recorded by the request/response tracking callbacks, which is the
-        intended enforcement point for the self-hosting policy.
+        HTTP(S) hosts. Failed or errored requests to external origins are recorded
+        by the request/response tracking callbacks, which is the intended
+        enforcement point for the self-hosting policy.
 
         If a future app needs to allowlist an external origin, add a host
         set here and gate the return on membership (see git history for
@@ -326,33 +343,33 @@ class RuntimeMonitor:
         return parts.scheme not in {"http", "https"}
 
     def has_failures(self) -> bool:
+        """Has failures."""
         return bool(
-            self.console_errors
-            or self.page_errors
-            or self.request_failures
-            or self.response_errors
+            self.console_errors or self.page_errors or self.request_failures or self.response_errors
         )
 
     def failure_summary(self) -> str:
+        """Failure summary."""
         sections = []
         if self.page_errors:
             sections.append("Page errors:\n- " + "\n- ".join(self.page_errors))
         if self.console_errors:
             sections.append("Console errors:\n- " + "\n- ".join(self.console_errors))
         if self.request_failures:
-            sections.append(
-                "Request failures:\n- " + "\n- ".join(self.request_failures)
-            )
+            sections.append("Request failures:\n- " + "\n- ".join(self.request_failures))
         if self.response_errors:
             sections.append("HTTP errors:\n- " + "\n- ".join(self.response_errors))
         return "\n\n".join(sections)
 
     def assert_clean(self) -> None:
+        """Assert clean."""
         if self.has_failures():
             raise AssertionError(self.failure_summary())
 
 
 class MonitoredPage:
+    """MonitoredPage."""
+
     def __init__(
         self,
         playwright,
@@ -368,7 +385,6 @@ class MonitoredPage:
     ) -> None:
         self._playwright = playwright
         self._base_url = base_url.rstrip("/") + "/"
-        self._name = name
         self._viewport = {"width": viewport[0], "height": viewport[1]}
         self._color_scheme = color_scheme
         self._reduced_motion = reduced_motion
@@ -385,6 +401,7 @@ class MonitoredPage:
         self.page = None
 
     def __enter__(self) -> MonitoredPage:
+        """Enter the context manager."""
         self._browser = launch_browser(self._playwright)
         self._context = self._browser.new_context(
             viewport=self._viewport,
@@ -400,6 +417,7 @@ class MonitoredPage:
         return self
 
     def goto(self, path: str = "/", *, wait_until: str = "networkidle") -> None:
+        """Goto."""
         if self.page is None:
             raise RuntimeError("Browser page is not initialized")
         if path.startswith("http://") or path.startswith("https://"):
@@ -408,10 +426,8 @@ class MonitoredPage:
             target = urljoin(self._base_url, path.lstrip("/"))
         self.page.goto(target, wait_until=wait_until)
 
-    def assert_runtime_clean(self) -> None:
-        self.monitor.assert_clean()
-
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type, exc, _tb) -> bool:
+        """Exit the context manager."""
         monitor_error: AssertionError | None = None
         try:
             if exc_type is None:
@@ -420,17 +436,11 @@ class MonitoredPage:
                 except AssertionError as caught:
                     monitor_error = caught
             should_capture = exc_type is not None or self.monitor.has_failures()
-            if (
-                self._artifact_dir is not None
-                and self.page is not None
-                and should_capture
-            ):
+            if self._artifact_dir is not None and self.page is not None and should_capture:
                 self._write_artifacts()
             if self._context is not None and self._trace_started:
                 if self._artifact_dir is not None and should_capture:
-                    self._context.tracing.stop(
-                        path=str(self._artifact_dir / "trace.zip")
-                    )
+                    self._context.tracing.stop(path=str(self._artifact_dir / "trace.zip"))
                 else:
                     self._context.tracing.stop()
         finally:
@@ -448,22 +458,18 @@ class MonitoredPage:
             return
 
         if not self.page.is_closed():
-            self.page.screenshot(
-                path=str(self._artifact_dir / "failure.png"), full_page=True
-            )
+            self.page.screenshot(path=str(self._artifact_dir / "failure.png"), full_page=True)
 
         (self._artifact_dir / "runtime-failures.txt").write_text(
             self.monitor.failure_summary() or "No runtime failures recorded.\n",
             encoding="utf-8",
         )
         (self._artifact_dir / "page-errors.txt").write_text(
-            "\n".join(self.monitor.page_errors)
-            + ("\n" if self.monitor.page_errors else ""),
+            "\n".join(self.monitor.page_errors) + ("\n" if self.monitor.page_errors else ""),
             encoding="utf-8",
         )
         (self._artifact_dir / "console-errors.txt").write_text(
-            "\n".join(self.monitor.console_errors)
-            + ("\n" if self.monitor.console_errors else ""),
+            "\n".join(self.monitor.console_errors) + ("\n" if self.monitor.console_errors else ""),
             encoding="utf-8",
         )
         (self._artifact_dir / "request-failures.txt").write_text(
@@ -479,6 +485,7 @@ class MonitoredPage:
 
 
 def ensure_axe_loaded(page) -> None:
+    """Ensure axe loaded."""
     if page.evaluate("Boolean(window.axe)"):
         return
     if not AXE_SOURCE_FILE.exists():
@@ -487,15 +494,15 @@ def ensure_axe_loaded(page) -> None:
 
 
 def ensure_axe_styles(page) -> None:
+    """Ensure axe styles."""
     needs_root_styles = page.evaluate(
-        "Boolean(document.querySelector('link[href^=\"css/style.css\"]') || document.getElementById('artifacts-grid'))"
+        "Boolean(document.querySelector('link[href^=\"css/style.css\"]') "
+        "|| document.getElementById('artifacts-grid'))"
     )
     if not needs_root_styles:
         return
 
-    already_injected = page.evaluate(
-        "Boolean(document.getElementById('axe-inline-styles'))"
-    )
+    already_injected = page.evaluate("Boolean(document.getElementById('axe-inline-styles'))")
     if already_injected:
         return
 
@@ -521,6 +528,7 @@ def run_axe(
     exclude: list[str] | None = None,
     run_only: list[str] | None = None,
 ):
+    """Run axe."""
     ensure_axe_loaded(page)
     ensure_axe_styles(page)
     context: dict[str, list[list[str]]] | None = None
@@ -546,10 +554,9 @@ def run_axe(
 def assert_no_blocking_axe_violations(
     results, *, impacts: tuple[str, ...] = ("serious", "critical")
 ) -> None:
+    """Assert no blocking axe violations."""
     violations = [
-        violation
-        for violation in results["violations"]
-        if violation.get("impact") in impacts
+        violation for violation in results["violations"] if violation.get("impact") in impacts
     ]
     if not violations:
         return
@@ -568,6 +575,7 @@ def assert_no_blocking_axe_violations(
 def contrast_ratio(
     page, selector: str, *, background_selector: str | None = None
 ) -> dict[str, object]:
+    """Contrast ratio."""
     return page.evaluate(
         r"""({ selector, backgroundSelector }) => {
             function parseColor(value) {
@@ -663,15 +671,14 @@ def assert_minimum_contrast(
     minimum_ratio: float = 4.5,
     background_selector: str | None = None,
 ) -> None:
+    """Assert minimum contrast."""
     result = cast(
-        dict[str, Any],
+        "dict[str, Any]",
         contrast_ratio(page, selector, background_selector=background_selector),
     )
     ratio_value = result.get("ratio")
     if not isinstance(ratio_value, (int, float)):
-        raise AssertionError(
-            f"Contrast ratio for {selector} was not numeric: {ratio_value!r}"
-        )
+        raise AssertionError(f"Contrast ratio for {selector} was not numeric: {ratio_value!r}")
     ratio = float(ratio_value)
     if ratio >= minimum_ratio:
         return

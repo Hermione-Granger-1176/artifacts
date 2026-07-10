@@ -13,5 +13,6 @@ class FakeSubprocessResult:
 
 
 def write_text(path: Path, content: str) -> None:
+    """Write text."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")

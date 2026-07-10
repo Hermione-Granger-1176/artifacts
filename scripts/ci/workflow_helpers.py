@@ -98,9 +98,7 @@ def validate_lock_refresh_artifact(root: Path) -> None:
     for relative_path in LOCK_ARTIFACT_REQUIRED_FILES.values():
         path = root / relative_path
         if not path.is_file():
-            raise ValueError(
-                f"Required artifact file missing or not a regular file: {path}"
-            )
+            raise ValueError(f"Required artifact file missing or not a regular file: {path}")
 
 
 def _run_gh_api(
@@ -240,9 +238,7 @@ def audit_repo_settings(
     )
 
 
-def list_changed_files(
-    *, event_name: str, repo: str, pr_number: str, commit_sha: str
-) -> list[str]:
+def list_changed_files(*, event_name: str, repo: str, pr_number: str, commit_sha: str) -> list[str]:
     """Return the changed file list for a pull request or push event."""
     return _thumbnail_plan.list_changed_files(
         event_name=event_name,

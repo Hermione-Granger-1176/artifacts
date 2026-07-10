@@ -14,12 +14,15 @@ maintainers working on the build internals.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
 from scripts.build.index_config import IndexConfig
 from scripts.build.prepare_site import APP_SHARE_IMAGE_PLACEHOLDER, APP_URL_PLACEHOLDER
 from scripts.lib.app_discovery import artifact_base_path
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 APPS_DIR = REPO_ROOT / artifact_base_path()
 TESTS_JS_APPS_DIR = REPO_ROOT / "tests" / "js" / "apps"
@@ -43,15 +46,30 @@ def _title_from_slug(slug: str) -> str:
 
 def _index_template(title: str) -> str:
     """Return a mature HTML starting point for a new artifact."""
+    description = "Replace this description with a concise summary of your artifact."
+    csp = (
+        "default-src 'self'; script-src 'self'; style-src 'self'; "
+        "img-src 'self' data:; connect-src 'self'"
+    )
+    lede = (
+        "Replace this scaffold with your artifact and keep shared app styling "
+        "in the root app system while limiting this local CSS file to "
+        "page-specific overrides."
+    )
+    placeholder = (
+        "Build the interaction here, document the architecture in "
+        "<code>docs/</code>, and keep local styling focused on this app's "
+        "unique layout."
+    )
     return f"""<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Replace this description with a concise summary of your artifact.">
+  <meta name="description" content="{description}">
   <link rel="canonical" href="{APP_URL_PLACEHOLDER}">
   <meta property="og:title" content="{title} | Artifacts">
-  <meta property="og:description" content="Replace this description with a concise summary of your artifact.">
+  <meta property="og:description" content="{description}">
   <meta property="og:type" content="website">
   <meta property="og:url" content="{APP_URL_PLACEHOLDER}">
   <meta property="og:site_name" content="Artifacts">
@@ -60,13 +78,12 @@ def _index_template(title: str) -> str:
   <meta property="og:image:alt" content="Preview card for the {title} app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{title} | Artifacts">
-  <meta name="twitter:description" content="Replace this description with a concise summary of your artifact.">
+  <meta name="twitter:description" content="{description}">
   <meta name="twitter:image" content="{APP_SHARE_IMAGE_PLACEHOLDER}">
   <meta name="twitter:image:alt" content="Preview card for the {title} app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="{csp}">
   <title>{title} | Artifacts</title>
   <script src="../../js/app-theme.js"></script>
   <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
@@ -85,12 +102,12 @@ def _index_template(title: str) -> str:
 
     <header class="page-intro">
       <h1 class="page-title">{title}</h1>
-      <p class="page-lede">Replace this scaffold with your artifact and keep shared app styling in the root app system while limiting this local CSS file to page-specific overrides.</p>
+      <p class="page-lede">{lede}</p>
     </header>
 
     <section class="placeholder-card">
       <h2>Get started</h2>
-      <p>Build the interaction here, document the architecture in <code>docs/</code>, and keep local styling focused on this app's unique layout.</p>
+      <p>{placeholder}</p>
     </section>
   </main>
 

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from pathlib import Path
-
-import pytest
+from typing import TYPE_CHECKING
 
 import scripts.lint.align_tables as align_tables
 
+if TYPE_CHECKING:
+    import pytest
+
 
 def test_is_table_line_detects_pipe_rows() -> None:
+    """Is table line detects pipe rows."""
     assert align_tables.is_table_line("| a | b |") is True
     assert align_tables.is_table_line("| --- | --- |") is True
     assert align_tables.is_table_line("  | x | y |  ") is True
@@ -17,28 +20,40 @@ def test_is_table_line_detects_pipe_rows() -> None:
 
 
 def test_split_cells_strips_outer_pipes() -> None:
+    """Split cells strips outer pipes."""
     assert align_tables.split_cells("| a | b | c |") == ["a", "b", "c"]
     assert align_tables.split_cells("|  x  |  y  |") == ["x", "y"]
 
 
+def test_split_cells_handles_missing_outer_pipes() -> None:
+    """Split cells copes with rows lacking a leading or trailing pipe."""
+    assert align_tables.split_cells("a | b |") == ["a", "b"]
+    assert align_tables.split_cells("| a | b") == ["a", "b"]
+    assert align_tables.split_cells("a | b") == ["a", "b"]
+
+
 def test_is_separator_row() -> None:
+    """Is separator row."""
     assert align_tables.is_separator_row(["---", "---"]) is True
     assert align_tables.is_separator_row([":---:", "---:"]) is True
     assert align_tables.is_separator_row(["text", "---"]) is False
 
 
 def test_build_separator_preserves_alignment_markers() -> None:
+    """Build separator preserves alignment markers."""
     result = align_tables.build_separator([10, 10], [":---", "---:"])
     assert result.startswith("| :---")
     assert "---:" in result
 
 
 def test_build_separator_uses_minimum_width() -> None:
+    """Build separator uses minimum width."""
     result = align_tables.build_separator([3, 3], ["---", "---"])
     assert result == "| --- | --- |"
 
 
 def test_align_table_pads_cells() -> None:
+    """Align table pads cells."""
     lines = [
         "| A | Long |",
         "| --- | --- |",
@@ -50,6 +65,7 @@ def test_align_table_pads_cells() -> None:
 
 
 def test_align_table_handles_uneven_columns() -> None:
+    """Align table handles uneven columns."""
     lines = [
         "| A | B |",
         "| --- | --- |",
@@ -61,6 +77,7 @@ def test_align_table_handles_uneven_columns() -> None:
 
 
 def test_process_file_aligns_tables(tmp_path: Path) -> None:
+    """Process file aligns tables."""
     md = tmp_path / "test.md"
     md.write_text(
         "# Title\n\n| Short | Very Long Column |\n| --- | --- |\n| a | b |\n",
@@ -80,6 +97,7 @@ def test_process_file_aligns_tables(tmp_path: Path) -> None:
 
 
 def test_process_file_skips_code_fences(tmp_path: Path) -> None:
+    """Process file skips code fences."""
     md = tmp_path / "test.md"
     md.write_text(
         "```\n| A | B |\n| --- | --- |\n```\n",
@@ -91,6 +109,7 @@ def test_process_file_skips_code_fences(tmp_path: Path) -> None:
 
 
 def test_process_file_returns_false_when_already_aligned(tmp_path: Path) -> None:
+    """Process file returns false when already aligned."""
     md = tmp_path / "test.md"
     md.write_text(
         "| A   | B   |\n| --- | --- |\n| x   | y   |\n",
@@ -102,6 +121,7 @@ def test_process_file_returns_false_when_already_aligned(tmp_path: Path) -> None
 
 
 def test_process_file_handles_table_at_end_of_file(tmp_path: Path) -> None:
+    """Process file handles table at end of file."""
     md = tmp_path / "test.md"
     md.write_text(
         "| A | B |\n| --- | --- |\n| x | y |",
@@ -115,6 +135,7 @@ def test_process_file_handles_table_at_end_of_file(tmp_path: Path) -> None:
 def test_find_markdown_files_excludes_node_modules(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Find markdown files excludes node modules."""
     monkeypatch.setattr(align_tables, "REPO_ROOT", tmp_path)
 
     (tmp_path / "README.md").write_text("# Hi", encoding="utf-8")
@@ -134,6 +155,7 @@ def test_find_markdown_files_excludes_node_modules(
 def test_main_with_no_args_processes_repo(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Main with no args processes repo."""
     monkeypatch.setattr(align_tables, "REPO_ROOT", tmp_path)
     monkeypatch.setattr("sys.argv", ["align_tables.py"])
 
@@ -150,6 +172,7 @@ def test_main_with_no_args_processes_repo(
 def test_main_with_explicit_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Main with explicit files."""
     md = tmp_path / "test.md"
     md.write_text("No tables here.\n", encoding="utf-8")
     monkeypatch.setattr("sys.argv", ["align_tables.py", str(md)])
@@ -162,6 +185,7 @@ def test_main_with_explicit_files(
 def test_main_skips_missing_files(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Main skips missing files."""
     monkeypatch.setattr("sys.argv", ["align_tables.py", "/nonexistent/file.md"])
 
     align_tables.main()

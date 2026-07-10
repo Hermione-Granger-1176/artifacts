@@ -20,7 +20,7 @@ import re
 import shutil
 import subprocess
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 from scripts import REPO_ROOT
@@ -29,6 +29,11 @@ from scripts.lib.app_discovery import thumbnail_file
 from scripts.lib.artifact_contract import read_artifact_contract_file
 from scripts.lib.path_validation import reject_symlinks
 from scripts.lib.project_config import load_artifacts_setting, load_site_url
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from scripts.lib.artifact_contract import ArtifactContract
 
 logging.basicConfig(
     level=getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO),
@@ -39,9 +44,7 @@ PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
 DEPLOY_DIR = REPO_ROOT / "_site"
 GIT_COMMAND_TIMEOUT_SECONDS = 10
 ROOT_STYLESHEET_IMPORT_PATTERN = re.compile(r'@import url\("(\./[^"?]+\.css)"\);')
-MODULE_SCRIPT_PATTERN = re.compile(
-    r'<script\s+type="module"\s+src="([^"]+)"'
-)
+MODULE_SCRIPT_PATTERN = re.compile(r'<script\s+type="module"\s+src="([^"]+)"')
 JS_IMPORT_PATTERN = re.compile(
     r"""(?:import|export)\s+.*?\s+from\s+['"]([^'"]+)['"]""",
     re.DOTALL,
@@ -61,7 +64,7 @@ APP_SHARE_IMAGE_PLACEHOLDER = "__APP_THUMBNAIL_URL__"
 SHARE_IMAGE_PATH = "assets/social/share-preview.png"
 
 
-def _artifact_contract() -> dict[str, str]:
+def _artifact_contract() -> ArtifactContract:
     """Return the validated shared artifact contract."""
     return read_artifact_contract_file(REPO_ROOT / "config" / "artifact_contract.json")
 
@@ -218,9 +221,7 @@ def _patch_app_social_metadata(site_url: str, version: str) -> None:
             continue
 
         content = index_path.read_text(encoding="utf-8")
-        title = _read_optional_text(
-            app_dir / "name.txt", app_dir.name.replace("-", " ").title()
-        )
+        title = _read_optional_text(app_dir / "name.txt", app_dir.name.replace("-", " ").title())
         description = _read_optional_text(app_dir / "description.txt")
 
         app_url = urljoin(site_url, artifact_url(_artifact_contract(), app_dir.name))
@@ -236,9 +237,7 @@ def _patch_app_social_metadata(site_url: str, version: str) -> None:
         if not replacements:
             continue
 
-        index_path.write_text(
-            _replace_exact_many(content, replacements), encoding="utf-8"
-        )
+        index_path.write_text(_replace_exact_many(content, replacements), encoding="utf-8")
 
 
 def _inline_css_imports(css_file: Path) -> None:
@@ -282,8 +281,7 @@ def _inline_all_css_imports() -> None:
         referencing = [
             css_file
             for css_file in (DEPLOY_DIR / "css").iterdir()
-            if css_file.suffix == ".css"
-            and f"./{subdir}/" in css_file.read_text(encoding="utf-8")
+            if css_file.suffix == ".css" and f"./{subdir}/" in css_file.read_text(encoding="utf-8")
         ]
         if referencing:
             logger.warning(
@@ -391,6 +389,11 @@ def _resolve_module_tree(entry_file: Path) -> list[Path]:
     return result
 
 
+def _relative_href(dep: Path, html_dir: Path) -> str:
+    """Return a forward-slash relative href from an HTML directory to a module."""
+    return os.path.relpath(dep, html_dir).replace(os.sep, "/")
+
+
 def _inject_modulepreload_hints() -> None:
     """Inject ``<link rel="modulepreload">`` tags for every ES module dependency.
 
@@ -413,8 +416,7 @@ def _inject_modulepreload_hints() -> None:
 
         html_dir = html_path.parent.resolve()
         hints = [
-            f'  <link rel="modulepreload" href="{os.path.relpath(dep, html_dir).replace(os.sep, "/")}">'
-            for dep in deps
+            f'  <link rel="modulepreload" href="{_relative_href(dep, html_dir)}">' for dep in deps
         ]
 
         insertion = "\n".join(hints) + "\n"

@@ -9,3 +9,13 @@ playwright-report/
 test-results/
 js/data.js
 js/gallery-config.js
+CLAUDE.md
+README.md
+docs/architecture.md
+.github/
+../js/data.js
+../js/gallery-config.js
+../CLAUDE.md
+../README.md
+../docs/architecture.md
+../.github/

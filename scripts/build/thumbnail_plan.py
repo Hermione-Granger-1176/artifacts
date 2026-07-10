@@ -4,7 +4,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from scripts.ci.repo_audit import require_response_type
 from scripts.lib.app_discovery import (
@@ -15,6 +15,9 @@ from scripts.lib.app_discovery import (
 from scripts.lib.artifact_contract import load_contract as _load_contract
 from scripts.lib.gh_api import run_gh_api, run_gh_api_json
 from scripts.lib.path_validation import reject_symlinks
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def _build_thumbnail_pattern() -> str:
@@ -62,7 +65,7 @@ def associated_pr_kind_for_commit(
     repo: str,
     commit_sha: str,
     *,
-    run_gh_api_json_fn=run_gh_api_json,
+    run_gh_api_json_fn: Callable[..., object] = run_gh_api_json,
 ) -> str:
     """Return the associated PR kind for a commit on ``main`` pushes."""
     if not commit_sha:
@@ -74,7 +77,7 @@ def associated_pr_kind_for_commit(
     )
     require_response_type(payload, list, "Associated PRs response must be a JSON array")
 
-    for pr_payload in cast(list[object], payload):
+    for pr_payload in cast("list[object]", payload):
         if is_generated_thumbnail_pr(pr_payload):
             return "thumbnail-followup"
         if isinstance(pr_payload, dict) and pr_payload.get("merged_at"):
@@ -89,7 +92,7 @@ def list_changed_files(
     repo: str,
     pr_number: str,
     commit_sha: str,
-    run_gh_api_fn=run_gh_api,
+    run_gh_api_fn: Callable[..., str] = run_gh_api,
 ) -> list[str]:
     """Return the changed file list for a pull request or push event."""
     request = {
@@ -120,7 +123,7 @@ def list_commit_files(
     *,
     repo: str,
     commit_sha: str,
-    run_gh_api_fn=run_gh_api,
+    run_gh_api_fn: Callable[..., str] = run_gh_api,
 ) -> list[str]:
     """Return the changed file list for a single commit (not PR-level)."""
     if not commit_sha:
@@ -145,7 +148,7 @@ def is_automated_thumbnail_commit(
     app_bot_login: str,
     repo: str,
     commit_sha: str,
-    list_commit_files_fn=list_commit_files,
+    list_commit_files_fn: Callable[..., list[str]] = list_commit_files,
 ) -> bool:
     """Return True when the triggering commit is an app-authored thumbnail-only change.
 
@@ -215,11 +218,11 @@ def thumbnail_plan(
     actor: str = "",
     app_bot_login: str = "",
     apps_root: Path | None = None,
-    list_changed_files_fn=list_changed_files,
-    list_commit_files_fn=list_commit_files,
-    missing_thumbnail_slugs_fn=missing_thumbnail_slugs,
-    runtime_change_plan_fn=runtime_change_plan,
-    associated_pr_kind_for_commit_fn=associated_pr_kind_for_commit,
+    list_changed_files_fn: Callable[..., list[str]] = list_changed_files,
+    list_commit_files_fn: Callable[..., list[str]] = list_commit_files,
+    missing_thumbnail_slugs_fn: Callable[..., list[str]] = missing_thumbnail_slugs,
+    runtime_change_plan_fn: Callable[..., dict[str, object]] = runtime_change_plan,
+    associated_pr_kind_for_commit_fn: Callable[..., str] = associated_pr_kind_for_commit,
 ) -> dict[str, object]:
     """Return the strict thumbnail automation plan for one workflow event."""
     apps_root = apps_root or Path(artifact_base_path())
@@ -230,15 +233,13 @@ def thumbnail_plan(
         commit_sha=commit_sha,
     )
     runtime_plan = runtime_change_plan_fn(changed_files)
-    changed_slugs = cast(list[str], runtime_plan["changed_slugs"])
-    runtime_changed = cast(bool, runtime_plan["runtime_changed"])
-    shared_runtime_changed = cast(bool, runtime_plan["shared_runtime_changed"])
+    changed_slugs = cast("list[str]", runtime_plan["changed_slugs"])
+    runtime_changed = cast("bool", runtime_plan["runtime_changed"])
+    shared_runtime_changed = cast("bool", runtime_plan["shared_runtime_changed"])
     missing_slugs = missing_thumbnail_slugs_fn(apps_root)
     affected_slugs = sorted(set(changed_slugs) | set(missing_slugs))
     associated_pr_kind = (
-        associated_pr_kind_for_commit_fn(repo, commit_sha)
-        if event_name == "push"
-        else "none"
+        associated_pr_kind_for_commit_fn(repo, commit_sha) if event_name == "push" else "none"
     )
 
     persist_mode, reason = thumbnail_persist_decision(
@@ -267,12 +268,11 @@ def thumbnail_plan(
             commit_files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
         except Exception:
             commit_files = []
-        skip_verification = _all_thumbnail_files(commit_files
-        )
+        skip_verification = _all_thumbnail_files(commit_files)
 
     return {
-        "app_scope": cast(str, runtime_plan["app_scope"]),
-        "browser_scope": cast(str, runtime_plan["app_scope"]),
+        "app_scope": cast("str", runtime_plan["app_scope"]),
+        "browser_scope": cast("str", runtime_plan["app_scope"]),
         "changed_slugs": changed_slugs,
         "persist_mode": persist_mode,
         "reason": reason,
@@ -290,7 +290,7 @@ def read_thumbnail_plan(root: Path) -> dict[str, object]:
     plan_path = root / THUMBNAIL_ARTIFACT_PLAN_FILE
     payload = json.loads(plan_path.read_text(encoding="utf-8"))
     require_response_type(payload, dict, "Thumbnail plan must be a JSON object")
-    return cast(dict[str, object], payload)
+    return cast("dict[str, object]", payload)
 
 
 def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
@@ -301,7 +301,7 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
         raise ValueError("Thumbnail artifact is missing plan.json")
 
     plan = read_thumbnail_plan(root)
-    allowed_slugs = set(cast(list[str], plan.get("thumbnail_slugs", [])))
+    allowed_slugs = set(cast("list[str]", plan.get("thumbnail_slugs", [])))
     shared_runtime_changed = bool(plan.get("shared_runtime_changed", False))
     saw_thumbnail = False
 
@@ -320,14 +320,10 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
             saw_thumbnail = True
             slug = Path(relative).parts[1]
             if not shared_runtime_changed and slug not in allowed_slugs:
-                raise ValueError(
-                    f"Thumbnail artifact contains slug outside plan scope: {slug}"
-                )
+                raise ValueError(f"Thumbnail artifact contains slug outside plan scope: {slug}")
 
     if plan.get("persist_mode") != "none" and not saw_thumbnail:
-        raise ValueError(
-            f"Thumbnail artifact has no {_THUMBNAIL_FILE} files to persist"
-        )
+        raise ValueError(f"Thumbnail artifact has no {_THUMBNAIL_FILE} files to persist")
 
     return plan
 
@@ -361,8 +357,8 @@ def invalidate_thumbnails(
     repo: str,
     pr_number: str,
     commit_sha: str,
-    list_changed_files_fn=list_changed_files,
-    runtime_change_plan_fn=runtime_change_plan,
+    list_changed_files_fn: Callable[..., list[str]] = list_changed_files,
+    runtime_change_plan_fn: Callable[..., dict[str, object]] = runtime_change_plan,
 ) -> list[str]:
     """Delete thumbnails for apps whose runtime or shared app shell changed."""
     changed_files = list_changed_files_fn(
@@ -374,8 +370,8 @@ def invalidate_thumbnails(
     plan = runtime_change_plan_fn(changed_files)
     invalidated = []
     targets = thumbnail_targets(
-        app_scope=cast(str, plan["app_scope"]),
-        changed_slugs=cast(list[str], plan["changed_slugs"]),
+        app_scope=cast("str", plan["app_scope"]),
+        changed_slugs=cast("list[str]", plan["changed_slugs"]),
     )
 
     for thumb in targets:

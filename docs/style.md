@@ -4,9 +4,7 @@ Editor and language conventions for the artifacts workspace. These rules are enf
 
 ## Editor configuration
 
-The `.editorconfig` file at the repository root defines per-filetype settings.
-Most editors and IDEs support it natively or through a plugin.
-`make editorconfig-check` enforces the supported rules for covered repository files in automation, while `make lint` layers language-specific linters on top. Both targets are discoverable through `make help`.
+The `.editorconfig` file at the repository root defines per-filetype settings. Most editors and IDEs support it natively or through a plugin. `make editorconfig-check` enforces the supported rules for covered repository files in automation, while `make lint` layers language-specific linters on top. Both targets are discoverable through `make help`.
 
 Summary of settings:
 
@@ -18,23 +16,25 @@ Summary of settings:
 ## Python
 
 - **Indent:** 4 spaces
-- **Line length:** 88 characters (black-compatible)
+- **Line length:** 100 characters
 - **Linter:** ruff, configured in `pyproject.toml`
-- **Rule sets:** B (bugbear), E (pycodestyle), F (pyflakes), I (isort), UP (pyupgrade), W (warnings)
+- **Rule sets:** ARG, B, C4, D, E, F, I, PTH, RUF, SIM, TC, UP, and W
 - **Target:** Python 3.12+
 - **Docstrings:** required on all public functions, one-line or multi-line Google style
-- **Type hints:** use `from __future__ import annotations` for modern syntax
+- **Type hints:** mypy runs in strict mode over `scripts/`; use `from __future__ import annotations` for modern syntax
 - **Imports:** sorted by isort (enforced by ruff rule I)
 - **Private functions:** prefix with a leading underscore
 - **Entry points:** guard `if __name__ == "__main__":` blocks with `# pragma: no cover`
 
-Run `make lint` or `make check-local` to check. Those targets also run the EditorConfig validation used in CI.
+Run `make lint`, `make typecheck-py`, `make dead-code-py`, `make format-py-check`, or `make check-local` to check. Those targets also run the EditorConfig validation used in CI.
 
 ## JavaScript
 
 - **Indent:** 2 spaces
 - **Line length:** not enforced, but keep lines readable
-- **Linter:** ESLint 10 (flat config), configured in `eslint.config.js`
+- **Linter:** ESLint 10 (flat config), configured in `config/eslint.config.js`
+- **Formatter:** Prettier covers supported JSON, YAML, markdown, config, and tooling script files that are not excluded by `config/prettierignore`
+- **Type checks:** TypeScript runs the web typecheck target from `config/jsconfig.json`
 - **Module format:** ES modules (`import`/`export`), no CommonJS
 - **JSDoc:** required on all exported functions and significant private functions
 - **Naming:** camelCase for variables and functions, PascalCase for classes
@@ -48,14 +48,14 @@ Run `make lint` or `make check-local` to check. Those targets also run the Edito
 - **DOM access:** use `documentObj`/`windowObj` parameters for testability
 - **No `eval`**, no `document.write`, no `innerHTML` with unescaped user input
 
-Run `make lint`, `make coverage-js`, or `make check-local` to check. `make coverage-js` enforces the current baseline across all source files imported by tests. Thresholds and exclusions are configured in `package.json`.
+Run `make lint`, `make typecheck-web`, `make dead-code-js`, `make coverage-js`, or `make check-local` to check. `make coverage-js` enforces the current baseline across all source files imported by tests. Thresholds and exclusions are configured in `package.json`.
 
 ## CSS
 
 - **Indent:** 2 spaces
 - **Entry file:** `css/style.css`, which first imports `css/fonts.css` (self-hosted font declarations) then partials from `css/gallery/` for the root gallery (tokens, reset, header, toolbar, book, cards, detail, responsive, etc.)
 - **Shared app system:** `css/app-tokens.css` defines shared tokens; `css/app-shell.css` imports partials from `css/app/` for the shared mature-app shell patterns
-- **Linter:** stylelint, configured in `stylelint.config.js`
+- **Linter:** stylelint, configured in `config/stylelint.config.js`
 - **Conventions:**
   - BEM-inspired class names (e.g., `.artifact-card`, `.detail-close`)
   - CSS custom properties for theming and shared geometry (for example `--color-bg-primary`, `--text-primary`, `--accent`, `--book-sheet-min-height`, `--gallery-*`, `--desk-note-*`, and the shared app-shell tokens)
@@ -93,7 +93,7 @@ Run `make lint-yaml` for YAML structure/format checks and `make lint-workflows` 
 ## Makefile
 
 - **Indent:** tabs (required by Make)
-- **Variables:** uppercase with `?=` defaults (e.g., `PYTHON ?= python3.12`)
+- **Variables:** uppercase with `?=` defaults. `PYTHON` auto-detects a supported interpreter and can be overridden when needed
 
 ## Markdown
 
