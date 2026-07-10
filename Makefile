@@ -159,8 +159,10 @@ dead-code-js: ## Detect unused JavaScript files, exports, and dependencies
 
 test: test-py test-js ## Run non-browser Python tests + JS tests
 
+# Honor ARGS only when given on the make command line, so a stray ARGS
+# environment variable cannot silently change what the test gate runs.
 test-py: ## Run Python tests only (with coverage, pass ARGS="-k name --no-cov" for a subset)
-	$(VENV_PYTHON) -m pytest --ignore=tests/browser $(ARGS)
+	$(VENV_PYTHON) -m pytest --ignore=tests/browser $(if $(filter command line,$(origin ARGS)),$(ARGS))
 
 test-ci: ## Run CI Python tests only
 	$(VENV_PYTHON) -m pytest --no-cov tests/ci
