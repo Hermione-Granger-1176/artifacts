@@ -13,7 +13,7 @@ Interactive explainer for LLM next-token probabilities, temperature scaling, and
 ## Structure
 
 - `index.html` - app shell, semantic content, metadata, and header
-- `css/app.css` - tokenizer-specific layout and visual overrides on top of the shared app system
+- `../../css/style.css` - shared site stylesheet, including tokenizer layout and visual selectors
 - `js/app.js` - bootstrap, tab selection, and render loop orchestration
 - `js/modules/scenarios.js` - scenario dataset
 - `js/modules/sampling.js` - softmax and top-p selection logic

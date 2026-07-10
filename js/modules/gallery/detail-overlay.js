@@ -43,20 +43,26 @@ export function createDetailOverlay({
   backgroundElements,
   detailCloseDelay
 }) {
+  /** @type {string | null} */
   let expandedId = null;
+  /** @type {HTMLElement | null} */
   let lastExpandedTrigger = null;
-  let overlayResetTimer = null;
+  /** @type {number | undefined} */
+  let overlayResetTimer;
 
   function getExpandedId() {
     return expandedId;
   }
 
   function getCardById(id) {
-    return id ? grid.querySelector(`.artifact-card[data-id="${CSS.escape(id)}"]`) : null;
+    return id
+      ? /** @type {HTMLElement | null} */ (grid.querySelector(`.artifact-card[data-id="${CSS.escape(id)}"]`))
+      : null;
   }
 
   function updateExpandedCardState() {
-    for (const card of grid.querySelectorAll('.artifact-card')) {
+    for (const element of grid.querySelectorAll('.artifact-card')) {
+      const card = /** @type {HTMLElement} */ (element);
       const isExpanded = card.dataset.id === expandedId;
       card.classList.toggle('expanded', isExpanded);
       card.setAttribute('aria-expanded', String(isExpanded));
@@ -103,8 +109,10 @@ export function createDetailOverlay({
       '[tabindex]:not([tabindex="-1"])'
     ].join(',');
 
-    const focusableElements = [...detailPanel.querySelectorAll(focusableSelectors)].filter(
-      (element) => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true'
+    const focusableElements = /** @type {HTMLElement[]} */ (
+      [...detailPanel.querySelectorAll(focusableSelectors)].filter(
+        (element) => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true'
+      )
     );
 
     if (focusableElements.length === 0) {
@@ -159,7 +167,7 @@ export function createDetailOverlay({
 
     windowObj.requestAnimationFrame(() => {
       detailOverlay.classList.add('open');
-      const closeButton = detailPanel.querySelector('.detail-close');
+      const closeButton = /** @type {HTMLElement | null} */ (detailPanel.querySelector('.detail-close'));
       if (closeButton) {
         closeButton.focus({ preventScroll: true });
       }

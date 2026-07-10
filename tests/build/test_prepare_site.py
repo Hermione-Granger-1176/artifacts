@@ -67,6 +67,7 @@ def create_source_tree(repo_root: Path) -> None:
         "@media (max-width: 1px) {}\n",
     )
     write_text(repo_root / "js" / "app.js", "console.log('app')\n")
+    write_text(repo_root / "js" / "app-theme.js", "console.log('theme')\n")
     write_text(repo_root / "js" / "gallery-config.js", "window.ARTIFACTS_CONFIG = {};\n")
     write_text(repo_root / "js" / "data.js", "window.ARTIFACTS_DATA = [];\n")
     write_text(repo_root / "apps" / "sample" / "name.txt", "Sample App\n")
@@ -82,9 +83,13 @@ def create_source_tree(repo_root: Path) -> None:
                 '<meta name="twitter:image" content="__APP_THUMBNAIL_URL__">\n',
                 '<meta property="og:title" content="__APP_TITLE__">\n',
                 '<meta property="og:description" content="__APP_DESCRIPTION__">\n',
+                '<link rel="stylesheet" href="../../css/style.css">\n',
+                '<script src="../../js/app-theme.js"></script>\n',
+                '<script type="module" src="./js/app.js"></script>\n',
             ]
         ),
     )
+    write_text(repo_root / "apps" / "sample" / "js" / "app.js", "console.log('app')\n")
     (repo_root / "apps" / "sample" / "thumbnail.webp").write_bytes(b"webp")
     write_text(
         repo_root / "assets" / "icons" / "manifest.webmanifest",
@@ -308,6 +313,60 @@ def test_patch_index_html_applies_cache_busting(
     assert 'src="js/app.js?v=abc123"' in content
 
 
+def test_patch_app_asset_references_versions_app_assets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Patch app asset references versions app assets."""
+    deploy_dir = tmp_path / "_site"
+    app_index = deploy_dir / "apps" / "sample" / "index.html"
+    write_text(
+        app_index,
+        "".join(
+            [
+                '<link rel="stylesheet" href="../../css/style.css">\n',
+                '<script src="../../js/app-theme.js"></script>\n',
+                '<script type="module" src="./js/app.js"></script>\n',
+            ]
+        ),
+    )
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._patch_app_asset_references("abc123")
+
+    content = app_index.read_text(encoding="utf-8")
+    assert 'href="../../css/style.css?v=abc123"' in content
+    assert 'src="../../js/app-theme.js?v=abc123"' in content
+    assert 'src="./js/app.js?v=abc123"' in content
+
+
+def test_patch_app_asset_references_skips_missing_apps_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Patch app asset references skips missing apps dir."""
+    deploy_dir = tmp_path / "_site"
+    deploy_dir.mkdir()
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._patch_app_asset_references("abc123")
+
+
+def test_patch_app_asset_references_skips_non_matching_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Patch app asset references skips non matching entries."""
+    deploy_dir = tmp_path / "_site"
+    apps_dir = deploy_dir / "apps"
+    write_text(apps_dir / "notes.txt", "ignore\n")
+    (apps_dir / "empty-app").mkdir()
+    plain_index = apps_dir / "plain-app" / "index.html"
+    write_text(plain_index, "<p>No shared stylesheet.</p>\n")
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._patch_app_asset_references("abc123")
+
+    assert plain_index.read_text(encoding="utf-8") == "<p>No shared stylesheet.</p>\n"
+
+
 def test_patch_social_metadata_injects_absolute_urls(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -456,21 +515,15 @@ def test_inline_all_css_imports_removes_partial_dirs(
     deploy_dir = tmp_path / "_site"
     css_dir = deploy_dir / "css"
     gallery_dir = css_dir / "gallery"
-    app_dir = css_dir / "app"
     gallery_dir.mkdir(parents=True)
-    app_dir.mkdir(parents=True)
     write_text(gallery_dir / "01-tokens.css", "body {}\n")
-    write_text(app_dir / "01-reset.css", "html {}\n")
     write_text(css_dir / "style.css", '@import url("./gallery/01-tokens.css");\n')
-    write_text(css_dir / "app-shell.css", '@import url("./app/01-reset.css");\n')
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
 
     prepare_site._inline_all_css_imports()
 
     assert not gallery_dir.exists()
-    assert not app_dir.exists()
     assert "body {}" in (css_dir / "style.css").read_text(encoding="utf-8")
-    assert "html {}" in (css_dir / "app-shell.css").read_text(encoding="utf-8")
 
 
 def test_inline_all_css_imports_keeps_partial_dir_when_still_referenced(
@@ -487,7 +540,6 @@ def test_inline_all_css_imports_keeps_partial_dir_when_still_referenced(
         css_dir / "style.css",
         '@import url("./gallery/01-tokens.css");\n/* sourced from ./gallery/ */\n',
     )
-    write_text(css_dir / "app-shell.css", "html {}\n")
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
 
     prepare_site._inline_all_css_imports()
@@ -742,6 +794,9 @@ def test_prepare_site_builds_deploy_output(tmp_path: Path, monkeypatch: pytest.M
         'content="https://example.com/artifacts/apps/sample/thumbnail.webp?v=abc123"'
         in sample_content
     )
+    assert 'href="../../css/style.css?v=abc123"' in sample_content
+    assert 'src="../../js/app-theme.js?v=abc123"' in sample_content
+    assert 'src="./js/app.js?v=abc123"' in sample_content
     assert (deploy_dir / "assets" / "icons" / "favicon.ico").exists()
     assert (deploy_dir / "assets" / "social" / "share-preview.png").exists()
     metadata = (deploy_dir / prepare_site.DEPLOY_METADATA_FILE).read_text(encoding="utf-8")

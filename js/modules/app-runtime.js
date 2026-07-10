@@ -1,15 +1,19 @@
 import { createRuntime } from "./runtime.js";
 
 /**
+ * @typedef {Window & { __ARTIFACT_READY__?: boolean }} MatureAppWindow
+ */
+
+/**
  * Bootstrap one mature app after wiring the shared runtime and fatal error handling.
  *
  * @param {{
  *   documentObj?: Document,
  *   onErrorContext?: string,
  *   runtimeOptions?: object,
- *   run: ({ runtime: ReturnType<typeof createRuntime> }) => void,
+ *   run: (args: { runtime: ReturnType<typeof createRuntime> }) => void,
  *   windowObj?: Window
- * }} [options={}]
+ * }} options
  * @returns {ReturnType<typeof createRuntime>} Shared runtime instance for the app.
  */
 export function initializeMatureApp({
@@ -18,27 +22,29 @@ export function initializeMatureApp({
   runtimeOptions = {},
   run,
   windowObj = window
-} = {}) {
-  if (typeof run !== "function") {
+}) {
+  const runApp = /** @type {(args: { runtime: ReturnType<typeof createRuntime> }) => void} */ (run);
+  if (typeof runApp !== "function") {
     throw new Error("initializeMatureApp requires a run function");
   }
 
-  windowObj.__ARTIFACT_READY__ = false;
-  const runtime = createRuntime({ ...runtimeOptions, documentObj, windowObj });
+  const runtimeWindow = /** @type {MatureAppWindow} */ (windowObj);
+  runtimeWindow.__ARTIFACT_READY__ = false;
+  const runtime = createRuntime({ ...runtimeOptions, documentObj, windowObj: runtimeWindow });
   runtime.setupGlobalErrorHandlers();
 
   function bootstrap() {
     if (runtime.state.lastError?.fatal) {
-      windowObj.__ARTIFACT_READY__ = false;
+      runtimeWindow.__ARTIFACT_READY__ = false;
       return;
     }
 
     try {
-      run({ runtime });
-      windowObj.__ARTIFACT_READY__ = true;
+      runApp({ runtime });
+      runtimeWindow.__ARTIFACT_READY__ = true;
       runtime.markReady();
     } catch (error) {
-      windowObj.__ARTIFACT_READY__ = false;
+      runtimeWindow.__ARTIFACT_READY__ = false;
       runtime.reportError(error, onErrorContext, { fatal: true });
       throw error;
     }

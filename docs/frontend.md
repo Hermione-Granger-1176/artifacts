@@ -3,17 +3,17 @@
 ## Root gallery entry points
 
 - `index.html` loads the root gallery shell
-- `css/style.css` imports `css/fonts.css` (self-hosted `@font-face` for Caveat and Fredoka One) then the modular partials in `css/gallery/` (tokens, reset, header, toolbar, book, cards, detail overlay, responsive, etc.)
+- `css/style.css` is the only site stylesheet. It contains self-hosted font declarations, gallery styling, shared app shell styling, and app-specific layout selectors scoped by body classes.
 - `js/gallery-config.js` provides generated tool/tag labels, display order, and the shared artifact path contract from `config/gallery_metadata.json` and `config/artifact_contract.json`
 - `js/data.js` provides generated artifact metadata
 - `js/app.js` bootstraps the runtime, validates generated bootstrap data, and calls `initializeGalleryApp`
 
 ## Shared app system
 
-- `css/app-tokens.css` owns the shared bookmark-note palette, light/dark neutrals, font stacks, and app token rules
-- `css/app-shell.css` owns the shared mature-app header, buttons, inputs, tables, tooltips, and scroll-to-top styling
-- `js/app-theme.js` applies the saved mature-app theme before shared CSS loads, and `js/modules/app-shell.js` owns runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
-- Mature app pages import those shared files first, then add app-local CSS and JS inside `apps/<slug>/`
+- `css/style.css` owns the shared bookmark-note palette, light and dark themes, root gallery styling, app shell styling, and current app-specific layout selectors
+- `js/app-theme.js` applies the saved mature-app theme before CSS loads
+- `js/modules/app-shell.js` owns runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
+- Mature app pages import `../../css/style.css`, use `artifact-app` plus an `app-<slug>` body class, and keep app-local JavaScript inside `apps/<slug>/`
 
 ## JavaScript module responsibilities
 
@@ -66,14 +66,14 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - Artifact cards render as real `<button>` controls so keyboard and screen-reader semantics match the interaction model instead of relying on `role="button"` shims.
 - `js/modules/gallery/render.js` gives the detail description a stable ID, and `js/modules/gallery/detail-overlay.js` uses it to describe the dialog while artifact links announce that they open in a new tab.
 - `404.html` has explicit focus-visible styling so fallback navigation is keyboard-safe even outside the main app shell.
-- `css/gallery/12-chrome.css` owns the root focus ring tokens and skip-link behavior; `css/gallery/09-cards.css` owns accessible contrast tuning for active pagination and detail CTA states.
+- `css/style.css` owns focus ring tokens, skip-link behavior, and accessible contrast tuning for active pagination and detail CTA states.
 - `tests/browser/frontend_helpers.py` fails browser suites on `pageerror`, unexpected `console.error`, failed requests, and HTTP 4xx/5xx responses, and can emit screenshots, traces, and runtime logs for CI artifacts.
 
 ## Local vs CI expectations
 
 - Use [operations.md](operations.md) as the canonical workflow reference; the targets below are the frontend-specific checkpoints you will use most often.
 - `make test-js` runs the JavaScript unit suite with Node's built-in test runner across `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, and `tests/js/workflows/`
-- `make coverage-js` uses Node's built-in experimental coverage report, which covers all source files imported by tests while excluding `node_modules/` and `tests/` -- thresholds and exclusions are configured in `package.json`
+- `make coverage-js` uses Node's built-in experimental coverage report, which covers all source files imported by tests while excluding `node_modules/` and `tests/`. Thresholds and exclusions are configured in `package.json`
 - `make check-local` runs the non-browser local gate: formatting, linting, dead-code checks, non-browser Python tests, JavaScript unit tests, JavaScript source-to-test coverage lint, JavaScript coverage, dependency audits, artifact validation, and canonical generated-file drift checks
 - `make test-browser-root` runs all root-gallery Playwright suites
 - `make test-browser-root-smoke`, `make test-browser-root-accessibility`, and `make test-browser-root-flows` run the root smoke, accessibility, and browser-flow suites separately

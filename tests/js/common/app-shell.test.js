@@ -194,12 +194,12 @@ test('initAppShell applyTheme normalizes and persists', () => {
 
     shell.applyTheme('dark');
     assert.equal(env.attrs['data-theme'], 'dark');
-    assert.equal(env.themeColorMeta.getAttribute('content'), 'rgb(20, 20, 20)');
+    assert.equal(env.themeColorMeta.getAttribute('content'), 'rgb(30, 26, 20)');
     assert.deepEqual(themeChanges, ['dark']);
 
     shell.applyTheme('invalid');
     assert.equal(env.attrs['data-theme'], 'light');
-    assert.equal(env.themeColorMeta.getAttribute('content'), 'rgb(248, 248, 246)');
+    assert.equal(env.themeColorMeta.getAttribute('content'), 'rgb(245, 239, 230)');
   } finally {
     cleanupGlobals();
   }

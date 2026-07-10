@@ -44,7 +44,7 @@ def test_app_pages_have_no_blocking_axe_violations(tmp_path: Path, monkeypatch, 
             page.locator("#theme-toggle").click()
             expect(page.locator("html")).to_have_attribute("data-theme", "dark")
             expect(page.locator('meta[name="theme-color"]')).to_have_attribute(
-                "content", "rgb(20, 20, 20)"
+                "content", "rgb(30, 26, 20)"
             )
             assert_minimum_contrast(page, "#btnAdd", minimum_ratio=4.5)
 
@@ -54,7 +54,7 @@ def test_app_pages_have_no_blocking_axe_violations(tmp_path: Path, monkeypatch, 
             page.locator("#theme-toggle").click()
             expect(page.locator("html")).to_have_attribute("data-theme", "dark")
             expect(page.locator('meta[name="theme-color"]')).to_have_attribute(
-                "content", "rgb(20, 20, 20)"
+                "content", "rgb(30, 26, 20)"
             )
             assert_minimum_contrast(page, "#tabs .tab.active", minimum_ratio=4.5)
             assert_minimum_contrast(page, "#token-pills .pill.winner", minimum_ratio=4.5)

@@ -1,4 +1,20 @@
 /**
+ * @typedef {{
+ *   context: string,
+ *   message: string,
+ *   fatal: boolean,
+ *   timestamp: string,
+ *   summary: string
+ * }} RuntimeErrorRecord
+ * @typedef {{ ready: boolean, lastError: RuntimeErrorRecord | null }} RuntimeState
+ * @typedef {Window & {
+ *   __ARTIFACTS_DIAGNOSTICS_BOUND__?: boolean,
+ *   __ARTIFACTS_ERROR_HANDLERS_BOUND__?: boolean,
+ *   __ARTIFACTS_RUNTIME__?: RuntimeState
+ * }} RuntimeWindow
+ */
+
+/**
  * Read a value from localStorage, returning a fallback on failure.
  * @param {string} key - Storage key to read.
  * @param {string|null} [fallbackValue=null] - Value to return when reads fail or the key is unset.
@@ -28,7 +44,11 @@ export function writeStorage(key, value) {
   }
 }
 
-/** Extract a human-readable message from an error of any shape. */
+/**
+ * Extract a human-readable message from an error of any shape.
+ * @param {*} error - Error-like value to normalize.
+ * @returns {string} Human-readable error message.
+ */
 function normalizeErrorMessage(error) {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -45,18 +65,32 @@ function normalizeErrorMessage(error) {
   return 'Unknown runtime error';
 }
 
-/** Normalize console output into a single comparable line. */
+/**
+ * Normalize console output into a single comparable line.
+ * @param {*} message - Console message to normalize.
+ * @returns {string} Comparable message text.
+ */
 function normalizeConsoleMessage(message) {
   return String(message).replace(/\s+/g, ' ').trim();
 }
 
-/** Ignore expected bootstrap validation noise that is already surfaced in the UI. */
+/**
+ * Ignore expected bootstrap validation noise that is already surfaced in the UI.
+ * @param {*} message - Runtime message to check.
+ * @returns {boolean} Whether to skip logging this message.
+ */
 function shouldIgnoreRuntimeError(message) {
   const normalizedMessage = normalizeConsoleMessage(message).toLowerCase();
   return normalizedMessage.includes('window.artifacts_data must be an array');
 }
 
-/** Build a copyable diagnostics summary for the latest runtime error. */
+/**
+ * Build a copyable diagnostics summary for the latest runtime error.
+ * @param {RuntimeErrorRecord} errorRecord - Latest runtime error.
+ * @param {Document} documentObj - Document containing runtime status.
+ * @param {Window} windowObj - Window containing location and navigator details.
+ * @returns {string} Diagnostics summary.
+ */
 function buildErrorSummary(errorRecord, documentObj, windowObj) {
   const locationHref = windowObj?.location?.href || '';
   const userAgent = windowObj?.navigator?.userAgent || '';
@@ -85,7 +119,12 @@ function buildErrorSummary(errorRecord, documentObj, windowObj) {
   return summary.join('\n');
 }
 
-/** Sync the runtime error details UI to the latest captured error. */
+/**
+ * Sync the runtime error details UI to the latest captured error.
+ * @param {Document} documentObj - Document containing diagnostics nodes.
+ * @param {RuntimeState} state - Runtime state to display.
+ * @returns {void}
+ */
 function updateRuntimeDiagnostics(documentObj, state) {
   if (typeof documentObj.getElementById !== 'function') {
     return;
@@ -113,7 +152,13 @@ function updateRuntimeDiagnostics(documentObj, state) {
   }
 }
 
-/** Copy the latest runtime diagnostics summary when clipboard access is available. */
+/**
+ * Copy the latest runtime diagnostics summary when clipboard access is available.
+ * @param {RuntimeState} state - Runtime state containing the latest error.
+ * @param {Window} windowObj - Window containing clipboard access.
+ * @param {Document} documentObj - Document containing the copy button.
+ * @returns {Promise<boolean>} Whether the summary was copied.
+ */
 async function copyRuntimeDiagnostics(state, windowObj, documentObj) {
   const summary = state.lastError?.summary || '';
   if (!summary) {
@@ -155,18 +200,20 @@ async function copyRuntimeDiagnostics(state, windowObj, documentObj) {
  * }} Runtime API.
  */
 export function createRuntime({ consoleObj = console, documentObj = document, windowObj = window } = {}) {
-  const state = {
+  const runtimeWindow = /** @type {RuntimeWindow} */ (windowObj);
+  const state = /** @type {RuntimeState} */ ({
     ready: false,
     lastError: null
-  };
+  });
   const runtimeErrorBanner = documentObj.getElementById('runtime-error');
 
-  windowObj.__ARTIFACTS_RUNTIME__ = state;
+  runtimeWindow.__ARTIFACTS_RUNTIME__ = state;
   documentObj.documentElement.dataset.runtimeStatus = 'booting';
-  if (typeof documentObj.addEventListener === 'function' && !windowObj.__ARTIFACTS_DIAGNOSTICS_BOUND__) {
-    windowObj.__ARTIFACTS_DIAGNOSTICS_BOUND__ = true;
+  if (typeof documentObj.addEventListener === 'function' && !runtimeWindow.__ARTIFACTS_DIAGNOSTICS_BOUND__) {
+    runtimeWindow.__ARTIFACTS_DIAGNOSTICS_BOUND__ = true;
     documentObj.addEventListener('click', (event) => {
-      const copyButton = event.target?.closest?.('#runtime-error-copy');
+      const target = /** @type {Element | null} */ (event.target);
+      const copyButton = target?.closest?.('#runtime-error-copy');
       if (!copyButton) {
         return;
       }
@@ -187,14 +234,15 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
   };
 
   const reportError = (error, context, { fatal = false } = {}) => {
-    state.lastError = {
+    const errorRecord = {
       context,
       message: normalizeErrorMessage(error),
       fatal,
       timestamp: new Date().toISOString(),
       summary: ''
     };
-    state.lastError.summary = buildErrorSummary(state.lastError, documentObj, windowObj);
+    errorRecord.summary = buildErrorSummary(errorRecord, documentObj, runtimeWindow);
+    state.lastError = errorRecord;
     updateRuntimeDiagnostics(documentObj, state);
 
     if (fatal) {
@@ -226,17 +274,17 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
     reportError,
 
     setupGlobalErrorHandlers() {
-      if (windowObj.__ARTIFACTS_ERROR_HANDLERS_BOUND__) {
+      if (runtimeWindow.__ARTIFACTS_ERROR_HANDLERS_BOUND__) {
         return;
       }
 
-      windowObj.__ARTIFACTS_ERROR_HANDLERS_BOUND__ = true;
+      runtimeWindow.__ARTIFACTS_ERROR_HANDLERS_BOUND__ = true;
 
-      windowObj.addEventListener('error', (event) => {
+      runtimeWindow.addEventListener('error', (event) => {
         reportError(event.error || event.message, 'window error', { fatal: !state.ready });
       });
 
-      windowObj.addEventListener('unhandledrejection', (event) => {
+      runtimeWindow.addEventListener('unhandledrejection', (event) => {
         reportError(event.reason, 'unhandled rejection', { fatal: !state.ready });
       });
     },

@@ -8,6 +8,7 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 ## Topics
 
+<!-- prettier-ignore-start -->
 <!-- AUTO:TAG_BADGES_START -->
 <img src="https://img.shields.io/badge/Finance-27AE60?style=flat-square" alt="Finance">&nbsp;
 <img src="https://img.shields.io/badge/Calculator-2E86C1?style=flat-square" alt="Calculator">&nbsp;
@@ -16,12 +17,15 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 <img src="https://img.shields.io/badge/AI-A0C8E8?style=flat-square" alt="AI">&nbsp;
 <img src="https://img.shields.io/badge/LLM-E8C8A0?style=flat-square" alt="LLM">
 <!-- AUTO:TAG_BADGES_END -->
+<!-- prettier-ignore-end -->
 
 ## AI Tools
 
+<!-- prettier-ignore-start -->
 <!-- AUTO:TOOL_BADGES_START -->
 <img src="https://img.shields.io/badge/Claude-D97706?style=flat-square&logo=anthropic&logoColor=white" alt="Claude">
 <!-- AUTO:TOOL_BADGES_END -->
+<!-- prettier-ignore-end -->
 
 ## Snapshot
 
@@ -43,14 +47,12 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 ## Structure
 
-Each artifact lives in its own directory under `apps/` with an `index.html` entry point. Mature apps now share a root-level app system in `css/app-tokens.css`, `css/app-shell.css`, `js/app-theme.js`, and `js/modules/app-shell.js`, then layer app-local CSS and JS on top.
+Each artifact lives in its own directory under `apps/` with an `index.html` entry point. All pages share the single site stylesheet at `css/style.css`. Mature apps keep their own JavaScript and docs while reusing `js/app-theme.js` and `js/modules/app-shell.js` for the shared app shell.
 
 ```text
 apps/
   artifact-name/
     index.html        # Required entry point
-    css/
-      app.css         # App-local visual overrides
     js/
       app.js          # App-local behavior
     docs/

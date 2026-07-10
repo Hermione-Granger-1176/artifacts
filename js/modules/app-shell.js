@@ -1,5 +1,16 @@
 import { writeStorage } from "./runtime.js";
 
+/**
+ * @typedef {{
+ *   applyDocumentTheme: (documentObject: Document, theme: string | null | undefined) => string,
+ *   defaultTheme: string,
+ *   normalizeTheme: (theme: string | null | undefined) => string,
+ *   readStoredTheme: () => string | null,
+ *   storageKey: string
+ * }} AppThemeBootstrap
+ * @typedef {Window & { __ARTIFACTS_APP_THEME_BOOTSTRAP__: AppThemeBootstrap }} AppShellWindow
+ */
+
 const SAFE_RELATIVE_PATH_RE = /^[./a-zA-Z0-9_-]+$/;
 
 const APP_HEADER_MARKUP = `
@@ -109,12 +120,13 @@ export function renderAppShell({
 export function initAppShell({
   homePath = "../../",
   metaThemeColors = {
-    dark: "rgb(20, 20, 20)",
-    light: "rgb(248, 248, 246)"
+    dark: "rgb(30, 26, 20)",
+    light: "rgb(245, 239, 230)"
   },
   onThemeChange = () => {}
 } = {}) {
   renderAppShell({ documentObj: document, homePath });
+  const windowObj = /** @type {AppShellWindow} */ (/** @type {unknown} */ (window));
   const html = document.documentElement;
   const backButton = document.getElementById("back-button");
   const themeToggle = document.getElementById("theme-toggle");
@@ -123,7 +135,7 @@ export function initAppShell({
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   function currentTheme() {
-    return window.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(
+    return windowObj.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(
       html.getAttribute("data-theme")
     );
   }
@@ -153,7 +165,7 @@ export function initAppShell({
 
   function applyTheme(theme) {
     const normalizedTheme =
-      window.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(theme);
+      windowObj.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(theme);
     html.setAttribute("data-theme", normalizedTheme);
     syncThemeColor(normalizedTheme);
     syncThemeToggle();

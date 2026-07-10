@@ -33,6 +33,7 @@ function getRotationData(index) {
 
 /** Global color map: each tag/tool name gets one color, shared across filter notes and detail capsules. */
 const labelColorMap = new Map();
+/** @type {string[] | null} */
 let shuffledColors = null;
 
 /** Return the lazily-initialized Fisher-Yates shuffled filter color palette. */
@@ -51,7 +52,20 @@ function getShuffledFilterColors() {
   return shuffledColors;
 }
 
-/** Build an HTML string for a single filter chip button. */
+/**
+ * Build an HTML string for a single filter chip button.
+ * @param {{
+ *   active?: boolean,
+ *   className: string,
+ *   color: string,
+ *   datasetName: string,
+ *   datasetValue: string,
+ *   label: string,
+ *   rotate?: string | null,
+ *   surface: string
+ * }} options - Filter control options.
+ * @returns {string} Filter chip button HTML.
+ */
 function createFilterControlButton({
   active = false,
   className,
@@ -331,8 +345,9 @@ export function buildGridHtml(items, expandedId) {
  * @returns {void}
  */
 export function applyDynamicStyles(container) {
-  container.querySelectorAll('[data-chip-color]').forEach((el) => {
-    const color = el.dataset.chipColor;
+  container.querySelectorAll('[data-chip-color]').forEach((element) => {
+    const el = /** @type {HTMLElement} */ (element);
+    const color = el.dataset.chipColor || '';
     el.style.setProperty('--chip-color', color);
     el.style.setProperty('--note-color', color);
     if (el.dataset.rotate) {
@@ -340,14 +355,16 @@ export function applyDynamicStyles(container) {
     }
   });
 
-  container.querySelectorAll('[data-capsule-bg]').forEach((el) => {
-    el.style.setProperty('--capsule-bg', el.dataset.capsuleBg);
+  container.querySelectorAll('[data-capsule-bg]').forEach((element) => {
+    const el = /** @type {HTMLElement} */ (element);
+    el.style.setProperty('--capsule-bg', el.dataset.capsuleBg || '');
   });
 
-  container.querySelectorAll('[data-card-color]').forEach((el) => {
-    el.style.setProperty('--card-bg-color', el.dataset.cardColor);
-    el.style.setProperty('--note-rotate', el.dataset.noteRotate);
-    el.style.setProperty('--note-hover-rotate', el.dataset.noteHoverRotate);
+  container.querySelectorAll('[data-card-color]').forEach((element) => {
+    const el = /** @type {HTMLElement} */ (element);
+    el.style.setProperty('--card-bg-color', el.dataset.cardColor || '');
+    el.style.setProperty('--note-rotate', el.dataset.noteRotate || '');
+    el.style.setProperty('--note-hover-rotate', el.dataset.noteHoverRotate || '');
   });
 }
 
