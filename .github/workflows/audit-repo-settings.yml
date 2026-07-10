@@ -3,10 +3,10 @@ name: Audit Repository Settings
 on:
   workflow_dispatch:
   schedule:
-    - cron: '23 8 * * 1'
+    - cron: "23 8 * * 1"
 
 env:
-  PYTHONPATH: '.'
+  PYTHONPATH: "."
 
 jobs:
   audit:

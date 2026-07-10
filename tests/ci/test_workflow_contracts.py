@@ -9,6 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 
 CREATE_APP_TOKEN_SHA_PIN = re.compile(r"^actions/create-github-app-token@[0-9a-f]{40}$")
+CODEQL_ACTION_SHA_PIN = re.compile(r"^github/codeql-action/(init|autobuild|analyze)@[0-9a-f]{40}$")
 
 
 def _load_workflow(name: str) -> dict[str, object]:
@@ -67,7 +68,7 @@ def _step_with(job: dict[str, object], name: str) -> dict[str, object]:
 
 
 def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
-    """Test update workflow keeps expected triggers and jobs."""
+    """Update workflow keeps expected triggers and jobs."""
     workflow = _load_workflow("update.yml")
     on_block = _workflow_on(workflow)
 
@@ -104,7 +105,7 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
 
 
 def test_update_verify_job_runs_expected_make_targets() -> None:
-    """Test update verify job runs expected make targets."""
+    """Update verify job runs expected make targets."""
     workflow = _load_workflow("update.yml")
     verify = _job(workflow, "verify")
 
@@ -114,9 +115,12 @@ def test_update_verify_job_runs_expected_make_targets() -> None:
     parallel_run = _step_run(verify, "Run parallel checks")
     assert "run_parallel_checks.py" in parallel_run
     for target in (
+        "format-check",
         "lint",
+        "typecheck",
         "test-py",
         "coverage-js",
+        "dead-code",
         "security",
         "validate",
         "test-browser-root",
@@ -162,7 +166,7 @@ def test_update_verify_job_runs_expected_make_targets() -> None:
 
 
 def test_update_publish_job_reuses_verified_site_artifact() -> None:
-    """Test update publish job reuses verified site artifact."""
+    """Update publish job reuses verified site artifact."""
     workflow = _load_workflow("update.yml")
     publish = _job(workflow, "publish")
 
@@ -223,7 +227,7 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
 
 
 def test_update_publish_job_writes_classic_deployment_records() -> None:
-    """Test update publish job writes classic deployment records."""
+    """Update publish job writes classic deployment records."""
     workflow = _load_workflow("update.yml")
     publish = _job(workflow, "publish")
 
@@ -270,7 +274,7 @@ def test_update_publish_job_writes_classic_deployment_records() -> None:
 
 
 def test_update_thumbnail_persistence_and_cleanup_stay_bounded() -> None:
-    """Test update thumbnail persistence and cleanup stay bounded."""
+    """Update thumbnail persistence and cleanup stay bounded."""
     workflow = _load_workflow("update.yml")
     persist = _job(workflow, "persist-thumbnails")
     cleanup = _job(workflow, "cleanup-preview")
@@ -315,7 +319,7 @@ def test_update_thumbnail_persistence_and_cleanup_stay_bounded() -> None:
 
 
 def test_refresh_python_locks_workflow_uses_dependabot_and_make_lock_contract() -> None:
-    """Test refresh python locks workflow uses dependabot and make lock contract."""
+    """Refresh python locks workflow uses dependabot and make lock contract."""
     workflow = _load_workflow("refresh-python-locks.yml")
     on_block = _workflow_on(workflow)
     refresh = _job(workflow, "refresh-locks")
@@ -336,7 +340,7 @@ def test_refresh_python_locks_workflow_uses_dependabot_and_make_lock_contract() 
 
 
 def test_commit_python_locks_workflow_keeps_validation_and_verified_commit_steps() -> None:
-    """Test commit python locks workflow keeps validation and verified commit steps."""
+    """Commit python locks workflow keeps validation and verified commit steps."""
     workflow = _load_workflow("commit-python-locks.yml")
     on_block = _workflow_on(workflow)
     commit = _job(workflow, "commit-locks")
@@ -358,7 +362,7 @@ def test_commit_python_locks_workflow_keeps_validation_and_verified_commit_steps
 
 
 def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
-    """Test audit and refresh action workflows keep expected entrypoints."""
+    """Audit and refresh action workflows keep expected entrypoints."""
     audit = _load_workflow("audit-repo-settings.yml")
     live_smoke = _load_workflow("live-site-smoke.yml")
     refresh = _load_workflow("refresh-action-shas.yml")
@@ -400,8 +404,95 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     )
 
 
+def test_codeql_workflow_scans_supported_languages_with_shared_config() -> None:
+    """CodeQL workflow scans JavaScript, Python, and Actions with the shared config."""
+    workflow = _load_workflow("codeql.yml")
+    on_block = _workflow_on(workflow)
+
+    assert set(on_block) == {"workflow_dispatch", "push", "pull_request", "schedule"}
+    assert on_block["push"]["branches"] == ["main"]
+    assert on_block["pull_request"]["branches"] == ["main"]
+    assert on_block["schedule"] == [{"cron": "30 6 * * 1"}]
+
+    assert workflow["permissions"] == {
+        "actions": "read",
+        "contents": "read",
+        "security-events": "write",
+    }
+
+    assert set(_jobs(workflow)) == {"analyze-javascript", "analyze-python", "analyze-actions"}
+
+    languages = {
+        "analyze-javascript": "javascript-typescript",
+        "analyze-python": "python",
+        "analyze-actions": "actions",
+    }
+    for job_name, language in languages.items():
+        job = _job(workflow, job_name)
+        init_inputs = _step_with(job, "Initialize CodeQL")
+        assert init_inputs["languages"] == language
+        assert init_inputs["config-file"] == "./.github/codeql/codeql-config.yml"
+        assert _step_with(job, "Perform CodeQL Analysis")["category"] == f"/language:{language}"
+        for step_name in ("Initialize CodeQL", "Autobuild", "Perform CodeQL Analysis"):
+            uses = _step_uses(job, step_name)
+            assert CODEQL_ACTION_SHA_PIN.fullmatch(uses), (
+                f"Expected github/codeql-action pinned to a 40-char SHA, got {uses!r}"
+            )
+
+
+def test_codeql_config_ignores_generated_and_vendored_paths() -> None:
+    """CodeQL config ignores generated and vendored paths."""
+    config = yaml.safe_load(
+        (REPO_ROOT / ".github" / "codeql" / "codeql-config.yml").read_text(encoding="utf-8")
+    )
+    assert isinstance(config, dict)
+    assert config["paths-ignore"] == [
+        "tests/**",
+        "apps/*/js/vendor/**",
+        "js/data.js",
+        "js/gallery-config.js",
+    ]
+
+
+def test_dependency_audit_workflow_runs_audits_and_syncs_alert_issue() -> None:
+    """Dependency audit workflow runs audits and syncs the alert issue."""
+    workflow = _load_workflow("dependency-audit.yml")
+    on_block = _workflow_on(workflow)
+
+    assert set(on_block) == {"workflow_dispatch", "schedule"}
+    assert on_block["schedule"] == [{"cron": "0 6 * * 1"}]
+
+    assert set(_jobs(workflow)) == {"audit"}
+    audit = _job(workflow, "audit")
+    assert audit["permissions"] == {"contents": "read", "issues": "write"}
+    assert _step_uses(audit, "CI setup") == "./.github/actions/ci-setup"
+
+    audit_run = _step_run(audit, "Run dependency audits")
+    assert audit_run.startswith("set +e")
+    for target in ("make audit-python", "make audit-node", "make check-overrides"):
+        assert target in audit_run
+    assert 'echo "status=$status" >> "$GITHUB_OUTPUT"' in audit_run
+    assert audit_run.rstrip().endswith("exit 0")
+
+    open_step = _step(audit, "Open or update dependency audit issue")
+    assert open_step["if"] == "steps.audit.outputs.status != '0'"
+    open_run = _step_run(audit, "Open or update dependency audit issue")
+    assert "sync-alert-issue" in open_run
+    assert "--should-exist true" in open_run
+
+    close_step = _step(audit, "Close dependency audit issue when clean")
+    assert close_step["if"] == "steps.audit.outputs.status == '0'"
+    close_run = _step_run(audit, "Close dependency audit issue when clean")
+    assert "sync-alert-issue" in close_run
+    assert "--should-exist false" in close_run
+
+    fail_step = _step(audit, "Fail workflow when audit detects issues")
+    assert fail_step["if"] == "steps.audit.outputs.status != '0'"
+    assert _step_run(audit, "Fail workflow when audit detects issues").strip() == "exit 1"
+
+
 def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
-    """Test scheduled maintenance workflows always create pull requests."""
+    """Scheduled maintenance workflows always create pull requests."""
     workflows = {
         "refresh-action-shas.yml": "ci/refresh-action-shas",
         "refresh-locks.yml": "ci/refresh-locks",
@@ -432,7 +523,7 @@ def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
 
 
 def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
-    """Test setup python steps cache uv lock and uv downloads."""
+    """Setup python steps cache uv lock and uv downloads."""
     update = _load_workflow("update.yml")
     refresh = _load_workflow("refresh-python-locks.yml")
     ci_setup = yaml.safe_load(

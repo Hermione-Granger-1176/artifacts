@@ -1,6 +1,6 @@
-import fs from 'node:fs';
-import { execFileSync } from 'node:child_process';
-import { setTimeout as sleep } from 'node:timers/promises';
+import fs from "node:fs";
+import { execFileSync } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
 export const DEFAULT_MAX_ATTEMPTS = 3;
@@ -11,7 +11,7 @@ export const DEFAULT_MAX_ATTEMPTS = 3;
  * @returns {string[]} Trimmed, non-empty pathspec entries.
  */
 export function splitPathspec(input) {
-  return (input || '')
+  return (input || "")
     .split(/\r?\n/)
     .map((entry) => entry.trim())
     .filter(Boolean);
@@ -35,19 +35,19 @@ export function parseDiffOutput(diffOutput, { existsSync, readFileSync }) {
     return { additions, deletions };
   }
 
-  for (const line of diffOutput.trim().split('\n')) {
-    const [status = '', path1, path2] = line.split('\t');
+  for (const line of diffOutput.trim().split("\n")) {
+    const [status = "", path1, path2] = line.split("\t");
     const code = status.charAt(0);
 
     switch (code) {
-      case 'R':
+      case "R":
         if (path1 && path2) {
           deletions.push({ path: path1 });
-          additions.push({ path: path2, contents: readFileSync(path2).toString('base64') });
+          additions.push({ path: path2, contents: readFileSync(path2).toString("base64") });
         }
         continue;
 
-      case 'D':
+      case "D":
         if (path1) {
           deletions.push({ path: path1 });
         }
@@ -58,7 +58,7 @@ export function parseDiffOutput(diffOutput, { existsSync, readFileSync }) {
           continue;
         }
 
-        additions.push({ path: path1, contents: readFileSync(path1).toString('base64') });
+        additions.push({ path: path1, contents: readFileSync(path1).toString("base64") });
     }
   }
 
@@ -82,7 +82,7 @@ export async function fetchJson(url, options, dependencies = {}) {
     fetchImpl = fetch,
     maxAttempts = DEFAULT_MAX_ATTEMPTS,
     requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
-    sleepImpl = sleep
+    sleepImpl = sleep,
   } = dependencies;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -92,7 +92,7 @@ export async function fetchJson(url, options, dependencies = {}) {
     try {
       const response = await fetchImpl(url, {
         ...options,
-        signal: controller.signal
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -142,7 +142,7 @@ export function isRetryableError(error) {
     return false;
   }
 
-  if (error.name === 'AbortError') {
+  if (error.name === "AbortError") {
     return true;
   }
 
@@ -156,9 +156,9 @@ export function isRetryableError(error) {
  * @returns {string[]} Argument array for execFileSync.
  */
 export function createGitArgs(pathspec) {
-  const gitArgs = ['diff', '--staged', '--name-status'];
+  const gitArgs = ["diff", "--staged", "--name-status"];
   if (pathspec.length > 0) {
-    gitArgs.push('--', ...pathspec);
+    gitArgs.push("--", ...pathspec);
   }
   return gitArgs;
 }
@@ -170,7 +170,7 @@ export function createGitArgs(pathspec) {
  * @returns {string} Date-stamped branch name.
  */
 export function createBranchName(prefix, date = new Date()) {
-  const value = date.toISOString().slice(0, 10).replace(/-/g, '');
+  const value = date.toISOString().slice(0, 10).replace(/-/g, "");
   return `${prefix}-${value}`;
 }
 
@@ -197,12 +197,12 @@ export function createApiClients({ owner, repo, token, fetchDependencies }) {
         ...options,
         headers: {
           Authorization: `Bearer ${token}`,
-          Accept: 'application/vnd.github+json',
-          'Content-Type': 'application/json',
-          ...(options.headers || {})
-        }
+          Accept: "application/vnd.github+json",
+          "Content-Type": "application/json",
+          ...(options.headers || {}),
+        },
       },
-      fetchDependencies
+      fetchDependencies,
     );
 
   return {
@@ -211,20 +211,20 @@ export function createApiClients({ owner, repo, token, fetchDependencies }) {
     },
 
     async graphql(query, variables) {
-      const response = await fetchWithHeaders('https://api.github.com/graphql', {
-        method: 'POST',
-        body: JSON.stringify({ query, variables })
+      const response = await fetchWithHeaders("https://api.github.com/graphql", {
+        method: "POST",
+        body: JSON.stringify({ query, variables }),
       });
 
       if (response.errors && response.errors.length > 0) {
-        throw new Error(response.errors.map((item) => item.message).join('; '));
+        throw new Error(response.errors.map((item) => item.message).join("; "));
       }
 
       return response.data;
     },
 
     owner,
-    repo
+    repo,
   };
 }
 
@@ -250,7 +250,7 @@ export async function runVerifiedCommit({
   appendFileSyncImpl = fs.appendFileSync,
   consoleObj = console,
   fetchDependencies = {},
-  now = new Date()
+  now = new Date(),
 } = {}) {
   const outputFile = env.GITHUB_OUTPUT;
   const token = env.GH_TOKEN_INPUT;
@@ -260,12 +260,12 @@ export async function runVerifiedCommit({
   const fallbackBranchPrefix = env.FALLBACK_BRANCH_PREFIX;
   const prTitle = env.PR_TITLE;
   const prBody = env.PR_BODY;
-  const commitMode = env.COMMIT_MODE || 'direct-or-pr';
-  const pathspec = splitPathspec(env.PATHSPEC_INPUT || '');
-  const [owner, repo] = (env.GITHUB_REPOSITORY || '').split('/');
+  const commitMode = env.COMMIT_MODE || "direct-or-pr";
+  const pathspec = splitPathspec(env.PATHSPEC_INPUT || "");
+  const [owner, repo] = (env.GITHUB_REPOSITORY || "").split("/");
 
   if (!outputFile || !token || !owner || !repo) {
-    throw new Error('Missing required GitHub environment for verified commit action');
+    throw new Error("Missing required GitHub environment for verified commit action");
   }
 
   const setOutput = (name, value) => {
@@ -274,28 +274,28 @@ export async function runVerifiedCommit({
 
   const noChange = (message) => {
     consoleObj.log(message);
-    setOutput('changed', 'false');
-    setOutput('result-url', '');
-    return { changed: false, resultUrl: '' };
+    setOutput("changed", "false");
+    setOutput("result-url", "");
+    return { changed: false, resultUrl: "" };
   };
 
   const gitArgs = createGitArgs(pathspec);
-  const diffOutput = execFileSyncImpl('git', gitArgs, { encoding: 'utf8' }).trim();
+  const diffOutput = execFileSyncImpl("git", gitArgs, { encoding: "utf8" }).trim();
 
   if (!diffOutput) {
-    return noChange('No staged changes to commit');
+    return noChange("No staged changes to commit");
   }
 
   const { additions, deletions } = parseDiffOutput(diffOutput, {
     existsSync: existsSyncImpl,
-    readFileSync: readFileSyncImpl
+    readFileSync: readFileSyncImpl,
   });
 
   if (additions.length === 0 && deletions.length === 0) {
-    return noChange('No staged file payloads were produced');
+    return noChange("No staged file payloads were produced");
   }
 
-  setOutput('changed', 'true');
+  setOutput("changed", "true");
 
   const clients = createApiClients({ owner, repo, token, fetchDependencies });
 
@@ -312,36 +312,36 @@ export async function runVerifiedCommit({
       input: {
         branch: {
           repositoryNameWithOwner: `${owner}/${repo}`,
-          branchName
+          branchName,
         },
         expectedHeadOid: headSha,
         message: { headline },
-        fileChanges: { additions, deletions }
-      }
+        fileChanges: { additions, deletions },
+      },
     });
 
     return data.createCommitOnBranch.commit;
   };
 
-  const validModes = new Set(['direct', 'force-pr', 'direct-or-pr']);
+  const validModes = new Set(["direct", "force-pr", "direct-or-pr"]);
   if (!validModes.has(commitMode)) {
     throw new Error(`Unsupported commit mode: ${commitMode}`);
   }
 
-  if (commitMode !== 'force-pr') {
+  if (commitMode !== "force-pr") {
     try {
       const commit = await createCommit(baseBranch, expectedHeadSha, commitHeadline);
       consoleObj.log(`Created verified commit: ${commit.url}`);
-      setOutput('result-url', commit.url);
+      setOutput("result-url", commit.url);
       return { changed: true, resultUrl: commit.url };
     } catch (error) {
-      if (commitMode === 'direct') {
+      if (commitMode === "direct") {
         throw error;
       }
       consoleObj.log(`Direct commit failed (${error.message}), creating branch and PR`);
     }
   } else {
-    consoleObj.log('Commit mode force-pr selected, creating branch and PR');
+    consoleObj.log("Commit mode force-pr selected, creating branch and PR");
   }
 
   const fallbackBranch = createBranchName(fallbackBranchPrefix, now);
@@ -349,7 +349,7 @@ export async function runVerifiedCommit({
   const refsUrl = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
 
   const matchingRefs = await clients.fetchJson(
-    `https://api.github.com/repos/${owner}/${repo}/git/matching-refs/heads/${fallbackBranch}`
+    `https://api.github.com/repos/${owner}/${repo}/git/matching-refs/heads/${fallbackBranch}`,
   );
   const branchExists = matchingRefs.some((ref) => ref.ref === fullRef);
 
@@ -357,57 +357,65 @@ export async function runVerifiedCommit({
   // The race guard handles another run creating the branch between our
   // existence check and the POST — only "Reference already exists" 422s
   // are recovered; all other errors propagate.
-  const needsReset = branchExists
-    || await clients.fetchJson(refsUrl, {
-      method: 'POST',
-      body: JSON.stringify({ ref: fullRef, sha: expectedHeadSha })
-    }).then(() => false, (error) => {
-      if (!isRefAlreadyExistsError(error)) { throw error; }
-      return true;
-    });
+  const needsReset =
+    branchExists ||
+    (await clients
+      .fetchJson(refsUrl, {
+        method: "POST",
+        body: JSON.stringify({ ref: fullRef, sha: expectedHeadSha }),
+      })
+      .then(
+        () => false,
+        (error) => {
+          if (!isRefAlreadyExistsError(error)) {
+            throw error;
+          }
+          return true;
+        },
+      ));
 
   if (needsReset) {
     await clients.fetchJson(`${refsUrl}/heads/${fallbackBranch}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ sha: expectedHeadSha, force: true })
+      method: "PATCH",
+      body: JSON.stringify({ sha: expectedHeadSha, force: true }),
     });
   }
 
   const fallbackCommit = await createCommit(
     fallbackBranch,
     expectedHeadSha,
-    commitHeadline.replace(' [skip ci]', '')
+    commitHeadline.replace(" [skip ci]", ""),
   );
   consoleObj.log(`Created verified fallback commit: ${fallbackCommit.url}`);
 
   const pullsUrl = new URL(`https://api.github.com/repos/${owner}/${repo}/pulls`);
   pullsUrl.search = new URLSearchParams({
-    state: 'open',
-    head: `${owner}:${fallbackBranch}`
+    state: "open",
+    head: `${owner}:${fallbackBranch}`,
   }).toString();
   const existingPulls = await clients.fetchJson(pullsUrl.toString());
 
   if (existingPulls.length > 0) {
     consoleObj.log(`Updated existing PR: ${existingPulls[0].html_url}`);
-    setOutput('result-url', existingPulls[0].html_url);
+    setOutput("result-url", existingPulls[0].html_url);
     return { changed: true, resultUrl: existingPulls[0].html_url };
   }
 
   const pullRequest = await clients.fetchJson(
     `https://api.github.com/repos/${owner}/${repo}/pulls`,
     {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({
         title: prTitle,
         body: prBody,
         head: fallbackBranch,
-        base: baseBranch
-      })
-    }
+        base: baseBranch,
+      }),
+    },
   );
 
   consoleObj.log(`Created PR: ${pullRequest.html_url}`);
-  setOutput('result-url', pullRequest.html_url);
+  setOutput("result-url", pullRequest.html_url);
   return { changed: true, resultUrl: pullRequest.html_url };
 }
 

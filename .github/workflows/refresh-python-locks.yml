@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      PYTHON_VERSION: '3.12'
+      PYTHON_VERSION: "3.12"
       LOCK_REFRESH_ARTIFACT_NAME: python-lock-refresh-${{ github.event.pull_request.number }}
       LOCK_REFRESH_ROOT: .artifacts
     permissions:

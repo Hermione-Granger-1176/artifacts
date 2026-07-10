@@ -34,7 +34,7 @@ Recommended workflow when changing workspace code:
 
 CI uses the same `make` targets as local development. The `verify` job in `update.yml` runs:
 
-- `make setup-ci`, then `scripts/ci/run_parallel_checks.py` runs `lint`, `test-py`, `coverage-js`, `security`, `validate`, and `test-browser-root` concurrently, followed by conditional `make test-browser-apps`, then `make thumbnails`, `make check-generated`, `make index`, `make site`
+- `make setup-ci`, then `scripts/ci/run_parallel_checks.py` runs `format-check`, `lint`, `typecheck`, `test-py`, `coverage-js`, `dead-code`, `security`, `validate`, and `test-browser-root` concurrently, followed by conditional `make test-browser-apps`, then `make thumbnails`, `make check-generated`, `make index`, `make site`
 
 This keeps local results predictive of CI results.
 
@@ -52,10 +52,10 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - `make lint-make-targets` verifies that documented `make <target>` references still exist in `Makefile`.
 - `make lint-js-test-coverage` verifies that every JS or MJS source file under the tracked source roots is imported by at least one test file.
 - `make check-overrides` reports whether npm `overrides` entries are still needed when that package field exists.
-- `make format-check` verifies ruff formatting plus Prettier-managed docs, metadata, config, and tooling scripts without writing files.
+- `make format-check` verifies ruff formatting plus Prettier-managed docs, metadata, config, workflows, and tooling scripts without writing files.
 - `make typecheck` runs mypy strict over `scripts/` and the web typecheck target from `config/jsconfig.json`.
 - `make dead-code` runs vulture for Python and Knip for JavaScript files, exports, and dependency usage.
-- `pytest` enforces 100% line and branch coverage for the `scripts` package and treats warnings as errors.
+- `make test-py` enforces 100% line and branch coverage for the `scripts` package and treats warnings as errors.
 - `make test-ci` runs the CI-focused Python tests under `tests/ci/`.
 - `make test-ci-workflows` runs narrow contract tests against `.github/workflows/*.yml` so local and CI checks can catch workflow-structure drift early.
 - `node --test` covers the grouped Node suites under `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, and `tests/js/workflows/`.

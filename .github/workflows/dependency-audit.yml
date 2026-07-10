@@ -1,0 +1,101 @@
+name: Dependency Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+env:
+  PYTHONPATH: "."
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+
+      - name: CI setup
+        id: setup
+        uses: ./.github/actions/ci-setup
+        with:
+          event-name: ${{ github.event_name }}
+          python-version: "3.12"
+          node-version: "24"
+          install-deps: "true"
+
+      - name: Run dependency audits
+        id: audit
+        run: |
+          set +e
+          make audit-python
+          python_status=$?
+          make audit-node
+          node_status=$?
+          make check-overrides
+          overrides_status=$?
+          set -e
+          if [ "$python_status" -ne 0 ] || [ "$node_status" -ne 0 ] || [ "$overrides_status" -ne 0 ]; then
+            status=1
+          else
+            status=0
+          fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Open or update dependency audit issue
+        if: steps.audit.outputs.status != '0'
+        id: audit-issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          body=$(printf '%s\n' \
+            'Scheduled dependency audit checks failed.' \
+            "Workflow run: $run_url" \
+            'Review the pip-audit, npm audit, and npm override checks from this run.')
+          issue_url=$(python3 scripts/ci/workflow_helpers.py sync-alert-issue \
+            --repo "${{ github.repository }}" \
+            --title "Dependency audit failed" \
+            --body "$body" \
+            --label ops \
+            --label ci \
+            --should-exist true)
+          echo "url=$issue_url" >> "$GITHUB_OUTPUT"
+
+      - name: Close dependency audit issue when clean
+        if: steps.audit.outputs.status == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          body=$(printf '%s\n' \
+            'Scheduled dependency audit checks are passing again.' \
+            "Workflow run: $run_url")
+          python3 scripts/ci/workflow_helpers.py sync-alert-issue \
+            --repo "${{ github.repository }}" \
+            --title "Dependency audit failed" \
+            --body "$body" \
+            --label ops \
+            --label ci \
+            --should-exist false >/dev/null
+
+      - name: Summarize dependency audit failure
+        if: steps.audit.outputs.status != '0'
+        run: |
+          {
+            echo "## Dependency audit failed"
+            echo
+            echo "Inspect the pip-audit, npm audit, and npm override output in this run."
+            echo "Issue: ${{ steps.audit-issue.outputs.url || 'issue not created' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail workflow when audit detects issues
+        if: steps.audit.outputs.status != '0'
+        run: exit 1
