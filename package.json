@@ -24,8 +24,8 @@
     "esbuild": "0.28.1",
     "eslint": "10.6.0",
     "globals": "17.7.0",
-    "knip": "6.24.0",
-    "prettier": "3.9.4",
+    "knip": "6.26.0",
+    "prettier": "3.9.5",
     "stylelint": "17.14.0",
     "typescript": "7.0.2"
   }
