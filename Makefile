@@ -311,7 +311,7 @@ status: ## Show workspace health (git, venv, node, generated files, PR)
 	@test -d _site && echo "OK: _site/" || echo "NOT BUILT: run make site"
 	@echo
 	@echo "=== Pull request ==="
-	@$(GH) summary || true
+	@if [ -x "$(VENV_PYTHON)" ]; then $(GH) summary || true; else echo "SKIPPED: venv missing, run make setup"; fi
 
 clean: ## Remove local environments, build outputs, and caches
 	rm -rf $(VENV) node_modules _site .artifacts .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
@@ -331,7 +331,7 @@ help: ## Show command groups (expand one with make help-<group>)
 		}' $(MAKEFILE_LIST)
 	@printf '\n'
 
-help-%: ## List the commands in one group (e.g. make help-pr)
+help-%: FORCE ## List the commands in one group (e.g. make help-pr)
 	@awk -v want="$*" ' \
 		/^# ─── / { \
 			line = $$0; sub(/^# ─── /, "", line); ti = index(line, " @"); \
@@ -348,6 +348,10 @@ help-%: ## List the commands in one group (e.g. make help-pr)
 			printf "    %-22s %s\n", target, desc; \
 		}' $(MAKEFILE_LIST)
 	@printf '\n'
+
+# .PHONY cannot cover pattern rules, so help-% depends on FORCE to stay
+# runnable even if a file named help-<group> ever appears in the workspace.
+FORCE:
 
 help-json: ## Emit groups and commands as JSON
 	@awk ' \
