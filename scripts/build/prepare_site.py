@@ -189,6 +189,34 @@ def _patch_index_html(version: str) -> None:
     index_path.write_text(content, encoding="utf-8")
 
 
+def _patch_app_asset_references(version: str) -> None:
+    """Apply cache-busting query strings to app asset references."""
+    apps_dir = DEPLOY_DIR / _artifact_base_path()
+    if not apps_dir.exists():
+        return
+
+    replacements = {
+        'href="../../css/style.css"': f'href="../../css/style.css?v={version}"',
+        'src="../../js/app-theme.js"': f'src="../../js/app-theme.js?v={version}"',
+        'src="./js/app.js"': f'src="./js/app.js?v={version}"',
+    }
+
+    for app_dir in apps_dir.iterdir():
+        if not app_dir.is_dir():
+            continue
+
+        index_path = app_dir / "index.html"
+        if not index_path.exists():
+            continue
+
+        content = index_path.read_text(encoding="utf-8")
+        applicable = {old: new for old, new in replacements.items() if old in content}
+        if not applicable:
+            continue
+
+        index_path.write_text(_replace_exact_many(content, applicable), encoding="utf-8")
+
+
 def _patch_social_metadata(site_url: str, version: str) -> None:
     """Inject canonical URLs and a cache-busted social preview image."""
     index_path = DEPLOY_DIR / "index.html"
@@ -267,12 +295,8 @@ def _inline_css_imports(css_file: Path) -> None:
 
 
 def _inline_all_css_imports() -> None:
-    """Inline CSS ``@import`` chains in the deploy directory."""
-    for css_entry in (
-        DEPLOY_DIR / "css" / "style.css",
-        DEPLOY_DIR / "css" / "app-shell.css",
-    ):
-        _inline_css_imports(css_entry)
+    """Inline CSS ``@import`` chains in the deploy stylesheet."""
+    _inline_css_imports(DEPLOY_DIR / "css" / "style.css")
 
     for subdir in ("gallery", "app"):
         partial_dir = DEPLOY_DIR / "css" / subdir
@@ -496,6 +520,7 @@ def prepare_site() -> None:
     _copy_deploy_items()
     _inline_all_css_imports()
     _patch_index_html(version)
+    _patch_app_asset_references(version)
     _patch_social_metadata(site_url, version)
     _patch_app_social_metadata(site_url, version)
     _patch_root_stylesheet(version)

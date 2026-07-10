@@ -13,7 +13,7 @@ Interactive loan amortization calculator with charts, extra payment scenarios, a
 ## Structure
 
 - `index.html` - app shell, metadata, and semantic layout
-- `css/app.css` - calculator-specific layout and component styling layered on top of the shared app system
+- `../../css/style.css` - shared site stylesheet, including the calculator layout and component selectors
 - `js/app.js` - bootstrap and top-level coordination across the smaller loan modules
 - `js/modules/amortization.js` - amortization math and schedule generation
 - `js/modules/formatting.js` - currency, tick, and attribute formatting helpers

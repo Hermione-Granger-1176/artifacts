@@ -173,10 +173,7 @@ def discover_app_slugs() -> list[str]:
     return sorted(
         path.name
         for path in REAL_APPS_DIR.iterdir()
-        if path.is_dir()
-        and (path / "index.html").exists()
-        and (path / "css" / "app.css").exists()
-        and (path / "js" / "app.js").exists()
+        if path.is_dir() and (path / "index.html").exists() and (path / "js" / "app.js").exists()
     )
 
 
@@ -496,7 +493,7 @@ def ensure_axe_loaded(page) -> None:
 def ensure_axe_styles(page) -> None:
     """Ensure axe styles."""
     needs_root_styles = page.evaluate(
-        "Boolean(document.querySelector('link[href^=\"css/style.css\"]') "
+        "Boolean(document.querySelector('link[href*=\"css/style.css\"]') "
         "|| document.getElementById('artifacts-grid'))"
     )
     if not needs_root_styles:
@@ -508,7 +505,7 @@ def ensure_axe_styles(page) -> None:
 
     page.evaluate(
         """(cssContent) => {
-            const rootStylesheet = document.querySelector('link[href^="css/style.css"]');
+            const rootStylesheet = document.querySelector('link[href*="css/style.css"]');
             if (rootStylesheet) {
                 rootStylesheet.disabled = true;
             }

@@ -157,7 +157,7 @@ def test_invalidate_thumbnails_deletes_all_for_shared_app_infra_change(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *_args, **_kwargs: "css/app-shell.css\n",
+        lambda *_args, **_kwargs: "css/style.css\n",
     )
 
     result = workflow_helpers.invalidate_thumbnails(
@@ -175,7 +175,7 @@ def test_invalidate_thumbnails_skips_missing_apps_root_for_shared_infra_change(
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
-        lambda *_args, **_kwargs: "css/app-shell.css\n",
+        lambda *_args, **_kwargs: "css/style.css\n",
     )
 
     result = workflow_helpers.invalidate_thumbnails(

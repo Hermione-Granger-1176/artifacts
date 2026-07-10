@@ -19,9 +19,8 @@ def test_index_template_includes_title() -> None:
     assert "<title>Budget Tracker | Artifacts</title>" in template
     assert '<html lang="en" data-theme="light">' in template
     assert '<script src="../../js/app-theme.js"></script>' in template
-    assert '<link rel="stylesheet" href="../../css/app-tokens.css">' in template
-    assert '<link rel="stylesheet" href="../../css/app-shell.css">' in template
-    assert '<link rel="stylesheet" href="./css/app.css">' in template
+    assert '<link rel="stylesheet" href="../../css/style.css">' in template
+    assert '<body class="artifact-app">' in template
     assert '<script type="module" src="./js/app.js"></script>' in template
     assert 'data-app-shell="header"' in template
     assert 'data-app-shell="runtime-error"' in template
@@ -42,7 +41,7 @@ def test_scaffold_artifact_creates_expected_files(
 
     assert artifact_dir == apps_dir / "budget-tracker"
     assert (artifact_dir / "index.html").exists()
-    assert (artifact_dir / "css" / "app.css").exists()
+    assert not (artifact_dir / "css").exists()
     assert (artifact_dir / "js" / "app.js").exists()
     assert (artifact_dir / "README.md").exists()
     assert (artifact_dir / "docs" / "architecture.md").exists()
@@ -55,13 +54,13 @@ def test_scaffold_artifact_creates_expected_files(
     assert (artifact_dir / "tools.txt").read_text(encoding="utf-8") == "\n"
 
     index_html = (artifact_dir / "index.html").read_text(encoding="utf-8")
-    app_css = (artifact_dir / "css" / "app.css").read_text(encoding="utf-8")
     app_js = (artifact_dir / "js" / "app.js").read_text(encoding="utf-8")
     readme = (artifact_dir / "README.md").read_text(encoding="utf-8")
 
     assert "__APP_THUMBNAIL_URL__" in index_html
     assert '<script type="module" src="./js/app.js"></script>' in index_html
-    assert ":root" not in app_css
+    assert '<link rel="stylesheet" href="../../css/style.css">' in index_html
+    assert '<body class="artifact-app app-budget-tracker">' in index_html
     assert "renderAppShell();" in app_js
     assert "initAppShell" in app_js
     assert "initializeMatureApp" in app_js

@@ -41,6 +41,7 @@ const PAGE_TURN_DIRECTIONS = {
  * }} Book-scene helpers.
  */
 export function createBookScene({ documentObj = document, windowObj = window, motion } = {}) {
+  /** @type {Promise<void> | null} */
   let introPromise = null;
   let pageTurnQueue = Promise.resolve();
 
@@ -164,8 +165,8 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
         return;
       }
 
-      const leftPage = grid.querySelector('.artifact-page-left');
-      const rightPage = grid.querySelector('.artifact-page-right');
+      const leftPage = /** @type {HTMLElement | null} */ (grid.querySelector('.artifact-page-left'));
+      const rightPage = /** @type {HTMLElement | null} */ (grid.querySelector('.artifact-page-right'));
 
       // Prime the cover in its starting position
       cover.style.transformOrigin = 'left center';
@@ -246,8 +247,8 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
    * Run a single page-turn animation sequence.
    * Desktop: 3D page flip with shadow.
    * Mobile (<=700px): simple cross-fade.
-   * @param {Function} renderNext - Callback that renders the next page content.
-   * @param {string} direction - Turn direction ('next' or 'previous').
+   * @param {Function} [renderNext] - Callback that renders the next page content.
+   * @param {'next'|'previous'} [direction='next'] - Turn direction.
    * @returns {Promise<void>} Resolves when the turn animation completes.
    */
   async function runPageTurn(renderNext, direction) {
@@ -290,8 +291,8 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       return;
     }
 
-    const leftPage = grid.querySelector('.artifact-page-left');
-    const rightPage = grid.querySelector('.artifact-page-right');
+    const leftPage = /** @type {HTMLElement | null} */ (grid.querySelector('.artifact-page-left'));
+    const rightPage = /** @type {HTMLElement | null} */ (grid.querySelector('.artifact-page-right'));
 
     if (!leftPage || !rightPage) {
       await Promise.resolve(render());
@@ -325,8 +326,8 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     await Promise.resolve(render());
 
     // Immediately start flip-in while flip-out is still finishing
-    const newLeft = grid.querySelector('.artifact-page-left');
-    const newRight = grid.querySelector('.artifact-page-right');
+    const newLeft = /** @type {HTMLElement | null} */ (grid.querySelector('.artifact-page-left'));
+    const newRight = /** @type {HTMLElement | null} */ (grid.querySelector('.artifact-page-right'));
 
     if (!newLeft || !newRight) {
       await flipOutAnim.finished;

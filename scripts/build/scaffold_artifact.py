@@ -44,22 +44,17 @@ def _title_from_slug(slug: str) -> str:
     return " ".join(word.capitalize() for word in slug.split("-"))
 
 
-def _index_template(title: str) -> str:
+def _index_template(title: str, slug: str | None = None) -> str:
     """Return a mature HTML starting point for a new artifact."""
+    app_class = f" app-{slug}" if slug else ""
     description = "Replace this description with a concise summary of your artifact."
+    lede = (
+        "Replace this scaffold with your artifact and keep shared visual "
+        "styling in the root stylesheet."
+    )
     csp = (
         "default-src 'self'; script-src 'self'; style-src 'self'; "
         "img-src 'self' data:; connect-src 'self'"
-    )
-    lede = (
-        "Replace this scaffold with your artifact and keep shared app styling "
-        "in the root app system while limiting this local CSS file to "
-        "page-specific overrides."
-    )
-    placeholder = (
-        "Build the interaction here, document the architecture in "
-        "<code>docs/</code>, and keep local styling focused on this app's "
-        "unique layout."
     )
     return f"""<!DOCTYPE html>
 <html lang="en" data-theme="light">
@@ -81,7 +76,7 @@ def _index_template(title: str) -> str:
   <meta name="twitter:description" content="{description}">
   <meta name="twitter:image" content="{APP_SHARE_IMAGE_PLACEHOLDER}">
   <meta name="twitter:image:alt" content="Preview card for the {title} app.">
-  <meta name="theme-color" content="rgb(248, 248, 246)">
+  <meta name="theme-color" content="rgb(245, 239, 230)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy" content="{csp}">
   <title>{title} | Artifacts</title>
@@ -90,11 +85,9 @@ def _index_template(title: str) -> str:
   <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
-  <link rel="stylesheet" href="../../css/app-tokens.css">
-  <link rel="stylesheet" href="../../css/app-shell.css">
-  <link rel="stylesheet" href="./css/app.css">
+  <link rel="stylesheet" href="../../css/style.css">
 </head>
-<body>
+<body class="artifact-app{app_class}">
   <div data-app-shell="header"></div>
 
   <main class="page-shell">
@@ -105,9 +98,9 @@ def _index_template(title: str) -> str:
       <p class="page-lede">{lede}</p>
     </header>
 
-    <section class="placeholder-card">
+    <section class="page-card placeholder-card">
       <h2>Get started</h2>
-      <p>{placeholder}</p>
+      <p>Build the interaction here and document the architecture in <code>docs/</code>.</p>
     </section>
   </main>
 
@@ -116,28 +109,6 @@ def _index_template(title: str) -> str:
   <script type="module" src="./js/app.js"></script>
 </body>
 </html>
-"""
-
-
-def _app_css_template() -> str:
-    """Return starter app-specific CSS overrides."""
-    return """.placeholder-card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  padding: 1.25rem;
-}
-
-.placeholder-card h2 {
-  margin-bottom: 0.5rem;
-  color: var(--color-text-heading);
-  font-size: 1rem;
-}
-
-.placeholder-card p {
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-}
 """
 
 
@@ -171,7 +142,6 @@ Describe what this artifact does.
 ## Structure
 
 - `index.html` - app shell and semantic layout
-- `css/app.css` - app-specific visual overrides
 - `js/app.js` - app-specific behavior
 - `docs/` - internal engineering notes
 
@@ -181,8 +151,8 @@ Describe what this artifact does.
 
 ## Development
 
-- Keep shared design decisions in the root app system
-- Keep app-local changes scoped to this folder
+- Keep shared design decisions in the root stylesheet and app shell
+- Keep app-specific behavior scoped to this folder
 """
 
 
@@ -212,11 +182,9 @@ def scaffold_artifact(name: str) -> Path:
     title = _title_from_slug(name)
     artifact_dir.mkdir()
     (TESTS_JS_APPS_DIR / name).mkdir(parents=True, exist_ok=True)
-    (artifact_dir / "css").mkdir()
     (artifact_dir / "js").mkdir()
     (artifact_dir / "docs").mkdir()
-    (artifact_dir / INDEX_FILE).write_text(_index_template(title), encoding="utf-8")
-    (artifact_dir / "css" / "app.css").write_text(_app_css_template(), encoding="utf-8")
+    (artifact_dir / INDEX_FILE).write_text(_index_template(title, name), encoding="utf-8")
     (artifact_dir / "js" / "app.js").write_text(_app_js_template(), encoding="utf-8")
     (artifact_dir / "README.md").write_text(_readme_template(title), encoding="utf-8")
     (artifact_dir / "docs" / "architecture.md").write_text(
