@@ -1280,13 +1280,13 @@ def test_remaining_thread_comments_null_node_raises() -> None:
 
 def test_rollup_summary_empty() -> None:
     """An empty check rollup is rendered as none."""
-    assert pr_review._rollup_summary([]) == "none"
+    assert pr_review.rollup_summary([]) == "none"
 
 
 def test_rollup_summary_rejects_non_dict_entry() -> None:
     """Test rollup summary rejects non dict entry."""
     with pytest.raises(GhError):
-        pr_review._rollup_summary([{"conclusion": "SUCCESS"}, "not a dict"])
+        pr_review.rollup_summary([{"conclusion": "SUCCESS"}, "not a dict"])
 
 
 def test_owner_name_rejects_invalid_slug(monkeypatch: pytest.MonkeyPatch) -> None:
