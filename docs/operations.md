@@ -10,7 +10,8 @@ make setup      # fast: Python + Node deps, no Chromium
 make setup-all  # full: also installs Chromium for browser tests and thumbnails
 make install-hooks # install local pre-commit hooks
 make pr         # show all PR sub-commands
-make ci         # show all CI sub-commands
+make ci         # full non-browser local CI gate
+make help-ci    # show CI and GitHub run sub-commands
 make git        # show all git sub-commands
 ```
 
@@ -59,12 +60,12 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - `make test-ci-workflows` runs narrow contract tests against `.github/workflows/*.yml` so local and CI checks can catch workflow-structure drift early.
 - `node --test` covers the grouped Node suites under `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, and `tests/js/workflows/`.
 - `make coverage-js` uses Node's built-in experimental coverage output and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across all source files imported by the grouped `tests/js/` suites. Coverage excludes `node_modules/` and `tests/`; thresholds and exclusions are configured in `package.json`.
-- `make security` mirrors the practical local dependency audits in CI; the Python side exports the frozen uv dependency graph to a requirements file, runs a policy-driven pip-audit against it with the reviewed vulnerability exceptions in `config/security_audit.json`, matches exceptions by package and vulnerability id or alias, and fails expired, unused, or now-fixable exceptions, while Gitleaks and GitHub dependency review remain CI-only because this repo does not vendor those scanners locally.
+- `make security` is the umbrella target that runs `make audit-python` then `make audit-node`, mirroring the practical local dependency audits in CI. `make audit-python` exports the frozen uv dependency graph to a temporary requirements file, runs a policy-driven pip-audit against it, matches reviewed exceptions in `config/security_audit.json` by package and vulnerability id or alias, and fails expired, unused, or now-fixable exceptions. `make audit-node` runs `npm audit` over the workspace dependency graph. Gitleaks and GitHub dependency review remain CI-only because this repo does not vendor those scanners locally.
 - `make check-generated` reruns the index generator in a restore-safe mode and fails if `README.md`, `js/data.js`, or `js/gallery-config.js` would drift from tracked source inputs.
 - Playwright browser suites validate both the built root gallery and mature app pages through `make test-browser`, while CI selectively scopes mature app suites with `ARTIFACTS_BROWSER_APP_SLUGS`.
 - `make test-browser-live` verifies an already-published site in a real browser when `ARTIFACTS_LIVE_SITE_URL` is set, and CI captures failure screenshots/traces/logs through `ARTIFACTS_BROWSER_ARTIFACT_DIR`.
 - Scheduled CI monitoring now uses GitHub-native issue alerts: `.github/workflows/audit-repo-settings.yml` opens/closes a single repository-settings drift issue, and `.github/workflows/live-site-smoke.yml` opens/closes a single live-site smoke issue.
-- `make check-local` is the fast local gate without browser Playwright suites or thumbnail generation, and it includes the JS source-to-test coverage lint plus the canonical generated-file drift check.
+- `make ci` is the full non-browser local gate without browser Playwright suites or thumbnail generation, and it includes formatting, linting, tests, coverage, dead-code checks, dependency audits, validation, and canonical generated-file drift checks. `make check-local` is an alias.
 - `make test-browser-root-smoke`, `make test-browser-root-accessibility`, and `make test-browser-root-flows` let you run the root gallery Playwright suites separately.
 - `make test-browser-apps-smoke`, `make test-browser-apps-accessibility`, and `make test-browser-apps-flows` let you run the mature app Playwright suites separately while preserving `make test-browser-apps` as the aggregate app gate.
 - `make check-web` is the browser-only gate for the aggregate root/app browser suites and thumbnails.
@@ -82,7 +83,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 
 ## Required GitHub settings
 
-See [architecture.md: External GitHub settings](architecture.md#external-github-settings) for the full list of required repository settings (Pages, branch protection, app tokens, secrets, rulesets). Use `make ci` to discover the `make ci-audit-repo-settings` wrapper for the manual drift check.
+See [architecture.md: External GitHub settings](architecture.md#external-github-settings) for the full list of required repository settings (Pages, branch protection, app tokens, secrets, rulesets). Use `make help-ci` to discover the `make ci-audit-repo-settings` wrapper for the manual drift check.
 
 ## Vendored runtime dependencies
 
@@ -158,7 +159,7 @@ All runtime assets should be self-hosted. Do not load scripts, fonts, or stylesh
 - If the Playwright Python package is unavailable locally, browser Playwright suites fail during collection and `make thumbnails` exits immediately; rerun `make setup-all`.
 - If Chromium is unavailable locally, `make check-web`, `make test-browser`, and `make test-browser-live` fail; run `make setup-all` to install it.
 - `make check-local` intentionally avoids Playwright so it can stay fast on machines without Chromium.
-- If you need to manually audit repository settings drift outside the scheduled workflow, run `make ci` to discover `make ci-audit-repo-settings`, then pass `repo=<owner/repo>` when auditing a different repository.
+- If you need to manually audit repository settings drift outside the scheduled workflow, run `make help-ci` to discover `make ci-audit-repo-settings`, then pass `repo=<owner/repo>` when auditing a different repository.
 - If you want to inspect the deployable output locally, run `make site` and serve `_site/` from a static file server.
 - If `make security` fails on `npm audit`, the issue is in the current workspace dependency graph and needs triage before release.
 - If `make security` fails on the Python audit, either a new vulnerability needs triage, an exception review date has expired, an exception no longer matches the current lock files, or a fix is now available and the temporary exception must be removed.

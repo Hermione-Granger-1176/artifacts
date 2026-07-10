@@ -1,20 +1,21 @@
 # CLAUDE.md
 
-Collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT, Gemini, etc.).
-Hosted via GitHub Pages. The canonical site URL is configured in `pyproject.toml` under `[tool.artifacts]`.
+Collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT, Gemini, etc.). Hosted via GitHub Pages. The canonical site URL is configured in `pyproject.toml` under `[tool.artifacts]`.
 
 ## Rules
 
-1. **The Makefile is the only interface.** Never run `.venv/bin/*`, `pytest`, `ruff`, `npm run`, or any tool directly. Always use `make <target>`. If unsure what's available, run `make help` first. The list is auto-generated from the Makefile.
-2. **If a target is missing, add it.** Put `## description` after the target name in the Makefile and it appears in `make help` automatically.
-3. **Each tool has one config file.** To change what gets linted/tested/covered, edit the tool's config, nowhere else. See the tool configuration table below.
-4. **Read before acting.** Read the Makefile and existing code before proposing changes. Don't reinvent what already exists.
-5. **Don't run auto-fix commands** (`make align-tables`, `make fmt`, etc.) unless the user asks.
+1. **The Makefile is the only interface.** Never run `.venv/bin/*`, `pytest`, `ruff`, `mypy`, `npm run`, `npx`, `tsc`, `playwright`, or `gh` directly. Always use `make <target>`. If unsure what's available, run `make help` first. The list is auto-generated from the Makefile.
+2. **Use the `make pr` / `make git` / `make help-ci` targets for GitHub work.** Prefer `make pr-review-comments`, `make pr-address`, `make pr-reply`, `make pr-resolve`, `make pr-summary`, `make pr-checks`, `make ci-failures`, and `make push` over raw `gh` or `git` commands. `make pr-review-comments` prints `thread=PRRT_...` ids; pass that id straight to `make pr-reply`, `make pr-resolve`, or `make pr-address`. The PR number is auto-detected from the current branch (override with `pr_num=N`). Never pass extra flags like `--jq` to a make target, since make parses them itself and errors.
+3. **If a target is missing, add it.** Put `## description` after the target name in the Makefile and it appears in `make help` automatically.
+4. **Each tool has one config file.** To change what gets linted/tested/typed, edit the tool's config, nowhere else. See the tool configuration table below.
+5. **Configs auto-discover from roots; never enumerate files in multiple places.** Point tools at directory roots, globs, or shared config files so new artifacts, scripts, and tests are covered automatically. Don't repeat per-file source lists; that rots the day someone adds a file and forgets. Tool config-file location pointers are fine; per-file source lists are not.
+6. **Read before acting.** Read the Makefile and existing code before proposing changes. Don't reinvent what already exists.
+7. **Don't run auto-fix commands** (`make align-tables`, `make fmt`, `make format`, etc.) unless the user asks.
+8. **Don't commit, push, or open/merge PRs unless asked.** Make and verify changes in the working tree and stop there until the user asks for GitHub actions. For small tooling/doc tweaks, fold them into the current in-progress branch instead of opening a separate PR.
 
 ## Structure
 
-Each artifact lives in its own directory under `apps/` with an `index.html` entry point.
-The root `index.html` is a gallery page with searchable thumbnails, multi-select filters, theme persistence, and detail overlays.
+Each artifact lives in its own directory under `apps/` with an `index.html` entry point. The root `index.html` is a gallery page with searchable thumbnails, multi-select filters, theme persistence, and detail overlays.
 
 - `apps/<slug>/`: artifacts, each with `index.html`, `name.txt`, `description.txt`, `tags.txt`, `tools.txt`
 - `scripts/{build,ci,gh,lib,lint}/`: Python tooling organized by concern, 100% test coverage enforced
@@ -35,38 +36,74 @@ When adding a user-provided artifact, prefer the minimal path: scaffold, copy HT
 
 ## Local commands
 
-**Run `make help` for the full list of targets.** Help is two-level: top-level shows all build/test/lint targets directly, while `make pr`, `make ci`, and `make git` drill into their sub-commands. Everything is auto-generated from `## comment` annotations in the Makefile.
+**Run `make help` for command groups, then `make help-<group>` to expand one** (for example `make help-pr`, `make help-quality`, or `make help-build`). `make help-json` emits the same surface for tooling. Groups: setup, lint, format, typecheck, deadcode, test, build, quality, util, git, pr, ci. Everything is auto-generated from `## comment` annotations and `# ─── Title @slug ───` section headers in the Makefile.
 
 Key entry points:
 
 - `make setup`: fast default (Python + Node deps, no Chromium)
-- `make setup-all`: full setup including Chromium for browser tests and thumbnails
-- `make check-local`: fast gate before pushing (lint + test + coverage + security + validate + generated drift)
+- `make setup-all`: full setup including Chromium for browser tests and thumbnails. Use only when browser work is explicitly needed.
+- `make install-hooks`: install the local pre-commit Git hooks
+- `make ci`: full non-browser local CI gate
+- `make ci-fast`: parallel non-browser local CI gate
+- `make check-local`: alias for `make ci`
+- `make check-fast`: alias for `make ci-fast`
+- `make check-web`: browser tests + thumbnails, requires Chromium
 - `make check`: full gate (check-local + browser tests + thumbnails + index + site build)
 - `make fmt`: auto-fix lint issues across Python, JS, and CSS
+- `make format-check`: check ruff and Prettier formatting without writing files
+- `make dead-code`: run vulture and Knip dead-code checks
 - `make pr`: show all PR commands (create, list, merge, comments, review, resolve, etc.)
-- `make ci`: show all CI commands (runs, watch, issues)
-- `make git`: show all git commands (branch, log, diff)
-- `make status`: quick workspace health check
+- `make help-ci`: show CI/GitHub run commands (runs, watch, failed logs, repo audit)
+- `make git`: show all git commands (branch, commit, push, log, diff)
+- `make status`: workspace health check (git, deps, lock currency, generated files, PR summary)
 
 Python dependencies and workspace metadata live in `pyproject.toml`, while frozen installs live in `uv.lock` and `package-lock.json`. Local Python setup requires `uv` on PATH.
+
+## Common commands
+
+High-frequency loops (full surface via `make help`). PR and CI triage targets wrap the tested `scripts/gh/` helper so agents do not need raw GitHub CLI flags.
+
+| Need | Command |
+| --- | --- |
+| Review threads with resolution state | `make pr-review-comments [pr_num=N]` |
+| Reply to a review thread | `make pr-reply thread=PRRT_... body_file=/tmp/reply.md` |
+| Reply to and resolve a review thread | `make pr-address thread=PRRT_... body_file=/tmp/reply.md` |
+| Resolve a review thread | `make pr-resolve thread=PRRT_...` |
+| PR overview with checks and open threads | `make pr-summary [pr_num=N]` |
+| List individual review comments | `make pr-comments-list [pr_num=N]` |
+| Show PR comments and timeline | `make pr-comments` |
+| Watch PR checks | `make pr-checks` |
+| Show failed CI logs for this branch | `make ci-failures` |
+| New branch off `main` | `make branch name=my-feature` |
+| New stacked branch | `make branch name=my-feature base=current-branch` |
+| Full local CI gate / parallel | `make ci` / `make ci-fast` |
+| Formatting and dead code checks | `make format-check` / `make dead-code` |
+| Commit staged work | `make commit message_file=/tmp/commit-message.txt` |
+| Push the current branch | `make push` |
+| Discover commands | `make help`, then `make help-<group>`, or `make help-json` |
 
 ## Tool configuration
 
 Each tool has one config file that owns its scope. The Makefile just calls tools. No file lists repeated anywhere.
 
-| Tool         | Config (source of truth) | What it defines                                                            |
-| ------------ | ------------------------ | -------------------------------------------------------------------------- |
-| ruff         | `pyproject.toml`         | Python lint/format rules; built-in excludes skip `.venv/`, `node_modules/` |
-| pytest       | `pyproject.toml`         | Test paths, coverage target (`scripts/`), 100% threshold                   |
-| ESLint       | `eslint.config.js`       | JS file patterns, ignores, rules                                           |
-| stylelint    | `stylelint.config.js`    | CSS rules, ignoreFiles                                                     |
-| yamllint     | `.yamllint.yml`          | YAML rules, ignore patterns                                                |
-| JS coverage  | `package.json`           | Exclude patterns (`node_modules/`, `tests/`)                               |
-| editorconfig | `.editorconfig`          | Formatting rules per file type                                             |
-| esbuild      | `package.json`           | CSS/JS minification during site assembly (`prepare_site.py`)               |
+| Tool | Config (source of truth) | What it defines |
+| --- | --- | --- |
+| ruff | `pyproject.toml` | Python lint/format rules; built-in excludes skip `.venv/`, `node_modules/` |
+| pytest | `pyproject.toml` | Test paths, coverage target (`scripts/`), 100% threshold |
+| ESLint | `config/eslint.config.js` | JS file patterns, ignores, rules |
+| stylelint | `config/stylelint.config.js` | CSS rules, ignoreFiles |
+| yamllint | `.yamllint.yml` | YAML rules, ignore patterns |
+| JS coverage | `package.json` | Exclude patterns (`node_modules/`, `tests/`) |
+| tsc (checkJs) | `config/jsconfig.json` | TypeScript checkJs gate for hand-written js/ modules |
+| mypy | `pyproject.toml` | Strict Python type checking over `scripts/` |
+| Prettier | `config/prettierrc.json` | Docs, metadata, workflow, and tooling formatting |
+| Knip | `config/knip.json` | JS dead-code, unused exports, and unused dependency detection |
+| vulture | `pyproject.toml` | Python dead-code detection |
+| editorconfig | `.editorconfig` | Formatting rules per file type |
+| pre-commit | `.pre-commit-config.yaml` | Local Git hook stages (whitespace, lint, format, typecheck, and test gates) |
+| esbuild | `package.json` | CSS/JS minification during site assembly (`prepare_site.py`) |
 
-To change what gets linted/tested/covered, edit the tool's config file, nowhere else.
+To change what gets linted/tested/typed, edit the tool's config file, nowhere else.
 
 ## Auto-generated files
 
