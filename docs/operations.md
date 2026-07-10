@@ -55,7 +55,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - `make format-check` verifies ruff formatting plus Prettier-managed docs, metadata, config, workflows, and tooling scripts without writing files.
 - `make typecheck` runs mypy strict over `scripts/` and the web typecheck target from `config/jsconfig.json`.
 - `make dead-code` runs vulture for Python and Knip for JavaScript files, exports, and dependency usage.
-- `pytest` enforces 100% line and branch coverage for the `scripts` package and treats warnings as errors.
+- `make test-py` enforces 100% line and branch coverage for the `scripts` package and treats warnings as errors.
 - `make test-ci` runs the CI-focused Python tests under `tests/ci/`.
 - `make test-ci-workflows` runs narrow contract tests against `.github/workflows/*.yml` so local and CI checks can catch workflow-structure drift early.
 - `node --test` covers the grouped Node suites under `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, and `tests/js/workflows/`.
