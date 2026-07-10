@@ -104,7 +104,7 @@ def should_check_file(sections: list[EditorConfigSection], relative_path: str) -
 
 
 def iter_workspace_files(root: Path | None = None) -> list[Path]:
-    """Return repository files while skipping configured cache and build directories."""
+    """Return repository files, skipping cache, build, dependency, and VCS directories."""
     workspace_root = root or REPO_ROOT
     return [
         path

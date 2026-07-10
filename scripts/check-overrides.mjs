@@ -85,7 +85,10 @@ if (allResult.ok) {
     writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
     console.log("\nRemoved all overrides from package.json.");
     console.log("Updating lockfile...");
-    execSync("npm install", { cwd: rootDir, stdio: "inherit" });
+    execSync("npm install --package-lock-only --ignore-scripts", {
+      cwd: rootDir,
+      stdio: "inherit",
+    });
     console.log("Done.");
     process.exit(0);
   }
@@ -131,7 +134,7 @@ if (fix) {
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
   console.log(`\nRemoved ${removable.length} override(s) from package.json.`);
   console.log("Updating lockfile...");
-  execSync("npm install", { cwd: rootDir, stdio: "inherit" });
+  execSync("npm install --package-lock-only --ignore-scripts", { cwd: rootDir, stdio: "inherit" });
   console.log("Done.");
   process.exit(0);
 }
