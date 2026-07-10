@@ -13,7 +13,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from . import ci_status, pr_review
+from . import ci_status, pr_review, pr_watch
 from .gh_runner import GhError
 
 
@@ -83,6 +83,19 @@ def _build_parser() -> argparse.ArgumentParser:
     summary_parser = subparsers.add_parser("summary", help="One-screen PR overview")
     summary_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
 
+    watch_parser = subparsers.add_parser(
+        "watch", help="Wait for settled checks and a fresh Copilot review"
+    )
+    watch_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
+    watch_parser.add_argument("--since", help="Review timestamp (default: newest PR commit)")
+    watch_parser.add_argument(
+        "--interval", type=float, default=45.0, help="Poll interval in seconds"
+    )
+    watch_parser.add_argument("--max-polls", type=int, default=40, help="Maximum poll count")
+    watch_parser.add_argument(
+        "--checks-only", action="store_true", help="Do not wait for a Copilot review"
+    )
+
     ci_parser = subparsers.add_parser(
         "ci-failures", help="Show failed-step logs for the latest run"
     )
@@ -150,6 +163,20 @@ def _handle_summary(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_watch(args: argparse.Namespace) -> int:
+    """Wait for a pull request to settle, then print its report."""
+    print(
+        pr_watch.watch_pr(
+            args.pr,
+            args.since,
+            interval=args.interval,
+            max_polls=args.max_polls,
+            checks_only=args.checks_only,
+        )
+    )
+    return 0
+
+
 def _handle_ci_failures(args: argparse.Namespace) -> int:
     """Print failed-step logs for a run."""
     print(ci_status.failure_digest(args.run))
@@ -171,6 +198,7 @@ COMMAND_HANDLERS = {
     "list-comments": _handle_list_comments,
     "delete-comment": _handle_delete_comment,
     "summary": _handle_summary,
+    "watch": _handle_watch,
     "ci-failures": _handle_ci_failures,
     "copilot-review": _handle_copilot_review,
 }

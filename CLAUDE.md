@@ -70,6 +70,7 @@ High-frequency loops (full surface via `make help`). PR and CI triage targets wr
 | Reply to and resolve a review thread | `make pr-address thread=PRRT_... body_file=/tmp/reply.md` |
 | Resolve a review thread | `make pr-resolve thread=PRRT_...` |
 | PR overview with checks and open threads | `make pr-summary [pr_num=N]` |
+| Wait for checks and a fresh Copilot review | `make pr-watch [pr_num=N]` |
 | List individual review comments | `make pr-comments-list [pr_num=N]` |
 | Show PR comments and timeline | `make pr-comments` |
 | Watch PR checks | `make pr-checks` |
