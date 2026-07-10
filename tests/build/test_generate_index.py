@@ -14,6 +14,7 @@ from scripts.lib.artifact_contract import read_artifact_contract_file
 
 
 def write_text(path: Path, content: str) -> None:
+    """Write text."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
@@ -28,6 +29,7 @@ def create_artifact(
     tools: list[str] | None = None,
     thumbnail_file: str | None = None,
 ) -> Path:
+    """Create artifact."""
     artifact_dir = base_dir / name
     artifact_dir.mkdir(parents=True)
     write_text(artifact_dir / "index.html", "<html></html>")
@@ -44,6 +46,7 @@ def create_artifact(
 
 
 def minimal_readme() -> str:
+    """Minimal readme."""
     return "".join(
         [
             "# Artifacts\n\n",
@@ -58,6 +61,7 @@ def minimal_readme() -> str:
 
 
 def minimal_pyproject() -> str:
+    """Minimal pyproject."""
     return "".join(
         [
             "[tool.artifacts]\n",
@@ -67,6 +71,7 @@ def minimal_pyproject() -> str:
 
 
 def minimal_gallery_metadata() -> str:
+    """Minimal gallery metadata."""
     return json.dumps(
         {
             "tools": [
@@ -137,9 +142,7 @@ def make_config(
         note_color_pattern=re.compile(
             r"--color-note-(\d+):\s*rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\);"
         ),
-        uppercase_words=frozenset(
-            {"ai", "api", "css", "html", "js", "json", "llm", "ui", "ux"}
-        ),
+        uppercase_words=frozenset({"ai", "api", "css", "html", "js", "json", "llm", "ui", "ux"}),
         missing_file_issues={
             (False, False): f"missing {index_file} and {name_file}",
             (False, True): f"has {name_file} but no {index_file}",
@@ -155,6 +158,7 @@ def make_config(
 def test_read_artifact_contract_loads_shared_validation_rules(
     tmp_path: Path,
 ) -> None:
+    """Test read artifact contract loads shared validation rules."""
     contract_file = tmp_path / "config" / "artifact_contract.json"
     write_text(
         contract_file,
@@ -220,6 +224,7 @@ def test_read_artifact_contract_rejects_invalid_contract_shapes(
     payload: object,
     message: str,
 ) -> None:
+    """Test read artifact contract rejects invalid contract shapes."""
     contract_file = tmp_path / "config" / "artifact_contract.json"
     write_text(contract_file, json.dumps(payload))
 
@@ -230,10 +235,9 @@ def test_read_artifact_contract_rejects_invalid_contract_shapes(
 def test_read_artifact_contract_requires_existing_file(
     tmp_path: Path,
 ) -> None:
+    """Test read artifact contract requires existing file."""
     with pytest.raises(FileNotFoundError, match="Artifact contract file not found"):
-        read_artifact_contract_file(
-            tmp_path / "config" / "artifact_contract.json"
-        )
+        read_artifact_contract_file(tmp_path / "config" / "artifact_contract.json")
 
 
 # -- Palette and badge color tests --------------------------------------------
@@ -242,6 +246,7 @@ def test_read_artifact_contract_requires_existing_file(
 def test_fallback_badge_color_uses_shared_note_palette(
     tmp_path: Path,
 ) -> None:
+    """Test fallback badge color uses shared note palette."""
     gallery_dir = tmp_path / "css" / "gallery"
     gallery_dir.mkdir(parents=True, exist_ok=True)
     tokens_file = gallery_dir / "01-tokens.css"
@@ -262,6 +267,7 @@ def test_fallback_badge_color_uses_shared_note_palette(
 def test_fallback_badge_color_uses_default_when_palette_file_is_missing(
     tmp_path: Path,
 ) -> None:
+    """Test fallback badge color uses default when palette file is missing."""
     config = make_config(
         tmp_path,
         gallery_foundation_file=tmp_path / "css" / "gallery" / "missing-tokens.css",
@@ -275,6 +281,7 @@ def test_fallback_badge_color_uses_default_when_palette_file_is_missing(
 
 
 def test_read_file_and_parse_lines(tmp_path: Path) -> None:
+    """Test read file and parse lines."""
     sample = tmp_path / "sample.txt"
     write_text(sample, " first\n\nsecond \n")
 
@@ -286,6 +293,7 @@ def test_read_file_and_parse_lines(tmp_path: Path) -> None:
 def test_is_kebab_case_accepts_expected_directory_names(
     tmp_path: Path,
 ) -> None:
+    """Test is kebab case accepts expected directory names."""
     config = make_config(tmp_path)
     assert config.is_kebab_case("budget-tracker") is True
     assert config.is_kebab_case("artifact-2026") is True
@@ -299,6 +307,7 @@ def test_is_kebab_case_accepts_expected_directory_names(
 def test_artifact_issues_cover_missing_files_and_empty_name(
     tmp_path: Path,
 ) -> None:
+    """Test artifact issues cover missing files and empty name."""
     config = make_config(tmp_path)
 
     missing_all = tmp_path / "budget-tracker"
@@ -325,14 +334,13 @@ def test_artifact_issues_cover_missing_files_and_empty_name(
     empty_name.mkdir()
     write_text(empty_name / "index.html", "<html></html>")
     write_text(empty_name / "name.txt", "   ")
-    assert index_sources.artifact_issues(empty_name, config=config) == [
-        "has an empty name.txt"
-    ]
+    assert index_sources.artifact_issues(empty_name, config=config) == ["has an empty name.txt"]
 
 
 def test_artifact_issues_include_non_kebab_case_name(
     tmp_path: Path,
 ) -> None:
+    """Test artifact issues include non kebab case name."""
     config = make_config(tmp_path)
 
     folder = tmp_path / "Bad Artifact"
@@ -348,6 +356,7 @@ def test_artifact_issues_include_non_kebab_case_name(
 
 
 def test_extract_artifact_builds_expected_structure(tmp_path: Path) -> None:
+    """Test extract artifact builds expected structure."""
     config = make_config(tmp_path)
     artifact_dir = create_artifact(
         tmp_path,
@@ -376,12 +385,13 @@ def test_extract_artifact_rejects_unsafe_thumbnail_path(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Test extract artifact rejects unsafe thumbnail path."""
     config = make_config(tmp_path)
     artifact_dir = create_artifact(tmp_path, "loan-tool")
     monkeypatch.setattr(
         index_sources,
         "resolve_thumbnail",
-        lambda folder, *, config: "apps/loan-tool/%2E%2E/thumbnail.webp",
+        lambda _folder, **_kwargs: "apps/loan-tool/%2E%2E/thumbnail.webp",
     )
 
     with pytest.raises(ValueError, match="path traversal"):
@@ -389,6 +399,7 @@ def test_extract_artifact_rejects_unsafe_thumbnail_path(
 
 
 def test_extract_artifact_returns_none_for_empty_name(tmp_path: Path) -> None:
+    """Test extract artifact returns none for empty name."""
     config = make_config(tmp_path)
     artifact_dir = tmp_path / "broken"
     artifact_dir.mkdir()
@@ -403,6 +414,7 @@ def test_extract_artifact_returns_none_for_empty_name(tmp_path: Path) -> None:
 def test_scan_artifacts_filters_hidden_and_invalid_dirs(
     tmp_path: Path,
 ) -> None:
+    """Test scan artifacts filters hidden and invalid dirs."""
     apps_dir = tmp_path / "apps"
     apps_dir.mkdir()
     create_artifact(apps_dir, "z-last", title="Z Last")
@@ -419,9 +431,24 @@ def test_scan_artifacts_filters_hidden_and_invalid_dirs(
     assert [item["id"] for item in items] == ["a-first", "z-last"]
 
 
+def test_scan_artifacts_skips_empty_extracted_items(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test scan artifacts skips empty extracted items."""
+    apps_dir = tmp_path / "apps"
+    apps_dir.mkdir()
+    create_artifact(apps_dir, "empty-item", title="Empty Item")
+    config = make_config(tmp_path, apps_dir=apps_dir)
+
+    monkeypatch.setattr(index_sources, "extract_artifact", lambda *_args, **_kwargs: None)
+
+    assert generate_index._scan_artifacts(config) == []
+
+
 def test_scan_artifacts_logs_warnings_for_incomplete_directories(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
+    """Test scan artifacts logs warnings for incomplete directories."""
     apps_dir = tmp_path / "apps"
     apps_dir.mkdir()
     create_artifact(apps_dir, "valid-artifact")
@@ -445,6 +472,7 @@ def test_scan_artifacts_logs_warnings_for_incomplete_directories(
 def test_scan_artifacts_emits_debug_log_for_apps_dir(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
+    """Test scan artifacts emits debug log for apps dir."""
     apps_dir = tmp_path / "apps"
     apps_dir.mkdir()
     config = make_config(tmp_path, apps_dir=apps_dir)
@@ -458,6 +486,7 @@ def test_scan_artifacts_emits_debug_log_for_apps_dir(
 def test_scan_artifacts_returns_empty_when_apps_dir_is_missing(
     tmp_path: Path,
 ) -> None:
+    """Test scan artifacts returns empty when apps dir is missing."""
     config = make_config(tmp_path, apps_dir=tmp_path / "missing-apps")
 
     assert generate_index._scan_artifacts(config) == []
@@ -469,6 +498,7 @@ def test_scan_artifacts_returns_empty_when_apps_dir_is_missing(
 def test_validate_passes_for_valid_artifacts(
     tmp_path: Path,
 ) -> None:
+    """Test validate passes for valid artifacts."""
     apps_dir = tmp_path / "apps"
     apps_dir.mkdir()
     create_artifact(apps_dir, "valid-artifact")
@@ -481,6 +511,7 @@ def test_validate_passes_for_valid_artifacts(
 def test_validate_raises_for_invalid_artifact_directories(
     tmp_path: Path,
 ) -> None:
+    """Test validate raises for invalid artifact directories."""
     apps_dir = tmp_path / "apps"
     apps_dir.mkdir()
     missing_index = apps_dir / "missing-index"
@@ -510,6 +541,7 @@ def test_validate_raises_for_invalid_artifact_directories(
 
 
 def test_replace_inline_marker_requires_exactly_one_pair() -> None:
+    """Test replace inline marker requires exactly one pair."""
     content = "<!-- AUTO:TOTAL_COUNT -->1<!-- /AUTO:TOTAL_COUNT -->"
 
     replaced = index_outputs.replace_inline_marker(content, "TOTAL_COUNT", "2")
@@ -528,13 +560,12 @@ def test_replace_inline_marker_requires_exactly_one_pair() -> None:
 
 
 def test_replace_block_marker_requires_exactly_one_pair() -> None:
+    """Test replace block marker requires exactly one pair."""
     content = "<!-- AUTO:TAG_BADGES_START -->\nold\n<!-- AUTO:TAG_BADGES_END -->"
 
     replaced = index_outputs.replace_block_marker(content, "TAG_BADGES", "new")
 
-    assert (
-        replaced == "<!-- AUTO:TAG_BADGES_START -->\nnew\n<!-- AUTO:TAG_BADGES_END -->"
-    )
+    assert replaced == "<!-- AUTO:TAG_BADGES_START -->\nnew\n<!-- AUTO:TAG_BADGES_END -->"
 
     with pytest.raises(ValueError, match="Expected exactly one block marker pair"):
         index_outputs.replace_block_marker("missing", "TAG_BADGES", "new")
@@ -546,6 +577,7 @@ def test_replace_block_marker_requires_exactly_one_pair() -> None:
 def test_build_badges_block_respects_display_order_and_fallback(
     tmp_path: Path,
 ) -> None:
+    """Test build badges block respects display order and fallback."""
     config = make_config(tmp_path)
     tag_badge_config: dict[str, generate_index.BadgeConfig] = {
         "finance": {
@@ -578,6 +610,7 @@ def test_build_badges_block_respects_display_order_and_fallback(
 def test_build_badge_includes_logo_metadata_for_known_tools(
     tmp_path: Path,
 ) -> None:
+    """Test build badge includes logo metadata for known tools."""
     config = make_config(tmp_path)
     tool_badge_config: dict[str, generate_index.BadgeConfig] = {
         "claude": {
@@ -600,6 +633,7 @@ def test_build_badge_includes_logo_metadata_for_known_tools(
 def test_build_badges_block_returns_empty_string_for_empty_items(
     tmp_path: Path,
 ) -> None:
+    """Test build badges block returns empty string for empty items."""
     config = make_config(tmp_path)
     assert (
         config.build_badges_block(
@@ -617,6 +651,7 @@ def test_build_badges_block_returns_empty_string_for_empty_items(
 def test_read_gallery_metadata_loads_shared_config(
     tmp_path: Path,
 ) -> None:
+    """Test read gallery metadata loads shared config."""
     metadata_file = tmp_path / "config" / "gallery_metadata.json"
     write_text(metadata_file, minimal_gallery_metadata())
 
@@ -630,6 +665,7 @@ def test_read_gallery_metadata_loads_shared_config(
 def test_read_gallery_metadata_raises_when_file_is_missing(
     tmp_path: Path,
 ) -> None:
+    """Test read gallery metadata raises when file is missing."""
     config = make_config(tmp_path)
 
     with pytest.raises(FileNotFoundError, match="Gallery metadata file not found"):
@@ -639,6 +675,7 @@ def test_read_gallery_metadata_raises_when_file_is_missing(
 def test_read_gallery_metadata_raises_for_invalid_shape(
     tmp_path: Path,
 ) -> None:
+    """Test read gallery metadata raises for invalid shape."""
     metadata_file = tmp_path / "config" / "gallery_metadata.json"
     write_text(metadata_file, '{"tools": {}, "tags": []}')
 
@@ -651,6 +688,7 @@ def test_read_gallery_metadata_raises_for_invalid_shape(
 def test_read_gallery_metadata_raises_for_non_object_root(
     tmp_path: Path,
 ) -> None:
+    """Test read gallery metadata raises for non object root."""
     metadata_file = tmp_path / "config" / "gallery_metadata.json"
     write_text(metadata_file, "[]")
 
@@ -663,6 +701,7 @@ def test_read_gallery_metadata_raises_for_non_object_root(
 def test_read_gallery_metadata_raises_for_invalid_entry_object(
     tmp_path: Path,
 ) -> None:
+    """Test read gallery metadata raises for invalid entry object."""
     metadata_file = tmp_path / "config" / "gallery_metadata.json"
     write_text(metadata_file, '{"tools": ["claude"], "tags": []}')
 
@@ -675,6 +714,7 @@ def test_read_gallery_metadata_raises_for_invalid_entry_object(
 def test_read_gallery_metadata_raises_for_missing_required_fields(
     tmp_path: Path,
 ) -> None:
+    """Test read gallery metadata raises for missing required fields."""
     metadata_file = tmp_path / "config" / "gallery_metadata.json"
     write_text(
         metadata_file,
@@ -688,6 +728,7 @@ def test_read_gallery_metadata_raises_for_missing_required_fields(
 
 
 def test_badge_config_map_and_display_order_use_shared_metadata() -> None:
+    """Test badge config map and display order use shared metadata."""
     entries: list[dict[str, str | None]] = [
         {
             "id": "claude",
@@ -717,6 +758,7 @@ def test_badge_config_map_and_display_order_use_shared_metadata() -> None:
 def test_write_frontend_config_writes_browser_metadata(
     tmp_path: Path,
 ) -> None:
+    """Test write frontend config writes browser metadata."""
     metadata_file = tmp_path / "config" / "gallery_metadata.json"
     write_text(metadata_file, minimal_gallery_metadata())
 
@@ -730,6 +772,7 @@ def test_write_frontend_config_writes_browser_metadata(
 
 
 def test_frontend_config_contains_display_labels(tmp_path: Path) -> None:
+    """Test frontend config contains display labels."""
     config = make_config(tmp_path)
     metadata: generate_index.GalleryMetadata = {
         "tools": [
@@ -754,9 +797,7 @@ def test_frontend_config_contains_display_labels(tmp_path: Path) -> None:
         ],
     }
 
-    fc = index_outputs.frontend_config(
-        metadata, artifact_contract=config.contract
-    )
+    fc = index_outputs.frontend_config(metadata, artifact_contract=config.contract)
 
     tools = fc["tools"]
 
@@ -772,6 +813,7 @@ def test_frontend_config_contains_display_labels(tmp_path: Path) -> None:
 def test_read_site_url_normalizes_trailing_slash(
     tmp_path: Path,
 ) -> None:
+    """Test read site url normalizes trailing slash."""
     pyproject_file = tmp_path / "pyproject.toml"
     write_text(pyproject_file, minimal_pyproject())
 
@@ -783,21 +825,23 @@ def test_read_site_url_normalizes_trailing_slash(
 def test_read_site_url_raises_when_config_is_missing(
     tmp_path: Path,
 ) -> None:
+    """Test read site url raises when config is missing."""
     pyproject_file = tmp_path / "pyproject.toml"
     write_text(pyproject_file, "[tool.other]\nvalue = true\n")
 
     config = make_config(tmp_path)
 
-    with pytest.raises(ValueError, match="Missing tool.artifacts.site_url"):
+    with pytest.raises(ValueError, match=r"Missing tool.artifacts.site_url"):
         config.read_site_url()
 
 
 def test_read_site_url_raises_when_pyproject_is_missing(
     tmp_path: Path,
 ) -> None:
+    """Test read site url raises when pyproject is missing."""
     config = make_config(tmp_path)
 
-    with pytest.raises(FileNotFoundError, match="pyproject.toml not found"):
+    with pytest.raises(FileNotFoundError, match=r"pyproject.toml not found"):
         config.read_site_url()
 
 
@@ -807,6 +851,7 @@ def test_read_site_url_raises_when_pyproject_is_missing(
 def test_generate_writes_js_output_and_updates_readme(
     tmp_path: Path,
 ) -> None:
+    """Test generate writes js output and updates readme."""
     apps_dir = tmp_path / "apps"
     config = make_config(tmp_path, apps_dir=apps_dir)
     create_artifact(
@@ -827,9 +872,7 @@ def test_generate_writes_js_output_and_updates_readme(
 
     js_output = config.js_output_file.read_text(encoding="utf-8")
     assert js_output.startswith("window.ARTIFACTS_DATA = ")
-    payload = json.loads(
-        js_output.removeprefix("window.ARTIFACTS_DATA = ").removesuffix(";\n")
-    )
+    payload = json.loads(js_output.removeprefix("window.ARTIFACTS_DATA = ").removesuffix(";\n"))
     assert payload[0]["thumbnail"] == config.artifact_thumbnail_path("loan-tool")
 
     readme_output = config.readme_file.read_text(encoding="utf-8")
@@ -843,6 +886,7 @@ def test_generate_writes_js_output_and_updates_readme(
 def test_update_readme_raises_when_readme_file_is_missing(
     tmp_path: Path,
 ) -> None:
+    """Test update readme raises when readme file is missing."""
     config = make_config(tmp_path)
     metadata_file = tmp_path / "config" / "gallery_metadata.json"
     write_text(metadata_file, minimal_gallery_metadata())
@@ -859,6 +903,7 @@ def test_update_readme_raises_when_readme_file_is_missing(
 def test_generate_emits_debug_log_with_config_paths(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
+    """Test generate emits debug log with config paths."""
     apps_dir = tmp_path / "apps"
     config = make_config(tmp_path, apps_dir=apps_dir)
     create_artifact(apps_dir, "demo-app")
@@ -876,6 +921,7 @@ def test_generate_emits_debug_log_with_config_paths(
 def test_generate_handles_empty_repo_state(
     tmp_path: Path,
 ) -> None:
+    """Test generate handles empty repo state."""
     config = make_config(tmp_path, apps_dir=tmp_path / "missing-apps")
     write_text(config.readme_file, minimal_readme())
     write_text(config.pyproject_file, minimal_pyproject())
@@ -893,11 +939,12 @@ def test_generate_handles_empty_repo_state(
 def test_generate_raises_for_duplicate_artifact_ids(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test generate raises for duplicate artifact ids."""
     config = make_config(tmp_path)
     monkeypatch.setattr(
         generate_index,
         "_scan_artifacts",
-        lambda cfg: [
+        lambda _cfg: [
             {
                 "id": "duplicate",
                 "name": "One",
@@ -927,6 +974,7 @@ def test_generate_raises_for_duplicate_artifact_ids(
 
 
 def test_validate_artifact_item_rejects_external_url(tmp_path: Path) -> None:
+    """Test validate artifact item rejects external url."""
     config = make_config(tmp_path)
     with pytest.raises(ValueError, match="repo-relative path"):
         index_sources.validate_artifact_item(
@@ -958,6 +1006,7 @@ def test_validate_artifact_item_rejects_external_url(tmp_path: Path) -> None:
 
 
 def test_validate_artifact_item_rejects_data_url(tmp_path: Path) -> None:
+    """Test validate artifact item rejects data url."""
     config = make_config(tmp_path)
     with pytest.raises(ValueError, match="data URL"):
         index_sources.validate_artifact_item(
@@ -975,6 +1024,7 @@ def test_validate_artifact_item_rejects_data_url(tmp_path: Path) -> None:
 
 
 def test_validate_artifact_item_rejects_non_kebab_case_id(tmp_path: Path) -> None:
+    """Test validate artifact item rejects non kebab case id."""
     config = make_config(tmp_path)
     with pytest.raises(ValueError, match="Artifact id must use kebab-case"):
         index_sources.validate_artifact_item(
@@ -992,6 +1042,7 @@ def test_validate_artifact_item_rejects_non_kebab_case_id(tmp_path: Path) -> Non
 
 
 def test_validate_artifact_item_rejects_bad_url_shape(tmp_path: Path) -> None:
+    """Test validate artifact item rejects bad url shape."""
     config = make_config(tmp_path)
     with pytest.raises(ValueError, match="Artifact url must match"):
         index_sources.validate_artifact_item(
@@ -1009,6 +1060,7 @@ def test_validate_artifact_item_rejects_bad_url_shape(tmp_path: Path) -> None:
 
 
 def test_validate_artifact_item_rejects_bad_thumbnail_shape(tmp_path: Path) -> None:
+    """Test validate artifact item rejects bad thumbnail shape."""
     config = make_config(tmp_path)
     with pytest.raises(ValueError, match="Artifact thumbnail must match"):
         index_sources.validate_artifact_item(
@@ -1028,6 +1080,7 @@ def test_validate_artifact_item_rejects_bad_thumbnail_shape(tmp_path: Path) -> N
 def test_validate_artifact_item_rejects_mismatched_url_and_thumbnail(
     tmp_path: Path,
 ) -> None:
+    """Test validate artifact item rejects mismatched url and thumbnail."""
     config = make_config(tmp_path)
     with pytest.raises(ValueError, match="same artifact id"):
         index_sources.validate_artifact_item(
@@ -1061,6 +1114,7 @@ def test_validate_artifact_item_rejects_mismatched_url_and_thumbnail(
 def test_validate_artifact_item_rejects_leading_slash_and_encoded_traversal(
     tmp_path: Path,
 ) -> None:
+    """Test validate artifact item rejects leading slash and encoded traversal."""
     config = make_config(tmp_path)
     with pytest.raises(ValueError, match="must not start with '/'"):
         index_sources.validate_artifact_item(
@@ -1097,14 +1151,12 @@ def test_validate_artifact_item_rejects_leading_slash_and_encoded_traversal(
 def test_helper_wrappers_delegate_expected_contract_and_metadata_logic(
     tmp_path: Path,
 ) -> None:
+    """Test helper wrappers delegate expected contract and metadata logic."""
     config = make_config(tmp_path)
     assert config.artifact_url_rule() == "apps/<artifact-id>/"
     assert config.artifact_thumbnail_rule() == "apps/<artifact-id>/thumbnail.webp"
     assert config.matches_artifact_url_shape("apps/loan-tool/") is True
-    assert (
-        config.matches_artifact_thumbnail_shape("apps/loan-tool/thumbnail.webp")
-        is True
-    )
+    assert config.matches_artifact_thumbnail_shape("apps/loan-tool/thumbnail.webp") is True
     index_sources.validate_relative_repo_path(
         "apps/loan-tool/thumbnail.webp",
         field_name="Artifact thumbnail",
@@ -1130,6 +1182,7 @@ def test_helper_wrappers_delegate_expected_contract_and_metadata_logic(
 
 
 def test_create_default_builds_production_config() -> None:
+    """Test create default builds production config."""
     config = IndexConfig.create_default()
 
     assert config.contract["artifactBasePath"] == "apps"
@@ -1141,11 +1194,13 @@ def test_create_default_builds_production_config() -> None:
 
 
 def test_generate_index_is_kebab_case_re_export() -> None:
+    """Test generate index is kebab case re export."""
     assert generate_index.is_kebab_case("budget-tracker") is True
     assert generate_index.is_kebab_case("BudgetTracker") is False
 
 
 def test_artifact_id_pattern_compiles_from_contract() -> None:
+    """Test artifact id pattern compiles from contract."""
     contract = dict(DEFAULT_CONTRACT)
     pattern = index_sources.artifact_id_pattern(contract)  # type: ignore[arg-type]
     assert pattern.fullmatch("loan-tool")
@@ -1155,6 +1210,7 @@ def test_artifact_id_pattern_compiles_from_contract() -> None:
 def test_validate_defaults_to_production_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test validate defaults to production config."""
     apps_dir = tmp_path / "apps"
     apps_dir.mkdir()
     create_artifact(apps_dir, "valid-artifact")
@@ -1168,6 +1224,7 @@ def test_validate_defaults_to_production_config(
 def test_generate_defaults_to_production_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Test generate defaults to production config."""
     apps_dir = tmp_path / "apps"
     apps_dir.mkdir()
     create_artifact(apps_dir, "valid-artifact")

@@ -6,14 +6,18 @@ import hashlib
 import json
 import re
 from collections.abc import Callable, Mapping, Sequence
-from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict, cast
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from scripts.build.index_config import IndexConfig
+    from scripts.lib.artifact_contract import ArtifactContract
 
 
 class BadgeConfig(TypedDict):
+    """Shields.io badge fields rendered for a tool in the README."""
+
     label: str
     color: str
     alt: str
@@ -25,6 +29,8 @@ MetadataEntry = Mapping[str, str | None]
 
 
 class GalleryMetadata(TypedDict):
+    """Shared tool and tag metadata consumed by generators and the frontend."""
+
     tools: list[dict[str, str | None]]
     tags: list[dict[str, str | None]]
 
@@ -42,8 +48,8 @@ def read_gallery_metadata(metadata_file: Path) -> GalleryMetadata:
         validate_gallery_metadata_entries(group, metadata.get(group))
 
     return {
-        "tools": cast(list[dict[str, str | None]], metadata["tools"]),
-        "tags": cast(list[dict[str, str | None]], metadata["tags"]),
+        "tools": cast("list[dict[str, str | None]]", metadata["tools"]),
+        "tags": cast("list[dict[str, str | None]]", metadata["tags"]),
     }
 
 
@@ -83,21 +89,15 @@ def badge_config_map(entries: Sequence[MetadataEntry]) -> dict[str, BadgeConfig]
 
 
 def frontend_config(
-    metadata: GalleryMetadata, *, artifact_contract: Mapping[str, str]
+    metadata: GalleryMetadata, *, artifact_contract: ArtifactContract
 ) -> dict[str, object]:
     """Build the browser config object consumed by the gallery UI."""
     return {
         "artifactContract": dict(artifact_contract),
         "toolDisplayOrder": display_order(metadata["tools"]),
         "tagDisplayOrder": display_order(metadata["tags"]),
-        "tools": {
-            str(entry["id"]): {"label": str(entry["label"])}
-            for entry in metadata["tools"]
-        },
-        "tags": {
-            str(entry["id"]): {"label": str(entry["label"])}
-            for entry in metadata["tags"]
-        },
+        "tools": {str(entry["id"]): {"label": str(entry["label"])} for entry in metadata["tools"]},
+        "tags": {str(entry["id"]): {"label": str(entry["label"])} for entry in metadata["tags"]},
     }
 
 
@@ -120,14 +120,11 @@ def write_frontend_config(
     config.logger.info("Successfully generated %s", config.js_config_output_file)
 
 
-def format_identifier_words(
-    value: str, *, uppercase_identifier_words: set[str]
-) -> list[str]:
+def format_identifier_words(value: str, *, uppercase_identifier_words: set[str]) -> list[str]:
     """Format a kebab-case identifier into display words."""
     words = [word for word in value.split("-") if word]
     return [
-        word.upper() if word in uppercase_identifier_words else word.capitalize()
-        for word in words
+        word.upper() if word in uppercase_identifier_words else word.capitalize() for word in words
     ]
 
 
@@ -166,9 +163,7 @@ def replace_inline_marker(content: str, marker: str, value: str) -> str:
     )
     matches = pattern.findall(content)
     if len(matches) != 1:
-        raise ValueError(
-            f"Expected exactly one marker pair for {marker}, found {len(matches)}"
-        )
+        raise ValueError(f"Expected exactly one marker pair for {marker}, found {len(matches)}")
     return pattern.sub(
         lambda match: f"{match.group(1)}{value}{match.group(3)}",
         content,
@@ -229,10 +224,7 @@ def build_badge(
 ) -> str:
     """Build one README badge image tag."""
     badge = config.get(key, default_badge_fn(key))
-    src = (
-        f"https://img.shields.io/badge/{badge['label']}-{badge['color']}"
-        "?style=flat-square"
-    )
+    src = f"https://img.shields.io/badge/{badge['label']}-{badge['color']}?style=flat-square"
     if badge["logo"]:
         src += f"&logo={badge['logo']}"
     if badge["logo_color"]:
@@ -269,8 +261,8 @@ def update_readme(
         raise FileNotFoundError(f"README file not found: {config.readme_file}")
 
     total_count = len(items)
-    all_tags = {tag for item in items for tag in cast(list[str], item["tags"])}
-    all_tools = {tool for item in items for tool in cast(list[str], item["tools"])}
+    all_tags = {tag for item in items for tag in cast("list[str]", item["tags"])}
+    all_tools = {tool for item in items for tool in cast("list[str]", item["tools"])}
     readme = config.readme_file.read_text(encoding="utf-8")
     total_badge = (
         f'<img src="https://img.shields.io/badge/Total-{total_count}'

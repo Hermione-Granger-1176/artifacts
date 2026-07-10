@@ -5,8 +5,11 @@ from __future__ import annotations
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+
+RunFunction = Callable[..., subprocess.CompletedProcess[str]]
 
 
 @dataclass(frozen=True)
@@ -23,7 +26,7 @@ DEFAULT_TIMEOUT = 600
 
 
 def run_check(
-    name: str, *, timeout: int = DEFAULT_TIMEOUT, run_fn=None
+    name: str, *, timeout: int = DEFAULT_TIMEOUT, run_fn: RunFunction | None = None
 ) -> CheckResult:
     """Run a single make target and return the captured result."""
     start = time.monotonic()
@@ -56,23 +59,18 @@ def run_check(
 
 
 def run_checks(
-    targets: list[str], *, timeout: int = DEFAULT_TIMEOUT, run_fn=None
+    targets: list[str], *, timeout: int = DEFAULT_TIMEOUT, run_fn: RunFunction | None = None
 ) -> tuple[CheckResult, ...]:
     """Run all targets in parallel and return results sorted by name."""
     with ThreadPoolExecutor() as pool:
-        futures = {
-            pool.submit(run_check, t, timeout=timeout, run_fn=run_fn): t
-            for t in targets
-        }
+        futures = {pool.submit(run_check, t, timeout=timeout, run_fn=run_fn): t for t in targets}
         results = [future.result() for future in as_completed(futures)]
     return tuple(sorted(results, key=lambda r: r.name))
 
 
 def format_results(results: tuple[CheckResult, ...]) -> str:
     """Build CI log output: summary, folded pass logs, expanded fail logs."""
-    summary = [
-        f"{'✓' if r.passed else '✗'} {r.name} ({r.elapsed:.1f}s)" for r in results
-    ]
+    summary = [f"{'✓' if r.passed else '✗'} {r.name} ({r.elapsed:.1f}s)" for r in results]
     logs = []
     for r in results:
         header = f"::group::{r.name}" if r.passed else f"--- {r.name} (failed) ---"
@@ -106,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Error: timeout must be positive, got {timeout}.")
             print(usage)
             return 1
-        args = args[:idx] + args[idx + 2:]
+        args = args[:idx] + args[idx + 2 :]
 
     if not args:
         print(usage)

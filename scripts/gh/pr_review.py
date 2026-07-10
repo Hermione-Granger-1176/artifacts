@@ -9,12 +9,14 @@ numeric comment ``databaseId``.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from . import gh_runner
 from .gh_runner import GhError, RunFunction
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 _THREADS_QUERY = """
 query($owner: String!, $name: String!, $pr: Int!, $after: String) {
@@ -118,13 +120,9 @@ def _review_threads(data: Any) -> dict[str, Any]:
             array), which would otherwise surface as an opaque ``TypeError``.
     """
     repository = data.get("repository") if isinstance(data, dict) else None
-    pull_request = (
-        repository.get("pullRequest") if isinstance(repository, dict) else None
-    )
+    pull_request = repository.get("pullRequest") if isinstance(repository, dict) else None
     if not isinstance(pull_request, dict):
-        raise GhError(
-            "No pull request in GraphQL response (invalid or inaccessible PR?)."
-        )
+        raise GhError("No pull request in GraphQL response (invalid or inaccessible PR?).")
     connection = pull_request.get("reviewThreads")
     if not isinstance(connection, dict):
         raise GhError("No review threads in GraphQL response (unexpected shape?).")
@@ -152,19 +150,13 @@ def _parse_nodes(nodes: Any) -> list[ReviewThread]:
             raise GhError("Review thread node missing id in GraphQL response.")
         raw_comments = node.get("comments")
         if raw_comments is not None and not isinstance(raw_comments, dict):
-            raise GhError(
-                "Unexpected review thread comments shape in GraphQL response."
-            )
+            raise GhError("Unexpected review thread comments shape in GraphQL response.")
         comments = [] if raw_comments is None else raw_comments.get("nodes")
         if not isinstance(comments, list):
-            raise GhError(
-                "Unexpected review thread comments nodes shape in GraphQL response."
-            )
+            raise GhError("Unexpected review thread comments nodes shape in GraphQL response.")
         first = comments[0] if comments else {}
         if not isinstance(first, dict):
-            raise GhError(
-                "Unexpected review thread comment node shape in GraphQL response."
-            )
+            raise GhError("Unexpected review thread comment node shape in GraphQL response.")
         author = first.get("author")
         if author is not None and not isinstance(author, dict):
             raise GhError("Unexpected review comment author shape in GraphQL response.")
@@ -237,9 +229,7 @@ def _review_thread_pages(
         variables: dict[str, object] = {"owner": owner, "name": name, "pr": pr}
         if after is not None:
             variables["after"] = after
-        connection = _review_threads(
-            gh_runner.graphql(query, variables=variables, run_fn=run_fn)
-        )
+        connection = _review_threads(gh_runner.graphql(query, variables=variables, run_fn=run_fn))
         yield connection
         page_info = _page_info(
             connection, "Unexpected reviewThreads pageInfo shape in GraphQL response."
@@ -278,9 +268,7 @@ def list_threads(
     return [thread for thread in threads if thread.state == "open"]
 
 
-def reply_to_thread(
-    thread_id: str, body: str, *, run_fn: RunFunction | None = None
-) -> None:
+def reply_to_thread(thread_id: str, body: str, *, run_fn: RunFunction | None = None) -> None:
     """Reply to a review thread by its node id.
 
     Posting a reply is not idempotent, so it does not auto-retry: a lost
@@ -303,9 +291,7 @@ def resolve_thread(thread_id: str, *, run_fn: RunFunction | None = None) -> None
     )
 
 
-def address_thread(
-    thread_id: str, body: str, *, run_fn: RunFunction | None = None
-) -> None:
+def address_thread(thread_id: str, body: str, *, run_fn: RunFunction | None = None) -> None:
     """Reply to a review thread and then resolve it, in that order."""
     reply_to_thread(thread_id, body, run_fn=run_fn)
     resolve_thread(thread_id, run_fn=run_fn)
@@ -385,9 +371,7 @@ def _remaining_thread_comments(
             run_fn=run_fn,
         )
         if not isinstance(result, dict):
-            raise GhError(
-                f"review thread {thread_id} GraphQL response is not a mapping"
-            )
+            raise GhError(f"review thread {thread_id} GraphQL response is not a mapping")
         node = result.get("node")
         if not isinstance(node, dict) or "comments" not in node:
             raise GhError(f"review thread {thread_id} not found or inaccessible")
@@ -426,15 +410,11 @@ def list_comments(
                 thread_comments,
                 "Unexpected thread comments pageInfo shape in GraphQL response.",
             )
-            comments.extend(
-                _remaining_thread_comments(node_id, thread_page_info, run_fn=run_fn)
-            )
+            comments.extend(_remaining_thread_comments(node_id, thread_page_info, run_fn=run_fn))
     return comments
 
 
-def delete_review_comment(
-    comment_id: str, *, run_fn: RunFunction | None = None
-) -> None:
+def delete_review_comment(comment_id: str, *, run_fn: RunFunction | None = None) -> None:
     """Delete a single review comment by its node id.
 
     Deletion is destructive and not idempotent (a retry would error on the
@@ -505,9 +485,7 @@ def pr_summary(pr: int | None = None, *, run_fn: RunFunction | None = None) -> s
 _COPILOT_REVIEWER = "@copilot"
 
 
-def request_copilot_review(
-    pr: int | None = None, *, run_fn: RunFunction | None = None
-) -> None:
+def request_copilot_review(pr: int | None = None, *, run_fn: RunFunction | None = None) -> None:
     """Request a GitHub Copilot code review on the pull request.
 
     This re-requests Copilot after addressing review feedback, since it does not
@@ -531,9 +509,7 @@ def _rollup_summary(rollup: list[dict[str, Any]]) -> str:
     counts: Counter[str] = Counter()
     for check in rollup:
         if not isinstance(check, dict):
-            raise GhError(
-                "Unexpected statusCheckRollup entry shape in PR view response."
-            )
+            raise GhError("Unexpected statusCheckRollup entry shape in PR view response.")
         outcome = check.get("conclusion") or check.get("state") or "PENDING"
         counts[str(outcome).lower()] += 1
     return ", ".join(f"{count} {label}" for label, count in sorted(counts.items()))

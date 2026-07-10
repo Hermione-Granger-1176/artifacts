@@ -115,16 +115,19 @@ COMMENTS_PAYLOAD = _comments_page(
 
 
 def test_parse_nodes_rejects_non_list() -> None:
+    """Test parse nodes rejects non list."""
     with pytest.raises(GhError):
         pr_review._parse_nodes("not a list")
 
 
 def test_parse_nodes_rejects_non_dict_node() -> None:
+    """Test parse nodes rejects non dict node."""
     with pytest.raises(GhError):
         pr_review._parse_nodes([None])
 
 
 def test_parse_nodes_rejects_node_missing_id() -> None:
+    """Test parse nodes rejects node missing id."""
     with pytest.raises(GhError):
         pr_review._parse_nodes([{}])
 
@@ -136,28 +139,31 @@ def test_parse_nodes_null_comments_is_empty() -> None:
 
 
 def test_parse_nodes_rejects_non_dict_comments() -> None:
+    """Test parse nodes rejects non dict comments."""
     with pytest.raises(GhError):
         pr_review._parse_nodes([{"id": "PRRT_x", "comments": "not a dict"}])
 
 
 def test_parse_nodes_rejects_non_list_comment_nodes() -> None:
+    """Test parse nodes rejects non list comment nodes."""
     with pytest.raises(GhError):
         pr_review._parse_nodes([{"id": "PRRT_x", "comments": {"nodes": "not a list"}}])
 
 
 def test_parse_nodes_rejects_missing_comment_nodes() -> None:
+    """Test parse nodes rejects missing comment nodes."""
     with pytest.raises(GhError):
         pr_review._parse_nodes([{"id": "PRRT_x", "comments": {}}])
 
 
 def test_parse_nodes_rejects_non_dict_first_comment() -> None:
+    """Test parse nodes rejects non dict first comment."""
     with pytest.raises(GhError):
-        pr_review._parse_nodes(
-            [{"id": "PRRT_x", "comments": {"nodes": ["not a dict"]}}]
-        )
+        pr_review._parse_nodes([{"id": "PRRT_x", "comments": {"nodes": ["not a dict"]}}])
 
 
 def test_parse_nodes_rejects_non_dict_author() -> None:
+    """Test parse nodes rejects non dict author."""
     with pytest.raises(GhError):
         pr_review._parse_nodes(
             [{"id": "PRRT_x", "comments": {"nodes": [{"author": "not a dict"}]}}]
@@ -165,21 +171,25 @@ def test_parse_nodes_rejects_non_dict_author() -> None:
 
 
 def test_parse_comment_nodes_rejects_non_dict() -> None:
+    """Test parse comment nodes rejects non dict."""
     with pytest.raises(GhError):
         pr_review._parse_comment_nodes(123)
 
 
 def test_parse_comment_nodes_rejects_non_dict_element() -> None:
+    """Test parse comment nodes rejects non dict element."""
     with pytest.raises(GhError):
         pr_review._parse_comment_nodes([None])
 
 
 def test_parse_comment_nodes_rejects_missing_id() -> None:
+    """Test parse comment nodes rejects missing id."""
     with pytest.raises(GhError):
         pr_review._parse_comment_nodes([{"url": "x"}])
 
 
 def test_parse_comment_nodes_rejects_non_dict_author() -> None:
+    """Test parse comment nodes rejects non dict author."""
     with pytest.raises(GhError):
         pr_review._parse_comment_nodes(
             [{"id": "IC_x", "author": "not a dict", "url": "u", "body": "b"}]
@@ -187,9 +197,10 @@ def test_parse_comment_nodes_rejects_non_dict_author() -> None:
 
 
 def test_remaining_thread_comments_bad_connection_shape() -> None:
-    def runner(
-        cmd: Sequence[str], **_kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    """Test remaining thread comments bad connection shape."""
+
+    def runner(_cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        """Runner."""
         return completed_process(0, json.dumps({"data": {"node": {"comments": "bad"}}}))
 
     page_info = {"hasNextPage": True, "endCursor": "CUR"}
@@ -198,38 +209,37 @@ def test_remaining_thread_comments_bad_connection_shape() -> None:
 
 
 def test_remaining_thread_comments_rejects_non_dict_page_info() -> None:
+    """Test remaining thread comments rejects non dict page info."""
     with pytest.raises(GhError):
         pr_review._remaining_thread_comments("PRRT_x", "not a dict")
 
 
 def test_remaining_thread_comments_hasnext_without_cursor_raises() -> None:
+    """Test remaining thread comments hasnext without cursor raises."""
     with pytest.raises(GhError):
         pr_review._remaining_thread_comments("PRRT_x", {"hasNextPage": True})
 
 
 def test_remaining_thread_comments_bad_hasnext_type_raises() -> None:
+    """Test remaining thread comments bad hasnext type raises."""
     with pytest.raises(GhError):
-        pr_review._remaining_thread_comments(
-            "PRRT_x", {"hasNextPage": "yes", "endCursor": "CUR"}
-        )
+        pr_review._remaining_thread_comments("PRRT_x", {"hasNextPage": "yes", "endCursor": "CUR"})
 
 
 def test_remaining_thread_comments_bad_endcursor_type_raises() -> None:
+    """Test remaining thread comments bad endcursor type raises."""
     with pytest.raises(GhError):
-        pr_review._remaining_thread_comments(
-            "PRRT_x", {"hasNextPage": True, "endCursor": 123}
-        )
+        pr_review._remaining_thread_comments("PRRT_x", {"hasNextPage": True, "endCursor": 123})
 
 
 def test_remaining_thread_comments_bad_pageinfo_shape() -> None:
-    def runner(
-        cmd: Sequence[str], **_kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    """Test remaining thread comments bad pageinfo shape."""
+
+    def runner(_cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        """Runner."""
         return completed_process(
             0,
-            json.dumps(
-                {"data": {"node": {"comments": {"nodes": [], "pageInfo": "bad"}}}}
-            ),
+            json.dumps({"data": {"node": {"comments": {"nodes": [], "pageInfo": "bad"}}}}),
         )
 
     page_info = {"hasNextPage": True, "endCursor": "CUR"}
@@ -238,18 +248,17 @@ def test_remaining_thread_comments_bad_pageinfo_shape() -> None:
 
 
 def test_remaining_thread_comments_missing_nodes_raises() -> None:
-    def runner(
-        cmd: Sequence[str], **_kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    """Test remaining thread comments missing nodes raises."""
+
+    def runner(_cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        """Runner."""
         return completed_process(
             0,
             json.dumps(
                 {
                     "data": {
                         "node": {
-                            "comments": {
-                                "pageInfo": {"hasNextPage": False, "endCursor": None}
-                            }
+                            "comments": {"pageInfo": {"hasNextPage": False, "endCursor": None}}
                         }
                     }
                 }
@@ -275,6 +284,7 @@ def _threads_runner(payload: dict[str, Any]) -> FakeGh:
 
 
 def test_list_threads_nodes_not_list_raises() -> None:
+    """Test list threads nodes not list raises."""
     runner = _threads_runner(
         {
             "data": {
@@ -294,12 +304,11 @@ def test_list_threads_nodes_not_list_raises() -> None:
 
 
 def test_list_threads_pageinfo_not_dict_raises() -> None:
+    """Test list threads pageinfo not dict raises."""
     runner = _threads_runner(
         {
             "data": {
-                "repository": {
-                    "pullRequest": {"reviewThreads": {"nodes": [], "pageInfo": "bad"}}
-                }
+                "repository": {"pullRequest": {"reviewThreads": {"nodes": [], "pageInfo": "bad"}}}
             }
         }
     )
@@ -308,6 +317,7 @@ def test_list_threads_pageinfo_not_dict_raises() -> None:
 
 
 def test_list_threads_hasnext_without_cursor_raises() -> None:
+    """Test list threads hasnext without cursor raises."""
     runner = _threads_runner(
         {
             "data": {
@@ -327,6 +337,7 @@ def test_list_threads_hasnext_without_cursor_raises() -> None:
 
 
 def test_list_threads_bad_hasnext_type_raises() -> None:
+    """Test list threads bad hasnext type raises."""
     runner = _threads_runner(
         {
             "data": {
@@ -346,6 +357,7 @@ def test_list_threads_bad_hasnext_type_raises() -> None:
 
 
 def test_list_threads_bad_endcursor_type_raises() -> None:
+    """Test list threads bad endcursor type raises."""
     runner = _threads_runner(
         {
             "data": {
@@ -365,6 +377,7 @@ def test_list_threads_bad_endcursor_type_raises() -> None:
 
 
 def test_list_comments_nodes_not_list_raises() -> None:
+    """Test list comments nodes not list raises."""
     runner = _threads_runner(
         {
             "data": {
@@ -384,6 +397,7 @@ def test_list_comments_nodes_not_list_raises() -> None:
 
 
 def test_list_comments_null_node_raises() -> None:
+    """Test list comments null node raises."""
     runner = _threads_runner(
         {
             "data": {
@@ -403,6 +417,7 @@ def test_list_comments_null_node_raises() -> None:
 
 
 def test_list_comments_node_missing_id_raises() -> None:
+    """Test list comments node missing id raises."""
     runner = _threads_runner(
         {
             "data": {
@@ -422,6 +437,7 @@ def test_list_comments_node_missing_id_raises() -> None:
 
 
 def test_list_comments_node_missing_comments_raises() -> None:
+    """Test list comments node missing comments raises."""
     runner = _threads_runner(
         {
             "data": {
@@ -441,15 +457,14 @@ def test_list_comments_node_missing_comments_raises() -> None:
 
 
 def test_list_comments_bad_pageinfo_raises() -> None:
+    """Test list comments bad pageinfo raises."""
     runner = _threads_runner(
         {
             "data": {
                 "repository": {
                     "pullRequest": {
                         "reviewThreads": {
-                            "nodes": [
-                                {"id": "X", "comments": {"nodes": [], "pageInfo": {}}}
-                            ],
+                            "nodes": [{"id": "X", "comments": {"nodes": [], "pageInfo": {}}}],
                             "pageInfo": "bad",
                         }
                     }
@@ -490,6 +505,7 @@ def test_list_comments_bad_thread_pageinfo_raises() -> None:
 
 
 def test_list_comments_missing_thread_nodes_raises() -> None:
+    """Test list comments missing thread nodes raises."""
     runner = _threads_runner(
         {
             "data": {
@@ -499,9 +515,7 @@ def test_list_comments_missing_thread_nodes_raises() -> None:
                             "nodes": [
                                 {
                                     "id": "X",
-                                    "comments": {
-                                        "pageInfo": {"hasNextPage": False}
-                                    },
+                                    "comments": {"pageInfo": {"hasNextPage": False}},
                                 }
                             ],
                             "pageInfo": {"hasNextPage": False},
@@ -516,6 +530,7 @@ def test_list_comments_missing_thread_nodes_raises() -> None:
 
 
 def test_list_comments_hasnext_without_cursor_raises() -> None:
+    """Test list comments hasnext without cursor raises."""
     runner = _threads_runner(
         {
             "data": {
@@ -535,6 +550,7 @@ def test_list_comments_hasnext_without_cursor_raises() -> None:
 
 
 def test_list_comments_bad_hasnext_type_raises() -> None:
+    """Test list comments bad hasnext type raises."""
     runner = _threads_runner(
         {
             "data": {
@@ -554,6 +570,7 @@ def test_list_comments_bad_hasnext_type_raises() -> None:
 
 
 def test_list_comments_bad_endcursor_type_raises() -> None:
+    """Test list comments bad endcursor type raises."""
     runner = _threads_runner(
         {
             "data": {
@@ -573,15 +590,14 @@ def test_list_comments_bad_endcursor_type_raises() -> None:
 
 
 def test_list_comments_missing_thread_pageinfo_raises() -> None:
+    """Test list comments missing thread pageinfo raises."""
     runner = _threads_runner(
         {
             "data": {
                 "repository": {
                     "pullRequest": {
                         "reviewThreads": {
-                            "nodes": [
-                                {"id": "X", "comments": {"nodes": [], "pageInfo": None}}
-                            ],
+                            "nodes": [{"id": "X", "comments": {"nodes": [], "pageInfo": None}}],
                             "pageInfo": {"hasNextPage": False},
                         }
                     }
@@ -594,6 +610,7 @@ def test_list_comments_missing_thread_pageinfo_raises() -> None:
 
 
 def test_list_comments_bad_top_level_pageinfo_raises() -> None:
+    """Test list comments bad top level pageinfo raises."""
     runner = _threads_runner(
         {
             "data": {
@@ -649,9 +666,7 @@ def _threads_page(
                             "path": "f.py",
                             "line": 1,
                             "comments": {
-                                "nodes": [
-                                    {"body": "x", "url": "u", "author": {"login": "r"}}
-                                ]
+                                "nodes": [{"body": "x", "url": "u", "author": {"login": "r"}}]
                             },
                         }
                     ],
@@ -671,9 +686,8 @@ def test_list_threads_follows_pagination() -> None:
     )
     calls: list[list[str]] = []
 
-    def runner(
-        cmd: Sequence[str], **_kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        """Runner."""
         command = list(cmd)
         calls.append(command)
         if has("repo", "view")(command):
@@ -938,18 +952,14 @@ def test_resolve_repo_raises_when_unresolvable() -> None:
 
 def test_current_pr_number_parses_gh_output() -> None:
     """Read the PR number for the current branch."""
-    runner = FakeGh(
-        [(has("pr", "view"), completed_process(0, json.dumps({"number": 19})))]
-    )
+    runner = FakeGh([(has("pr", "view"), completed_process(0, json.dumps({"number": 19})))])
 
     assert gh_runner.current_pr_number(run_fn=runner) == 19
 
 
 def test_current_pr_number_raises_without_pr() -> None:
     """Raise a friendly error when the branch has no PR."""
-    runner = FakeGh(
-        [(has("pr", "view"), completed_process(1, "", "no pull requests found"))]
-    )
+    runner = FakeGh([(has("pr", "view"), completed_process(1, "", "no pull requests found"))])
 
     with pytest.raises(GhError):
         gh_runner.current_pr_number(run_fn=runner)
@@ -1048,9 +1058,8 @@ def test_list_comments_paginates_threads_and_comments() -> None:
     )
     calls: list[list[str]] = []
 
-    def runner(
-        cmd: Sequence[str], **_kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    def runner(cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        """Runner."""
         command = list(cmd)
         calls.append(command)
         if has("repo", "view")(command):
@@ -1068,19 +1077,13 @@ def test_list_comments_paginates_threads_and_comments() -> None:
     ]
     graphql_calls = [command for command in calls if has("graphql")(command)]
     assert len(graphql_calls) == 3
-    assert any(
-        "after=CCUR" in command for command in graphql_calls
-    )  # comment pagination
-    assert any(
-        "after=TCUR" in command for command in graphql_calls
-    )  # thread pagination
+    assert any("after=CCUR" in command for command in graphql_calls)  # comment pagination
+    assert any("after=TCUR" in command for command in graphql_calls)  # thread pagination
 
 
 def test_format_comments_shows_first_line_only() -> None:
     """Rendering is one greppable line per comment, first body line only."""
-    comment = pr_review.ReviewComment(
-        "PRRC_first", "reviewer", "Note here\nsecond line", "u"
-    )
+    comment = pr_review.ReviewComment("PRRC_first", "reviewer", "Note here\nsecond line", "u")
 
     text = pr_review.format_comments([comment])
 
@@ -1122,9 +1125,7 @@ def test_main_delete_comment_invokes_helper(
 ) -> None:
     """The delete-comment command deletes by node id and confirms."""
     deleted: list[str] = []
-    monkeypatch.setattr(
-        pr_review, "delete_review_comment", lambda comment: deleted.append(comment)
-    )
+    monkeypatch.setattr(pr_review, "delete_review_comment", lambda comment: deleted.append(comment))
 
     exit_code = cli.main(["delete-comment", "--comment", "PRRC_x"])
 
@@ -1168,7 +1169,7 @@ def test_main_reply_reads_body_file(
 
 def test_main_reply_missing_body_file_raises_gh_error() -> None:
     """A missing or unreadable --body-file raises a GhError naming the path."""
-    with pytest.raises(GhError, match="Could not read --body-file .*nonexistent"):
+    with pytest.raises(GhError, match=r"Could not read --body-file .*nonexistent"):
         cli.main(["reply", "--thread", "PRRT_x", "--body-file", "/nonexistent/path.md"])
 
 
@@ -1250,18 +1251,15 @@ def test_review_threads_missing_connection_raises() -> None:
 def test_review_threads_non_dict_connection_raises() -> None:
     """A reviewThreads value that isn't a mapping is surfaced as a GhError."""
     with pytest.raises(GhError):
-        pr_review._review_threads(
-            {"repository": {"pullRequest": {"reviewThreads": []}}}
-        )
+        pr_review._review_threads({"repository": {"pullRequest": {"reviewThreads": []}}})
 
 
 def test_pr_summary_non_dict_meta_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     """A non-dict ``gh pr view`` payload is surfaced as a GhError."""
-    monkeypatch.setattr(pr_review, "list_threads", lambda *args, **kwargs: [])
+    monkeypatch.setattr(pr_review, "list_threads", lambda *_args, **_kwargs: [])
 
-    def runner(
-        cmd: Sequence[str], **_kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    def runner(_cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        """Runner."""
         return completed_process(0, json.dumps([1, 2]))
 
     with pytest.raises(GhError):
@@ -1271,9 +1269,8 @@ def test_pr_summary_non_dict_meta_raises(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_remaining_thread_comments_null_node_raises() -> None:
     """A null node from GraphQL is surfaced as a GhError naming the thread id."""
 
-    def runner(
-        cmd: Sequence[str], **_kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
+    def runner(_cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        """Runner."""
         return completed_process(0, json.dumps({"data": {"node": None}}))
 
     page_info = {"hasNextPage": True, "endCursor": "CUR"}
@@ -1287,6 +1284,7 @@ def test_rollup_summary_empty() -> None:
 
 
 def test_rollup_summary_rejects_non_dict_entry() -> None:
+    """Test rollup summary rejects non dict entry."""
     with pytest.raises(GhError):
         pr_review._rollup_summary([{"conclusion": "SUCCESS"}, "not a dict"])
 
@@ -1303,6 +1301,7 @@ def _copilot_runner(seen: dict[str, list[list[str]]]) -> Any:
     """Fake runner that records invocations and returns a PR number on view."""
 
     def runner(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        """Runner."""
         seen.setdefault("cmds", []).append(list(cmd))
         if cmd[1:3] == ["pr", "view"]:
             return completed_process(0, json.dumps({"number": 7}))
@@ -1312,6 +1311,7 @@ def _copilot_runner(seen: dict[str, list[list[str]]]) -> Any:
 
 
 def test_request_copilot_review_requests_reviewer() -> None:
+    """Test request copilot review requests reviewer."""
     seen: dict[str, list[list[str]]] = {}
     pr_review.request_copilot_review(7, run_fn=_copilot_runner(seen))
     assert seen["cmds"][-1] == [
@@ -1325,6 +1325,7 @@ def test_request_copilot_review_requests_reviewer() -> None:
 
 
 def test_request_copilot_review_defaults_to_current_pr() -> None:
+    """Test request copilot review defaults to current pr."""
     seen: dict[str, list[list[str]]] = {}
     pr_review.request_copilot_review(run_fn=_copilot_runner(seen))
     assert [
@@ -1338,7 +1339,10 @@ def test_request_copilot_review_defaults_to_current_pr() -> None:
 
 
 def test_request_copilot_review_propagates_error() -> None:
+    """Test request copilot review propagates error."""
+
     def runner(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        """Runner."""
         if cmd[1:3] == ["pr", "view"]:
             return completed_process(0, json.dumps({"number": 7}))
         raise GhError("graphql: rate limited")
@@ -1348,7 +1352,10 @@ def test_request_copilot_review_propagates_error() -> None:
 
 
 def test_remaining_thread_comments_result_not_dict_raises() -> None:
-    def runner(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+    """Test remaining thread comments result not dict raises."""
+
+    def runner(_cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        """Runner."""
         return completed_process(0, json.dumps({"data": "not a mapping"}))
 
     with pytest.raises(GhError):

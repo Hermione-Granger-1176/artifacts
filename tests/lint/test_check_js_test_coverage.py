@@ -40,6 +40,7 @@ def _create_tree(tmp_path: Path) -> Path:
 
 
 def test_discover_source_files(tmp_path: Path) -> None:
+    """Discover source files."""
     root = _create_tree(tmp_path)
     files = discover_source_files(root)
     relative = {f.relative_to(root).as_posix() for f in files}
@@ -50,6 +51,7 @@ def test_discover_source_files(tmp_path: Path) -> None:
 
 
 def test_discover_test_files(tmp_path: Path) -> None:
+    """Discover test files."""
     root = _create_tree(tmp_path)
     files = discover_test_files(root)
     names = {f.name for f in files}
@@ -58,6 +60,7 @@ def test_discover_test_files(tmp_path: Path) -> None:
 
 
 def test_extract_test_imports_resolves_relative_paths(tmp_path: Path) -> None:
+    """Extract test imports resolves relative paths."""
     root = _create_tree(tmp_path)
     test_file = root / "tests" / "js" / "home" / "config.test.js"
     imports = extract_test_imports(test_file, root)
@@ -65,7 +68,16 @@ def test_extract_test_imports_resolves_relative_paths(tmp_path: Path) -> None:
     assert resolved_source in imports
 
 
+def test_extract_test_imports_ignores_bare_module_imports(tmp_path: Path) -> None:
+    """Extract test imports skips non-relative imports such as node builtins."""
+    root = _create_tree(tmp_path)
+    test_file = root / "tests" / "js" / "home" / "bare.test.js"
+    test_file.write_text('import assert from "node:assert";\n')
+    assert extract_test_imports(test_file, root) == set()
+
+
 def test_extract_test_imports_handles_path_resolve(tmp_path: Path) -> None:
+    """Extract test imports handles path resolve."""
     root = _create_tree(tmp_path)
     test_file = root / "tests" / "js" / "home" / "resolve.test.js"
     test_file.write_text("const p = path.resolve('js/modules/config.js');\n")
@@ -75,17 +87,17 @@ def test_extract_test_imports_handles_path_resolve(tmp_path: Path) -> None:
 
 
 def test_extract_test_imports_handles_dynamic_import(tmp_path: Path) -> None:
+    """Extract test imports handles dynamic import."""
     root = _create_tree(tmp_path)
     test_file = root / "tests" / "js" / "home" / "dynamic.test.js"
-    test_file.write_text(
-        "await import(`../../../js/modules/config.js?t=${Date.now()}`);\n"
-    )
+    test_file.write_text("await import(`../../../js/modules/config.js?t=${Date.now()}`);\n")
     imports = extract_test_imports(test_file, root)
     resolved_source = (root / "js" / "modules" / "config.js").resolve()
     assert resolved_source in imports
 
 
 def test_build_coverage_map_excludes_generated(tmp_path: Path) -> None:
+    """Build coverage map excludes generated."""
     root = _create_tree(tmp_path)
     coverage = build_coverage_map(root)
     relative_keys = {f.relative_to(root).as_posix() for f in coverage}
@@ -93,6 +105,7 @@ def test_build_coverage_map_excludes_generated(tmp_path: Path) -> None:
 
 
 def test_run_check_reports_untested_files(tmp_path: Path) -> None:
+    """Run check reports untested files."""
     root = _create_tree(tmp_path)
     violations = run_check(root=root)
     assert len(violations) == 1
@@ -100,6 +113,7 @@ def test_run_check_reports_untested_files(tmp_path: Path) -> None:
 
 
 def test_run_check_passes_when_all_covered(tmp_path: Path) -> None:
+    """Run check passes when all covered."""
     root = _create_tree(tmp_path)
     # Add test for the untested file
     (root / "tests" / "js" / "home" / "untested.test.js").write_text(
@@ -110,6 +124,7 @@ def test_run_check_passes_when_all_covered(tmp_path: Path) -> None:
 
 
 def test_main_returns_zero_when_all_covered(tmp_path: Path) -> None:
+    """Main returns zero when all covered."""
     root = _create_tree(tmp_path)
     (root / "tests" / "js" / "home" / "untested.test.js").write_text(
         "import { helper } from '../../../js/modules/untested.js';\n"
@@ -118,11 +133,13 @@ def test_main_returns_zero_when_all_covered(tmp_path: Path) -> None:
 
 
 def test_main_returns_one_when_uncovered(tmp_path: Path) -> None:
+    """Main returns one when uncovered."""
     root = _create_tree(tmp_path)
     assert main(["--root", str(root)]) == 1
 
 
 def test_discover_source_files_skips_missing_dirs(tmp_path: Path) -> None:
+    """Discover source files skips missing dirs."""
     root = tmp_path / "empty"
     root.mkdir()
     # No js/ or apps/ directories exist
@@ -131,6 +148,7 @@ def test_discover_source_files_skips_missing_dirs(tmp_path: Path) -> None:
 
 
 def test_discover_source_files_skips_node_modules(tmp_path: Path) -> None:
+    """Discover source files skips node modules."""
     root = tmp_path / "repo"
     (root / "js" / "node_modules").mkdir(parents=True)
     (root / "js" / "node_modules" / "lib.js").write_text("// vendor")
@@ -142,6 +160,7 @@ def test_discover_source_files_skips_node_modules(tmp_path: Path) -> None:
 
 
 def test_discover_source_files_skips_mjs_in_node_modules(tmp_path: Path) -> None:
+    """Discover source files skips mjs in node modules."""
     root = tmp_path / "repo"
     (root / "js" / "node_modules").mkdir(parents=True)
     (root / "js" / "node_modules" / "vendor.mjs").write_text("// vendor")
@@ -153,6 +172,7 @@ def test_discover_source_files_skips_mjs_in_node_modules(tmp_path: Path) -> None
 
 
 def test_discover_source_files_skips_vendor(tmp_path: Path) -> None:
+    """Discover source files skips vendor."""
     root = tmp_path / "repo"
     (root / "apps" / "my-app" / "js" / "vendor").mkdir(parents=True)
     (root / "apps" / "my-app" / "js" / "vendor" / "lib.min.js").write_text("// vendor")
@@ -165,6 +185,7 @@ def test_discover_source_files_skips_vendor(tmp_path: Path) -> None:
 
 
 def test_discover_source_files_finds_mjs(tmp_path: Path) -> None:
+    """Discover source files finds mjs."""
     root = tmp_path / "repo"
     (root / "js").mkdir(parents=True)
     (root / "js" / "helper.mjs").write_text("export default 1;")
@@ -174,6 +195,7 @@ def test_discover_source_files_finds_mjs(tmp_path: Path) -> None:
 
 
 def test_discover_test_files_returns_empty_for_missing_dir(tmp_path: Path) -> None:
+    """Discover test files returns empty for missing dir."""
     root = tmp_path / "repo"
     root.mkdir()
     # No tests/js/ directory

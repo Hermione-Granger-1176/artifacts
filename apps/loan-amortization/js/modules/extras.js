@@ -102,6 +102,7 @@ export function renderExtras({ container, extras, periodLabel }) {
     item.dataset.extraId = String(extra.id);
 
     if (extra.type === "recurring") {
+      // eslint-disable-next-line no-restricted-syntax -- numbers are controlled; the free-text summary is escaped via escapeAttribute
       item.innerHTML = `
         <button type="button" class="info-tip card-tip" data-tip="${escapeAttribute(summary)}" aria-label="${escapeAttribute(summary)}">?</button>
         <div class="type-toggle">
@@ -124,6 +125,7 @@ export function renderExtras({ container, extras, periodLabel }) {
         <button type="button" class="btn-remove" data-action="remove-extra" aria-label="Remove extra payment">x</button>
       `;
     } else {
+      // eslint-disable-next-line no-restricted-syntax -- numbers are controlled; the free-text summary is escaped via escapeAttribute
       item.innerHTML = `
         <button type="button" class="info-tip card-tip" data-tip="${escapeAttribute(summary)}" aria-label="${escapeAttribute(summary)}">?</button>
         <div class="type-toggle">

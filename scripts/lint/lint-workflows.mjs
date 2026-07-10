@@ -1,19 +1,19 @@
-import { createLinter } from 'actionlint';
-import { readFile, readdir } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { createLinter } from "actionlint";
+import { readFile, readdir } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, '..', '..');
+const REPO_ROOT = path.resolve(__dirname, "..", "..");
 
 async function listWorkflowFiles() {
-  const workflowDir = path.join(REPO_ROOT, '.github', 'workflows');
+  const workflowDir = path.join(REPO_ROOT, ".github", "workflows");
   const entries = await readdir(workflowDir, { withFileTypes: true });
 
   return entries
     .filter((entry) => entry.isFile() && /\.ya?ml$/u.test(entry.name))
-    .map((entry) => path.posix.join('.github/workflows', entry.name))
+    .map((entry) => path.posix.join(".github/workflows", entry.name))
     .sort();
 }
 
@@ -24,10 +24,10 @@ async function main() {
 
   for (const relativePath of workflowFiles) {
     const filePath = path.join(REPO_ROOT, relativePath);
-    const content = await readFile(filePath, 'utf-8');
+    const content = await readFile(filePath, "utf-8");
     const results = lint(content, relativePath);
     const actionableResults = results.filter(
-      (result) => !result.message.includes('undefined variable "vars"')
+      (result) => !result.message.includes('undefined variable "vars"'),
     );
 
     if (actionableResults.length > 0) {
@@ -36,9 +36,9 @@ async function main() {
         actionableResults
           .map(
             (result) =>
-              `${result.file}:${result.line}:${result.column}: ${result.message} [${result.kind}]\n`
+              `${result.file}:${result.line}:${result.column}: ${result.message} [${result.kind}]\n`,
           )
-          .join('')
+          .join(""),
       );
     }
   }
@@ -52,6 +52,8 @@ async function main() {
 }
 
 main().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.stack || error.message : String(error)}\n`);
+  process.stderr.write(
+    `${error instanceof Error ? error.stack || error.message : String(error)}\n`,
+  );
   process.exitCode = 1;
 });

@@ -72,6 +72,7 @@ def is_kebab_case(name: str) -> bool:
 
 # -- Internal helpers ----------------------------------------------------------
 
+
 def _scan_artifacts(config: IndexConfig) -> list[ArtifactItem]:
     """Scan the apps/ directory for artifact directories."""
     config.logger.debug("Scanning %s for artifacts", config.apps_dir)
@@ -92,6 +93,7 @@ def _scan_artifacts(config: IndexConfig) -> list[ArtifactItem]:
 
 
 # -- Public API ----------------------------------------------------------------
+
 
 def validate(config: IndexConfig | None = None) -> None:
     """Validate artifact directory structure before generation."""
@@ -140,9 +142,7 @@ def generate(config: IndexConfig | None = None) -> None:
     config.js_output_file.parent.mkdir(exist_ok=True)
     gallery_metadata = config.read_gallery_metadata()
 
-    js_content = (
-        f"window.ARTIFACTS_DATA = {json.dumps(items, indent=2, ensure_ascii=False)};\n"
-    )
+    js_content = f"window.ARTIFACTS_DATA = {json.dumps(items, indent=2, ensure_ascii=False)};\n"
     config.js_output_file.write_text(js_content, encoding="utf-8")
     index_outputs.write_frontend_config(gallery_metadata, config=config)
     index_outputs.update_readme(
@@ -152,9 +152,7 @@ def generate(config: IndexConfig | None = None) -> None:
         gallery_metadata=gallery_metadata,
     )
 
-    config.logger.info(
-        "Successfully generated %s with %d items", config.js_output_file, len(items)
-    )
+    config.logger.info("Successfully generated %s with %d items", config.js_output_file, len(items))
 
 
 if __name__ == "__main__":  # pragma: no cover

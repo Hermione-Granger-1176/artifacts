@@ -5,8 +5,7 @@ repos:
       # Artifact metadata files keep their .editorconfig unset rules and
       # vendored assets stay byte-identical to upstream, so both are exempt
       # from whitespace and final-newline normalization. Markdown and lock
-      # files set trim_trailing_whitespace = false in .editorconfig, so they
-      # are excluded from the trailing-whitespace hook.
+      # files keep trailing whitespace per .editorconfig trim rules.
       - id: trailing-whitespace
         exclude: (^apps/.*(/vendor/|\.(txt|webp|png|svg|ico)$)|\.(md|lock)$)
       - id: end-of-file-fixer
@@ -16,18 +15,19 @@ repos:
 
   - repo: local
     hooks:
-      # Hooks below delegate to `make` targets that exist on main today. The
-      # typecheck-py, format-prettier-check, and typecheck-web hooks are added
-      # by later split PRs (mypy-strict, config-files, ts-checkJs) once their
-      # make targets and tooling land, so this config stays runnable now.
       - id: lint-py
         name: lint-py
         entry: make lint-py
         language: system
         pass_filenames: false
-      - id: fmt-py
-        name: fmt-py
-        entry: make fmt-py
+      - id: format-py-check
+        name: format-py-check
+        entry: make format-py-check
+        language: system
+        pass_filenames: false
+      - id: typecheck-py
+        name: typecheck-py
+        entry: make typecheck-py
         language: system
         pass_filenames: false
       - id: eslint
@@ -38,6 +38,16 @@ repos:
       - id: stylelint
         name: stylelint
         entry: make lint-css
+        language: system
+        pass_filenames: false
+      - id: prettier-check
+        name: prettier-check
+        entry: make format-prettier-check
+        language: system
+        pass_filenames: false
+      - id: web-typecheck
+        name: web-typecheck
+        entry: make typecheck-web
         language: system
         pass_filenames: false
       - id: pytest

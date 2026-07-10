@@ -2,38 +2,66 @@
 
 # ─── Variables ────────────────────────────────────────────────────────────────
 
-PYTHON      ?= python3.12
+# Prefer python3.12, then fall back to 3.13, 3.14, or python3.
+# Override by passing PYTHON=... on the command line or in the environment.
+PYTHON      ?= $(shell command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3)
 UV          ?= uv
 UVX         ?= uvx
 VENV        ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
 NPM         ?= npm
 
+# Python source tree that mypy strict-checks. Tests are intentionally excluded.
+PY_TYPE_PATHS := scripts/
+
+# The pinned Playwright may not ship a browser build for very new distros, so
+# Playwright install and browser launches can abort. When the host is an Ubuntu
+# release Playwright has no build for, fall back to a supported platform key.
+# Exported so every Playwright target inherits it. On a supported image this
+# stays empty and nothing changes. Override or disable by setting
+# PLAYWRIGHT_HOST_PLATFORM_OVERRIDE in the environment.
+PLAYWRIGHT_SUPPORTED_UBUNTU := 18.04 20.04 22.04 24.04
+PLAYWRIGHT_HOST_PLATFORM_OVERRIDE ?= $(shell \
+	. /etc/os-release 2>/dev/null; \
+	if [ "$$ID" = ubuntu ] && ! printf '%s' "$(PLAYWRIGHT_SUPPORTED_UBUNTU)" | grep -qw "$$VERSION_ID"; then \
+		echo ubuntu22.04-x64; \
+	fi)
+ifneq ($(strip $(PLAYWRIGHT_HOST_PLATFORM_OVERRIDE)),)
+export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE
+endif
+
 # ─── Setup ────────────────────────────────────────────────────────────────────
 
-.PHONY: install node-install setup-base setup setup-all setup-ci
+.PHONY: install node-install install-hooks setup-base setup setup-all setup-ci setup-playwright setup-playwright-ci
 
-install:
+install: ## Install locked Python deps into the virtual environment
 	UV_PROJECT_ENVIRONMENT=$(VENV) $(UV) sync --all-groups --frozen --python $(PYTHON)
 
-node-install:
+node-install: ## Install locked Node deps
 	$(NPM) ci
 
-setup-base: install node-install
+install-hooks: ## Install local pre-commit Git hooks
+	$(UVX) pre-commit install
+
+setup-base: install node-install ## Install Python and Node deps
 
 setup: setup-base ## Install Python and Node deps (fast, no Chromium)
 
-setup-all: setup-base ## Full setup including Chromium for browser tests
+setup-all: setup-base setup-playwright ## Full setup including Chromium for browser tests
+
+setup-ci: setup-base setup-playwright-ci ## CI variant with Chromium system deps
+
+setup-playwright: ## Install Chromium for browser tests
 	$(VENV)/bin/playwright install chromium
 
-setup-ci: setup-base ## CI variant with Chromium system deps
+setup-playwright-ci: ## Install Chromium with system deps
 	$(VENV)/bin/playwright install chromium --with-deps
 
 # ─── Lint ─────────────────────────────────────────────────────────────────────
 
-.PHONY: lint lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage editorconfig-check
+.PHONY: lint lint-py lint-js lint-css lint-yaml lint-workflows workflow-lint lint-doc-commands lint-make-targets lint-js-test-coverage editorconfig-check check-overrides
 
-lint: editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage ## Run all linters
+lint: editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage check-overrides ## Run all linters
 
 editorconfig-check: ## Check EditorConfig rules
 	$(VENV_PYTHON) scripts/lint/check_editorconfig.py
@@ -53,6 +81,8 @@ lint-yaml: ## Run yamllint only
 lint-workflows: ## Run workflow linter only
 	$(NPM) run lint:workflows
 
+workflow-lint: lint-workflows ## Alias for lint-workflows
+
 lint-doc-commands: ## Check contributor docs use Make targets
 	$(VENV_PYTHON) scripts/lint/check_doc_commands.py
 
@@ -62,11 +92,16 @@ lint-make-targets: ## Check documented Make targets
 lint-js-test-coverage: ## Check every JS source file has test imports
 	$(VENV_PYTHON) scripts/lint/check_js_test_coverage.py
 
+check-overrides: ## Check npm overrides are still needed
+	$(NPM) run check:overrides
+
 # ─── Format ───────────────────────────────────────────────────────────────────
 
-.PHONY: fmt fmt-py fmt-js fmt-css
+.PHONY: fmt fmt-py fmt-js fmt-css fmt-prettier format format-check format-py-check format-prettier-check
 
-fmt: fmt-py fmt-js fmt-css ## Auto-fix all (ruff, eslint, stylelint)
+fmt: fmt-py fmt-js fmt-css fmt-prettier ## Auto-fix all formatting and lint fixes
+
+format: fmt ## Alias for fmt
 
 fmt-py: ## Auto-fix Python (ruff check --fix + ruff format)
 	$(VENV_PYTHON) -m ruff check --fix .
@@ -77,6 +112,41 @@ fmt-js: ## Auto-fix JavaScript (eslint --fix)
 
 fmt-css: ## Auto-fix CSS (stylelint --fix)
 	$(NPM) run lint:css -- --fix
+
+fmt-prettier: ## Auto-format docs, metadata, workflows, and tooling scripts
+	$(NPM) run format
+
+format-check: format-py-check format-prettier-check ## Check Python and Prettier formatting
+
+format-py-check: ## Check Python formatting only
+	$(VENV_PYTHON) -m ruff format --check .
+
+format-prettier-check: ## Check Prettier-managed files only
+	$(NPM) run format:check
+
+# ─── Typecheck ────────────────────────────────────────────────────────────────
+
+.PHONY: typecheck typecheck-py typecheck-web
+
+typecheck: typecheck-py typecheck-web ## Run all type checks
+
+typecheck-py: ## Run mypy strict type checking over scripts/
+	$(VENV_PYTHON) -m mypy $(PY_TYPE_PATHS)
+
+typecheck-web: ## Run tsc over js/ modules (checkJs turns on with the typed frontend)
+	$(NPM) run typecheck:web
+
+# ─── Dead code ────────────────────────────────────────────────────────────────
+
+.PHONY: dead-code dead-code-py dead-code-js
+
+dead-code: dead-code-py dead-code-js ## Detect unused Python and JavaScript code
+
+dead-code-py: ## Detect unused Python code with vulture
+	$(VENV_PYTHON) -m vulture
+
+dead-code-js: ## Detect unused JavaScript files, exports, and dependencies
+	$(NPM) run dead-code
 
 # ─── Test ─────────────────────────────────────────────────────────────────────
 
@@ -217,7 +287,7 @@ status: ## Show workspace health (git, venv, node, generated files)
 	@test -d _site && echo "OK: _site/" || echo "NOT BUILT: run make site"
 
 clean: ## Remove venv, caches, node_modules, _site
-	rm -rf $(VENV) .pytest_cache .ruff_cache build dist *.egg-info node_modules _site .coverage
+	rm -rf $(VENV) .pytest_cache .ruff_cache .mypy_cache build dist *.egg-info node_modules _site .coverage
 
 help: ## Show this help
 	@awk ' \

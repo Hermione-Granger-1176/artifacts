@@ -5,10 +5,13 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
 from scripts.build import generate_index
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -43,9 +46,7 @@ def _capture_snapshots(paths: tuple[Path, ...]) -> list[FileSnapshot]:
 def _detect_drift(snapshots: list[FileSnapshot]) -> list[Path]:
     """Return generated files whose content differs after regeneration."""
     return [
-        snapshot.path
-        for snapshot in snapshots
-        if _read_text(snapshot.path) != snapshot.content
+        snapshot.path for snapshot in snapshots if _read_text(snapshot.path) != snapshot.content
     ]
 
 

@@ -7,6 +7,7 @@ import scripts.lib.artifact_contract as artifact_contract
 
 
 def test_load_contract_returns_expected_fields() -> None:
+    """Test load contract returns expected fields."""
     contract = artifact_contract.load_contract()
 
     assert "artifactIdPattern" in contract
@@ -17,6 +18,7 @@ def test_load_contract_returns_expected_fields() -> None:
 
 
 def test_shared_app_runtime_paths_are_rooted() -> None:
+    """Test shared app runtime paths are rooted."""
     repo_root = Path("/tmp/repo")
 
     assert app_discovery.shared_app_runtime_paths(repo_root) == (
@@ -30,6 +32,7 @@ def test_shared_app_runtime_paths_are_rooted() -> None:
 def test_artifact_uses_shared_app_runtime_detects_local_entrypoints(
     tmp_path: Path,
 ) -> None:
+    """Test artifact uses shared app runtime detects local entrypoints."""
     artifact_dir = tmp_path / "apps" / "loan-tool"
     artifact_dir.mkdir(parents=True)
 
@@ -46,12 +49,12 @@ def test_artifact_uses_shared_app_runtime_detects_local_entrypoints(
 
 
 def test_runtime_impact_paths_include_shared_runtime_files() -> None:
+    """Test runtime impact paths include shared runtime files."""
     assert app_discovery.SHARED_APP_RUNTIME_IMPACT_PATHS.issuperset(
         path.as_posix() for path in app_discovery.SHARED_APP_RUNTIME_FILES
     )
     assert not (
-        app_discovery.SHARED_APP_RUNTIME_IMPACT_PATHS
-        & app_discovery.SHARED_APP_BROWSER_TEST_PATHS
+        app_discovery.SHARED_APP_RUNTIME_IMPACT_PATHS & app_discovery.SHARED_APP_BROWSER_TEST_PATHS
     )
     assert app_discovery.SHARED_APP_BROWSER_IMPACT_PATHS.issuperset(
         app_discovery.SHARED_APP_BROWSER_TEST_PATHS
@@ -59,6 +62,7 @@ def test_runtime_impact_paths_include_shared_runtime_files() -> None:
 
 
 def test_discover_and_missing_thumbnail_helpers(tmp_path: Path) -> None:
+    """Test discover and missing thumbnail helpers."""
     apps_root = tmp_path / "apps"
 
     assert app_discovery.discover_app_slugs(apps_root) == []
@@ -75,6 +79,7 @@ def test_discover_and_missing_thumbnail_helpers(tmp_path: Path) -> None:
 
 
 def test_runtime_change_plan_handles_changed_and_shared_runtime_paths() -> None:
+    """Test runtime change plan handles changed and shared runtime paths."""
     plan = app_discovery.runtime_change_plan(
         [
             "README.md",
@@ -97,6 +102,7 @@ def test_runtime_change_plan_handles_changed_and_shared_runtime_paths() -> None:
 
 
 def test_runtime_change_plan_returns_none_for_non_runtime_changes() -> None:
+    """Test runtime change plan returns none for non runtime changes."""
     assert app_discovery.runtime_change_plan(
         [
             "README.md",
@@ -112,6 +118,7 @@ def test_runtime_change_plan_returns_none_for_non_runtime_changes() -> None:
 
 
 def test_runtime_change_plan_ignores_browser_test_only_changes() -> None:
+    """Test runtime change plan ignores browser test only changes."""
     assert app_discovery.runtime_change_plan(
         [
             "tests/browser/frontend_helpers.py",

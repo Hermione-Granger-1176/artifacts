@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import subprocess
 from types import SimpleNamespace
-
-import pytest
+from typing import TYPE_CHECKING
 
 from scripts.ci.run_parallel_checks import (
     CheckResult,
@@ -13,16 +12,22 @@ from scripts.ci.run_parallel_checks import (
     run_checks,
 )
 
+if TYPE_CHECKING:
+    import pytest
+
 
 def _make_run_fn(*, returncode: int = 0, stdout: str = "", stderr: str = ""):
     """Return a subprocess.run stand-in with fixed output."""
 
-    def fake_run(cmd, **kwargs):
+    def fake_run(_cmd, **_kwargs):
+        """Fake run."""
         return SimpleNamespace(returncode=returncode, stdout=stdout, stderr=stderr)
+
     return fake_run
 
 
 def test_run_check_captures_passing_target() -> None:
+    """Test run check captures passing target."""
     result = run_check("lint", run_fn=_make_run_fn(stdout="all good\n"))
 
     assert result.name == "lint"
@@ -32,9 +37,8 @@ def test_run_check_captures_passing_target() -> None:
 
 
 def test_run_check_captures_failing_target() -> None:
-    result = run_check(
-        "test-py", run_fn=_make_run_fn(returncode=1, stderr="FAILED\n")
-    )
+    """Test run check captures failing target."""
+    result = run_check("test-py", run_fn=_make_run_fn(returncode=1, stderr="FAILED\n"))
 
     assert result.name == "test-py"
     assert result.passed is False
@@ -42,6 +46,7 @@ def test_run_check_captures_failing_target() -> None:
 
 
 def test_run_check_combines_stdout_and_stderr() -> None:
+    """Test run check combines stdout and stderr."""
     result = run_check(
         "security",
         run_fn=_make_run_fn(stdout="out\n", stderr="err\n"),
@@ -51,6 +56,7 @@ def test_run_check_combines_stdout_and_stderr() -> None:
 
 
 def test_run_check_preserves_internal_whitespace() -> None:
+    """Test run check preserves internal whitespace."""
     result = run_check(
         "lint",
         run_fn=_make_run_fn(stdout="  indented\n\n  block\n"),
@@ -60,7 +66,10 @@ def test_run_check_preserves_internal_whitespace() -> None:
 
 
 def test_run_check_handles_timeout() -> None:
+    """Test run check handles timeout."""
+
     def timeout_run(cmd, **kwargs):
+        """Timeout run."""
         raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout", 600))
 
     result = run_check("slow", timeout=5, run_fn=timeout_run)
@@ -70,7 +79,10 @@ def test_run_check_handles_timeout() -> None:
 
 
 def test_run_check_handles_os_error() -> None:
-    def broken_run(cmd, **kwargs):
+    """Test run check handles os error."""
+
+    def broken_run(_cmd, **_kwargs):
+        """Broken run."""
         raise OSError("No such file or directory: 'make'")
 
     result = run_check("lint", run_fn=broken_run)
@@ -80,6 +92,7 @@ def test_run_check_handles_os_error() -> None:
 
 
 def test_run_checks_returns_sorted_results() -> None:
+    """Test run checks returns sorted results."""
     results = run_checks(
         ["zebra", "alpha", "middle"],
         run_fn=_make_run_fn(stdout="ok"),
@@ -90,7 +103,10 @@ def test_run_checks_returns_sorted_results() -> None:
 
 
 def test_run_checks_propagates_failures() -> None:
-    def deterministic_run(cmd, **kwargs):
+    """Test run checks propagates failures."""
+
+    def deterministic_run(cmd, **_kwargs):
+        """Deterministic run."""
         target = cmd[-1]
         fail = target == "b"
         return SimpleNamespace(
@@ -104,6 +120,7 @@ def test_run_checks_propagates_failures() -> None:
 
 
 def test_format_results_folds_passing_expands_failing() -> None:
+    """Test format results folds passing expands failing."""
     results = (
         CheckResult(name="lint", passed=True, elapsed=1.0, output="clean"),
         CheckResult(name="test-py", passed=False, elapsed=2.5, output="FAILED: x"),
@@ -121,9 +138,8 @@ def test_format_results_folds_passing_expands_failing() -> None:
 
 
 def test_format_results_no_error_line_when_all_pass() -> None:
-    results = (
-        CheckResult(name="lint", passed=True, elapsed=1.0, output="ok"),
-    )
+    """Test format results no error line when all pass."""
+    results = (CheckResult(name="lint", passed=True, elapsed=1.0, output="ok"),)
 
     output = format_results(results)
 
@@ -131,6 +147,7 @@ def test_format_results_no_error_line_when_all_pass() -> None:
 
 
 def test_main_returns_zero_on_all_passing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test main returns zero on all passing."""
     monkeypatch.setattr(
         "scripts.ci.run_parallel_checks.subprocess",
         SimpleNamespace(run=_make_run_fn(stdout="ok")),
@@ -140,6 +157,7 @@ def test_main_returns_zero_on_all_passing(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_main_returns_one_on_any_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test main returns one on any failure."""
     monkeypatch.setattr(
         "scripts.ci.run_parallel_checks.subprocess",
         SimpleNamespace(run=_make_run_fn(returncode=1, stderr="fail")),
@@ -149,9 +167,11 @@ def test_main_returns_one_on_any_failure(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_main_passes_timeout_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test main passes timeout flag."""
     captured_timeout = {}
 
-    def recording_run(cmd, **kwargs):
+    def recording_run(_cmd, **kwargs):
+        """Recording run."""
         captured_timeout["value"] = kwargs.get("timeout")
         return SimpleNamespace(returncode=0, stdout="ok", stderr="")
 
@@ -165,17 +185,21 @@ def test_main_passes_timeout_flag(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_main_rejects_timeout_without_value() -> None:
+    """Test main rejects timeout without value."""
     assert main(["--timeout"]) == 1
 
 
 def test_main_rejects_non_numeric_timeout() -> None:
+    """Test main rejects non numeric timeout."""
     assert main(["--timeout", "abc", "lint"]) == 1
 
 
 def test_main_rejects_non_positive_timeout() -> None:
+    """Test main rejects non positive timeout."""
     assert main(["--timeout", "0", "lint"]) == 1
     assert main(["--timeout", "-5", "lint"]) == 1
 
 
 def test_main_returns_one_with_no_targets() -> None:
+    """Test main returns one with no targets."""
     assert main([]) == 1
