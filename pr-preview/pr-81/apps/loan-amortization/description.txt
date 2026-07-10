@@ -1,0 +1,1 @@
+Interactive loan amortization calculator with charts, extra payment scenarios, and detailed repayment schedules.
