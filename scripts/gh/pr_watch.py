@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from . import gh_runner, pr_review
@@ -62,8 +63,20 @@ def _checks_settled(rollup: list[dict[str, Any]]) -> bool:
     return True
 
 
+def _parse_timestamp(value: str, context: str) -> datetime:
+    """Parse an ISO-8601 timestamp and require timezone information."""
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise GhError(f"{context} is not a valid ISO-8601 timestamp: {value!r}.") from exc
+    if parsed.tzinfo is None:
+        raise GhError(f"{context} must include timezone information: {value!r}.")
+    return parsed
+
+
 def _new_copilot_review_count(reviews: list[Any], since: str) -> int:
     """Count Copilot reviews submitted after ``since``."""
+    since_at = _parse_timestamp(since, "The since timestamp")
     count = 0
     for review in reviews:
         if not isinstance(review, dict):
@@ -76,7 +89,7 @@ def _new_copilot_review_count(reviews: list[Any], since: str) -> int:
         if (
             author.get("login") == _COPILOT_LOGIN
             and isinstance(submitted_at, str)
-            and submitted_at > since
+            and _parse_timestamp(submitted_at, "A review submittedAt") > since_at
         ):
             count += 1
     return count
@@ -101,7 +114,9 @@ def poll_once(
         raise GhError(f"Unexpected statusCheckRollup shape in PR view response for PR {pr}.")
     reviews = payload.get("reviews")
     if not isinstance(reviews, list):
-        raise GhError(f"Unexpected reviews shape in PR view response for PR {pr}.")
+        if not checks_only:
+            raise GhError(f"Unexpected reviews shape in PR view response for PR {pr}.")
+        reviews = []
     rollup_tally = pr_review._rollup_summary(rollup)
     try:
         new_review_count = _new_copilot_review_count(reviews, since)

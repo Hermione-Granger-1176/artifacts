@@ -179,6 +179,68 @@ def test_poll_once_checks_only_ignores_malformed_review_entries() -> None:
     assert status == pr_watch.PollStatus(True, "1 success", 0)
 
 
+def test_poll_once_checks_only_tolerates_a_non_list_reviews_field() -> None:
+    """checks_only treats a malformed reviews container as no reviews."""
+    payload = json.dumps(
+        {"statusCheckRollup": [{"status": "COMPLETED", "conclusion": "SUCCESS"}], "reviews": {}}
+    )
+    runner = FakeGh([(has("pr", "view"), completed_process(0, payload))])
+
+    status = pr_watch.poll_once(12, _SINCE, checks_only=True, run_fn=runner)
+
+    assert status == pr_watch.PollStatus(True, "1 success", 0)
+
+
+def test_poll_once_compares_timestamps_chronologically_across_timezones() -> None:
+    """An offset since timestamp is compared by instant, not by string order."""
+    status = pr_watch.poll_once(
+        12,
+        "2026-07-10T14:00:00+02:00",
+        run_fn=_poll_runner(
+            rollup=[{"status": "COMPLETED", "conclusion": "SUCCESS"}],
+            reviews=[
+                {
+                    "author": {"login": "copilot-pull-request-reviewer"},
+                    "submittedAt": "2026-07-10T12:30:00Z",
+                }
+            ],
+        ),
+    )
+
+    assert status.new_review_count == 1
+
+
+@pytest.mark.parametrize("since", ["not a timestamp", "2026-07-10T12:00:00"])
+def test_poll_once_rejects_invalid_and_naive_since_timestamps(since: str) -> None:
+    """Unparseable and timezone-naive since values are reported as GhErrors."""
+    with pytest.raises(GhError):
+        pr_watch.poll_once(
+            12,
+            since,
+            run_fn=_poll_runner(
+                rollup=[{"status": "COMPLETED", "conclusion": "SUCCESS"}], reviews=[]
+            ),
+        )
+
+
+def test_poll_once_rejects_an_unparseable_copilot_submission_time() -> None:
+    """A Copilot review with a garbled submittedAt string is surfaced, not guessed."""
+    with pytest.raises(GhError):
+        pr_watch.poll_once(
+            12,
+            _SINCE,
+            run_fn=_poll_runner(
+                rollup=[{"status": "COMPLETED", "conclusion": "SUCCESS"}],
+                reviews=[
+                    {
+                        "author": {"login": "copilot-pull-request-reviewer"},
+                        "submittedAt": "yesterday",
+                    }
+                ],
+            ),
+        )
+
+
 def test_poll_once_ignores_null_author_and_non_string_submission_time() -> None:
     """Incomplete non-Copilot review data does not count as a fresh review."""
     status = pr_watch.poll_once(
