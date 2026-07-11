@@ -1,7 +1,7 @@
-/* Pure, framework-free maths for the Prompt Caching explainer.
+/* Pure, framework-free math for the Prompt Caching explainer.
  *
  * Every export is a deterministic function with no DOM access, so the demos'
- * numerical behaviour can be unit-tested directly.
+ * numerical behavior can be unit-tested directly.
  */
 
 import { WHOLE_TOKENS, SUB_PIECES } from "./data.js";

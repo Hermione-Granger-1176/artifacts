@@ -1,4 +1,4 @@
-/* Live BPE-style tokenizer demo: colours tokens or shows their pseudo IDs. */
+/* Live BPE-style tokenizer demo: colors tokens or shows their pseudo IDs. */
 
 import { bpeTokenize, hashToken } from "./math.js";
 import { byId, makeEl, clear, initSegmented } from "./dom.js";

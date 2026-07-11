@@ -386,7 +386,7 @@ V = <span class="pc-syn-fn">append</span>(cached_V, V_new)  <span class="pc-syn-
           <tr><td><strong>Hit rate</strong></td><td>~50% in testing (send same prompt twice in a row).</td><td>~100% when you explicitly request caching.</td></tr>
           <tr><td><strong>Write cost</strong></td><td>Free. No extra charge for cache creation.</td><td>25% surcharge on the first write to build the cache.</td></tr>
           <tr><td><strong>Cache lifetime</strong></td><td>Roughly 5 to 10 minutes (not guaranteed).</td><td>5 minutes, refreshed on each hit.</td></tr>
-          <tr><td><strong>Partial match</strong></td><td>Yes. A shared prefix can be reused even if the suffix differs.</td><td>Yes. Same prefix-matching behaviour.</td></tr>
+          <tr><td><strong>Partial match</strong></td><td>Yes. A shared prefix can be reused even if the suffix differs.</td><td>Yes. Same prefix-matching behavior.</td></tr>
           <tr><td><strong>Best for</strong></td><td>Fire-and-forget simplicity. Good default for most use cases.</td><td>Predictable latency on long context windows. You know exactly what is cached.</td></tr>
         </tbody>
       </table></div>

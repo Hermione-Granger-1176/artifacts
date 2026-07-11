@@ -84,7 +84,7 @@ test('navigation is a no-op when its anchors are missing', () => {
 
 // --- tokenizer.js ---
 
-test('tokenizer renders coloured tokens and an ID view', () => {
+test('tokenizer renders colored tokens and an ID view', () => {
   withHarness((h) => {
     initTokenizer();
     assert.ok(h.el('tokenOutput').children.length > 0);

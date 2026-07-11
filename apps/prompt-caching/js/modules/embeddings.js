@@ -1,5 +1,5 @@
 /* Embedding demos: the dimension explorer scatter and the similarity playground.
- * Both canvases resolve their colours from shared tokens so they re-render
+ * Both canvases resolve their colors from shared tokens so they re-render
  * correctly when the theme toggles. */
 
 import { DIM_COLORS, EMB_VECS, EMB_PAIRS, EMB_CATEGORIES } from "./data.js";
@@ -7,7 +7,7 @@ import { cosineSim, eucDist, verdictForSimilarity, project2D } from "./math.js";
 import { byId, cssVar, makeEl, clear, initSegmented } from "./dom.js";
 
 // Use the prompt-specific accent tokens (not the vibrant --color-* bases): they carry
-// the WCAG-AA text colours in light mode and flip to the vibrant hues in dark.
+// the WCAG-AA text colors in light mode and flip to the vibrant hues in dark.
 const TONE_VARS = {
   teal: "--pc-teal",
   accent: "--pc-accent",

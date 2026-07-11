@@ -8,7 +8,7 @@ attributes). It was refactored to match the production app system.
 
 ### Adopt shared design tokens (not the bespoke palette)
 
-The original warm palette was light-only. We remapped every colour to the shared
+The original warm palette was light-only. We remapped every color to the shared
 `--color-*` tokens so the app gets automatic light/dark and visually matches the
 rest of the gallery. The five original accent roles map to the five shared semantic
 hues (accent→amber, warm→blue, teal→green, indigo→purple, rose→red).
@@ -27,11 +27,11 @@ header rather than replacing it.
 
 ### Logic / glue split for testability
 
-All numerical behaviour was extracted into pure functions in `math.js` (with data
+All numerical behavior was extracted into pure functions in `math.js` (with data
 in `data.js`) so it can be unit-tested directly. The DOM-and-animation glue stays in
 the feature modules and is verified in-browser; the test harness cannot mount real
-canvas/`IntersectionObserver`/timer behaviour, and importing the glue purely to
-chase coverage would add brittle mocks without testing real behaviour.
+canvas/`IntersectionObserver`/timer behavior, and importing the glue purely to
+chase coverage would add brittle mocks without testing real behavior.
 
 ### Savings calculator models the steady state, not the first request
 
