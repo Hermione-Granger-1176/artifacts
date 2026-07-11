@@ -197,6 +197,7 @@ def _patch_app_asset_references(version: str) -> None:
 
     replacements = {
         'href="../../css/style.css"': f'href="../../css/style.css?v={version}"',
+        'href="./css/app.css"': f'href="./css/app.css?v={version}"',
         'src="../../js/app-theme.js"': f'src="../../js/app-theme.js?v={version}"',
         'src="./js/app.js"': f'src="./js/app.js?v={version}"',
     }

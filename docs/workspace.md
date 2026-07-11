@@ -35,7 +35,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- icons/                 Logo, favicon, and web app manifest
 |  |- social/                Social share preview image
 |- config/                   Gallery metadata, tool configs (eslint, stylelint, and more), and security audit policy
-|- css/                      Single shared site stylesheet
+|- css/                      Shared site stylesheet
 |- docs/                     Workspace documentation and ADRs
 |- js/
 |  |- app.js                 Root gallery entry point
@@ -78,6 +78,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `docs/operations.md`: command selection, CI mirroring, troubleshooting, and recovery
 - `docs/maintenance.md`: long-term contracts, review points, and stability expectations
 - `apps/*/index.html`: artifact implementation
+- `apps/*/css/app.css`: app-specific layout styles for mature apps
 - `apps/*/name.txt`, `description.txt`, `tags.txt`, `tools.txt`: artifact metadata
 - `index.html`, `css/style.css`, `js/app.js`, `js/modules/gallery/*`: root gallery UI and shared app styling
 - `js/modules/runtime.js`, `js/modules/element-cache.js`, `js/modules/html-escape.js`: shared JS utilities

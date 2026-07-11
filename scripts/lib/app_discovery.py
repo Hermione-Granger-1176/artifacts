@@ -13,7 +13,7 @@ from scripts.lib.artifact_contract import (
 __all__ = ["artifact_base_path", "thumbnail_file"]
 
 
-APP_RUNTIME_TOP_LEVELS = {"js", "assets"}
+APP_RUNTIME_TOP_LEVELS = {"js", "assets", "css"}
 APP_SHARED_RUNTIME_MARKERS = (Path("js/app.js"),)
 APP_METADATA_FILES = {
     "name.txt",

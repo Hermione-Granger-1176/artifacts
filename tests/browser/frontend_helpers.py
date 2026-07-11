@@ -509,6 +509,10 @@ def ensure_axe_styles(page) -> None:
             if (rootStylesheet) {
                 rootStylesheet.disabled = true;
             }
+            const appStylesheet = document.querySelector('link[href*="css/app.css"]');
+            if (appStylesheet) {
+                appStylesheet.disabled = true;
+            }
             const style = document.createElement('style');
             style.id = 'axe-inline-styles';
             style.textContent = cssContent;

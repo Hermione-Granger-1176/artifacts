@@ -24,6 +24,7 @@ matrices**, not the model's text output.
 ## Structure
 
 - `index.html` - semantic layout inside the shared app shell with no inline styles or scripts
+- `css/app.css` - prompt caching layout selectors
 - `js/app.js` - entry point that wires the shared shell and the feature modules
 - `js/modules/` - one module per concern:
   - `data.js` - static datasets (vocab, worked attention example, embeddings, scripts)
@@ -35,12 +36,12 @@ matrices**, not the model's text output.
 
 ## Dependencies
 
-- None. No CDN scripts or web fonts; styling resolves through `../../css/style.css`,
-  satisfying the strict `'self'` CSP.
+- None. No CDN scripts or web fonts; styling resolves through `../../css/style.css`
+  and `./css/app.css`, satisfying the strict `'self'` CSP.
 
 ## Development
 
-- Keep shared design decisions and app-specific layout selectors in the root stylesheet.
+- Keep shared design decisions in `../../css/style.css` and app-specific layout selectors in `css/app.css`.
 - Numerical logic lives in `math.js` and is covered by
   `tests/js/apps/prompt-caching/modules.test.js`.
 - Credit: based on Sam Rose's deep-dive at ngrok.com/blog/prompt-caching, rewritten

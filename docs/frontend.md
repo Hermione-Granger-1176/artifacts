@@ -3,17 +3,18 @@
 ## Root gallery entry points
 
 - `index.html` loads the root gallery shell
-- `css/style.css` is the only site stylesheet. It contains self-hosted font declarations, gallery styling, shared app shell styling, and app-specific layout selectors scoped by body classes.
+- `css/style.css` contains self-hosted font declarations, gallery styling, shared app tokens, and shared app shell styling. Each mature app keeps its layout selectors in `apps/<slug>/css/app.css`, scoped by its body class.
 - `js/gallery-config.js` provides generated tool/tag labels, display order, and the shared artifact path contract from `config/gallery_metadata.json` and `config/artifact_contract.json`
 - `js/data.js` provides generated artifact metadata
 - `js/app.js` bootstraps the runtime, validates generated bootstrap data, and calls `initializeGalleryApp`
 
 ## Shared app system
 
-- `css/style.css` owns the shared bookmark-note palette, light and dark themes, root gallery styling, app shell styling, and current app-specific layout selectors
+- `css/style.css` owns the shared bookmark-note palette, light and dark themes, root gallery styling, and app shell styling
+- `apps/<slug>/css/app.css` owns app-specific layout selectors and keeps the `body.app-<slug>` selector scope
 - `js/app-theme.js` applies the saved mature-app theme before CSS loads
 - `js/modules/app-shell.js` owns runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
-- Mature app pages import `../../css/style.css`, use `artifact-app` plus an `app-<slug>` body class, and keep app-local JavaScript inside `apps/<slug>/`
+- Mature app pages import `../../css/style.css` first and `./css/app.css` second, use `artifact-app` plus an `app-<slug>` body class, and keep app-local JavaScript inside `apps/<slug>/`
 
 ## JavaScript module responsibilities
 

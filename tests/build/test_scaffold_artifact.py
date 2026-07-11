@@ -20,6 +20,7 @@ def test_index_template_includes_title() -> None:
     assert '<html lang="en" data-theme="light">' in template
     assert '<script src="../../js/app-theme.js"></script>' in template
     assert '<link rel="stylesheet" href="../../css/style.css">' in template
+    assert '<link rel="stylesheet" href="./css/app.css">' in template
     assert '<body class="artifact-app">' in template
     assert '<script type="module" src="./js/app.js"></script>' in template
     assert 'data-app-shell="header"' in template
@@ -41,7 +42,7 @@ def test_scaffold_artifact_creates_expected_files(
 
     assert artifact_dir == apps_dir / "budget-tracker"
     assert (artifact_dir / "index.html").exists()
-    assert not (artifact_dir / "css").exists()
+    assert (artifact_dir / "css" / "app.css").exists()
     assert (artifact_dir / "js" / "app.js").exists()
     assert (artifact_dir / "README.md").exists()
     assert (artifact_dir / "docs" / "architecture.md").exists()
@@ -60,10 +61,14 @@ def test_scaffold_artifact_creates_expected_files(
     assert "__APP_THUMBNAIL_URL__" in index_html
     assert '<script type="module" src="./js/app.js"></script>' in index_html
     assert '<link rel="stylesheet" href="../../css/style.css">' in index_html
+    assert '<link rel="stylesheet" href="./css/app.css">' in index_html
     assert '<body class="artifact-app app-budget-tracker">' in index_html
     assert "renderAppShell();" in app_js
     assert "initAppShell" in app_js
     assert "initializeMatureApp" in app_js
+    assert (artifact_dir / "css" / "app.css").read_text(encoding="utf-8") == (
+        "/* Budget Tracker app layout. */\n"
+    )
     assert "# Budget Tracker" in readme
 
 

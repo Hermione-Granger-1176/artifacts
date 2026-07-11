@@ -87,6 +87,7 @@ def test_runtime_change_plan_handles_changed_and_shared_runtime_paths() -> None:
             "apps/loan-tool/index.html",
             "apps/loan-tool/js/app.js",
             "apps/budget-tool/assets/chart.json",
+            "apps/budget-tool/css/app.css",
             "css/style.css",
         ]
     )
