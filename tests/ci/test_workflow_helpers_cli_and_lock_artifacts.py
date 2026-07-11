@@ -182,7 +182,7 @@ def test_main_rejects_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_main_plan_outputs_flattens_plan_json(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Test main plan outputs flattens plan json."""
+    """Test the plan-outputs command flattens the plan JSON."""
     plan = {
         "browser_scope": "changed",
         "changed_slugs": ["demo", "other"],
