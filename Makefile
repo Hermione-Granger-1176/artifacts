@@ -398,8 +398,8 @@ stage: ## Stage selected files (make stage files="path ...")
 stage-all: ## Stage all workspace changes
 	git add -A
 
-commit: ## Commit staged changes (make commit message="..." OR message_file=path [amend=1])
-	@test -n "$(message)$(message_file)" || (printf 'Usage: make commit message="Commit message" OR message_file=/tmp/message.txt\n' >&2; exit 1)
+commit: ## Commit staged changes (make commit message="..." OR message_file=path, - reads stdin [amend=1])
+	@test -n "$(message)$(message_file)" || (printf 'Usage: make commit message="Commit message" OR message_file=path (- reads the message from stdin, e.g. a heredoc)\n' >&2; exit 1)
 	@if [ -n "$(message_file)" ]; then \
 	  git commit $(if $(amend),--amend) -F "$(message_file)"; \
 	else \
@@ -464,8 +464,8 @@ pr-diff: ## Show the diff for the current PR
 pr-comments: ## Show all comments on the current PR
 	gh pr view --comments
 
-pr-comment: ## Add a comment to the current PR (body="msg" OR body_file=path for multiline or shell-special content)
-	@test -n "$(body)$(body_file)" || (printf 'Usage: make pr-comment body="Looks good"  OR  make pr-comment body_file=/tmp/msg.md\n' >&2; exit 1)
+pr-comment: ## Add a comment to the current PR (body="msg" OR body_file=path for multiline content, - reads stdin)
+	@test -n "$(body)$(body_file)" || (printf 'Usage: make pr-comment body="Looks good"  OR  make pr-comment body_file=- with the comment piped on stdin\n' >&2; exit 1)
 	@if [ -n "$(body_file)" ]; then \
 	  gh pr comment --body-file "$(body_file)"; \
 	else \
@@ -476,8 +476,8 @@ pr-review-comments: ## List review threads with thread ids (make pr-review-comme
 	@$(GH) list $(if $(pr_num),--pr $(pr_num)) $(if $(filter all,$(show)),--all)
 
 pr-reply: export PR_REPLY_BODY := $(body)
-pr-reply: ## Reply to a review thread (make pr-reply thread=PRRT_... body="msg" OR body_file=path)
-	@test -n "$(thread)" || (printf 'Usage: make pr-reply thread=PRRT_... body="Fixed"  OR  body_file=/tmp/reply.md\n' >&2; exit 1)
+pr-reply: ## Reply to a review thread (make pr-reply thread=PRRT_... body="msg" OR body_file=path, - reads stdin)
+	@test -n "$(thread)" || (printf 'Usage: make pr-reply thread=PRRT_... body="Fixed"  OR  body_file=- with the reply piped on stdin\n' >&2; exit 1)
 	@if [ -n "$(body_file)" ]; then \
 	  $(GH) reply --thread "$(thread)" --body-file "$(body_file)"; \
 	else \
@@ -490,8 +490,8 @@ pr-resolve: ## Resolve a review thread (make pr-resolve thread=PRRT_...)
 	@$(GH) resolve --thread "$(thread)"
 
 pr-address: export PR_ADDRESS_BODY := $(body)
-pr-address: ## Reply to and resolve a review thread (make pr-address thread=PRRT_... body="msg" OR body_file=path)
-	@test -n "$(thread)" || (printf 'Usage: make pr-address thread=PRRT_... body="Fixed"  OR  body_file=/tmp/reply.md\n' >&2; exit 1)
+pr-address: ## Reply to and resolve a review thread (make pr-address thread=PRRT_... body="msg" OR body_file=path, - reads stdin)
+	@test -n "$(thread)" || (printf 'Usage: make pr-address thread=PRRT_... body="Fixed"  OR  body_file=- with the reply piped on stdin\n' >&2; exit 1)
 	@if [ -n "$(body_file)" ]; then \
 	  $(GH) address --thread "$(thread)" --body-file "$(body_file)"; \
 	else \

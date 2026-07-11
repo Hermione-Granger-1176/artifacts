@@ -21,12 +21,16 @@ def _add_body_options(parser: argparse.ArgumentParser) -> None:
     """Add shared reply body options to a subcommand parser."""
     body_group = parser.add_mutually_exclusive_group(required=True)
     body_group.add_argument("--body", help="Reply text")
-    body_group.add_argument("--body-file", help="Path to a file containing reply text")
+    body_group.add_argument(
+        "--body-file", help="Path to a file containing reply text (- reads stdin)"
+    )
 
 
 def _body_text(args: argparse.Namespace) -> str:
-    """Return the body text from ``--body`` or ``--body-file``."""
+    """Return the body text from ``--body`` or ``--body-file`` (``-`` reads stdin)."""
     if args.body_file is not None:
+        if args.body_file == "-":
+            return sys.stdin.read()
         try:
             return Path(args.body_file).read_text(encoding="utf-8")
         except OSError as exc:
