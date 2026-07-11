@@ -5,7 +5,7 @@ Collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT, G
 ## Rules
 
 1. **The Makefile is the only interface.** Never run `.venv/bin/*`, `pytest`, `ruff`, `mypy`, `npm run`, `npx`, `tsc`, `playwright`, or `gh` directly. Always use `make <target>`. If unsure what's available, run `make help` first. The list is auto-generated from the Makefile.
-2. **Use the `make pr` / `make git` / `make help-ci` targets for GitHub work.** Prefer `make pr-review-comments`, `make pr-address`, `make pr-reply`, `make pr-resolve`, `make pr-summary`, `make pr-checks`, `make ci-failures`, and `make push` over raw `gh` or `git` commands. `make pr-review-comments` prints `thread=PRRT_...` ids; pass that id straight to `make pr-reply`, `make pr-resolve`, or `make pr-address`. The PR number is auto-detected from the current branch (override with `pr_num=N`). Never pass extra flags like `--jq` to a make target, since make parses them itself and errors.
+2. **Use the `make pr-*` / `make git` targets for GitHub work** instead of raw `gh` or `git` (see the Common commands table). `make pr-review-comments` prints `thread=PRRT_...` ids; pass that id straight to `make pr-reply`, `make pr-resolve`, or `make pr-address`. The PR number is auto-detected from the current branch (override with `pr_num=N`). Never pass extra flags like `--jq` to a make target, since make parses them itself and errors.
 3. **If a target is missing, add it.** Put `## description` after the target name in the Makefile and it appears in `make help` automatically.
 4. **Each tool has one config file.** To change what gets linted/tested/typed, edit the tool's config, nowhere else. See the tool configuration table below.
 5. **Configs auto-discover from roots; never enumerate files in multiple places.** Point tools at directory roots, globs, or shared config files so new artifacts, scripts, and tests are covered automatically. Don't repeat per-file source lists; that rots the day someone adds a file and forgets. Tool config-file location pointers are fine; per-file source lists are not.
@@ -36,28 +36,16 @@ When adding a user-provided artifact, prefer the minimal path: scaffold, copy HT
 
 ## Local commands
 
-**Run `make help` for command groups, then `make help-<group>` to expand one** (for example `make help-pr`, `make help-quality`, or `make help-build`). `make help-json` emits the same surface for tooling. Groups: setup, lint, format, typecheck, deadcode, test, build, quality, util, git, pr, ci. Everything is auto-generated from `## comment` annotations and `# ─── Title @slug ───` section headers in the Makefile.
+**Run `make help` for command groups, then `make help-<group>` to expand one** (for example `make help-pr`). `make help-json` emits the same surface for tooling. Everything is auto-generated from `## comment` annotations and `# ─── Title @slug ───` section headers in the Makefile.
 
 Key entry points:
 
-- `make setup`: fast default (Python + Node deps, no Chromium)
-- `make setup-all`: full setup including Chromium for browser tests and thumbnails. Use only when browser work is explicitly needed.
-- `make install-hooks`: install the local pre-commit Git hooks
-- `make ci`: full non-browser local CI gate
-- `make ci-fast`: parallel non-browser local CI gate
-- `make check-local`: alias for `make ci`
-- `make check-fast`: alias for `make ci-fast`
-- `make check-web`: browser tests + thumbnails, requires Chromium
-- `make check`: full gate (check-local + browser tests + thumbnails + index + site build)
-- `make fmt`: auto-fix lint issues across Python, JS, and CSS
-- `make format-check`: check ruff and Prettier formatting without writing files
-- `make dead-code`: run vulture and Knip dead-code checks
-- `make pr`: show all PR commands (create, list, merge, comments, review, resolve, etc.)
-- `make help-ci`: show CI/GitHub run commands (runs, watch, failed logs, repo audit)
-- `make git`: show all git commands (branch, commit, push, log, diff)
+- `make setup`: fast default (Python + Node deps, no Chromium). `make setup-all` adds Chromium for browser tests and thumbnails; use only when browser work is explicitly needed. Requires `uv` on PATH.
+- `make ci` / `make ci-fast`: full / parallel non-browser local CI gate
+- `make check`: full gate (non-browser CI + browser tests + thumbnails + index + site build); `make check-web` for just the browser half
 - `make status`: workspace health check (git, deps, lock currency, generated files, PR summary)
 
-Python dependencies and workspace metadata live in `pyproject.toml`, while frozen installs live in `uv.lock` and `package-lock.json`. Local Python setup requires `uv` on PATH.
+Python dependencies and workspace metadata live in `pyproject.toml`, while frozen installs live in `uv.lock` and `package-lock.json`.
 
 ## Common commands
 
@@ -66,8 +54,8 @@ High-frequency loops (full surface via `make help`). PR and CI triage targets wr
 | Need | Command |
 | --- | --- |
 | Review threads with resolution state | `make pr-review-comments [pr_num=N]` |
-| Reply to a review thread | `make pr-reply thread=PRRT_... body_file=/tmp/reply.md` |
-| Reply to and resolve a review thread | `make pr-address thread=PRRT_... body_file=/tmp/reply.md` |
+| Reply to a review thread | `make pr-reply thread=PRRT_... body_file=- <<'EOF' ... EOF` |
+| Reply to and resolve a review thread | `make pr-address thread=PRRT_... body_file=- <<'EOF' ... EOF` |
 | Resolve a review thread | `make pr-resolve thread=PRRT_...` |
 | PR overview with checks and open threads | `make pr-summary [pr_num=N]` |
 | Wait for checks and a fresh Copilot review | `make pr-watch [pr_num=N]` |
@@ -79,9 +67,11 @@ High-frequency loops (full surface via `make help`). PR and CI triage targets wr
 | New stacked branch | `make branch name=my-feature base=current-branch` |
 | Full local CI gate / parallel | `make ci` / `make ci-fast` |
 | Formatting and dead code checks | `make format-check` / `make dead-code` |
-| Commit staged work | `make commit message_file=/tmp/commit-message.txt` |
+| Commit staged work | `make commit message_file=- <<'EOF' ... EOF` |
 | Push the current branch | `make push` |
 | Discover commands | `make help`, then `make help-<group>`, or `make help-json` |
+
+For multi-line text (commit messages, PR replies, comments), pass `message_file=-` / `body_file=-` and pipe the content on stdin with a heredoc. Do not write temp message files; reserve `message_file=path` / `body_file=path` for content that already exists on disk. Short one-liners can use the inline `message="..."` / `body="..."` forms.
 
 ## Tool configuration
 
@@ -117,16 +107,9 @@ Do not manually edit these outputs unless updating generator logic:
 
 ## Deployment
 
-- GitHub Pages is configured for GitHub Actions publishing
-- The `gh-pages` branch remains the CI-managed deploy state for the live site root and PR preview subtrees
-- Pushes to `main` update the site root in `gh-pages`, then publish the full branch tree with the official Pages Actions
-- Main-site publishes also write a classic deployment record to the `github-pages` environment via the Deployments REST API (workflow `GITHUB_TOKEN`), so the Deployments page and environment badge stay current. PR previews and cleanup do not write these records.
-- PRs update previews under `gh-pages/pr-preview/pr-<number>/`, then publish the full branch tree with the official Pages Actions
-- All deploys (main, preview, and cleanup) use the escalation app token (Harry1176) and create verified commits via the GraphQL API
-- The weekly repository-settings audit and its drift-issue lifecycle use a dedicated read-only app token (Percy1176); it has no deploy or write-to-code capability
-- Preview comments are posted by the workflow token, appear as `github-actions[bot]`, and are recreated on each push so the newest preview stays visible
-- Same-repo Dependabot uv PRs refresh `uv.lock` via CI workflows
+- GitHub Pages publishes via GitHub Actions: pushes to `main` update the live site root, and PRs get previews under `gh-pages/pr-preview/pr-<number>/` with the link posted as a PR comment on each push
 - `gh-pages` is CI-managed and should not be edited manually
+- Deploys use GitHub App tokens and verified GraphQL commits; see [`docs/architecture.md`](docs/architecture.md) for the full pipeline, token model, and deployment records
 
 ## Docs
 
@@ -138,6 +121,7 @@ Workspace documentation lives in `docs/`:
 - [`operations.md`](docs/operations.md): local commands, CI behavior, and troubleshooting
 - [`maintenance.md`](docs/maintenance.md): long-term upkeep and workflow hygiene
 - [`style.md`](docs/style.md): editor configuration and language conventions
+- [`adr/`](docs/adr): architecture decision records
 
 ## Conventions
 

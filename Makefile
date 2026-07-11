@@ -398,8 +398,8 @@ stage: ## Stage selected files (make stage files="path ...")
 stage-all: ## Stage all workspace changes
 	git add -A
 
-commit: ## Commit staged changes (make commit message="..." OR message_file=path [amend=1])
-	@test -n "$(message)$(message_file)" || (printf 'Usage: make commit message="Commit message" OR message_file=/tmp/message.txt\n' >&2; exit 1)
+commit: ## Commit staged changes (make commit message="..." OR message_file=path, - reads stdin [amend=1])
+	@test -n "$(message)$(message_file)" || (printf 'Usage: make commit message="Commit message" OR message_file=path (- reads the message from stdin, e.g. a heredoc)\n' >&2; exit 1)
 	@if [ -n "$(message_file)" ]; then \
 	  git commit $(if $(amend),--amend) -F "$(message_file)"; \
 	else \
@@ -429,7 +429,7 @@ REPO ?= $(strip $(shell repo="$$(git remote get-url origin 2>/dev/null | sed -nE
 	printf '%s' "$$repo"))
 PR_NUM = $(if $(pr_num),$(pr_num),$(strip $(shell gh pr view --json number -q .number 2>/dev/null)))
 
-.PHONY: pr pr-create pr-edit pr-list pr-status pr-checks pr-diff pr-comments pr-comment pr-review-comments pr-reply pr-resolve pr-address pr-comments-list pr-comment-delete pr-summary pr-watch pr-merge pr-merge-admin pr-reviewers pr-label pr-close
+.PHONY: pr pr-create pr-edit pr-list pr-status pr-checks pr-diff pr-comments pr-comment pr-review-comments pr-reply pr-resolve pr-address pr-copilot-review pr-comments-list pr-comment-delete pr-summary pr-watch pr-merge pr-merge-admin pr-reviewers pr-label pr-close
 
 pr: ## PR commands (make pr)
 	@$(MAKE) --no-print-directory help-pr
@@ -439,14 +439,15 @@ pr-create: ## Open a pull request for the current branch (make pr-create [base=b
 
 pr-edit: export PR_EDIT_TITLE := $(title)
 pr-edit: export PR_EDIT_BODY := $(body)
-pr-edit: ## Edit the current PR title or body (make pr-edit title="..." [body="..."] [pr_num=N])
-	@test -n "$$PR_EDIT_TITLE$$PR_EDIT_BODY" || { printf 'Usage: make pr-edit title="New title" [body="..."] [pr_num=N]\n' >&2; exit 1; }
+pr-edit: ## Edit the current PR title or body (make pr-edit title="..." [body="..." OR body_file=path, - reads stdin] [pr_num=N])
+	@test -n "$$PR_EDIT_TITLE$$PR_EDIT_BODY$(body_file)" || { printf 'Usage: make pr-edit title="New title" [body="..." OR body_file=- with the body piped on stdin] [pr_num=N]\n' >&2; exit 1; }
 	@set -e; \
 	tmp=""; \
 	trap 'test -n "$$tmp" && rm -f "$$tmp"' EXIT; \
 	set -- $(if $(PR_NUM),$(PR_NUM)); \
 	if [ -n "$$PR_EDIT_TITLE" ]; then set -- "$$@" --title "$$PR_EDIT_TITLE"; fi; \
-	if [ -n "$$PR_EDIT_BODY" ]; then tmp=$$(mktemp); printf '%s' "$$PR_EDIT_BODY" > "$$tmp"; set -- "$$@" --body-file "$$tmp"; fi; \
+	if [ -n "$(body_file)" ]; then set -- "$$@" --body-file "$(body_file)"; \
+	elif [ -n "$$PR_EDIT_BODY" ]; then tmp=$$(mktemp); printf '%s' "$$PR_EDIT_BODY" > "$$tmp"; set -- "$$@" --body-file "$$tmp"; fi; \
 	gh pr edit "$$@"
 
 pr-list: ## List open pull requests
@@ -464,8 +465,8 @@ pr-diff: ## Show the diff for the current PR
 pr-comments: ## Show all comments on the current PR
 	gh pr view --comments
 
-pr-comment: ## Add a comment to the current PR (body="msg" OR body_file=path for multiline or shell-special content)
-	@test -n "$(body)$(body_file)" || (printf 'Usage: make pr-comment body="Looks good"  OR  make pr-comment body_file=/tmp/msg.md\n' >&2; exit 1)
+pr-comment: ## Add a comment to the current PR (body="msg" OR body_file=path for multiline content, - reads stdin)
+	@test -n "$(body)$(body_file)" || (printf 'Usage: make pr-comment body="Looks good"  OR  make pr-comment body_file=- with the comment piped on stdin\n' >&2; exit 1)
 	@if [ -n "$(body_file)" ]; then \
 	  gh pr comment --body-file "$(body_file)"; \
 	else \
@@ -476,8 +477,8 @@ pr-review-comments: ## List review threads with thread ids (make pr-review-comme
 	@$(GH) list $(if $(pr_num),--pr $(pr_num)) $(if $(filter all,$(show)),--all)
 
 pr-reply: export PR_REPLY_BODY := $(body)
-pr-reply: ## Reply to a review thread (make pr-reply thread=PRRT_... body="msg" OR body_file=path)
-	@test -n "$(thread)" || (printf 'Usage: make pr-reply thread=PRRT_... body="Fixed"  OR  body_file=/tmp/reply.md\n' >&2; exit 1)
+pr-reply: ## Reply to a review thread (make pr-reply thread=PRRT_... body="msg" OR body_file=path, - reads stdin)
+	@test -n "$(thread)" || (printf 'Usage: make pr-reply thread=PRRT_... body="Fixed"  OR  body_file=- with the reply piped on stdin\n' >&2; exit 1)
 	@if [ -n "$(body_file)" ]; then \
 	  $(GH) reply --thread "$(thread)" --body-file "$(body_file)"; \
 	else \
@@ -490,14 +491,17 @@ pr-resolve: ## Resolve a review thread (make pr-resolve thread=PRRT_...)
 	@$(GH) resolve --thread "$(thread)"
 
 pr-address: export PR_ADDRESS_BODY := $(body)
-pr-address: ## Reply to and resolve a review thread (make pr-address thread=PRRT_... body="msg" OR body_file=path)
-	@test -n "$(thread)" || (printf 'Usage: make pr-address thread=PRRT_... body="Fixed"  OR  body_file=/tmp/reply.md\n' >&2; exit 1)
+pr-address: ## Reply to and resolve a review thread (make pr-address thread=PRRT_... body="msg" OR body_file=path, - reads stdin)
+	@test -n "$(thread)" || (printf 'Usage: make pr-address thread=PRRT_... body="Fixed"  OR  body_file=- with the reply piped on stdin\n' >&2; exit 1)
 	@if [ -n "$(body_file)" ]; then \
 	  $(GH) address --thread "$(thread)" --body-file "$(body_file)"; \
 	else \
 	  test -n "$$PR_ADDRESS_BODY" || (printf 'Provide body="..." or body_file=path.\n' >&2; exit 1); \
 	  $(GH) address --thread "$(thread)" --body "$$PR_ADDRESS_BODY"; \
 	fi
+
+pr-copilot-review: ## Request a Copilot code review on the current PR (make pr-copilot-review [pr_num=N])
+	@$(GH) copilot-review $(if $(pr_num),--pr $(pr_num))
 
 pr-comments-list: ## List individual review comments with node ids (make pr-comments-list [pr_num=N])
 	@$(GH) list-comments $(if $(pr_num),--pr $(pr_num))

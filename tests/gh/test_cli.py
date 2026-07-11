@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 from pathlib import Path
 
 import pytest
@@ -115,6 +116,17 @@ def test_body_text_missing_file_raises_gh_error(
     args = argparse.Namespace(body=None, body_file="missing.txt")
     with pytest.raises(GhError, match=r"Could not read --body-file missing.txt"):
         cli._body_text(args)
+
+
+def test_body_text_dash_body_file_reads_stdin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A --body-file of ``-`` reads the body from stdin instead of a file."""
+    monkeypatch.setattr("sys.stdin", io.StringIO("Fixed in abc123\n\n- detail line\n"))
+
+    text = cli._body_text(argparse.Namespace(body=None, body_file="-"))
+
+    assert text == "Fixed in abc123\n\n- detail line\n"
 
 
 def test_body_text_empty_body_file_still_reads_path(

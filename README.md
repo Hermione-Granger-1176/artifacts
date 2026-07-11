@@ -47,7 +47,7 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 ## Structure
 
-Each artifact lives in its own directory under `apps/` with an `index.html` entry point. All pages share the single site stylesheet at `css/style.css`. Mature apps keep their own JavaScript and docs while reusing `js/app-theme.js` and `js/modules/app-shell.js` for the shared app shell.
+Each artifact lives in its own directory under `apps/` with an `index.html` entry point. All pages share `css/style.css`, and mature apps reuse `js/app-theme.js` and `js/modules/app-shell.js` for the shared app shell.
 
 ```text
 apps/
@@ -69,21 +69,20 @@ apps/
 
 ## Adding a new artifact
 
-1. Create a new scaffold with `make new name=my-artifact`, or create a kebab-case directory under `apps/` manually. The scaffold also creates `tests/js/apps/<slug>/` so app-specific Node tests have a matching home.
+1. Run `make new name=my-artifact` to scaffold the directory, or create a kebab-case directory under `apps/` manually
 2. Replace the scaffold `index.html` with your artifact and fill in the metadata files
 3. Run `make validate` to catch missing required files before pushing
-4. Push to `main` or trigger a manual run to let CI regenerate derived files, prepare `_site/`, and deploy the site
-5. Open a PR to run the same checks and publish a live preview; trusted same-repo PRs may also save regenerated thumbnails back to the source branch when CI renders a new `thumbnail.webp`
+4. Push to `main`: CI regenerates derived files, builds `_site/`, and deploys the site
+5. Open a PR to run the same checks and publish a live preview
 
-CI is intentionally strict for the root publishing platform: dependency review, secret scanning, browser-based accessibility and interaction checks, preview deploys, live post-deploy browser verification, and main deploys fail closed. Preview and production deploys both consume the exact verified `_site/` artifact built in CI. Trusted same-repo PRs can write regenerated thumbnails back to the same PR branch, while trusted `main` pushes open or update a follow-up thumbnail PR instead of writing directly to `main`.
+CI is intentionally strict for the root publishing platform: dependency review, secret scanning, browser-based checks, and fail-closed deploys. See [`docs/architecture.md`](docs/architecture.md) for the full pipeline, including how regenerated thumbnails flow back into PRs.
 
 ## Local development
 
-- Run `make help` first; the Makefile is the supported interface for local setup, checks, generation, and GitHub workflow helpers.
-- Use `make setup` for the default local toolchain, or `make setup-all` when you also need Chromium for browser tests and thumbnail generation.
-- Use `make ci` or `make check-local` for the non-browser local gate, including formatting, linting, tests, coverage, dead-code checks, dependency audits, validation, and canonical generated-file drift checks. Use `make check-web` when browser coverage or thumbnails matter, and `make check` for the full CI-equivalent local gate.
-- Use `make validate`, `make generate`, `make site`, and `make lock` when you need explicit structure checks, derived-file refreshes, deploy-payload inspection, or Python lock refreshes.
-- For the full day-to-day workflow, CI behavior, dependency expectations, and troubleshooting, see [`docs/operations.md`](docs/operations.md), [`docs/workspace.md`](docs/workspace.md), and [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md).
+- `make help`: the Makefile is the supported interface for setup, checks, generation, and GitHub helpers
+- `make setup`: default toolchain; `make setup-all` adds Chromium for browser tests and thumbnails
+- `make ci`: non-browser local gate; `make check-web` adds browser coverage; `make check` is the full CI-equivalent gate
+- For the day-to-day workflow, CI behavior, and troubleshooting, see [`docs/operations.md`](docs/operations.md) and [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md)
 
 ## License
 
