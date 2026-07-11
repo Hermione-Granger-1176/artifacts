@@ -253,3 +253,17 @@ def test_main_returns_one_on_manifest_error(
     )
     assert main(["--root", str(tmp_path)]) == 1
     assert "Vendored assets check failed" in capsys.readouterr().out
+
+
+def test_main_returns_one_on_unreadable_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Main reports OSError-family read failures instead of crashing."""
+    manifest_dir = tmp_path / "manifest-as-directory.json"
+    manifest_dir.mkdir()
+    monkeypatch.setattr(
+        "scripts.lint.check_vendored_assets.VENDORED_ASSETS_MANIFEST_FILE",
+        manifest_dir,
+    )
+    assert main(["--root", str(tmp_path)]) == 1
+    assert "Vendored assets check failed" in capsys.readouterr().out

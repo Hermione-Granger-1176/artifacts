@@ -211,7 +211,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         violations = run_check(workspace_root)
-    except (FileNotFoundError, ValueError) as exc:
+    except (OSError, ValueError) as exc:
         print(f"Vendored assets check failed: {exc}")
         return 1
 
