@@ -109,18 +109,21 @@ def build_coverage_map(root: Path) -> dict[Path, bool]:
     }
 
 
+def coverage_violations(coverage: dict[Path, bool], root: Path) -> list[str]:
+    """Return JS test coverage violations from an already-built coverage map."""
+    violations: list[str] = []
+    for source_file, is_covered in sorted(coverage.items()):
+        if not is_covered:
+            relative = source_file.relative_to(root).as_posix()
+            violations.append(f"{relative}: not imported by any test file in {TEST_DIR}/")
+    return violations
+
+
 def run_check(root: Path | None = None) -> list[str]:
     """Run the JS test coverage check and return all violations."""
     workspace_root = root or REPO_ROOT
     coverage = build_coverage_map(workspace_root)
-
-    violations: list[str] = []
-    for source_file, is_covered in sorted(coverage.items()):
-        if not is_covered:
-            relative = source_file.relative_to(workspace_root).as_posix()
-            violations.append(f"{relative}: not imported by any test file in {TEST_DIR}/")
-
-    return violations
+    return coverage_violations(coverage, workspace_root)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -141,8 +144,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     workspace_root = Path(args.root) if args.root else REPO_ROOT
 
-    violations = run_check(root=workspace_root)
     coverage = build_coverage_map(workspace_root)
+    violations = coverage_violations(coverage, workspace_root)
     total = len(coverage)
     covered = sum(1 for v in coverage.values() if v)
 

@@ -50,6 +50,7 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `tests/js/home/`: root gallery tests such as bootstrap wiring, catalog helpers, overlay behavior, rendering, keyboard flows, and home-page runtime coverage
 - `tests/js/common/`: shared app-system tests for runtime helpers, app shell behavior, theme bootstrap, motion helpers, inert handling, and element caching
 - `tests/js/apps/loan-amortization/`: app-specific entry, DOM, and module coverage for the loan amortization app
+- `tests/js/apps/prompt-caching/`: app-specific entry, DOM, and module coverage for the prompt caching app
 - `tests/js/apps/tokenizer-explorer/`: app-specific entry and module coverage for the tokenizer explorer app
 - `tests/js/workflows/`: Node tests for the `deploy-site` and `verified-commit` GitHub composite-action modules
 - `tests/browser/test_frontend_smoke.py`: browser smoke coverage for gallery load, invalid bootstrap data, search, desk-note filters, pagination, detail overlay, and `404.html`

@@ -2,7 +2,7 @@
  *
  * Everything here is frozen reference data: section metadata, the toy BPE
  * vocabulary, the worked attention example, the hand-tuned word embeddings, and
- * the canned demo scripts. Colours are expressed as shared-token names so the
+ * the canned demo scripts. Colors are expressed as shared-token names so the
  * canvas demos can resolve them per-theme at draw time.
  */
 
@@ -198,7 +198,7 @@ export const SUMMARY_STEPS = [
   { title: "Cross-request reuse", tone: "rose", desc: "Providers keep the cache for 5 to 10 minutes. Same prompt prefix on the next request? Reuse everything. 10x cheaper, up to 85% faster." }
 ];
 
-/* Eight cluster colours, cycled from the shared semantic palette (resolved per
+/* Eight cluster colors, cycled from the shared semantic palette (resolved per
  * theme at draw time). */
 export const DIM_COLORS = [
   "--color-amber", "--color-green", "--color-blue", "--color-purple",

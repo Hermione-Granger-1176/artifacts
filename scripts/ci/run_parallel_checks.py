@@ -75,8 +75,9 @@ def format_results(results: tuple[CheckResult, ...]) -> str:
     for r in results:
         header = f"::group::{r.name}" if r.passed else f"--- {r.name} (failed) ---"
         body = r.output or "(no output)"
-        footer = "::endgroup::" if r.passed else ""
-        logs.extend([header, body, *(line for line in [footer] if line)])
+        logs.extend([header, body])
+        if r.passed:
+            logs.append("::endgroup::")
 
     failed = [r.name for r in results if not r.passed]
     error = [f"\n::error::Failed: {', '.join(failed)}"] if failed else []

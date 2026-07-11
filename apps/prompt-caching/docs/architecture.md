@@ -14,7 +14,7 @@
 
 - `modules/data.js`: frozen reference data: section list, toy BPE vocabulary, the
   pre-computed 4×3 attention example, hand-tuned 8-D word embeddings, demo scripts,
-  and summary steps. Cluster colours are stored as shared-token names.
+  and summary steps. Cluster colors are stored as shared-token names.
 - `modules/math.js`: pure functions with no DOM access: `bpeTokenize`, `hashToken`,
   `cosineSim`, `eucDist`, `softmax`, `savingsMonthly`, `formatTTL`,
   `verdictForSimilarity`, `project2D`. This is the unit-tested core.
@@ -29,7 +29,7 @@ Prompt Caching accents (`--pc-accent/warm/teal/indigo/rose`) are mapped in
 `css/app.css` onto the shared semantic palette
 (`--color-amber/blue/green/purple/red`) in `css/style.css`.
 Surfaces, text, and borders flip automatically in dark mode. The two `<canvas>`
-demos resolve their colours from CSS variables at draw time and are redrawn on
+demos resolve their colors from CSS variables at draw time and are redrawn on
 `onThemeChange`, so they stay correct across themes.
 
 ### CSP compliance

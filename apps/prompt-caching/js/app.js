@@ -14,7 +14,7 @@ renderAppShell();
 initializeMatureApp({
   onErrorContext: "prompt caching initialization",
   run: () => {
-    // Canvas demos resolve their colours from CSS tokens, so redraw on theme change.
+    // Canvas demos resolve their colors from CSS tokens, so redraw on theme change.
     let embeddings;
     initAppShell({ onThemeChange: () => embeddings?.redraw() });
 
