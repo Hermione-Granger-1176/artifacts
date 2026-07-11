@@ -374,7 +374,8 @@ def _remaining_thread_comments(
         )
         if not isinstance(result, dict):
             raise GhError(
-                f"Unexpected review thread response shape for {thread_id} in GraphQL response."
+                f"Unexpected review thread response shape for {thread_id} "
+                "in GraphQL response: expected a mapping."
             )
         node = result.get("node")
         if not isinstance(node, dict) or "comments" not in node:
