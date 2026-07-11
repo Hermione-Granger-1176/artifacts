@@ -158,6 +158,15 @@ def test_inject_after_head_open_ignores_header_elements() -> None:
     assert result == 'SNIPPET\n<header class="page-intro">x</header>'
 
 
+def test_inject_after_head_open_ignores_html5_like_tag() -> None:
+    """Test an <html5>-style tag is not mistaken for an opening html tag."""
+    result = scaffold_artifact._inject_after_head_open(
+        "<html5-widget>x</html5-widget>", "SNIPPET"
+    )
+
+    assert result == "SNIPPET\n<html5-widget>x</html5-widget>"
+
+
 def test_inject_after_head_open_without_head_prepends() -> None:
     """Test the head-open injector falls back to prepending when no head exists."""
     result = scaffold_artifact._inject_after_head_open("<body></body>", "SNIPPET")
@@ -300,6 +309,31 @@ def test_scaffold_artifact_rejects_existing_directory(
 
     with pytest.raises(FileExistsError, match="Artifact directory already exists"):
         scaffold_artifact.scaffold_artifact("budget-tracker")
+
+
+def test_scaffold_artifact_rejects_existing_directory_before_reading_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test an existing directory fails before the source HTML is read or warned about."""
+    apps_dir, _ = _install_temp_roots(tmp_path, monkeypatch)
+    (apps_dir / "budget-tracker").mkdir(parents=True)
+    source = tmp_path / "provided.html"
+    source.write_text(
+        "<html><head>"
+        '<script src="https://cdn.example.com/lib.js"></script>'
+        "</head><body></body></html>",
+        encoding="utf-8",
+    )
+
+    def _fail_read(_path: str) -> str:
+        raise AssertionError("source HTML must not be read when the directory exists")
+
+    monkeypatch.setattr(scaffold_artifact, "_read_source_html", _fail_read)
+
+    with pytest.raises(FileExistsError, match="Artifact directory already exists"):
+        scaffold_artifact.scaffold_artifact("budget-tracker", source_html=str(source))
+
+    assert capsys.readouterr().err == ""
 
 
 def test_main_scaffolds_artifact_and_returns_zero(

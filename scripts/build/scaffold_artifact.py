@@ -64,7 +64,7 @@ APP_STYLESHEET_LINK = f'<link rel="stylesheet" href="{APP_STYLESHEET_HREF}">'
 # The word boundary keeps `<header>` elements from matching as an opening head tag.
 _HEAD_OPEN_RE = re.compile(r"<head\b[^>]*>", re.IGNORECASE)
 _HEAD_CLOSE_RE = re.compile(r"</head\s*>", re.IGNORECASE)
-_HTML_OPEN_RE = re.compile(r"<html[^>]*>", re.IGNORECASE)
+_HTML_OPEN_RE = re.compile(r"<html\b[^>]*>", re.IGNORECASE)
 _DOCTYPE_RE = re.compile(r"<!doctype[^>]*>", re.IGNORECASE)
 
 # Attribute names are case-insensitive in HTML, so presence detection must be too.
@@ -374,13 +374,16 @@ def scaffold_artifact(name: str, *, source_html: str | None = None) -> Path:
     if not is_kebab_case(name):
         raise ValueError("Artifact name must use kebab-case")
 
+    # Fail on an existing directory before reading or warning about the source
+    # HTML, so a re-run against a taken slug is a clean no-op with no output.
+    artifact_dir = APPS_DIR / name
+    if artifact_dir.exists():
+        raise FileExistsError(f"Artifact directory already exists: {artifact_dir}")
+
     index_html = _resolve_index_html(_title_from_slug(name), name, source_html)
 
     APPS_DIR.mkdir(parents=True, exist_ok=True)
     TESTS_JS_APPS_DIR.mkdir(parents=True, exist_ok=True)
-    artifact_dir = APPS_DIR / name
-    if artifact_dir.exists():
-        raise FileExistsError(f"Artifact directory already exists: {artifact_dir}")
 
     title = _title_from_slug(name)
     artifact_dir.mkdir()
