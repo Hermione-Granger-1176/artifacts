@@ -191,3 +191,17 @@ def test_main_missing_file_returns_nonzero(
     captured = capsys.readouterr()
     assert result == 1
     assert "Social image not found" in captured.err
+
+
+def test_main_non_image_file_returns_nonzero(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test main reports a clean error for a file Pillow cannot identify."""
+    path = tmp_path / "not-an-image.png"
+    path.write_text("this is not a png", encoding="utf-8")
+
+    result = optimize_social_image.main([str(path)])
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "Social image optimization failed" in captured.err

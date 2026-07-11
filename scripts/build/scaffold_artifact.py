@@ -82,9 +82,10 @@ _CSP_PRESENT_RE = re.compile(
 # including protocol-relative references (//host/path). Attribute values may be
 # double-quoted, single-quoted, or unquoted; external URLs never contain unencoded
 # whitespace, quotes, or ">", so the value class stops at all of them and works for
-# every quoting style.
+# every quoting style. The lookbehind keeps data-src / data-href style attributes
+# from posing as the real ones, matching the other presence checks in this module.
 _EXTERNAL_ATTR_RE = re.compile(
-    r"""(?:src|href)\s*=\s*["']?\s*((?:https?:)?//[^\s"'>]+)""",
+    r"""(?<![\w-])(?:src|href)\s*=\s*["']?\s*((?:https?:)?//[^\s"'>]+)""",
     re.IGNORECASE,
 )
 _EXTERNAL_URL_RE = re.compile(

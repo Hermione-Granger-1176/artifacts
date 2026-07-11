@@ -134,8 +134,10 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         result = optimize_png(path)
-    except FileNotFoundError as exc:
-        print(exc, file=sys.stderr)
+    except (OSError, ValueError) as exc:
+        # OSError covers a missing file and Pillow's UnidentifiedImageError /
+        # truncated-file errors; ValueError covers malformed PNG chunk data.
+        print(f"Social image optimization failed: {exc}", file=sys.stderr)
         return 1
 
     _print_report(path, result)

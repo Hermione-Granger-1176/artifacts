@@ -108,6 +108,19 @@ def test_find_external_references_detects_unquoted_attributes() -> None:
     ]
 
 
+def test_find_external_references_ignores_data_prefixed_attributes() -> None:
+    """Test data-src / data-href style attributes are not reported as external."""
+    html = (
+        '<img data-src="https://cdn.example.com/lazy.png" src="./local.png">'
+        "<a data-href=//cdn.example.com/x>x</a>"
+        '<script src="https://cdn.example.com/app.js"></script>'
+    )
+
+    assert scaffold_artifact.find_external_references(html) == [
+        "https://cdn.example.com/app.js",
+    ]
+
+
 def test_apply_contract_injects_missing_pieces() -> None:
     """Test contract application injects the CSP meta and stylesheet links."""
     html = "<html><head><title>Demo</title></head><body></body></html>"
