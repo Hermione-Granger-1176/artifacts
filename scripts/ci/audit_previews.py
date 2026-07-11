@@ -31,6 +31,12 @@ def _tree_entries(payload: object, description: str) -> list[dict[str, object]]:
     """Return the ``tree`` entry list from a git trees API payload."""
     if not isinstance(payload, dict):
         raise RuntimeError(f"{description} must be a JSON object")
+    if payload.get("truncated") is True:
+        raise RuntimeError(
+            f"{description} was truncated by the git trees API, so the "
+            "gh-pages tree listing is incomplete and the preview audit cannot "
+            "be trusted. Re-run against the full tree before acting on the result."
+        )
     entries = payload.get("tree")
     if not isinstance(entries, list):
         raise RuntimeError(f"{description} must include a tree array")

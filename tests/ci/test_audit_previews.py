@@ -93,6 +93,39 @@ def test_tree_entries_reject_malformed_payloads() -> None:
         )
 
 
+def test_tree_entries_reject_truncated_listing() -> None:
+    """A truncated tree listing fails the audit rather than auditing a partial set."""
+    responses = {
+        "repos/o/r/git/trees/gh-pages": {
+            "truncated": True,
+            "tree": [{"path": "pr-preview", "type": "tree", "sha": "deadbeef"}],
+        },
+    }
+
+    with pytest.raises(RuntimeError, match="truncated"):
+        audit_previews.list_preview_dir_names(
+            "o/r", "gh-pages", run_gh_api_json_fn=_fake_api(responses)
+        )
+
+
+def test_tree_entries_allow_untruncated_and_absent_truncated_key() -> None:
+    """An explicit falsy or absent ``truncated`` key still passes."""
+    responses = {
+        "repos/o/r/git/trees/gh-pages": {
+            "truncated": False,
+            "tree": [{"path": "pr-preview", "type": "tree", "sha": "deadbeef"}],
+        },
+        "repos/o/r/git/trees/deadbeef": {
+            "tree": [{"path": "pr-7", "type": "tree"}],
+        },
+    }
+
+    names = audit_previews.list_preview_dir_names(
+        "o/r", "gh-pages", run_gh_api_json_fn=_fake_api(responses)
+    )
+    assert names == ["pr-7"]
+
+
 def test_list_open_pr_numbers_collects_integer_numbers() -> None:
     """List open pr numbers collects integer numbers."""
     responses = {
