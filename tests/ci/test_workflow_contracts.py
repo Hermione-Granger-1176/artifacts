@@ -519,7 +519,8 @@ def test_all_action_references_are_pinned_or_local() -> None:
     assert references, "expected at least one uses: reference to validate"
 
     for path, lineno, ref, comment in references:
-        location = f"{path.name}:{lineno}"
+        # Repo-relative so a failure names the exact file among the action.yml copies.
+        location = f"{path.relative_to(REPO_ROOT)}:{lineno}"
         if ref.startswith("./"):
             continue
         assert SHA_PINNED_PATTERN.fullmatch(ref), (
@@ -539,8 +540,8 @@ def test_no_python_heredocs_remain_in_workflows_or_actions() -> None:
 
     for path in files:
         assert not heredoc_pattern.search(path.read_text(encoding="utf-8")), (
-            f"{path.name} embeds an inline Python heredoc; move the logic into "
-            "scripts/ and call it as a command instead"
+            f"{path.relative_to(REPO_ROOT)} embeds an inline Python heredoc; "
+            "move the logic into scripts/ and call it as a command instead"
         )
 
 
