@@ -4,31 +4,17 @@
 These helpers keep trust-boundary decisions and artifact validation in tested
 Python instead of inline shell.
 
-Workflow entry points used by GitHub Actions. For normal local use, prefer
-`make ci` wrappers instead of calling this module directly.
+Most subcommands are GitHub Actions entry points; the workflows invoke this CLI
+through the Make targets below, so prefer those targets over calling this module
+directly.
 
 Examples:
-    python scripts/ci/workflow_helpers.py app-token-policy --event-name pull_request \
-        --head-repo-fork false --pr-author login
-    python scripts/ci/workflow_helpers.py read-lock-metadata --root .artifacts/lock-refresh
-    python scripts/ci/workflow_helpers.py validate-lock-artifact --root .artifacts/lock-refresh
-    python scripts/ci/workflow_helpers.py invalidate-thumbnails --event-name pull_request \
-        --repo owner/repo --pr-number 42
-    python scripts/ci/workflow_helpers.py thumbnail-plan --event-name push \
-        --repo owner/repo --commit-sha abc123 \
-        --actor bot-login[bot] --app-bot-login bot-login[bot]
-    python scripts/ci/workflow_helpers.py validate-thumbnail-artifact \
-        --root .artifacts/thumbnail-persist
-    PLAN_JSON='{"browser_scope": "none", ...}' \
-        python scripts/ci/workflow_helpers.py plan-outputs
-    python scripts/ci/workflow_helpers.py coverage-summary --report js-coverage.txt
-    python scripts/ci/workflow_helpers.py finalize-pages-dir --root .pages-publish
-    python scripts/ci/workflow_helpers.py audit-repo-settings --repo owner/repo
-    python scripts/ci/workflow_helpers.py audit-previews --repo owner/repo \
-        --pages-branch gh-pages
-    python scripts/ci/workflow_helpers.py sync-alert-issue --repo owner/repo \
-        --title "Alert title" --run-url https://github.com/owner/repo/actions/runs/1 \
-        --state open --detail "Optional extra context"
+    make ci-audit-repo-settings repo=owner/repo
+    make ci-audit-previews repo=owner/repo
+    make ci-alert-issue title="Alert title" \
+        run_url=https://github.com/owner/repo/actions/runs/1 \
+        state=open detail="Optional extra context"
+    make refresh-action-shas
 """
 
 from __future__ import annotations
