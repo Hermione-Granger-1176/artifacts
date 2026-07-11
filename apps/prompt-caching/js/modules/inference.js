@@ -7,7 +7,7 @@ const STEP_INTERVAL_MS = 700;
 
 export function initInference() {
   const promptsWrap = byId("infPrompts");
-  const goBtn = byId("infGoBtn");
+  const goBtn = /** @type {HTMLButtonElement} */ (byId("infGoBtn"));
   const resetBtn = byId("infResetBtn");
   const tokensWrap = byId("infTokens");
   const status = byId("infStatus");
@@ -19,7 +19,7 @@ export function initInference() {
 
   const prompts = Object.keys(INF_RESPONSES);
   let selected = prompts[0];
-  let timer = null;
+  let timer = /** @type {number | null} */ (null);
   let step = 0;
   let promptTokens = [];
   let genTokens = [];
@@ -96,7 +96,7 @@ export function initInference() {
 
     timer = setInterval(() => {
       if (step >= genTokens.length) {
-        clearInterval(timer);
+        clearInterval(/** @type {number} */ (timer));
         timer = null;
         const total = promptTokens.length + genTokens.length;
         status.textContent = `Done. ${total} total tokens. KV cache has ${total} rows.`;

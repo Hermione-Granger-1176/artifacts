@@ -7,6 +7,8 @@ import {
   buildGridHtml,
   createDetailContent,
   escapeHtml,
+  handleThumbnailError,
+  registerThumbnailFallback,
   renderPagination
 } from '../../../js/modules/gallery/render.js';
 
@@ -162,6 +164,102 @@ test('applyDynamicStyles sets CSS custom properties from data attributes', () =>
   assert.equal(cardEl.style._props['--card-bg-color'], 'var(--c)');
   assert.equal(cardEl.style._props['--note-rotate'], '-1deg');
   assert.equal(cardEl.style._props['--note-hover-rotate'], '0.5deg');
+});
+
+function createdPlaceholder() {
+  return { tagName: 'DIV', className: '' };
+}
+
+function fakeFrame({ withParent = true } = {}) {
+  const created = createdPlaceholder();
+  const ownerDocument = {
+    createElement(tag) {
+      created.tagName = tag.toUpperCase();
+      return created;
+    }
+  };
+  const parent = withParent
+    ? {
+        replaced: null,
+        removed: null,
+        replaceChild(next, old) {
+          this.replaced = next;
+          this.removed = old;
+        }
+      }
+    : null;
+  const frame = { ownerDocument, parentNode: parent, className: 'card-photo-frame' };
+  return { frame, parent, created };
+}
+
+function fakeImage(frameResult, { className = 'card-thumbnail', tagName = 'IMG' } = {}) {
+  return {
+    tagName,
+    classList: { contains: (name) => className.split(' ').includes(name) },
+    closest: (selector) => (selector === '.card-photo-frame' ? frameResult : null)
+  };
+}
+
+test('handleThumbnailError swaps a broken card thumbnail for the placeholder', () => {
+  const { frame, parent, created } = fakeFrame();
+  const img = fakeImage(frame);
+
+  handleThumbnailError({ target: img });
+
+  assert.equal(created.className, 'card-thumbnail-placeholder');
+  assert.equal(parent.replaced, created);
+  assert.equal(parent.removed, frame);
+});
+
+test('handleThumbnailError ignores non-image targets', () => {
+  const { frame, parent } = fakeFrame();
+  handleThumbnailError({ target: { tagName: 'DIV', classList: { contains: () => true }, closest: () => frame } });
+  assert.equal(parent.replaced, null);
+});
+
+test('handleThumbnailError ignores images without the card-thumbnail class', () => {
+  const { frame, parent } = fakeFrame();
+  const img = fakeImage(frame, { className: 'detail-media' });
+  handleThumbnailError({ target: img });
+  assert.equal(parent.replaced, null);
+});
+
+test('handleThumbnailError ignores a null target', () => {
+  assert.doesNotThrow(() => handleThumbnailError({ target: null }));
+});
+
+test('handleThumbnailError is a no-op when no photo frame is found', () => {
+  const img = fakeImage(null);
+  assert.doesNotThrow(() => handleThumbnailError({ target: img }));
+});
+
+test('handleThumbnailError is a no-op when the frame has no parent', () => {
+  const { frame } = fakeFrame({ withParent: false });
+  const img = fakeImage(frame);
+  assert.doesNotThrow(() => handleThumbnailError({ target: img }));
+});
+
+test('registerThumbnailFallback binds a capture-phase error listener', () => {
+  const calls = [];
+  const grid = {
+    addEventListener(type, handler, capture) {
+      calls.push({ type, handler, capture });
+    }
+  };
+
+  registerThumbnailFallback(grid);
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].type, 'error');
+  assert.equal(calls[0].handler, handleThumbnailError);
+  assert.equal(calls[0].capture, true);
+});
+
+test('buildGridHtml keeps the happy-path thumbnail image untouched', () => {
+  const html = buildGridHtml([{ id: 'a', name: 'A', thumbnail: 'thumb.webp' }], null);
+  assert.match(html, /card-photo-frame/);
+  assert.match(html, /<img class="card-thumbnail" src="thumb\.webp"[^>]*loading="lazy">/);
+  assert.doesNotMatch(html, /onerror/);
 });
 
 test('applyDynamicStyles skips rotate when data-rotate is absent', () => {

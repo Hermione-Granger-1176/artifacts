@@ -27,10 +27,10 @@ function tokenCount(value) {
 }
 
 export function initCalculator() {
-  const sys = byId("calcSys");
-  const req = byId("calcReq");
-  const hit = byId("calcHit");
-  const price = byId("calcPrice");
+  const sys = /** @type {HTMLInputElement} */ (byId("calcSys"));
+  const req = /** @type {HTMLInputElement} */ (byId("calcReq"));
+  const hit = /** @type {HTMLInputElement} */ (byId("calcHit"));
+  const price = /** @type {HTMLInputElement} */ (byId("calcPrice"));
   const presetsWrap = byId("calcPresets");
   if (!sys || !req || !hit || !price || !presetsWrap) {
     return;

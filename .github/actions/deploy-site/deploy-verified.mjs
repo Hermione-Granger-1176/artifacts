@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { createApiClients } from "../verified-commit/verified-commit.mjs";
+import { createApiClients, isRefAlreadyExistsError } from "../verified-commit/verified-commit.mjs";
 
 /**
  * Compute the Git blob SHA for a buffer (matches how Git hashes blobs).
@@ -98,17 +98,95 @@ export function computeRemoval(remoteFiles, subdirPrefix) {
 }
 
 /**
+ * Check whether an error is a GitHub REST 404 (resource not found).
+ * The fetchJson helper throws messages shaped like "404 Not Found: <body>",
+ * so the status leads the message. Only genuine 404s match; other statuses
+ * (including a body that merely mentions 404) do not.
+ * @param {unknown} error - Error (or other caught value) to classify.
+ * @returns {boolean} Whether the error is a 404 Not Found.
+ */
+export function isNotFoundError(error) {
+  if (!error) {
+    return false;
+  }
+  const message = typeof error === "object" && "message" in error ? error.message : error;
+  return /^404\b/.test(String(message));
+}
+
+/**
+ * Bootstrap a missing Pages branch with an initial parentless commit.
+ * Creates an empty `.nojekyll` blob, a tree containing it, a parentless
+ * commit, and the branch ref, then returns the new HEAD SHA so the normal
+ * deploy flow can continue against it. If a concurrent run creates the ref
+ * first, the winner's HEAD SHA is returned instead.
+ * @param {{ fetchJson: (url: string, options?: RequestInit) => Promise<object|null>, owner: string, repo: string }} clients - API clients.
+ * @param {string} branch - Branch name to create.
+ * @param {Console} consoleObj - Logger.
+ * @returns {Promise<string>} The new branch HEAD commit SHA.
+ */
+async function bootstrapBranch(clients, branch, consoleObj) {
+  const gitBase = `https://api.github.com/repos/${clients.owner}/${clients.repo}/git`;
+
+  const blob = await clients.fetchJson(`${gitBase}/blobs`, {
+    method: "POST",
+    body: JSON.stringify({ content: "", encoding: "utf-8" }),
+  });
+
+  const tree = await clients.fetchJson(`${gitBase}/trees`, {
+    method: "POST",
+    body: JSON.stringify({
+      tree: [{ path: ".nojekyll", mode: "100644", type: "blob", sha: blob.sha }],
+    }),
+  });
+
+  const commit = await clients.fetchJson(`${gitBase}/commits`, {
+    method: "POST",
+    body: JSON.stringify({ message: `Bootstrap ${branch}`, tree: tree.sha, parents: [] }),
+  });
+
+  try {
+    await clients.fetchJson(`${gitBase}/refs`, {
+      method: "POST",
+      body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commit.sha }),
+    });
+  } catch (error) {
+    // Two runs can both see the missing branch and race to create it. The
+    // loser gets a 422 "Reference already exists"; recover by adopting the
+    // winner's HEAD instead of failing the deploy.
+    if (!isRefAlreadyExistsError(error)) {
+      throw error;
+    }
+    const ref = await clients.fetchJson(`${gitBase}/ref/heads/${branch}`);
+    consoleObj.log(`Branch ${branch} was bootstrapped concurrently, using ${ref.object.sha}`);
+    return ref.object.sha;
+  }
+
+  consoleObj.log(`Bootstrapped ${branch} branch at ${commit.sha}`);
+  return commit.sha;
+}
+
+/**
  * Fetch the current HEAD SHA and tree for a branch.
+ * When the branch ref is missing (404), the branch is bootstrapped first.
  * @param {{ fetchJson: (url: string, options?: RequestInit) => Promise<object|null>, owner: string, repo: string }} clients - API clients.
  * @param {string} branch - Branch name.
  * @param {Console} consoleObj - Logger.
  * @returns {Promise<{ headSha: string, remoteFiles: Map<string, string> }>}
  */
 async function fetchBranchState(clients, branch, consoleObj) {
-  const ref = await clients.fetchJson(
-    `https://api.github.com/repos/${clients.owner}/${clients.repo}/git/ref/heads/${branch}`,
-  );
-  const headSha = ref.object.sha;
+  let headSha;
+  try {
+    const ref = await clients.fetchJson(
+      `https://api.github.com/repos/${clients.owner}/${clients.repo}/git/ref/heads/${branch}`,
+    );
+    headSha = ref.object.sha;
+  } catch (error) {
+    if (!isNotFoundError(error)) {
+      throw error;
+    }
+    consoleObj.log(`Branch ${branch} not found, bootstrapping`);
+    headSha = await bootstrapBranch(clients, branch, consoleObj);
+  }
   consoleObj.log(`Current ${branch} HEAD: ${headSha}`);
 
   // Fetch commit to get tree SHA (the trees API needs a tree SHA, not a commit SHA).

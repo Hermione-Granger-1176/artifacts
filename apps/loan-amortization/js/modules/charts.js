@@ -1,3 +1,12 @@
+// Chart.js and its datalabels plugin are loaded as vendor globals on window.
+// They ship no local type definitions, so read them through an any-typed view
+// of window resolved at call time (never a cached reference) rather than adding
+// a runtime dependency.
+/** @returns {any} The window object typed loosely for vendor chart globals. */
+function chartGlobal() {
+  return /** @type {any} */ (window);
+}
+
 function css(propertyName) {
   return getComputedStyle(document.body).getPropertyValue(propertyName).trim();
 }
@@ -15,8 +24,8 @@ function isDark() {
   return document.documentElement.getAttribute("data-theme") === "dark";
 }
 
-let cachedPalette = null;
-let cachedTheme = null;
+let cachedPalette = /** @type {any} */ (null);
+let cachedTheme = /** @type {string | null} */ (null);
 
 function colors() {
   const theme = isDark() ? "dark" : "light";
@@ -140,7 +149,7 @@ function applyAxes(scales, palette, periodLabel, formatDollarTick, options = {})
 }
 
 function createBalanceChart(canvas, formatDollarTick) {
-  return new window.Chart(canvas, {
+  return new (chartGlobal().Chart)(canvas, {
     type: "line",
     data: {
       labels: [],
@@ -201,7 +210,7 @@ function syncBalanceChart(chart, state, formatDollarTick) {
 }
 
 function createComparisonChart(canvas, formatDollarTick) {
-  return new window.Chart(canvas, {
+  return new (chartGlobal().Chart)(canvas, {
     type: "bar",
     data: {
       labels: ["Without extras", "With extras"],
@@ -250,7 +259,7 @@ function syncComparisonChart(chart, state, formatDollarTick) {
 }
 
 function createSavingsChart(canvas, formatCurrency) {
-  return new window.Chart(canvas, {
+  return new (chartGlobal().Chart)(canvas, {
     type: "doughnut",
     data: {
       labels: ["Interest paid", "Interest saved"],
@@ -308,7 +317,7 @@ function createSavingsChart(canvas, formatCurrency) {
         }
       }
     },
-    plugins: [window.ChartDataLabels, {
+    plugins: [chartGlobal().ChartDataLabels, {
       id: "centerText",
       afterDraw(chart) {
         const dataset = chart.data.datasets[0].data;
@@ -361,7 +370,7 @@ function syncSavingsChart(chart, state, formatCurrency) {
 }
 
 function createCumulativeChart(canvas, formatDollarTick) {
-  return new window.Chart(canvas, {
+  return new (chartGlobal().Chart)(canvas, {
     type: "line",
     data: {
       labels: [],
@@ -432,7 +441,7 @@ function syncCumulativeChart(chart, state, formatDollarTick) {
 }
 
 function createPeriodChart(canvas, formatDollarTick) {
-  return new window.Chart(canvas, {
+  return new (chartGlobal().Chart)(canvas, {
     type: "line",
     data: {
       labels: [],
@@ -524,9 +533,23 @@ function syncCharts(charts, state, formatCurrency, formatDollarTick) {
 }
 
 /**
+ * @typedef {{
+ *   charts?: Record<string, any>,
+ *   elements: Record<string, any>,
+ *   base: import('./amortization.js').ScheduleResult,
+ *   extra: import('./amortization.js').ScheduleResult,
+ *   principal: number,
+ *   interestSaved: number,
+ *   periodLabel: string,
+ *   formatCurrency: (value: number) => string,
+ *   formatDollarTick: (value: number) => string
+ * }} ChartRenderOptions
+ */
+
+/**
  * Create or update all loan amortization chart instances.
- * @param {object} options - Chart data and formatting callbacks.
- * @returns {object} Chart instances keyed by name.
+ * @param {ChartRenderOptions} options - Chart data and formatting callbacks.
+ * @returns {Record<string, any>} Chart instances keyed by name.
  */
 export function renderCharts({
   charts = {},

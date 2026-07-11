@@ -8,8 +8,19 @@ import {
   computeChanges,
   computeRemoval,
   runVerifiedDeploy,
-  writeGitHubOutputs
+  writeGitHubOutputs,
+  isNotFoundError
 } from '../../../.github/actions/deploy-site/deploy-verified.mjs';
+
+/** Build a fetch Response-like object with a JSON body. */
+function jsonResponse(body, status = 200) {
+  return { ok: status >= 200 && status < 300, status, json: async () => body };
+}
+
+/** Build a non-2xx Response-like object whose text() carries the body. */
+function errorResponse(status, statusText, bodyText = '') {
+  return { ok: false, status, statusText, text: async () => bodyText };
+}
 
 /** Compute the expected Git blob SHA for a string. */
 function expectedSha(content) {
@@ -496,4 +507,235 @@ test('writeGitHubOutputs skips writes when output file is absent', () => {
   );
 
   assert.equal(wrote, false);
+});
+
+test('isNotFoundError matches only leading 404 status errors', () => {
+  assert.equal(isNotFoundError(new Error('404 Not Found: Branch not found')), true);
+  assert.equal(isNotFoundError('404 Not Found'), true);
+  assert.equal(isNotFoundError(new Error('403 Forbidden: no access')), false);
+  assert.equal(isNotFoundError(new Error('500 Internal Server Error')), false);
+  assert.equal(isNotFoundError(new Error('Server said error 404 somewhere')), false);
+  assert.equal(isNotFoundError(null), false);
+});
+
+test('runVerifiedDeploy bootstraps gh-pages when the branch ref is missing', async () => {
+  const calls = [];
+  const bodies = {};
+  let graphqlInput = null;
+
+  const env = {
+    GH_TOKEN: 'test-token',
+    PAGES_BRANCH: 'gh-pages',
+    PREVIEW_ROOT: 'pr-preview',
+    COMMIT_MESSAGE: 'Deploy site for abc123',
+    DEPLOY_DIR: 'site',
+    GITHUB_REPOSITORY: 'owner/repo'
+  };
+
+  const fakeFetch = async (url, options) => {
+    const method = options?.method;
+    const body = options?.body ? JSON.parse(options.body) : null;
+
+    if (url === 'https://api.github.com/graphql') {
+      graphqlInput = body.variables.input;
+      return jsonResponse({
+        data: { createCommitOnBranch: { commit: { oid: 'boot-sha', url: 'https://github.com/o/r/commit/boot' } } }
+      });
+    }
+    if (url.endsWith('/git/ref/heads/gh-pages')) {
+      return errorResponse(404, 'Not Found', 'Not Found');
+    }
+    if (method === 'POST' && url.endsWith('/git/blobs')) {
+      calls.push('blob');
+      bodies.blob = body;
+      return jsonResponse({ sha: 'blob-sha' });
+    }
+    if (method === 'POST' && url.endsWith('/git/trees')) {
+      calls.push('tree');
+      bodies.tree = body;
+      return jsonResponse({ sha: 'boot-tree' });
+    }
+    if (method === 'POST' && url.endsWith('/git/commits')) {
+      calls.push('commit');
+      bodies.commit = body;
+      return jsonResponse({ sha: 'boot-sha' });
+    }
+    if (method === 'POST' && url.endsWith('/git/refs')) {
+      calls.push('refs');
+      bodies.refs = body;
+      return jsonResponse({ ref: 'refs/heads/gh-pages' });
+    }
+    if (url.includes('/git/commits/boot-sha')) {
+      return jsonResponse({ tree: { sha: 'boot-tree' } });
+    }
+    if (url.includes('/git/trees/boot-tree')) {
+      return jsonResponse({ tree: [] });
+    }
+    return jsonResponse({});
+  };
+
+  const result = await runVerifiedDeploy({
+    env,
+    consoleObj: { log() {}, error() {} },
+    fetchDependencies: { fetchImpl: fakeFetch },
+    readFileSyncImpl: () => Buffer.from('<html>'),
+    walkDirImpl: () => ['index.html']
+  });
+
+  assert.deepEqual(calls, ['blob', 'tree', 'commit', 'refs'], 'bootstrap creates blob, tree, commit, ref in order');
+  assert.equal(bodies.blob.content, '');
+  assert.deepEqual(bodies.commit.parents, [], 'bootstrap commit is parentless');
+  assert.equal(bodies.commit.message, 'Bootstrap gh-pages');
+  assert.equal(bodies.refs.ref, 'refs/heads/gh-pages');
+  assert.equal(bodies.tree.tree[0].path, '.nojekyll');
+  assert.ok(result.deployed, 'deploy proceeds after bootstrap');
+  assert.equal(graphqlInput.expectedHeadOid, 'boot-sha', 'deploy targets the bootstrapped HEAD');
+});
+
+test('runVerifiedDeploy adopts the winning HEAD when bootstrap loses the ref race', async () => {
+  let refFetches = 0;
+  let graphqlInput = null;
+
+  const env = {
+    GH_TOKEN: 'test-token',
+    PAGES_BRANCH: 'gh-pages',
+    PREVIEW_ROOT: 'pr-preview',
+    COMMIT_MESSAGE: 'Deploy',
+    DEPLOY_DIR: 'site',
+    GITHUB_REPOSITORY: 'owner/repo'
+  };
+
+  const fakeFetch = async (url, options) => {
+    const method = options?.method;
+    const body = options?.body ? JSON.parse(options.body) : null;
+
+    if (url === 'https://api.github.com/graphql') {
+      graphqlInput = body.variables.input;
+      return jsonResponse({
+        data: { createCommitOnBranch: { commit: { oid: 'next', url: 'https://github.com/o/r/commit/next' } } }
+      });
+    }
+    if (url.endsWith('/git/ref/heads/gh-pages')) {
+      refFetches += 1;
+      // The first lookup sees the missing branch; the retry after the lost
+      // race sees the concurrent run's commit.
+      return refFetches === 1
+        ? errorResponse(404, 'Not Found', 'Not Found')
+        : jsonResponse({ object: { sha: 'winner-sha' } });
+    }
+    if (method === 'POST' && url.endsWith('/git/blobs')) {
+      return jsonResponse({ sha: 'blob-sha' });
+    }
+    if (method === 'POST' && url.endsWith('/git/trees')) {
+      return jsonResponse({ sha: 'boot-tree' });
+    }
+    if (method === 'POST' && url.endsWith('/git/commits')) {
+      return jsonResponse({ sha: 'loser-sha' });
+    }
+    if (method === 'POST' && url.endsWith('/git/refs')) {
+      return errorResponse(422, 'Unprocessable Entity', 'Reference already exists');
+    }
+    if (url.includes('/git/commits/winner-sha')) {
+      return jsonResponse({ tree: { sha: 'winner-tree' } });
+    }
+    if (url.includes('/git/trees/winner-tree')) {
+      return jsonResponse({ tree: [] });
+    }
+    return jsonResponse({});
+  };
+
+  const result = await runVerifiedDeploy({
+    env,
+    consoleObj: { log() {}, error() {} },
+    fetchDependencies: { fetchImpl: fakeFetch },
+    readFileSyncImpl: () => Buffer.from('<html>'),
+    walkDirImpl: () => ['index.html']
+  });
+
+  assert.equal(refFetches, 2, 'the ref is refetched after losing the create race');
+  assert.ok(result.deployed);
+  assert.equal(graphqlInput.expectedHeadOid, 'winner-sha', 'deploy targets the concurrent winner HEAD');
+});
+
+test('runVerifiedDeploy does not bootstrap on non-404 ref errors', async () => {
+  let blobRequested = false;
+
+  const env = {
+    GH_TOKEN: 'test-token',
+    PAGES_BRANCH: 'gh-pages',
+    PREVIEW_ROOT: 'pr-preview',
+    COMMIT_MESSAGE: 'Deploy',
+    DEPLOY_DIR: 'site',
+    GITHUB_REPOSITORY: 'owner/repo'
+  };
+
+  const fakeFetch = async (url) => {
+    if (url.endsWith('/git/ref/heads/gh-pages')) {
+      return errorResponse(403, 'Forbidden', 'no access');
+    }
+    if (url.includes('/git/blobs')) {
+      blobRequested = true;
+    }
+    return jsonResponse({});
+  };
+
+  await assert.rejects(
+    () =>
+      runVerifiedDeploy({
+        env,
+        consoleObj: { log() {}, error() {} },
+        fetchDependencies: { fetchImpl: fakeFetch },
+        readFileSyncImpl: () => Buffer.from('<html>'),
+        walkDirImpl: () => ['index.html']
+      }),
+    /403/
+  );
+  assert.equal(blobRequested, false, 'no bootstrap attempted on non-404 errors');
+});
+
+test('runVerifiedDeploy does not bootstrap on the happy path', async () => {
+  let blobRequested = false;
+
+  const env = {
+    GH_TOKEN: 'test-token',
+    PAGES_BRANCH: 'gh-pages',
+    PREVIEW_ROOT: 'pr-preview',
+    COMMIT_MESSAGE: 'Deploy site',
+    DEPLOY_DIR: 'site',
+    GITHUB_REPOSITORY: 'owner/repo'
+  };
+
+  const fakeFetch = async (url, options) => {
+    const body = options?.body ? JSON.parse(options.body) : null;
+    if (url === 'https://api.github.com/graphql' && body?.query?.includes('createCommitOnBranch')) {
+      return jsonResponse({
+        data: { createCommitOnBranch: { commit: { oid: 'abc', url: 'https://github.com/o/r/commit/abc' } } }
+      });
+    }
+    if (url.includes('/git/blobs') || url.includes('/git/refs')) {
+      blobRequested = true;
+      return jsonResponse({ sha: 'x' });
+    }
+    if (url.includes('/git/ref/heads/gh-pages')) {
+      return jsonResponse({ object: { sha: 'deadbeef' } });
+    }
+    if (url.includes('/git/commits/deadbeef')) {
+      return jsonResponse({ tree: { sha: 'tree-sha' } });
+    }
+    if (url.includes('/git/trees/tree-sha')) {
+      return jsonResponse({ tree: [] });
+    }
+    return jsonResponse({});
+  };
+
+  const result = await runVerifiedDeploy({
+    env,
+    consoleObj: { log() {}, error() {} },
+    fetchDependencies: { fetchImpl: fakeFetch },
+    readFileSyncImpl: () => Buffer.from('<html>'),
+    walkDirImpl: () => ['index.html']
+  });
+
+  assert.ok(result.deployed);
+  assert.equal(blobRequested, false, 'no bootstrap calls when the branch already exists');
 });

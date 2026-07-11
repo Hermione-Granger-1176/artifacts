@@ -1,4 +1,37 @@
 /**
+ * @typedef {{
+ *   type: string,
+ *   amount: number,
+ *   period?: number,
+ *   startPeriod?: number,
+ *   every?: number
+ * }} ExtraPayment
+ * @typedef {{
+ *   period: number,
+ *   emi: number,
+ *   principal: number,
+ *   interest: number,
+ *   extra: number,
+ *   balance: number
+ * }} ScheduleRow
+ * @typedef {{
+ *   emi: number,
+ *   periods: number,
+ *   totalInterest: number,
+ *   totalExtra: number,
+ *   balances: number[],
+ *   principalParts: number[],
+ *   interestParts: number[],
+ *   extraParts: number[],
+ *   cumulativePrincipal: number[],
+ *   cumulativeInterest: number[],
+ *   cumulativeExtra: number[],
+ *   rows: ScheduleRow[],
+ *   breakEven: number | null
+ * }} ScheduleResult
+ */
+
+/**
  * Calculate the equated monthly installment (EMI).
  * @param {number} principal - Loan principal amount.
  * @param {number} ratePerPeriod - Interest rate per period (decimal).
@@ -19,7 +52,7 @@ export function calcEMI(principal, ratePerPeriod, totalPeriods) {
 /**
  * Sum extra payments applicable to a given period.
  * @param {number} period - Current repayment period.
- * @param {Array<{type: string, amount: number, period?: number, startPeriod?: number, every?: number}>} extras - Extra payment definitions.
+ * @param {ExtraPayment[]} extras - Extra payment definitions.
  * @returns {number} Total extra payment for the period.
  */
 export function getExtraForPeriod(period, extras) {
@@ -34,6 +67,8 @@ export function getExtraForPeriod(period, extras) {
         break;
       case "recurring":
         if (
+          extra.startPeriod !== undefined &&
+          extra.every !== undefined &&
           period >= extra.startPeriod &&
           (period - extra.startPeriod) % extra.every === 0
         ) {
@@ -56,8 +91,8 @@ export function getExtraForPeriod(period, extras) {
  * @param {object} [options]
  * @param {boolean} [options.withExtras=false] - Whether to apply extra payments.
  * @param {number|null} [options.emiOverride=null] - Override the calculated EMI.
- * @param {Array} [options.extras=[]] - Extra payment definitions.
- * @returns {object} Schedule with rows, totals, chart arrays, and breakEven period.
+ * @param {ExtraPayment[]} [options.extras=[]] - Extra payment definitions.
+ * @returns {ScheduleResult} Schedule with rows, totals, chart arrays, and breakEven period.
  */
 export function runSchedule(
   principal,
@@ -123,7 +158,7 @@ export function runSchedule(
     });
   }
 
-  let breakEven = null;
+  let breakEven = /** @type {number | null} */ (null);
   for (let index = 1; index < cumulativePrincipal.length; index += 1) {
     if (
       cumulativePrincipal[index] + cumulativeExtra[index] >= cumulativeInterest[index] &&

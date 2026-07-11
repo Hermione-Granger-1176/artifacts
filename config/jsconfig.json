@@ -10,6 +10,11 @@
     "strict": false,
     "strictNullChecks": true
   },
-  "include": ["../js/**/*.js"],
-  "exclude": ["../js/data.js", "../js/gallery-config.js", "../node_modules"]
+  "include": ["../js/**/*.js", "../apps/*/js/**/*.js"],
+  "exclude": [
+    "../js/data.js",
+    "../js/gallery-config.js",
+    "../apps/*/js/vendor/**",
+    "../node_modules"
+  ]
 }

@@ -104,6 +104,33 @@ test('app reports fatal bootstrap errors and rethrows them', async () => {
   });
 });
 
+test('app falls back to the real modules when no test hooks are installed', async () => {
+  const listeners = new Map();
+  globalThis.window = {
+    addEventListener() {},
+    ARTIFACTS_CONFIG: {}
+  };
+  globalThis.document = {
+    addEventListener(type, handler) {
+      listeners.set(type, handler);
+    },
+    getElementById: () => null,
+    documentElement: { dataset: {} }
+  };
+
+  await importAppModule();
+
+  // Without hooks the real runtime boots and the real validator rejects the
+  // stub window (ARTIFACTS_DATA is missing), so bootstrap fails fatally.
+  assert.throws(() => listeners.get('DOMContentLoaded')(), /ARTIFACTS_DATA must be an array/);
+  assert.equal(
+    globalThis.document.documentElement.dataset.runtimeStatus,
+    'error',
+    'the real runtime flags the fatal boot error for the boot guard'
+  );
+  assert.equal(globalThis.window.__ARTIFACTS_RUNTIME__.ready, false);
+});
+
 test('app reports validation errors before initialization', async () => {
   const boom = new Error('invalid bootstrap');
   const harness = createBootstrapHarness({ validateError: boom });

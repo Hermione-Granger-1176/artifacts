@@ -17,13 +17,13 @@ export function softmax(logits, temperature) {
 /**
  * Build the sorted token distribution and the cumulative top-p selection set.
  *
- * @param {{ baseLogit: number }[]} tokens
+ * @param {{ word: string, baseLogit: number }[]} tokens
  * @param {number} temperature
  * @param {number} topP
  * @returns {{
- *   sorted: Array<{ baseLogit: number, idx: number, prob: number }>,
+ *   sorted: Array<{ word: string, baseLogit: number, idx: number, prob: number }>,
  *   inTopP: Set<number>,
- *   topTokens: Array<{ baseLogit: number, idx: number, prob: number }>,
+ *   topTokens: Array<{ word: string, baseLogit: number, idx: number, prob: number }>,
  *   topTokenProbability: number
  * }}
  */

@@ -1,11 +1,22 @@
 /**
+ * @typedef {{
+ *   totalEmi: string,
+ *   totalPrincipal: string,
+ *   totalInterest: string,
+ *   totalExtras: string,
+ *   periods: string
+ * }} TableSummary
+ */
+
+/**
  * Render the aggregate summary cards above the amortization tables.
  *
  * @param {HTMLElement} container
- * @param {object} values - Summary totals to display.
+ * @param {TableSummary} values - Summary totals to display.
  * @returns {void}
  */
 export function renderTableSummary(container, values) {
+  /** @type {Array<[string, string]>} */
   const items = [
     ["Total EMI", values.totalEmi],
     ["Principal (EMI)", values.totalPrincipal],
@@ -32,7 +43,7 @@ export function renderTableSummary(container, values) {
  * Render the per-period amortization rows.
  *
  * @param {HTMLElement} tbody
- * @param {Array<object>} rows
+ * @param {import('./amortization.js').ScheduleRow[]} rows
  * @param {(value: number) => string} formatCurrency
  * @returns {void}
  */

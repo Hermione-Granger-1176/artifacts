@@ -2,8 +2,16 @@
  * strings: dynamic styling is applied through the CSSOM (`element.style.*`),
  * which the strict `style-src 'self'` CSP permits, unlike `style="…"` markup. */
 
+/**
+ * Look up an element by id. The interactive demos only run against their own
+ * markup, where every queried id is present, so the result is treated as
+ * non-null. Callers that touch subtype-specific members (an input value, a
+ * canvas context) cast the result to the concrete element type.
+ * @param {string} id - Element id to resolve.
+ * @returns {HTMLElement} The resolved element.
+ */
 export function byId(id) {
-  return document.getElementById(id);
+  return /** @type {HTMLElement} */ (document.getElementById(id));
 }
 
 export function cssVar(name) {

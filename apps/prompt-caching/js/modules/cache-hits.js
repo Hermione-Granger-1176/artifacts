@@ -19,7 +19,7 @@ export function initCacheHits() {
 
   let reqCount = 0;
   let cachedPrefix = 0;
-  let ttlTimer = null;
+  let ttlTimer = /** @type {number | null} */ (null);
   let ttlSec = 0;
 
   function resetTTL() {
@@ -30,7 +30,7 @@ export function initCacheHits() {
     ttlTimer = setInterval(() => {
       ttlSec -= 1;
       if (ttlSec <= 0) {
-        clearInterval(ttlTimer);
+        clearInterval(/** @type {number} */ (ttlTimer));
         ttlTimer = null;
         cachedPrefix = 0;
       }

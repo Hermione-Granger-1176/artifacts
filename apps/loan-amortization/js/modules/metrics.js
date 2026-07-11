@@ -6,9 +6,21 @@ function metricTip(copy) {
 }
 
 /**
+ * @typedef {{
+ *   base: import('./amortization.js').ScheduleResult,
+ *   extra: import('./amortization.js').ScheduleResult,
+ *   savings: number,
+ *   periodsSaved: number,
+ *   totalPaid: number,
+ *   costRatio: number,
+ *   label: string
+ * }} LoanMetrics
+ */
+
+/**
  * Build the metric card markup for the current amortization state.
  *
- * @param {object} metrics
+ * @param {LoanMetrics} metrics
  * @param {(value: number) => string} formatCurrency
  * @returns {string}
  */
@@ -62,7 +74,7 @@ export function buildMetricsMarkup(
  * Render the metric card grid into the app shell.
  *
  * @param {HTMLElement} container
- * @param {object} metrics
+ * @param {LoanMetrics} metrics
  * @param {(value: number) => string} formatCurrency
  * @returns {void}
  */

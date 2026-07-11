@@ -64,7 +64,8 @@ export function initNavigation() {
   const pipeline = byId("pipelineDiagram");
   if (pipeline) {
     for (const node of pipeline.querySelectorAll("[data-target]")) {
-      node.addEventListener("click", () => scrollToSection(node.dataset.target));
+      const el = /** @type {HTMLElement} */ (node);
+      el.addEventListener("click", () => scrollToSection(el.dataset.target ?? ""));
     }
   }
 

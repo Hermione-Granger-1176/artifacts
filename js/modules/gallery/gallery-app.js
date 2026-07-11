@@ -17,6 +17,7 @@ import {
   applyDynamicStyles,
   buildFilterNotes,
   buildGridHtml,
+  registerThumbnailFallback,
   renderPagination
 } from './render.js';
 
@@ -363,6 +364,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       overlay.close();
     }
   });
+
+  registerThumbnailFallback(grid);
 
   grid.addEventListener('click', (event) => {
     const target = /** @type {Element | null} */ (event.target);
