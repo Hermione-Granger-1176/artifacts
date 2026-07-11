@@ -1,7 +1,10 @@
-const INTRO_DELAY_MS = 600;
+const INTRO_DELAY_MS = 500;
 const PAGE_TURN_MS = 600;
-const COVER_OPEN_MS = 700;
-const LEFT_PAGE_IN_MS = 600;
+const COVER_OPEN_MS = 950;
+const LEFT_PAGE_IN_MS = 750;
+const SHEET_SETTLE_MS = 450;
+const RIGHT_PAGE_BRIGHTEN_MS = 500;
+const REDUCED_MOTION_FADE_MS = 400;
 const MOBILE_FADE_MS = 200;
 const MOBILE_BREAKPOINT = 700;
 const SCENE_PERSPECTIVE = '1600px';
@@ -68,7 +71,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
   /**
    * Run an element.animate() call and wait for it to finish.
    * Cleans up inline styles set by `fill: 'forwards'` after the animation lands.
-   * @param {HTMLElement} element - Target element.
+   * @param {HTMLElement | null} element - Target element.
    * @param {Keyframe[]} keyframes - Web Animations API keyframes.
    * @param {KeyframeAnimationOptions} options - Animation options.
    * @returns {Promise<void>} Resolves when the animation finishes.
@@ -94,7 +97,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
   /**
    * Clear all inline styles that may have been applied during an animation sequence.
-   * @param {HTMLElement} element - Element to clean up.
+   * @param {HTMLElement | null} element - Element to clean up.
    * @param {string[]} properties - CSS property names (camelCase) to remove.
    */
   function clearInlineStyles(element, properties) {
@@ -156,6 +159,14 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       shell.classList.remove('is-open');
 
       if (prefersReducedMotion()) {
+        // Opacity-only crossfade: no rotation or translation, just a gentle
+        // fade of the cover before the open state lands.
+        await animateAndClean(
+          cover,
+          [{ opacity: 1 }, { opacity: 0 }],
+          { duration: REDUCED_MOTION_FADE_MS, easing: 'ease', fill: 'forwards' }
+        );
+        clearInlineStyles(cover, ['opacity']);
         finalizeIntroOpen(shell, cover);
         return;
       }
@@ -182,12 +193,26 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       // Brief pause before the cover starts to flip
       await delay(INTRO_DELAY_MS);
 
-      // Phase 1: Flip the cover open
+      // Phase 1: Flip the cover open. A soft drop-shadow swells while the
+      // cover is mid-turn and dissipates as it clears the sheet.
       await animateAndClean(
         cover,
         [
-          { transform: getPerspectiveRotateY(0), opacity: 1 },
-          { transform: getPerspectiveRotateY(-92), opacity: 0.3 }
+          {
+            transform: getPerspectiveRotateY(0),
+            opacity: 1,
+            filter: 'drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12))'
+          },
+          {
+            opacity: 0.9,
+            filter: 'drop-shadow(26px 22px 36px rgba(0, 0, 0, 0.3))',
+            offset: 0.55
+          },
+          {
+            transform: getPerspectiveRotateY(-92),
+            opacity: 0.3,
+            filter: 'drop-shadow(0 0 0 rgba(0, 0, 0, 0))'
+          }
         ],
         {
           duration: COVER_OPEN_MS,
@@ -196,13 +221,42 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
         }
       );
 
-      // Phase 2: Reveal the left page, flip it in from the right
+      // Phase 2: the cover has cleared. In parallel: settle the sheet with a
+      // tiny overshoot, brighten the right page back up, and flip the left
+      // page in from the spine.
       if (leftPage) {
         // Keep left page hidden until we start its animation
         leftPage.style.opacity = '0';
       }
 
       shell.classList.add('is-open');
+
+      const settleTasks = [
+        (async () => {
+          await animateAndClean(
+            sheet,
+            [
+              { transform: 'scale(1)' },
+              { transform: 'scale(1.012)', offset: 0.45 },
+              { transform: 'scale(1)' }
+            ],
+            { duration: SHEET_SETTLE_MS, easing: EASE_OUT_EASING, fill: 'forwards' }
+          );
+          clearInlineStyles(sheet, ['transform']);
+        })()
+      ];
+
+      if (rightPage) {
+        rightPage.style.transition = '';
+        settleTasks.push((async () => {
+          await animateAndClean(
+            rightPage,
+            [{ opacity: 0.82 }, { opacity: 1 }],
+            { duration: RIGHT_PAGE_BRIGHTEN_MS, easing: 'ease', fill: 'forwards' }
+          );
+          clearInlineStyles(rightPage, ['opacity', 'transition']);
+        })());
+      }
 
       if (leftPage) {
         leftPage.style.transformOrigin = 'right center';
@@ -225,14 +279,10 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
         clearInlineStyles(leftPage, ['transformOrigin', 'position', 'zIndex', 'opacity']);
       }
 
-      // Restore right page opacity
-      if (rightPage) {
-        rightPage.style.transition = '';
-        rightPage.style.opacity = '';
-      }
+      await Promise.all(settleTasks);
 
       // Clean up and finalize state
-      clearInlineStyles(cover, ['transformOrigin', 'transform', 'opacity']);
+      clearInlineStyles(cover, ['transformOrigin', 'transform', 'opacity', 'filter']);
       finalizeIntroOpen(shell, cover);
     })();
 

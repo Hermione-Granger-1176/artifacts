@@ -106,9 +106,19 @@ test('embeddings drives the dimension explorer and similarity playground', () =>
     const api = initEmbeddings();
     assert.ok(h.el('embCloud').children.length > 0);
 
+    const dimCanvas = h.el('dimCanvas');
+    dimCanvas.fire('pointerdown', { clientX: 10, clientY: 10 }); // ignored in 1D
     h.el('dimToggle').children[1].fire('click'); // 2D
+    assert.ok(!dimCanvas.classList.contains('is-rotatable'));
     h.el('dimToggle').children[2].fire('click'); // 3D
+    assert.ok(dimCanvas.classList.contains('is-rotatable'));
+    dimCanvas.fire('pointermove', { clientX: 20, clientY: 20 }); // no drag yet
+    dimCanvas.fire('pointerdown', { clientX: 10, clientY: 10 });
+    dimCanvas.fire('pointermove', { clientX: 40, clientY: 25 }); // rotates
+    dimCanvas.fire('pointerup', {});
+    dimCanvas.fire('pointerleave', {});
     h.el('dimToggle').children[0].fire('click'); // back to 1D
+    assert.ok(!dimCanvas.classList.contains('is-rotatable'));
 
     const words = h.el('embCloud').children;
     words[0].fire('click'); // pick A
@@ -123,6 +133,31 @@ test('embeddings drives the dimension explorer and similarity playground', () =>
     assert.equal(h.el('embSelB').textContent, 'sad');
     h.el('embSwapBtn').fire('click');
 
+    // Category tabs swap which words the cloud shows.
+    const catTabs = h.el('embCats').children;
+    assert.ok(catTabs.length >= 2);
+    assert.ok(catTabs[0].classList.contains('active'));
+    catTabs[1].fire('click');
+    assert.ok(catTabs[1].classList.contains('active'));
+    assert.notEqual(h.el('embCloud').children[0].dataset.word, words[0].dataset.word);
+
+    // Hovering the map highlights the nearest background word; clicking selects it.
+    const embCanvas = h.el('embCanvas');
+    let hit = false;
+    for (let x = 0; x < 400 && !hit; x += 10) {
+      for (let y = 0; y < 300 && !hit; y += 10) {
+        embCanvas.fire('pointermove', { offsetX: x, offsetY: y });
+        hit = embCanvas.style.cursor === 'pointer';
+      }
+    }
+    assert.ok(hit, 'expected some pointer position to hover a background dot');
+    const before = h.el('embSelA').textContent;
+    embCanvas.fire('click', {});
+    assert.notEqual(h.el('embSelA').textContent, before);
+    embCanvas.fire('pointermove', { offsetX: 0, offsetY: 0 }); // move off the dot
+    embCanvas.fire('pointerleave', {});
+    assert.equal(embCanvas.style.cursor, '');
+
     api.redraw();
     assert.ok(h.el('embSimilarity').textContent.length > 0);
   });
@@ -133,16 +168,27 @@ test('embeddings drives the dimension explorer and similarity playground', () =>
 test('inference streams tokens to completion and resets', () => {
   withHarness((h) => {
     initInference();
+    const chips = h.el('infPrompts').children;
+    assert.ok(chips.length >= 3);
+    assert.ok(chips[0].classList.contains('active'));
+
     h.el('infGoBtn').fire('click');
+    chips[1].fire('click'); // ignored while generating
+    assert.ok(chips[0].classList.contains('active'));
     h.flushIntervals();
     assert.match(h.el('infStatus').textContent, /Done\./);
     assert.notEqual(h.el('infCacheCount').textContent, '0');
 
+    chips[1].fire('click'); // switching prompts clears the finished run
+    assert.ok(chips[1].classList.contains('active'));
+    assert.equal(h.el('infCacheCount').textContent, '0');
+    chips[1].fire('click'); // re-clicking the selected prompt is a no-op
+    assert.ok(chips[1].classList.contains('active'));
+
+    h.el('infGoBtn').fire('click');
+    h.flushIntervals();
     h.el('infResetBtn').fire('click');
     assert.equal(h.el('infCacheCount').textContent, '0');
-
-    h.el('infInput').value = '   ';
-    h.el('infGoBtn').fire('click'); // empty -> early return
     assert.equal(h.el('infTokens').children.length, 0);
   });
 });
@@ -154,8 +200,34 @@ test('attention steps, grid hover, and softmax sliders all respond', () => {
     initAttention();
     const visual = h.el('attnStepVisual');
 
-    // Step 1: Q = emb * WQ
-    visual.querySelectorAll('[data-mx="Q1"].clickable')[0].fire('click');
+    // Step 1: output = emb * W with a Q/K toggle and a weight scrambler.
+    const cellText = () => visual.querySelectorAll('[data-mx="out1"]')[0].textContent;
+    assert.equal(cellText(), '0.15');
+    visual.querySelectorAll('[data-mx="out1"].clickable')[0].fire('click');
+
+    const findButton = (label) =>
+      visual.querySelectorAll('button').find((b) => b.textContent === label);
+    findButton('WK → K').fire('click');
+    assert.equal(cellText(), '-0.21');
+    visual.querySelectorAll('[data-mx="out1"].clickable')[0].fire('click');
+
+    // Scramble with a stubbed RNG: every weight becomes 0.50.
+    const realRandom = Math.random;
+    Math.random = () => 0.75;
+    try {
+      findButton('Scramble weights').fire('click');
+    } finally {
+      Math.random = realRandom;
+    }
+    // Row 1 of emb sums to -0.23, so every scrambled cell is -0.23 * 0.5.
+    assert.equal(cellText(), '-0.11');
+    assert.ok(visual.querySelectorAll('.pc-attn-status').length === 1);
+    visual.querySelectorAll('[data-mx="out1"].clickable')[0].fire('click');
+
+    // Picking a projection restores the trained weights.
+    findButton('WQ → Q').fire('click');
+    assert.equal(cellText(), '0.15');
+    assert.ok(visual.querySelectorAll('.pc-attn-status').length === 0);
 
     // Step 2: scores
     h.el('attnStepper').children[1].fire('click');
@@ -187,7 +259,7 @@ test('attention steps, grid hover, and softmax sliders all respond', () => {
     const slider = h.el('smxSliders').querySelectorAll('input')[0];
     slider.value = '4';
     slider.fire('input');
-    assert.ok(h.el('smxBars').children.length === 4);
+    assert.ok(h.el('smxBars').children.length === 6);
   });
 });
 
@@ -244,10 +316,25 @@ test('calculator updates spend figures from the sliders', () => {
   withHarness((h) => {
     initCalculator();
     assert.match(h.el('calcWithout').textContent, /^\$/);
+    assert.match(h.el('calcPct').textContent, /cheaper/);
+    assert.match(h.el('calcTokens').textContent, /M$/);
+
+    // Defaults match the Startup preset, so its chip starts active.
+    const chips = h.el('calcPresets').querySelectorAll('button');
+    assert.ok(chips.find((b) => b.textContent === 'Startup').classList.contains('active'));
 
     h.el('calcHit').value = '0';
     h.el('calcHit').fire('input');
     assert.equal(h.el('calcHitVal').textContent, '0%');
+    // Manual slider moves deactivate every preset chip.
+    assert.ok(chips.every((b) => !b.classList.contains('active')));
+    assert.equal(h.el('calcBarWith').style.width, '100%');
+
+    // Preset click drives all four sliders and re-activates its chip.
+    chips.find((b) => b.textContent === 'Scale').fire('click');
+    assert.equal(h.el('calcSys').value, '8000');
+    assert.equal(h.el('calcReq').value, '5000');
+    assert.ok(chips.find((b) => b.textContent === 'Scale').classList.contains('active'));
   });
 });
 

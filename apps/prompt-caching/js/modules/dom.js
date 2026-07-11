@@ -7,7 +7,7 @@ export function byId(id) {
 }
 
 export function cssVar(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return getComputedStyle(document.body).getPropertyValue(name).trim();
 }
 
 export function makeEl(tag, className = "", text = "") {

@@ -53,19 +53,19 @@ function initDimensions() {
     return null;
   }
 
+  // One set of 24 points generated in 3D. Every view is a projection of the
+  // same data, so adding dimensions genuinely adds separation rather than
+  // drawing a new picture.
   const groups = DIM_COLORS.map((token, gi) => {
     const cx = (gi % 4) * 0.25 + 0.125;
-    const cy = gi < 4 ? 0.3 : 0.7;
-    const cz = (gi % 3) * 0.33 + 0.17;
+    const cy = gi < 4 ? 0.28 : 0.72;
+    const cz = ((gi * 5) % 8) / 8 + 0.0625;
     const points = [];
     for (let p = 0; p < 6; p += 1) {
       points.push({
-        x1: Math.random(),
-        x2: cx + (Math.random() - 0.5) * 0.16,
-        y2: cy + (Math.random() - 0.5) * 0.16,
-        x3: cx + (Math.random() - 0.5) * 0.13,
-        y3: cy + (Math.random() - 0.5) * 0.13,
-        z3: cz + (Math.random() - 0.5) * 0.16,
+        x: cx + (Math.random() - 0.5) * 0.14,
+        y: cy + (Math.random() - 0.5) * 0.14,
+        z: cz + (Math.random() - 0.5) * 0.14,
         token
       });
     }
@@ -74,56 +74,121 @@ function initDimensions() {
   const allPoints = groups.flat();
 
   const captions = [
-    "In 1D everything sits on a line. Total jumble. Hard to see any grouping.",
-    "In 2D, clusters start separating. You can spot 8 distinct groups forming.",
-    "In 3D, separation is clearer. Now imagine doing this with 12,000 dimensions."
+    "1D: the same 24 points squashed onto one line. Clusters pile on top of each other.",
+    "2D: a second axis and the 8 groups start pulling apart.",
+    "3D: drag to rotate. Separation holds from every angle. Real models use 12,000+ axes."
   ];
   let currentDims = 1;
+  let yaw = 0.7;
+  let pitch = 0.32;
+  let dragging = false;
+  let lastX = 0;
+  let lastY = 0;
+
+  function rotate(point) {
+    const x = point.x - 0.5;
+    const y = point.y - 0.5;
+    const z = point.z - 0.5;
+    const cosY = Math.cos(yaw);
+    const sinY = Math.sin(yaw);
+    const x1 = x * cosY + z * sinY;
+    const z1 = z * cosY - x * sinY;
+    const cosX = Math.cos(pitch);
+    const sinX = Math.sin(pitch);
+    return {
+      px: x1,
+      py: y * cosX - z1 * sinX,
+      depth: y * sinX + z1 * cosX,
+      token: point.token
+    };
+  }
+
+  function drawDot(ctx, x, y, token, radius, alpha) {
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = cssVar(token);
+    ctx.globalAlpha = alpha;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
 
   function draw() {
     const ctx = canvas.getContext("2d");
+    canvas.height = currentDims === 1 ? 90 : currentDims === 2 ? 260 : 300;
     const W = canvas.width;
     const H = canvas.height;
     const pad = 30;
     ctx.clearRect(0, 0, W, H);
 
     if (currentDims === 1) {
+      // Project onto a diagonal axis so cluster structure exists but overlaps.
+      const values = allPoints.map((p) => (p.x + p.y + p.z) / 3);
+      const min = Math.min(...values);
+      const range = (Math.max(...values) - min) || 1;
       ctx.strokeStyle = cssVar("--color-border-strong");
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(pad, H / 2);
       ctx.lineTo(W - pad, H / 2);
       ctx.stroke();
+      for (let t = 0; t <= 10; t += 1) {
+        const tx = pad + (t / 10) * (W - 2 * pad);
+        ctx.beginPath();
+        ctx.moveTo(tx, H / 2 - 4);
+        ctx.lineTo(tx, H / 2 + 4);
+        ctx.stroke();
+      }
+      allPoints.forEach((point, i) => {
+        drawDot(ctx, pad + ((values[i] - min) / range) * (W - 2 * pad), H / 2, point.token, 5.5, 0.85);
+      });
+      return;
     }
 
-    for (const point of allPoints) {
-      let x;
-      let y;
-      if (currentDims === 1) {
-        x = pad + point.x1 * (W - 2 * pad);
-        y = H / 2;
-      } else if (currentDims === 2) {
-        x = pad + point.x2 * (W - 2 * pad);
-        y = pad + point.y2 * (H - 2 * pad);
-      } else {
-        const sc = 0.65;
-        const px = point.x3 - 0.5;
-        const pz = point.z3 - 0.5;
-        x = W / 2 + (px - pz) * 0.866 * (W - 2 * pad) * sc;
-        y = H / 2 + ((px + pz) * 0.5 - (point.y3 - 0.5)) * (H - 2 * pad) * sc;
+    if (currentDims === 2) {
+      for (const point of allPoints) {
+        drawDot(ctx, pad + point.x * (W - 2 * pad), pad + point.y * (H - 2 * pad), point.token, 5.5, 0.85);
       }
-      ctx.beginPath();
-      ctx.arc(x, y, 5.5, 0, Math.PI * 2);
-      ctx.fillStyle = cssVar(point.token);
-      ctx.globalAlpha = 0.85;
-      ctx.fill();
-      ctx.globalAlpha = 1;
+      return;
+    }
+
+    const sc = (Math.min(W, H) - 2 * pad) * 0.8;
+    const projected = allPoints.map(rotate).sort((a, b) => a.depth - b.depth);
+    for (const p of projected) {
+      const radius = 5.5 + p.depth * 3;
+      const alpha = Math.min(0.95, Math.max(0.35, 0.7 + p.depth * 0.5));
+      drawDot(ctx, W / 2 + p.px * sc, H / 2 + p.py * sc, p.token, radius, alpha);
     }
   }
+
+  canvas.addEventListener("pointerdown", (event) => {
+    if (currentDims !== 3) {
+      return;
+    }
+    dragging = true;
+    lastX = event.clientX;
+    lastY = event.clientY;
+  });
+  canvas.addEventListener("pointermove", (event) => {
+    if (!dragging || currentDims !== 3) {
+      return;
+    }
+    yaw += (event.clientX - lastX) * 0.01;
+    pitch = Math.min(1.2, Math.max(-1.2, pitch + (event.clientY - lastY) * 0.01));
+    lastX = event.clientX;
+    lastY = event.clientY;
+    draw();
+  });
+  const stopDrag = () => {
+    dragging = false;
+  };
+  canvas.addEventListener("pointerup", stopDrag);
+  canvas.addEventListener("pointerleave", stopDrag);
 
   initSegmented(toggle, (btn) => {
     currentDims = Number.parseInt(btn.dataset.dims, 10);
     caption.textContent = captions[currentDims - 1];
+    canvas.classList.toggle("is-rotatable", currentDims === 3);
+    dragging = false;
     draw();
   });
 
@@ -133,6 +198,7 @@ function initDimensions() {
 
 function initSimilarity() {
   const cloud = byId("embCloud");
+  const cats = byId("embCats");
   const suggestions = byId("embSuggestions");
   const selAEl = byId("embSelA");
   const selBEl = byId("embSelB");
@@ -148,19 +214,61 @@ function initSimilarity() {
   let selA = "happy";
   let selB = "sad";
   let selecting = "a";
+  let currentCat = Object.keys(EMB_CATEGORIES)[0];
+  let screenPoints = [];
+  let hovered = null;
 
   const wordEls = new Map();
-  for (const word of Object.values(EMB_CATEGORIES).flat()) {
-    const span = makeEl("span", "emb-word", word);
-    span.dataset.word = word;
-    span.setAttribute("role", "button");
-    span.setAttribute("aria-label", `Select word ${word}`);
-    span.tabIndex = 0;
-    span.addEventListener("click", () => clickWord(word));
-    span.addEventListener("keydown", (event) => activateOnKeyboard(event, () => clickWord(word)));
-    cloud.appendChild(span);
-    wordEls.set(word, span);
+  const catEls = new Map();
+
+  if (cats) {
+    for (const cat of Object.keys(EMB_CATEGORIES)) {
+      const btn = makeEl("button", "pc-emb-cat", cat);
+      btn.type = "button";
+      btn.addEventListener("click", () => {
+        currentCat = cat;
+        syncCats();
+        renderCloud();
+      });
+      cats.appendChild(btn);
+      catEls.set(cat, btn);
+    }
+    syncCats();
   }
+
+  function syncCats() {
+    for (const [cat, el] of catEls) {
+      el.classList.toggle("active", cat === currentCat);
+      el.setAttribute("aria-pressed", String(cat === currentCat));
+    }
+  }
+
+  function renderCloud() {
+    clear(cloud);
+    wordEls.clear();
+    const words = cats ? EMB_CATEGORIES[currentCat] : Object.values(EMB_CATEGORIES).flat();
+    for (const word of words) {
+      const span = makeEl("span", "emb-word", word);
+      span.dataset.word = word;
+      span.setAttribute("role", "button");
+      span.setAttribute("aria-label", `Select word ${word}`);
+      span.tabIndex = 0;
+      span.addEventListener("click", () => clickWord(word));
+      span.addEventListener("keydown", (event) => activateOnKeyboard(event, () => clickWord(word)));
+      cloud.appendChild(span);
+      wordEls.set(word, span);
+    }
+    highlightSelection();
+  }
+
+  function highlightSelection() {
+    for (const [word, el] of wordEls) {
+      el.classList.toggle("sel-a", word === selA);
+      el.classList.toggle("sel-b", word === selB);
+    }
+  }
+
+  renderCloud();
 
   if (suggestions) {
     for (const [a, b] of EMB_PAIRS) {
@@ -200,11 +308,7 @@ function initSimilarity() {
   function refresh() {
     selAEl.textContent = selA;
     selBEl.textContent = selB;
-
-    for (const [word, el] of wordEls) {
-      el.classList.toggle("sel-a", word === selA);
-      el.classList.toggle("sel-b", word === selB);
-    }
+    highlightSelection();
 
     const vecA = EMB_VECS[selA];
     const vecB = EMB_VECS[selB];
@@ -264,23 +368,22 @@ function initSimilarity() {
     const colorA = cssVar("--color-amber");
     const colorB = cssVar("--color-green");
 
-    ctx.globalAlpha = 0.15;
-    for (const p of projected) {
-      if (p.word === selA || p.word === selB) {
+    screenPoints = projected.map((p) => ({ word: p.word, ...toScreen(p) }));
+
+    ctx.globalAlpha = 0.3;
+    for (const s of screenPoints) {
+      if (s.word === selA || s.word === selB) {
         continue;
       }
-      const s = toScreen(p);
       ctx.beginPath();
-      ctx.arc(s.sx, s.sy, 3, 0, Math.PI * 2);
+      ctx.arc(s.sx, s.sy, 3.5, 0, Math.PI * 2);
       ctx.fillStyle = muted;
       ctx.fill();
     }
     ctx.globalAlpha = 1;
 
-    const aP = projected.find((p) => p.word === selA);
-    const bP = projected.find((p) => p.word === selB);
-    const sA = aP ? toScreen(aP) : null;
-    const sB = bP ? toScreen(bP) : null;
+    const sA = screenPoints.find((s) => s.word === selA) || null;
+    const sB = screenPoints.find((s) => s.word === selB) || null;
 
     if (sA && sB) {
       ctx.beginPath();
@@ -293,28 +396,72 @@ function initSimilarity() {
       ctx.setLineDash([]);
     }
 
-    if (aP && bP) {
-      const context = projected
-        .filter((p) => p.word !== selA && p.word !== selB)
-        .sort((a, b) => nearest(a, aP, bP) - nearest(b, aP, bP))
-        .slice(0, 8);
-      ctx.globalAlpha = 0.45;
-      ctx.font = bodyFont("500 10px");
+    const hov = hovered ? screenPoints.find((s) => s.word === hovered) : null;
+    if (hov) {
+      ctx.beginPath();
+      ctx.arc(hov.sx, hov.sy, 6, 0, Math.PI * 2);
+      ctx.fillStyle = labelColor;
+      ctx.fill();
+      ctx.font = bodyFont("600 11px");
       ctx.textAlign = "center";
-      for (const p of context) {
-        const s = toScreen(p);
-        ctx.beginPath();
-        ctx.arc(s.sx, s.sy, 4, 0, Math.PI * 2);
-        ctx.fillStyle = muted;
-        ctx.fill();
-        ctx.fillStyle = labelColor;
-        ctx.fillText(p.word, s.sx, s.sy - 9);
-      }
-      ctx.globalAlpha = 1;
+      ctx.strokeStyle = surface;
+      ctx.lineWidth = 3;
+      ctx.strokeText(hov.word, hov.sx, hov.sy - 12);
+      ctx.fillStyle = labelColor;
+      ctx.fillText(hov.word, hov.sx, hov.sy - 12);
     }
 
     drawMarker(ctx, sA, selA, colorA, surface);
     drawMarker(ctx, sB, selB, colorB, surface);
+  }
+
+  function hitTest(x, y) {
+    let best = null;
+    let bestDist = 14 * 14;
+    for (const s of screenPoints) {
+      if (s.word === selA || s.word === selB) {
+        continue;
+      }
+      const dist = (s.sx - x) ** 2 + (s.sy - y) ** 2;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = s.word;
+      }
+    }
+    return best;
+  }
+
+  function redrawCurrent() {
+    const vecA = EMB_VECS[selA];
+    const vecB = EMB_VECS[selB];
+    if (vecA && vecB) {
+      drawCanvas(vecA, vecB);
+    }
+  }
+
+  if (canvas) {
+    canvas.addEventListener("pointermove", (event) => {
+      const scaleX = canvas.width / (canvas.clientWidth || canvas.width);
+      const scaleY = canvas.height / (canvas.clientHeight || canvas.height);
+      const hit = hitTest(event.offsetX * scaleX, event.offsetY * scaleY);
+      if (hit !== hovered) {
+        hovered = hit;
+        canvas.style.cursor = hovered ? "pointer" : "";
+        redrawCurrent();
+      }
+    });
+    canvas.addEventListener("pointerleave", () => {
+      if (hovered) {
+        hovered = null;
+        canvas.style.cursor = "";
+        redrawCurrent();
+      }
+    });
+    canvas.addEventListener("click", () => {
+      if (hovered) {
+        clickWord(hovered);
+      }
+    });
   }
 
   swapBtn?.addEventListener("click", () => {
@@ -324,13 +471,6 @@ function initSimilarity() {
 
   refresh();
   return { refresh };
-}
-
-function nearest(point, aP, bP) {
-  return Math.min(
-    (point.x - aP.x) ** 2 + (point.y - aP.y) ** 2,
-    (point.x - bP.x) ** 2 + (point.y - bP.y) ** 2
-  );
 }
 
 function drawMarker(ctx, screen, word, color, stroke) {
@@ -345,7 +485,10 @@ function drawMarker(ctx, screen, word, color, stroke) {
   ctx.lineWidth = 2;
   ctx.stroke();
   ctx.font = bodyFont("700 13px");
-  ctx.fillStyle = color;
   ctx.textAlign = "center";
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 3;
+  ctx.strokeText(word, screen.sx, screen.sy - 16);
+  ctx.fillStyle = color;
   ctx.fillText(word, screen.sx, screen.sy - 16);
 }

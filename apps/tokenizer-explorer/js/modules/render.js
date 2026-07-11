@@ -1,5 +1,5 @@
 function css(propertyName) {
-  return getComputedStyle(document.documentElement).getPropertyValue(propertyName).trim();
+  return getComputedStyle(document.body).getPropertyValue(propertyName).trim();
 }
 
 function alphaColor(color, alpha) {

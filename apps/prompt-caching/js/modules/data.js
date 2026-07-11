@@ -144,23 +144,29 @@ export const SUB_PIECES = [
   "wa", "wi", "wo", "ya", "ye", "yo", "za", "ze", "zi"
 ].filter((value, index, arr) => arr.indexOf(value) === index).sort((a, b) => b.length - a.length);
 
-/* Worked attention example (4 tokens, 3 dims), all matrices pre-computed. */
+/* Worked attention example (4 tokens, 3 dims), all matrices pre-computed.
+ * Every matrix is the rounded product of the rounded matrices before it, so
+ * each click-to-expand calculation verifies exactly at display precision. */
 export const ATTN_DATA = {
   emb: [[-0.06, 0.13, -0.30], [0.95, -0.49, -0.64], [-0.05, 0.75, 0.65], [0.51, -0.72, 0.98]],
-  Q: [[0.15, 0.07, -0.19], [-0.10, 0.79, -0.78], [-0.71, 0.15, 0.64], [-0.56, -0.06, 0.51]],
-  Kt: [[-0.21, 0.30, -0.39, 0.96], [0.13, -0.68, 0.36, -0.74], [0.29, -0.03, -0.56, -1.15]],
-  scores: [[-0.08, 0.00, 0.08, 0.31], [-0.10, -0.54, 0.76, 0.21], [0.36, -0.33, -0.04, -1.53], [0.26, -0.15, -0.09, -1.08]],
+  WQ: [[-0.75, 0.92, -0.22], [-0.51, 0.45, 0.18], [-0.56, -0.21, 0.76]],
+  WK: [[0.13, -0.51, -0.64], [-0.80, 0.53, -0.04], [0.33, -0.10, -0.87]],
+  Q: [[0.15, 0.07, -0.19], [-0.10, 0.79, -0.78], [-0.71, 0.16, 0.64], [-0.56, -0.06, 0.50]],
+  Kt: [[-0.21, 0.30, -0.39, 0.97], [0.13, -0.68, 0.36, -0.74], [0.29, -0.03, -0.56, -1.15]],
+  scores: [[-0.08, 0.00, 0.07, 0.31], [-0.10, -0.54, 0.76, 0.22], [0.36, -0.34, -0.02, -1.54], [0.25, -0.14, -0.08, -1.07]],
   weights: [[1.00, 0.00, 0.00, 0.00], [0.61, 0.39, 0.00, 0.00], [0.46, 0.23, 0.31, 0.00], [0.38, 0.25, 0.27, 0.10]],
   V: [[-0.12, -0.00, -0.23], [1.46, 0.62, -0.49], [-0.83, -0.04, -0.01], [0.97, 0.18, 0.78]],
-  output: [[-0.12, -0.00, -0.23], [0.50, 0.24, -0.33], [0.02, 0.13, -0.22], [0.20, 0.16, -0.14]]
+  output: [[-0.12, 0.00, -0.23], [0.50, 0.24, -0.33], [0.02, 0.13, -0.22], [0.19, 0.16, -0.13]]
 };
 
-export const AGRID_WORDS = ["the", "cat", "sat", "on"];
+export const AGRID_WORDS = ["the", "cat", "sat", "on", "the", "mat"];
 export const AGRID_WEIGHTS = [
-  [1.00, 0, 0, 0],
-  [0.72, 0.28, 0, 0],
-  [0.35, 0.41, 0.24, 0],
-  [0.18, 0.12, 0.52, 0.18]
+  [1.00, 0, 0, 0, 0, 0],
+  [0.72, 0.28, 0, 0, 0, 0],
+  [0.35, 0.41, 0.24, 0, 0, 0],
+  [0.18, 0.12, 0.52, 0.18, 0, 0],
+  [0.15, 0.08, 0.31, 0.26, 0.20, 0],
+  [0.16, 0.19, 0.24, 0.11, 0.22, 0.08]
 ];
 
 export const CACHE_TOKENS = ["the", "cat", "sat", "on", "the", "mat"];
@@ -169,11 +175,11 @@ export const CACHE_COMPARE_TOKENS = ["the", "cat", "sat", "on", "mat"];
 export const INF_RESPONSES = {
   "The meaning of": ["life", "is", "a", "question", "that", "has", "been", "debated", "for", "centuries"],
   "Once upon a": ["time", "there", "was", "a", "small", "village", "near", "the", "edge", "of"],
-  default: ["is", "an", "interesting", "topic", "that", "requires", "careful", "thought", "and", "consideration"]
+  "Prompt caching is": ["a", "way", "to", "reuse", "earlier", "math", "so", "long", "prompts", "cost", "less"]
 };
 
-export const SMX_TOKENS = ["the", "cat", "sat", "on"];
-export const SMX_INITIAL_SCORES = [0.26, -0.15, -0.09, -1.08];
+export const SMX_TOKENS = ["the", "cat", "sat", "on", "the", "mat"];
+export const SMX_INITIAL_SCORES = [0.25, -0.14, 1.10, 0.40, -0.35, -1.07];
 
 export const CHV_SYSTEM = ["You", "are", "a", "helpful", "AI", "assist", "ant", "."];
 export const CHV_QUERIES = [
