@@ -64,9 +64,9 @@ setup-playwright-ci: ## Install Chromium with system deps
 
 # ─── Lint @lint ───────────────────────────────────────────────────────────────
 
-.PHONY: lint lint-py lint-js lint-css lint-yaml lint-workflows workflow-lint lint-doc-commands lint-make-targets lint-js-test-coverage editorconfig-check check-overrides
+.PHONY: lint lint-py lint-js lint-css lint-yaml lint-workflows workflow-lint lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-vendored-assets editorconfig-check check-overrides
 
-lint: editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage check-overrides ## Run all linters
+lint: editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-vendored-assets check-overrides ## Run all linters
 
 editorconfig-check: ## Check EditorConfig rules
 	$(VENV_PYTHON) scripts/lint/check_editorconfig.py
@@ -96,6 +96,12 @@ lint-make-targets: ## Check documented Make targets
 
 lint-js-test-coverage: ## Check every JS source file has test imports
 	$(VENV_PYTHON) scripts/lint/check_js_test_coverage.py
+
+lint-artifact-csp: ## Check artifact pages ship a strict CSP and no external refs
+	$(VENV_PYTHON) scripts/lint/check_artifact_csp.py
+
+lint-vendored-assets: ## Check vendored libraries against the integrity manifest
+	$(VENV_PYTHON) scripts/lint/check_vendored_assets.py
 
 check-overrides: ## Check npm overrides are still needed
 	$(NPM) run check:overrides
@@ -249,7 +255,7 @@ optimize-social-image: ## Recompress the Open Graph share image in place (make o
 
 ci-python: format-py-check lint-py typecheck-py dead-code-py test-py ## Python CI gate
 
-ci-web: editorconfig-check format-prettier-check lint-js lint-css lint-yaml typecheck-web lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage check-overrides dead-code-js test-js coverage-js coverage-js-floors ## Web and docs CI gate
+ci-web: editorconfig-check format-prettier-check lint-js lint-css lint-yaml typecheck-web lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-vendored-assets check-overrides dead-code-js test-js coverage-js coverage-js-floors ## Web and docs CI gate
 
 ci: ci-python ci-web security validate check-generated ## Full local CI gate without browser tests
 
@@ -266,8 +272,8 @@ audit-python: ## Export locked Python deps and run pip-audit
 	$(UV) export --all-groups --frozen --no-emit-project --format requirements.txt --output-file .artifacts/requirements-audit.txt
 	$(VENV_PYTHON) scripts/ci/run_security_audit.py --requirements .artifacts/requirements-audit.txt
 
-audit-node: ## Run npm dependency audit
-	$(NPM) audit
+audit-node: ## Run policy-driven npm dependency audit with reviewed exceptions
+	$(VENV_PYTHON) scripts/ci/run_npm_audit.py --npm $(NPM)
 
 audit-fix-node: ## Apply available npm audit fixes to package-lock.json
 	$(NPM) audit fix --package-lock-only

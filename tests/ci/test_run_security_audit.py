@@ -158,6 +158,46 @@ def test_resolve_requirements_file_rejects_missing_file(tmp_path: Path) -> None:
         run_security_audit._resolve_requirements_file(tmp_path / "missing.txt")
 
 
+def test_load_security_audit_exceptions_reads_npm_key(tmp_path: Path) -> None:
+    """Test load security audit exceptions reads the npm exception list."""
+    config_file = tmp_path / "security_audit.json"
+    write_text(
+        config_file,
+        """
+{
+  "python_vulnerability_exceptions": [],
+  "npm_vulnerability_exceptions": [
+    {
+      "id": "GHSA-aaaa-bbbb-cccc",
+      "package": "left-pad",
+      "reason": "No upstream fix yet.",
+      "review_by": "2026-04-25"
+    }
+  ]
+}
+""".strip(),
+    )
+
+    exceptions = run_security_audit._load_security_audit_exceptions(
+        config_file, config_key=run_security_audit.NPM_EXCEPTIONS_KEY
+    )
+
+    assert len(exceptions) == 1
+    assert exceptions[0].vulnerability_id == "GHSA-aaaa-bbbb-cccc"
+    assert exceptions[0].package == "left-pad"
+
+
+def test_load_security_audit_exceptions_reports_config_key_in_errors(tmp_path: Path) -> None:
+    """Test load security audit exceptions reports the config key in errors."""
+    config_file = tmp_path / "security_audit.json"
+    write_text(config_file, '{"npm_vulnerability_exceptions": {}}')
+
+    with pytest.raises(ValueError, match="'npm_vulnerability_exceptions' must be a list"):
+        run_security_audit._load_security_audit_exceptions(
+            config_file, config_key=run_security_audit.NPM_EXCEPTIONS_KEY
+        )
+
+
 def test_load_security_audit_exceptions_rejects_invalid_entries_list(
     tmp_path: Path,
 ) -> None:

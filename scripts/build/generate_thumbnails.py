@@ -364,6 +364,6 @@ def generate_thumbnails() -> ThumbnailStats:
 if __name__ == "__main__":  # pragma: no cover
     try:
         generate_thumbnails()
-    except RuntimeError as exc:
+    except (RuntimeError, ValueError, OSError) as exc:
         logger.error("Thumbnail generation failed: %s", exc)
         sys.exit(1)

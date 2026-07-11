@@ -1,0 +1,25 @@
+{
+  "assets": [
+    {
+      "path": "apps/loan-amortization/js/vendor/chart.umd.min.js",
+      "package": "chart.js",
+      "version": "4.4.1",
+      "upstream": "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js",
+      "sha256": "81ffafe13c37e1b25793b020d446f4d9739b949dadb7f9f79d709a0cad781c2f"
+    },
+    {
+      "path": "apps/loan-amortization/js/vendor/chartjs-plugin-annotation.min.js",
+      "package": "chartjs-plugin-annotation",
+      "version": "3.0.1",
+      "upstream": "https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js",
+      "sha256": "f010c3c42842c98381f34ffa5613a99abeea2391080f20cfcf1b1678f3c555fa"
+    },
+    {
+      "path": "apps/loan-amortization/js/vendor/chartjs-plugin-datalabels.min.js",
+      "package": "chartjs-plugin-datalabels",
+      "version": "2.2.0",
+      "upstream": "https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js",
+      "sha256": "20c08f3d9c6d2ef76df6d6a6f1127c0013339fe32add24222276c398c6308c38"
+    }
+  ]
+}

@@ -158,7 +158,7 @@ def generate(config: IndexConfig | None = None) -> None:
 if __name__ == "__main__":  # pragma: no cover
     try:
         generate()
-    except (FileNotFoundError, ValueError) as e:
+    except (ValueError, OSError) as e:
         logger = logging.getLogger(__name__)
         logger.error("Failed to generate data: %s", e)
         sys.exit(1)

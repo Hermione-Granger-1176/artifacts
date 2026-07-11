@@ -33,8 +33,19 @@ class SubprocessModule(Protocol):
 GH_API_TIMEOUT_SECONDS = 15
 GH_API_MAX_ATTEMPTS = 3
 GH_API_RETRY_DELAY_SECONDS = 0.5
+# Rate limits (primary or secondary) are checked first and never retried: the
+# only correct response is to stop and wait for the limit window to reset, so
+# hammering the API risks getting the integration banned. This mirrors the
+# fail-fast policy documented in ``scripts/gh/gh_runner.py``.
+GH_API_RATE_LIMIT_ERROR_PATTERN = re.compile(
+    r"rate limit|submitted too quickly|abuse detection|secondary rate|\b429\b|http 429",
+    re.IGNORECASE,
+)
+# Genuine transient infrastructure errors (5xx, network, timeout) keep a bounded
+# retry with backoff. 429 is intentionally absent; it is a rate limit above.
 GH_API_RETRYABLE_ERROR_PATTERN = re.compile(
-    r"429|502|503|504|timed out|timeout|ECONNRESET|connection reset|network",
+    r"502|503|504|timed out|timeout|ECONNRESET|connection reset|"
+    r"connection refused|network|temporary failure|unexpected eof",
     re.IGNORECASE,
 )
 GH_API_FORBIDDEN_ERROR_PATTERN = re.compile(
@@ -43,8 +54,18 @@ GH_API_FORBIDDEN_ERROR_PATTERN = re.compile(
 )
 
 
+def is_rate_limited_gh_api_failure(message: str) -> bool:
+    """Return True when ``gh api`` failed because of a primary/secondary rate limit."""
+    return bool(GH_API_RATE_LIMIT_ERROR_PATTERN.search(message))
+
+
 def is_retryable_gh_api_failure(message: str) -> bool:
-    """Return True when ``gh api`` failed with a likely transient error."""
+    """Return True when ``gh api`` failed with a likely transient error.
+
+    Rate limits are excluded on purpose; callers must fail fast on those.
+    """
+    if is_rate_limited_gh_api_failure(message):
+        return False
     return bool(GH_API_RETRYABLE_ERROR_PATTERN.search(message))
 
 
@@ -110,6 +131,11 @@ def _run_gh_command(
 
         stderr = result.stderr.strip() or result.stdout.strip() or "unknown gh api error"
         last_error = stderr
+        if is_rate_limited_gh_api_failure(stderr):
+            raise RuntimeError(
+                f"gh api {description} failed: GitHub rate limit hit: {stderr}. "
+                "Wait for the limit window to reset before retrying."
+            )
         if attempt < max_attempts and is_retryable_gh_api_failure(stderr):
             logger.warning(
                 "Retrying gh api for %s after attempt %d/%d failed: %s",
