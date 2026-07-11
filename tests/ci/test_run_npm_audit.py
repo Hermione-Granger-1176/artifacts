@@ -32,7 +32,9 @@ def _exception(
     *,
     vulnerability_id: str = "GHSA-aaaa-bbbb-cccc",
     package: str = "left-pad",
-    review_by: date = date(2026, 12, 31),
+    # A stable far-future default keeps unexpired-exception tests from rotting
+    # as the real calendar advances past any near-term date.
+    review_by: date = date(2999, 12, 31),
     ignore_only_without_fix: bool = False,
 ) -> VulnerabilityExceptionEntry:
     """Build one reviewed exception for the audit-policy tests."""
@@ -264,6 +266,28 @@ def test_matches_exception_compares_package_and_ids() -> None:
     assert not run_npm_audit._matches_exception(
         _exception(vulnerability_id="GHSA-2", package="left-pad"), finding
     )
+
+
+def test_matches_exception_compares_advisory_ids_case_insensitively() -> None:
+    """A lower-case configured exception id matches the upper-cased finding id."""
+    finding = _finding(advisory_id="GHSA-AAAA-BBBB-CCCC")
+    assert run_npm_audit._matches_exception(
+        _exception(vulnerability_id="ghsa-aaaa-bbbb-cccc"), finding
+    )
+
+
+def test_audit_allows_lowercase_configured_exception() -> None:
+    """A lower-case exception id suppresses the matching finding end to end."""
+    exception = _exception(vulnerability_id="ghsa-aaaa-bbbb-cccc")
+    ignored, errors = run_npm_audit._audit_npm_dependencies(
+        today=date(2026, 1, 1),
+        exceptions=(exception,),
+        findings=(_finding(advisory_id="GHSA-AAAA-BBBB-CCCC"),),
+    )
+
+    assert len(ignored) == 1
+    assert ignored[0][1] is exception
+    assert errors == ()
 
 
 def test_audit_reports_unreviewed_vulnerability() -> None:
