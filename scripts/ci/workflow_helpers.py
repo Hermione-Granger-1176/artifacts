@@ -320,8 +320,12 @@ def plan_output_lines(plan: dict[str, object]) -> list[str]:
 def extract_coverage_snippet(report: str, *, source: str) -> str:
     """Return the marker-delimited coverage section from a JS coverage report."""
     start = report.find(JS_COVERAGE_START_MARKER)
-    end = report.find(JS_COVERAGE_END_MARKER)
-    if start == -1 or end == -1:
+    if start == -1:
+        raise ValueError(f"Coverage report markers not found in {source}")
+    # Search past the start marker so an end marker appearing earlier in the
+    # report cannot produce an inverted or partial slice.
+    end = report.find(JS_COVERAGE_END_MARKER, start + len(JS_COVERAGE_START_MARKER))
+    if end == -1:
         raise ValueError(f"Coverage report markers not found in {source}")
     return report[start : end + len(JS_COVERAGE_END_MARKER)]
 
@@ -560,7 +564,8 @@ def _handle_audit_repo_settings(args: argparse.Namespace) -> int:
 def _handle_audit_previews(args: argparse.Namespace) -> int:
     """Audit PR preview directories and print the live previews as JSON."""
     previews = audit_previews(repo=args.repo, pages_branch=args.pages_branch)
-    print(json.dumps({"open-previews": previews}, sort_keys=True))
+    # Sorted so the output does not depend on Git trees API response ordering.
+    print(json.dumps({"open-previews": sorted(previews)}, sort_keys=True))
     return 0
 
 
