@@ -24,6 +24,7 @@ if TYPE_CHECKING:
 
 PREVIEW_ROOT = "pr-preview"
 PREVIEW_DIR_PATTERN = re.compile(r"^pr-(\d+)$")
+_PULLS_PER_PAGE = 100
 
 
 def _tree_entries(payload: object, description: str) -> list[dict[str, object]]:
@@ -83,19 +84,32 @@ def list_open_pr_numbers(
     *,
     run_gh_api_json_fn: Callable[..., object] = run_gh_api_json,
 ) -> set[int]:
-    """Return the set of open pull request numbers for ``repo``."""
-    payload = run_gh_api_json_fn(
-        f"repos/{repo}/pulls?state=open&per_page=100",
-        description=f"listing open pull requests for {repo}",
-        required_permission="pull_requests: read",
-    )
-    if not isinstance(payload, list):
-        raise RuntimeError(f"Open pull requests response for {repo} must be a JSON array")
-    return {
-        item["number"]
-        for item in payload
-        if isinstance(item, dict) and isinstance(item.get("number"), int)
-    }
+    """Return the set of open pull request numbers for ``repo``.
+
+    The listing endpoint caps each page at ``_PULLS_PER_PAGE`` results, so pages
+    are fetched sequentially until a short (or empty) page signals the end.
+    Without this, repos with more open pull requests than one page would leave
+    later PRs unseen and their live previews wrongly flagged as stale.
+    """
+    numbers: set[int] = set()
+    page = 1
+    while True:
+        payload = run_gh_api_json_fn(
+            f"repos/{repo}/pulls?state=open&per_page={_PULLS_PER_PAGE}&page={page}",
+            description=f"listing open pull requests for {repo} (page {page})",
+            required_permission="pull_requests: read",
+        )
+        if not isinstance(payload, list):
+            raise RuntimeError(f"Open pull requests response for {repo} must be a JSON array")
+        numbers.update(
+            item["number"]
+            for item in payload
+            if isinstance(item, dict) and isinstance(item.get("number"), int)
+        )
+        if len(payload) < _PULLS_PER_PAGE:
+            break
+        page += 1
+    return numbers
 
 
 def find_stale_previews(preview_dirs: list[str], open_pr_numbers: set[int]) -> list[str]:

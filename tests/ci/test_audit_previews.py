@@ -96,7 +96,7 @@ def test_tree_entries_reject_malformed_payloads() -> None:
 def test_list_open_pr_numbers_collects_integer_numbers() -> None:
     """List open pr numbers collects integer numbers."""
     responses = {
-        "repos/o/r/pulls?state=open&per_page=100": [
+        "repos/o/r/pulls?state=open&per_page=100&page=1": [
             {"number": 12},
             {"number": 7},
             {"missing": "number"},
@@ -109,9 +109,45 @@ def test_list_open_pr_numbers_collects_integer_numbers() -> None:
     assert numbers == {12, 7}
 
 
+def test_list_open_pr_numbers_paginates_until_short_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """List open pr numbers follows every page until a short page ends it."""
+    monkeypatch.setattr(audit_previews, "_PULLS_PER_PAGE", 2)
+    responses = {
+        "repos/o/r/pulls?state=open&per_page=2&page=1": [{"number": 1}, {"number": 2}],
+        "repos/o/r/pulls?state=open&per_page=2&page=2": [{"number": 3}, {"number": 4}],
+        "repos/o/r/pulls?state=open&per_page=2&page=3": [{"number": 5}],
+    }
+
+    numbers = audit_previews.list_open_pr_numbers("o/r", run_gh_api_json_fn=_fake_api(responses))
+    assert numbers == {1, 2, 3, 4, 5}
+
+
+def test_list_open_pr_numbers_stops_on_empty_trailing_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """List open pr numbers stops when a full page is followed by an empty page."""
+    monkeypatch.setattr(audit_previews, "_PULLS_PER_PAGE", 2)
+    responses = {
+        "repos/o/r/pulls?state=open&per_page=2&page=1": [{"number": 1}, {"number": 2}],
+        "repos/o/r/pulls?state=open&per_page=2&page=2": [],
+    }
+
+    numbers = audit_previews.list_open_pr_numbers("o/r", run_gh_api_json_fn=_fake_api(responses))
+    assert numbers == {1, 2}
+
+
+def test_list_open_pr_numbers_handles_empty_first_page() -> None:
+    """List open pr numbers returns an empty set when the first page is empty."""
+    responses = {"repos/o/r/pulls?state=open&per_page=100&page=1": []}
+    numbers = audit_previews.list_open_pr_numbers("o/r", run_gh_api_json_fn=_fake_api(responses))
+    assert numbers == set()
+
+
 def test_list_open_pr_numbers_rejects_non_array() -> None:
     """List open pr numbers rejects non array."""
-    responses = {"repos/o/r/pulls?state=open&per_page=100": {}}
+    responses = {"repos/o/r/pulls?state=open&per_page=100&page=1": {}}
     with pytest.raises(RuntimeError, match="must be a JSON array"):
         audit_previews.list_open_pr_numbers("o/r", run_gh_api_json_fn=_fake_api(responses))
 
@@ -131,7 +167,7 @@ def test_audit_previews_raises_when_previews_are_stale() -> None:
         "repos/o/r/git/trees/s": {
             "tree": [{"path": "pr-9", "type": "tree"}, {"path": "pr-4", "type": "tree"}]
         },
-        "repos/o/r/pulls?state=open&per_page=100": [{"number": 9}],
+        "repos/o/r/pulls?state=open&per_page=100&page=1": [{"number": 9}],
     }
 
     with pytest.raises(ValueError, match="Stale PR preview directories") as exc_info:
@@ -151,7 +187,7 @@ def test_audit_previews_returns_live_previews_when_clean() -> None:
         "repos/o/r/git/trees/s": {
             "tree": [{"path": "pr-9", "type": "tree"}, {"path": "pr-4", "type": "tree"}]
         },
-        "repos/o/r/pulls?state=open&per_page=100": [{"number": 9}, {"number": 4}],
+        "repos/o/r/pulls?state=open&per_page=100&page=1": [{"number": 9}, {"number": 4}],
     }
 
     previews = audit_previews.audit_previews(

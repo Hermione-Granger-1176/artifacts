@@ -303,9 +303,17 @@ def _plan_slug_csv(plan: dict[str, object], key: str) -> str:
     return ",".join(value)
 
 
+def _plan_bool(plan: dict[str, object], key: str) -> bool:
+    """Return a required boolean field from a thumbnail automation plan."""
+    value = plan.get(key)
+    if not isinstance(value, bool):
+        raise ValueError(f"Plan field {key} must be a boolean")
+    return value
+
+
 def plan_output_lines(plan: dict[str, object]) -> list[str]:
     """Flatten a thumbnail automation plan into workflow output key=value lines."""
-    skip = "true" if plan.get("skip_verification") else "false"
+    skip = "true" if _plan_bool(plan, "skip_verification") else "false"
     return [
         f"browser-scope={_plan_str(plan, 'browser_scope')}",
         f"changed-slugs={_plan_slug_csv(plan, 'changed_slugs')}",
