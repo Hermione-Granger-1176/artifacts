@@ -70,6 +70,8 @@ _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 # The word boundary keeps `<header>` elements from matching as an opening head tag.
 _HEAD_OPEN_RE = re.compile(r"<head\b[^>]*>", re.IGNORECASE)
 _HEAD_CLOSE_RE = re.compile(r"</head\s*>", re.IGNORECASE)
+_BODY_CLOSE_RE = re.compile(r"</body\s*>", re.IGNORECASE)
+_HTML_CLOSE_RE = re.compile(r"</html\s*>", re.IGNORECASE)
 _HTML_OPEN_RE = re.compile(r"<html\b[^>]*>", re.IGNORECASE)
 _DOCTYPE_RE = re.compile(r"<!doctype[^>]*>", re.IGNORECASE)
 
@@ -359,12 +361,21 @@ def _inject_after_head_open(html: str, snippet: str) -> str:
 
 
 def _inject_before_head_close(html: str, snippet: str) -> str:
-    """Insert a snippet immediately before the closing ``</head>`` tag."""
-    match = _HEAD_CLOSE_RE.search(html)
-    if match is None:
-        return f"{html}\n{snippet}"
-    index = match.start()
-    return f"{html[:index]}  {snippet}\n{html[index:]}"
+    """Insert a snippet immediately before the closing ``</head>`` tag.
+
+    Falls back to injecting before ``</body>``, then before ``</html>``, and
+    only then to appending, so a headless document keeps the snippet inside the
+    document where browsers still apply it. Inserting before a closing tag
+    (rather than after an opening one) preserves the relative order of
+    successive injections, which keeps the shared stylesheet ahead of the
+    app-local one.
+    """
+    for pattern in (_HEAD_CLOSE_RE, _BODY_CLOSE_RE, _HTML_CLOSE_RE):
+        match = pattern.search(html)
+        if match is not None:
+            index = match.start()
+            return f"{html[:index]}  {snippet}\n{html[index:]}"
+    return f"{html}\n{snippet}"
 
 
 def apply_contract_to_source(html: str) -> str:

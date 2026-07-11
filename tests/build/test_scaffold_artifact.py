@@ -363,6 +363,33 @@ def test_inject_before_head_close_without_close_appends() -> None:
     assert result == "<head>\nSNIPPET"
 
 
+def test_inject_before_head_close_headless_uses_body_close() -> None:
+    """Test the head-close injector lands before </body> when no </head> exists."""
+    result = scaffold_artifact._inject_before_head_close("<body>x</body></html>", "SNIPPET")
+
+    assert result == "<body>x  SNIPPET\n</body></html>"
+
+
+def test_inject_before_head_close_bodyless_uses_html_close() -> None:
+    """Test the head-close injector lands before </html> when only that close exists."""
+    result = scaffold_artifact._inject_before_head_close("<p>x</p></html>", "SNIPPET")
+
+    assert result == "<p>x</p>  SNIPPET\n</html>"
+
+
+def test_apply_contract_headless_document_keeps_links_inside_and_ordered() -> None:
+    """Test a headless drop-in keeps injected links inside the document, shared first."""
+    html = "<!DOCTYPE html><html><body><p>x</p></body></html>"
+
+    result = scaffold_artifact.apply_contract_to_source(html)
+
+    html_close = result.rindex("</html>")
+    shared = result.index(scaffold_artifact.SHARED_STYLESHEET_LINK)
+    app = result.index(scaffold_artifact.APP_STYLESHEET_LINK)
+    csp = result.index(scaffold_artifact.CSP_META)
+    assert csp < shared < app < html_close
+
+
 def test_read_source_html_missing_file_raises(tmp_path: Path) -> None:
     """Test reading a missing drop-in HTML file raises FileNotFoundError."""
     missing = tmp_path / "missing.html"
