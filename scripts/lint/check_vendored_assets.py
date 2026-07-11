@@ -19,9 +19,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from scripts import REPO_ROOT
 
@@ -29,6 +30,13 @@ VENDORED_ASSETS_MANIFEST_FILE = REPO_ROOT / "config" / "vendored_assets.json"
 
 # Glob (relative to the workspace root) that matches every vendored bundle.
 VENDOR_GLOB = "apps/*/js/vendor/*.js"
+
+# Repo-relative vendor path shape: apps/<slug>/js/vendor/<file>.js with no
+# nested directories in the slug or file name (mirrors ``VENDOR_GLOB``).
+_VENDOR_PATH_PATTERN = re.compile(r"^apps/[^/]+/js/vendor/[^/]+\.js$")
+
+# A SHA-256 digest is exactly 64 lower-case hexadecimal characters.
+_SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 _UPDATE_HINT = (
     "If this change is intentional, update config/vendored_assets.json "
@@ -45,6 +53,34 @@ class VendoredAsset:
     version: str
     upstream: str
     sha256: str
+
+
+def _validate_asset_path(raw_path: str, entry_path: str) -> str:
+    """Return a validated repo-relative vendor path or raise ``ValueError``.
+
+    Manifest paths are read and hashed as files under the repo root, so a
+    traversal (``..``), absolute, or non-vendor path would let the checker
+    reach outside ``apps/<slug>/js/vendor/*.js``. Reject anything that does
+    not match the vendor shape exactly.
+    """
+    pure = PurePosixPath(raw_path)
+    if pure.is_absolute() or ".." in pure.parts or not _VENDOR_PATH_PATTERN.match(raw_path):
+        raise ValueError(
+            "Vendored asset path must be a repo-relative apps/<slug>/js/vendor/<file>.js path: "
+            f"{entry_path} ({raw_path!r})"
+        )
+    return raw_path
+
+
+def _validate_asset_sha256(raw_sha256: str, entry_path: str) -> str:
+    """Return a normalized 64-hex SHA-256 digest or raise ``ValueError``."""
+    normalized = raw_sha256.lower()
+    if not _SHA256_PATTERN.match(normalized):
+        raise ValueError(
+            "Vendored asset sha256 must be a 64-character hex digest: "
+            f"{entry_path} ({raw_sha256!r})"
+        )
+    return normalized
 
 
 def _load_manifest(
@@ -77,11 +113,11 @@ def _load_manifest(
             )
 
         asset = VendoredAsset(
-            path=str(entry["path"]),
+            path=_validate_asset_path(str(entry["path"]), entry_path),
             package=str(entry["package"]),
             version=str(entry["version"]),
             upstream=str(entry["upstream"]),
-            sha256=str(entry["sha256"]).lower(),
+            sha256=_validate_asset_sha256(str(entry["sha256"]), entry_path),
         )
         if asset.path in seen_paths:
             raise ValueError(f"Vendored asset entries must not duplicate a path: {entry_path}")

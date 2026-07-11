@@ -103,14 +103,14 @@ def _csp_violations(html: str, display_path: str) -> list[str]:
         )
     elif not _directive_is_restrictive(default_src):
         violations.append(
-            f"{display_path}: default-src must be restricted to 'self' "
+            f"{display_path}: default-src must be restricted to 'self' or 'none' "
             f"(found: default-src {' '.join(default_src)})"
         )
 
     script_src = directives.get("script-src", default_src)
     if script_src is not None and not _directive_is_restrictive(script_src):
         violations.append(
-            f"{display_path}: script-src must be restricted to 'self' "
+            f"{display_path}: script-src must be restricted to 'self' or 'none' "
             f"(found: script-src {' '.join(script_src)})"
         )
 
@@ -174,8 +174,16 @@ def _inline_style_violations(html: str, display_path: str) -> list[str]:
 
 
 def check_page(path: Path, *, display_path: str) -> list[str]:
-    """Return all CSP and same-origin violations for one artifact page."""
-    html = path.read_text(encoding="utf-8")
+    """Return all CSP and same-origin violations for one artifact page.
+
+    A page that cannot be read as UTF-8 text (binary content, a bad encoding,
+    or any ``OSError``) is reported as a single deterministic violation rather
+    than crashing the whole check with a traceback.
+    """
+    try:
+        html = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        return [f"{display_path}: artifact page could not be read as UTF-8 text ({error})"]
     return [
         *_csp_violations(html, display_path),
         *_script_violations(html, display_path),

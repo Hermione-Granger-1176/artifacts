@@ -43,6 +43,8 @@ def _entry(path: str, sha256: str, *, package: str = "chart.js") -> dict[str, st
 
 
 _REL = "apps/demo/js/vendor/lib.min.js"
+_SHA_A = "a" * 64
+_SHA_B = "b" * 64
 
 
 def test_check_assets_passes_when_hashes_match(tmp_path: Path) -> None:
@@ -94,12 +96,12 @@ def test_discover_vendor_files_returns_sorted_relative_paths(tmp_path: Path) -> 
 def test_load_manifest_reads_valid_entries(tmp_path: Path) -> None:
     """Load manifest reads valid entries."""
     manifest = tmp_path / "vendored_assets.json"
-    _write_manifest(manifest, [_entry(_REL, "ABCDEF")])
+    _write_manifest(manifest, [_entry(_REL, _SHA_A.upper())])
     assets = _load_manifest(manifest)
     assert len(assets) == 1
     assert assets[0].path == _REL
     # Recorded hashes are normalized to lower case for comparison.
-    assert assets[0].sha256 == "abcdef"
+    assert assets[0].sha256 == _SHA_A
 
 
 def test_load_manifest_rejects_missing_file(tmp_path: Path) -> None:
@@ -143,8 +145,34 @@ def test_load_manifest_rejects_missing_fields(tmp_path: Path) -> None:
 def test_load_manifest_rejects_duplicate_paths(tmp_path: Path) -> None:
     """Load manifest rejects duplicate paths."""
     manifest = tmp_path / "vendored_assets.json"
-    _write_manifest(manifest, [_entry(_REL, "abc"), _entry(_REL, "def")])
+    _write_manifest(manifest, [_entry(_REL, _SHA_A), _entry(_REL, _SHA_B)])
     with pytest.raises(ValueError, match="must not duplicate a path"):
+        _load_manifest(manifest)
+
+
+@pytest.mark.parametrize(
+    "bad_path",
+    [
+        "apps/demo/js/vendor/../../../etc/passwd.js",
+        "/etc/passwd.js",
+        "config/secrets.js",
+        "apps/demo/js/app.js",
+        "apps/demo/js/vendor/nested/lib.js",
+    ],
+)
+def test_load_manifest_rejects_unsafe_paths(tmp_path: Path, bad_path: str) -> None:
+    """Load manifest rejects traversal, absolute, and non-vendor paths."""
+    manifest = tmp_path / "vendored_assets.json"
+    _write_manifest(manifest, [_entry(bad_path, _SHA_A)])
+    with pytest.raises(ValueError, match="must be a repo-relative"):
+        _load_manifest(manifest)
+
+
+def test_load_manifest_rejects_malformed_sha256(tmp_path: Path) -> None:
+    """Load manifest rejects a sha256 that is not a 64-hex digest."""
+    manifest = tmp_path / "vendored_assets.json"
+    _write_manifest(manifest, [_entry(_REL, "deadbeef")])
+    with pytest.raises(ValueError, match="must be a 64-character hex digest"):
         _load_manifest(manifest)
 
 
@@ -171,7 +199,7 @@ def test_main_returns_one_when_violations(tmp_path: Path, monkeypatch: pytest.Mo
     """Main returns one when violations."""
     _write_vendor_file(tmp_path, _REL, b"tampered();")
     manifest = tmp_path / "vendored_assets.json"
-    _write_manifest(manifest, [_entry(_REL, "deadbeef")])
+    _write_manifest(manifest, [_entry(_REL, _SHA_A)])
     monkeypatch.setattr(
         "scripts.lint.check_vendored_assets.VENDORED_ASSETS_MANIFEST_FILE", manifest
     )
