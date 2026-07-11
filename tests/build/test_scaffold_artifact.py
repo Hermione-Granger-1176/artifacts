@@ -228,6 +228,22 @@ def test_apply_contract_skips_existing_csp_with_reordered_unquoted_attributes() 
     assert result.count("http-equiv") == 1
 
 
+def test_apply_contract_injects_csp_when_meta_has_no_content() -> None:
+    """Test a CSP meta without a content attribute does not pose as a real policy."""
+    html = (
+        "<html><head>"
+        '<meta http-equiv="Content-Security-Policy">'
+        f"{scaffold_artifact.SHARED_STYLESHEET_LINK}"
+        f"{scaffold_artifact.APP_STYLESHEET_LINK}"
+        "</head><body></body></html>"
+    )
+
+    result = scaffold_artifact.apply_contract_to_source(html)
+
+    # The empty meta carries no policy, so the enforced one is still injected.
+    assert scaffold_artifact.CSP_META in result
+
+
 def test_apply_contract_injects_csp_when_only_report_only_meta_present() -> None:
     """Test a Report-Only CSP meta does not pose as the enforced policy."""
     html = (
@@ -293,6 +309,22 @@ def test_apply_contract_skips_existing_links_with_reordered_unquoted_attributes(
         f"{scaffold_artifact.CSP_META}"
         "<link href='../../css/style.css' rel='stylesheet'>"
         "<link rel=stylesheet href=./css/app.css>"
+        "</head><body></body></html>"
+    )
+
+    result = scaffold_artifact.apply_contract_to_source(html)
+
+    assert result == html
+    assert result.count("<link") == 2
+
+
+def test_apply_contract_skips_existing_self_closing_links() -> None:
+    """Test self-closing stylesheet links are detected and not duplicated."""
+    html = (
+        "<html><head>"
+        f"{scaffold_artifact.CSP_META}"
+        '<link rel="stylesheet" href="../../css/style.css"/>'
+        "<link rel='stylesheet' href='./css/app.css' />"
         "</head><body></body></html>"
     )
 

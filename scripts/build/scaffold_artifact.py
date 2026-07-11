@@ -79,11 +79,14 @@ _DOCTYPE_RE = re.compile(r"<!doctype[^>]*>", re.IGNORECASE)
 # tag, never loose prose or script text that merely names the header. Attribute
 # names and values are case-insensitive in HTML, order is free, and the value may be
 # single-quoted, double-quoted, or unquoted, so the pattern stays tolerant of all
-# three. The lookbehind keeps a data-http-equiv style attribute from posing as the
-# real one. The trailing negative lookahead requires a value terminator so a longer
-# header such as Content-Security-Policy-Report-Only cannot pose as the enforced one.
+# three. The leading lookahead requires a content attribute so a meta that names the
+# header but carries no policy still gets the enforced one injected. The lookbehinds
+# keep data-http-equiv / data-content style attributes from posing as the real ones.
+# The trailing negative lookahead requires a value terminator so a longer header such
+# as Content-Security-Policy-Report-Only cannot pose as the enforced one.
 _CSP_PRESENT_RE = re.compile(
-    r"""<meta\b[^>]*(?<![\w-])http-equiv\s*=\s*["']?\s*content-security-policy(?![\w-])""",
+    r"""<meta\b(?=[^>]*(?<![\w-])content\s*=)"""
+    r"""[^>]*(?<![\w-])http-equiv\s*=\s*["']?\s*content-security-policy(?![\w-])""",
     re.IGNORECASE,
 )
 
