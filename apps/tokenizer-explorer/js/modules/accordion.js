@@ -1,1 +1,1 @@
-export function initAccordion(r){r.addEventListener("click",i=>{const t=i.target.closest(".card-trigger");if(!t)return;const e=t.closest(".card");if(!e)return;const n=e.classList.toggle("open");t.setAttribute("aria-expanded",String(n))})}
+export function initAccordion(r){r.addEventListener("click",n=>{const t=n.target?.closest(".card-trigger");if(!t)return;const e=t.closest(".card");if(!e)return;const c=e.classList.toggle("open");t.setAttribute("aria-expanded",String(c))})}
