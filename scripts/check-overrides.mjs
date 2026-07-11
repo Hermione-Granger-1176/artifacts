@@ -188,6 +188,9 @@ export function runOverrideCheck({
   return 1;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  typeof process.argv[1] === "string" &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   process.exit(runOverrideCheck());
 }

@@ -368,6 +368,9 @@ export function runCoverageFloors({
   return 0;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  typeof process.argv[1] === "string" &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   process.exit(runCoverageFloors());
 }

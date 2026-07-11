@@ -85,7 +85,10 @@ export async function runWorkflowLint({
   return 0;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  typeof process.argv[1] === "string" &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   runWorkflowLint()
     .then((code) => {
       process.exitCode = code;
