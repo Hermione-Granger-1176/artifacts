@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import subprocess
 from dataclasses import dataclass
 from datetime import date
@@ -115,11 +116,17 @@ def _parse_npm_audit(payload: dict[str, object]) -> tuple[NpmVulnerabilityFindin
     return tuple(findings)
 
 
-def _run_npm_audit(npm_executable: str = "npm") -> tuple[NpmVulnerabilityFinding, ...]:
-    """Run ``npm audit --json`` and return parsed vulnerability findings."""
+def _run_npm_audit(npm_command: str = "npm") -> tuple[NpmVulnerabilityFinding, ...]:
+    """Run ``npm audit --json`` and return parsed vulnerability findings.
+
+    ``npm_command`` is a shell-style command string, so an override may carry
+    flags (for example ``npm --silent``). It is split with :func:`shlex.split`
+    before the ``audit --json`` arguments are appended.
+    """
+    command = [*shlex.split(npm_command), "audit", "--json"]
     try:
         result = subprocess.run(
-            [npm_executable, "audit", "--json"],
+            command,
             capture_output=True,
             check=False,
             text=True,
@@ -129,7 +136,7 @@ def _run_npm_audit(npm_executable: str = "npm") -> tuple[NpmVulnerabilityFinding
         raise RuntimeError("npm audit timed out after 120 seconds") from exc
     except FileNotFoundError as exc:
         raise RuntimeError(
-            f"npm executable not found: {npm_executable}. Install Node.js to run the audit."
+            f"npm executable not found: {npm_command}. Install Node.js to run the audit."
         ) from exc
 
     try:
@@ -228,7 +235,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--npm",
         default="npm",
-        help="npm executable to invoke (defaults to 'npm')",
+        help=(
+            "npm command to invoke, split with shlex so an override may carry "
+            "flags such as 'npm --silent' (defaults to 'npm')"
+        ),
     )
     return parser.parse_args(argv)
 

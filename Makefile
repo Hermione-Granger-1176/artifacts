@@ -273,7 +273,7 @@ audit-python: ## Export locked Python deps and run pip-audit
 	$(VENV_PYTHON) scripts/ci/run_security_audit.py --requirements .artifacts/requirements-audit.txt
 
 audit-node: ## Run policy-driven npm dependency audit with reviewed exceptions
-	$(VENV_PYTHON) scripts/ci/run_npm_audit.py --npm $(NPM)
+	$(VENV_PYTHON) scripts/ci/run_npm_audit.py --npm "$(NPM)"
 
 audit-fix-node: ## Apply available npm audit fixes to package-lock.json
 	$(NPM) audit fix --package-lock-only
