@@ -4,11 +4,17 @@
 These helpers keep trust-boundary decisions and artifact validation in tested
 Python instead of inline shell.
 
-Most subcommands are GitHub Actions entry points; the workflows invoke this CLI
-through the Make targets below, so prefer those targets over calling this module
-directly.
+Most subcommands are GitHub Actions entry points; workflow steps and local runs
+invoke this CLI through the Make targets below, so prefer those targets over
+calling this module directly. The exceptions are the thumbnail plan and
+validation subcommands (thumbnail-plan, invalidate-thumbnails,
+validate-thumbnail-artifact), which update.yml invokes directly because their
+arguments come straight from the GitHub event context.
 
 Examples:
+    PLAN_JSON='{"browser_scope": "none", ...}' make ci-plan-outputs
+    make ci-coverage-summary report=js-coverage.txt
+    make ci-finalize-pages-dir root=.pages-publish
     make ci-audit-repo-settings repo=owner/repo
     make ci-audit-previews repo=owner/repo
     make ci-alert-issue title="Alert title" \

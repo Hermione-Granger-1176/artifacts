@@ -542,7 +542,7 @@ pr-close: ## Close the current PR and delete branch
 
 # ─── CI @ci ───────────────────────────────────────────────────────────────────
 
-.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-audit-repo-settings ci-audit-previews ci-alert-issue refresh-action-shas issues
+.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-plan-outputs ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-alert-issue refresh-action-shas issues
 
 ci-runs: ## List recent CI workflow runs
 	gh run list -L "$(if $(limit),$(limit),10)"
@@ -568,11 +568,24 @@ ci-watch: ## Watch the latest CI run until done
 ci-failures: ## Show failed-step logs for this branch's latest run (make ci-failures [run=ID])
 	@$(GH) ci-failures $(if $(run),--run $(run))
 
-# The three monitor helpers below run on the system interpreter (PYTHONPATH=.
-# $(PYTHON)) instead of $(VENV_PYTHON): the scheduled monitor workflows call
-# them without provisioning a venv, and the setup-failure alert path must work
-# even when dependency installation itself failed. The helpers and everything
-# they import are stdlib-only. All of them read GH_TOKEN from the environment.
+# The workflow helpers below run on the system interpreter (PYTHONPATH=.
+# $(PYTHON)) instead of $(VENV_PYTHON): the scheduled monitor workflows and the
+# update.yml plan, publish, and cleanup jobs call them in contexts without a
+# provisioned venv, and the coverage-summary and setup-failure alert paths must
+# work even when dependency installation itself failed. The helpers and
+# everything they import are stdlib-only. The monitor helpers read GH_TOKEN
+# from the environment.
+ci-plan-outputs: ## Emit automation plan step outputs (reads PLAN_JSON from the environment)
+	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py plan-outputs
+
+ci-coverage-summary: ## Summarize a JS coverage report (make ci-coverage-summary report=js-coverage.txt)
+	@test -n "$(report)" || (printf 'Usage: make ci-coverage-summary report=js-coverage.txt\n' >&2; exit 1)
+	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py coverage-summary --report "$(report)"
+
+ci-finalize-pages-dir: ## Finalize a GitHub Pages payload directory (make ci-finalize-pages-dir root=DIR)
+	@test -n "$(root)" || (printf 'Usage: make ci-finalize-pages-dir root=.pages-publish\n' >&2; exit 1)
+	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py finalize-pages-dir --root "$(root)"
+
 ci-audit-repo-settings: ## Audit GitHub repo settings drift (make ci-audit-repo-settings [repo=owner/name])
 	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py audit-repo-settings \
 		--repo "$(if $(repo),$(repo),$(REPO))" \

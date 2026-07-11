@@ -107,6 +107,9 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
         "publish",
     }
 
+    plan_run = _step_run(_job(workflow, "plan"), "Compute browser and thumbnail plan")
+    assert 'PLAN_JSON="$plan" make ci-plan-outputs >> "$GITHUB_OUTPUT"' in plan_run
+
 
 def test_update_verify_job_runs_expected_make_targets() -> None:
     """Update verify job runs expected make targets."""
@@ -114,6 +117,9 @@ def test_update_verify_job_runs_expected_make_targets() -> None:
     verify = _job(workflow, "verify")
 
     assert "make setup-ci" in _step_run(verify, "Install workspace dependencies")
+
+    coverage_summary_run = _step_run(verify, "Report JavaScript coverage")
+    assert "make ci-coverage-summary report=js-coverage.txt" in coverage_summary_run
 
     parallel_step = _step(verify, "Run parallel checks")
     parallel_run = _step_run(verify, "Run parallel checks")
@@ -202,7 +208,7 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     assert "commit=$commit" in _step_run(publish, "Resolve gh-pages publish commit")
     materialize_run = _step_run(publish, "Materialize GitHub Pages payload")
     assert "git archive" in materialize_run
-    assert "finalize-pages-dir" in materialize_run
+    assert 'make ci-finalize-pages-dir root="$PAGES_PUBLISH_DIR"' in materialize_run
     assert _step_uses(publish, "Upload GitHub Pages artifact").startswith(
         "actions/upload-pages-artifact@"
     )
@@ -314,7 +320,7 @@ def test_update_thumbnail_persistence_and_cleanup_stay_bounded() -> None:
     assert "commit=$CLEANUP_COMMIT" in _step_run(cleanup, "Resolve gh-pages cleanup commit")
     cleanup_materialize_run = _step_run(cleanup, "Materialize GitHub Pages payload")
     assert "git archive" in cleanup_materialize_run
-    assert "finalize-pages-dir" in cleanup_materialize_run
+    assert 'make ci-finalize-pages-dir root="$PAGES_PUBLISH_DIR"' in cleanup_materialize_run
     assert _step_uses(cleanup, "Upload GitHub Pages artifact").startswith(
         "actions/upload-pages-artifact@"
     )
