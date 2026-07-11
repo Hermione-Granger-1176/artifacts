@@ -523,11 +523,11 @@ pr-summary: ## One-screen PR overview: state, CI rollup, open threads (make pr-s
 pr-watch: ## Wait until PR checks settle and a fresh Copilot review lands (make pr-watch [pr_num=N] [since=ISO] [interval=S] [max_polls=K] [checks_only=1])
 	@$(GH) watch $(if $(pr_num),--pr $(pr_num)) $(if $(since),--since "$(since)") $(if $(interval),--interval $(interval)) $(if $(max_polls),--max-polls $(max_polls)) $(if $(filter 1,$(checks_only)),--checks-only)
 
-pr-merge: ## Merge the current PR (squash, delete branch)
-	gh pr merge --squash --delete-branch
+pr-merge: ## Merge a PR (squash, delete branch) (make pr-merge [pr_num=N])
+	gh pr merge $(pr_num) --squash --delete-branch
 
-pr-merge-admin: ## Force merge bypassing branch protection (admin)
-	gh pr merge --squash --delete-branch --admin
+pr-merge-admin: ## Force merge bypassing branch protection (admin) (make pr-merge-admin [pr_num=N])
+	gh pr merge $(pr_num) --squash --delete-branch --admin
 
 pr-reviewers: ## Add reviewers (make pr-reviewers users="user1,user2")
 	@test -n "$(users)" || (printf 'Usage: make pr-reviewers users="octocat"\n' >&2; exit 1)
@@ -542,7 +542,7 @@ pr-close: ## Close the current PR and delete branch
 
 # ─── CI @ci ───────────────────────────────────────────────────────────────────
 
-.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-audit-repo-settings issues
+.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-plan-outputs ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-alert-issue refresh-action-shas issues
 
 ci-runs: ## List recent CI workflow runs
 	gh run list -L "$(if $(limit),$(limit),10)"
@@ -568,11 +568,49 @@ ci-watch: ## Watch the latest CI run until done
 ci-failures: ## Show failed-step logs for this branch's latest run (make ci-failures [run=ID])
 	@$(GH) ci-failures $(if $(run),--run $(run))
 
+# The workflow helpers below run on the system interpreter (PYTHONPATH=.
+# $(PYTHON)) instead of $(VENV_PYTHON): the scheduled monitor workflows and the
+# update.yml plan, publish, and cleanup jobs call them in contexts without a
+# provisioned venv, and the coverage-summary and setup-failure alert paths must
+# work even when dependency installation itself failed. The helpers and
+# everything they import are stdlib-only. The monitor helpers read GH_TOKEN
+# from the environment.
+ci-plan-outputs: ## Emit automation plan step outputs (reads PLAN_JSON from the environment)
+	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py plan-outputs
+
+ci-coverage-summary: ## Summarize a JS coverage report (make ci-coverage-summary report=js-coverage.txt)
+	@test -n "$(report)" || (printf 'Usage: make ci-coverage-summary report=js-coverage.txt\n' >&2; exit 1)
+	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py coverage-summary --report "$(report)"
+
+ci-finalize-pages-dir: ## Finalize a GitHub Pages payload directory (make ci-finalize-pages-dir root=DIR)
+	@test -n "$(root)" || (printf 'Usage: make ci-finalize-pages-dir root=.pages-publish\n' >&2; exit 1)
+	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py finalize-pages-dir --root "$(root)"
+
 ci-audit-repo-settings: ## Audit GitHub repo settings drift (make ci-audit-repo-settings [repo=owner/name])
-	$(VENV_PYTHON) scripts/ci/workflow_helpers.py audit-repo-settings \
+	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py audit-repo-settings \
 		--repo "$(if $(repo),$(repo),$(REPO))" \
 		--default-branch "$(if $(default_branch),$(default_branch),main)" \
 		--pages-branch "$(if $(pages_branch),$(pages_branch),gh-pages)"
+
+ci-audit-previews: ## Detect leaked gh-pages PR previews (make ci-audit-previews [repo=owner/name])
+	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py audit-previews \
+		--repo "$(if $(repo),$(repo),$(REPO))" \
+		--pages-branch "$(if $(pages_branch),$(pages_branch),gh-pages)"
+
+ci-alert-issue: ## Sync a monitored alert issue (title=, run_url=, state=open|close|setup-failure, [detail=] [detail_file=] [labels="ops ci"] [repo=])
+	@test -n "$(title)" -a -n "$(run_url)" -a -n "$(state)" || \
+		(printf 'Usage: make ci-alert-issue title="..." run_url=https://... state=open|close|setup-failure [detail="..."] [detail_file=path] [labels="ops ci"] [repo=owner/name]\n' >&2; exit 1)
+	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py sync-alert-issue \
+		--repo "$(if $(repo),$(repo),$(REPO))" \
+		--title "$(title)" \
+		--run-url "$(run_url)" \
+		--state "$(state)" \
+		--detail "$(detail)" \
+		--detail-file "$(detail_file)" \
+		$(foreach label,$(labels),--label $(label))
+
+refresh-action-shas: ## Repin tag-based GitHub Actions refs to commit SHAs (needs GH_TOKEN)
+	PYTHONPATH=. $(PYTHON) -m scripts.ci.refresh_action_shas
 
 issues: ## List open issues
 	gh issue list

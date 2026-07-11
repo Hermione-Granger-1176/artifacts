@@ -4,36 +4,37 @@
 These helpers keep trust-boundary decisions and artifact validation in tested
 Python instead of inline shell.
 
-Workflow entry points used by GitHub Actions. For normal local use, prefer
-`make ci` wrappers instead of calling this module directly.
+Most subcommands are GitHub Actions entry points; workflow steps and local runs
+invoke this CLI through the Make targets below, so prefer those targets over
+calling this module directly. The exceptions are the thumbnail plan and
+validation subcommands (thumbnail-plan, invalidate-thumbnails,
+validate-thumbnail-artifact), which update.yml invokes directly because their
+arguments come straight from the GitHub event context.
 
 Examples:
-    python scripts/ci/workflow_helpers.py app-token-policy --event-name pull_request \
-        --head-repo-fork false --pr-author login
-    python scripts/ci/workflow_helpers.py read-lock-metadata --root .artifacts/lock-refresh
-    python scripts/ci/workflow_helpers.py validate-lock-artifact --root .artifacts/lock-refresh
-    python scripts/ci/workflow_helpers.py invalidate-thumbnails --event-name pull_request \
-        --repo owner/repo --pr-number 42
-    python scripts/ci/workflow_helpers.py thumbnail-plan --event-name push \
-        --repo owner/repo --commit-sha abc123 \
-        --actor bot-login[bot] --app-bot-login bot-login[bot]
-    python scripts/ci/workflow_helpers.py validate-thumbnail-artifact \
-        --root .artifacts/thumbnail-persist
-    python scripts/ci/workflow_helpers.py audit-repo-settings --repo owner/repo
-    python scripts/ci/workflow_helpers.py sync-alert-issue --repo owner/repo \
-        --title "Alert title" --body "Alert body" --label ci --should-exist true
+    PLAN_JSON='{"browser_scope": "none", ...}' make ci-plan-outputs
+    make ci-coverage-summary report=js-coverage.txt
+    make ci-finalize-pages-dir root=.pages-publish
+    make ci-audit-repo-settings repo=owner/repo
+    make ci-audit-previews repo=owner/repo
+    make ci-alert-issue title="Alert title" \
+        run_url=https://github.com/owner/repo/actions/runs/1 \
+        state=open detail="Optional extra context"
+    make refresh-action-shas
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 
 from scripts.build import thumbnail_plan as _thumbnail_plan
+from scripts.ci import audit_previews as _audit_previews
 from scripts.ci import issue_alerts as _issue_alerts
 from scripts.ci import repo_audit as _repo_audit
 from scripts.lib import app_discovery as _app_discovery
@@ -238,6 +239,15 @@ def audit_repo_settings(
     )
 
 
+def audit_previews(*, repo: str, pages_branch: str = "gh-pages") -> list[str]:
+    """Detect leaked PR preview directories on the pages branch."""
+    return _audit_previews.audit_previews(
+        repo=repo,
+        pages_branch=pages_branch,
+        run_gh_api_json_fn=_run_gh_api_json,
+    )
+
+
 def list_changed_files(*, event_name: str, repo: str, pr_number: str, commit_sha: str) -> list[str]:
     """Return the changed file list for a pull request or push event."""
     return _thumbnail_plan.list_changed_files(
@@ -263,6 +273,69 @@ def invalidate_thumbnails(
     )
 
 
+# The node test reporter prefixes these lines with an info symbol; matching on
+# the ASCII part keeps this module free of ambiguous unicode characters.
+JS_COVERAGE_START_MARKER = "start of coverage report"
+JS_COVERAGE_END_MARKER = "end of coverage report"
+
+
+def _plan_str(plan: dict[str, object], key: str) -> str:
+    """Return a required string field from a thumbnail automation plan."""
+    value = plan.get(key)
+    if not isinstance(value, str):
+        raise ValueError(f"Plan field {key} must be a string")
+    return value
+
+
+def _plan_slug_csv(plan: dict[str, object], key: str) -> str:
+    """Return a plan slug list joined into a comma-separated string."""
+    value = plan.get(key)
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"Plan field {key} must be a list of strings")
+    return ",".join(value)
+
+
+def _plan_bool(plan: dict[str, object], key: str) -> bool:
+    """Return a required boolean field from a thumbnail automation plan."""
+    value = plan.get(key)
+    if not isinstance(value, bool):
+        raise ValueError(f"Plan field {key} must be a boolean")
+    return value
+
+
+def plan_output_lines(plan: dict[str, object]) -> list[str]:
+    """Flatten a thumbnail automation plan into workflow output key=value lines."""
+    skip = "true" if _plan_bool(plan, "skip_verification") else "false"
+    return [
+        f"browser-scope={_plan_str(plan, 'browser_scope')}",
+        f"changed-slugs={_plan_slug_csv(plan, 'changed_slugs')}",
+        f"thumbnail-scope={_plan_str(plan, 'thumbnail_scope')}",
+        f"thumbnail-slugs={_plan_slug_csv(plan, 'thumbnail_slugs')}",
+        f"persist-mode={_plan_str(plan, 'persist_mode')}",
+        f"reason={_plan_str(plan, 'reason')}",
+        f"skip-verification={skip}",
+    ]
+
+
+def extract_coverage_snippet(report: str, *, source: str) -> str:
+    """Return the marker-delimited coverage section from a JS coverage report."""
+    start = report.find(JS_COVERAGE_START_MARKER)
+    if start == -1:
+        raise ValueError(f"Coverage report markers not found in {source}")
+    # Search past the start marker so an end marker appearing earlier in the
+    # report cannot produce an inverted or partial slice.
+    end = report.find(JS_COVERAGE_END_MARKER, start + len(JS_COVERAGE_START_MARKER))
+    if end == -1:
+        raise ValueError(f"Coverage report markers not found in {source}")
+    return report[start : end + len(JS_COVERAGE_END_MARKER)]
+
+
+def finalize_pages_dir(root: Path) -> None:
+    """Validate a materialized pages payload and add the .nojekyll marker."""
+    reject_symlinks(root)
+    (root / ".nojekyll").touch()
+
+
 def _issue_payloads_by_title(repo: str, title: str) -> list[dict[str, object]]:
     """Return open issue payloads whose title exactly matches ``title``."""
     return _issue_alerts.issue_payloads_by_title(
@@ -278,11 +351,9 @@ def sync_alert_issue(
     title: str,
     body: str,
     labels: list[str],
-    issue_url: str = "",
     should_exist: bool,
 ) -> str:
     """Create, update, close, or reuse one alert issue addressed by exact title."""
-    del issue_url
     return _issue_alerts.sync_alert_issue(
         repo=repo,
         title=title,
@@ -343,6 +414,23 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     thumbnail_artifact_parser.add_argument("--root", required=True)
 
+    subparsers.add_parser(
+        "plan-outputs",
+        help="Flatten the PLAN_JSON environment variable into workflow output lines",
+    )
+
+    coverage_parser = subparsers.add_parser(
+        "coverage-summary",
+        help="Print the JavaScript coverage summary markdown for the step summary",
+    )
+    coverage_parser.add_argument("--report", required=True)
+
+    pages_parser = subparsers.add_parser(
+        "finalize-pages-dir",
+        help="Reject symlinks in a materialized pages payload and add .nojekyll",
+    )
+    pages_parser.add_argument("--root", required=True)
+
     audit_parser = subparsers.add_parser(
         "audit-repo-settings",
         help="Audit critical GitHub repository settings used by deployment workflows",
@@ -351,16 +439,26 @@ def _build_parser() -> argparse.ArgumentParser:
     audit_parser.add_argument("--default-branch", default="main")
     audit_parser.add_argument("--pages-branch", default="gh-pages")
 
+    previews_parser = subparsers.add_parser(
+        "audit-previews",
+        help="Detect leaked PR preview directories on the GitHub Pages branch",
+    )
+    previews_parser.add_argument("--repo", required=True)
+    previews_parser.add_argument("--pages-branch", default="gh-pages")
+
     alert_parser = subparsers.add_parser(
         "sync-alert-issue",
         help="Ensure one GitHub issue exists or is closed for a monitored alert",
     )
     alert_parser.add_argument("--repo", required=True)
     alert_parser.add_argument("--title", required=True)
-    alert_parser.add_argument("--body", required=True)
+    alert_parser.add_argument("--run-url", required=True)
+    alert_parser.add_argument(
+        "--state", required=True, choices=sorted(_issue_alerts.ALERT_BODY_LEADS)
+    )
+    alert_parser.add_argument("--detail", default="")
+    alert_parser.add_argument("--detail-file", default="")
     alert_parser.add_argument("--label", action="append", default=[])
-    alert_parser.add_argument("--issue-url", default="")
-    alert_parser.add_argument("--should-exist", required=True)
 
     return parser
 
@@ -424,6 +522,34 @@ def _handle_validate_thumbnail_artifact(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_plan_outputs(args: argparse.Namespace) -> int:
+    """Print flattened plan outputs read from the PLAN_JSON environment variable."""
+    del args
+    raw_plan = os.environ.get("PLAN_JSON", "")
+    if not raw_plan:
+        raise ValueError("PLAN_JSON environment variable is required")
+    plan = json.loads(raw_plan)
+    if not isinstance(plan, dict):
+        raise ValueError("PLAN_JSON must be a JSON object")
+    for line in plan_output_lines(plan):
+        print(line)
+    return 0
+
+
+def _handle_coverage_summary(args: argparse.Namespace) -> int:
+    """Print the JavaScript coverage summary markdown for GITHUB_STEP_SUMMARY."""
+    report = Path(args.report).read_text(encoding="utf-8")
+    snippet = extract_coverage_snippet(report, source=args.report)
+    print(f"## JavaScript Coverage\n\n```text\n{snippet}\n```")
+    return 0
+
+
+def _handle_finalize_pages_dir(args: argparse.Namespace) -> int:
+    """Validate a materialized pages payload and add the .nojekyll marker."""
+    finalize_pages_dir(Path(args.root))
+    return 0
+
+
 def _handle_audit_repo_settings(args: argparse.Namespace) -> int:
     """Audit repository settings and print a JSON summary when they match expectations."""
     summary = audit_repo_settings(
@@ -435,15 +561,36 @@ def _handle_audit_repo_settings(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_audit_previews(args: argparse.Namespace) -> int:
+    """Audit PR preview directories and print the live previews as JSON."""
+    previews = audit_previews(repo=args.repo, pages_branch=args.pages_branch)
+    # Sorted so the output does not depend on Git trees API response ordering.
+    print(json.dumps({"open-previews": sorted(previews)}, sort_keys=True))
+    return 0
+
+
+def _alert_detail(args: argparse.Namespace) -> str:
+    """Combine inline detail text and the optional detail file into one block."""
+    parts = [args.detail] if args.detail else []
+    if args.detail_file:
+        content = Path(args.detail_file).read_text(encoding="utf-8").strip()
+        parts.append(f"Current failure output:\n\n```text\n{content}\n```")
+    return "\n\n".join(parts)
+
+
 def _handle_sync_alert_issue(args: argparse.Namespace) -> int:
     """Synchronize one alert issue with the current monitored state."""
+    body = _issue_alerts.build_alert_body(
+        state=args.state,
+        run_url=args.run_url,
+        detail=_alert_detail(args),
+    )
     issue_url = sync_alert_issue(
         repo=args.repo,
         title=args.title,
-        body=args.body,
-        labels=args.label,
-        issue_url=args.issue_url,
-        should_exist=_parse_bool(args.should_exist),
+        body=body,
+        labels=args.label or list(_issue_alerts.ALERT_LABELS),
+        should_exist=_issue_alerts.alert_should_exist(args.state),
     )
     print(issue_url)
     return 0
@@ -456,7 +603,11 @@ COMMAND_HANDLERS = {
     "invalidate-thumbnails": _handle_invalidate_thumbnails,
     "thumbnail-plan": _handle_thumbnail_plan,
     "validate-thumbnail-artifact": _handle_validate_thumbnail_artifact,
+    "plan-outputs": _handle_plan_outputs,
+    "coverage-summary": _handle_coverage_summary,
+    "finalize-pages-dir": _handle_finalize_pages_dir,
     "audit-repo-settings": _handle_audit_repo_settings,
+    "audit-previews": _handle_audit_previews,
     "sync-alert-issue": _handle_sync_alert_issue,
 }
 

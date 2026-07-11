@@ -7,6 +7,7 @@ on:
 
 env:
   PYTHONPATH: "."
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
   audit:
@@ -35,13 +36,17 @@ jobs:
           GH_TOKEN: ${{ steps.setup.outputs.audit-token }}
         run: |
           set +e
-          python3 scripts/ci/workflow_helpers.py audit-repo-settings \
-            --repo "${{ github.repository }}" \
-            --default-branch main \
-            --pages-branch gh-pages > audit-repo-settings.json 2>&1
-          status=$?
+          make ci-audit-repo-settings > audit-repo-settings.json 2>&1
+          settings_status=$?
+          make ci-audit-previews >> audit-repo-settings.json 2>&1
+          previews_status=$?
           set -e
           cat audit-repo-settings.json
+          if [ "$settings_status" -ne 0 ] || [ "$previews_status" -ne 0 ]; then
+            status=1
+          else
+            status=0
+          fi
           echo "status=$status" >> "$GITHUB_OUTPUT"
           exit 0
 
@@ -51,44 +56,14 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.setup.outputs.audit-token }}
         run: |
-          body=$(cat <<EOF
-          Repository settings drift was detected by the scheduled audit workflow.
-
-          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-          Current failure output:
-          \`\`\`text
-          $(cat audit-repo-settings.json)
-          \`\`\`
-          EOF
-          )
-          issue_url=$(python3 scripts/ci/workflow_helpers.py sync-alert-issue \
-            --repo "${{ github.repository }}" \
-            --title "Repository settings drift detected" \
-            --body "$body" \
-            --label ops \
-            --label ci \
-            --should-exist true)
-          echo "url=$issue_url" >> "$GITHUB_OUTPUT"
+          url=$(make ci-alert-issue state=open title="Repository settings drift detected" run_url="$RUN_URL" detail_file=audit-repo-settings.json)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Close repository settings drift issue when clean
         if: steps.audit.outputs.status == '0'
         env:
           GH_TOKEN: ${{ steps.setup.outputs.audit-token }}
-        run: |
-          body=$(cat <<'EOF'
-          Repository settings drift is no longer detected.
-
-          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          EOF
-          )
-          python3 scripts/ci/workflow_helpers.py sync-alert-issue \
-            --repo "${{ github.repository }}" \
-            --title "Repository settings drift detected" \
-            --body "$body" \
-            --label ops \
-            --label ci \
-            --should-exist false >/dev/null
+        run: make ci-alert-issue state=close title="Repository settings drift detected" run_url="$RUN_URL"
 
       - name: Summarize audit
         if: steps.audit.outputs.status == '0'
@@ -111,6 +86,12 @@ jobs:
             echo
             echo "Issue: ${{ steps.drift-issue.outputs.url || 'issue not created' }}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Alert when repository settings audit setup fails
+        if: failure() && steps.audit.outputs.status == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make ci-alert-issue state=setup-failure title="Repository settings drift detected" run_url="$RUN_URL"
 
       - name: Fail workflow when audit detects drift
         if: steps.audit.outputs.status != '0'

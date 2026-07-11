@@ -9,6 +9,36 @@ if TYPE_CHECKING:
 
 ISSUE_TITLE_MATCH_LIMIT = 100
 
+ALERT_LABELS = ("ops", "ci")
+
+ALERT_BODY_LEADS = {
+    "open": "Scheduled checks behind this alert are failing.",
+    "close": "Scheduled checks behind this alert are passing again.",
+    "setup-failure": (
+        "The scheduled workflow failed before its checks could report a status, "
+        "so this is likely a setup or infrastructure failure rather than a check "
+        "regression. Inspect the failed run logs to find the failing setup step."
+    ),
+}
+
+
+def alert_should_exist(state: str) -> bool:
+    """Return whether the alert issue should exist after syncing ``state``."""
+    if state not in ALERT_BODY_LEADS:
+        raise ValueError(f"Unsupported alert state: {state}")
+    return state != "close"
+
+
+def build_alert_body(*, state: str, run_url: str, detail: str = "") -> str:
+    """Build the canned alert issue body for one monitored workflow state."""
+    lead = ALERT_BODY_LEADS.get(state)
+    if lead is None:
+        raise ValueError(f"Unsupported alert state: {state}")
+    body = f"{lead}\n\nWorkflow run: {run_url}"
+    if detail:
+        body = f"{body}\n\n{detail}"
+    return body
+
 
 def issue_payloads_by_title(
     repo: str,

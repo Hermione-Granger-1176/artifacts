@@ -179,15 +179,158 @@ def test_main_rejects_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
         workflow_helpers.main([])
 
 
-def test_main_sync_alert_issue_prints_issue_url(
+def test_main_plan_outputs_flattens_plan_json(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Test main sync alert issue prints issue url."""
-    monkeypatch.setattr(
-        workflow_helpers,
-        "sync_alert_issue",
-        lambda **_kwargs: "https://github.com/owner/repo/issues/3",
+    """Test the plan-outputs command flattens the plan JSON."""
+    plan = {
+        "browser_scope": "changed",
+        "changed_slugs": ["demo", "other"],
+        "thumbnail_scope": "changed",
+        "thumbnail_slugs": ["demo"],
+        "persist_mode": "pr-branch",
+        "reason": "runtime files changed",
+        "skip_verification": False,
+    }
+    monkeypatch.setenv("PLAN_JSON", json.dumps(plan))
+
+    assert workflow_helpers.main(["plan-outputs"]) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "browser-scope=changed",
+        "changed-slugs=demo,other",
+        "thumbnail-scope=changed",
+        "thumbnail-slugs=demo",
+        "persist-mode=pr-branch",
+        "reason=runtime files changed",
+        "skip-verification=false",
+    ]
+
+
+def test_main_plan_outputs_reports_true_skip_verification(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test main plan outputs reports true skip verification."""
+    plan = {
+        "browser_scope": "none",
+        "changed_slugs": [],
+        "thumbnail_scope": "none",
+        "thumbnail_slugs": [],
+        "persist_mode": "none",
+        "reason": "no runtime changes",
+        "skip_verification": True,
+    }
+    monkeypatch.setenv("PLAN_JSON", json.dumps(plan))
+
+    assert workflow_helpers.main(["plan-outputs"]) == 0
+    assert "skip-verification=true" in capsys.readouterr().out.splitlines()
+
+
+def test_main_plan_outputs_requires_plan_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test main plan outputs requires plan json."""
+    monkeypatch.delenv("PLAN_JSON", raising=False)
+    with pytest.raises(ValueError, match="PLAN_JSON environment variable is required"):
+        workflow_helpers.main(["plan-outputs"])
+
+
+def test_main_plan_outputs_rejects_non_object_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test main plan outputs rejects non object payload."""
+    monkeypatch.setenv("PLAN_JSON", "[]")
+    with pytest.raises(ValueError, match="PLAN_JSON must be a JSON object"):
+        workflow_helpers.main(["plan-outputs"])
+
+
+def test_plan_output_lines_rejects_malformed_fields() -> None:
+    """Test plan output lines rejects malformed fields."""
+    valid = {
+        "browser_scope": "none",
+        "changed_slugs": [],
+        "thumbnail_scope": "none",
+        "thumbnail_slugs": [],
+        "persist_mode": "none",
+        "reason": "no runtime changes",
+        "skip_verification": False,
+    }
+    with pytest.raises(ValueError, match="Plan field browser_scope must be a string"):
+        workflow_helpers.plan_output_lines({**valid, "browser_scope": 1})
+    with pytest.raises(ValueError, match="Plan field changed_slugs must be a list of strings"):
+        workflow_helpers.plan_output_lines({**valid, "changed_slugs": "demo"})
+    with pytest.raises(ValueError, match="Plan field changed_slugs must be a list of strings"):
+        workflow_helpers.plan_output_lines({**valid, "changed_slugs": ["demo", 2]})
+    with pytest.raises(ValueError, match="Plan field skip_verification must be a boolean"):
+        workflow_helpers.plan_output_lines({**valid, "skip_verification": "false"})
+
+
+def test_main_coverage_summary_prints_marked_section(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    """Test main coverage summary prints marked section."""
+    report = tmp_path / "js-coverage.txt"
+    report.write_text(
+        "noise before\n"
+        "start of coverage report\n"
+        "all files | 100 |\n"
+        "end of coverage report\n"
+        "noise after\n",
+        encoding="utf-8",
     )
+
+    assert workflow_helpers.main(["coverage-summary", "--report", str(report)]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("## JavaScript Coverage\n\n```text\n")
+    assert "all files | 100 |" in out
+    assert "noise before" not in out
+    assert "noise after" not in out
+    assert out.rstrip().endswith("```")
+
+
+def test_main_coverage_summary_rejects_missing_markers(tmp_path: Path) -> None:
+    """Test main coverage summary rejects missing markers."""
+    no_markers = tmp_path / "empty.txt"
+    no_markers.write_text("no markers here\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="Coverage report markers not found"):
+        workflow_helpers.main(["coverage-summary", "--report", str(no_markers)])
+
+    start_only = tmp_path / "start-only.txt"
+    start_only.write_text("start of coverage report\nrows\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="Coverage report markers not found"):
+        workflow_helpers.main(["coverage-summary", "--report", str(start_only)])
+
+    inverted = tmp_path / "inverted.txt"
+    inverted.write_text(
+        "end of coverage report\nrows\nstart of coverage report\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="Coverage report markers not found"):
+        workflow_helpers.main(["coverage-summary", "--report", str(inverted)])
+
+
+def test_main_finalize_pages_dir_adds_nojekyll(tmp_path: Path) -> None:
+    """Test main finalize pages dir adds nojekyll."""
+    (tmp_path / "index.html").write_text("<p>hi</p>", encoding="utf-8")
+
+    assert workflow_helpers.main(["finalize-pages-dir", "--root", str(tmp_path)]) == 0
+    assert (tmp_path / ".nojekyll").is_file()
+
+
+def test_main_finalize_pages_dir_rejects_symlinked_payloads(tmp_path: Path) -> None:
+    """Test main finalize pages dir rejects symlinked payloads."""
+    (tmp_path / "escape").symlink_to("/etc")
+
+    with pytest.raises(ValueError):
+        workflow_helpers.main(["finalize-pages-dir", "--root", str(tmp_path)])
+    assert not (tmp_path / ".nojekyll").exists()
+
+
+def test_main_sync_alert_issue_builds_open_body_and_prints_issue_url(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test main sync alert issue builds open body and prints issue url."""
+    captured: dict[str, object] = {}
+
+    def fake_sync_alert_issue(**kwargs: object) -> str:
+        captured.update(kwargs)
+        return "https://github.com/owner/repo/issues/3"
+
+    monkeypatch.setattr(workflow_helpers, "sync_alert_issue", fake_sync_alert_issue)
 
     exit_code = workflow_helpers.main(
         [
@@ -196,14 +339,96 @@ def test_main_sync_alert_issue_prints_issue_url(
             "owner/repo",
             "--title",
             "Artifact alert",
-            "--body",
-            "Body",
+            "--run-url",
+            "https://github.com/owner/repo/actions/runs/9",
+            "--state",
+            "open",
             "--label",
-            "ci",
-            "--should-exist",
-            "true",
+            "custom",
         ]
     )
 
     assert exit_code == 0
     assert capsys.readouterr().out.strip() == "https://github.com/owner/repo/issues/3"
+    assert captured["repo"] == "owner/repo"
+    assert captured["title"] == "Artifact alert"
+    assert captured["labels"] == ["custom"]
+    assert captured["should_exist"] is True
+    body = captured["body"]
+    assert isinstance(body, str)
+    assert "Workflow run: https://github.com/owner/repo/actions/runs/9" in body
+
+
+def test_main_sync_alert_issue_close_uses_default_labels(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test main sync alert issue close uses default labels."""
+    captured: dict[str, object] = {}
+
+    def fake_sync_alert_issue(**kwargs: object) -> str:
+        captured.update(kwargs)
+        return ""
+
+    monkeypatch.setattr(workflow_helpers, "sync_alert_issue", fake_sync_alert_issue)
+
+    exit_code = workflow_helpers.main(
+        [
+            "sync-alert-issue",
+            "--repo",
+            "owner/repo",
+            "--title",
+            "Artifact alert",
+            "--run-url",
+            "https://github.com/owner/repo/actions/runs/9",
+            "--state",
+            "close",
+        ]
+    )
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.strip() == ""
+    assert captured["labels"] == ["ops", "ci"]
+    assert captured["should_exist"] is False
+
+
+def test_main_sync_alert_issue_combines_detail_and_detail_file(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """Test main sync alert issue combines detail and detail file."""
+    captured: dict[str, object] = {}
+
+    def fake_sync_alert_issue(**kwargs: object) -> str:
+        captured.update(kwargs)
+        return "https://github.com/owner/repo/issues/4"
+
+    monkeypatch.setattr(workflow_helpers, "sync_alert_issue", fake_sync_alert_issue)
+    detail_file = tmp_path / "audit.json"
+    detail_file.write_text('{"drift": true}\n', encoding="utf-8")
+
+    exit_code = workflow_helpers.main(
+        [
+            "sync-alert-issue",
+            "--repo",
+            "owner/repo",
+            "--title",
+            "Artifact alert",
+            "--run-url",
+            "https://github.com/owner/repo/actions/runs/9",
+            "--state",
+            "setup-failure",
+            "--detail",
+            "Published URL: https://example.test/",
+            "--detail-file",
+            str(detail_file),
+        ]
+    )
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.strip() == "https://github.com/owner/repo/issues/4"
+    assert captured["should_exist"] is True
+    body = captured["body"]
+    assert isinstance(body, str)
+    assert "Published URL: https://example.test/" in body
+    assert 'Current failure output:\n\n```text\n{"drift": true}\n```' in body
