@@ -115,16 +115,21 @@ function mergeFileBlocks(blocks) {
   const detailBlocks = blocks.filter((block) => block.lines.size > 0 || block.branchRows.size > 0);
 
   if (detailBlocks.length === 0) {
-    // Summary-only reports: take the best block per counter pair.
-    const best = blocks.reduce((left, right) =>
+    // Summary-only reports: take the best block per counter pair, independently
+    // for lines and branches, so one block's weak branch numbers cannot ride in
+    // on its strong line numbers.
+    const bestLines = blocks.reduce((left, right) =>
       right.summary.lh > left.summary.lh ? right : left,
+    );
+    const bestBranches = blocks.reduce((left, right) =>
+      right.summary.brh > left.summary.brh ? right : left,
     );
     return {
       file,
-      linesFound: best.summary.lf,
-      linesHit: best.summary.lh,
-      branchesFound: best.summary.brf,
-      branchesHit: best.summary.brh,
+      linesFound: bestLines.summary.lf,
+      linesHit: bestLines.summary.lh,
+      branchesFound: bestBranches.summary.brf,
+      branchesHit: bestBranches.summary.brh,
     };
   }
 

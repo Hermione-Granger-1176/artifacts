@@ -96,6 +96,33 @@ test('parseLcov merges duplicate SF blocks by unioning line and branch hits', ()
   assert.equal(record.branchesHit, 2);
 });
 
+test('parseLcov merges summary-only duplicate blocks per counter pair', () => {
+  const summaries = [
+    'SF:js/app.js',
+    'LF:10',
+    'LH:9',
+    'BRF:4',
+    'BRH:1',
+    'end_of_record',
+    'SF:js/app.js',
+    'LF:10',
+    'LH:5',
+    'BRF:4',
+    'BRH:4',
+    'end_of_record',
+    ''
+  ].join('\n');
+
+  const records = parseLcov(summaries);
+  assert.equal(records.length, 1, 'summary-only blocks collapse to one file record');
+  const record = records[0];
+  // The best line pair and the best branch pair come from different blocks.
+  assert.equal(record.linesFound, 10);
+  assert.equal(record.linesHit, 9);
+  assert.equal(record.branchesFound, 4);
+  assert.equal(record.branchesHit, 4);
+});
+
 test('parseLcov keys branch arms by line position, not process-local block ids', () => {
   // The same source branch shows up with block id 2 in one process and 6 in
   // another (V8 block ids are process-local). It must merge as one arm.
