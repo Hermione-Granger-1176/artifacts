@@ -342,6 +342,27 @@ test('runCoverageFloors returns 1 and cleans up when the test run fails', () => 
   assert.equal(removed, true);
 });
 
+test('runCoverageFloors cleans up the temp report when the fallback read throws', () => {
+  let removed = false;
+  assert.throws(
+    () =>
+      runCoverageFloors({
+        execFileSyncImpl: () => '',
+        existsSyncImpl: () => false,
+        readFileSyncImpl: () => {
+          throw new Error('read failed');
+        },
+        rmSyncImpl: () => {
+          removed = true;
+        },
+        consoleObj: silentLogger(),
+        rootDir: '/repo'
+      }),
+    /read failed/
+  );
+  assert.equal(removed, true, 'the temp lcov file is removed even when the read throws');
+});
+
 /** Minimal console stub that ignores log and error output. */
 function silentLogger() {
   return { log() {}, error() {} };

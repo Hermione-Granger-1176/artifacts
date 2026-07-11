@@ -321,26 +321,30 @@ export function runCoverageFloors({
     lcov = readFileSyncImpl(sharedReport, "utf-8");
   } else {
     const dest = join(tmpdir(), `js-coverage-floors-${process.pid}.lcov`);
+    // The finally block guarantees the temp report never leaks, whether the
+    // suite run fails, the read throws, or everything succeeds.
     try {
-      execFileSyncImpl(
-        "node",
-        [
-          "--experimental-test-coverage",
-          ...COVERAGE_EXCLUDES.map((pattern) => `--test-coverage-exclude=${pattern}`),
-          "--test-reporter=lcov",
-          `--test-reporter-destination=${dest}`,
-          "--test",
-          "tests/js/**/*.test.js",
-        ],
-        { cwd: rootDir, stdio: ["ignore", "ignore", "inherit"] },
-      );
-    } catch {
-      consoleObj.error("JS test run failed; cannot evaluate per-file coverage floors.");
+      try {
+        execFileSyncImpl(
+          "node",
+          [
+            "--experimental-test-coverage",
+            ...COVERAGE_EXCLUDES.map((pattern) => `--test-coverage-exclude=${pattern}`),
+            "--test-reporter=lcov",
+            `--test-reporter-destination=${dest}`,
+            "--test",
+            "tests/js/**/*.test.js",
+          ],
+          { cwd: rootDir, stdio: ["ignore", "ignore", "inherit"] },
+        );
+      } catch {
+        consoleObj.error("JS test run failed; cannot evaluate per-file coverage floors.");
+        return 1;
+      }
+      lcov = readFileSyncImpl(dest, "utf-8");
+    } finally {
       rmSyncImpl(dest, { force: true });
-      return 1;
     }
-    lcov = readFileSyncImpl(dest, "utf-8");
-    rmSyncImpl(dest, { force: true });
   }
 
   const outcome = evaluateCoverageFloors(parseLcov(lcov), {
