@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Interactive explainer for LLM next-token probabilities, temperature scaling, and top-p sampling.">
+  <link rel="canonical" href="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/">
+  <meta property="og:title" content="Tokenizer: Temperature & Top P Explorer | Artifacts">
+  <meta property="og:description" content="Interactive explainer for LLM next-token probabilities, temperature scaling, and top-p sampling.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/">
+  <meta property="og:site_name" content="Artifacts">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=412adc8">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=412adc8">
+  <meta property="og:image:alt" content="Preview card for the Tokenizer: Temperature & Top P Explorer app.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Tokenizer: Temperature & Top P Explorer | Artifacts">
+  <meta name="twitter:description" content="Interactive explainer for LLM next-token probabilities, temperature scaling, and top-p sampling.">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=412adc8">
+  <meta name="twitter:image:alt" content="Preview card for the Tokenizer: Temperature & Top P Explorer app.">
+  <meta name="theme-color" content="rgb(248, 248, 246)">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <title>Tokenizer: Temperature &amp; Top P Explorer | Artifacts</title>
+  <script src="../../js/app-theme.js?v=412adc8"></script>
+  <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
+  <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
+  <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
+  <link rel="stylesheet" href="../../css/style.css?v=412adc8">
+  <link rel="stylesheet" href="./css/app.css?v=412adc8">
+  <link rel="modulepreload" href="../../js/modules/app-shell.js">
+  <link rel="modulepreload" href="../../js/modules/runtime.js">
+  <link rel="modulepreload" href="../../js/modules/app-runtime.js">
+  <link rel="modulepreload" href="../../js/modules/element-cache.js">
+  <link rel="modulepreload" href="js/modules/accordion.js">
+  <link rel="modulepreload" href="js/modules/render.js">
+  <link rel="modulepreload" href="js/modules/scenarios.js">
+  <link rel="modulepreload" href="js/modules/sampling.js">
+</head>
+<body class="artifact-app app-tokenizer-explorer">
+  <div data-app-shell="header"></div>
+
+  <main class="page-shell">
+    <div data-app-shell="runtime-error"></div>
+
+    <header class="page-intro">
+      <h1 class="page-title">Tokenizer: Temperature &amp; Top P</h1>
+      <p class="page-lede">Pick a scenario, adjust the sliders, and watch the next-token probability distribution reshape in real time.</p>
+    </header>
+
+    <div class="scenario-tabs" id="tabs"></div>
+
+    <section class="scenario-box">
+      <div class="scenario-type" id="scenario-type"></div>
+      <div class="sentence-display">
+        <span id="sentence-prefix"></span><span class="blank"></span>
+      </div>
+      <div class="hint">The model is choosing the next token.</div>
+    </section>
+
+    <section class="controls">
+      <div class="control-group">
+        <div class="control-header">
+          <label class="control-label" for="temp-slider">Temperature</label>
+          <span class="control-value" id="temp-val">1.0</span>
+        </div>
+        <input class="range-input" type="range" min="1" max="30" value="10" id="temp-slider" step="1" aria-describedby="temp-hints">
+        <div class="range-hints" id="temp-hints"><span>Safe (0.1)</span><span>Wild (3.0)</span></div>
+      </div>
+      <div class="control-group">
+        <div class="control-header">
+          <label class="control-label" for="topp-slider">Top P</label>
+          <span class="control-value" id="topp-val">0.7</span>
+        </div>
+        <input class="range-input" type="range" min="1" max="100" value="70" id="topp-slider" step="1" aria-describedby="topp-hints">
+        <div class="range-hints" id="topp-hints"><span>P=0.01 (tight)</span><span>P=1.0 (all)</span></div>
+      </div>
+    </section>
+
+    <p class="section-label">Token candidates and adjusted probabilities:</p>
+    <div id="bars" class="bars"></div>
+
+    <hr class="divider">
+
+    <p class="section-label">Token pool after Top P cutoff:</p>
+    <div class="pills-row" id="token-pills"></div>
+    <div class="insight" id="insight-box"></div>
+
+    <section class="concepts" id="concepts">
+      <div class="concepts-heading">Concepts explained</div>
+
+      <div class="card" id="card-token">
+        <button class="card-trigger" type="button" aria-expanded="false">
+          <div class="card-left">
+            <div class="card-icon blue">T</div>
+            <div>
+              <div class="card-title">What is a token?</div>
+              <div class="card-tagline">The model's unit of language</div>
+            </div>
+          </div>
+          <span class="card-arrow">&#9660;</span>
+        </button>
+        <div class="card-body">
+          <p>A token is a chunk of text, somewhere between a character and a word. "unhappiness" might be split into "un", "happiness". "cat" stays as one token. Spaces and punctuation are tokens too.</p>
+          <p>The model never sees letters. It sees a stream of token IDs, each one a number pointing to an entry in its vocabulary. Every response is the model picking the next token one step at a time.</p>
+          <span class="tip">Rule of thumb: 1 token ≈ 0.75 words in English</span>
+        </div>
+      </div>
+
+      <div class="card" id="card-temp">
+        <button class="card-trigger" type="button" aria-expanded="false">
+          <div class="card-left">
+            <div class="card-icon amber">~</div>
+            <div>
+              <div class="card-title">Temperature</div>
+              <div class="card-tagline">How confident or reckless the model is</div>
+            </div>
+          </div>
+          <span class="card-arrow">&#9660;</span>
+        </button>
+        <div class="card-body">
+          <p>Before sampling, the model assigns a raw score to every possible next token. Temperature divides those scores before converting them into probabilities.</p>
+          <p>Low temperature sharpens the distribution so the top token dominates. High temperature flattens it and gives strange or creative options a better chance.</p>
+          <span class="tip">Code and facts: 0.2 to 0.5. Creative writing: 0.8 to 1.2.</span>
+        </div>
+      </div>
+
+      <div class="card" id="card-topp">
+        <button class="card-trigger" type="button" aria-expanded="false">
+          <div class="card-left">
+            <div class="card-icon purple">P</div>
+            <div>
+              <div class="card-title">Top P (nucleus sampling)</div>
+              <div class="card-tagline">A probability budget for the candidate pool</div>
+            </div>
+          </div>
+          <span class="card-arrow">&#9660;</span>
+        </button>
+        <div class="card-body">
+          <p>Top P sets a cumulative probability threshold. The model ranks tokens by probability and keeps adding them until the running total reaches P. Everything below the cutoff is excluded.</p>
+          <p>When the model is confident, the nucleus stays small. When it is uncertain, more tokens survive the cutoff naturally.</p>
+          <span class="tip">0.7 to 0.95 is the usual production sweet spot.</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div data-app-shell="scroll-top"></div>
+
+  <script type="module" src="./js/app.js?v=412adc8"></script>
+</body>
+</html>
