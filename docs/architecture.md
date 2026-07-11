@@ -359,6 +359,24 @@ Three GitHub Apps provide elevated permissions beyond the default `GITHUB_TOKEN`
 | Harry1176 (escalation) | `vars.ESCALATION_APP_ID` / `secrets.ESCALATION_APP_PRIVATE_KEY` | All deploys (main, preview, cleanup), scheduled maintenance PRs, follow-up thumbnail PRs from main |
 | Percy1176 (audit) | `vars.AUDIT_APP_ID` / `secrets.AUDIT_APP_PRIVATE_KEY` | Read-only repo-settings audit and drift-issue lifecycle |
 
+Each installation should carry only the permissions its role actually exercises. The minimal sets below are derived from what the workflows and `.github/actions/*.mjs` helpers call.
+
+Hermione1176 (primary) is used for exactly one write path: the same-PR thumbnail writeback, a verified `createCommitOnBranch` mutation onto the PR branch (`persist-thumbnails` job, `commit-mode: direct`). Its minimal installation is:
+
+- `metadata: read` (implicit, required to call any repo endpoint and to resolve the app bot login in the `plan` job)
+- `contents: write` (verified commit of `apps/*/thumbnail.webp` files onto the PR branch)
+
+The direct thumbnail writeback never opens a pull request and never touches workflow files, so no `pull_requests` or `workflows` grant is required. Verify against the app settings page if you ever route another write path through this app.
+
+Harry1176 (escalation) does every branch write that Hermione does not: all `gh-pages` deploys and preview cleanup, the follow-up thumbnail PR from `main`, and the scheduled `refresh-locks` and `refresh-action-shas` maintenance PRs. Its minimal installation is:
+
+- `metadata: read` (implicit, required to call any repo endpoint)
+- `contents: write` (verified `createCommitOnBranch` to `gh-pages` for deploys and preview removal, plus create or force-reset of dated fallback maintenance branches and their commits in `verified-commit.mjs`)
+- `pull_requests: write` (open or update the follow-up thumbnail PR and the `refresh-locks` and `refresh-action-shas` maintenance PRs)
+- `workflows: write` (the `refresh-action-shas` maintenance commit rewrites files under `.github/workflows/`, which GitHub refuses for an app token that lacks this grant)
+
+Harry does not need `pages: write`: the Pages publish itself runs on the workflow `GITHUB_TOKEN` (`pages: write` plus `id-token: write` on the `publish` and `cleanup-preview` jobs), and Harry only writes the `gh-pages` branch contents. It also does not create the classic deployment record; that uses the workflow `GITHUB_TOKEN` (`deployments: write`). Verify against the app settings page before removing any grant, since the audit does not enforce the write-app permission sets.
+
 Percy1176's installation must carry exactly the permissions the audit reads, so that a 403 from `scripts/ci/repo_audit.py` unambiguously means a missing grant rather than an unrelated failure:
 
 - `metadata: read` (implicit, required to call any repo endpoint)
@@ -397,7 +415,7 @@ The `plan` job also computes `skip-verification` to eliminate redundant CI runs 
 1. The workflow actor matches the resolved app bot login (derived from `vars.APP_ID` at runtime, not hardcoded).
 2. Every file in the triggering commit matches the thumbnail pattern (`apps/*/thumbnail.webp`).
 
-Both must hold for `skip-verification` to be `true`. When set, `verify` and `publish` are skipped; only `plan` and `secret-scan` run. The same commit-level files check applies to main-branch pushes from merged thumbnail follow-up PRs, alongside the existing PR provenance detection.
+Both must hold for `skip-verification` to be `true`. When set, `verify` and `publish` are skipped, while `plan`, `secret-scan`, and (on pull request events) `dependency-review` still run. The same commit-level files check applies to main-branch pushes from merged thumbnail follow-up PRs, alongside the existing PR provenance detection.
 
 Any detection failure (missing secrets, API errors, non-thumbnail files, actor mismatch) defaults to `false` (the full pipeline runs). The skip is a narrow optimization exit, not a mode change.
 
@@ -437,3 +455,4 @@ Each tool primarily reads its own config, and the Makefile mostly serves as the 
 - [ADR 0001](adr/0001-root-publishing-platform.md): Treat the repo root as a strict publishing platform. Verify once, deploy verified artifacts, fail closed.
 - [ADR 0002](adr/0002-shared-app-system-and-thumbnail-persistence.md): Shared app system with planner-driven thumbnail persistence
 - [ADR 0003](adr/0003-makefile-first-and-single-source-of-truth.md): Makefile-first workflow and tool-config source-of-truth policy
+- [ADR 0004](adr/0004-per-artifact-app-stylesheets.md): Split artifact-specific CSS into app-local stylesheets

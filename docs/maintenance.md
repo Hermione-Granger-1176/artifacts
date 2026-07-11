@@ -25,6 +25,7 @@ This document covers long-term stability contracts and recurring upkeep. It does
 - **Strictness changes:** keep `make lint`, `make typecheck`, `make dead-code`, `make format-check`, and `make test-py` green together. Add or update focused tests when branch coverage or vulture findings change.
 - **Repository settings:** keep Pages, app IDs, app private keys, branch protection, and the `gh-pages` ruleset aligned with the contract documented in [`architecture.md`](architecture.md#external-github-settings) and audited by `.github/workflows/audit-repo-settings.yml`.
 - **Scheduled monitoring:** keep `.github/workflows/live-site-smoke.yml` and `.github/workflows/audit-repo-settings.yml` issue titles stable so their alert issues can be updated and auto-closed instead of duplicating.
+- **Scheduled workflow auto-disable:** GitHub disables `cron` triggers after about 60 days without repository activity. That would silently stop the daily `live-site-smoke.yml`, the weekly `audit-repo-settings.yml`, `dependency-audit.yml`, `refresh-locks.yml`, and `codeql.yml`, and the monthly `refresh-action-shas.yml`, taking the entire monitoring layer offline with no alert (a disabled schedule cannot open its own issue). If a scheduled run stops appearing on the Actions tab, re-enable the workflow from that tab. Pushing any commit to the repository resets the inactivity clock, so an active repo normally never trips this.
 - **Pinned actions:** add new third-party actions with full SHAs immediately. `.github/workflows/refresh-action-shas.yml` is a safety net that pins non-SHA action refs through a maintenance PR branch instead of committing directly to `main`; it does not advance existing full-SHA pins.
 
 ## When contracts change
@@ -32,3 +33,4 @@ This document covers long-term stability contracts and recurring upkeep. It does
 - Update [`docs/adr/0001-root-publishing-platform.md`](adr/0001-root-publishing-platform.md) if the verified-artifact, fail-closed, or branch-mutation guardrails change.
 - Update [`docs/adr/0002-shared-app-system-and-thumbnail-persistence.md`](adr/0002-shared-app-system-and-thumbnail-persistence.md) if thumbnail persistence or the shared app-system contract changes.
 - Update [`docs/adr/0003-makefile-first-and-single-source-of-truth.md`](adr/0003-makefile-first-and-single-source-of-truth.md) if the Makefile-first or single-source-of-truth policy changes.
+- Update [`docs/adr/0004-per-artifact-app-stylesheets.md`](adr/0004-per-artifact-app-stylesheets.md) if the app-local stylesheet split or the shared versus app CSS boundary changes.

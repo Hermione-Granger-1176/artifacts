@@ -26,13 +26,25 @@ Each artifact lives in its own directory under `apps/` with an `index.html` entr
 
 ## Adding a new artifact
 
-1. `make new name=my-artifact`: scaffolds the directory with placeholder files and the matching `tests/js/apps/<slug>/` folder
-2. Place the HTML file as `index.html`, fill in `name.txt`, `description.txt`, `tags.txt`, `tools.txt`
+Two one-command flows. Both emit a complete artifact that passes every gate (`make validate`, ESLint, stylelint, Knip, tsc, and the JS test-coverage check) with zero hand edits.
+
+**Fresh placeholder:**
+
+1. `make new name=my-artifact`: emits the full artifact. `index.html` is wired to `../../css/style.css`, `./css/app.css`, and the shared app shell with the self-only CSP meta; `css/app.css` and `js/app.js` are stubbed; `README.md` plus `docs/architecture.md`, `docs/verification.md`, and `docs/decisions.md` are stubbed; metadata files are created; and a passing `tests/js/apps/<slug>/app.test.js` is emitted.
+2. Build your artifact in `index.html`, then fill in `name.txt`, `description.txt`, `tags.txt`, `tools.txt`
 3. `make validate`: fail fast on incomplete directories
 4. Push to `main`: CI generates thumbnails, updates gallery data, builds, and deploys
 5. PRs get live preview links posted as comments
 
-When adding a user-provided artifact, prefer the minimal path: scaffold, copy HTML, fill metadata. Don't refactor, don't block on thumbnails (CI handles them). Verify artifact code/calculations at least once before committing.
+**Drop-in of an existing AI-generated HTML file:**
+
+1. `make new name=my-artifact src=path/to/file.html`: installs the file as `index.html` and scaffolds the same metadata, `css/app.css`, `js/app.js`, docs, and test stub. It injects the CSP meta and the shared stylesheet links only when they are absent, and it reports (does not rewrite) any off-origin script or style references so you can vendor or remove them before the security lint runs.
+2. Fill in the metadata files, then `make validate`
+3. Push to `main` (steps 4-5 above)
+
+The app-shell wiring is optional for a self-contained drop-in; keep the emitted `js/app.js` and its test, or replace them with your own module of the same name.
+
+When adding a user-provided artifact, prefer the minimal path: scaffold with `src=`, fill metadata. Don't refactor, don't block on thumbnails (CI handles them). Verify artifact code/calculations at least once before committing.
 
 ## Local commands
 

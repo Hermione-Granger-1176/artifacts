@@ -19,7 +19,7 @@ Local Python dependency setup uses uv. Ensure `uv` is on PATH before running set
 
 Recommended workflow when changing workspace code:
 
-1. `make new name=my-artifact` if you want a scaffold instead of creating files by hand. It also creates the matching `tests/js/apps/<slug>/` directory for app-specific Node tests.
+1. `make new name=my-artifact` if you want a scaffold instead of creating files by hand, or `make new name=my-artifact src=path/to/page.html` to install an existing HTML file as the artifact. Both flows emit the metadata, stylesheet, app shell, docs, and matching `tests/js/apps/<slug>/app.test.js` test stub so the result passes the gates without manual edits.
 2. `make setup` for fast local work, or `make setup-all` if you also need Chromium. Run `make install-hooks` once if you want local pre-commit checks.
 3. Edit files.
 4. Run `make check-local`.
@@ -128,12 +128,44 @@ All runtime assets should be self-hosted. Do not load scripts, fonts, or stylesh
 3. Re-run `make ci-audit-repo-settings repo=<owner/repo>` to confirm the repo still matches the documented contract.
 4. Re-run a trusted preview deploy before relying on the next `main` publish.
 
+### Credential recovery (lost key or uninstalled app)
+
+Use this when a private key is gone with no backup, or a GitHub App was deleted or uninstalled from the repository. Rotation (above) covers an app that still exists; this covers recreating one. The minimal permission set for each app lives in [architecture.md: Token model](architecture.md#token-model).
+
+What breaks per app:
+
+- **Hermione1176 (primary):** same-PR thumbnail writeback stops. Because primary and escalation credentials are all-or-nothing in trusted contexts, `ci-setup` hard-fails every trusted `publish` and `persist-thumbnails` run while either app is missing, so preview and main deploys stop too until both apps are healthy.
+- **Harry1176 (escalation):** all deploys stop (main site, PR previews, and preview cleanup), along with the follow-up thumbnail PR from `main` and the scheduled `refresh-locks` and `refresh-action-shas` maintenance PRs. As with Hermione, `ci-setup` hard-fails trusted runs while either primary or escalation credential is absent.
+- **Percy1176 (audit):** only the weekly repository-settings audit stops. Deploys and previews are unaffected. A missing install surfaces as a 403 from `scripts/ci/repo_audit.py`.
+
+Re-mint an app:
+
+1. Create a new GitHub App (or reuse the existing one if only the key was lost) and generate a fresh private key.
+2. Grant exactly the permissions documented for that app in [architecture.md: Token model](architecture.md#token-model): Hermione needs `contents: write`; Harry needs `contents: write`, `pull_requests: write`, and `workflows: write`; Percy needs the read-only audit set plus `issues: write`.
+3. Install the app on this repository.
+4. Update the repository variable with the new app id: `APP_ID` for Hermione, `ESCALATION_APP_ID` for Harry, `AUDIT_APP_ID` for Percy.
+5. Update the matching repository secret with the new private key: `APP_PRIVATE_KEY`, `ESCALATION_APP_PRIVATE_KEY`, or `AUDIT_APP_PRIVATE_KEY`.
+
+Verify recovery:
+
+- Hermione or Harry: run `make ci-audit-repo-settings repo=<owner/repo>` to confirm the variables and secrets are present, then dispatch `update.yml` from the Actions tab on `main`. Green means the `publish` job minted both tokens, wrote the `gh-pages` deploy, and passed live browser verification. A trusted preview deploy on any open PR is the equivalent check for the preview path.
+- Percy: dispatch `audit-repo-settings.yml`. Green, meaning no new drift issue is opened (or the existing one auto-closes), confirms the audit token was minted and could read Pages, branch protection, variables, secrets, and the ruleset.
+
 ### `gh-pages` branch or Pages root drift
 
 1. Confirm GitHub Pages source is still set to GitHub Actions.
 2. Confirm the `gh-pages` ruleset still targets `refs/heads/gh-pages` and still blocks create/delete/update/force-push operations except for approved bypass actors.
 3. If the branch contents are wrong, redeploy a known-good `main` commit instead of repairing `gh-pages` manually so the verified artifact path stays the source of truth.
 4. If Pages deployments fail before verification starts, inspect the explicit `Deploy GitHub Pages artifact` step in `update.yml` rather than the old hidden `pages-build-deployment` workflow.
+
+### First deploy or `gh-pages` branch recreation
+
+Use this on a brand-new fork or clone that has never deployed, or after `gh-pages` was deleted entirely.
+
+1. The deploy action creates `gh-pages` automatically when it is missing: on the first deploy it detects the absent branch (a 404 from the git ref lookup) and seeds it with an initial commit containing `.nojekyll` before writing the site tree. No manual push of an empty branch is needed.
+2. Reinstall the `gh-pages` ruleset. Automation cannot recreate it, and a fresh branch starts with none. Recreate a branch ruleset targeting `refs/heads/gh-pages` with the rules documented in [architecture.md: External GitHub settings](architecture.md#external-github-settings) (block create, delete, update, and force-push, and require linear history and signatures), and keep the Harry1176 deploy app and repo admins as approved bypass actors so deploys can still write the branch. Install the ruleset after step 1 so the initial branch creation is not blocked.
+3. Confirm the Pages build type is GitHub Actions (`workflow`, not a legacy branch build) with HTTPS enforced, so the official Pages Actions publish the deploy tree.
+4. Rerun a `main` deploy (push to `main` or dispatch `update.yml`) and confirm the live URL serves the expected `deploy-metadata.json` SHA and cache-busted asset query strings. Then dispatch `live-site-smoke.yml` (or wait for the daily run) to confirm the published site passes in a real browser.
 
 ### Generated-file drift in CI
 
