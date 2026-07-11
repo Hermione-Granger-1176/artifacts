@@ -84,11 +84,13 @@ def create_source_tree(repo_root: Path) -> None:
                 '<meta property="og:title" content="__APP_TITLE__">\n',
                 '<meta property="og:description" content="__APP_DESCRIPTION__">\n',
                 '<link rel="stylesheet" href="../../css/style.css">\n',
+                '<link rel="stylesheet" href="./css/app.css">\n',
                 '<script src="../../js/app-theme.js"></script>\n',
                 '<script type="module" src="./js/app.js"></script>\n',
             ]
         ),
     )
+    write_text(repo_root / "apps" / "sample" / "css" / "app.css", ".sample { display: block; }\n")
     write_text(repo_root / "apps" / "sample" / "js" / "app.js", "console.log('app')\n")
     (repo_root / "apps" / "sample" / "thumbnail.webp").write_bytes(b"webp")
     write_text(
@@ -324,6 +326,7 @@ def test_patch_app_asset_references_versions_app_assets(
         "".join(
             [
                 '<link rel="stylesheet" href="../../css/style.css">\n',
+                '<link rel="stylesheet" href="./css/app.css">\n',
                 '<script src="../../js/app-theme.js"></script>\n',
                 '<script type="module" src="./js/app.js"></script>\n',
             ]
@@ -335,6 +338,7 @@ def test_patch_app_asset_references_versions_app_assets(
 
     content = app_index.read_text(encoding="utf-8")
     assert 'href="../../css/style.css?v=abc123"' in content
+    assert 'href="./css/app.css?v=abc123"' in content
     assert 'src="../../js/app-theme.js?v=abc123"' in content
     assert 'src="./js/app.js?v=abc123"' in content
 
@@ -795,8 +799,10 @@ def test_prepare_site_builds_deploy_output(tmp_path: Path, monkeypatch: pytest.M
         in sample_content
     )
     assert 'href="../../css/style.css?v=abc123"' in sample_content
+    assert 'href="./css/app.css?v=abc123"' in sample_content
     assert 'src="../../js/app-theme.js?v=abc123"' in sample_content
     assert 'src="./js/app.js?v=abc123"' in sample_content
+    assert (deploy_dir / "apps" / "sample" / "css" / "app.css").exists()
     assert (deploy_dir / "assets" / "icons" / "favicon.ico").exists()
     assert (deploy_dir / "assets" / "social" / "share-preview.png").exists()
     metadata = (deploy_dir / prepare_site.DEPLOY_METADATA_FILE).read_text(encoding="utf-8")
