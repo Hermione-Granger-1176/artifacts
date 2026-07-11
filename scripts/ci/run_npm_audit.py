@@ -152,10 +152,15 @@ def _run_npm_audit(npm_executable: str = "npm") -> tuple[NpmVulnerabilityFinding
 def _matches_exception(
     exception: VulnerabilityExceptionEntry, finding: NpmVulnerabilityFinding
 ) -> bool:
-    """Return whether a reviewed exception matches one npm finding."""
+    """Return whether a reviewed exception matches one npm finding.
+
+    Advisory ids compare case-insensitively: findings normalize GHSA ids to
+    upper case, so a lower-case configured exception must still match.
+    """
+    finding_ids = {advisory_id.upper() for advisory_id in finding.all_ids}
     return (
         exception.package.lower() == finding.package.lower()
-        and exception.vulnerability_id in finding.all_ids
+        and exception.vulnerability_id.upper() in finding_ids
     )
 
 
