@@ -438,12 +438,12 @@ def scaffold_artifact(name: str, *, source_html: str | None = None) -> Path:
     if artifact_dir.exists():
         raise FileExistsError(f"Artifact directory already exists: {artifact_dir}")
 
-    index_html = _resolve_index_html(_title_from_slug(name), name, source_html)
+    title = _title_from_slug(name)
+    index_html = _resolve_index_html(title, name, source_html)
 
     APPS_DIR.mkdir(parents=True, exist_ok=True)
     TESTS_JS_APPS_DIR.mkdir(parents=True, exist_ok=True)
 
-    title = _title_from_slug(name)
     artifact_dir.mkdir()
     tests_dir = TESTS_JS_APPS_DIR / name
     tests_dir.mkdir(parents=True, exist_ok=True)
