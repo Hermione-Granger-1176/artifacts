@@ -47,6 +47,29 @@ def test_check_page_passes_for_strict_page(tmp_path: Path) -> None:
     assert check_page(path, display_path="apps/demo/index.html") == []
 
 
+def test_check_page_reports_non_utf8_page_as_violation(tmp_path: Path) -> None:
+    """A binary page is reported as a violation instead of crashing."""
+    path = tmp_path / "apps" / "demo" / "index.html"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"\xff\xfe\x00\x01not utf-8")
+    violations = check_page(path, display_path="apps/demo/index.html")
+    assert len(violations) == 1
+    assert violations[0].startswith(
+        "apps/demo/index.html: artifact page could not be read as UTF-8 text"
+    )
+
+
+def test_check_page_reports_unreadable_page_as_violation(tmp_path: Path) -> None:
+    """An OSError while reading (here a directory) becomes a violation."""
+    path = tmp_path / "apps" / "demo" / "index.html"
+    path.mkdir(parents=True)
+    violations = check_page(path, display_path="apps/demo/index.html")
+    assert len(violations) == 1
+    assert violations[0].startswith(
+        "apps/demo/index.html: artifact page could not be read as UTF-8 text"
+    )
+
+
 def test_check_page_flags_missing_csp(tmp_path: Path) -> None:
     """Check page flags missing csp."""
     # A non-CSP meta tag exercises the "skip other meta tags" path.
@@ -68,7 +91,8 @@ def test_check_page_flags_relaxed_default_src(tmp_path: Path) -> None:
     path = _write_page(tmp_path, "demo", _page(csp="default-src *; script-src 'self'"))
     violations = check_page(path, display_path="apps/demo/index.html")
     expected = (
-        "apps/demo/index.html: default-src must be restricted to 'self' (found: default-src *)"
+        "apps/demo/index.html: default-src must be restricted to 'self' or 'none' "
+        "(found: default-src *)"
     )
     assert expected in violations
 
@@ -78,7 +102,9 @@ def test_check_page_flags_relaxed_script_src(tmp_path: Path) -> None:
     csp = "default-src 'self'; script-src 'self' https://cdn.example.com"
     path = _write_page(tmp_path, "demo", _page(csp=csp))
     violations = check_page(path, display_path="apps/demo/index.html")
-    assert any("script-src must be restricted to 'self'" in message for message in violations)
+    assert any(
+        "script-src must be restricted to 'self' or 'none'" in message for message in violations
+    )
 
 
 def test_check_page_allows_script_src_falling_back_to_default(tmp_path: Path) -> None:
@@ -93,7 +119,9 @@ def test_check_page_flags_empty_default_src(tmp_path: Path) -> None:
     """Check page flags empty default src."""
     path = _write_page(tmp_path, "demo", _page(csp="default-src; script-src 'self'"))
     violations = check_page(path, display_path="apps/demo/index.html")
-    assert any("default-src must be restricted to 'self'" in message for message in violations)
+    assert any(
+        "default-src must be restricted to 'self' or 'none'" in message for message in violations
+    )
 
 
 def test_check_page_flags_missing_both_directives(tmp_path: Path) -> None:

@@ -76,6 +76,11 @@ def _parse_advisory(
         return None
 
     advisory_id, aliases = _advisory_ids(via)
+    if not advisory_id:
+        raise ValueError(
+            "npm audit advisory is missing both a GHSA url and a numeric source id: "
+            f"{package}"
+        )
     return NpmVulnerabilityFinding(
         advisory_id=advisory_id,
         aliases=aliases,
