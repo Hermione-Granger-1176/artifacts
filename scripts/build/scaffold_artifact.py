@@ -453,7 +453,7 @@ def _parse_args(args: list[str]) -> tuple[str, str | None]:
     """Parse the scaffold CLI into (name, optional source-HTML path)."""
     usage = (
         "Usage: make new name=<artifact-name> [src=<path-to-html>] "
-        "(this script is an internal implementation detail)"
+        "(direct CLI form: scaffold_artifact.py <artifact-name> [--from-html <path-to-html>])"
     )
     if not args:
         raise ValueError(usage)
