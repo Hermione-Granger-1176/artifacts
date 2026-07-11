@@ -92,6 +92,22 @@ def test_find_external_references_returns_empty_for_self_contained() -> None:
     assert scaffold_artifact.find_external_references(html) == []
 
 
+def test_find_external_references_detects_unquoted_attributes() -> None:
+    """Test external reference detection covers unquoted src/href attribute values."""
+    html = (
+        "<script src=https://cdn.example.com/app.js></script>"
+        "<link rel=stylesheet href=//cdn.example.com/app.css>"
+        "<img src=./local.png alt=x>"
+    )
+
+    references = scaffold_artifact.find_external_references(html)
+
+    assert references == [
+        "//cdn.example.com/app.css",
+        "https://cdn.example.com/app.js",
+    ]
+
+
 def test_apply_contract_injects_missing_pieces() -> None:
     """Test contract application injects the CSP meta and stylesheet links."""
     html = "<html><head><title>Demo</title></head><body></body></html>"
@@ -161,6 +177,52 @@ def test_apply_contract_skips_existing_csp_with_reordered_unquoted_attributes() 
 
     assert result == html
     assert result.count("http-equiv") == 1
+
+
+def test_apply_contract_injects_links_when_only_prose_mentions_hrefs() -> None:
+    """Test prose or script text naming the stylesheet paths does not suppress injection."""
+    html = (
+        "<html><head><title>Demo</title></head>"
+        "<body><p>Shared styling lives in ../../css/style.css today.</p>"
+        "<script>const local = './css/app.css';</script>"
+        "</body></html>"
+    )
+
+    result = scaffold_artifact.apply_contract_to_source(html)
+
+    assert scaffold_artifact.SHARED_STYLESHEET_LINK in result
+    assert scaffold_artifact.APP_STYLESHEET_LINK in result
+
+
+def test_apply_contract_skips_existing_links_with_reordered_unquoted_attributes() -> None:
+    """Test a real stylesheet link is detected regardless of attribute order or quoting."""
+    html = (
+        "<html><head>"
+        f"{scaffold_artifact.CSP_META}"
+        "<link href='../../css/style.css' rel='stylesheet'>"
+        "<link rel=stylesheet href=./css/app.css>"
+        "</head><body></body></html>"
+    )
+
+    result = scaffold_artifact.apply_contract_to_source(html)
+
+    assert result == html
+    assert result.count("<link") == 2
+
+
+def test_apply_contract_injects_link_when_href_is_only_a_prefix() -> None:
+    """Test a longer href that merely starts with the shared path does not count."""
+    html = (
+        "<html><head>"
+        f"{scaffold_artifact.CSP_META}"
+        '<link rel="stylesheet" href="../../css/style.css.bak">'
+        f"{scaffold_artifact.APP_STYLESHEET_LINK}"
+        "</head><body></body></html>"
+    )
+
+    result = scaffold_artifact.apply_contract_to_source(html)
+
+    assert scaffold_artifact.SHARED_STYLESHEET_LINK in result
 
 
 def test_inject_after_head_open_without_head_uses_html_tag() -> None:

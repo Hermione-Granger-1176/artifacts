@@ -70,22 +70,48 @@ _DOCTYPE_RE = re.compile(r"<!doctype[^>]*>", re.IGNORECASE)
 # Detect an existing CSP only inside a real <meta http-equiv="Content-Security-Policy">
 # tag, never loose prose or script text that merely names the header. Attribute
 # names and values are case-insensitive in HTML, order is free, and the value may be
-# single-quoted, double-quoted, or unquoted, so the pattern stays tolerant of all three.
+# single-quoted, double-quoted, or unquoted, so the pattern stays tolerant of all
+# three. The lookbehind keeps a data-http-equiv style attribute from posing as the
+# real one.
 _CSP_PRESENT_RE = re.compile(
-    r"""<meta\b[^>]*\bhttp-equiv\s*=\s*["']?\s*content-security-policy\b""",
+    r"""<meta\b[^>]*(?<![\w-])http-equiv\s*=\s*["']?\s*content-security-policy\b""",
     re.IGNORECASE,
 )
 
 # Matches src/href attributes and CSS url() targets that point off-origin,
-# including protocol-relative references (//host/path).
+# including protocol-relative references (//host/path). Attribute values may be
+# double-quoted, single-quoted, or unquoted; external URLs never contain unencoded
+# whitespace, quotes, or ">", so the value class stops at all of them and works for
+# every quoting style.
 _EXTERNAL_ATTR_RE = re.compile(
-    r"""(?:src|href)\s*=\s*["']\s*((?:https?:)?//[^"']+)["']""",
+    r"""(?:src|href)\s*=\s*["']?\s*((?:https?:)?//[^\s"'>]+)""",
     re.IGNORECASE,
 )
 _EXTERNAL_URL_RE = re.compile(
-    r"""url\(\s*["']?\s*((?:https?:)?//[^)"']+)""",
+    r"""url\(\s*["']?\s*((?:https?:)?//[^\s)"']+)""",
     re.IGNORECASE,
 )
+
+
+def _stylesheet_link_re(href: str) -> re.Pattern[str]:
+    """Build a regex that detects a real stylesheet ``<link>`` for one exact href.
+
+    Presence must anchor to a ``<link>`` tag whose ``rel`` is ``stylesheet``,
+    never loose prose or script text that merely names the path. Attribute order
+    is free, values may be double-quoted, single-quoted, or unquoted, and the
+    lookbehinds keep data-rel / data-href style attributes from posing as the
+    real ones. The trailing lookahead requires a value terminator so a longer
+    path that merely starts with the href cannot match.
+    """
+    return re.compile(
+        rf"""<link\b(?=[^>]*(?<![\w-])rel\s*=\s*["']?\s*stylesheet\b)"""
+        rf"""[^>]*(?<![\w-])href\s*=\s*["']?\s*{re.escape(href)}(?=["'\s>])""",
+        re.IGNORECASE,
+    )
+
+
+_SHARED_STYLESHEET_PRESENT_RE = _stylesheet_link_re(SHARED_STYLESHEET_HREF)
+_APP_STYLESHEET_PRESENT_RE = _stylesheet_link_re(APP_STYLESHEET_HREF)
 
 
 def is_kebab_case(name: str) -> bool:
@@ -286,9 +312,10 @@ Fill in this document as the app grows.
 def find_external_references(html: str) -> list[str]:
     """Return sorted unique off-origin references found in an HTML document.
 
-    Detects ``src`` / ``href`` attributes and CSS ``url()`` targets that use an
-    absolute or protocol-relative URL. These are the references the security
-    lint hard-fails on, so the scaffolder surfaces them instead of rewriting.
+    Detects ``src`` / ``href`` attributes (quoted or unquoted) and CSS ``url()``
+    targets that use an absolute or protocol-relative URL. These are the
+    references the security lint hard-fails on, so the scaffolder surfaces them
+    instead of rewriting.
     """
     references: set[str] = set()
     for pattern in (_EXTERNAL_ATTR_RE, _EXTERNAL_URL_RE):
@@ -323,15 +350,16 @@ def _inject_before_head_close(html: str, snippet: str) -> str:
 def apply_contract_to_source(html: str) -> str:
     """Guarantee the shared contract inside a provided HTML document.
 
-    Injects the self-only CSP meta and the shared stylesheet links only when
-    they are absent, so an author who already wired them keeps their exact
-    markup.
+    Injects the self-only CSP meta and the shared stylesheet links only when a
+    real meta or link tag already provides them, so an author who already wired
+    them keeps their exact markup while prose or script text that merely names
+    the header or the paths never suppresses the contract.
     """
     if _CSP_PRESENT_RE.search(html) is None:
         html = _inject_after_head_open(html, CSP_META)
-    if SHARED_STYLESHEET_HREF not in html:
+    if _SHARED_STYLESHEET_PRESENT_RE.search(html) is None:
         html = _inject_before_head_close(html, SHARED_STYLESHEET_LINK)
-    if APP_STYLESHEET_HREF not in html:
+    if _APP_STYLESHEET_PRESENT_RE.search(html) is None:
         html = _inject_before_head_close(html, APP_STYLESHEET_LINK)
     return html
 
