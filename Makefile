@@ -439,14 +439,15 @@ pr-create: ## Open a pull request for the current branch (make pr-create [base=b
 
 pr-edit: export PR_EDIT_TITLE := $(title)
 pr-edit: export PR_EDIT_BODY := $(body)
-pr-edit: ## Edit the current PR title or body (make pr-edit title="..." [body="..."] [pr_num=N])
-	@test -n "$$PR_EDIT_TITLE$$PR_EDIT_BODY" || { printf 'Usage: make pr-edit title="New title" [body="..."] [pr_num=N]\n' >&2; exit 1; }
+pr-edit: ## Edit the current PR title or body (make pr-edit title="..." [body="..." OR body_file=path, - reads stdin] [pr_num=N])
+	@test -n "$$PR_EDIT_TITLE$$PR_EDIT_BODY$(body_file)" || { printf 'Usage: make pr-edit title="New title" [body="..." OR body_file=- with the body piped on stdin] [pr_num=N]\n' >&2; exit 1; }
 	@set -e; \
 	tmp=""; \
 	trap 'test -n "$$tmp" && rm -f "$$tmp"' EXIT; \
 	set -- $(if $(PR_NUM),$(PR_NUM)); \
 	if [ -n "$$PR_EDIT_TITLE" ]; then set -- "$$@" --title "$$PR_EDIT_TITLE"; fi; \
-	if [ -n "$$PR_EDIT_BODY" ]; then tmp=$$(mktemp); printf '%s' "$$PR_EDIT_BODY" > "$$tmp"; set -- "$$@" --body-file "$$tmp"; fi; \
+	if [ -n "$(body_file)" ]; then set -- "$$@" --body-file "$(body_file)"; \
+	elif [ -n "$$PR_EDIT_BODY" ]; then tmp=$$(mktemp); printf '%s' "$$PR_EDIT_BODY" > "$$tmp"; set -- "$$@" --body-file "$$tmp"; fi; \
 	gh pr edit "$$@"
 
 pr-list: ## List open pull requests
