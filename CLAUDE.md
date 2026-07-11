@@ -36,7 +36,7 @@ When adding a user-provided artifact, prefer the minimal path: scaffold, copy HT
 
 ## Local commands
 
-**Run `make help` for command groups, then `make help-<group>` to expand one** (for example `make help-pr`). `make help-json` emits the same surface for tooling. Everything is auto-generated from `## comment` annotations in the Makefile.
+**Run `make help` for command groups, then `make help-<group>` to expand one** (for example `make help-pr`). `make help-json` emits the same surface for tooling. Everything is auto-generated from `## comment` annotations and `# ─── Title @slug ───` section headers in the Makefile.
 
 Key entry points:
 
