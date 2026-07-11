@@ -256,6 +256,8 @@ def test_plan_output_lines_rejects_malformed_fields() -> None:
         workflow_helpers.plan_output_lines({**valid, "changed_slugs": "demo"})
     with pytest.raises(ValueError, match="Plan field changed_slugs must be a list of strings"):
         workflow_helpers.plan_output_lines({**valid, "changed_slugs": ["demo", 2]})
+    with pytest.raises(ValueError, match="Plan field skip_verification must be a boolean"):
+        workflow_helpers.plan_output_lines({**valid, "skip_verification": "false"})
 
 
 def test_main_coverage_summary_prints_marked_section(
