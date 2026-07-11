@@ -97,7 +97,7 @@ def list_open_pr_numbers(
         payload = run_gh_api_json_fn(
             f"repos/{repo}/pulls?state=open&per_page={_PULLS_PER_PAGE}&page={page}",
             description=f"listing open pull requests for {repo} (page {page})",
-            required_permission="pull_requests: read",
+            required_permission="pull-requests: read",
         )
         if not isinstance(payload, list):
             raise RuntimeError(f"Open pull requests response for {repo} must be a JSON array")
