@@ -105,14 +105,16 @@ def test_resolve_retries_then_succeeds() -> None:
     assert sleeps == [0.5]
 
 
-def test_resolve_exhausts_retries_and_raises_last_error() -> None:
-    """Resolve exhausts retries and raises the last error."""
+def test_resolve_exhausts_retries_and_raises_with_context() -> None:
+    """Resolve exhausts retries and raises a contextual error chained to the last one."""
     sleeps: list[float] = []
-    fake = FakeUrlOpen([RuntimeError("e1"), RuntimeError("e2"), RuntimeError("e3")])
+    last = RuntimeError("e3")
+    fake = FakeUrlOpen([RuntimeError("e1"), RuntimeError("e2"), last])
     resolver = ras.ActionShaResolver(token="t", urlopen_fn=fake, sleep_fn=sleeps.append)
 
-    with pytest.raises(RuntimeError, match="e3"):
+    with pytest.raises(RuntimeError, match="Failed to resolve owner/repo@v1: e3") as excinfo:
         resolver.resolve("owner/repo", "v1")
+    assert excinfo.value.__cause__ is last
     assert len(fake.requests) == 3
     assert sleeps == [ras.RETRY_BACKOFF_SECONDS, ras.RETRY_BACKOFF_SECONDS * 2]
 
