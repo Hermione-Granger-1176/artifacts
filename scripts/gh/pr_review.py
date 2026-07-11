@@ -379,7 +379,7 @@ def _remaining_thread_comments(
         node = result.get("node")
         if not isinstance(node, dict) or "comments" not in node:
             raise GhError(
-                f"Unexpected review thread node shape for {thread_id} in GraphQL response."
+                f"Review thread {thread_id} not found or inaccessible in GraphQL response."
             )
         connection = node["comments"]
         if not isinstance(connection, dict):
