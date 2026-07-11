@@ -180,7 +180,7 @@ test('startIntro short-circuits when the intro is already open', async () => {
   assert.equal(harness.leftPage.animateCalls.length, 0);
 });
 
-test('startIntro opens immediately when reduced motion is preferred', async () => {
+test('startIntro uses an opacity-only cover fade when reduced motion is preferred', async () => {
   const harness = createHarness({ reducedMotion: true });
   const bookScene = createBookScene({
     documentObj: harness.documentObj,
@@ -189,11 +189,29 @@ test('startIntro opens immediately when reduced motion is preferred', async () =
 
   await bookScene.startIntro();
 
+  assert.equal(harness.cover.animateCalls.length, 1);
+  assert.deepEqual(harness.cover.animateCalls[0].keyframes, [{ opacity: 1 }, { opacity: 0 }]);
+  assert.equal(harness.cover.animateCalls[0].options.duration, 400);
   assert.equal(harness.shell.dataset.sceneIntro, 'open');
   assert.equal(harness.shell.classList.contains('is-opening'), false);
   assert.equal(harness.shell.classList.contains('is-open'), true);
+  assert.equal(harness.cover.style.opacity, '');
   assert.equal(harness.cover.style.visibility, 'hidden');
-  assert.equal(harness.cover.animateCalls.length, 0);
+  assert.equal(harness.leftPage.animateCalls.length, 0);
+  assert.equal(harness.sheet.animateCalls.length, 0);
+});
+
+test('startIntro finalizes the reduced-motion path when the cover is missing', async () => {
+  const harness = createHarness({ includeCover: false, reducedMotion: true });
+  const bookScene = createBookScene({
+    documentObj: harness.documentObj,
+    windowObj: harness.windowObj
+  });
+
+  await bookScene.startIntro();
+
+  assert.equal(harness.shell.dataset.sceneIntro, 'open');
+  assert.equal(harness.shell.classList.contains('is-open'), true);
 });
 
 test('startIntro handles missing cover, sheet, or grid gracefully', async () => {
@@ -222,8 +240,25 @@ test('startIntro animates the cover and left page then clears temporary styles',
 
   assert.equal(harness.cover.animateCalls.length, 1);
   assert.equal(harness.leftPage.animateCalls.length, 1);
-  assert.equal(harness.cover.animateCalls[0].keyframes[1].transform, 'perspective(1600px) rotateY(-92deg)');
+  const coverKeyframes = harness.cover.animateCalls[0].keyframes;
+  assert.equal(coverKeyframes.length, 3);
+  assert.equal(coverKeyframes[0].transform, 'perspective(1600px) rotateY(0deg)');
+  assert.equal(coverKeyframes[1].transform, undefined);
+  assert.equal(coverKeyframes[1].offset, 0.55);
+  assert.match(coverKeyframes[1].filter, /drop-shadow/);
+  assert.equal(coverKeyframes[2].transform, 'perspective(1600px) rotateY(-92deg)');
+  assert.equal(harness.cover.animateCalls[0].options.duration, 950);
   assert.equal(harness.leftPage.animateCalls[0].keyframes[0].transform, 'perspective(1600px) rotateY(92deg)');
+  assert.equal(harness.leftPage.animateCalls[0].options.duration, 750);
+  assert.equal(harness.sheet.animateCalls.length, 1);
+  assert.deepEqual(harness.sheet.animateCalls[0].keyframes, [
+    { transform: 'scale(1)' },
+    { transform: 'scale(1.012)', offset: 0.45 },
+    { transform: 'scale(1)' }
+  ]);
+  assert.equal(harness.sheet.style.transform, '');
+  assert.equal(harness.rightPage.animateCalls.length, 1);
+  assert.deepEqual(harness.rightPage.animateCalls[0].keyframes, [{ opacity: 0.82 }, { opacity: 1 }]);
   assert.equal(harness.rightPage.style.transition, '');
   assert.equal(harness.rightPage.style.opacity, '');
   assert.equal(harness.leftPage.style.transformOrigin, '');
@@ -233,6 +268,7 @@ test('startIntro animates the cover and left page then clears temporary styles',
   assert.equal(harness.cover.style.transformOrigin, '');
   assert.equal(harness.cover.style.transform, '');
   assert.equal(harness.cover.style.opacity, '');
+  assert.equal(harness.cover.style.filter, '');
   assert.equal(harness.cover.style.visibility, 'hidden');
   assert.equal(harness.shell.dataset.sceneIntro, 'open');
   assert.equal(harness.shell.classList.contains('is-open'), true);

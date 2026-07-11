@@ -9,7 +9,7 @@ function ctxStub() {
   return {
     fillStyle: "", strokeStyle: "", lineWidth: 1, font: "", globalAlpha: 1, textAlign: "left",
     clearRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {},
-    arc() {}, fill() {}, fillText() {}, setLineDash() {}, save() {}, restore() {}, rect() {}
+    arc() {}, fill() {}, fillText() {}, strokeText() {}, setLineDash() {}, save() {}, restore() {}, rect() {}
   };
 }
 
@@ -231,16 +231,17 @@ function buttonWith(dataKey, value, active = false) {
 const SIMPLE_IDS = [
   "navFill", "navLabel", "navNodes", "summaryTimeline",
   "tokenInput", "tokenOutput", "tokCount", "wordCount", "charCount",
-  "dimCanvas", "dimCaption", "embCloud", "embSuggestions", "embSelA", "embSelB",
+  "dimCanvas", "dimCaption", "embCloud", "embCats", "embSuggestions", "embSelA", "embSelB",
   "embSimilarity", "embDistance", "embVerdict", "embSwapBtn", "embCanvas",
-  "infInput", "infGoBtn", "infResetBtn", "infTokens", "infStatus", "infCacheCount", "infCacheBar",
+  "infPrompts", "infGoBtn", "infResetBtn", "infTokens", "infStatus", "infCacheCount", "infCacheBar",
   "attnStepper", "attnStepTitle", "attnStepDesc", "attnStepVisual", "dotProduct",
   "attnGrid", "attnCaption", "smxSliders", "smxBars", "smxFormula",
   "cacheTokens", "kCacheVis", "vCacheVis", "cacheNarration", "cachePlayBtn", "cacheResetBtn",
   "cacheCompareVis", "cacheCompareCaption",
   "chvSendBtn", "chvClearBtn", "chvReqs", "chvTTL",
-  "calcSys", "calcReq", "calcHit", "calcPrice",
+  "calcSys", "calcReq", "calcHit", "calcPrice", "calcPresets",
   "calcSysVal", "calcReqVal", "calcHitVal", "calcPriceVal", "calcWithout", "calcWith", "calcSavings",
+  "calcPct", "calcBarWithout", "calcBarWith", "calcTokens", "calcEff",
   "back-button", "theme-toggle", "scroll-top",
   "runtime-error", "runtime-error-details", "runtime-error-output", "runtime-error-copy"
 ];
@@ -280,7 +281,6 @@ export function createHarness() {
 
   // Inputs with starting values.
   registry.tokenInput.value = "How many r's in the word strawberry? 9";
-  registry.infInput.value = "The meaning of";
   registry.calcSys.value = "2000";
   registry.calcReq.value = "500";
   registry.calcHit.value = "80";

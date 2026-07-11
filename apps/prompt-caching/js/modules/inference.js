@@ -6,21 +6,46 @@ import { byId, makeEl, clear } from "./dom.js";
 const STEP_INTERVAL_MS = 700;
 
 export function initInference() {
-  const input = byId("infInput");
+  const promptsWrap = byId("infPrompts");
   const goBtn = byId("infGoBtn");
   const resetBtn = byId("infResetBtn");
   const tokensWrap = byId("infTokens");
   const status = byId("infStatus");
   const cacheCount = byId("infCacheCount");
   const cacheBar = byId("infCacheBar");
-  if (!input || !goBtn || !tokensWrap) {
+  if (!promptsWrap || !goBtn || !tokensWrap) {
     return;
   }
 
+  const prompts = Object.keys(INF_RESPONSES);
+  let selected = prompts[0];
   let timer = null;
   let step = 0;
   let promptTokens = [];
   let genTokens = [];
+
+  const chipEls = prompts.map((prompt) => {
+    const chip = makeEl("button", "pc-inf-prompt", prompt);
+    chip.type = "button";
+    chip.addEventListener("click", () => {
+      if (timer || prompt === selected) {
+        return;
+      }
+      selected = prompt;
+      syncChips();
+      reset();
+    });
+    promptsWrap.appendChild(chip);
+    return chip;
+  });
+
+  function syncChips() {
+    prompts.forEach((prompt, i) => {
+      chipEls[i].classList.toggle("active", prompt === selected);
+      chipEls[i].setAttribute("aria-pressed", String(prompt === selected));
+    });
+  }
+  syncChips();
 
   function updateCache() {
     const total = promptTokens.length + step;
@@ -53,18 +78,14 @@ export function initInference() {
     clear(tokensWrap);
     clear(cacheBar);
     cacheCount.textContent = "0";
-    status.textContent = "Press Generate to start.";
+    status.textContent = "Hit Generate to start.";
     goBtn.disabled = false;
   }
 
   function start() {
     reset();
-    const text = input.value.trim();
-    if (!text) {
-      return;
-    }
-    promptTokens = text.split(/\s+/);
-    genTokens = INF_RESPONSES[text] || INF_RESPONSES.default;
+    promptTokens = selected.split(/\s+/);
+    genTokens = INF_RESPONSES[selected];
 
     for (const tok of promptTokens) {
       tokensWrap.appendChild(makeEl("span", "inf-tok prompt-tok", tok));

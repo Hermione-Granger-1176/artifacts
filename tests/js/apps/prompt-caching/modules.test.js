@@ -30,11 +30,27 @@ test('bpeTokenize returns [] for empty input', () => {
   assert.deepEqual(bpeTokenize(null), []);
 });
 
-test('bpeTokenize keeps known whole words intact and is deterministic', () => {
+test('bpeTokenize keeps known whole words intact and attaches leading spaces', () => {
   const once = bpeTokenize('the cat sat');
   const twice = bpeTokenize('the cat sat');
   assert.deepEqual(once, twice);
-  assert.deepEqual(once, ['the', ' ', 'cat', ' ', 'sat']);
+  assert.deepEqual(once, ['the', ' cat', ' sat']);
+});
+
+test('bpeTokenize matches real GPT-style output on the strawberry prompt', () => {
+  assert.deepEqual(bpeTokenize("How many r's in the word strawberry?"), [
+    'How', ' many', ' r', "'s", ' in', ' the', ' word', ' straw', 'berry', '?'
+  ]);
+});
+
+test('bpeTokenize chunks digit runs into groups of three', () => {
+  assert.deepEqual(bpeTokenize('12345'), ['123', '45']);
+  assert.deepEqual(bpeTokenize('year 2024'), ['year', ' 202', '4']);
+});
+
+test('bpeTokenize keeps extra whitespace as its own token', () => {
+  assert.deepEqual(bpeTokenize('a  b'), ['a', ' ', ' b']);
+  assert.deepEqual(bpeTokenize('a\nb'), ['a', '\n', 'b']);
 });
 
 test('bpeTokenize matches vocabulary case-insensitively while preserving input case', () => {
@@ -54,8 +70,14 @@ test('bpeTokenize falls back to single characters with no subword match', () => 
   assert.deepEqual(bpeTokenize('9'), ['9']);
 });
 
-test('bpeTokenize treats a standalone punctuation run as one token each', () => {
-  assert.deepEqual(bpeTokenize('!?'), ['!', '?']);
+test('bpeTokenize keeps a punctuation run as a single token', () => {
+  assert.deepEqual(bpeTokenize('!?'), ['!?']);
+});
+
+test('bpeTokenize splits common contraction suffixes into their own tokens', () => {
+  assert.deepEqual(bpeTokenize("don't"), ['don', "'t"]);
+  assert.deepEqual(bpeTokenize("we'll"), ['we', "'ll"]);
+  assert.deepEqual(bpeTokenize("you've"), ['you', "'ve"]);
 });
 
 // --- hashToken ---
@@ -208,6 +230,30 @@ test('attention worked example is internally consistent', () => {
     const sum = row.reduce((acc, value) => acc + value, 0);
     assert.ok(Math.abs(sum - 1) < 0.02);
   }
+
+  // Q and K are exactly the rounded products of the displayed embeddings and
+  // weight matrices, so the click-to-expand arithmetic verifies cell by cell.
+  const round2 = (value) => Math.round(value * 100) / 100;
+  const cell = (W, r, c) =>
+    round2(ATTN_DATA.emb[r].reduce((acc, value, k) => acc + value * W[k][c], 0));
+  ATTN_DATA.Q.forEach((row, r) => {
+    row.forEach((value, c) => {
+      assert.equal(cell(ATTN_DATA.WQ, r, c), value);
+    });
+  });
+  ATTN_DATA.Kt.forEach((row, c) => {
+    row.forEach((value, r) => {
+      assert.equal(cell(ATTN_DATA.WK, r, c), value);
+    });
+  });
+
+  // The scores matrix is the rounded product of the rounded Q and K-transpose.
+  ATTN_DATA.scores.forEach((row, r) => {
+    row.forEach((value, c) => {
+      const dot = ATTN_DATA.Q[r].reduce((acc, qv, k) => acc + qv * ATTN_DATA.Kt[k][c], 0);
+      assert.equal(round2(dot), value);
+    });
+  });
 });
 
 test('embedding catalogue, pairs, and categories reference real vectors', () => {

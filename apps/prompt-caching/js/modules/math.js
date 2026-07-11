@@ -6,58 +6,71 @@
 
 import { WHOLE_TOKENS, SUB_PIECES } from "./data.js";
 
-const PUNCT_RE = /^[.,!?;:'"()[\]{}<>/\\@#$%^&*+=~`|-]+$/;
-const SPLIT_RE = /\s+|[.,!?;:'"()[\]{}<>/\\@#$%^&*+=~`|-]+|\S+/g;
+/* GPT-2-style pre-tokenization: contractions split off, a single leading space
+ * attaches to the following word/number/punctuation run, and whitespace runs
+ * keep their last space for the next word. */
+const GPT_SPLIT_RE = /'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
 
 /**
- * Greedy BPE-style tokenizer: keep known whole words intact, otherwise split
- * into the longest matching subword pieces, falling back to single characters.
+ * Greedy BPE-style tokenizer with GPT-2-style pre-tokenization: leading spaces
+ * attach to the following token, contractions ('s, 'll, ...) become their own
+ * tokens, digit runs chunk into groups of three, known whole words stay intact,
+ * and unknown words split into the longest matching subword pieces (falling
+ * back to single characters).
  * @param {string} text
- * @returns {string[]} ordered tokens (including whitespace/punctuation tokens)
+ * @returns {string[]} ordered tokens (whitespace-run tokens included)
  */
 export function bpeTokenize(text) {
   if (!text) {
     return [];
   }
 
-  const rawParts = text.match(SPLIT_RE) || [];
   const tokens = [];
 
-  for (const part of rawParts) {
-    if (/^\s+$/.test(part) || PUNCT_RE.test(part)) {
-      for (const ch of part) {
-        tokens.push(ch);
-      }
-      continue;
-    }
-
-    if (WHOLE_TOKENS.has(part) || WHOLE_TOKENS.has(part.toLowerCase())) {
+  for (const part of text.match(GPT_SPLIT_RE) || []) {
+    if (/^\s+$/.test(part)) {
       tokens.push(part);
       continue;
     }
 
-    if (part.endsWith("'s") &&
-      (WHOLE_TOKENS.has(part.slice(0, -2)) || WHOLE_TOKENS.has(part.slice(0, -2).toLowerCase()))) {
-      tokens.push(part.slice(0, -2));
-      tokens.push("'s");
+    if (/^ ?[^\s\p{L}\p{N}]/u.test(part)) {
+      tokens.push(part);
+      continue;
+    }
+
+    const space = part.startsWith(" ") ? " " : "";
+    const core = space ? part.slice(1) : part;
+
+    if (/^\p{N}+$/u.test(core)) {
+      for (let i = 0; i < core.length; i += 3) {
+        tokens.push((i === 0 ? space : "") + core.slice(i, i + 3));
+      }
+      continue;
+    }
+
+    if (WHOLE_TOKENS.has(core) || WHOLE_TOKENS.has(core.toLowerCase())) {
+      tokens.push(part);
       continue;
     }
 
     let i = 0;
-    const lower = part.toLowerCase();
-    while (i < part.length) {
+    let first = true;
+    const lower = core.toLowerCase();
+    while (i < core.length) {
       let matched = false;
       for (const piece of SUB_PIECES) {
-        if (i + piece.length <= part.length && lower.slice(i, i + piece.length) === piece) {
-          tokens.push(part.slice(i, i + piece.length));
+        if (i + piece.length <= core.length && lower.slice(i, i + piece.length) === piece) {
+          tokens.push((first ? space : "") + core.slice(i, i + piece.length));
           i += piece.length;
           matched = true;
+          first = false;
           break;
         }
       }
       if (!matched) {
-        tokens.push(part[i]);
+        tokens.push((first ? space : "") + core[i]);
         i += 1;
+        first = false;
       }
     }
   }

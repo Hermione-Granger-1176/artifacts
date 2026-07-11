@@ -17,7 +17,7 @@ function buildMatrix(id, label, rows, clickable) {
   wrap.appendChild(lbl);
 
   const grid = makeEl("div", "pc-matrix-grid");
-  grid.style.gridTemplateColumns = `repeat(${cols}, 36px)`;
+  grid.style.gridTemplateColumns = `repeat(${cols}, minmax(60px, auto))`;
   rows.forEach((row, ri) => {
     row.forEach((value, ci) => {
       const cell = makeEl("div", `pc-matrix-cell${clickable ? " clickable" : ""}`, String(value));
@@ -108,54 +108,108 @@ function initStepper() {
   let maskOn = true;
   let current = 0;
 
+  // Each step renders inside a shared window-style frame (same look as the
+  // pseudocode cards); `frame` points at the current title and body elements.
+  const frame = { title: null, body: null };
+
   const steps = [
     {
       title: "1. Compute Q and K",
-      desc: "Multiply the embedding matrix by WQ and WK. Click any cell in Q to see how that specific number was calculated from the embeddings and weight matrix.",
+      desc: "Multiply the embedding matrix by a learned weight matrix. Toggle between WQ and WK, click any cell in the result to see the exact dot product behind it, and scramble the weights to see why training them matters.",
+      head: "Q = embeddings × WQ",
       render() {
-        const marks = [["?", "?", "?"], ["?", "?", "?"], ["?", "?", "?"]];
-        visual.append(
-          buildMatrix("emb1", "embeddings", ATTN_DATA.emb.map(fmtRow), false),
-          opNode("×"),
-          buildMatrix("WQ1", "WQ", marks, false),
-          opNode("="),
-          buildMatrix("Q1", "Q", ATTN_DATA.Q.map(fmtRow), true)
-        );
-        defaultHint(dot);
-        bindClickable(visual, "Q1", (r, c, cell) => {
-          const embRow = ATTN_DATA.emb[r];
-          const qVal = ATTN_DATA.Q[r][c];
-          clear(dot);
-          const calc = makeEl("div", "pc-dotcalc");
-          calc.appendChild(makeEl("div", "pc-dotcalc-hint", `Q[${r + 1}][${c + 1}] = dot product of embedding row ${r + 1} with WQ column ${c + 1}:`));
-          const body = document.createElement("div");
-          term(body, embRow[0], "w1", false);
-          term(body, embRow[1], "w2", true);
-          term(body, embRow[2], "w3", true);
-          body.appendChild(document.createTextNode(" = "));
-          body.appendChild(makeEl("span", "op-result", fmt(qVal)));
-          calc.appendChild(body);
-          calc.appendChild(makeEl("div", "pc-dotcalc-note", "WQ values are learned during training, shown as ? above"));
-          dot.appendChild(calc);
-          clearHighlights(visual);
-          for (const el of visual.querySelectorAll(`[data-mx="emb1"][data-r="${r}"]`)) {
-            el.classList.add("hl-row");
+        const K = ATTN_DATA.Kt[0].map((_, r) => ATTN_DATA.Kt.map((row) => row[r]));
+        const trained = {
+          Q: { W: ATTN_DATA.WQ, out: ATTN_DATA.Q },
+          K: { W: ATTN_DATA.WK, out: K }
+        };
+        let mode = "Q";
+        let scrambled = false;
+        let live = trained.Q;
+
+        const round2 = (value) => Math.round(value * 100) / 100;
+
+        function scramble() {
+          const W = ATTN_DATA.WQ.map((row) => row.map(() => round2(Math.random() * 2 - 1)));
+          const out = ATTN_DATA.emb.map((row) =>
+            W[0].map((_, c) => round2(row.reduce((acc, value, k) => acc + value * W[k][c], 0))));
+          scrambled = true;
+          live = { W, out };
+          draw();
+        }
+
+        function setMode(next) {
+          mode = next;
+          scrambled = false;
+          live = trained[next];
+          draw();
+        }
+
+        function draw() {
+          clear(frame.body);
+          frame.title.textContent = `${mode} = embeddings × ${scrambled ? "random W" : `W${mode}`}`;
+
+          const controls = makeEl("div", "pc-attn-controls");
+          const toggle = makeEl("div", "type-toggle");
+          toggle.setAttribute("role", "group");
+          toggle.setAttribute("aria-label", "Projection");
+          for (const m of ["Q", "K"]) {
+            const btn = makeEl("button", m === mode && !scrambled ? "active" : "", `W${m} → ${m}`);
+            btn.type = "button";
+            btn.addEventListener("click", () => setMode(m));
+            toggle.appendChild(btn);
           }
-          cell.classList.add("hl-result");
-        });
+          controls.appendChild(toggle);
+          const scrambleBtn = makeEl("button", "btn pc-btn-outline pc-btn-sm", "Scramble weights");
+          scrambleBtn.type = "button";
+          scrambleBtn.addEventListener("click", scramble);
+          controls.appendChild(scrambleBtn);
+          frame.body.appendChild(controls);
+
+          const row = makeEl("div", "pc-attn-matrices");
+          row.append(
+            buildMatrix("emb1", "embeddings", ATTN_DATA.emb.map(fmtRow), false),
+            opNode("×"),
+            buildMatrix("W1", scrambled ? "random W" : `W${mode}`, live.W.map(fmtRow), false),
+            opNode("="),
+            buildMatrix("out1", scrambled ? `${mode} (garbage)` : mode, live.out.map(fmtRow), true)
+          );
+          frame.body.appendChild(row);
+
+          if (scrambled) {
+            frame.body.appendChild(makeEl(
+              "div",
+              "pc-attn-status",
+              `Random weights produce a meaningless ${mode}. Training nudges the weights until the outputs become useful. This scramble stays in this step: steps 2 to 5 keep using the trained weights, and picking W${mode} above restores them here too.`
+            ));
+          }
+
+          defaultHint(dot);
+          bindClickable(visual, "out1", (r, c) => {
+            showMatrixProduct(visual, dot,
+              { aId: "emb1", bId: "W1", outId: "out1" },
+              { r, c },
+              { a: ATTN_DATA.emb, b: live.W, result: live.out });
+          });
+        }
+
+        draw();
       }
     },
     {
       title: "2. Score every token pair",
       desc: "Multiply Q by the transpose of K. The result is a score for every pair of tokens. Click any score cell to see the exact dot product that produced it.",
+      head: "scores = Q × Kᵀ",
       render() {
-        visual.append(
+        const row = makeEl("div", "pc-attn-matrices");
+        row.append(
           buildMatrix("Q2", "Q", ATTN_DATA.Q.map(fmtRow), false),
           opNode("×"),
           buildMatrix("Kt2", "Kᵀ", ATTN_DATA.Kt.map(fmtRow), false),
           opNode("="),
           buildMatrix("scores2", "scores", ATTN_DATA.scores.map(fmtRow), true)
         );
+        frame.body.appendChild(row);
         defaultHint(dot);
         bindClickable(visual, "scores2", (r, c) => {
           showMatrixProduct(visual, dot,
@@ -168,15 +222,17 @@ function initStepper() {
     {
       title: "3. Mask future tokens",
       desc: "Apply a triangular mask. Toggle the mask below to see before and after. Future tokens get set to negative infinity so softmax turns them into zero.",
+      head: "masked = mask(scores)",
       render() {
         const display = ATTN_DATA.scores.map((row, ri) =>
           row.map((value, ci) => (maskOn && ci > ri ? "-∞" : fmt(value))));
         const label = maskOn ? "masked scores" : "raw scores (no mask)";
 
-        const column = makeEl("div", "pc-reading");
-        column.appendChild(buildMatrix("mask3", label, display, false));
+        const row = makeEl("div", "pc-attn-matrices");
+        row.appendChild(buildMatrix("mask3", label, display, false));
+        frame.body.appendChild(row);
 
-        const toggleLabel = makeEl("label", "pc-mask-toggle");
+        const toggleLabel = makeEl("label", "pc-mask-toggle pc-attn-center");
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.checked = maskOn;
@@ -186,16 +242,15 @@ function initStepper() {
         });
         toggleLabel.appendChild(checkbox);
         toggleLabel.appendChild(document.createTextNode(" Apply causal mask"));
-        column.appendChild(toggleLabel);
+        frame.body.appendChild(toggleLabel);
 
-        column.appendChild(makeEl(
+        frame.body.appendChild(makeEl(
           "div",
-          `pc-mask-msg ${maskOn ? "is-rose" : "is-warm"}`,
+          `pc-mask-msg ${maskOn ? "is-rose" : "is-warm"} pc-attn-center`,
           maskOn
             ? "Upper triangle → -∞ (future tokens cannot influence past)"
             : 'Without masking, token 1 can "see" tokens 2, 3, 4. That is cheating.'
         ));
-        visual.appendChild(column);
 
         clear(dot);
         dot.appendChild(makeEl(
@@ -208,14 +263,17 @@ function initStepper() {
     {
       title: "4. Softmax into weights",
       desc: "Softmax converts each row into probabilities summing to 1. Click any weight to see the e^x calculation that produced it.",
+      head: "weights = softmax(masked)",
       render() {
         const maskedDisplay = ATTN_DATA.scores.map((row, ri) =>
           row.map((value, ci) => (ci > ri ? "-∞" : fmt(value))));
-        visual.append(
+        const row = makeEl("div", "pc-attn-matrices");
+        row.append(
           buildMatrix("masked4", "masked", maskedDisplay, false),
           opNode("softmax →", true),
           buildMatrix("wt4", "weights", ATTN_DATA.weights.map(fmtRow), true)
         );
+        frame.body.appendChild(row);
         defaultHint(dot);
         bindClickable(visual, "wt4", (r, c, cell) => {
           clear(dot);
@@ -250,14 +308,17 @@ function initStepper() {
     {
       title: "5. Mix with V to get output",
       desc: "Multiply the attention weights by V. Click any output cell to see the weighted sum of V values that produced it.",
+      head: "output = weights × V",
       render() {
-        visual.append(
+        const row = makeEl("div", "pc-attn-matrices");
+        row.append(
           buildMatrix("wt5", "weights", ATTN_DATA.weights.map(fmtRow), false),
           opNode("×"),
           buildMatrix("V5", "V", ATTN_DATA.V.map(fmtRow), false),
           opNode("="),
           buildMatrix("out5", "output", ATTN_DATA.output.map(fmtRow), true)
         );
+        frame.body.appendChild(row);
         defaultHint(dot);
         bindClickable(visual, "out5", (r, c) => {
           showMatrixProduct(visual, dot,
@@ -281,6 +342,16 @@ function initStepper() {
     titleEl.textContent = steps[i].title;
     descEl.textContent = steps[i].desc;
     clear(visual);
+    const block = makeEl("div", "pc-code-block pc-attn-block");
+    const head = makeEl("div", "pc-code-head");
+    head.setAttribute("aria-hidden", "true");
+    head.append(makeEl("span", "pc-code-dot"), makeEl("span", "pc-code-dot"), makeEl("span", "pc-code-dot"));
+    frame.title = makeEl("span", "pc-code-title", steps[i].head);
+    head.appendChild(frame.title);
+    block.appendChild(head);
+    frame.body = makeEl("div", "pc-attn-body");
+    block.appendChild(frame.body);
+    visual.appendChild(block);
     steps[i].render();
   }
 
