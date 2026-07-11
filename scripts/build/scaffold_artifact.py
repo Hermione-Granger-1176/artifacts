@@ -61,6 +61,12 @@ APP_STYLESHEET_HREF = "./css/app.css"
 SHARED_STYLESHEET_LINK = f'<link rel="stylesheet" href="{SHARED_STYLESHEET_HREF}">'
 APP_STYLESHEET_LINK = f'<link rel="stylesheet" href="{APP_STYLESHEET_HREF}">'
 
+# Strip HTML comment blocks before any presence or reference scan so a commented-out
+# tag (for example an example CSP meta, stylesheet link, or script src left in a
+# comment) never poses as live markup. Non-greedy so adjacent comments stay separate,
+# and DOTALL so a comment spanning multiple lines is removed in full.
+_HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+
 # The word boundary keeps `<header>` elements from matching as an opening head tag.
 _HEAD_OPEN_RE = re.compile(r"<head\b[^>]*>", re.IGNORECASE)
 _HEAD_CLOSE_RE = re.compile(r"</head\s*>", re.IGNORECASE)
@@ -311,17 +317,29 @@ Fill in this document as the app grows.
 """
 
 
+def _strip_html_comments(html: str) -> str:
+    """Return the document with HTML comment blocks removed.
+
+    Used only to build the copy scanned for presence and reference checks, so
+    commented-out markup never poses as live tags. The original document is left
+    untouched for injection.
+    """
+    return _HTML_COMMENT_RE.sub("", html)
+
+
 def find_external_references(html: str) -> list[str]:
     """Return sorted unique off-origin references found in an HTML document.
 
     Detects ``src`` / ``href`` attributes (quoted or unquoted) and CSS ``url()``
     targets that use an absolute or protocol-relative URL. These are the
     references the security lint hard-fails on, so the scaffolder surfaces them
-    instead of rewriting.
+    instead of rewriting. Commented-out markup is skipped so an example URL left
+    in an HTML comment never triggers a misleading warning.
     """
+    scannable = _strip_html_comments(html)
     references: set[str] = set()
     for pattern in (_EXTERNAL_ATTR_RE, _EXTERNAL_URL_RE):
-        references.update(match.group(1) for match in pattern.finditer(html))
+        references.update(match.group(1) for match in pattern.finditer(scannable))
     return sorted(references)
 
 
@@ -354,14 +372,18 @@ def apply_contract_to_source(html: str) -> str:
 
     Injects the self-only CSP meta and the shared stylesheet links only when a
     real meta or link tag already provides them, so an author who already wired
-    them keeps their exact markup while prose or script text that merely names
-    the header or the paths never suppresses the contract.
+    them keeps their exact markup while prose, script text, or commented-out
+    markup that merely names the header or the paths never suppresses the
+    contract.
     """
-    if _CSP_PRESENT_RE.search(html) is None:
+    # Run the presence checks against a comment-free copy so a commented-out tag
+    # does not suppress injection, while injecting into the original untouched html.
+    scannable = _strip_html_comments(html)
+    if _CSP_PRESENT_RE.search(scannable) is None:
         html = _inject_after_head_open(html, CSP_META)
-    if _SHARED_STYLESHEET_PRESENT_RE.search(html) is None:
+    if _SHARED_STYLESHEET_PRESENT_RE.search(scannable) is None:
         html = _inject_before_head_close(html, SHARED_STYLESHEET_LINK)
-    if _APP_STYLESHEET_PRESENT_RE.search(html) is None:
+    if _APP_STYLESHEET_PRESENT_RE.search(scannable) is None:
         html = _inject_before_head_close(html, APP_STYLESHEET_LINK)
     return html
 

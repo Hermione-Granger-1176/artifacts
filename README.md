@@ -70,7 +70,7 @@ apps/
 
 ## Adding a new artifact
 
-Both flows emit a complete artifact that passes every gate out of the box: `index.html` wired to the shared stylesheet and app shell with the self-only CSP meta, an `css/app.css` and `js/app.js` stub, a `README.md` plus `docs/` stubs, the metadata files, and a passing `tests/js/apps/<slug>/app.test.js`.
+Both flows emit a complete artifact that passes every gate out of the box: `index.html` wired to the shared stylesheet and app shell with the self-only CSP meta, a `css/app.css` and `js/app.js` stub, a `README.md` plus `docs/` stubs, the metadata files, and a passing `tests/js/apps/<slug>/app.test.js`.
 
 1. Scaffold the directory:
    - Fresh placeholder: `make new name=my-artifact`

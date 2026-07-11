@@ -121,6 +121,42 @@ def test_find_external_references_ignores_data_prefixed_attributes() -> None:
     ]
 
 
+def test_find_external_references_ignores_commented_out_markup() -> None:
+    """Test off-origin references inside HTML comments are not reported."""
+    html = (
+        '<!-- <script src="https://cdn.example.com/commented.js"></script> -->'
+        '<script src="https://cdn.example.com/live.js"></script>'
+    )
+
+    assert scaffold_artifact.find_external_references(html) == [
+        "https://cdn.example.com/live.js",
+    ]
+
+
+def test_apply_contract_injects_when_only_comments_provide_pieces() -> None:
+    """Test commented-out CSP and stylesheet markup does not suppress injection."""
+    commented_meta = f"<!-- {scaffold_artifact.CSP_META} -->"
+    commented_link = f"<!-- {scaffold_artifact.SHARED_STYLESHEET_LINK} -->"
+    html = (
+        "<html><head><title>Demo</title>"
+        f"{commented_meta}"
+        f"{commented_link}"
+        f"{scaffold_artifact.APP_STYLESHEET_LINK}"
+        "</head><body></body></html>"
+    )
+
+    result = scaffold_artifact.apply_contract_to_source(html)
+
+    # Both live tags are injected because the only prior copies were commented out.
+    assert scaffold_artifact.CSP_META in result
+    assert scaffold_artifact.SHARED_STYLESHEET_LINK in result
+    assert result.count("http-equiv") == 2
+    assert result.count(scaffold_artifact.SHARED_STYLESHEET_HREF) == 2
+    # The original comment content is preserved in the output.
+    assert commented_meta in result
+    assert commented_link in result
+
+
 def test_apply_contract_injects_missing_pieces() -> None:
     """Test contract application injects the CSP meta and stylesheet links."""
     html = "<html><head><title>Demo</title></head><body></body></html>"
