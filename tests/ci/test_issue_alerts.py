@@ -5,6 +5,52 @@ import pytest
 from scripts.ci import issue_alerts
 
 
+def test_alert_should_exist_maps_states_to_lifecycle() -> None:
+    """Alert should exist maps states to lifecycle."""
+    assert issue_alerts.alert_should_exist("open") is True
+    assert issue_alerts.alert_should_exist("setup-failure") is True
+    assert issue_alerts.alert_should_exist("close") is False
+
+
+def test_alert_should_exist_rejects_unknown_state() -> None:
+    """Alert should exist rejects unknown state."""
+    with pytest.raises(ValueError, match="Unsupported alert state: bogus"):
+        issue_alerts.alert_should_exist("bogus")
+
+
+def test_build_alert_body_renders_each_state_with_run_url() -> None:
+    """Build alert body renders each state with run url."""
+    run_url = "https://github.com/owner/repo/actions/runs/9"
+
+    open_body = issue_alerts.build_alert_body(state="open", run_url=run_url)
+    assert open_body.startswith("Scheduled checks behind this alert are failing.")
+    assert f"Workflow run: {run_url}" in open_body
+
+    close_body = issue_alerts.build_alert_body(state="close", run_url=run_url)
+    assert close_body.startswith("Scheduled checks behind this alert are passing again.")
+    assert f"Workflow run: {run_url}" in close_body
+
+    setup_body = issue_alerts.build_alert_body(state="setup-failure", run_url=run_url)
+    assert "failed before its checks could report a status" in setup_body
+    assert f"Workflow run: {run_url}" in setup_body
+
+
+def test_build_alert_body_appends_detail_when_given() -> None:
+    """Build alert body appends detail when given."""
+    body = issue_alerts.build_alert_body(
+        state="open",
+        run_url="https://github.com/owner/repo/actions/runs/9",
+        detail="Published URL: https://example.test/",
+    )
+    assert body.endswith("\n\nPublished URL: https://example.test/")
+
+
+def test_build_alert_body_rejects_unknown_state() -> None:
+    """Build alert body rejects unknown state."""
+    with pytest.raises(ValueError, match="Unsupported alert state: bogus"):
+        issue_alerts.build_alert_body(state="bogus", run_url="https://example.test/run")
+
+
 def test_issue_payloads_by_title_filters_non_matching_issues_and_prs() -> None:
     """Issue payloads by title filters non matching issues and prs."""
     payload = [

@@ -542,7 +542,7 @@ pr-close: ## Close the current PR and delete branch
 
 # ─── CI @ci ───────────────────────────────────────────────────────────────────
 
-.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-audit-repo-settings issues
+.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-audit-repo-settings ci-audit-previews ci-alert-issue refresh-action-shas issues
 
 ci-runs: ## List recent CI workflow runs
 	gh run list -L "$(if $(limit),$(limit),10)"
@@ -568,11 +568,36 @@ ci-watch: ## Watch the latest CI run until done
 ci-failures: ## Show failed-step logs for this branch's latest run (make ci-failures [run=ID])
 	@$(GH) ci-failures $(if $(run),--run $(run))
 
+# The three monitor helpers below run on the system interpreter (PYTHONPATH=.
+# $(PYTHON)) instead of $(VENV_PYTHON): the scheduled monitor workflows call
+# them without provisioning a venv, and the setup-failure alert path must work
+# even when dependency installation itself failed. The helpers and everything
+# they import are stdlib-only. All of them read GH_TOKEN from the environment.
 ci-audit-repo-settings: ## Audit GitHub repo settings drift (make ci-audit-repo-settings [repo=owner/name])
-	$(VENV_PYTHON) scripts/ci/workflow_helpers.py audit-repo-settings \
+	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py audit-repo-settings \
 		--repo "$(if $(repo),$(repo),$(REPO))" \
 		--default-branch "$(if $(default_branch),$(default_branch),main)" \
 		--pages-branch "$(if $(pages_branch),$(pages_branch),gh-pages)"
+
+ci-audit-previews: ## Detect leaked gh-pages PR previews (make ci-audit-previews [repo=owner/name])
+	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py audit-previews \
+		--repo "$(if $(repo),$(repo),$(REPO))" \
+		--pages-branch "$(if $(pages_branch),$(pages_branch),gh-pages)"
+
+ci-alert-issue: ## Sync a monitored alert issue (title=, run_url=, state=open|close|setup-failure, [detail=] [detail_file=] [labels="ops ci"] [repo=])
+	@test -n "$(title)" -a -n "$(run_url)" -a -n "$(state)" || \
+		(printf 'Usage: make ci-alert-issue title="..." run_url=https://... state=open|close|setup-failure [detail="..."] [detail_file=path] [labels="ops ci"] [repo=owner/name]\n' >&2; exit 1)
+	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py sync-alert-issue \
+		--repo "$(if $(repo),$(repo),$(REPO))" \
+		--title "$(title)" \
+		--run-url "$(run_url)" \
+		--state "$(state)" \
+		--detail "$(detail)" \
+		--detail-file "$(detail_file)" \
+		$(foreach label,$(labels),--label $(label))
+
+refresh-action-shas: ## Repin tag-based GitHub Actions refs to commit SHAs (needs GH_TOKEN)
+	PYTHONPATH=. $(PYTHON) -m scripts.ci.refresh_action_shas
 
 issues: ## List open issues
 	gh issue list

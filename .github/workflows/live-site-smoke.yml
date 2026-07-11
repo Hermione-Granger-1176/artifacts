@@ -7,6 +7,7 @@ on:
 
 env:
   PYTHONPATH: "."
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
   smoke:
@@ -26,10 +27,6 @@ jobs:
         uses: ./.github/actions/ci-setup
         with:
           event-name: ${{ github.event_name }}
-          app-id: ${{ vars.APP_ID }}
-          app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          escalation-app-id: ${{ vars.ESCALATION_APP_ID }}
-          escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
           python-version: "3.12"
           node-version: "24"
           install-deps: "true"
@@ -66,39 +63,17 @@ jobs:
         if: steps.smoke.outputs.status != '0'
         id: live-issue
         env:
-          GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
+          GH_TOKEN: ${{ github.token }}
+          ALERT_DETAIL: "Published URL: ${{ steps.site-url.outputs.url }}"
         run: |
-          artifact_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          body=$(printf '%s\n' \
-            'Scheduled live-site smoke checks failed.' \
-            "Workflow run: $artifact_url" \
-            'If artifacts were uploaded, inspect the failure screenshot, trace, and runtime logs from this run.' \
-            'Published URL:' \
-            "${{ steps.site-url.outputs.url }}")
-          issue_url=$(python3 scripts/ci/workflow_helpers.py sync-alert-issue \
-            --repo "${{ github.repository }}" \
-            --title "Live site smoke check failed" \
-            --body "$body" \
-            --label ops \
-            --label ci \
-            --should-exist true)
-          echo "url=$issue_url" >> "$GITHUB_OUTPUT"
+          url=$(make ci-alert-issue state=open title="Live site smoke check failed" run_url="$RUN_URL" detail="$ALERT_DETAIL")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Close live-site smoke issue when clean
         if: steps.smoke.outputs.status == '0'
         env:
-          GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
-        run: |
-          body=$(printf '%s\n' \
-            'Scheduled live-site smoke checks are passing again.' \
-            "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
-          python3 scripts/ci/workflow_helpers.py sync-alert-issue \
-            --repo "${{ github.repository }}" \
-            --title "Live site smoke check failed" \
-            --body "$body" \
-            --label ops \
-            --label ci \
-            --should-exist false >/dev/null
+          GH_TOKEN: ${{ github.token }}
+        run: make ci-alert-issue state=close title="Live site smoke check failed" run_url="$RUN_URL"
 
       - name: Summarize live-site smoke failure
         if: steps.smoke.outputs.status != '0'
@@ -109,6 +84,12 @@ jobs:
             echo "Published URL: ${{ steps.site-url.outputs.url }}"
             echo "Issue: ${{ steps.live-issue.outputs.url || 'issue not created' }}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Alert when live-site smoke setup fails
+        if: failure() && steps.smoke.outputs.status == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make ci-alert-issue state=setup-failure title="Live site smoke check failed" run_url="$RUN_URL"
 
       - name: Fail workflow on smoke regression
         if: steps.smoke.outputs.status != '0'

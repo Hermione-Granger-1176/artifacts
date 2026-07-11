@@ -85,20 +85,7 @@ jobs:
             --actor "$ACTOR" \
             --app-bot-login "$APP_BOT_LOGIN")
           echo "json=$plan" >> "$GITHUB_OUTPUT"
-          PLAN_JSON="$plan" python3 - <<'PY'
-          import json
-          import os
-
-          plan = json.loads(os.environ["PLAN_JSON"])
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"browser-scope={plan['browser_scope']}\n")
-              output.write(f"changed-slugs={','.join(plan['changed_slugs'])}\n")
-              output.write(f"thumbnail-scope={plan['thumbnail_scope']}\n")
-              output.write(f"thumbnail-slugs={','.join(plan['thumbnail_slugs'])}\n")
-              output.write(f"persist-mode={plan['persist_mode']}\n")
-              output.write(f"reason={plan['reason']}\n")
-              output.write(f"skip-verification={'true' if plan['skip_verification'] else 'false'}\n")
-          PY
+          PLAN_JSON="$plan" python3 scripts/ci/workflow_helpers.py plan-outputs >> "$GITHUB_OUTPUT"
 
       - name: Summarize automation plan
         env:
@@ -270,23 +257,7 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          python - <<'PY'
-          import os
-          from pathlib import Path
-
-          report = Path("js-coverage.txt").read_text(encoding="utf-8")
-          start_marker = "ℹ start of coverage report"
-          end_marker = "ℹ end of coverage report"
-          start = report.find(start_marker)
-          end = report.find(end_marker)
-          if start == -1 or end == -1:
-              raise SystemExit("Coverage report markers not found in js-coverage.txt")
-          snippet = report[start : end + len(end_marker)]
-          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
-              summary.write("## JavaScript Coverage\n\n```text\n")
-              summary.write(snippet)
-              summary.write("\n```\n")
-          PY
+          python3 scripts/ci/workflow_helpers.py coverage-summary --report js-coverage.txt >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summarize verification
         if: always()
@@ -468,16 +439,7 @@ jobs:
           fi
 
           git archive "$actual_sha" | tar -x -C "$PAGES_PUBLISH_DIR"
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-
-          from scripts.lib.path_validation import reject_symlinks
-
-          root = Path(os.environ["PAGES_PUBLISH_DIR"])
-          reject_symlinks(root)
-          (root / ".nojekyll").touch()
-          PY
+          python3 scripts/ci/workflow_helpers.py finalize-pages-dir --root "$PAGES_PUBLISH_DIR"
 
       - name: Upload GitHub Pages artifact
         if: steps.setup.outputs.token-available == 'true'
@@ -842,16 +804,7 @@ jobs:
           fi
 
           git archive "$actual_sha" | tar -x -C "$PAGES_PUBLISH_DIR"
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-
-          from scripts.lib.path_validation import reject_symlinks
-
-          root = Path(os.environ["PAGES_PUBLISH_DIR"])
-          reject_symlinks(root)
-          (root / ".nojekyll").touch()
-          PY
+          python3 scripts/ci/workflow_helpers.py finalize-pages-dir --root "$PAGES_PUBLISH_DIR"
 
       - name: Upload GitHub Pages artifact
         if: steps.setup.outputs.token-available == 'true'
