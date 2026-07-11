@@ -4,9 +4,12 @@
  * Enforces per-file JS coverage floors.
  *
  * The aggregate coverage gate (test:coverage) lets a weakly tested module hide
- * behind well-tested neighbors. This runs the Node test coverage as machine
- * readable lcov, then fails if any non-excluded source file drops below the
- * per-file line or branch floor. The file set is auto-discovered from the lcov
+ * behind well-tested neighbors. This consumes the lcov report that
+ * `make coverage-js` already emits (so the suite runs with coverage only once
+ * in the CI gate), then fails if any non-excluded source file drops below the
+ * per-file line or branch floor. When the report is absent (standalone runs),
+ * it falls back to running the suite itself with the same coverage excludes
+ * the aggregate gate uses. The file set is auto-discovered from the lcov
  * report, so newly added modules are covered without editing a list here.
  *
  * Exit codes:
@@ -15,7 +18,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +28,14 @@ const ROOT_DIR = resolve(scriptDir, "..", "..");
 
 export const LINE_FLOOR = 80;
 export const BRANCH_FLOOR = 70;
+
+// Repo-relative location where the aggregate coverage run (npm run
+// test:coverage via make coverage-js) writes its lcov report.
+export const DEFAULT_LCOV_PATH = ".artifacts/js-coverage.lcov";
+
+// Keep the fallback run's instrumentation scope identical to package.json's
+// test:coverage, so the floors never see files the aggregate gate excludes.
+const COVERAGE_EXCLUDES = ["node_modules/**", "tests/**"];
 
 /**
  * Split raw lcov text into per-record blocks (one per `SF:`/`end_of_record`
@@ -281,9 +292,11 @@ export function formatReport(outcome, { lineFloor, branchFloor }) {
 }
 
 /**
- * Run the JS test suite with coverage, then enforce per-file floors.
+ * Enforce per-file floors from the aggregate run's lcov report, or rerun the
+ * suite with coverage (using the same excludes) when the report is absent.
  * @param {{
  *   execFileSyncImpl?: typeof execFileSync,
+ *   existsSyncImpl?: typeof existsSync,
  *   readFileSyncImpl?: typeof readFileSync,
  *   rmSyncImpl?: typeof rmSync,
  *   consoleObj?: Console,
@@ -293,33 +306,42 @@ export function formatReport(outcome, { lineFloor, branchFloor }) {
  */
 export function runCoverageFloors({
   execFileSyncImpl = execFileSync,
+  existsSyncImpl = existsSync,
   readFileSyncImpl = readFileSync,
   rmSyncImpl = rmSync,
   consoleObj = console,
   rootDir = ROOT_DIR,
 } = {}) {
-  const dest = join(tmpdir(), `js-coverage-floors-${process.pid}.lcov`);
+  const sharedReport = join(rootDir, DEFAULT_LCOV_PATH);
+  let lcov;
 
-  try {
-    execFileSyncImpl(
-      "node",
-      [
-        "--experimental-test-coverage",
-        "--test-reporter=lcov",
-        `--test-reporter-destination=${dest}`,
-        "--test",
-        "tests/js/**/*.test.js",
-      ],
-      { cwd: rootDir, stdio: ["ignore", "ignore", "inherit"] },
-    );
-  } catch {
-    consoleObj.error("JS test run failed; cannot evaluate per-file coverage floors.");
+  if (existsSyncImpl(sharedReport)) {
+    // The aggregate coverage gate already produced the report; consume it
+    // instead of running the whole suite under coverage a second time.
+    lcov = readFileSyncImpl(sharedReport, "utf-8");
+  } else {
+    const dest = join(tmpdir(), `js-coverage-floors-${process.pid}.lcov`);
+    try {
+      execFileSyncImpl(
+        "node",
+        [
+          "--experimental-test-coverage",
+          ...COVERAGE_EXCLUDES.map((pattern) => `--test-coverage-exclude=${pattern}`),
+          "--test-reporter=lcov",
+          `--test-reporter-destination=${dest}`,
+          "--test",
+          "tests/js/**/*.test.js",
+        ],
+        { cwd: rootDir, stdio: ["ignore", "ignore", "inherit"] },
+      );
+    } catch {
+      consoleObj.error("JS test run failed; cannot evaluate per-file coverage floors.");
+      rmSyncImpl(dest, { force: true });
+      return 1;
+    }
+    lcov = readFileSyncImpl(dest, "utf-8");
     rmSyncImpl(dest, { force: true });
-    return 1;
   }
-
-  const lcov = readFileSyncImpl(dest, "utf-8");
-  rmSyncImpl(dest, { force: true });
 
   const outcome = evaluateCoverageFloors(parseLcov(lcov), {
     lineFloor: LINE_FLOOR,
