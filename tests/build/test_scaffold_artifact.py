@@ -133,6 +133,36 @@ def test_apply_contract_skips_existing_lowercase_csp() -> None:
     assert scaffold_artifact.apply_contract_to_source(html) == html
 
 
+def test_apply_contract_injects_csp_when_only_prose_mentions_it() -> None:
+    """Test body prose naming the header does not suppress the CSP meta injection."""
+    html = (
+        "<html><head><title>Demo</title></head>"
+        "<body><p>This app sets no content-security-policy of its own.</p>"
+        "<script>const note = 'content-security-policy';</script>"
+        "</body></html>"
+    )
+
+    result = scaffold_artifact.apply_contract_to_source(html)
+
+    assert scaffold_artifact.CSP_META in result
+
+
+def test_apply_contract_skips_existing_csp_with_reordered_unquoted_attributes() -> None:
+    """Test an existing CSP meta is detected regardless of attribute order or quoting."""
+    html = (
+        "<html><head>"
+        "<meta content=\"default-src 'self'\" http-equiv=Content-Security-Policy>"
+        f"{scaffold_artifact.SHARED_STYLESHEET_LINK}"
+        f"{scaffold_artifact.APP_STYLESHEET_LINK}"
+        "</head><body></body></html>"
+    )
+
+    result = scaffold_artifact.apply_contract_to_source(html)
+
+    assert result == html
+    assert result.count("http-equiv") == 1
+
+
 def test_inject_after_head_open_without_head_uses_html_tag() -> None:
     """Test the head-open injector falls back to the opening html tag."""
     result = scaffold_artifact._inject_after_head_open(
@@ -160,9 +190,7 @@ def test_inject_after_head_open_ignores_header_elements() -> None:
 
 def test_inject_after_head_open_ignores_html5_like_tag() -> None:
     """Test an <html5>-style tag is not mistaken for an opening html tag."""
-    result = scaffold_artifact._inject_after_head_open(
-        "<html5-widget>x</html5-widget>", "SNIPPET"
-    )
+    result = scaffold_artifact._inject_after_head_open("<html5-widget>x</html5-widget>", "SNIPPET")
 
     assert result == "SNIPPET\n<html5-widget>x</html5-widget>"
 

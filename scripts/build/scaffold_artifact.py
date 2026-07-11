@@ -67,8 +67,14 @@ _HEAD_CLOSE_RE = re.compile(r"</head\s*>", re.IGNORECASE)
 _HTML_OPEN_RE = re.compile(r"<html\b[^>]*>", re.IGNORECASE)
 _DOCTYPE_RE = re.compile(r"<!doctype[^>]*>", re.IGNORECASE)
 
-# Attribute names are case-insensitive in HTML, so presence detection must be too.
-_CSP_PRESENT_RE = re.compile(r"content-security-policy", re.IGNORECASE)
+# Detect an existing CSP only inside a real <meta http-equiv="Content-Security-Policy">
+# tag, never loose prose or script text that merely names the header. Attribute
+# names and values are case-insensitive in HTML, order is free, and the value may be
+# single-quoted, double-quoted, or unquoted, so the pattern stays tolerant of all three.
+_CSP_PRESENT_RE = re.compile(
+    r"""<meta\b[^>]*\bhttp-equiv\s*=\s*["']?\s*content-security-policy\b""",
+    re.IGNORECASE,
+)
 
 # Matches src/href attributes and CSS url() targets that point off-origin,
 # including protocol-relative references (//host/path).
