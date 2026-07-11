@@ -102,14 +102,16 @@ export function computeRemoval(remoteFiles, subdirPrefix) {
  * The fetchJson helper throws messages shaped like "404 Not Found: <body>",
  * so the status leads the message. Only genuine 404s match; other statuses
  * (including a body that merely mentions 404) do not.
- * @param {Error | null} error - Error to classify.
+ * @param {unknown} error - Error (or other caught value) to classify.
  * @returns {boolean} Whether the error is a 404 Not Found.
  */
 export function isNotFoundError(error) {
   if (!error) {
     return false;
   }
-  return /^404\b/.test(String(error.message || error));
+  const message =
+    typeof error === "object" && "message" in error ? error.message : error;
+  return /^404\b/.test(String(message));
 }
 
 /**
