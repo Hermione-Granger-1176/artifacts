@@ -332,6 +332,19 @@ def _strip_html_comments(html: str) -> str:
     return _HTML_COMMENT_RE.sub("", html)
 
 
+def _first_live_match(html: str, pattern: re.Pattern[str]) -> re.Match[str] | None:
+    """Return the first match of ``pattern`` that sits outside HTML comments.
+
+    Used when an injection needs a position inside the original document, where
+    comment stripping would shift every offset.
+    """
+    comment_spans = [match.span() for match in _HTML_COMMENT_RE.finditer(html)]
+    for match in pattern.finditer(html):
+        if not any(start <= match.start() < end for start, end in comment_spans):
+            return match
+    return None
+
+
 def find_external_references(html: str) -> list[str]:
     """Return sorted unique off-origin references found in an HTML document.
 
@@ -396,7 +409,14 @@ def apply_contract_to_source(html: str) -> str:
     if _CSP_PRESENT_RE.search(scannable) is None:
         html = _inject_after_head_open(html, CSP_META)
     if _SHARED_STYLESHEET_PRESENT_RE.search(scannable) is None:
-        html = _inject_before_head_close(html, SHARED_STYLESHEET_LINK)
+        # An already-present app link must stay after the shared one so app rules
+        # keep overriding shared rules, so inject ahead of it instead of at head-close.
+        app_link = _first_live_match(html, _APP_STYLESHEET_PRESENT_RE)
+        if app_link is None:
+            html = _inject_before_head_close(html, SHARED_STYLESHEET_LINK)
+        else:
+            index = app_link.start()
+            html = f"{html[:index]}{SHARED_STYLESHEET_LINK}\n  {html[index:]}"
     if _APP_STYLESHEET_PRESENT_RE.search(scannable) is None:
         html = _inject_before_head_close(html, APP_STYLESHEET_LINK)
     return html

@@ -318,6 +318,25 @@ def test_apply_contract_skips_existing_links_with_reordered_unquoted_attributes(
     assert result.count("<link") == 2
 
 
+def test_apply_contract_inserts_shared_link_before_existing_app_link() -> None:
+    """Test the shared stylesheet lands ahead of an already-present app link."""
+    html = (
+        "<html><head>"
+        f"{scaffold_artifact.CSP_META}"
+        f"<!-- {scaffold_artifact.APP_STYLESHEET_LINK} -->"
+        f"{scaffold_artifact.APP_STYLESHEET_LINK}"
+        "</head><body></body></html>"
+    )
+
+    result = scaffold_artifact.apply_contract_to_source(html)
+
+    # The shared link is injected once, after the commented copy but before the
+    # live app link, so app rules keep overriding shared rules.
+    assert result.count(scaffold_artifact.SHARED_STYLESHEET_LINK) == 1
+    shared = result.index(scaffold_artifact.SHARED_STYLESHEET_LINK)
+    assert result.index("<!--") < shared < result.rindex(scaffold_artifact.APP_STYLESHEET_LINK)
+
+
 def test_apply_contract_skips_existing_self_closing_links() -> None:
     """Test self-closing stylesheet links are detected and not duplicated."""
     html = (
