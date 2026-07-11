@@ -207,6 +207,7 @@ def test_audit_repo_settings_returns_expected_summary(
                 {"name": "APP_PRIVATE_KEY"},
                 {"name": "ESCALATION_APP_PRIVATE_KEY"},
                 {"name": "AUDIT_APP_PRIVATE_KEY"},
+                {"name": "GITLEAKS_LICENSE"},
             ]
         },
         "repos/owner/repo/rulesets": [{"id": 14, "target": "branch"}],
@@ -448,7 +449,7 @@ def test_audit_repo_settings_reports_configuration_drift(
     assert "missing repository variables: AUDIT_APP_ID, ESCALATION_APP_ID" in message
     assert (
         "missing repository secrets: APP_PRIVATE_KEY, "
-        "AUDIT_APP_PRIVATE_KEY, ESCALATION_APP_PRIVATE_KEY" in message
+        "AUDIT_APP_PRIVATE_KEY, ESCALATION_APP_PRIVATE_KEY, GITLEAKS_LICENSE" in message
     )
     assert (
         "'gh-pages' ruleset is missing rules: creation, deletion, non_fast_forward, "
@@ -486,6 +487,7 @@ def test_audit_repo_settings_reports_only_build_type_for_compliant_legacy_source
                 {"name": "APP_PRIVATE_KEY"},
                 {"name": "ESCALATION_APP_PRIVATE_KEY"},
                 {"name": "AUDIT_APP_PRIVATE_KEY"},
+                {"name": "GITLEAKS_LICENSE"},
             ]
         },
         "repos/owner/repo/rulesets": [{"id": 14, "target": "branch"}],
@@ -549,6 +551,7 @@ def test_audit_repo_settings_requires_ruleset_targeting_pages_branch(
                 {"name": "APP_PRIVATE_KEY"},
                 {"name": "ESCALATION_APP_PRIVATE_KEY"},
                 {"name": "AUDIT_APP_PRIVATE_KEY"},
+                {"name": "GITLEAKS_LICENSE"},
             ]
         },
         "repos/owner/repo/rulesets": [{"id": 99, "target": "branch"}],

@@ -491,7 +491,6 @@ def test_sync_alert_issue_delegates_to_issue_alerts_module(
         title="Artifact alert",
         body="Updated body",
         labels=["ci"],
-        issue_url="ignored",
         should_exist=True,
     )
 

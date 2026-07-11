@@ -7,9 +7,13 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
+ACTIONS_DIR = REPO_ROOT / ".github" / "actions"
 
 CREATE_APP_TOKEN_SHA_PIN = re.compile(r"^actions/create-github-app-token@[0-9a-f]{40}$")
 CODEQL_ACTION_SHA_PIN = re.compile(r"^github/codeql-action/(init|autobuild|analyze)@[0-9a-f]{40}$")
+
+USES_LINE_PATTERN = re.compile(r"^\s*(?:-\s*)?uses:\s*(\S+)\s*(#.*)?$")
+SHA_PINNED_PATTERN = re.compile(r"^[^@\s]+@[0-9a-f]{40}$")
 
 
 def _load_workflow(name: str) -> dict[str, object]:
@@ -198,7 +202,7 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     assert "commit=$commit" in _step_run(publish, "Resolve gh-pages publish commit")
     materialize_run = _step_run(publish, "Materialize GitHub Pages payload")
     assert "git archive" in materialize_run
-    assert "reject_symlinks(root)" in materialize_run
+    assert "finalize-pages-dir" in materialize_run
     assert _step_uses(publish, "Upload GitHub Pages artifact").startswith(
         "actions/upload-pages-artifact@"
     )
@@ -308,7 +312,9 @@ def test_update_thumbnail_persistence_and_cleanup_stay_bounded() -> None:
     }
     assert _step(cleanup, "CI setup")["with"]["event-name"] == "pull_request"
     assert "commit=$CLEANUP_COMMIT" in _step_run(cleanup, "Resolve gh-pages cleanup commit")
-    assert "git archive" in _step_run(cleanup, "Materialize GitHub Pages payload")
+    cleanup_materialize_run = _step_run(cleanup, "Materialize GitHub Pages payload")
+    assert "git archive" in cleanup_materialize_run
+    assert "finalize-pages-dir" in cleanup_materialize_run
     assert _step_uses(cleanup, "Upload GitHub Pages artifact").startswith(
         "actions/upload-pages-artifact@"
     )
@@ -375,12 +381,24 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert audit_job["permissions"] == {"contents": "read", "issues": "write"}
     assert "> audit-repo-settings.json 2>&1" in audit_run
     assert 'echo "status=$status" >> "$GITHUB_OUTPUT"' in audit_run
-    assert "sync-alert-issue" in _step_run(
-        audit_job, "Open or update repository settings drift issue"
-    )
-    assert "sync-alert-issue" in _step_run(
-        audit_job, "Close repository settings drift issue when clean"
-    )
+    drift_open_run = _step_run(audit_job, "Open or update repository settings drift issue")
+    assert "make ci-alert-issue" in drift_open_run
+    assert "state=open" in drift_open_run
+    assert "detail_file=audit-repo-settings.json" in drift_open_run
+    drift_close_run = _step_run(audit_job, "Close repository settings drift issue when clean")
+    assert "make ci-alert-issue" in drift_close_run
+    assert "state=close" in drift_close_run
+
+    # The stale-preview audit is folded into the settings audit step so the run
+    # stays green in the actionlint linter and shares one drift-alert channel.
+    assert "make ci-audit-repo-settings" in audit_run
+    assert "make ci-audit-previews" in audit_run
+    audit_fallback = _step(audit_job, "Alert when repository settings audit setup fails")
+    assert audit_fallback["if"] == "failure() && steps.audit.outputs.status == ''"
+    assert audit_fallback["env"]["GH_TOKEN"] == "${{ github.token }}"
+    audit_fallback_run = _step_run(audit_job, "Alert when repository settings audit setup fails")
+    assert "make ci-alert-issue" in audit_fallback_run
+    assert "state=setup-failure" in audit_fallback_run
 
     assert set(_workflow_on(live_smoke)) == {"workflow_dispatch", "schedule"}
     assert _workflow_on(live_smoke)["schedule"] == [{"cron": "17 6 * * *"}]
@@ -393,15 +411,32 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert "make test-browser-live" in _step_run(
         smoke_job, "Run published-site browser verification"
     )
-    assert "sync-alert-issue" in _step_run(smoke_job, "Open or update live-site smoke issue")
-    assert "sync-alert-issue" in _step_run(smoke_job, "Close live-site smoke issue when clean")
+    smoke_open_run = _step_run(smoke_job, "Open or update live-site smoke issue")
+    assert "make ci-alert-issue" in smoke_open_run
+    assert "state=open" in smoke_open_run
+    smoke_close_run = _step_run(smoke_job, "Close live-site smoke issue when clean")
+    assert "make ci-alert-issue" in smoke_close_run
+    assert "state=close" in smoke_close_run
+    open_token = _step(smoke_job, "Open or update live-site smoke issue")["env"]["GH_TOKEN"]
+    assert open_token == "${{ github.token }}"
+    close_token = _step(smoke_job, "Close live-site smoke issue when clean")["env"]["GH_TOKEN"]
+    assert close_token == "${{ github.token }}"
+    smoke_fallback = _step(smoke_job, "Alert when live-site smoke setup fails")
+    assert smoke_fallback["if"] == "failure() && steps.smoke.outputs.status == ''"
+    assert smoke_fallback["env"]["GH_TOKEN"] == "${{ github.token }}"
+    smoke_fallback_run = _step_run(smoke_job, "Alert when live-site smoke setup fails")
+    assert "make ci-alert-issue" in smoke_fallback_run
+    assert "state=setup-failure" in smoke_fallback_run
 
     assert set(_workflow_on(refresh)) == {"schedule", "workflow_dispatch"}
     assert _workflow_on(refresh)["schedule"] == [{"cron": "0 3 1 * *"}]
-    assert (
-        _step_uses(_job(refresh, "refresh"), "Commit changes (verified)")
-        == "./.github/actions/verified-commit"
-    )
+    refresh_job = _job(refresh, "refresh")
+    commit_uses = _step_uses(refresh_job, "Commit changes (verified)")
+    assert commit_uses == "./.github/actions/verified-commit"
+    assert _step_uses(refresh_job, "Set up Python").startswith("actions/setup-python@")
+    assert _step_run(refresh_job, "Update action SHAs").strip() == "make refresh-action-shas"
+    update_token = _step(refresh_job, "Update action SHAs")["env"]["GH_TOKEN"]
+    assert update_token == "${{ steps.escalation-token.outputs.token }}"
 
 
 def test_codeql_workflow_scans_supported_languages_with_shared_config() -> None:
@@ -454,6 +489,54 @@ def test_codeql_config_ignores_generated_and_vendored_paths() -> None:
     ]
 
 
+def _workflow_and_action_files() -> list[Path]:
+    """Return every workflow file and composite action definition."""
+    files = sorted(WORKFLOWS_DIR.glob("*.yml")) + sorted(WORKFLOWS_DIR.glob("*.yaml"))
+    files += sorted(ACTIONS_DIR.glob("*/action.yml")) + sorted(ACTIONS_DIR.glob("*/action.yaml"))
+    return files
+
+
+def _iter_uses_references() -> list[tuple[Path, int, str, str | None]]:
+    """Return every ``uses:`` reference across workflows and composite actions."""
+    references: list[tuple[Path, int, str, str | None]] = []
+    for path in _workflow_and_action_files():
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            match = USES_LINE_PATTERN.match(line)
+            if match is not None:
+                references.append((path, lineno, match.group(1), match.group(2)))
+    return references
+
+
+def test_all_action_references_are_pinned_or_local() -> None:
+    """Every uses: reference is a local path or a SHA pin with a version comment."""
+    references = _iter_uses_references()
+    assert references, "expected at least one uses: reference to validate"
+
+    for path, lineno, ref, comment in references:
+        location = f"{path.name}:{lineno}"
+        if ref.startswith("./"):
+            continue
+        assert SHA_PINNED_PATTERN.fullmatch(ref), (
+            f"{location} action reference is not pinned to a 40-char commit SHA: {ref}"
+        )
+        assert comment is not None and comment.startswith("#"), (
+            f"{location} SHA-pinned action reference must keep a version comment: {ref}"
+        )
+
+
+def test_no_python_heredocs_remain_in_workflows_or_actions() -> None:
+    """No workflow or composite action embeds an inline Python heredoc."""
+    heredoc_pattern = re.compile(r"python3?\s+-\s*<<")
+    files = _workflow_and_action_files()
+    assert files, "expected at least one workflow or action file to validate"
+
+    for path in files:
+        assert not heredoc_pattern.search(path.read_text(encoding="utf-8")), (
+            f"{path.name} embeds an inline Python heredoc; move the logic into "
+            "scripts/ and call it as a command instead"
+        )
+
+
 def test_dependency_audit_workflow_runs_audits_and_syncs_alert_issue() -> None:
     """Dependency audit workflow runs audits and syncs the alert issue."""
     workflow = _load_workflow("dependency-audit.yml")
@@ -477,18 +560,25 @@ def test_dependency_audit_workflow_runs_audits_and_syncs_alert_issue() -> None:
     open_step = _step(audit, "Open or update dependency audit issue")
     assert open_step["if"] == "steps.audit.outputs.status != '0'"
     open_run = _step_run(audit, "Open or update dependency audit issue")
-    assert "sync-alert-issue" in open_run
-    assert "--should-exist true" in open_run
+    assert "make ci-alert-issue" in open_run
+    assert "state=open" in open_run
 
     close_step = _step(audit, "Close dependency audit issue when clean")
     assert close_step["if"] == "steps.audit.outputs.status == '0'"
     close_run = _step_run(audit, "Close dependency audit issue when clean")
-    assert "sync-alert-issue" in close_run
-    assert "--should-exist false" in close_run
+    assert "make ci-alert-issue" in close_run
+    assert "state=close" in close_run
 
     fail_step = _step(audit, "Fail workflow when audit detects issues")
     assert fail_step["if"] == "steps.audit.outputs.status != '0'"
     assert _step_run(audit, "Fail workflow when audit detects issues").strip() == "exit 1"
+
+    fallback_step = _step(audit, "Alert when dependency audit setup fails")
+    assert fallback_step["if"] == "failure() && steps.audit.outputs.status == ''"
+    assert fallback_step["env"]["GH_TOKEN"] == "${{ github.token }}"
+    fallback_run = _step_run(audit, "Alert when dependency audit setup fails")
+    assert "make ci-alert-issue" in fallback_run
+    assert "state=setup-failure" in fallback_run
 
 
 def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
