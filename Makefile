@@ -523,11 +523,11 @@ pr-summary: ## One-screen PR overview: state, CI rollup, open threads (make pr-s
 pr-watch: ## Wait until PR checks settle and a fresh Copilot review lands (make pr-watch [pr_num=N] [since=ISO] [interval=S] [max_polls=K] [checks_only=1])
 	@$(GH) watch $(if $(pr_num),--pr $(pr_num)) $(if $(since),--since "$(since)") $(if $(interval),--interval $(interval)) $(if $(max_polls),--max-polls $(max_polls)) $(if $(filter 1,$(checks_only)),--checks-only)
 
-pr-merge: ## Merge the current PR (squash, delete branch)
-	gh pr merge --squash --delete-branch
+pr-merge: ## Merge a PR (squash, delete branch) (make pr-merge [pr_num=N])
+	gh pr merge $(pr_num) --squash --delete-branch
 
-pr-merge-admin: ## Force merge bypassing branch protection (admin)
-	gh pr merge --squash --delete-branch --admin
+pr-merge-admin: ## Force merge bypassing branch protection (admin) (make pr-merge-admin [pr_num=N])
+	gh pr merge $(pr_num) --squash --delete-branch --admin
 
 pr-reviewers: ## Add reviewers (make pr-reviewers users="user1,user2")
 	@test -n "$(users)" || (printf 'Usage: make pr-reviewers users="octocat"\n' >&2; exit 1)
