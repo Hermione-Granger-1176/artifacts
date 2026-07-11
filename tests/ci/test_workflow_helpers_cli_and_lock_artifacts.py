@@ -295,6 +295,13 @@ def test_main_coverage_summary_rejects_missing_markers(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="Coverage report markers not found"):
         workflow_helpers.main(["coverage-summary", "--report", str(start_only)])
 
+    inverted = tmp_path / "inverted.txt"
+    inverted.write_text(
+        "end of coverage report\nrows\nstart of coverage report\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="Coverage report markers not found"):
+        workflow_helpers.main(["coverage-summary", "--report", str(inverted)])
+
 
 def test_main_finalize_pages_dir_adds_nojekyll(tmp_path: Path) -> None:
     """Test main finalize pages dir adds nojekyll."""

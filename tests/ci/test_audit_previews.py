@@ -264,4 +264,5 @@ def test_main_audit_previews_prints_open_previews(
     )
 
     assert exit_code == 0
-    assert json.loads(capsys.readouterr().out) == {"open-previews": ["pr-9", "pr-4"]}
+    # The output is sorted regardless of the API response ordering.
+    assert json.loads(capsys.readouterr().out) == {"open-previews": ["pr-4", "pr-9"]}
