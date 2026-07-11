@@ -286,6 +286,39 @@ export function createDetailContent(item) {
   `;
 }
 
+/**
+ * Swap a failed card thumbnail image for the shared placeholder treatment.
+ * Registered as a capture-phase delegated listener because img error events do not bubble.
+ * @param {Event} event - Error event dispatched by a broken image.
+ * @returns {void}
+ */
+export function handleThumbnailError(event) {
+  const target = /** @type {Element | null} */ (event.target);
+  if (!target || target.tagName !== 'IMG' || !target.classList.contains('card-thumbnail')) {
+    return;
+  }
+
+  const frame = target.closest('.card-photo-frame');
+  const parent = frame?.parentNode;
+  if (!frame || !parent) {
+    return;
+  }
+
+  const placeholder = frame.ownerDocument.createElement('div');
+  placeholder.className = 'card-thumbnail-placeholder';
+  parent.replaceChild(placeholder, frame);
+}
+
+/**
+ * Attach the delegated broken-thumbnail fallback listener to a grid container.
+ * The capture phase is required because image error events do not bubble.
+ * @param {HTMLElement} grid - Artifact grid container.
+ * @returns {void}
+ */
+export function registerThumbnailFallback(grid) {
+  grid.addEventListener('error', handleThumbnailError, true);
+}
+
 /** Build the HTML for a single artifact card in the grid. */
 function createCard(item, isExpanded, index) {
   const cardColor = getCardColor(index);

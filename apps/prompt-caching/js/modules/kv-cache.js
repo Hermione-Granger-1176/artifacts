@@ -15,14 +15,14 @@ function initCacheAnimation() {
   const kVis = byId("kCacheVis");
   const vVis = byId("vCacheVis");
   const narration = byId("cacheNarration");
-  const playBtn = byId("cachePlayBtn");
+  const playBtn = /** @type {HTMLButtonElement} */ (byId("cachePlayBtn"));
   const resetBtn = byId("cacheResetBtn");
   if (!tokensWrap || !kVis || !vVis || !playBtn) {
     return;
   }
 
   let step = -1;
-  let timer = null;
+  let timer = /** @type {number | null} */ (null);
 
   function renderCacheRows(target) {
     if (step < 0) {
@@ -83,7 +83,7 @@ function initCacheAnimation() {
       step += 1;
       renderState();
       if (step >= CACHE_TOKENS.length - 1) {
-        clearInterval(timer);
+        clearInterval(/** @type {number} */ (timer));
         timer = null;
         playBtn.disabled = false;
       }

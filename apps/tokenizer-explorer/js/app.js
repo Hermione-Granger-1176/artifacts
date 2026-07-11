@@ -6,6 +6,9 @@ import { renderDistribution, renderScenario, renderTabs } from "./modules/render
 import { scenarios } from "./modules/scenarios.js";
 import { buildTopPSelection } from "./modules/sampling.js";
 
+// Populated dynamically from ELEMENT_IDS via a string-keyed loop, so the shape
+// is not statically known here; the render helpers assert the members they use.
+/** @type {any} */
 const elements = {};
 
 let activeIndex = 0;

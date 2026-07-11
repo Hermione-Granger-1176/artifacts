@@ -7,6 +7,7 @@
   },
   "scripts": {
     "check:overrides": "node scripts/check-overrides.mjs",
+    "coverage:files": "node scripts/lint/check-js-coverage-floors.mjs",
     "dead-code": "knip --config config/knip.json",
     "format": "prettier --config config/prettierrc.json --ignore-path config/prettierignore --no-error-on-unmatched-pattern --write \"*.{json,md,yml,yaml}\" \"config/**/*.{json,js,mjs,yml,yaml}\" \"docs/**/*.md\" \".github/**/*.{json,md,yml,yaml,mjs}\" \"scripts/**/*.{js,mjs}\"",
     "format:check": "prettier --config config/prettierrc.json --ignore-path config/prettierignore --no-error-on-unmatched-pattern --check \"*.{json,md,yml,yaml}\" \"config/**/*.{json,js,mjs,yml,yaml}\" \"docs/**/*.md\" \".github/**/*.{json,md,yml,yaml,mjs}\" \"scripts/**/*.{js,mjs}\"",

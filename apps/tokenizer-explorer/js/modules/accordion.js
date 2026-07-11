@@ -6,7 +6,8 @@
  */
 export function initAccordion(container) {
   container.addEventListener("click", (event) => {
-    const trigger = event.target.closest(".card-trigger");
+    const target = /** @type {Element | null} */ (event.target);
+    const trigger = target?.closest(".card-trigger");
     if (!trigger) {
       return;
     }
