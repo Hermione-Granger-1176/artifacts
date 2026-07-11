@@ -192,6 +192,49 @@ def test_apply_contract_skips_existing_csp_with_reordered_unquoted_attributes() 
     assert result.count("http-equiv") == 1
 
 
+def test_apply_contract_injects_csp_when_only_report_only_meta_present() -> None:
+    """Test a Report-Only CSP meta does not pose as the enforced policy."""
+    html = (
+        "<html><head>"
+        '<meta http-equiv="Content-Security-Policy-Report-Only" '
+        "content=\"default-src 'self'; report-uri /csp\">"
+        f"{scaffold_artifact.SHARED_STYLESHEET_LINK}"
+        f"{scaffold_artifact.APP_STYLESHEET_LINK}"
+        "</head><body></body></html>"
+    )
+
+    result = scaffold_artifact.apply_contract_to_source(html)
+
+    assert scaffold_artifact.CSP_META in result
+    # The Report-Only meta is preserved alongside the injected enforced one.
+    assert "Content-Security-Policy-Report-Only" in result
+
+
+@pytest.mark.parametrize(
+    "meta",
+    [
+        '<meta http-equiv="Content-Security-Policy" content="default-src \'self\'">',
+        "<meta http-equiv='Content-Security-Policy' content=\"default-src 'self'\">",
+        "<meta http-equiv=Content-Security-Policy content=\"default-src 'self'\">",
+        '<meta http-equiv="Content-Security-Policy"content="default-src \'self\'">',
+    ],
+)
+def test_apply_contract_detects_exact_csp_across_terminators(meta: str) -> None:
+    """Test the exact-name CSP meta is detected across quote and whitespace variants."""
+    html = (
+        "<html><head>"
+        f"{meta}"
+        f"{scaffold_artifact.SHARED_STYLESHEET_LINK}"
+        f"{scaffold_artifact.APP_STYLESHEET_LINK}"
+        "</head><body></body></html>"
+    )
+
+    result = scaffold_artifact.apply_contract_to_source(html)
+
+    # The existing policy is detected, so no second enforced meta is injected.
+    assert result.count("http-equiv") == 1
+
+
 def test_apply_contract_injects_links_when_only_prose_mentions_hrefs() -> None:
     """Test prose or script text naming the stylesheet paths does not suppress injection."""
     html = (

@@ -6,9 +6,14 @@ This module backs `make optimize-social-image`.
 The Open Graph share card (`assets/social/share-preview.png`) is served on every
 link unfurl, so it should stay small. A 1200x630 card is comfortable at roughly
 100-150 KB, yet exported PNGs routinely ship several times that. This helper
-re-encodes the PNG with palette and compression optimizations (and downscales it
-to fit within 1200x630 when it is larger), writing back only when the result is
-actually smaller so a repeat run is a no-op.
+re-encodes the PNG (and downscales it to fit within 1200x630 when it is larger),
+writing back only when the result is actually smaller so a repeat run is a no-op.
+
+The optimization is lossy. Any transparency is flattened onto a white background,
+and one of the candidate encodings quantizes the image to a 256-color palette, so
+fine gradients and alpha edges can shift. The smaller of the palette candidate and
+a plain optimized truecolor candidate wins, which keeps flat graphic cards tiny
+while protecting gradient-heavy art.
 
 Run through the Makefile in normal workflows; direct invocation is mainly for
 maintainers working on the build internals.
