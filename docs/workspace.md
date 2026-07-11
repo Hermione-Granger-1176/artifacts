@@ -123,7 +123,8 @@ Each artifact directory under `apps/` is expected to contain:
 - `js/app.js`: recommended app-local runtime entry for mature apps
 - `docs/architecture.md`, `docs/verification.md`, `docs/decisions.md`: recommended internal docs for mature apps
 - `README.md`: recommended app overview and folder map
-- `tests/js/apps/<slug>/`: recommended matching app-specific Node test directory, created automatically by `make new`
+- `css/app.css`: recommended app-local stylesheet loaded after the shared `css/style.css`
+- `tests/js/apps/<slug>/app.test.js`: matching app-specific Node test, emitted automatically by `make new`
 - `name.txt`: required display name
 - `description.txt`: optional short description
 - `tags.txt`: optional tags, one per line
@@ -134,7 +135,8 @@ Each artifact directory under `apps/` is expected to contain:
 
 - Add or modify artifacts in `apps/`.
 - Use Makefile targets for normal local and documented workflows. See [`operations.md`](operations.md) for which targets to run in each workflow.
-- Use `make new name=my-artifact` when you want a correct starting structure quickly; it also creates the matching `tests/js/apps/<slug>/` directory.
+- Use `make new name=my-artifact` for a complete, gate-passing starting structure: the shared-stylesheet and app-shell wiring, `css/app.css` and `js/app.js` stubs, `README.md` and `docs/` stubs, metadata files, and a passing `tests/js/apps/<slug>/app.test.js`.
+- Use `make new name=my-artifact src=path/to/file.html` to drop in an existing AI-generated HTML file: it installs the file as `index.html`, injects the CSP meta and shared stylesheet links only when absent, reports (never rewrites) off-origin script or style references, and scaffolds the same app-local files, docs, and test stub.
 - Update generator logic in `scripts/` when derived-output behavior should change.
 - Prefer keeping tool scope in its owning config file, and avoid adding ad hoc duplicated file selection unless a target or workflow truly needs it.
 - Use `make validate` when you change top-level artifact directories or the artifact folder contract.

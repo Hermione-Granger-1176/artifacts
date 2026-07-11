@@ -37,6 +37,7 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 - [`workspace.md`](docs/workspace.md): repository layout and responsibilities
 - [`architecture.md`](docs/architecture.md): runtime, build, and deployment design
 - [`docs/adr/0001-root-publishing-platform.md`](docs/adr/0001-root-publishing-platform.md): accepted decision record for the strict root publish flow
+- [`docs/adr/0004-per-artifact-app-stylesheets.md`](docs/adr/0004-per-artifact-app-stylesheets.md): accepted decision record for splitting artifact CSS into app-local stylesheets
 - [`frontend.md`](docs/frontend.md): JavaScript module layout and test coverage
 - [`operations.md`](docs/operations.md): local workflows, CI, and generation notes
 - [`maintenance.md`](docs/maintenance.md): maintenance rules and long-term repo hygiene
@@ -69,8 +70,12 @@ apps/
 
 ## Adding a new artifact
 
-1. Run `make new name=my-artifact` to scaffold the directory, or create a kebab-case directory under `apps/` manually
-2. Replace the scaffold `index.html` with your artifact and fill in the metadata files
+Both flows emit a complete artifact that passes every gate out of the box: `index.html` wired to the shared stylesheet and app shell with the self-only CSP meta, an `css/app.css` and `js/app.js` stub, a `README.md` plus `docs/` stubs, the metadata files, and a passing `tests/js/apps/<slug>/app.test.js`.
+
+1. Scaffold the directory:
+   - Fresh placeholder: `make new name=my-artifact`
+   - Drop in an existing AI-generated HTML file: `make new name=my-artifact src=path/to/file.html`. The file is installed as `index.html`; the CSP meta and shared stylesheet links are injected only when absent, and any off-origin script or style references are reported so you can vendor or remove them before the security lint runs.
+2. Build your artifact in `index.html` (or refine the drop-in) and fill in the metadata files
 3. Run `make validate` to catch missing required files before pushing
 4. Push to `main`: CI regenerates derived files, builds `_site/`, and deploys the site
 5. Open a PR to run the same checks and publish a live preview

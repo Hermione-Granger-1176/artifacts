@@ -10,5 +10,6 @@ Read in this order when you are new to the repo:
 4. [`operations.md`](operations.md): canonical for day-to-day `make` workflows, CI parity, troubleshooting, and recovery
 5. [`maintenance.md`](maintenance.md): canonical for long-term stability contracts and periodic upkeep
 6. [`style.md`](style.md): canonical for editor configuration and language conventions
+7. [`adr/`](adr/): canonical for accepted architecture decision records (numbered `0001` through `0004`)
 
 If two docs seem to overlap, prefer the one that owns the concern above and link to it instead of copying the policy again.

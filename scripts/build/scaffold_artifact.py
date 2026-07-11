@@ -1,11 +1,24 @@
 #!/usr/bin/env python3
 """Scaffold a new artifact directory under ``apps/``.
 
-This module backs `make new name=<artifact-name>`.
+This module backs `make new name=<artifact-name> [src=<path-to-html>]`.
 
 It creates a new artifact directory under ``apps/`` with the required metadata
-files, a minimal HTML starting point, and a matching app test directory under
-``tests/js/apps/<slug>/``.
+files, an HTML entry point, an app-local stylesheet and bootstrap module,
+internal docs, and a matching app test under ``tests/js/apps/<slug>/``. Every
+emitted file is designed to pass the repository gates (`make validate`, the JS
+test-coverage check, ESLint, stylelint, Knip, and tsc) without hand edits.
+
+Two flows are supported:
+
+* Without ``--from-html`` the scaffold emits a semantic placeholder page wired
+  to the shared stylesheet and app shell.
+* With ``--from-html <path>`` an existing AI-generated HTML file is installed as
+  ``index.html``. The shared contract is still guaranteed: the self-only
+  Content-Security-Policy meta and the shared stylesheet links are injected when
+  absent, and any external script/style references are reported (never silently
+  rewritten) so the author can vendor or remove them before the security lint
+  runs.
 
 Run through the Makefile in normal workflows; direct invocation is mainly for
 maintainers working on the build internals.
@@ -13,7 +26,9 @@ maintainers working on the build internals.
 
 from __future__ import annotations
 
+import re
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
@@ -22,7 +37,7 @@ from scripts.build.prepare_site import APP_SHARE_IMAGE_PLACEHOLDER, APP_URL_PLAC
 from scripts.lib.app_discovery import artifact_base_path
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from collections.abc import Iterable
 
 APPS_DIR = REPO_ROOT / artifact_base_path()
 TESTS_JS_APPS_DIR = REPO_ROOT / "tests" / "js" / "apps"
@@ -32,6 +47,39 @@ NAME_FILE = "name.txt"
 DESCRIPTION_FILE = "description.txt"
 TAGS_FILE = "tags.txt"
 TOOLS_FILE = "tools.txt"
+
+# Self-only policy shared by every artifact. Kept as a constant so the drop-in
+# flow can inject the exact same meta the placeholder template ships with.
+CSP_CONTENT = (
+    "default-src 'self'; script-src 'self'; style-src 'self'; "
+    "img-src 'self' data:; connect-src 'self'"
+)
+CSP_META = f'<meta http-equiv="Content-Security-Policy" content="{CSP_CONTENT}">'
+
+SHARED_STYLESHEET_HREF = "../../css/style.css"
+APP_STYLESHEET_HREF = "./css/app.css"
+SHARED_STYLESHEET_LINK = f'<link rel="stylesheet" href="{SHARED_STYLESHEET_HREF}">'
+APP_STYLESHEET_LINK = f'<link rel="stylesheet" href="{APP_STYLESHEET_HREF}">'
+
+# The word boundary keeps `<header>` elements from matching as an opening head tag.
+_HEAD_OPEN_RE = re.compile(r"<head\b[^>]*>", re.IGNORECASE)
+_HEAD_CLOSE_RE = re.compile(r"</head\s*>", re.IGNORECASE)
+_HTML_OPEN_RE = re.compile(r"<html[^>]*>", re.IGNORECASE)
+_DOCTYPE_RE = re.compile(r"<!doctype[^>]*>", re.IGNORECASE)
+
+# Attribute names are case-insensitive in HTML, so presence detection must be too.
+_CSP_PRESENT_RE = re.compile(r"content-security-policy", re.IGNORECASE)
+
+# Matches src/href attributes and CSS url() targets that point off-origin,
+# including protocol-relative references (//host/path).
+_EXTERNAL_ATTR_RE = re.compile(
+    r"""(?:src|href)\s*=\s*["']\s*((?:https?:)?//[^"']+)["']""",
+    re.IGNORECASE,
+)
+_EXTERNAL_URL_RE = re.compile(
+    r"""url\(\s*["']?\s*((?:https?:)?//[^)"']+)""",
+    re.IGNORECASE,
+)
 
 
 def is_kebab_case(name: str) -> bool:
@@ -51,10 +99,6 @@ def _index_template(title: str, slug: str | None = None) -> str:
     lede = (
         "Replace this scaffold with your artifact and keep shared visual "
         "styling in the shared stylesheet while keeping app-specific layout local."
-    )
-    csp = (
-        "default-src 'self'; script-src 'self'; style-src 'self'; "
-        "img-src 'self' data:; connect-src 'self'"
     )
     return f"""<!DOCTYPE html>
 <html lang="en" data-theme="light">
@@ -78,15 +122,15 @@ def _index_template(title: str, slug: str | None = None) -> str:
   <meta name="twitter:image:alt" content="Preview card for the {title} app.">
   <meta name="theme-color" content="rgb(245, 239, 230)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <meta http-equiv="Content-Security-Policy" content="{csp}">
+  <meta http-equiv="Content-Security-Policy" content="{CSP_CONTENT}">
   <title>{title} | Artifacts</title>
   <script src="../../js/app-theme.js"></script>
   <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
   <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
-  <link rel="stylesheet" href="../../css/style.css">
-  <link rel="stylesheet" href="./css/app.css">
+  <link rel="stylesheet" href="{SHARED_STYLESHEET_HREF}">
+  <link rel="stylesheet" href="{APP_STYLESHEET_HREF}">
 </head>
 <body class="artifact-app{app_class}">
   <div data-app-shell="header"></div>
@@ -129,12 +173,73 @@ initializeMatureApp({
 
 
 def _app_css_template(title: str) -> str:
-    """Return a starter app stylesheet."""
-    return f"/* {title} app layout. */\n"
+    """Return a starter app stylesheet.
+
+    Keeps the palette convention front and center: authored colors reuse the
+    shared bookmark-note tokens, and any literal colors use ``rgb()`` /
+    ``rgba()`` values, never hex.
+    """
+    return (
+        f"/* {title} app layout. */\n"
+        "/* Scope selectors with body.app-<slug> and reuse shared tokens such as */\n"
+        "/* var(--color-text) and var(--note-blue). Author literal colors as */\n"
+        "/* rgb(...) / rgba(...) values only, never hex. */\n"
+    )
 
 
-def _readme_template(title: str) -> str:
+def _app_test_template(slug: str, title: str) -> str:
+    """Return a starter app test that boots the emitted bootstrap module.
+
+    The assertion is intentionally behavioral: importing ``app.js`` under the
+    shared mocks must reach a ``ready`` runtime state, proving the bootstrap
+    wiring is intact rather than merely that the file parses.
+    """
+    return f"""import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {{ cleanupMocks, setupFullMocks }} from '../../common/app-entry-test-support.js';
+
+test('{slug} app.js boots the shared runtime without error', async () => {{
+  setupFullMocks();
+  try {{
+    // Cache-bust the import so repeat runs re-evaluate the module.
+    await import(`../../../../apps/{slug}/js/app.js?t=${{Date.now()}}-${{Math.random()}}`);
+
+    assert.equal(
+      globalThis.window.__ARTIFACT_READY__,
+      true,
+      'the {title} bootstrap should finish without a fatal error'
+    );
+    assert.equal(
+      globalThis.document.documentElement.dataset.runtimeStatus,
+      'ready',
+      'the shared runtime should reach the ready state'
+    );
+  }} finally {{
+    cleanupMocks();
+  }}
+}});
+"""
+
+
+def _readme_template(title: str, *, drop_in: bool = False) -> str:
     """Return starter app documentation."""
+    dependencies = (
+        "- List any runtime dependencies here. Vendor them under `js/vendor/` "
+        "so the self-only Content-Security-Policy keeps holding."
+    )
+    development = (
+        "- Keep shared design decisions in `../../css/style.css` and "
+        "app-specific layout in `css/app.css`\n"
+        "- Keep app-specific behavior scoped to this folder"
+    )
+    if drop_in:
+        development += (
+            "\n- This page was installed from an existing HTML file. Wiring "
+            "`js/app.js` through the shared app shell is optional for a "
+            "self-contained drop-in; keep the emitted bootstrap module and its "
+            "test, or replace the app behavior with your own module of the same name."
+        )
     return f"""# {title}
 
 ## Purpose
@@ -154,12 +259,11 @@ Describe what this artifact does.
 
 ## Dependencies
 
-- List any runtime dependencies or CDN scripts here
+{dependencies}
 
 ## Development
 
-- Keep shared design decisions in `../../css/style.css` and app-specific layout in `css/app.css`
-- Keep app-specific behavior scoped to this folder
+{development}
 """
 
 
@@ -173,12 +277,104 @@ Fill in this document as the app grows.
 """
 
 
-def scaffold_artifact(name: str) -> Path:
-    """Create a new artifact scaffold and return the artifact directory path."""
+def find_external_references(html: str) -> list[str]:
+    """Return sorted unique off-origin references found in an HTML document.
+
+    Detects ``src`` / ``href`` attributes and CSS ``url()`` targets that use an
+    absolute or protocol-relative URL. These are the references the security
+    lint hard-fails on, so the scaffolder surfaces them instead of rewriting.
+    """
+    references: set[str] = set()
+    for pattern in (_EXTERNAL_ATTR_RE, _EXTERNAL_URL_RE):
+        references.update(match.group(1) for match in pattern.finditer(html))
+    return sorted(references)
+
+
+def _inject_after_head_open(html: str, snippet: str) -> str:
+    """Insert a snippet immediately after the opening ``<head>`` tag.
+
+    Falls back to the opening ``<html>`` tag, then the doctype, and only then
+    to a plain prepend, so a headless document never gains markup ahead of its
+    doctype (content before the doctype puts the page into quirks mode).
+    """
+    for pattern in (_HEAD_OPEN_RE, _HTML_OPEN_RE, _DOCTYPE_RE):
+        match = pattern.search(html)
+        if match is not None:
+            index = match.end()
+            return f"{html[:index]}\n  {snippet}{html[index:]}"
+    return f"{snippet}\n{html}"
+
+
+def _inject_before_head_close(html: str, snippet: str) -> str:
+    """Insert a snippet immediately before the closing ``</head>`` tag."""
+    match = _HEAD_CLOSE_RE.search(html)
+    if match is None:
+        return f"{html}\n{snippet}"
+    index = match.start()
+    return f"{html[:index]}  {snippet}\n{html[index:]}"
+
+
+def apply_contract_to_source(html: str) -> str:
+    """Guarantee the shared contract inside a provided HTML document.
+
+    Injects the self-only CSP meta and the shared stylesheet links only when
+    they are absent, so an author who already wired them keeps their exact
+    markup.
+    """
+    if _CSP_PRESENT_RE.search(html) is None:
+        html = _inject_after_head_open(html, CSP_META)
+    if SHARED_STYLESHEET_HREF not in html:
+        html = _inject_before_head_close(html, SHARED_STYLESHEET_LINK)
+    if APP_STYLESHEET_HREF not in html:
+        html = _inject_before_head_close(html, APP_STYLESHEET_LINK)
+    return html
+
+
+def _read_source_html(source_html: str) -> str:
+    """Read the provided drop-in HTML file, failing loudly when missing."""
+    source_path = Path(source_html)
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Source HTML file not found: {source_path}")
+    return source_path.read_text(encoding="utf-8")
+
+
+def _report_external_references(references: Iterable[str]) -> None:
+    """Print an actionable warning about off-origin references."""
+    reference_list = list(references)
+    if not reference_list:
+        return
+    print(
+        "Warning: the provided HTML references off-origin resources. The "
+        "self-only Content-Security-Policy will block them and the security "
+        "lint will fail. Vendor them under js/vendor/ or remove them:",
+        file=sys.stderr,
+    )
+    for reference in reference_list:
+        print(f"  - {reference}", file=sys.stderr)
+
+
+def _resolve_index_html(title: str, name: str, source_html: str | None) -> str:
+    """Return the index.html body for either the placeholder or drop-in flow."""
+    if source_html is None:
+        return _index_template(title, name)
+    provided = _read_source_html(source_html)
+    _report_external_references(find_external_references(provided))
+    return apply_contract_to_source(provided)
+
+
+def scaffold_artifact(name: str, *, source_html: str | None = None) -> Path:
+    """Create a new artifact scaffold and return the artifact directory path.
+
+    When ``source_html`` is provided the file is installed as ``index.html``
+    (with the shared contract guaranteed); otherwise a placeholder page is
+    emitted. Every other emitted file is identical across both flows.
+    """
     if not name:
         raise ValueError("Artifact name is required")
     if not is_kebab_case(name):
         raise ValueError("Artifact name must use kebab-case")
+
+    index_html = _resolve_index_html(_title_from_slug(name), name, source_html)
 
     APPS_DIR.mkdir(parents=True, exist_ok=True)
     TESTS_JS_APPS_DIR.mkdir(parents=True, exist_ok=True)
@@ -188,14 +384,18 @@ def scaffold_artifact(name: str) -> Path:
 
     title = _title_from_slug(name)
     artifact_dir.mkdir()
-    (TESTS_JS_APPS_DIR / name).mkdir(parents=True, exist_ok=True)
+    tests_dir = TESTS_JS_APPS_DIR / name
+    tests_dir.mkdir(parents=True, exist_ok=True)
     (artifact_dir / "css").mkdir()
     (artifact_dir / "js").mkdir()
     (artifact_dir / "docs").mkdir()
-    (artifact_dir / INDEX_FILE).write_text(_index_template(title, name), encoding="utf-8")
+    (artifact_dir / INDEX_FILE).write_text(index_html, encoding="utf-8")
     (artifact_dir / "css" / "app.css").write_text(_app_css_template(title), encoding="utf-8")
     (artifact_dir / "js" / "app.js").write_text(_app_js_template(), encoding="utf-8")
-    (artifact_dir / "README.md").write_text(_readme_template(title), encoding="utf-8")
+    (tests_dir / "app.test.js").write_text(_app_test_template(name, title), encoding="utf-8")
+    (artifact_dir / "README.md").write_text(
+        _readme_template(title, drop_in=source_html is not None), encoding="utf-8"
+    )
     (artifact_dir / "docs" / "architecture.md").write_text(
         _doc_template(title, "Architecture"), encoding="utf-8"
     )
@@ -212,16 +412,30 @@ def scaffold_artifact(name: str) -> Path:
     return artifact_dir
 
 
+def _parse_args(args: list[str]) -> tuple[str, str | None]:
+    """Parse the scaffold CLI into (name, optional source-HTML path)."""
+    usage = (
+        "Usage: make new name=<artifact-name> [src=<path-to-html>] "
+        "(this script is an internal implementation detail)"
+    )
+    if not args:
+        raise ValueError(usage)
+
+    name = args[0]
+    rest = args[1:]
+    if not rest:
+        return name, None
+    if len(rest) != 2 or rest[0] != "--from-html":
+        raise ValueError(usage)
+    return name, rest[1]
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point for artifact scaffolding."""
     args = list(sys.argv[1:] if argv is None else argv)
-    if len(args) != 1:
-        raise ValueError(
-            "Usage: make new name=<artifact-name> "
-            "(this script is an internal implementation detail)"
-        )
+    name, source_html = _parse_args(args)
 
-    artifact_dir = scaffold_artifact(args[0])
+    artifact_dir = scaffold_artifact(name, source_html=source_html)
     print(f"Created artifact scaffold: {artifact_dir}")
     return 0
 
@@ -229,6 +443,6 @@ def main(argv: list[str] | None = None) -> int:
 if __name__ == "__main__":  # pragma: no cover
     try:
         raise SystemExit(main())
-    except (FileExistsError, ValueError) as exc:
+    except (FileExistsError, FileNotFoundError, ValueError) as exc:
         print(exc, file=sys.stderr)
         raise SystemExit(1) from exc

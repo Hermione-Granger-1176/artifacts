@@ -216,7 +216,7 @@ coverage-js: ## Run JS tests with coverage enforcement
 
 # ─── Build @build ─────────────────────────────────────────────────────────────
 
-.PHONY: validate thumbnails index site generate new
+.PHONY: validate thumbnails index site generate new optimize-social-image
 
 validate: ## Check artifact directories are complete
 	$(VENV_PYTHON) -c "from scripts.build.generate_index import validate; validate()"
@@ -232,9 +232,12 @@ site: ## Assemble _site/ deploy payload
 
 generate: thumbnails index ## Run thumbnails + index
 
-new: ## Scaffold a new artifact directory (make new name=X)
-	@test -n "$(name)" || (printf 'Usage: make new name=my-artifact\n' >&2; exit 1)
-	$(VENV_PYTHON) scripts/build/scaffold_artifact.py "$(name)"
+new: ## Scaffold a new artifact directory (make new name=X [src=file.html])
+	@test -n "$(name)" || (printf 'Usage: make new name=my-artifact [src=file.html]\n' >&2; exit 1)
+	$(VENV_PYTHON) scripts/build/scaffold_artifact.py "$(name)" $(if $(src),--from-html "$(src)")
+
+optimize-social-image: ## Recompress the Open Graph share image in place (make optimize-social-image [path=FILE])
+	$(VENV_PYTHON) scripts/build/optimize_social_image.py $(if $(path),"$(path)")
 
 # ─── Quality gates @quality ───────────────────────────────────────────────────
 
