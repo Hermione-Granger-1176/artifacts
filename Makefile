@@ -207,14 +207,15 @@ test-browser-live: ## Run live-site browser verification
 	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov \
 		tests/browser/test_frontend_live.py
 
-coverage-js: ## Run JS tests with coverage enforcement
+coverage-js: ## Run JS tests with coverage enforcement (emits .artifacts/js-coverage.lcov)
+	@mkdir -p .artifacts
 	@if [ -n "$(COVERAGE_OUTPUT)" ]; then \
 		bash -o pipefail -c '$(NPM) run test:coverage | tee "$(COVERAGE_OUTPUT)"'; \
 	else \
 		$(NPM) run test:coverage; \
 	fi
 
-coverage-js-floors: ## Enforce per-file JS coverage floors
+coverage-js-floors: ## Enforce per-file JS coverage floors (reads the coverage-js lcov, else reruns the suite)
 	$(NPM) run coverage:files
 
 # ─── Build @build ─────────────────────────────────────────────────────────────

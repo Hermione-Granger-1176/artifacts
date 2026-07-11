@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { sep } from 'node:path';
 
 import {
   parseLcov,
@@ -9,7 +10,8 @@ import {
   formatReport,
   runCoverageFloors,
   LINE_FLOOR,
-  BRANCH_FLOOR
+  BRANCH_FLOOR,
+  DEFAULT_LCOV_PATH
 } from '../../../scripts/lint/check-js-coverage-floors.mjs';
 
 const FIXTURE = [
@@ -215,6 +217,10 @@ test('exported floors are the documented defaults', () => {
   assert.equal(BRANCH_FLOOR, 70);
 });
 
+test('the shared lcov path matches what make coverage-js emits', () => {
+  assert.equal(DEFAULT_LCOV_PATH, '.artifacts/js-coverage.lcov');
+});
+
 test('runCoverageFloors returns 0 when every file meets the floors', () => {
   const passing = [
     'SF:/repo/js/good.js',
@@ -229,6 +235,7 @@ test('runCoverageFloors returns 0 when every file meets the floors', () => {
   let removed = null;
   const code = runCoverageFloors({
     execFileSyncImpl: () => '',
+    existsSyncImpl: () => false,
     readFileSyncImpl: () => passing,
     rmSyncImpl: (dest) => {
       removed = dest;
@@ -238,6 +245,59 @@ test('runCoverageFloors returns 0 when every file meets the floors', () => {
   });
   assert.equal(code, 0);
   assert.ok(removed, 'the temporary lcov file is cleaned up');
+});
+
+test('runCoverageFloors consumes an existing coverage-js lcov without rerunning the suite', () => {
+  const passing = ['SF:/repo/js/good.js', 'LF:10', 'LH:10', 'BRF:2', 'BRH:2', 'end_of_record', ''].join(
+    '\n'
+  );
+
+  let readPath = null;
+  let removed = false;
+  const code = runCoverageFloors({
+    execFileSyncImpl: () => {
+      throw new Error('the suite must not rerun when the shared report exists');
+    },
+    existsSyncImpl: (path) => path.endsWith(DEFAULT_LCOV_PATH.replace(/\//g, sep)),
+    readFileSyncImpl: (path) => {
+      readPath = path;
+      return passing;
+    },
+    rmSyncImpl: () => {
+      removed = true;
+    },
+    consoleObj: silentLogger(),
+    rootDir: '/repo'
+  });
+  assert.equal(code, 0);
+  assert.ok(
+    String(readPath).endsWith(DEFAULT_LCOV_PATH.replace(/\//g, sep)),
+    'the shared report under the repo root is what gets read'
+  );
+  assert.equal(removed, false, 'the shared report is left in place for other consumers');
+});
+
+test('runCoverageFloors falls back to a suite run with the aggregate coverage excludes', () => {
+  const passing = ['SF:/repo/js/good.js', 'LF:10', 'LH:10', 'end_of_record', ''].join('\n');
+
+  let args = null;
+  const code = runCoverageFloors({
+    execFileSyncImpl: (_command, commandArgs) => {
+      args = commandArgs;
+      return '';
+    },
+    existsSyncImpl: () => false,
+    readFileSyncImpl: () => passing,
+    rmSyncImpl: () => {},
+    consoleObj: silentLogger(),
+    rootDir: '/repo'
+  });
+  assert.equal(code, 0);
+  assert.ok(
+    args.includes('--test-coverage-exclude=node_modules/**'),
+    'dependencies stay outside the instrumented set'
+  );
+  assert.ok(args.includes('--test-coverage-exclude=tests/**'), 'tests stay outside the instrumented set');
 });
 
 test('runCoverageFloors returns 1 when a file is below a floor', () => {
@@ -253,6 +313,7 @@ test('runCoverageFloors returns 1 when a file is below a floor', () => {
 
   const code = runCoverageFloors({
     execFileSyncImpl: () => '',
+    existsSyncImpl: () => false,
     readFileSyncImpl: () => failing,
     rmSyncImpl: () => {},
     consoleObj: silentLogger(),
@@ -267,6 +328,7 @@ test('runCoverageFloors returns 1 and cleans up when the test run fails', () => 
     execFileSyncImpl: () => {
       throw new Error('tests failed');
     },
+    existsSyncImpl: () => false,
     readFileSyncImpl: () => {
       throw new Error('should not read after a failed run');
     },
