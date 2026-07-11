@@ -10,7 +10,7 @@ Static data avoids network dependencies, keeps the artifact portable, and makes 
 
 ## Why the shared app system is reused
 
-The page should feel like one product family alongside the loan calculator. Shared tokens, header chrome, and theme behavior keep that cohesion while tokenizer-specific layout selectors stay in the shared stylesheet.
+The page should feel like one product family alongside the loan calculator. Shared tokens, header chrome, and theme behavior keep that cohesion while tokenizer-specific layout selectors stay in the app-local `css/app.css`.
 
 ## Why the app exposes a ready signal
 
