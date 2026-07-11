@@ -127,7 +127,7 @@ Workspace documentation lives in `docs/`:
 
 - Artifact directories use kebab-case names
 - Each artifact keeps `index.html` as the entry point
-- All pages should import the single shared stylesheet from `css/style.css`
+- The root gallery should import `css/style.css`; mature apps should import it first, then their app-local `apps/<slug>/css/app.css`
 - Mature apps should reuse `js/app-theme.js` and `js/modules/app-shell.js`
 - App-local behavior should live in `apps/<slug>/js/app.js` plus app-local modules/docs
 - The bookmark-note palette is the shared color system, and authored app colors should use `rgb()` / `rgba()` values

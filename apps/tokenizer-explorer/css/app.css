@@ -1,0 +1,396 @@
+/* Tokenizer explorer app layout. */
+
+body.app-tokenizer-explorer .scenario-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 1.5rem;
+
+}
+
+body.app-tokenizer-explorer .tab {
+  min-height: 2.75rem;
+  padding: 6px 13px;
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-control);
+  font-weight: 500;
+
+}
+
+body.app-tokenizer-explorer .tab:hover,
+body.app-tokenizer-explorer .tab:focus-visible {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+
+}
+
+body.app-tokenizer-explorer .tab.active {
+  border-color: var(--color-blue);
+  background: var(--note-blue);
+  color: var(--color-blue-text);
+
+}
+
+body.app-tokenizer-explorer .scenario-box,
+body.app-tokenizer-explorer .insight,
+body.app-tokenizer-explorer .card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+
+}
+
+body.app-tokenizer-explorer .scenario-box {
+  padding: 14px 18px;
+  margin-bottom: 1.5rem;
+
+}
+
+body.app-tokenizer-explorer .scenario-type,
+body.app-tokenizer-explorer .concepts-heading {
+  margin-bottom: 6px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+}
+
+body.app-tokenizer-explorer .sentence-display {
+  color: var(--color-text);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.6;
+
+}
+
+body.app-tokenizer-explorer .blank {
+  display: inline-block;
+  width: 70px;
+  height: 0.2em;
+  margin-left: 6px;
+  border-bottom: 2px dashed var(--color-blue);
+  vertical-align: baseline;
+
+}
+
+body.app-tokenizer-explorer .hint,
+body.app-tokenizer-explorer .section-label,
+body.app-tokenizer-explorer .control-label {
+  color: var(--color-text-secondary);
+
+}
+
+body.app-tokenizer-explorer .hint {
+  margin-top: 6px;
+  font-size: var(--font-size-control);
+
+}
+
+body.app-tokenizer-explorer .controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin-bottom: 1.5rem;
+
+}
+
+body.app-tokenizer-explorer .control-group {
+  flex: 1;
+  min-width: 180px;
+
+}
+
+body.app-tokenizer-explorer .control-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-1);
+
+}
+
+body.app-tokenizer-explorer .control-label,
+body.app-tokenizer-explorer .control-value {
+  font-size: var(--font-size-control);
+
+}
+
+body.app-tokenizer-explorer .control-value {
+  color: var(--color-text);
+  font-weight: 600;
+
+}
+
+body.app-tokenizer-explorer .range-hints {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+
+}
+
+body.app-tokenizer-explorer .section-label {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-control);
+
+}
+
+body.app-tokenizer-explorer .bars {
+  margin-bottom: 20px;
+
+}
+
+body.app-tokenizer-explorer .bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 5px 0;
+  transition: opacity 0.25s;
+
+}
+
+body.app-tokenizer-explorer .bar-wrap.excluded .bar-track,
+body.app-tokenizer-explorer .bar-wrap.excluded .bar-fill {
+  opacity: 0.35;
+
+}
+
+body.app-tokenizer-explorer .bar-label {
+  min-width: 82px;
+  max-width: 82px;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-control);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+}
+
+body.app-tokenizer-explorer .bar-track {
+  flex: 1;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--color-surface-alt);
+
+}
+
+body.app-tokenizer-explorer .bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.3s ease;
+
+}
+
+body.app-tokenizer-explorer .bar-pct {
+  min-width: 42px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: right;
+
+}
+
+body.app-tokenizer-explorer .divider {
+  margin: 1.25rem 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+
+}
+
+body.app-tokenizer-explorer .pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 1.25rem;
+
+}
+
+body.app-tokenizer-explorer .pill {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: default;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-control);
+  font-weight: 500;
+
+}
+
+body.app-tokenizer-explorer .pill.winner {
+  background: var(--note-green);
+  border-color: var(--color-green);
+  color: var(--color-green-text);
+
+}
+
+body.app-tokenizer-explorer .insight {
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-control);
+  line-height: 1.6;
+
+}
+
+body.app-tokenizer-explorer .concepts {
+  margin-top: 2rem;
+
+}
+
+body.app-tokenizer-explorer .concepts-heading {
+  margin-bottom: 10px;
+
+}
+
+body.app-tokenizer-explorer .card {
+  margin-bottom: var(--space-2);
+  overflow: hidden;
+
+}
+
+body.app-tokenizer-explorer .card-trigger {
+  width: 100%;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+
+}
+
+body.app-tokenizer-explorer .card-trigger:hover,
+body.app-tokenizer-explorer .card-trigger:focus-visible {
+  background: var(--color-surface-alt);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+
+}
+
+body.app-tokenizer-explorer .card-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+}
+
+body.app-tokenizer-explorer .card-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  flex-shrink: 0;
+  font-size: 15px;
+
+}
+
+body.app-tokenizer-explorer .card-icon.blue {
+  background: var(--note-blue);
+  color: var(--color-blue-text);
+
+}
+
+body.app-tokenizer-explorer .card-icon.amber {
+  background: var(--note-amber);
+  color: var(--color-amber-text);
+
+}
+
+body.app-tokenizer-explorer .card-icon.purple {
+  background: var(--note-purple);
+  color: var(--color-purple-text);
+
+}
+
+body.app-tokenizer-explorer .card-title {
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+
+}
+
+body.app-tokenizer-explorer .card-tagline,
+body.app-tokenizer-explorer .tip,
+body.app-tokenizer-explorer .card-arrow,
+body.app-tokenizer-explorer .card-body {
+  color: var(--color-text-secondary);
+
+}
+
+body.app-tokenizer-explorer .card-tagline {
+  margin-top: 1px;
+  font-size: var(--font-size-sm);
+
+}
+
+body.app-tokenizer-explorer .card-arrow {
+  flex-shrink: 0;
+  font-size: var(--font-size-2xs);
+  transition: transform 0.2s;
+
+}
+
+body.app-tokenizer-explorer .card.open .card-arrow {
+  transform: rotate(180deg);
+
+}
+
+body.app-tokenizer-explorer .card-body {
+  display: none;
+  padding: 0 16px 14px 54px;
+  font-size: var(--font-size-control);
+  line-height: 1.7;
+
+}
+
+body.app-tokenizer-explorer .card.open .card-body {
+  display: block;
+
+}
+
+body.app-tokenizer-explorer .card-body p {
+  margin-bottom: var(--space-2);
+
+}
+
+body.app-tokenizer-explorer .card-body p:last-child {
+  margin-bottom: 0;
+
+}
+
+body.app-tokenizer-explorer .tip {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border-radius: 5px;
+  background: var(--color-surface-alt);
+  font-size: var(--font-size-sm);
+
+}
+
+@media (max-width: 700px) {
+body.app-tokenizer-explorer .controls {
+    gap: var(--space-4);
+
+}
+
+body.app-tokenizer-explorer .bar-label {
+    min-width: 68px;
+    max-width: 68px;
+
+}
+}

@@ -53,8 +53,8 @@ Run `make lint`, `make typecheck-web`, `make dead-code-js`, `make coverage-js`, 
 ## CSS
 
 - **Indent:** 2 spaces
-- **Entry file:** `css/style.css`, the single stylesheet for the whole site
-- **Shared app system:** app tokens, shared shell rules, and current app-specific layout selectors live in `css/style.css`
+- **Shared stylesheet:** `css/style.css` provides gallery styles, app tokens, and shared app shell rules
+- **App stylesheet:** `apps/<slug>/css/app.css` provides app-specific layout selectors scoped by `body.app-<slug>`
 - **Linter:** stylelint, configured in `config/stylelint.config.js`
 - **Conventions:**
   - BEM-inspired class names (e.g., `.artifact-card`, `.detail-close`)
@@ -69,7 +69,7 @@ Run `make lint-css` or `make lint` to check.
 ## HTML
 
 - **Indent:** 2 spaces
-- **Artifacts:** `index.html` remains the entry point, and mature apps should import `../../css/style.css` while keeping app-local behavior in `js/app.js`
+- **Artifacts:** `index.html` remains the entry point, and mature apps should import `../../css/style.css` followed by `./css/app.css` while keeping app-local behavior in `js/app.js`
 - **Accessibility:** semantic elements, ARIA attributes, keyboard navigation, focus management
 - **External links:** always include `rel="noopener noreferrer"`
 
@@ -77,7 +77,8 @@ Run `make lint-css` or `make lint` to check.
 
 - Shared app tokens live in `css/style.css`
 - Shared mature-app theme bootstrap lives in `js/app-theme.js`, and `js/modules/app-shell.js` owns the reusable shell markup plus shell behavior
-- Mature apps should import the single shared stylesheet and use `artifact-app` plus an `app-<slug>` body class
+- Mature apps should import the shared stylesheet first, then `./css/app.css`, and use `artifact-app` plus an `app-<slug>` body class
+- App-specific layout selectors live in `apps/<slug>/css/app.css` and retain their `body.app-<slug>` scope
 - Mature app HTML should keep app-specific body content local, while shell placeholders (`data-app-shell`) let the shared module render the common header, runtime-error banner, and scroll-to-top control
 - App headers should reuse the Artifacts logo, back button, theme toggle, and app-styled scroll-to-top pattern
 - App content containers should stay near `1000px` wide unless a product requirement clearly needs more space

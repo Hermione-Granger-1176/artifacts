@@ -50,7 +50,7 @@ def _index_template(title: str, slug: str | None = None) -> str:
     description = "Replace this description with a concise summary of your artifact."
     lede = (
         "Replace this scaffold with your artifact and keep shared visual "
-        "styling in the root stylesheet."
+        "styling in the shared stylesheet while keeping app-specific layout local."
     )
     csp = (
         "default-src 'self'; script-src 'self'; style-src 'self'; "
@@ -86,6 +86,7 @@ def _index_template(title: str, slug: str | None = None) -> str:
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
   <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="./css/app.css">
 </head>
 <body class="artifact-app{app_class}">
   <div data-app-shell="header"></div>
@@ -127,6 +128,11 @@ initializeMatureApp({
 """
 
 
+def _app_css_template(title: str) -> str:
+    """Return a starter app stylesheet."""
+    return f"/* {title} app layout. */\n"
+
+
 def _readme_template(title: str) -> str:
     """Return starter app documentation."""
     return f"""# {title}
@@ -142,6 +148,7 @@ Describe what this artifact does.
 ## Structure
 
 - `index.html` - app shell and semantic layout
+- `css/app.css` - app-specific layout styles
 - `js/app.js` - app-specific behavior
 - `docs/` - internal engineering notes
 
@@ -151,7 +158,7 @@ Describe what this artifact does.
 
 ## Development
 
-- Keep shared design decisions in the root stylesheet and app shell
+- Keep shared design decisions in `../../css/style.css` and app-specific layout in `css/app.css`
 - Keep app-specific behavior scoped to this folder
 """
 
@@ -182,9 +189,11 @@ def scaffold_artifact(name: str) -> Path:
     title = _title_from_slug(name)
     artifact_dir.mkdir()
     (TESTS_JS_APPS_DIR / name).mkdir(parents=True, exist_ok=True)
+    (artifact_dir / "css").mkdir()
     (artifact_dir / "js").mkdir()
     (artifact_dir / "docs").mkdir()
     (artifact_dir / INDEX_FILE).write_text(_index_template(title, name), encoding="utf-8")
+    (artifact_dir / "css" / "app.css").write_text(_app_css_template(title), encoding="utf-8")
     (artifact_dir / "js" / "app.js").write_text(_app_js_template(), encoding="utf-8")
     (artifact_dir / "README.md").write_text(_readme_template(title), encoding="utf-8")
     (artifact_dir / "docs" / "architecture.md").write_text(

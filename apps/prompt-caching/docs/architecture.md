@@ -5,7 +5,7 @@
 ### Runtime flow
 
 1. `index.html` loads `js/app-theme.js` (synchronous theme bootstrap), then the
-   single shared stylesheet at `../../css/style.css`.
+   shared stylesheet at `../../css/style.css` followed by `./css/app.css`.
 2. `js/app.js` calls `renderAppShell()`, then `initializeMatureApp({ run })`.
 3. Inside `run`, `initAppShell({ onThemeChange })` mounts the header (back / brand /
    theme toggle) and scroll-to-top, then each feature module initialises itself.
@@ -25,8 +25,9 @@
 
 ### Theming
 
-Prompt Caching accents (`--pc-accent/warm/teal/indigo/rose`) are mapped onto the
-shared semantic palette (`--color-amber/blue/green/purple/red`) in `css/style.css`.
+Prompt Caching accents (`--pc-accent/warm/teal/indigo/rose`) are mapped in
+`css/app.css` onto the shared semantic palette
+(`--color-amber/blue/green/purple/red`) in `css/style.css`.
 Surfaces, text, and borders flip automatically in dark mode. The two `<canvas>`
 demos resolve their colours from CSS variables at draw time and are redrawn on
 `onThemeChange`, so they stay correct across themes.
