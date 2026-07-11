@@ -136,19 +136,19 @@ class ActionShaResolver:
                 "Accept": "application/vnd.github+json",
             },
         )
-        last_error: object = "no attempts were made"
         for attempt in range(1, self._max_attempts + 1):
             try:
                 with self._urlopen_fn(request, timeout=self._timeout_seconds) as response:
                     payload = json.load(response)
                 return _commit_sha(payload)
             except Exception as error:  # any failure is retried within the attempt budget
-                last_error = error
                 if attempt < self._max_attempts:
                     self._sleep_fn(attempt * self._backoff_seconds)
                     continue
-                raise
-        raise RuntimeError(f"Failed to resolve {repo}@{ref}: {last_error}")
+                # Chain the original error so the failing repo@ref is named in
+                # the message while the root cause stays on the traceback.
+                raise RuntimeError(f"Failed to resolve {repo}@{ref}: {error}") from error
+        raise RuntimeError(f"Failed to resolve {repo}@{ref}: no attempts were made")
 
 
 def _should_skip(action: str, ref: str) -> bool:
