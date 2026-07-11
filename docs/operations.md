@@ -19,7 +19,7 @@ Local Python dependency setup uses uv. Ensure `uv` is on PATH before running set
 
 Recommended workflow when changing workspace code:
 
-1. `make new name=my-artifact` if you want a scaffold instead of creating files by hand, or `make new name=my-artifact src=path/to/page.html` to install an existing HTML file as the artifact. Both flows emit the metadata, stylesheet, app shell, docs, and matching `tests/js/apps/<slug>/` test stub so the result passes the gates without manual edits.
+1. `make new name=my-artifact` if you want a scaffold instead of creating files by hand, or `make new name=my-artifact src=path/to/page.html` to install an existing HTML file as the artifact. Both flows emit the metadata, stylesheet, app shell, docs, and matching `tests/js/apps/<slug>/app.test.js` test stub so the result passes the gates without manual edits.
 2. `make setup` for fast local work, or `make setup-all` if you also need Chromium. Run `make install-hooks` once if you want local pre-commit checks.
 3. Edit files.
 4. Run `make check-local`.
