@@ -81,6 +81,43 @@ def test_check_assets_flags_file_missing_from_manifest(tmp_path: Path) -> None:
     assert violations[0].startswith(f"{_REL}: vendored file is not listed")
 
 
+def test_check_assets_flags_symlinked_file(tmp_path: Path) -> None:
+    """Check assets flags a symlinked vendored file instead of hashing its target."""
+    root = tmp_path / "repo"
+    outside = tmp_path / "outside.js"
+    outside.write_bytes(b"console.log(1);")
+    digest = hashlib.sha256(b"console.log(1);").hexdigest()
+    vendor_dir = root / "apps" / "demo" / "js" / "vendor"
+    vendor_dir.mkdir(parents=True)
+    (vendor_dir / "lib.min.js").symlink_to(outside)
+    assets = (VendoredAsset(_REL, "chart.js", "1.0.0", "https://example/x.js", digest),)
+
+    violations = check_assets(root, assets)
+
+    assert len(violations) == 1
+    assert violations[0].startswith(f"{_REL}: path must resolve to a regular file")
+    assert "no symlinked components" in violations[0]
+
+
+def test_check_assets_flags_symlinked_parent_directory(tmp_path: Path) -> None:
+    """Check assets flags a symlinked parent directory even when the hash matches."""
+    root = tmp_path / "repo"
+    outside_dir = tmp_path / "outside-vendor"
+    outside_dir.mkdir()
+    (outside_dir / "lib.min.js").write_bytes(b"console.log(1);")
+    digest = hashlib.sha256(b"console.log(1);").hexdigest()
+    js_dir = root / "apps" / "demo" / "js"
+    js_dir.mkdir(parents=True)
+    (js_dir / "vendor").symlink_to(outside_dir, target_is_directory=True)
+    assets = (VendoredAsset(_REL, "chart.js", "1.0.0", "https://example/x.js", digest),)
+
+    violations = check_assets(root, assets)
+
+    assert len(violations) == 1
+    assert violations[0].startswith(f"{_REL}: path must resolve to a regular file")
+    assert "no symlinked components" in violations[0]
+
+
 def test_discover_vendor_files_returns_sorted_relative_paths(tmp_path: Path) -> None:
     """Discover vendor files returns sorted relative paths."""
     _write_vendor_file(tmp_path, "apps/b/js/vendor/two.js", b"2")

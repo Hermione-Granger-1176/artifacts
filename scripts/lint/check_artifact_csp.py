@@ -6,10 +6,12 @@ meta tag at scaffold time, but nothing re-validates a hand-pasted or hand-edited
 page. This checker fails fast when an artifact:
 
     - is missing the Content-Security-Policy meta tag, or its policy does not
-      restrict ``default-src`` and ``script-src`` to ``'self'``; or
+      restrict ``default-src`` and ``script-src`` to ``'self'`` or ``'none'``
+      sources; or
     - references an external (scheme or protocol-relative) URL from a
       ``<script src>``, a stylesheet ``<link href>``, or a ``url()`` inside an
-      inline ``<style>`` block.
+      inline ``<style>`` block. Inline ``data:`` URIs and ``#fragment``
+      references inside ``url()`` are same-document content and stay allowed.
 
 The root ``index.html`` is intentionally not linted: it carries a documented
 ``img-src https://img.shields.io`` exception for badge images.

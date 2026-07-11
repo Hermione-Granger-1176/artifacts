@@ -141,6 +141,7 @@ def check_assets(root: Path, assets: tuple[VendoredAsset, ...]) -> list[str]:
     """Return integrity violations between the manifest and the files on disk."""
     violations: list[str] = []
     manifest_paths = {asset.path for asset in assets}
+    resolved_root = root.resolve()
 
     for disk_path in discover_vendor_files(root):
         if disk_path not in manifest_paths:
@@ -151,6 +152,17 @@ def check_assets(root: Path, assets: tuple[VendoredAsset, ...]) -> list[str]:
 
     for asset in assets:
         file_path = root / asset.path
+        # A symlinked file or parent directory could point the hash at content
+        # outside the repository, so the entry must resolve to exactly the
+        # manifest path under the resolved root before it is read. This mirrors
+        # the reject_symlinks guard prepare_site.py applies to its payload tree.
+        if file_path.resolve() != resolved_root / asset.path:
+            violations.append(
+                f"{asset.path}: path must resolve to a regular file under the repository "
+                f"root with no symlinked components "
+                f"({asset.package} {asset.version} from {asset.upstream})"
+            )
+            continue
         if not file_path.is_file():
             violations.append(
                 f"{asset.path}: manifest entry has no file on disk "
