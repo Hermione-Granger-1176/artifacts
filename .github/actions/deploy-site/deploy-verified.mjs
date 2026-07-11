@@ -109,8 +109,7 @@ export function isNotFoundError(error) {
   if (!error) {
     return false;
   }
-  const message =
-    typeof error === "object" && "message" in error ? error.message : error;
+  const message = typeof error === "object" && "message" in error ? error.message : error;
   return /^404\b/.test(String(message));
 }
 
