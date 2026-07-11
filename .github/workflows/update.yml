@@ -85,7 +85,7 @@ jobs:
             --actor "$ACTOR" \
             --app-bot-login "$APP_BOT_LOGIN")
           echo "json=$plan" >> "$GITHUB_OUTPUT"
-          PLAN_JSON="$plan" python3 scripts/ci/workflow_helpers.py plan-outputs >> "$GITHUB_OUTPUT"
+          PLAN_JSON="$plan" make ci-plan-outputs >> "$GITHUB_OUTPUT"
 
       - name: Summarize automation plan
         env:
@@ -257,7 +257,7 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          python3 scripts/ci/workflow_helpers.py coverage-summary --report js-coverage.txt >> "$GITHUB_STEP_SUMMARY"
+          make ci-coverage-summary report=js-coverage.txt >> "$GITHUB_STEP_SUMMARY"
 
       - name: Summarize verification
         if: always()
@@ -439,7 +439,7 @@ jobs:
           fi
 
           git archive "$actual_sha" | tar -x -C "$PAGES_PUBLISH_DIR"
-          python3 scripts/ci/workflow_helpers.py finalize-pages-dir --root "$PAGES_PUBLISH_DIR"
+          make ci-finalize-pages-dir root="$PAGES_PUBLISH_DIR"
 
       - name: Upload GitHub Pages artifact
         if: steps.setup.outputs.token-available == 'true'
@@ -804,7 +804,7 @@ jobs:
           fi
 
           git archive "$actual_sha" | tar -x -C "$PAGES_PUBLISH_DIR"
-          python3 scripts/ci/workflow_helpers.py finalize-pages-dir --root "$PAGES_PUBLISH_DIR"
+          make ci-finalize-pages-dir root="$PAGES_PUBLISH_DIR"
 
       - name: Upload GitHub Pages artifact
         if: steps.setup.outputs.token-available == 'true'
