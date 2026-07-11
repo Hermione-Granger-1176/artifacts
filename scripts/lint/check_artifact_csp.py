@@ -165,8 +165,9 @@ def _inline_style_violations(html: str, display_path: str) -> list[str]:
     for block_match in _STYLE_BLOCK_PATTERN.finditer(html):
         for reference in _extract_css_urls(block_match.group(1)):
             # Inline data URIs and in-document fragments are same-document, not
-            # external network fetches, so they stay allowed.
-            if reference.startswith(("data:", "#")):
+            # external network fetches, so they stay allowed. URL schemes are
+            # case-insensitive, so match data: against a lowercased scheme.
+            if reference[:5].lower() == "data:" or reference.startswith("#"):
                 continue
             if _is_external_reference(reference):
                 violations.append(

@@ -200,6 +200,13 @@ def test_check_page_allows_inline_data_and_relative_css_urls(tmp_path: Path) -> 
     assert check_page(path, display_path="apps/demo/index.html") == []
 
 
+def test_check_page_allows_uppercase_data_url(tmp_path: Path) -> None:
+    """Check page allows a data URL whose scheme is uppercased."""
+    body = "  <style>.a { background: url(DATA:image/png;base64,AAAA); }</style>\n"
+    path = _write_page(tmp_path, "demo", _page(body=body))
+    assert check_page(path, display_path="apps/demo/index.html") == []
+
+
 def test_is_external_reference_classifies_references() -> None:
     """Is external reference classifies references."""
     assert _is_external_reference("https://example.com/x.js")

@@ -177,6 +177,20 @@ def test_run_npm_audit_parses_clean_report(monkeypatch: pytest.MonkeyPatch) -> N
     assert run_npm_audit._run_npm_audit("npm") == ()
 
 
+def test_run_npm_audit_splits_command_with_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run npm audit shlex-splits an npm override that carries flags."""
+    captured: dict[str, object] = {}
+
+    def _run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+        captured["command"] = command
+        return SimpleNamespace(returncode=0, stdout='{"vulnerabilities": {}}', stderr="")
+
+    monkeypatch.setattr(run_npm_audit.subprocess, "run", _run)
+
+    assert run_npm_audit._run_npm_audit("npm --silent") == ()
+    assert captured["command"] == ["npm", "--silent", "audit", "--json"]
+
+
 def test_run_npm_audit_raises_on_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     """Run npm audit raises on timeout."""
 
