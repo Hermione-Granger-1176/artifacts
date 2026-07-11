@@ -4,7 +4,7 @@ import { bpeTokenize, hashToken } from "./math.js";
 import { byId, makeEl, clear, initSegmented } from "./dom.js";
 
 export function initTokenizer() {
-  const input = byId("tokenInput");
+  const input = /** @type {HTMLTextAreaElement} */ (byId("tokenInput"));
   const output = byId("tokenOutput");
   const toggle = byId("tokenView");
   const tokCount = byId("tokCount");

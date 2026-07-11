@@ -38,7 +38,7 @@ let extras = [];
 let nextExtraId = 0;
 let charts = {};
 let bwMode = "true";
-let pendingRecalcFrame = null;
+let pendingRecalcFrame = /** @type {number | null} */ (null);
 
 renderAppShell();
 

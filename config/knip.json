@@ -3,6 +3,7 @@
   "entry": [
     "js/app.js",
     "js/app-theme.js",
+    "js/boot-guard.js",
     "apps/*/js/app.js",
     ".github/actions/**/*.mjs",
     "scripts/*.mjs",

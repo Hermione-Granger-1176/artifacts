@@ -46,7 +46,7 @@ function activateOnKeyboard(event, action) {
 }
 
 function initDimensions() {
-  const canvas = byId("dimCanvas");
+  const canvas = /** @type {HTMLCanvasElement} */ (byId("dimCanvas"));
   const caption = byId("dimCaption");
   const toggle = byId("dimToggle");
   if (!canvas || !caption || !toggle || !canvas.getContext) {
@@ -113,7 +113,7 @@ function initDimensions() {
   }
 
   function draw() {
-    const ctx = canvas.getContext("2d");
+    const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext("2d"));
     canvas.height = currentDims === 1 ? 90 : currentDims === 2 ? 260 : 300;
     const W = canvas.width;
     const H = canvas.height;
@@ -206,7 +206,7 @@ function initSimilarity() {
   const distEl = byId("embDistance");
   const verdEl = byId("embVerdict");
   const swapBtn = byId("embSwapBtn");
-  const canvas = byId("embCanvas");
+  const canvas = /** @type {HTMLCanvasElement} */ (byId("embCanvas"));
   if (!cloud || !selAEl || !selBEl || !simEl) {
     return null;
   }
@@ -337,7 +337,7 @@ function initSimilarity() {
     if (!canvas || !canvas.getContext) {
       return;
     }
-    const ctx = canvas.getContext("2d");
+    const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext("2d"));
     const W = canvas.width;
     const H = canvas.height;
     ctx.clearRect(0, 0, W, H);

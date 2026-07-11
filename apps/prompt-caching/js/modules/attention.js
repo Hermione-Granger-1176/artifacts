@@ -110,7 +110,11 @@ function initStepper() {
 
   // Each step renders inside a shared window-style frame (same look as the
   // pseudocode cards); `frame` points at the current title and body elements.
-  const frame = { title: null, body: null };
+  // Both are populated by the step builder below before any draw() runs, so
+  // they are typed as non-null elements.
+  const frame = /** @type {{ title: HTMLElement, body: HTMLElement }} */ (
+    /** @type {unknown} */ ({ title: null, body: null })
+  );
 
   const steps = [
     {
@@ -396,8 +400,9 @@ function initGrid() {
   });
 
   for (const tr of table.querySelectorAll("tr[data-row]")) {
-    tr.addEventListener("mouseenter", () => {
-      const activeRow = Number.parseInt(tr.dataset.row, 10);
+    const trEl = /** @type {HTMLElement} */ (tr);
+    trEl.addEventListener("mouseenter", () => {
+      const activeRow = Number.parseInt(trEl.dataset.row ?? "", 10);
       table.querySelectorAll("tr[data-row]").forEach((row, i) => {
         row.querySelectorAll("td:not(.row-label)").forEach((cell, ci) => {
           const value = AGRID_WEIGHTS[i][ci];

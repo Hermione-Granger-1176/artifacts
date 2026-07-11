@@ -155,7 +155,7 @@ dead-code-js: ## Detect unused JavaScript files, exports, and dependencies
 
 # ─── Test @test ───────────────────────────────────────────────────────────────
 
-.PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-live coverage-js
+.PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-live coverage-js coverage-js-floors
 
 test: test-py test-js ## Run non-browser Python tests + JS tests
 
@@ -214,6 +214,9 @@ coverage-js: ## Run JS tests with coverage enforcement
 		$(NPM) run test:coverage; \
 	fi
 
+coverage-js-floors: ## Enforce per-file JS coverage floors
+	$(NPM) run coverage:files
+
 # ─── Build @build ─────────────────────────────────────────────────────────────
 
 .PHONY: validate thumbnails index site generate new optimize-social-image
@@ -245,7 +248,7 @@ optimize-social-image: ## Recompress the Open Graph share image in place (make o
 
 ci-python: format-py-check lint-py typecheck-py dead-code-py test-py ## Python CI gate
 
-ci-web: editorconfig-check format-prettier-check lint-js lint-css lint-yaml typecheck-web lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage check-overrides dead-code-js test-js coverage-js ## Web and docs CI gate
+ci-web: editorconfig-check format-prettier-check lint-js lint-css lint-yaml typecheck-web lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage check-overrides dead-code-js test-js coverage-js coverage-js-floors ## Web and docs CI gate
 
 ci: ci-python ci-web security validate check-generated ## Full local CI gate without browser tests
 

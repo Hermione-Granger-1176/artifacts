@@ -48,7 +48,7 @@ const ALLOWED_EXTRA_FIELDS = new Set(['amount', 'every', 'startPeriod', 'period'
 /**
  * Update one editable numeric field for an extra payment when the input is valid.
  *
- * @param {Array<object>} extras
+ * @param {Array<Record<string, number | string>>} extras
  * @param {number} id
  * @param {string} field
  * @param {string} value
