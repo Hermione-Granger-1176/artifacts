@@ -84,9 +84,7 @@ def test_parse_advisory_skips_bare_package_reference() -> None:
 def test_parse_advisory_rejects_advisory_without_id() -> None:
     """An advisory object with no GHSA url and no source id is an invalid shape."""
     with pytest.raises(ValueError, match="missing both a GHSA url and a numeric source id"):
-        run_npm_audit._parse_advisory(
-            {"severity": "high"}, package="dep", fix_available=False
-        )
+        run_npm_audit._parse_advisory({"severity": "high"}, package="dep", fix_available=False)
 
 
 def test_parse_advisory_builds_finding() -> None:
