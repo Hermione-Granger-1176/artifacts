@@ -1,3 +1,4 @@
 {
-  "python_vulnerability_exceptions": []
+  "python_vulnerability_exceptions": [],
+  "npm_vulnerability_exceptions": []
 }

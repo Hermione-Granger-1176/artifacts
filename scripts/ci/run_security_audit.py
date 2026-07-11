@@ -69,19 +69,32 @@ def _load_security_audit_config(
     return payload
 
 
+PYTHON_EXCEPTIONS_KEY = "python_vulnerability_exceptions"
+NPM_EXCEPTIONS_KEY = "npm_vulnerability_exceptions"
+
+
 def _load_security_audit_exceptions(
     config_file: Path = SECURITY_AUDIT_CONFIG_FILE,
+    *,
+    config_key: str = PYTHON_EXCEPTIONS_KEY,
 ) -> tuple[VulnerabilityExceptionEntry, ...]:
-    """Load reviewed vulnerability exceptions from the JSON config file."""
+    """Load reviewed vulnerability exceptions for one ecosystem from the config.
+
+    Args:
+        config_file: Path to the shared security audit JSON config.
+        config_key: Top-level key holding the ecosystem's exception list (for
+            example ``python_vulnerability_exceptions`` or
+            ``npm_vulnerability_exceptions``).
+    """
     payload = _load_security_audit_config(config_file)
-    entries = payload.get("python_vulnerability_exceptions", [])
+    entries = payload.get(config_key, [])
     if not isinstance(entries, list):
-        raise ValueError("Security audit config 'python_vulnerability_exceptions' must be a list")
+        raise ValueError(f"Security audit config '{config_key}' must be a list")
 
     exceptions: list[VulnerabilityExceptionEntry] = []
     seen_keys: set[tuple[str, str]] = set()
     for index, entry in enumerate(entries):
-        entry_path = f"python_vulnerability_exceptions[{index}]"
+        entry_path = f"{config_key}[{index}]"
         if not isinstance(entry, dict):
             raise ValueError(f"Security audit exceptions must be objects: {entry_path}")
 

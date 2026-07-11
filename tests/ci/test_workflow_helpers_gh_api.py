@@ -15,6 +15,77 @@ def test_is_retryable_gh_api_failure_matches_expected_cases() -> None:
     assert gh_api.is_retryable_gh_api_failure("timed out while calling API")
     assert gh_api.is_retryable_gh_api_failure("network error")
     assert not gh_api.is_retryable_gh_api_failure("404 Not Found")
+    # Rate limits must never be treated as retryable; they fail fast instead.
+    assert not gh_api.is_retryable_gh_api_failure("API rate limit exceeded (HTTP 429)")
+    assert not gh_api.is_retryable_gh_api_failure("You have exceeded a secondary rate limit")
+
+
+def test_is_rate_limited_gh_api_failure_matches_variants() -> None:
+    """Is rate limited gh api failure matches variants."""
+    assert gh_api.is_rate_limited_gh_api_failure("API rate limit exceeded")
+    assert gh_api.is_rate_limited_gh_api_failure("gh: something failed (HTTP 429)")
+    assert gh_api.is_rate_limited_gh_api_failure("You have exceeded a secondary rate limit")
+    assert gh_api.is_rate_limited_gh_api_failure("triggered abuse detection")
+    assert gh_api.is_rate_limited_gh_api_failure("content submitted too quickly")
+    assert not gh_api.is_rate_limited_gh_api_failure("503 Service Unavailable")
+    assert not gh_api.is_rate_limited_gh_api_failure("404 Not Found")
+
+
+def test_run_gh_api_fails_fast_on_rate_limit_without_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Run gh api fails fast on rate limit without retry."""
+    calls = 0
+    sleep_calls: list[float] = []
+
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
+        nonlocal calls
+        calls += 1
+        result = FakeSubprocessResult(returncode=1)
+        result.stderr = "gh: API rate limit exceeded (HTTP 429)"
+        return result
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+    monkeypatch.setattr(workflow_helpers.time, "sleep", sleep_calls.append)
+
+    with pytest.raises(RuntimeError, match="GitHub rate limit hit"):
+        workflow_helpers._run_gh_api(
+            "repos/owner/repo/pulls/1/files",
+            paginate=["--paginate"],
+            jq_expr=".[].filename",
+            description="listing changed files for pull_request owner/repo",
+        )
+
+    # A single attempt, no backoff sleeps: the limit window must reset first.
+    assert calls == 1
+    assert sleep_calls == []
+
+
+def test_run_gh_api_rate_limit_skips_permission_enrichment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Run gh api rate limit skips permission enrichment."""
+
+    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
+        result = FakeSubprocessResult(returncode=1)
+        result.stderr = "gh: API rate limit exceeded (HTTP 403)"
+        return result
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        workflow_helpers._run_gh_api(
+            "repos/owner/repo",
+            paginate=[],
+            jq_expr=".",
+            description="reading repository metadata for owner/repo",
+            required_permission="metadata: read",
+        )
+
+    message = str(exc_info.value)
+    assert "GitHub rate limit hit" in message
+    assert "metadata: read" not in message
+    assert "likely lacks" not in message
 
 
 def test_run_gh_api_retries_transient_failures(
