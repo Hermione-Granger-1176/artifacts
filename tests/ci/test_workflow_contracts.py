@@ -532,7 +532,8 @@ def test_all_action_references_are_pinned_or_local() -> None:
 
 def test_no_python_heredocs_remain_in_workflows_or_actions() -> None:
     """No workflow or composite action embeds an inline Python heredoc."""
-    heredoc_pattern = re.compile(r"python3?\s+-\s*<<")
+    # Also match versioned interpreters such as python3.12 so no heredoc slips by.
+    heredoc_pattern = re.compile(r"python3?(?:\.\d+)?\s+-\s*<<")
     files = _workflow_and_action_files()
     assert files, "expected at least one workflow or action file to validate"
 
