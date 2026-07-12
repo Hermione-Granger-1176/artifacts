@@ -24,6 +24,17 @@ SOURCE_FILENAME_PATTERN = re.compile(r"\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*\.css")
 def source_files() -> tuple[Path, ...]:
     """Return the ordered shared stylesheet source files."""
     candidates = tuple(sorted(SOURCE_DIR.glob("*.css")))
+    invalid_entries = [
+        source_file.name
+        for source_file in candidates
+        if source_file.is_symlink() or not source_file.is_file()
+    ]
+    if invalid_entries:
+        names = ", ".join(invalid_entries)
+        raise ValueError(
+            f"Invalid stylesheet source entry(s): {names}. "
+            "Sources must be regular files and cannot be symlinks."
+        )
     invalid_names = [
         source_file.name
         for source_file in candidates

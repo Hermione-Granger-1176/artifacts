@@ -670,8 +670,12 @@ def test_prepare_site_builds_deploy_output(tmp_path: Path, monkeypatch: pytest.M
         in index_content
     )
     assert "@import" not in style_content
-    assert "body{margin:0}" in style_content
-    assert ".artifact-card{display:block}" in style_content
+    if prepare_site.ESBUILD_BIN.exists():
+        assert "body{margin:0}" in style_content
+        assert ".artifact-card{display:block}" in style_content
+    else:
+        assert "body { margin: 0; }" in style_content
+        assert ".artifact-card { display: block; }" in style_content
     assert not (deploy_dir / "css" / "src").exists()
     assert '<link rel="modulepreload" href="js/lib.js">' in index_content
     assert 'data-site-path="/artifacts/"' in error_content

@@ -71,6 +71,31 @@ def test_source_files_rejects_empty_source_directory(
         generate_styles.source_files()
 
 
+def test_source_files_rejects_symlinked_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Source discovery rejects symlinks before reading their targets."""
+    source_dir, _ = configure_paths(tmp_path, monkeypatch)
+    source_dir.mkdir(parents=True)
+    target = tmp_path / "outside.css"
+    write_text(target, "/* outside */\n")
+    (source_dir / "01-linked.css").symlink_to(target)
+
+    with pytest.raises(ValueError, match=r"Sources must be regular files and cannot be symlinks"):
+        generate_styles.source_files()
+
+
+def test_source_files_rejects_directory_with_css_suffix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Source discovery rejects non-file entries with CSS-like names."""
+    source_dir, _ = configure_paths(tmp_path, monkeypatch)
+    (source_dir / "01-directory.css").mkdir(parents=True)
+
+    with pytest.raises(ValueError, match=r"Sources must be regular files and cannot be symlinks"):
+        generate_styles.source_files()
+
+
 def test_build_stylesheet_concatenates_partials_with_one_final_newline(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
