@@ -125,6 +125,22 @@ def test_check_page_rejects_unapproved_root_image_source(tmp_path: Path) -> None
     assert any("img-src must use only approved image sources" in message for message in violations)
 
 
+def test_check_page_rejects_none_mixed_with_other_sources(tmp_path: Path) -> None:
+    """CSP treats 'none' as valid only when it is the sole source expression."""
+    csp = "default-src 'self' 'none'; script-src 'self'; img-src 'self' data:"
+    path = _write_page(tmp_path, "demo", _page(csp))
+    violations = check_page(path, display_path="apps/demo/index.html")
+    assert any("default-src must be restricted" in message for message in violations)
+
+
+def test_check_page_rejects_none_mixed_into_img_sources(tmp_path: Path) -> None:
+    """A directive like img-src 'none' data: is invalid CSP and must fail."""
+    csp = "default-src 'self'; script-src 'self'; img-src 'none' data:"
+    path = _write_page(tmp_path, "demo", _page(csp))
+    violations = check_page(path, display_path="apps/demo/index.html")
+    assert any("img-src must use only approved image sources" in message for message in violations)
+
+
 def test_check_page_reports_non_utf8_page_as_violation(tmp_path: Path) -> None:
     """A binary page is reported as a violation instead of crashing."""
     path = tmp_path / "apps" / "demo" / "index.html"

@@ -91,7 +91,13 @@ def _parse_csp_directives(policy: str) -> dict[str, list[str]]:
 def _directive_has_only_allowed_sources(
     sources: list[str], allowed_sources: frozenset[str]
 ) -> bool:
-    """Return whether every source in a directive belongs to its approved set."""
+    """Return whether every source in a directive belongs to its approved set.
+
+    Per the CSP spec ``'none'`` is only meaningful as the sole source
+    expression, so a directive that mixes it with other tokens is rejected.
+    """
+    if "'none'" in sources and len(sources) > 1:
+        return False
     return bool(sources) and all(source in allowed_sources for source in sources)
 
 
