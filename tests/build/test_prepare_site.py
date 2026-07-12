@@ -458,6 +458,30 @@ def test_patch_app_social_metadata_injects_per_app_values(
     assert 'content="https://example.com/demo/apps/sample/thumbnail.webp?v=abc123"' in content
 
 
+def test_patch_app_social_metadata_escapes_html_metacharacters(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test patch app social metadata escapes html metacharacters."""
+    deploy_dir = tmp_path / "_site"
+    app_dir = deploy_dir / "apps" / "sample"
+    app_dir.mkdir(parents=True)
+    write_text(app_dir / "name.txt", 'Sample "App" & Friends\n')
+    write_text(app_dir / "description.txt", '"><script>alert(1)</script>\n')
+    write_text(
+        app_dir / "index.html",
+        '<meta property="og:title" content="__APP_TITLE__">\n'
+        '<meta property="og:description" content="__APP_DESCRIPTION__">\n',
+    )
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._patch_app_social_metadata("https://example.com/demo/", "abc123")
+
+    content = (app_dir / "index.html").read_text(encoding="utf-8")
+    assert 'content="Sample &quot;App&quot; &amp; Friends"' in content
+    assert "<script>" not in content
+    assert 'content="&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"' in content
+
+
 def test_patch_app_social_metadata_skips_apps_without_placeholders(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
