@@ -1,0 +1,186 @@
+/* Shared stylesheet source: artifact-app reset and shell. */
+
+/* Artifact app reset and shell. */
+
+body.artifact-app * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+
+}
+
+body.artifact-app {
+  min-height: 100vh;
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background: var(--color-bg);
+
+}
+
+body.artifact-app button,
+body.artifact-app input,
+body.artifact-app select,
+body.artifact-app textarea {
+  font: inherit;
+
+}
+
+body.artifact-app a {
+  color: inherit;
+
+}
+
+body.artifact-app [hidden] {
+  display: none !important;
+
+}
+
+body.artifact-app [data-app-shell="header"] {
+  min-height: calc(72px + 1px);
+
+}
+
+body.artifact-app [data-app-shell="header"]:empty {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+
+}
+
+@media (max-width: 480px) {
+  body.artifact-app [data-app-shell="header"] {
+    min-height: calc(64px + 1px);
+  }
+}
+
+body.artifact-app .app-header {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+
+}
+
+body.artifact-app .app-header-inner,
+body.artifact-app .page-shell {
+  width: min(100% - 2rem, 1000px);
+  margin: 0 auto;
+
+}
+
+body.artifact-app .app-header-inner {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+
+}
+
+body.artifact-app .app-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+}
+
+body.artifact-app .brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+
+}
+
+body.artifact-app .brand-link:hover,
+body.artifact-app .brand-link:focus-visible {
+  color: var(--color-amber);
+  outline: none;
+
+}
+
+body.artifact-app .brand-mark {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+
+}
+
+body.artifact-app .brand-name {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 600;
+
+}
+
+body.artifact-app .icon-button {
+  width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition:
+    transform var(--transition-fast) ease,
+    border-color var(--transition-fast) ease,
+    background var(--transition-fast) ease,
+    color var(--transition-fast) ease;
+
+}
+
+body.artifact-app .icon-button:hover,
+body.artifact-app .icon-button:focus-visible {
+  transform: translateY(-1px);
+  border-color: var(--color-blue);
+  outline: none;
+
+}
+
+body.artifact-app .icon-button svg {
+  width: 22px;
+  height: 22px;
+
+}
+
+body.artifact-app .icon-moon {
+  display: none;
+
+}
+
+[data-theme="dark"] body.artifact-app .icon-sun {
+  display: none;
+
+}
+
+[data-theme="dark"] body.artifact-app .icon-moon {
+  display: block;
+
+}
+
+body.artifact-app .page-shell {
+  padding: 1.5rem 0 4rem;
+
+}
+
+body.artifact-app .page-intro {
+  margin-bottom: 1.5rem;
+
+}
+
+body.artifact-app .page-title {
+  margin-bottom: 0.4rem;
+  font-size: clamp(1.8rem, 3vw, 2.2rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+
+}
+
+body.artifact-app .page-lede {
+  max-width: 68ch;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+
+}

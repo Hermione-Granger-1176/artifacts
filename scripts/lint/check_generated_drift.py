@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
-from scripts.build import generate_index
+from scripts.build import generate_index, generate_styles
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -22,12 +22,13 @@ class FileSnapshot:
     content: str | None
 
 
-def _target_files() -> tuple[Path, Path, Path]:
-    """Return the canonical generated files owned by the index generator."""
+def _target_files() -> tuple[Path, ...]:
+    """Return the canonical generated files owned by build generators."""
     return (
         generate_index.README_FILE,
         generate_index.JS_OUTPUT_FILE,
         generate_index.JS_CONFIG_OUTPUT_FILE,
+        generate_styles.OUTPUT_FILE,
     )
 
 
@@ -63,10 +64,11 @@ def _restore_snapshots(snapshots: list[FileSnapshot]) -> None:
 
 
 def check_generated_drift() -> list[Path]:
-    """Run the index generator, report drift, and restore original files."""
+    """Run build generators, report drift, and restore original files."""
     snapshots = _capture_snapshots(_target_files())
 
     try:
+        generate_styles.generate()
         generate_index.generate()
         drifted = _detect_drift(snapshots)
     except Exception:

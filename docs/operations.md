@@ -99,8 +99,8 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
 ### Self-hosted fonts
 
 - Gallery display fonts (Caveat, Fredoka One) are self-hosted as WOFF2 Latin subsets in `assets/fonts/`.
-- `@font-face` declarations live in `css/style.css`.
-- When adding a new font, download the WOFF2 subset into `assets/fonts/`, add the `@font-face` rule to `css/style.css`, and verify the CSP `font-src 'self'` directive still covers it.
+- `@font-face` declarations live in `css/src/01-tokens.css` and are bundled into `css/style.css`.
+- When adding a new font, download the WOFF2 subset into `assets/fonts/`, add the `@font-face` rule to `css/src/01-tokens.css`, run `make styles`, and verify the CSP `font-src 'self'` directive still covers it.
 
 ### Adding external assets to a new artifact
 

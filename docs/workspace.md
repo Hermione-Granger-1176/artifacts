@@ -35,7 +35,9 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- icons/                 Logo, favicon, and web app manifest
 |  |- social/                Social share preview image
 |- config/                   Gallery metadata, tool configs (eslint, stylelint, and more), and security audit policy
-|- css/                      Shared site stylesheet
+|- css/
+|  |- src/                   Ordered shared stylesheet source partials
+|  |- style.css              Generated shared stylesheet loaded by pages
 |- docs/                     Workspace documentation and ADRs
 |- js/
 |  |- app.js                 Root gallery entry point
@@ -78,13 +80,14 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `docs/operations.md`: command selection, CI mirroring, troubleshooting, and recovery
 - `docs/maintenance.md`: long-term contracts, review points, and stability expectations
 - `apps/*/index.html`: artifact implementation
-- `apps/*/css/app.css`: app-specific layout styles for mature apps
+- `apps/*/css/app.css`: app-specific composition and layout styles for mature apps. Reusable app components belong in `css/src/`
 - `apps/*/name.txt`, `description.txt`, `tags.txt`, `tools.txt`: artifact metadata
-- `index.html`, `css/style.css`, `js/app.js`, `js/modules/gallery/*`: root gallery UI and shared app styling
+- `index.html`, `css/style.css`, `css/src/`, `js/app.js`, `js/modules/gallery/*`: root gallery UI, shared app styling, and reusable app components
 - `js/modules/runtime.js`, `js/modules/element-cache.js`, `js/modules/html-escape.js`: shared JS utilities
 - `js/app-theme.js`, `js/modules/app-shell.js`: shared mature-app theme and interaction system
 - `assets/fonts/*`: self-hosted Latin web font subsets for gallery display fonts
-- `css/style.css`: `@font-face` declarations for self-hosted Caveat and Fredoka One
+- `css/src/01-tokens.css`: `@font-face` declarations for self-hosted Caveat and Fredoka One, plus shared gallery and app tokens
+- `css/style.css`: generated public bundle loaded by the gallery and mature apps. Rebuild it with `make styles`; do not edit it directly
 - `assets/icons/*`: logo, favicon, apple touch icon, PWA manifest, and raster icons
 - `assets/social/share-preview.png`: social preview image referenced by deploy-time Open Graph and Twitter metadata
 - `config/gallery_metadata.json`: shared tool and tag display metadata used by generators to produce `js/gallery-config.js` and ordered README badges

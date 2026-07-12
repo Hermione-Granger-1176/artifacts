@@ -226,7 +226,7 @@ coverage-js-floors: ## Enforce per-file JS coverage floors (reads the coverage-j
 
 # ─── Build @build ─────────────────────────────────────────────────────────────
 
-.PHONY: validate thumbnails index site generate new optimize-social-image
+.PHONY: validate thumbnails styles index site generate new optimize-social-image
 
 validate: ## Check artifact directories are complete
 	$(VENV_PYTHON) -c "from scripts.build.generate_index import validate; validate()"
@@ -234,13 +234,16 @@ validate: ## Check artifact directories are complete
 thumbnails: ## Regenerate WebP thumbnails (needs Chromium)
 	$(VENV_PYTHON) scripts/build/generate_thumbnails.py
 
+styles: ## Rebuild css/style.css from ordered source partials
+	$(VENV_PYTHON) scripts/build/generate_styles.py
+
 index: ## Rebuild js/data.js, js/gallery-config.js, README
 	$(VENV_PYTHON) scripts/build/generate_index.py
 
-site: ## Assemble _site/ deploy payload
+site: styles ## Assemble _site/ deploy payload
 	$(VENV_PYTHON) scripts/build/prepare_site.py
 
-generate: thumbnails index ## Run thumbnails + index
+generate: styles thumbnails index ## Rebuild all canonical generated assets
 
 new: ## Scaffold a new artifact directory (make new name=X [src=file.html])
 	@test -n "$(name)" || (printf 'Usage: make new name=my-artifact [src=file.html]\n' >&2; exit 1)
@@ -393,7 +396,7 @@ help-json: ## Emit groups and commands as JSON
 
 # ─── Git @git ─────────────────────────────────────────────────────────────────
 
-.PHONY: git branch stage stage-all commit push log log-file diff diff-staged
+.PHONY: git branch branch-current rebase-main rebase-continue sync-branch stage stage-all commit push log log-file diff diff-staged
 
 git: ## Git commands (make git)
 	@$(MAKE) --no-print-directory help-git
@@ -403,6 +406,19 @@ branch: ## Create and switch to a new branch off main, or off base for a stacked
 	git checkout "$(if $(base),$(base),main)" && \
 	if git rev-parse --symbolic-full-name --abbrev-ref '@{u}' >/dev/null 2>&1; then git pull; fi && \
 	git checkout -b "$(name)"
+
+branch-current: ## Create and switch to a branch from the current commit without pulling (make branch-current name=X)
+	@test -n "$(name)" || (printf 'Usage: make branch-current name=my-feature\n' >&2; exit 1)
+	git checkout -b "$(name)"
+
+rebase-main: ## Rebase the current branch onto origin/main
+	git fetch origin main && git rebase origin/main
+
+rebase-continue: ## Continue an in-progress rebase after resolving conflicts
+	GIT_EDITOR=true git rebase --continue
+
+sync-branch: ## Rebase the current branch onto its upstream branch
+	git pull --rebase
 
 stage: ## Stage selected files (make stage files="path ...")
 	@test -n "$(files)" || (printf 'Usage: make stage files="path ..."\n' >&2; exit 1)

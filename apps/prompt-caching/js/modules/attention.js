@@ -164,7 +164,7 @@ function initStepper() {
             toggle.appendChild(btn);
           }
           controls.appendChild(toggle);
-          const scrambleBtn = makeEl("button", "btn pc-btn-outline pc-btn-sm", "Scramble weights");
+          const scrambleBtn = makeEl("button", "btn btn-outline btn-sm", "Scramble weights");
           scrambleBtn.type = "button";
           scrambleBtn.addEventListener("click", scramble);
           controls.appendChild(scrambleBtn);

@@ -1,0 +1,218 @@
+/* Shared stylesheet source: runtime states and accessibility utilities. */
+
+:where(body:not(.artifact-app)) .runtime-error {
+  width: min(100% - 2rem, 640px);
+  margin: 1rem auto 0;
+  padding: 0.9rem 1.15rem;
+  border: 1px solid rgba(192, 57, 43, 0.35);
+  border-radius: 18px;
+  background: rgba(192, 57, 43, 0.14);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+:where(body:not(.artifact-app)) .runtime-error p {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+:where(body:not(.artifact-app)) .runtime-error-details {
+  margin-top: 0.75rem;
+}
+
+:where(body:not(.artifact-app)) .runtime-error-details summary {
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+:where(body:not(.artifact-app)) .runtime-error-output {
+  margin: 0.65rem 0 0;
+  padding: 0.75rem;
+  overflow-x: auto;
+  border-radius: 12px;
+  background: rgba(45, 32, 23, 0.08);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+:where(body:not(.artifact-app)) .runtime-error-copy {
+  margin-top: 0.65rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--color-border-solid);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+:where(body:not(.artifact-app)) .scroll-top {
+  position: fixed;
+  right: 1.4rem;
+  bottom: 1.4rem;
+  width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border-solid);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
+  transition: opacity var(--transition-fast) ease, transform var(--transition-fast) ease;
+}
+
+:where(body:not(.artifact-app)) .scroll-top[aria-hidden="true"] {
+  visibility: hidden;
+}
+
+:where(body:not(.artifact-app)) .scroll-top.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* Artifact app runtime states and accessibility helpers. */
+
+body.artifact-app .runtime-error {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(226, 75, 74, 0.28);
+  border-radius: var(--radius-md);
+  background: rgba(226, 75, 74, 0.12);
+  color: var(--color-text);
+
+}
+
+body.artifact-app .runtime-error p {
+  margin: 0;
+  line-height: 1.5;
+
+}
+
+body.artifact-app .runtime-error-details {
+  margin-top: 0.75rem;
+
+}
+
+body.artifact-app .runtime-error-details summary {
+  cursor: pointer;
+  font-size: var(--font-size-control);
+
+}
+
+body.artifact-app .runtime-error-output {
+  margin: 0.65rem 0 0;
+  padding: var(--space-3);
+  overflow-x: auto;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-control);
+  line-height: 1.5;
+  white-space: pre-wrap;
+
+}
+
+body.artifact-app .runtime-error-copy {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: var(--font-size-control);
+
+}
+
+body.artifact-app .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+
+}
+
+body.artifact-app .scroll-top {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-red);
+  border-radius: var(--radius-pill);
+  background: var(--note-red);
+  color: var(--color-red-text);
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  cursor: pointer;
+  transition:
+    opacity var(--transition-fast) ease,
+    transform var(--transition-fast) ease,
+    border-color var(--transition-fast) ease,
+    background var(--transition-fast) ease,
+    color var(--transition-fast) ease;
+
+}
+
+[data-theme="dark"] body.artifact-app .scroll-top {
+  background: rgba(163, 45, 45, 0.25);
+  border-color: var(--color-red-emphasis);
+  color: var(--color-red-emphasis);
+
+}
+
+body.artifact-app .scroll-top.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+
+}
+
+body.artifact-app .scroll-top:hover {
+  background: var(--color-red);
+  border-color: var(--color-red);
+  color: rgb(255, 255, 255);
+
+}
+
+body.artifact-app .scroll-top:focus-visible {
+  background: var(--color-red);
+  border-color: var(--color-red);
+  color: rgb(255, 255, 255);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+
+}
+
+[data-theme="dark"] body.artifact-app .scroll-top:hover {
+  background: var(--color-red-emphasis);
+  border-color: var(--color-red-emphasis);
+  color: rgb(20, 20, 20);
+
+}
+
+[data-theme="dark"] body.artifact-app .scroll-top:focus-visible {
+  background: var(--color-red-emphasis);
+  border-color: var(--color-red-emphasis);
+  color: rgb(20, 20, 20);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+
+}

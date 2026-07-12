@@ -138,6 +138,13 @@ def _copy_deploy_items() -> None:
         _copy_deploy_item(source, target)
 
 
+def _remove_build_only_sources() -> None:
+    """Remove stylesheet sources that are compiled into the public bundle."""
+    source_dir = DEPLOY_DIR / "css" / "src"
+    if source_dir.is_dir():
+        shutil.rmtree(source_dir)
+
+
 def _copy_deploy_item(source: Path, target: Path) -> None:
     """Copy one deploy input after validating symlink safety."""
     if not source.exists():
@@ -519,6 +526,7 @@ def prepare_site() -> None:
         commit_sha,
     )
     _copy_deploy_items()
+    _remove_build_only_sources()
     _inline_all_css_imports()
     _patch_index_html(version)
     _patch_app_asset_references(version)

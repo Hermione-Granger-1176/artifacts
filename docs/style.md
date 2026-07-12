@@ -53,14 +53,17 @@ Run `make lint`, `make typecheck-web`, `make dead-code-js`, `make coverage-js`, 
 ## CSS
 
 - **Indent:** 2 spaces
-- **Shared stylesheet:** `css/style.css` provides gallery styles, app tokens, and shared app shell rules
-- **App stylesheet:** `apps/<slug>/css/app.css` provides app-specific layout selectors scoped by `body.app-<slug>`
+- **Shared stylesheet sources:** `css/src/` provides gallery styles, app tokens, shell rules, reusable app components, utilities, and responsive rules in numeric load order
+- **Shared public stylesheet:** generated `css/style.css` is the single stylesheet loaded by the gallery and mature apps. Rebuild it with `make styles`; do not edit it directly
+- **App stylesheet:** `apps/<slug>/css/app.css` provides app-specific composition and layout selectors scoped by `body.app-<slug>`
 - **Linter:** stylelint, configured in `config/stylelint.config.js`
 - **Conventions:**
   - BEM-inspired class names (e.g., `.artifact-card`, `.detail-close`)
   - CSS custom properties for theming and shared geometry (for example `--color-bg-primary`, `--text-primary`, `--accent`, `--book-sheet-min-height`, `--gallery-*`, `--desk-note-*`, and the shared app-shell tokens)
   - Mature apps use the bookmark-note palette as the shared source of truth for light and dark themes
   - Authored app colors should use `rgb()` and `rgba()` values instead of hex literals
+  - Keep shared rules in the matching ordered source partial: `01-tokens.css`, `02-gallery.css`, `03-artifact-shell.css`, `04-artifact-components.css`, `05-accessibility-and-utilities.css`, or `06-responsive-and-motion.css`
+  - Use descriptive section headers in long stylesheets. Group app rules by the visualisation or page region they support
   - `prefers-reduced-motion` respected for transitions and animations
   - Desktop-first responsive breakpoints
 
@@ -75,10 +78,10 @@ Run `make lint-css` or `make lint` to check.
 
 ## Mature app contract
 
-- Shared app tokens live in `css/style.css`
+- Shared app tokens live in `css/src/01-tokens.css`
 - Shared mature-app theme bootstrap lives in `js/app-theme.js`, and `js/modules/app-shell.js` owns the reusable shell markup plus shell behavior
 - Mature apps should import the shared stylesheet first, then `./css/app.css`, and use `artifact-app` plus an `app-<slug>` body class
-- App-specific layout selectors live in `apps/<slug>/css/app.css` and retain their `body.app-<slug>` scope
+- Reusable colours, controls, surfaces, and callouts live in the relevant `css/src/` partial and are bundled into `css/style.css`. App-specific layout selectors live in `apps/<slug>/css/app.css` and retain their `body.app-<slug>` scope
 - Mature app HTML should keep app-specific body content local, while shell placeholders (`data-app-shell`) let the shared module render the common header, runtime-error banner, and scroll-to-top control
 - App headers should reuse the Artifacts logo, back button, theme toggle, and app-styled scroll-to-top pattern
 - App content containers should stay near `1000px` wide unless a product requirement clearly needs more space

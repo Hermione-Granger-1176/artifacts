@@ -224,8 +224,8 @@ test('renderTabs creates buttons for each scenario', () => {
 
     assert.equal(container.children.length, 3);
     assert.equal(container.children[0].textContent, 'Tab A');
-    assert.equal(container.children[1].className, 'tab active');
-    assert.equal(container.children[2].className, 'tab');
+    assert.equal(container.children[1].className, 'btn tab active');
+    assert.equal(container.children[2].className, 'btn tab');
   } finally {
     teardownRenderMocks();
   }

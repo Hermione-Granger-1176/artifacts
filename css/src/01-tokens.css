@@ -1,0 +1,243 @@
+/* Shared stylesheet source: gallery and artifact-app tokens. */
+
+/* Gallery foundations: fonts and design tokens. */
+
+@font-face {
+  font-family: 'Caveat';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../assets/fonts/caveat-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Fredoka One';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/fredoka-one-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --color-bg-primary: rgb(245, 239, 230);
+  --color-bg-secondary: rgb(237, 229, 216);
+  --color-bg-card: rgb(254, 252, 248);
+  --color-surface-contrast: rgb(255, 255, 255);
+  --color-text-primary: rgb(45, 32, 23);
+  --color-text-secondary: rgb(107, 92, 77);
+  --color-text-on-accent: rgb(255, 255, 255);
+  --color-accent: rgb(212, 114, 92);
+  --color-accent-hover: rgb(192, 96, 74);
+  --color-accent-ring: rgb(143, 47, 31);
+  --color-accent-strong: rgb(122, 49, 36);
+  --color-accent-strong-hover: rgb(111, 36, 24);
+  --color-accent-ghost: rgba(212, 114, 92, 0.1);
+  --color-page-paper: rgb(254, 252, 248);
+  --color-page-shadow: rgba(0, 0, 0, 0.08);
+  --color-border: rgba(45, 32, 23, 0.1);
+  --color-border-solid: rgb(212, 207, 200);
+  --color-note-text: rgb(61, 46, 31);
+  --color-note-default: rgb(245, 230, 163);
+  --color-note-1: rgb(245, 230, 163);
+  --color-note-2: rgb(232, 160, 160);
+  --color-note-3: rgb(160, 200, 232);
+  --color-note-4: rgb(160, 232, 200);
+  --color-note-5: rgb(232, 200, 160);
+  --color-note-6: rgb(232, 160, 232);
+  --color-capsule-default: rgb(232, 200, 160);
+  --color-capsule-text: rgb(61, 46, 26);
+  --font-body: 'Caveat', cursive;
+  --font-display: 'Fredoka One', cursive;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-note: 6px;
+  --radius-book: 8px;
+  --radius-pill: 999px;
+  --transition-fast: 0.2s;
+  --book-sheet-min-height: 800px;
+  --book-sheet-min-height-tablet: 820px;
+  --gallery-page-padding-block: 1.2rem;
+  --gallery-page-padding-top: var(--gallery-page-padding-block);
+  --gallery-page-padding-bottom: var(--gallery-page-padding-block);
+  --gallery-slice-padding: 1.2rem;
+  --gallery-card-gap: 1.25rem;
+  --desk-note-size: 100px;
+  --desk-note-gap: 0.6rem;
+  --desk-note-offset-top: 6rem;
+
+
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --accent: var(--color-accent);
+  --accent-hover: var(--color-accent-hover);
+  --accent-ring: var(--color-accent-ring);
+  --accent-ghost: var(--color-accent-ghost);
+  --border-color: var(--color-border);
+  --border-solid: var(--color-border-solid);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --card-color-1: rgb(240, 212, 200);
+  --card-color-2: rgb(200, 224, 212);
+  --card-color-3: rgb(208, 212, 240);
+  --card-color-4: rgb(240, 224, 200);
+  --card-color-5: rgb(224, 200, 240);
+  --card-color-6: rgb(200, 232, 240);
+  --card-color-7: rgb(240, 234, 200);
+  --card-color-8: rgb(240, 200, 216);
+  --card-color-9: rgb(208, 240, 204);
+  --card-color-10: rgb(240, 216, 200);
+  --card-color-11: rgb(200, 220, 240);
+  --card-color-12: rgb(224, 216, 200);
+}
+
+[data-theme="dark"] {
+  --color-bg-primary: rgb(30, 26, 20);
+  --color-bg-secondary: rgb(42, 37, 32);
+  --color-bg-card: rgb(54, 48, 40);
+  --color-text-primary: rgb(232, 221, 208);
+  --color-text-secondary: rgb(179, 159, 141);
+  --color-accent: rgb(232, 133, 106);
+  --color-accent-hover: rgb(240, 154, 126);
+  --color-accent-ring: rgb(255, 215, 199);
+  --color-accent-ghost: rgba(232, 133, 106, 0.12);
+  --color-page-paper: rgb(51, 46, 38);
+  --color-page-shadow: rgba(0, 0, 0, 0.3);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-solid: rgb(74, 62, 48);
+  --color-detail-dark-surface: rgb(46, 40, 32);
+  --color-detail-dark-title: rgb(240, 232, 216);
+  --color-detail-dark-body: rgb(219, 198, 165);
+
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --accent: var(--color-accent);
+  --accent-hover: var(--color-accent-hover);
+  --accent-ring: var(--color-accent-ring);
+  --accent-ghost: var(--color-accent-ghost);
+  --border-color: var(--color-border);
+  --border-solid: var(--color-border-solid);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.32);
+  --card-color-1: rgb(77, 63, 56);
+  --card-color-2: rgb(56, 77, 66);
+  --card-color-3: rgb(62, 64, 80);
+  --card-color-4: rgb(77, 69, 56);
+  --card-color-5: rgb(68, 56, 80);
+  --card-color-6: rgb(56, 68, 80);
+  --card-color-7: rgb(77, 74, 56);
+  --card-color-8: rgb(77, 56, 66);
+  --card-color-9: rgb(62, 77, 58);
+  --card-color-10: rgb(77, 66, 56);
+  --card-color-11: rgb(56, 64, 80);
+  --card-color-12: rgb(68, 64, 58);
+}
+
+/*
+ * Shared artifact-app system
+ *
+ * App stylesheets should only add artifact-specific layout, visualisation, and
+ * variant rules. Reusable component foundations belong in this section.
+ */
+
+/* Artifact app tokens mapped to the gallery design system. */
+
+body.artifact-app {
+  --note-yellow: rgb(245, 230, 163);
+  --note-red: rgb(232, 160, 160);
+  --note-blue: rgb(160, 200, 232);
+  --note-green: rgb(160, 232, 200);
+  --note-amber: rgb(232, 200, 160);
+  --note-purple: rgb(232, 160, 232);
+  --color-blue: rgb(55, 138, 221);
+  --color-green: rgb(29, 158, 117);
+  --color-red: rgb(226, 75, 74);
+  --color-amber: rgb(217, 119, 6);
+  --color-purple: rgb(108, 92, 231);
+  --color-blue-text: rgb(12, 76, 132);
+  --color-green-text: rgb(8, 96, 74);
+  --color-red-text: rgb(163, 45, 45);
+  --color-amber-text: rgb(133, 79, 11);
+  --color-purple-text: rgb(83, 74, 183);
+  --color-blue-emphasis: rgb(12, 76, 132);
+  --color-green-emphasis: rgb(8, 96, 74);
+  --color-red-emphasis: rgb(163, 45, 45);
+  --color-bg: rgb(248, 248, 246);
+  --color-surface: rgb(255, 255, 255);
+  --color-surface-alt: rgb(240, 240, 238);
+  --color-surface-dim: rgb(249, 249, 247);
+  --color-highlight-row: rgba(160, 200, 232, 0.15);
+  --color-text: rgb(26, 26, 26);
+  --color-text-secondary: rgb(102, 102, 102);
+  --color-text-tertiary: rgb(153, 153, 153);
+  --color-text-heading: rgb(68, 68, 68);
+  --color-border: rgba(0, 0, 0, 0.1);
+  --color-border-medium: rgba(0, 0, 0, 0.15);
+  --color-border-strong: rgba(0, 0, 0, 0.2);
+  --color-border-subtle: rgba(0, 0, 0, 0.06);
+  --color-tip-bg: rgb(232, 232, 230);
+  --color-tooltip-bg: rgb(51, 51, 51);
+  --color-tooltip-text: rgb(255, 255, 255);
+  --chart-tick: rgb(136, 136, 136);
+  --chart-grid: rgba(0, 0, 0, 0.06);
+  --chart-annotation-border: rgb(136, 136, 136);
+  --chart-annotation-bg: rgba(0, 0, 0, 0.65);
+  --chart-annotation-text: rgb(255, 255, 255);
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-size-xs: 10px;
+  --font-size-2xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-control: 13px;
+  --font-size-md: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --focus-ring: 3px solid color-mix(in srgb, var(--color-blue) 65%, white);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --transition-fast: 160ms;
+}
+
+[data-theme="dark"] body.artifact-app {
+  --color-bg: rgb(20, 20, 20);
+  --color-surface: rgb(30, 30, 30);
+  --color-surface-alt: rgb(40, 40, 40);
+  --color-surface-dim: rgb(26, 26, 26);
+  --color-highlight-row: rgba(160, 200, 232, 0.22);
+  --color-text: rgb(232, 232, 232);
+  --color-text-secondary: rgb(160, 160, 160);
+  --color-text-tertiary: rgb(112, 112, 112);
+  --color-text-heading: rgb(208, 208, 208);
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-medium: rgba(255, 255, 255, 0.14);
+  --color-border-strong: rgba(255, 255, 255, 0.2);
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-tip-bg: rgb(40, 40, 40);
+  --color-tooltip-bg: rgb(232, 232, 232);
+  --color-tooltip-text: rgb(20, 20, 20);
+  --color-blue-emphasis: rgb(160, 200, 232);
+  --color-green-emphasis: rgb(160, 232, 200);
+  --color-red-emphasis: rgb(232, 160, 160);
+  --chart-tick: rgb(160, 160, 160);
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-annotation-border: rgb(160, 160, 160);
+  --chart-annotation-bg: rgba(232, 232, 232, 0.92);
+  --chart-annotation-text: rgb(20, 20, 20);
+}
