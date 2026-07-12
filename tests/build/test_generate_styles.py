@@ -98,6 +98,12 @@ def test_output_header_describes_discovered_source_boundaries(
     )
 
 
+def test_output_header_rejects_explicit_empty_source_list() -> None:
+    """Header generation reports an explicit empty source list clearly."""
+    with pytest.raises(ValueError, match=r"At least one stylesheet source is required"):
+        generate_styles.output_header(())
+
+
 def test_generate_writes_the_public_stylesheet(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
