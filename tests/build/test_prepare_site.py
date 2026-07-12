@@ -36,6 +36,7 @@ def create_source_tree(repo_root: Path) -> None:
         repo_root / "index.html",
         "".join(
             [
+                "<head>\n",
                 '<link rel="canonical" href="__ARTIFACTS_SITE_URL__">\n',
                 '<meta property="og:url" content="__ARTIFACTS_SITE_URL__">\n',
                 '<meta property="og:image" content="__ARTIFACTS_SHARE_IMAGE__">\n',
