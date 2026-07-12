@@ -19,7 +19,7 @@ Each artifact lives in its own directory under `apps/` with an `index.html` entr
 
 - `apps/<slug>/`: artifacts, each with `index.html`, `name.txt`, `description.txt`, `tags.txt`, `tools.txt`
 - `scripts/{build,ci,gh,lib,lint}/`: Python tooling organized by concern, 100% test coverage enforced
-- `tests/{build,ci,gh,lib,lint}/`: mirrors scripts structure; `tests/browser/` for Playwright; `tests/js/{home,common,apps,workflows}/` for Node
+- `tests/{build,ci,gh,lib,lint}/`: mirrors scripts structure; `tests/browser/` for Playwright; `tests/js/{home,common,apps,tooling,workflows}/` for Node
 - `js/`, `css/`: gallery + shared app modules and styles
 - `docs/`: developer documentation
 - `config/`: gallery metadata, artifact contract, and security audit policy

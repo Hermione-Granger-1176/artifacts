@@ -63,6 +63,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |  |- home/               Root gallery Node unit tests
 |  |  |- common/             Shared app/runtime Node unit tests
 |  |  |- apps/               App-specific Node unit tests grouped by slug
+|  |  |- tooling/            Node tests for repo tooling scripts
 |  |  |- workflows/          Node tests for GitHub action modules
 |- 404.html                  GitHub Pages error page
 |- index.html                Root gallery entry point
@@ -93,6 +94,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `config/gallery_metadata.json`: shared tool and tag display metadata used by generators to produce `js/gallery-config.js` and ordered README badges
 - `config/artifact_contract.json`: shared artifact id, URL, and thumbnail-path contract emitted into `js/gallery-config.js` and enforced by Python build validation
 - `config/security_audit.json`: source of truth for reviewed Python and npm vulnerability exceptions
+- `config/vendored_assets.json`: integrity manifest pinning the version, upstream URL, and SHA-256 of each vendored library, enforced by `make lint-vendored-assets`
 - `docs/adr/*`: accepted cross-cutting decisions about the root publishing platform
 - `pyproject.toml`: Python dependency declarations, tool configuration, and workspace metadata
 - `uv.lock`: frozen Python dependency graph

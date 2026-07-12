@@ -148,7 +148,7 @@ function applyAxes(scales, palette, periodLabel, formatDollarTick, options = {})
   yScale.grid = { ...yScale.grid, color: palette.grid };
 }
 
-function createBalanceChart(canvas, formatDollarTick) {
+function createBalanceChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "line",
     data: {
@@ -209,7 +209,7 @@ function syncBalanceChart(chart, state, formatDollarTick) {
   chart.update();
 }
 
-function createComparisonChart(canvas, formatDollarTick) {
+function createComparisonChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "bar",
     data: {
@@ -258,7 +258,7 @@ function syncComparisonChart(chart, state, formatDollarTick) {
   chart.update();
 }
 
-function createSavingsChart(canvas, formatCurrency) {
+function createSavingsChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "doughnut",
     data: {
@@ -369,7 +369,7 @@ function syncSavingsChart(chart, state, formatCurrency) {
   chart.update();
 }
 
-function createCumulativeChart(canvas, formatDollarTick) {
+function createCumulativeChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "line",
     data: {
@@ -440,7 +440,7 @@ function syncCumulativeChart(chart, state, formatDollarTick) {
   chart.update();
 }
 
-function createPeriodChart(canvas, formatDollarTick) {
+function createPeriodChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "line",
     data: {
@@ -514,13 +514,13 @@ function syncPeriodChart(chart, state, formatDollarTick) {
   chart.update();
 }
 
-function createCharts(elements, formatCurrency, formatDollarTick) {
+function createCharts(elements) {
   return {
-    balance: createBalanceChart(elements.balanceChart, formatDollarTick),
-    comparison: createComparisonChart(elements.compChart, formatDollarTick),
-    savings: createSavingsChart(elements.savingsChart, formatCurrency),
-    cumulative: createCumulativeChart(elements.cumulChart, formatDollarTick),
-    period: createPeriodChart(elements.periodChart, formatDollarTick)
+    balance: createBalanceChart(elements.balanceChart),
+    comparison: createComparisonChart(elements.compChart),
+    savings: createSavingsChart(elements.savingsChart),
+    cumulative: createCumulativeChart(elements.cumulChart),
+    period: createPeriodChart(elements.periodChart)
   };
 }
 
@@ -562,9 +562,7 @@ export function renderCharts({
   formatCurrency,
   formatDollarTick
 }) {
-  const nextCharts = charts.balance
-    ? charts
-    : createCharts(elements, formatCurrency, formatDollarTick);
+  const nextCharts = charts.balance ? charts : createCharts(elements);
   const state = buildChartState({
     base,
     extra,

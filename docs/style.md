@@ -135,4 +135,4 @@ Run `make lint-yaml` for YAML structure/format checks and `make lint-workflows` 
 - JS modules in `js/modules/`, tests grouped under `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, `tests/js/tooling/`, and `tests/js/workflows/`
 - Documentation in `docs/`
 - CI workflows in `.github/workflows/`, composite actions in `.github/actions/`
-- Lock files: Python locks in `locks/`, npm lock at root (`package-lock.json`)
+- Lock files at the repo root: `uv.lock` for Python, `package-lock.json` for npm

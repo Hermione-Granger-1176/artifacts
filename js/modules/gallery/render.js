@@ -124,6 +124,11 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
   };
 
   const shuffled = getShuffledFilterColors();
+  /** @param {number} index */
+  const toolColor = (index) => shuffled[(index + 1) % shuffled.length];
+  const tagColorOffset = tools.length + 1;
+  /** @param {number} index */
+  const tagColor = (index) => shuffled[(tagColorOffset + index) % shuffled.length];
 
   const hasActiveTools = activeTools.length > 0;
   const hasActiveTags = activeTags.length > 0;
@@ -140,7 +145,7 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
       surface: 'desk'
     }),
     ...tools.map((tool, index) => {
-      const color = shuffled[(index + 1) % shuffled.length];
+      const color = toolColor(index);
       labelColorMap.set(tool, color);
       return createFilterControlButton({
         active: activeTools.includes(tool),
@@ -155,7 +160,6 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
     })
   ];
 
-  const tagColorOffset = tools.length + 1;
   const rightNotes = [
     createFilterControlButton({
       active: !hasActiveTags,
@@ -168,7 +172,7 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
       surface: 'desk'
     }),
     ...tags.map((tag, index) => {
-      const color = shuffled[(tagColorOffset + index) % shuffled.length];
+      const color = tagColor(index);
       labelColorMap.set(tag, color);
       return createFilterControlButton({
         active: activeTags.includes(tag),
@@ -196,7 +200,7 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
     ...tools.map((tool, index) => createFilterControlButton({
       active: activeTools.includes(tool),
       className: 'mobile-filter-chip',
-      color: shuffled[(index + 1) % shuffled.length],
+      color: toolColor(index),
       datasetName: 'data-filter-tool',
       datasetValue: tool,
       label: toolLabel(tool),
@@ -216,7 +220,7 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
     ...tags.map((tag, index) => createFilterControlButton({
       active: activeTags.includes(tag),
       className: 'mobile-filter-chip',
-      color: shuffled[(tagColorOffset + index) % shuffled.length],
+      color: tagColor(index),
       datasetName: 'data-filter-tag',
       datasetValue: tag,
       label: tagLabel(tag),
