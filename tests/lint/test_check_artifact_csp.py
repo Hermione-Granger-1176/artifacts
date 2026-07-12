@@ -58,12 +58,14 @@ def _write_root_page(root: Path, csp: str = _ROOT_CSP) -> Path:
     return path
 
 
-def _inline_content_hash(html: str, tag_name: str) -> str:
-    """Return the CSP SHA-256 source expression for one inline tag's contents."""
-    match = re.search(rf"<{tag_name}>(.*?)</{tag_name}>", html, re.DOTALL)
-    assert match is not None, f"404.html must include an inline {tag_name} block"
-    digest = hashlib.sha256(match.group(1).encode("utf-8")).digest()
-    return f"'sha256-{base64.b64encode(digest).decode('ascii')}'"
+def _inline_content_hashes(html: str, tag_name: str) -> list[str]:
+    """Return CSP SHA-256 source expressions for every inline tag's contents."""
+    contents = re.findall(rf"<{tag_name}(?:\s[^>]*)?>(.*?)</{tag_name}>", html, re.DOTALL)
+    assert contents, f"404.html must include an inline {tag_name} block"
+    return [
+        f"'sha256-{base64.b64encode(hashlib.sha256(content.encode('utf-8')).digest()).decode()}'"
+        for content in contents
+    ]
 
 
 def test_404_csp_hashes_allow_its_self_contained_style_and_script() -> None:
@@ -76,10 +78,8 @@ def test_404_csp_hashes_allow_its_self_contained_style_and_script() -> None:
     assert "object-src 'none'" in policy
     missing_hashes = [
         content_hash
-        for content_hash in (
-            _inline_content_hash(html, "style"),
-            _inline_content_hash(html, "script"),
-        )
+        for tag_name in ("style", "script")
+        for content_hash in _inline_content_hashes(html, tag_name)
         if content_hash not in policy
     ]
     assert not missing_hashes, f"404.html is missing CSP hash(es): {missing_hashes}"
