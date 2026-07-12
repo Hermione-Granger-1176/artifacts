@@ -12,7 +12,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 
 - The root site is the gallery.
 - Each artifact lives in its own folder under `apps/`.
-- Python build tooling generates gallery data, thumbnails, and the deployable site payload.
+- Python build tooling generates the shared stylesheet, gallery data, thumbnails, and the deployable site payload.
 - GitHub Actions deploys the verified `_site/` artifact and publishes PR previews without writing to contributor branches during the main publish flow.
 
 ## Top-level layout
@@ -92,7 +92,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `assets/social/share-preview.png`: social preview image referenced by deploy-time Open Graph and Twitter metadata
 - `config/gallery_metadata.json`: shared tool and tag display metadata used by generators to produce `js/gallery-config.js` and ordered README badges
 - `config/artifact_contract.json`: shared artifact id, URL, and thumbnail-path contract emitted into `js/gallery-config.js` and enforced by Python build validation
-- `config/security_audit.json`: source of truth for reviewed Python vulnerability exceptions
+- `config/security_audit.json`: source of truth for reviewed Python and npm vulnerability exceptions
 - `docs/adr/*`: accepted cross-cutting decisions about the root publishing platform
 - `pyproject.toml`: Python dependency declarations, tool configuration, and workspace metadata
 - `uv.lock`: frozen Python dependency graph
