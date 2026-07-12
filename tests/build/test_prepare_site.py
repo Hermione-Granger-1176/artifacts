@@ -461,7 +461,7 @@ def test_patch_app_social_metadata_injects_per_app_values(
 def test_patch_app_social_metadata_escapes_html_metacharacters(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test patch app social metadata escapes html metacharacters."""
+    """Test patch app social metadata escapes HTML metacharacters."""
     deploy_dir = tmp_path / "_site"
     app_dir = deploy_dir / "apps" / "sample"
     app_dir.mkdir(parents=True)
