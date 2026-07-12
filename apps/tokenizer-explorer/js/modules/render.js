@@ -62,7 +62,7 @@ export function renderTabs(container, scenarios, activeIndex, onSelect) {
   scenarios.forEach((scenario, index) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `tab${index === activeIndex ? " active" : ""}`;
+    button.className = `btn tab${index === activeIndex ? " active" : ""}`;
     button.textContent = scenario.label;
     button.addEventListener("click", () => onSelect(index));
     container.appendChild(button);

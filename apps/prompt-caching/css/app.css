@@ -1,12 +1,32 @@
-/* Prompt caching app layout. */
+/*
+ * Prompt caching app styles
+ *
+ * Shared surfaces, controls, tables, buttons, and callouts live in
+ * css/style.css. This file owns the guide's palette, content rhythm, and
+ * interactive visualisations.
+ *
+ * Sections:
+ * 1. Palette, guide frame, typography, and local layout helpers
+ * 2. Code examples, card variants, and guide callout variants
+ * 3. Progress navigation, learning pipeline, and tokenisation
+ * 4. Attention and softmax visualisations
+ * 5. KV cache and request simulations
+ * 6. Savings calculator and embedding explorer
+ * 7. Guide recap, resources, and footer
+ * 8. Responsive overrides
+ */
+
+/* 1. Palette and guide frame. */
 
 body.app-prompt-caching {
-
   --pc-accent: var(--color-amber-text);
   --pc-warm: var(--color-blue-text);
   --pc-teal: var(--color-green-text);
   --pc-indigo: var(--color-purple-text);
   --pc-rose: var(--color-red-text);
+
+  --app-accent: var(--pc-accent);
+  --app-accent-hover: var(--color-amber-text);
 
   --pc-accent-bg: color-mix(in srgb, var(--color-amber) 10%, transparent);
   --pc-warm-bg: color-mix(in srgb, var(--color-blue) 10%, transparent);
@@ -19,23 +39,16 @@ body.app-prompt-caching {
   --pc-teal-border: color-mix(in srgb, var(--color-green) 30%, transparent);
   --pc-indigo-border: color-mix(in srgb, var(--color-purple) 30%, transparent);
   --pc-rose-border: color-mix(in srgb, var(--color-red) 30%, transparent);
-
-
   --pc-measure: 1000px;
-
-
   --color-text-tertiary: var(--color-text-secondary);
-
 }
 
 [data-theme="dark"] body.app-prompt-caching {
-
   --pc-accent: var(--color-amber);
   --pc-warm: var(--color-blue);
   --pc-teal: var(--color-green);
   --pc-indigo: var(--color-purple);
   --pc-rose: var(--color-red);
-
 }
 
 body.app-prompt-caching .pc.page-shell {
@@ -56,6 +69,8 @@ body.app-prompt-caching .pc-section:last-of-type {
   padding-bottom: 5rem;
 
 }
+
+/* Guide typography and inline emphasis. */
 
 body.app-prompt-caching .pc h1 {
   font-size: clamp(2rem, 5vw, 3.25rem);
@@ -148,6 +163,8 @@ body.app-prompt-caching .pc-hl-indigo { color: var(--pc-indigo);
 
 body.app-prompt-caching .pc-hl-rose { color: var(--pc-rose);
 }
+
+/* 2. Code examples, local card variants, and callout variants. */
 
 body.app-prompt-caching .pc pre {
   background: var(--color-surface-alt);
@@ -349,51 +366,30 @@ body.app-prompt-caching .pc-stat-sub {
 
 }
 
-body.app-prompt-caching .pc-callout {
-  border-radius: var(--radius-md);
-  padding: 1rem 1.25rem;
-  margin: 1.25rem 0;
-  border: 1px solid var(--color-border);
-  border-left-width: 3px;
-
-}
-
-body.app-prompt-caching .pc-callout-title {
-  font-weight: 700;
-  font-size: var(--font-size-md);
-  margin-bottom: 0.35rem;
-
-}
-
-body.app-prompt-caching .pc-callout-body {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-md);
-  line-height: 1.75;
-
-}
+/* Local variants and input controls. */
 
 body.app-prompt-caching .pc-callout.is-accent { background: var(--pc-accent-bg); border-left-color: var(--pc-accent);
 }
 
-body.app-prompt-caching .pc-callout.is-accent .pc-callout-title { color: var(--pc-accent);
+body.app-prompt-caching .pc-callout.is-accent .app-callout-title { color: var(--pc-accent);
 }
 
 body.app-prompt-caching .pc-callout.is-warm { background: var(--pc-warm-bg); border-left-color: var(--pc-warm);
 }
 
-body.app-prompt-caching .pc-callout.is-warm .pc-callout-title { color: var(--pc-warm);
+body.app-prompt-caching .pc-callout.is-warm .app-callout-title { color: var(--pc-warm);
 }
 
 body.app-prompt-caching .pc-callout.is-teal { background: var(--pc-teal-bg); border-left-color: var(--pc-teal);
 }
 
-body.app-prompt-caching .pc-callout.is-teal .pc-callout-title { color: var(--pc-teal);
+body.app-prompt-caching .pc-callout.is-teal .app-callout-title { color: var(--pc-teal);
 }
 
 body.app-prompt-caching .pc-callout.is-indigo { background: var(--pc-indigo-bg); border-left-color: var(--pc-indigo);
 }
 
-body.app-prompt-caching .pc-callout.is-indigo .pc-callout-title { color: var(--pc-indigo);
+body.app-prompt-caching .pc-callout.is-indigo .app-callout-title { color: var(--pc-indigo);
 }
 
 body.app-prompt-caching .pc-callout-insight {
@@ -414,43 +410,7 @@ body.app-prompt-caching .pc-callout-glyph {
 body.app-prompt-caching .pc-callout.is-rose { background: var(--pc-rose-bg); border-left-color: var(--pc-rose);
 }
 
-body.app-prompt-caching .pc-callout.is-rose .pc-callout-title { color: var(--pc-rose);
-}
-
-body.app-prompt-caching .pc-btn-primary {
-  background: var(--pc-accent);
-  color: rgb(255, 255, 255);
-  font-weight: 600;
-
-}
-
-body.app-prompt-caching .pc-btn-primary:hover {
-  background: var(--color-amber-text);
-
-}
-
-body.app-prompt-caching .pc-btn-primary:disabled {
-  opacity: 0.55;
-  cursor: default;
-
-}
-
-body.app-prompt-caching .pc-btn-outline {
-  background: transparent;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border-medium);
-
-}
-
-body.app-prompt-caching .pc-btn-outline:hover {
-  border-color: var(--color-border-strong);
-  color: var(--color-text);
-
-}
-
-body.app-prompt-caching .pc-btn-sm {
-  padding: 0.375rem 0.85rem;
-
+body.app-prompt-caching .pc-callout.is-rose .app-callout-title { color: var(--pc-rose);
 }
 
 body.app-prompt-caching .pc-input {
@@ -550,6 +510,8 @@ body.app-prompt-caching .pc-meta strong { color: var(--pc-accent);
 
 body.app-prompt-caching .pc-meta strong.is-plain { color: var(--color-text-secondary);
 }
+
+/* 3. Progress navigation, learning pipeline, and tokenisation. */
 
 body.app-prompt-caching .pc-nav {
   position: sticky;
@@ -846,6 +808,8 @@ body.app-prompt-caching .pc-tokid.pc-c6 { color: var(--color-purple);
 
 body.app-prompt-caching .pc-tokid.pc-c4 { color: var(--color-red);
 }
+
+/* 4. Attention and softmax visualisations. */
 
 body.app-prompt-caching .pc-step-visual {
   margin-top: 1rem;
@@ -1200,21 +1164,6 @@ body.app-prompt-caching .pc-smx-divider {
 
 }
 
-@media (max-width: 760px) {
-  body.app-prompt-caching .pc-smx-grid {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-
-  body.app-prompt-caching .pc-smx-divider {
-    border-left: none;
-    padding-left: 0;
-    margin-top: 0.9rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--color-border);
-  }
-}
-
 body.app-prompt-caching .smx-label {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
@@ -1290,6 +1239,8 @@ body.app-prompt-caching .pc-smx-head-weight { min-width: 50px; text-align: right
 
 body.app-prompt-caching .pc-smx-head-dist { flex: 1; max-width: 200px; text-align: center;
 }
+
+/* 5. KV cache and request simulations. */
 
 body.app-prompt-caching .pc-cache-tokens {
   display: flex;
@@ -1711,6 +1662,8 @@ body.app-prompt-caching .pc-cmp tr:last-child td { border-bottom: none;
 body.app-prompt-caching .pc-cmp td strong { color: var(--color-text);
 }
 
+/* 6. Savings calculator. */
+
 body.app-prompt-caching .pc-calc-field {
   margin-bottom: 1.25rem;
 
@@ -1858,13 +1811,6 @@ body.app-prompt-caching .pc-calc-stat span {
 
 }
 
-@media (max-width: 760px) {
-  body.app-prompt-caching .pc-calc-grid {
-    grid-template-columns: 1fr;
-    gap: 1.1rem;
-  }
-}
-
 body.app-prompt-caching .pc-calc-label {
   text-align: center;
   font-size: var(--font-size-2xs);
@@ -1885,6 +1831,8 @@ body.app-prompt-caching .pc-calc-display {
 
 body.app-prompt-caching .pc-calc-display.is-accent { color: var(--pc-accent);
 }
+
+/* Embedding explorer. */
 
 body.app-prompt-caching .emb-sel {
   padding: 0.25rem 0.75rem;
@@ -2136,6 +2084,8 @@ body.app-prompt-caching .emb-tag:focus-visible {
 
 }
 
+/* 7. Guide recap, resources, and footer. */
+
 body.app-prompt-caching .pc-timeline {
   display: flex;
   flex-direction: column;
@@ -2311,20 +2261,42 @@ body.app-prompt-caching .pc-footer a:hover {
 
 }
 
+/* 8. Responsive overrides. */
+
+@media (max-width: 760px) {
+  body.app-prompt-caching .pc-smx-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  body.app-prompt-caching .pc-smx-divider {
+    border-top: 1px solid var(--color-border);
+    border-left: 0;
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    padding-left: 0;
+  }
+
+  body.app-prompt-caching .pc-calc-grid {
+    grid-template-columns: 1fr;
+    gap: 1.1rem;
+  }
+}
+
 @media (max-width: 700px) {
-body.app-prompt-caching .pc-grid-2,
-body.app-prompt-caching .pc-grid-3 {
+  body.app-prompt-caching .pc-grid-2,
+  body.app-prompt-caching .pc-grid-3 {
     grid-template-columns: 1fr;
 
-}
+  }
 
-body.app-prompt-caching .pc-emb-result {
+  body.app-prompt-caching .pc-emb-result {
     flex-direction: column;
 
-}
+  }
 
-body.app-prompt-caching .pc-nav-label {
+  body.app-prompt-caching .pc-nav-label {
     display: none;
 
-}
+  }
 }

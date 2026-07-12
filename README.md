@@ -48,7 +48,7 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 ## Structure
 
-Each artifact lives in its own directory under `apps/` with an `index.html` entry point. All pages load the shared `css/style.css`; mature apps also load their app-local `css/app.css` for layout rules, and reuse `js/app-theme.js` and `js/modules/app-shell.js` for the shared app shell.
+Each artifact lives in its own directory under `apps/` with an `index.html` entry point. All pages load the generated shared `css/style.css`, which provides common colours, controls, surfaces, and shell rules. Its ordered authoring sources live in `css/src/` and are rebuilt with `make styles`. Mature apps also load their app-local `css/app.css` for app-specific composition and layout, and reuse `js/app-theme.js` and `js/modules/app-shell.js` for the shared app shell.
 
 ```text
 apps/

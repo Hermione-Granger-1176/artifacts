@@ -1,4 +1,11 @@
-/* Tokenizer explorer app layout. */
+/*
+ * Tokenizer explorer app styles
+ *
+ * Shared surfaces, controls, and feedback live in css/style.css. This file
+ * contains only tokenizer-specific scenarios, distributions, and concepts.
+ */
+
+/* Scenario selection. */
 
 body.app-tokenizer-explorer .scenario-tabs {
   display: flex;
@@ -9,15 +16,10 @@ body.app-tokenizer-explorer .scenario-tabs {
 }
 
 body.app-tokenizer-explorer .tab {
-  min-height: 2.75rem;
   padding: 6px 13px;
   border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: var(--font-size-control);
-  font-weight: 500;
 
 }
 
@@ -37,14 +39,7 @@ body.app-tokenizer-explorer .tab.active {
 
 }
 
-body.app-tokenizer-explorer .scenario-box,
-body.app-tokenizer-explorer .insight,
-body.app-tokenizer-explorer .card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-
-}
+/* Scenario context. */
 
 body.app-tokenizer-explorer .scenario-box {
   padding: 14px 18px;
@@ -94,6 +89,8 @@ body.app-tokenizer-explorer .hint {
 
 }
 
+/* Sampling controls. */
+
 body.app-tokenizer-explorer .controls {
   display: flex;
   flex-wrap: wrap;
@@ -141,6 +138,8 @@ body.app-tokenizer-explorer .section-label {
   font-size: var(--font-size-control);
 
 }
+
+/* Probability distribution. */
 
 body.app-tokenizer-explorer .bars {
   margin-bottom: 20px;
@@ -205,6 +204,8 @@ body.app-tokenizer-explorer .divider {
 
 }
 
+/* Candidate pool and result summary. */
+
 body.app-tokenizer-explorer .pills-row {
   display: flex;
   flex-wrap: wrap;
@@ -239,6 +240,8 @@ body.app-tokenizer-explorer .insight {
   line-height: 1.6;
 
 }
+
+/* Tokenizer concept accordion. */
 
 body.app-tokenizer-explorer .concepts {
   margin-top: 2rem;
@@ -381,6 +384,8 @@ body.app-tokenizer-explorer .tip {
   font-size: var(--font-size-sm);
 
 }
+
+/* Tokenizer-specific responsive layout. */
 
 @media (max-width: 700px) {
 body.app-tokenizer-explorer .controls {

@@ -1,0 +1,400 @@
+/* Shared stylesheet source: reusable artifact-app components. */
+
+/* Reusable artifact app surfaces and actions. */
+
+body.artifact-app .page-card,
+body.artifact-app .chart-card,
+body.artifact-app .table-wrap {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+
+}
+
+body.artifact-app .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  padding: 6px 14px;
+  font-size: var(--font-size-control);
+  font-weight: 500;
+
+}
+
+body.artifact-app .btn-add {
+  background: var(--note-blue);
+  color: var(--color-blue-text);
+
+}
+
+body.artifact-app .btn-add:hover,
+body.artifact-app .btn-add:focus-visible {
+  background: rgb(130, 180, 218);
+  outline: none;
+
+}
+
+body.artifact-app .btn-primary {
+  background: var(--app-accent, var(--color-blue));
+  color: rgb(255, 255, 255);
+  font-weight: 600;
+
+}
+
+body.artifact-app .btn-primary:hover,
+body.artifact-app .btn-primary:focus-visible {
+  background: var(--app-accent-hover, var(--app-accent, var(--color-blue)));
+  outline: none;
+
+}
+
+body.artifact-app .btn-outline {
+  border: 1px solid var(--color-border-medium);
+  background: transparent;
+  color: var(--color-text-secondary);
+
+}
+
+body.artifact-app .btn-outline:hover,
+body.artifact-app .btn-outline:focus-visible {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+  outline: none;
+
+}
+
+body.artifact-app .btn-sm {
+  padding: 0.375rem 0.85rem;
+
+}
+
+body.artifact-app .btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+
+}
+
+/* Reusable artifact app controls and feedback. */
+
+body.artifact-app .toggle-wrap,
+body.artifact-app .sub-toggle {
+  display: flex;
+  gap: var(--space-2);
+
+}
+
+body.artifact-app .toggle-btn,
+body.artifact-app .sub-toggle button {
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+
+}
+
+body.artifact-app .toggle-btn {
+  border: 1px solid var(--color-border-strong);
+  min-height: 2.75rem;
+  padding: 6px 14px;
+  font-size: var(--font-size-control);
+
+}
+
+body.artifact-app .sub-toggle button {
+  border: 1px solid var(--color-border-medium);
+  min-height: 2.75rem;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+
+}
+
+body.artifact-app .toggle-btn.active,
+body.artifact-app .sub-toggle button.active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 500;
+
+}
+
+body.artifact-app .type-toggle {
+  display: flex;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+
+}
+
+body.artifact-app .type-toggle button {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  min-height: 2.75rem;
+  padding: 5px 10px;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+
+}
+
+body.artifact-app .type-toggle button.active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 500;
+
+}
+
+body.artifact-app .text-input,
+body.artifact-app .select-input,
+body.artifact-app .amount-input,
+body.artifact-app .period-input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+
+}
+
+body.artifact-app .text-input,
+body.artifact-app .amount-input,
+body.artifact-app .period-input {
+  text-align: right;
+
+}
+
+body.artifact-app .text-input {
+  padding: var(--space-2) 10px;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+
+}
+
+body.artifact-app .select-input {
+  padding: var(--space-2) 10px;
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  cursor: pointer;
+
+}
+
+body.artifact-app .amount-input {
+  width: 110px;
+  padding: 6px 10px;
+  font-size: var(--font-size-md);
+
+}
+
+body.artifact-app .period-input {
+  width: 55px;
+  padding: 6px var(--space-2);
+  font-size: var(--font-size-md);
+
+}
+
+body.artifact-app .text-input:focus,
+body.artifact-app .select-input:focus,
+body.artifact-app .amount-input:focus,
+body.artifact-app .period-input:focus {
+  border-color: var(--color-blue);
+  outline: none;
+
+}
+
+body.artifact-app .btn:focus-visible,
+body.artifact-app .toggle-btn:focus-visible,
+body.artifact-app .sub-toggle button:focus-visible,
+body.artifact-app .type-toggle button:focus-visible,
+body.artifact-app .text-input:focus-visible,
+body.artifact-app .select-input:focus-visible,
+body.artifact-app .amount-input:focus-visible,
+body.artifact-app .period-input:focus-visible,
+body.artifact-app .range-input:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+
+}
+
+body.artifact-app .range-input {
+  width: 100%;
+  accent-color: var(--color-blue);
+
+}
+
+body.artifact-app .info-tip {
+  position: relative;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-tip-bg);
+  color: var(--color-text-secondary);
+  cursor: help;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+
+}
+
+body.artifact-app .info-tip:hover::after,
+body.artifact-app .info-tip:hover::before,
+body.artifact-app .info-tip:focus-visible::after,
+body.artifact-app .info-tip:focus-visible::before {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+
+}
+
+body.artifact-app .info-tip:hover::after,
+body.artifact-app .info-tip:focus-visible::after {
+  content: attr(data-tip);
+  bottom: 120%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--color-tooltip-bg);
+  color: var(--color-tooltip-text);
+  font-size: var(--font-size-2xs);
+  font-weight: 400;
+  white-space: nowrap;
+
+}
+
+body.artifact-app .info-tip:hover::before,
+body.artifact-app .info-tip:focus-visible::before {
+  content: "";
+  bottom: 110%;
+  border: 5px solid transparent;
+  border-top-color: var(--color-tooltip-bg);
+
+}
+
+body.artifact-app .info-tip:focus-visible {
+  outline: 1px solid var(--color-blue);
+  outline-offset: 2px;
+
+}
+
+body.artifact-app .app-callout {
+  padding: 1rem 1.25rem;
+  margin: 1.25rem 0;
+  border: 1px solid var(--color-border);
+  border-left-width: 3px;
+  border-radius: var(--radius-md);
+
+}
+
+body.artifact-app .app-callout-title {
+  margin-bottom: 0.35rem;
+  font-size: var(--font-size-md);
+  font-weight: 700;
+
+}
+
+body.artifact-app .app-callout-body {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  line-height: 1.75;
+
+}
+
+/* Reusable artifact app data displays. */
+
+body.artifact-app .chart-card {
+  padding: 1.25rem;
+
+}
+
+body.artifact-app .chart-card h2 {
+  margin-bottom: var(--space-3);
+  color: var(--color-text-heading);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+
+}
+
+body.artifact-app .chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+
+}
+
+body.artifact-app .chart-legend span {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+
+}
+
+body.artifact-app .chart-legend-note {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+
+}
+
+body.artifact-app .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+
+}
+
+body.artifact-app .table-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+
+}
+
+body.artifact-app table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-control);
+
+}
+
+body.artifact-app thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface-alt);
+
+}
+
+body.artifact-app th,
+body.artifact-app td {
+  padding: var(--space-2) 10px;
+  text-align: right;
+
+}
+
+body.artifact-app th {
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+
+}
+
+body.artifact-app td {
+  border-bottom: 1px solid var(--color-border-subtle);
+
+}
+
+body.artifact-app th:first-child,
+body.artifact-app td:first-child {
+  text-align: center;
+
+}

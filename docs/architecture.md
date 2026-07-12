@@ -23,7 +23,7 @@ The system has three layers:
 The deployed site is static HTML with a generated data layer.
 
 - `index.html` loads the gallery shell
-- `css/style.css` provides root-gallery styling, shared app tokens, and shared app shell rules. Mature apps load app-specific layout rules from `apps/<slug>/css/app.css`.
+- The ordered `css/src/` partials provide root-gallery styling, shared app tokens, shell rules, reusable app components, utilities, and responsive rules. `make styles` bundles them into the single public `css/style.css` asset. Mature apps load only app-specific composition and layout rules from `apps/<slug>/css/app.css` after that shared asset.
 - `js/app.js` bootstraps runtime validation and initializes the gallery
 - `js/modules/gallery/*` split the gallery into config validation, catalog helpers, render helpers, book-scene motion, URL state, and the main orchestrator
 - `js/modules/runtime.js`, `js/modules/element-cache.js`, `js/modules/html-escape.js` provide shared utilities used by both the gallery and app modules
@@ -66,7 +66,7 @@ The gallery never inspects artifact HTML directly. It depends entirely on genera
 ### Deployable site assembly (`scripts/build/prepare_site.py`)
 
 - Copies site files into `_site/`
-- Inlines CSS `@import` chains into single files
+- Omits build-only `css/src/` partials because they are already bundled into `css/style.css`
 - Applies cache-busting query strings to root assets
 - Injects canonical, Open Graph, and Twitter share metadata
 - Injects the configured site path into `404.html` and the web app manifest
@@ -131,7 +131,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
 - **`plan`** (timeout: 5 min, permissions: contents read, pull-requests read)
   - Calls `scripts/ci/workflow_helpers.py thumbnail-plan` with the event context.
   - Queries the GitHub API for changed files in the PR.
-  - Classifies each changed file: runtime change (`index.html`, `js/`, `assets/`, `css/`), metadata change (`name.txt`, `tags.txt`, etc.), docs change, or shared infra change (`css/style.css`, `js/app-theme.js`, `js/modules/app-shell.js`).
+  - Classifies each changed file: runtime change (`index.html`, `js/`, `assets/`, `css/`), metadata change (`name.txt`, `tags.txt`, etc.), docs change, or shared infra change (`css/src/`, `css/style.css`, `js/app-theme.js`, `js/modules/app-shell.js`).
   - Resolves the primary app bot login dynamically from `vars.APP_ID` / `secrets.APP_PRIVATE_KEY` via `actions/create-github-app-token` (with `continue-on-error: true` for forks and Dependabot PRs where secrets are unavailable).
   - Computes `skip-verification`: `true` only when the workflow actor matches the resolved app bot login AND every file in the triggering commit is a thumbnail. For main pushes from merged thumbnail follow-up PRs, the commit-level files check is applied as defense-in-depth alongside existing PR provenance detection. Any detection failure defaults to `false` (full pipeline runs).
   - Outputs: `browser-scope` (all / changed / none), `thumbnail-scope` (all / changed / none), `persist-mode` (pr-branch), `changed-slugs`, `thumbnail-slugs`, `reason`, `skip-verification`.

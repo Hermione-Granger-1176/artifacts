@@ -242,6 +242,24 @@ def test_copy_deploy_items_copies_expected_paths(
     assert not (deploy_dir / "stale.txt").exists()
 
 
+def test_remove_build_only_sources_removes_stylesheet_partials(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Build-only stylesheet partials are omitted from the deploy payload."""
+    create_source_tree(tmp_path)
+    write_text(tmp_path / "css" / "src" / "01-tokens.css", "/* tokens */\n")
+    deploy_dir = tmp_path / "_site"
+
+    monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._copy_deploy_items()
+    prepare_site._remove_build_only_sources()
+
+    assert (deploy_dir / "css" / "style.css").exists()
+    assert not (deploy_dir / "css" / "src").exists()
+
+
 def test_copy_deploy_items_errors_for_missing_source(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
