@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that the root and every artifact page ship a strict CSP and no external references.
+"""Check that the root and artifact pages ship a strict CSP and no external scripts or styles.
 
 Artifact pages under ``apps/<slug>/index.html`` receive a Content-Security-Policy
 meta tag at scaffold time, but nothing re-validates a hand-pasted or hand-edited
@@ -255,7 +255,9 @@ def run_check(root: Path | None = None) -> list[str]:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments for the artifact CSP checker."""
     parser = argparse.ArgumentParser(
-        description="Check root and artifact pages ship a strict CSP and no external references."
+        description=(
+            "Check root and artifact pages ship a strict CSP and no external scripts or styles."
+        )
     )
     parser.add_argument(
         "--root",
