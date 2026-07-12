@@ -362,14 +362,64 @@ def test_commit_python_locks_workflow_keeps_validation_and_verified_commit_steps
     assert "Refresh Python Locks" in commit["if"]
     assert "workflow_run.event == 'pull_request'" in commit["if"]
     assert commit["env"]["LOCK_FILE_PATHSPEC"] == "uv.lock"
+    assert "LOCK_REFRESH_PR_NUMBER" not in commit["env"]
     assert "LOCK_FILE_ARGS" not in commit["env"]
-    assert "read-lock-metadata" in _step_run(commit, "Read refresh metadata")
-    assert "validate-lock-artifact" in _step_run(commit, "Validate downloaded artifact contents")
+
+    triggering_run = _step_run(commit, "Validate triggering Dependabot workflow run")
+    assert "lock-refresh-workflow-run" in triggering_run
+    assert '--event-path "$GITHUB_EVENT_PATH"' in triggering_run
+    assert '--repository "$GITHUB_REPOSITORY"' in triggering_run
+
+    artifact_detection = _step(commit, "Detect lock refresh artifact")
+    assert (
+        artifact_detection["env"]["LOCK_REFRESH_ARTIFACT_NAME"]
+        == "${{ steps.triggering-run.outputs.artifact-name }}"
+    )
+    assert (
+        artifact_detection["env"]["LOCK_REFRESH_RUN_ID"]
+        == "${{ steps.triggering-run.outputs.run-id }}"
+    )
+    assert "${{ github.event.workflow_run.id }}" not in artifact_detection["run"]
+
+    download_step = _step_with(commit, "Download refreshed Python lock files")
+    assert download_step["name"] == "${{ steps.triggering-run.outputs.artifact-name }}"
+    assert download_step["run-id"] == "${{ steps.triggering-run.outputs.run-id }}"
+
+    artifact_validation = _step_run(commit, "Validate downloaded artifact contents")
+    assert "validate-lock-artifact" in artifact_validation
+    assert '--expected-pr-number "$LOCK_REFRESH_PR_NUMBER"' in artifact_validation
+    assert '--expected-head-sha "$LOCK_REFRESH_HEAD_SHA"' in artifact_validation
+    assert '--expected-head-ref "$LOCK_REFRESH_HEAD_REF"' in artifact_validation
+    validation_step = _step(commit, "Validate downloaded artifact contents")
+    assert (
+        validation_step["env"]["LOCK_REFRESH_PR_NUMBER"]
+        == "${{ steps.triggering-run.outputs.pr-number }}"
+    )
+    assert (
+        validation_step["env"]["LOCK_REFRESH_HEAD_REF"]
+        == "${{ steps.triggering-run.outputs.head-ref }}"
+    )
+    assert (
+        validation_step["env"]["LOCK_REFRESH_HEAD_SHA"]
+        == "${{ steps.triggering-run.outputs.head-sha }}"
+    )
+    assert "Read refresh metadata" not in [step.get("name") for step in _steps(commit)]
+    branch_state = _step_run(commit, "Validate Dependabot branch state")
+    assert "${{ steps.metadata.outputs" not in branch_state
+    assert 'gh pr view "$LOCK_REFRESH_PR_NUMBER"' in branch_state
+    assert '"$LOCK_REFRESH_HEAD_SHA"' in branch_state
+    assert '"$LOCK_REFRESH_HEAD_REF"' in branch_state
     assert _step_run(commit, "Copy refreshed Python lock files into workspace").strip() == (
         'cp "$LOCK_REFRESH_ROOT/uv.lock" uv.lock'
     )
+    verified_commit = _step(commit, "Commit refreshed Python lock files (verified)")
     assert _step_uses(commit, "Commit refreshed Python lock files (verified)") == (
         "./.github/actions/verified-commit"
+    )
+    assert verified_commit["with"]["base-branch"] == "${{ steps.triggering-run.outputs.head-ref }}"
+    assert (
+        verified_commit["with"]["expected-head-sha"]
+        == "${{ steps.triggering-run.outputs.head-sha }}"
     )
 
 

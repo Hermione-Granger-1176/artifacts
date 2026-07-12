@@ -40,6 +40,54 @@ def test_find_artifacts_returns_only_visible_dirs_with_index_html(
     assert [artifact.name for artifact in artifacts] == ["budget-tool", "loan-tool"]
 
 
+def test_find_artifacts_accepts_regular_artifact_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test regular artifact trees remain eligible for thumbnail generation."""
+    apps_dir = tmp_path / "apps"
+    _write_text(apps_dir / "regular-artifact" / "index.html", "<html></html>")
+    _write_text(apps_dir / "regular-artifact" / "assets" / "diagram.svg", "<svg></svg>")
+    monkeypatch.setattr(generate_thumbnails, "APPS_DIR", apps_dir)
+
+    assert generate_thumbnails.find_artifacts() == [apps_dir / "regular-artifact"]
+
+
+def test_find_artifacts_rejects_symlinked_artifact_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test symlinked artifact roots are rejected before thumbnailing."""
+    apps_dir = tmp_path / "apps"
+    linked_target = tmp_path / "linked-target"
+    _write_text(linked_target / "index.html", "<html></html>")
+    apps_dir.mkdir()
+    (apps_dir / "linked-artifact").symlink_to(linked_target, target_is_directory=True)
+    monkeypatch.setattr(generate_thumbnails, "APPS_DIR", apps_dir)
+
+    with pytest.raises(ValueError, match="symlinked artifact"):
+        generate_thumbnails.find_artifacts()
+
+
+def test_generate_thumbnails_rejects_symlinked_child_before_server_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test a symlinked artifact child fails before the local server can start."""
+    apps_dir = tmp_path / "apps"
+    artifact_dir = apps_dir / "symlink-proof"
+    outside_dir = tmp_path / "outside"
+    _write_text(artifact_dir / "index.html", "<html></html>")
+    _write_text(outside_dir / "proof.txt", "outside-root-read-confirmed")
+    (artifact_dir / "assets").symlink_to(outside_dir, target_is_directory=True)
+    monkeypatch.setattr(generate_thumbnails, "APPS_DIR", apps_dir)
+
+    def unexpected_server(_directory: Path) -> None:
+        pytest.fail("ArtifactServer must not start for symlinked artifacts")
+
+    monkeypatch.setattr(generate_thumbnails, "ArtifactServer", unexpected_server)
+
+    with pytest.raises(ValueError, match="symlink"):
+        generate_thumbnails.generate_thumbnails()
+
+
 def test_find_artifacts_emits_debug_log_for_apps_dir(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:

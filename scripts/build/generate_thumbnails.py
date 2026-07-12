@@ -39,6 +39,7 @@ from scripts.lib.app_discovery import (
     shared_app_runtime_paths,
     thumbnail_file,
 )
+from scripts.lib.path_validation import reject_symlinks
 
 logging.basicConfig(
     level=getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO),
@@ -106,7 +107,7 @@ class ArtifactServer:
 
 
 def find_artifacts() -> list[Path]:
-    """Find all artifact directories containing an index.html."""
+    """Find symlink-free artifact directories containing an index.html."""
     logger.debug("Scanning %s for artifacts", APPS_DIR)
     if not APPS_DIR.exists():
         return []
@@ -115,6 +116,11 @@ def find_artifacts() -> list[Path]:
         for item in sorted(APPS_DIR.iterdir())
         if item.is_dir() and not item.name.startswith(".") and (item / "index.html").exists()
     ]
+
+    for artifact in artifacts:
+        if artifact.is_symlink():
+            raise ValueError(f"Refusing to thumbnail symlinked artifact: {artifact}")
+        reject_symlinks(artifact)
 
     configured_slugs = [
         slug.strip()

@@ -91,6 +91,123 @@ def test_check_page_passes_for_strict_page(tmp_path: Path) -> None:
     assert check_page(path, display_path="apps/demo/index.html") == []
 
 
+def test_check_page_accepts_a_head_csp_after_safe_metadata(tmp_path: Path) -> None:
+    """A real head CSP may follow metadata that cannot run or fetch resources."""
+    html = (
+        "<!doctype html><html><head>"
+        '<meta charset="utf-8"><meta name="description" content="Demo">'
+        '<link rel="canonical" href="https://example.com/demo"><title>Demo</title>'
+        f'<meta http-equiv="Content-Security-Policy" content="{_GOOD_CSP}">'
+        "</head><body></body></html>"
+    )
+    path = _write_page(tmp_path, "demo", html)
+    assert check_page(path, display_path="apps/demo/index.html") == []
+
+
+def test_check_page_rejects_a_commented_csp_meta(tmp_path: Path) -> None:
+    """A CSP-looking comment is not a real document-head policy."""
+    html = (
+        "<!doctype html><html><head>"
+        f'<!-- <meta http-equiv="Content-Security-Policy" content="{_GOOD_CSP}"> -->'
+        "</head><body></body></html>"
+    )
+    path = _write_page(tmp_path, "demo", html)
+    assert check_page(path, display_path="apps/demo/index.html") == [
+        "apps/demo/index.html: missing Content-Security-Policy meta tag"
+    ]
+
+
+def test_check_page_rejects_a_body_csp_meta(tmp_path: Path) -> None:
+    """A real CSP meta outside document head is not an active policy."""
+    html = (
+        "<!doctype html><html><head></head><body>"
+        f'<meta http-equiv="Content-Security-Policy" content="{_GOOD_CSP}">'
+        "</body></html>"
+    )
+    path = _write_page(tmp_path, "demo", html)
+    assert check_page(path, display_path="apps/demo/index.html") == [
+        "apps/demo/index.html: missing Content-Security-Policy meta tag"
+    ]
+
+
+def test_check_page_rejects_a_csp_after_an_implicit_head_close(tmp_path: Path) -> None:
+    """Body markup implicitly closes head before a later CSP meta is parsed."""
+    html = (
+        "<!doctype html><html><head><body>"
+        f'<meta http-equiv="Content-Security-Policy" content="{_GOOD_CSP}">'
+        "</body></html>"
+    )
+    path = _write_page(tmp_path, "demo", html)
+    assert check_page(path, display_path="apps/demo/index.html") == [
+        "apps/demo/index.html: missing Content-Security-Policy meta tag"
+    ]
+
+
+def test_check_page_rejects_a_template_context_csp_meta(tmp_path: Path) -> None:
+    """A CSP-looking tag in a template is not a document-head policy."""
+    html = (
+        "<!doctype html><html><head><template>"
+        f'<meta http-equiv="Content-Security-Policy" content="{_GOOD_CSP}">'
+        "</template></head><body></body></html>"
+    )
+    path = _write_page(tmp_path, "demo", html)
+    assert check_page(path, display_path="apps/demo/index.html") == [
+        "apps/demo/index.html: missing Content-Security-Policy meta tag"
+    ]
+
+
+def test_check_page_rejects_a_title_context_csp_meta(tmp_path: Path) -> None:
+    """A CSP-looking tag in a title is not a document-head policy."""
+    html = (
+        "<!doctype html><html><head><title>Demo "
+        f'<meta http-equiv="Content-Security-Policy" content="{_GOOD_CSP}"></title>'
+        "</head><body></body></html>"
+    )
+    path = _write_page(tmp_path, "demo", html)
+    assert check_page(path, display_path="apps/demo/index.html") == [
+        "apps/demo/index.html: missing Content-Security-Policy meta tag"
+    ]
+
+
+def test_check_page_ignores_noscript_text_context_markup(tmp_path: Path) -> None:
+    """Pseudo-tags in noscript text do not prevent a later real CSP from working."""
+    html = (
+        "<!doctype html><html><head><noscript></body>"
+        f'<meta http-equiv="Content-Security-Policy" content="{_GOOD_CSP}">'
+        f'</noscript><meta http-equiv="Content-Security-Policy" content="{_GOOD_CSP}">'
+        "</head><body></body></html>"
+    )
+    path = _write_page(tmp_path, "demo", html)
+    assert check_page(path, display_path="apps/demo/index.html") == []
+
+
+def test_check_page_rejects_a_csp_after_a_classic_script(tmp_path: Path) -> None:
+    """A CSP parsed after a local classic script cannot protect that script."""
+    html = (
+        '<!doctype html><html><head><script src="./bootstrap.js"></script>'
+        f'<meta http-equiv="Content-Security-Policy" content="{_GOOD_CSP}">'
+        "</head><body></body></html>"
+    )
+    path = _write_page(tmp_path, "demo", html)
+    violations = check_page(path, display_path="apps/demo/index.html")
+    assert violations == [
+        "apps/demo/index.html: Content-Security-Policy meta tag must appear in document head "
+        "before resource-capable markup"
+    ]
+
+
+def test_check_page_accepts_duplicate_head_and_csp_tags(tmp_path: Path) -> None:
+    """A duplicate head token cannot displace an earlier real CSP policy."""
+    html = (
+        "<!doctype html><html><head><head>"
+        f'<meta http-equiv="Content-Security-Policy" content="{_GOOD_CSP}">'
+        f'<meta http-equiv="Content-Security-Policy" content="{_GOOD_CSP}">'
+        "</head><body></body></html>"
+    )
+    path = _write_page(tmp_path, "demo", html)
+    assert check_page(path, display_path="apps/demo/index.html") == []
+
+
 def test_check_page_allows_the_root_badge_image_exception(tmp_path: Path) -> None:
     """The root may use shields.io while artifact pages remain self-hosted."""
     path = _write_root_page(tmp_path)

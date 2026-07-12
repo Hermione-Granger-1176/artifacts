@@ -284,7 +284,7 @@ graph TD
     end
 ```
 
-**Python lock refresh** keeps Dependabot uv PRs self-contained: when a Dependabot PR changes `pyproject.toml` or `uv.lock`, `refresh-python-locks.yml` runs `make lock` on the PR branch and uploads the refreshed `uv.lock` as an artifact. Then `commit-python-locks.yml` (triggered by `workflow_run`) downloads the artifact, validates it (checks for symlinks, required files, and PR metadata), verifies the PR branch hasn't moved, and uses the shared verified-commit flow to write the refreshed lock back to the PR branch or fall back to a maintenance PR branch when a direct write is not possible.
+**Python lock refresh** keeps Dependabot uv PRs self-contained: when a Dependabot PR changes `pyproject.toml` or `uv.lock`, `refresh-python-locks.yml` runs `make lock` on the PR branch and uploads the refreshed `uv.lock` as an artifact. Then `commit-python-locks.yml` (triggered by `workflow_run`) first verifies the successful same-repository Dependabot run, including its workflow name, PR, SHA, and branch. It downloads only that run's expected artifact, rejects symlinks and missing required files, and requires the artifact metadata to match the authenticated event values before verifying the branch has not moved. The shared verified-commit flow then writes the refreshed lock back to the PR branch or falls back to a maintenance PR branch when a direct write is not possible.
 
 **Action SHA pinning** runs monthly as a safety net for newly added unpinned action references. It scans all workflow files for `uses:` lines whose refs are not already full 40-character SHAs, resolves those refs to commit SHAs via the GitHub API, and opens or updates a maintenance PR for any newly pinned workflow changes. It does not advance existing full-SHA pins.
 
@@ -329,8 +329,8 @@ graph TD
 | `scripts/ci/workflow_helpers.py app-token-policy` | ci-setup action | Decide if app tokens should be minted |
 | `scripts/ci/workflow_helpers.py validate-thumbnail-artifact` | persist-thumbnails job | Validate thumbnail artifact matches the plan |
 | `scripts/ci/workflow_helpers.py audit-repo-settings` | audit-repo-settings workflow | Check Pages, protection, variables, secrets, ruleset |
-| `scripts/ci/workflow_helpers.py read-lock-metadata` | commit-python-locks workflow | Read PR metadata from lock refresh artifact |
-| `scripts/ci/workflow_helpers.py validate-lock-artifact` | commit-python-locks workflow | Validate lock refresh artifact integrity |
+| `scripts/ci/workflow_helpers.py lock-refresh-workflow-run` | commit-python-locks workflow | Validate the triggering Dependabot workflow run and emit its trusted artifact and target values |
+| `scripts/ci/workflow_helpers.py validate-lock-artifact` | commit-python-locks workflow | Reject unsafe artifact trees and require metadata to match the trusted triggering run |
 | `scripts/ci/run_parallel_checks.py` | verify job | Run independent Make targets concurrently with captured CI-friendly output |
 | `scripts/ci/verify_deploy.py` | publish job | Poll published URL for expected HTML marker and deploy metadata SHA |
 | `scripts/gh/cli.py` | local `make pr-*` and `make ci-failures` targets | Provide tested GitHub PR review-thread and failed-CI helpers |

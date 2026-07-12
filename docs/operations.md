@@ -51,7 +51,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - `make lint-doc-commands` checks contributor-facing docs for direct commands that should use Make targets instead.
 - `make lint-make-targets` verifies that documented `make <target>` references still exist in `Makefile`.
 - `make lint-js-test-coverage` verifies that every JS or MJS source file under the tracked source roots is imported by at least one test file.
-- `make lint-artifact-csp` verifies that every `apps/<slug>/index.html` carries a strict self-only Content-Security-Policy meta tag and references no external scripts, stylesheets, or `url()` resources. The root `index.html` is exempt for its documented badge-image exception.
+- `make lint-artifact-csp` verifies that every `apps/<slug>/index.html` carries a strict self-only Content-Security-Policy meta tag in document head before resource-capable markup and references no external scripts, stylesheets, or `url()` resources. The root `index.html` is exempt for its documented badge-image exception.
 - `make lint-vendored-assets` reconciles vendored bundles under `apps/*/js/vendor/` with the integrity manifest in `config/vendored_assets.json`, failing on unlisted files, missing files, or SHA-256 mismatches.
 - `make check-overrides` reports whether npm `overrides` entries are still needed when that package field exists.
 - `make format-check` verifies ruff formatting plus Prettier-managed docs, metadata, config, workflows, and tooling scripts without writing files.
@@ -81,6 +81,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - CI does not trigger mature-app browser suites for app docs or metadata-only edits; the thumbnail plan uses the same runtime-change classification to scope mature-app browser runs.
 - CI sets `ARTIFACTS_STRICT_THUMBNAILS=1`, so any attempted thumbnail failure fails the workflow instead of being logged as a warning.
 - Local working copies do not need checked-in thumbnails to function during development.
+- Thumbnail discovery rejects a symlinked artifact root or descendant before it starts the local server or Playwright, so an artifact cannot make the renderer follow files outside its own tree.
 - CI can regenerate thumbnails after push or during pull request preview builds, and trusted runs can save those generated `thumbnail.webp` files back to the same PR branch or open/update a follow-up PR for `main` pushes.
 
 ## Required GitHub settings
