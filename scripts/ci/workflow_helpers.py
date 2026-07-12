@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -55,6 +56,9 @@ LOCK_ARTIFACT_REQUIRED_FILES = {
     **LOCK_ARTIFACT_LOCK_FILES,
     **LOCK_ARTIFACT_FILES,
 }
+LOCK_REFRESH_PR_NUMBER_PATTERN = re.compile(r"[1-9][0-9]*\Z")
+LOCK_REFRESH_HEAD_SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
+LOCK_REFRESH_HEAD_REF_PATTERN = re.compile(r"dependabot/uv/[A-Za-z0-9][A-Za-z0-9._/-]*\Z")
 
 BOOL_LOOKUP = {
     "true": True,
@@ -92,14 +96,106 @@ def read_lock_refresh_metadata(root: Path) -> dict[str, str]:
     }
 
 
-def validate_lock_refresh_artifact(root: Path) -> None:
-    """Fail if a downloaded lock-refresh artifact tree contains unsafe paths."""
+def _expected_lock_refresh_metadata(
+    *, pr_number: str, head_sha: str, head_ref: str
+) -> dict[str, str]:
+    """Return authenticated lock-refresh metadata after strict validation."""
+    expected = {
+        "pr-number": pr_number,
+        "head-sha": head_sha,
+        "head-ref": head_ref,
+    }
+    patterns = {
+        "pr-number": LOCK_REFRESH_PR_NUMBER_PATTERN,
+        "head-sha": LOCK_REFRESH_HEAD_SHA_PATTERN,
+        "head-ref": LOCK_REFRESH_HEAD_REF_PATTERN,
+    }
+    for key, pattern in patterns.items():
+        if not pattern.fullmatch(expected[key]):
+            raise ValueError(f"Invalid authenticated lock refresh {key}: {expected[key]!r}")
+    return expected
+
+
+def lock_refresh_workflow_run_context(event_path: Path, *, repository: str) -> dict[str, str]:
+    """Return validated Dependabot lock-refresh details from a workflow-run event."""
+    event = json.loads(event_path.read_text(encoding="utf-8"))
+    if not isinstance(event, dict):
+        raise ValueError("Workflow-run event payload must be an object")
+    workflow_run = event.get("workflow_run")
+    if not isinstance(workflow_run, dict):
+        raise ValueError("Workflow-run event payload is missing workflow_run")
+
+    if (
+        workflow_run.get("conclusion") != "success"
+        or workflow_run.get("name") != "Refresh Python Locks"
+        or workflow_run.get("event") != "pull_request"
+    ):
+        raise ValueError("Unexpected lock refresh workflow run")
+
+    actor = workflow_run.get("actor")
+    if not isinstance(actor, dict) or actor.get("login") != "dependabot[bot]":
+        raise ValueError("Lock refresh workflow run was not started by Dependabot")
+
+    head_repository = workflow_run.get("head_repository")
+    if not isinstance(head_repository, dict) or head_repository.get("full_name") != repository:
+        raise ValueError("Lock refresh workflow run did not originate from this repository")
+
+    pull_requests = workflow_run.get("pull_requests")
+    if not isinstance(pull_requests, list) or len(pull_requests) != 1:
+        raise ValueError("Lock refresh workflow run must reference exactly one pull request")
+    pull_request = pull_requests[0]
+    if not isinstance(pull_request, dict):
+        raise ValueError("Lock refresh workflow run pull request has an invalid shape")
+    pr_number = pull_request.get("number")
+    run_id = workflow_run.get("id")
+    if (
+        not isinstance(pr_number, int)
+        or isinstance(pr_number, bool)
+        or pr_number < 1
+        or not isinstance(run_id, int)
+        or isinstance(run_id, bool)
+        or run_id < 1
+    ):
+        raise ValueError("Lock refresh workflow run has an invalid numeric identifier")
+
+    expected = _expected_lock_refresh_metadata(
+        pr_number=str(pr_number),
+        head_sha=str(workflow_run.get("head_sha") or ""),
+        head_ref=str(workflow_run.get("head_branch") or ""),
+    )
+    return {
+        "artifact-name": f"python-lock-refresh-{expected['pr-number']}",
+        "head-ref": expected["head-ref"],
+        "head-sha": expected["head-sha"],
+        "pr-number": expected["pr-number"],
+        "run-id": str(run_id),
+    }
+
+
+def validate_lock_refresh_artifact(
+    root: Path,
+    *,
+    expected_pr_number: str,
+    expected_head_sha: str,
+    expected_head_ref: str,
+) -> None:
+    """Reject unsafe artifact paths or metadata not bound to the triggering run."""
     reject_symlinks(root)
 
     for relative_path in LOCK_ARTIFACT_REQUIRED_FILES.values():
         path = root / relative_path
         if not path.is_file():
             raise ValueError(f"Required artifact file missing or not a regular file: {path}")
+
+    expected = _expected_lock_refresh_metadata(
+        pr_number=expected_pr_number,
+        head_sha=expected_head_sha,
+        head_ref=expected_head_ref,
+    )
+    metadata = read_lock_refresh_metadata(root)
+    for key, expected_value in expected.items():
+        if metadata[key] != expected_value:
+            raise ValueError(f"Lock refresh artifact {key} does not match triggering workflow run")
 
 
 def _run_gh_api(
@@ -383,6 +479,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "validate-lock-artifact", help="Validate a downloaded lock refresh artifact"
     )
     artifact_parser.add_argument("--root", required=True)
+    artifact_parser.add_argument("--expected-pr-number", required=True)
+    artifact_parser.add_argument("--expected-head-sha", required=True)
+    artifact_parser.add_argument("--expected-head-ref", required=True)
+
+    workflow_run_parser = subparsers.add_parser(
+        "lock-refresh-workflow-run",
+        help="Validate a triggering Dependabot lock-refresh workflow run",
+    )
+    workflow_run_parser.add_argument("--event-path", required=True)
+    workflow_run_parser.add_argument("--repository", required=True)
 
     thumb_parser = subparsers.add_parser(
         "invalidate-thumbnails",
@@ -480,7 +586,20 @@ def _handle_read_lock_metadata(args: argparse.Namespace) -> int:
 
 def _handle_validate_lock_artifact(args: argparse.Namespace) -> int:
     """Validate a downloaded lock refresh artifact tree."""
-    validate_lock_refresh_artifact(Path(args.root))
+    validate_lock_refresh_artifact(
+        Path(args.root),
+        expected_pr_number=args.expected_pr_number,
+        expected_head_sha=args.expected_head_sha,
+        expected_head_ref=args.expected_head_ref,
+    )
+    return 0
+
+
+def _handle_lock_refresh_workflow_run(args: argparse.Namespace) -> int:
+    """Print validated lock-refresh workflow-run values as step outputs."""
+    context = lock_refresh_workflow_run_context(Path(args.event_path), repository=args.repository)
+    for key, value in context.items():
+        print(f"{key}={value}")
     return 0
 
 
@@ -598,6 +717,7 @@ COMMAND_HANDLERS = {
     "app-token-policy": _handle_app_token_policy,
     "read-lock-metadata": _handle_read_lock_metadata,
     "validate-lock-artifact": _handle_validate_lock_artifact,
+    "lock-refresh-workflow-run": _handle_lock_refresh_workflow_run,
     "invalidate-thumbnails": _handle_invalidate_thumbnails,
     "thumbnail-plan": _handle_thumbnail_plan,
     "validate-thumbnail-artifact": _handle_validate_thumbnail_artifact,

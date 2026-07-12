@@ -8,6 +8,48 @@ import pytest
 import scripts.ci.workflow_helpers as workflow_helpers
 from tests.ci.workflow_helpers_test_support import write_text
 
+LOCK_PR_NUMBER = "8"
+LOCK_HEAD_SHA = "0123456789abcdef0123456789abcdef01234567"
+LOCK_HEAD_REF = "dependabot/uv/demo"
+
+
+def _write_lock_refresh_artifact(
+    root: Path,
+    *,
+    pr_number: str = LOCK_PR_NUMBER,
+    head_sha: str = LOCK_HEAD_SHA,
+    head_ref: str = LOCK_HEAD_REF,
+) -> None:
+    """Write a complete lock-refresh artifact fixture."""
+    write_text(root / "uv.lock", "version = 1\n")
+    write_text(root / ".artifacts" / "pr-number.txt", f"{pr_number}\n")
+    write_text(root / ".artifacts" / "head-sha.txt", f"{head_sha}\n")
+    write_text(root / ".artifacts" / "head-ref.txt", f"{head_ref}\n")
+
+
+def _workflow_run_event(
+    *,
+    actor: str = "dependabot[bot]",
+    head_repository: str = "owner/artifacts",
+    pr_number: int = 8,
+    head_sha: str = LOCK_HEAD_SHA,
+    head_ref: str = LOCK_HEAD_REF,
+) -> dict[str, object]:
+    """Build the trusted workflow-run event shape used by the lock writer."""
+    return {
+        "workflow_run": {
+            "actor": {"login": actor},
+            "conclusion": "success",
+            "event": "pull_request",
+            "head_branch": head_ref,
+            "head_repository": {"full_name": head_repository},
+            "head_sha": head_sha,
+            "id": 42,
+            "name": "Refresh Python Locks",
+            "pull_requests": [{"number": pr_number}],
+        }
+    }
+
 
 def test_parse_bool_accepts_common_values() -> None:
     """Test parse bool accepts common values."""
@@ -56,40 +98,175 @@ def test_app_token_allowed_rejects_forks_and_dependabot_prs() -> None:
 
 def test_read_lock_refresh_metadata_reads_required_values(tmp_path: Path) -> None:
     """Test read lock refresh metadata reads required values."""
-    write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
-    write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
-    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/uv/demo\n")
+    _write_lock_refresh_artifact(tmp_path)
 
     assert workflow_helpers.read_lock_refresh_metadata(tmp_path) == {
-        "head-ref": "dependabot/uv/demo",
-        "head-sha": "abc123",
-        "pr-number": "8",
+        "head-ref": LOCK_HEAD_REF,
+        "head-sha": LOCK_HEAD_SHA,
+        "pr-number": LOCK_PR_NUMBER,
     }
 
 
 def test_validate_lock_refresh_artifact_accepts_expected_files(tmp_path: Path) -> None:
     """Test validate lock refresh artifact accepts expected files."""
-    write_text(tmp_path / "uv.lock", "version = 1\n")
-    write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
-    write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
-    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/uv/demo\n")
+    _write_lock_refresh_artifact(tmp_path)
 
-    workflow_helpers.validate_lock_refresh_artifact(tmp_path)
+    workflow_helpers.validate_lock_refresh_artifact(
+        tmp_path,
+        expected_pr_number=LOCK_PR_NUMBER,
+        expected_head_sha=LOCK_HEAD_SHA,
+        expected_head_ref=LOCK_HEAD_REF,
+    )
+
+
+def test_lock_refresh_workflow_run_context_accepts_dependabot_event(tmp_path: Path) -> None:
+    """Accept the authenticated source values for one Dependabot lock refresh."""
+    event_path = tmp_path / "event.json"
+    event_path.write_text(json.dumps(_workflow_run_event()), encoding="utf-8")
+
+    assert workflow_helpers.lock_refresh_workflow_run_context(
+        event_path, repository="owner/artifacts"
+    ) == {
+        "artifact-name": "python-lock-refresh-8",
+        "head-ref": LOCK_HEAD_REF,
+        "head-sha": LOCK_HEAD_SHA,
+        "pr-number": LOCK_PR_NUMBER,
+        "run-id": "42",
+    }
+
+
+@pytest.mark.parametrize(
+    ("actor", "head_repository", "message"),
+    [
+        ("alice", "owner/artifacts", "not started by Dependabot"),
+        ("dependabot[bot]", "attacker/artifacts", "did not originate from this repository"),
+    ],
+)
+def test_lock_refresh_workflow_run_context_rejects_untrusted_source(
+    tmp_path: Path, actor: str, head_repository: str, message: str
+) -> None:
+    """Reject a non-Dependabot or non-same-repository triggering run."""
+    event_path = tmp_path / "event.json"
+    event_path.write_text(
+        json.dumps(_workflow_run_event(actor=actor, head_repository=head_repository)),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=message):
+        workflow_helpers.lock_refresh_workflow_run_context(event_path, repository="owner/artifacts")
+
+
+@pytest.mark.parametrize(
+    ("pr_number", "head_sha", "head_ref"),
+    [
+        ("$(printf injected)", LOCK_HEAD_SHA, LOCK_HEAD_REF),
+        ("9", LOCK_HEAD_SHA, LOCK_HEAD_REF),
+    ],
+)
+def test_validate_lock_refresh_artifact_rejects_metadata_not_bound_to_event(
+    tmp_path: Path, pr_number: str, head_sha: str, head_ref: str
+) -> None:
+    """Reject raw shell syntax and valid-looking metadata for another target."""
+    _write_lock_refresh_artifact(
+        tmp_path,
+        pr_number=pr_number,
+        head_sha=head_sha,
+        head_ref=head_ref,
+    )
+
+    with pytest.raises(ValueError, match="does not match triggering workflow run"):
+        workflow_helpers.validate_lock_refresh_artifact(
+            tmp_path,
+            expected_pr_number=LOCK_PR_NUMBER,
+            expected_head_sha=LOCK_HEAD_SHA,
+            expected_head_ref=LOCK_HEAD_REF,
+        )
+
+
+def test_validate_lock_refresh_artifact_rejects_malformed_authenticated_context(
+    tmp_path: Path,
+) -> None:
+    """Reject malformed event data before accepting matching artifact metadata."""
+    _write_lock_refresh_artifact(tmp_path)
+
+    with pytest.raises(ValueError, match="Invalid authenticated lock refresh head-sha"):
+        workflow_helpers.validate_lock_refresh_artifact(
+            tmp_path,
+            expected_pr_number=LOCK_PR_NUMBER,
+            expected_head_sha="not-a-sha",
+            expected_head_ref=LOCK_HEAD_REF,
+        )
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ([], "must be an object"),
+        ({}, "missing workflow_run"),
+    ],
+)
+def test_lock_refresh_workflow_run_context_rejects_missing_payload_shape(
+    tmp_path: Path, payload: object, message: str
+) -> None:
+    """Reject event documents that lack a usable workflow-run object."""
+    event_path = tmp_path / "event.json"
+    event_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        workflow_helpers.lock_refresh_workflow_run_context(event_path, repository="owner/artifacts")
+
+
+def test_lock_refresh_workflow_run_context_rejects_unexpected_run(tmp_path: Path) -> None:
+    """Reject a run that did not successfully complete the expected workflow."""
+    payload = _workflow_run_event()
+    workflow_run = payload["workflow_run"]
+    assert isinstance(workflow_run, dict)
+    workflow_run["conclusion"] = "failure"
+    event_path = tmp_path / "event.json"
+    event_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Unexpected lock refresh workflow run"):
+        workflow_helpers.lock_refresh_workflow_run_context(event_path, repository="owner/artifacts")
+
+
+@pytest.mark.parametrize(
+    ("pull_requests", "message"),
+    [
+        ([], "exactly one pull request"),
+        ([None], "invalid shape"),
+        ([{"number": 0}], "invalid numeric identifier"),
+    ],
+)
+def test_lock_refresh_workflow_run_context_rejects_invalid_pull_request(
+    tmp_path: Path, pull_requests: list[object], message: str
+) -> None:
+    """Reject malformed or unusable triggering pull-request data."""
+    payload = _workflow_run_event()
+    workflow_run = payload["workflow_run"]
+    assert isinstance(workflow_run, dict)
+    workflow_run["pull_requests"] = pull_requests
+    event_path = tmp_path / "event.json"
+    event_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        workflow_helpers.lock_refresh_workflow_run_context(event_path, repository="owner/artifacts")
 
 
 @pytest.mark.skipif(not hasattr(Path, "symlink_to"), reason="symlinks unavailable")
 def test_validate_lock_refresh_artifact_rejects_symlinks(tmp_path: Path) -> None:
     """Test validate lock refresh artifact rejects symlinks."""
-    write_text(tmp_path / "uv.lock", "version = 1\n")
-    write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
-    write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
-    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/uv/demo\n")
+    _write_lock_refresh_artifact(tmp_path)
     linked = tmp_path / "linked.txt"
     write_text(linked, "secret\n")
     (tmp_path / ".artifacts" / "escape.txt").symlink_to(linked)
 
     with pytest.raises(ValueError, match="Refusing to process tree containing symlink"):
-        workflow_helpers.validate_lock_refresh_artifact(tmp_path)
+        workflow_helpers.validate_lock_refresh_artifact(
+            tmp_path,
+            expected_pr_number=LOCK_PR_NUMBER,
+            expected_head_sha=LOCK_HEAD_SHA,
+            expected_head_ref=LOCK_HEAD_REF,
+        )
 
 
 @pytest.mark.skipif(not hasattr(Path, "symlink_to"), reason="symlinks unavailable")
@@ -97,16 +274,18 @@ def test_validate_lock_refresh_artifact_rejects_symlinked_directories(
     tmp_path: Path,
 ) -> None:
     """Test validate lock refresh artifact rejects symlinked directories."""
-    write_text(tmp_path / "uv.lock", "version = 1\n")
-    write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
-    write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
-    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/uv/demo\n")
+    _write_lock_refresh_artifact(tmp_path)
     linked_dir = tmp_path / "linked-dir"
     linked_dir.mkdir()
     (tmp_path / ".artifacts" / "nested-link").symlink_to(linked_dir, target_is_directory=True)
 
     with pytest.raises(ValueError, match="Refusing to process tree containing symlink"):
-        workflow_helpers.validate_lock_refresh_artifact(tmp_path)
+        workflow_helpers.validate_lock_refresh_artifact(
+            tmp_path,
+            expected_pr_number=LOCK_PR_NUMBER,
+            expected_head_sha=LOCK_HEAD_SHA,
+            expected_head_ref=LOCK_HEAD_REF,
+        )
 
 
 def test_validate_lock_refresh_artifact_rejects_missing_files(tmp_path: Path) -> None:
@@ -114,7 +293,12 @@ def test_validate_lock_refresh_artifact_rejects_missing_files(tmp_path: Path) ->
     write_text(tmp_path / "uv.lock", "version = 1\n")
 
     with pytest.raises(ValueError, match="Required artifact file missing or not a regular file"):
-        workflow_helpers.validate_lock_refresh_artifact(tmp_path)
+        workflow_helpers.validate_lock_refresh_artifact(
+            tmp_path,
+            expected_pr_number=LOCK_PR_NUMBER,
+            expected_head_sha=LOCK_HEAD_SHA,
+            expected_head_ref=LOCK_HEAD_REF,
+        )
 
 
 def test_main_app_token_policy_prints_allowed(
@@ -141,28 +325,66 @@ def test_main_read_lock_metadata_prints_json(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Test main read lock metadata prints json."""
-    write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
-    write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
-    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/uv/demo\n")
+    _write_lock_refresh_artifact(tmp_path)
 
     exit_code = workflow_helpers.main(["read-lock-metadata", "--root", str(tmp_path)])
 
     assert exit_code == 0
     assert json.loads(capsys.readouterr().out) == {
-        "head-ref": "dependabot/uv/demo",
-        "head-sha": "abc123",
-        "pr-number": "8",
+        "head-ref": LOCK_HEAD_REF,
+        "head-sha": LOCK_HEAD_SHA,
+        "pr-number": LOCK_PR_NUMBER,
     }
 
 
 def test_main_validate_lock_artifact_returns_zero(tmp_path: Path) -> None:
     """Test main validate lock artifact returns zero."""
-    write_text(tmp_path / "uv.lock", "version = 1\n")
-    write_text(tmp_path / ".artifacts" / "pr-number.txt", "8\n")
-    write_text(tmp_path / ".artifacts" / "head-sha.txt", "abc123\n")
-    write_text(tmp_path / ".artifacts" / "head-ref.txt", "dependabot/uv/demo\n")
+    _write_lock_refresh_artifact(tmp_path)
 
-    assert workflow_helpers.main(["validate-lock-artifact", "--root", str(tmp_path)]) == 0
+    assert (
+        workflow_helpers.main(
+            [
+                "validate-lock-artifact",
+                "--root",
+                str(tmp_path),
+                "--expected-pr-number",
+                LOCK_PR_NUMBER,
+                "--expected-head-sha",
+                LOCK_HEAD_SHA,
+                "--expected-head-ref",
+                LOCK_HEAD_REF,
+            ]
+        )
+        == 0
+    )
+
+
+def test_main_lock_refresh_workflow_run_prints_validated_outputs(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test the event command emits only validated lock-refresh context."""
+    event_path = tmp_path / "event.json"
+    event_path.write_text(json.dumps(_workflow_run_event()), encoding="utf-8")
+
+    assert (
+        workflow_helpers.main(
+            [
+                "lock-refresh-workflow-run",
+                "--event-path",
+                str(event_path),
+                "--repository",
+                "owner/artifacts",
+            ]
+        )
+        == 0
+    )
+    assert capsys.readouterr().out.splitlines() == [
+        "artifact-name=python-lock-refresh-8",
+        f"head-ref={LOCK_HEAD_REF}",
+        f"head-sha={LOCK_HEAD_SHA}",
+        "pr-number=8",
+        "run-id=42",
+    ]
 
 
 def test_main_rejects_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
