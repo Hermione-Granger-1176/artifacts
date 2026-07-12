@@ -13,6 +13,7 @@ maintainers working on the build internals.
 
 from __future__ import annotations
 
+import html
 import json
 import logging
 import os
@@ -264,8 +265,8 @@ def _patch_app_social_metadata(site_url: str, version: str) -> None:
 
         candidates = {
             APP_URL_PLACEHOLDER: app_url,
-            APP_TITLE_PLACEHOLDER: title,
-            APP_DESCRIPTION_PLACEHOLDER: description,
+            APP_TITLE_PLACEHOLDER: html.escape(title, quote=True),
+            APP_DESCRIPTION_PLACEHOLDER: html.escape(description, quote=True),
             APP_SHARE_IMAGE_PLACEHOLDER: thumbnail_url,
         }
         replacements = {k: v for k, v in candidates.items() if k in content}
