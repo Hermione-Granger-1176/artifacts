@@ -8,6 +8,7 @@ import pytest
 
 from scripts.gh import gh_runner, pr_review
 from scripts.gh.gh_runner import GhError, GhRateLimitError
+from scripts.lib import gh_policy
 from tests.gh.gh_test_support import FakeGh, completed_process, has
 
 if TYPE_CHECKING:
@@ -41,19 +42,6 @@ def _no_sleep(monkeypatch: pytest.MonkeyPatch) -> list[float]:
     return waits
 
 
-def test_classify_distinguishes_failure_kinds() -> None:
-    """Rate-limit, transient, and fatal stderr are classified correctly."""
-    assert gh_runner._classify("You have exceeded a secondary rate limit") == "rate_limit"
-    assert gh_runner._classify("Server Error (HTTP 502)") == "transient"
-    assert gh_runner._classify("Not Found (HTTP 404)") == "fatal"
-
-
-def test_backoff_never_exceeds_cap() -> None:
-    """Backoff stays within BACKOFF_CAP at every attempt, jitter included."""
-    for attempt in range(10):
-        assert gh_runner._backoff_seconds(attempt) <= gh_runner.BACKOFF_CAP
-
-
 def test_sleep_delegates_to_time_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
     """The sleep wrapper delegates to time.sleep."""
     waits: list[float] = []
@@ -79,6 +67,25 @@ def test_run_retries_transient_then_succeeds(_no_sleep: list[float]) -> None:
     assert out == "ok"
     assert runner.calls == 3
     assert len(_no_sleep) == 2
+
+
+def test_run_uses_the_shared_retry_policy(
+    monkeypatch: pytest.MonkeyPatch, _no_sleep: list[float]
+) -> None:
+    """The CLI wrapper delegates its retry delay to the shared policy."""
+    seen_attempts: list[int] = []
+    monkeypatch.setattr(
+        gh_policy,
+        "retry_backoff_seconds",
+        lambda attempt: seen_attempts.append(attempt) or 1.25,
+    )
+    runner = SequenceRunner(
+        [completed_process(1, "", "Server Error (HTTP 502)"), completed_process(0, "ok")]
+    )
+
+    assert gh_runner.run_gh(["pr", "view"], run_fn=runner, retries=1) == "ok"
+    assert seen_attempts == [0]
+    assert _no_sleep == [1.25]
 
 
 def test_run_gives_up_after_exhausting_retries() -> None:

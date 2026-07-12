@@ -109,3 +109,57 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(tmp_path: Path, monke
 
         page.locator("#theme-toggle").click()
         expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+
+
+def test_prompt_caching_flow_covers_calculator_attention_and_embeddings(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Test prompt caching calculator, attention walkthrough, and embedding output changes."""
+    deploy_root = build_real_site(tmp_path, monkeypatch)
+
+    with (
+        StaticServer(deploy_root) as server,
+        sync_playwright() as playwright,
+        MonitoredPage(
+            playwright, server.url, name="app-flow-prompt-caching", bypass_csp=True
+        ) as session,
+    ):
+        page = session.page
+        assert page is not None
+        session.goto("/apps/prompt-caching/")
+        page.wait_for_function("window.__ARTIFACT_READY__ === true")
+
+        initial_savings = page.locator("#calcSavings").text_content() or ""
+        page.locator("#calcReq").evaluate(
+            """(element) => {
+                    element.value = '5000';
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                }"""
+        )
+        page.wait_for_function(
+            "previous => document.querySelector('#calcSavings').textContent !== previous",
+            arg=initial_savings,
+        )
+        expect(page.locator("#calcReqVal")).to_have_text("5,000")
+
+        initial_attention_title = page.locator("#attnStepTitle").text_content() or ""
+        page.locator("#attnStepper button").nth(1).click()
+        page.wait_for_function(
+            "previous => document.querySelector('#attnStepTitle').textContent !== previous",
+            arg=initial_attention_title,
+        )
+        initial_dot_product = page.locator("#dotProduct").text_content() or ""
+        page.locator("#attnStepVisual .pc-matrix-cell.clickable").first.click()
+        page.wait_for_function(
+            "previous => document.querySelector('#dotProduct').textContent !== previous",
+            arg=initial_dot_product,
+        )
+
+        initial_similarity = page.locator("#embSimilarity").text_content() or ""
+        page.get_by_role("button", name="Compare happy and submarine").click()
+        page.wait_for_function(
+            "previous => document.querySelector('#embSimilarity').textContent !== previous",
+            arg=initial_similarity,
+        )
+        expect(page.locator("#embSelA")).to_have_text("happy")
+        expect(page.locator("#embSelB")).to_have_text("submarine")

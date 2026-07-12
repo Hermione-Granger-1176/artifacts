@@ -6,6 +6,7 @@ import pytest
 
 import scripts.ci.workflow_helpers as workflow_helpers
 import scripts.lib.gh_api as gh_api
+from scripts.lib import gh_policy
 from tests.ci.workflow_helpers_test_support import FakeSubprocessResult
 
 
@@ -106,6 +107,7 @@ def test_run_gh_api_retries_transient_failures(
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
     monkeypatch.setattr(workflow_helpers.time, "sleep", sleep_calls.append)
+    monkeypatch.setattr(gh_policy, "retry_backoff_seconds", lambda attempt: attempt + 1.25)
 
     stdout = workflow_helpers._run_gh_api(
         "repos/owner/repo/pulls/1/files",
@@ -116,7 +118,7 @@ def test_run_gh_api_retries_transient_failures(
 
     assert stdout == "apps/demo/index.html\n"
     assert calls == 2
-    assert sleep_calls == [gh_api.GH_API_RETRY_DELAY_SECONDS]
+    assert sleep_calls == [1.25]
 
 
 def test_run_gh_api_retries_timeout_then_fails(
@@ -130,6 +132,7 @@ def test_run_gh_api_retries_timeout_then_fails(
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
     monkeypatch.setattr(workflow_helpers.time, "sleep", sleep_calls.append)
+    monkeypatch.setattr(gh_policy, "retry_backoff_seconds", lambda attempt: attempt + 1.25)
 
     with pytest.raises(RuntimeError, match="timed out"):
         workflow_helpers._run_gh_api(
@@ -139,10 +142,7 @@ def test_run_gh_api_retries_timeout_then_fails(
             description="listing changed files for push owner/repo",
         )
 
-    assert sleep_calls == [
-        gh_api.GH_API_RETRY_DELAY_SECONDS,
-        gh_api.GH_API_RETRY_DELAY_SECONDS * 2,
-    ]
+    assert sleep_calls == [1.25, 2.25]
 
 
 def test_run_gh_api_fails_fast_for_non_retryable_errors(
@@ -339,7 +339,6 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         description: str,
         jq_expr: str = "",
         max_attempts: int,
-        retry_delay_seconds: float,
         timeout_seconds: float,
         required_permission: str | None = None,
         **_kwargs: object,
@@ -350,7 +349,6 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         captured["description"] = description
         captured["jq_expr"] = jq_expr
         captured["max_attempts"] = max_attempts
-        captured["retry_delay_seconds"] = retry_delay_seconds
         captured["timeout_seconds"] = timeout_seconds
         captured["required_permission"] = required_permission
         return "https://example.com/issues/1"
@@ -374,7 +372,6 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
         "description": "creating alert issue",
         "jq_expr": ".html_url",
         "max_attempts": gh_api.GH_API_MAX_ATTEMPTS,
-        "retry_delay_seconds": gh_api.GH_API_RETRY_DELAY_SECONDS,
         "timeout_seconds": gh_api.GH_API_TIMEOUT_SECONDS,
         "required_permission": "issues: write",
     }

@@ -403,6 +403,9 @@ class MonitoredPage:
             color_scheme=self._color_scheme,
             reduced_motion=self._reduced_motion,
             bypass_csp=self._bypass_csp,
+            # Pin the locale so toLocaleString() output (thousands separators)
+            # is identical on every runner, keeping text assertions stable.
+            locale="en-US",
         )
         if self._artifact_dir is not None:
             self._context.tracing.start(screenshots=True, snapshots=True, sources=True)
