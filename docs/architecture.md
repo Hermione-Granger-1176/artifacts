@@ -446,7 +446,7 @@ The workflows depend on repository settings that are not enforceable from source
 | `.yamllint.yml` | Yamllint rules, ignore patterns |
 | `.editorconfig` | Editor formatting rules per file type |
 | `config/gallery_metadata.json` | Tag/tool display metadata for gallery config and README badges |
-| `config/security_audit.json` | Python lock-file audit scope and reviewed vulnerability exceptions |
+| `config/security_audit.json` | Python and npm audit policy, including reviewed vulnerability exceptions |
 
 Each tool primarily reads its own config, and the Makefile mostly serves as the entry point that calls those tools. Prefer changing tool scope in the owning config file rather than scattering overlapping scope rules across workflow steps and scripts. See [ADR 0003](adr/0003-makefile-first-and-single-source-of-truth.md).
 

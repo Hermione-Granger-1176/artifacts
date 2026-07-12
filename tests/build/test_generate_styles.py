@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+
+import pytest
 
 import scripts.build.generate_styles as generate_styles
-
-if TYPE_CHECKING:
-    import pytest
 
 
 def write_text(path: Path, content: str) -> None:
@@ -24,15 +22,78 @@ def configure_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Pa
     return source_dir, output_file
 
 
-def test_source_files_follow_the_documented_order(
+def test_source_files_discovers_top_level_partials_in_lexical_order(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Source files follow the documented numeric order."""
+    """Source discovery is top-level and deterministic."""
     source_dir, _ = configure_paths(tmp_path, monkeypatch)
+    write_text(source_dir / "20-components.css", "/* components */\n")
+    write_text(source_dir / "01-tokens.css", "/* tokens */\n")
+    write_text(source_dir / "nested" / "02-ignored.css", "/* nested */\n")
+    write_text(source_dir / "notes.txt", "not a stylesheet\n")
 
-    assert generate_styles.source_files() == tuple(
-        source_dir / filename for filename in generate_styles.SOURCE_FILES
+    assert generate_styles.source_files() == (
+        source_dir / "01-tokens.css",
+        source_dir / "20-components.css",
     )
+
+
+@pytest.mark.parametrize(
+    "filename",
+    (
+        "1-tokens.css",
+        "001-tokens.css",
+        "01_Tokens.css",
+        "01-Tokens.css",
+        "tokens.css",
+    ),
+)
+def test_source_files_rejects_invalid_source_filename(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, filename: str
+) -> None:
+    """Source discovery rejects CSS names outside the ordering convention."""
+    source_dir, _ = configure_paths(tmp_path, monkeypatch)
+    write_text(source_dir / "01-valid.css", "/* valid */\n")
+    write_text(source_dir / filename, "/* invalid */\n")
+
+    with pytest.raises(ValueError, match=r"Invalid stylesheet source filename"):
+        generate_styles.source_files()
+
+
+def test_source_files_rejects_empty_source_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Source discovery reports when no partials exist."""
+    source_dir, _ = configure_paths(tmp_path, monkeypatch)
+    source_dir.mkdir(parents=True)
+
+    with pytest.raises(ValueError, match=r"No stylesheet source partials found"):
+        generate_styles.source_files()
+
+
+def test_source_files_rejects_symlinked_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Source discovery rejects symlinks before reading their targets."""
+    source_dir, _ = configure_paths(tmp_path, monkeypatch)
+    source_dir.mkdir(parents=True)
+    target = tmp_path / "outside.css"
+    write_text(target, "/* outside */\n")
+    (source_dir / "01-linked.css").symlink_to(target)
+
+    with pytest.raises(ValueError, match=r"Sources must be regular files and cannot be symlinks"):
+        generate_styles.source_files()
+
+
+def test_source_files_rejects_directory_with_css_suffix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Source discovery rejects non-file entries with CSS-like names."""
+    source_dir, _ = configure_paths(tmp_path, monkeypatch)
+    (source_dir / "01-directory.css").mkdir(parents=True)
+
+    with pytest.raises(ValueError, match=r"Sources must be regular files and cannot be symlinks"):
+        generate_styles.source_files()
 
 
 def test_build_stylesheet_concatenates_partials_with_one_final_newline(
@@ -40,28 +101,32 @@ def test_build_stylesheet_concatenates_partials_with_one_final_newline(
 ) -> None:
     """Build content is deterministic and uses the public generated header."""
     source_dir, _ = configure_paths(tmp_path, monkeypatch)
-    for index, filename in enumerate(generate_styles.SOURCE_FILES, start=1):
-        write_text(source_dir / filename, f"/* {index} */\n.rule-{index} {{}}\n\n")
+    write_text(source_dir / "20-components.css", "/* 2 */\n.rule-2 {}\n\n")
+    write_text(source_dir / "01-tokens.css", "/* 1 */\n.rule-1 {}\n\n")
+    sources = generate_styles.source_files()
 
     assert generate_styles.build_stylesheet() == (
-        generate_styles.output_header()
-        + "\n\n".join(
-            f"/* {index} */\n.rule-{index} {{}}"
-            for index in range(1, len(generate_styles.SOURCE_FILES) + 1)
-        )
-        + "\n"
+        generate_styles.output_header(sources) + "/* 1 */\n.rule-1 {}\n\n/* 2 */\n.rule-2 {}\n"
     )
 
 
-def test_output_header_describes_the_current_source_files(
-    monkeypatch: pytest.MonkeyPatch,
+def test_output_header_describes_discovered_source_boundaries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The generated header derives its source range from the current source list."""
-    monkeypatch.setattr(generate_styles, "SOURCE_FILES", ("10-base.css", "20-components.css"))
+    """The generated header derives its range from discovered source files."""
+    source_dir, _ = configure_paths(tmp_path, monkeypatch)
+    write_text(source_dir / "20-components.css", "/* components */\n")
+    write_text(source_dir / "10-base.css", "/* base */\n")
 
     assert "Source: css/src/10-base.css through css/src/20-components.css" in (
         generate_styles.output_header()
     )
+
+
+def test_output_header_rejects_explicit_empty_source_list() -> None:
+    """Header generation reports an explicit empty source list clearly."""
+    with pytest.raises(ValueError, match=r"At least one stylesheet source is required"):
+        generate_styles.output_header(())
 
 
 def test_generate_writes_the_public_stylesheet(
@@ -69,12 +134,17 @@ def test_generate_writes_the_public_stylesheet(
 ) -> None:
     """Generate writes the assembled public asset."""
     source_dir, output_file = configure_paths(tmp_path, monkeypatch)
-    for filename in generate_styles.SOURCE_FILES:
-        write_text(source_dir / filename, f"/* {filename} */\n")
+    write_text(source_dir / "01-base.css", "/* base */\n")
+    write_text(source_dir / "02-components.css", "/* components */\n")
 
     generate_styles.generate()
 
     assert output_file.read_text(encoding="utf-8") == generate_styles.build_stylesheet()
+
+
+def test_repository_bundle_matches_discovered_sources() -> None:
+    """The tracked public bundle remains byte-identical to its source build."""
+    assert generate_styles.OUTPUT_FILE.read_bytes() == generate_styles.build_stylesheet().encode()
 
 
 def test_main_reports_the_generated_file(
@@ -83,8 +153,7 @@ def test_main_reports_the_generated_file(
     """Main reports the generated public asset."""
     source_dir, _ = configure_paths(tmp_path, monkeypatch)
     monkeypatch.setattr(generate_styles, "REPO_ROOT", tmp_path)
-    for filename in generate_styles.SOURCE_FILES:
-        write_text(source_dir / filename, f"/* {filename} */\n")
+    write_text(source_dir / "01-base.css", "/* base */\n")
 
     assert generate_styles.main([]) == 0
     assert capsys.readouterr().out.strip() == "Generated css/style.css"

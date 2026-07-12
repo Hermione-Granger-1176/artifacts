@@ -43,7 +43,6 @@ logger = logging.getLogger(__name__)
 PYPROJECT_FILE = REPO_ROOT / "pyproject.toml"
 DEPLOY_DIR = REPO_ROOT / "_site"
 GIT_COMMAND_TIMEOUT_SECONDS = 10
-ROOT_STYLESHEET_IMPORT_PATTERN = re.compile(r'@import url\("(\./[^"?]+\.css)"\);')
 MODULE_SCRIPT_PATTERN = re.compile(r'<script\s+type="module"\s+src="([^"]+)"')
 JS_IMPORT_PATTERN = re.compile(
     r"""(?:import|export)\s+.*?\s+from\s+['"]([^'"]+)['"]""",
@@ -276,74 +275,6 @@ def _patch_app_social_metadata(site_url: str, version: str) -> None:
         index_path.write_text(_replace_exact_many(content, replacements), encoding="utf-8")
 
 
-def _inline_css_imports(css_file: Path) -> None:
-    """Replace ``@import url()`` statements with the contents of imported files.
-
-    This eliminates sequential blocking requests at runtime by concatenating
-    CSS partials into a single file at build time.  Source partials remain
-    untouched; only the copy in ``_site/`` is modified.
-    """
-    if not css_file.exists():
-        return
-
-    content = css_file.read_text(encoding="utf-8")
-    parent_dir = css_file.parent
-
-    def _read_import(match: re.Match[str]) -> str:
-        import_path = (parent_dir / match.group(1)).resolve()
-        if not import_path.is_relative_to(DEPLOY_DIR.resolve()):
-            return match.group(0)
-        if not import_path.exists():
-            return match.group(0)
-        return import_path.read_text(encoding="utf-8")
-
-    inlined = ROOT_STYLESHEET_IMPORT_PATTERN.sub(_read_import, content)
-    css_file.write_text(inlined, encoding="utf-8")
-    logger.info("Inlined CSS imports in %s", css_file.relative_to(DEPLOY_DIR))
-
-
-def _inline_all_css_imports() -> None:
-    """Inline CSS ``@import`` chains in the deploy stylesheet."""
-    _inline_css_imports(DEPLOY_DIR / "css" / "style.css")
-
-    for subdir in ("gallery", "app"):
-        partial_dir = DEPLOY_DIR / "css" / subdir
-        if not partial_dir.is_dir():
-            continue
-        referencing = [
-            css_file
-            for css_file in (DEPLOY_DIR / "css").iterdir()
-            if css_file.suffix == ".css" and f"./{subdir}/" in css_file.read_text(encoding="utf-8")
-        ]
-        if referencing:
-            logger.warning(
-                "Keeping %s, still referenced by: %s",
-                partial_dir.relative_to(DEPLOY_DIR),
-                ", ".join(f.name for f in referencing),
-            )
-            continue
-        shutil.rmtree(partial_dir)
-
-
-def _patch_root_stylesheet(version: str) -> None:
-    """Apply cache-busting query strings to modular stylesheet imports.
-
-    After ``_inline_all_css_imports`` runs this is normally a no-op because
-    there are no remaining ``@import`` statements.  It is kept for safety in
-    case inlining is bypassed.
-    """
-    stylesheet_path = DEPLOY_DIR / "css" / "style.css"
-    if not stylesheet_path.exists():
-        return
-
-    content = stylesheet_path.read_text(encoding="utf-8")
-    patched = ROOT_STYLESHEET_IMPORT_PATTERN.sub(
-        lambda match: f'@import url("{match.group(1)}?v={version}");',
-        content,
-    )
-    stylesheet_path.write_text(patched, encoding="utf-8")
-
-
 def _patch_404_html(site_path: str) -> None:
     """Inject the configured site path into the 404 fallback page."""
     error_path = DEPLOY_DIR / "404.html"
@@ -527,12 +458,10 @@ def prepare_site() -> None:
     )
     _copy_deploy_items()
     _remove_build_only_sources()
-    _inline_all_css_imports()
     _patch_index_html(version)
     _patch_app_asset_references(version)
     _patch_social_metadata(site_url, version)
     _patch_app_social_metadata(site_url, version)
-    _patch_root_stylesheet(version)
     _patch_404_html(site_path)
     _patch_manifest(site_path)
     _inject_modulepreload_hints()

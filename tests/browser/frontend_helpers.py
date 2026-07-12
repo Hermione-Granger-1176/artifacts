@@ -249,9 +249,8 @@ class RuntimeMonitor:
 
     def bind(self, page) -> None:
         """Attach listeners that record console, page, and network failures."""
-        # Track CSS filenames that loaded successfully so we can ignore
-        # Chromium's spurious duplicate @import re-fetches from wrong paths
-        # (triggered by ThreadingHTTPServer + DOM mutations).
+        # Track CSS filenames that loaded successfully so duplicate fetches from
+        # wrong paths do not create false failures in the browser test server.
         loaded_css_paths: set[str] = set()
 
         def track_console(message) -> None:
@@ -264,7 +263,7 @@ class RuntimeMonitor:
             if _matches_allowed(message.text, self.allowed_console_errors):
                 return
 
-            # Suppress generic "Failed to load resource" for duplicate CSS
+            # Suppress generic "Failed to load resource" for duplicate CSS.
             if (
                 "Failed to load resource" in message.text
                 and location_url.endswith(".css")
@@ -289,13 +288,12 @@ class RuntimeMonitor:
             self.request_failures.append(f"{request.method} {request.url} -> {failure}")
 
         def _is_duplicate_css_fetch(url: str, status: int) -> bool:
-            """Detect Chromium duplicate CSS @import re-fetches.
+            """Detect Chromium duplicate CSS fetches.
 
-            When a threaded HTTP server handles CSS @import requests
-            concurrently, Chromium may later re-request the same CSS
-            filenames relative to the document URL instead of the
-            stylesheet URL.  These phantom 404s are harmless because the
-            CSS was already loaded and applied from the correct path.
+            Chromium may re-request a previously loaded CSS filename relative
+            to the document URL instead of the stylesheet URL. These phantom
+            404s are harmless because the CSS already loaded from the correct
+            path.
             """
             if status != 404 or not url.endswith(".css"):
                 return False

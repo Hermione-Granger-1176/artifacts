@@ -36,6 +36,7 @@ def create_source_tree(repo_root: Path) -> None:
         repo_root / "index.html",
         "".join(
             [
+                "<head>\n",
                 '<link rel="canonical" href="__ARTIFACTS_SITE_URL__">\n',
                 '<meta property="og:url" content="__ARTIFACTS_SITE_URL__">\n',
                 '<meta property="og:image" content="__ARTIFACTS_SHARE_IMAGE__">\n',
@@ -45,6 +46,7 @@ def create_source_tree(repo_root: Path) -> None:
                 '<script src="js/gallery-config.js"></script>\n',
                 '<script src="js/data.js"></script>\n',
                 '<script type="module" src="js/app.js"></script>\n',
+                "</head>\n",
             ]
         ),
     )
@@ -52,21 +54,22 @@ def create_source_tree(repo_root: Path) -> None:
         repo_root / "css" / "style.css",
         "".join(
             [
-                '@import url("./gallery/01-tokens.css");\n',
-                '@import url("./gallery/09-cards.css");\n',
-                '@import url("./gallery/13-responsive.css");\n',
+                "body { margin: 0; }\n",
+                ".artifact-card { display: block; }\n",
+                "@media (max-width: 1px) {}\n",
             ]
         ),
     )
-    gallery_dir = repo_root / "css" / "gallery"
-    gallery_dir.mkdir(parents=True, exist_ok=True)
-    write_text(gallery_dir / "01-tokens.css", "body { margin: 0; }\n")
-    write_text(gallery_dir / "09-cards.css", ".artifact-card { display: block; }\n")
+    write_text(repo_root / "css" / "src" / "01-tokens.css", "body { margin: 0; }\n")
     write_text(
-        gallery_dir / "13-responsive.css",
-        "@media (max-width: 1px) {}\n",
+        repo_root / "css" / "src" / "02-gallery.css",
+        ".artifact-card { display: block; }\n",
     )
-    write_text(repo_root / "js" / "app.js", "console.log('app')\n")
+    write_text(
+        repo_root / "js" / "app.js",
+        'import { lib } from "./lib.js";\nconsole.log(lib);\n',
+    )
+    write_text(repo_root / "js" / "lib.js", 'export const lib = "lib";\n')
     write_text(repo_root / "js" / "app-theme.js", "console.log('theme')\n")
     write_text(repo_root / "js" / "gallery-config.js", "window.ARTIFACTS_CONFIG = {};\n")
     write_text(repo_root / "js" / "data.js", "window.ARTIFACTS_DATA = [];\n")
@@ -258,6 +261,17 @@ def test_remove_build_only_sources_removes_stylesheet_partials(
 
     assert (deploy_dir / "css" / "style.css").exists()
     assert not (deploy_dir / "css" / "src").exists()
+
+
+def test_remove_build_only_sources_skips_missing_source_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Build-only source removal is safe when the directory is absent."""
+    deploy_dir = tmp_path / "_site"
+    deploy_dir.mkdir()
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+
+    prepare_site._remove_build_only_sources()
 
 
 def test_copy_deploy_items_errors_for_missing_source(
@@ -505,153 +519,6 @@ def test_patch_app_social_metadata_skips_non_directory_entries_and_missing_index
     prepare_site._patch_app_social_metadata("https://example.com/demo/", "abc123")
 
 
-def test_inline_css_imports_concatenates_partials(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Test inline css imports concatenates partials."""
-    deploy_dir = tmp_path / "_site"
-    css_dir = deploy_dir / "css"
-    gallery_dir = css_dir / "gallery"
-    gallery_dir.mkdir(parents=True)
-    write_text(gallery_dir / "01-tokens.css", ":root { --color-bg: #fff; }\n")
-    write_text(gallery_dir / "02-reset.css", "* { margin: 0; }\n")
-    write_text(
-        css_dir / "style.css",
-        '/* gallery */\n@import url("./gallery/01-tokens.css");\n'
-        '@import url("./gallery/02-reset.css");\n',
-    )
-    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
-
-    prepare_site._inline_css_imports(css_dir / "style.css")
-
-    content = (css_dir / "style.css").read_text(encoding="utf-8")
-    assert "@import" not in content
-    assert ":root { --color-bg: #fff; }" in content
-    assert "* { margin: 0; }" in content
-
-
-def test_inline_all_css_imports_removes_partial_dirs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Test inline all css imports removes partial dirs."""
-    deploy_dir = tmp_path / "_site"
-    css_dir = deploy_dir / "css"
-    gallery_dir = css_dir / "gallery"
-    gallery_dir.mkdir(parents=True)
-    write_text(gallery_dir / "01-tokens.css", "body {}\n")
-    write_text(css_dir / "style.css", '@import url("./gallery/01-tokens.css");\n')
-    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
-
-    prepare_site._inline_all_css_imports()
-
-    assert not gallery_dir.exists()
-    assert "body {}" in (css_dir / "style.css").read_text(encoding="utf-8")
-
-
-def test_inline_all_css_imports_keeps_partial_dir_when_still_referenced(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Test inline all css imports keeps partial dir when still referenced."""
-    deploy_dir = tmp_path / "_site"
-    css_dir = deploy_dir / "css"
-    gallery_dir = css_dir / "gallery"
-    gallery_dir.mkdir(parents=True)
-    write_text(gallery_dir / "01-tokens.css", "body {}\n")
-    # After inlining, a surviving reference (e.g. source comment) keeps the dir.
-    write_text(
-        css_dir / "style.css",
-        '@import url("./gallery/01-tokens.css");\n/* sourced from ./gallery/ */\n',
-    )
-    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
-
-    prepare_site._inline_all_css_imports()
-
-    assert gallery_dir.exists(), "Partial dir should be kept when still referenced"
-
-
-def test_inline_css_imports_keeps_import_when_partial_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Test inline css imports keeps import when partial missing."""
-    deploy_dir = tmp_path / "_site"
-    css_dir = deploy_dir / "css"
-    css_dir.mkdir(parents=True)
-    write_text(
-        css_dir / "style.css",
-        '@import url("./gallery/missing.css");\n',
-    )
-    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
-
-    prepare_site._inline_css_imports(css_dir / "style.css")
-
-    content = (css_dir / "style.css").read_text(encoding="utf-8")
-    assert '@import url("./gallery/missing.css");' in content
-
-
-def test_inline_css_imports_blocks_path_traversal(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Test inline css imports blocks path traversal."""
-    deploy_dir = tmp_path / "_site"
-    css_dir = deploy_dir / "css"
-    css_dir.mkdir(parents=True)
-    secret_file = tmp_path / "secret.css"
-    write_text(secret_file, "body { color: red; }\n")
-    write_text(
-        css_dir / "style.css",
-        '@import url("./../../secret.css");\n',
-    )
-    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
-
-    prepare_site._inline_css_imports(css_dir / "style.css")
-
-    content = (css_dir / "style.css").read_text(encoding="utf-8")
-    assert '@import url("./../../secret.css");' in content
-    assert "color: red" not in content
-
-
-def test_inline_css_imports_skips_missing_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Test inline css imports skips missing file."""
-    deploy_dir = tmp_path / "_site"
-    deploy_dir.mkdir()
-    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
-
-    prepare_site._inline_css_imports(deploy_dir / "css" / "nonexistent.css")
-
-
-def test_patch_root_stylesheet_versions_imports(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Test patch root stylesheet versions imports."""
-    deploy_dir = tmp_path / "_site"
-    styles_dir = deploy_dir / "css"
-    styles_dir.mkdir(parents=True)
-    write_text(
-        styles_dir / "style.css",
-        '@import url("./gallery/01-tokens.css");\n@import url("./gallery/09-cards.css");\n',
-    )
-    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
-
-    prepare_site._patch_root_stylesheet("abc123")
-
-    content = (styles_dir / "style.css").read_text(encoding="utf-8")
-    assert '@import url("./gallery/01-tokens.css?v=abc123");' in content
-    assert '@import url("./gallery/09-cards.css?v=abc123");' in content
-
-
-def test_patch_root_stylesheet_skips_when_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Test patch root stylesheet skips when missing."""
-    deploy_dir = tmp_path / "_site"
-    deploy_dir.mkdir()
-    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
-
-    prepare_site._patch_root_stylesheet("abc123")
-
-
 def test_patch_404_html_injects_site_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Test patch 404 html injects site path."""
     deploy_dir = tmp_path / "_site"
@@ -804,9 +671,14 @@ def test_prepare_site_builds_deploy_output(tmp_path: Path, monkeypatch: pytest.M
         in index_content
     )
     assert "@import" not in style_content
-    assert "margin" in style_content
-    assert "display" in style_content
-    assert not (deploy_dir / "css" / "gallery").exists()
+    if prepare_site.ESBUILD_BIN.exists():
+        assert "body{margin:0}" in style_content
+        assert ".artifact-card{display:block}" in style_content
+    else:
+        assert "body { margin: 0; }" in style_content
+        assert ".artifact-card { display: block; }" in style_content
+    assert not (deploy_dir / "css" / "src").exists()
+    assert '<link rel="modulepreload" href="js/lib.js">' in index_content
     assert 'data-site-path="/artifacts/"' in error_content
     assert (deploy_dir / ".nojekyll").exists()
     assert (deploy_dir / "apps" / "sample" / "index.html").exists()

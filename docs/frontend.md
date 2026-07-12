@@ -52,6 +52,7 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `tests/js/apps/loan-amortization/`: app-specific entry, DOM, and module coverage for the loan amortization app
 - `tests/js/apps/prompt-caching/`: app-specific entry, DOM, and module coverage for the prompt caching app
 - `tests/js/apps/tokenizer-explorer/`: app-specific entry and module coverage for the tokenizer explorer app
+- `tests/js/tooling/`: Node tests for JavaScript-based lint and maintenance tooling
 - `tests/js/workflows/`: Node tests for the `deploy-site` and `verified-commit` GitHub composite-action modules
 - `tests/browser/test_frontend_smoke.py`: browser smoke coverage for gallery load, invalid bootstrap data, search, desk-note filters, pagination, detail overlay, and `404.html`
 - `tests/browser/test_frontend_accessibility.py`: Playwright + axe coverage for root light/dark themes, overlay state, no-results state, and `404.html`, plus explicit contrast assertions
@@ -74,7 +75,7 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 ## Local vs CI expectations
 
 - Use [operations.md](operations.md) as the canonical workflow reference; the targets below are the frontend-specific checkpoints you will use most often.
-- `make test-js` runs the JavaScript unit suite with Node's built-in test runner across `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, and `tests/js/workflows/`
+- `make test-js` runs the JavaScript unit suite with Node's built-in test runner across `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, `tests/js/tooling/`, and `tests/js/workflows/`
 - `make coverage-js` uses Node's built-in experimental coverage report, which covers all source files imported by tests while excluding `node_modules/` and `tests/`. Thresholds and exclusions are configured in `package.json`
 - `make check-local` runs the non-browser local gate: formatting, linting, dead-code checks, non-browser Python tests, JavaScript unit tests, JavaScript source-to-test coverage lint, JavaScript coverage, dependency audits, artifact validation, and canonical generated-file drift checks
 - `make test-browser-root` runs all root-gallery Playwright suites
