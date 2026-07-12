@@ -10,6 +10,7 @@ from pathlib import Path
 from scripts import REPO_ROOT
 from scripts.lint.check_artifact_csp import (
     _ROOT_IMG_SOURCES,
+    _extract_csp_policy,
     _is_external_reference,
     check_page,
     discover_artifact_pages,
@@ -68,11 +69,8 @@ def _inline_content_hash(html: str, tag_name: str) -> str:
 def test_404_csp_hashes_allow_its_self_contained_style_and_script() -> None:
     """The arbitrary-path 404 page allows only its exact inline resources."""
     html = (REPO_ROOT / "404.html").read_text(encoding="utf-8")
-    policy_match = re.search(
-        r'<meta http-equiv="Content-Security-Policy"\s+content="([^"]+)">', html
-    )
-    assert policy_match is not None
-    policy = policy_match.group(1)
+    policy = _extract_csp_policy(html)
+    assert policy is not None
 
     assert "default-src 'self'" in policy
     assert "object-src 'none'" in policy
