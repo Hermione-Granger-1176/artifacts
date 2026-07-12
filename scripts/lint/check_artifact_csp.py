@@ -196,11 +196,17 @@ def _parse_attributes(tag: str) -> dict[str, str]:
     return attributes
 
 
-def _extract_csp_policy(html: str) -> str | None:
-    """Return the first real document-head CSP meta tag content, if any."""
+def _parse_head_csp(html: str) -> _HeadCspParser:
+    """Parse document-head CSP state for one HTML document."""
     parser = _HeadCspParser()
     parser.feed(html)
     parser.close()
+    return parser
+
+
+def _extract_csp_policy(html: str) -> str | None:
+    """Return the first real document-head CSP meta tag content, if any."""
+    parser = _parse_head_csp(html)
     return parser.policy
 
 
@@ -232,9 +238,7 @@ def _csp_violations(
     html: str, display_path: str, *, allowed_img_sources: frozenset[str]
 ) -> list[str]:
     """Return CSP policy violations for one root or artifact page."""
-    parser = _HeadCspParser()
-    parser.feed(html)
-    parser.close()
+    parser = _parse_head_csp(html)
     policy = parser.policy
     if policy is None:
         return [f"{display_path}: missing Content-Security-Policy meta tag"]
