@@ -132,9 +132,7 @@ def test_check_page_reports_non_utf8_page_as_violation(tmp_path: Path) -> None:
     path.write_bytes(b"\xff\xfe\x00\x01not utf-8")
     violations = check_page(path, display_path="apps/demo/index.html")
     assert len(violations) == 1
-    assert violations[0].startswith(
-        "apps/demo/index.html: artifact page could not be read as UTF-8 text"
-    )
+    assert violations[0].startswith("apps/demo/index.html: page could not be read as UTF-8 text")
 
 
 def test_check_page_reports_unreadable_page_as_violation(tmp_path: Path) -> None:
@@ -143,9 +141,7 @@ def test_check_page_reports_unreadable_page_as_violation(tmp_path: Path) -> None
     path.mkdir(parents=True)
     violations = check_page(path, display_path="apps/demo/index.html")
     assert len(violations) == 1
-    assert violations[0].startswith(
-        "apps/demo/index.html: artifact page could not be read as UTF-8 text"
-    )
+    assert violations[0].startswith("apps/demo/index.html: page could not be read as UTF-8 text")
 
 
 def test_check_page_flags_missing_csp(tmp_path: Path) -> None:

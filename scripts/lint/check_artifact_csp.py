@@ -211,7 +211,7 @@ def check_page(
     try:
         html = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as error:
-        return [f"{display_path}: artifact page could not be read as UTF-8 text ({error})"]
+        return [f"{display_path}: page could not be read as UTF-8 text ({error})"]
     return [
         *_csp_violations(html, display_path, allowed_img_sources=allowed_img_sources),
         *_script_violations(html, display_path),
