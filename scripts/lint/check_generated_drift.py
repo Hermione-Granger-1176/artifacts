@@ -68,8 +68,8 @@ def check_generated_drift() -> list[Path]:
     snapshots = _capture_snapshots(_target_files())
 
     try:
-        generate_index.generate()
         generate_styles.generate()
+        generate_index.generate()
         drifted = _detect_drift(snapshots)
     except Exception:
         _restore_snapshots(snapshots)
