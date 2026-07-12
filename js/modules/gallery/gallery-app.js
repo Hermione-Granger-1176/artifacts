@@ -251,6 +251,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   let suppressPush = false;
   /** @type {FocusTarget} */
   let pendingFocusTarget = null;
+  /** @param {string} surface */
+  const focusTargetType = (surface) => (surface === 'mobile' ? 'mobile-filter' : 'desk-note');
   /** @type {Record<string, (value: string, surface?: string) => FocusTargetDescriptor | null>} */
   const filterNoteHandlers = {
     filterNote: (value, surface = 'desk') => {
@@ -260,15 +262,15 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       }
 
       resetFilter();
-      return { type: surface === 'mobile' ? 'mobile-filter' : 'desk-note', dataset: 'filterNote', value };
+      return { type: focusTargetType(surface), dataset: 'filterNote', value };
     },
     filterTool: (value, surface = 'desk') => {
       currentTools = toggleSelection(currentTools, value);
-      return { type: surface === 'mobile' ? 'mobile-filter' : 'desk-note', dataset: 'filterTool', value };
+      return { type: focusTargetType(surface), dataset: 'filterTool', value };
     },
     filterTag: (value, surface = 'desk') => {
       currentTags = toggleSelection(currentTags, value);
-      return { type: surface === 'mobile' ? 'mobile-filter' : 'desk-note', dataset: 'filterTag', value };
+      return { type: focusTargetType(surface), dataset: 'filterTag', value };
     }
   };
   const resetFiltersByNote = {
@@ -650,22 +652,17 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
 
     const descriptor = /** @type {FocusTargetDescriptor} */ (target);
+    const selectorName = (descriptor.dataset || '').replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
     const targetResolvers = {
       page: () => /** @type {HTMLElement | null} */ (
         paginationContainer.querySelector(`[data-page="${CSS.escape(descriptor.value)}"]`)
       ),
-      'desk-note': () => {
-        const selectorName = (descriptor.dataset || '').replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
-        return /** @type {HTMLElement | null} */ (
-          filterNotesContainer.querySelector(`[data-${selectorName}="${CSS.escape(descriptor.value)}"]`)
-        );
-      },
-      'mobile-filter': () => {
-        const selectorName = (descriptor.dataset || '').replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
-        return /** @type {HTMLElement | null} */ (
-          filterNotesContainer.querySelector(`[data-filter-surface="mobile"][data-${selectorName}="${CSS.escape(descriptor.value)}"]`)
-        );
-      }
+      'desk-note': () => /** @type {HTMLElement | null} */ (
+        filterNotesContainer.querySelector(`[data-${selectorName}="${CSS.escape(descriptor.value)}"]`)
+      ),
+      'mobile-filter': () => /** @type {HTMLElement | null} */ (
+        filterNotesContainer.querySelector(`[data-filter-surface="mobile"][data-${selectorName}="${CSS.escape(descriptor.value)}"]`)
+      )
     };
 
     return targetResolvers[descriptor.type]?.() || null;

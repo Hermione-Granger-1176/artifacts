@@ -51,6 +51,8 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - `make lint-doc-commands` checks contributor-facing docs for direct commands that should use Make targets instead.
 - `make lint-make-targets` verifies that documented `make <target>` references still exist in `Makefile`.
 - `make lint-js-test-coverage` verifies that every JS or MJS source file under the tracked source roots is imported by at least one test file.
+- `make lint-artifact-csp` verifies that every `apps/<slug>/index.html` carries a strict self-only Content-Security-Policy meta tag and references no external scripts, stylesheets, or `url()` resources. The root `index.html` is exempt for its documented badge-image exception.
+- `make lint-vendored-assets` reconciles vendored bundles under `apps/*/js/vendor/` with the integrity manifest in `config/vendored_assets.json`, failing on unlisted files, missing files, or SHA-256 mismatches.
 - `make check-overrides` reports whether npm `overrides` entries are still needed when that package field exists.
 - `make format-check` verifies ruff formatting plus Prettier-managed docs, metadata, config, workflows, and tooling scripts without writing files.
 - `make typecheck` runs mypy strict over `scripts/` and the web typecheck target from `config/jsconfig.json`.
@@ -92,7 +94,8 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
   - Chart.js `4.4.1`
   - `chartjs-plugin-annotation` `3.0.1`
   - `chartjs-plugin-datalabels` `2.2.0`
-- Versions are pinned and upgraded manually for stability. To upgrade, download the new UMD builds from cdnjs, replace the files in `js/vendor/`, and rerun the browser suites.
+- Versions are pinned and upgraded manually for stability. To upgrade, download the new UMD builds from the recorded `upstream` URLs (jsDelivr), replace the files in `js/vendor/`, update the matching `version`, `upstream`, and `sha256` entries in `config/vendored_assets.json`, and rerun the browser suites.
+- `make lint-vendored-assets` enforces the manifest: every vendored file must be listed in `config/vendored_assets.json` and match its recorded SHA-256.
 - Vendored directories are excluded from ESLint (`**/vendor/**` in `eslint.config.js`) and lint checks (`vendor` in `scripts/lint/__init__.py` `SKIP_DIRECTORIES`).
 - See `apps/loan-amortization/docs/decisions.md` for rationale.
 
@@ -175,9 +178,10 @@ Use this on a brand-new fork or clone that has never deployed, or after `gh-page
 
 ### Vendored dependency update
 
-1. Download the new UMD builds from cdnjs into `apps/loan-amortization/js/vendor/`.
-2. Update the version numbers in `apps/loan-amortization/docs/decisions.md`.
-3. Run browser suites before publishing and update the app README if the version changed.
+1. Download the new UMD builds from the `upstream` URLs recorded in `config/vendored_assets.json` into `apps/loan-amortization/js/vendor/`.
+2. Update the `version`, `upstream`, and `sha256` fields for the affected entries in `config/vendored_assets.json` so `make lint-vendored-assets` passes.
+3. Update the version numbers in `apps/loan-amortization/docs/decisions.md`.
+4. Run browser suites before publishing and update the app README if the version changed.
 
 ### Security gate failure
 

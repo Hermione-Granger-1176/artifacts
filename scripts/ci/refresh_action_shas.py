@@ -23,14 +23,15 @@ import json
 import os
 import re
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast
 from urllib.request import Request, urlopen
 
+from scripts import REPO_ROOT
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
+    from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 ACTIONS_DIR = REPO_ROOT / ".github" / "actions"
 
