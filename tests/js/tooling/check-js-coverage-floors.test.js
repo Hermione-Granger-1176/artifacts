@@ -123,6 +123,47 @@ test('parseLcov merges summary-only duplicate blocks per counter pair', () => {
   assert.equal(record.branchesHit, 4);
 });
 
+test('parseLcov preserves zero-branch counters from a summary-only block', () => {
+  const zeroBranches = [
+    'SF:js/pure.js',
+    'LF:7',
+    'LH:7',
+    'BRF:0',
+    'BRH:0',
+    'end_of_record',
+    ''
+  ].join('\n');
+
+  const record = parseLcov(zeroBranches)[0];
+  assert.deepEqual(record, {
+    file: 'js/pure.js',
+    linesFound: 7,
+    linesHit: 7,
+    branchesFound: 0,
+    branchesHit: 0
+  });
+});
+
+test('parseLcov treats detailed files without BRDA rows as zero-branch files', () => {
+  const zeroBranches = [
+    'SF:js/linear.js',
+    'DA:10,2',
+    'DA:11,1',
+    'LF:2',
+    'LH:2',
+    'BRF:0',
+    'BRH:0',
+    'end_of_record',
+    ''
+  ].join('\n');
+
+  const record = parseLcov(zeroBranches)[0];
+  assert.equal(record.linesFound, 2);
+  assert.equal(record.linesHit, 2);
+  assert.equal(record.branchesFound, 0);
+  assert.equal(record.branchesHit, 0);
+});
+
 test('parseLcov keys branch arms by line position, not process-local block ids', () => {
   // The same source branch shows up with block id 2 in one process and 6 in
   // another (V8 block ids are process-local). It must merge as one arm.

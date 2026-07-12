@@ -37,6 +37,8 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 - [`workspace.md`](docs/workspace.md): repository layout and responsibilities
 - [`architecture.md`](docs/architecture.md): runtime, build, and deployment design
 - [`docs/adr/0001-root-publishing-platform.md`](docs/adr/0001-root-publishing-platform.md): accepted decision record for the strict root publish flow
+- [`docs/adr/0002-shared-app-system-and-thumbnail-persistence.md`](docs/adr/0002-shared-app-system-and-thumbnail-persistence.md): accepted decision record for the shared app shell and generated thumbnails
+- [`docs/adr/0003-makefile-first-and-single-source-of-truth.md`](docs/adr/0003-makefile-first-and-single-source-of-truth.md): accepted decision record for Makefile-first tooling and config ownership
 - [`docs/adr/0004-per-artifact-app-stylesheets.md`](docs/adr/0004-per-artifact-app-stylesheets.md): accepted decision record for splitting artifact CSS into app-local stylesheets
 - [`frontend.md`](docs/frontend.md): JavaScript module layout and test coverage
 - [`operations.md`](docs/operations.md): local workflows, CI, and generation notes

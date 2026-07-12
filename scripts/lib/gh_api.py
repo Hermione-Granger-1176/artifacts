@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import subprocess
 import time
 from collections.abc import Callable
 from typing import Protocol
+
+from scripts.lib import gh_policy
 
 logger = logging.getLogger(__name__)
 
@@ -31,32 +32,12 @@ class SubprocessModule(Protocol):
 
 
 GH_API_TIMEOUT_SECONDS = 15
-GH_API_MAX_ATTEMPTS = 3
-GH_API_RETRY_DELAY_SECONDS = 0.5
-# Rate limits (primary or secondary) are checked first and never retried: the
-# only correct response is to stop and wait for the limit window to reset, so
-# hammering the API risks getting the integration banned. This mirrors the
-# fail-fast policy documented in ``scripts/gh/gh_runner.py``.
-GH_API_RATE_LIMIT_ERROR_PATTERN = re.compile(
-    r"rate limit|submitted too quickly|abuse detection|secondary rate|\b429\b|http 429",
-    re.IGNORECASE,
-)
-# Genuine transient infrastructure errors (5xx, network, timeout) keep a bounded
-# retry with backoff. 429 is intentionally absent; it is a rate limit above.
-GH_API_RETRYABLE_ERROR_PATTERN = re.compile(
-    r"502|503|504|timed out|timeout|ECONNRESET|connection reset|"
-    r"connection refused|network|temporary failure|unexpected eof",
-    re.IGNORECASE,
-)
-GH_API_FORBIDDEN_ERROR_PATTERN = re.compile(
-    r"Resource not accessible by integration",
-    re.IGNORECASE,
-)
+GH_API_MAX_ATTEMPTS = gh_policy.DEFAULT_GH_RETRIES + 1
 
 
 def is_rate_limited_gh_api_failure(message: str) -> bool:
     """Return True when ``gh api`` failed because of a primary/secondary rate limit."""
-    return bool(GH_API_RATE_LIMIT_ERROR_PATTERN.search(message))
+    return gh_policy.classify_gh_failure(message) == "rate_limit"
 
 
 def is_retryable_gh_api_failure(message: str) -> bool:
@@ -64,14 +45,12 @@ def is_retryable_gh_api_failure(message: str) -> bool:
 
     Rate limits are excluded on purpose; callers must fail fast on those.
     """
-    if is_rate_limited_gh_api_failure(message):
-        return False
-    return bool(GH_API_RETRYABLE_ERROR_PATTERN.search(message))
+    return gh_policy.classify_gh_failure(message) == "transient"
 
 
 def is_forbidden_gh_api_failure(message: str) -> bool:
     """Return True when ``gh api`` failed with a permission-related 403."""
-    return bool(GH_API_FORBIDDEN_ERROR_PATTERN.search(message))
+    return gh_policy.classify_gh_failure(message) == "forbidden"
 
 
 def _build_failure_message(description: str, stderr: str, required_permission: str | None) -> str:
@@ -95,7 +74,6 @@ def _run_gh_command(
     *,
     description: str,
     max_attempts: int = GH_API_MAX_ATTEMPTS,
-    retry_delay_seconds: float = GH_API_RETRY_DELAY_SECONDS,
     sleep_fn: SleepFunction = time.sleep,
     subprocess_module: SubprocessModule = subprocess,
     timeout_seconds: int = GH_API_TIMEOUT_SECONDS,
@@ -122,7 +100,7 @@ def _run_gh_command(
                     attempt,
                     max_attempts,
                 )
-                sleep_fn(retry_delay_seconds * attempt)
+                sleep_fn(gh_policy.retry_backoff_seconds(attempt - 1))
                 continue
             raise RuntimeError(f"gh api {description} failed: {last_error}") from exc
 
@@ -131,12 +109,13 @@ def _run_gh_command(
 
         stderr = result.stderr.strip() or result.stdout.strip() or "unknown gh api error"
         last_error = stderr
-        if is_rate_limited_gh_api_failure(stderr):
+        failure_kind = gh_policy.classify_gh_failure(stderr)
+        if failure_kind == "rate_limit":
             raise RuntimeError(
                 f"gh api {description} failed: GitHub rate limit hit: {stderr}. "
                 "Wait for the limit window to reset before retrying."
             )
-        if attempt < max_attempts and is_retryable_gh_api_failure(stderr):
+        if attempt < max_attempts and failure_kind == "transient":
             logger.warning(
                 "Retrying gh api for %s after attempt %d/%d failed: %s",
                 description,
@@ -144,7 +123,7 @@ def _run_gh_command(
                 max_attempts,
                 stderr,
             )
-            sleep_fn(retry_delay_seconds * attempt)
+            sleep_fn(gh_policy.retry_backoff_seconds(attempt - 1))
             continue
 
         raise RuntimeError(_build_failure_message(description, stderr, required_permission))
@@ -159,7 +138,6 @@ def run_gh_api(
     jq_expr: str,
     description: str,
     max_attempts: int = GH_API_MAX_ATTEMPTS,
-    retry_delay_seconds: float = GH_API_RETRY_DELAY_SECONDS,
     sleep_fn: SleepFunction = time.sleep,
     subprocess_module: SubprocessModule = subprocess,
     timeout_seconds: int = GH_API_TIMEOUT_SECONDS,
@@ -177,7 +155,6 @@ def run_gh_api(
         command,
         description=description,
         max_attempts=max_attempts,
-        retry_delay_seconds=retry_delay_seconds,
         sleep_fn=sleep_fn,
         subprocess_module=subprocess_module,
         timeout_seconds=timeout_seconds,
@@ -225,7 +202,6 @@ def run_gh_api_form(
     description: str,
     jq_expr: str = "",
     max_attempts: int = GH_API_MAX_ATTEMPTS,
-    retry_delay_seconds: float = GH_API_RETRY_DELAY_SECONDS,
     sleep_fn: SleepFunction = time.sleep,
     subprocess_module: SubprocessModule = subprocess,
     timeout_seconds: int = GH_API_TIMEOUT_SECONDS,
@@ -246,7 +222,6 @@ def run_gh_api_form(
         command,
         description=description,
         max_attempts=max_attempts,
-        retry_delay_seconds=retry_delay_seconds,
         sleep_fn=sleep_fn,
         subprocess_module=subprocess_module,
         timeout_seconds=timeout_seconds,

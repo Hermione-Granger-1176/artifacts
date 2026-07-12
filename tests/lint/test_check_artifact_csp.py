@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import re
 from pathlib import Path
 
+from scripts import REPO_ROOT
 from scripts.lint.check_artifact_csp import (
+    _ROOT_IMG_SOURCES,
     _is_external_reference,
     check_page,
     discover_artifact_pages,
@@ -15,6 +20,10 @@ from scripts.lint.check_artifact_csp import (
 _GOOD_CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; "
     "img-src 'self' data:; connect-src 'self'"
+)
+_ROOT_CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self'; "
+    "img-src 'self' data: https://img.shields.io; connect-src 'self'"
 )
 
 
@@ -41,10 +50,79 @@ def _write_page(root: Path, slug: str, html: str) -> Path:
     return path
 
 
+def _write_root_page(root: Path, csp: str = _ROOT_CSP) -> Path:
+    """Write the root index with its documented shield-image CSP exception."""
+    path = root / "index.html"
+    path.write_text(_page(csp), encoding="utf-8")
+    return path
+
+
+def _inline_content_hash(html: str, tag_name: str) -> str:
+    """Return the CSP SHA-256 source expression for one inline tag's contents."""
+    match = re.search(rf"<{tag_name}>(.*?)</{tag_name}>", html, re.DOTALL)
+    assert match is not None, f"404.html must include an inline {tag_name} block"
+    digest = hashlib.sha256(match.group(1).encode("utf-8")).digest()
+    return f"'sha256-{base64.b64encode(digest).decode('ascii')}'"
+
+
+def test_404_csp_hashes_allow_its_self_contained_style_and_script() -> None:
+    """The arbitrary-path 404 page allows only its exact inline resources."""
+    html = (REPO_ROOT / "404.html").read_text(encoding="utf-8")
+    policy_match = re.search(
+        r'<meta http-equiv="Content-Security-Policy"\s+content="([^"]+)">', html
+    )
+    assert policy_match is not None
+    policy = policy_match.group(1)
+
+    assert "default-src 'self'" in policy
+    assert "object-src 'none'" in policy
+    missing_hashes = [
+        content_hash
+        for content_hash in (
+            _inline_content_hash(html, "style"),
+            _inline_content_hash(html, "script"),
+        )
+        if content_hash not in policy
+    ]
+    assert not missing_hashes, f"404.html is missing CSP hash(es): {missing_hashes}"
+
+
 def test_check_page_passes_for_strict_page(tmp_path: Path) -> None:
     """Check page passes for strict page."""
     path = _write_page(tmp_path, "demo", _page())
     assert check_page(path, display_path="apps/demo/index.html") == []
+
+
+def test_check_page_allows_the_root_badge_image_exception(tmp_path: Path) -> None:
+    """The root may use shields.io while artifact pages remain self-hosted."""
+    path = _write_root_page(tmp_path)
+    assert (
+        check_page(
+            path,
+            display_path="index.html",
+            allowed_img_sources=_ROOT_IMG_SOURCES,
+        )
+        == []
+    )
+
+
+def test_check_page_rejects_the_root_badge_image_exception_for_an_artifact(tmp_path: Path) -> None:
+    """Artifacts cannot inherit the root's narrow external image allowlist."""
+    path = _write_page(tmp_path, "demo", _page(_ROOT_CSP))
+    violations = check_page(path, display_path="apps/demo/index.html")
+    assert any("img-src must use only approved image sources" in message for message in violations)
+
+
+def test_check_page_rejects_unapproved_root_image_source(tmp_path: Path) -> None:
+    """The root badge exception cannot become a general external image allowlist."""
+    csp = "default-src 'self'; script-src 'self'; img-src 'self' https://example.com"
+    path = _write_root_page(tmp_path, csp)
+    violations = check_page(
+        path,
+        display_path="index.html",
+        allowed_img_sources=_ROOT_IMG_SOURCES,
+    )
+    assert any("img-src must use only approved image sources" in message for message in violations)
 
 
 def test_check_page_reports_non_utf8_page_as_violation(tmp_path: Path) -> None:
@@ -233,6 +311,7 @@ def test_discover_artifact_pages_handles_missing_apps_dir(tmp_path: Path) -> Non
 
 def test_run_check_aggregates_violations(tmp_path: Path) -> None:
     """Run check aggregates violations."""
+    _write_root_page(tmp_path)
     _write_page(tmp_path, "good", _page())
     _write_page(tmp_path, "bad", _page(csp="default-src *"))
     violations = run_check(tmp_path)
@@ -242,11 +321,13 @@ def test_run_check_aggregates_violations(tmp_path: Path) -> None:
 
 def test_main_returns_zero_when_clean(tmp_path: Path) -> None:
     """Main returns zero when clean."""
+    _write_root_page(tmp_path)
     _write_page(tmp_path, "demo", _page())
     assert main(["--root", str(tmp_path)]) == 0
 
 
 def test_main_returns_one_when_violations(tmp_path: Path) -> None:
     """Main returns one when violations."""
+    _write_root_page(tmp_path)
     _write_page(tmp_path, "demo", _page(csp="default-src *"))
     assert main(["--root", str(tmp_path)]) == 1

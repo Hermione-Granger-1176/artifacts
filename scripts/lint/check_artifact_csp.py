@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that every artifact page ships a strict CSP and no external references.
+"""Check that the root and every artifact page ship a strict CSP and no external references.
 
 Artifact pages under ``apps/<slug>/index.html`` receive a Content-Security-Policy
 meta tag at scaffold time, but nothing re-validates a hand-pasted or hand-edited
@@ -13,8 +13,9 @@ page. This checker fails fast when an artifact:
       inline ``<style>`` block. Inline ``data:`` URIs and ``#fragment``
       references inside ``url()`` are same-document content and stay allowed.
 
-The root ``index.html`` is intentionally not linted: it carries a documented
-``img-src https://img.shields.io`` exception for badge images.
+The root ``index.html`` shares the same posture, except its documented
+``img-src https://img.shields.io`` badge-image exception. Artifact pages remain
+limited to same-origin and inline ``data:`` image sources.
 """
 
 from __future__ import annotations
@@ -28,9 +29,12 @@ from scripts import REPO_ROOT
 
 # Directory (relative to the workspace root) that holds artifact pages.
 APPS_DIRNAME = "apps"
+ROOT_INDEX_FILENAME = "index.html"
 
 # Source tokens that keep a directive restricted to same-origin content.
 _RESTRICTIVE_SOURCES = frozenset({"'self'", "'none'"})
+_APP_IMG_SOURCES = frozenset({"'self'", "'none'", "data:"})
+_ROOT_IMG_SOURCES = _APP_IMG_SOURCES | frozenset({"https://img.shields.io"})
 
 # Opening tags and inline style blocks. Artifact markup keeps attribute values
 # free of ``>``, so a non-greedy attribute scan is robust enough here.
@@ -84,13 +88,17 @@ def _parse_csp_directives(policy: str) -> dict[str, list[str]]:
     return directives
 
 
-def _directive_is_restrictive(sources: list[str]) -> bool:
-    """Return whether every source keeps a directive limited to same-origin."""
-    return bool(sources) and all(source in _RESTRICTIVE_SOURCES for source in sources)
+def _directive_has_only_allowed_sources(
+    sources: list[str], allowed_sources: frozenset[str]
+) -> bool:
+    """Return whether every source in a directive belongs to its approved set."""
+    return bool(sources) and all(source in allowed_sources for source in sources)
 
 
-def _csp_violations(html: str, display_path: str) -> list[str]:
-    """Return CSP policy violations for one artifact page."""
+def _csp_violations(
+    html: str, display_path: str, *, allowed_img_sources: frozenset[str]
+) -> list[str]:
+    """Return CSP policy violations for one root or artifact page."""
     policy = _extract_csp_policy(html)
     if policy is None:
         return [f"{display_path}: missing Content-Security-Policy meta tag"]
@@ -103,17 +111,29 @@ def _csp_violations(html: str, display_path: str) -> list[str]:
         violations.append(
             f"{display_path}: Content-Security-Policy is missing a default-src directive"
         )
-    elif not _directive_is_restrictive(default_src):
+    elif not _directive_has_only_allowed_sources(default_src, _RESTRICTIVE_SOURCES):
         violations.append(
             f"{display_path}: default-src must be restricted to 'self' or 'none' "
             f"(found: default-src {' '.join(default_src)})"
         )
 
     script_src = directives.get("script-src", default_src)
-    if script_src is not None and not _directive_is_restrictive(script_src):
+    if script_src is not None and not _directive_has_only_allowed_sources(
+        script_src, _RESTRICTIVE_SOURCES
+    ):
         violations.append(
             f"{display_path}: script-src must be restricted to 'self' or 'none' "
             f"(found: script-src {' '.join(script_src)})"
+        )
+
+    img_src = directives.get("img-src")
+    if img_src is not None and not _directive_has_only_allowed_sources(
+        img_src, allowed_img_sources
+    ):
+        allowed = " ".join(sorted(allowed_img_sources))
+        violations.append(
+            f"{display_path}: img-src must use only approved image sources "
+            f"({allowed}; found: img-src {' '.join(img_src)})"
         )
 
     return violations
@@ -176,8 +196,13 @@ def _inline_style_violations(html: str, display_path: str) -> list[str]:
     return violations
 
 
-def check_page(path: Path, *, display_path: str) -> list[str]:
-    """Return all CSP and same-origin violations for one artifact page.
+def check_page(
+    path: Path,
+    *,
+    display_path: str,
+    allowed_img_sources: frozenset[str] = _APP_IMG_SOURCES,
+) -> list[str]:
+    """Return all CSP and same-origin violations for one root or artifact page.
 
     A page that cannot be read as UTF-8 text (binary content, a bad encoding,
     or any ``OSError``) is reported as a single deterministic violation rather
@@ -188,7 +213,7 @@ def check_page(path: Path, *, display_path: str) -> list[str]:
     except (OSError, UnicodeDecodeError) as error:
         return [f"{display_path}: artifact page could not be read as UTF-8 text ({error})"]
     return [
-        *_csp_violations(html, display_path),
+        *_csp_violations(html, display_path, allowed_img_sources=allowed_img_sources),
         *_script_violations(html, display_path),
         *_stylesheet_violations(html, display_path),
         *_inline_style_violations(html, display_path),
@@ -203,10 +228,18 @@ def discover_artifact_pages(apps_dir: Path) -> list[Path]:
 
 
 def run_check(root: Path | None = None) -> list[str]:
-    """Run the artifact CSP check and return all violations."""
+    """Run the root and artifact CSP check and return all violations."""
     workspace_root = root or REPO_ROOT
     apps_dir = workspace_root / APPS_DIRNAME
     violations: list[str] = []
+    root_index = workspace_root / ROOT_INDEX_FILENAME
+    violations.extend(
+        check_page(
+            root_index,
+            display_path=ROOT_INDEX_FILENAME,
+            allowed_img_sources=_ROOT_IMG_SOURCES,
+        )
+    )
     for page in discover_artifact_pages(apps_dir):
         display_path = page.relative_to(workspace_root).as_posix()
         violations.extend(check_page(page, display_path=display_path))
@@ -216,7 +249,7 @@ def run_check(root: Path | None = None) -> list[str]:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments for the artifact CSP checker."""
     parser = argparse.ArgumentParser(
-        description="Check artifact pages ship a strict CSP and no external references."
+        description="Check root and artifact pages ship a strict CSP and no external references."
     )
     parser.add_argument(
         "--root",
