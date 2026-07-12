@@ -44,12 +44,23 @@ def test_build_stylesheet_concatenates_partials_with_one_final_newline(
         write_text(source_dir / filename, f"/* {index} */\n.rule-{index} {{}}\n\n")
 
     assert generate_styles.build_stylesheet() == (
-        generate_styles.OUTPUT_HEADER
+        generate_styles.output_header()
         + "\n\n".join(
             f"/* {index} */\n.rule-{index} {{}}"
             for index in range(1, len(generate_styles.SOURCE_FILES) + 1)
         )
         + "\n"
+    )
+
+
+def test_output_header_describes_the_current_source_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The generated header derives its source range from the current source list."""
+    monkeypatch.setattr(generate_styles, "SOURCE_FILES", ("10-base.css", "20-components.css"))
+
+    assert "Source: css/src/10-base.css through css/src/20-components.css" in (
+        generate_styles.output_header()
     )
 
 

@@ -104,10 +104,11 @@ def test_check_generated_drift_detects_and_restores_stylesheet_output(
 
 
 def test_check_generated_drift_builds_styles_before_the_index(
-    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Check the index generator reads the rebuilt shared stylesheet."""
     calls: list[str] = []
+    configure_targets(tmp_path, monkeypatch)
 
     monkeypatch.setattr(generate_styles, "generate", lambda: calls.append("styles"))
     monkeypatch.setattr(generate_index, "generate", lambda: calls.append("index"))
