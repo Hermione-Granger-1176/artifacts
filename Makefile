@@ -396,7 +396,7 @@ help-json: ## Emit groups and commands as JSON
 
 # ─── Git @git ─────────────────────────────────────────────────────────────────
 
-.PHONY: git branch branch-current rebase-main rebase-continue stage stage-all commit push log log-file diff diff-staged
+.PHONY: git branch branch-current rebase-main rebase-continue sync-branch stage stage-all commit push log log-file diff diff-staged
 
 git: ## Git commands (make git)
 	@$(MAKE) --no-print-directory help-git
@@ -416,6 +416,9 @@ rebase-main: ## Rebase the current branch onto origin/main
 
 rebase-continue: ## Continue an in-progress rebase after resolving conflicts
 	GIT_EDITOR=true git rebase --continue
+
+sync-branch: ## Rebase the current branch onto its upstream branch
+	git pull --rebase
 
 stage: ## Stage selected files (make stage files="path ...")
 	@test -n "$(files)" || (printf 'Usage: make stage files="path ..."\n' >&2; exit 1)
