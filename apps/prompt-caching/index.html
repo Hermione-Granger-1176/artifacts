@@ -10,26 +10,26 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/">
   <meta property="og:site_name" content="Artifacts">
-  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=d012c3a">
-  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=d012c3a">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=57eda2b">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=57eda2b">
   <meta property="og:image:alt" content="Preview card for the Prompt Caching, Demystified app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Prompt Caching, Demystified | Artifacts">
   <meta name="twitter:description" content="Interactive explainer on how LLM prompt caching works, from tokenizer to embeddings, attention, and the KV cache that providers reuse to cut cost and latency.">
-  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=d012c3a">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=57eda2b">
   <meta name="twitter:image:alt" content="Preview card for the Prompt Caching, Demystified app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
   <title>Prompt Caching, Demystified | Artifacts</title>
-  <script src="../../js/app-theme.js?v=d012c3a"></script>
+  <script src="../../js/app-theme.js?v=57eda2b"></script>
   <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
   <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
-  <link rel="stylesheet" href="../../css/style.css?v=d012c3a">
-  <link rel="stylesheet" href="./css/app.css?v=d012c3a">
+  <link rel="stylesheet" href="../../css/style.css?v=57eda2b">
+  <link rel="stylesheet" href="./css/app.css?v=57eda2b">
   <link rel="modulepreload" href="../../js/modules/app-shell.js">
   <link rel="modulepreload" href="../../js/modules/runtime.js">
   <link rel="modulepreload" href="../../js/modules/app-runtime.js">
@@ -120,16 +120,19 @@ tokens = <span class="pc-syn-fn">tokenize</span>(prompt)
 <span class="pc-syn-kw">while</span> (<span class="pc-syn-const">true</span>) {
     embeddings = <span class="pc-syn-fn">embed</span>(tokens)
 
-    <span class="pc-syn-kw">for each</span> transformer <span class="pc-syn-kw">in</span> model:
+    <span class="pc-syn-kw">for each</span> transformer <span class="pc-syn-kw">in</span> model {
         embeddings = transformer.<span class="pc-syn-fn">attention</span>(embeddings)
         embeddings = transformer.<span class="pc-syn-fn">feedforward</span>(embeddings)
+    }
 
     next_token = <span class="pc-syn-fn">pick_output</span>(embeddings)
 
-    <span class="pc-syn-kw">if</span> next_token == <span class="pc-syn-const">STOP</span>:
+    <span class="pc-syn-kw">if</span> (next_token == <span class="pc-syn-const">STOP</span>) {
         <span class="pc-syn-kw">break</span>
+    }
 
     tokens.<span class="pc-syn-fn">append</span>(next_token)
+}
 
 <span class="pc-syn-fn">print</span>(<span class="pc-syn-fn">decode</span>(tokens))</pre>
       </div>
@@ -510,6 +513,6 @@ V = <span class="pc-syn-fn">append</span>(cached_V, V_new)  <span class="pc-syn-
 
   <div data-app-shell="scroll-top"></div>
 
-  <script type="module" src="./js/app.js?v=d012c3a"></script>
+  <script type="module" src="./js/app.js?v=57eda2b"></script>
 </body>
 </html>
