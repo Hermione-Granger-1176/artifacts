@@ -30,8 +30,9 @@ export function formatDollarTick(value) {
 /**
  * Parse a string into a number, stripping non-numeric characters.
  * @param {string} value - Raw input string.
- * @returns {number} Parsed number (NaN if empty after stripping).
+ * @returns {number} Parsed number, or 0 when nothing numeric remains.
  */
 export function parseNumber(value) {
-  return +String(value).replace(/[^0-9.\-]/g, "");
+  const parsed = +String(value).replace(/[^0-9.\-]/g, "");
+  return Number.isFinite(parsed) ? parsed : 0;
 }

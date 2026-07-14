@@ -14,6 +14,11 @@ test('formatDollarTick handles millions, thousands, and small values', () => {
 
 test('parseNumber strips non-numeric characters', () => {
   assert.equal(parseNumber('$1,234.56'), 1234.56);
-  assert.equal(parseNumber('abc'), 0);
   assert.equal(parseNumber('-$42'), -42);
+});
+
+test('parseNumber returns 0 when nothing numeric remains', () => {
+  assert.equal(parseNumber('abc'), 0);
+  assert.equal(parseNumber(''), 0);
+  assert.equal(parseNumber('-'), 0);
 });
