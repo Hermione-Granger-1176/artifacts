@@ -20,6 +20,13 @@
       "version": "2.2.0",
       "upstream": "https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js",
       "sha256": "20c08f3d9c6d2ef76df6d6a6f1127c0013339fe32add24222276c398c6308c38"
+    },
+    {
+      "path": "apps/bond-price-vs-rate/js/vendor/chart.umd.min.js",
+      "package": "chart.js",
+      "version": "4.4.1",
+      "upstream": "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js",
+      "sha256": "81ffafe13c37e1b25793b020d446f4d9739b949dadb7f9f79d709a0cad781c2f"
     }
   ]
 }

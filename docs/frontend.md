@@ -38,6 +38,8 @@ Shared modules (under `js/modules/`):
 - `js/modules/element-cache.js`: DOM element caching by ID
 - `js/modules/app-shell.js`: runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
 - `js/modules/html-escape.js`: `escapeHtml()` and `escapeAttribute()` helpers, re-exported by `render.js` and app-local modules
+- `js/modules/formatting.js`: shared number formatting and parsing helpers (`formatDollarTick()`, `parseNumber()`), re-exported by app-local formatting modules
+- `js/modules/chart-theme.js`: theme-aware Chart.js helpers (vendor global access, CSS custom property reads, per-theme palette caching) used by the chart-based apps
 
 The root filter UI is rendered as desk notes by `buildFilterNotes()` in `js/modules/gallery/render.js` and toggled in `js/modules/gallery/gallery-app.js`.
 

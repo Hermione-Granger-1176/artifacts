@@ -179,7 +179,6 @@ body.artifact-app .page-title {
 }
 
 body.artifact-app .page-lede {
-  max-width: 68ch;
   color: var(--color-text-secondary);
   line-height: 1.6;
 

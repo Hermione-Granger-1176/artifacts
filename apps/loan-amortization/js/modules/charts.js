@@ -1,76 +1,36 @@
-// Chart.js and its datalabels plugin are loaded as vendor globals on window.
-// They ship no local type definitions, so read them through an any-typed view
-// of window resolved at call time (never a cached reference) rather than adding
-// a runtime dependency.
-/** @returns {any} The window object typed loosely for vendor chart globals. */
-function chartGlobal() {
-  return /** @type {any} */ (window);
-}
+import { chartGlobal, createPaletteCache } from "../../../../js/modules/chart-theme.js";
 
-function css(propertyName) {
-  return getComputedStyle(document.body).getPropertyValue(propertyName).trim();
-}
+// Per-theme chart palette read from CSS custom properties; refreshPalette
+// keeps the app's theme-change contract.
+const { colors, refreshPalette } = createPaletteCache(({ css, cssAlpha }) => ({
+  blue: css("--color-blue"),
+  green: css("--color-green"),
+  red: css("--color-red"),
+  noteBlue: css("--note-blue"),
+  noteGreen: css("--note-green"),
+  noteRed: css("--note-red"),
+  blueA(alpha) {
+    return cssAlpha("--note-blue", alpha);
+  },
+  greenA(alpha) {
+    return cssAlpha("--note-green", alpha);
+  },
+  redA(alpha) {
+    return cssAlpha("--note-red", alpha);
+  },
+  redText: css("--color-red-text"),
+  greenText: css("--color-green-text"),
+  redEmphasis: css("--color-red-emphasis"),
+  greenEmphasis: css("--color-green-emphasis"),
+  surface: css("--color-surface"),
+  tick: css("--chart-tick"),
+  grid: css("--chart-grid"),
+  annotationBorder: css("--chart-annotation-border"),
+  annotationBg: css("--chart-annotation-bg"),
+  annotationText: css("--chart-annotation-text")
+}));
 
-function cssAlpha(propertyName, alpha) {
-  const raw = css(propertyName);
-  const matches = raw.match(/\d+/g);
-  if (!matches || matches.length < 3) {
-    return raw;
-  }
-  return `rgba(${matches[0]}, ${matches[1]}, ${matches[2]}, ${alpha})`;
-}
-
-function isDark() {
-  return document.documentElement.getAttribute("data-theme") === "dark";
-}
-
-let cachedPalette = /** @type {any} */ (null);
-let cachedTheme = /** @type {string | null} */ (null);
-
-function colors() {
-  const theme = isDark() ? "dark" : "light";
-  if (cachedPalette && cachedTheme === theme) {
-    return cachedPalette;
-  }
-
-  cachedTheme = theme;
-  cachedPalette = {
-    blue: css("--color-blue"),
-    green: css("--color-green"),
-    red: css("--color-red"),
-    noteBlue: css("--note-blue"),
-    noteGreen: css("--note-green"),
-    noteRed: css("--note-red"),
-    blueA(alpha) {
-      return cssAlpha("--note-blue", alpha);
-    },
-    greenA(alpha) {
-      return cssAlpha("--note-green", alpha);
-    },
-    redA(alpha) {
-      return cssAlpha("--note-red", alpha);
-    },
-    redText: css("--color-red-text"),
-    greenText: css("--color-green-text"),
-    redEmphasis: css("--color-red-emphasis"),
-    greenEmphasis: css("--color-green-emphasis"),
-    surface: css("--color-surface"),
-    tick: css("--chart-tick"),
-    grid: css("--chart-grid"),
-    annotationBorder: css("--chart-annotation-border"),
-    annotationBg: css("--chart-annotation-bg"),
-    annotationText: css("--chart-annotation-text")
-  };
-
-  return cachedPalette;
-}
-
-/** @returns {object} Fresh chart color palette read from CSS custom properties. */
-export function refreshPalette() {
-  cachedTheme = null;
-  cachedPalette = null;
-  return colors();
-}
+export { refreshPalette };
 
 function pad(values, length) {
   if (values.length >= length) {

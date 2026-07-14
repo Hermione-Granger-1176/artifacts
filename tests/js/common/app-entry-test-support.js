@@ -55,6 +55,17 @@ export function setupFullMocks() {
     'btnPeriod', 'btnYearly', 'tableSummary',
     'periodTableWrap', 'yearlyTableWrap', 'tbody', 'ybody',
     'balanceChart', 'compChart', 'savingsChart', 'cumulChart', 'periodChart',
+    'slCoupon', 'slYears',
+    'rateValue', 'couponValue', 'yearsValue',
+    'priceCaption', 'priceValue', 'regimeBadge', 'rateArrow', 'priceArrow',
+    'heroExplain', 'couponCompare', 'mechanismExplain',
+    'mathLegendCoupon', 'mathLegendRate', 'mathLegendYears', 'mathLegendFace',
+    'mathSchedule', 'mathExplain',
+    'sensitivityChart', 'sensitivityExplain', 'priceRateChart', 'rippleExplain',
+    'statCurrentYield', 'statMacaulay', 'statModified', 'statConvexity',
+    'pvSplit', 'analystExplain',
+    'btnCurveNormal', 'btnCurveFlat', 'btnCurveInverted', 'btnApplyCurve',
+    'yieldCurveChart', 'curveExplain',
     'tabs', 'scenario-type', 'sentence-prefix',
     'temp-slider', 'temp-val', 'topp-slider', 'topp-val',
     'bars', 'token-pills', 'insight-box', 'concepts',
@@ -68,6 +79,8 @@ export function setupFullMocks() {
   elementMap.slRate.value = '6';
   elementMap.slTenure.value = '15';
   elementMap.selFreq.value = 'monthly';
+  elementMap.slCoupon.value = '5';
+  elementMap.slYears.value = '10';
   elementMap['temp-slider'].value = '10';
   elementMap['topp-slider'].value = '90';
 
