@@ -1,6 +1,7 @@
 import { getPageNumbers } from './catalog.js';
-export { escapeHtml } from '../html-escape.js';
 import { escapeHtml } from '../html-escape.js';
+
+export { escapeHtml };
 import { ICONS } from './icons.js';
 
 const CARD_COLORS = [
