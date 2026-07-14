@@ -61,24 +61,20 @@ initializeMatureApp({
 });
 
 function bindLoanEvents() {
+  const syncInputsAndRecalculate = () => {
+    syncInputsFromSliders(elements);
+    recalc();
+  };
+
   bindEvents({
     elements,
     onSliderInput: () => {
       syncInputsFromSliders(elements);
       scheduleRecalc();
     },
-    onPrincipalCommit: () => {
-      syncInputsFromSliders(elements);
-      recalc();
-    },
-    onRateCommit: () => {
-      syncInputsFromSliders(elements);
-      recalc();
-    },
-    onTenureCommit: () => {
-      syncInputsFromSliders(elements);
-      recalc();
-    },
+    onPrincipalCommit: syncInputsAndRecalculate,
+    onRateCommit: syncInputsAndRecalculate,
+    onTenureCommit: syncInputsAndRecalculate,
     onFrequencyChange: () => {
       updateBiweeklyMode();
       renderExtrasSection();

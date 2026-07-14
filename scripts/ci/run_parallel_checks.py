@@ -63,7 +63,9 @@ def run_checks(
 ) -> tuple[CheckResult, ...]:
     """Run all targets in parallel and return results sorted by name."""
     with ThreadPoolExecutor() as pool:
-        futures = {pool.submit(run_check, t, timeout=timeout, run_fn=run_fn): t for t in targets}
+        futures = [
+            pool.submit(run_check, target, timeout=timeout, run_fn=run_fn) for target in targets
+        ]
         results = [future.result() for future in as_completed(futures)]
     return tuple(sorted(results, key=lambda r: r.name))
 

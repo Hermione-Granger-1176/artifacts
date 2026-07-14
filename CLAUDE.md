@@ -26,7 +26,7 @@ Each artifact lives in its own directory under `apps/` with an `index.html` entr
 
 ## Adding a new artifact
 
-Two one-command flows. Both emit a complete artifact that passes every gate (`make validate`, ESLint, stylelint, Knip, tsc, and the JS test-coverage check) with zero hand edits.
+Two one-command flows. Both emit a complete artifact structure. The fresh-placeholder flow passes every gate (`make validate`, ESLint, stylelint, Knip, tsc, and the JS test-coverage check) with zero hand edits. A `src=` import preserves supplied off-origin references, so its CSP gate passes only after any reported references are vendored or removed.
 
 **Fresh placeholder:**
 

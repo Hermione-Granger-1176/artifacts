@@ -71,10 +71,7 @@ def check_generated_drift() -> list[Path]:
         generate_styles.generate()
         generate_index.generate()
         drifted = _detect_drift(snapshots)
-    except Exception:
-        _restore_snapshots(snapshots)
-        raise
-    else:
+    finally:
         _restore_snapshots(snapshots)
 
     return drifted

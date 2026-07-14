@@ -306,31 +306,28 @@ def test_generate_thumbnails_rejects_manifest_outside_repo_root(
         generate_thumbnails.generate_thumbnails()
 
 
-def test_artifact_url_prefers_http_base_when_configured(tmp_path: Path) -> None:
+def test_artifact_url_prefers_http_base_when_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test artifact url prefers http base when configured."""
     artifact_dir = tmp_path / "apps" / "loan-tool"
     artifact_dir.mkdir(parents=True)
-    previous_base_url = generate_thumbnails.ARTIFACT_BASE_URL
-    generate_thumbnails.ARTIFACT_BASE_URL = "http://127.0.0.1:9999"
-    try:
-        assert (
-            generate_thumbnails.artifact_url(artifact_dir)
-            == "http://127.0.0.1:9999/apps/loan-tool/"
-        )
-    finally:
-        generate_thumbnails.ARTIFACT_BASE_URL = previous_base_url
+    monkeypatch.setattr(generate_thumbnails, "ARTIFACT_BASE_URL", "http://127.0.0.1:9999")
+
+    assert generate_thumbnails.artifact_url(artifact_dir) == (
+        "http://127.0.0.1:9999/apps/loan-tool/"
+    )
 
 
-def test_artifact_url_falls_back_to_file_uri(tmp_path: Path) -> None:
+def test_artifact_url_falls_back_to_file_uri(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Test artifact url falls back to file uri."""
     artifact_dir = tmp_path / "apps" / "loan-tool"
     _write_text(artifact_dir / "index.html", "<html></html>")
-    previous_base_url = generate_thumbnails.ARTIFACT_BASE_URL
-    generate_thumbnails.ARTIFACT_BASE_URL = ""
-    try:
-        assert generate_thumbnails.artifact_url(artifact_dir).startswith("file://")
-    finally:
-        generate_thumbnails.ARTIFACT_BASE_URL = previous_base_url
+    monkeypatch.setattr(generate_thumbnails, "ARTIFACT_BASE_URL", "")
+
+    assert generate_thumbnails.artifact_url(artifact_dir).startswith("file://")
 
 
 def test_quiet_static_handler_log_message_is_noop() -> None:
