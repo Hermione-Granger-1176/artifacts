@@ -10,6 +10,7 @@ from tests.browser.frontend_helpers import (
     REPO_ROOT,
     MonitoredPage,
     StaticServer,
+    app_scope_skipif,
     build_real_site,
     selected_app_slugs,
 )
@@ -45,6 +46,7 @@ def test_app_smoke_pages_load_cleanly(tmp_path: Path, monkeypatch, slug: str) ->
         assert app_name in page.title()
 
 
+@app_scope_skipif("tokenizer-explorer")
 def test_app_runtime_error_banner_is_visible_when_bootstrap_fails(
     tmp_path: Path, monkeypatch
 ) -> None:

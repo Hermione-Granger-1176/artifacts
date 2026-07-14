@@ -185,6 +185,14 @@ def selected_app_slugs() -> list[str]:
     return [slug.strip() for slug in configured.split(",") if slug.strip()]
 
 
+def app_scope_skipif(slug: str) -> pytest.MarkDecorator:
+    """Skip a slug-specific test when the slug is outside the selected app scope."""
+    return pytest.mark.skipif(
+        slug not in selected_app_slugs(),
+        reason=f"{slug} is outside the selected browser app scope",
+    )
+
+
 class StaticServer:
     """StaticServer."""
 
