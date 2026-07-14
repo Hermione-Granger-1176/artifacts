@@ -1,0 +1,1 @@
+import{CURVE_BUTTON_IDS as c}from"./ui.js";export function bindEvents({elements:t,onSliderInput:e,onCurveSelect:i,onApplyCurveRate:o}){for(const n of["slRate","slCoupon","slYears"])t[n].addEventListener("input",e);for(const[n,r]of Object.entries(c))t[r].addEventListener("click",()=>i(n));t.btnApplyCurve.addEventListener("click",o)}
