@@ -28,7 +28,7 @@
 - `js/modules/schedule-summary.js`
   - exports cadence metadata, accelerated bi-weekly EMI derivation, and schedule total rollups
 - `js/modules/charts.js`
-  - owns theme-aware Chart.js initialization, palette refresh, and in-place chart updates
+  - owns Chart.js initialization, palette refresh, and in-place chart updates; the theme-aware palette caching comes from the shared `js/modules/chart-theme.js` at the repo root
 - `js/modules/tables.js`
   - exports table summary, period rows, and yearly rollup rendering
 - `js/modules/extras.js`
