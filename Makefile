@@ -11,6 +11,9 @@ VENV        ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
 NPM         ?= npm
 
+# Port for the local static preview server (make serve). Override with PORT=NNNN.
+PORT        ?= 8000
+
 # Python source tree that mypy strict-checks. Tests are intentionally excluded.
 PY_TYPE_PATHS := scripts/
 
@@ -226,7 +229,7 @@ coverage-js-floors: ## Enforce per-file JS coverage floors (reads the coverage-j
 
 # ─── Build @build ─────────────────────────────────────────────────────────────
 
-.PHONY: validate thumbnails styles index site generate new optimize-social-image
+.PHONY: validate thumbnails styles index site serve generate new optimize-social-image
 
 validate: ## Check artifact directories are complete
 	$(VENV_PYTHON) -c "from scripts.build.generate_index import validate; validate()"
@@ -242,6 +245,10 @@ index: ## Rebuild js/data.js, js/gallery-config.js, README
 
 site: styles ## Assemble _site/ deploy payload
 	$(VENV_PYTHON) scripts/build/prepare_site.py
+
+serve: index site ## Build the packaged site and serve it locally (make serve [PORT=8000])
+	@printf '\n  Serving _site/ at \033[1mhttp://localhost:%s/\033[0m  (Ctrl-C to stop)\n\n' "$(PORT)"
+	$(PYTHON) -m http.server $(PORT) --directory _site --bind 127.0.0.1
 
 generate: styles thumbnails index ## Rebuild all canonical generated assets
 

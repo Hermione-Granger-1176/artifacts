@@ -267,12 +267,6 @@ body.app-loan-amortization .chart-row {
 
 }
 
-body.app-loan-amortization .chart-frame {
-  position: relative;
-  width: 100%;
-
-}
-
 body.app-loan-amortization .chart-frame.is-tall {
   height: 280px;
 

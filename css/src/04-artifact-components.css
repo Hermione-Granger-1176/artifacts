@@ -321,6 +321,13 @@ body.artifact-app .chart-card h2 {
 
 }
 
+/* Canvas wrapper for Chart.js; apps set the height per frame variant. */
+body.artifact-app .chart-frame {
+  position: relative;
+  width: 100%;
+
+}
+
 body.artifact-app .chart-legend {
   display: flex;
   flex-wrap: wrap;
