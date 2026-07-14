@@ -5,9 +5,15 @@ from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
-from tests.browser.frontend_helpers import MonitoredPage, StaticServer, build_real_site
+from tests.browser.frontend_helpers import (
+    MonitoredPage,
+    StaticServer,
+    app_scope_skipif,
+    build_real_site,
+)
 
 
+@app_scope_skipif("loan-amortization")
 def test_loan_amortization_flow_covers_theme_and_schedule(tmp_path: Path, monkeypatch) -> None:
     """Test loan amortization flow covers theme and schedule."""
     deploy_root = build_real_site(tmp_path, monkeypatch)
@@ -57,6 +63,7 @@ def test_loan_amortization_flow_covers_theme_and_schedule(tmp_path: Path, monkey
         expect(page.locator("#scroll-top")).to_have_attribute("aria-hidden", "false")
 
 
+@app_scope_skipif("tokenizer-explorer")
 def test_tokenizer_explorer_flow_covers_sampling_and_theme(tmp_path: Path, monkeypatch) -> None:
     """Test tokenizer explorer flow covers sampling and theme."""
     deploy_root = build_real_site(tmp_path, monkeypatch)
@@ -111,6 +118,7 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(tmp_path: Path, monke
         expect(page.locator("html")).to_have_attribute("data-theme", "dark")
 
 
+@app_scope_skipif("prompt-caching")
 def test_prompt_caching_flow_covers_calculator_attention_and_embeddings(
     tmp_path: Path, monkeypatch
 ) -> None:

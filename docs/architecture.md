@@ -131,7 +131,7 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
 - **`plan`** (timeout: 5 min, permissions: contents read, pull-requests read)
   - Calls `scripts/ci/workflow_helpers.py thumbnail-plan` with the event context.
   - Queries the GitHub API for changed files in the PR.
-  - Classifies each changed file: runtime change (`index.html`, `js/`, `assets/`, `css/`), metadata change (`name.txt`, `tags.txt`, etc.), docs change, or shared infra change (`css/src/`, `css/style.css`, `js/app-theme.js`, `js/modules/app-shell.js`).
+  - Classifies each changed file: per-app runtime change (`apps/<slug>/index.html`, `apps/<slug>/js/`, `apps/<slug>/assets/`, `apps/<slug>/css/`), metadata change (`name.txt`, `tags.txt`, etc.), docs change, or shared runtime change (`css/style.css`, `js/app-theme.js`, and anything under `js/modules/` outside `js/modules/gallery/`).
   - Resolves the primary app bot login dynamically from `vars.APP_ID` / `secrets.APP_PRIVATE_KEY` via `actions/create-github-app-token` (with `continue-on-error: true` for forks and Dependabot PRs where secrets are unavailable).
   - Computes `skip-verification`: `true` only when the workflow actor matches the resolved app bot login AND every file in the triggering commit is a thumbnail. For main pushes from merged thumbnail follow-up PRs, the commit-level files check is applied as defense-in-depth alongside existing PR provenance detection. Any detection failure defaults to `false` (full pipeline runs).
   - Outputs: `browser-scope` (all / changed / none), `thumbnail-scope` (all / changed / none), `persist-mode` (pr-branch), `changed-slugs`, `thumbnail-slugs`, `reason`, `skip-verification`.

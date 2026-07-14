@@ -25,25 +25,41 @@ APP_METADATA_FILES = {
 SHARED_APP_RUNTIME_FILES = (
     Path("css/style.css"),
     Path("js/app-theme.js"),
-    Path("js/modules/app-shell.js"),
 )
 SHARED_APP_RUNTIME_PATHS = {*(path.as_posix() for path in SHARED_APP_RUNTIME_FILES)}
+SHARED_APP_MODULES_DIR = Path("js/modules")
+GALLERY_MODULES_DIR = Path("js/modules/gallery")
+SHARED_APP_MODULES_PREFIX = f"{SHARED_APP_MODULES_DIR.as_posix()}/"
+GALLERY_MODULES_PREFIX = f"{GALLERY_MODULES_DIR.as_posix()}/"
 SHARED_APP_BROWSER_TEST_PATHS = {
     "tests/browser/frontend_helpers.py",
     "tests/browser/test_frontend_apps_accessibility.py",
     "tests/browser/test_frontend_apps_browser_flows.py",
     "tests/browser/test_frontend_apps_smoke.py",
 }
-SHARED_APP_RUNTIME_IMPACT_PATHS = SHARED_APP_RUNTIME_PATHS
-SHARED_APP_BROWSER_IMPACT_PATHS = {
-    *SHARED_APP_RUNTIME_PATHS,
-    *SHARED_APP_BROWSER_TEST_PATHS,
-}
+
+
+def is_shared_app_runtime_path(filename: str) -> bool:
+    """Return whether one repo-relative path is part of the shared app runtime."""
+    if filename in SHARED_APP_RUNTIME_PATHS:
+        return True
+    return filename.startswith(SHARED_APP_MODULES_PREFIX) and not filename.startswith(
+        GALLERY_MODULES_PREFIX
+    )
 
 
 def shared_app_runtime_paths(repo_root: Path) -> tuple[Path, ...]:
     """Return shared app runtime files rooted at ``repo_root``."""
-    return tuple(repo_root / relative_path for relative_path in SHARED_APP_RUNTIME_FILES)
+    gallery_root = repo_root / GALLERY_MODULES_DIR
+    module_files = sorted(
+        path
+        for path in (repo_root / SHARED_APP_MODULES_DIR).rglob("*")
+        if path.is_file() and not path.is_relative_to(gallery_root)
+    )
+    return (
+        *(repo_root / relative_path for relative_path in SHARED_APP_RUNTIME_FILES),
+        *module_files,
+    )
 
 
 def artifact_uses_shared_app_runtime(artifact_dir: Path) -> bool:
@@ -101,7 +117,7 @@ def runtime_change_plan(changed_files: list[str]) -> dict[str, object]:
     shared_runtime_changed = False
 
     for filename in changed_files:
-        if filename in SHARED_APP_RUNTIME_IMPACT_PATHS:
+        if is_shared_app_runtime_path(filename):
             shared_runtime_changed = True
             continue
 

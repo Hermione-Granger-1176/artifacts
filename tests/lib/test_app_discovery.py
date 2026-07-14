@@ -17,14 +17,19 @@ def test_load_contract_returns_expected_fields() -> None:
     assert contract["thumbnailFile"] == "thumbnail.webp"
 
 
-def test_shared_app_runtime_paths_are_rooted() -> None:
-    """Test shared app runtime paths are rooted."""
-    repo_root = Path("/tmp/repo")
+def test_shared_app_runtime_paths_are_rooted(tmp_path: Path) -> None:
+    """Test shared app runtime paths are rooted and discover non-gallery modules."""
+    modules_dir = tmp_path / "js" / "modules"
+    (modules_dir / "gallery").mkdir(parents=True)
+    (modules_dir / "app-shell.js").write_text("export {};\n", encoding="utf-8")
+    (modules_dir / "chart-theme.js").write_text("export {};\n", encoding="utf-8")
+    (modules_dir / "gallery" / "render.js").write_text("export {};\n", encoding="utf-8")
 
-    assert app_discovery.shared_app_runtime_paths(repo_root) == (
-        repo_root / "css" / "style.css",
-        repo_root / "js" / "app-theme.js",
-        repo_root / "js" / "modules" / "app-shell.js",
+    assert app_discovery.shared_app_runtime_paths(tmp_path) == (
+        tmp_path / "css" / "style.css",
+        tmp_path / "js" / "app-theme.js",
+        modules_dir / "app-shell.js",
+        modules_dir / "chart-theme.js",
     )
 
 
@@ -46,16 +51,15 @@ def test_artifact_uses_shared_app_runtime_detects_local_entrypoints(
     assert app_discovery.artifact_uses_shared_app_runtime(artifact_dir) is True
 
 
-def test_runtime_impact_paths_include_shared_runtime_files() -> None:
-    """Test runtime impact paths include shared runtime files."""
-    assert app_discovery.SHARED_APP_RUNTIME_IMPACT_PATHS.issuperset(
-        path.as_posix() for path in app_discovery.SHARED_APP_RUNTIME_FILES
-    )
-    assert not (
-        app_discovery.SHARED_APP_RUNTIME_IMPACT_PATHS & app_discovery.SHARED_APP_BROWSER_TEST_PATHS
-    )
-    assert app_discovery.SHARED_APP_BROWSER_IMPACT_PATHS.issuperset(
-        app_discovery.SHARED_APP_BROWSER_TEST_PATHS
+def test_is_shared_app_runtime_path_covers_shared_files_and_modules() -> None:
+    """Test the shared runtime predicate covers shared files and non-gallery modules."""
+    for path in app_discovery.SHARED_APP_RUNTIME_FILES:
+        assert app_discovery.is_shared_app_runtime_path(path.as_posix())
+    assert app_discovery.is_shared_app_runtime_path("js/modules/chart-theme.js")
+    assert not app_discovery.is_shared_app_runtime_path("js/modules/gallery/render.js")
+    assert not any(
+        app_discovery.is_shared_app_runtime_path(path)
+        for path in app_discovery.SHARED_APP_BROWSER_TEST_PATHS
     )
 
 
@@ -88,7 +92,7 @@ def test_runtime_change_plan_handles_changed_and_shared_runtime_paths() -> None:
             "apps/loan-tool/js/app.js",
             "apps/budget-tool/assets/chart.json",
             "apps/budget-tool/css/app.css",
-            "css/style.css",
+            "js/modules/chart-theme.js",
         ]
     )
 
@@ -107,6 +111,7 @@ def test_runtime_change_plan_returns_none_for_non_runtime_changes() -> None:
             "README.md",
             "apps/loan-tool/docs/verification.md",
             "apps/loan-tool/tags.txt",
+            "js/modules/gallery/render.js",
         ]
     ) == {
         "app_scope": "none",
