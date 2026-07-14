@@ -1,0 +1,1 @@
+export function formatCurrency(t,r=2){return`$${t.toLocaleString("en-US",{minimumFractionDigits:r,maximumFractionDigits:r})}`}export function formatPercent(t,r=1){return`${t.toFixed(r)}%`}export{formatDollarTick}from"../../../../js/modules/formatting.js";
