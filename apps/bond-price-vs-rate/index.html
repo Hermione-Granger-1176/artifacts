@@ -10,26 +10,26 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/">
   <meta property="og:site_name" content="Artifacts">
-  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=8febddb">
-  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=8febddb">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=84f5017">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=84f5017">
   <meta property="og:image:alt" content="Preview card for the Bonds vs Interest Rates app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Bonds vs Interest Rates | Artifacts">
   <meta name="twitter:description" content="A plain-language explainer of why bond prices fall when interest rates rise: drag the rate to reprice a bond you own, see how coupon and maturity change the swing, and what the move means for the wider economy.">
-  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=8febddb">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=84f5017">
   <meta name="twitter:image:alt" content="Preview card for the Bonds vs Interest Rates app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
   <title>Bonds vs Interest Rates | Artifacts</title>
-  <script src="../../js/app-theme.js?v=8febddb"></script>
+  <script src="../../js/app-theme.js?v=84f5017"></script>
   <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
   <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
   <link rel="preload" href="./js/vendor/chart.umd.min.js" as="script">
-  <link rel="stylesheet" href="../../css/style.css?v=8febddb">
-  <link rel="stylesheet" href="./css/app.css?v=8febddb">
+  <link rel="stylesheet" href="../../css/style.css?v=84f5017">
+  <link rel="stylesheet" href="./css/app.css?v=84f5017">
   <script defer src="./js/vendor/chart.umd.min.js"></script>
   <link rel="modulepreload" href="js/modules/bond-math.js">
   <link rel="modulepreload" href="js/modules/charts.js">
@@ -38,9 +38,9 @@
   <link rel="modulepreload" href="../../js/modules/runtime.js">
   <link rel="modulepreload" href="../../js/modules/app-shell.js">
   <link rel="modulepreload" href="js/modules/interactions.js">
+  <link rel="modulepreload" href="../../js/modules/segmented.js">
   <link rel="modulepreload" href="js/modules/ui.js">
   <link rel="modulepreload" href="../../js/modules/element-cache.js">
-  <link rel="modulepreload" href="js/modules/formatting.js">
   <link rel="modulepreload" href="../../js/modules/formatting.js">
   <link rel="modulepreload" href="js/modules/narrative.js">
 </head>
@@ -91,11 +91,11 @@
           <div class="br-price-block">
             <span class="br-price-caption" id="priceCaption">This 10-year, 5% bond is now worth</span>
             <span class="br-price" id="priceValue">$1,000.00</span>
-            <span class="br-badge is-par" id="regimeBadge">At par</span>
+            <span class="chip is-blue" id="regimeBadge">At par</span>
           </div>
           <div class="br-seesaw">
-            <span class="br-vs-item"><span class="br-vs-label">Rate</span><span class="br-arrow" id="rateArrow" aria-hidden="true">&mdash;</span></span>
-            <span class="br-vs-item"><span class="br-vs-label">Price</span><span class="br-arrow" id="priceArrow" aria-hidden="true">&mdash;</span></span>
+            <span class="br-vs-item"><span class="section-kicker">Rate</span><span class="br-arrow" id="rateArrow" aria-hidden="true">&mdash;</span></span>
+            <span class="br-vs-item"><span class="section-kicker">Price</span><span class="br-arrow" id="priceArrow" aria-hidden="true">&mdash;</span></span>
           </div>
         </div>
 
@@ -112,7 +112,7 @@
     <!-- 2. WHY IT HAPPENS: the mechanism, with the coupon control -->
     <section class="page-section br-section">
       <div class="br-section-head">
-        <span class="br-step">Why it happens</span>
+        <p class="section-kicker">Why it happens</p>
         <h2>The payments are locked in. The price is not.</h2>
       </div>
       <p>When this bond was issued it promised a fixed <strong>coupon</strong>: the same dollar payment every year until it matures. That promise never changes. So the only lever the market has to make an older bond compete with newly issued ones is its <em>price</em>. Raise the coupon in the control panel above and watch how it changes whether buyers pay up or demand a discount.</p>
@@ -123,7 +123,7 @@
 
       <p class="br-explain" id="mechanismExplain"></p>
 
-      <div class="app-callout br-callout">
+      <div class="app-callout is-blue">
         <div class="app-callout-title">Premium, par, discount</div>
         <div class="app-callout-body">If your coupon beats today's market rate, buyers pay <em>more</em> than the $1,000 face value (a premium). If it lags, they only buy at a <em>discount</em>. If the two match, the bond trades right at par.</div>
       </div>
@@ -132,7 +132,7 @@
     <!-- 3. THE MATHEMATICS: discounting, the pricing formula, and a worked example -->
     <section class="page-section br-section">
       <div class="br-section-head">
-        <span class="br-step">The mathematics</span>
+        <p class="section-kicker">The mathematics</p>
         <h2>One formula prices every bond.</h2>
       </div>
       <p>A dollar arriving in <em>t</em> years is worth only 1/(1 + r)<sup>t</sup> dollars today, because today's dollar could be invested at the market rate <em>r</em> and grow to match it. Every future coupon and the face repayment gets shrunk by that factor, and the price is simply their sum.</p>
@@ -188,7 +188,7 @@
     <!-- 4. SENSITIVITY: maturity, with the years control -->
     <section class="page-section br-section">
       <div class="br-section-head">
-        <span class="br-step">How hard it swings</span>
+        <p class="section-kicker">How hard it swings</p>
         <h2>The longer the bond, the bigger the move.</h2>
       </div>
       <p>A rate change is applied to every remaining payment, and long bonds have far more payments still waiting to be discounted. So the same rate move barely dents a short bond but can hammer a long one. That sensitivity is what professionals call <em>duration</em>. Drag the years slider in the control panel above to move your bond along the chart.</p>
@@ -204,15 +204,15 @@
     <!-- 5. THE YIELD CURVE: one rate per maturity -->
     <section class="page-section br-section">
       <div class="br-section-head">
-        <span class="br-step">The missing piece</span>
+        <p class="section-kicker">The missing piece</p>
         <h2>There isn't one interest rate. There's a curve.</h2>
       </div>
       <p>Everything above priced the bond against a single market rate. In reality the market quotes a different yield for every maturity, and the line through them is the <strong>yield curve</strong>, one of the most watched signals in finance. Pick a shape to see what the market pays at each maturity.</p>
 
-      <div class="br-curve-toggle" role="group" aria-label="Yield curve shape">
-        <button class="toggle-btn active" id="btnCurveNormal" type="button" aria-pressed="true">Normal</button>
-        <button class="toggle-btn" id="btnCurveFlat" type="button" aria-pressed="false">Flat</button>
-        <button class="toggle-btn" id="btnCurveInverted" type="button" aria-pressed="false">Inverted</button>
+      <div class="segmented" id="curveToggle" role="group" aria-label="Yield curve shape">
+        <button class="active" id="btnCurveNormal" type="button" aria-pressed="true">Normal</button>
+        <button id="btnCurveFlat" type="button" aria-pressed="false">Flat</button>
+        <button id="btnCurveInverted" type="button" aria-pressed="false">Inverted</button>
       </div>
 
       <div class="page-card chart-card">
@@ -232,31 +232,31 @@
     <!-- 6. THE ANALYST READOUT: duration, convexity, DV01, and the price split -->
     <section class="page-section br-section">
       <div class="br-section-head">
-        <span class="br-step">The analyst readout</span>
+        <p class="section-kicker">The analyst readout</p>
         <h2>The numbers a trading desk would quote.</h2>
       </div>
       <p>Professionals compress everything you just dragged through into a handful of standard risk numbers. All four update live as you move the sliders in the panel at the top.</p>
 
-      <div class="br-stat-grid">
-        <div class="page-card br-stat">
-          <span class="br-stat-label">Current yield</span>
-          <span class="br-stat-value" id="statCurrentYield">5.00%</span>
-          <span class="br-stat-sub">Annual coupon dollars divided by today's price</span>
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-label">Current yield</div>
+          <div class="stat-value" id="statCurrentYield">5.00%</div>
+          <div class="stat-sub">Annual coupon dollars divided by today's price</div>
         </div>
-        <div class="page-card br-stat">
-          <span class="br-stat-label">Macaulay duration</span>
-          <span class="br-stat-value" id="statMacaulay">8.1 yrs</span>
-          <span class="br-stat-sub">Value-weighted wait for your cash to come back</span>
+        <div class="stat">
+          <div class="stat-label">Macaulay duration</div>
+          <div class="stat-value" id="statMacaulay">8.1 yrs</div>
+          <div class="stat-sub">Value-weighted wait for your cash to come back</div>
         </div>
-        <div class="page-card br-stat">
-          <span class="br-stat-label">Modified duration</span>
-          <span class="br-stat-value" id="statModified">7.7</span>
-          <span class="br-stat-sub">Percent price drop per one-point rate rise</span>
+        <div class="stat">
+          <div class="stat-label">Modified duration</div>
+          <div class="stat-value" id="statModified">7.7</div>
+          <div class="stat-sub">Percent price drop per one-point rate rise</div>
         </div>
-        <div class="page-card br-stat">
-          <span class="br-stat-label">Convexity</span>
-          <span class="br-stat-value" id="statConvexity">75</span>
-          <span class="br-stat-sub">How much the price-rate curve bends in your favor</span>
+        <div class="stat">
+          <div class="stat-label">Convexity</div>
+          <div class="stat-value" id="statConvexity">75</div>
+          <div class="stat-sub">How much the price-rate curve bends in your favor</div>
         </div>
       </div>
 
@@ -272,7 +272,7 @@
     <!-- 7. THE RIPPLE: economy and future bonds -->
     <section class="page-section br-section">
       <div class="br-section-head">
-        <span class="br-step">The ripple</span>
+        <p class="section-kicker">The ripple</p>
         <h2>Why one rate move touches the whole economy.</h2>
       </div>
       <p class="br-explain" id="rippleExplain"></p>
@@ -295,6 +295,6 @@
 
   <div data-app-shell="scroll-top"></div>
 
-  <script type="module" src="./js/app.js?v=8febddb"></script>
+  <script type="module" src="./js/app.js?v=84f5017"></script>
 </body>
 </html>
