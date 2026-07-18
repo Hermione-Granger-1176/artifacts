@@ -10,35 +10,37 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/">
   <meta property="og:site_name" content="Artifacts">
-  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=84f5017">
-  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=84f5017">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=83e5478">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=83e5478">
   <meta property="og:image:alt" content="Preview card for the Tokenizer: Temperature & Top P Explorer app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Tokenizer: Temperature &amp; Top P Explorer | Artifacts">
   <meta name="twitter:description" content="Interactive explainer for tokenization, LLM next-token probabilities, temperature scaling, top-p sampling, and empirical draws.">
-  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=84f5017">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=83e5478">
   <meta name="twitter:image:alt" content="Preview card for the Tokenizer: Temperature & Top P Explorer app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
   <title>Tokenizer: Temperature &amp; Top P Explorer | Artifacts</title>
-  <script src="../../js/app-theme.js?v=84f5017"></script>
+  <script src="../../js/app-theme.js?v=83e5478"></script>
   <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
   <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
   <link rel="preload" href="./js/vendor/chart.umd.min.js" as="script">
-  <link rel="stylesheet" href="../../css/style.css?v=84f5017">
-  <link rel="stylesheet" href="./css/app.css?v=84f5017">
+  <link rel="stylesheet" href="../../css/style.css?v=83e5478">
+  <link rel="stylesheet" href="./css/app.css?v=83e5478">
   <script defer src="./js/vendor/chart.umd.min.js"></script>
   <link rel="modulepreload" href="../../js/modules/app-shell.js">
   <link rel="modulepreload" href="../../js/modules/runtime.js">
   <link rel="modulepreload" href="../../js/modules/app-runtime.js">
   <link rel="modulepreload" href="../../js/modules/element-cache.js">
   <link rel="modulepreload" href="../../js/modules/section-nav.js">
+  <link rel="modulepreload" href="../../js/modules/segmented.js">
   <link rel="modulepreload" href="js/modules/charts.js">
   <link rel="modulepreload" href="../../js/modules/chart-theme.js">
+  <link rel="modulepreload" href="../../js/modules/formatting.js">
   <link rel="modulepreload" href="js/modules/accordion.js">
   <link rel="modulepreload" href="js/modules/render.js">
   <link rel="modulepreload" href="js/modules/token-examples.js">
@@ -48,16 +50,7 @@
 <body class="artifact-app app-tokenizer-explorer">
   <div data-app-shell="header"></div>
 
-  <nav class="section-nav" aria-label="Section progress">
-    <div class="section-nav-inner">
-      <div class="section-nav-track">
-        <div class="section-nav-line"></div>
-        <div class="section-nav-fill" id="nav-fill"></div>
-        <div class="section-nav-nodes" id="nav-nodes"></div>
-      </div>
-      <div class="section-nav-label" id="nav-label">Tokens</div>
-    </div>
-  </nav>
+  <div data-section-nav></div>
 
   <main class="page-shell">
     <div data-app-shell="runtime-error"></div>
@@ -85,7 +78,7 @@
         <h2 id="sampling-heading">Score a next token, then choose one</h2>
       </div>
 
-      <div class="scenario-tabs" id="tabs"></div>
+      <div class="segmented scenario-tabs" id="tabs" role="group" aria-label="Sampling scenario"></div>
 
       <section class="code-window scenario-box">
         <div class="code-window-head">
@@ -96,7 +89,7 @@
           <div class="sentence-display">
             <span id="sentence-prefix"></span><span class="blank" id="sentence-completion" aria-live="polite"></span>
           </div>
-          <div class="hint">The model is choosing the next token.</div>
+          <div class="app-callout">The model is choosing the next token.</div>
         </div>
       </section>
 
@@ -164,7 +157,7 @@
       <section class="page-card token-pool-card" aria-label="Top P token pool">
         <p class="section-label">Token pool after the Top P cutoff:</p>
         <div class="pills-row" id="token-pills"></div>
-        <div class="insight" id="insight-box"></div>
+        <div class="app-callout is-blue" id="insight-box"></div>
       </section>
 
       <div class="code-window sampling-code">
@@ -261,6 +254,6 @@ pool = <span class="syn-fn">keep_until</span>(probs, total >= <span class="syn-c
 
   <div data-app-shell="scroll-top"></div>
 
-  <script type="module" src="./js/app.js?v=84f5017"></script>
+  <script type="module" src="./js/app.js?v=83e5478"></script>
 </body>
 </html>
