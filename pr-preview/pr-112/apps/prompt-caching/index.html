@@ -10,26 +10,26 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/">
   <meta property="og:site_name" content="Artifacts">
-  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=67dd1e7">
-  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=67dd1e7">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=d236e46">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=d236e46">
   <meta property="og:image:alt" content="Preview card for the Prompt Caching, Demystified app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Prompt Caching, Demystified | Artifacts">
   <meta name="twitter:description" content="Interactive explainer on how LLM prompt caching works, from tokenizer to embeddings, attention, and the KV cache that providers reuse to cut cost and latency.">
-  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=67dd1e7">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=d236e46">
   <meta name="twitter:image:alt" content="Preview card for the Prompt Caching, Demystified app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
   <title>Prompt Caching, Demystified | Artifacts</title>
-  <script src="../../js/app-theme.js?v=67dd1e7"></script>
+  <script src="../../js/app-theme.js?v=d236e46"></script>
   <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
   <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
-  <link rel="stylesheet" href="../../css/style.css?v=67dd1e7">
-  <link rel="stylesheet" href="./css/app.css?v=67dd1e7">
+  <link rel="stylesheet" href="../../css/style.css?v=d236e46">
+  <link rel="stylesheet" href="./css/app.css?v=d236e46">
   <link rel="modulepreload" href="../../js/modules/app-shell.js">
   <link rel="modulepreload" href="../../js/modules/runtime.js">
   <link rel="modulepreload" href="../../js/modules/app-runtime.js">
@@ -110,8 +110,8 @@
       <h2>LLMs are loops, not magic</h2>
       <p>At the highest level, an LLM is a giant mathematical function that takes a list of numbers in and spits one number out. That output number is a new token. Then it appends that token to the input and runs the whole function again. And again. Until a special "stop" token appears.</p>
       <div class="code-window">
-        <div class="code-window-head" aria-hidden="true">
-          <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+        <div class="code-window-head">
+          <span class="code-dots" aria-hidden="true"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></span>
           <span class="code-window-title">The entire inference loop</span>
         </div>
         <pre>prompt = <span class="syn-str">"Explain prompt caching"</span>
@@ -202,8 +202,8 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
       <p>Tokens are just integers. The number 4821 is no more "similar" to 4822 than to 99103. But we need the model to understand that "happy" and "joyful" are close in meaning while "happy" and "submarine" are not. The fix: give every token a position in a <span class="pc-hl-warm">high-dimensional space</span>.</p>
       <p>An embedding is an array of numbers representing a coordinate in this space. If we had 3 dimensions, an embedding might look like <code>[0.71, -0.33, 0.52]</code>. During training, the model nudges all tokens around this space until words with similar meanings cluster together.</p>
       <div class="code-window">
-        <div class="code-window-head" aria-hidden="true">
-          <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+        <div class="code-window-head">
+          <span class="code-dots" aria-hidden="true"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></span>
           <span class="code-window-title">The embedding lookup table</span>
         </div>
         <pre><span class="syn-cm">// Created during training, frozen during inference</span>
@@ -369,8 +369,8 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
         <p class="pc-narration" id="cacheCompareCaption"></p>
       </div>
       <div class="code-window">
-        <div class="code-window-head" aria-hidden="true">
-          <span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span>
+        <div class="code-window-head">
+          <span class="code-dots" aria-hidden="true"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></span>
           <span class="code-window-title">What the cache actually skips</span>
         </div>
         <pre><span class="syn-cm">// Without cache: feed ALL tokens every time</span>
@@ -514,6 +514,6 @@ V = <span class="syn-fn">append</span>(cached_V, V_new)  <span class="syn-cm">//
 
   <div data-app-shell="scroll-top"></div>
 
-  <script type="module" src="./js/app.js?v=67dd1e7"></script>
+  <script type="module" src="./js/app.js?v=d236e46"></script>
 </body>
 </html>
