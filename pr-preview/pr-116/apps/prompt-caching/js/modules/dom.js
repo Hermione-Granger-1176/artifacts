@@ -1,1 +1,0 @@
-export function byId(e){return document.getElementById(e)}export function cssVar(e){return getComputedStyle(document.body).getPropertyValue(e).trim()}export function makeEl(e,n="",r=""){const t=document.createElement(e);return n&&(t.className=n),r!==""&&(t.textContent=r),t}export function clear(e){e.replaceChildren()}export{initSegmented}from"../../../../js/modules/segmented.js";
