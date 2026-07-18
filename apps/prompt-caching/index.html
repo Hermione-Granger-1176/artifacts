@@ -10,26 +10,26 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/">
   <meta property="og:site_name" content="Artifacts">
-  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=83e5478">
-  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=83e5478">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=d081a8e">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=d081a8e">
   <meta property="og:image:alt" content="Preview card for the Prompt Caching, Demystified app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Prompt Caching, Demystified | Artifacts">
   <meta name="twitter:description" content="Interactive explainer on how LLM prompt caching works, from tokenizer to embeddings, attention, and the KV cache that providers reuse to cut cost and latency.">
-  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=83e5478">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=d081a8e">
   <meta name="twitter:image:alt" content="Preview card for the Prompt Caching, Demystified app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
   <title>Prompt Caching, Demystified | Artifacts</title>
-  <script src="../../js/app-theme.js?v=83e5478"></script>
+  <script src="../../js/app-theme.js?v=d081a8e"></script>
   <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
   <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
-  <link rel="stylesheet" href="../../css/style.css?v=83e5478">
-  <link rel="stylesheet" href="./css/app.css?v=83e5478">
+  <link rel="stylesheet" href="../../css/style.css?v=d081a8e">
+  <link rel="stylesheet" href="./css/app.css?v=d081a8e">
   <link rel="modulepreload" href="../../js/modules/app-shell.js">
   <link rel="modulepreload" href="../../js/modules/runtime.js">
   <link rel="modulepreload" href="../../js/modules/app-runtime.js">
@@ -41,8 +41,10 @@
   <link rel="modulepreload" href="js/modules/tokenizer.js">
   <link rel="modulepreload" href="js/modules/math.js">
   <link rel="modulepreload" href="js/modules/embeddings.js">
+  <link rel="modulepreload" href="../../js/modules/chart-theme.js">
   <link rel="modulepreload" href="js/modules/inference.js">
   <link rel="modulepreload" href="js/modules/attention.js">
+  <link rel="modulepreload" href="../../js/modules/formatting.js">
   <link rel="modulepreload" href="js/modules/kv-cache.js">
   <link rel="modulepreload" href="js/modules/cache-hits.js">
   <link rel="modulepreload" href="js/modules/calculator.js">
@@ -50,16 +52,7 @@
 <body class="artifact-app app-prompt-caching">
   <div data-app-shell="header"></div>
 
-  <nav class="section-nav" aria-label="Section progress">
-    <div class="section-nav-inner">
-      <div class="section-nav-track">
-        <div class="section-nav-line"></div>
-        <div class="section-nav-fill" id="navFill"></div>
-        <div class="section-nav-nodes" id="navNodes"></div>
-      </div>
-      <div class="section-nav-label" id="navLabel">Intro</div>
-    </div>
-  </nav>
+  <div data-section-nav></div>
 
   <main class="page-shell pc">
     <div data-app-shell="runtime-error"></div>
@@ -68,21 +61,21 @@
     <section class="pc-section" id="sec-intro">
       <h1>Prompt Caching, Demystified</h1>
       <p class="pc-lede">How LLM providers offer <span class="pc-hl-warm">10x cheaper tokens</span> and up to <span class="pc-hl-accent">85% faster responses</span> on long prompts. Not by saving your answers, but by saving intermediate math. Let's unpack that.</p>
-      <div class="pc-grid-3 pc-mt pc-mb">
-        <div class="page-card pc-card pc-stat">
-          <div class="pc-stat-label">Regular Input</div>
-          <div class="pc-stat-value">$3.00</div>
-          <div class="pc-stat-sub">per 1M tokens</div>
+      <div class="stat-grid pc-mt pc-mb">
+        <div class="stat is-center pc-stat">
+          <div class="stat-label is-caps">Regular Input</div>
+          <div class="stat-value is-mono">$3.00</div>
+          <div class="stat-sub">per 1M tokens</div>
         </div>
-        <div class="page-card pc-card pc-stat is-accent">
-          <div class="pc-stat-label">Cached Input</div>
-          <div class="pc-stat-value">$0.30</div>
-          <div class="pc-stat-sub">per 1M tokens</div>
+        <div class="stat is-center pc-stat is-accent">
+          <div class="stat-label is-caps">Cached Input</div>
+          <div class="stat-value is-mono">$0.30</div>
+          <div class="stat-sub">per 1M tokens</div>
         </div>
-        <div class="page-card pc-card pc-stat is-warm">
-          <div class="pc-stat-label">You Save</div>
-          <div class="pc-stat-value">90%</div>
-          <div class="pc-stat-sub">on cached portion</div>
+        <div class="stat is-center pc-stat is-warm">
+          <div class="stat-label is-caps">You Save</div>
+          <div class="stat-value is-mono">90%</div>
+          <div class="stat-sub">on cached portion</div>
         </div>
       </div>
       <div class="app-callout pc-callout is-accent">
@@ -151,7 +144,7 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
       <div class="page-card pc-card">
         <div class="pc-card-label">Inference simulator</div>
         <div class="pc-row pc-mb">
-          <div class="pc-inf-prompts" id="infPrompts" role="group" aria-label="Choose a prompt"></div>
+          <div class="segmented pc-inf-prompts" id="infPrompts" role="group" aria-label="Choose a prompt"></div>
           <button class="btn btn-primary pc-push" id="infGoBtn" type="button">Generate</button>
           <button class="btn btn-outline" id="infResetBtn" type="button">Reset</button>
         </div>
@@ -171,7 +164,7 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
       <p>The tokenizer chops your text into small chunks and assigns each unique chunk an integer ID. These chunks are not always whole words. Common words stay intact, but rare or long words get split into sub-word pieces. This is a design trade-off: too few big tokens means a huge vocabulary table, too many tiny tokens means very long sequences (which cost more to process).</p>
       <div class="page-card pc-card">
         <div class="pc-card-label">Try it: type anything below</div>
-        <textarea class="pc-input" id="tokenInput" rows="3" placeholder="Type or paste text here...">How many r's in the word strawberry?</textarea>
+        <textarea class="text-input pc-input" id="tokenInput" rows="3" placeholder="Type or paste text here...">How many r's in the word strawberry?</textarea>
         <div class="pc-row pc-mt">
           <div class="type-toggle" id="tokenView" role="group" aria-label="Token view">
             <button type="button" class="active" data-view="text">Text</button>
@@ -240,24 +233,24 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
       <p>Pick a ready-made pair, or click any two words: the first click sets <span class="pc-hl-accent">Word A</span>, the second sets <span class="pc-hl-teal">Word B</span>. On the map, hover a grey dot to see its word and click it to select it.</p>
       <div class="page-card pc-card">
         <div class="pc-row pc-mb">
-          <span id="embSelA" class="emb-sel is-a">happy</span>
+          <span id="embSelA" class="chip is-mono emb-sel is-amber">happy</span>
           <span class="pc-note">vs</span>
-          <span id="embSelB" class="emb-sel is-b">sad</span>
+          <span id="embSelB" class="chip is-mono emb-sel is-green">sad</span>
           <button class="btn btn-outline btn-sm" id="embSwapBtn" type="button">&#8646; Swap</button>
         </div>
         <div class="pc-emb-tags pc-mb" id="embSuggestions"></div>
-        <div class="pc-emb-cats" id="embCats" role="group" aria-label="Word category"></div>
+        <div class="segmented pc-emb-cats" id="embCats" role="group" aria-label="Word category"></div>
         <div id="embCloud" class="pc-emb-cloud"></div>
-        <div class="pc-emb-metrics">
-          <div class="pc-emb-metric">
-            <span class="pc-emb-metric-label">Similarity</span>
-            <span id="embSimilarity" class="pc-emb-metric-value is-accent">0.94</span>
+        <div class="stat-grid pc-emb-metrics">
+          <div class="stat pc-emb-metric">
+            <span class="stat-label is-caps">Similarity</span>
+            <span id="embSimilarity" class="stat-value is-mono pc-emb-metric-value is-accent">0.94</span>
           </div>
-          <div class="pc-emb-metric">
-            <span class="pc-emb-metric-label">Distance</span>
-            <span id="embDistance" class="pc-emb-metric-value is-teal">0.12</span>
+          <div class="stat pc-emb-metric">
+            <span class="stat-label is-caps">Distance</span>
+            <span id="embDistance" class="stat-value is-mono pc-emb-metric-value is-teal">0.12</span>
           </div>
-          <div class="pc-emb-metric is-center">
+          <div class="stat is-center pc-emb-metric">
             <div id="embVerdict" class="pc-emb-verdict">Very similar</div>
           </div>
         </div>
@@ -398,7 +391,7 @@ V = <span class="syn-fn">append</span>(cached_V, V_new)  <span class="syn-cm">//
       <div class="pc-section-num">In Practice</div>
       <h2>How providers handle it differently</h2>
       <p>Within a single request, KV caching is standard. Every LLM does it. The clever part that providers like OpenAI and Anthropic do is keeping the cache <span class="pc-hl-teal">between requests</span>. If your second request shares the same prefix as the first, the provider reuses the cached K and V instead of recalculating them. But the two providers take very different approaches.</p>
-      <div class="pc-scroll-x"><table class="pc-cmp">
+      <div class="table-wrap"><table class="pc-cmp">
         <thead><tr><th>Aspect</th><th>OpenAI</th><th>Anthropic</th></tr></thead>
         <tbody>
           <tr><td><strong>Control</strong></td><td>Fully automatic. You do nothing, the system tries to route you to cached data.</td><td>Explicit. You mark which parts of the prompt to cache using <code>cache_control</code> breakpoints.</td></tr>
@@ -477,9 +470,15 @@ V = <span class="syn-fn">append</span>(cached_V, V_new)  <span class="syn-cm">//
                 <span class="pc-calc-bar-val is-teal" id="calcWith">$0</span>
               </div>
             </div>
-            <div class="pc-calc-stats">
-              <div class="pc-calc-stat"><strong id="calcTokens">0</strong><span>input tokens / month</span></div>
-              <div class="pc-calc-stat"><strong id="calcEff">$0</strong><span>effective price / 1M</span></div>
+            <div class="stat-grid pc-calc-stats">
+              <div class="stat is-center pc-calc-stat">
+                <div class="stat-value is-mono" id="calcTokens">0</div>
+                <div class="stat-label is-caps">input tokens / month</div>
+              </div>
+              <div class="stat is-center pc-calc-stat">
+                <div class="stat-value is-mono" id="calcEff">$0</div>
+                <div class="stat-label is-caps">effective price / 1M</div>
+              </div>
             </div>
           </div>
         </div>
@@ -515,6 +514,6 @@ V = <span class="syn-fn">append</span>(cached_V, V_new)  <span class="syn-cm">//
 
   <div data-app-shell="scroll-top"></div>
 
-  <script type="module" src="./js/app.js?v=83e5478"></script>
+  <script type="module" src="./js/app.js?v=d081a8e"></script>
 </body>
 </html>
