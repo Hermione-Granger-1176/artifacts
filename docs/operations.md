@@ -52,6 +52,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - `make lint-make-targets` verifies that documented `make <target>` references still exist in `Makefile`.
 - `make lint-js-test-coverage` verifies that every JS or MJS source file under the tracked source roots is imported by at least one test file.
 - `make lint-artifact-csp` verifies that every `apps/<slug>/index.html` carries a strict self-only Content-Security-Policy meta tag in document head before resource-capable markup and references no external scripts, stylesheets, or `url()` resources. The root `index.html` is exempt for its documented badge-image exception.
+- `make lint-app-css-tokens` verifies that every `apps/<slug>/css/*.css` stays on the shared design tokens: no hex colors, no literal `rgb()` / `rgba()` colors, and radius, font-size, and letter-spacing values that use `var(--radius-*)` / `var(--font-size-*)` / `var(--tracking-*)` (with small documented allowlists for grandfathered sub-token literals).
 - `make lint-vendored-assets` reconciles vendored bundles under `apps/*/js/vendor/` with the integrity manifest in `config/vendored_assets.json`, failing on unlisted files, missing files, or SHA-256 mismatches.
 - `make check-overrides` reports whether npm `overrides` entries are still needed when that package field exists.
 - `make format-check` verifies ruff formatting plus Prettier-managed docs, metadata, config, workflows, and tooling scripts without writing files.
