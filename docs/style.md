@@ -69,6 +69,36 @@ Run `make lint`, `make typecheck-web`, `make dead-code-js`, `make coverage-js`, 
 
 Run `make lint-css` or `make lint` to check.
 
+## Design tokens and shared app components
+
+The shared design system lives in `css/src/` and is bundled into `css/style.css`. Authored app CSS should build on the tokens and components below rather than restating colors, geometry, or component foundations.
+
+### Token families and scopes
+
+- Gallery tokens live in `:root` (with a `[data-theme="dark"]` override) in `css/src/01-tokens.css`: backgrounds, text, accent, borders, the bookmark-note palette, card colors, `--radius-*`, shadows, and gallery layout variables. They apply to the gallery and cascade into apps.
+- Artifact-app tokens live under `body.artifact-app` (with a `[data-theme="dark"] body.artifact-app` override) in the same partial:
+  - Hue tokens `--color-{blue,green,red,amber,purple}`, each with a matching `-text` and `-emphasis` variant
+  - Note pastels `--note-{yellow,red,blue,green,amber,purple}`
+  - Surface, border, text, chart, and tooltip tokens plus `--color-text-on-accent`
+  - A type scale (`--font-size-xs`, `-2xs`, `-sm`, `-control`, `-md`, `-base`, `-lg`) and the label tracking token `--tracking-label`
+  - A spacing scale (`--space-1` through `--space-6`, plus `--space-8`), radii (`--radius-xs`, `-sm`, `-md`, `-pill`), and `--shadow-card`
+- In the dark artifact scope every `--color-*-text` remaps to its `--color-*-emphasis` value and the note pastels get dark remaps, so rules that reference the tokens follow the theme automatically.
+
+### Color rule
+
+- Authored app colors use the shared tokens or `rgb()` / `rgba()` values, never hex literals. A `color-mix()` over a token is fine
+- Prefer a token over a raw color whenever one fits, so a theme change stays a single-file edit in `css/src/01-tokens.css`
+
+### Shared components versus app-local CSS
+
+- Reach for the shared component families in `css/src/04-artifact-components.css` before writing app CSS: `.control-field` (with `-head`, `-hints`, `-note`), `.stat-grid` / `.stat` (modifiers `.is-center`, `.stat-label.is-caps`, `.stat-value.is-mono`), `.chip` (hue tones `.is-*`, `.is-mono`, solid `.is-solid-*`), `.segmented` (`.is-fused`, `.active`), `.meter` / `.meter-fill` (tone modifiers), `.app-callout` (hue tones), `.section-kicker`, plus the shared buttons, inputs, tables, code windows, and `.section-nav`
+- Keep `apps/<slug>/css/app.css` focused on app-specific dimensions, grids, visualisations, and component variants built on those tokens and families. It retains its `body.app-<slug>` scope
+- A change to a shared component or token is intentional shared work in `css/src/`, not an app-local edit
+
+### Token lint
+
+`make lint-app-css-tokens` guards `apps/*/css/*.css` against drift. It forbids hex colors and literal `rgb()` / `rgba()` colors, and requires tokens for `border-radius` (px literals of 6px and up), `font-size`, and `letter-spacing`. Sub-token decorative radii of 1px through 5px, `clamp()` and em / rem / % font sizes, and `normal` letter-spacing stay allowed, alongside a few documented allowlist entries in the checker.
+
 ## HTML
 
 - **Indent:** 2 spaces

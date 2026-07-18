@@ -141,7 +141,8 @@ Workspace documentation lives in `docs/`:
 - Artifact directories use kebab-case names
 - Each artifact keeps `index.html` as the entry point
 - The root gallery should import `css/style.css`; mature apps should import `../../css/style.css` first, then their app-local `./css/app.css`
-- Mature apps should reuse `js/app-theme.js` and `js/modules/app-shell.js`
-- App-local behavior should live in `apps/<slug>/js/app.js` plus app-local modules/docs
-- The bookmark-note palette is the shared color system, and authored app colors should use `rgb()` / `rgba()` values
+- Mature apps should reuse `js/app-theme.js`, `js/modules/app-shell.js`, and the shared helper modules `js/modules/{formatting,segmented,section-nav,chart-theme}.js` instead of re-implementing them
+- Mature apps should reach for the shared design tokens (`css/src/01-tokens.css`) and component families (`css/src/04-artifact-components.css`: `.control-field`, `.stat`, `.chip`, `.segmented`, `.meter`, `.app-callout`, `.section-kicker`, plus shared buttons, inputs, tables, and `.section-nav`) before writing app-local CSS
+- App-local behavior should live in `apps/<slug>/js/app.js` plus app-local modules/docs, and `apps/<slug>/css/app.css` should hold only app-specific layout built on the shared tokens
+- The bookmark-note palette is the shared color system, and authored app colors should use design tokens or `rgb()` / `rgba()` values, never hex. `make lint-app-css-tokens` enforces this and token usage for radius, font-size, and letter-spacing
 - Before adding or modifying an artifact, always verify the artifact code or calculations at least once
