@@ -11,7 +11,7 @@ import {
   summarizeExtra,
   updateExtraField
 } from "./modules/extras.js";
-import { formatCurrency, formatDollarTick, parseNumber } from "./modules/formatting.js";
+import { formatCurrency, formatDollarTick, parseNumber } from "../../../js/modules/formatting.js";
 import { renderMetrics } from "./modules/metrics.js";
 import {
   getBiweeklyEmiOverride,

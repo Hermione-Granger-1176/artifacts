@@ -33,17 +33,7 @@ export function clear(node) {
   node.replaceChildren();
 }
 
-/* Wire a segmented toggle: clicking a <button> inside `container` makes it the
- * lone `.active` button and calls `onSelect(button)`. Returns the buttons. */
-export function initSegmented(container, onSelect) {
-  const buttons = Array.from(container.querySelectorAll("button"));
-  for (const btn of buttons) {
-    btn.addEventListener("click", () => {
-      for (const other of buttons) {
-        other.classList.toggle("active", other === btn);
-      }
-      onSelect(btn);
-    });
-  }
-  return buttons;
-}
+/* Segmented-control wiring now lives in the shared module so every artifact app
+ * (and its aria-pressed sync) draws from one source. Re-exported here so the
+ * prompt-caching demos keep importing it from their local dom module. */
+export { initSegmented } from "../../../../js/modules/segmented.js";

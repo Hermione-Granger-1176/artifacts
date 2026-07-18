@@ -28,11 +28,12 @@ export function renderTableSummary(container, values) {
   container.innerHTML = "";
   for (const [label, value] of items) {
     const stat = document.createElement("div");
-    stat.className = "summary-stat";
+    stat.className = "stat";
     const labelEl = document.createElement("div");
-    labelEl.className = "summary-label";
+    labelEl.className = "stat-label";
     labelEl.textContent = label;
-    const valueEl = document.createElement("strong");
+    const valueEl = document.createElement("div");
+    valueEl.className = "stat-value";
     valueEl.textContent = value;
     stat.append(labelEl, valueEl);
     container.appendChild(stat);

@@ -38,6 +38,7 @@ function makeElement(id) {
     appendChild(child) { this.children.push(child); return child; },
     append(...nodes) { this.children.push(...nodes); },
     querySelector() { return null; },
+    querySelectorAll() { return []; },
     closest() { return null; },
     blur() {},
     _listeners: listeners
@@ -51,8 +52,8 @@ export function setupFullMocks() {
     'slPrincipal', 'slRate', 'slTenure',
     'selFreq', 'biweeklyMode', 'bwTrue', 'bwAccel', 'bwDesc',
     'extraList', 'btnAdd', 'metrics',
-    'btnCharts', 'btnTable', 'chartsWrap', 'tableWrap',
-    'btnPeriod', 'btnYearly', 'tableSummary',
+    'viewToggle', 'btnCharts', 'btnTable', 'chartsWrap', 'tableWrap',
+    'tableToggle', 'btnPeriod', 'btnYearly', 'tableSummary',
     'periodTableWrap', 'yearlyTableWrap', 'tbody', 'ybody',
     'balanceChart', 'compChart', 'savingsChart', 'cumulChart', 'periodChart',
     'slCoupon', 'slYears',
@@ -77,6 +78,11 @@ export function setupFullMocks() {
   ];
 
   Object.assign(elementMap, Object.fromEntries(allIds.map((id) => [id, makeElement(id)])));
+
+  // Segmented toggles resolve their child buttons through querySelectorAll so
+  // initSegmented can wire them the way the real DOM does.
+  elementMap.viewToggle.querySelectorAll = () => [elementMap.btnCharts, elementMap.btnTable];
+  elementMap.tableToggle.querySelectorAll = () => [elementMap.btnPeriod, elementMap.btnYearly];
 
   elementMap.slPrincipal.value = '100000';
   elementMap.slRate.value = '6';

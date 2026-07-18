@@ -1,8 +1,8 @@
-import { escapeAttribute } from "./formatting.js";
+import { escapeAttribute } from "../../../../js/modules/html-escape.js";
 
 function metricTip(copy) {
   const escapedCopy = escapeAttribute(copy);
-  return `<button type="button" class="info-tip metric-tip" data-tip="${escapedCopy}" aria-label="${escapedCopy}">?</button>`;
+  return `<button type="button" class="info-tip" data-tip="${escapedCopy}" aria-label="${escapedCopy}">?</button>`;
 }
 
 /**
@@ -29,43 +29,43 @@ export function buildMetricsMarkup(
   formatCurrency
 ) {
   return `
-    <div class="page-card metric">
+    <div class="stat">
       ${metricTip(`Fixed payment amount each ${label.toLowerCase()}, excluding extra payments`)}
-      <div class="metric-label">${label}ly EMI</div>
-      <div class="metric-value">${formatCurrency(base.emi)}</div>
+      <div class="stat-label">${label}ly EMI</div>
+      <div class="stat-value">${formatCurrency(base.emi)}</div>
     </div>
-    <div class="page-card metric">
+    <div class="stat">
       ${metricTip("Interest without extras vs with extras applied")}
-      <div class="metric-label">Total interest</div>
-      <div class="metric-value">${formatCurrency(extra.totalInterest)}</div>
+      <div class="stat-label">Total interest</div>
+      <div class="stat-value">${formatCurrency(extra.totalInterest)}</div>
       ${
         savings > 1
-          ? `<div class="metric-sub"><span class="savings-pill">Save ${formatCurrency(savings)}</span></div>`
+          ? `<div class="stat-sub"><span class="chip is-green">Save ${formatCurrency(savings)}</span></div>`
           : ""
       }
-      <div class="metric-sub is-muted">Without extras: ${formatCurrency(base.totalInterest)}</div>
+      <div class="stat-sub">Without extras: ${formatCurrency(base.totalInterest)}</div>
     </div>
-    <div class="page-card metric">
+    <div class="stat">
       ${metricTip(`Number of ${label.toLowerCase()}s until the loan is fully paid off`)}
-      <div class="metric-label">Payoff in</div>
-      <div class="metric-value">${extra.periods} ${label.toLowerCase()}s</div>
+      <div class="stat-label">Payoff in</div>
+      <div class="stat-value">${extra.periods} ${label.toLowerCase()}s</div>
       ${
         periodsSaved > 0
-          ? `<div class="metric-sub"><span class="savings-pill">${periodsSaved} earlier</span></div>`
+          ? `<div class="stat-sub"><span class="chip is-green">${periodsSaved} earlier</span></div>`
           : ""
       }
     </div>
-    <div class="page-card metric">
+    <div class="stat">
       ${metricTip("Principal plus total interest. The real cost of your loan.")}
-      <div class="metric-label">Total paid</div>
-      <div class="metric-value">${formatCurrency(totalPaid)}</div>
-      <div class="metric-sub">Interest is ${((costRatio - 1) * 100).toFixed(1)}% of loan</div>
+      <div class="stat-label">Total paid</div>
+      <div class="stat-value">${formatCurrency(totalPaid)}</div>
+      <div class="stat-sub">Interest is ${((costRatio - 1) * 100).toFixed(1)}% of loan</div>
     </div>
-    <div class="page-card metric">
+    <div class="stat">
       ${metricTip(`The ${label.toLowerCase()} when cumulative principal paid from EMI and extras surpasses cumulative interest`)}
-      <div class="metric-label">Break-even</div>
-      <div class="metric-value">${extra.breakEven ? `${label} ${extra.breakEven}` : "N/A"}</div>
-      <div class="metric-sub">Principal (EMI + extras) &gt; interest</div>
+      <div class="stat-label">Break-even</div>
+      <div class="stat-value">${extra.breakEven ? `${label} ${extra.breakEven}` : "N/A"}</div>
+      <div class="stat-sub">Principal (EMI + extras) &gt; interest</div>
     </div>
   `;
 }

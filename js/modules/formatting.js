@@ -28,6 +28,20 @@ export function formatDollarTick(value) {
 }
 
 /**
+ * Format a number as a dollar string with grouped thousands.
+ * @param {number} value - The value to format.
+ * @param {number} [digits=0] - Fraction digits to show. 0 rounds to whole dollars.
+ * @returns {string} Formatted currency string (e.g. "$1,234" or "$1,234.56").
+ */
+export function formatCurrency(value, digits = 0) {
+  const magnitude = Math.abs(value).toLocaleString("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits
+  });
+  return `${value < 0 ? "-" : ""}$${magnitude}`;
+}
+
+/**
  * Parse a string into a number, stripping non-numeric characters.
  * @param {string} value - Raw input string.
  * @returns {number} Parsed number, or 0 when nothing numeric remains.

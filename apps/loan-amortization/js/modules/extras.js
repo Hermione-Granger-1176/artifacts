@@ -1,4 +1,4 @@
-import { escapeAttribute } from "./formatting.js";
+import { escapeAttribute } from "../../../../js/modules/html-escape.js";
 
 /**
  * Create one extra-payment model with the default recurring values.
@@ -105,9 +105,9 @@ export function renderExtras({ container, extras, periodLabel }) {
       // eslint-disable-next-line no-restricted-syntax -- numbers are controlled; the free-text summary is escaped via escapeAttribute
       item.innerHTML = `
         <button type="button" class="info-tip card-tip" data-tip="${escapeAttribute(summary)}" aria-label="${escapeAttribute(summary)}">?</button>
-        <div class="type-toggle">
-          <button type="button" class="active" data-action="set-type" data-type="recurring">Recurring</button>
-          <button type="button" data-action="set-type" data-type="onetime">One-time</button>
+        <div class="segmented is-fused">
+          <button type="button" class="active" data-action="set-type" data-type="recurring" aria-pressed="true">Recurring</button>
+          <button type="button" data-action="set-type" data-type="onetime" aria-pressed="false">One-time</button>
         </div>
         <div class="amt-group">
           <span>$</span>
@@ -128,9 +128,9 @@ export function renderExtras({ container, extras, periodLabel }) {
       // eslint-disable-next-line no-restricted-syntax -- numbers are controlled; the free-text summary is escaped via escapeAttribute
       item.innerHTML = `
         <button type="button" class="info-tip card-tip" data-tip="${escapeAttribute(summary)}" aria-label="${escapeAttribute(summary)}">?</button>
-        <div class="type-toggle">
-          <button type="button" data-action="set-type" data-type="recurring">Recurring</button>
-          <button type="button" class="active" data-action="set-type" data-type="onetime">One-time</button>
+        <div class="segmented is-fused">
+          <button type="button" data-action="set-type" data-type="recurring" aria-pressed="false">Recurring</button>
+          <button type="button" class="active" data-action="set-type" data-type="onetime" aria-pressed="true">One-time</button>
         </div>
         <div class="amt-group">
           <span>$</span>
