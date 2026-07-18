@@ -1,3 +1,5 @@
+import { initSegmented } from "../../../../js/modules/segmented.js";
+
 /** Bind change and Enter-key handling for a text input paired with a slider. */
 function bindTextInput(elements, { id, sliderId, min, max, parser, onCommit }) {
   elements[id].addEventListener("change", function onChange() {
@@ -90,16 +92,10 @@ export function bindEvents({
   elements.btnAdd.addEventListener("click", onAddExtra);
   elements.extraList.addEventListener("click", onExtraListClick);
   elements.extraList.addEventListener("input", onExtraListInput);
-  elements.btnCharts.addEventListener("click", () => {
-    onViewModeChange("charts");
+  initSegmented(elements.viewToggle, (button) => {
+    onViewModeChange(button.id === "btnCharts" ? "charts" : "table");
   });
-  elements.btnTable.addEventListener("click", () => {
-    onViewModeChange("table");
-  });
-  elements.btnPeriod.addEventListener("click", () => {
-    onTableModeChange("period");
-  });
-  elements.btnYearly.addEventListener("click", () => {
-    onTableModeChange("yearly");
+  initSegmented(elements.tableToggle, (button) => {
+    onTableModeChange(button.id === "btnPeriod" ? "period" : "yearly");
   });
 }

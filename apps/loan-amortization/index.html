@@ -102,17 +102,17 @@
         <button class="btn btn-add" id="btnAdd" type="button">+ Add</button>
       </div>
       <div id="extraList"></div>
-      <div class="helper-copy">Hover over <span class="helper-copy-icon">?</span> on each card for a summary. Periods adapt to your chosen EMI frequency.</div>
+      <div class="helper-copy">Hover over the <button type="button" class="info-tip" data-tip="Each card summarizes its extra payment. Periods adapt to your chosen EMI frequency." aria-label="Each card summarizes its extra payment. Periods adapt to your chosen EMI frequency.">?</button> on each card for a plain-language summary.</div>
     </section>
 
     <section class="page-section">
-      <div class="metrics-grid" id="metrics"></div>
+      <div class="stat-grid" id="metrics"></div>
     </section>
 
     <section class="page-section">
-      <div class="toggle-wrap" aria-label="View mode">
-        <button class="toggle-btn active" id="btnCharts" type="button">Charts</button>
-        <button class="toggle-btn" id="btnTable" type="button">Schedule</button>
+      <div class="segmented" id="viewToggle" aria-label="View mode">
+        <button class="active" id="btnCharts" type="button">Charts</button>
+        <button id="btnTable" type="button">Schedule</button>
       </div>
 
       <div id="chartsWrap">
@@ -168,7 +168,7 @@
       </div>
 
       <div id="tableWrap" hidden>
-        <div class="sub-toggle">
+        <div class="segmented" id="tableToggle">
           <button class="active" id="btnPeriod" type="button">Per period</button>
           <button id="btnYearly" type="button">Yearly summary</button>
         </div>

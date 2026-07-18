@@ -1,7 +1,23 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formatDollarTick, parseNumber } from '../../../js/modules/formatting.js';
+import { formatCurrency, formatDollarTick, parseNumber } from '../../../js/modules/formatting.js';
+
+test('formatCurrency rounds to whole dollars by default', () => {
+  assert.equal(formatCurrency(1234), '$1,234');
+  assert.equal(formatCurrency(99.7), '$100');
+});
+
+test('formatCurrency honors an explicit fraction-digit count', () => {
+  assert.equal(formatCurrency(1234.5, 2), '$1,234.50');
+  assert.equal(formatCurrency(1234.567, 2), '$1,234.57');
+});
+
+test('formatCurrency handles negative, zero, and large values', () => {
+  assert.equal(formatCurrency(-42), '$-42');
+  assert.equal(formatCurrency(0), '$0');
+  assert.equal(formatCurrency(1234567), '$1,234,567');
+});
 
 test('formatDollarTick handles millions, thousands, and small values', () => {
   assert.equal(formatDollarTick(2500000), '$2.5M');

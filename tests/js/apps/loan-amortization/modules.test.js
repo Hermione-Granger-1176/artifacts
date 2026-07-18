@@ -17,9 +17,9 @@ import {
 import {
   formatCurrency,
   formatDollarTick,
-  parseNumber,
-  escapeAttribute
-} from '../../../../apps/loan-amortization/js/modules/formatting.js';
+  parseNumber
+} from '../../../../js/modules/formatting.js';
+import { escapeAttribute } from '../../../../js/modules/html-escape.js';
 import { buildMetricsMarkup, renderMetrics } from '../../../../apps/loan-amortization/js/modules/metrics.js';
 import {
   getBiweeklyEmiOverride,

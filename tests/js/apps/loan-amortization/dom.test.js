@@ -212,7 +212,7 @@ test('renderTableSummary creates summary stat elements', () => {
     });
 
     assert.equal(container.children.length, 5);
-    assert.equal(container.children[0].className, 'summary-stat');
+    assert.equal(container.children[0].className, 'stat');
   } finally {
     restoreDocument(origDoc2);
   }
@@ -270,6 +270,25 @@ test('renderYearlyTable aggregates periods into yearly rows', () => {
 
 import { bindEvents } from '../../../../apps/loan-amortization/js/modules/interactions.js';
 
+// Build a segmented-toggle container whose child buttons register their click
+// handler into the shared listeners map, mirroring how initSegmented wires the
+// real #viewToggle / #tableToggle groups.
+function makeToggle(ids, listeners) {
+  const buttons = ids.map((id) => {
+    const classes = new Set();
+    return {
+      id,
+      classList: {
+        toggle(cls, force) { force ? classes.add(cls) : classes.delete(cls); },
+        contains(cls) { return classes.has(cls); }
+      },
+      setAttribute() {},
+      addEventListener(type, handler) { listeners[`${id}:${type}`] = handler; }
+    };
+  });
+  return { querySelectorAll() { return buttons; } };
+}
+
 test('bindEvents attaches listeners to slider and button elements', () => {
   const listeners = {};
   function mockEl(id) {
@@ -295,10 +314,8 @@ test('bindEvents attaches listeners to slider and button elements', () => {
     bwAccel: mockEl('bwAccel'),
     btnAdd: mockEl('btnAdd'),
     extraList: mockEl('extraList'),
-    btnCharts: mockEl('btnCharts'),
-    btnTable: mockEl('btnTable'),
-    btnPeriod: mockEl('btnPeriod'),
-    btnYearly: mockEl('btnYearly')
+    viewToggle: makeToggle(['btnCharts', 'btnTable'], listeners),
+    tableToggle: makeToggle(['btnPeriod', 'btnYearly'], listeners)
   };
 
   const calls = [];
@@ -370,10 +387,8 @@ test('bindEvents text input keydown Enter triggers blur', () => {
     bwAccel: mockEl('bwAccel'),
     btnAdd: mockEl('btnAdd'),
     extraList: mockEl('extraList'),
-    btnCharts: mockEl('btnCharts'),
-    btnTable: mockEl('btnTable'),
-    btnPeriod: mockEl('btnPeriod'),
-    btnYearly: mockEl('btnYearly')
+    viewToggle: makeToggle(['btnCharts', 'btnTable'], listeners),
+    tableToggle: makeToggle(['btnPeriod', 'btnYearly'], listeners)
   };
 
   bindEvents({
@@ -427,10 +442,8 @@ test('bindEvents text input clamps to min/max and triggers all commits', () => {
     bwAccel: mockEl('bwAccel'),
     btnAdd: mockEl('btnAdd'),
     extraList: mockEl('extraList'),
-    btnCharts: mockEl('btnCharts'),
-    btnTable: mockEl('btnTable'),
-    btnPeriod: mockEl('btnPeriod'),
-    btnYearly: mockEl('btnYearly')
+    viewToggle: makeToggle(['btnCharts', 'btnTable'], listeners),
+    tableToggle: makeToggle(['btnPeriod', 'btnYearly'], listeners)
   };
 
   const calls = [];
@@ -497,10 +510,8 @@ test('bindEvents text input ignores NaN and non-positive values', () => {
     bwAccel: mockEl('bwAccel'),
     btnAdd: mockEl('btnAdd'),
     extraList: mockEl('extraList'),
-    btnCharts: mockEl('btnCharts'),
-    btnTable: mockEl('btnTable'),
-    btnPeriod: mockEl('btnPeriod'),
-    btnYearly: mockEl('btnYearly')
+    viewToggle: makeToggle(['btnCharts', 'btnTable'], listeners),
+    tableToggle: makeToggle(['btnPeriod', 'btnYearly'], listeners)
   };
 
   const calls = [];
