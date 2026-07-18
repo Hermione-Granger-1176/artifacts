@@ -1,32 +1,32 @@
-import{escapeAttribute as v}from"./formatting.js";function a(e){const i=v(e);return`<button type="button" class="info-tip metric-tip" data-tip="${i}" aria-label="${i}">?</button>`}export function buildMetricsMarkup({base:e,extra:i,savings:c,periodsSaved:r,totalPaid:d,costRatio:l,label:s},t){return`
-    <div class="page-card metric">
-      ${a(`Fixed payment amount each ${s.toLowerCase()}, excluding extra payments`)}
-      <div class="metric-label">${s}ly EMI</div>
-      <div class="metric-value">${t(e.emi)}</div>
+import{escapeAttribute as c}from"../../../../js/modules/html-escape.js";function e(t){const s=c(t);return`<button type="button" class="info-tip" data-tip="${s}" aria-label="${s}">?</button>`}export function buildMetricsMarkup({base:t,extra:s,savings:l,periodsSaved:d,totalPaid:v,costRatio:n,label:a},i){return`
+    <div class="stat">
+      ${e(`Fixed payment amount each ${a.toLowerCase()}, excluding extra payments`)}
+      <div class="stat-label">${a}ly EMI</div>
+      <div class="stat-value">${i(t.emi)}</div>
     </div>
-    <div class="page-card metric">
-      ${a("Interest without extras vs with extras applied")}
-      <div class="metric-label">Total interest</div>
-      <div class="metric-value">${t(i.totalInterest)}</div>
-      ${c>1?`<div class="metric-sub"><span class="savings-pill">Save ${t(c)}</span></div>`:""}
-      <div class="metric-sub is-muted">Without extras: ${t(e.totalInterest)}</div>
+    <div class="stat">
+      ${e("Interest without extras vs with extras applied")}
+      <div class="stat-label">Total interest</div>
+      <div class="stat-value">${i(s.totalInterest)}</div>
+      ${l>1?`<div class="stat-sub"><span class="chip is-green">Save ${i(l)}</span></div>`:""}
+      <div class="stat-sub">Without extras: ${i(t.totalInterest)}</div>
     </div>
-    <div class="page-card metric">
-      ${a(`Number of ${s.toLowerCase()}s until the loan is fully paid off`)}
-      <div class="metric-label">Payoff in</div>
-      <div class="metric-value">${i.periods} ${s.toLowerCase()}s</div>
-      ${r>0?`<div class="metric-sub"><span class="savings-pill">${r} earlier</span></div>`:""}
+    <div class="stat">
+      ${e(`Number of ${a.toLowerCase()}s until the loan is fully paid off`)}
+      <div class="stat-label">Payoff in</div>
+      <div class="stat-value">${s.periods} ${a.toLowerCase()}s</div>
+      ${d>0?`<div class="stat-sub"><span class="chip is-green">${d} earlier</span></div>`:""}
     </div>
-    <div class="page-card metric">
-      ${a("Principal plus total interest. The real cost of your loan.")}
-      <div class="metric-label">Total paid</div>
-      <div class="metric-value">${t(d)}</div>
-      <div class="metric-sub">Interest is ${((l-1)*100).toFixed(1)}% of loan</div>
+    <div class="stat">
+      ${e("Principal plus total interest. The real cost of your loan.")}
+      <div class="stat-label">Total paid</div>
+      <div class="stat-value">${i(v)}</div>
+      <div class="stat-sub">Interest is ${((n-1)*100).toFixed(1)}% of loan</div>
     </div>
-    <div class="page-card metric">
-      ${a(`The ${s.toLowerCase()} when cumulative principal paid from EMI and extras surpasses cumulative interest`)}
-      <div class="metric-label">Break-even</div>
-      <div class="metric-value">${i.breakEven?`${s} ${i.breakEven}`:"N/A"}</div>
-      <div class="metric-sub">Principal (EMI + extras) &gt; interest</div>
+    <div class="stat">
+      ${e(`The ${a.toLowerCase()} when cumulative principal paid from EMI and extras surpasses cumulative interest`)}
+      <div class="stat-label">Break-even</div>
+      <div class="stat-value">${s.breakEven?`${a} ${s.breakEven}`:"N/A"}</div>
+      <div class="stat-sub">Principal (EMI + extras) &gt; interest</div>
     </div>
-  `}export function renderMetrics(e,i,c){e.innerHTML=buildMetricsMarkup(i,c)}
+  `}export function renderMetrics(t,s,l){t.innerHTML=buildMetricsMarkup(s,l)}

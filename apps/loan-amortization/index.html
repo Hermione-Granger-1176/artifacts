@@ -10,20 +10,20 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/">
   <meta property="og:site_name" content="Artifacts">
-  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=b564031">
-  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=b564031">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=8febddb">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=8febddb">
   <meta property="og:image:alt" content="Preview card for the Loan Amortization Schedule app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Loan Amortization Schedule | Artifacts">
   <meta name="twitter:description" content="Interactive loan amortization calculator with charts, extra payment scenarios, and detailed repayment schedules.">
-  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=b564031">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=8febddb">
   <meta name="twitter:image:alt" content="Preview card for the Loan Amortization Schedule app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
   <title>Loan Amortization Schedule | Artifacts</title>
-  <script src="../../js/app-theme.js?v=b564031"></script>
+  <script src="../../js/app-theme.js?v=8febddb"></script>
   <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
   <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
@@ -31,8 +31,8 @@
   <link rel="preload" href="./js/vendor/chart.umd.min.js" as="script">
   <link rel="preload" href="./js/vendor/chartjs-plugin-annotation.min.js" as="script">
   <link rel="preload" href="./js/vendor/chartjs-plugin-datalabels.min.js" as="script">
-  <link rel="stylesheet" href="../../css/style.css?v=b564031">
-  <link rel="stylesheet" href="./css/app.css?v=b564031">
+  <link rel="stylesheet" href="../../css/style.css?v=8febddb">
+  <link rel="stylesheet" href="./css/app.css?v=8febddb">
   <script defer src="./js/vendor/chart.umd.min.js"></script>
   <script defer src="./js/vendor/chartjs-plugin-annotation.min.js"></script>
   <script defer src="./js/vendor/chartjs-plugin-datalabels.min.js"></script>
@@ -43,10 +43,10 @@
   <link rel="modulepreload" href="../../js/modules/runtime.js">
   <link rel="modulepreload" href="../../js/modules/app-shell.js">
   <link rel="modulepreload" href="js/modules/interactions.js">
+  <link rel="modulepreload" href="../../js/modules/segmented.js">
   <link rel="modulepreload" href="js/modules/extras.js">
-  <link rel="modulepreload" href="js/modules/formatting.js">
-  <link rel="modulepreload" href="../../js/modules/formatting.js">
   <link rel="modulepreload" href="../../js/modules/html-escape.js">
+  <link rel="modulepreload" href="../../js/modules/formatting.js">
   <link rel="modulepreload" href="js/modules/metrics.js">
   <link rel="modulepreload" href="js/modules/schedule-summary.js">
   <link rel="modulepreload" href="js/modules/tables.js">
@@ -118,17 +118,17 @@
         <button class="btn btn-add" id="btnAdd" type="button">+ Add</button>
       </div>
       <div id="extraList"></div>
-      <div class="helper-copy">Hover over <span class="helper-copy-icon">?</span> on each card for a summary. Periods adapt to your chosen EMI frequency.</div>
+      <div class="helper-copy">Hover over the <button type="button" class="info-tip" data-tip="Each card summarizes its extra payment. Periods adapt to your chosen EMI frequency." aria-label="Each card summarizes its extra payment. Periods adapt to your chosen EMI frequency.">?</button> on each card for a plain-language summary.</div>
     </section>
 
     <section class="page-section">
-      <div class="metrics-grid" id="metrics"></div>
+      <div class="stat-grid" id="metrics"></div>
     </section>
 
     <section class="page-section">
-      <div class="toggle-wrap" aria-label="View mode">
-        <button class="toggle-btn active" id="btnCharts" type="button">Charts</button>
-        <button class="toggle-btn" id="btnTable" type="button">Schedule</button>
+      <div class="segmented" id="viewToggle" aria-label="View mode">
+        <button class="active" id="btnCharts" type="button" aria-pressed="true">Charts</button>
+        <button id="btnTable" type="button" aria-pressed="false">Schedule</button>
       </div>
 
       <div id="chartsWrap">
@@ -184,9 +184,9 @@
       </div>
 
       <div id="tableWrap" hidden>
-        <div class="sub-toggle">
-          <button class="active" id="btnPeriod" type="button">Per period</button>
-          <button id="btnYearly" type="button">Yearly summary</button>
+        <div class="segmented" id="tableToggle">
+          <button class="active" id="btnPeriod" type="button" aria-pressed="true">Per period</button>
+          <button id="btnYearly" type="button" aria-pressed="false">Yearly summary</button>
         </div>
         <div id="tableSummary" class="table-summary"></div>
         <div class="table-wrap" id="periodTableWrap">
@@ -225,6 +225,6 @@
 
   <div data-app-shell="scroll-top"></div>
 
-  <script type="module" src="./js/app.js?v=b564031"></script>
+  <script type="module" src="./js/app.js?v=8febddb"></script>
 </body>
 </html>
