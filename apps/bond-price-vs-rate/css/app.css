@@ -1,33 +1,24 @@
 /*
  * Bonds vs interest rates app styles.
  *
- * Shared surfaces, controls, and feedback live in css/style.css. This file
+ * Shared surfaces, controls, and feedback (stat tiles, chips, meters, segmented
+ * toggles, callout tones, and section kickers) live in css/style.css. This file
  * holds only this explainer's layout: the hero stage with its three-slider
- * control panel, the price-rate curve, the coupon-vs-market bars, the
- * sensitivity chart, the yield-curve toggle and apply action, the analyst
- * stat tiles and price split, the tinted callout, and the ripple cards.
- * Every selector is scoped under
- * body.app-bond-price-vs-rate and every color is authored as rgb()/rgba() or a
- * shared custom property, never a hex value.
+ * control panel, the price-rate curve, the coupon-vs-market and price-split
+ * comparison rows, the sensitivity chart, the CSS-built pricing formula and its
+ * worked cash-flow table, the yield-curve apply action, and the ripple cards.
+ * Every selector is scoped under body.app-bond-price-vs-rate and every color is
+ * authored as rgb()/rgba() or a shared custom property, never a hex value.
  */
-
-body.app-bond-price-vs-rate {
-  --br-callout: var(--color-blue-text);
-  --br-callout-bg: color-mix(in srgb, var(--color-blue) 10%, transparent);
-}
-
-[data-theme="dark"] body.app-bond-price-vs-rate {
-  --br-callout: var(--color-blue);
-}
 
 body.app-bond-price-vs-rate .page-section {
   margin-bottom: 2rem;
 }
 
 body.app-bond-price-vs-rate .control-copy {
-  margin-top: 6px;
+  margin-top: var(--space-2);
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   line-height: 1.55;
 }
 
@@ -55,13 +46,13 @@ body.app-bond-price-vs-rate .br-rate-head {
 
 body.app-bond-price-vs-rate .br-rate-label {
   color: var(--color-text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-control);
   font-weight: 600;
 }
 
 body.app-bond-price-vs-rate .br-rate-value {
   color: var(--color-text-heading);
-  font-size: 20px;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -71,7 +62,7 @@ body.app-bond-price-vs-rate .br-rate-value {
 body.app-bond-price-vs-rate .br-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 16px;
+  gap: var(--space-4);
   align-items: stretch;
 }
 
@@ -105,15 +96,18 @@ body.app-bond-price-vs-rate .br-outcome {
   border-top: 1px solid var(--color-border-subtle);
 }
 
+/* align-items keeps the shared .chip regime badge at pill width instead of
+   stretching to fill this column; the text children are unaffected. */
 body.app-bond-price-vs-rate .br-price-block {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 0.4rem;
 }
 
 body.app-bond-price-vs-rate .br-price-caption {
   color: var(--color-text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-control);
 }
 
 body.app-bond-price-vs-rate .br-price {
@@ -122,29 +116,6 @@ body.app-bond-price-vs-rate .br-price {
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-}
-
-body.app-bond-price-vs-rate .br-badge {
-  width: fit-content;
-  padding: 3px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-body.app-bond-price-vs-rate .br-badge.is-premium {
-  background: var(--note-green);
-  color: var(--color-green-text);
-}
-
-body.app-bond-price-vs-rate .br-badge.is-discount {
-  background: var(--note-red);
-  color: var(--color-red-text);
-}
-
-body.app-bond-price-vs-rate .br-badge.is-par {
-  background: var(--note-blue);
-  color: var(--color-blue-text);
 }
 
 /* Seesaw: the rate and price arrows point opposite ways. */
@@ -159,14 +130,6 @@ body.app-bond-price-vs-rate .br-vs-item {
   flex-direction: column;
   align-items: center;
   gap: 0.25rem;
-}
-
-body.app-bond-price-vs-rate .br-vs-label {
-  color: var(--color-text-tertiary);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
 
 body.app-bond-price-vs-rate .br-arrow {
@@ -192,16 +155,6 @@ body.app-bond-price-vs-rate .br-arrow.is-flat {
 
 body.app-bond-price-vs-rate .br-section-head {
   margin-bottom: 0.75rem;
-}
-
-body.app-bond-price-vs-rate .br-step {
-  display: inline-block;
-  margin-bottom: 0.35rem;
-  color: var(--color-blue-emphasis);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 body.app-bond-price-vs-rate .br-section-head h2 {
@@ -296,7 +249,7 @@ body.app-bond-price-vs-rate .br-legend li {
   align-items: baseline;
   gap: 0.6rem;
   color: var(--color-text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-control);
 }
 
 body.app-bond-price-vs-rate .br-legend-sym {
@@ -327,7 +280,7 @@ body.app-bond-price-vs-rate .br-schedule-wrap {
 body.app-bond-price-vs-rate .br-face-note {
   display: block;
   color: var(--color-text-tertiary);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
 }
 
 body.app-bond-price-vs-rate .br-schedule-total td {
@@ -340,11 +293,10 @@ body.app-bond-price-vs-rate .br-schedule-total td:first-child {
   text-align: right;
 }
 
-/* Yield-curve shape toggle and the apply-rate action. */
+/* Yield-curve shape toggle spacing (the toggle itself is the shared .segmented)
+   and the apply-rate action. */
 
-body.app-bond-price-vs-rate .br-curve-toggle {
-  display: flex;
-  gap: var(--space-2);
+body.app-bond-price-vs-rate .segmented {
   margin: 1.1rem 0;
 }
 
@@ -356,51 +308,7 @@ body.app-bond-price-vs-rate .br-curve-apply {
   margin-top: 1.1rem;
 }
 
-/* Tinted callout, matching the prompt-caching guide's contrast treatment. */
-
-body.app-bond-price-vs-rate .br-callout {
-  background: var(--br-callout-bg);
-  border-left-color: var(--br-callout);
-}
-
-body.app-bond-price-vs-rate .br-callout .app-callout-title {
-  color: var(--br-callout);
-}
-
-/* Analyst readout: four stat tiles plus the price decomposition bars. */
-
-body.app-bond-price-vs-rate .br-stat-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  margin: 1.1rem 0;
-}
-
-body.app-bond-price-vs-rate .br-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 1.1rem 1.25rem;
-}
-
-body.app-bond-price-vs-rate .br-stat-label {
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-body.app-bond-price-vs-rate .br-stat-value {
-  color: var(--color-text-heading);
-  font-size: 1.65rem;
-  font-weight: 600;
-  line-height: 1.1;
-}
-
-body.app-bond-price-vs-rate .br-stat-sub {
-  color: var(--color-text-tertiary);
-  font-size: 11px;
-  line-height: 1.5;
-}
+/* Analyst readout: the price decomposition bars beside the shared stat tiles. */
 
 body.app-bond-price-vs-rate .br-split-title {
   margin-bottom: 0.75rem;
@@ -413,7 +321,7 @@ body.app-bond-price-vs-rate .br-split .br-compare-row {
   grid-template-columns: 6.5rem minmax(0, 1fr) 3.5rem;
 }
 
-/* Coupon vs market comparison bars. */
+/* Coupon vs market comparison rows (the bars are the shared .meter). */
 
 body.app-bond-price-vs-rate .br-compare {
   display: flex;
@@ -430,39 +338,12 @@ body.app-bond-price-vs-rate .br-compare-row {
 
 body.app-bond-price-vs-rate .br-compare-label {
   color: var(--color-text-secondary);
-  font-size: 12px;
-}
-
-body.app-bond-price-vs-rate .br-compare-track {
-  position: relative;
-  height: 14px;
-  border-radius: 7px;
-  background: var(--color-surface-dim);
-  overflow: hidden;
-}
-
-body.app-bond-price-vs-rate .br-compare-fill {
-  display: block;
-  height: 100%;
-  border-radius: 7px;
-  transition: width var(--transition-fast);
-}
-
-body.app-bond-price-vs-rate .br-compare-fill.is-coupon {
-  background: var(--color-blue);
-}
-
-body.app-bond-price-vs-rate .br-compare-fill.is-market {
-  background: var(--color-amber);
-}
-
-body.app-bond-price-vs-rate .br-compare-fill.is-face {
-  background: var(--color-amber);
+  font-size: var(--font-size-sm);
 }
 
 body.app-bond-price-vs-rate .br-compare-num {
   color: var(--color-text-heading);
-  font-size: 13px;
+  font-size: var(--font-size-control);
   font-weight: 600;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -492,7 +373,7 @@ body.app-bond-price-vs-rate .chart-frame.is-medium {
 body.app-bond-price-vs-rate .br-grid-3 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: var(--space-4);
   margin-top: 1.1rem;
 }
 
@@ -509,7 +390,7 @@ body.app-bond-price-vs-rate .br-grid-3 h3 {
 
 body.app-bond-price-vs-rate .br-grid-3 p {
   color: var(--color-text-secondary);
-  font-size: 13px;
+  font-size: var(--font-size-control);
   line-height: 1.65;
 }
 
@@ -518,10 +399,6 @@ body.app-bond-price-vs-rate .br-grid-3 p {
 @media (max-width: 900px) {
   body.app-bond-price-vs-rate .br-hero {
     grid-template-columns: 1fr;
-  }
-
-  body.app-bond-price-vs-rate .br-stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

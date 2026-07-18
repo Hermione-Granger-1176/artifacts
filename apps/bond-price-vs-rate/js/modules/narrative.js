@@ -8,9 +8,9 @@
  */
 
 const REGIME_PRESENTATION = {
-  premium: { label: "Premium", badgeClass: "is-premium", rateArrow: "is-down", priceArrow: "is-up" },
-  par: { label: "At par", badgeClass: "is-par", rateArrow: "is-flat", priceArrow: "is-flat" },
-  discount: { label: "Discount", badgeClass: "is-discount", rateArrow: "is-up", priceArrow: "is-down" }
+  premium: { label: "Premium", badgeClass: "is-green", rateArrow: "is-down", priceArrow: "is-up" },
+  par: { label: "At par", badgeClass: "is-blue", rateArrow: "is-flat", priceArrow: "is-flat" },
+  discount: { label: "Discount", badgeClass: "is-red", rateArrow: "is-up", priceArrow: "is-down" }
 };
 
 const ARROW_GLYPH = {
@@ -303,8 +303,12 @@ export function rippleExplainText({ regime }) {
   );
 }
 
-/** Build one labelled comparison row (label, proportional bar, value) as a DOM node. */
-function buildCompareRow(label, widthPct, fillClass, valueText) {
+/**
+ * Build one labelled comparison row (label, proportional bar, value) as a DOM
+ * node. The bar uses the shared .meter / .meter-fill component; `fillTone` is an
+ * optional meter tone modifier (e.g. "is-amber") or "" for the default blue.
+ */
+function buildCompareRow(label, widthPct, fillTone, valueText) {
   const row = document.createElement("div");
   row.className = "br-compare-row";
 
@@ -312,10 +316,10 @@ function buildCompareRow(label, widthPct, fillClass, valueText) {
   name.className = "br-compare-label";
   name.textContent = label;
 
-  const track = document.createElement("span");
-  track.className = "br-compare-track";
-  const fill = document.createElement("span");
-  fill.className = `br-compare-fill ${fillClass}`;
+  const track = document.createElement("div");
+  track.className = "meter";
+  const fill = document.createElement("div");
+  fill.className = fillTone ? `meter-fill ${fillTone}` : "meter-fill";
   fill.style.width = `${Math.max(0, Math.min(100, widthPct))}%`;
   track.appendChild(fill);
 
@@ -340,7 +344,7 @@ export function renderCouponCompare(container, { bond }, { formatPercent }) {
     buildCompareRow(
       "This bond",
       (bond.couponRatePct / RATE_SCALE_MAX) * 100,
-      "is-coupon",
+      "",
       formatPercent(bond.couponRatePct)
     )
   );
@@ -348,7 +352,7 @@ export function renderCouponCompare(container, { bond }, { formatPercent }) {
     buildCompareRow(
       "Market",
       (bond.annualYieldPct / RATE_SCALE_MAX) * 100,
-      "is-market",
+      "is-amber",
       formatPercent(bond.annualYieldPct)
     )
   );
@@ -368,7 +372,7 @@ export function renderPriceSplit(container, { analytics }, { formatCurrency }) {
     buildCompareRow(
       "Coupons",
       (analytics.pvCoupons / analytics.price) * 100,
-      "is-coupon",
+      "",
       formatCurrency(analytics.pvCoupons, 0)
     )
   );
@@ -376,7 +380,7 @@ export function renderPriceSplit(container, { analytics }, { formatCurrency }) {
     buildCompareRow(
       "Face value",
       (analytics.pvFace / analytics.price) * 100,
-      "is-face",
+      "is-amber",
       formatCurrency(analytics.pvFace, 0)
     )
   );
@@ -435,7 +439,7 @@ export function renderNarrative(elements, state, formatters) {
   elements.priceCaption.textContent = `This ${bond.years}-year, ${couponLabel} bond is now worth`;
 
   elements.regimeBadge.textContent = presentation.label;
-  elements.regimeBadge.className = `br-badge ${presentation.badgeClass}`;
+  elements.regimeBadge.className = `chip ${presentation.badgeClass}`;
 
   elements.rateArrow.textContent = ARROW_GLYPH[presentation.rateArrow];
   elements.rateArrow.className = `br-arrow ${presentation.rateArrow}`;

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formatCurrency, formatDollarTick, parseNumber } from '../../../js/modules/formatting.js';
+import { formatCurrency, formatDollarTick, formatPercent, parseNumber } from '../../../js/modules/formatting.js';
 
 test('formatCurrency rounds to whole dollars by default', () => {
   assert.equal(formatCurrency(1234), '$1,234');
@@ -18,6 +18,17 @@ test('formatCurrency handles negative, zero, and large values', () => {
   assert.equal(formatCurrency(-1234.5, 2), '-$1,234.50');
   assert.equal(formatCurrency(0), '$0');
   assert.equal(formatCurrency(1234567), '$1,234,567');
+});
+
+test('formatPercent defaults to one decimal and honors the digits argument', () => {
+  assert.equal(formatPercent(5), '5.0%');
+  assert.equal(formatPercent(4.2713, 2), '4.27%');
+  assert.equal(formatPercent(6), '6.0%');
+});
+
+test('formatPercent handles negative and zero values', () => {
+  assert.equal(formatPercent(0), '0.0%');
+  assert.equal(formatPercent(-1.25, 2), '-1.25%');
 });
 
 test('formatDollarTick handles millions, thousands, and small values', () => {

@@ -17,13 +17,13 @@ Every slider recomputes and repaints the whole page. The bond is one object with
 ## Structure
 
 - `index.html` - page shell, the hero control panel with the three sliders, hero readouts, the CSS-rendered pricing formula and its legend, the worked cash-flow table body, the yield-curve preset buttons, three chart canvases, and the ripple cards
-- `css/app.css` - hero stage, comparison bars, the pricing formula and legend, the schedule table, section cards, stat tiles, chart sizing, and badge/arrow styling scoped under `body.app-bond-price-vs-rate`
+- `css/app.css` - hero stage, comparison-row layout, the pricing formula and legend, the schedule table, section cards, and arrow styling scoped under `body.app-bond-price-vs-rate` (stat tiles, chips, meters, segmented toggles, callout tones, and section kickers come from the shared stylesheet)
 - `js/app.js` - bootstrap, slider reads, curve-preset state, and recalc orchestration
 - `js/modules/bond-math.js` - pure pricing math (no DOM): bond price, the discounted cash-flow schedule, price-regime classification, the analytics bundle (duration, convexity, DV01, current yield, price split), and the yield-curve presets
-- `js/modules/formatting.js` - currency and percent formatting, plus the shared tick formatter from the repo-root `js/modules/formatting.js`
+- currency, percent, and axis-tick formatting come from the repo-root `js/modules/formatting.js` (`formatCurrency`, `formatPercent`, `formatDollarTick`)
 - `js/modules/charts.js` - Chart.js creation and in-place updates for the three charts, with palette caching from the shared `js/modules/chart-theme.js`
 - `js/modules/narrative.js` - hero readouts, coupon-vs-market bars, the formula legend and worked cash-flow table, analyst tiles, price split, and the adaptive explanation paragraphs
-- `js/modules/interactions.js` - slider, curve-preset, and apply-button event wiring
+- `js/modules/interactions.js` - slider, apply-button, and shared segmented curve-preset wiring (via the shared `js/modules/segmented.js`)
 - `js/modules/ui.js` - DOM caching and slider-label helpers
 - `js/vendor/` - vendored Chart.js
 - `docs/` - internal engineering notes

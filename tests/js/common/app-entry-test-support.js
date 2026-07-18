@@ -65,7 +65,7 @@ export function setupFullMocks() {
     'sensitivityChart', 'sensitivityExplain', 'priceRateChart', 'rippleExplain',
     'statCurrentYield', 'statMacaulay', 'statModified', 'statConvexity',
     'pvSplit', 'analystExplain',
-    'btnCurveNormal', 'btnCurveFlat', 'btnCurveInverted', 'btnApplyCurve',
+    'curveToggle', 'btnCurveNormal', 'btnCurveFlat', 'btnCurveInverted', 'btnApplyCurve',
     'yieldCurveChart', 'curveExplain',
     'tabs', 'scenario-type', 'sentence-prefix', 'sentence-completion',
     'temp-slider', 'temp-val', 'temp-note', 'topp-slider', 'topp-val',
@@ -83,6 +83,11 @@ export function setupFullMocks() {
   // initSegmented can wire them the way the real DOM does.
   elementMap.viewToggle.querySelectorAll = () => [elementMap.btnCharts, elementMap.btnTable];
   elementMap.tableToggle.querySelectorAll = () => [elementMap.btnPeriod, elementMap.btnYearly];
+  elementMap.curveToggle.querySelectorAll = () => [
+    elementMap.btnCurveNormal,
+    elementMap.btnCurveFlat,
+    elementMap.btnCurveInverted
+  ];
 
   elementMap.slPrincipal.value = '100000';
   elementMap.slRate.value = '6';

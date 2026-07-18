@@ -23,16 +23,16 @@ The bond is a single object with a fixed face value ($1,000) and annual coupons 
   - owns shared theme sync, back-button fallback behavior, and scroll-to-top behavior
 - `js/modules/bond-math.js`
   - pure pricing math: bond price (present value of the coupon-plus-face schedule), the discounted cash-flow schedule (`bondSchedule`, one row per period with its payment, discount factor, and present value), premium/par/discount classification, the analytics bundle (price split, current yield, Macaulay and modified duration, convexity, DV01), and the yield-curve presets with their exponential-blend yield function
-- `js/modules/formatting.js`
-  - exports currency and percent formatting, plus the shared axis-tick formatter re-exported from the repo-root `js/modules/formatting.js`
+- `../../../js/modules/formatting.js`
+  - shared `formatCurrency`, `formatPercent`, and `formatDollarTick`; bond call sites pass explicit fraction digits so the shared whole-dollar default never changes a value
 - `js/modules/narrative.js`
   - owns the hero readouts (price, caption, badge, arrows, explanation), the coupon-vs-market bars, the pricing-formula legend values, the worked cash-flow table rows, the analyst stat tiles and price-split bars, the apply-curve button label, and the mechanism, mathematics, sensitivity, curve, analyst, and ripple paragraphs, all written with textContent/createElement
 - `js/modules/charts.js`
   - owns Chart.js initialization and in-place updates for the price-rate curve, the sensitivity bars, and the yield-by-maturity curve; the theme-aware palette caching comes from the shared `js/modules/chart-theme.js` at the repo root
 - `js/modules/interactions.js`
-  - wires the three slider `input` events, the three curve-preset clicks, and the apply-curve-rate click while app state mutations stay injected from `js/app.js`
+  - wires the three slider `input` events, the apply-curve-rate click, and the yield-curve preset group through the shared `js/modules/segmented.js` (which owns the active class and aria-pressed sync); app state mutations stay injected from `js/app.js`
 - `js/modules/ui.js`
-  - owns DOM caching, the live slider-value labels, the curve-button pressed state, and the chart-canvas lookup
+  - owns DOM caching, the live slider-value labels, and the chart-canvas lookup
 
 ## State flow
 

@@ -5,7 +5,7 @@ import {
   formatCurrency,
   formatDollarTick,
   formatPercent
-} from '../../../../apps/bond-price-vs-rate/js/modules/formatting.js';
+} from '../../../../js/modules/formatting.js';
 import {
   analystExplainText,
   curveExplainText,
@@ -27,7 +27,6 @@ import {
   CURVE_BUTTON_IDS,
   cacheElements,
   getChartElements,
-  syncCurveButtons,
   syncSliderLabels
 } from '../../../../apps/bond-price-vs-rate/js/modules/ui.js';
 import { refreshPalette, renderCharts } from '../../../../apps/bond-price-vs-rate/js/modules/charts.js';
@@ -89,8 +88,8 @@ function restoreDocument({ origDoc, origGcs }) {
 
 // --- formatting.js ---
 
-test('formatCurrency formats with a dollar sign and fixed decimals', () => {
-  assert.equal(formatCurrency(1170.6), '$1,170.60');
+test('formatCurrency formats with a dollar sign and the requested decimals', () => {
+  assert.equal(formatCurrency(1170.6, 2), '$1,170.60');
   assert.equal(formatCurrency(926.4, 0), '$926');
   assert.equal(formatCurrency(1000, 0), '$1,000');
 });
@@ -145,13 +144,13 @@ function narrativeState(overrides = {}) {
 
 test('regimePresentation maps each regime to a badge and arrow directions', () => {
   assert.deepEqual(regimePresentation('discount'), {
-    label: 'Discount', badgeClass: 'is-discount', rateArrow: 'is-up', priceArrow: 'is-down'
+    label: 'Discount', badgeClass: 'is-red', rateArrow: 'is-up', priceArrow: 'is-down'
   });
   assert.deepEqual(regimePresentation('premium'), {
-    label: 'Premium', badgeClass: 'is-premium', rateArrow: 'is-down', priceArrow: 'is-up'
+    label: 'Premium', badgeClass: 'is-green', rateArrow: 'is-down', priceArrow: 'is-up'
   });
   assert.deepEqual(regimePresentation('par'), {
-    label: 'At par', badgeClass: 'is-par', rateArrow: 'is-flat', priceArrow: 'is-flat'
+    label: 'At par', badgeClass: 'is-blue', rateArrow: 'is-flat', priceArrow: 'is-flat'
   });
 });
 
@@ -342,7 +341,7 @@ test('renderNarrative writes the discount readouts and up/down arrows', () => {
     assert.equal(elements.priceValue.textContent, '$926.40');
     assert.equal(elements.priceCaption.textContent, 'This 10-year, 5% bond is now worth');
     assert.equal(elements.regimeBadge.textContent, 'Discount');
-    assert.equal(elements.regimeBadge.className, 'br-badge is-discount');
+    assert.equal(elements.regimeBadge.className, 'chip is-red');
     assert.equal(elements.rateArrow.textContent, '▲');
     assert.equal(elements.rateArrow.className, 'br-arrow is-up');
     assert.equal(elements.priceArrow.textContent, '▼');
@@ -371,7 +370,7 @@ test('renderNarrative renders a premium bond with a fractional coupon caption', 
     );
     assert.equal(elements.priceValue.textContent, '$1,081.11');
     assert.equal(elements.priceCaption.textContent, 'This 1-year, 5.5% bond is now worth');
-    assert.equal(elements.regimeBadge.className, 'br-badge is-premium');
+    assert.equal(elements.regimeBadge.className, 'chip is-green');
     assert.equal(elements.priceArrow.textContent, '▲');
   } finally {
     restoreDocument(orig);
@@ -383,7 +382,7 @@ test('renderNarrative renders a par bond with flat arrows', () => {
   try {
     const elements = narrativeElements();
     renderNarrative(elements, narrativeState({ regime: 'par', price: 1000 }), FORMATTERS);
-    assert.equal(elements.regimeBadge.className, 'br-badge is-par');
+    assert.equal(elements.regimeBadge.className, 'chip is-blue');
     assert.equal(elements.rateArrow.textContent, '-');
     assert.equal(elements.rateArrow.className, 'br-arrow is-flat');
     assert.equal(elements.priceArrow.textContent, '-');
@@ -435,25 +434,26 @@ test('getChartElements returns only the three chart canvases', () => {
   });
 });
 
-test('syncCurveButtons marks only the selected preset as active and pressed', () => {
-  const elements = {
-    btnCurveNormal: makeElement(),
-    btnCurveFlat: makeElement(),
-    btnCurveInverted: makeElement()
-  };
-  syncCurveButtons(elements, 'inverted');
-  assert.equal(elements.btnCurveInverted.classList.contains('active'), true);
-  assert.equal(elements.btnCurveInverted.getAttribute('aria-pressed'), 'true');
-  assert.equal(elements.btnCurveNormal.classList.contains('active'), false);
-  assert.equal(elements.btnCurveNormal.getAttribute('aria-pressed'), 'false');
-  assert.equal(elements.btnCurveFlat.classList.contains('active'), false);
-
-  syncCurveButtons(elements, 'normal');
-  assert.equal(elements.btnCurveNormal.classList.contains('active'), true);
-  assert.equal(elements.btnCurveInverted.classList.contains('active'), false);
-});
-
 // --- interactions.js ---
+
+// Build a segmented-toggle container whose child buttons register their click
+// handler into the shared listeners map, mirroring how initSegmented wires the
+// real #curveToggle group.
+function makeToggle(ids, listeners) {
+  const buttons = ids.map((id) => {
+    const classes = new Set();
+    return {
+      id,
+      classList: {
+        toggle(cls, force) { force ? classes.add(cls) : classes.delete(cls); },
+        contains(cls) { return classes.has(cls); }
+      },
+      setAttribute() {},
+      addEventListener(type, handler) { listeners[`${id}:${type}`] = handler; }
+    };
+  });
+  return { querySelectorAll() { return buttons; } };
+}
 
 test('bindEvents wires the sliders, curve presets, and apply button', () => {
   const listeners = {};
@@ -465,11 +465,9 @@ test('bindEvents wires the sliders, curve presets, and apply button', () => {
   }
   const elements = {
     slRate: el('slRate'), slCoupon: el('slCoupon'), slYears: el('slYears'),
-    btnApplyCurve: el('btnApplyCurve')
+    btnApplyCurve: el('btnApplyCurve'),
+    curveToggle: makeToggle(Object.values(CURVE_BUTTON_IDS), listeners)
   };
-  for (const id of Object.values(CURVE_BUTTON_IDS)) {
-    elements[id] = el(id);
-  }
   const calls = [];
   bindEvents({
     elements,
