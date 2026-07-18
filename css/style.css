@@ -176,6 +176,8 @@ body.artifact-app {
   --color-blue-emphasis: rgb(12, 76, 132);
   --color-green-emphasis: rgb(8, 96, 74);
   --color-red-emphasis: rgb(163, 45, 45);
+  --color-amber-emphasis: rgb(133, 79, 11);
+  --color-purple-emphasis: rgb(83, 74, 183);
   --color-bg: rgb(248, 248, 246);
   --color-surface: rgb(255, 255, 255);
   --color-surface-alt: rgb(240, 240, 238);
@@ -251,6 +253,13 @@ body.artifact-app {
   --color-blue-emphasis: rgb(160, 200, 232);
   --color-green-emphasis: rgb(160, 232, 200);
   --color-red-emphasis: rgb(232, 160, 160);
+  --color-amber-emphasis: rgb(232, 200, 160);
+  --color-purple-emphasis: rgb(232, 160, 232);
+  --color-blue-text: var(--color-blue-emphasis);
+  --color-green-text: var(--color-green-emphasis);
+  --color-red-text: var(--color-red-emphasis);
+  --color-amber-text: var(--color-amber-emphasis);
+  --color-purple-text: var(--color-purple-emphasis);
   --chart-tick: rgb(160, 160, 160);
   --chart-grid: rgba(255, 255, 255, 0.08);
   --chart-annotation-border: rgb(160, 160, 160);
