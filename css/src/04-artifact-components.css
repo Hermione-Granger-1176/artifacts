@@ -405,3 +405,241 @@ body.artifact-app td:first-child {
   text-align: center;
 
 }
+
+/* Mac-style code windows with traffic-light dots and syntax tint classes. */
+
+body.artifact-app {
+  --syn-rose: var(--color-red-text);
+  --syn-amber: var(--color-amber-text);
+  --syn-teal: var(--color-green-text);
+  --syn-indigo: var(--color-purple-text);
+  --syn-warm: var(--color-blue-text);
+}
+
+[data-theme="dark"] body.artifact-app {
+  --syn-rose: var(--color-red);
+  --syn-amber: var(--color-amber);
+  --syn-teal: var(--color-green);
+  --syn-indigo: var(--color-purple);
+  --syn-warm: var(--color-blue);
+}
+
+body.artifact-app .code-window {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+body.artifact-app .code-window-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+}
+
+body.artifact-app .code-dots {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+body.artifact-app .code-dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+body.artifact-app .code-window-head .code-dot:nth-of-type(1) {
+  background: var(--syn-rose);
+}
+
+body.artifact-app .code-window-head .code-dot:nth-of-type(2) {
+  background: var(--syn-amber);
+}
+
+body.artifact-app .code-window-head .code-dot:nth-of-type(3) {
+  background: var(--syn-teal);
+}
+
+body.artifact-app .code-window-title {
+  margin-left: 0.4rem;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.artifact-app .code-window pre {
+  overflow-x: auto;
+  margin: 0;
+  padding: 1rem 1.25rem;
+  border: 0;
+  border-radius: 0;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-control);
+  line-height: 1.7;
+}
+
+body.artifact-app .syn-kw {
+  color: var(--syn-indigo);
+  font-weight: 600;
+}
+
+body.artifact-app .syn-fn {
+  color: var(--syn-warm);
+}
+
+body.artifact-app .syn-str {
+  color: var(--syn-teal);
+}
+
+body.artifact-app .syn-const {
+  color: var(--syn-rose);
+  font-weight: 600;
+}
+
+body.artifact-app .syn-cm {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+/* Sticky frosted section-progress nav driven by js/modules/section-nav.js. */
+
+body.artifact-app .section-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--color-border);
+}
+
+body.artifact-app .section-nav-inner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: min(100% - 2rem, 1000px);
+  margin: 0 auto;
+  padding: 0.6rem 0;
+}
+
+body.artifact-app .section-nav-track {
+  display: flex;
+  align-items: center;
+  position: relative;
+  flex: 1;
+  min-height: 36px;
+}
+
+body.artifact-app .section-nav-line,
+body.artifact-app .section-nav-fill {
+  position: absolute;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  border-radius: 1px;
+}
+
+body.artifact-app .section-nav-line {
+  left: 12px;
+  right: 12px;
+  background: var(--color-border);
+}
+
+body.artifact-app .section-nav-fill {
+  left: 12px;
+  width: 0;
+  background: var(--app-accent, var(--color-blue));
+  transition: width 0.4s ease;
+}
+
+body.artifact-app .section-nav-nodes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 2;
+  width: 100%;
+}
+
+body.artifact-app .section-nav-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 2px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: var(--color-bg);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  transition: all 0.3s ease;
+}
+
+body.artifact-app .section-nav-node:hover {
+  border-color: var(--app-accent, var(--color-blue));
+  color: var(--app-accent, var(--color-blue));
+  transform: scale(1.15);
+}
+
+body.artifact-app .section-nav-node.done,
+body.artifact-app .section-nav-node.active {
+  border-color: var(--app-accent, var(--color-blue));
+  background: var(--app-accent, var(--color-blue));
+  color: rgb(255, 255, 255);
+}
+
+body.artifact-app .section-nav-node.active {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--app-accent, var(--color-blue)) 12%, transparent);
+}
+
+body.artifact-app .section-nav-node:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+body.artifact-app .section-nav-tip {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  background: var(--color-tooltip-bg);
+  color: var(--color-tooltip-text);
+  font-family: var(--font-body);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+body.artifact-app .section-nav-node:hover .section-nav-tip {
+  opacity: 1;
+}
+
+body.artifact-app .section-nav-label {
+  min-width: 90px;
+  color: var(--color-text);
+  font-size: var(--font-size-control);
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}

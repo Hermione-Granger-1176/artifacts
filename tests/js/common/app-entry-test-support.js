@@ -66,9 +66,12 @@ export function setupFullMocks() {
     'pvSplit', 'analystExplain',
     'btnCurveNormal', 'btnCurveFlat', 'btnCurveInverted', 'btnApplyCurve',
     'yieldCurveChart', 'curveExplain',
-    'tabs', 'scenario-type', 'sentence-prefix',
-    'temp-slider', 'temp-val', 'topp-slider', 'topp-val',
-    'bars', 'token-pills', 'insight-box', 'concepts',
+    'tabs', 'scenario-type', 'sentence-prefix', 'sentence-completion',
+    'temp-slider', 'temp-val', 'temp-note', 'topp-slider', 'topp-val',
+    'sampling-presets', 'pick-token', 'sample-hundred', 'reset-samples',
+    'sample-status', 'probability-chart', 'token-pills', 'insight-box',
+    'token-examples', 'whitespace-toggle', 'concepts',
+    'nav-fill', 'nav-nodes', 'nav-label',
     'back-button', 'theme-toggle', 'scroll-top',
     'runtime-error', 'runtime-error-details', 'runtime-error-output', 'runtime-error-copy'
   ];

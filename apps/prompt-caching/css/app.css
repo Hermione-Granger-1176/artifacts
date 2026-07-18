@@ -166,6 +166,17 @@ body.app-prompt-caching .pc-hl-rose { color: var(--pc-rose);
 
 /* 2. Code examples, local card variants, and callout variants. */
 
+body.app-prompt-caching .pc .code-window {
+  margin: 0.9rem 0;
+}
+
+body.app-prompt-caching .pc .code-window pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--color-surface);
+}
+
 body.app-prompt-caching .pc pre {
   background: var(--color-surface-alt);
   border: 1px solid var(--color-border);
@@ -197,76 +208,6 @@ body.app-prompt-caching .pc pre code {
   padding: 0;
   color: inherit;
 
-}
-
-body.app-prompt-caching .pc-code-block {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  margin: 0.9rem 0;
-
-}
-
-body.app-prompt-caching .pc-code-head {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.55rem 1.1rem;
-  background: var(--color-surface-alt);
-  border-bottom: 1px solid var(--color-border);
-
-}
-
-body.app-prompt-caching .pc-code-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex-shrink: 0;
-
-}
-
-body.app-prompt-caching .pc-code-dot:nth-of-type(1) { background: var(--pc-rose);
-}
-
-body.app-prompt-caching .pc-code-dot:nth-of-type(2) { background: var(--pc-accent);
-}
-
-body.app-prompt-caching .pc-code-dot:nth-of-type(3) { background: var(--pc-teal);
-}
-
-body.app-prompt-caching .pc-code-title {
-  margin-left: 0.4rem;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-text-tertiary);
-
-}
-
-body.app-prompt-caching .pc-code-block pre {
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-  background: var(--color-surface);
-
-}
-
-body.app-prompt-caching .pc-syn-kw { color: var(--pc-indigo); font-weight: 600;
-}
-
-body.app-prompt-caching .pc-syn-fn { color: var(--pc-warm);
-}
-
-body.app-prompt-caching .pc-syn-str { color: var(--pc-teal);
-}
-
-body.app-prompt-caching .pc-syn-const { color: var(--pc-rose); font-weight: 600;
-}
-
-body.app-prompt-caching .pc-syn-cm { color: var(--color-text-tertiary); font-style: italic;
 }
 
 body.app-prompt-caching .pc-card {
@@ -512,153 +453,6 @@ body.app-prompt-caching .pc-meta strong.is-plain { color: var(--color-text-secon
 }
 
 /* 3. Progress navigation, learning pipeline, and tokenisation. */
-
-body.app-prompt-caching .pc-nav {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  background: color-mix(in srgb, var(--color-bg) 92%, transparent);
-  backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--color-border);
-
-}
-
-body.app-prompt-caching .pc-nav-inner {
-  width: min(100% - 2rem, var(--pc-measure));
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.6rem 0;
-
-}
-
-body.app-prompt-caching .pc-nav-track {
-  flex: 1;
-  position: relative;
-  min-height: 36px;
-  display: flex;
-  align-items: center;
-
-}
-
-body.app-prompt-caching .pc-nav-line,
-body.app-prompt-caching .pc-nav-fill {
-  position: absolute;
-  top: 50%;
-  height: 2px;
-  transform: translateY(-50%);
-  border-radius: 1px;
-
-}
-
-body.app-prompt-caching .pc-nav-line {
-  left: 12px;
-  right: 12px;
-  background: var(--color-border);
-
-}
-
-body.app-prompt-caching .pc-nav-fill {
-  left: 12px;
-  width: 0;
-  background: var(--pc-accent);
-  transition: width 0.4s ease;
-
-}
-
-body.app-prompt-caching .pc-nav-nodes {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: relative;
-  z-index: 2;
-  width: 100%;
-
-}
-
-body.app-prompt-caching .pc-nav-node {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 2px solid var(--color-border-strong);
-  background: var(--color-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-xs);
-  font-weight: 700;
-  font-family: var(--font-mono);
-  color: var(--color-text-tertiary);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  flex-shrink: 0;
-  padding: 0;
-
-}
-
-body.app-prompt-caching .pc-nav-node:hover {
-  border-color: var(--pc-accent);
-  color: var(--pc-accent);
-  transform: scale(1.15);
-
-}
-
-body.app-prompt-caching .pc-nav-node.done {
-  border-color: var(--pc-accent);
-  background: var(--pc-accent);
-  color: rgb(255, 255, 255);
-
-}
-
-body.app-prompt-caching .pc-nav-node.active {
-  border-color: var(--pc-accent);
-  background: var(--pc-accent);
-  color: rgb(255, 255, 255);
-  box-shadow: 0 0 0 4px var(--pc-accent-bg);
-
-}
-
-body.app-prompt-caching .pc-nav-node:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: 2px;
-
-}
-
-body.app-prompt-caching .pc-nav-tip {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--color-tooltip-bg);
-  color: var(--color-tooltip-text);
-  font-size: var(--font-size-2xs);
-  font-family: var(--font-body);
-  font-weight: 600;
-  padding: 0.25rem 0.6rem;
-  border-radius: 6px;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s;
-
-}
-
-body.app-prompt-caching .pc-nav-node:hover .pc-nav-tip {
-  opacity: 1;
-
-}
-
-body.app-prompt-caching .pc-nav-label {
-  font-size: var(--font-size-control);
-  font-weight: 600;
-  color: var(--color-text);
-  white-space: nowrap;
-  min-width: 90px;
-  text-align: right;
-
-}
 
 body.app-prompt-caching .pc-pipeline {
   display: flex;
@@ -2295,8 +2089,4 @@ body.app-prompt-caching .pc-footer a:hover {
 
   }
 
-  body.app-prompt-caching .pc-nav-label {
-    display: none;
-
-  }
 }

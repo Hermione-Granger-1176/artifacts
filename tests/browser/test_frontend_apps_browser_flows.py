@@ -87,9 +87,8 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(tmp_path: Path, monke
             arg=initial_sentence,
         )
 
-        initial_width = page.locator(".bar-fill").first.evaluate(
-            "element => getComputedStyle(element).width"
-        )
+        expect(page.locator("#probability-chart")).to_be_visible()
+        initial_temp_value = page.locator("#temp-val").text_content() or ""
         page.locator("#temp-slider").evaluate(
             """(element) => {
                     element.value = '20';
@@ -97,8 +96,8 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(tmp_path: Path, monke
                 }"""
         )
         page.wait_for_function(
-            "previous => getComputedStyle(document.querySelector('.bar-fill')).width !== previous",
-            arg=initial_width,
+            "previous => document.querySelector('#temp-val').textContent !== previous",
+            arg=initial_temp_value,
         )
 
         initial_pill_count = page.locator("#token-pills .pill").count()
@@ -111,8 +110,28 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(tmp_path: Path, monke
         page.wait_for_timeout(100)
         assert page.locator("#token-pills .pill").count() != initial_pill_count
 
+        page.locator("#pick-token").click()
+        expect(page.locator("#sentence-completion")).not_to_have_text("")
+        expect(page.locator("#token-pills .pill.winner")).to_be_visible()
+
+        page.locator("#sample-hundred").click()
+        expect(page.locator("#sample-status")).to_contain_text("tally from 100 draws")
+        page.locator("#reset-samples").click()
+        expect(page.locator("#sample-status")).to_contain_text("Run 100 draws")
+
+        page.locator("#whitespace-toggle").click()
+        expect(page.locator("#whitespace-toggle")).to_have_attribute("aria-pressed", "true")
+        expect(
+            page.locator("#token-examples .token-chip").filter(has_text="·").first
+        ).to_be_visible()
+
         page.locator(".card-trigger").first.click()
         expect(page.locator(".card").first).to_have_class(re.compile(r"\bopen\b"))
+
+        expect(page.locator(".section-nav")).to_be_visible()
+        assert page.locator("#nav-nodes .section-nav-node").count() == 4
+        page.locator("#nav-nodes .section-nav-node").last.click()
+        page.wait_for_function("window.scrollY > 0")
 
         page.locator("#theme-toggle").click()
         expect(page.locator("html")).to_have_attribute("data-theme", "dark")

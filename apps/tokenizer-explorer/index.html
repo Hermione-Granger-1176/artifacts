@@ -28,60 +28,150 @@
   <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
+  <link rel="preload" href="./js/vendor/chart.umd.min.js" as="script">
   <link rel="stylesheet" href="../../css/style.css">
   <link rel="stylesheet" href="./css/app.css">
+  <script defer src="./js/vendor/chart.umd.min.js"></script>
 </head>
 <body class="artifact-app app-tokenizer-explorer">
   <div data-app-shell="header"></div>
+
+  <nav class="section-nav" aria-label="Section progress">
+    <div class="section-nav-inner">
+      <div class="section-nav-track">
+        <div class="section-nav-line"></div>
+        <div class="section-nav-fill" id="nav-fill"></div>
+        <div class="section-nav-nodes" id="nav-nodes"></div>
+      </div>
+      <div class="section-nav-label" id="nav-label">Tokens</div>
+    </div>
+  </nav>
 
   <main class="page-shell">
     <div data-app-shell="runtime-error"></div>
 
     <header class="page-intro">
       <h1 class="page-title">Tokenizer: Temperature &amp; Top P</h1>
-      <p class="page-lede">Pick a scenario, adjust the sliders, and watch the next-token probability distribution reshape in real time.</p>
+      <p class="page-lede">Text becomes tokens, the model scores possible continuations, temperature and top-p reshape the odds, then sampling rolls the dice.</p>
     </header>
 
-    <div class="scenario-tabs" id="tabs"></div>
-
-    <section class="page-card scenario-box">
-      <div class="scenario-type" id="scenario-type"></div>
-      <div class="sentence-display">
-        <span id="sentence-prefix"></span><span class="blank"></span>
+    <section class="page-card tokenization-card" id="sec-tokens" aria-labelledby="tokenization-heading">
+      <div class="section-heading-row">
+        <div>
+          <p class="section-kicker">Before the model predicts</p>
+          <h2 id="tokenization-heading">How text becomes tokens</h2>
+        </div>
+        <button class="btn btn-outline btn-sm whitespace-toggle" id="whitespace-toggle" type="button" aria-pressed="false">Show whitespace</button>
       </div>
-      <div class="hint">The model is choosing the next token.</div>
+      <p class="section-copy">Illustrative examples of how BPE tokenizers typically split text. Real vocabularies vary, especially across languages and emoji.</p>
+      <div class="token-example-list" id="token-examples"></div>
     </section>
 
-    <section class="controls">
-      <div class="control-group">
-        <div class="control-header">
-          <label class="control-label" for="temp-slider">Temperature</label>
-          <span class="control-value" id="temp-val">1.0</span>
-        </div>
-        <input class="range-input" type="range" min="1" max="30" value="10" id="temp-slider" step="1" aria-describedby="temp-hints">
-        <div class="range-hints" id="temp-hints"><span>Safe (0.1)</span><span>Wild (3.0)</span></div>
+    <section class="sampling-explorer" aria-labelledby="sampling-heading">
+      <div class="sampling-heading" id="sec-sampling">
+        <p class="section-kicker">Sampling explorer</p>
+        <h2 id="sampling-heading">Score a next token, then choose one</h2>
       </div>
-      <div class="control-group">
-        <div class="control-header">
-          <label class="control-label" for="topp-slider">Top P</label>
-          <span class="control-value" id="topp-val">0.7</span>
+
+      <div class="scenario-tabs" id="tabs"></div>
+
+      <section class="code-window scenario-box">
+        <div class="code-window-head">
+          <span class="code-dots" aria-hidden="true"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></span>
+          <span class="code-window-title" id="scenario-type"></span>
         </div>
-        <input class="range-input" type="range" min="1" max="100" value="70" id="topp-slider" step="1" aria-describedby="topp-hints">
-        <div class="range-hints" id="topp-hints"><span>P=0.01 (tight)</span><span>P=1.0 (all)</span></div>
+        <div class="scenario-body">
+          <div class="sentence-display">
+            <span id="sentence-prefix"></span><span class="blank" id="sentence-completion" aria-live="polite"></span>
+          </div>
+          <div class="hint">The model is choosing the next token.</div>
+        </div>
+      </section>
+
+      <section class="page-card sampling-controls-card" aria-label="Sampling controls">
+        <div class="sampling-pipeline" aria-label="Sampling order of operations">
+          <div class="pipeline-step is-temperature">
+            <span class="pipeline-number">1</span>
+            <span>Temperature reshapes the scores</span>
+          </div>
+          <div class="pipeline-connector" aria-hidden="true"></div>
+          <div class="pipeline-step is-topp">
+            <span class="pipeline-number">2</span>
+            <span>Top P cuts the pool</span>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="control-group">
+            <div class="control-header">
+              <label class="control-label" for="temp-slider">Temperature</label>
+              <output class="control-value" id="temp-val" for="temp-slider">1.0</output>
+            </div>
+            <input class="range-input" type="range" min="0" max="30" value="10" id="temp-slider" step="1" aria-describedby="temp-hints temp-note">
+            <div class="range-hints" id="temp-hints"><span>Greedy (0)</span><span>Wild (3.0)</span></div>
+            <p class="control-note" id="temp-note">A middle setting balances coherence and surprise.</p>
+          </div>
+          <div class="control-group">
+            <div class="control-header">
+              <label class="control-label" for="topp-slider">Top P</label>
+              <output class="control-value" id="topp-val" for="topp-slider">0.70</output>
+            </div>
+            <input class="range-input" type="range" min="1" max="100" value="70" id="topp-slider" step="1" aria-describedby="topp-hints">
+            <div class="range-hints" id="topp-hints"><span>P=0.01 (tight)</span><span>P=1.0 (all)</span></div>
+          </div>
+        </div>
+
+        <div class="sampling-presets" id="sampling-presets" role="group" aria-label="Sampling presets">
+          <span class="preset-label">Presets</span>
+          <button class="btn btn-outline btn-sm sampling-preset" type="button" data-temperature="0.2" data-topp="0.9">Precise</button>
+          <button class="btn btn-outline btn-sm sampling-preset" type="button" data-temperature="0.7" data-topp="0.9">Chat</button>
+          <button class="btn btn-outline btn-sm sampling-preset" type="button" data-temperature="1.2" data-topp="0.95">Creative</button>
+        </div>
+      </section>
+
+      <section class="page-card chart-card probability-chart-card" id="sec-distribution" aria-labelledby="probability-chart-heading">
+        <div class="probability-chart-heading">
+          <div>
+            <h2 id="probability-chart-heading">The adjusted next-token distribution</h2>
+            <p class="chart-copy">Blue bars are the probabilities temperature produced. Faded bars are disabled by top-p and cannot be sampled; the pool below renormalizes the survivors.</p>
+          </div>
+          <div class="chart-legend" aria-label="Probability chart legend">
+            <span><i class="dot is-theoretical" aria-hidden="true"></i>After temperature</span>
+            <span><i class="dot is-observed" aria-hidden="true"></i>Observed, after Sample 100x</span>
+          </div>
+        </div>
+        <div class="chart-frame is-probability"><canvas id="probability-chart"></canvas></div>
+        <div class="sample-actions">
+          <button class="btn btn-primary" id="pick-token" type="button">Pick next token</button>
+          <button class="btn btn-outline" id="sample-hundred" type="button">Sample 100x</button>
+          <button class="btn btn-outline" id="reset-samples" type="button">Reset samples</button>
+        </div>
+        <p class="sample-status" id="sample-status" aria-live="polite"></p>
+      </section>
+
+      <section class="page-card token-pool-card" aria-label="Top P token pool">
+        <p class="section-label">Token pool after the Top P cutoff:</p>
+        <div class="pills-row" id="token-pills"></div>
+        <div class="insight" id="insight-box"></div>
+      </section>
+
+      <div class="code-window sampling-code">
+        <div class="code-window-head">
+          <span class="code-dots" aria-hidden="true"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></span>
+          <span class="code-window-title">The whole sampling step</span>
+        </div>
+        <pre>scores = <span class="syn-fn">model</span>(prompt)                      <span class="syn-cm"># one raw score per candidate</span>
+probs = <span class="syn-fn">softmax</span>(scores / <span class="syn-const">temperature</span>)      <span class="syn-cm"># step 1: temperature reshapes</span>
+pool = <span class="syn-fn">keep_until</span>(probs, total >= <span class="syn-const">top_p</span>)   <span class="syn-cm"># step 2: top-p cuts</span>
+<span class="syn-kw">return</span> <span class="syn-fn">sample</span>(<span class="syn-fn">renormalize</span>(pool))          <span class="syn-cm"># roll the dice</span></pre>
       </div>
     </section>
-
-    <p class="section-label">Token candidates and adjusted probabilities:</p>
-    <div id="bars" class="bars"></div>
-
-    <hr class="divider">
-
-    <p class="section-label">Token pool after Top P cutoff:</p>
-    <div class="pills-row" id="token-pills"></div>
-    <div class="page-card insight" id="insight-box"></div>
 
     <section class="concepts" id="concepts">
-      <div class="concepts-heading">Concepts explained</div>
+      <div class="concepts-heading">
+        <p class="section-kicker">Go deeper</p>
+        <h2>Concepts explained</h2>
+      </div>
 
       <div class="page-card card" id="card-token">
         <button class="card-trigger" type="button" aria-expanded="false">
@@ -134,6 +224,24 @@
           <p>Top P sets a cumulative probability threshold. The model ranks tokens by probability and keeps adding them until the running total reaches P. Everything below the cutoff is excluded.</p>
           <p>When the model is confident, the nucleus stays small. When it is uncertain, more tokens survive the cutoff naturally.</p>
           <span class="tip">0.7 to 0.95 is the usual production sweet spot.</span>
+        </div>
+      </div>
+
+      <div class="page-card card" id="card-behavior">
+        <button class="card-trigger" type="button" aria-expanded="false">
+          <div class="card-left">
+            <div class="card-icon red">?</div>
+            <div>
+              <div class="card-title">Why tokens explain weird LLM behavior</div>
+              <div class="card-tagline">The model works with chunks, not individual letters</div>
+            </div>
+          </div>
+          <span class="card-arrow">&#9660;</span>
+        </button>
+        <div class="card-body">
+          <p>Counting the letters in "strawberry" can fail because a model sees token chunks, not a sequence of individual letters. The letters are present in the text, but they are not always the units the model is processing.</p>
+          <p>Arithmetic with long numbers is difficult for a related reason. Digits can split into uneven pieces, so the model must reason across chunks rather than line up one digit at a time.</p>
+          <p>Costs and context windows are measured in tokens too. A compact sentence in English may consume fewer tokens than the same idea written with uncommon text, long numbers, or some non-English scripts.</p>
         </div>
       </div>
     </section>

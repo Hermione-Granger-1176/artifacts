@@ -49,12 +49,14 @@ window.ARTIFACTS_DATA = [
   {
     "id": "tokenizer-explorer",
     "name": "Tokenizer: Temperature & Top P Explorer",
-    "description": "Interactive explainer for LLM next-token probabilities, temperature scaling, and top-p sampling.",
+    "description": "Interactive explainer for tokenization, LLM next-token probabilities, temperature scaling, top-p sampling, and empirical draws.",
     "tags": [
       "ai",
       "llm",
       "education",
-      "visualization"
+      "visualization",
+      "tokenization",
+      "sampling"
     ],
     "tools": [
       "claude"

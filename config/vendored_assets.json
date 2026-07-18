@@ -27,6 +27,13 @@
       "version": "4.4.1",
       "upstream": "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js",
       "sha256": "81ffafe13c37e1b25793b020d446f4d9739b949dadb7f9f79d709a0cad781c2f"
+    },
+    {
+      "path": "apps/tokenizer-explorer/js/vendor/chart.umd.min.js",
+      "package": "chart.js",
+      "version": "4.4.1",
+      "upstream": "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js",
+      "sha256": "81ffafe13c37e1b25793b020d446f4d9739b949dadb7f9f79d709a0cad781c2f"
     }
   ]
 }
