@@ -88,9 +88,11 @@ export function setupFullMocks() {
     elementMap.btnCurveFlat,
     elementMap.btnCurveInverted
   ];
-  // The tokenizer scenario tabs are rendered into #tabs at runtime, so the
-  // shared segmented wiring resolves them through the container's live children.
-  elementMap.tabs.querySelectorAll = () => elementMap.tabs.children;
+  // The tokenizer scenario tabs are rendered into #tabs at runtime; mirror the
+  // real API by matching the selector and returning a snapshot of the current
+  // buttons at call time.
+  elementMap.tabs.querySelectorAll = (selector) =>
+    selector === 'button' ? [...elementMap.tabs.children] : [];
 
   elementMap.slPrincipal.value = '100000';
   elementMap.slRate.value = '6';
