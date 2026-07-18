@@ -1,1 +1,0 @@
-export function formatCurrency(r){return`$${Math.round(r).toLocaleString("en-US")}`}export{formatDollarTick,parseNumber}from"../../../../js/modules/formatting.js";export{escapeAttribute}from"../../../../js/modules/html-escape.js";
