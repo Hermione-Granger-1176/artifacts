@@ -10,30 +10,31 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/">
   <meta property="og:site_name" content="Artifacts">
-  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=2a23ad5">
-  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=2a23ad5">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=691c642">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=691c642">
   <meta property="og:image:alt" content="Preview card for the Prompt Caching, Demystified app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Prompt Caching, Demystified | Artifacts">
   <meta name="twitter:description" content="Interactive explainer on how LLM prompt caching works, from tokenizer to embeddings, attention, and the KV cache that providers reuse to cut cost and latency.">
-  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=2a23ad5">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/prompt-caching/thumbnail.webp?v=691c642">
   <meta name="twitter:image:alt" content="Preview card for the Prompt Caching, Demystified app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
   <title>Prompt Caching, Demystified | Artifacts</title>
-  <script src="../../js/app-theme.js?v=2a23ad5"></script>
+  <script src="../../js/app-theme.js?v=691c642"></script>
   <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
   <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
-  <link rel="stylesheet" href="../../css/style.css?v=2a23ad5">
-  <link rel="stylesheet" href="./css/app.css?v=2a23ad5">
+  <link rel="stylesheet" href="../../css/style.css?v=691c642">
+  <link rel="stylesheet" href="./css/app.css?v=691c642">
   <link rel="modulepreload" href="../../js/modules/app-shell.js">
   <link rel="modulepreload" href="../../js/modules/runtime.js">
   <link rel="modulepreload" href="../../js/modules/app-runtime.js">
   <link rel="modulepreload" href="js/modules/navigation.js">
+  <link rel="modulepreload" href="../../js/modules/section-nav.js">
   <link rel="modulepreload" href="js/modules/data.js">
   <link rel="modulepreload" href="js/modules/dom.js">
   <link rel="modulepreload" href="js/modules/tokenizer.js">
@@ -48,14 +49,14 @@
 <body class="artifact-app app-prompt-caching">
   <div data-app-shell="header"></div>
 
-  <nav class="pc-nav" aria-label="Section progress">
-    <div class="pc-nav-inner">
-      <div class="pc-nav-track">
-        <div class="pc-nav-line"></div>
-        <div class="pc-nav-fill" id="navFill"></div>
-        <div class="pc-nav-nodes" id="navNodes"></div>
+  <nav class="section-nav" aria-label="Section progress">
+    <div class="section-nav-inner">
+      <div class="section-nav-track">
+        <div class="section-nav-line"></div>
+        <div class="section-nav-fill" id="navFill"></div>
+        <div class="section-nav-nodes" id="navNodes"></div>
       </div>
-      <div class="pc-nav-label" id="navLabel">Intro</div>
+      <div class="section-nav-label" id="navLabel">Intro</div>
     </div>
   </nav>
 
@@ -108,33 +109,33 @@
       <div class="pc-section-num">The Big Picture</div>
       <h2>LLMs are loops, not magic</h2>
       <p>At the highest level, an LLM is a giant mathematical function that takes a list of numbers in and spits one number out. That output number is a new token. Then it appends that token to the input and runs the whole function again. And again. Until a special "stop" token appears.</p>
-      <div class="pc-code-block">
-        <div class="pc-code-head" aria-hidden="true">
-          <span class="pc-code-dot"></span><span class="pc-code-dot"></span><span class="pc-code-dot"></span>
-          <span class="pc-code-title">The entire inference loop</span>
+      <div class="code-window">
+        <div class="code-window-head">
+          <span class="code-dots" aria-hidden="true"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></span>
+          <span class="code-window-title">The entire inference loop</span>
         </div>
-        <pre>prompt = <span class="pc-syn-str">"Explain prompt caching"</span>
+        <pre>prompt = <span class="syn-str">"Explain prompt caching"</span>
 
-tokens = <span class="pc-syn-fn">tokenize</span>(prompt)
+tokens = <span class="syn-fn">tokenize</span>(prompt)
 
-<span class="pc-syn-kw">while</span> (<span class="pc-syn-const">true</span>) {
-    embeddings = <span class="pc-syn-fn">embed</span>(tokens)
+<span class="syn-kw">while</span> (<span class="syn-const">true</span>) {
+    embeddings = <span class="syn-fn">embed</span>(tokens)
 
-    <span class="pc-syn-kw">for each</span> transformer <span class="pc-syn-kw">in</span> model {
-        embeddings = transformer.<span class="pc-syn-fn">attention</span>(embeddings)
-        embeddings = transformer.<span class="pc-syn-fn">feedforward</span>(embeddings)
+    <span class="syn-kw">for each</span> transformer <span class="syn-kw">in</span> model {
+        embeddings = transformer.<span class="syn-fn">attention</span>(embeddings)
+        embeddings = transformer.<span class="syn-fn">feedforward</span>(embeddings)
     }
 
-    next_token = <span class="pc-syn-fn">pick_output</span>(embeddings)
+    next_token = <span class="syn-fn">pick_output</span>(embeddings)
 
-    <span class="pc-syn-kw">if</span> (next_token == <span class="pc-syn-const">STOP</span>) {
-        <span class="pc-syn-kw">break</span>
+    <span class="syn-kw">if</span> (next_token == <span class="syn-const">STOP</span>) {
+        <span class="syn-kw">break</span>
     }
 
-    tokens.<span class="pc-syn-fn">append</span>(next_token)
+    tokens.<span class="syn-fn">append</span>(next_token)
 }
 
-<span class="pc-syn-fn">print</span>(<span class="pc-syn-fn">decode</span>(tokens))</pre>
+<span class="syn-fn">print</span>(<span class="syn-fn">decode</span>(tokens))</pre>
       </div>
       <p>That is the entire inference loop. Every single response you have ever received from ChatGPT, Claude, or any LLM was generated by running this loop over and over, one token at a time. The response streams to you token-by-token because each iteration takes real compute, and showing you partial progress feels much more responsive than making you wait 30 seconds for the full output.</p>
       <div class="app-callout pc-callout is-warm">
@@ -200,21 +201,21 @@ tokens = <span class="pc-syn-fn">tokenize</span>(prompt)
       <h2>Embeddings: numbers become meaning</h2>
       <p>Tokens are just integers. The number 4821 is no more "similar" to 4822 than to 99103. But we need the model to understand that "happy" and "joyful" are close in meaning while "happy" and "submarine" are not. The fix: give every token a position in a <span class="pc-hl-warm">high-dimensional space</span>.</p>
       <p>An embedding is an array of numbers representing a coordinate in this space. If we had 3 dimensions, an embedding might look like <code>[0.71, -0.33, 0.52]</code>. During training, the model nudges all tokens around this space until words with similar meanings cluster together.</p>
-      <div class="pc-code-block">
-        <div class="pc-code-head" aria-hidden="true">
-          <span class="pc-code-dot"></span><span class="pc-code-dot"></span><span class="pc-code-dot"></span>
-          <span class="pc-code-title">The embedding lookup table</span>
+      <div class="code-window">
+        <div class="code-window-head">
+          <span class="code-dots" aria-hidden="true"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></span>
+          <span class="code-window-title">The embedding lookup table</span>
         </div>
-        <pre><span class="pc-syn-cm">// Created during training, frozen during inference</span>
-<span class="pc-syn-kw">const</span> EMBEDDING_TABLE = [
-    <span class="pc-syn-cm">/* token 0 */</span>  [0.12, -0.45, 0.78, ...],  <span class="pc-syn-cm">// thousands of dims</span>
-    <span class="pc-syn-cm">/* token 1 */</span>  [-0.33, 0.91, 0.02, ...],
+        <pre><span class="syn-cm">// Created during training, frozen during inference</span>
+<span class="syn-kw">const</span> EMBEDDING_TABLE = [
+    <span class="syn-cm">/* token 0 */</span>  [0.12, -0.45, 0.78, ...],  <span class="syn-cm">// thousands of dims</span>
+    <span class="syn-cm">/* token 1 */</span>  [-0.33, 0.91, 0.02, ...],
     ...
-    <span class="pc-syn-cm">/* token N */</span>  [0.55, -0.11, 0.67, ...],
+    <span class="syn-cm">/* token N */</span>  [0.55, -0.11, 0.67, ...],
 ];
 
-<span class="pc-syn-kw">function</span> <span class="pc-syn-fn">embed</span>(tokenId) {
-    <span class="pc-syn-kw">return</span> EMBEDDING_TABLE[tokenId];
+<span class="syn-kw">function</span> <span class="syn-fn">embed</span>(tokenId) {
+    <span class="syn-kw">return</span> EMBEDDING_TABLE[tokenId];
 }</pre>
       </div>
       <h3>Why more dimensions help</h3>
@@ -367,23 +368,23 @@ tokens = <span class="pc-syn-fn">tokenize</span>(prompt)
         <div id="cacheCompareVis"></div>
         <p class="pc-narration" id="cacheCompareCaption"></p>
       </div>
-      <div class="pc-code-block">
-        <div class="pc-code-head" aria-hidden="true">
-          <span class="pc-code-dot"></span><span class="pc-code-dot"></span><span class="pc-code-dot"></span>
-          <span class="pc-code-title">What the cache actually skips</span>
+      <div class="code-window">
+        <div class="code-window-head">
+          <span class="code-dots" aria-hidden="true"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></span>
+          <span class="code-window-title">What the cache actually skips</span>
         </div>
-        <pre><span class="pc-syn-cm">// Without cache: feed ALL tokens every time</span>
-Q = all_embeddings * WQ    <span class="pc-syn-cm">// 5 rows computed</span>
-K = all_embeddings * WK    <span class="pc-syn-cm">// 5 rows computed</span>
-V = all_embeddings * WV    <span class="pc-syn-cm">// 5 rows computed</span>
+        <pre><span class="syn-cm">// Without cache: feed ALL tokens every time</span>
+Q = all_embeddings * WQ    <span class="syn-cm">// 5 rows computed</span>
+K = all_embeddings * WK    <span class="syn-cm">// 5 rows computed</span>
+V = all_embeddings * WV    <span class="syn-cm">// 5 rows computed</span>
 
-<span class="pc-syn-cm">// With cache: only compute the new token's row</span>
-Q_new = new_embedding * WQ   <span class="pc-syn-cm">// 1 row</span>
-K_new = new_embedding * WK   <span class="pc-syn-cm">// 1 row</span>
-V_new = new_embedding * WV   <span class="pc-syn-cm">// 1 row</span>
+<span class="syn-cm">// With cache: only compute the new token's row</span>
+Q_new = new_embedding * WQ   <span class="syn-cm">// 1 row</span>
+K_new = new_embedding * WK   <span class="syn-cm">// 1 row</span>
+V_new = new_embedding * WV   <span class="syn-cm">// 1 row</span>
 
-K = <span class="pc-syn-fn">append</span>(cached_K, K_new)  <span class="pc-syn-cm">// reuse 4 rows, add 1</span>
-V = <span class="pc-syn-fn">append</span>(cached_V, V_new)  <span class="pc-syn-cm">// reuse 4 rows, add 1</span></pre>
+K = <span class="syn-fn">append</span>(cached_K, K_new)  <span class="syn-cm">// reuse 4 rows, add 1</span>
+V = <span class="syn-fn">append</span>(cached_V, V_new)  <span class="syn-cm">// reuse 4 rows, add 1</span></pre>
       </div>
       <div class="app-callout pc-callout is-accent">
         <div class="app-callout-title">That is it. Those K and V matrices are the "1s and 0s" that get cached.</div>
@@ -513,6 +514,6 @@ V = <span class="pc-syn-fn">append</span>(cached_V, V_new)  <span class="pc-syn-
 
   <div data-app-shell="scroll-top"></div>
 
-  <script type="module" src="./js/app.js?v=2a23ad5"></script>
+  <script type="module" src="./js/app.js?v=691c642"></script>
 </body>
 </html>
