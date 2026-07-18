@@ -1,5 +1,14 @@
 /* Tokenizer explorer app styles. */
 
+/* Section-nav scroll targets clear the sticky frosted nav when jumped to. */
+
+body.app-tokenizer-explorer .tokenization-card,
+body.app-tokenizer-explorer .sampling-heading,
+body.app-tokenizer-explorer .probability-chart-card,
+body.app-tokenizer-explorer .concepts {
+  scroll-margin-top: 4rem;
+}
+
 /* Tokenization examples. */
 
 body.app-tokenizer-explorer .tokenization-card,
