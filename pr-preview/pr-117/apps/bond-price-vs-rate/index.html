@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="A plain-language explainer of why bond prices fall when interest rates rise: drag the rate to reprice a bond you own, see how coupon and maturity change the swing, and what the move means for the wider economy.">
+  <link rel="canonical" href="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/">
+  <meta property="og:title" content="Bonds vs Interest Rates | Artifacts">
+  <meta property="og:description" content="A plain-language explainer of why bond prices fall when interest rates rise: drag the rate to reprice a bond you own, see how coupon and maturity change the swing, and what the move means for the wider economy.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/">
+  <meta property="og:site_name" content="Artifacts">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=e00fa1d">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=e00fa1d">
+  <meta property="og:image:alt" content="Preview card for the Bonds vs Interest Rates app.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Bonds vs Interest Rates | Artifacts">
+  <meta name="twitter:description" content="A plain-language explainer of why bond prices fall when interest rates rise: drag the rate to reprice a bond you own, see how coupon and maturity change the swing, and what the move means for the wider economy.">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=e00fa1d">
+  <meta name="twitter:image:alt" content="Preview card for the Bonds vs Interest Rates app.">
+  <meta name="theme-color" content="rgb(248, 248, 246)">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <title>Bonds vs Interest Rates | Artifacts</title>
+  <script src="../../js/app-theme.js?v=e00fa1d"></script>
+  <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
+  <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
+  <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
+  <link rel="preload" href="./js/vendor/chart.umd.min.js" as="script">
+  <link rel="stylesheet" href="../../css/style.css?v=e00fa1d">
+  <link rel="stylesheet" href="./css/app.css?v=e00fa1d">
+  <script defer src="./js/vendor/chart.umd.min.js"></script>
+  <link rel="modulepreload" href="js/modules/bond-math.js">
+  <link rel="modulepreload" href="js/modules/charts.js">
+  <link rel="modulepreload" href="../../js/modules/chart-theme.js">
+  <link rel="modulepreload" href="../../js/modules/app-runtime.js">
+  <link rel="modulepreload" href="../../js/modules/runtime.js">
+  <link rel="modulepreload" href="../../js/modules/app-shell.js">
+  <link rel="modulepreload" href="js/modules/interactions.js">
+  <link rel="modulepreload" href="../../js/modules/segmented.js">
+  <link rel="modulepreload" href="js/modules/ui.js">
+  <link rel="modulepreload" href="../../js/modules/element-cache.js">
+  <link rel="modulepreload" href="../../js/modules/formatting.js">
+  <link rel="modulepreload" href="js/modules/narrative.js">
+</head>
+<body class="artifact-app app-bond-price-vs-rate">
+  <div data-app-shell="header"></div>
+
+  <main class="page-shell">
+    <div data-app-shell="runtime-error"></div>
+
+    <header class="page-intro">
+      <h1 class="page-title">Bonds vs interest rates</h1>
+      <p class="page-lede">Bond prices and interest rates move in opposite directions. Drag the rate to watch a bond you already own gain or lose value, then see exactly why it happens and what the same move does to the wider economy.</p>
+    </header>
+
+    <!-- 1. HERO: the inverse move -->
+    <section class="page-section br-hero">
+      <div class="page-card br-stage">
+        <div class="br-controls" role="group" aria-label="Bond controls">
+          <div class="br-control">
+            <div class="br-rate-head">
+              <label class="br-rate-label" for="slRate">Market interest rate</label>
+              <output class="br-rate-value" id="rateValue" for="slRate">5.0%</output>
+            </div>
+            <input class="range-input" type="range" id="slRate" min="1" max="12" step="0.1" value="5" aria-label="Market interest rate">
+            <p class="control-copy">The yield investors can get on a newly issued bond of the same kind today.</p>
+          </div>
+
+          <div class="br-control">
+            <div class="br-rate-head">
+              <label class="br-rate-label" for="slCoupon">This bond's coupon</label>
+              <output class="br-rate-value" id="couponValue" for="slCoupon">5.0%</output>
+            </div>
+            <input class="range-input" type="range" id="slCoupon" min="1" max="12" step="0.1" value="5" aria-label="Coupon rate">
+            <p class="control-copy">The fixed payment this bond promised when it was issued. It never changes.</p>
+          </div>
+
+          <div class="br-control">
+            <div class="br-rate-head">
+              <label class="br-rate-label" for="slYears">Years to maturity</label>
+              <output class="br-rate-value" id="yearsValue" for="slYears">10 years</output>
+            </div>
+            <input class="range-input" type="range" id="slYears" min="1" max="30" step="1" value="10" aria-label="Years to maturity">
+            <p class="control-copy">How long until the bond repays its $1,000 face value.</p>
+          </div>
+        </div>
+
+        <div class="br-outcome">
+          <div class="br-price-block">
+            <span class="br-price-caption" id="priceCaption">This 10-year, 5% bond is now worth</span>
+            <span class="br-price" id="priceValue">$1,000.00</span>
+            <span class="chip is-blue" id="regimeBadge">At par</span>
+          </div>
+          <div class="br-seesaw">
+            <span class="br-vs-item"><span class="section-kicker">Rate</span><span class="br-arrow" id="rateArrow" aria-hidden="true">&mdash;</span></span>
+            <span class="br-vs-item"><span class="section-kicker">Price</span><span class="br-arrow" id="priceArrow" aria-hidden="true">&mdash;</span></span>
+          </div>
+        </div>
+
+        <p class="br-explain" id="heroExplain"></p>
+      </div>
+
+      <div class="page-card chart-card br-curve-card">
+        <h2>Your bond lives on this curve</h2>
+        <div class="chart-frame is-tall"><canvas id="priceRateChart"></canvas></div>
+        <p class="control-copy">Move the rate and the marked point slides along the curve: up and left when rates fall, down and right when they rise. The face value ($1,000) never changes; only the price does.</p>
+      </div>
+    </section>
+
+    <!-- 2. WHY IT HAPPENS: the mechanism, with the coupon control -->
+    <section class="page-section br-section">
+      <div class="br-section-head">
+        <p class="section-kicker">Why it happens</p>
+        <h2>The payments are locked in. The price is not.</h2>
+      </div>
+      <p>When this bond was issued it promised a fixed <strong>coupon</strong>: the same dollar payment every year until it matures. That promise never changes. So the only lever the market has to make an older bond compete with newly issued ones is its <em>price</em>. Raise the coupon in the control panel above and watch how it changes whether buyers pay up or demand a discount.</p>
+
+      <div class="page-card br-control-card">
+        <div class="br-compare" id="couponCompare"></div>
+      </div>
+
+      <p class="br-explain" id="mechanismExplain"></p>
+
+      <div class="app-callout is-blue">
+        <div class="app-callout-title">Premium, par, discount</div>
+        <div class="app-callout-body">If your coupon beats today's market rate, buyers pay <em>more</em> than the $1,000 face value (a premium). If it lags, they only buy at a <em>discount</em>. If the two match, the bond trades right at par.</div>
+      </div>
+    </section>
+
+    <!-- 3. THE MATHEMATICS: discounting, the pricing formula, and a worked example -->
+    <section class="page-section br-section">
+      <div class="br-section-head">
+        <p class="section-kicker">The mathematics</p>
+        <h2>One formula prices every bond.</h2>
+      </div>
+      <p>A dollar arriving in <em>t</em> years is worth only 1/(1 + r)<sup>t</sup> dollars today, because today's dollar could be invested at the market rate <em>r</em> and grow to match it. Every future coupon and the face repayment gets shrunk by that factor, and the price is simply their sum.</p>
+
+      <div class="page-card br-formula-card">
+        <div class="br-formula" role="img" aria-label="Price equals the sum from t equals 1 to n of C over (1 plus r) to the power t, plus F over (1 plus r) to the power n.">
+          <span class="br-f-term">P</span>
+          <span class="br-f-op">=</span>
+          <span class="br-f-sum" aria-hidden="true">
+            <span class="br-f-bound">n</span>
+            <span class="br-f-sigma">&#8721;</span>
+            <span class="br-f-bound">t = 1</span>
+          </span>
+          <span class="br-fraction" aria-hidden="true">
+            <span class="br-f-top">C</span>
+            <span class="br-f-bottom">(1 + r)<sup>t</sup></span>
+          </span>
+          <span class="br-f-op">+</span>
+          <span class="br-fraction" aria-hidden="true">
+            <span class="br-f-top">F</span>
+            <span class="br-f-bottom">(1 + r)<sup>n</sup></span>
+          </span>
+        </div>
+        <ul class="br-legend">
+          <li><span class="br-legend-sym">C</span> <span class="br-legend-def">annual coupon = <span id="mathLegendCoupon">$50</span></span></li>
+          <li><span class="br-legend-sym">r</span> <span class="br-legend-def">market rate = <span id="mathLegendRate">5.0%</span></span></li>
+          <li><span class="br-legend-sym">n</span> <span class="br-legend-def">years to maturity = <span id="mathLegendYears">10</span></span></li>
+          <li><span class="br-legend-sym">F</span> <span class="br-legend-def">face value = <span id="mathLegendFace">$1,000</span></span></li>
+        </ul>
+      </div>
+
+      <div class="page-card br-schedule-card">
+        <h3 class="br-split-title">Every payment, discounted to today</h3>
+        <div class="table-wrap br-schedule-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Year</th>
+                <th scope="col">Payment</th>
+                <th scope="col">Discount factor</th>
+                <th scope="col">Present value</th>
+              </tr>
+            </thead>
+            <tbody id="mathSchedule"></tbody>
+          </table>
+        </div>
+        <p class="control-copy">Each payment is multiplied by its discount factor to land on today's value. The present values add up to the price shown at the top of the page.</p>
+      </div>
+
+      <p class="br-explain" id="mathExplain"></p>
+    </section>
+
+    <!-- 4. SENSITIVITY: maturity, with the years control -->
+    <section class="page-section br-section">
+      <div class="br-section-head">
+        <p class="section-kicker">How hard it swings</p>
+        <h2>The longer the bond, the bigger the move.</h2>
+      </div>
+      <p>A rate change is applied to every remaining payment, and long bonds have far more payments still waiting to be discounted. So the same rate move barely dents a short bond but can hammer a long one. That sensitivity is what professionals call <em>duration</em>. Drag the years slider in the control panel above to move your bond along the chart.</p>
+
+      <div class="page-card chart-card">
+        <h2>Price drop if rates rise 1%</h2>
+        <div class="chart-frame is-medium"><canvas id="sensitivityChart"></canvas></div>
+        <p class="control-copy">The same one-point rate rise, across different maturities. Your bond is highlighted.</p>
+      </div>
+      <p class="br-explain" id="sensitivityExplain"></p>
+    </section>
+
+    <!-- 5. THE YIELD CURVE: one rate per maturity -->
+    <section class="page-section br-section">
+      <div class="br-section-head">
+        <p class="section-kicker">The missing piece</p>
+        <h2>There isn't one interest rate. There's a curve.</h2>
+      </div>
+      <p>Everything above priced the bond against a single market rate. In reality the market quotes a different yield for every maturity, and the line through them is the <strong>yield curve</strong>, one of the most watched signals in finance. Pick a shape to see what the market pays at each maturity.</p>
+
+      <div class="segmented" id="curveToggle" role="group" aria-label="Yield curve shape">
+        <button class="active" id="btnCurveNormal" type="button" aria-pressed="true">Normal</button>
+        <button id="btnCurveFlat" type="button" aria-pressed="false">Flat</button>
+        <button id="btnCurveInverted" type="button" aria-pressed="false">Inverted</button>
+      </div>
+
+      <div class="page-card chart-card">
+        <h2>Yield by maturity</h2>
+        <div class="chart-frame is-medium"><canvas id="yieldCurveChart"></canvas></div>
+        <p class="control-copy">The marked point sits at your bond's maturity: the yield this curve says the market offers there.</p>
+      </div>
+
+      <p class="br-explain" id="curveExplain"></p>
+
+      <div class="br-curve-apply">
+        <button class="btn btn-outline" id="btnApplyCurve" type="button">Set the market rate to this curve's rate</button>
+        <p class="control-copy">Pushes this curve's rate at your maturity into the market-rate slider at the top, repricing everything on the page.</p>
+      </div>
+    </section>
+
+    <!-- 6. THE ANALYST READOUT: duration, convexity, DV01, and the price split -->
+    <section class="page-section br-section">
+      <div class="br-section-head">
+        <p class="section-kicker">The analyst readout</p>
+        <h2>The numbers a trading desk would quote.</h2>
+      </div>
+      <p>Professionals compress everything you just dragged through into a handful of standard risk numbers. All four update live as you move the sliders in the panel at the top.</p>
+
+      <div class="stat-grid">
+        <div class="stat">
+          <div class="stat-label">Current yield</div>
+          <div class="stat-value" id="statCurrentYield">5.00%</div>
+          <div class="stat-sub">Annual coupon dollars divided by today's price</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Macaulay duration</div>
+          <div class="stat-value" id="statMacaulay">8.1 yrs</div>
+          <div class="stat-sub">Value-weighted wait for your cash to come back</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Modified duration</div>
+          <div class="stat-value" id="statModified">7.7</div>
+          <div class="stat-sub">Percent price drop per one-point rate rise</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Convexity</div>
+          <div class="stat-value" id="statConvexity">75</div>
+          <div class="stat-sub">How much the price-rate curve bends in your favor</div>
+        </div>
+      </div>
+
+      <div class="page-card br-control-card">
+        <h3 class="br-split-title">Where today's price comes from</h3>
+        <div class="br-compare br-split" id="pvSplit"></div>
+        <p class="control-copy">The price is just the present value of the remaining coupons plus the present value of the $1,000 repayment at maturity.</p>
+      </div>
+
+      <p class="br-explain" id="analystExplain"></p>
+    </section>
+
+    <!-- 7. THE RIPPLE: economy and future bonds -->
+    <section class="page-section br-section">
+      <div class="br-section-head">
+        <p class="section-kicker">The ripple</p>
+        <h2>Why one rate move touches the whole economy.</h2>
+      </div>
+      <p class="br-explain" id="rippleExplain"></p>
+      <div class="br-grid-3">
+        <div class="page-card">
+          <h3>Existing bondholders</h3>
+          <p>Everyone already holding older, lower-coupon bonds sees their market value fall. This is why a "safe" bond fund can post losses when central banks hike rates, even though no borrower has missed a payment.</p>
+        </div>
+        <div class="page-card">
+          <h3>Tomorrow's bonds</h3>
+          <p>Brand-new bonds get issued at the new, higher coupons. Fresh buyers get a better deal, which is the market repricing inflation and risk expectations in real time.</p>
+        </div>
+        <div class="page-card">
+          <h3>The real economy</h3>
+          <p>Central banks move rates to steer inflation and growth. Those yields ripple into mortgages, corporate borrowing, and government debt costs, tightening or loosening spending everywhere.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div data-app-shell="scroll-top"></div>
+
+  <script type="module" src="./js/app.js?v=e00fa1d"></script>
+</body>
+</html>
