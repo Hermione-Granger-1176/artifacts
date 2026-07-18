@@ -18,7 +18,8 @@
 - `modules/math.js`: pure functions with no DOM access: `bpeTokenize`, `hashToken`,
   `cosineSim`, `eucDist`, `softmax`, `savingsMonthly`, `formatTTL`,
   `verdictForSimilarity`, `project2D`. This is the unit-tested core.
-- `modules/dom.js`: `byId`, `cssVar`, `makeEl`, `clear`.
+- `modules/dom.js`: `byId`, `makeEl`, `clear`, and a re-export of the shared
+  `initSegmented`.
 - Feature modules (`navigation`, `tokenizer`, `embeddings`, `inference`,
   `attention`, `kv-cache`, `cache-hits`, `calculator`) are thin DOM glue. They read
   state, build nodes via `createElement`, and bind events with `addEventListener`.
@@ -29,8 +30,9 @@ Prompt Caching accents (`--pc-accent/warm/teal/indigo/rose`) are mapped in
 `css/app.css` onto the shared semantic palette
 (`--color-amber/blue/green/purple/red`) in `css/style.css`.
 Surfaces, text, and borders flip automatically in dark mode. The two `<canvas>`
-demos resolve their colors from CSS variables at draw time and are redrawn on
-`onThemeChange`, so they stay correct across themes.
+demos resolve their colors from CSS variables through a per-theme palette cache
+(`createPaletteCache`) and are redrawn on `onThemeChange`, so they stay correct
+across themes without re-reading computed styles on every frame.
 
 ### CSP compliance
 

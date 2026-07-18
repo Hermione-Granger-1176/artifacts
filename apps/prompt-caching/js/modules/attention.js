@@ -4,6 +4,7 @@
 import { ATTN_DATA, AGRID_WORDS, AGRID_WEIGHTS, SMX_TOKENS, SMX_INITIAL_SCORES } from "./data.js";
 import { softmax } from "./math.js";
 import { byId, makeEl, clear } from "./dom.js";
+import { formatPercent } from "../../../../js/modules/formatting.js";
 
 const fmt = (v) => (typeof v === "number" ? v.toFixed(2) : v);
 const fmtRow = (row) => row.map(fmt);
@@ -412,13 +413,12 @@ function initGrid() {
 
       const weights = AGRID_WEIGHTS[activeRow];
       const dominant = weights.indexOf(Math.max(...weights));
-      const pct = (weights[dominant] * 100).toFixed(0);
       const next = activeRow < AGRID_WORDS.length - 1 ? AGRID_WORDS[activeRow + 1] : "...";
       caption.replaceChildren(
         document.createTextNode('To generate "'),
         makeEl("strong", "pc-hl-accent", next),
         document.createTextNode('", the model pays '),
-        makeEl("strong", "pc-hl-teal", `${pct}%`),
+        makeEl("strong", "pc-hl-teal", formatPercent(weights[dominant] * 100, 0)),
         document.createTextNode(` attention to "${AGRID_WORDS[dominant]}"`)
       );
     });
@@ -472,7 +472,7 @@ function initSoftmax() {
       const row = makeEl("div", "pc-smx-row is-result");
       row.appendChild(makeEl("span", "smx-label", tok));
       row.appendChild(makeEl("span", "smx-val", scores[i].toFixed(2)));
-      row.appendChild(makeEl("span", "smx-weight", `${pct}%`));
+      row.appendChild(makeEl("span", "smx-weight", formatPercent(weights[i] * 100)));
       const wrap = makeEl("div", "smx-bar-wrap");
       const bar = makeEl("div", "smx-bar");
       bar.style.width = `${pct}%`;
@@ -487,7 +487,7 @@ function initSoftmax() {
     formula.replaceChildren(
       document.createTextNode(`Row sums to: ${sum.toFixed(4)} | Highest: `),
       makeEl("strong", "", top),
-      document.createTextNode(` at ${(max * 100).toFixed(1)}%`)
+      document.createTextNode(` at ${formatPercent(max * 100)}`)
     );
   }
 

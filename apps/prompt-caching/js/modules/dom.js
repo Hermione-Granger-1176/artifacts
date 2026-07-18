@@ -14,10 +14,6 @@ export function byId(id) {
   return /** @type {HTMLElement} */ (document.getElementById(id));
 }
 
-export function cssVar(name) {
-  return getComputedStyle(document.body).getPropertyValue(name).trim();
-}
-
 export function makeEl(tag, className = "", text = "") {
   const node = document.createElement(tag);
   if (className) {

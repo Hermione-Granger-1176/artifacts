@@ -44,11 +44,11 @@ function initCacheAnimation() {
     CACHE_TOKENS.forEach((tok, i) => {
       const cached = i <= step;
       const isNew = i === step;
-      let cls = "pc-cache-chip";
+      let cls = "chip is-mono pc-cache-chip";
       if (isNew) {
-        cls += " new";
+        cls += " is-solid-blue";
       } else if (cached) {
-        cls += " cached";
+        cls += " is-solid-amber";
       }
       tokensWrap.appendChild(makeEl("span", cls, tok));
     });
@@ -123,7 +123,7 @@ function initCacheCompare() {
 
     if (mode === "no") {
       for (const tok of CACHE_COMPARE_TOKENS) {
-        wrap.appendChild(makeEl("span", "pc-pill is-rose", `${tok} (Q,K,V)`));
+        wrap.appendChild(makeEl("span", "chip is-mono pc-pill is-red", `${tok} (Q,K,V)`));
       }
       vis.appendChild(wrap);
       caption.replaceChildren(
@@ -135,7 +135,7 @@ function initCacheCompare() {
 
     CACHE_COMPARE_TOKENS.forEach((tok, i) => {
       const last = i === CACHE_COMPARE_TOKENS.length - 1;
-      wrap.appendChild(makeEl("span", `pc-pill ${last ? "is-warm" : "is-teal"}`, `${tok} ${last ? "(Q,K,V)" : "(cached)"}`));
+      wrap.appendChild(makeEl("span", `chip is-mono pc-pill ${last ? "is-blue" : "is-green"}`, `${tok} ${last ? "(Q,K,V)" : "(cached)"}`));
     });
     vis.appendChild(wrap);
     caption.replaceChildren(

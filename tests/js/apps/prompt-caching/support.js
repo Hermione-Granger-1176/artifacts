@@ -229,7 +229,7 @@ function buttonWith(dataKey, value, active = false) {
 }
 
 const SIMPLE_IDS = [
-  "navFill", "navLabel", "navNodes", "summaryTimeline",
+  "nav-fill", "nav-label", "nav-nodes", "summaryTimeline",
   "tokenInput", "tokenOutput", "tokCount", "wordCount", "charCount",
   "dimCanvas", "dimCaption", "embCloud", "embCats", "embSuggestions", "embSelA", "embSelB",
   "embSimilarity", "embDistance", "embVerdict", "embSwapBtn", "embCanvas",
@@ -294,6 +294,11 @@ export function createHarness() {
   const shellSlots = {};
   const themeColorMeta = { setAttribute() {}, getAttribute() { return null; } };
 
+  // The section-nav slot arrives pre-filled so renderSectionNav no-ops; the
+  // kebab-case nav ids it would inject are registered directly above instead.
+  const sectionNavSlot = makeEl("div");
+  sectionNavSlot.appendChild(makeEl("nav"));
+
   const documentElement = {
     dataset: {},
     _theme: "light",
@@ -324,6 +329,9 @@ export function createHarness() {
     querySelector(sel) {
       if (sel === 'meta[name="theme-color"]') {
         return themeColorMeta;
+      }
+      if (sel === "[data-section-nav]") {
+        return sectionNavSlot;
       }
       if (sel.startsWith("[data-app-shell=")) {
         if (!shellSlots[sel]) {

@@ -25,7 +25,7 @@ export function initInference() {
   let genTokens = [];
 
   const chipEls = prompts.map((prompt) => {
-    const chip = makeEl("button", "pc-inf-prompt", prompt);
+    const chip = makeEl("button", "", prompt);
     chip.type = "button";
     chip.addEventListener("click", () => {
       if (timer || prompt === selected) {
@@ -88,7 +88,7 @@ export function initInference() {
     genTokens = INF_RESPONSES[selected];
 
     for (const tok of promptTokens) {
-      tokensWrap.appendChild(makeEl("span", "inf-tok prompt-tok", tok));
+      tokensWrap.appendChild(makeEl("span", "chip is-mono inf-tok", tok));
     }
     updateCache();
     status.textContent = `Prompt processed (${promptTokens.length} tokens cached). Generating...`;
@@ -103,18 +103,18 @@ export function initInference() {
         goBtn.disabled = false;
         const last = tokensWrap.querySelector(".inf-tok.current");
         if (last) {
-          last.classList.remove("current");
-          last.classList.add("gen-tok");
+          last.classList.remove("current", "is-solid-amber");
+          last.classList.add("is-amber");
         }
         return;
       }
 
       const prev = tokensWrap.querySelector(".inf-tok.current");
       if (prev) {
-        prev.classList.remove("current");
-        prev.classList.add("gen-tok");
+        prev.classList.remove("current", "is-solid-amber");
+        prev.classList.add("is-amber");
       }
-      tokensWrap.appendChild(makeEl("span", "inf-tok current", genTokens[step]));
+      tokensWrap.appendChild(makeEl("span", "chip is-mono inf-tok is-solid-amber current", genTokens[step]));
 
       step += 1;
       updateCache();

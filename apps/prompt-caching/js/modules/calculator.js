@@ -2,6 +2,7 @@
 
 import { savingsMonthly } from "./math.js";
 import { byId, makeEl, clear } from "./dom.js";
+import { formatCompact, formatCurrency, formatPercent } from "../../../../js/modules/formatting.js";
 
 const PRESETS = [
   { name: "Hobby", sys: 1000, req: 100, hit: 70, price: 3 },
@@ -9,21 +10,9 @@ const PRESETS = [
   { name: "Scale", sys: 8000, req: 5000, hit: 90, price: 3 }
 ];
 
+// Whole dollars once past $1,000 (grouped thousands), cents below that.
 function money(value) {
-  if (value >= 1000) {
-    return `$${Math.round(value).toLocaleString()}`;
-  }
-  return `$${value.toFixed(2)}`;
-}
-
-function tokenCount(value) {
-  if (value >= 1e9) {
-    return `${(value / 1e9).toFixed(1)}B`;
-  }
-  if (value >= 1e6) {
-    return `${(value / 1e6).toFixed(1)}M`;
-  }
-  return `${Math.round(value / 1e3)}k`;
+  return value >= 1000 ? formatCurrency(value, 0) : formatCurrency(value, 2);
 }
 
 export function initCalculator() {
@@ -70,8 +59,8 @@ export function initCalculator() {
 
     sysVal.textContent = sysTokens.toLocaleString();
     reqVal.textContent = requests.toLocaleString();
-    hitVal.textContent = `${Math.round(hitFraction * 100)}%`;
-    priceVal.textContent = `$${pricePerM.toFixed(2)}`;
+    hitVal.textContent = formatPercent(hitFraction * 100, 0);
+    priceVal.textContent = formatCurrency(pricePerM, 2);
 
     const { without, withCache, savings } = savingsMonthly({
       sys: sysTokens,
@@ -84,13 +73,12 @@ export function initCalculator() {
     withOut.textContent = money(withCache);
     savingsOut.textContent = money(savings);
 
-    const pctSaved = Math.round((savings / without) * 100);
-    pctOut.textContent = `${pctSaved}% cheaper, ${money(savings * 12)} per year`;
+    pctOut.textContent = `${formatPercent((savings / without) * 100, 0)} cheaper, ${money(savings * 12)} per year`;
     barWithout.style.width = "100%";
     barWith.style.width = `${(withCache / without) * 100}%`;
 
     const tokensPerMonth = sysTokens * requests * 30;
-    tokensOut.textContent = tokenCount(tokensPerMonth);
+    tokensOut.textContent = formatCompact(tokensPerMonth);
     effOut.textContent = money(withCache / (tokensPerMonth / 1e6));
 
     syncPresets();

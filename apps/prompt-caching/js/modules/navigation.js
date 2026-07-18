@@ -1,18 +1,12 @@
 /* Section-progress nav wiring, pipeline jump links, and the summary timeline. */
 
-import { initSectionNav } from "../../../../js/modules/section-nav.js";
+import { initSectionNav, renderSectionNav, scrollToSection } from "../../../../js/modules/section-nav.js";
 import { SECTIONS, SUMMARY_STEPS } from "./data.js";
 import { byId, makeEl, clear } from "./dom.js";
 
-function scrollToSection(id) {
-  const target = byId(id);
-  if (target) {
-    target.scrollIntoView({ behavior: "smooth" });
-  }
-}
-
 export function initNavigation() {
-  initSectionNav(SECTIONS, { nodesId: "navNodes", fillId: "navFill", labelId: "navLabel" });
+  renderSectionNav(document.querySelector("[data-section-nav]"));
+  initSectionNav(SECTIONS);
 
   const pipeline = byId("pipelineDiagram");
   if (pipeline) {

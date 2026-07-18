@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createHarness, makeEl as harnessMakeEl } from './support.js';
-import { byId, cssVar, makeEl as domMakeEl, clear } from '../../../../apps/prompt-caching/js/modules/dom.js';
+import { byId, makeEl as domMakeEl, clear } from '../../../../apps/prompt-caching/js/modules/dom.js';
 import { initNavigation } from '../../../../apps/prompt-caching/js/modules/navigation.js';
 import { initTokenizer } from '../../../../apps/prompt-caching/js/modules/tokenizer.js';
 import { initEmbeddings } from '../../../../apps/prompt-caching/js/modules/embeddings.js';
@@ -26,7 +26,7 @@ function withHarness(run) {
 
 test('dom helpers read, build, and clear nodes', () => {
   withHarness((h) => {
-    assert.equal(byId('navFill'), h.el('navFill'));
+    assert.equal(byId('nav-fill'), h.el('nav-fill'));
     assert.equal(byId('does-not-exist'), null);
     const node = domMakeEl('span', 'foo', 'hi');
     assert.equal(node.className, 'foo');
@@ -34,7 +34,6 @@ test('dom helpers read, build, and clear nodes', () => {
     node.appendChild(domMakeEl('b'));
     clear(node);
     assert.equal(node.children.length, 0);
-    assert.equal(typeof cssVar('--color-amber'), 'string');
     // makeEl with no text leaves textContent empty.
     assert.equal(domMakeEl('div').textContent, '');
   });
@@ -48,11 +47,11 @@ test('test harness query selectors honor id selectors', () => {
     const second = harnessMakeEl('span');
     second.id = 'second-target';
     second.className = 'chip';
-    h.el('navFill').append(first, second);
+    h.el('nav-fill').append(first, second);
 
-    assert.equal(h.el('navFill').querySelector('#second-target'), second);
-    assert.equal(h.el('navFill').querySelector('span#first-target.chip'), first);
-    assert.equal(h.el('navFill').querySelector('#missing-target'), null);
+    assert.equal(h.el('nav-fill').querySelector('#second-target'), second);
+    assert.equal(h.el('nav-fill').querySelector('span#first-target.chip'), first);
+    assert.equal(h.el('nav-fill').querySelector('#missing-target'), null);
   });
 });
 
@@ -61,23 +60,23 @@ test('test harness query selectors honor id selectors', () => {
 test('navigation builds nodes, tracks sections, and renders the timeline', () => {
   withHarness((h) => {
     initNavigation();
-    assert.equal(h.el('navNodes').children.length, 9);
+    assert.equal(h.el('nav-nodes').children.length, 9);
     assert.ok(h.el('summaryTimeline').children.length > 0);
 
-    h.el('navNodes').children[2].fire('click'); // scrollToSection
+    h.el('nav-nodes').children[2].fire('click'); // scrollToSection
     h.el('pipelineDiagram').children[0].fire('click'); // pipeline jump
 
     h.fireObservers(0);
-    assert.equal(h.el('navLabel').textContent, 'Intro');
+    assert.equal(h.el('nav-label').textContent, 'Intro');
     h.fireObservers(4);
-    assert.equal(h.el('navLabel').textContent, 'Attention');
+    assert.equal(h.el('nav-label').textContent, 'Attention');
   });
 });
 
 test('navigation is a no-op when its anchors are missing', () => {
   withHarness((h) => {
-    h.el('navNodes').remove();
-    delete h.registry.navNodes;
+    h.el('nav-nodes').remove();
+    delete h.registry['nav-nodes'];
     assert.doesNotThrow(() => initNavigation());
   });
 });

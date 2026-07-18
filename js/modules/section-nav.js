@@ -37,7 +37,14 @@ export function renderSectionNav(mount) {
   mount.innerHTML = SECTION_NAV_MARKUP.trim();
 }
 
-function scrollToSection(id) {
+/**
+ * Scroll a section into view, honoring the user's reduced-motion preference.
+ * Shared so apps route their own jump links (pipeline nodes, buttons) through
+ * the same reduced-motion-aware scroll as the nav nodes.
+ * @param {string} id - Target element id.
+ * @returns {void}
+ */
+export function scrollToSection(id) {
   const target = document.getElementById(id);
   if (target) {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;

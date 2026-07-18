@@ -52,6 +52,30 @@ export function formatPercent(value, digits = 1) {
 }
 
 /**
+ * Format a number with compact k/M/B suffixes and no currency sign.
+ * @param {number} value - The value to format.
+ * @returns {string} Compact string (e.g. "30k", "2.5M", "3.0B").
+ */
+export function formatCompact(value) {
+  const absoluteValue = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+
+  if (absoluteValue >= 1e9) {
+    return `${sign}${(absoluteValue / 1e9).toFixed(1)}B`;
+  }
+
+  if (absoluteValue >= 1e6) {
+    return `${sign}${(absoluteValue / 1e6).toFixed(1)}M`;
+  }
+
+  if (absoluteValue >= 1e3) {
+    return `${sign}${Math.round(absoluteValue / 1e3)}k`;
+  }
+
+  return `${sign}${Math.round(absoluteValue)}`;
+}
+
+/**
  * Parse a string into a number, stripping non-numeric characters.
  * @param {string} value - Raw input string.
  * @returns {number} Parsed number, or 0 when nothing numeric remains.
