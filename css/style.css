@@ -176,6 +176,8 @@ body.artifact-app {
   --color-blue-emphasis: rgb(12, 76, 132);
   --color-green-emphasis: rgb(8, 96, 74);
   --color-red-emphasis: rgb(163, 45, 45);
+  --color-amber-emphasis: rgb(133, 79, 11);
+  --color-purple-emphasis: rgb(83, 74, 183);
   --color-bg: rgb(248, 248, 246);
   --color-surface: rgb(255, 255, 255);
   --color-surface-alt: rgb(240, 240, 238);
@@ -185,6 +187,7 @@ body.artifact-app {
   --color-text-secondary: rgb(102, 102, 102);
   --color-text-tertiary: rgb(153, 153, 153);
   --color-text-heading: rgb(68, 68, 68);
+  --color-text-on-accent: rgb(255, 255, 255);
   --color-border: rgba(0, 0, 0, 0.1);
   --color-border-medium: rgba(0, 0, 0, 0.15);
   --color-border-strong: rgba(0, 0, 0, 0.2);
@@ -207,21 +210,30 @@ body.artifact-app {
   --font-size-md: 14px;
   --font-size-base: 16px;
   --font-size-lg: 18px;
+  --tracking-label: 0.08em;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
   --focus-ring: 3px solid color-mix(in srgb, var(--color-blue) 65%, white);
+  --radius-xs: 6px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-pill: 999px;
-  --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.06);
   --transition-fast: 160ms;
 }
 
 [data-theme="dark"] body.artifact-app {
+  --note-yellow: rgb(74, 70, 48);
+  --note-red: rgb(82, 54, 54);
+  --note-blue: rgb(52, 64, 82);
+  --note-green: rgb(50, 74, 62);
+  --note-amber: rgb(80, 64, 46);
+  --note-purple: rgb(74, 52, 74);
   --color-bg: rgb(20, 20, 20);
   --color-surface: rgb(30, 30, 30);
   --color-surface-alt: rgb(40, 40, 40);
@@ -241,6 +253,13 @@ body.artifact-app {
   --color-blue-emphasis: rgb(160, 200, 232);
   --color-green-emphasis: rgb(160, 232, 200);
   --color-red-emphasis: rgb(232, 160, 160);
+  --color-amber-emphasis: rgb(232, 200, 160);
+  --color-purple-emphasis: rgb(232, 160, 232);
+  --color-blue-text: var(--color-blue-emphasis);
+  --color-green-text: var(--color-green-emphasis);
+  --color-red-text: var(--color-red-emphasis);
+  --color-amber-text: var(--color-amber-emphasis);
+  --color-purple-text: var(--color-purple-emphasis);
   --chart-tick: rgb(160, 160, 160);
   --chart-grid: rgba(255, 255, 255, 0.08);
   --chart-annotation-border: rgb(160, 160, 160);
@@ -1519,7 +1538,7 @@ body.artifact-app .icon-button {
   border-radius: var(--radius-pill);
   background: var(--color-surface);
   color: var(--color-text);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   cursor: pointer;
   transition:
     transform var(--transition-fast) ease,
@@ -2013,7 +2032,7 @@ body.artifact-app .code-window {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
 }
 
 body.artifact-app .code-window-head {
@@ -2388,7 +2407,7 @@ body.artifact-app .scroll-top {
   border-radius: var(--radius-pill);
   background: var(--note-red);
   color: var(--color-red-text);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   opacity: 0;
   transform: translateY(12px);
   pointer-events: none;

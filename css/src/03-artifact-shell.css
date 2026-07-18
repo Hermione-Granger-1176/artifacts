@@ -121,7 +121,7 @@ body.artifact-app .icon-button {
   border-radius: var(--radius-pill);
   background: var(--color-surface);
   color: var(--color-text);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   cursor: pointer;
   transition:
     transform var(--transition-fast) ease,

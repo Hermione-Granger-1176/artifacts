@@ -157,7 +157,7 @@ body.artifact-app .scroll-top {
   border-radius: var(--radius-pill);
   background: var(--note-red);
   color: var(--color-red-text);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   opacity: 0;
   transform: translateY(12px);
   pointer-events: none;
