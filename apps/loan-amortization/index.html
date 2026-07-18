@@ -111,8 +111,8 @@
 
     <section class="page-section">
       <div class="segmented" id="viewToggle" aria-label="View mode">
-        <button class="active" id="btnCharts" type="button">Charts</button>
-        <button id="btnTable" type="button">Schedule</button>
+        <button class="active" id="btnCharts" type="button" aria-pressed="true">Charts</button>
+        <button id="btnTable" type="button" aria-pressed="false">Schedule</button>
       </div>
 
       <div id="chartsWrap">
@@ -169,8 +169,8 @@
 
       <div id="tableWrap" hidden>
         <div class="segmented" id="tableToggle">
-          <button class="active" id="btnPeriod" type="button">Per period</button>
-          <button id="btnYearly" type="button">Yearly summary</button>
+          <button class="active" id="btnPeriod" type="button" aria-pressed="true">Per period</button>
+          <button id="btnYearly" type="button" aria-pressed="false">Yearly summary</button>
         </div>
         <div id="tableSummary" class="table-summary"></div>
         <div class="table-wrap" id="periodTableWrap">

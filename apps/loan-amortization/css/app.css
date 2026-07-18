@@ -81,7 +81,7 @@ body.app-loan-amortization .control-copy.is-small {
 
 }
 
-/* Repayment metrics info tips (shared .stat positions the tip top-right). */
+/* Extra-payment card info tips (metric tips are placed by the shared .stat rule). */
 
 body.app-loan-amortization .card-tip {
   position: absolute;
