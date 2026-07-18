@@ -26,7 +26,7 @@ body.app-prompt-caching {
   --pc-rose: var(--color-red-text);
 
   --app-accent: var(--pc-accent);
-  --app-accent-hover: var(--color-amber-text);
+  --app-accent-hover: color-mix(in srgb, var(--pc-accent) 85%, black);
 
   --pc-accent-bg: color-mix(in srgb, var(--color-amber) 10%, transparent);
   --pc-warm-bg: color-mix(in srgb, var(--color-blue) 10%, transparent);
@@ -49,6 +49,7 @@ body.app-prompt-caching {
   --pc-teal: var(--color-green);
   --pc-indigo: var(--color-purple);
   --pc-rose: var(--color-red);
+  --app-accent-hover: color-mix(in srgb, var(--pc-accent) 85%, white);
 }
 
 body.app-prompt-caching .pc.page-shell {
@@ -213,7 +214,7 @@ body.app-prompt-caching .pc pre code {
 body.app-prompt-caching .pc-card {
   padding: 1.25rem;
   margin: 1rem 0;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
 
 }
 

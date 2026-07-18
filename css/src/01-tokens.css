@@ -179,6 +179,7 @@ body.artifact-app {
   --color-text-secondary: rgb(102, 102, 102);
   --color-text-tertiary: rgb(153, 153, 153);
   --color-text-heading: rgb(68, 68, 68);
+  --color-text-on-accent: rgb(255, 255, 255);
   --color-border: rgba(0, 0, 0, 0.1);
   --color-border-medium: rgba(0, 0, 0, 0.15);
   --color-border-strong: rgba(0, 0, 0, 0.2);
@@ -201,21 +202,30 @@ body.artifact-app {
   --font-size-md: 14px;
   --font-size-base: 16px;
   --font-size-lg: 18px;
+  --tracking-label: 0.08em;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
   --focus-ring: 3px solid color-mix(in srgb, var(--color-blue) 65%, white);
+  --radius-xs: 6px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-pill: 999px;
-  --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.06);
   --transition-fast: 160ms;
 }
 
 [data-theme="dark"] body.artifact-app {
+  --note-yellow: rgb(74, 70, 48);
+  --note-red: rgb(82, 54, 54);
+  --note-blue: rgb(52, 64, 82);
+  --note-green: rgb(50, 74, 62);
+  --note-amber: rgb(80, 64, 46);
+  --note-purple: rgb(74, 52, 74);
   --color-bg: rgb(20, 20, 20);
   --color-surface: rgb(30, 30, 30);
   --color-surface-alt: rgb(40, 40, 40);
