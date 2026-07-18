@@ -1,1 +1,1 @@
-Interactive explainer for LLM next-token probabilities, temperature scaling, and top-p sampling.
+Interactive explainer for tokenization, LLM next-token probabilities, temperature scaling, top-p sampling, and empirical draws.

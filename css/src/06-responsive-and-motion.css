@@ -193,8 +193,13 @@
 
 @media (max-width: 700px) {
   body.artifact-app .app-header-inner,
-  body.artifact-app .page-shell {
+  body.artifact-app .page-shell,
+  body.artifact-app .section-nav-inner {
     width: min(100% - 1.25rem, 1000px);
+  }
+
+  body.artifact-app .section-nav-label {
+    display: none;
   }
 }
 
