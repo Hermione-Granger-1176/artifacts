@@ -10,7 +10,8 @@
 
 ## Shared app system
 
-- `css/src/01-tokens.css` owns the shared bookmark-note palette and light and dark themes. The remaining ordered `css/src/` partials own root gallery styling, app shell styling, reusable components, utilities, and responsive behavior
+- `css/src/01-tokens.css` owns the shared bookmark-note palette and light and dark themes, including the `body.artifact-app` design tokens (hue colors with `-text` and `-emphasis` variants, note pastels, the type and spacing scales, radii, and `--shadow-card`). The remaining ordered `css/src/` partials own root gallery styling, app shell styling, reusable components, utilities, and responsive behavior
+- `css/src/04-artifact-components.css` is the shared artifact component layer: reusable `body.artifact-app` families such as `.control-field`, `.stat-grid` / `.stat`, `.chip`, `.segmented`, `.meter`, `.app-callout`, `.section-kicker`, buttons, inputs, tables, code windows, and `.section-nav`. Apps compose these rather than restating them
 - `apps/<slug>/css/app.css` owns app-specific dimensions, grids, visualisations, and component variants, while reusable colours, controls, surfaces, and callouts stay in the shared stylesheet. It keeps the `body.app-<slug>` selector scope
 - `js/app-theme.js` applies the saved mature-app theme before CSS loads
 - `js/modules/app-shell.js` owns runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
@@ -38,9 +39,10 @@ Shared modules (under `js/modules/`):
 - `js/modules/element-cache.js`: DOM element caching by ID
 - `js/modules/app-shell.js`: runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
 - `js/modules/html-escape.js`: `escapeHtml()` and `escapeAttribute()` helpers, re-exported by `render.js` and app-local modules
-- `js/modules/formatting.js`: shared number formatting and parsing helpers (`formatDollarTick()`, `parseNumber()`), re-exported by app-local formatting modules
-- `js/modules/chart-theme.js`: theme-aware Chart.js helpers (vendor global access, CSS custom property reads, per-theme palette caching) used by the chart-based apps
-- `js/modules/section-nav.js`: sticky section-progress nav (numbered nodes, progress fill, IntersectionObserver scroll spy) styled by the shared `.section-nav` component rules
+- `js/modules/formatting.js`: shared number formatting and parsing helpers (`formatCurrency()`, `formatPercent()`, `formatCompact()`, `formatDollarTick()`, `parseNumber()`), re-exported by app-local formatting modules
+- `js/modules/segmented.js`: `initSegmented()` wiring for segmented toggles, keeping the lone `.active` button and `aria-pressed` state in sync and calling back with the newly active button
+- `js/modules/section-nav.js`: sticky section-progress nav (`initSectionNav()`, `renderSectionNav()`, `scrollToSection()`) with numbered nodes, a progress fill, and an IntersectionObserver scroll spy, styled by the shared `.section-nav` component rules
+- `js/modules/chart-theme.js`: theme-aware Chart.js helpers (`chartGlobal()` vendor global access, `cssValue()` / `cssAlpha()` custom property reads, `isDark()`, and `createPaletteCache()` per-theme palette caching) used by the chart-based apps
 
 The root filter UI is rendered as desk notes by `buildFilterNotes()` in `js/modules/gallery/render.js` and toggled in `js/modules/gallery/gallery-app.js`.
 
