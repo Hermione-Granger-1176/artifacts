@@ -4,7 +4,8 @@
 
 import { DIM_COLORS, EMB_VECS, EMB_PAIRS, EMB_CATEGORIES } from "./data.js";
 import { cosineSim, eucDist, verdictForSimilarity, project2D } from "./math.js";
-import { byId, cssVar, makeEl, clear, initSegmented } from "./dom.js";
+import { byId, makeEl, clear, initSegmented } from "./dom.js";
+import { createPaletteCache } from "../../../../js/modules/chart-theme.js";
 
 // Use the prompt-specific accent tokens (not the vibrant --color-* bases): they carry
 // the WCAG-AA text colors in light mode and flip to the vibrant hues in dark.
@@ -17,8 +18,25 @@ const TONE_VARS = {
   rose: "--pc-rose"
 };
 
+// Canvas colors resolved from shared tokens and cached per theme, so the drag and
+// hover redraws stop re-reading computed styles every frame. refreshPalette()
+// drops the cache when the theme toggles.
+const CANVAS_VARS = [
+  "--color-amber", "--color-green", "--color-blue", "--color-purple", "--color-red",
+  "--color-border-strong", "--color-text-tertiary", "--color-text-secondary", "--color-surface"
+];
+
+const { colors: canvasPalette, refreshPalette: refreshCanvasPalette } = createPaletteCache(({ css }) => {
+  const resolved = /** @type {Record<string, string>} */ ({});
+  for (const name of CANVAS_VARS) {
+    resolved[name] = css(name);
+  }
+  resolved.font = css("--font-body") || "sans-serif";
+  return resolved;
+});
+
 function bodyFont(spec) {
-  return `${spec} ${cssVar("--font-body") || "sans-serif"}`;
+  return `${spec} ${canvasPalette().font}`;
 }
 
 export function initEmbeddings() {
@@ -27,6 +45,7 @@ export function initEmbeddings() {
 
   return {
     redraw() {
+      refreshCanvasPalette();
       if (dims) {
         dims.draw();
       }
@@ -106,7 +125,7 @@ function initDimensions() {
   function drawDot(ctx, x, y, token, radius, alpha) {
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = cssVar(token);
+    ctx.fillStyle = canvasPalette()[token];
     ctx.globalAlpha = alpha;
     ctx.fill();
     ctx.globalAlpha = 1;
@@ -125,7 +144,7 @@ function initDimensions() {
       const values = allPoints.map((p) => (p.x + p.y + p.z) / 3);
       const min = Math.min(...values);
       const range = (Math.max(...values) - min) || 1;
-      ctx.strokeStyle = cssVar("--color-border-strong");
+      ctx.strokeStyle = canvasPalette()["--color-border-strong"];
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(pad, H / 2);
@@ -223,7 +242,7 @@ function initSimilarity() {
 
   if (cats) {
     for (const cat of Object.keys(EMB_CATEGORIES)) {
-      const btn = makeEl("button", "pc-emb-cat", cat);
+      const btn = makeEl("button", "", cat);
       btn.type = "button";
       btn.addEventListener("click", () => {
         currentCat = cat;
@@ -272,7 +291,7 @@ function initSimilarity() {
 
   if (suggestions) {
     for (const [a, b] of EMB_PAIRS) {
-      const tag = makeEl("span", "emb-tag", `${a} / ${b}`);
+      const tag = makeEl("span", "chip is-mono emb-tag", `${a} / ${b}`);
       tag.setAttribute("role", "button");
       tag.setAttribute("aria-label", `Compare ${a} and ${b}`);
       tag.tabIndex = 0;
@@ -362,11 +381,12 @@ function initSimilarity() {
     const midY = (minY + maxY) / 2;
     const toScreen = (p) => ({ sx: W / 2 + (p.x - midX) * scale, sy: H / 2 - (p.y - midY) * scale });
 
-    const muted = cssVar("--color-text-tertiary");
-    const labelColor = cssVar("--color-text-secondary");
-    const surface = cssVar("--color-surface");
-    const colorA = cssVar("--color-amber");
-    const colorB = cssVar("--color-green");
+    const colors = canvasPalette();
+    const muted = colors["--color-text-tertiary"];
+    const labelColor = colors["--color-text-secondary"];
+    const surface = colors["--color-surface"];
+    const colorA = colors["--color-amber"];
+    const colorB = colors["--color-green"];
 
     screenPoints = projected.map((p) => ({ word: p.word, ...toScreen(p) }));
 
@@ -389,7 +409,7 @@ function initSimilarity() {
       ctx.beginPath();
       ctx.moveTo(sA.sx, sA.sy);
       ctx.lineTo(sB.sx, sB.sy);
-      ctx.strokeStyle = cssVar("--color-border-strong");
+      ctx.strokeStyle = canvasPalette()["--color-border-strong"];
       ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 4]);
       ctx.stroke();

@@ -3,6 +3,7 @@
 import { CHV_SYSTEM, CHV_QUERIES } from "./data.js";
 import { formatTTL } from "./math.js";
 import { byId, makeEl, clear } from "./dom.js";
+import { formatPercent } from "../../../../js/modules/formatting.js";
 
 const MAX_VISIBLE = 5;
 const TTL_SECONDS = 300;
@@ -62,14 +63,14 @@ export function initCacheHits() {
     const totalTokens = CHV_SYSTEM.length + query.length;
     const cachedCount = sysHit ? CHV_SYSTEM.length : 0;
     const computedCount = totalTokens - cachedCount;
-    const savings = cachedCount > 0 ? ((cachedCount / totalTokens) * 90).toFixed(0) : "0";
+    const savingsPct = cachedCount > 0 ? (cachedCount / totalTokens) * 90 : 0;
 
     const reqDiv = makeEl("div", "chv-req");
 
     const header = makeEl("div", "chv-req-header");
     header.appendChild(makeEl("span", "chv-req-label", `Request #${reqCount + 1}`));
     const statusText = sysHit
-      ? `${cachedCount} cached + ${computedCount} computed (~${savings}% saved)`
+      ? `${cachedCount} cached + ${computedCount} computed (~${formatPercent(savingsPct, 0)} saved)`
       : `${cachedCount} cached + ${computedCount} computed (cold start, nothing cached yet)`;
     header.appendChild(makeEl("span", `chv-req-status ${sysHit ? "is-hit" : "is-miss"}`, statusText));
     reqDiv.appendChild(header);
