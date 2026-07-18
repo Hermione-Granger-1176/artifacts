@@ -30,6 +30,7 @@ const ELEMENT_IDS = [
   "statConvexity",
   "pvSplit",
   "analystExplain",
+  "curveToggle",
   "btnCurveNormal",
   "btnCurveFlat",
   "btnCurveInverted",
@@ -70,21 +71,6 @@ export function syncSliderLabels(elements) {
   elements.rateValue.textContent = `${rate.toFixed(1)}%`;
   elements.couponValue.textContent = `${coupon.toFixed(1)}%`;
   elements.yearsValue.textContent = `${years} year${years === 1 ? "" : "s"}`;
-}
-
-/**
- * Reflect the selected yield-curve preset on the three toggle buttons.
- *
- * @param {Record<string, HTMLElement>} elements
- * @param {string} selectedKey - One of the CURVE_BUTTON_IDS keys.
- * @returns {void}
- */
-export function syncCurveButtons(elements, selectedKey) {
-  for (const [key, id] of Object.entries(CURVE_BUTTON_IDS)) {
-    const isSelected = key === selectedKey;
-    elements[id].classList.toggle("active", isSelected);
-    elements[id].setAttribute("aria-pressed", String(isSelected));
-  }
 }
 
 /**

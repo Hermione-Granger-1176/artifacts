@@ -10,12 +10,11 @@ import { refreshPalette, renderCharts } from "./modules/charts.js";
 import { initializeMatureApp } from "../../../js/modules/app-runtime.js";
 import { initAppShell, renderAppShell } from "../../../js/modules/app-shell.js";
 import { bindEvents } from "./modules/interactions.js";
-import { formatCurrency, formatDollarTick, formatPercent } from "./modules/formatting.js";
+import { formatCurrency, formatDollarTick, formatPercent } from "../../../js/modules/formatting.js";
 import { renderNarrative } from "./modules/narrative.js";
 import {
   cacheElements,
   getChartElements,
-  syncCurveButtons,
   syncSliderLabels
 } from "./modules/ui.js";
 
@@ -54,13 +53,11 @@ initializeMatureApp({
       },
       onCurveSelect: (curveKey) => {
         selectedCurveKey = /** @type {keyof typeof YIELD_CURVES} */ (curveKey);
-        syncCurveButtons(elements, selectedCurveKey);
         scheduleRecalc();
       },
       onApplyCurveRate: applyCurveRate
     });
     syncSliderLabels(elements);
-    syncCurveButtons(elements, selectedCurveKey);
     recalc();
   }
 });

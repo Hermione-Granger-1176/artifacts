@@ -42,6 +42,16 @@ export function formatCurrency(value, digits = 0) {
 }
 
 /**
+ * Format a number already expressed as a percent with a trailing percent sign.
+ * @param {number} value - The value expressed as a percent (e.g. 5 for 5%).
+ * @param {number} [digits=1] - Fraction digits to show.
+ * @returns {string} Formatted percent string (e.g. "5.0%").
+ */
+export function formatPercent(value, digits = 1) {
+  return `${value.toFixed(digits)}%`;
+}
+
+/**
  * Parse a string into a number, stripping non-numeric characters.
  * @param {string} value - Raw input string.
  * @returns {number} Parsed number, or 0 when nothing numeric remains.
