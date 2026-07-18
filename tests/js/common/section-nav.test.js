@@ -39,14 +39,18 @@ function makeElement(tagName = 'div') {
     appendChild(child) { this.children.push(child); return child; },
     getAttribute(name) { return attrs[name] ?? null; },
     setAttribute(name, value) { attrs[name] = value; },
-    scrollIntoView() { this.scrolledTo = true; },
+    scrollIntoView(options) {
+      this.scrolledTo = true;
+      this.scrollBehavior = options?.behavior;
+    },
     _listeners: listeners
   };
 }
 
 function setupNavMocks({
   anchorIds = ['nav-nodes', 'nav-fill', 'nav-label'],
-  withSections = true
+  withSections = true,
+  reduceMotion = false
 } = {}) {
   const registry = {};
   for (const id of anchorIds) {
@@ -62,7 +66,11 @@ function setupNavMocks({
 
   const observers = [];
   const originalDocument = globalThis.document;
+  const originalWindow = globalThis.window;
   const originalObserver = globalThis.IntersectionObserver;
+  globalThis.window = {
+    matchMedia() { return { matches: reduceMotion }; }
+  };
   globalThis.document = {
     getElementById(id) { return registry[id] ?? null; },
     createElement(tagName) { return makeElement(tagName); }
@@ -80,6 +88,7 @@ function setupNavMocks({
 
   const restore = () => {
     if (originalDocument) globalThis.document = originalDocument; else delete globalThis.document;
+    if (originalWindow) globalThis.window = originalWindow; else delete globalThis.window;
     if (originalObserver) globalThis.IntersectionObserver = originalObserver;
     else delete globalThis.IntersectionObserver;
   };
@@ -121,14 +130,27 @@ test('section nav honors custom camelCase anchor ids', () => {
   }
 });
 
-test('clicking a node scrolls its section into view', () => {
+test('clicking a node scrolls its section into view smoothly', () => {
   const { registry, restore } = setupNavMocks();
   try {
     initSectionNav(SECTIONS);
 
     registry['nav-nodes'].children[2]._listeners.click[0]();
     assert.ok(registry['sec-gamma'].scrolledTo);
+    assert.equal(registry['sec-gamma'].scrollBehavior, 'smooth');
     assert.ok(!registry['sec-alpha'].scrolledTo);
+  } finally {
+    restore();
+  }
+});
+
+test('clicking a node uses an instant scroll when reduced motion is preferred', () => {
+  const { registry, restore } = setupNavMocks({ reduceMotion: true });
+  try {
+    initSectionNav(SECTIONS);
+
+    registry['nav-nodes'].children[0]._listeners.click[0]();
+    assert.equal(registry['sec-alpha'].scrollBehavior, 'auto');
   } finally {
     restore();
   }

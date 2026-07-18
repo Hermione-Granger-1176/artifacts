@@ -8,7 +8,8 @@
 function scrollToSection(id) {
   const target = document.getElementById(id);
   if (target) {
-    target.scrollIntoView({ behavior: "smooth" });
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
   }
 }
 
