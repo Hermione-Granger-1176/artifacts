@@ -1683,6 +1683,15 @@ body.artifact-app .btn:disabled {
 
 /* Reusable artifact app controls and feedback. */
 
+/*
+ * Segmented control: .segmented is the canonical skin. The legacy toggle
+ * skins are grouped into the same rule sets so they render exactly as before
+ * while sharing one source of truth. Per-skin differences stay as small
+ * overrides on the old class names. .is-fused is the joined, shared-border
+ * look that .type-toggle uses.
+ */
+
+body.artifact-app .segmented,
 body.artifact-app .toggle-wrap,
 body.artifact-app .sub-toggle {
   display: flex;
@@ -1690,18 +1699,32 @@ body.artifact-app .sub-toggle {
 
 }
 
-body.artifact-app .toggle-btn,
-body.artifact-app .sub-toggle button {
+body.artifact-app .segmented.is-fused,
+body.artifact-app .type-toggle {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
 
 }
 
+body.artifact-app .segmented button,
+body.artifact-app .toggle-btn,
+body.artifact-app .sub-toggle button,
+body.artifact-app .type-toggle button {
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  min-height: 2.75rem;
+
+}
+
+body.artifact-app .segmented button,
 body.artifact-app .toggle-btn {
   border: 1px solid var(--color-border-strong);
-  min-height: 2.75rem;
+  border-radius: var(--radius-sm);
   padding: 6px 14px;
   font-size: var(--font-size-control);
 
@@ -1709,41 +1732,25 @@ body.artifact-app .toggle-btn {
 
 body.artifact-app .sub-toggle button {
   border: 1px solid var(--color-border-medium);
-  min-height: 2.75rem;
+  border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-3);
   font-size: var(--font-size-sm);
 
 }
 
-body.artifact-app .toggle-btn.active,
-body.artifact-app .sub-toggle button.active {
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-weight: 500;
-
-}
-
-body.artifact-app .type-toggle {
-  display: flex;
-  flex-shrink: 0;
-  overflow: hidden;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-
-}
-
+body.artifact-app .segmented.is-fused button,
 body.artifact-app .type-toggle button {
   border: 0;
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  min-height: 2.75rem;
+  border-radius: 0;
   padding: 5px 10px;
   font-size: var(--font-size-sm);
   white-space: nowrap;
 
 }
 
+body.artifact-app .segmented button.active,
+body.artifact-app .toggle-btn.active,
+body.artifact-app .sub-toggle button.active,
 body.artifact-app .type-toggle button.active {
   background: var(--color-surface);
   color: var(--color-text);
@@ -1810,6 +1817,7 @@ body.artifact-app .period-input:focus {
 }
 
 body.artifact-app .btn:focus-visible,
+body.artifact-app .segmented button:focus-visible,
 body.artifact-app .toggle-btn:focus-visible,
 body.artifact-app .sub-toggle button:focus-visible,
 body.artifact-app .type-toggle button:focus-visible,
@@ -1826,6 +1834,52 @@ body.artifact-app .range-input:focus-visible {
 body.artifact-app .range-input {
   width: 100%;
   accent-color: var(--color-blue);
+
+}
+
+/* Reusable artifact app control fields (slider rows). */
+
+body.artifact-app .control-field {
+  display: flex;
+  flex-direction: column;
+
+}
+
+body.artifact-app .control-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+
+}
+
+body.artifact-app .control-field-head label {
+  font-size: var(--font-size-control);
+  font-weight: 600;
+
+}
+
+body.artifact-app .control-field-head output {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+
+}
+
+body.artifact-app .control-field-hints {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+
+}
+
+body.artifact-app .control-field-note {
+  margin-top: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
 
 }
 
@@ -1909,7 +1963,299 @@ body.artifact-app .app-callout-body {
 
 }
 
+/* Callout hue tones: tinted background, colored left rule, colored title. */
+
+body.artifact-app .app-callout.is-blue {
+  border-left-color: var(--color-blue);
+  background: color-mix(in srgb, var(--color-blue) 10%, transparent);
+
+}
+
+body.artifact-app .app-callout.is-blue .app-callout-title {
+  color: var(--color-blue-emphasis);
+
+}
+
+body.artifact-app .app-callout.is-green {
+  border-left-color: var(--color-green);
+  background: color-mix(in srgb, var(--color-green) 10%, transparent);
+
+}
+
+body.artifact-app .app-callout.is-green .app-callout-title {
+  color: var(--color-green-emphasis);
+
+}
+
+body.artifact-app .app-callout.is-amber {
+  border-left-color: var(--color-amber);
+  background: color-mix(in srgb, var(--color-amber) 10%, transparent);
+
+}
+
+body.artifact-app .app-callout.is-amber .app-callout-title {
+  color: var(--color-amber-emphasis);
+
+}
+
+body.artifact-app .app-callout.is-purple {
+  border-left-color: var(--color-purple);
+  background: color-mix(in srgb, var(--color-purple) 10%, transparent);
+
+}
+
+body.artifact-app .app-callout.is-purple .app-callout-title {
+  color: var(--color-purple-emphasis);
+
+}
+
+body.artifact-app .app-callout.is-red {
+  border-left-color: var(--color-red);
+  background: color-mix(in srgb, var(--color-red) 10%, transparent);
+
+}
+
+body.artifact-app .app-callout.is-red .app-callout-title {
+  color: var(--color-red-emphasis);
+
+}
+
+/* Reusable artifact app chips (badges and pills). */
+
+body.artifact-app .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 8px;
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+
+}
+
+body.artifact-app .chip.is-yellow {
+  border: 1px solid var(--color-amber);
+  background: var(--note-yellow);
+  color: var(--color-text);
+
+}
+
+body.artifact-app .chip.is-red {
+  border: 1px solid var(--color-red);
+  background: var(--note-red);
+  color: var(--color-text);
+
+}
+
+body.artifact-app .chip.is-blue {
+  border: 1px solid var(--color-blue);
+  background: var(--note-blue);
+  color: var(--color-text);
+
+}
+
+body.artifact-app .chip.is-green {
+  border: 1px solid var(--color-green);
+  background: var(--note-green);
+  color: var(--color-text);
+
+}
+
+body.artifact-app .chip.is-amber {
+  border: 1px solid var(--color-amber);
+  background: var(--note-amber);
+  color: var(--color-text);
+
+}
+
+body.artifact-app .chip.is-purple {
+  border: 1px solid var(--color-purple);
+  background: var(--note-purple);
+  color: var(--color-text);
+
+}
+
+body.artifact-app .chip.is-mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+
+}
+
+body.artifact-app .chip.is-solid-blue {
+  background: var(--color-blue);
+  color: var(--color-text-on-accent);
+
+}
+
+body.artifact-app .chip.is-solid-green {
+  background: var(--color-green);
+  color: var(--color-text-on-accent);
+
+}
+
+body.artifact-app .chip.is-solid-red {
+  background: var(--color-red);
+  color: var(--color-text-on-accent);
+
+}
+
+body.artifact-app .chip.is-solid-amber {
+  background: var(--color-amber);
+  color: var(--color-text-on-accent);
+
+}
+
+body.artifact-app .chip.is-solid-purple {
+  background: var(--color-purple);
+  color: var(--color-text-on-accent);
+
+}
+
+[data-theme="dark"] body.artifact-app .chip.is-solid-blue {
+  background: var(--color-blue-emphasis);
+  color: var(--color-bg);
+
+}
+
+[data-theme="dark"] body.artifact-app .chip.is-solid-green {
+  background: var(--color-green-emphasis);
+  color: var(--color-bg);
+
+}
+
+[data-theme="dark"] body.artifact-app .chip.is-solid-red {
+  background: var(--color-red-emphasis);
+  color: var(--color-bg);
+
+}
+
+[data-theme="dark"] body.artifact-app .chip.is-solid-amber {
+  background: var(--color-amber-emphasis);
+  color: var(--color-bg);
+
+}
+
+[data-theme="dark"] body.artifact-app .chip.is-solid-purple {
+  background: var(--color-purple-emphasis);
+  color: var(--color-bg);
+
+}
+
 /* Reusable artifact app data displays. */
+
+/* Section kicker: small uppercase eyebrow label above a heading. */
+
+body.artifact-app .section-kicker {
+  margin-bottom: var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+
+}
+
+/* Stat tiles: labeled metric cards in an auto-fit grid. */
+
+body.artifact-app .stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3);
+
+}
+
+body.artifact-app .stat {
+  position: relative;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+
+}
+
+body.artifact-app .stat .info-tip {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+
+}
+
+body.artifact-app .stat-label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+
+}
+
+body.artifact-app .stat-value {
+  color: var(--color-text);
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+
+}
+
+body.artifact-app .stat-sub {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+
+}
+
+body.artifact-app .stat.is-center {
+  text-align: center;
+
+}
+
+body.artifact-app .stat-label.is-caps {
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+
+}
+
+body.artifact-app .stat-value.is-mono {
+  font-family: var(--font-mono);
+
+}
+
+/* Meter: thin progress bar with a tone-colored fill. */
+
+body.artifact-app .meter {
+  height: 14px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-alt);
+
+}
+
+body.artifact-app .meter-fill {
+  height: 100%;
+  background: var(--color-blue);
+  transition: width var(--transition-fast) ease;
+
+}
+
+body.artifact-app .meter-fill.is-green {
+  background: var(--color-green);
+
+}
+
+body.artifact-app .meter-fill.is-amber {
+  background: var(--color-amber);
+
+}
+
+body.artifact-app .meter-fill.is-red {
+  background: var(--color-red);
+
+}
+
+body.artifact-app .meter-fill.is-purple {
+  background: var(--color-purple);
+
+}
 
 body.artifact-app .chart-card {
   padding: 1.25rem;
