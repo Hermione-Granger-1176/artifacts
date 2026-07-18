@@ -34,10 +34,11 @@ export function formatDollarTick(value) {
  * @returns {string} Formatted currency string (e.g. "$1,234" or "$1,234.56").
  */
 export function formatCurrency(value, digits = 0) {
-  return `$${value.toLocaleString("en-US", {
+  const magnitude = Math.abs(value).toLocaleString("en-US", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits
-  })}`;
+  });
+  return `${value < 0 ? "-" : ""}$${magnitude}`;
 }
 
 /**

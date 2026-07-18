@@ -14,7 +14,8 @@ test('formatCurrency honors an explicit fraction-digit count', () => {
 });
 
 test('formatCurrency handles negative, zero, and large values', () => {
-  assert.equal(formatCurrency(-42), '$-42');
+  assert.equal(formatCurrency(-42), '-$42');
+  assert.equal(formatCurrency(-1234.5, 2), '-$1,234.50');
   assert.equal(formatCurrency(0), '$0');
   assert.equal(formatCurrency(1234567), '$1,234,567');
 });
