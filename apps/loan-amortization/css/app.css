@@ -181,9 +181,9 @@ body.app-loan-amortization .btn-remove {
 
 }
 
-body.app-loan-amortization .segmented {
+body.app-loan-amortization #viewToggle,
+body.app-loan-amortization #tableToggle {
   margin-bottom: var(--space-3);
-
 }
 
 /* Loan charts and schedule table. */
