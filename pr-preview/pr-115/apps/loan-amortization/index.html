@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Interactive loan amortization calculator with charts, extra payment scenarios, and detailed repayment schedules.">
+  <link rel="canonical" href="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/">
+  <meta property="og:title" content="Loan Amortization Schedule | Artifacts">
+  <meta property="og:description" content="Interactive loan amortization calculator with charts, extra payment scenarios, and detailed repayment schedules.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/">
+  <meta property="og:site_name" content="Artifacts">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=9ae753a">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=9ae753a">
+  <meta property="og:image:alt" content="Preview card for the Loan Amortization Schedule app.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Loan Amortization Schedule | Artifacts">
+  <meta name="twitter:description" content="Interactive loan amortization calculator with charts, extra payment scenarios, and detailed repayment schedules.">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=9ae753a">
+  <meta name="twitter:image:alt" content="Preview card for the Loan Amortization Schedule app.">
+  <meta name="theme-color" content="rgb(248, 248, 246)">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <title>Loan Amortization Schedule | Artifacts</title>
+  <script src="../../js/app-theme.js?v=9ae753a"></script>
+  <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
+  <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
+  <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
+  <link rel="preload" href="./js/vendor/chart.umd.min.js" as="script">
+  <link rel="preload" href="./js/vendor/chartjs-plugin-annotation.min.js" as="script">
+  <link rel="preload" href="./js/vendor/chartjs-plugin-datalabels.min.js" as="script">
+  <link rel="stylesheet" href="../../css/style.css?v=9ae753a">
+  <link rel="stylesheet" href="./css/app.css?v=9ae753a">
+  <script defer src="./js/vendor/chart.umd.min.js"></script>
+  <script defer src="./js/vendor/chartjs-plugin-annotation.min.js"></script>
+  <script defer src="./js/vendor/chartjs-plugin-datalabels.min.js"></script>
+  <link rel="modulepreload" href="js/modules/amortization.js">
+  <link rel="modulepreload" href="js/modules/charts.js">
+  <link rel="modulepreload" href="../../js/modules/chart-theme.js">
+  <link rel="modulepreload" href="../../js/modules/app-runtime.js">
+  <link rel="modulepreload" href="../../js/modules/runtime.js">
+  <link rel="modulepreload" href="../../js/modules/app-shell.js">
+  <link rel="modulepreload" href="js/modules/interactions.js">
+  <link rel="modulepreload" href="../../js/modules/segmented.js">
+  <link rel="modulepreload" href="js/modules/extras.js">
+  <link rel="modulepreload" href="../../js/modules/html-escape.js">
+  <link rel="modulepreload" href="../../js/modules/formatting.js">
+  <link rel="modulepreload" href="js/modules/metrics.js">
+  <link rel="modulepreload" href="js/modules/schedule-summary.js">
+  <link rel="modulepreload" href="js/modules/tables.js">
+  <link rel="modulepreload" href="js/modules/ui.js">
+  <link rel="modulepreload" href="../../js/modules/element-cache.js">
+</head>
+<body class="artifact-app app-loan-amortization">
+  <div data-app-shell="header"></div>
+
+  <main class="page-shell">
+    <div data-app-shell="runtime-error"></div>
+
+    <header class="page-intro page-section">
+      <h1 class="page-title">Loan amortization schedule</h1>
+      <p class="page-lede">Model fixed-payment loans across multiple cadences, add recurring or one-time extra payments, and inspect charts plus repayment schedules without leaving the page.</p>
+    </header>
+
+    <section class="page-section">
+      <div class="inputs-grid">
+        <div class="page-card input-card">
+          <label class="ic-label" for="inPrincipal">Loan amount</label>
+          <div class="ic-field">
+            <span class="prefix">$</span>
+            <input class="text-input" type="text" id="inPrincipal" value="50,000" placeholder="e.g. 50,000">
+          </div>
+          <input class="range-input" type="range" id="slPrincipal" min="5000" max="500000" step="1000" value="50000" aria-label="Loan amount slider">
+        </div>
+        <div class="page-card input-card">
+          <label class="ic-label" for="inRate">Interest rate (p.a.)</label>
+          <div class="ic-field">
+            <input class="text-input" type="text" id="inRate" value="5.00" placeholder="e.g. 5.00">
+            <span class="suffix">%</span>
+          </div>
+          <input class="range-input" type="range" id="slRate" min="1" max="20" step="0.25" value="5" aria-label="Interest rate slider">
+        </div>
+        <div class="page-card input-card">
+          <label class="ic-label" for="inTenure">Tenure</label>
+          <div class="ic-field">
+            <input class="text-input" type="text" id="inTenure" value="7" placeholder="e.g. 7">
+            <span class="suffix">years</span>
+          </div>
+          <input class="range-input" type="range" id="slTenure" min="1" max="30" step="1" value="7" aria-label="Tenure slider">
+        </div>
+        <div class="page-card input-card">
+          <label class="ic-label" for="selFreq">EMI frequency</label>
+          <select class="select-input" id="selFreq">
+            <option value="yearly">Yearly</option>
+            <option value="halfyearly">Half-yearly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="monthly" selected>Monthly</option>
+            <option value="biweekly">Bi-weekly</option>
+            <option value="weekly">Weekly</option>
+          </select>
+          <div id="biweeklyMode" class="biweekly-mode" hidden>
+            <div class="control-copy">Bi-weekly method</div>
+            <div class="type-toggle is-full">
+              <button id="bwTrue" type="button" class="active" data-bw-mode="true">True</button>
+              <button id="bwAccel" type="button" data-bw-mode="accelerated">Accelerated</button>
+            </div>
+            <div id="bwDesc" class="control-copy is-small">EMI recalculated for 26 periods per year</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page-card extra-section page-section">
+      <div class="section-head">
+        <span class="section-title">Extra payments</span>
+        <button class="btn btn-add" id="btnAdd" type="button">+ Add</button>
+      </div>
+      <div id="extraList"></div>
+      <div class="helper-copy">Hover over the <button type="button" class="info-tip" data-tip="Each card summarizes its extra payment. Periods adapt to your chosen EMI frequency." aria-label="Each card summarizes its extra payment. Periods adapt to your chosen EMI frequency.">?</button> on each card for a plain-language summary.</div>
+    </section>
+
+    <section class="page-section">
+      <div class="stat-grid" id="metrics"></div>
+    </section>
+
+    <section class="page-section">
+      <div class="segmented" id="viewToggle" aria-label="View mode">
+        <button class="active" id="btnCharts" type="button" aria-pressed="true">Charts</button>
+        <button id="btnTable" type="button" aria-pressed="false">Schedule</button>
+      </div>
+
+      <div id="chartsWrap">
+        <div class="chart-card">
+          <h2>Balance over time</h2>
+          <div class="chart-legend">
+            <span><span class="dot is-note-blue"></span>Without extras</span>
+            <span><span class="dot is-note-green"></span>With extras</span>
+          </div>
+          <div class="chart-frame is-tall"><canvas id="balanceChart"></canvas></div>
+        </div>
+
+        <div class="chart-row">
+          <div class="chart-card">
+            <h2>Scenario comparison</h2>
+            <div class="chart-legend">
+              <span><span class="dot is-blue"></span>Principal</span>
+              <span><span class="dot is-note-red"></span>Interest</span>
+              <span><span class="dot is-note-green"></span>Extras</span>
+            </div>
+            <div class="chart-frame is-medium"><canvas id="compChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h2>Interest saved</h2>
+            <div class="chart-legend">
+              <span><span class="dot is-note-red"></span>Interest paid</span>
+              <span><span class="dot is-note-green"></span>Interest saved</span>
+            </div>
+            <div class="chart-frame is-medium"><canvas id="savingsChart"></canvas></div>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h2>Cumulative payments</h2>
+          <div class="chart-legend">
+            <span><span class="dot is-blue"></span>Cumulative principal</span>
+            <span><span class="dot is-note-green"></span>Cumulative extras</span>
+            <span><span class="dot is-note-red"></span>Cumulative interest</span>
+            <span class="chart-legend-note">Dashed line = break-even</span>
+          </div>
+          <div class="chart-frame is-tall"><canvas id="cumulChart"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <h2>Per-period breakdown</h2>
+          <div class="chart-legend">
+            <span><span class="dot is-blue"></span>Principal</span>
+            <span><span class="dot is-note-green"></span>Extra payment</span>
+            <span><span class="dot is-note-red"></span>Interest</span>
+          </div>
+          <div class="chart-frame is-compact"><canvas id="periodChart"></canvas></div>
+        </div>
+      </div>
+
+      <div id="tableWrap" hidden>
+        <div class="segmented" id="tableToggle">
+          <button class="active" id="btnPeriod" type="button" aria-pressed="true">Per period</button>
+          <button id="btnYearly" type="button" aria-pressed="false">Yearly summary</button>
+        </div>
+        <div id="tableSummary" class="table-summary"></div>
+        <div class="table-wrap" id="periodTableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>EMI</th>
+                <th>Principal</th>
+                <th>Interest</th>
+                <th>Extra</th>
+                <th>Balance</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="table-wrap" id="yearlyTableWrap" hidden>
+          <table>
+            <thead>
+              <tr>
+                <th>Year</th>
+                <th>Opening bal.</th>
+                <th>Principal paid</th>
+                <th>Interest paid</th>
+                <th>Extras paid</th>
+                <th>Closing bal.</th>
+              </tr>
+            </thead>
+            <tbody id="ybody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div data-app-shell="scroll-top"></div>
+
+  <script type="module" src="./js/app.js?v=9ae753a"></script>
+</body>
+</html>
