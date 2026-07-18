@@ -43,7 +43,8 @@ export function buildProbabilityChartData(state) {
   return {
     adjustedPercentages: state.sorted.map((token) => token.adjustedProb * 100),
     empiricalCounts,
-    empiricalPercentages: empiricalCounts?.map((count) => (count / drawTotal) * 100) ?? null,
+    empiricalPercentages:
+      empiricalCounts?.map((count) => (drawTotal > 0 ? (count / drawTotal) * 100 : 0)) ?? null,
     labels: state.sorted.map((token) =>
       state.inTopP.has(token.idx) ? token.word : `${token.word} (off)`
     ),

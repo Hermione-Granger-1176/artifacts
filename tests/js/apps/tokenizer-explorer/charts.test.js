@@ -60,6 +60,12 @@ test('buildProbabilityChartData keeps temperature-shaped bars and labels exclusi
   assert.deepEqual(data.empiricalPercentages, [60, 30, 10]);
 });
 
+test('buildProbabilityChartData reports zero percentages for an empty tally', () => {
+  const data = buildProbabilityChartData(chartState({ sampleCounts: new Map() }));
+  assert.deepEqual(data.empiricalCounts, [0, 0, 0]);
+  assert.deepEqual(data.empiricalPercentages, [0, 0, 0]);
+});
+
 test('renderProbabilityChart creates once and then updates the same chart instance', () => {
   const mocks = setupChartMocks();
   try {
