@@ -81,7 +81,7 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(tmp_path: Path, monke
         page.wait_for_function("window.__ARTIFACT_READY__ === true")
 
         initial_sentence = page.locator("#sentence-prefix").text_content() or ""
-        page.locator("#tabs .tab").nth(2).click()
+        page.locator("#tabs button").nth(2).click()
         page.wait_for_function(
             "previous => document.querySelector('#sentence-prefix').textContent !== previous",
             arg=initial_sentence,

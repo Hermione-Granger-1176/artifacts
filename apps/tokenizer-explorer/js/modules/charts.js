@@ -1,4 +1,5 @@
 import { chartGlobal, createPaletteCache, cssAlpha, cssValue } from "../../../../js/modules/chart-theme.js";
+import { formatPercent } from "../../../../js/modules/formatting.js";
 
 const { colors, refreshPalette } = createPaletteCache(() => ({
   amber: cssValue("--color-amber"),
@@ -72,17 +73,17 @@ function createProbabilityChart(canvas) {
         tooltip: {
           callbacks: {
             label(context) {
-              const percentage = Number(context.parsed.x ?? 0).toFixed(2);
+              const percentage = formatPercent(Number(context.parsed.x ?? 0), 2);
               if (context.datasetIndex === 1) {
                 const count = context.dataset.sampleCounts?.[context.dataIndex] ?? 0;
-                return `${context.dataset.label}: ${percentage}% (${count} of 100 draws)`;
+                return `${context.dataset.label}: ${percentage} (${count} of 100 draws)`;
               }
 
               if (context.dataset.cutIndexes?.[context.dataIndex]) {
-                return `${context.dataset.label}: ${percentage}%, disabled by Top P`;
+                return `${context.dataset.label}: ${percentage}, disabled by Top P`;
               }
               const adjusted = context.dataset.adjustedPercentages?.[context.dataIndex] ?? 0;
-              return `${context.dataset.label}: ${percentage}%, renormalized to ${adjusted.toFixed(2)}% in the pool`;
+              return `${context.dataset.label}: ${percentage}, renormalized to ${formatPercent(adjusted, 2)} in the pool`;
             }
           }
         }

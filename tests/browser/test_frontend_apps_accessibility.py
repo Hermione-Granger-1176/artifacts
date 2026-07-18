@@ -49,7 +49,7 @@ def test_app_pages_have_no_blocking_axe_violations(tmp_path: Path, monkeypatch, 
             assert_minimum_contrast(page, "#btnAdd", minimum_ratio=4.5)
 
         if slug == "tokenizer-explorer":
-            assert_minimum_contrast(page, "#tabs .tab.active", minimum_ratio=4.5)
+            assert_minimum_contrast(page, "#tabs button.active", minimum_ratio=4.5)
             page.locator("#pick-token").click()
             expect(page.locator("#token-pills .pill.winner")).to_be_visible()
             assert_minimum_contrast(page, "#token-pills .pill.winner", minimum_ratio=4.5)
@@ -58,7 +58,7 @@ def test_app_pages_have_no_blocking_axe_violations(tmp_path: Path, monkeypatch, 
             expect(page.locator('meta[name="theme-color"]')).to_have_attribute(
                 "content", "rgb(20, 20, 20)"
             )
-            assert_minimum_contrast(page, "#tabs .tab.active", minimum_ratio=4.5)
+            assert_minimum_contrast(page, "#tabs button.active", minimum_ratio=4.5)
             page.locator("#pick-token").click()
             expect(page.locator("#token-pills .pill.winner")).to_be_visible()
             assert_minimum_contrast(page, "#token-pills .pill.winner", minimum_ratio=4.5)

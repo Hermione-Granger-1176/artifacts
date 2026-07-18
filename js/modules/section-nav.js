@@ -5,6 +5,38 @@
  * @typedef {{ id: string, label: string }} NavSection
  */
 
+// Static skeleton with the kebab-case ids that initSectionNav defaults to.
+// The label starts empty because initSectionNav writes the active section's
+// label as soon as it runs.
+const SECTION_NAV_MARKUP = `
+  <nav class="section-nav" aria-label="Section progress">
+    <div class="section-nav-inner">
+      <div class="section-nav-track">
+        <div class="section-nav-line"></div>
+        <div class="section-nav-fill" id="nav-fill"></div>
+        <div class="section-nav-nodes" id="nav-nodes"></div>
+      </div>
+      <div class="section-nav-label" id="nav-label"></div>
+    </div>
+  </nav>
+`;
+
+/**
+ * Inject the shared section-nav skeleton into a mount slot, mirroring how
+ * app-shell fills its placeholder slots: fill the slot's innerHTML only when it
+ * has no element children yet, so a repeat call is a no-op. The injected ids
+ * (nav-fill, nav-nodes, nav-label) match initSectionNav's defaults.
+ *
+ * @param {Element | null} mount - Slot element to fill.
+ * @returns {void}
+ */
+export function renderSectionNav(mount) {
+  if (!mount || mount.childElementCount > 0) {
+    return;
+  }
+  mount.innerHTML = SECTION_NAV_MARKUP.trim();
+}
+
 function scrollToSection(id) {
   const target = document.getElementById(id);
   if (target) {

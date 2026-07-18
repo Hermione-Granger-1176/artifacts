@@ -1,23 +1,12 @@
-import { createPaletteCache, cssAlpha, cssValue } from "../../../../js/modules/chart-theme.js";
+import { formatPercent } from "../../../../js/modules/formatting.js";
 import { formatTokenForDisplay, getTokenExampleStats, tokenExamples } from "./token-examples.js";
 
-const { colors, refreshPalette } = createPaletteCache(() => ({
-  pillBackgrounds: [
-    cssAlpha("--color-blue", 0.16),
-    cssAlpha("--color-green", 0.16),
-    cssAlpha("--color-amber", 0.16),
-    cssAlpha("--color-purple", 0.16)
-  ],
-  pillBorders: [
-    cssAlpha("--color-blue", 0.42),
-    cssAlpha("--color-green", 0.42),
-    cssAlpha("--color-amber", 0.42),
-    cssAlpha("--color-purple", 0.42)
-  ],
-  text: cssValue("--color-text")
-}));
+// Shared chip tone modifiers cycled across the illustrative token chips.
+const CHIP_TONES = ["is-blue", "is-green", "is-amber", "is-purple", "is-red"];
 
-export { refreshPalette as refreshRenderPalette };
+// Shared chip tone modifiers cycled across the non-winner top-p pills. The
+// winner pill rides the shared green tone plus a scoped emphasis rule.
+const PILL_TONES = ["is-blue", "is-green", "is-amber", "is-purple"];
 
 function temperatureInsight(winner, temperature) {
   if (temperature === 0) {
@@ -49,23 +38,24 @@ function topPInsight(topP, tokenCount) {
 }
 
 /**
- * Render the scenario tabs and wire each button to the provided selection callback.
+ * Build one scenario button per entry on the shared segmented skin and return
+ * them so the caller can wire selection through initSegmented, which owns the
+ * active class and aria-pressed sync.
  *
  * @param {HTMLElement} container
  * @param {{ label: string }[]} scenarios
  * @param {number} activeIndex
- * @param {(index: number) => void} onSelect
- * @returns {void}
+ * @returns {HTMLButtonElement[]}
  */
-export function renderTabs(container, scenarios, activeIndex, onSelect) {
+export function renderTabs(container, scenarios, activeIndex) {
   container.innerHTML = "";
-  scenarios.forEach((scenario, index) => {
+  return scenarios.map((scenario, index) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `btn tab${index === activeIndex ? " active" : ""}`;
+    button.className = index === activeIndex ? "active" : "";
     button.textContent = scenario.label;
-    button.addEventListener("click", () => onSelect(index));
     container.appendChild(button);
+    return button;
   });
 }
 
@@ -118,7 +108,8 @@ export function renderTokenExamples(container, showWhitespace) {
     chips.className = "token-chips";
     example.tokens.forEach((token, tokenIndex) => {
       const chip = document.createElement("span");
-      chip.className = `token-chip tone-${(exampleIndex + tokenIndex) % 5}`;
+      const tone = CHIP_TONES[(exampleIndex + tokenIndex) % CHIP_TONES.length];
+      chip.className = `chip is-mono token-chip ${tone}`;
       chip.title = token;
       chip.textContent = formatTokenForDisplay(token, showWhitespace);
       chips.appendChild(chip);
@@ -144,22 +135,16 @@ export function renderTokenExamples(container, showWhitespace) {
  * @returns {void}
  */
 export function renderDistribution(elements, state) {
-  const palette = colors();
   const pills = elements.tokenPills;
   const insight = elements.insightBox;
 
   pills.innerHTML = "";
   state.topTokens.forEach((token, index) => {
     const selected = token.idx === state.selectedTokenIndex;
+    const tone = selected ? "is-green" : PILL_TONES[index % PILL_TONES.length];
     const pill = document.createElement("span");
-    pill.className = `pill${selected ? " winner" : ""}`;
-    if (!selected) {
-      const colorIndex = index % palette.pillBackgrounds.length;
-      pill.style.background = palette.pillBackgrounds[colorIndex];
-      pill.style.borderColor = palette.pillBorders[colorIndex];
-      pill.style.color = palette.text;
-    }
-    pill.textContent = `${token.word} ${(token.adjustedProb * 100).toFixed(1)}%`;
+    pill.className = `chip is-mono pill ${tone}${selected ? " winner" : ""}`;
+    pill.textContent = `${token.word} ${formatPercent(token.adjustedProb * 100)}`;
     pills.appendChild(pill);
   });
 

@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import { initAccordion } from '../../../../apps/tokenizer-explorer/js/modules/accordion.js';
 import {
-  refreshRenderPalette,
   renderDistribution,
   renderScenario,
   renderTabs,
@@ -172,10 +171,13 @@ test('renderTabs creates an active button for the selected scenario', () => {
   const mocks = setupDocumentMock();
   try {
     const container = makeElement();
-    renderTabs(container, [{ label: 'A' }, { label: 'B' }, { label: 'C' }], 1, () => {});
+    const buttons = renderTabs(container, [{ label: 'A' }, { label: 'B' }, { label: 'C' }], 1);
     assert.equal(container.children.length, 3);
     assert.equal(container.children[0].textContent, 'A');
-    assert.equal(container.children[1].className, 'btn tab active');
+    assert.equal(container.children[0].className, '');
+    assert.equal(container.children[1].className, 'active');
+    assert.equal(buttons.length, 3);
+    assert.equal(buttons[1], container.children[1]);
   } finally {
     restoreDocument(mocks);
   }
@@ -190,6 +192,7 @@ test('renderTokenExamples creates rows, chips, and count copy', () => {
     const emojiRow = container.children[2];
     assert.match(emojiRow.children[0].children[1].textContent, /12 tokens/);
     assert.equal(emojiRow.children[2].children[1].textContent, '·');
+    assert.match(emojiRow.children[2].children[0].className, /chip is-mono token-chip/);
   } finally {
     restoreDocument(mocks);
   }
@@ -216,7 +219,9 @@ test('renderDistribution renders renormalized pills, insights, and sample status
 
     assert.equal(elements.tokenPills.children.length, 2);
     assert.match(elements.tokenPills.children[0].textContent, /70.0%/);
+    assert.match(elements.tokenPills.children[0].className, /chip is-mono pill/);
     assert.match(elements.tokenPills.children[1].className, /winner/);
+    assert.match(elements.tokenPills.children[1].className, /is-green/);
     assert.match(elements.insightBox.textContent, /temperature/i);
     assert.match(elements.sampleStatus.textContent, /100 draws/);
   } finally {
@@ -238,7 +243,6 @@ test('renderDistribution explains greedy and high-temperature extremes', () => {
     assert.match(elements.insightBox.textContent, /greedy decoding/);
     renderDistribution(elements, { ...state, temperature: 2.5 });
     assert.match(elements.insightBox.textContent, /spreads out widely/);
-    refreshRenderPalette();
   } finally {
     restoreDocument(mocks);
   }

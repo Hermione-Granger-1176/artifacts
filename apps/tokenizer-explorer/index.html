@@ -36,16 +36,7 @@
 <body class="artifact-app app-tokenizer-explorer">
   <div data-app-shell="header"></div>
 
-  <nav class="section-nav" aria-label="Section progress">
-    <div class="section-nav-inner">
-      <div class="section-nav-track">
-        <div class="section-nav-line"></div>
-        <div class="section-nav-fill" id="nav-fill"></div>
-        <div class="section-nav-nodes" id="nav-nodes"></div>
-      </div>
-      <div class="section-nav-label" id="nav-label">Tokens</div>
-    </div>
-  </nav>
+  <div data-section-nav></div>
 
   <main class="page-shell">
     <div data-app-shell="runtime-error"></div>
@@ -73,7 +64,7 @@
         <h2 id="sampling-heading">Score a next token, then choose one</h2>
       </div>
 
-      <div class="scenario-tabs" id="tabs"></div>
+      <div class="segmented scenario-tabs" id="tabs" role="group" aria-label="Sampling scenario"></div>
 
       <section class="code-window scenario-box">
         <div class="code-window-head">
@@ -84,7 +75,7 @@
           <div class="sentence-display">
             <span id="sentence-prefix"></span><span class="blank" id="sentence-completion" aria-live="polite"></span>
           </div>
-          <div class="hint">The model is choosing the next token.</div>
+          <div class="app-callout">The model is choosing the next token.</div>
         </div>
       </section>
 
@@ -152,7 +143,7 @@
       <section class="page-card token-pool-card" aria-label="Top P token pool">
         <p class="section-label">Token pool after the Top P cutoff:</p>
         <div class="pills-row" id="token-pills"></div>
-        <div class="insight" id="insight-box"></div>
+        <div class="app-callout is-blue" id="insight-box"></div>
       </section>
 
       <div class="code-window sampling-code">
