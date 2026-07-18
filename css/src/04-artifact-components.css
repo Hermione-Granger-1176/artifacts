@@ -631,7 +631,8 @@ body.artifact-app .section-nav-tip {
   transition: opacity 0.2s;
 }
 
-body.artifact-app .section-nav-node:hover .section-nav-tip {
+body.artifact-app .section-nav-node:hover .section-nav-tip,
+body.artifact-app .section-nav-node:focus-visible .section-nav-tip {
   opacity: 1;
 }
 
