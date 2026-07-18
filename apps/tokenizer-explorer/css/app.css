@@ -1,5 +1,12 @@
 /* Tokenizer explorer app styles. */
 
+/* The section-nav is injected into this slot by renderSectionNav; display:
+ * contents keeps the sticky nav's containing block at the body so it still
+ * sticks to the top of the viewport. */
+body.app-tokenizer-explorer [data-section-nav] {
+  display: contents;
+}
+
 /* Section-nav scroll targets clear the sticky frosted nav when jumped to. */
 
 body.app-tokenizer-explorer .tokenization-card,
@@ -25,13 +32,13 @@ body.app-tokenizer-explorer .probability-chart-heading {
   gap: var(--space-4);
 }
 
-body.app-tokenizer-explorer .section-kicker,
+/* .section-kicker rides the shared component; .preset-label mirrors that eyebrow style. */
 body.app-tokenizer-explorer .preset-label {
   margin-bottom: var(--space-1);
   color: var(--color-text-secondary);
   font-size: var(--font-size-2xs);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
 }
 
@@ -103,46 +110,15 @@ body.app-tokenizer-explorer .token-example p {
 body.app-tokenizer-explorer .token-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
   margin-top: var(--space-3);
 }
 
+/* Colors and base come from shared .chip.is-mono plus tone modifiers; only the
+ * token-specific sizing and whitespace preservation stay scoped here. */
 body.app-tokenizer-explorer .token-chip {
-  display: inline-flex;
-  align-items: center;
   min-height: 1.9rem;
-  padding: 2px 8px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  color: var(--color-text);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
   white-space: pre;
-}
-
-body.app-tokenizer-explorer .token-chip.tone-0 {
-  border-color: var(--color-blue);
-  background: var(--note-blue);
-}
-
-body.app-tokenizer-explorer .token-chip.tone-1 {
-  border-color: var(--color-green);
-  background: var(--note-green);
-}
-
-body.app-tokenizer-explorer .token-chip.tone-2 {
-  border-color: var(--color-amber);
-  background: var(--note-amber);
-}
-
-body.app-tokenizer-explorer .token-chip.tone-3 {
-  border-color: var(--color-purple);
-  background: var(--note-purple);
-}
-
-body.app-tokenizer-explorer .token-chip.tone-4 {
-  border-color: var(--color-red);
-  background: var(--note-red);
 }
 
 /* Scenario selection and context. */
@@ -155,32 +131,10 @@ body.app-tokenizer-explorer .sampling-heading {
   margin-bottom: var(--space-4);
 }
 
+/* The scenario switcher rides the shared .segmented skin; only wrap and spacing stay scoped. */
 body.app-tokenizer-explorer .scenario-tabs {
-  display: flex;
   flex-wrap: wrap;
-  gap: 6px;
   margin-bottom: var(--space-4);
-}
-
-body.app-tokenizer-explorer .tab {
-  padding: 6px 13px;
-  border: 1px solid var(--color-border-medium);
-  background: transparent;
-  color: var(--color-text-secondary);
-}
-
-body.app-tokenizer-explorer .tab:hover,
-body.app-tokenizer-explorer .tab:focus-visible {
-  background: var(--color-surface-alt);
-  color: var(--color-text);
-  outline: var(--focus-ring);
-  outline-offset: 2px;
-}
-
-body.app-tokenizer-explorer .tab.active {
-  border-color: var(--color-blue);
-  background: var(--note-blue);
-  color: var(--color-blue-text);
 }
 
 body.app-tokenizer-explorer .scenario-box {
@@ -206,30 +160,24 @@ body.app-tokenizer-explorer .blank {
   display: inline-block;
   min-width: 70px;
   height: 1.5em;
-  margin-left: 6px;
+  margin-left: var(--space-2);
   border-bottom: 2px dashed var(--color-blue);
   vertical-align: baseline;
 }
 
 body.app-tokenizer-explorer .blank.has-choice {
   min-width: 0;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   border: 1px solid var(--color-green);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--note-green);
   color: var(--color-green-text);
   line-height: 1.4;
 }
 
-body.app-tokenizer-explorer .hint,
 body.app-tokenizer-explorer .section-label,
 body.app-tokenizer-explorer .control-label {
   color: var(--color-text-secondary);
-}
-
-body.app-tokenizer-explorer .hint {
-  margin-top: 6px;
-  font-size: var(--font-size-control);
 }
 
 /* Sampling pipeline and controls. */
@@ -309,7 +257,7 @@ body.app-tokenizer-explorer .control-value {
 body.app-tokenizer-explorer .range-hints {
   display: flex;
   justify-content: space-between;
-  margin-top: 3px;
+  margin-top: var(--space-1);
   color: var(--color-text-secondary);
   font-size: var(--font-size-2xs);
 }
@@ -388,34 +336,22 @@ body.app-tokenizer-explorer .section-label {
 body.app-tokenizer-explorer .pills-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
 
+/* Colors ride shared .chip.is-mono plus tone modifiers; only the roomier pill
+ * sizing stays scoped here. */
 body.app-tokenizer-explorer .pill {
-  display: inline-block;
   padding: var(--space-1) var(--space-3);
-  border: 1px solid transparent;
-  border-radius: 6px;
   cursor: default;
-  font-family: var(--font-mono);
   font-size: var(--font-size-control);
-  font-weight: 500;
 }
 
+/* Winner keeps the shared green tone (via .is-green) plus this emphasis. */
 body.app-tokenizer-explorer .pill.winner {
-  border-color: var(--color-green);
-  background: var(--note-green);
   color: var(--color-green-text);
-}
-
-body.app-tokenizer-explorer .insight {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-alt);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-control);
-  line-height: 1.6;
+  font-weight: 700;
 }
 
 /* Tokenizer concept accordion. */
@@ -457,7 +393,7 @@ body.app-tokenizer-explorer .card-trigger:focus-visible {
 body.app-tokenizer-explorer .card-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 body.app-tokenizer-explorer .card-icon {
@@ -467,7 +403,7 @@ body.app-tokenizer-explorer .card-icon {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   font-size: 15px;
 }
 
@@ -540,9 +476,9 @@ body.app-tokenizer-explorer .card-body p:last-child {
 
 body.app-tokenizer-explorer .tip {
   display: inline-block;
-  margin-top: 6px;
-  padding: 3px 10px;
-  border-radius: 5px;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-xs);
   background: var(--color-surface-alt);
   font-size: var(--font-size-sm);
 }

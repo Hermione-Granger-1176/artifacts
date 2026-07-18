@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { initSectionNav } from '../../../js/modules/section-nav.js';
+import { initSectionNav, renderSectionNav } from '../../../js/modules/section-nav.js';
 
 const SECTIONS = [
   { id: 'sec-alpha', label: 'Alpha' },
@@ -94,6 +94,22 @@ function setupNavMocks({
   };
   return { observers, registry, restore };
 }
+
+test('renderSectionNav injects the shared skeleton into an empty mount', () => {
+  const mount = { childElementCount: 0, innerHTML: '' };
+  renderSectionNav(mount);
+  assert.match(mount.innerHTML, /class="section-nav"/);
+  assert.match(mount.innerHTML, /id="nav-fill"/);
+  assert.match(mount.innerHTML, /id="nav-nodes"/);
+  assert.match(mount.innerHTML, /id="nav-label"/);
+});
+
+test('renderSectionNav is a no-op for a missing or already-filled mount', () => {
+  assert.doesNotThrow(() => renderSectionNav(null));
+  const filled = { childElementCount: 3, innerHTML: 'existing' };
+  renderSectionNav(filled);
+  assert.equal(filled.innerHTML, 'existing');
+});
 
 test('section nav builds one numbered node per section and starts on the first', () => {
   const { observers, registry, restore } = setupNavMocks();

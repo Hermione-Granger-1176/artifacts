@@ -1,11 +1,11 @@
 import { initAppShell, renderAppShell } from "../../../js/modules/app-shell.js";
 import { initializeMatureApp } from "../../../js/modules/app-runtime.js";
 import { cacheElements } from "../../../js/modules/element-cache.js";
-import { initSectionNav } from "../../../js/modules/section-nav.js";
+import { initSectionNav, renderSectionNav } from "../../../js/modules/section-nav.js";
+import { initSegmented } from "../../../js/modules/segmented.js";
 import { refreshPalette, renderProbabilityChart } from "./modules/charts.js";
 import { initAccordion } from "./modules/accordion.js";
 import {
-  refreshRenderPalette,
   renderDistribution,
   renderScenario,
   renderTabs,
@@ -69,14 +69,15 @@ initializeMatureApp({
     initAppShell({
       onThemeChange: () => {
         refreshPalette();
-        refreshRenderPalette();
         render();
       }
     });
     initAccordion(elements.concepts);
+    renderSectionNav(document.querySelector("[data-section-nav]"));
     initSectionNav(NAV_SECTIONS);
     bindEvents();
-    renderTabs(elements.tabs, scenarios, activeIndex, selectScenario);
+    const tabButtons = renderTabs(elements.tabs, scenarios, activeIndex);
+    initSegmented(elements.tabs, (button) => selectScenario(tabButtons.indexOf(button)));
     renderTokenExamples(elements.tokenExamples, showWhitespace);
     render();
   }
@@ -123,7 +124,6 @@ function bindEvents() {
 function selectScenario(index) {
   activeIndex = index;
   clearSamplingFeedback();
-  renderTabs(elements.tabs, scenarios, activeIndex, selectScenario);
   render();
 }
 
