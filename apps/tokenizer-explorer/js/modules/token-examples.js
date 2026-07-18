@@ -31,7 +31,9 @@ export const tokenExamples = [
 ];
 
 /**
- * Count user-visible Unicode characters rather than UTF-16 code units.
+ * Count Unicode code points rather than UTF-16 code units. Grapheme clusters
+ * such as an emoji with a skin-tone modifier count once per code point, which
+ * matches how the illustrative examples split them into separate tokens.
  *
  * @param {string} text
  * @returns {number}
