@@ -1,0 +1,1 @@
+export function formatDollarTick(t){const r=Math.abs(t),e=t<0?"-":"";return r>=1e6?`${e}$${(r/1e6).toFixed(1)}M`:r>=1e4?`${e}$${Math.round(r/1e3)}k`:r>=1e3?`${e}$${(r/1e3).toFixed(1)}k`:`${e}$${Math.round(r)}`}export function parseNumber(t){const r=+String(t).replace(/[^0-9.\-]/g,"");return Number.isFinite(r)?r:0}
