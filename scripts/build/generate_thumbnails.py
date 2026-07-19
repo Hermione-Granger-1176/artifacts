@@ -134,7 +134,10 @@ def _configured_thumbnail_slugs() -> set[str] | None:
     """Return an explicit thumbnail scope, or None when the full site is requested."""
     shard_manifest = os.environ.get(THUMBNAIL_SHARD_MANIFEST_ENV_VAR, "").strip()
     if shard_manifest:
-        payload = json.loads(Path(shard_manifest).read_text(encoding="utf-8"))
+        manifest_path = Path(shard_manifest)
+        if manifest_path.is_symlink():
+            raise ValueError("Thumbnail shard manifest must not be a symlink")
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("Thumbnail shard manifest must be a JSON object")
         slugs = payload.get("thumbnail_slugs")

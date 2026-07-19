@@ -340,6 +340,20 @@ def test_configured_thumbnail_slugs_rejects_malformed_shard_manifest(
         generate_thumbnails._configured_thumbnail_slugs()
 
 
+def test_configured_thumbnail_slugs_rejects_symlinked_shard_manifest(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Test thumbnail shard manifests refuse symlinked paths."""
+    real_manifest = tmp_path / "real.json"
+    real_manifest.write_text('{"thumbnail_slugs": []}', encoding="utf-8")
+    manifest_path = tmp_path / "shard.json"
+    manifest_path.symlink_to(real_manifest)
+    monkeypatch.setenv(generate_thumbnails.THUMBNAIL_SHARD_MANIFEST_ENV_VAR, str(manifest_path))
+
+    with pytest.raises(ValueError, match="symlink"):
+        generate_thumbnails._configured_thumbnail_slugs()
+
+
 def test_artifact_url_prefers_http_base_when_configured(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

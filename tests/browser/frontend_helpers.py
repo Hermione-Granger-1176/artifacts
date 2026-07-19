@@ -182,7 +182,10 @@ def selected_app_slugs() -> list[str]:
     """Selected app slugs."""
     manifest_path = os.environ.get(APP_SHARD_MANIFEST_ENV, "").strip()
     if manifest_path:
-        payload = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+        manifest_file = Path(manifest_path)
+        if manifest_file.is_symlink():
+            raise ValueError("Browser shard manifest must not be a symlink")
+        payload = json.loads(manifest_file.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("Browser shard manifest must be a JSON object")
         slugs = payload.get("browser_slugs")
