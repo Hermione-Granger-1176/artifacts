@@ -287,6 +287,30 @@ def test_package_and_merge_reject_invalid_results(tmp_path: Path) -> None:
         app_shards.merge_shard_results(missing_root, apps_root=tmp_path / "apps")
 
 
+def test_write_and_package_reject_symlinked_outputs(tmp_path: Path) -> None:
+    """Test manifest and result writers refuse symlinked output paths."""
+    plan_path = tmp_path / "plan.json"
+    write_json(
+        plan_path,
+        {"shards": [{"index": 0, "browser_slugs": [], "thumbnail_slugs": []}]},
+    )
+    real_output = tmp_path / "real-manifest.json"
+    real_output.write_text("{}", encoding="utf-8")
+    linked_output = tmp_path / "linked-manifest.json"
+    linked_output.symlink_to(real_output)
+    with pytest.raises(ValueError, match="symlink"):
+        app_shards.write_shard_manifest(plan_path, shard_index=0, output_path=linked_output)
+
+    manifest_path = tmp_path / "manifest.json"
+    write_json(manifest_path, {"index": 0, "browser_slugs": [], "thumbnail_slugs": []})
+    linked_root = tmp_path / "linked-result"
+    linked_root.symlink_to(tmp_path / "real-result")
+    with pytest.raises(ValueError, match="symlink"):
+        app_shards.package_shard_result(
+            manifest_path, output_root=linked_root, apps_root=tmp_path
+        )
+
+
 def test_main_runs_makefile_facing_commands(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

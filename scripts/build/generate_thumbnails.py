@@ -137,6 +137,8 @@ def _configured_thumbnail_slugs() -> set[str] | None:
         manifest_path = Path(shard_manifest)
         if manifest_path.is_symlink():
             raise ValueError("Thumbnail shard manifest must not be a symlink")
+        if not manifest_path.is_file():
+            raise ValueError(f"Thumbnail shard manifest is missing: {manifest_path}")
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("Thumbnail shard manifest must be a JSON object")

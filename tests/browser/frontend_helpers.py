@@ -185,6 +185,8 @@ def selected_app_slugs() -> list[str]:
         manifest_file = Path(manifest_path)
         if manifest_file.is_symlink():
             raise ValueError("Browser shard manifest must not be a symlink")
+        if not manifest_file.is_file():
+            raise ValueError(f"Browser shard manifest is missing: {manifest_file}")
         payload = json.loads(manifest_file.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("Browser shard manifest must be a JSON object")

@@ -147,6 +147,8 @@ def shard_manifest(plan: dict[str, object], *, shard_index: int) -> dict[str, ob
 def write_shard_manifest(plan_path: Path, *, shard_index: int, output_path: Path) -> None:
     """Select one plan shard and write its standalone manifest."""
     manifest = shard_manifest(read_plan(plan_path), shard_index=shard_index)
+    if output_path.is_symlink():
+        raise ValueError(f"Shard manifest output must not be a symlink: {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
 
@@ -187,6 +189,8 @@ def package_shard_result(
     """Package a shard manifest and its generated thumbnails for transfer."""
     manifest = read_shard_manifest(manifest_path)
     root = apps_root or Path(artifact_base_path())
+    if output_root.is_symlink():
+        raise ValueError(f"Shard result output must not be a symlink: {output_root}")
     if output_root.exists():
         shutil.rmtree(output_root)
     output_root.mkdir(parents=True)

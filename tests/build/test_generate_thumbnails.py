@@ -354,6 +354,18 @@ def test_configured_thumbnail_slugs_rejects_symlinked_shard_manifest(
         generate_thumbnails._configured_thumbnail_slugs()
 
 
+def test_configured_thumbnail_slugs_rejects_missing_shard_manifest(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Test thumbnail shard manifests fail clearly when the path does not exist."""
+    monkeypatch.setenv(
+        generate_thumbnails.THUMBNAIL_SHARD_MANIFEST_ENV_VAR, str(tmp_path / "absent.json")
+    )
+
+    with pytest.raises(ValueError, match="missing"):
+        generate_thumbnails._configured_thumbnail_slugs()
+
+
 def test_artifact_url_prefers_http_base_when_configured(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
