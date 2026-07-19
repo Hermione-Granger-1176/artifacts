@@ -162,8 +162,7 @@ def write_shard_manifest(plan_path: Path, *, shard_index: int, output_path: Path
 
 def read_shard_manifest(path: Path) -> dict[str, object]:
     """Read and validate a standalone app-shard manifest."""
-    if path.is_symlink():
-        raise ValueError(f"Shard manifest input must not be a symlink: {path}")
+    reject_path_symlinks(path, label="Shard manifest input")
     if not path.is_file():
         raise ValueError(f"Shard manifest is missing: {path}")
     payload = read_plan(path)

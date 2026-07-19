@@ -351,10 +351,14 @@ def test_shard_helpers_reject_symlinked_manifest_inputs_and_thumbnail_paths(tmp_
     write_json(manifest_target, {"index": 0, "browser_slugs": [], "thumbnail_slugs": []})
     linked_manifest = tmp_path / "manifest.json"
     linked_manifest.symlink_to(manifest_target)
-    with pytest.raises(ValueError, match="manifest input"):
+    with pytest.raises(ValueError, match="Shard manifest input must not be a symlinked path"):
         app_shards.read_shard_manifest(linked_manifest)
     with pytest.raises(ValueError, match="manifest is missing"):
         app_shards.read_shard_manifest(tmp_path / "missing.json")
+    linked_manifest_dir = tmp_path / "linked-manifest-dir"
+    linked_manifest_dir.symlink_to(tmp_path, target_is_directory=True)
+    with pytest.raises(ValueError, match="Shard manifest input must not be a symlinked path"):
+        app_shards.read_shard_manifest(linked_manifest_dir / "manifest-target.json")
 
     manifest_path = tmp_path / "thumbnail-manifest.json"
     write_json(manifest_path, {"index": 0, "browser_slugs": [], "thumbnail_slugs": ["alpha"]})
