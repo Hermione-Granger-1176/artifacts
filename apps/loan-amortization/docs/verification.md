@@ -38,7 +38,7 @@ Use these as smoke-verification scenarios after refactors:
 - `0%` interest should not divide by zero and should pay down linearly
 - High tenure (`30` years) should still render charts and yearly summaries without runtime errors
 - Extra payments larger than the remaining balance should clamp to the outstanding balance
-- Break-even should be the first period where cumulative principal plus extras exceeds cumulative interest
+- Break-even should be the first period where cumulative principal plus extras meets or exceeds cumulative interest
 
 ## Precision notes
 

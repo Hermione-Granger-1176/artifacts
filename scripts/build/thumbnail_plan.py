@@ -337,11 +337,11 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
     return plan
 
 
-def thumbnail_targets(*, app_scope: str, changed_slugs: list[str]) -> list[Path]:
-    """Return thumbnail paths that should be invalidated for the runtime scope."""
+def thumbnail_targets(*, thumbnail_scope: str, changed_slugs: list[str]) -> list[Path]:
+    """Return thumbnail paths that should be invalidated for the thumbnail scope."""
     apps_root = Path(artifact_base_path())
 
-    if app_scope == "all":
+    if thumbnail_scope == "all":
         if not apps_root.exists():
             return []
         return sorted(
@@ -350,7 +350,7 @@ def thumbnail_targets(*, app_scope: str, changed_slugs: list[str]) -> list[Path]
             if path.is_dir() and (path / _THUMBNAIL_FILE).exists()
         )
 
-    if app_scope == "changed":
+    if thumbnail_scope == "changed":
         return [
             apps_root / slug / _THUMBNAIL_FILE
             for slug in changed_slugs
@@ -380,7 +380,7 @@ def invalidate_thumbnails(
         plan = full_impact_plan()
     invalidated = []
     targets = thumbnail_targets(
-        app_scope=cast("str", plan["thumbnail_scope"]),
+        thumbnail_scope=cast("str", plan["thumbnail_scope"]),
         changed_slugs=cast("list[str]", plan["changed_slugs"]),
     )
 

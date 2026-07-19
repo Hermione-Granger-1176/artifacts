@@ -17,7 +17,8 @@ Interactive loan amortization calculator with charts, extra payment scenarios, a
 - `css/app.css` - calculator layout and component selectors
 - `js/app.js` - bootstrap and top-level coordination across the smaller loan modules
 - `js/modules/amortization.js` - amortization math and schedule generation
-- `../../js/modules/formatting.js` - shared currency, tick, and attribute formatting helpers
+- `../../js/modules/formatting.js` - shared currency, tick, and numeric parsing helpers
+- `../../js/modules/html-escape.js` - shared attribute escaping used by metric and extras rendering
 - `js/modules/charts.js` - Chart.js rendering and theme-aware chart colors
 - `js/modules/tables.js` - period summary and yearly summary rendering
 - `js/modules/extras.js` - extra-payment state helpers and card rendering

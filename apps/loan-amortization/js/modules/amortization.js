@@ -38,7 +38,7 @@
  * @param {number} totalPeriods - Total number of repayment periods.
  * @returns {number} EMI amount.
  */
-export function calcEMI(principal, ratePerPeriod, totalPeriods) {
+export function calcEmi(principal, ratePerPeriod, totalPeriods) {
   if (ratePerPeriod === 0) {
     return principal / totalPeriods;
   }
@@ -100,7 +100,7 @@ export function runSchedule(
   totalPeriods,
   { withExtras = false, emiOverride = null, extras = [] } = {}
 ) {
-  const emi = emiOverride || calcEMI(principal, ratePerPeriod, totalPeriods);
+  const emi = emiOverride || calcEmi(principal, ratePerPeriod, totalPeriods);
   let balance = principal;
   let totalInterest = 0;
   let totalExtra = 0;

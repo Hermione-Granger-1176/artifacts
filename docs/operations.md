@@ -83,7 +83,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 ## Thumbnail policy
 
 - `thumbnail.webp` is the preferred generated format.
-- Local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date. CI auto-invalidates thumbnails for apps whose runtime changed (`index.html`, `js/**`, `assets/**`) or when shared site assets changed, using `scripts/ci/workflow_helpers.py invalidate-thumbnails`.
+- Local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date. CI auto-invalidates thumbnails for apps whose runtime changed (`index.html`, `js/**`, `css/**`, `assets/**`) or when shared site assets changed, using `scripts/ci/workflow_helpers.py invalidate-thumbnails`.
 - CI does not trigger mature-app browser suites for app docs or metadata-only edits; the thumbnail plan uses the same runtime-change classification to scope mature-app browser runs.
 - CI sets `ARTIFACTS_STRICT_THUMBNAILS=1`, so any attempted thumbnail failure fails the workflow instead of being logged as a warning.
 - Local working copies do not need checked-in thumbnails to function during development.
@@ -103,7 +103,7 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
   - `chartjs-plugin-datalabels` `2.2.0`
 - Versions are pinned and upgraded manually for stability. To upgrade, download the new UMD builds from the recorded `upstream` URLs (jsDelivr), replace the files in `js/vendor/`, update the matching `version`, `upstream`, and `sha256` entries in `config/vendored_assets.json`, and rerun the browser suites.
 - `make lint-vendored-assets` enforces the manifest: every vendored file must be listed in `config/vendored_assets.json` and match its recorded SHA-256.
-- Vendored directories are excluded from ESLint (`**/vendor/**` in `eslint.config.js`) and lint checks (`vendor` in `scripts/lint/__init__.py` `SKIP_DIRECTORIES`).
+- Vendored directories are excluded from ESLint (`**/vendor/**` in `config/eslint.config.js`) and lint checks (`vendor` in `scripts/lint/__init__.py` `SKIP_DIRECTORIES`).
 - See `apps/loan-amortization/docs/decisions.md` for rationale.
 
 ### Self-hosted fonts
@@ -213,6 +213,6 @@ Use this on a brand-new fork or clone that has never deployed, or after `gh-page
 - If no artifacts exist, the index generator still writes a valid empty `js/data.js`.
 - If Python dependency declarations change, rerun `make lock` before committing.
 - If Node dependency declarations change, run `make lock-node` before committing.
-- If generated thumbnails are intentionally removed from the working tree, `js/data.js` will emit `thumbnail: null` until CI regenerates them.
+- If generated thumbnails are intentionally removed from the working tree, `js/data.js` keeps the canonical `apps/<slug>/thumbnail.webp` path while CI regenerates the missing files.
 
 See [`maintenance.md`](maintenance.md) for the long-term upkeep checklist.

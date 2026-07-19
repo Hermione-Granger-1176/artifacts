@@ -38,7 +38,7 @@ Shared modules (under `js/modules/`):
 - `js/modules/app-runtime.js`: mature-app bootstrap with fatal error handling
 - `js/modules/element-cache.js`: DOM element caching by ID
 - `js/modules/app-shell.js`: runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
-- `js/modules/html-escape.js`: `escapeHtml()` and `escapeAttribute()` helpers, re-exported by `render.js` and app-local modules
+- `js/modules/html-escape.js`: `escapeHtml()` and `escapeAttribute()` helpers; the gallery `render.js` re-exports `escapeHtml()`, and app modules import the helpers they need directly
 - `js/modules/formatting.js`: shared number formatting and parsing helpers (`formatCurrency()`, `formatPercent()`, `formatCompact()`, `formatDollarTick()`, `parseNumber()`), imported directly by app modules
 - `js/modules/segmented.js`: `initSegmented()` wiring for segmented toggles, keeping the lone `.active` button and `aria-pressed` state in sync and calling back with the newly active button
 - `js/modules/section-nav.js`: sticky section-progress nav (`initSectionNav()`, `renderSectionNav()`, `scrollToSection()`) with numbered nodes, a progress fill, and an IntersectionObserver scroll spy, styled by the shared `.section-nav` component rules
@@ -54,6 +54,7 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 
 - `tests/js/home/`: root gallery tests such as bootstrap wiring, catalog helpers, overlay behavior, rendering, keyboard flows, and home-page runtime coverage
 - `tests/js/common/`: shared app-system tests for runtime helpers, app shell behavior, theme bootstrap, motion helpers, inert handling, and element caching
+- `tests/js/apps/bond-price-vs-rate/`: app-specific entry, pricing-math, and rendering coverage for the bond price vs rate app
 - `tests/js/apps/loan-amortization/`: app-specific entry, DOM, and module coverage for the loan amortization app
 - `tests/js/apps/prompt-caching/`: app-specific entry, DOM, and module coverage for the prompt caching app
 - `tests/js/apps/tokenizer-explorer/`: app-specific entry and module coverage for the tokenizer explorer app

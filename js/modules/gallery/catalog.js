@@ -78,7 +78,7 @@ export function sortValuesByDisplayOrder(values, displayOrder) {
  * Filter artifacts by search text, tool, and tag selections, then sort by the chosen order.
  * @param {(ArtifactRecord & { searchText: string })[]} artifacts - Hydrated artifact records.
  * @param {{
- *   currentFilter: string,
+ *   currentQuery: string,
  *   currentSort: string,
  *   currentTags: string[],
  *   currentTools: string[]
@@ -87,7 +87,7 @@ export function sortValuesByDisplayOrder(values, displayOrder) {
  */
 export function filterAndSortArtifacts(artifacts, options) {
   const {
-    currentFilter,
+    currentQuery,
     currentSort,
     currentTags,
     currentTools
@@ -110,7 +110,7 @@ export function filterAndSortArtifacts(artifacts, options) {
         return false;
       }
 
-      if (currentFilter && !item.searchText.includes(currentFilter)) {
+      if (currentQuery && !item.searchText.includes(currentQuery)) {
         return false;
       }
 

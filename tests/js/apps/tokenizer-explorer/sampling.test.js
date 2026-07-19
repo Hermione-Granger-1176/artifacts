@@ -41,8 +41,8 @@ test('top-p selection renormalizes the retained nucleus and zeros exclusions', (
   const result = buildTopPSelection(tokens, 1, 0.9);
 
   assert.deepEqual(result.topTokens.map((token) => token.word), ['A', 'B']);
-  assert.ok(result.topTokenProbability > 0.9);
-  assert.ok(result.topTokenProbability < 1);
+  assert.ok(result.retainedProbabilityMass > 0.9);
+  assert.ok(result.retainedProbabilityMass < 1);
   assert.ok(Math.abs(result.topTokens.reduce((sum, token) => sum + token.adjustedProb, 0) - 1) < 1e-12);
   assert.equal(result.sorted.find((token) => token.word === 'C')?.adjustedProb, 0);
 });
