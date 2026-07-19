@@ -430,7 +430,7 @@ help-json: ## Emit groups and commands as JSON
 
 # ─── Git @git ─────────────────────────────────────────────────────────────────
 
-.PHONY: git branch branch-current rebase-main rebase-continue sync-branch stage stage-all commit push log log-file diff diff-staged
+.PHONY: git branch branch-current rebase-main rebase-continue sync-branch stage stage-all commit push push-force log log-file diff diff-staged
 
 git: ## Git commands (make git)
 	@$(MAKE) --no-print-directory help-git
@@ -471,6 +471,9 @@ commit: ## Commit staged changes (make commit message="..." OR message_file=path
 
 push: ## Push the current branch to origin
 	git push -u origin HEAD
+
+push-force: ## Push the current branch to origin after a rebase (uses --force-with-lease)
+	git push --force-with-lease -u origin HEAD
 
 log: ## Show recent commit log
 	git log --oneline -20
