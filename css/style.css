@@ -2749,10 +2749,10 @@ body.artifact-app .scroll-top {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--color-red);
+  border: 1px solid var(--color-border-medium);
   border-radius: var(--radius-pill);
-  background: var(--note-red);
-  color: var(--color-red-text);
+  background: var(--color-surface);
+  color: var(--color-text);
   box-shadow: var(--shadow-card);
   opacity: 0;
   transform: translateY(12px);
@@ -2767,10 +2767,9 @@ body.artifact-app .scroll-top {
 
 }
 
-[data-theme="dark"] body.artifact-app .scroll-top {
-  background: rgba(163, 45, 45, 0.25);
-  border-color: var(--color-red-emphasis);
-  color: var(--color-red-emphasis);
+body.artifact-app .scroll-top svg {
+  width: 22px;
+  height: 22px;
 
 }
 
@@ -2782,32 +2781,14 @@ body.artifact-app .scroll-top.is-visible {
 }
 
 body.artifact-app .scroll-top:hover {
-  background: var(--color-red);
-  border-color: var(--color-red);
-  color: rgb(255, 255, 255);
+  transform: translateY(-1px);
+  border-color: var(--color-blue);
 
 }
 
 body.artifact-app .scroll-top:focus-visible {
-  background: var(--color-red);
-  border-color: var(--color-red);
-  color: rgb(255, 255, 255);
-  outline: var(--focus-ring);
-  outline-offset: 2px;
-
-}
-
-[data-theme="dark"] body.artifact-app .scroll-top:hover {
-  background: var(--color-red-emphasis);
-  border-color: var(--color-red-emphasis);
-  color: rgb(20, 20, 20);
-
-}
-
-[data-theme="dark"] body.artifact-app .scroll-top:focus-visible {
-  background: var(--color-red-emphasis);
-  border-color: var(--color-red-emphasis);
-  color: rgb(20, 20, 20);
+  transform: translateY(-1px);
+  border-color: var(--color-blue);
   outline: var(--focus-ring);
   outline-offset: 2px;
 

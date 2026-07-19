@@ -161,6 +161,9 @@ export function makeEl(tag = "div") {
     fire(type, event = {}) {
       (listeners[type] || []).forEach((fn) => fn(event));
     },
+    getBoundingClientRect() {
+      return { top: node.rectTop ?? 0 };
+    },
     appendChild(child) {
       if (child && typeof child === "object") {
         child.parentNode = node;
@@ -246,16 +249,23 @@ const SIMPLE_IDS = [
   "runtime-error", "runtime-error-details", "runtime-error-output", "runtime-error-copy"
 ];
 
-const SECTION_IDS = [
-  "sec-intro", "sec-loop", "sec-tokenizer", "sec-embedding", "sec-attention",
-  "sec-kvcache", "sec-providers", "sec-calculator", "sec-summary"
+// Mirrors the id + data-nav-label pairs on the pc-section elements in
+// index.html, which the shared section-nav discovers at init time.
+const SECTION_DEFS = [
+  ["sec-intro", "Intro"], ["sec-loop", "The Loop"], ["sec-tokenizer", "Tokenizer"],
+  ["sec-embedding", "Embedding"], ["sec-attention", "Attention"], ["sec-kvcache", "KV Cache"],
+  ["sec-providers", "Providers"], ["sec-calculator", "Calculator"], ["sec-summary", "Summary"]
 ];
+const SECTION_IDS = SECTION_DEFS.map(([id]) => id);
 
 export function createHarness() {
   const registry = {};
   for (const id of [...SIMPLE_IDS, ...SECTION_IDS]) {
     registry[id] = makeEl("div");
     registry[id].id = id;
+  }
+  for (const [id, label] of SECTION_DEFS) {
+    registry[id].setAttribute("data-nav-label", label);
   }
 
   // Toggle groups need their child buttons present before init runs.
@@ -341,6 +351,12 @@ export function createHarness() {
       }
       return null;
     },
+    querySelectorAll(sel) {
+      if (sel === "[data-nav-label]") {
+        return SECTION_IDS.map((id) => registry[id]);
+      }
+      return [];
+    },
     addEventListener() {}
   };
 
@@ -353,6 +369,7 @@ export function createHarness() {
     matchMedia() {
       return { matches: false };
     },
+    innerHeight: 800,
     scrollY: 0,
     scrollTo() {},
     history: { length: 2, back() {} },

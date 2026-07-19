@@ -40,7 +40,7 @@
     <div data-app-shell="runtime-error"></div>
 
     <!-- INTRO -->
-    <section class="pc-section" id="sec-intro">
+    <section class="pc-section" id="sec-intro" data-nav-label="Intro">
       <h1>Prompt Caching, Demystified</h1>
       <p class="pc-lede">How LLM providers offer <span class="pc-hl-warm">10x cheaper tokens</span> and up to <span class="pc-hl-accent">85% faster responses</span> on long prompts. Not by saving your answers, but by saving intermediate math. Let's unpack that.</p>
       <div class="stat-grid pc-mt pc-mb">
@@ -81,7 +81,7 @@
     </section>
 
     <!-- THE LOOP -->
-    <section class="pc-section" id="sec-loop">
+    <section class="pc-section" id="sec-loop" data-nav-label="The Loop">
       <div class="pc-section-num">The Big Picture</div>
       <h2>LLMs are loops, not magic</h2>
       <p>At the highest level, an LLM is a giant mathematical function that takes a list of numbers in and spits one number out. That output number is a new token. Then it appends that token to the input and runs the whole function again. And again. Until a special "stop" token appears.</p>
@@ -140,7 +140,7 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
     </section>
 
     <!-- TOKENIZER -->
-    <section class="pc-section" id="sec-tokenizer">
+    <section class="pc-section" id="sec-tokenizer" data-nav-label="Tokenizer">
       <div class="pc-section-num">Step 1 of 4</div>
       <h2>Tokenizer: text becomes numbers</h2>
       <p>The tokenizer chops your text into small chunks and assigns each unique chunk an integer ID. These chunks are not always whole words. Common words stay intact, but rare or long words get split into sub-word pieces. This is a design trade-off: too few big tokens means a huge vocabulary table, too many tiny tokens means very long sequences (which cost more to process).</p>
@@ -172,7 +172,7 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
     </section>
 
     <!-- EMBEDDING -->
-    <section class="pc-section" id="sec-embedding">
+    <section class="pc-section" id="sec-embedding" data-nav-label="Embedding">
       <div class="pc-section-num">Step 2 of 4</div>
       <h2>Embeddings: numbers become meaning</h2>
       <p>Tokens are just integers. The number 4821 is no more "similar" to 4822 than to 99103. But we need the model to understand that "happy" and "joyful" are close in meaning while "happy" and "submarine" are not. The fix: give every token a position in a <span class="pc-hl-warm">high-dimensional space</span>.</p>
@@ -248,7 +248,7 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
     </section>
 
     <!-- ATTENTION -->
-    <section class="pc-section" id="sec-attention">
+    <section class="pc-section" id="sec-attention" data-nav-label="Attention">
       <div class="pc-section-num">Step 3 of 4</div>
       <h2>Attention: the heart of the transformer</h2>
       <p>This is where the real intelligence lives. The attention mechanism answers one question: <span class="pc-hl-accent">"For every token I am about to generate, how much should I care about each previous token?"</span> It does this by computing a set of weights that mix the embeddings together proportionally.</p>
@@ -310,7 +310,7 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
     </section>
 
     <!-- KV CACHE -->
-    <section class="pc-section" id="sec-kvcache">
+    <section class="pc-section" id="sec-kvcache" data-nav-label="KV Cache">
       <div class="pc-section-num">Step 4 of 4</div>
       <h2>The KV Cache: this is what gets saved</h2>
       <p>Here is the core insight. Look at the attention grid above. Play the inference loop in your head: first we process "the", then "the cat", then "the cat sat", and so on. <span class="pc-hl-rose">Each time, the weights for all previous tokens stay exactly the same.</span> Row 2 is always the same, whether we are processing 3 tokens or 30. We are redoing huge matrix multiplications that produce identical results.</p>
@@ -369,7 +369,7 @@ V = <span class="syn-fn">append</span>(cached_V, V_new)  <span class="syn-cm">//
     </section>
 
     <!-- PROVIDERS -->
-    <section class="pc-section" id="sec-providers">
+    <section class="pc-section" id="sec-providers" data-nav-label="Providers">
       <div class="pc-section-num">In Practice</div>
       <h2>How providers handle it differently</h2>
       <p>Within a single request, KV caching is standard. Every LLM does it. The clever part that providers like OpenAI and Anthropic do is keeping the cache <span class="pc-hl-teal">between requests</span>. If your second request shares the same prefix as the first, the provider reuses the cached K and V instead of recalculating them. But the two providers take very different approaches.</p>
@@ -408,7 +408,7 @@ V = <span class="syn-fn">append</span>(cached_V, V_new)  <span class="syn-cm">//
     </section>
 
     <!-- CALCULATOR -->
-    <section class="pc-section" id="sec-calculator">
+    <section class="pc-section" id="sec-calculator" data-nav-label="Calculator">
       <div class="pc-section-num">Interactive Tool</div>
       <h2>Savings calculator</h2>
       <p>Plug in your own numbers to see how much prompt caching could save you. Adjust the sliders for your typical workload.</p>
@@ -469,7 +469,7 @@ V = <span class="syn-fn">append</span>(cached_V, V_new)  <span class="syn-cm">//
     </section>
 
     <!-- SUMMARY -->
-    <section class="pc-section" id="sec-summary">
+    <section class="pc-section" id="sec-summary" data-nav-label="Summary">
       <div class="pc-section-num">Putting It All Together</div>
       <h2>The full pipeline, one more time</h2>
       <div class="pc-timeline" id="summaryTimeline"></div>

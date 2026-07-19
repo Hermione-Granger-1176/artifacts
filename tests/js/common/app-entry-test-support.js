@@ -71,6 +71,7 @@ export function setupFullMocks() {
     'temp-slider', 'temp-val', 'temp-note', 'topp-slider', 'topp-val',
     'sampling-presets', 'pick-token', 'sample-hundred', 'reset-samples',
     'sample-status', 'probability-chart', 'token-pills', 'insight-box',
+    'sec-tokens', 'sec-sampling', 'sec-distribution',
     'token-examples', 'whitespace-toggle', 'concepts',
     'nav-fill', 'nav-nodes', 'nav-label',
     'back-button', 'theme-toggle', 'scroll-top',
@@ -78,6 +79,17 @@ export function setupFullMocks() {
   ];
 
   Object.assign(elementMap, Object.fromEntries(allIds.map((id) => [id, makeElement(id)])));
+
+  // Mirror the tokenizer markup's id + data-nav-label pairs so the shared
+  // section-nav's markup discovery finds them in document order.
+  const navSectionDefs = [
+    ['sec-tokens', 'Tokens'], ['sec-sampling', 'Sampling'],
+    ['sec-distribution', 'Distribution'], ['concepts', 'Concepts']
+  ];
+  for (const [id, label] of navSectionDefs) {
+    elementMap[id].id = id;
+    elementMap[id].setAttribute('data-nav-label', label);
+  }
 
   // Segmented toggles resolve their child buttons through querySelectorAll so
   // initSegmented can wire them the way the real DOM does.
@@ -114,6 +126,12 @@ export function setupFullMocks() {
       setAttribute(name, value) { this.dataset[name] = value; }
     },
     getElementById(id) { return elementMap[id] || null; },
+    querySelectorAll(sel) {
+      if (sel === '[data-nav-label]') {
+        return Object.values(elementMap).filter((el) => el.getAttribute('data-nav-label'));
+      }
+      return [];
+    },
     querySelector(sel) {
       if (sel === 'meta[name="theme-color"]') {
         return { setAttribute() {}, getAttribute() { return null; } };
