@@ -4,11 +4,12 @@
 
 ### Runtime flow
 
-1. `index.html` loads `js/app-theme.js` (synchronous theme bootstrap), then the
+1. `index.html` loads `../../js/app-theme.js` (synchronous theme bootstrap), then the
    shared stylesheet at `../../css/style.css` followed by `./css/app.css`.
-2. `js/app.js` calls `renderAppShell()`, then `initializeMatureApp({ run })`.
-3. Inside `run`, `initAppShell({ onThemeChange })` mounts the header (back / brand /
-   theme toggle) and scroll-to-top, then each feature module initialises itself.
+2. `js/app.js` calls `renderAppShell()` to mount the shared shell markup, then
+   `initializeMatureApp({ run })`.
+3. Inside `run`, `initAppShell({ onThemeChange })` wires the header (back / brand /
+   theme toggle) and scroll-to-top behavior, then each feature module initialises itself.
 
 ### Module map
 

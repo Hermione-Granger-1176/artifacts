@@ -1,4 +1,4 @@
-# ADR 0005: Adopt a shared design-token and component system for mature apps
+# ADR 0006: Adopt a shared design-token and component system for mature apps
 
 - Status: Accepted
 - Date: 2026-07-18

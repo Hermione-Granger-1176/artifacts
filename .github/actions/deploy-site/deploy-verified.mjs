@@ -75,9 +75,10 @@ export function computeChanges(
     const skip = targetPrefix
       ? !remotePath.startsWith(`${targetPrefix}/`)
       : remotePath.startsWith(`${previewRoot}/`);
-    if (!skip && !localSet.has(remotePath)) {
-      deletions.push({ path: remotePath });
+    if (skip || localSet.has(remotePath)) {
+      continue;
     }
+    deletions.push({ path: remotePath });
   }
 
   return { additions, deletions };

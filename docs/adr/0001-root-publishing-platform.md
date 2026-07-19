@@ -23,6 +23,10 @@ The repository root is treated as a strict publishing platform with these rules:
 5. Post-deploy verification must confirm both the cache-busted HTML marker and the `deploy-metadata.json` commit SHA.
 6. Root-shell interactions must preserve visible focus, accessible state announcements, and keyboard-safe behavior.
 
+## Amendment (ADR 0005)
+
+ADR 0005 moved site assembly out of `verify`. The `assemble-site` job now builds and uploads the deployable `_site/` artifact after the build gates (`quick-gates`, `heavy-checks`, `root-browser`, and the app-shard jobs) pass. The `verify` job became an aggregation-only job that gates branch protection by checking dependency job results, and it no longer runs tests or builds files. Decision points 1 and 2 above should be read with that split in mind: the strict "build once, then publish only the verified artifact" property is preserved, but the build now happens in `assemble-site` and `publish` deploys that job's uploaded `_site/` artifact.
+
 ## Consequences
 
 - A bad build or failed policy check blocks publish until the underlying issue is fixed.

@@ -276,10 +276,11 @@ def _patch_app_asset_references() -> None:
         content = _read_text(index_path)
         applicable: dict[str, str] = {}
         for old, shared_path in shared_asset_paths.items():
-            if old in content:
-                if old not in shared_hashes:
-                    shared_hashes[old] = _content_hash(shared_path)
-                applicable[old] = f'{old[:-1]}?v={shared_hashes[old]}"'
+            if old not in content:
+                continue
+            if old not in shared_hashes:
+                shared_hashes[old] = _content_hash(shared_path)
+            applicable[old] = f'{old[:-1]}?v={shared_hashes[old]}"'
         app_asset_paths = {
             'href="./css/app.css"': app_dir / "css/app.css",
             'src="./js/app.js"': app_dir / "js/app.js",
@@ -514,10 +515,11 @@ def _minify_site_assets() -> None:
         logger.warning("esbuild not found at %s, skipping minification", ESBUILD_BIN)
         return
 
-    paths: list[Path] = []
-    for path in sorted(DEPLOY_DIR.rglob("*")):
-        if path.suffix == ".css" or _is_minifiable_js(path):
-            paths.append(path)
+    paths = [
+        path
+        for path in sorted(DEPLOY_DIR.rglob("*"))
+        if path.suffix == ".css" or _is_minifiable_js(path)
+    ]
 
     if not paths:
         logger.info("Minified site assets (saved 0 bytes total)")

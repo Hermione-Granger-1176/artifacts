@@ -33,19 +33,15 @@
 function buildCashFlows({ faceValue, couponRatePct, years, frequency }) {
   const periods = Math.round(years * frequency);
   const coupon = (faceValue * couponRatePct) / 100 / frequency;
-  /** @type {CashFlow[]} */
-  const flows = [];
-
-  for (let period = 1; period <= periods; period += 1) {
+  return Array.from({ length: periods }, (_unused, index) => {
+    const period = index + 1;
     const isFinal = period === periods;
-    flows.push({
+    return {
       period,
       timeYears: period / frequency,
       amount: coupon + (isFinal ? faceValue : 0)
-    });
-  }
-
-  return flows;
+    };
+  });
 }
 
 /**

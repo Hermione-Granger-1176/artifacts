@@ -98,8 +98,7 @@ export function renderYearlyTable(
     let openingBalance = start === 0 ? principal : rows[start - 1].balance;
     let closingBalance = openingBalance;
 
-    for (let index = start; index < end; index += 1) {
-      const row = rows[index];
+    for (const row of rows.slice(start, end)) {
       yearlyPrincipal += row.principal;
       yearlyInterest += row.interest;
       yearlyExtra += row.extra;

@@ -36,6 +36,6 @@ Chart.js is vendored under `js/vendor/` and loaded via `<script defer>` with a `
 
 ## Development
 
-- Keep shared design decisions in `../../css/style.css` and app-specific layout in `css/app.css`
+- Make shared design changes in the `css/src/` partials (`01-tokens.css`, `03-artifact-shell.css`, `04-artifact-components.css`), which generate `../../css/style.css`, and keep app-specific layout in `css/app.css`
 - Charts must read colors from CSS custom properties and cache the palette by theme; invalidate it through `refreshPalette()` on theme change
 - Always verify the pricing math against the fixtures in `docs/verification.md` (encoded in `tests/js/apps/bond-price-vs-rate/bond-math.test.js`) before changing `js/modules/bond-math.js`

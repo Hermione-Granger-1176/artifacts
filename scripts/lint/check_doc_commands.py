@@ -222,10 +222,8 @@ def find_replacement_targets(snippet: str, known_targets: set[str]) -> list[str]
             if not matched:
                 continue
 
-            if rule.requires_full_snippet_match:
-                full_matches.append(rule.target)
-            else:
-                partial_matches.append(rule.target)
+            matches = full_matches if rule.requires_full_snippet_match else partial_matches
+            matches.append(rule.target)
 
         for target in full_matches or partial_matches:
             if target in seen:

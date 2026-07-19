@@ -381,7 +381,7 @@ def invalidate_thumbnails(
     )
 
 
-# The node test reporter prefixes these lines with an info symbol; matching on
+# The Node test reporter prefixes these lines with an info symbol; matching on
 # the ASCII part keeps this module free of ambiguous unicode characters.
 JS_COVERAGE_START_MARKER = "start of coverage report"
 JS_COVERAGE_END_MARKER = "end of coverage report"

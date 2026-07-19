@@ -17,7 +17,7 @@ Interactive loan amortization calculator with charts, extra payment scenarios, a
 - `css/app.css` - calculator layout and component selectors
 - `js/app.js` - bootstrap and top-level coordination across the smaller loan modules
 - `js/modules/amortization.js` - amortization math and schedule generation
-- `js/modules/formatting.js` - currency, tick, and attribute formatting helpers
+- `../../js/modules/formatting.js` - shared currency, tick, and attribute formatting helpers
 - `js/modules/charts.js` - Chart.js rendering and theme-aware chart colors
 - `js/modules/tables.js` - period summary and yearly summary rendering
 - `js/modules/extras.js` - extra-payment state helpers and card rendering
@@ -36,6 +36,6 @@ Interactive loan amortization calculator with charts, extra payment scenarios, a
 
 ## Development notes
 
-- Keep all authored colors in `rgb()` or `rgba()` form
+- Keep app CSS colors token-derived through `var()` or a `color-mix()` over shared tokens. Raw hex, named colors, and literal-channel color functions are rejected by `make lint-app-css-tokens`
 - Treat the bookmark-note palette as the shared app visual system
 - Preserve repayment calculations and payoff behavior when refactoring UI or structure

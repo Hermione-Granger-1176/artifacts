@@ -249,20 +249,34 @@ def _write_plan(path: Path, plan: dict[str, object]) -> None:
     path.write_text(json.dumps(plan, sort_keys=True), encoding="utf-8")
 
 
+def _handle_apply_ledger(args: argparse.Namespace) -> int:
+    """Apply a cached green-result ledger to a plan and write the result."""
+    _write_plan(
+        Path(args.output),
+        apply_memoization(read_plan(Path(args.plan)), ledger_path=Path(args.ledger)),
+    )
+    return 0
+
+
+def _handle_update_ledger(args: argparse.Namespace) -> int:
+    """Write main-verified app hashes to the ledger."""
+    update_ledger(read_plan(Path(args.plan)), ledger_path=Path(args.ledger))
+    return 0
+
+
+COMMAND_HANDLERS = {
+    "apply-ledger": _handle_apply_ledger,
+    "update-ledger": _handle_update_ledger,
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run one hash or ledger command requested through the Makefile."""
     args = _parser().parse_args(argv)
-    plan_path = Path(args.plan)
-    ledger_path = Path(args.ledger)
-    if args.command == "apply-ledger":
-        _write_plan(
-            Path(args.output), apply_memoization(read_plan(plan_path), ledger_path=ledger_path)
-        )
-    elif args.command == "update-ledger":
-        update_ledger(read_plan(plan_path), ledger_path=ledger_path)
-    else:  # pragma: no cover, argparse constrains the command.
+    handler = COMMAND_HANDLERS.get(args.command)
+    if handler is None:  # pragma: no cover, argparse constrains the command.
         raise ValueError(f"Unsupported app hash command: {args.command}")
-    return 0
+    return handler(args)
 
 
 if __name__ == "__main__":  # pragma: no cover

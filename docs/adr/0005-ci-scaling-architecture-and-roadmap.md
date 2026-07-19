@@ -22,6 +22,7 @@ The pipeline (PRs #120 and #121) is structured as: plan, then parallel verificat
 7. **Environment caching.** Jobs cache pip/uv/npm downloads, the Playwright browser directory, and (this ADR's batch) `.venv` and `node_modules` directly, keyed exactly on lockfile hashes with no restore-keys, so a hit skips dependency installation entirely and a miss installs from scratch. The `.venv` key includes the resolved interpreter version and runner architecture (not the bare version input) so runner image updates roll the cache instead of restoring a venv built against a missing toolcache path. The uv binary is installed unconditionally because make targets such as `audit-python` invoke uv directly; only the dependency install is skippable. On a Playwright cache hit the setup skips the apt system-deps pass (`make setup-playwright` instead of `make setup-playwright-ci`); browser tests fail loudly if system libraries were ever missing.
 8. **Flake control.** Failed browser tests rerun once (`--last-failed`), a pass on retry emits a labeled flaky warning and job-summary entry, and two consecutive failures stay red.
 9. **Weekly full sweep.** A cron trigger and a `full-sweep` dispatch input force the fail-closed full plan through the same job graph as a backstop. The redeploy is a no-op when the tree is unchanged because the deploy script skips empty commits.
+10. **Concurrency cancellation.** A `concurrency` group keyed on the workflow and the PR number (falling back to the ref) cancels superseded in-progress runs, with `cancel-in-progress` enabled only for `pull_request` events. A new push to a PR frees runners from the prior run immediately. Non-PR runs (pushes to `main`, scheduled sweeps, and dispatches) never cancel, so main-branch publishes always run to completion.
 
 ## Rejected alternatives
 
@@ -33,9 +34,8 @@ The pipeline (PRs #120 and #121) is structured as: plan, then parallel verificat
 
 1. **Consumer-scoped memoization hashes.** App hashes currently include all shared modules, so any module change invalidates every app's ledger entry even when only one app consumes it. Feed the reverse dependency graph into the hash inputs to raise hit rates once shared modules stabilize.
 2. **Thumbnail memoization.** The ledger only skips browser tests today; thumbnails still regenerate for every scoped app. Extending the ledger to thumbnails (hash must add the generator script and browser version) would roughly halve shard cost on repeat inputs.
-3. **Concurrency cancellation.** Add a `concurrency` group with `cancel-in-progress` for PR runs so superseded pushes free runners immediately; matters most when the shard matrix saturates `max-parallel`.
-4. **Raise `max-parallel`.** Currently 12; the plan allows 20 concurrent jobs and larger runners raise it further. Pure wall-time lever once the artifact count grows.
-5. **Merge queue** (see rejected alternatives; becomes attractive with many concurrent PRs).
+3. **Raise `max-parallel`.** Currently 12; the planner emits up to 128 shards of at most 20 apps each, so more concurrency and larger runners raise throughput further. Pure wall-time lever once the artifact count grows.
+4. **Merge queue** (see rejected alternatives; becomes attractive with many concurrent PRs).
 
 ## Notes for future maintainers (research already done)
 

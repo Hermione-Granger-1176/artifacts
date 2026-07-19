@@ -326,7 +326,7 @@ check-web: test-browser thumbnails ## Browser gate: test-browser + thumbnails
 
 check: check-local check-web index site ## Full gate: check-local + check-web + index + site
 
-fix: fmt check-local ## Auto-fix formatting, then run the fast local gate
+fix: fmt check-local ## Auto-fix formatting, then run the full non-browser local gate
 
 # ─── Utilities @util ──────────────────────────────────────────────────────────
 

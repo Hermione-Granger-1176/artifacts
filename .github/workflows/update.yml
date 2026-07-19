@@ -791,7 +791,7 @@ jobs:
 
   # Persist thumbnails only when the planner explicitly allows it.
   # This job never regenerates thumbnails. It only applies the validated
-  # thumbnail artifact built by `verify`.
+  # thumbnail artifact packaged by `assemble-site`.
   persist-thumbnails:
     if: >-
       !cancelled() &&

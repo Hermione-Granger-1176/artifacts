@@ -166,12 +166,14 @@ def shared_module_consumers(repo_root: Path = Path()) -> dict[str, set[str]]:
     if modules_root.exists():
         reject_symlinks(modules_root)
 
-    modules: dict[str, set[str]] = {
-        path.relative_to(root).as_posix(): set()
-        for path in shared_app_runtime_paths(root)
-        if path.is_file()
-        and path.relative_to(root).as_posix().startswith(SHARED_APP_MODULES_PREFIX)
-    }
+    modules: dict[str, set[str]] = {}
+    for path in shared_app_runtime_paths(root):
+        if not path.is_file():
+            continue
+        relative_path = path.relative_to(root).as_posix()
+        if not relative_path.startswith(SHARED_APP_MODULES_PREFIX):
+            continue
+        modules[relative_path] = set()
 
     for slug in discover_app_slugs(apps_root):
         app_dir = apps_root / slug

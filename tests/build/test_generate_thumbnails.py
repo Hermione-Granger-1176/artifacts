@@ -390,8 +390,8 @@ def test_artifact_url_falls_back_to_file_uri(
     assert generate_thumbnails.artifact_url(artifact_dir).startswith("file://")
 
 
-def test_quiet_static_handler_log_message_is_noop() -> None:
-    """Test quiet static handler log message is noop."""
+def test_quiet_static_handler_log_message_is_no_op() -> None:
+    """Test quiet static handler log message is a no-op."""
     generate_thumbnails.QuietStaticHandler.log_message(object(), "%s", "ignored")
 
 

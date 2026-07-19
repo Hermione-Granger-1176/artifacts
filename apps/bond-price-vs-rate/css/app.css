@@ -58,7 +58,7 @@ body.app-bond-price-vs-rate .br-rate-value {
   font-variant-numeric: tabular-nums;
 }
 
-/* 1. Hero stage. */
+/* Hero stage. */
 
 body.app-bond-price-vs-rate .br-hero {
   display: grid;
@@ -169,7 +169,7 @@ body.app-bond-price-vs-rate .br-control-card {
   padding: 1.25rem;
 }
 
-/* 3. The mathematics: the CSS-built pricing formula, its legend, and the worked
+/* The mathematics: the CSS-built pricing formula, its legend, and the worked
    cash-flow table. No math library is used, so the formula is styled spans with
    border-top fraction bars and sup/sub for the exponents and sum bounds. */
 
@@ -369,7 +369,7 @@ body.app-bond-price-vs-rate .chart-frame.is-medium {
   height: 280px;
 }
 
-/* 4. Ripple cards. */
+/* Ripple cards. */
 
 body.app-bond-price-vs-rate .br-grid-3 {
   display: grid;
