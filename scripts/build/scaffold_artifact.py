@@ -234,8 +234,9 @@ def _app_css_template(title: str) -> str:
         "/* modifiers) for callouts, and .section-kicker for eyebrow labels. */\n"
         "/* Stay on the shared design tokens: no hex colors and no literal rgb() / rgba() */\n"
         "/* values (use a color token, var(), or color-mix()); size radii with */\n"
-        "/* var(--radius-*), font sizes with var(--font-size-*) or clamp()/rem, and */\n"
-        "/* letter-spacing with var(--tracking-label). */\n"
+        "/* var(--radius-*), font sizes with var(--font-size-*) or relative units (no px, */\n"
+        "/* even inside clamp()), and letter-spacing with a var(--tracking-*) token or */\n"
+        "/* normal. */\n"
     )
 
 

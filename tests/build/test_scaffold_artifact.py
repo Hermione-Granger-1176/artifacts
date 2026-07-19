@@ -60,7 +60,7 @@ def test_app_css_template_points_at_shared_components_and_tokens() -> None:
     assert "color-mix()" in css
     assert "var(--radius-*)" in css
     assert "var(--font-size-*)" in css
-    assert "var(--tracking-label)" in css
+    assert "var(--tracking-*)" in css
 
 
 def test_app_test_template_imports_app_and_asserts_ready() -> None:
