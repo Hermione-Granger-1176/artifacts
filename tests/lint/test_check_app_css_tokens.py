@@ -60,6 +60,12 @@ def test_hex_violations_flags_hex_color() -> None:
     assert "#ffffff" in result[0][1]
 
 
+def test_hex_violations_ignores_invalid_hex_lengths() -> None:
+    """Runs of 5 or 7 hex digits are not valid CSS colors and pass."""
+    css = "body.app-x .a {\n  content: '#12345 #1234567';\n}\n"
+    assert _hex_violations(css) == []
+
+
 # --- literal rgb / rgba colors ---------------------------------------------
 
 

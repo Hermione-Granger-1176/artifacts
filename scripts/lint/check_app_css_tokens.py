@@ -8,8 +8,8 @@ back to hard-coded colors or off-token sizes. This checker fails fast when an
 app stylesheet:
 
     - hard-codes a hex color (``#fff``, ``#ffffff``, ``#ffffff80``);
-    - hard-codes a literal ``rgb()`` / ``rgba()`` color (all-numeric arguments),
-      rather than a shared token, a ``var()`` reference, or a ``color-mix()``;
+    - hard-codes a literal ``rgb()`` / ``rgba()`` color whose arguments do not
+      derive from a ``var()`` reference or a ``color-mix()``;
     - sets a ``border-radius`` (or a ``border-*-radius``) to a px literal of 6px
       or more, instead of ``var(--radius-*)``, ``0``, or ``50%`` (px literals of
       1px through 5px are allowed for deliberate sub-token decorative radii);
@@ -69,8 +69,9 @@ MAX_DECORATIVE_RADIUS_PX = 5
 # full; non-greedy so adjacent comments stay separate.
 _COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
 
-# A hex color literal: '#' followed by 3, 4, 6, or 8 hex digits.
-_HEX_RE = re.compile(r"#[0-9a-fA-F]{3,8}\b")
+# A hex color literal: '#' followed by exactly 3, 4, 6, or 8 hex digits (the
+# only valid CSS hex lengths); 5- and 7-digit runs are not colors and pass.
+_HEX_RE = re.compile(r"#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b")
 
 # One ``rgb(...)`` / ``rgba(...)`` call, capturing its argument list up to the
 # first closing paren (enough to tell a literal color from a var()/color-mix one).
@@ -131,8 +132,8 @@ def _literal_color_violations(css: str) -> list[tuple[int, str]]:
     """Return (line, message) pairs for literal rgb()/rgba() colors.
 
     A call whose arguments reference ``var()`` or ``color-mix()`` is a
-    token-derived color and stays allowed; only all-literal numeric arguments
-    are flagged.
+    token-derived color and stays allowed; any call whose arguments reference
+    neither is flagged.
     """
     violations: list[tuple[int, str]] = []
     for match in _RGB_RE.finditer(css):
@@ -158,7 +159,7 @@ def _radius_violation(value: str) -> str | None:
     """Return a message when a border-radius value uses an off-token px literal."""
     if any(length >= MAX_DECORATIVE_RADIUS_PX + 1 for length in _px_lengths(value)):
         return (
-            f"off-token border-radius '{_normalize(value)}'; use var(--radius-xs/sm/md), "
+            f"off-token border-radius '{_normalize(value)}'; use var(--radius-*), "
             f"0, or 50% (px literals of {MAX_DECORATIVE_RADIUS_PX + 1}px and up are off-token)"
         )
     return None

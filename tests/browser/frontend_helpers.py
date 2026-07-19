@@ -440,15 +440,15 @@ class MonitoredPage:
         self.monitor.bind(self.page)
         return self
 
-    def goto(self, path: str = "/", *, wait_until: str = "networkidle") -> None:
-        """Goto."""
+    def goto(self, path: str = "/", *, wait_until: str = "networkidle") -> Any:
+        """Goto and return the navigation response."""
         if self.page is None:
             raise RuntimeError("Browser page is not initialized")
         if path.startswith("http://") or path.startswith("https://"):
             target = path
         else:
             target = urljoin(self._base_url, path.lstrip("/"))
-        self.page.goto(target, wait_until=wait_until)
+        return self.page.goto(target, wait_until=wait_until)
 
     def __exit__(self, exc_type, exc, _tb) -> bool:
         """Exit the context manager."""
