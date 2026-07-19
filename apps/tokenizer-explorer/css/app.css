@@ -36,7 +36,7 @@ body.app-tokenizer-explorer .probability-chart-heading {
 body.app-tokenizer-explorer .preset-label {
   margin-bottom: var(--space-1);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
@@ -99,7 +99,7 @@ body.app-tokenizer-explorer .token-example h3 {
 body.app-tokenizer-explorer .token-example-count {
   flex-shrink: 0;
   color: var(--color-text-tertiary);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -259,7 +259,7 @@ body.app-tokenizer-explorer .range-hints {
   justify-content: space-between;
   margin-top: var(--space-1);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
 }
 
 body.app-tokenizer-explorer .control-note {
@@ -447,7 +447,7 @@ body.app-tokenizer-explorer .card-tagline {
 
 body.app-tokenizer-explorer .card-arrow {
   flex-shrink: 0;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   transition: transform 0.2s;
 }
 

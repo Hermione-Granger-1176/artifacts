@@ -39,13 +39,28 @@ def test_index_template_includes_title() -> None:
     assert scaffold_artifact.CSP_CONTENT in template
 
 
-def test_app_css_template_documents_palette_convention() -> None:
-    """Test app css template keeps the rgb-only palette convention."""
+def test_app_css_template_points_at_shared_components_and_tokens() -> None:
+    """Test the app css template points new apps at shared components and tokens."""
     css = scaffold_artifact._app_css_template("Budget Tracker")
 
     assert css.startswith("/* Budget Tracker app layout. */\n")
-    assert "rgb(...)" in css
-    assert "never hex" in css
+    # Shared components a new app should reuse before writing CSS.
+    for component in (
+        ".control-field",
+        ".stat-grid",
+        ".chip",
+        ".segmented",
+        ".meter",
+        ".app-callout",
+        ".section-kicker",
+    ):
+        assert component in css
+    # The design-token rules the new lint enforces.
+    assert "no hex colors" in css
+    assert "color-mix()" in css
+    assert "var(--radius-*)" in css
+    assert "var(--font-size-*)" in css
+    assert "var(--tracking-*)" in css
 
 
 def test_app_test_template_imports_app_and_asserts_ready() -> None:

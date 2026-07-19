@@ -232,9 +232,16 @@ def merge_shard_results(results_root: Path, *, apps_root: Path | None = None) ->
     reject_path_symlinks(destination_root, label="Shard thumbnail destination root")
     if destination_root.exists():
         reject_symlinks(destination_root)
+    # download-artifact extracts a single matched artifact directly into the
+    # download path, while multiple matches land in per-artifact directories.
+    # A top-level manifest marks the flattened single-shard layout.
+    if (results_root / SHARD_MANIFEST_FILE).is_file():
+        result_roots = [results_root]
+    else:
+        result_roots = sorted(path for path in results_root.iterdir() if path.is_dir())
     merged: list[str] = []
     seen_slugs: set[str] = set()
-    for result_root in sorted(path for path in results_root.iterdir() if path.is_dir()):
+    for result_root in result_roots:
         manifest = read_shard_manifest(result_root / SHARD_MANIFEST_FILE)
         for slug in cast("list[str]", manifest["thumbnail_slugs"]):
             if slug in seen_slugs:

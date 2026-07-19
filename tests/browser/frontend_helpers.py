@@ -9,13 +9,16 @@ from dataclasses import dataclass, field
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urljoin, urlsplit
 
 import pytest
 
 import scripts.build.prepare_site as prepare_site
 from scripts.lib.path_validation import reject_path_symlinks
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Response
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 REQUIRE_BROWSER_TESTS = os.environ.get("ARTIFACTS_REQUIRE_BROWSER_TESTS") == "1"
@@ -384,6 +387,18 @@ class RuntimeMonitor:
         if self.has_failures():
             raise AssertionError(self.failure_summary())
 
+    def reset(self) -> None:
+        """Forget every failure recorded so far.
+
+        A navigation retry helper calls this between attempts so failures from
+        an unserved attempt do not fail ``assert_clean()`` after a later
+        attempt succeeds.
+        """
+        self.console_errors.clear()
+        self.page_errors.clear()
+        self.request_failures.clear()
+        self.response_errors.clear()
+
 
 class MonitoredPage:
     """MonitoredPage."""
@@ -440,15 +455,15 @@ class MonitoredPage:
         self.monitor.bind(self.page)
         return self
 
-    def goto(self, path: str = "/", *, wait_until: str = "networkidle") -> None:
-        """Goto."""
+    def goto(self, path: str = "/", *, wait_until: str = "networkidle") -> Response | None:
+        """Goto and return the navigation response."""
         if self.page is None:
             raise RuntimeError("Browser page is not initialized")
         if path.startswith("http://") or path.startswith("https://"):
             target = path
         else:
             target = urljoin(self._base_url, path.lstrip("/"))
-        self.page.goto(target, wait_until=wait_until)
+        return self.page.goto(target, wait_until=wait_until)
 
     def __exit__(self, exc_type, exc, _tb) -> bool:
         """Exit the context manager."""

@@ -42,6 +42,7 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 - [`docs/adr/0002-shared-app-system-and-thumbnail-persistence.md`](docs/adr/0002-shared-app-system-and-thumbnail-persistence.md): accepted decision record for the shared app shell and generated thumbnails
 - [`docs/adr/0003-makefile-first-and-single-source-of-truth.md`](docs/adr/0003-makefile-first-and-single-source-of-truth.md): accepted decision record for Makefile-first tooling and config ownership
 - [`docs/adr/0004-per-artifact-app-stylesheets.md`](docs/adr/0004-per-artifact-app-stylesheets.md): accepted decision record for splitting artifact CSS into app-local stylesheets
+- [`docs/adr/0005-shared-design-tokens-and-component-system.md`](docs/adr/0005-shared-design-tokens-and-component-system.md): accepted decision record for the shared design-token and component system
 - [`frontend.md`](docs/frontend.md): JavaScript module layout and test coverage
 - [`operations.md`](docs/operations.md): local workflows, CI, and generation notes
 - [`maintenance.md`](docs/maintenance.md): maintenance rules and long-term repo hygiene
@@ -52,7 +53,7 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 
 ## Structure
 
-Each artifact lives in its own directory under `apps/` with an `index.html` entry point. All pages load the generated shared `css/style.css`, which provides common colours, controls, surfaces, and shell rules. Its ordered authoring sources live in `css/src/` and are rebuilt with `make styles`. Mature apps also load their app-local `css/app.css` for app-specific composition and layout, and reuse `js/app-theme.js` and `js/modules/app-shell.js` for the shared app shell.
+Each artifact lives in its own directory under `apps/` with an `index.html` entry point. All pages load the generated shared `css/style.css`, which provides the design tokens, reusable component families, common colours, controls, surfaces, and shell rules. Its ordered authoring sources live in `css/src/` and are rebuilt with `make styles`. Mature apps also load their app-local `css/app.css` for app-specific composition and layout, and reuse `js/app-theme.js`, `js/modules/app-shell.js`, and shared helper modules (`formatting`, `segmented`, `section-nav`, `chart-theme`) so the apps stay visually consistent.
 
 ```text
 apps/

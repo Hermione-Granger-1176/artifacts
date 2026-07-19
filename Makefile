@@ -67,9 +67,9 @@ setup-playwright-ci: ## Install Chromium with system deps
 
 # ─── Lint @lint ───────────────────────────────────────────────────────────────
 
-.PHONY: lint lint-py lint-js lint-css lint-yaml lint-workflows workflow-lint lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-vendored-assets editorconfig-check check-overrides
+.PHONY: lint lint-py lint-js lint-css lint-yaml lint-workflows workflow-lint lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-app-css-tokens lint-vendored-assets editorconfig-check check-overrides
 
-lint: editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-vendored-assets check-overrides ## Run all linters
+lint: editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-app-css-tokens lint-vendored-assets check-overrides ## Run all linters
 
 editorconfig-check: ## Check EditorConfig rules
 	$(VENV_PYTHON) scripts/lint/check_editorconfig.py
@@ -102,6 +102,9 @@ lint-js-test-coverage: ## Check every JS source file has test imports
 
 lint-artifact-csp: ## Check artifact pages ship a strict CSP and no external refs
 	$(VENV_PYTHON) scripts/lint/check_artifact_csp.py
+
+lint-app-css-tokens: ## Check app stylesheets stay on shared design tokens
+	$(VENV_PYTHON) scripts/lint/check_app_css_tokens.py
 
 lint-vendored-assets: ## Check vendored libraries against the integrity manifest
 	$(VENV_PYTHON) scripts/lint/check_vendored_assets.py
@@ -289,7 +292,7 @@ optimize-social-image: ## Recompress the Open Graph share image in place (make o
 
 ci-python: format-py-check lint-py typecheck-py dead-code-py test-py ## Python CI gate
 
-ci-web: editorconfig-check format-prettier-check lint-js lint-css lint-yaml typecheck-web lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-vendored-assets check-overrides dead-code-js test-js coverage-js coverage-js-floors ## Web and docs CI gate
+ci-web: editorconfig-check format-prettier-check lint-js lint-css lint-yaml typecheck-web lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-app-css-tokens lint-vendored-assets check-overrides dead-code-js test-js coverage-js coverage-js-floors ## Web and docs CI gate
 
 ci: ci-python ci-web security validate check-generated ## Full local CI gate without browser tests
 
@@ -427,7 +430,7 @@ help-json: ## Emit groups and commands as JSON
 
 # ─── Git @git ─────────────────────────────────────────────────────────────────
 
-.PHONY: git branch branch-current rebase-main rebase-continue sync-branch stage stage-all commit push log log-file diff diff-staged
+.PHONY: git branch branch-current rebase-main rebase-continue sync-branch stage stage-all commit push push-force log log-file diff diff-staged
 
 git: ## Git commands (make git)
 	@$(MAKE) --no-print-directory help-git
@@ -469,6 +472,9 @@ commit: ## Commit staged changes (make commit message="..." OR message_file=path
 push: ## Push the current branch to origin
 	git push -u origin HEAD
 
+push-force: ## Push the current branch to origin after a rebase (uses --force-with-lease)
+	git push --force-with-lease -u origin HEAD
+
 log: ## Show recent commit log
 	git log --oneline -20
 
@@ -489,7 +495,7 @@ REPO ?= $(strip $(shell repo="$$(git remote get-url origin 2>/dev/null | sed -nE
 	printf '%s' "$$repo"))
 PR_NUM = $(if $(pr_num),$(pr_num),$(strip $(shell gh pr view --json number -q .number 2>/dev/null)))
 
-.PHONY: pr pr-create pr-edit pr-list pr-status pr-checks pr-diff pr-comments pr-comment pr-review-comments pr-reply pr-resolve pr-address pr-copilot-review pr-comments-list pr-comment-delete pr-summary pr-watch pr-merge pr-merge-admin pr-reviewers pr-label pr-close
+.PHONY: pr pr-create pr-edit pr-list pr-status pr-checks pr-diff pr-checkout pr-comments pr-comment pr-review-comments pr-reply pr-resolve pr-address pr-copilot-review pr-comments-list pr-comment-delete pr-summary pr-watch pr-merge pr-merge-admin pr-reviewers pr-label pr-close
 
 pr: ## PR commands (make pr)
 	@$(MAKE) --no-print-directory help-pr
@@ -519,8 +525,12 @@ pr-status: ## Show current PR status and CI checks
 pr-checks: ## Watch CI checks until done
 	gh pr checks --watch --fail-fast || true
 
-pr-diff: ## Show the diff for the current PR
-	gh pr diff
+pr-diff: ## Show the diff for the current PR (make pr-diff [pr_num=N])
+	gh pr diff $(pr_num)
+
+pr-checkout: ## Check out a PR's branch locally (make pr-checkout pr_num=N)
+	@test -n "$(pr_num)" || (printf 'Usage: make pr-checkout pr_num=123\n' >&2; exit 1)
+	gh pr checkout $(pr_num)
 
 pr-comments: ## Show all comments on the current PR
 	gh pr view --comments

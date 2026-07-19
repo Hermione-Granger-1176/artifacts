@@ -220,15 +220,24 @@ initializeMatureApp({
 def _app_css_template(title: str) -> str:
     """Return a starter app stylesheet.
 
-    Keeps the palette convention front and center: authored colors reuse the
-    shared bookmark-note tokens, and any literal colors use ``rgb()`` /
-    ``rgba()`` values, never hex.
+    Points new apps at the shared components before they write new CSS and keeps
+    the design-token rules (enforced by ``make lint-app-css-tokens``) front and
+    center: no hex or literal colors, and radius, font-size, and letter-spacing
+    values sized through the shared tokens.
     """
     return (
         f"/* {title} app layout. */\n"
-        "/* Scope selectors with body.app-<slug> and reuse shared tokens such as */\n"
-        "/* var(--color-text) and var(--note-blue). Author literal colors as */\n"
-        "/* rgb(...) / rgba(...) values only, never hex. */\n"
+        "/* Scope every selector under body.app-<slug> and reuse the shared components */\n"
+        "/* in ../../css/style.css before writing new CSS: .control-field for labeled */\n"
+        "/* inputs, .stat-grid / .stat for metric tiles, .chip for pills and badges, */\n"
+        "/* .segmented for toggles, .meter for bars, .app-callout (with its tone */\n"
+        "/* modifiers) for callouts, and .section-kicker for eyebrow labels. */\n"
+        "/* Stay on the shared design tokens: no hex colors, no literal color functions */\n"
+        "/* such as rgb() / hsl(), and no named colors (use a color token, var(), or a */\n"
+        "/* color-mix() over tokens); size radii with */\n"
+        "/* var(--radius-*), font sizes with var(--font-size-*) or relative units (no px, */\n"
+        "/* even inside clamp()), and letter-spacing with a var(--tracking-*) token or */\n"
+        "/* normal. */\n"
     )
 
 

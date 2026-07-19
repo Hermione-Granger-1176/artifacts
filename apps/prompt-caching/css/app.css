@@ -119,7 +119,7 @@ body.app-prompt-caching .pc-lede {
 }
 
 body.app-prompt-caching .pc-section-num {
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.16em;
   color: var(--pc-accent);
@@ -253,7 +253,7 @@ body.app-prompt-caching .pc-card.is-rose {
 }
 
 body.app-prompt-caching .pc-card-label {
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   color: var(--color-text-tertiary);
@@ -601,7 +601,7 @@ body.app-prompt-caching .pc-matrix {
 
 body.app-prompt-caching .pc-matrix-label {
   font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-2xs);
   color: var(--color-text);
   text-align: center;
   margin-bottom: 6px;
@@ -909,7 +909,7 @@ body.app-prompt-caching .pc-smx-row {
 body.app-prompt-caching .pc-smx-bars-head {
   display: flex;
   gap: 0.6rem;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
@@ -927,7 +927,7 @@ body.app-prompt-caching .pc-smx-grid {
 }
 
 body.app-prompt-caching .pc-pane-label {
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
@@ -1234,7 +1234,7 @@ body.app-prompt-caching .chv-req-header {
 body.app-prompt-caching .chv-req-label { font-weight: 600; color: var(--color-text);
 }
 
-body.app-prompt-caching .chv-req-status { font-family: var(--font-mono); font-size: var(--font-size-2xs);
+body.app-prompt-caching .chv-req-status { font-family: var(--font-mono); font-size: var(--font-size-xs);
 }
 
 body.app-prompt-caching .chv-req-status.is-hit { color: var(--pc-teal);
@@ -1260,7 +1260,7 @@ body.app-prompt-caching .chv-block {
   align-items: center;
   justify-content: center;
   font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-2xs);
   color: var(--color-text-on-accent);
   transition: all 0.3s;
   flex: 1;
@@ -1288,7 +1288,7 @@ body.app-prompt-caching .chv-block.waiting {
 }
 
 body.app-prompt-caching .chv-row-label {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-2xs);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   padding: var(--space-1) var(--space-3) 0;
@@ -1436,7 +1436,7 @@ body.app-prompt-caching .pc-calc-bar-row {
 }
 
 body.app-prompt-caching .pc-calc-bar-name {
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
@@ -1502,7 +1502,7 @@ body.app-prompt-caching .pc-calc-stat .stat-value {
 
 body.app-prompt-caching .pc-calc-label {
   text-align: center;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
@@ -1662,7 +1662,7 @@ body.app-prompt-caching .pc-emb-tags {
  * blue control hover/focus stay scoped. */
 body.app-prompt-caching .emb-tag {
   min-height: 1.75rem;
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   cursor: pointer;
 
 }
@@ -1814,7 +1814,7 @@ body.app-prompt-caching .pc-qkv.is-accent .pc-qkv-glyph { color: var(--pc-accent
 }
 
 body.app-prompt-caching .pc-qkv-role {
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
   margin-top: 0.4rem;
 
