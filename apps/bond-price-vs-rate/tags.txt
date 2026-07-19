@@ -1,4 +1,0 @@
-finance
-education
-visualization
-calculator
