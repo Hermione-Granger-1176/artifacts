@@ -495,7 +495,7 @@ REPO ?= $(strip $(shell repo="$$(git remote get-url origin 2>/dev/null | sed -nE
 	printf '%s' "$$repo"))
 PR_NUM = $(if $(pr_num),$(pr_num),$(strip $(shell gh pr view --json number -q .number 2>/dev/null)))
 
-.PHONY: pr pr-create pr-edit pr-list pr-status pr-checks pr-diff pr-comments pr-comment pr-review-comments pr-reply pr-resolve pr-address pr-copilot-review pr-comments-list pr-comment-delete pr-summary pr-watch pr-merge pr-merge-admin pr-reviewers pr-label pr-close
+.PHONY: pr pr-create pr-edit pr-list pr-status pr-checks pr-diff pr-checkout pr-comments pr-comment pr-review-comments pr-reply pr-resolve pr-address pr-copilot-review pr-comments-list pr-comment-delete pr-summary pr-watch pr-merge pr-merge-admin pr-reviewers pr-label pr-close
 
 pr: ## PR commands (make pr)
 	@$(MAKE) --no-print-directory help-pr
@@ -525,8 +525,12 @@ pr-status: ## Show current PR status and CI checks
 pr-checks: ## Watch CI checks until done
 	gh pr checks --watch --fail-fast || true
 
-pr-diff: ## Show the diff for the current PR
-	gh pr diff
+pr-diff: ## Show the diff for the current PR (make pr-diff [pr_num=N])
+	gh pr diff $(pr_num)
+
+pr-checkout: ## Check out a PR's branch locally (make pr-checkout pr_num=N)
+	@test -n "$(pr_num)" || (printf 'Usage: make pr-checkout pr_num=123\n' >&2; exit 1)
+	gh pr checkout $(pr_num)
 
 pr-comments: ## Show all comments on the current PR
 	gh pr view --comments

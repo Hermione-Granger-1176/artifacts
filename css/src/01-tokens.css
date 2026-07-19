@@ -197,8 +197,8 @@ body.artifact-app {
   --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-mono: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, "Liberation Mono", "Courier New", monospace;
-  --font-size-xs: 10px;
-  --font-size-2xs: 11px;
+  --font-size-2xs: 10px;
+  --font-size-xs: 11px;
   --font-size-sm: 12px;
   --font-size-control: 13px;
   --font-size-md: 14px;

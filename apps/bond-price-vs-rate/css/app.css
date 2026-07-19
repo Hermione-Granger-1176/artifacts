@@ -7,8 +7,9 @@
  * control panel, the price-rate curve, the coupon-vs-market and price-split
  * comparison rows, the sensitivity chart, the CSS-built pricing formula and its
  * worked cash-flow table, the yield-curve apply action, and the ripple cards.
- * Every selector is scoped under body.app-bond-price-vs-rate and every color is
- * authored as rgb()/rgba() or a shared custom property, never a hex value.
+ * Every selector is scoped under body.app-bond-price-vs-rate and every color
+ * derives from the shared design tokens (var() or a color-mix() over them);
+ * literal color definitions belong in css/src/, never here.
  */
 
 body.app-bond-price-vs-rate .page-section {
@@ -280,7 +281,7 @@ body.app-bond-price-vs-rate .br-schedule-wrap {
 body.app-bond-price-vs-rate .br-face-note {
   display: block;
   color: var(--color-text-tertiary);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
 }
 
 body.app-bond-price-vs-rate .br-schedule-total td {

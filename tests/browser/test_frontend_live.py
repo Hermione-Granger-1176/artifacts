@@ -35,22 +35,31 @@ def _load_canonical_site_url() -> str:
 def _goto_until_served(session: MonitoredPage, path: str) -> None:
     """Navigate with retries until the live deployment actually serves the page.
 
-    A freshly published GitHub Pages deployment can time out or serve its 503
-    maintenance page for a short window while the CDN warms up, so a single
-    navigation right after a deploy is racy.
+    A freshly published GitHub Pages deployment can time out or serve a 404 or
+    its 503 maintenance page for a short window while the CDN warms up, so a
+    single navigation right after a deploy is racy. Success requires an actual
+    response below 400; a missing response or any error status is retried.
+    Failures the monitor recorded during an unserved attempt are dropped before
+    the next attempt, so only the attempt that serves the page is judged by
+    ``assert_clean()`` at context exit.
     """
     last_failure = "navigation was not attempted"
     for attempt in range(GOTO_ATTEMPTS):
         if attempt:
             time.sleep(GOTO_RETRY_PAUSE_SECONDS)
+            session.monitor.reset()
         try:
             response = session.goto(path)
         except PlaywrightError as error:
             last_failure = str(error)
             continue
-        if response is None or response.status < 500:
+        if response is not None and response.status < 400:
             return
-        last_failure = f"status {response.status} for {response.url}"
+        last_failure = (
+            "no navigation response was returned"
+            if response is None
+            else f"status {response.status} for {response.url}"
+        )
     pytest.fail(f"Live page {path!r} was not served after {GOTO_ATTEMPTS} attempts: {last_failure}")
 
 

@@ -67,7 +67,7 @@ Run `make lint`, `make typecheck-web`, `make dead-code-js`, `make coverage-js`, 
   - `prefers-reduced-motion` respected for transitions and animations
   - Desktop-first responsive breakpoints
 
-Run `make lint-css` or `make lint` to check.
+Run `make lint-css` (stylelint rules) plus `make lint-app-css-tokens` (design-token compliance, see the token lint below) to check, or `make lint` for both.
 
 ## Design tokens and shared app components
 
@@ -86,7 +86,7 @@ The shared design system lives in `css/src/` and is bundled into `css/style.css`
 
 ### Color rule
 
-- Colors are authored as `rgb()` / `rgba()` values or tokens, never hex literals. In `apps/<slug>/css/*.css` every color must be token-derived (a `var()` reference or a `color-mix()` over one); raw `rgb()` / `rgba()` literals belong only in the shared `css/src/` layer where the tokens are defined
+- Colors are authored as `rgb()` / `rgba()` values or tokens, never hex literals. In `apps/<slug>/css/*.css` every color must be token-derived (a `var()` reference or a `color-mix()` over one); raw color literals of any form (hex, `rgb()` / `rgba()`, `hsl()` / `oklch()` and friends, or named colors; `transparent` and `currentcolor` stay allowed) belong only in the shared `css/src/` layer where the tokens are defined
 - Prefer a token over a raw color whenever one fits, so a theme change stays a single-file edit in `css/src/01-tokens.css`
 
 ### Shared components versus app-local CSS
@@ -97,7 +97,7 @@ The shared design system lives in `css/src/` and is bundled into `css/style.css`
 
 ### Token lint
 
-`make lint-app-css-tokens` guards `apps/*/css/*.css` against drift. It forbids hex colors and any `rgb()` / `rgba()` color not derived from `var()` or `color-mix()`, flags `border-radius` px literals above 5px, flags raw px font sizes, and requires `letter-spacing` to be exactly one `var(--tracking-*)` token or `normal`. Sub-token decorative radii up to 5px and font sizes in em / rem / % or a `clamp()` built on token or relative units (a px literal inside `clamp()` is still flagged) stay allowed, alongside a few documented allowlist entries in the checker.
+`make lint-app-css-tokens` guards `apps/*/css/*.css` against drift. It forbids hex colors in declaration values; color functions (`rgb()` / `rgba()` / `hsl()` / `hwb()` / `lab()` / `lch()` / `oklab()` / `oklch()` / `color()`) whose channels do not start from a `var()` reference or a `color-mix()` (a token only in the alpha does not count); `color-mix()` calls that mix no `var()` token; and named colors in color-bearing declarations (`transparent` and `currentcolor` stay allowed). It also flags `border-radius` px literals above 5px, raw px font sizes, and any `letter-spacing` that is not exactly one `var(--tracking-*)` token or `normal`. Sub-token decorative radii up to 5px and font sizes in em / rem / % or a `clamp()` built on token or relative units (a px literal inside `clamp()` is still flagged) stay allowed, alongside a few documented allowlist entries scoped in the checker to the one stylesheet that owns them.
 
 ## HTML
 

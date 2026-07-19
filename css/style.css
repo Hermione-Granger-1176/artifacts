@@ -203,8 +203,8 @@ body.artifact-app {
   --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-mono: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, "Liberation Mono", "Courier New", monospace;
-  --font-size-xs: 10px;
-  --font-size-2xs: 11px;
+  --font-size-2xs: 10px;
+  --font-size-xs: 11px;
   --font-size-sm: 12px;
   --font-size-control: 13px;
   --font-size-md: 14px;
@@ -1872,7 +1872,7 @@ body.artifact-app .control-field-hints {
   justify-content: space-between;
   margin-top: var(--space-1);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
 
 }
 
@@ -1895,7 +1895,7 @@ body.artifact-app .info-tip {
   background: var(--color-tip-bg);
   color: var(--color-text-secondary);
   cursor: help;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-2xs);
   font-weight: 600;
 
 }
@@ -1919,7 +1919,7 @@ body.artifact-app .info-tip:focus-visible::after {
   border-radius: 6px;
   background: var(--color-tooltip-bg);
   color: var(--color-tooltip-text);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   font-weight: 400;
   white-space: nowrap;
 
@@ -2151,7 +2151,7 @@ body.artifact-app .chip.is-solid-purple {
 body.artifact-app .section-kicker {
   margin-bottom: var(--space-1);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
@@ -2419,7 +2419,7 @@ body.artifact-app .code-window-title {
   margin-left: 0.4rem;
   color: var(--color-text-tertiary);
   font-family: var(--font-mono);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -2535,7 +2535,7 @@ body.artifact-app .section-nav-node {
   color: var(--color-text-tertiary);
   cursor: pointer;
   font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   transition: all 0.3s ease;
 }
@@ -2572,7 +2572,7 @@ body.artifact-app .section-nav-tip {
   background: var(--color-tooltip-bg);
   color: var(--color-tooltip-text);
   font-family: var(--font-body);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
   font-weight: 600;
   white-space: nowrap;
   opacity: 0;

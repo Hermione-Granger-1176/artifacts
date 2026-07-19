@@ -70,13 +70,13 @@ body.app-loan-amortization .biweekly-mode {
 
 body.app-loan-amortization .control-copy {
   margin-bottom: var(--space-2);
-  font-size: var(--font-size-2xs);
+  font-size: var(--font-size-xs);
 
 }
 
 body.app-loan-amortization .control-copy.is-small {
   margin-top: var(--space-1);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-2xs);
   color: var(--color-text-tertiary);
 
 }
