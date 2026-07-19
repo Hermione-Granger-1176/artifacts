@@ -5,11 +5,11 @@ export function renderTableSummary(d,e){const a=[["Total EMI",e.totalEmi],["Prin
       <td>${a(t.interest)}</td>
       <td>${t.extra>0?a(t.extra):"-"}</td>
       <td>${a(t.balance)}</td>
-    `,d.appendChild(n)}}export function renderYearlyTable(d,e,a,t,n){d.innerHTML="";const c=Math.ceil(e.length/t);for(let l=1;l<=c;l+=1){const i=(l-1)*t,T=Math.min(l*t,e.length);let x=0,m=0,s=0,E=i===0?a:e[i-1].balance,$=E;for(let p=i;p<T;p+=1){const o=e[p];x+=o.principal,m+=o.interest,s+=o.extra,$=o.balance}const r=document.createElement("tr");r.className="year-row",r.innerHTML=`
+    `,d.appendChild(n)}}export function renderYearlyTable(d,e,a,t,n){d.innerHTML="";const c=Math.ceil(e.length/t);for(let l=1;l<=c;l+=1){const i=(l-1)*t,$=Math.min(l*t,e.length);let p=0,m=0,s=0,x=i===0?a:e[i-1].balance,E=x;for(const o of e.slice(i,$))p+=o.principal,m+=o.interest,s+=o.extra,E=o.balance;const r=document.createElement("tr");r.className="year-row",r.innerHTML=`
       <td>Year ${l}</td>
-      <td>${n(E)}</td>
       <td>${n(x)}</td>
+      <td>${n(p)}</td>
       <td>${n(m)}</td>
       <td>${s>0?n(s):"-"}</td>
-      <td>${n($)}</td>
+      <td>${n(E)}</td>
     `,d.appendChild(r)}}
