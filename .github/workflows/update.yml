@@ -67,6 +67,7 @@ jobs:
       - name: Compute app impact plan
         id: plan
         env:
+          GH_TOKEN: ${{ github.token }}
           HEAD_REPO_FORK: ${{ github.event.pull_request.head.repo.fork || 'false' }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login || '' }}
           ACTOR: ${{ github.actor }}

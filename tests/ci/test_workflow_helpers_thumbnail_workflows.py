@@ -47,7 +47,7 @@ def test_invalidate_thumbnails_deletes_stale_pr(
 def test_invalidate_thumbnails_uses_checked_out_git_diff_for_push(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test invalidate thumbnails uses commits api for push."""
+    """Test invalidate thumbnails uses the checked-out git diff for push."""
     monkeypatch.chdir(tmp_path)
     app_dir = tmp_path / "apps" / "calculator"
     app_dir.mkdir(parents=True)
