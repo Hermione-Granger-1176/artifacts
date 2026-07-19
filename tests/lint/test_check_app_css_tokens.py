@@ -156,6 +156,22 @@ def test_color_mix_allows_token_mix() -> None:
     assert _color_mix_violations(_mask(css)) == []
 
 
+def test_color_mix_sees_var_after_a_nested_call() -> None:
+    """A var() that follows a nested call still counts as a token input."""
+    css = "body.app-x .a { color: color-mix(in srgb, rgb(1 2 3) 50%, var(--b)); }\n"
+    # The outer mix is token-derived; the literal inner rgb() is the function
+    # rule's finding, not a color-mix one.
+    assert _color_mix_violations(_mask(css)) == []
+    assert len(_color_function_violations(_mask(css))) == 1
+
+
+def test_color_mix_flags_unterminated_literal_call() -> None:
+    """An unterminated literal color-mix() is still flagged."""
+    css = "body.app-x .a { color: color-mix(in srgb, red"
+    result = _color_mix_violations(_mask(css))
+    assert len(result) == 1
+
+
 # --- named colors -----------------------------------------------------------
 
 

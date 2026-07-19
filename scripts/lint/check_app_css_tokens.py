@@ -254,9 +254,9 @@ _COLOR_FUNCTION_RE = re.compile(
     re.IGNORECASE,
 )
 
-# One ``color-mix(...)`` call, capturing its argument list up to the first
-# closing paren (a token-derived mix references var() before any paren closes).
-_COLOR_MIX_RE = re.compile(r"(?<![-\w])color-mix\(([^)]*)", re.IGNORECASE)
+# The opening of a ``color-mix(...)`` call; its full argument list is then
+# extracted by balancing nested parens, so a var() after a nested call counts.
+_COLOR_MIX_RE = re.compile(r"(?<![-\w])color-mix\(", re.IGNORECASE)
 
 # One declaration whose value can carry a color, and that value up to the next
 # ';', '{', or '}'. Longer property alternatives come before their prefixes.
@@ -378,16 +378,41 @@ def _color_function_violations(css: str) -> list[tuple[int, str]]:
     return violations
 
 
+def _call_arguments(css: str, index: int) -> str:
+    """Return the argument text from ``index`` to the call's matching close paren.
+
+    ``index`` points just past a call's opening paren. Nested parens are
+    balanced (comments, strings, and url() are already masked, so every paren
+    is structural); an unterminated call yields the rest of the stylesheet.
+    """
+    depth = 1
+    for position in range(index, len(css)):
+        char = css[position]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return css[index:position]
+    return css[index:]
+
+
 def _color_mix_violations(css: str) -> list[tuple[int, str]]:
-    """Return (line, message) pairs for color-mix() calls with no token input."""
+    """Return (line, message) pairs for color-mix() calls with no token input.
+
+    The full argument list is extracted with balanced parens, so a ``var()``
+    that follows a nested call (``color-mix(in srgb, rgb(...) 50%,
+    var(--b))``) still counts as a token input.
+    """
     violations: list[tuple[int, str]] = []
     for match in _COLOR_MIX_RE.finditer(css):
-        if "var(" in match.group(1).lower():
+        arguments = _call_arguments(css, match.end())
+        if "var(" in arguments.lower():
             continue
         violations.append(
             (
                 _line_number(css, match.start()),
-                f"literal color-mix '{_normalize(match.group(0))}...)' mixes no "
+                f"literal color-mix 'color-mix({_normalize(arguments)})' mixes no "
                 "var() token; mix shared color tokens instead",
             )
         )
