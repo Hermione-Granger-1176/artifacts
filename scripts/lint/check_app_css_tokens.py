@@ -16,8 +16,8 @@ app stylesheet:
     - sets a ``font-size`` to a raw px literal instead of ``var(--font-size-*)``,
       a ``clamp()`` built on token or relative units (a px literal inside
       ``clamp()`` is still flagged), or an em / rem / % / inherit value; or
-    - sets ``letter-spacing`` to a raw literal instead of ``var(--tracking-*)``
-      or ``normal``.
+    - sets ``letter-spacing`` to anything other than a ``var(--tracking-*)``
+      token, ``normal``, or a grandfathered allowlisted literal.
 
 The rules are calibrated so the currently migrated app stylesheets pass as they
 stand while regressions fail. A few deliberate literals that predate the shared
@@ -139,7 +139,7 @@ def _literal_color_violations(css: str) -> list[tuple[int, str]]:
     violations: list[tuple[int, str]] = []
     for match in _RGB_RE.finditer(css):
         arguments = match.group(1).lower()
-        if "var(" in arguments or "color-mix" in arguments:
+        if "var(" in arguments or "color-mix(" in arguments:
             continue
         violations.append(
             (
@@ -181,11 +181,11 @@ def _font_size_violation(value: str) -> str | None:
 def _letter_spacing_violation(value: str) -> str | None:
     """Return a message when a letter-spacing value is an off-token literal."""
     normalized = _normalize(value)
-    if normalized.lower() == "normal" or "var(" in normalized:
+    if normalized.lower() == "normal" or "var(--tracking-" in normalized:
         return None
     if normalized in LETTER_SPACING_ALLOWLIST:
         return None
-    return f"off-token letter-spacing '{normalized}'; use var(--tracking-label) or normal"
+    return f"off-token letter-spacing '{normalized}'; use var(--tracking-*) or normal"
 
 
 def _declaration_violations(css: str) -> list[tuple[int, str]]:

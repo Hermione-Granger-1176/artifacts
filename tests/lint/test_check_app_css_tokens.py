@@ -89,6 +89,13 @@ def test_literal_color_allows_color_mix_arguments() -> None:
     assert _literal_color_violations(_mask_comments(css)) == []
 
 
+def test_literal_color_flags_color_mix_lookalike_identifier() -> None:
+    """An identifier merely containing 'color-mix' is not a color-mix() call."""
+    css = "body.app-x .a { color: rgb(my-color-mix-channels); }\n"
+    result = _literal_color_violations(_mask_comments(css))
+    assert len(result) == 1
+
+
 # --- border-radius ---------------------------------------------------------
 
 
@@ -157,10 +164,17 @@ def test_letter_spacing_violation_flags_off_token_literal() -> None:
 
 
 def test_letter_spacing_violation_allows_normal_var_and_allowlist() -> None:
-    """Keyword, token, and grandfathered letter-spacing values pass."""
+    """Keyword, tracking token, and grandfathered letter-spacing values pass."""
     assert _letter_spacing_violation("normal") is None
     assert _letter_spacing_violation("var(--tracking-label)") is None
     assert _letter_spacing_violation("0.16em") is None
+
+
+def test_letter_spacing_violation_flags_non_tracking_var() -> None:
+    """A var() reference outside the tracking token family is flagged."""
+    message = _letter_spacing_violation("var(--color-text)")
+    assert message is not None
+    assert "var(--color-text)" in message
 
 
 # --- whole-stylesheet checks ----------------------------------------------
