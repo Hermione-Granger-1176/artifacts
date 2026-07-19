@@ -39,7 +39,7 @@ Shared modules (under `js/modules/`):
 - `js/modules/element-cache.js`: DOM element caching by ID
 - `js/modules/app-shell.js`: runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
 - `js/modules/html-escape.js`: `escapeHtml()` and `escapeAttribute()` helpers, re-exported by `render.js` and app-local modules
-- `js/modules/formatting.js`: shared number formatting and parsing helpers (`formatCurrency()`, `formatPercent()`, `formatCompact()`, `formatDollarTick()`, `parseNumber()`), re-exported by app-local formatting modules
+- `js/modules/formatting.js`: shared number formatting and parsing helpers (`formatCurrency()`, `formatPercent()`, `formatCompact()`, `formatDollarTick()`, `parseNumber()`), imported directly by app modules
 - `js/modules/segmented.js`: `initSegmented()` wiring for segmented toggles, keeping the lone `.active` button and `aria-pressed` state in sync and calling back with the newly active button
 - `js/modules/section-nav.js`: sticky section-progress nav (`initSectionNav()`, `renderSectionNav()`, `scrollToSection()`) with numbered nodes, a progress fill, and an IntersectionObserver scroll spy, styled by the shared `.section-nav` component rules
 - `js/modules/chart-theme.js`: theme-aware Chart.js helpers (`chartGlobal()` vendor global access, `cssValue()` / `cssAlpha()` custom property reads, `isDark()`, and `createPaletteCache()` per-theme palette caching) used by the chart-based apps
