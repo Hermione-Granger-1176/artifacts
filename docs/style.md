@@ -97,7 +97,7 @@ The shared design system lives in `css/src/` and is bundled into `css/style.css`
 
 ### Token lint
 
-`make lint-app-css-tokens` guards `apps/*/css/*.css` against drift. It forbids hex colors and literal `rgb()` / `rgba()` colors, and requires tokens for `border-radius` (px literals above 5px), `font-size`, and `letter-spacing`. Sub-token decorative radii up to 5px, font sizes in em / rem / % or a `clamp()` built on token or relative units (a px literal inside `clamp()` is still flagged), and `normal` letter-spacing stay allowed, alongside a few documented allowlist entries in the checker.
+`make lint-app-css-tokens` guards `apps/*/css/*.css` against drift. It forbids hex colors and any `rgb()` / `rgba()` color not derived from `var()` or `color-mix()`, flags `border-radius` px literals above 5px, flags raw px font sizes, and requires `letter-spacing` to be exactly one `var(--tracking-*)` token or `normal`. Sub-token decorative radii up to 5px and font sizes in em / rem / % or a `clamp()` built on token or relative units (a px literal inside `clamp()` is still flagged) stay allowed, alongside a few documented allowlist entries in the checker.
 
 ## HTML
 
