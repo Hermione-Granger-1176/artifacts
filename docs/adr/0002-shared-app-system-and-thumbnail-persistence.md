@@ -35,7 +35,7 @@ ADR 0004 split app-specific layout out of the shared stylesheet. Decision point 
 
 ## Consequences
 
-- Shared app styling is easier to evolve because the shell, tokens, and app layout selectors live in one shipped stylesheet.
+- Shared app styling is easier to evolve because the shared stylesheet owns the shell, tokens, and reusable component families, while each app-local `apps/<slug>/css/app.css` owns app-specific layout (see the ADR 0004 amendment above).
 - Thumbnail generation more closely matches the real app runtime because it waits for app readiness and uses the shared app shell over HTTP.
 - Workflow YAML is more readable because it delegates policy to tested helpers and keeps build, deploy, and persistence responsibilities separate.
 - Source-branch mutation is tightly scoped to trusted runtime changes and validated thumbnail artifacts only.

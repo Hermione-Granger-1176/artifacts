@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  calcEMI,
+  calcEmi,
   getExtraForPeriod,
   runSchedule
 } from '../../../../apps/loan-amortization/js/modules/amortization.js';
@@ -29,14 +29,14 @@ import {
 
 // --- amortization.js ---
 
-test('calcEMI computes correct monthly payment', () => {
+test('calcEmi computes correct monthly payment', () => {
   // $100,000 at 6% annual over 360 months
-  const emi = calcEMI(100000, 0.005, 360);
+  const emi = calcEmi(100000, 0.005, 360);
   assert.ok(Math.abs(emi - 599.55) < 0.5);
 });
 
-test('calcEMI returns simple division for zero rate', () => {
-  assert.equal(calcEMI(12000, 0, 12), 1000);
+test('calcEmi returns simple division for zero rate', () => {
+  assert.equal(calcEmi(12000, 0, 12), 1000);
 });
 
 test('getExtraForPeriod sums onetime and recurring extras', () => {

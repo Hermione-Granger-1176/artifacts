@@ -190,7 +190,6 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
         rightPage.style.opacity = '0.82';
       }
 
-      // Brief pause before the cover starts to flip
       await delay(INTRO_DELAY_MS);
 
       // Phase 1: Flip the cover open. A soft drop-shadow swells while the
@@ -281,7 +280,6 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
       await Promise.all(settleTasks);
 
-      // Clean up and finalize state
       clearInlineStyles(cover, ['transformOrigin', 'transform', 'opacity', 'filter']);
       finalizeIntroOpen(shell, cover);
     })();
@@ -402,12 +400,10 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       { duration: PAGE_TURN_MS, easing: EASE_OUT_EASING, fill: 'forwards' }
     );
 
-    // Wait for both to finish
     await Promise.all([flipOutAnim.finished, flipInAnim.finished]);
     flipOutAnim.cancel();
     flipInAnim.cancel();
 
-    // Clean up all inline styles
     clearInlineStyles(flippingInPage, ['transformOrigin', 'position', 'zIndex']);
     clearInlineStyles(grid, ['perspective', 'transformStyle']);
 

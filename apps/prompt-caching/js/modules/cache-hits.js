@@ -19,7 +19,7 @@ export function initCacheHits() {
   }
 
   let reqCount = 0;
-  let cachedPrefix = 0;
+  let cachedPrefixTokens = 0;
   let ttlTimer = /** @type {number | null} */ (null);
   let ttlSec = 0;
 
@@ -33,7 +33,7 @@ export function initCacheHits() {
       if (ttlSec <= 0) {
         clearInterval(/** @type {number} */ (ttlTimer));
         ttlTimer = null;
-        cachedPrefix = 0;
+        cachedPrefixTokens = 0;
       }
       ttlLabel.textContent = formatTTL(ttlSec);
     }, 1000);
@@ -59,7 +59,7 @@ export function initCacheHits() {
     }
 
     const query = CHV_QUERIES[reqCount % CHV_QUERIES.length];
-    const sysHit = cachedPrefix > 0;
+    const sysHit = cachedPrefixTokens > 0;
     const totalTokens = CHV_SYSTEM.length + query.length;
     const cachedCount = sysHit ? CHV_SYSTEM.length : 0;
     const computedCount = totalTokens - cachedCount;
@@ -100,7 +100,7 @@ export function initCacheHits() {
     const usrBlocks = Array.from(usrBlocksWrap.children);
     animateBlocks(sysBlocks, sysHit ? "cached" : "miss", () => animateBlocks(usrBlocks, "miss"));
 
-    cachedPrefix = CHV_SYSTEM.length;
+    cachedPrefixTokens = CHV_SYSTEM.length;
     reqCount += 1;
     resetTTL();
 
@@ -121,7 +121,7 @@ export function initCacheHits() {
   }
 
   function clearCache() {
-    cachedPrefix = 0;
+    cachedPrefixTokens = 0;
     reqCount = 0;
     if (ttlTimer) {
       clearInterval(ttlTimer);

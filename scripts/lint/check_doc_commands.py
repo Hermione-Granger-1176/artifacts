@@ -243,9 +243,7 @@ def _snippet_is_actionable(line: str, snippet: str) -> bool:
     local_prefix = CLAUSE_SEPARATOR_PATTERN.split(prefix)[-1]
     if NEGATION_PREFIX_PATTERN.search(local_prefix):
         return False
-    if CHECKLIST_PREFIX_PATTERN.match(prefix):
-        return True
-    if ORDERED_PREFIX_PATTERN.match(prefix):
+    if CHECKLIST_PREFIX_PATTERN.match(prefix) or ORDERED_PREFIX_PATTERN.match(prefix):
         return True
     if PLAIN_BULLET_PREFIX_PATTERN.match(prefix):
         stripped_suffix = suffix.lstrip()

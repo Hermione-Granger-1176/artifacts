@@ -492,8 +492,8 @@ The workflows depend on repository settings that are not enforceable from source
 | `pyproject.toml` | Python deps, pytest/coverage/ruff settings, site URL and metadata |
 | `package.json` | Node deps, JS test/coverage config, npm script commands |
 | `config/artifact_contract.json` | Shared artifact id, URL, and thumbnail path validation contract |
-| `eslint.config.js` | ESLint file patterns, ignores, rules |
-| `stylelint.config.js` | Stylelint rules, ignoreFiles |
+| `config/eslint.config.js` | ESLint file patterns, ignores, rules |
+| `config/stylelint.config.js` | Stylelint rules, ignoreFiles |
 | `.yamllint.yml` | Yamllint rules, ignore patterns |
 | `.editorconfig` | Editor formatting rules per file type |
 | `config/gallery_metadata.json` | Tag/tool display metadata for gallery config and README badges |
@@ -509,3 +509,4 @@ Each tool primarily reads its own config, and the Makefile mostly serves as the 
 - [ADR 0003](adr/0003-makefile-first-and-single-source-of-truth.md): Makefile-first workflow and tool-config source-of-truth policy
 - [ADR 0004](adr/0004-per-artifact-app-stylesheets.md): Split artifact-specific CSS into app-local stylesheets
 - [ADR 0005](adr/0005-ci-scaling-architecture-and-roadmap.md): CI scaling architecture, rejected alternatives, and optimization roadmap
+- [ADR 0006](adr/0006-shared-design-tokens-and-component-system.md): Shared design tokens and component system

@@ -37,6 +37,10 @@ These inconsistencies made it harder to onboard, harder to maintain, and easier 
 
 7. **Setup is two-level.** `make setup` is the fast default (no Chromium). `make setup-all` includes Chromium for browser tests and thumbnails.
 
+## Amendment
+
+The out-of-scope note below that `js/modules/` and `css/` remain flat was later superseded: gallery modules now live under `js/modules/gallery/`, and the shipped `css/style.css` is generated from authored partials in `css/src/` (ADR 0006 documents the shared token and component system that lives there). The Makefile-first and single-source-of-truth policies are unchanged by that reorganization.
+
 ## Consequences
 
 - Adding a new source file or directory requires zero config changes because exclude-based scanning picks it up.

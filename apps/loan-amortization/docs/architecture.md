@@ -18,11 +18,13 @@
 - `../../../js/modules/app-shell.js`
   - owns shared theme sync, back-button fallback behavior, and scroll-to-top behavior
 - `js/modules/amortization.js`
-  - exports `calcEMI`, `getExtraForPeriod`, and `runSchedule`
+  - exports `calcEmi`, `getExtraForPeriod`, and `runSchedule`
 - `js/modules/interactions.js`
   - owns event listener wiring while app state mutations stay injected from `js/app.js`
-- `js/modules/formatting.js`
-  - exports currency formatting, axis tick formatting, numeric parsing, and safe attribute escaping
+- `../../../js/modules/formatting.js`
+  - exports currency formatting, axis tick formatting, and numeric parsing helpers
+- `../../../js/modules/html-escape.js`
+  - exports the safe attribute escaping used by metric and extras rendering
 - `js/modules/metrics.js`
   - owns metric-card template rendering
 - `js/modules/schedule-summary.js`

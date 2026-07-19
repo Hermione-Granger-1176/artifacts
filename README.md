@@ -84,7 +84,7 @@ Both flows emit a complete artifact structure: `index.html` wired to the shared 
 2. Build your artifact in `index.html` (or refine the drop-in) and fill in the metadata files
 3. Run `make validate` to catch missing required files before pushing
 4. Push to `main`: CI regenerates derived files, builds `_site/`, and deploys the site
-5. Open a PR to run the same checks and publish a live preview
+5. Open a PR to run the same checks and publish a live preview (preview deploys are skipped for fork and Dependabot PRs)
 
 CI is intentionally strict for the root publishing platform: dependency review, secret scanning, browser-based checks, and fail-closed deploys. See [`docs/architecture.md`](docs/architecture.md) for the full pipeline, including how regenerated thumbnails flow back into PRs.
 

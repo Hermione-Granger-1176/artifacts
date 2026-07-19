@@ -1,4 +1,4 @@
-import { calcEMI } from "./amortization.js";
+import { calcEmi } from "./amortization.js";
 
 const FREQUENCY_PARAMS = {
   yearly: { periodsPerYear: 1, label: "Year" },
@@ -37,7 +37,7 @@ export function getBiweeklyEmiOverride({ principal, annualRate, years, frequency
 
   const monthlyRate = annualRate / 100 / 12;
   const monthlyPeriods = years * 12;
-  return calcEMI(principal, monthlyRate, monthlyPeriods) / 2;
+  return calcEmi(principal, monthlyRate, monthlyPeriods) / 2;
 }
 
 /**

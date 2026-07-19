@@ -38,7 +38,7 @@
 1. A tab, slider, or preset changes the active scenario or sampling settings.
 2. `buildTopPSelection()` applies temperature to logits, softmaxes the result, ranks tokens, and retains the smallest cumulative top-p nucleus.
 3. The surviving probabilities are renormalized into `adjustedProb`, the only distribution used for a pick or a 100-draw tally.
-4. The chart updates the same Chart.js instance with adjusted theoretical percentages, zero-width muted exclusions, and optional observed percentages.
+4. The chart updates the same Chart.js instance with temperature-shaped theoretical percentages, muted exclusions that keep their bar widths, and optional observed percentages; renormalized values ride along for tooltips.
 5. The DOM renderer updates the sentence, pills, insight, and accessible sample-status copy.
 
 ## Theme model

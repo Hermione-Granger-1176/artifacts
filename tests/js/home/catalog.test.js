@@ -66,7 +66,7 @@ test('filterAndSortArtifacts filters by search/tool/tag and sort order', () => {
   ]);
 
   const filtered = filterAndSortArtifacts(artifacts, {
-    currentFilter: 'helper',
+    currentQuery: 'helper',
     currentSort: 'newest',
     currentTags: ['finance'],
     currentTools: ['claude']
@@ -75,7 +75,7 @@ test('filterAndSortArtifacts filters by search/tool/tag and sort order', () => {
   assert.deepEqual(filtered.map((item) => item.id), ['artifact-b']);
   assert.deepEqual(
     filterAndSortArtifacts(artifacts, {
-      currentFilter: '',
+      currentQuery: '',
       currentSort: 'oldest',
       currentTags: [],
       currentTools: []
@@ -104,7 +104,7 @@ test('filterAndSortArtifacts stays responsive on a larger catalog fixture', () =
 
   const startedAt = performance.now();
   const filtered = filterAndSortArtifacts(artifacts, {
-    currentFilter: 'helper',
+    currentQuery: 'helper',
     currentSort: 'newest',
     currentTags: ['finance'],
     currentTools: ['claude']

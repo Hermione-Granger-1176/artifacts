@@ -240,7 +240,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   grid.addEventListener('pointerenter', () => ensureOverlay(), { once: true });
 
   let currentPage = DEFAULT_GALLERY_STATE.page;
-  let currentFilter = DEFAULT_GALLERY_STATE.q;
+  let currentQuery = DEFAULT_GALLERY_STATE.q;
   let currentSort = DEFAULT_GALLERY_STATE.sort;
   /** @type {string[]} */
   let currentTools = [];
@@ -284,7 +284,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   filterReset.innerHTML = ICONS.reset;
 
-  readStateFromURL();
+  readStateFromUrl();
   renderFilterNotes();
 
   const savedTheme = appRuntime.readStorage('theme', 'light') || 'light';
@@ -304,7 +304,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   searchInput.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = windowObj.setTimeout(() => {
-      currentFilter = searchInput.value.toLowerCase();
+      currentQuery = searchInput.value.toLowerCase();
       currentPage = 1;
       applyStateChange();
     }, 150);
@@ -312,7 +312,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   searchClear.addEventListener('click', () => {
     searchInput.value = '';
-    currentFilter = '';
+    currentQuery = '';
     currentPage = 1;
     applyStateChange({ focusTarget: searchInput });
   });
@@ -448,7 +448,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   windowObj.addEventListener('popstate', () => {
     overlay.close({ restoreFocus: false, immediate: true });
     suppressPush = true;
-    readStateFromURL();
+    readStateFromUrl();
     syncUIToState();
     renderContent();
     suppressPush = false;
@@ -509,14 +509,14 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     updateFilterNotesState();
   }
 
-  function readStateFromURL() {
+  function readStateFromUrl() {
     const nextState = readGalleryStateFromSearch({
       search: windowObj.location.search,
       allTools,
       allTags
     });
     currentPage = nextState.page;
-    currentFilter = nextState.q;
+    currentQuery = nextState.q;
     currentSort = nextState.sort;
     currentTools = nextState.tools;
     currentTags = nextState.tags;
@@ -528,7 +528,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       pathname: windowObj.location.pathname,
       page: currentPage,
       sort: currentSort,
-      q: currentFilter,
+      q: currentQuery,
       tools: currentTools,
       tags: currentTags
     });
@@ -547,8 +547,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   function syncUIToState() {
-    if (searchInput.value.toLowerCase() !== currentFilter) {
-      searchInput.value = currentFilter;
+    if (searchInput.value.toLowerCase() !== currentQuery) {
+      searchInput.value = currentQuery;
     }
 
     updateSearchClearVisibility();
@@ -615,7 +615,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   function updateFilterResetVisibility() {
-    const hasActiveFilters = currentFilter !== '' || currentTools.length > 0 || currentTags.length > 0;
+    const hasActiveFilters = currentQuery !== '' || currentTools.length > 0 || currentTags.length > 0;
     filterReset.classList.toggle('hidden', !hasActiveFilters);
   }
 
@@ -633,7 +633,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   function resetFilters() {
-    currentFilter = '';
+    currentQuery = '';
     currentTools = [];
     currentTags = [];
     currentPage = DEFAULT_GALLERY_STATE.page;
@@ -678,7 +678,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   function renderContent() {
     const filtered = filterAndSortArtifacts(allArtifacts, {
-      currentFilter,
+      currentQuery,
       currentSort,
       currentTags,
       currentTools

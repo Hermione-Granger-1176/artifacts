@@ -34,7 +34,7 @@ Two one-command flows. Both emit a complete artifact structure. The fresh-placeh
 2. Build your artifact in `index.html`, then fill in `name.txt`, `description.txt`, `tags.txt`, `tools.txt`
 3. `make validate`: fail fast on incomplete directories
 4. Push to `main`: CI generates thumbnails, updates gallery data, builds, and deploys
-5. PRs get live preview links posted as comments
+5. Trusted PRs (same-repo, non-Dependabot) get live preview links posted as comments
 
 **Drop-in of an existing AI-generated HTML file:**
 
@@ -120,7 +120,7 @@ Do not manually edit these outputs unless updating generator logic:
 
 ## Deployment
 
-- GitHub Pages publishes via GitHub Actions: pushes to `main` update the live site root, and PRs get previews under `gh-pages/pr-preview/pr-<number>/` with the link posted as a PR comment on each push
+- GitHub Pages publishes via GitHub Actions: pushes to `main` update the live site root, and trusted PRs (same-repo, non-Dependabot) get previews under `gh-pages/pr-preview/pr-<number>/` with the link posted as a PR comment on each push
 - `gh-pages` is CI-managed and should not be edited manually
 - Deploys use GitHub App tokens and verified GraphQL commits; see [`docs/architecture.md`](docs/architecture.md) for the full pipeline, token model, and deployment records
 

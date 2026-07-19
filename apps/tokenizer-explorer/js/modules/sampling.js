@@ -46,7 +46,7 @@ export function softmax(logits, temperature) {
  *   sorted: Array<{ word: string, baseLogit: number, idx: number, prob: number, adjustedProb: number }>,
  *   inTopP: Set<number>,
  *   topTokens: Array<{ word: string, baseLogit: number, idx: number, prob: number, adjustedProb: number }>,
- *   topTokenProbability: number
+ *   retainedProbabilityMass: number
  * }}
  */
 export function buildTopPSelection(tokens, temperature, topP) {
@@ -65,12 +65,10 @@ export function buildTopPSelection(tokens, temperature, topP) {
     }
   }
 
-  const topTokenProbability = sorted
-    .filter((token) => inTopP.has(token.idx))
-    .reduce((sum, token) => sum + token.prob, 0);
+  const retainedProbabilityMass = cumulative;
   const adjustedSorted = sorted.map((token) => ({
     ...token,
-    adjustedProb: inTopP.has(token.idx) ? token.prob / topTokenProbability : 0
+    adjustedProb: inTopP.has(token.idx) ? token.prob / retainedProbabilityMass : 0
   }));
   const topTokens = adjustedSorted.filter((token) => inTopP.has(token.idx));
 
@@ -78,7 +76,7 @@ export function buildTopPSelection(tokens, temperature, topP) {
     sorted: adjustedSorted,
     inTopP,
     topTokens,
-    topTokenProbability
+    retainedProbabilityMass
   };
 }
 

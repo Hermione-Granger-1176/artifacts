@@ -26,7 +26,7 @@ Summary of settings:
 - **Private functions:** prefix with a leading underscore
 - **Entry points:** guard `if __name__ == "__main__":` blocks with `# pragma: no cover`
 
-Run `make lint`, `make typecheck-py`, `make dead-code-py`, `make format-py-check`, or `make check-local` to check. Those targets also run the EditorConfig validation used in CI.
+Run `make lint`, `make typecheck-py`, `make dead-code-py`, `make format-py-check`, or `make check-local` to check. Of these, `make lint` and `make check-local` also run the EditorConfig validation used in CI; the other targets are focused Python checks only.
 
 ## JavaScript
 
