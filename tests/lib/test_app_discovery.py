@@ -214,6 +214,30 @@ def test_shared_module_consumers_follows_nested_local_modules(tmp_path: Path) ->
     assert consumers["js/modules/unused.js"] == set()
 
 
+def test_shared_module_consumers_only_seed_from_module_scripts(tmp_path: Path) -> None:
+    """Classic script tags and srcless module tags never seed the ESM traversal."""
+    modules = tmp_path / "js" / "modules"
+    modules.mkdir(parents=True)
+    (modules / "chart-theme.js").write_text("export {};\n", encoding="utf-8")
+    app_dir = tmp_path / "apps" / "alpha"
+    (app_dir / "js" / "vendor").mkdir(parents=True)
+    (app_dir / "index.html").write_text(
+        '<script defer src="./js/vendor/bundle.js"></script>\n'
+        '<script type="module">console.log("inline");</script>\n'
+        '<script type="module" src="https://cdn.example.com/remote.js"></script>\n'
+        '<script type="module" src="../../outside-roots.js"></script>\n',
+        encoding="utf-8",
+    )
+    (app_dir / "js" / "vendor" / "bundle.js").write_text(
+        'import "../../../../js/modules/chart-theme.js";\n', encoding="utf-8"
+    )
+    (tmp_path / "outside-roots.js").write_text(
+        'import "./js/modules/chart-theme.js";\n', encoding="utf-8"
+    )
+
+    assert app_discovery.shared_module_consumers(tmp_path) == {"js/modules/chart-theme.js": set()}
+
+
 def test_runtime_change_plan_scopes_shared_modules_to_consumers(tmp_path: Path) -> None:
     """A narrowly used shared module scopes both runtime axes to its consumers."""
     modules = tmp_path / "js" / "modules"

@@ -45,7 +45,9 @@ SHARED_APP_BROWSER_TEST_PATHS = {
     "tests/browser/test_frontend_apps_browser_flows.py",
     "tests/browser/test_frontend_apps_smoke.py",
 }
-SCRIPT_SRC_PATTERN = re.compile(r"<script\b[^>]*\bsrc=[\"']([^\"']+)[\"']", re.IGNORECASE)
+SCRIPT_TAG_PATTERN = re.compile(r"<script\b[^>]*>", re.IGNORECASE)
+MODULE_TYPE_PATTERN = re.compile(r"\btype=[\"']module[\"']", re.IGNORECASE)
+SCRIPT_SRC_PATTERN = re.compile(r"\bsrc=[\"']([^\"']+)[\"']", re.IGNORECASE)
 ESM_IMPORT_PATTERN = re.compile(
     r"(?:import|export)\s+(?:[^;]*?\s+from\s+)?[\"']([^\"']+)[\"']",
     re.DOTALL,
@@ -110,15 +112,25 @@ def _local_import_path(importer: Path, specifier: str, repo_root: Path) -> Path 
 
 
 def _script_sources(index_path: Path, repo_root: Path) -> list[Path]:
-    """Return local script files referenced by one app index page."""
+    """Return local module script files referenced by one app index page.
+
+    Classic scripts (vendor bundles, app-theme) cannot statically import shared
+    modules, so only ``type="module"`` tags seed the dependency traversal.
+    """
     if index_path.is_symlink():
         raise ValueError(f"Refusing to read symlinked app index: {index_path}")
     content = index_path.read_text(encoding="utf-8")
-    return [
-        source
-        for specifier in SCRIPT_SRC_PATTERN.findall(content)
-        if (source := _local_import_path(index_path, specifier, repo_root)) is not None
-    ]
+    sources: list[Path] = []
+    for tag in SCRIPT_TAG_PATTERN.findall(content):
+        if not MODULE_TYPE_PATTERN.search(tag):
+            continue
+        src_match = SCRIPT_SRC_PATTERN.search(tag)
+        if src_match is None:
+            continue
+        source = _local_import_path(index_path, src_match.group(1), repo_root)
+        if source is not None:
+            sources.append(source)
+    return sources
 
 
 def _module_imports(js_path: Path, repo_root: Path) -> list[Path]:
