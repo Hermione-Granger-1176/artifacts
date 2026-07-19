@@ -229,7 +229,13 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
         assert result in verify_run
 
     ledger = _job(workflow, "save-app-ledger")
-    assert ledger["if"].strip().startswith("github.event_name == 'push'")
+    ledger_condition = ledger["if"].strip()
+    # The implicit success() would treat the transitively skipped
+    # dependency-review job as a failure and skip this job on every push.
+    assert ledger_condition.startswith("!cancelled() &&")
+    assert "github.event_name == 'push'" in ledger_condition
+    assert "github.ref == 'refs/heads/main'" in ledger_condition
+    assert "needs.verify.result == 'success'" in ledger_condition
     assert "make ci-update-app-ledger" in _step_run(ledger, "Update main verification ledger")
     assert _step(ledger, "Save verification ledger")["if"] == (
         "steps.app-ledger.outputs.cache-hit != 'true'"
@@ -359,6 +365,9 @@ def test_update_thumbnail_persistence_and_cleanup_stay_bounded() -> None:
     persist = _job(workflow, "persist-thumbnails")
     cleanup = _job(workflow, "cleanup-preview")
 
+    persist_condition = persist["if"].strip()
+    assert persist_condition.startswith("!cancelled() &&")
+    assert "needs.publish.result == 'success'" in persist_condition
     validate_run = _step_run(persist, "Validate thumbnail artifact")
     assert "validate-thumbnail-artifact --root .artifacts/thumbnail-persist" in validate_run
     assert 'echo "json=$plan" >> "$GITHUB_OUTPUT"' in validate_run
@@ -764,8 +773,51 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
     assert (
         ci_setup_cache["if"] == "inputs.install-deps == 'true' && inputs.install-browsers == 'true'"
     )
+    assert ci_setup_cache["id"] == "playwright-cache"
     assert ci_setup_cache["with"]["key"] == "playwright-${{ hashFiles('uv.lock') }}"
     assert ci_setup["inputs"]["install-browsers"]["default"] == "true"
+    venv_cache = next(
+        step
+        for step in ci_setup["runs"]["steps"]
+        if step.get("name") == "Cache virtual environment"
+    )
+    assert venv_cache["with"]["path"] == ".venv"
+    assert venv_cache["with"]["key"] == (
+        "venv-${{ runner.os }}-${{ runner.arch }}"
+        "-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('uv.lock') }}"
+    )
+    setup_python = next(
+        step for step in ci_setup["runs"]["steps"] if step.get("name") == "Set up Python"
+    )
+    assert setup_python["id"] == "setup-python"
+    assert "restore-keys" not in venv_cache["with"]
+    node_modules_cache = next(
+        step for step in ci_setup["runs"]["steps"] if step.get("name") == "Cache node modules"
+    )
+    assert node_modules_cache["with"]["path"] == "node_modules"
+    assert node_modules_cache["with"]["key"] == (
+        "node-modules-${{ runner.os }}-${{ inputs.node-version }}"
+        "-${{ hashFiles('package-lock.json') }}"
+    )
+    assert "restore-keys" not in node_modules_cache["with"]
+    uv_install = next(
+        step for step in ci_setup["runs"]["steps"] if step.get("name") == "Install uv"
+    )
+    # uv itself must always be installed: audit-python invokes uv directly,
+    # so a cached .venv is not a substitute for the uv binary.
+    assert uv_install["if"] == "inputs.install-deps == 'true'"
+    workspace_install = next(
+        step
+        for step in ci_setup["runs"]["steps"]
+        if step.get("name") == "Install workspace dependencies"
+    )
+    for skip_guard in (
+        'if [ "$VENV_CACHE_HIT" != "true" ]',
+        'if [ "$NODE_MODULES_CACHE_HIT" != "true" ]',
+        'if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ]',
+        "make setup-playwright-ci",
+    ):
+        assert skip_guard in workspace_install["run"]
     publish_uv_install = _step_run(
         _job(update, "publish"), "Install uv for live browser verification"
     )

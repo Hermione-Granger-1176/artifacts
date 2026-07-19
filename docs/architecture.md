@@ -457,3 +457,4 @@ Each tool primarily reads its own config, and the Makefile mostly serves as the 
 - [ADR 0002](adr/0002-shared-app-system-and-thumbnail-persistence.md): Shared app system with planner-driven thumbnail persistence
 - [ADR 0003](adr/0003-makefile-first-and-single-source-of-truth.md): Makefile-first workflow and tool-config source-of-truth policy
 - [ADR 0004](adr/0004-per-artifact-app-stylesheets.md): Split artifact-specific CSS into app-local stylesheets
+- [ADR 0005](adr/0005-ci-scaling-architecture-and-roadmap.md): CI scaling architecture, rejected alternatives, and optimization roadmap

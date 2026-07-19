@@ -430,8 +430,11 @@ jobs:
           [ "$SECRET_SCAN_RESULT" = "success" ]
           [ "$DEPENDENCY_REVIEW_RESULT" = "success" ] || [ "$DEPENDENCY_REVIEW_RESULT" = "skipped" ]
 
+  # Without a status function the implicit success() considers transitively
+  # skipped jobs (dependency-review on pushes) and skips this job forever.
   save-app-ledger:
     if: >-
+      !cancelled() &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
       needs.verify.result == 'success'
@@ -791,6 +794,7 @@ jobs:
   # thumbnail artifact built by `verify`.
   persist-thumbnails:
     if: >-
+      !cancelled() &&
       github.event.action != 'closed' &&
       needs.plan.outputs.persist-mode != 'none' &&
       needs.assemble-site.outputs.thumbnail-artifact-changed == 'true' &&
