@@ -16,8 +16,10 @@ app stylesheet:
     - sets a ``font-size`` to a raw px literal instead of ``var(--font-size-*)``,
       a ``clamp()`` built on token or relative units (a px literal inside
       ``clamp()`` is still flagged), or an em / rem / % / inherit value; or
-    - sets ``letter-spacing`` to anything other than a ``var(--tracking-*)``
-      token, ``normal``, or a grandfathered allowlisted literal.
+    - sets ``letter-spacing`` to anything other than exactly one
+      ``var(--tracking-*)`` token, ``normal``, or a grandfathered allowlisted
+      literal (a trailing ``!important`` is tolerated; a token buried inside a
+      larger expression is not).
 
 The rules are calibrated so the currently migrated app stylesheets pass as they
 stand while regressions fail. A few deliberate literals that predate the shared
@@ -89,6 +91,12 @@ _DECLARATION_RE = re.compile(
 
 # A px length inside a value, for example ``12px``, ``0.5px``, or ``.5px``.
 _PX_RE = re.compile(r"(\d*\.?\d+)px", re.IGNORECASE)
+
+# A letter-spacing value that is exactly one tracking-token reference.
+_TRACKING_VAR_RE = re.compile(r"var\(--tracking-[\w-]+\)", re.IGNORECASE)
+
+# A trailing ``!important`` flag on a declaration value.
+_IMPORTANT_RE = re.compile(r"\s*!important$", re.IGNORECASE)
 
 
 def _mask_comments(css: str) -> str:
@@ -179,13 +187,19 @@ def _font_size_violation(value: str) -> str | None:
 
 
 def _letter_spacing_violation(value: str) -> str | None:
-    """Return a message when a letter-spacing value is an off-token literal."""
-    normalized = _normalize(value)
-    if normalized.lower() == "normal" or "var(--tracking-" in normalized:
+    """Return a message when a letter-spacing value is an off-token literal.
+
+    The entire value (ignoring a trailing ``!important``) must be ``normal``, a
+    single ``var(--tracking-*)`` reference, or a grandfathered allowlisted
+    literal; a token buried in a larger expression such as
+    ``calc(var(--tracking-label) + 0.01em)`` does not pass.
+    """
+    bare = _IMPORTANT_RE.sub("", _normalize(value))
+    if bare.lower() == "normal" or _TRACKING_VAR_RE.fullmatch(bare):
         return None
-    if normalized in LETTER_SPACING_ALLOWLIST:
+    if bare in LETTER_SPACING_ALLOWLIST:
         return None
-    return f"off-token letter-spacing '{normalized}'; use var(--tracking-*) or normal"
+    return f"off-token letter-spacing '{_normalize(value)}'; use var(--tracking-*) or normal"
 
 
 def _declaration_violations(css: str) -> list[tuple[int, str]]:

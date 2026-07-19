@@ -177,6 +177,18 @@ def test_letter_spacing_violation_flags_non_tracking_var() -> None:
     assert "var(--color-text)" in message
 
 
+def test_letter_spacing_violation_flags_token_inside_larger_expression() -> None:
+    """A tracking token buried in a calc() expression is flagged."""
+    message = _letter_spacing_violation("calc(var(--tracking-label) + 0.01em)")
+    assert message is not None
+    assert "calc(var(--tracking-label) + 0.01em)" in message
+
+
+def test_letter_spacing_violation_tolerates_trailing_important() -> None:
+    """A lone tracking token with !important still passes."""
+    assert _letter_spacing_violation("var(--tracking-label) !important") is None
+
+
 # --- whole-stylesheet checks ----------------------------------------------
 
 
