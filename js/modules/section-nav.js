@@ -130,10 +130,13 @@ export function initSectionNav(explicitSections, anchors = {}) {
 
   /** @type {{ index: number, target: Element }[]} */
   const observed = [];
+  /** @type {Map<Element, number>} */
+  const observedByTarget = new Map();
   sections.forEach((section, index) => {
     const target = document.getElementById(section.id);
     if (target) {
       observed.push({ index, target });
+      observedByTarget.set(target, index);
     }
   });
 
@@ -182,14 +185,14 @@ export function initSectionNav(explicitSections, anchors = {}) {
   const observer = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
-        const item = observed.find(({ target }) => target === entry.target);
-        if (!item) {
+        const index = observedByTarget.get(entry.target);
+        if (index === undefined) {
           continue;
         }
         if (entry.isIntersecting) {
-          visible.add(item.index);
+          visible.add(index);
         } else {
-          visible.delete(item.index);
+          visible.delete(index);
         }
       }
       selectActive();
