@@ -360,6 +360,27 @@ test('pins the deepest visible section at the bottom of the page', () => {
   }
 });
 
+test('does not bottom-pin on a non-scrollable page', () => {
+  const { observers, registry, restore } = setupNavMocks();
+  try {
+    initSectionNav(SECTIONS);
+
+    // A short page where scrollHeight fits within the viewport is not
+    // scrollable, so the bottom pin must not promote the last visible
+    // section while the reader is still at the top.
+    globalThis.document.documentElement.scrollHeight = 600;
+    registry['sec-gamma'].rectTop = -100;
+    registry['sec-delta'].rectTop = 500;
+    observers[0].callback([
+      { isIntersecting: true, target: registry['sec-gamma'] },
+      { isIntersecting: true, target: registry['sec-delta'] }
+    ]);
+    assert.equal(registry['nav-label'].textContent, 'Gamma');
+  } finally {
+    restore();
+  }
+});
+
 test('sections without a matching element are skipped by the observer', () => {
   const { observers, registry, restore } = setupNavMocks();
   try {

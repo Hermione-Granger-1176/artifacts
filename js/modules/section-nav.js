@@ -170,7 +170,9 @@ export function initSectionNav(explicitSections, anchors = {}) {
       }
     }
     const doc = document.documentElement;
-    if (doc && (window.scrollY || 0) + viewportHeight >= doc.scrollHeight - 2) {
+    const scrollable = doc ? doc.scrollHeight > viewportHeight + 2 : false;
+    const atBottom = doc && (window.scrollY || 0) + viewportHeight >= doc.scrollHeight - 2;
+    if (scrollable && atBottom) {
       updateNav(lastVisible);
       return;
     }
