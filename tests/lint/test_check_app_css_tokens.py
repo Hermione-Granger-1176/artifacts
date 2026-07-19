@@ -61,6 +61,12 @@ def test_mask_hides_comments_strings_and_urls_from_scanners() -> None:
     assert _hex_violations(_mask(css)) == []
 
 
+def test_mask_handles_escaped_quotes_inside_strings() -> None:
+    """An escaped quote cannot end a string early and leak its contents."""
+    css = 'body.app-x .a::before {\n  content: "\\"#fff\\"";\n  color: var(--color-text);\n}\n'
+    assert _hex_violations(_mask(css)) == []
+
+
 # --- value-position gating ---------------------------------------------------
 
 

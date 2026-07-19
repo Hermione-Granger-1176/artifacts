@@ -236,8 +236,9 @@ NAMED_COLOR_KEYWORDS = frozenset(
 _COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
 
 # One single- or double-quoted CSS string on one line (CSS strings cannot span
-# an unescaped newline), e.g. a ``content`` value.
-_STRING_RE = re.compile(r"\"[^\"\n]*\"|'[^'\n]*'")
+# an unescaped newline), e.g. a ``content`` value. Backslash escapes are
+# consumed so an escaped quote (``"\"#fff\""``) cannot end the string early.
+_STRING_RE = re.compile(r"\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'")
 
 # One ``url(...)`` reference, so SVG fragments such as ``url(#blur)`` never
 # read as hex colors.
@@ -513,7 +514,11 @@ def check_stylesheet(path: Path, *, display_path: str) -> list[str]:
     try:
         css = _mask(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError) as error:
-        return [f"{display_path}: stylesheet could not be read as UTF-8 text ({error})"]
+        # Report the exception class only: its message varies by OS and path,
+        # and the violation output should stay deterministic.
+        return [
+            f"{display_path}: stylesheet could not be read as UTF-8 text ({type(error).__name__})"
+        ]
 
     found = [
         *_hex_violations(css),

@@ -272,6 +272,27 @@ def test_invalidate_package_and_merge_shard_results(tmp_path: Path) -> None:
     assert app_shards.merge_shard_results(tmp_path / "missing", apps_root=destination_root) == []
 
 
+def test_merge_shard_results_accepts_flattened_single_result(tmp_path: Path) -> None:
+    """A single artifact extracted directly into the results root still merges.
+
+    download-artifact places one matched artifact's contents directly in the
+    download path (no per-artifact directory), so the manifest sits at the
+    results root itself.
+    """
+    results_root = tmp_path / "results"
+    write_json(
+        results_root / "manifest.json",
+        {"index": 0, "browser_slugs": [], "thumbnail_slugs": ["alpha"]},
+    )
+    thumbnail = results_root / "apps" / "alpha" / "thumbnail.webp"
+    thumbnail.parent.mkdir(parents=True)
+    thumbnail.write_bytes(b"thumb")
+
+    destination_root = tmp_path / "destination" / "apps"
+    assert app_shards.merge_shard_results(results_root, apps_root=destination_root) == ["alpha"]
+    assert (destination_root / "alpha" / "thumbnail.webp").read_bytes() == b"thumb"
+
+
 def test_package_and_merge_reject_invalid_results(tmp_path: Path) -> None:
     """Test transfer helpers reject missing, duplicate, and symlinked results."""
     manifest_path = tmp_path / "manifest.json"
