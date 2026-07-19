@@ -247,13 +247,13 @@ def _write_manifest(artifacts: list[Path], stats: ThumbnailStats) -> None:
     destination.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
 
 
-async def _capture_screenshot(page: Any, file_url: str, artifact_name: str) -> bytes:
+async def _capture_screenshot(page: Any, page_url: str, artifact_name: str) -> bytes:
     """Capture one artifact screenshot with bounded retries for transient failures."""
     attempt = 0
     while True:
         attempt += 1
         try:
-            await page.goto(file_url, wait_until="networkidle", timeout=NAVIGATION_TIMEOUT_MS)
+            await page.goto(page_url, wait_until="networkidle", timeout=NAVIGATION_TIMEOUT_MS)
             await page.wait_for_function(
                 "window.__ARTIFACT_READY__ !== false",
                 timeout=READY_SIGNAL_TIMEOUT_MS,
@@ -293,9 +293,9 @@ async def _process_artifact(
                 device_scale_factor=2,
             )
             thumb_path = artifact_dir / SCREENSHOT_FILE
-            file_url = artifact_url(artifact_dir)
+            page_url = artifact_url(artifact_dir)
 
-            screenshot_bytes = await _capture_screenshot(page, file_url, artifact_dir.name)
+            screenshot_bytes = await _capture_screenshot(page, page_url, artifact_dir.name)
             save_thumbnail(screenshot_bytes, thumb_path)
             logger.info("  -> %s", thumb_path.name)
             return "generated"
@@ -318,13 +318,16 @@ async def _run_generation(artifacts: list[Path], async_playwright_cm: Any) -> Th
         "failed": 0,
     }
 
-    async with async_playwright_cm() as p:
-        browser = await p.chromium.launch()
+    async with async_playwright_cm() as playwright:
+        browser = await playwright.chromium.launch()
         try:
             semaphore = asyncio.Semaphore(MAX_CONCURRENT_PAGES)
 
             results = await asyncio.gather(
-                *[_process_artifact(browser, d, semaphore) for d in artifacts],
+                *[
+                    _process_artifact(browser, artifact_dir, semaphore)
+                    for artifact_dir in artifacts
+                ],
                 return_exceptions=True,
             )
 

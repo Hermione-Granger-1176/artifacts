@@ -24,7 +24,7 @@ Recommended workflow when changing workspace code:
 3. Edit files.
 4. Run `make check-local`.
 5. Run `make check-web` when you touch shared browser behavior or need fresh thumbnails. For targeted mature-app browser work, use `ARTIFACTS_BROWSER_APP_SLUGS="app-slug" make test-browser-apps`.
-6. Run `make check` before opening a PR when you want the full CI-equivalent local gate.
+6. Run `make check` before opening a PR when you want the full local release gate.
 7. Run `make validate` if you changed top-level artifact directories and want an explicit structure check.
 8. Run `make index` if metadata or README markers may have changed.
 9. Run `make site` if you want to inspect the exact Pages output locally.
@@ -32,9 +32,14 @@ Recommended workflow when changing workspace code:
 
 ## CI behavior
 
-CI uses the same `make` targets as local development. The `verify` job in `update.yml` runs:
+CI uses the same `make` targets as local development. The `update.yml` workflow splits verification across several jobs that fan out from a `plan` job:
 
-- `make setup-ci`, then `scripts/ci/run_parallel_checks.py` runs `format-check`, `lint`, `typecheck`, `test-py`, `coverage-js`, `dead-code`, `security`, `validate`, and `test-browser-root` concurrently, followed by conditional `make test-browser-apps`, then `make thumbnails`, `make check-generated`, `make index`, `make site`
+- `quick-gates` runs `make ci-quick-gates` (`format-check`, `lint`, `typecheck`, `validate`).
+- `heavy-checks` runs `make ci-heavy-checks` (`test-py`, `coverage-js`, `dead-code`, `security`).
+- `root-browser` runs the root gallery browser verification with `make test-browser-root`.
+- `app-shard` jobs each run one bounded shard of app browser tests (`make test-browser-apps-shard`) plus thumbnail capture (`make thumbnails-shard`).
+- `assemble-site` builds the generated files and the deployable site once (`make check-generated`, `make index`, `make site`) after the gates pass, and uploads the `_site/` artifact.
+- `verify` aggregates the dependency job results for branch protection. It runs no tests and builds no files.
 
 This keeps local results predictive of CI results.
 
@@ -180,10 +185,10 @@ Use this on a brand-new fork or clone that has never deployed, or after `gh-page
 
 ### Vendored dependency update
 
-1. Download the new UMD builds from the `upstream` URLs recorded in `config/vendored_assets.json` into `apps/loan-amortization/js/vendor/`.
-2. Update the `version`, `upstream`, and `sha256` fields for the affected entries in `config/vendored_assets.json` so `make lint-vendored-assets` passes.
-3. Update the version numbers in `apps/loan-amortization/docs/decisions.md`.
-4. Run browser suites before publishing and update the app README if the version changed.
+1. Download the new UMD builds from the `upstream` URLs recorded in `config/vendored_assets.json` into the exact `path` recorded for each affected entry. Multiple apps vendor assets (`loan-amortization`, `bond-price-vs-rate`, and `tokenizer-explorer` all vendor Chart.js, and `loan-amortization` also vendors the annotation and datalabels plugins), so update every entry that references the bumped package.
+2. Update the `version`, `upstream`, and `sha256` fields for every affected entry in `config/vendored_assets.json` so `make lint-vendored-assets` passes.
+3. Update the version numbers in each affected app's docs (for example `apps/loan-amortization/docs/decisions.md`) and README.
+4. Run browser suites before publishing.
 
 ### Security gate failure
 

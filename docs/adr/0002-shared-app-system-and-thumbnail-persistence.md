@@ -29,6 +29,10 @@ The earlier workflow shape mixed planning, build, deploy, and source-branch muta
 7. The merge of that follow-up thumbnail PR is recognized through PR provenance rather than commit-message heuristics, so loop prevention is stable under squash-merge settings.
 8. Thumbnail persistence artifacts may contain only `apps/<slug>/thumbnail.webp` files plus planner metadata.
 
+## Amendment (ADR 0004)
+
+ADR 0004 split app-specific layout out of the shared stylesheet. Decision point 2 above should now be read as: app-specific layout lives in `apps/<slug>/css/app.css`, while the shared tokens, shell, and component families live in the generated shared stylesheet (`css/style.css`, built from `css/src/`). App-local JS still owns only app-specific runtime behavior as stated.
+
 ## Consequences
 
 - Shared app styling is easier to evolve because the shell, tokens, and app layout selectors live in one shipped stylesheet.

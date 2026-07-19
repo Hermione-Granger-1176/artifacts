@@ -41,7 +41,7 @@ matrices**, not the model's text output.
 
 ## Development
 
-- Keep shared design decisions in `../../css/style.css` and app-specific layout selectors in `css/app.css`.
+- Make shared design changes in the `css/src/` partials (`01-tokens.css`, `03-artifact-shell.css`, `04-artifact-components.css`), which generate `../../css/style.css`, and keep app-specific layout selectors in `css/app.css`.
 - Numerical logic lives in `math.js` and is covered by
   `tests/js/apps/prompt-caching/modules.test.js`.
 - Credit: based on Sam Rose's deep-dive at ngrok.com/blog/prompt-caching, rewritten

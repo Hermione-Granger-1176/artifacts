@@ -7,7 +7,7 @@ import { formatPercent } from "../../../../js/modules/formatting.js";
 
 const MAX_VISIBLE = 5;
 const TTL_SECONDS = 300;
-const BLOCK_DELAY = 80;
+const BLOCK_DELAY_MS = 80;
 
 export function initCacheHits() {
   const sendBtn = byId("chvSendBtn");
@@ -50,7 +50,7 @@ export function initCacheHits() {
       blocks[i].classList.remove("waiting");
       blocks[i].classList.add(hitClass);
       i += 1;
-    }, BLOCK_DELAY);
+    }, BLOCK_DELAY_MS);
   }
 
   function send() {
@@ -107,10 +107,7 @@ export function initCacheHits() {
     const allReqs = reqs.querySelectorAll(".chv-req");
     if (allReqs.length > MAX_VISIBLE) {
       allReqs[0].remove();
-      const prevNotice = reqs.querySelector(".chv-evicted");
-      if (prevNotice) {
-        prevNotice.remove();
-      }
+      reqs.querySelector(".chv-evicted")?.remove();
       const evictedCount = reqCount - MAX_VISIBLE;
       const notice = makeEl(
         "div",

@@ -123,8 +123,9 @@ export function initSectionNav(sections, anchors = {}) {
 
   for (const section of sections) {
     const target = document.getElementById(section.id);
-    if (target) {
-      observer.observe(target);
+    if (!target) {
+      continue;
     }
+    observer.observe(target);
   }
 }

@@ -136,7 +136,7 @@ function createHarness({
   };
 
   async function flushTimers() {
-    for (; timers.length > 0; ) {
+    while (timers.length > 0) {
       timers.shift()();
       await Promise.resolve();
     }

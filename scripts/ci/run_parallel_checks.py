@@ -67,21 +67,24 @@ def run_checks(
             pool.submit(run_check, target, timeout=timeout, run_fn=run_fn) for target in targets
         ]
         results = [future.result() for future in as_completed(futures)]
-    return tuple(sorted(results, key=lambda r: r.name))
+    return tuple(sorted(results, key=lambda result: result.name))
 
 
 def format_results(results: tuple[CheckResult, ...]) -> str:
     """Build CI log output: summary, folded pass logs, expanded fail logs."""
-    summary = [f"{'✓' if r.passed else '✗'} {r.name} ({r.elapsed:.1f}s)" for r in results]
+    summary = [
+        f"{'✓' if result.passed else '✗'} {result.name} ({result.elapsed:.1f}s)"
+        for result in results
+    ]
     logs = []
-    for r in results:
-        header = f"::group::{r.name}" if r.passed else f"--- {r.name} (failed) ---"
-        body = r.output or "(no output)"
+    for result in results:
+        header = f"::group::{result.name}" if result.passed else f"--- {result.name} (failed) ---"
+        body = result.output or "(no output)"
         logs.extend([header, body])
-        if r.passed:
+        if result.passed:
             logs.append("::endgroup::")
 
-    failed = [r.name for r in results if not r.passed]
+    failed = [result.name for result in results if not result.passed]
     error = [f"\n::error::Failed: {', '.join(failed)}"] if failed else []
     return "\n".join([*summary, "", *logs, *error])
 
@@ -115,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
 
     results = run_checks(args, timeout=timeout)
     print(format_results(results))
-    return 0 if all(r.passed for r in results) else 1
+    return 0 if all(result.passed for result in results) else 1
 
 
 if __name__ == "__main__":  # pragma: no cover

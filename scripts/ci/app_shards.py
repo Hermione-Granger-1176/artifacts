@@ -275,22 +275,47 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _handle_write_manifest(args: argparse.Namespace) -> int:
+    """Select one plan shard and write its standalone manifest."""
+    write_shard_manifest(Path(args.plan), shard_index=args.shard, output_path=Path(args.output))
+    return 0
+
+
+def _handle_invalidate_thumbnails(args: argparse.Namespace) -> int:
+    """Delete prior thumbnails for the manifest's targeted slugs."""
+    for thumbnail in invalidate_shard_thumbnails(Path(args.manifest)):
+        print(f"Invalidating {thumbnail}")
+    return 0
+
+
+def _handle_package_result(args: argparse.Namespace) -> int:
+    """Package a shard manifest and its thumbnails for transfer."""
+    package_shard_result(Path(args.manifest), output_root=Path(args.output))
+    return 0
+
+
+def _handle_merge_results(args: argparse.Namespace) -> int:
+    """Merge every downloaded shard thumbnail result into the checkout."""
+    for slug in merge_shard_results(Path(args.root)):
+        print(f"Merged thumbnail for {slug}")
+    return 0
+
+
+COMMAND_HANDLERS = {
+    "write-manifest": _handle_write_manifest,
+    "invalidate-thumbnails": _handle_invalidate_thumbnails,
+    "package-result": _handle_package_result,
+    "merge-results": _handle_merge_results,
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run one Makefile-facing app-shard command."""
     args = _parser().parse_args(argv)
-    if args.command == "write-manifest":
-        write_shard_manifest(Path(args.plan), shard_index=args.shard, output_path=Path(args.output))
-    elif args.command == "invalidate-thumbnails":
-        for thumbnail in invalidate_shard_thumbnails(Path(args.manifest)):
-            print(f"Invalidating {thumbnail}")
-    elif args.command == "package-result":
-        package_shard_result(Path(args.manifest), output_root=Path(args.output))
-    elif args.command == "merge-results":
-        for slug in merge_shard_results(Path(args.root)):
-            print(f"Merged thumbnail for {slug}")
-    else:  # pragma: no cover - argparse constrains command values.
+    handler = COMMAND_HANDLERS.get(args.command)
+    if handler is None:  # pragma: no cover - argparse constrains command values.
         raise ValueError(f"Unsupported app-shard command: {args.command}")
-    return 0
+    return handler(args)
 
 
 if __name__ == "__main__":  # pragma: no cover

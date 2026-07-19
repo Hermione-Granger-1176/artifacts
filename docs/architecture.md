@@ -79,19 +79,38 @@ The gallery never inspects artifact HTML directly. It depends entirely on genera
 
 ### Main pipeline (`update.yml`)
 
-This is the core workflow. It triggers on every push to `main`, every PR event (opened, reopened, synchronize, closed), and manual dispatch.
+This is the core workflow. It triggers on every push to `main`, every PR event (opened, reopened, synchronize, closed), a weekly scheduled full-sweep (`cron: 23 4 * * 0`, Sunday 04:23 UTC), and manual dispatch (whose `full-sweep` input defaults to true).
+
+A single `plan` job fans out into parallel verification jobs (quick gates, heavy checks, root browser, and a dynamic app-shard matrix). Those feed a single-pass `assemble-site` job that builds and uploads `_site/`. An aggregation-only `verify` job then gates the write path (`publish`, `save-app-ledger`, `persist-thumbnails`). See [ADR 0005](adr/0005-ci-scaling-architecture-and-roadmap.md) for the scaling rationale.
 
 ```mermaid
 graph TD
-    trigger["push to main / PR open+sync / manual dispatch"]
+    trigger["push to main / PR open+sync+close / weekly full sweep / manual dispatch"]
 
     trigger --> plan
     trigger --> secret_scan["secret-scan"]
     trigger --> dep_review["dependency-review<br/>(PR only)"]
 
-    plan --> verify
-    plan --> publish
+    plan --> quick["quick-gates"]
+    quick --> heavy["heavy-checks"]
+    quick --> root["root-browser"]
+    quick --> shards["app-shard<br/>(dynamic matrix)"]
+
+    plan --> assemble["assemble-site"]
+    heavy --> assemble
+    root --> assemble
+    shards --> assemble
+
+    assemble --> verify
+    quick --> verify
+    heavy --> verify
+    root --> verify
+    shards --> verify
+    secret_scan --> verify
+    dep_review --> verify
+
     verify --> publish
+    verify --> ledger["save-app-ledger<br/>(push to main)"]
 
     publish -->|"All gates pass"| publish_decision{Event type?}
 
@@ -99,18 +118,19 @@ graph TD
     publish_decision -->|push/dispatch + tokens| main_deploy["Commit site root to gh-pages<br/>↓<br/>Publish full gh-pages tree<br/>with Pages Actions<br/>↓<br/>Verify live URL<br/>↓<br/>Browser-test live site"]
     publish_decision -->|No tokens<br/>fork/Dependabot| skip["Log 'preview skipped'"]
 
-    plan --> persist["persist-thumbnails"]
-    verify --> persist
+    assemble --> persist["persist-thumbnails"]
     publish --> persist
 
     persist -->|"persist-mode = pr-branch"| pr_write["Check PR HEAD not stale<br/>↓<br/>Verified commit to PR branch<br/>(Hermione1176 token)"]
     persist -->|"persist-mode = followup-pr"| followup["Create/update follow-up PR<br/>(Harry1176 token)"]
     persist -->|"persist-mode = none"| noop["No-op"]
 
-    secret_scan --> publish
-    dep_review --> publish
-
     style plan fill:#e1f5fe
+    style quick fill:#e8f5e9
+    style heavy fill:#e8f5e9
+    style root fill:#e8f5e9
+    style shards fill:#e8f5e9
+    style assemble fill:#e8f5e9
     style verify fill:#e8f5e9
     style publish fill:#fff3e0
     style persist fill:#fce4ec
@@ -134,8 +154,10 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
   - Classifies each changed file: per-app runtime change (`apps/<slug>/index.html`, `apps/<slug>/js/`, `apps/<slug>/assets/`, `apps/<slug>/css/`), metadata change (`name.txt`, `tags.txt`, etc.), docs change, or shared runtime change (`css/style.css`, `js/app-theme.js`, and anything under `js/modules/` outside `js/modules/gallery/`).
   - Resolves the primary app bot login dynamically from `vars.APP_ID` / `secrets.APP_PRIVATE_KEY` via `actions/create-github-app-token` (with `continue-on-error: true` for forks and Dependabot PRs where secrets are unavailable).
   - Computes `skip-verification`: `true` only when the workflow actor matches the resolved app bot login AND every file in the triggering commit is a thumbnail. For main pushes from merged thumbnail follow-up PRs, the commit-level files check is applied as defense-in-depth alongside existing PR provenance detection. Any detection failure defaults to `false` (full pipeline runs).
-  - Outputs: `browser-scope` (all / changed / none), `thumbnail-scope` (all / changed / none), `persist-mode` (pr-branch), `changed-slugs`, `thumbnail-slugs`, `reason`, `skip-verification`.
-  - Reads: PR branch code (checkout). Writes: nothing.
+  - Packs the affected apps into a bounded shard matrix and restores the main-verified ledger from the Actions cache, then applies memoization (`make ci-apply-app-ledger`) so apps whose input hash already passed on `main` drop out of the browser shards. Any ledger read failure falls open to full verification.
+  - Uploads the full plan (with slug lists) as artifact `ci-plan-{run_id}`; job outputs stay small so Actions output limits cannot truncate large app changes.
+  - Outputs: `browser-scope` (all / changed / none), `thumbnail-scope` (all / changed / none), `shard-matrix`, `shard-count`, `persist-mode` (pr-branch), `reason`, `skip-verification`.
+  - Reads: PR branch code (checkout), the app-ledger cache. Writes: nothing (uploads the plan artifact).
 
 - **`secret-scan`** (timeout: 5 min, permissions: contents read)
   - Runs Gitleaks against the full commit history (`fetch-depth: 0`).
@@ -145,27 +167,46 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
   - Checks manifest and lockfile changes for known vulnerabilities.
   - Reads: PR diff. Writes: nothing.
 
-**After `plan` completes → `verify` starts:**
+**After `plan` completes → parallel verification jobs start:**
 
-- **`verify`** (timeout: 20 min, permissions: contents read, pull-requests read)
-  - Skipped when the planner sets `skip-verification: true` (automated thumbnail-only commit by the trusted app bot). This eliminates redundant CI when `persist-thumbnails` commits thumbnails back to the PR branch.
-  - Does NOT wait for `secret-scan` or `dependency-review`. Those continue in the background.
-  - Step by step:
-    1. Checks out the PR branch code.
-    2. Sets up Python and Node, restores cached uv downloads and Playwright browsers, then runs `make setup-ci` to install project dependencies and ensure Chromium is available.
-    3. Runs `scripts/ci/run_parallel_checks.py` to execute independent checks concurrently: `format-check`, `lint`, `typecheck`, `test-py`, `coverage-js`, `dead-code`, `security`, `validate`, and `test-browser-root`. Each check captures output; failures print unfolded logs while passes are folded with `::group::`.
-    4. If `browser-scope` is not `none`: runs `make test-browser-apps`. If `browser-scope` is `changed`, scopes to only the changed app slugs via `ARTIFACTS_BROWSER_APP_SLUGS`. If `all`, tests every mature app.
-    5. If `thumbnail-scope` is not `none`: calls `scripts/ci/workflow_helpers.py invalidate-thumbnails` to delete stale `thumbnail.webp` files for apps with runtime changes, so they will be regenerated fresh.
-    6. Runs the sequential build chain: `make thumbnails` → `make check-generated` → `make index` → `make site`.
-    7. Uploads `_site/` as artifact `site-{run_id}`.
-    8. If `persist-mode` is not `none` and thumbnails actually changed: packages `apps/*/thumbnail.webp` files plus `plan.json` into artifact `thumbnail-persist-{run_id}`.
-  - Reads: PR branch code. Writes: nothing (only uploads artifacts to GitHub Actions storage).
+All of these are skipped when the planner sets `skip-verification: true` (automated thumbnail-only commit by the trusted app bot). This eliminates redundant CI when `persist-thumbnails` commits thumbnails back to the PR branch. None of them build `_site/` or write anything; they only read the checkout and upload shard artifacts.
 
-**After ALL FOUR complete (plan + verify + secret-scan + dependency-review) → `publish` starts:**
+- **`quick-gates`** (timeout: 20 min, needs `plan`, permissions: contents read)
+  - Runs `make ci-quick-gates`: `scripts/ci/run_parallel_checks.py` executes `format-check`, `lint`, `typecheck`, and `validate` concurrently. These cheap gates fail fast before the heavy and browser jobs invest time.
 
-- **`publish`** (timeout: 25 min, permissions: actions read, contents write, issues write, pages write, pull-requests write, id-token write)
-  - Skipped alongside `verify` when `skip-verification: true`.
-  - Will not start if `verify` or `secret-scan` failed. `dependency-review` must succeed or be skipped.
+- **`heavy-checks`** (timeout: 20 min, needs `plan` and `quick-gates`, permissions: contents read)
+  - Runs `make ci-heavy-checks`: `run_parallel_checks.py` executes `test-py`, `coverage-js`, `dead-code`, and `security` concurrently, then reports the JS coverage summary to the step summary.
+
+- **`root-browser`** (timeout: 20 min, needs `plan` and `quick-gates`, permissions: contents read)
+  - Runs `make test-browser-root` (root gallery smoke, accessibility, and flow suites) against the built root shell.
+
+- **`app-shard`** (matrix job, timeout: 20 min each, needs `plan` and `quick-gates`, `max-parallel: 12`, runs only when `shard-count != 0`)
+  - The matrix comes from `plan`'s `shard-matrix`. Each shard downloads the `ci-plan-{run_id}` artifact, writes its own manifest (`make ci-write-shard-manifest`), runs its slice of app browser tests (`make test-browser-apps-shard`), captures thumbnails for that slice (`make thumbnails-shard`), packages the result (`make ci-package-shard-result`), and uploads it as `app-shard-{run_id}-{shard}`.
+
+**After the gates and shards pass → `assemble-site` starts:**
+
+- **`assemble-site`** (timeout: 20 min, needs `plan`, `quick-gates`, `heavy-checks`, `root-browser`, `app-shard`, permissions: contents read)
+  - Requires `quick-gates`, `heavy-checks`, and `root-browser` to succeed and `app-shard` to succeed or be skipped.
+  - Downloads the plan and all shard thumbnail results, merges the shard thumbnails into the checkout (`make ci-merge-shard-results`), then builds once: `make check-generated` → `make index` → `make site`.
+  - Uploads `_site/` as artifact `site-{run_id}`.
+  - If `persist-mode` is not `none` and `apps/*/thumbnail.webp` files actually changed: packages them plus `plan.json` into artifact `thumbnail-persist-{run_id}` and exposes `thumbnail-artifact-changed`/`thumbnail-artifact-name` outputs.
+  - Reads: PR branch code, shard artifacts. Writes: nothing (only uploads artifacts).
+
+**After every dependency settles → `verify` aggregates:**
+
+- **`verify`** (timeout: 5 min, needs `plan`, `quick-gates`, `heavy-checks`, `root-browser`, `app-shard`, `assemble-site`, `secret-scan`, `dependency-review`, permissions: none)
+  - Branch protection requires this stable job name. It only checks that each dependency job succeeded (with `app-shard` and `dependency-review` allowed to be skipped). It runs no tests and builds no files.
+
+**On a successful `main` push only → `save-app-ledger` runs:**
+
+- **`save-app-ledger`** (needs `plan` and `verify`, main-branch pushes only)
+  - Downloads the plan, restores the ledger cache, merges the freshly main-verified app hashes (`make ci-update-app-ledger`), and saves the updated ledger back to the Actions cache so future runs can memoize.
+
+**After `verify` succeeds → `publish` starts:**
+
+- **`publish`** (timeout: 25 min, needs `plan` and `verify`, permissions: actions read, contents write, issues write, pages write, pull-requests write, id-token write)
+  - Skipped alongside the verification jobs when `skip-verification: true`.
+  - Will not start unless `verify` succeeded; `verify` in turn already required `secret-scan` to pass and `dependency-review` to pass or be skipped.
   - Step by step:
     1. Checks out the PR branch code (for `pyproject.toml` reading only, `persist-credentials: false`).
     2. Runs `ci-setup` action: calls `scripts/ci/workflow_helpers.py app-token-policy` → tokens allowed (same-repo, not fork, not Dependabot). Mints Hermione1176 (primary) and Harry1176 (escalation) tokens.
@@ -179,9 +220,9 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
     10. Runs `make test-browser-live` against the preview URL in Chromium.
   - Reads: `site-{run_id}` artifact. Writes: `gh-pages` branch (preview subdirectory only), GitHub Pages deployment, PR comment.
 
-**After `publish` succeeds AND `persist-mode` is not `none` AND thumbnails changed → `persist-thumbnails` starts:**
+**After `publish` succeeds AND `persist-mode` is not `none` AND `assemble-site` reported changed thumbnails → `persist-thumbnails` starts:**
 
-- **`persist-thumbnails`** (timeout: 15 min, permissions: contents write, pull-requests write)
+- **`persist-thumbnails`** (timeout: 15 min, needs `plan`, `assemble-site`, `publish`, permissions: contents write, pull-requests write)
   - Step by step:
     1. Checks out the PR branch code.
     2. Runs `ci-setup` to mint tokens.
@@ -199,7 +240,8 @@ Trigger: `push` event on `main` branch, or `workflow_dispatch`.
 The flow is identical to Scenario 1 with these differences:
 
 - **`plan`**: `persist-mode` is `followup-pr` when runtime changes or missing thumbnails require thumbnail persistence, otherwise `none`. It is never `pr-branch` because there is no PR.
-- **`dependency-review`**: does not run (not a PR event). `publish` treats it as `skipped`, which is acceptable.
+- **`dependency-review`**: does not run (not a PR event). `verify` treats it as `skipped`, which is acceptable.
+- **`save-app-ledger`**: runs only here (guarded to `push` on `refs/heads/main` after `verify` succeeds). It merges the freshly main-verified app hashes into the ledger cache so later runs can memoize matching apps out of the browser shards.
 - **`publish`**: instead of deploying a preview, commits `_site/` to the **root** of `gh-pages`, replacing the live site state. Preserves the `pr-preview/` directory so existing PR previews keep working. Uses the `deploy-site` composite action with `skip-build: true`, then uploads and deploys the full `gh-pages` tree with the official Pages Actions. Verifies and browser-tests the live production URL. It also writes a classic deployment record: after the Pages deploy it creates a `github-pages` deployment via `POST /repos/{owner}/{repo}/deployments` (with `required_contexts: []` sent through `gh api --input -` so it does not wait on status checks), then marks that deployment `success` once verification and live browser tests pass, or `failure` if the job fails after the record was created. This runs for main-site publishes only (guarded by the same main-only condition as the main deploy) so the Deployments page and environment badge stay honest. The record is created with the workflow `GITHUB_TOKEN`, which carries `deployments: write` on the publish job.
 - **`persist-thumbnails`**: if `persist-mode` is `followup-pr`, creates or updates a follow-up PR on a dated branch (`ci/save-generated-thumbnails-YYYYMMDD`) targeting `main`. Uses the Harry1176 (escalation) token with `commit-mode: force-pr`. The PR body contains a marker (`<!-- artifacts:generated-thumbnails -->`) for loop detection. When this follow-up PR is later merged to `main`, the planner recognizes it via PR provenance and sets `persist-mode: none` to prevent infinite loops. The commit-level files check also sets `skip-verification: true` when the merge commit contains only thumbnail files, eliminating the redundant deploy. Stale-check is not performed because there is no PR branch to check.
 
@@ -222,7 +264,7 @@ Trigger: `pull_request` event where `head.repo.fork == true` or `user.login == '
 The flow is identical to Scenario 1 with these differences:
 
 - **`plan`**: `persist-mode` is `none`. Tokens will not be minted.
-- **`verify`**: runs fully. The code is still built, tested, and validated. The `_site/` artifact is still produced.
+- **Verification jobs**: `quick-gates`, `heavy-checks`, `root-browser`, and `app-shard` all run fully, `assemble-site` still builds and uploads the `_site/` artifact, and `verify` aggregates their results. The code is fully built, tested, and validated.
 - **`publish`**: `ci-setup` calls `app-token-policy` which returns `allowed=false`. Token minting is skipped. Publish logs "Preview deployment is skipped because the app token is unavailable (fork or Dependabot PR)" to the step summary. No deployment happens. No browser-live tests run.
 - **`persist-thumbnails`**: does not run (`persist-mode` is `none`).
 
@@ -302,7 +344,7 @@ graph TD
 
 | File | Triggers | Jobs |
 | --- | --- | --- |
-| `update.yml` | push to main, PR (open/sync/close), manual | plan, verify, secret-scan, dependency-review, publish, persist-thumbnails, cleanup-preview |
+| `update.yml` | push to main, PR (open/sync/close), weekly Sun 4:23 UTC full sweep, manual | plan, quick-gates, heavy-checks, root-browser, app-shard, assemble-site, verify, secret-scan, dependency-review, save-app-ledger, publish, persist-thumbnails, cleanup-preview |
 | `audit-repo-settings.yml` | weekly Mon 8:23 UTC, manual | audit |
 | `live-site-smoke.yml` | daily 06:17 UTC, manual | smoke |
 | `codeql.yml` | push to main, PR to main, weekly Mon 6:30 UTC, manual | analyze-javascript, analyze-python, analyze-actions |
@@ -324,14 +366,19 @@ graph TD
 
 | Script | Called by | Purpose |
 | --- | --- | --- |
-| `scripts/ci/workflow_helpers.py thumbnail-plan` | plan job | Compute the full automation plan (browser/thumbnail/persist scope) |
-| `scripts/ci/workflow_helpers.py invalidate-thumbnails` | verify job | Delete stale thumbnails for apps with runtime changes |
+| `scripts/ci/workflow_helpers.py thumbnail-plan` | plan job | Compute the full automation plan (browser/thumbnail/persist scope plus shard matrix) |
+| `scripts/ci/app_hashes.py apply-ledger` | plan job | Memoize apps whose input hash already passed on `main` out of the browser shards |
+| `scripts/ci/app_hashes.py update-ledger` | save-app-ledger job | Record main-verified app input hashes into the ledger cache |
+| `scripts/ci/app_shards.py write-manifest` | app-shard job | Select one shard's slugs from the plan into a standalone manifest |
+| `scripts/ci/app_shards.py package-result` | app-shard job | Package a shard manifest and its generated thumbnails for transfer |
+| `scripts/ci/app_shards.py merge-results` | assemble-site job | Merge every downloaded shard thumbnail result into the checkout |
+| `scripts/ci/app_shards.py invalidate-thumbnails` | app-shard job (`make thumbnails-shard`) | Delete stale thumbnails for a shard's slugs before regeneration |
 | `scripts/ci/workflow_helpers.py app-token-policy` | ci-setup action | Decide if app tokens should be minted |
 | `scripts/ci/workflow_helpers.py validate-thumbnail-artifact` | persist-thumbnails job | Validate thumbnail artifact matches the plan |
 | `scripts/ci/workflow_helpers.py audit-repo-settings` | audit-repo-settings workflow | Check Pages, protection, variables, secrets, ruleset |
 | `scripts/ci/workflow_helpers.py lock-refresh-workflow-run` | commit-python-locks workflow | Validate the triggering Dependabot workflow run and emit its trusted artifact and target values |
 | `scripts/ci/workflow_helpers.py validate-lock-artifact` | commit-python-locks workflow | Reject unsafe artifact trees and require metadata to match the trusted triggering run |
-| `scripts/ci/run_parallel_checks.py` | verify job | Run independent Make targets concurrently with captured CI-friendly output |
+| `scripts/ci/run_parallel_checks.py` | quick-gates and heavy-checks jobs | Run independent Make targets concurrently with captured CI-friendly output |
 | `scripts/ci/verify_deploy.py` | publish job | Poll published URL for expected HTML marker and deploy metadata SHA |
 | `scripts/gh/cli.py` | local `make pr-*` and `make ci-failures` targets | Provide tested GitHub PR review-thread and failed-CI helpers |
 | `deploy-verified.mjs` | deploy-site action, publish/cleanup jobs | Deploy to gh-pages via GraphQL verified commit; handles full site, preview subdirectory, and preview removal |
@@ -341,8 +388,12 @@ graph TD
 
 ```mermaid
 graph LR
-    verify -->|"site-{run_id}<br/>(_site/ directory)"| publish
-    verify -->|"thumbnail-persist-{run_id}<br/>(apps/*/thumbnail.webp + plan.json)"| persist["persist-thumbnails"]
+    plan -->|"ci-plan-{run_id}<br/>(plan.json with slug lists)"| shards["app-shard"]
+    plan -->|"ci-plan-{run_id}"| assemble["assemble-site"]
+    shards -->|"app-shard-{run_id}-{shard}<br/>(manifest + thumbnails)"| assemble
+
+    assemble -->|"site-{run_id}<br/>(_site/ directory)"| publish
+    assemble -->|"thumbnail-persist-{run_id}<br/>(apps/*/thumbnail.webp + plan.json)"| persist["persist-thumbnails"]
 
     refresh["refresh-python-locks"] -->|"python-lock-refresh-{pr_number}<br/>(locks + metadata)"| commit["commit-python-locks"]
 
@@ -415,7 +466,7 @@ The `plan` job also computes `skip-verification` to eliminate redundant CI runs 
 1. The workflow actor matches the resolved app bot login (derived from `vars.APP_ID` at runtime, not hardcoded).
 2. Every file in the triggering commit matches the thumbnail pattern (`apps/*/thumbnail.webp`).
 
-Both must hold for `skip-verification` to be `true`. When set, `verify` and `publish` are skipped, while `plan`, `secret-scan`, and (on pull request events) `dependency-review` still run. The same commit-level files check applies to main-branch pushes from merged thumbnail follow-up PRs, alongside the existing PR provenance detection.
+Both must hold for `skip-verification` to be `true`. When set, the verification jobs (`quick-gates`, `heavy-checks`, `root-browser`, `app-shard`, `assemble-site`), the aggregating `verify` job, and `publish` are all skipped, while `plan`, `secret-scan`, and (on pull request events) `dependency-review` still run. The same commit-level files check applies to main-branch pushes from merged thumbnail follow-up PRs, alongside the existing PR provenance detection.
 
 Any detection failure (missing secrets, API errors, non-thumbnail files, actor mismatch) defaults to `false` (the full pipeline runs). The skip is a narrow optimization exit, not a mode change.
 

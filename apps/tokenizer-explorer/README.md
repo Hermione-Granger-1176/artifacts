@@ -38,7 +38,7 @@ Interactive explainer for the path from text chunks to a sampled LLM continuatio
 
 ## Development notes
 
-- Keep authored colors in `rgb()` and `rgba()` form only, or reuse the shared custom properties
+- Keep app CSS colors token-derived through `var()` or a `color-mix()` over shared tokens. Raw hex, named colors, and literal-channel color functions are rejected by `make lint-app-css-tokens`
 - Reuse the shared bookmark-note token system before adding new colors
 - Preserve the order of operations: temperature first, top-p second, then sample from the renormalized nucleus
 - Keep token examples explicitly illustrative. This artifact does not ship a real tokenizer or a model-serving client

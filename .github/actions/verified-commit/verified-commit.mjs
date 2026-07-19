@@ -41,16 +41,18 @@ export function parseDiffOutput(diffOutput, { existsSync, readFileSync }) {
 
     switch (code) {
       case "R":
-        if (path1 && path2) {
-          deletions.push({ path: path1 });
-          additions.push({ path: path2, contents: readFileSync(path2).toString("base64") });
+        if (!path1 || !path2) {
+          continue;
         }
+        deletions.push({ path: path1 });
+        additions.push({ path: path2, contents: readFileSync(path2).toString("base64") });
         continue;
 
       case "D":
-        if (path1) {
-          deletions.push({ path: path1 });
+        if (!path1) {
+          continue;
         }
+        deletions.push({ path: path1 });
         continue;
 
       default:

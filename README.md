@@ -42,7 +42,8 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 - [`docs/adr/0002-shared-app-system-and-thumbnail-persistence.md`](docs/adr/0002-shared-app-system-and-thumbnail-persistence.md): accepted decision record for the shared app shell and generated thumbnails
 - [`docs/adr/0003-makefile-first-and-single-source-of-truth.md`](docs/adr/0003-makefile-first-and-single-source-of-truth.md): accepted decision record for Makefile-first tooling and config ownership
 - [`docs/adr/0004-per-artifact-app-stylesheets.md`](docs/adr/0004-per-artifact-app-stylesheets.md): accepted decision record for splitting artifact CSS into app-local stylesheets
-- [`docs/adr/0005-shared-design-tokens-and-component-system.md`](docs/adr/0005-shared-design-tokens-and-component-system.md): accepted decision record for the shared design-token and component system
+- [`docs/adr/0005-ci-scaling-architecture-and-roadmap.md`](docs/adr/0005-ci-scaling-architecture-and-roadmap.md): accepted decision record for the sharded, memoized CI pipeline
+- [`docs/adr/0006-shared-design-tokens-and-component-system.md`](docs/adr/0006-shared-design-tokens-and-component-system.md): accepted decision record for the shared design-token and component system
 - [`frontend.md`](docs/frontend.md): JavaScript module layout and test coverage
 - [`operations.md`](docs/operations.md): local workflows, CI, and generation notes
 - [`maintenance.md`](docs/maintenance.md): maintenance rules and long-term repo hygiene

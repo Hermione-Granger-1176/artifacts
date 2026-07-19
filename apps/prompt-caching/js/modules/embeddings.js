@@ -27,10 +27,9 @@ const CANVAS_VARS = [
 ];
 
 const { colors: canvasPalette, refreshPalette: refreshCanvasPalette } = createPaletteCache(({ css }) => {
-  const resolved = /** @type {Record<string, string>} */ ({});
-  for (const name of CANVAS_VARS) {
-    resolved[name] = css(name);
-  }
+  const resolved = /** @type {Record<string, string>} */ (
+    Object.fromEntries(CANVAS_VARS.map((name) => [name, css(name)]))
+  );
   resolved.font = css("--font-body") || "sans-serif";
   return resolved;
 });

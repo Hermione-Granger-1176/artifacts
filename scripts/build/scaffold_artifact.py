@@ -283,8 +283,9 @@ def _readme_template(title: str, *, drop_in: bool = False) -> str:
         "so the self-only Content-Security-Policy keeps holding."
     )
     development = (
-        "- Keep shared design decisions in `../../css/style.css` and "
-        "app-specific layout in `css/app.css`\n"
+        "- Make shared design changes in the `css/src/` partials "
+        "(`01-tokens.css`, `03-artifact-shell.css`, `04-artifact-components.css`), "
+        "which generate `../../css/style.css`, and keep app-specific layout in `css/app.css`\n"
         "- Keep app-specific behavior scoped to this folder"
     )
     if drop_in:

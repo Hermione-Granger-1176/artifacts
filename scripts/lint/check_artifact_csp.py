@@ -190,10 +190,10 @@ def _attribute_value(match: re.Match[str]) -> str:
 
 def _parse_attributes(tag: str) -> dict[str, str]:
     """Parse one HTML tag into a lower-cased attribute mapping."""
-    attributes: dict[str, str] = {}
-    for match in _ATTRIBUTE_PATTERN.finditer(tag):
-        attributes[match.group(1).lower()] = _attribute_value(match)
-    return attributes
+    return {
+        match.group(1).lower(): _attribute_value(match)
+        for match in _ATTRIBUTE_PATTERN.finditer(tag)
+    }
 
 
 def _parse_head_csp(html: str) -> _HeadCspParser:
@@ -319,10 +319,10 @@ def _stylesheet_violations(html: str, display_path: str) -> list[str]:
 
 def _extract_css_urls(style_block: str) -> list[str]:
     """Return every ``url(...)`` reference inside a CSS block."""
-    references: list[str] = []
-    for match in _CSS_URL_PATTERN.finditer(style_block):
-        references.append((match.group(1) or match.group(2) or match.group(3) or "").strip())
-    return references
+    return [
+        (match.group(1) or match.group(2) or match.group(3) or "").strip()
+        for match in _CSS_URL_PATTERN.finditer(style_block)
+    ]
 
 
 def _inline_style_violations(html: str, display_path: str) -> list[str]:
