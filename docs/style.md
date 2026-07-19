@@ -81,7 +81,7 @@ The shared design system lives in `css/src/` and is bundled into `css/style.css`
   - Note pastels `--note-{yellow,red,blue,green,amber,purple}`
   - Surface, border, text, chart, and tooltip tokens plus `--color-text-on-accent`
   - A type scale (`--font-size-{2xs,xs,sm,control,md,base,lg}`) and the label tracking token `--tracking-label`
-  - A spacing scale (`--space-1` through `--space-6`, plus `--space-8`), radii (`--radius-xs`, `-sm`, `-md`, `-pill`), and `--shadow-card`
+  - A spacing scale (`--space-1` through `--space-6`, plus `--space-8`), radii (`--radius-{xs,sm,md,pill}`), and `--shadow-card`
 - In the dark artifact scope every `--color-*-text` remaps to its `--color-*-emphasis` value and the note pastels get dark remaps, so rules that reference the tokens follow the theme automatically.
 
 ### Color rule
