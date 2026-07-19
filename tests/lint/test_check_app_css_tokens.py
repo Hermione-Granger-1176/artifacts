@@ -104,6 +104,13 @@ def test_radius_violation_allows_sub_token_decorative_radii() -> None:
     assert _radius_violation("5px") is None
 
 
+def test_radius_violation_flags_fractional_px_above_the_cap() -> None:
+    """A 5.5px radius sits above the decorative cap and is flagged."""
+    message = _radius_violation("5.5px")
+    assert message is not None
+    assert "5.5px" in message
+
+
 def test_radius_violation_allows_tokens_and_keywords() -> None:
     """Token, zero, and percentage radii carry no px literal and pass."""
     assert _radius_violation("var(--radius-md)") is None
@@ -119,6 +126,13 @@ def test_font_size_violation_flags_raw_px() -> None:
     message = _font_size_violation("13px")
     assert message is not None
     assert "13px" in message
+
+
+def test_font_size_violation_flags_leading_decimal_px() -> None:
+    """A leading-decimal px font-size such as .5px is still a raw px literal."""
+    message = _font_size_violation(".5px")
+    assert message is not None
+    assert ".5px" in message
 
 
 def test_font_size_violation_allows_allowlisted_px() -> None:

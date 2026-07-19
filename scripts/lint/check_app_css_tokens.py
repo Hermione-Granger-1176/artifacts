@@ -10,9 +10,9 @@ app stylesheet:
     - hard-codes a hex color (``#fff``, ``#ffffff``, ``#ffffff80``);
     - hard-codes a literal ``rgb()`` / ``rgba()`` color whose arguments do not
       derive from a ``var()`` reference or a ``color-mix()``;
-    - sets a ``border-radius`` (or a ``border-*-radius``) to a px literal of 6px
-      or more, instead of ``var(--radius-*)``, ``0``, or ``50%`` (px literals of
-      1px through 5px are allowed for deliberate sub-token decorative radii);
+    - sets a ``border-radius`` (or a ``border-*-radius``) to a px literal above
+      5px, instead of ``var(--radius-*)``, ``0``, or ``50%`` (px literals up to
+      5px are allowed for deliberate sub-token decorative radii);
     - sets a ``font-size`` to a raw px literal instead of ``var(--font-size-*)``,
       ``clamp()``, or an em / rem / % / inherit value; or
     - sets ``letter-spacing`` to a raw literal instead of ``var(--tracking-*)``
@@ -62,7 +62,7 @@ LETTER_SPACING_ALLOWLIST = frozenset(
 )
 
 # The largest px border-radius kept as a deliberate sub-token decorative value.
-# 6px and above must move onto a shared --radius-* token.
+# Anything above it must move onto a shared --radius-* token.
 MAX_DECORATIVE_RADIUS_PX = 5
 
 # One ``/* ... */`` comment block. DOTALL so a multi-line comment is masked in
@@ -86,8 +86,8 @@ _DECLARATION_RE = re.compile(
     re.IGNORECASE,
 )
 
-# A px length inside a value, for example ``12px`` or ``0.5px``.
-_PX_RE = re.compile(r"(\d+(?:\.\d+)?)px", re.IGNORECASE)
+# A px length inside a value, for example ``12px``, ``0.5px``, or ``.5px``.
+_PX_RE = re.compile(r"(\d*\.?\d+)px", re.IGNORECASE)
 
 
 def _mask_comments(css: str) -> str:
@@ -157,10 +157,10 @@ def _px_lengths(value: str) -> list[float]:
 
 def _radius_violation(value: str) -> str | None:
     """Return a message when a border-radius value uses an off-token px literal."""
-    if any(length >= MAX_DECORATIVE_RADIUS_PX + 1 for length in _px_lengths(value)):
+    if any(length > MAX_DECORATIVE_RADIUS_PX for length in _px_lengths(value)):
         return (
             f"off-token border-radius '{_normalize(value)}'; use var(--radius-*), "
-            f"0, or 50% (px literals of {MAX_DECORATIVE_RADIUS_PX + 1}px and up are off-token)"
+            f"0, or 50% (px literals above {MAX_DECORATIVE_RADIUS_PX}px are off-token)"
         )
     return None
 
