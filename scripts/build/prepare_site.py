@@ -259,6 +259,12 @@ def _patch_app_asset_references() -> None:
     if not apps_dir.exists():
         return
 
+    shared_asset_paths = {
+        'href="../../css/style.css"': DEPLOY_DIR / "css/style.css",
+        'src="../../js/app-theme.js"': DEPLOY_DIR / "js/app-theme.js",
+    }
+    shared_hashes: dict[str, str] = {}
+
     for app_dir in apps_dir.iterdir():
         if not app_dir.is_dir():
             continue
@@ -268,17 +274,19 @@ def _patch_app_asset_references() -> None:
             continue
 
         content = _read_text(index_path)
-        asset_paths = {
-            'href="../../css/style.css"': DEPLOY_DIR / "css/style.css",
+        applicable: dict[str, str] = {}
+        for old, shared_path in shared_asset_paths.items():
+            if old in content:
+                if old not in shared_hashes:
+                    shared_hashes[old] = _content_hash(shared_path)
+                applicable[old] = f'{old[:-1]}?v={shared_hashes[old]}"'
+        app_asset_paths = {
             'href="./css/app.css"': app_dir / "css/app.css",
-            'src="../../js/app-theme.js"': DEPLOY_DIR / "js/app-theme.js",
             'src="./js/app.js"': app_dir / "js/app.js",
         }
-        applicable = {
-            old: f'{old[:-1]}?v={_content_hash(asset_path)}"'
-            for old, asset_path in asset_paths.items()
-            if old in content
-        }
+        for old, asset_path in app_asset_paths.items():
+            if old in content:
+                applicable[old] = f'{old[:-1]}?v={_content_hash(asset_path)}"'
         if not applicable:
             continue
 

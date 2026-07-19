@@ -407,6 +407,8 @@ def test_patch_app_asset_references_versions_app_assets(
             ]
         ),
     )
+    second_index = deploy_dir / "apps" / "second" / "index.html"
+    write_text(second_index, '<link rel="stylesheet" href="../../css/style.css">\n')
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
     write_text(deploy_dir / "css" / "style.css", "body {}\n")
     write_text(deploy_dir / "js" / "app-theme.js", "theme\n")
@@ -424,6 +426,8 @@ def test_patch_app_asset_references_versions_app_assets(
     assert f'href="./css/app.css?v={app_css_hash}"' in content
     assert f'src="../../js/app-theme.js?v={theme_hash}"' in content
     assert f'src="./js/app.js?v={app_hash}"' in content
+    second_content = second_index.read_text(encoding="utf-8")
+    assert f'href="../../css/style.css?v={style_hash}"' in second_content
 
 
 def test_patch_app_asset_references_skips_missing_apps_dir(
