@@ -16,7 +16,7 @@ from scripts.lib.app_discovery import (
 )
 from scripts.lib.artifact_contract import load_contract as _load_contract
 from scripts.lib.gh_api import run_gh_api, run_gh_api_json
-from scripts.lib.path_validation import reject_symlinks
+from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -212,6 +212,7 @@ def thumbnail_plan(
     pr_author: str = "",
     actor: str = "",
     app_bot_login: str = "",
+    force_full: bool = False,
     apps_root: Path | None = None,
     list_changed_files_fn: Callable[..., list[str]] = list_changed_files,
     list_commit_files_fn: Callable[..., list[str]] = list_commit_files,
@@ -222,8 +223,10 @@ def thumbnail_plan(
     """Return the strict thumbnail automation plan for one workflow event."""
     del pr_number
     apps_root = apps_root or Path(artifact_base_path())
-    comparison_available = True
+    comparison_available = not force_full
     try:
+        if force_full:
+            raise RuntimeError("Full verification was requested")
         changed_files = list_changed_files_fn(base_sha=base_sha, head_sha=head_sha)
         runtime_plan = runtime_change_plan_fn(changed_files)
     except (OSError, RuntimeError, subprocess.SubprocessError):
@@ -252,14 +255,14 @@ def thumbnail_plan(
     # contain only thumbnail files. For main pushes: the PR provenance
     # must be a thumbnail-followup and the merge commit must contain only
     # thumbnail files. Any detection failure defaults to False (full run).
-    skip_verification = is_automated_thumbnail_commit(
+    skip_verification = not force_full and is_automated_thumbnail_commit(
         actor=actor,
         app_bot_login=app_bot_login,
         repo=repo,
         commit_sha=commit_sha,
         list_commit_files_fn=list_commit_files_fn,
     )
-    if not skip_verification and associated_pr_kind == "thumbnail-followup":
+    if not force_full and not skip_verification and associated_pr_kind == "thumbnail-followup":
         try:
             commit_files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
         except Exception:
@@ -287,7 +290,12 @@ def thumbnail_plan(
 
 def read_thumbnail_plan(root: Path) -> dict[str, object]:
     """Read a persisted thumbnail plan from an artifact root."""
+    reject_path_symlinks(root, label="Thumbnail artifact root")
     plan_path = root / THUMBNAIL_ARTIFACT_PLAN_FILE
+    if plan_path.is_symlink():
+        raise ValueError(f"Thumbnail plan manifest must not be a symlink: {plan_path}")
+    if not plan_path.is_file():
+        raise ValueError(f"Thumbnail plan manifest is missing: {plan_path}")
     payload = json.loads(plan_path.read_text(encoding="utf-8"))
     require_response_type(payload, dict, "Thumbnail plan must be a JSON object")
     return cast("dict[str, object]", payload)
@@ -295,10 +303,9 @@ def read_thumbnail_plan(root: Path) -> dict[str, object]:
 
 def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
     """Validate a thumbnail-persistence artifact tree and return its plan."""
+    reject_path_symlinks(root, label="Thumbnail artifact root")
     if not root.exists():
         raise ValueError(f"Thumbnail artifact root does not exist: {root}")
-    if not (root / THUMBNAIL_ARTIFACT_PLAN_FILE).is_file():
-        raise ValueError("Thumbnail artifact is missing plan.json")
 
     plan = read_thumbnail_plan(root)
     allowed_slugs = set(cast("list[str]", plan.get("thumbnail_slugs", [])))

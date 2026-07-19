@@ -5,6 +5,14 @@ from itertools import chain
 from pathlib import Path
 
 
+def reject_path_symlinks(path: Path, *, label: str = "Path") -> None:
+    """Raise ``ValueError`` when *path* or any lexical parent is a symlink."""
+    absolute_path = path.absolute()
+    for candidate in (absolute_path, *absolute_path.parents):
+        if candidate.is_symlink():
+            raise ValueError(f"{label} must not be a symlinked path: {candidate}")
+
+
 def reject_symlinks(root: Path) -> None:
     """Raise ``ValueError`` if any symlink exists under *root*.
 

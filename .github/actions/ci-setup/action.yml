@@ -54,9 +54,13 @@ inputs:
     required: false
     default: ""
   install-deps:
-    description: Whether to run make setup-ci.
+    description: Whether to install workspace dependencies.
     required: false
     default: "false"
+  install-browsers:
+    description: Whether dependency setup installs Chromium for browser jobs.
+    required: false
+    default: "true"
 
 outputs:
   app-token:
@@ -88,7 +92,7 @@ runs:
         HEAD_REPO_FORK: ${{ inputs.head-repo-fork }}
         PR_AUTHOR: ${{ inputs.pr-author }}
       run: >-
-        python3 scripts/ci/workflow_helpers.py app-token-policy
+        PYTHONPATH=. python3 scripts/ci/workflow_helpers.py app-token-policy
         --event-name "$EVENT_NAME"
         --head-repo-fork "$HEAD_REPO_FORK"
         --pr-author "$PR_AUTHOR"
@@ -211,6 +215,13 @@ runs:
         node-version: ${{ inputs.node-version }}
         cache: npm
 
+    - name: Cache Playwright browsers
+      if: inputs.install-deps == 'true' && inputs.install-browsers == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ hashFiles('uv.lock') }}
+
     - name: Install uv
       if: inputs.install-deps == 'true'
       shell: bash
@@ -219,4 +230,11 @@ runs:
     - name: Install workspace dependencies
       if: inputs.install-deps == 'true'
       shell: bash
-      run: make setup-ci
+      env:
+        INSTALL_BROWSERS: ${{ inputs.install-browsers }}
+      run: |
+        if [ "$INSTALL_BROWSERS" = "true" ]; then
+          make setup-ci
+        else
+          make setup
+        fi

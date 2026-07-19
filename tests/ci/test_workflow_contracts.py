@@ -76,7 +76,14 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
     workflow = _load_workflow("update.yml")
     on_block = _workflow_on(workflow)
 
-    assert set(on_block) == {"workflow_dispatch", "push", "pull_request"}
+    assert set(on_block) == {"workflow_dispatch", "schedule", "push", "pull_request"}
+    assert on_block["schedule"] == [{"cron": "23 4 * * 0"}]
+    assert on_block["workflow_dispatch"]["inputs"]["full-sweep"] == {
+        "description": "Force a conservative full verification sweep.",
+        "required": False,
+        "default": True,
+        "type": "boolean",
+    }
     assert on_block["push"]["branches"] == ["main"]
     assert on_block["pull_request"]["branches"] == ["main"]
     assert on_block["pull_request"]["types"] == [
@@ -87,29 +94,34 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
     ]
     assert set(_jobs(workflow)) == {
         "plan",
-        "platform-checks",
+        "quick-gates",
+        "heavy-checks",
         "root-browser",
         "app-shard",
         "assemble-site",
         "verify",
+        "save-app-ledger",
         "secret-scan",
         "dependency-review",
         "publish",
         "persist-thumbnails",
         "cleanup-preview",
     }
-    assert _job(workflow, "platform-checks")["needs"] == "plan"
-    assert _job(workflow, "root-browser")["needs"] == "plan"
-    assert _job(workflow, "app-shard")["needs"] == "plan"
+    assert _job(workflow, "quick-gates")["needs"] == "plan"
+    assert set(_job(workflow, "heavy-checks")["needs"]) == {"plan", "quick-gates"}
+    assert set(_job(workflow, "root-browser")["needs"]) == {"plan", "quick-gates"}
+    assert set(_job(workflow, "app-shard")["needs"]) == {"plan", "quick-gates"}
     assert set(_job(workflow, "assemble-site")["needs"]) == {
         "plan",
-        "platform-checks",
+        "quick-gates",
+        "heavy-checks",
         "root-browser",
         "app-shard",
     }
     assert set(_job(workflow, "verify")["needs"]) == {
         "plan",
-        "platform-checks",
+        "quick-gates",
+        "heavy-checks",
         "root-browser",
         "app-shard",
         "assemble-site",
@@ -117,6 +129,7 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
         "dependency-review",
     }
     assert set(_job(workflow, "publish")["needs"]) == {"plan", "verify"}
+    assert set(_job(workflow, "save-app-ledger")["needs"]) == {"plan", "verify"}
     assert set(_job(workflow, "persist-thumbnails")["needs"]) == {
         "plan",
         "assemble-site",
@@ -127,7 +140,12 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
     assert _step(plan, "Checkout repository")["with"]["fetch-depth"] == 0
     plan_run = _step_run(plan, "Compute app impact plan")
     assert "make ci-thumbnail-plan" in plan_run
+    assert "force_full=\"${{ github.event_name == 'schedule' || inputs.full-sweep }}\"" in plan_run
+    assert "make ci-apply-app-ledger" in plan_run
     assert 'PLAN_JSON="$plan" make ci-plan-outputs >> "$GITHUB_OUTPUT"' in plan_run
+    restore_ledger = _step(plan, "Restore main verification ledger")
+    assert restore_ledger["with"]["key"] == "app-ledger-${{ github.sha }}"
+    assert restore_ledger["with"]["restore-keys"] == "app-ledger-\n"
     upload = _step(plan, "Upload app impact plan")
     assert upload["with"]["name"] == "ci-plan-${{ github.run_id }}"
     assert upload["with"]["path"] == ".artifacts/ci-plan/plan.json"
@@ -136,11 +154,15 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
 def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -> None:
     """Update workflow keeps the bounded shard and single assembly contracts."""
     workflow = _load_workflow("update.yml")
-    platform = _job(workflow, "platform-checks")
-    assert "make ci-platform-checks" in _step_run(platform, "Run fixed platform checks")
+    quick = _job(workflow, "quick-gates")
+    heavy = _job(workflow, "heavy-checks")
+    assert "make ci-quick-gates" in _step_run(quick, "Run quick gates")
+    assert "make ci-heavy-checks" in _step_run(heavy, "Run heavy checks")
     assert "make ci-coverage-summary report=js-coverage.txt" in _step_run(
-        platform, "Report JavaScript coverage"
+        heavy, "Report JavaScript coverage"
     )
+    assert _step_with(quick, "CI setup")["install-browsers"] == "false"
+    assert _step_with(heavy, "CI setup")["install-browsers"] == "false"
     assert "make test-browser-root" in _step_run(
         _job(workflow, "root-browser"), "Run root browser verification"
     )
@@ -168,6 +190,7 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     )
 
     assemble = _job(workflow, "assemble-site")
+    assert _step_with(assemble, "CI setup")["install-browsers"] == "false"
     download_results = _step(assemble, "Download shard thumbnail results")
     assert download_results["with"]["pattern"] == "app-shard-${{ github.run_id }}-*"
     assert "make ci-merge-shard-results root=.artifacts/shard-results" in _step_run(
@@ -193,8 +216,21 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     verify = _job(workflow, "verify")
     assert [step["name"] for step in _steps(verify)] == ["Check required job results"]
     verify_run = _step_run(verify, "Check required job results")
-    for result in ("PLATFORM_RESULT", "ROOT_BROWSER_RESULT", "APP_SHARD_RESULT", "ASSEMBLE_RESULT"):
+    for result in (
+        "QUICK_GATES_RESULT",
+        "HEAVY_CHECKS_RESULT",
+        "ROOT_BROWSER_RESULT",
+        "APP_SHARD_RESULT",
+        "ASSEMBLE_RESULT",
+    ):
         assert result in verify_run
+
+    ledger = _job(workflow, "save-app-ledger")
+    assert ledger["if"].strip().startswith("github.event_name == 'push'")
+    assert "make ci-update-app-ledger" in _step_run(ledger, "Update main verification ledger")
+    assert _step(ledger, "Save verification ledger")["if"] == (
+        "steps.app-ledger.outputs.cache-hit != 'true'"
+    )
 
 
 def test_update_publish_job_reuses_verified_site_artifact() -> None:
@@ -256,6 +292,15 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     assert "make thumbnails" not in publish_runs
     assert "make index" not in publish_runs
     assert "make site" not in publish_runs
+
+
+def test_browser_make_targets_retry_only_failed_tests_once() -> None:
+    """Browser Make targets retry their failed tests and surface flaky passes."""
+    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert "--last-failed --last-failed-no-failures none" in makefile
+    assert "FLAKY BROWSER TESTS" in makefile
+    assert "A retry passed after an initial failure." in makefile
 
 
 def test_update_publish_job_writes_classic_deployment_records() -> None:
@@ -700,12 +745,24 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
         (REPO_ROOT / ".github" / "actions" / "ci-setup" / "action.yml").read_text(encoding="utf-8")
     )
 
-    for job_name in ("platform-checks", "root-browser", "app-shard", "assemble-site"):
+    for job_name in ("quick-gates", "heavy-checks", "root-browser", "app-shard", "assemble-site"):
         assert _step_uses(_job(update, job_name), "CI setup") == "./.github/actions/ci-setup"
         assert _step_with(_job(update, job_name), "CI setup")["install-deps"] == "true"
+    for job_name in ("quick-gates", "heavy-checks", "assemble-site"):
+        assert _step_with(_job(update, job_name), "CI setup")["install-browsers"] == "false"
     assert _step_with(_job(update, "publish"), "Cache Playwright browsers")["key"] == (
         "playwright-${{ hashFiles('uv.lock') }}"
     )
+    ci_setup_cache = next(
+        step
+        for step in ci_setup["runs"]["steps"]
+        if step.get("name") == "Cache Playwright browsers"
+    )
+    assert (
+        ci_setup_cache["if"] == "inputs.install-deps == 'true' && inputs.install-browsers == 'true'"
+    )
+    assert ci_setup_cache["with"]["key"] == "playwright-${{ hashFiles('uv.lock') }}"
+    assert ci_setup["inputs"]["install-browsers"]["default"] == "true"
     publish_uv_install = _step_run(
         _job(update, "publish"), "Install uv for live browser verification"
     )

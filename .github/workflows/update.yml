@@ -2,6 +2,14 @@ name: Update Artifacts & Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      full-sweep:
+        description: Force a conservative full verification sweep.
+        required: false
+        default: true
+        type: boolean
+  schedule:
+    - cron: "23 4 * * 0"
   push:
     branches:
       - main
@@ -64,6 +72,15 @@ jobs:
           app-id: ${{ vars.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
+      - name: Restore main verification ledger
+        id: app-ledger
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .artifacts/app-ledger/ledger.json
+          key: app-ledger-${{ github.sha }}
+          restore-keys: |
+            app-ledger-
+
       - name: Compute app impact plan
         id: plan
         env:
@@ -85,9 +102,16 @@ jobs:
             head_repo_fork="$HEAD_REPO_FORK" \
             pr_author="$PR_AUTHOR" \
             actor="$ACTOR" \
-            app_bot_login="$APP_BOT_LOGIN")
+            app_bot_login="$APP_BOT_LOGIN" \
+            force_full="${{ github.event_name == 'schedule' || inputs.full-sweep }}")
           mkdir -p .artifacts/ci-plan
           printf '%s' "$plan" > .artifacts/ci-plan/plan.json
+          make ci-apply-app-ledger \
+            plan=.artifacts/ci-plan/plan.json \
+            ledger=.artifacts/app-ledger/ledger.json \
+            output=.artifacts/ci-plan/memoized-plan.json
+          mv .artifacts/ci-plan/memoized-plan.json .artifacts/ci-plan/plan.json
+          plan=$(cat .artifacts/ci-plan/plan.json)
           PLAN_JSON="$plan" make ci-plan-outputs >> "$GITHUB_OUTPUT"
 
       - name: Upload app impact plan
@@ -119,7 +143,7 @@ jobs:
             echo "Shard count: $PLAN_SHARD_COUNT"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  platform-checks:
+  quick-gates:
     if: >-
       github.event.action != 'closed' &&
       needs.plan.outputs.skip-verification != 'true'
@@ -139,11 +163,39 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           node-version: ${{ env.NODE_VERSION }}
           install-deps: "true"
+          install-browsers: "false"
 
-      - name: Run fixed platform checks
+      - name: Run quick gates
+        run: make ci-quick-gates
+
+  heavy-checks:
+    if: >-
+      github.event.action != 'closed' &&
+      needs.plan.outputs.skip-verification != 'true'
+    needs:
+      - plan
+      - quick-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: CI setup
+        uses: ./.github/actions/ci-setup
+        with:
+          event-name: ${{ github.event_name }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          node-version: ${{ env.NODE_VERSION }}
+          install-deps: "true"
+          install-browsers: "false"
+
+      - name: Run heavy checks
         env:
           COVERAGE_OUTPUT: js-coverage.txt
-        run: make ci-platform-checks
+        run: make ci-heavy-checks
 
       - name: Report JavaScript coverage
         if: always()
@@ -156,7 +208,9 @@ jobs:
     if: >-
       github.event.action != 'closed' &&
       needs.plan.outputs.skip-verification != 'true'
-    needs: plan
+    needs:
+      - plan
+      - quick-gates
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -181,7 +235,9 @@ jobs:
       github.event.action != 'closed' &&
       needs.plan.outputs.skip-verification != 'true' &&
       needs.plan.outputs.shard-count != '0'
-    needs: plan
+    needs:
+      - plan
+      - quick-gates
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -240,12 +296,14 @@ jobs:
     if: >-
       always() && github.event.action != 'closed' &&
       needs.plan.outputs.skip-verification != 'true' &&
-      needs.platform-checks.result == 'success' &&
+      needs.quick-gates.result == 'success' &&
+      needs.heavy-checks.result == 'success' &&
       needs.root-browser.result == 'success' &&
       (needs.app-shard.result == 'success' || needs.app-shard.result == 'skipped')
     needs:
       - plan
-      - platform-checks
+      - quick-gates
+      - heavy-checks
       - root-browser
       - app-shard
     runs-on: ubuntu-latest
@@ -279,6 +337,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           node-version: ${{ env.NODE_VERSION }}
           install-deps: "true"
+          install-browsers: "false"
 
       - name: Merge shard thumbnails
         run: make ci-merge-shard-results root=.artifacts/shard-results
@@ -340,7 +399,8 @@ jobs:
       needs.plan.outputs.skip-verification != 'true'
     needs:
       - plan
-      - platform-checks
+      - quick-gates
+      - heavy-checks
       - root-browser
       - app-shard
       - assemble-site
@@ -353,7 +413,8 @@ jobs:
       - name: Check required job results
         env:
           PLAN_RESULT: ${{ needs.plan.result }}
-          PLATFORM_RESULT: ${{ needs.platform-checks.result }}
+          QUICK_GATES_RESULT: ${{ needs.quick-gates.result }}
+          HEAVY_CHECKS_RESULT: ${{ needs.heavy-checks.result }}
           ROOT_BROWSER_RESULT: ${{ needs.root-browser.result }}
           APP_SHARD_RESULT: ${{ needs.app-shard.result }}
           ASSEMBLE_RESULT: ${{ needs.assemble-site.result }}
@@ -361,12 +422,59 @@ jobs:
           DEPENDENCY_REVIEW_RESULT: ${{ needs.dependency-review.result }}
         run: |
           [ "$PLAN_RESULT" = "success" ]
-          [ "$PLATFORM_RESULT" = "success" ]
+          [ "$QUICK_GATES_RESULT" = "success" ]
+          [ "$HEAVY_CHECKS_RESULT" = "success" ]
           [ "$ROOT_BROWSER_RESULT" = "success" ]
           [ "$APP_SHARD_RESULT" = "success" ] || [ "$APP_SHARD_RESULT" = "skipped" ]
           [ "$ASSEMBLE_RESULT" = "success" ]
           [ "$SECRET_SCAN_RESULT" = "success" ]
           [ "$DEPENDENCY_REVIEW_RESULT" = "success" ] || [ "$DEPENDENCY_REVIEW_RESULT" = "skipped" ]
+
+  save-app-ledger:
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.verify.result == 'success'
+    needs:
+      - plan
+      - verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Download app impact plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ci-plan-${{ github.run_id }}
+          path: .artifacts/ci-plan
+
+      - name: Restore verification ledger
+        id: app-ledger
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .artifacts/app-ledger/ledger.json
+          key: app-ledger-${{ github.sha }}
+          restore-keys: |
+            app-ledger-
+
+      - name: Update main verification ledger
+        run: >-
+          make ci-update-app-ledger
+          plan=.artifacts/ci-plan/plan.json
+          ledger=.artifacts/app-ledger/ledger.json
+
+      - name: Save verification ledger
+        if: steps.app-ledger.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .artifacts/app-ledger/ledger.json
+          key: app-ledger-${{ github.sha }}
 
   secret-scan:
     if: github.event.action != 'closed'
@@ -467,9 +575,15 @@ jobs:
         if: steps.setup.outputs.token-available == 'true'
         run: make setup-ci
 
-      - name: Resolve deployed asset marker
+      - name: Resolve deployed app asset hash
         id: deploy-version
-        run: echo "short-sha=$(printf '%s' "${{ github.sha }}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
+        run: |
+          hash=$(grep -oE 'src="js/app.js\?v=[0-9a-f]+"' _site/index.html | head -1 | sed -E 's/.*v=([0-9a-f]+).*/\1/')
+          if [ -z "$hash" ]; then
+            echo "Could not resolve the deployed js/app.js content hash." >&2
+            exit 1
+          fi
+          echo "content-hash=$hash" >> "$GITHUB_OUTPUT"
 
       - name: Resolve preview URL
         if: github.event_name == 'pull_request'
@@ -588,7 +702,7 @@ jobs:
         run: >-
           python3 scripts/ci/verify_deploy.py
           --url "${{ steps.preview-url.outputs.url }}"
-          --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
+          --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.content-hash }}"
           --expected-commit-sha "${{ github.sha }}"
           --attempts ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
           --delay-seconds ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
@@ -621,7 +735,7 @@ jobs:
         run: >-
           python3 scripts/ci/verify_deploy.py
           --url "${{ steps.live-site-url.outputs.url }}"
-          --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.short-sha }}"
+          --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.content-hash }}"
           --expected-commit-sha "${{ github.sha }}"
           --attempts ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
           --delay-seconds ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}

@@ -292,6 +292,7 @@ def thumbnail_plan(
     apps_root: Path | None = None,
     base_sha: str = "",
     head_sha: str = "",
+    force_full: bool = False,
 ) -> dict[str, object]:
     """Return the strict thumbnail automation plan for one workflow event."""
     plan = _thumbnail_plan.thumbnail_plan(
@@ -305,6 +306,7 @@ def thumbnail_plan(
         pr_author=pr_author,
         actor=actor,
         app_bot_login=app_bot_login,
+        force_full=force_full,
         apps_root=apps_root,
         list_changed_files_fn=list_changed_files,
         list_commit_files_fn=list_commit_files,
@@ -519,6 +521,7 @@ def _build_parser() -> argparse.ArgumentParser:
     thumbnail_plan_parser.add_argument("--pr-author", default="")
     thumbnail_plan_parser.add_argument("--actor", default="")
     thumbnail_plan_parser.add_argument("--app-bot-login", default="")
+    thumbnail_plan_parser.add_argument("--force-full", default="false")
 
     thumbnail_artifact_parser = subparsers.add_parser(
         "validate-thumbnail-artifact",
@@ -639,6 +642,7 @@ def _handle_thumbnail_plan(args: argparse.Namespace) -> int:
         pr_author=args.pr_author,
         actor=args.actor,
         app_bot_login=args.app_bot_login,
+        force_full=_parse_bool(args.force_full),
     )
     print(json.dumps(plan, sort_keys=True))
     return 0
