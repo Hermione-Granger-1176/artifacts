@@ -1,0 +1,1 @@
+A plain-language explainer of why bond prices fall when interest rates rise: drag the rate to reprice a bond you own, see how coupon and maturity change the swing, and what the move means for the wider economy.
