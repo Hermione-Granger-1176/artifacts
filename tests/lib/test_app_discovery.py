@@ -223,9 +223,11 @@ def test_shared_module_consumers_only_seed_from_module_scripts(tmp_path: Path) -
     (app_dir / "js" / "vendor").mkdir(parents=True)
     (app_dir / "index.html").write_text(
         '<script defer src="./js/vendor/bundle.js"></script>\n'
+        '<script data-type="module" src="./js/vendor/bundle.js"></script>\n'
         '<script type="module">console.log("inline");</script>\n'
+        '<script type="module" data-src="./js/vendor/bundle.js"></script>\n'
         '<script type="module" src="https://cdn.example.com/remote.js"></script>\n'
-        '<script type="module" src="../../outside-roots.js"></script>\n',
+        '<script type = "module" src = "../../outside-roots.js"></script>\n',
         encoding="utf-8",
     )
     (app_dir / "js" / "vendor" / "bundle.js").write_text(

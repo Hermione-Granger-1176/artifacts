@@ -648,7 +648,7 @@ ci-thumbnail-plan: ## Compute a git-diff app impact plan (event_name= base_sha= 
 		--commit-sha "$(commit_sha)" \
 		--base-sha "$(base_sha)" \
 		--head-sha "$(head_sha)" \
-		--head-repo-fork "$(head_repo_fork)" \
+		--head-repo-fork "$(if $(head_repo_fork),$(head_repo_fork),false)" \
 		--pr-author "$(pr_author)" \
 		--actor "$(actor)" \
 		--app-bot-login "$(app_bot_login)" \

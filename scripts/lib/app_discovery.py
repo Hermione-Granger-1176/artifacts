@@ -46,10 +46,10 @@ SHARED_APP_BROWSER_TEST_PATHS = {
     "tests/browser/test_frontend_apps_smoke.py",
 }
 SCRIPT_TAG_PATTERN = re.compile(r"<script\b[^>]*>", re.IGNORECASE)
-MODULE_TYPE_PATTERN = re.compile(r"\btype=[\"']module[\"']", re.IGNORECASE)
-SCRIPT_SRC_PATTERN = re.compile(r"\bsrc=[\"']([^\"']+)[\"']", re.IGNORECASE)
+MODULE_TYPE_PATTERN = re.compile(r"(?<![\w-])type\s*=\s*[\"']module[\"']", re.IGNORECASE)
+SCRIPT_SRC_PATTERN = re.compile(r"(?<![\w-])src\s*=\s*[\"']([^\"']+)[\"']", re.IGNORECASE)
 ESM_IMPORT_PATTERN = re.compile(
-    r"(?:import|export)\s+(?:[^;]*?\s+from\s+)?[\"']([^\"']+)[\"']",
+    r"(?<![\w$])(?:import|export)\s+(?:[^;]*?\s+from\s+)?[\"']([^\"']+)[\"']",
     re.DOTALL,
 )
 
