@@ -67,6 +67,22 @@ def test_mask_handles_escaped_quotes_inside_strings() -> None:
     assert _hex_violations(_mask(css)) == []
 
 
+def test_mask_comment_opener_inside_string_does_not_eat_real_css() -> None:
+    """A /* inside a quoted string never opens a comment over later rules."""
+    css = 'body.app-x .a::before {\n  content: "/* not a comment";\n  color: #fff;\n}\n'
+    result = _hex_violations(_mask(css))
+    assert len(result) == 1
+    assert result[0][0] == 3
+
+
+def test_mask_quote_inside_comment_does_not_open_a_string() -> None:
+    """An apostrophe inside a comment never opens a string over later rules."""
+    css = "body.app-x .a {\n  /* don't hide the next line */\n  color: #fff;\n}\n"
+    result = _hex_violations(_mask(css))
+    assert len(result) == 1
+    assert result[0][0] == 3
+
+
 # --- value-position gating ---------------------------------------------------
 
 

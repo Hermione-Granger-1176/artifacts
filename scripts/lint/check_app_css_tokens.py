@@ -231,18 +231,22 @@ NAMED_COLOR_KEYWORDS = frozenset(
     }
 )
 
-# One ``/* ... */`` comment block. DOTALL so a multi-line comment is masked in
-# full; non-greedy so adjacent comments stay separate.
-_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
-
-# One single- or double-quoted CSS string on one line (CSS strings cannot span
-# an unescaped newline), e.g. a ``content`` value. Backslash escapes are
-# consumed so an escaped quote (``"\"#fff\""``) cannot end the string early.
-_STRING_RE = re.compile(r"\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'")
-
-# One ``url(...)`` reference, so SVG fragments such as ``url(#blur)`` never
-# read as hex colors.
-_URL_RE = re.compile(r"\burl\([^)]*\)", re.IGNORECASE)
+# One non-semantic region: a ``/* ... */`` comment block (DOTALL so it spans
+# lines; non-greedy so adjacent comments stay separate), a single- or
+# double-quoted CSS string on one line with backslash escapes consumed (so an
+# escaped quote such as ``"\"#fff\""`` cannot end the string early), or a
+# ``url(...)`` reference (so SVG fragments such as ``url(#blur)`` never read
+# as hex colors). All three are alternatives of one regex so masking happens
+# in a single left-to-right pass and the construct that starts first wins: a
+# ``/*`` inside a string never opens a comment, and a quote inside a comment
+# never opens a string.
+_NON_SEMANTIC_RE = re.compile(
+    r"/\*.*?\*/"
+    r"|\"(?:\\.|[^\"\\\n])*\""
+    r"|'(?:\\.|[^'\\\n])*'"
+    r"|\burl\([^)]*\)",
+    re.DOTALL | re.IGNORECASE,
+)
 
 # A hex color literal: '#' followed by exactly 3, 4, 6, or 8 hex digits (the
 # only valid CSS hex lengths); 5- and 7-digit runs are not colors and pass.
@@ -317,9 +321,7 @@ def _mask(css: str) -> str:
     def _blank(match: re.Match[str]) -> str:
         return "".join("\n" if char == "\n" else " " for char in match.group(0))
 
-    masked = _COMMENT_RE.sub(_blank, css)
-    masked = _STRING_RE.sub(_blank, masked)
-    return _URL_RE.sub(_blank, masked)
+    return _NON_SEMANTIC_RE.sub(_blank, css)
 
 
 def _line_number(css: str, index: int) -> int:
