@@ -61,7 +61,7 @@ Run `make lint`, `make typecheck-web`, `make dead-code-js`, `make coverage-js`, 
   - BEM-inspired class names (e.g., `.artifact-card`, `.detail-close`)
   - CSS custom properties for theming and shared geometry (for example `--color-bg-primary`, `--text-primary`, `--accent`, `--book-sheet-min-height`, `--gallery-*`, `--desk-note-*`, and the shared app-shell tokens)
   - Mature apps use the bookmark-note palette as the shared source of truth for light and dark themes
-  - Authored app colors should use `rgb()` and `rgba()` values instead of hex literals
+  - Authored colors use `rgb()` and `rgba()` values instead of hex literals; in app stylesheets they must additionally be token-derived (see the color rule below)
   - Keep shared rules in the matching ordered source partial: `01-tokens.css`, `02-gallery.css`, `03-artifact-shell.css`, `04-artifact-components.css`, `05-accessibility-and-utilities.css`, or `06-responsive-and-motion.css`
   - Use descriptive section headers in long stylesheets. Group app rules by the visualisation or page region they support
   - `prefers-reduced-motion` respected for transitions and animations
@@ -86,7 +86,7 @@ The shared design system lives in `css/src/` and is bundled into `css/style.css`
 
 ### Color rule
 
-- Authored app colors use the shared tokens or `rgb()` / `rgba()` values, never hex literals. A `color-mix()` over a token is fine
+- Colors are authored as `rgb()` / `rgba()` values or tokens, never hex literals. In `apps/<slug>/css/*.css` every color must be token-derived (a `var()` reference or a `color-mix()` over one); raw `rgb()` / `rgba()` literals belong only in the shared `css/src/` layer where the tokens are defined
 - Prefer a token over a raw color whenever one fits, so a theme change stays a single-file edit in `css/src/01-tokens.css`
 
 ### Shared components versus app-local CSS
