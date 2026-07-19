@@ -141,8 +141,8 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
     plan_run = _step_run(plan, "Compute app impact plan")
     assert "make ci-thumbnail-plan" in plan_run
     assert (
-        "force_full=\"${{ github.event_name == 'schedule' || inputs.full-sweep == true }}\""
-        in plan_run
+        "force_full=\"${{ github.event_name == 'schedule'"
+        " || inputs.full-sweep == true || inputs.full-sweep == 'true' }}\"" in plan_run
     )
     assert "make ci-apply-app-ledger" in plan_run
     assert 'PLAN_JSON="$plan" make ci-plan-outputs >> "$GITHUB_OUTPUT"' in plan_run

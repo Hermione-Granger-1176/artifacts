@@ -103,7 +103,7 @@ jobs:
             pr_author="$PR_AUTHOR" \
             actor="$ACTOR" \
             app_bot_login="$APP_BOT_LOGIN" \
-            force_full="${{ github.event_name == 'schedule' || inputs.full-sweep == true }}")
+            force_full="${{ github.event_name == 'schedule' || inputs.full-sweep == true || inputs.full-sweep == 'true' }}")
           mkdir -p .artifacts/ci-plan
           printf '%s' "$plan" > .artifacts/ci-plan/plan.json
           make ci-apply-app-ledger \
