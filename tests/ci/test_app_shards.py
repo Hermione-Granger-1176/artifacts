@@ -306,9 +306,7 @@ def test_write_and_package_reject_symlinked_outputs(tmp_path: Path) -> None:
     linked_root = tmp_path / "linked-result"
     linked_root.symlink_to(tmp_path / "real-result")
     with pytest.raises(ValueError, match="symlink"):
-        app_shards.package_shard_result(
-            manifest_path, output_root=linked_root, apps_root=tmp_path
-        )
+        app_shards.package_shard_result(manifest_path, output_root=linked_root, apps_root=tmp_path)
 
 
 def test_main_runs_makefile_facing_commands(
