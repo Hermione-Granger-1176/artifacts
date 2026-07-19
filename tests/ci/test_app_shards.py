@@ -87,7 +87,7 @@ def test_add_shards_obeys_size_and_matrix_limits() -> None:
     }
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(app_shards, "discover_app_slugs", lambda _root: all_apps)
-    monkeypatch.setattr(app_shards, "browser_app_slugs", lambda _root: [])
+    monkeypatch.setattr(app_shards, "browser_app_slugs", lambda _root, _slugs=None: [])
     try:
         result = app_shards.add_shards(plan)
     finally:
@@ -105,7 +105,7 @@ def test_add_shards_obeys_size_and_matrix_limits() -> None:
     monkeypatch.setattr(
         app_shards, "discover_app_slugs", lambda _root: oversized["thumbnail_slugs"]
     )
-    monkeypatch.setattr(app_shards, "browser_app_slugs", lambda _root: [])
+    monkeypatch.setattr(app_shards, "browser_app_slugs", lambda _root, _slugs=None: [])
     try:
         with pytest.raises(ValueError, match="shard capacity"):
             app_shards.add_shards(oversized)

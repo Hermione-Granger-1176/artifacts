@@ -32,6 +32,7 @@ GALLERY_MODULES_DIR = Path("js/modules/gallery")
 SHARED_APP_MODULES_PREFIX = f"{SHARED_APP_MODULES_DIR.as_posix()}/"
 GALLERY_MODULES_PREFIX = f"{GALLERY_MODULES_DIR.as_posix()}/"
 SHARED_APP_BROWSER_TEST_PATHS = {
+    "tests/browser/conftest.py",
     "tests/browser/frontend_helpers.py",
     "tests/browser/test_frontend_apps_accessibility.py",
     "tests/browser/test_frontend_apps_browser_flows.py",

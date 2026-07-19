@@ -17,13 +17,10 @@ MAX_SHARD_COUNT = 128
 SHARD_MANIFEST_FILE = "manifest.json"
 
 
-def browser_app_slugs(apps_root: Path) -> list[str]:
+def browser_app_slugs(apps_root: Path, slugs: list[str] | None = None) -> list[str]:
     """Return app slugs that have the mature app browser-test entry point."""
-    return [
-        slug
-        for slug in discover_app_slugs(apps_root)
-        if (apps_root / slug / "js" / "app.js").is_file()
-    ]
+    candidates = discover_app_slugs(apps_root) if slugs is None else slugs
+    return [slug for slug in candidates if (apps_root / slug / "js" / "app.js").is_file()]
 
 
 def _string_list(payload: dict[str, object], key: str) -> list[str]:
@@ -65,7 +62,7 @@ def add_shards(plan: dict[str, object], *, apps_root: Path | None = None) -> dic
     """Add deterministic browser and thumbnail shard assignments to one impact plan."""
     root = apps_root or Path(artifact_base_path())
     all_apps = discover_app_slugs(root)
-    browser_apps = browser_app_slugs(root)
+    browser_apps = browser_app_slugs(root, all_apps)
     browser_slugs = _scope_slugs(
         _scope(plan, "browser_scope"),
         _string_list(plan, "changed_slugs"),
