@@ -206,7 +206,15 @@ test('the markup declares nine unique anchored nav stages', () => {
     new URL('../../../../apps/prompt-caching/index.html', import.meta.url),
     'utf8'
   );
-  const stages = [...html.matchAll(/\bid="(sec-[^"]+)"\s+data-nav-label="([^"]*)"/g)];
+  const tags = [...html.matchAll(/<[^>]*\bdata-nav-label=[^>]*>/g)];
+  const stages = [];
+  for (const [tag] of tags) {
+    const idMatch = tag.match(/\bid="(sec-[^"]+)"/);
+    const labelMatch = tag.match(/\bdata-nav-label="([^"]*)"/);
+    if (idMatch && labelMatch) {
+      stages.push([tag, idMatch[1], labelMatch[1]]);
+    }
+  }
   assert.equal(stages.length, 9);
   const ids = new Set(stages.map(([, id]) => id));
   assert.equal(ids.size, 9);

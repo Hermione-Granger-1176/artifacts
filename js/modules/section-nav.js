@@ -64,7 +64,7 @@ function discoverSections() {
   /** @type {NavSection[]} */
   const found = [];
   for (const target of document.querySelectorAll("[data-nav-label]")) {
-    const label = target.getAttribute("data-nav-label");
+    const label = (target.getAttribute("data-nav-label") || "").trim();
     if (target.id && label) {
       found.push({ id: target.id, label });
     }
@@ -180,7 +180,7 @@ export function initSectionNav(explicitSections, anchors = {}) {
   const observer = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
-        const item = observed.find(({ target }) => target.id === entry.target.id);
+        const item = observed.find(({ target }) => target === entry.target);
         if (!item) {
           continue;
         }
