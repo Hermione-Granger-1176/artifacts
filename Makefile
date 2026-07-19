@@ -652,7 +652,7 @@ ci-thumbnail-plan: ## Compute a git-diff app impact plan (event_name= base_sha= 
 		--pr-author "$(pr_author)" \
 		--actor "$(actor)" \
 		--app-bot-login "$(app_bot_login)" \
-		--force-full "$(force_full)"
+		--force-full "$(if $(force_full),$(force_full),false)"
 
 ci-plan-outputs: ## Emit automation plan step outputs (reads PLAN_JSON from the environment)
 	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py plan-outputs

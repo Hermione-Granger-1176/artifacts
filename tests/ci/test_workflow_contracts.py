@@ -140,7 +140,10 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
     assert _step(plan, "Checkout repository")["with"]["fetch-depth"] == 0
     plan_run = _step_run(plan, "Compute app impact plan")
     assert "make ci-thumbnail-plan" in plan_run
-    assert "force_full=\"${{ github.event_name == 'schedule' || inputs.full-sweep }}\"" in plan_run
+    assert (
+        "force_full=\"${{ github.event_name == 'schedule' || inputs.full-sweep == true }}\""
+        in plan_run
+    )
     assert "make ci-apply-app-ledger" in plan_run
     assert 'PLAN_JSON="$plan" make ci-plan-outputs >> "$GITHUB_OUTPUT"' in plan_run
     restore_ledger = _step(plan, "Restore main verification ledger")
