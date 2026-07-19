@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import shutil
 from pathlib import Path
 
@@ -45,13 +46,14 @@ def test_gallery_smoke_covers_root_interactions(tmp_path: Path, monkeypatch) -> 
         expect(page.locator('meta[property="og:url"]')).to_have_attribute(
             "content", "https://example.com/"
         )
+        share_image = deploy_root / "assets" / "social" / "share-preview.png"
+        share_hash = hashlib.sha256(share_image.read_bytes()).hexdigest()[:12]
+        share_image_url = f"https://example.com/assets/social/share-preview.png?v={share_hash}"
         expect(page.locator('meta[property="og:image"]')).to_have_attribute(
-            "content",
-            "https://example.com/assets/social/share-preview.png?v=smoketest",
+            "content", share_image_url
         )
         expect(page.locator('meta[name="twitter:image"]')).to_have_attribute(
-            "content",
-            "https://example.com/assets/social/share-preview.png?v=smoketest",
+            "content", share_image_url
         )
 
         page.get_by_role("button", name="Page 2").click()

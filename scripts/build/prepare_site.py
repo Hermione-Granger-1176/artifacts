@@ -84,18 +84,18 @@ def _deploy_items() -> tuple[str, ...]:
 
 def _reject_symlinked_path(path: Path, *, label: str) -> None:
     """Reject one symlink before a direct filesystem operation."""
-    reject_path_symlinks(path, label=f"Refusing to {label}")
+    reject_path_symlinks(path, label=label)
 
 
 def _read_text(path: Path) -> str:
     """Read UTF-8 text only after refusing a symlinked input."""
-    _reject_symlinked_path(path, label="read")
+    _reject_symlinked_path(path, label="Read input")
     return path.read_text(encoding="utf-8")
 
 
 def _write_text(path: Path, content: str) -> None:
     """Write UTF-8 text only after refusing a symlinked output."""
-    _reject_symlinked_path(path, label="write")
+    _reject_symlinked_path(path, label="Write output")
     path.write_text(content, encoding="utf-8")
 
 
@@ -148,7 +148,7 @@ def _resolve_commit_sha() -> str:
 def _copy_deploy_items() -> None:
     """Copy the static site inputs into the clean deploy directory."""
     if DEPLOY_DIR.exists() or DEPLOY_DIR.is_symlink():
-        _reject_symlinked_path(DEPLOY_DIR, label="remove")
+        _reject_symlinked_path(DEPLOY_DIR, label="Removal target")
         reject_symlinks(DEPLOY_DIR)
         shutil.rmtree(DEPLOY_DIR)
 
@@ -165,7 +165,7 @@ def _copy_runtime_apps() -> None:
     """Copy only files fetched at runtime from each artifact into the deploy tree."""
     apps_source = REPO_ROOT / _artifact_base_path()
     apps_target = DEPLOY_DIR / _artifact_base_path()
-    _reject_symlinked_path(apps_source, label="copy")
+    _reject_symlinked_path(apps_source, label="Copy source")
     if not apps_source.exists():
         raise FileNotFoundError(f"Required deploy path not found: {apps_source}")
     reject_symlinks(apps_source)
@@ -184,7 +184,7 @@ def _remove_build_only_sources() -> None:
     """Remove stylesheet sources that are compiled into the public bundle."""
     source_dir = DEPLOY_DIR / "css" / "src"
     if source_dir.is_dir():
-        _reject_symlinked_path(source_dir, label="remove")
+        _reject_symlinked_path(source_dir, label="Removal target")
         reject_symlinks(source_dir)
         shutil.rmtree(source_dir)
 
@@ -197,12 +197,12 @@ def _copy_deploy_item(source: Path, target: Path) -> None:
         raise FileNotFoundError(f"Required deploy path not found: {source}")
 
     if not source.is_dir():
-        _reject_symlinked_path(target, label="write")
+        _reject_symlinked_path(target, label="Copy target")
         shutil.copy2(source, target)
         return
 
     _validate_copy_tree(source)
-    _reject_symlinked_path(target, label="write")
+    _reject_symlinked_path(target, label="Copy target")
     shutil.copytree(source, target)
 
 
@@ -228,7 +228,7 @@ def _replace_exact_many(content: str, replacements: dict[str, str]) -> str:
 
 def _content_hash(path: Path) -> str:
     """Return a short stable content hash for one deployed cache-busted asset."""
-    _reject_symlinked_path(path, label="hash")
+    _reject_symlinked_path(path, label="Hash input")
     if not path.is_file():
         raise FileNotFoundError(f"Required deploy asset not found: {path}")
     return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
@@ -330,7 +330,7 @@ def _patch_app_social_metadata(site_url: str) -> None:
         ):
             continue
         source_app_dir = REPO_ROOT / _artifact_base_path() / app_dir.name
-        _reject_symlinked_path(source_app_dir, label="read")
+        _reject_symlinked_path(source_app_dir, label="Metadata source")
         title = _read_optional_text(
             source_app_dir / "name.txt", app_dir.name.replace("-", " ").title()
         )
@@ -480,7 +480,7 @@ def _is_minifiable_js(path: Path) -> bool:
 
 def _minify_file(file_path: Path) -> int:
     """Minify ``file_path`` in-place using esbuild and return bytes saved."""
-    _reject_symlinked_path(file_path, label="minify")
+    _reject_symlinked_path(file_path, label="Minify target")
     original_size = file_path.stat().st_size
     subprocess.run(
         [

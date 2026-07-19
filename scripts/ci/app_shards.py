@@ -186,8 +186,7 @@ def invalidate_shard_thumbnails(
     removed: list[Path] = []
     for slug in cast("list[str]", read_shard_manifest(manifest_path)["thumbnail_slugs"]):
         thumbnail = root / slug / thumbnail_file()
-        if thumbnail.is_symlink():
-            raise ValueError(f"Shard thumbnail must not be a symlink: {thumbnail}")
+        reject_path_symlinks(thumbnail, label="Shard thumbnail")
         if thumbnail.exists():
             thumbnail.unlink()
             removed.append(thumbnail)

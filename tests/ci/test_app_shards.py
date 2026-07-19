@@ -364,12 +364,22 @@ def test_shard_helpers_reject_symlinked_manifest_inputs_and_thumbnail_paths(tmp_
     thumbnail = apps_root / "alpha" / "thumbnail.webp"
     thumbnail.parent.mkdir(parents=True)
     thumbnail.symlink_to(target)
-    with pytest.raises(ValueError, match="thumbnail must not be a symlink"):
+    with pytest.raises(ValueError, match="Shard thumbnail must not be a symlinked path"):
         app_shards.invalidate_shard_thumbnails(manifest_path, apps_root=apps_root)
     with pytest.raises(ValueError, match="symlink"):
         app_shards.package_shard_result(
             manifest_path, output_root=tmp_path / "result", apps_root=apps_root
         )
+
+    linked_slug_root = tmp_path / "linked-slug-apps"
+    linked_slug_root.mkdir()
+    slug_target = tmp_path / "outside-slug"
+    slug_target.mkdir()
+    (slug_target / "thumbnail.webp").write_bytes(b"thumb")
+    (linked_slug_root / "alpha").symlink_to(slug_target, target_is_directory=True)
+    with pytest.raises(ValueError, match="Shard thumbnail must not be a symlinked path"):
+        app_shards.invalidate_shard_thumbnails(manifest_path, apps_root=linked_slug_root)
+    assert (slug_target / "thumbnail.webp").exists()
 
     results_root = tmp_path / "results"
     write_json(
