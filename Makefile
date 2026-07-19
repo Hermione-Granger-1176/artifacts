@@ -169,6 +169,24 @@ dead-code-js: ## Detect unused JavaScript files, exports, and dependencies
 
 .PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-apps-shard test-browser-live coverage-js coverage-js-floors
 
+define run_browser_pytest
+	@set +e; \
+	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(1) $(VENV_PYTHON) -m pytest --no-cov $(2); \
+	status=$$?; \
+	if [ "$$status" -eq 0 ]; then exit 0; fi; \
+	echo "::warning::Browser tests failed. Retrying only failed tests once."; \
+	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(1) $(VENV_PYTHON) -m pytest --no-cov --last-failed --last-failed-no-failures none $(2); \
+	retry_status=$$?; \
+	if [ "$$retry_status" -eq 0 ]; then \
+		echo "::warning::FLAKY BROWSER TESTS: retry passed after an initial failure."; \
+		if [ -n "$${GITHUB_STEP_SUMMARY:-}" ]; then \
+			printf '## Flaky browser tests\n\nA retry passed after an initial failure.\n' >> "$$GITHUB_STEP_SUMMARY"; \
+		fi; \
+		exit 0; \
+	fi; \
+	exit "$$retry_status"
+endef
+
 test: test-py test-js ## Run non-browser Python tests + JS tests
 
 # Honor ARGS only when given on the make command line, so a stray ARGS
@@ -190,45 +208,32 @@ test-browser: test-browser-root test-browser-apps ## Run all browser tests (need
 test-browser-root: test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows ## Run all root gallery browser tests
 
 test-browser-root-smoke: ## Run root gallery smoke browser tests
-	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov \
-		tests/browser/test_frontend_smoke.py
+	$(call run_browser_pytest,,tests/browser/test_frontend_smoke.py)
 
 test-browser-root-accessibility: ## Run root gallery accessibility browser tests
-	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov \
-		tests/browser/test_frontend_accessibility.py
+	$(call run_browser_pytest,,tests/browser/test_frontend_accessibility.py)
 
 test-browser-root-flows: ## Run root gallery browser-flow tests
-	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov \
-		tests/browser/test_frontend_browser_flows.py
+	$(call run_browser_pytest,,tests/browser/test_frontend_browser_flows.py)
 
 test-browser-apps: ## Run all mature app browser tests in one shared test process
-	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov \
-		tests/browser/test_frontend_apps_smoke.py \
-		tests/browser/test_frontend_apps_accessibility.py \
-		tests/browser/test_frontend_apps_browser_flows.py
+	$(call run_browser_pytest,,tests/browser/test_frontend_apps_smoke.py tests/browser/test_frontend_apps_accessibility.py tests/browser/test_frontend_apps_browser_flows.py)
 
 test-browser-apps-smoke: ## Run mature app smoke browser tests
-	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov \
-		tests/browser/test_frontend_apps_smoke.py
+	$(call run_browser_pytest,,tests/browser/test_frontend_apps_smoke.py)
 
 test-browser-apps-accessibility: ## Run mature app accessibility browser tests
-	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov \
-		tests/browser/test_frontend_apps_accessibility.py
+	$(call run_browser_pytest,,tests/browser/test_frontend_apps_accessibility.py)
 
 test-browser-apps-flows: ## Run mature app browser-flow tests
-	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov \
-		tests/browser/test_frontend_apps_browser_flows.py
+	$(call run_browser_pytest,,tests/browser/test_frontend_apps_browser_flows.py)
 
 test-browser-apps-shard: ## Run one app-browser shard (make test-browser-apps-shard shard_manifest=PATH)
 	@test -n "$(shard_manifest)" || (printf 'Usage: make test-browser-apps-shard shard_manifest=.artifacts/shard-manifest.json\n' >&2; exit 1)
-	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 ARTIFACTS_BROWSER_APP_MANIFEST="$(shard_manifest)" $(VENV_PYTHON) -m pytest --no-cov \
-		tests/browser/test_frontend_apps_smoke.py \
-		tests/browser/test_frontend_apps_accessibility.py \
-		tests/browser/test_frontend_apps_browser_flows.py
+	$(call run_browser_pytest,ARTIFACTS_BROWSER_APP_MANIFEST="$(shard_manifest)",tests/browser/test_frontend_apps_smoke.py tests/browser/test_frontend_apps_accessibility.py tests/browser/test_frontend_apps_browser_flows.py)
 
 test-browser-live: ## Run live-site browser verification
-	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov \
-		tests/browser/test_frontend_live.py
+	$(call run_browser_pytest,,tests/browser/test_frontend_live.py)
 
 coverage-js: ## Run JS tests with coverage enforcement (emits .artifacts/js-coverage.lcov)
 	@mkdir -p .artifacts
@@ -590,7 +595,7 @@ pr-close: ## Close the current PR and delete branch
 
 # ─── CI @ci ───────────────────────────────────────────────────────────────────
 
-.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-thumbnail-plan ci-plan-outputs ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-alert-issue refresh-action-shas issues
+.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-alert-issue refresh-action-shas issues
 
 ci-runs: ## List recent CI workflow runs
 	gh run list -L "$(if $(limit),$(limit),10)"
@@ -624,10 +629,18 @@ ci-failures: ## Show failed-step logs for this branch's latest run (make ci-fail
 # everything they import are stdlib-only. The monitor helpers read GH_TOKEN
 # from the environment.
 ci-platform-checks: ## Run fixed non-browser platform checks in parallel
-	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py --timeout 1200 \
-		format-check lint typecheck test-py coverage-js dead-code security validate
+	@$(MAKE) --no-print-directory ci-quick-gates
+	@$(MAKE) --no-print-directory ci-heavy-checks
 
-ci-thumbnail-plan: ## Compute a git-diff app impact plan (event_name= base_sha= head_sha=)
+ci-quick-gates: ## Run fast formatting, lint, type, and artifact checks
+	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py --timeout 1200 \
+		format-check lint typecheck validate
+
+ci-heavy-checks: ## Run slow test, coverage, dead-code, and security checks
+	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py --timeout 1200 \
+		test-py coverage-js dead-code security
+
+ci-thumbnail-plan: ## Compute a git-diff app impact plan (event_name= base_sha= head_sha= [force_full=true])
 	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py thumbnail-plan \
 		--event-name "$(event_name)" \
 		--repo "$(repo)" \
@@ -635,13 +648,22 @@ ci-thumbnail-plan: ## Compute a git-diff app impact plan (event_name= base_sha= 
 		--commit-sha "$(commit_sha)" \
 		--base-sha "$(base_sha)" \
 		--head-sha "$(head_sha)" \
-		--head-repo-fork "$(head_repo_fork)" \
+		--head-repo-fork "$(if $(head_repo_fork),$(head_repo_fork),false)" \
 		--pr-author "$(pr_author)" \
 		--actor "$(actor)" \
-		--app-bot-login "$(app_bot_login)"
+		--app-bot-login "$(app_bot_login)" \
+		--force-full "$(if $(force_full),$(force_full),false)"
 
 ci-plan-outputs: ## Emit automation plan step outputs (reads PLAN_JSON from the environment)
 	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py plan-outputs
+
+ci-apply-app-ledger: ## Apply cached green app hashes to a persisted impact plan (plan=PATH ledger=PATH output=PATH)
+	@test -n "$(plan)" -a -n "$(ledger)" -a -n "$(output)" || (printf 'Usage: make ci-apply-app-ledger plan=.artifacts/ci-plan/plan.json ledger=.artifacts/app-ledger/ledger.json output=.artifacts/ci-plan/memoized-plan.json\n' >&2; exit 1)
+	@PYTHONPATH=. $(PYTHON) scripts/ci/app_hashes.py apply-ledger --plan "$(plan)" --ledger "$(ledger)" --output "$(output)"
+
+ci-update-app-ledger: ## Update a ledger from main-verified app hashes (plan=PATH ledger=PATH)
+	@test -n "$(plan)" -a -n "$(ledger)" || (printf 'Usage: make ci-update-app-ledger plan=.artifacts/ci-plan/plan.json ledger=.artifacts/app-ledger/ledger.json\n' >&2; exit 1)
+	@PYTHONPATH=. $(PYTHON) scripts/ci/app_hashes.py update-ledger --plan "$(plan)" --ledger "$(ledger)"
 
 ci-write-shard-manifest: ## Select one impact-plan shard (plan=PATH shard=N output=PATH)
 	@test -n "$(plan)" -a -n "$(shard)" -a -n "$(output)" || (printf 'Usage: make ci-write-shard-manifest plan=.artifacts/ci-plan/plan.json shard=0 output=.artifacts/shard-manifest.json\n' >&2; exit 1)

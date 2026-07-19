@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from scripts.lib.artifact_contract import (
@@ -9,6 +10,7 @@ from scripts.lib.artifact_contract import (
 from scripts.lib.artifact_contract import (
     artifact_id_pattern as _artifact_id_pattern,
 )
+from scripts.lib.path_validation import reject_symlinks
 
 __all__ = ["artifact_base_path", "thumbnail_file"]
 
@@ -26,6 +28,11 @@ SHARED_APP_RUNTIME_FILES = (
     Path("css/style.css"),
     Path("js/app-theme.js"),
 )
+GLOBAL_APP_RUNTIME_PATHS = {
+    "css/style.css",
+    "js/app-theme.js",
+    "js/modules/app-shell.js",
+}
 SHARED_APP_RUNTIME_PATHS = {*(path.as_posix() for path in SHARED_APP_RUNTIME_FILES)}
 SHARED_APP_MODULES_DIR = Path("js/modules")
 GALLERY_MODULES_DIR = Path("js/modules/gallery")
@@ -38,6 +45,13 @@ SHARED_APP_BROWSER_TEST_PATHS = {
     "tests/browser/test_frontend_apps_browser_flows.py",
     "tests/browser/test_frontend_apps_smoke.py",
 }
+SCRIPT_TAG_PATTERN = re.compile(r"<script\b[^>]*>", re.IGNORECASE)
+MODULE_TYPE_PATTERN = re.compile(r"(?<![\w-])type\s*=\s*[\"']module[\"']", re.IGNORECASE)
+SCRIPT_SRC_PATTERN = re.compile(r"(?<![\w-])src\s*=\s*[\"']([^\"']+)[\"']", re.IGNORECASE)
+ESM_IMPORT_PATTERN = re.compile(
+    r"(?<![\w$])(?:import|export)\s+(?:[^;]*?\s+from\s+)?[\"']([^\"']+)[\"']",
+    re.DOTALL,
+)
 
 
 def is_shared_app_browser_test_path(filename: str) -> bool:
@@ -54,6 +68,11 @@ def is_shared_app_runtime_path(filename: str) -> bool:
     )
 
 
+def is_global_app_runtime_path(filename: str) -> bool:
+    """Return whether one shared path must always fan out to every app."""
+    return filename in GLOBAL_APP_RUNTIME_PATHS
+
+
 def shared_app_runtime_paths(repo_root: Path) -> tuple[Path, ...]:
     """Return shared app runtime files rooted at ``repo_root``."""
     gallery_root = repo_root / GALLERY_MODULES_DIR
@@ -66,6 +85,116 @@ def shared_app_runtime_paths(repo_root: Path) -> tuple[Path, ...]:
         *(repo_root / relative_path for relative_path in SHARED_APP_RUNTIME_FILES),
         *module_files,
     )
+
+
+def _repo_relative_path(path: Path, repo_root: Path) -> str | None:
+    """Return a repo-relative POSIX path when ``path`` is inside ``repo_root``."""
+    try:
+        return path.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return None
+
+
+def _local_import_path(importer: Path, specifier: str, repo_root: Path) -> Path | None:
+    """Resolve one relative static import without following paths outside the repository."""
+    clean_specifier = specifier.split("?", 1)[0].split("#", 1)[0]
+    if not clean_specifier or clean_specifier.startswith(("http://", "https://", "//")):
+        return None
+    candidate = (
+        (repo_root / clean_specifier.lstrip("/"))
+        if clean_specifier.startswith("/")
+        else (importer.parent / clean_specifier)
+    )
+    resolved = candidate.resolve()
+    if _repo_relative_path(resolved, repo_root) is None:
+        return None
+    return resolved
+
+
+def _script_sources(index_path: Path, repo_root: Path) -> list[Path]:
+    """Return local module script files referenced by one app index page.
+
+    Classic scripts (vendor bundles, app-theme) cannot statically import shared
+    modules, so only ``type="module"`` tags seed the dependency traversal.
+    """
+    if index_path.is_symlink():
+        raise ValueError(f"Refusing to read symlinked app index: {index_path}")
+    content = index_path.read_text(encoding="utf-8")
+    sources: list[Path] = []
+    for tag in SCRIPT_TAG_PATTERN.findall(content):
+        if not MODULE_TYPE_PATTERN.search(tag):
+            continue
+        src_match = SCRIPT_SRC_PATTERN.search(tag)
+        if src_match is None:
+            continue
+        source = _local_import_path(index_path, src_match.group(1), repo_root)
+        if source is not None:
+            sources.append(source)
+    return sources
+
+
+def _module_imports(js_path: Path, repo_root: Path) -> list[Path]:
+    """Return local static ES module imports from one JavaScript file."""
+    if js_path.is_symlink():
+        raise ValueError(f"Refusing to read symlinked app module: {js_path}")
+    content = js_path.read_text(encoding="utf-8")
+    return [
+        source
+        for specifier in ESM_IMPORT_PATTERN.findall(content)
+        if (source := _local_import_path(js_path, specifier, repo_root)) is not None
+    ]
+
+
+def shared_module_consumers(repo_root: Path = Path()) -> dict[str, set[str]]:
+    """Map shared runtime module paths to every app that statically imports them.
+
+    The traversal begins with script tags in every app index page and follows
+    static ESM imports through app-local and shared modules. Dynamic imports
+    intentionally remain outside this conservative static graph.
+    """
+    if repo_root.is_symlink():
+        raise ValueError(
+            f"Refusing to discover consumers from symlinked repository root: {repo_root}"
+        )
+    root = repo_root.resolve()
+    apps_root = root / artifact_base_path()
+    modules_root = root / SHARED_APP_MODULES_DIR
+    if apps_root.is_symlink() or modules_root.is_symlink():
+        raise ValueError("Refusing to discover consumers from symlinked app runtime inputs")
+    if apps_root.exists():
+        reject_symlinks(apps_root)
+    if modules_root.exists():
+        reject_symlinks(modules_root)
+
+    modules: dict[str, set[str]] = {
+        path.relative_to(root).as_posix(): set()
+        for path in shared_app_runtime_paths(root)
+        if path.is_file()
+        and path.relative_to(root).as_posix().startswith(SHARED_APP_MODULES_PREFIX)
+    }
+
+    for slug in discover_app_slugs(apps_root):
+        app_dir = apps_root / slug
+        app_js_root = (app_dir / "js").resolve()
+        pending = _script_sources(app_dir / "index.html", root)
+        visited: set[Path] = set()
+        while pending:
+            js_path = pending.pop()
+            if js_path in visited or not js_path.is_file():
+                continue
+            relative = _repo_relative_path(js_path, root)
+            if relative is None:
+                continue
+            visited.add(js_path)
+            if relative in modules:
+                modules[relative].add(slug)
+
+            in_app_js = js_path.is_relative_to(app_js_root)
+            in_shared_modules = js_path.is_relative_to(modules_root)
+            if in_app_js or in_shared_modules:
+                pending.extend(_module_imports(js_path, root))
+
+    return modules
 
 
 def artifact_uses_shared_app_runtime(artifact_dir: Path) -> bool:
@@ -130,19 +259,25 @@ def full_impact_plan() -> dict[str, object]:
         "browser_changed": True,
         "thumbnail_changed": True,
         "shared_runtime_changed": True,
+        "shared_module_changed": True,
         "shared_browser_test_changed": False,
     }
 
 
-def runtime_change_plan(changed_files: list[str]) -> dict[str, object]:
+def runtime_change_plan(changed_files: list[str], *, repo_root: Path = Path()) -> dict[str, object]:
     """Classify changed files into independent browser and thumbnail impact axes."""
     changed_slugs: set[str] = set()
+    changed_shared_modules: set[str] = set()
     shared_runtime_changed = False
     shared_browser_test_changed = False
 
     for filename in changed_files:
-        if is_shared_app_runtime_path(filename):
+        if is_global_app_runtime_path(filename):
             shared_runtime_changed = True
+            continue
+
+        if is_shared_app_runtime_path(filename):
+            changed_shared_modules.add(filename)
             continue
 
         if is_shared_app_browser_test_path(filename):
@@ -152,6 +287,22 @@ def runtime_change_plan(changed_files: list[str]) -> dict[str, object]:
         slug = _runtime_changed_slug(filename)
         if slug is not None:
             changed_slugs.add(slug)
+
+    shared_module_consumers_by_path: dict[str, set[str]] = {}
+    if changed_shared_modules and not shared_runtime_changed:
+        try:
+            shared_module_consumers_by_path = shared_module_consumers(repo_root)
+        except (OSError, ValueError):
+            # A partial dependency graph could skip a consumer. Expand instead.
+            shared_runtime_changed = True
+        else:
+            for module_path in changed_shared_modules:
+                consumers = shared_module_consumers_by_path.get(module_path, set())
+                if not consumers:
+                    # Unknown or unused modules are intentionally fail-open.
+                    shared_runtime_changed = True
+                    break
+                changed_slugs.update(consumers)
 
     thumbnail_scope = "none"
     if shared_runtime_changed:
@@ -165,7 +316,7 @@ def runtime_change_plan(changed_files: list[str]) -> dict[str, object]:
     elif changed_slugs:
         browser_scope = "changed"
 
-    runtime_changed = shared_runtime_changed or bool(changed_slugs)
+    runtime_changed = shared_runtime_changed or bool(changed_slugs) or bool(changed_shared_modules)
 
     return {
         # app_scope remains for the thumbnail persistence interface. New callers
@@ -180,5 +331,6 @@ def runtime_change_plan(changed_files: list[str]) -> dict[str, object]:
         "browser_changed": browser_scope != "none",
         "thumbnail_changed": thumbnail_scope != "none",
         "shared_runtime_changed": shared_runtime_changed,
+        "shared_module_changed": bool(changed_shared_modules),
         "shared_browser_test_changed": shared_browser_test_changed,
     }

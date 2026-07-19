@@ -15,13 +15,18 @@ def write_text(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def create_source_tree(repo_root: Path) -> None:
-    """Create source tree."""
+def write_artifact_contract(repo_root: Path) -> None:
+    """Write the shared contract needed by tests that replace the repository root."""
     write_text(
         repo_root / "config" / "artifact_contract.json",
         '{"artifactIdPattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", '
         '"artifactBasePath": "apps", "thumbnailFile": "thumbnail.webp"}\n',
     )
+
+
+def create_source_tree(repo_root: Path) -> None:
+    """Create source tree."""
+    write_artifact_contract(repo_root)
     write_text(
         repo_root / "404.html",
         "".join(
@@ -75,6 +80,8 @@ def create_source_tree(repo_root: Path) -> None:
     write_text(repo_root / "js" / "data.js", "window.ARTIFACTS_DATA = [];\n")
     write_text(repo_root / "apps" / "sample" / "name.txt", "Sample App\n")
     write_text(repo_root / "apps" / "sample" / "description.txt", "Sample app description.\n")
+    write_text(repo_root / "apps" / "sample" / "README.md", "Build note.\n")
+    write_text(repo_root / "apps" / "sample" / "docs" / "architecture.md", "Internal.\n")
     write_text(
         repo_root / "apps" / "sample" / "index.html",
         "".join(
@@ -290,6 +297,35 @@ def test_copy_deploy_items_errors_for_missing_source(
         prepare_site._copy_deploy_items()
 
 
+def test_runtime_copy_and_hash_helpers_reject_missing_or_symlinked_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Runtime copy and cache-hash helpers reject unsafe and missing direct paths."""
+    write_artifact_contract(tmp_path)
+    monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path / "_site")
+
+    with pytest.raises(FileNotFoundError, match="Required deploy path not found"):
+        prepare_site._copy_runtime_apps()
+    with pytest.raises(FileNotFoundError, match="Required deploy asset not found"):
+        prepare_site._content_hash(tmp_path / "missing.js")
+
+    target = tmp_path / "target.txt"
+    write_text(target, "target\n")
+    linked = tmp_path / "linked.txt"
+    linked.symlink_to(target)
+    with pytest.raises(ValueError, match="symlinked path"):
+        prepare_site._read_text(linked)
+
+
+def test_minify_site_assets_handles_empty_deploy_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Minification exits cleanly when the deploy tree has no minifiable files."""
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    prepare_site._minify_site_assets()
+
+
 @pytest.mark.skipif(not hasattr(Path, "symlink_to"), reason="symlinks unavailable")
 def test_copy_deploy_items_rejects_symlinked_inputs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -338,13 +374,20 @@ def test_patch_index_html_applies_cache_busting(
     )
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
 
-    prepare_site._patch_index_html("abc123")
+    for path in ("css/style.css", "js/gallery-config.js", "js/data.js", "js/app.js"):
+        write_text(deploy_dir / path, f"{path}\n")
+
+    prepare_site._patch_index_html()
 
     content = (deploy_dir / "index.html").read_text(encoding="utf-8")
-    assert 'href="css/style.css?v=abc123"' in content
-    assert 'src="js/gallery-config.js?v=abc123"' in content
-    assert 'src="js/data.js?v=abc123"' in content
-    assert 'src="js/app.js?v=abc123"' in content
+    style_hash = prepare_site._content_hash(deploy_dir / "css/style.css")
+    gallery_config_hash = prepare_site._content_hash(deploy_dir / "js/gallery-config.js")
+    data_hash = prepare_site._content_hash(deploy_dir / "js/data.js")
+    app_hash = prepare_site._content_hash(deploy_dir / "js/app.js")
+    assert f'href="css/style.css?v={style_hash}"' in content
+    assert f'src="js/gallery-config.js?v={gallery_config_hash}"' in content
+    assert f'src="js/data.js?v={data_hash}"' in content
+    assert f'src="js/app.js?v={app_hash}"' in content
 
 
 def test_patch_app_asset_references_versions_app_assets(
@@ -364,15 +407,27 @@ def test_patch_app_asset_references_versions_app_assets(
             ]
         ),
     )
+    second_index = deploy_dir / "apps" / "second" / "index.html"
+    write_text(second_index, '<link rel="stylesheet" href="../../css/style.css">\n')
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+    write_text(deploy_dir / "css" / "style.css", "body {}\n")
+    write_text(deploy_dir / "js" / "app-theme.js", "theme\n")
+    write_text(app_index.parent / "css" / "app.css", ".sample {}\n")
+    write_text(app_index.parent / "js" / "app.js", "app\n")
 
-    prepare_site._patch_app_asset_references("abc123")
+    prepare_site._patch_app_asset_references()
 
     content = app_index.read_text(encoding="utf-8")
-    assert 'href="../../css/style.css?v=abc123"' in content
-    assert 'href="./css/app.css?v=abc123"' in content
-    assert 'src="../../js/app-theme.js?v=abc123"' in content
-    assert 'src="./js/app.js?v=abc123"' in content
+    style_hash = prepare_site._content_hash(deploy_dir / "css/style.css")
+    app_css_hash = prepare_site._content_hash(app_index.parent / "css/app.css")
+    theme_hash = prepare_site._content_hash(deploy_dir / "js/app-theme.js")
+    app_hash = prepare_site._content_hash(app_index.parent / "js/app.js")
+    assert f'href="../../css/style.css?v={style_hash}"' in content
+    assert f'href="./css/app.css?v={app_css_hash}"' in content
+    assert f'src="../../js/app-theme.js?v={theme_hash}"' in content
+    assert f'src="./js/app.js?v={app_hash}"' in content
+    second_content = second_index.read_text(encoding="utf-8")
+    assert f'href="../../css/style.css?v={style_hash}"' in second_content
 
 
 def test_patch_app_asset_references_skips_missing_apps_dir(
@@ -383,7 +438,7 @@ def test_patch_app_asset_references_skips_missing_apps_dir(
     deploy_dir.mkdir()
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
 
-    prepare_site._patch_app_asset_references("abc123")
+    prepare_site._patch_app_asset_references()
 
 
 def test_patch_app_asset_references_skips_non_matching_entries(
@@ -398,7 +453,7 @@ def test_patch_app_asset_references_skips_non_matching_entries(
     write_text(plain_index, "<p>No shared stylesheet.</p>\n")
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
 
-    prepare_site._patch_app_asset_references("abc123")
+    prepare_site._patch_app_asset_references()
 
     assert plain_index.read_text(encoding="utf-8") == "<p>No shared stylesheet.</p>\n"
 
@@ -418,13 +473,19 @@ def test_patch_social_metadata_injects_absolute_urls(
         '<meta name="twitter:image" content="__ARTIFACTS_SHARE_IMAGE__">\n',
     )
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+    (deploy_dir / "assets" / "social").mkdir(parents=True)
+    (deploy_dir / "assets" / "social" / "share-preview.png").write_bytes(b"preview")
 
-    prepare_site._patch_social_metadata("https://example.com/demo/", "abc123")
+    prepare_site._patch_social_metadata("https://example.com/demo/")
 
     content = (deploy_dir / "index.html").read_text(encoding="utf-8")
     assert 'href="https://example.com/demo/"' in content
     assert 'content="https://example.com/demo/"' in content
-    assert 'content="https://example.com/demo/assets/social/share-preview.png?v=abc123"' in content
+    share_image_hash = prepare_site._content_hash(deploy_dir / prepare_site.SHARE_IMAGE_PATH)
+    assert (
+        f'content="https://example.com/demo/assets/social/share-preview.png?v={share_image_hash}"'
+        in content
+    )
 
 
 def test_patch_app_social_metadata_injects_per_app_values(
@@ -434,8 +495,11 @@ def test_patch_app_social_metadata_injects_per_app_values(
     deploy_dir = tmp_path / "_site"
     app_dir = deploy_dir / "apps" / "sample"
     app_dir.mkdir(parents=True)
-    write_text(app_dir / "name.txt", "Sample App\n")
-    write_text(app_dir / "description.txt", "Sample app description.\n")
+    source_app = tmp_path / "apps" / "sample"
+    write_artifact_contract(tmp_path)
+    write_text(source_app / "name.txt", "Sample App\n")
+    write_text(source_app / "description.txt", "Sample app description.\n")
+    (app_dir / "thumbnail.webp").write_bytes(b"webp")
     write_text(
         app_dir / "index.html",
         '<link rel="canonical" href="__APP_URL__">\n'
@@ -447,15 +511,20 @@ def test_patch_app_social_metadata_injects_per_app_values(
         '<meta property="og:description" content="__APP_DESCRIPTION__">\n',
     )
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+    monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
 
-    prepare_site._patch_app_social_metadata("https://example.com/demo/", "abc123")
+    prepare_site._patch_app_social_metadata("https://example.com/demo/")
 
     content = (app_dir / "index.html").read_text(encoding="utf-8")
     assert 'href="https://example.com/demo/apps/sample/"' in content
     assert 'content="https://example.com/demo/apps/sample/"' in content
     assert 'content="Sample App"' in content
     assert 'content="Sample app description."' in content
-    assert 'content="https://example.com/demo/apps/sample/thumbnail.webp?v=abc123"' in content
+    thumbnail_hash = prepare_site._content_hash(app_dir / "thumbnail.webp")
+    assert (
+        f'content="https://example.com/demo/apps/sample/thumbnail.webp?v={thumbnail_hash}"'
+        in content
+    )
 
 
 def test_patch_app_social_metadata_escapes_html_metacharacters(
@@ -465,16 +534,19 @@ def test_patch_app_social_metadata_escapes_html_metacharacters(
     deploy_dir = tmp_path / "_site"
     app_dir = deploy_dir / "apps" / "sample"
     app_dir.mkdir(parents=True)
-    write_text(app_dir / "name.txt", 'Sample "App" & Friends\n')
-    write_text(app_dir / "description.txt", '"><script>alert(1)</script>\n')
+    source_app = tmp_path / "apps" / "sample"
+    write_artifact_contract(tmp_path)
+    write_text(source_app / "name.txt", 'Sample "App" & Friends\n')
+    write_text(source_app / "description.txt", '"><script>alert(1)</script>\n')
     write_text(
         app_dir / "index.html",
         '<meta property="og:title" content="__APP_TITLE__">\n'
         '<meta property="og:description" content="__APP_DESCRIPTION__">\n',
     )
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+    monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
 
-    prepare_site._patch_app_social_metadata("https://example.com/demo/", "abc123")
+    prepare_site._patch_app_social_metadata("https://example.com/demo/")
 
     content = (app_dir / "index.html").read_text(encoding="utf-8")
     assert 'content="Sample &quot;App&quot; &amp; Friends"' in content
@@ -492,7 +564,7 @@ def test_patch_app_social_metadata_skips_apps_without_placeholders(
     write_text(app_dir / "index.html", "<html><body>hello</body></html>\n")
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
 
-    prepare_site._patch_app_social_metadata("https://example.com/demo/", "abc123")
+    prepare_site._patch_app_social_metadata("https://example.com/demo/")
 
     assert (app_dir / "index.html").read_text(
         encoding="utf-8"
@@ -506,14 +578,16 @@ def test_patch_app_social_metadata_handles_missing_description(
     deploy_dir = tmp_path / "_site"
     app_dir = deploy_dir / "apps" / "sample"
     app_dir.mkdir(parents=True)
-    write_text(app_dir / "name.txt", "Sample App\n")
+    write_artifact_contract(tmp_path)
+    write_text(tmp_path / "apps" / "sample" / "name.txt", "Sample App\n")
     write_text(
         app_dir / "index.html",
         '<meta property="og:description" content="__APP_DESCRIPTION__">\n',
     )
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+    monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
 
-    prepare_site._patch_app_social_metadata("https://example.com/demo/", "abc123")
+    prepare_site._patch_app_social_metadata("https://example.com/demo/")
 
     assert 'content=""' in (app_dir / "index.html").read_text(encoding="utf-8")
 
@@ -526,7 +600,7 @@ def test_patch_app_social_metadata_skips_when_apps_directory_is_missing(
     deploy_dir.mkdir()
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
 
-    prepare_site._patch_app_social_metadata("https://example.com/demo/", "abc123")
+    prepare_site._patch_app_social_metadata("https://example.com/demo/")
 
 
 def test_patch_app_social_metadata_skips_non_directory_entries_and_missing_index(
@@ -540,7 +614,7 @@ def test_patch_app_social_metadata_skips_non_directory_entries_and_missing_index
     (apps_dir / "empty-app").mkdir()
     monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
 
-    prepare_site._patch_app_social_metadata("https://example.com/demo/", "abc123")
+    prepare_site._patch_app_social_metadata("https://example.com/demo/")
 
 
 def test_patch_404_html_injects_site_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -688,10 +762,12 @@ def test_prepare_site_builds_deploy_output(tmp_path: Path, monkeypatch: pytest.M
     index_content = (deploy_dir / "index.html").read_text(encoding="utf-8")
     style_content = (deploy_dir / "css" / "style.css").read_text(encoding="utf-8")
     error_content = (deploy_dir / "404.html").read_text(encoding="utf-8")
-    assert "css/style.css?v=abc123" in index_content
+    style_hash = prepare_site._content_hash(deploy_dir / "css/style.css")
+    share_image_hash = prepare_site._content_hash(deploy_dir / prepare_site.SHARE_IMAGE_PATH)
+    assert f"css/style.css?v={style_hash}" in index_content
     assert 'href="https://example.com/artifacts/"' in index_content
     assert (
-        'content="https://example.com/artifacts/assets/social/share-preview.png?v=abc123"'
+        f'content="https://example.com/artifacts/assets/social/share-preview.png?v={share_image_hash}"'
         in index_content
     )
     assert "@import" not in style_content
@@ -707,16 +783,23 @@ def test_prepare_site_builds_deploy_output(tmp_path: Path, monkeypatch: pytest.M
     assert (deploy_dir / ".nojekyll").exists()
     assert (deploy_dir / "apps" / "sample" / "index.html").exists()
     sample_content = (deploy_dir / "apps" / "sample" / "index.html").read_text(encoding="utf-8")
+    thumbnail_hash = prepare_site._content_hash(deploy_dir / "apps/sample/thumbnail.webp")
+    app_css_hash = prepare_site._content_hash(deploy_dir / "apps/sample/css/app.css")
+    theme_hash = prepare_site._content_hash(deploy_dir / "js/app-theme.js")
+    app_hash = prepare_site._content_hash(deploy_dir / "apps/sample/js/app.js")
     assert 'href="https://example.com/artifacts/apps/sample/"' in sample_content
     assert (
-        'content="https://example.com/artifacts/apps/sample/thumbnail.webp?v=abc123"'
+        f'content="https://example.com/artifacts/apps/sample/thumbnail.webp?v={thumbnail_hash}"'
         in sample_content
     )
-    assert 'href="../../css/style.css?v=abc123"' in sample_content
-    assert 'href="./css/app.css?v=abc123"' in sample_content
-    assert 'src="../../js/app-theme.js?v=abc123"' in sample_content
-    assert 'src="./js/app.js?v=abc123"' in sample_content
+    assert f'href="../../css/style.css?v={style_hash}"' in sample_content
+    assert f'href="./css/app.css?v={app_css_hash}"' in sample_content
+    assert f'src="../../js/app-theme.js?v={theme_hash}"' in sample_content
+    assert f'src="./js/app.js?v={app_hash}"' in sample_content
     assert (deploy_dir / "apps" / "sample" / "css" / "app.css").exists()
+    assert not (deploy_dir / "apps" / "sample" / "README.md").exists()
+    assert not (deploy_dir / "apps" / "sample" / "name.txt").exists()
+    assert not (deploy_dir / "apps" / "sample" / "docs").exists()
     assert (deploy_dir / "assets" / "icons" / "favicon.ico").exists()
     assert (deploy_dir / "assets" / "social" / "share-preview.png").exists()
     metadata = (deploy_dir / prepare_site.DEPLOY_METADATA_FILE).read_text(encoding="utf-8")
@@ -751,6 +834,39 @@ def test_prepare_site_emits_debug_log_with_config(
 
     assert "Config: site_path=" in caplog.text
     assert "/artifacts/" in caplog.text
+
+
+def test_prepare_site_output_is_byte_stable_for_identical_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Identical inputs produce byte-identical deploy output across repeated builds."""
+    create_source_tree(tmp_path)
+    pyproject = tmp_path / "pyproject.toml"
+    write_text(
+        pyproject,
+        '[tool.artifacts]\nsite_path = "/artifacts/"\nsite_url = "https://example.com/artifacts"\n',
+    )
+    deploy_dir = tmp_path / "_site"
+    monkeypatch.setattr(prepare_site, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(prepare_site, "PYPROJECT_FILE", pyproject)
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy_dir)
+    monkeypatch.setenv(prepare_site.DEPLOY_VERSION_ENV_VAR, "abc123")
+    monkeypatch.setenv(prepare_site.DEPLOY_COMMIT_SHA_ENV_VAR, "b" * 40)
+
+    prepare_site.prepare_site()
+    first_output = {
+        path.relative_to(deploy_dir): path.read_bytes()
+        for path in deploy_dir.rglob("*")
+        if path.is_file()
+    }
+    prepare_site.prepare_site()
+    second_output = {
+        path.relative_to(deploy_dir): path.read_bytes()
+        for path in deploy_dir.rglob("*")
+        if path.is_file()
+    }
+
+    assert second_output == first_output
 
 
 def test_prepare_site_propagates_git_failures(
@@ -865,6 +981,24 @@ def test_inject_modulepreload_hints_adds_links(
     result = (tmp_path / "index.html").read_text(encoding="utf-8")
     assert '<link rel="modulepreload" href="js/lib.js">' in result
     assert result.index("modulepreload") < result.index("</head>")
+
+
+def test_inject_modulepreload_hints_skips_entry_outside_deploy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An entry script resolving outside the deploy root is never read or hinted."""
+    deploy = tmp_path / "deploy"
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy)
+    write_text(
+        deploy / "index.html",
+        '<head>\n</head>\n<body>\n<script type="module" src="../outside.js"></script>\n</body>\n',
+    )
+    write_text(tmp_path / "outside.js", 'import { x } from "./lib.js";\n')
+    write_text(tmp_path / "lib.js", "export const x = 1;\n")
+
+    prepare_site._inject_modulepreload_hints()
+
+    assert "modulepreload" not in (deploy / "index.html").read_text(encoding="utf-8")
 
 
 def test_inject_modulepreload_hints_handles_nested_apps(

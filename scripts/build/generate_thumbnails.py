@@ -39,7 +39,7 @@ from scripts.lib.app_discovery import (
     shared_app_runtime_paths,
     thumbnail_file,
 )
-from scripts.lib.path_validation import reject_symlinks
+from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
 
 logging.basicConfig(
     level=getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO),
@@ -135,8 +135,7 @@ def _configured_thumbnail_slugs() -> set[str] | None:
     shard_manifest = os.environ.get(THUMBNAIL_SHARD_MANIFEST_ENV_VAR, "").strip()
     if shard_manifest:
         manifest_path = Path(shard_manifest)
-        if manifest_path.is_symlink():
-            raise ValueError("Thumbnail shard manifest must not be a symlink")
+        reject_path_symlinks(manifest_path, label="Thumbnail shard manifest")
         if not manifest_path.is_file():
             raise ValueError(f"Thumbnail shard manifest is missing: {manifest_path}")
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))

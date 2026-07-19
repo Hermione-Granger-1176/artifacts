@@ -13,6 +13,7 @@ maintainers working on the build internals.
 
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import logging
@@ -21,6 +22,7 @@ import re
 import shutil
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
@@ -28,7 +30,7 @@ from scripts import REPO_ROOT
 from scripts.build.index_sources import artifact_url
 from scripts.lib.app_discovery import thumbnail_file
 from scripts.lib.artifact_contract import read_artifact_contract_file
-from scripts.lib.path_validation import reject_symlinks
+from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
 from scripts.lib.project_config import load_artifacts_setting, load_site_url
 
 if TYPE_CHECKING:
@@ -51,6 +53,7 @@ JS_IMPORT_PATTERN = re.compile(
 )
 ESBUILD_BIN = REPO_ROOT / "node_modules" / ".bin" / "esbuild"
 ESBUILD_TIMEOUT_SECONDS = 30
+MAX_MINIFY_WORKERS = 8
 VENDOR_DIR_NAME = "vendor"
 DEPLOY_METADATA_FILE = "deploy-metadata.json"
 DEPLOY_COMMIT_SHA_ENV_VAR = "ARTIFACTS_DEPLOY_COMMIT_SHA"
@@ -75,8 +78,25 @@ def _artifact_base_path() -> str:
 
 
 def _deploy_items() -> tuple[str, ...]:
-    """Return deploy inputs including the configured artifact root."""
-    return ("404.html", _artifact_base_path(), "assets", "css", "index.html", "js")
+    """Return root-level deploy inputs excluding separately filtered app files."""
+    return ("404.html", "assets", "css", "index.html", "js")
+
+
+def _reject_symlinked_path(path: Path, *, label: str) -> None:
+    """Reject one symlink before a direct filesystem operation."""
+    reject_path_symlinks(path, label=label)
+
+
+def _read_text(path: Path) -> str:
+    """Read UTF-8 text only after refusing a symlinked input."""
+    _reject_symlinked_path(path, label="Read input")
+    return path.read_text(encoding="utf-8")
+
+
+def _write_text(path: Path, content: str) -> None:
+    """Write UTF-8 text only after refusing a symlinked output."""
+    _reject_symlinked_path(path, label="Write output")
+    path.write_text(content, encoding="utf-8")
 
 
 def _normalize_site_path(value: str) -> str:
@@ -127,7 +147,9 @@ def _resolve_commit_sha() -> str:
 
 def _copy_deploy_items() -> None:
     """Copy the static site inputs into the clean deploy directory."""
-    if DEPLOY_DIR.exists():
+    if DEPLOY_DIR.exists() or DEPLOY_DIR.is_symlink():
+        _reject_symlinked_path(DEPLOY_DIR, label="Removal target")
+        reject_symlinks(DEPLOY_DIR)
         shutil.rmtree(DEPLOY_DIR)
 
     DEPLOY_DIR.mkdir(parents=True)
@@ -136,28 +158,51 @@ def _copy_deploy_items() -> None:
         source = REPO_ROOT / item
         target = DEPLOY_DIR / item
         _copy_deploy_item(source, target)
+    _copy_runtime_apps()
+
+
+def _copy_runtime_apps() -> None:
+    """Copy only files fetched at runtime from each artifact into the deploy tree."""
+    apps_source = REPO_ROOT / _artifact_base_path()
+    apps_target = DEPLOY_DIR / _artifact_base_path()
+    _reject_symlinked_path(apps_source, label="Copy source")
+    if not apps_source.exists():
+        raise FileNotFoundError(f"Required deploy path not found: {apps_source}")
+    reject_symlinks(apps_source)
+    apps_target.mkdir(parents=True)
+    runtime_names = ("assets", "css", "js", "index.html", thumbnail_file())
+    for app_source in sorted(path for path in apps_source.iterdir() if path.is_dir()):
+        app_target = apps_target / app_source.name
+        app_target.mkdir()
+        for name in runtime_names:
+            source = app_source / name
+            if source.exists():
+                _copy_deploy_item(source, app_target / name)
 
 
 def _remove_build_only_sources() -> None:
     """Remove stylesheet sources that are compiled into the public bundle."""
     source_dir = DEPLOY_DIR / "css" / "src"
     if source_dir.is_dir():
+        _reject_symlinked_path(source_dir, label="Removal target")
+        reject_symlinks(source_dir)
         shutil.rmtree(source_dir)
 
 
 def _copy_deploy_item(source: Path, target: Path) -> None:
     """Copy one deploy input after validating symlink safety."""
+    if source.is_symlink():
+        raise ValueError(f"Refusing to copy symlinked deploy path: {source}")
     if not source.exists():
         raise FileNotFoundError(f"Required deploy path not found: {source}")
 
-    if source.is_symlink():
-        raise ValueError(f"Refusing to copy symlinked deploy path: {source}")
-
     if not source.is_dir():
+        _reject_symlinked_path(target, label="Copy target")
         shutil.copy2(source, target)
         return
 
     _validate_copy_tree(source)
+    _reject_symlinked_path(target, label="Copy target")
     shutil.copytree(source, target)
 
 
@@ -181,33 +226,44 @@ def _replace_exact_many(content: str, replacements: dict[str, str]) -> str:
     return updated_content
 
 
-def _patch_index_html(version: str) -> None:
+def _content_hash(path: Path) -> str:
+    """Return a short stable content hash for one deployed cache-busted asset."""
+    _reject_symlinked_path(path, label="Hash input")
+    if not path.is_file():
+        raise FileNotFoundError(f"Required deploy asset not found: {path}")
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+
+
+def _patch_index_html() -> None:
     """Apply cache-busting query strings to root HTML asset references."""
     index_path = DEPLOY_DIR / "index.html"
-    content = index_path.read_text(encoding="utf-8")
+    content = _read_text(index_path)
+    style_hash = _content_hash(DEPLOY_DIR / "css/style.css")
+    gallery_config_hash = _content_hash(DEPLOY_DIR / "js/gallery-config.js")
+    data_hash = _content_hash(DEPLOY_DIR / "js/data.js")
+    app_hash = _content_hash(DEPLOY_DIR / "js/app.js")
     replacements = {
-        'href="css/style.css"': f'href="css/style.css?v={version}"',
-        'src="js/gallery-config.js"': f'src="js/gallery-config.js?v={version}"',
-        'src="js/data.js"': f'src="js/data.js?v={version}"',
-        'src="js/app.js"': f'src="js/app.js?v={version}"',
+        'href="css/style.css"': f'href="css/style.css?v={style_hash}"',
+        'src="js/gallery-config.js"': f'src="js/gallery-config.js?v={gallery_config_hash}"',
+        'src="js/data.js"': f'src="js/data.js?v={data_hash}"',
+        'src="js/app.js"': f'src="js/app.js?v={app_hash}"',
     }
 
     content = _replace_exact_many(content, replacements)
-    index_path.write_text(content, encoding="utf-8")
+    _write_text(index_path, content)
 
 
-def _patch_app_asset_references(version: str) -> None:
+def _patch_app_asset_references() -> None:
     """Apply cache-busting query strings to app asset references."""
     apps_dir = DEPLOY_DIR / _artifact_base_path()
     if not apps_dir.exists():
         return
 
-    replacements = {
-        'href="../../css/style.css"': f'href="../../css/style.css?v={version}"',
-        'href="./css/app.css"': f'href="./css/app.css?v={version}"',
-        'src="../../js/app-theme.js"': f'src="../../js/app-theme.js?v={version}"',
-        'src="./js/app.js"': f'src="./js/app.js?v={version}"',
+    shared_asset_paths = {
+        'href="../../css/style.css"': DEPLOY_DIR / "css/style.css",
+        'src="../../js/app-theme.js"': DEPLOY_DIR / "js/app-theme.js",
     }
+    shared_hashes: dict[str, str] = {}
 
     for app_dir in apps_dir.iterdir():
         if not app_dir.is_dir():
@@ -217,32 +273,46 @@ def _patch_app_asset_references(version: str) -> None:
         if not index_path.exists():
             continue
 
-        content = index_path.read_text(encoding="utf-8")
-        applicable = {old: new for old, new in replacements.items() if old in content}
+        content = _read_text(index_path)
+        applicable: dict[str, str] = {}
+        for old, shared_path in shared_asset_paths.items():
+            if old in content:
+                if old not in shared_hashes:
+                    shared_hashes[old] = _content_hash(shared_path)
+                applicable[old] = f'{old[:-1]}?v={shared_hashes[old]}"'
+        app_asset_paths = {
+            'href="./css/app.css"': app_dir / "css/app.css",
+            'src="./js/app.js"': app_dir / "js/app.js",
+        }
+        for old, asset_path in app_asset_paths.items():
+            if old in content:
+                applicable[old] = f'{old[:-1]}?v={_content_hash(asset_path)}"'
         if not applicable:
             continue
 
-        index_path.write_text(_replace_exact_many(content, applicable), encoding="utf-8")
+        _write_text(index_path, _replace_exact_many(content, applicable))
 
 
-def _patch_social_metadata(site_url: str, version: str) -> None:
+def _patch_social_metadata(site_url: str) -> None:
     """Inject canonical URLs and a cache-busted social preview image."""
     index_path = DEPLOY_DIR / "index.html"
-    content = index_path.read_text(encoding="utf-8")
-    share_image_url = f"{urljoin(site_url, SHARE_IMAGE_PATH)}?v={version}"
+    content = _read_text(index_path)
+    share_image_url = (
+        f"{urljoin(site_url, SHARE_IMAGE_PATH)}?v={_content_hash(DEPLOY_DIR / SHARE_IMAGE_PATH)}"
+    )
     content = _replace_exact(content, SITE_URL_PLACEHOLDER, site_url)
     content = _replace_exact(content, SHARE_IMAGE_PLACEHOLDER, share_image_url)
-    index_path.write_text(content, encoding="utf-8")
+    _write_text(index_path, content)
 
 
 def _read_optional_text(path: Path, fallback: str = "") -> str:
     """Return stripped file text or ``fallback`` when the file is missing or blank."""
     if not path.exists():
         return fallback
-    return path.read_text(encoding="utf-8").strip() or fallback
+    return _read_text(path).strip() or fallback
 
 
-def _patch_app_social_metadata(site_url: str, version: str) -> None:
+def _patch_app_social_metadata(site_url: str) -> None:
     """Inject canonical URLs and per-app thumbnail URLs where placeholders exist."""
     apps_dir = DEPLOY_DIR / _artifact_base_path()
     if not apps_dir.exists():
@@ -256,12 +326,29 @@ def _patch_app_social_metadata(site_url: str, version: str) -> None:
         if not index_path.exists():
             continue
 
-        content = index_path.read_text(encoding="utf-8")
-        title = _read_optional_text(app_dir / "name.txt", app_dir.name.replace("-", " ").title())
-        description = _read_optional_text(app_dir / "description.txt")
+        content = _read_text(index_path)
+        if not any(
+            placeholder in content
+            for placeholder in (
+                APP_URL_PLACEHOLDER,
+                APP_TITLE_PLACEHOLDER,
+                APP_DESCRIPTION_PLACEHOLDER,
+                APP_SHARE_IMAGE_PLACEHOLDER,
+            )
+        ):
+            continue
+        source_app_dir = REPO_ROOT / _artifact_base_path() / app_dir.name
+        _reject_symlinked_path(source_app_dir, label="Metadata source")
+        title = _read_optional_text(
+            source_app_dir / "name.txt", app_dir.name.replace("-", " ").title()
+        )
+        description = _read_optional_text(source_app_dir / "description.txt")
 
         app_url = urljoin(site_url, artifact_url(_artifact_contract(), app_dir.name))
-        thumbnail_url = f"{urljoin(app_url, thumbnail_file())}?v={version}"
+        thumbnail_url = ""
+        if APP_SHARE_IMAGE_PLACEHOLDER in content:
+            thumbnail_hash = _content_hash(app_dir / thumbnail_file())
+            thumbnail_url = f"{urljoin(app_url, thumbnail_file())}?v={thumbnail_hash}"
 
         candidates = {
             APP_URL_PLACEHOLDER: app_url,
@@ -270,16 +357,13 @@ def _patch_app_social_metadata(site_url: str, version: str) -> None:
             APP_SHARE_IMAGE_PLACEHOLDER: thumbnail_url,
         }
         replacements = {k: v for k, v in candidates.items() if k in content}
-        if not replacements:
-            continue
-
-        index_path.write_text(_replace_exact_many(content, replacements), encoding="utf-8")
+        _write_text(index_path, _replace_exact_many(content, replacements))
 
 
 def _patch_404_html(site_path: str) -> None:
     """Inject the configured site path into the 404 fallback page."""
     error_path = DEPLOY_DIR / "404.html"
-    content = error_path.read_text(encoding="utf-8")
+    content = _read_text(error_path)
     content = _replace_exact_many(
         content,
         {
@@ -287,7 +371,7 @@ def _patch_404_html(site_path: str) -> None:
             'href="/"': f'href="{site_path}"',
         },
     )
-    error_path.write_text(content, encoding="utf-8")
+    _write_text(error_path, content)
 
 
 def _patch_manifest(site_path: str) -> None:
@@ -295,17 +379,17 @@ def _patch_manifest(site_path: str) -> None:
     manifest_path = DEPLOY_DIR / "assets" / "icons" / "manifest.webmanifest"
     if not manifest_path.exists():
         return
-    content = manifest_path.read_text(encoding="utf-8")
+    content = _read_text(manifest_path)
     content = _replace_exact_many(
         content,
         {'"start_url": "../../"': f'"start_url": "{site_path}"'},
     )
-    manifest_path.write_text(content, encoding="utf-8")
+    _write_text(manifest_path, content)
 
 
 def _write_nojekyll() -> None:
     """Write the marker file that disables Jekyll processing on Pages."""
-    (DEPLOY_DIR / ".nojekyll").write_text("", encoding="utf-8")
+    _write_text(DEPLOY_DIR / ".nojekyll", "")
 
 
 def _write_deploy_metadata(*, commit_sha: str, version: str, site_path: str) -> None:
@@ -316,9 +400,9 @@ def _write_deploy_metadata(*, commit_sha: str, version: str, site_path: str) -> 
         "site_path": site_path,
         "version": version,
     }
-    metadata_path.write_text(
+    _write_text(
+        metadata_path,
         json.dumps(metadata, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
     )
 
 
@@ -340,7 +424,7 @@ def _resolve_module_tree(entry_file: Path) -> list[Path]:
         if not js_file.exists():
             return
 
-        content = js_file.read_text(encoding="utf-8")
+        content = _read_text(js_file)
         for match in JS_IMPORT_PATTERN.finditer(content):
             dep_path = (js_file.parent / match.group(1)).resolve()
             if dep_path in visited or not dep_path.is_relative_to(deploy_root):
@@ -366,13 +450,15 @@ def _inject_modulepreload_hints() -> None:
     inserted before ``</head>`` so the browser can fetch all modules in parallel.
     """
     for html_path in DEPLOY_DIR.rglob("*.html"):
-        content = html_path.read_text(encoding="utf-8")
+        content = _read_text(html_path)
         script_match = MODULE_SCRIPT_PATTERN.search(content)
         if not script_match:
             continue
 
         entry_href = script_match.group(1).split("?")[0]
         entry_file = (html_path.parent / entry_href).resolve()
+        if not entry_file.is_relative_to(DEPLOY_DIR.resolve()):
+            continue
         logger.debug("Walking module tree from %s", entry_file)
         deps = _resolve_module_tree(entry_file)
         if not deps:
@@ -385,7 +471,7 @@ def _inject_modulepreload_hints() -> None:
 
         insertion = "\n".join(hints) + "\n"
         content = content.replace("</head>", insertion + "</head>")
-        html_path.write_text(content, encoding="utf-8")
+        _write_text(html_path, content)
         logger.info(
             "Injected %d modulepreload hint(s) in %s",
             len(hints),
@@ -404,6 +490,7 @@ def _is_minifiable_js(path: Path) -> bool:
 
 def _minify_file(file_path: Path) -> int:
     """Minify ``file_path`` in-place using esbuild and return bytes saved."""
+    _reject_symlinked_path(file_path, label="Minify target")
     original_size = file_path.stat().st_size
     subprocess.run(
         [
@@ -427,17 +514,22 @@ def _minify_site_assets() -> None:
         logger.warning("esbuild not found at %s, skipping minification", ESBUILD_BIN)
         return
 
-    total_saved = 0
-
+    paths: list[Path] = []
     for path in sorted(DEPLOY_DIR.rglob("*")):
-        if path.suffix == ".css":
-            label = "CSS"
-        elif _is_minifiable_js(path):
-            label = "JS"
-        else:
-            continue
-        saved = _minify_file(path)
-        total_saved += saved
+        if path.suffix == ".css" or _is_minifiable_js(path):
+            paths.append(path)
+
+    if not paths:
+        logger.info("Minified site assets (saved 0 bytes total)")
+        return
+
+    worker_count = min(MAX_MINIFY_WORKERS, os.cpu_count() or 1, len(paths))
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        saved_by_path = list(executor.map(_minify_file, paths))
+
+    total_saved = sum(saved_by_path)
+    for path, saved in zip(paths, saved_by_path, strict=True):
+        label = "CSS" if path.suffix == ".css" else "JS"
         logger.debug("Minified %s %s (saved %d bytes)", label, path.name, saved)
 
     logger.info("Minified site assets (saved %d bytes total)", total_saved)
@@ -459,14 +551,14 @@ def prepare_site() -> None:
     )
     _copy_deploy_items()
     _remove_build_only_sources()
-    _patch_index_html(version)
-    _patch_app_asset_references(version)
-    _patch_social_metadata(site_url, version)
-    _patch_app_social_metadata(site_url, version)
-    _patch_404_html(site_path)
-    _patch_manifest(site_path)
     _inject_modulepreload_hints()
     _minify_site_assets()
+    _patch_index_html()
+    _patch_app_asset_references()
+    _patch_social_metadata(site_url)
+    _patch_app_social_metadata(site_url)
+    _patch_404_html(site_path)
+    _patch_manifest(site_path)
     _write_nojekyll()
     _write_deploy_metadata(commit_sha=commit_sha, version=version, site_path=site_path)
     logger.info("Prepared %s", DEPLOY_DIR)

@@ -697,9 +697,30 @@ def test_validate_thumbnail_artifact_rejects_missing_root_and_plan(
 
     artifact_root = tmp_path / "thumb-artifact"
     artifact_root.mkdir()
-    with pytest.raises(ValueError, match=r"missing plan.json"):
+    with pytest.raises(ValueError, match=r"manifest is missing"):
         workflow_helpers.validate_thumbnail_artifact(artifact_root)
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(ValueError, match=r"manifest is missing"):
+        thumbnail_plan.read_thumbnail_plan(artifact_root)
+
+
+@pytest.mark.skipif(not hasattr(Path, "symlink_to"), reason="symlinks unavailable")
+def test_thumbnail_plan_readers_reject_symlinked_roots_and_manifests(tmp_path: Path) -> None:
+    """Plan readers reject symlinked artifact roots and manifest files before reading."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    linked_root = tmp_path / "linked-root"
+    linked_root.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(ValueError, match="root must not be a symlink"):
+        thumbnail_plan.read_thumbnail_plan(linked_root)
+    with pytest.raises(ValueError, match="root must not be a symlink"):
+        thumbnail_plan.validate_thumbnail_artifact(linked_root)
+
+    artifact_root = tmp_path / "artifact"
+    artifact_root.mkdir()
+    manifest_target = tmp_path / "plan-target.json"
+    write_text(manifest_target, "{}")
+    (artifact_root / "plan.json").symlink_to(manifest_target)
+    with pytest.raises(ValueError, match="manifest must not be a symlink"):
         thumbnail_plan.read_thumbnail_plan(artifact_root)
 
 
@@ -1222,3 +1243,25 @@ def test_main_thumbnail_plan_passes_actor_and_bot_login(monkeypatch: pytest.Monk
     assert exit_code == 0
     assert captured["actor"] == "hermione1176[bot]"
     assert captured["app_bot_login"] == "hermione1176[bot]"
+    assert captured["force_full"] is False
+
+
+def test_scheduled_full_sweep_forces_a_conservative_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A requested full sweep avoids comparison and automated-commit shortcuts."""
+    monkeypatch.chdir(tmp_path)
+    write_text(tmp_path / "apps" / "alpha" / "index.html", "<html></html>\n")
+
+    plan = workflow_helpers.thumbnail_plan(
+        event_name="schedule",
+        repo="owner/repo",
+        pr_number="",
+        commit_sha="",
+        force_full=True,
+    )
+
+    assert plan["comparison_available"] is False
+    assert plan["browser_scope"] == "all"
+    assert plan["thumbnail_scope"] == "all"
+    assert plan["skip_verification"] is False

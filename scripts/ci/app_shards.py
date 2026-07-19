@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import cast
 
 from scripts.lib.app_discovery import artifact_base_path, discover_app_slugs, thumbnail_file
-from scripts.lib.path_validation import reject_symlinks
+from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
 
 SHARD_SIZE = 20
 MAX_SHARD_COUNT = 128
@@ -48,6 +48,15 @@ def _scope_slugs(scope: str, scoped_slugs: list[str], all_slugs: list[str]) -> l
     return []
 
 
+def _browser_scoped_slugs(plan: dict[str, object], browser_apps: list[str]) -> list[str]:
+    """Resolve browser scope, honoring memoization's explicit retained app list."""
+    scope = _scope(plan, "browser_scope")
+    explicit = plan.get("browser_slugs")
+    if explicit is None:
+        return _scope_slugs(scope, _string_list(plan, "changed_slugs"), browser_apps)
+    return sorted(set(_string_list(plan, "browser_slugs")) & set(browser_apps))
+
+
 def _chunked(slugs: list[str]) -> list[list[str]]:
     """Split sorted app slugs into deterministic bounded chunks."""
     if len(slugs) > SHARD_SIZE * MAX_SHARD_COUNT:
@@ -63,11 +72,7 @@ def add_shards(plan: dict[str, object], *, apps_root: Path | None = None) -> dic
     root = apps_root or Path(artifact_base_path())
     all_apps = discover_app_slugs(root)
     browser_apps = browser_app_slugs(root, all_apps)
-    browser_slugs = _scope_slugs(
-        _scope(plan, "browser_scope"),
-        _string_list(plan, "changed_slugs"),
-        browser_apps,
-    )
+    browser_slugs = _browser_scoped_slugs(plan, browser_apps)
     thumbnail_slugs = _scope_slugs(
         _scope(plan, "thumbnail_scope"),
         _string_list(plan, "thumbnail_slugs"),
@@ -126,6 +131,9 @@ def shard_count(plan: dict[str, object]) -> int:
 
 def read_plan(path: Path) -> dict[str, object]:
     """Read one persisted JSON impact plan."""
+    reject_path_symlinks(path, label="Impact plan input")
+    if not path.is_file():
+        raise ValueError(f"Impact plan is missing: {path}")
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError("Impact plan must be a JSON object")
@@ -147,14 +155,16 @@ def shard_manifest(plan: dict[str, object], *, shard_index: int) -> dict[str, ob
 def write_shard_manifest(plan_path: Path, *, shard_index: int, output_path: Path) -> None:
     """Select one plan shard and write its standalone manifest."""
     manifest = shard_manifest(read_plan(plan_path), shard_index=shard_index)
-    if output_path.is_symlink():
-        raise ValueError(f"Shard manifest output must not be a symlink: {output_path}")
+    reject_path_symlinks(output_path, label="Shard manifest output")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
 
 
 def read_shard_manifest(path: Path) -> dict[str, object]:
     """Read and validate a standalone app-shard manifest."""
+    reject_path_symlinks(path, label="Shard manifest input")
+    if not path.is_file():
+        raise ValueError(f"Shard manifest is missing: {path}")
     payload = read_plan(path)
     index = payload.get("index")
     if not isinstance(index, int) or index < 0:
@@ -171,9 +181,11 @@ def invalidate_shard_thumbnails(
 ) -> list[Path]:
     """Delete prior thumbnails for the manifest's targeted thumbnail slugs."""
     root = apps_root or Path(artifact_base_path())
+    reject_path_symlinks(root, label="Shard thumbnail root")
     removed: list[Path] = []
     for slug in cast("list[str]", read_shard_manifest(manifest_path)["thumbnail_slugs"]):
         thumbnail = root / slug / thumbnail_file()
+        reject_path_symlinks(thumbnail, label="Shard thumbnail")
         if thumbnail.exists():
             thumbnail.unlink()
             removed.append(thumbnail)
@@ -189,9 +201,12 @@ def package_shard_result(
     """Package a shard manifest and its generated thumbnails for transfer."""
     manifest = read_shard_manifest(manifest_path)
     root = apps_root or Path(artifact_base_path())
-    if output_root.is_symlink():
-        raise ValueError(f"Shard result output must not be a symlink: {output_root}")
+    reject_path_symlinks(root, label="Shard thumbnail root")
+    if root.exists():
+        reject_symlinks(root)
+    reject_path_symlinks(output_root, label="Shard result output")
     if output_root.exists():
+        reject_symlinks(output_root)
         shutil.rmtree(output_root)
     output_root.mkdir(parents=True)
     (output_root / SHARD_MANIFEST_FILE).write_text(
@@ -209,10 +224,14 @@ def package_shard_result(
 
 def merge_shard_results(results_root: Path, *, apps_root: Path | None = None) -> list[str]:
     """Validate and merge every downloaded shard thumbnail result into the checkout."""
+    reject_path_symlinks(results_root, label="Shard result root")
     if not results_root.exists():
         return []
     reject_symlinks(results_root)
     destination_root = apps_root or Path(artifact_base_path())
+    reject_path_symlinks(destination_root, label="Shard thumbnail destination root")
+    if destination_root.exists():
+        reject_symlinks(destination_root)
     merged: list[str] = []
     seen_slugs: set[str] = set()
     for result_root in sorted(path for path in results_root.iterdir() if path.is_dir()):

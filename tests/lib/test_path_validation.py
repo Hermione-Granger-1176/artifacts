@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.lib.path_validation import reject_symlinks
+from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
 
 
 def test_clean_tree_passes(tmp_path: Path) -> None:
@@ -50,3 +50,15 @@ def test_nested_symlink_raises(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="symlink"):
         reject_symlinks(tmp_path)
+
+
+def test_reject_path_symlinks_checks_leaf_and_parent_paths(tmp_path: Path) -> None:
+    """Direct file operations reject symlinked leaves and lexical parents."""
+    assert reject_path_symlinks(tmp_path / "missing" / "file.txt") is None
+
+    target = tmp_path / "target"
+    target.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(target, target_is_directory=True)
+    with pytest.raises(ValueError, match="Artifact input must not be a symlinked path"):
+        reject_path_symlinks(linked_parent / "file.txt", label="Artifact input")

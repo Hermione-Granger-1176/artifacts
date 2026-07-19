@@ -15,6 +15,7 @@ from urllib.parse import urljoin, urlsplit
 import pytest
 
 import scripts.build.prepare_site as prepare_site
+from scripts.lib.path_validation import reject_path_symlinks
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 REQUIRE_BROWSER_TESTS = os.environ.get("ARTIFACTS_REQUIRE_BROWSER_TESTS") == "1"
@@ -183,8 +184,7 @@ def selected_app_slugs() -> list[str]:
     manifest_path = os.environ.get(APP_SHARD_MANIFEST_ENV, "").strip()
     if manifest_path:
         manifest_file = Path(manifest_path)
-        if manifest_file.is_symlink():
-            raise ValueError("Browser shard manifest must not be a symlink")
+        reject_path_symlinks(manifest_file, label="Browser shard manifest")
         if not manifest_file.is_file():
             raise ValueError(f"Browser shard manifest is missing: {manifest_file}")
         payload = json.loads(manifest_file.read_text(encoding="utf-8"))

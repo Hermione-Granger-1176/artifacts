@@ -76,6 +76,20 @@ def test_add_shards_resolves_all_and_none_scopes(tmp_path: Path) -> None:
     assert app_shards.compact_matrix(empty) == '{"include":[]}'
 
 
+def test_add_shards_honors_memoized_browser_slug_list(tmp_path: Path) -> None:
+    """Explicit browser slugs keep memoized apps out of browser shard manifests."""
+    apps_root = tmp_path / "apps"
+    make_app(apps_root, "alpha", browser=True)
+    make_app(apps_root, "beta", browser=True)
+
+    plan = app_shards.add_shards(
+        {**base_plan(browser_scope="all", thumbnail_scope="none"), "browser_slugs": ["beta"]},
+        apps_root=apps_root,
+    )
+
+    assert plan["shards"] == [{"index": 0, "browser_slugs": ["beta"], "thumbnail_slugs": []}]
+
+
 def test_add_shards_obeys_size_and_matrix_limits() -> None:
     """Test thousands of synthetic app slugs fill bounded deterministic shards."""
     all_apps = [f"app-{index:04d}" for index in range(app_shards.SHARD_SIZE * 2 + 1)]
@@ -187,6 +201,14 @@ def test_plan_and_manifest_readers_validate_json(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="thumbnail_slugs"):
         app_shards.read_shard_manifest(manifest_path)
 
+    with pytest.raises(ValueError, match="Impact plan is missing"):
+        app_shards.read_plan(tmp_path / "missing.json")
+
+    linked = tmp_path / "linked.json"
+    linked.symlink_to(manifest_path)
+    with pytest.raises(ValueError, match="must not be a symlink"):
+        app_shards.read_plan(linked)
+
 
 def test_write_and_read_shard_manifest_selects_requested_shard(tmp_path: Path) -> None:
     """Test standalone manifests carry exactly the selected plan assignment."""
@@ -256,7 +278,7 @@ def test_package_and_merge_reject_invalid_results(tmp_path: Path) -> None:
     write_json(manifest_path, {"index": 0, "browser_slugs": [], "thumbnail_slugs": ["alpha"]})
     with pytest.raises(ValueError, match="missing after capture"):
         app_shards.package_shard_result(
-            manifest_path, output_root=tmp_path / "result", apps_root=tmp_path
+            manifest_path, output_root=tmp_path / "result", apps_root=tmp_path / "missing-apps"
         )
 
     results_root = tmp_path / "results"
@@ -307,6 +329,75 @@ def test_write_and_package_reject_symlinked_outputs(tmp_path: Path) -> None:
     linked_root.symlink_to(tmp_path / "real-result")
     with pytest.raises(ValueError, match="symlink"):
         app_shards.package_shard_result(manifest_path, output_root=linked_root, apps_root=tmp_path)
+
+
+def test_shard_helpers_reject_symlinked_manifest_inputs_and_thumbnail_paths(tmp_path: Path) -> None:
+    """Manifest, source, destination, and parent symlinks are rejected before I/O."""
+    plan_path = tmp_path / "plan.json"
+    write_json(
+        plan_path,
+        {"shards": [{"index": 0, "browser_slugs": [], "thumbnail_slugs": ["alpha"]}]},
+    )
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    with pytest.raises(ValueError, match="Shard manifest output"):
+        app_shards.write_shard_manifest(
+            plan_path, shard_index=0, output_path=linked_parent / "manifest.json"
+        )
+
+    manifest_target = tmp_path / "manifest-target.json"
+    write_json(manifest_target, {"index": 0, "browser_slugs": [], "thumbnail_slugs": []})
+    linked_manifest = tmp_path / "manifest.json"
+    linked_manifest.symlink_to(manifest_target)
+    with pytest.raises(ValueError, match="Shard manifest input must not be a symlinked path"):
+        app_shards.read_shard_manifest(linked_manifest)
+    with pytest.raises(ValueError, match="manifest is missing"):
+        app_shards.read_shard_manifest(tmp_path / "missing.json")
+    linked_manifest_dir = tmp_path / "linked-manifest-dir"
+    linked_manifest_dir.symlink_to(tmp_path, target_is_directory=True)
+    with pytest.raises(ValueError, match="Shard manifest input must not be a symlinked path"):
+        app_shards.read_shard_manifest(linked_manifest_dir / "manifest-target.json")
+
+    manifest_path = tmp_path / "thumbnail-manifest.json"
+    write_json(manifest_path, {"index": 0, "browser_slugs": [], "thumbnail_slugs": ["alpha"]})
+    apps_root = tmp_path / "apps"
+    target = tmp_path / "thumbnail.webp"
+    target.write_bytes(b"thumb")
+    thumbnail = apps_root / "alpha" / "thumbnail.webp"
+    thumbnail.parent.mkdir(parents=True)
+    thumbnail.symlink_to(target)
+    with pytest.raises(ValueError, match="Shard thumbnail must not be a symlinked path"):
+        app_shards.invalidate_shard_thumbnails(manifest_path, apps_root=apps_root)
+    with pytest.raises(ValueError, match="symlink"):
+        app_shards.package_shard_result(
+            manifest_path, output_root=tmp_path / "result", apps_root=apps_root
+        )
+
+    linked_slug_root = tmp_path / "linked-slug-apps"
+    linked_slug_root.mkdir()
+    slug_target = tmp_path / "outside-slug"
+    slug_target.mkdir()
+    (slug_target / "thumbnail.webp").write_bytes(b"thumb")
+    (linked_slug_root / "alpha").symlink_to(slug_target, target_is_directory=True)
+    with pytest.raises(ValueError, match="Shard thumbnail must not be a symlinked path"):
+        app_shards.invalidate_shard_thumbnails(manifest_path, apps_root=linked_slug_root)
+    assert (slug_target / "thumbnail.webp").exists()
+
+    results_root = tmp_path / "results"
+    write_json(
+        results_root / "result" / "manifest.json",
+        {"index": 0, "browser_slugs": [], "thumbnail_slugs": ["alpha"]},
+    )
+    source_thumbnail = results_root / "result" / "apps" / "alpha" / "thumbnail.webp"
+    source_thumbnail.parent.mkdir(parents=True)
+    source_thumbnail.write_bytes(b"thumb")
+    destination_root = tmp_path / "destination"
+    destination_root.mkdir()
+    (destination_root / "alpha").symlink_to(tmp_path, target_is_directory=True)
+    with pytest.raises(ValueError, match="symlink"):
+        app_shards.merge_shard_results(results_root, apps_root=destination_root)
 
 
 def test_main_runs_makefile_facing_commands(
