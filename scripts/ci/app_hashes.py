@@ -217,12 +217,8 @@ def update_ledger(
 ) -> dict[str, str]:
     """Merge hashes for the plan's main-verified browser apps into the ledger."""
     reject_path_symlinks(repo_root, label="Repository root")
-    try:
-        ledger = read_ledger(ledger_path)
-    except ValueError as exc:
-        if "is missing:" not in str(exc):
-            raise
-        ledger = {}
+    _reject_symlinked_file(ledger_path, label="Verification ledger")
+    ledger = read_ledger(ledger_path) if ledger_path.is_file() else {}
     verified_slugs = _string_list(plan, "verified_browser_slugs")
     current_hashes = hash_inputs_fn(verified_slugs, repo_root=repo_root.resolve())
     ledger.update(current_hashes)
