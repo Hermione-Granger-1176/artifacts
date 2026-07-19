@@ -23,6 +23,8 @@ function makeElement(tagName = 'div') {
     children: [],
     style: {},
     scrolledTo: false,
+    rectTop: 0,
+    getBoundingClientRect() { return { top: this.rectTop }; },
     classList: {
       contains(className) { return classes.has(className); },
       toggle(className, force) {
@@ -68,10 +70,17 @@ function setupNavMocks({
   const originalDocument = globalThis.document;
   const originalWindow = globalThis.window;
   const originalObserver = globalThis.IntersectionObserver;
+  const windowListeners = {};
   globalThis.window = {
-    matchMedia() { return { matches: reduceMotion }; }
+    innerHeight: 800,
+    scrollY: 0,
+    matchMedia() { return { matches: reduceMotion }; },
+    addEventListener(type, handler, options) {
+      windowListeners[type] = { handler, options };
+    }
   };
   globalThis.document = {
+    documentElement: { scrollHeight: 10000 },
     getElementById(id) { return registry[id] ?? null; },
     createElement(tagName) { return makeElement(tagName); }
   };
@@ -92,7 +101,7 @@ function setupNavMocks({
     if (originalObserver) globalThis.IntersectionObserver = originalObserver;
     else delete globalThis.IntersectionObserver;
   };
-  return { observers, registry, restore };
+  return { observers, registry, windowListeners, restore };
 }
 
 test('renderSectionNav injects the shared skeleton into an empty mount', () => {
@@ -128,8 +137,50 @@ test('section nav builds one numbered node per section and starts on the first',
     assert.equal(registry['nav-label'].textContent, 'Alpha');
 
     assert.equal(observers.length, 1);
-    assert.equal(observers[0].options.threshold, 0.3);
+    assert.equal(observers[0].options.threshold, 0);
     assert.equal(observers[0].targets.length, SECTIONS.length);
+  } finally {
+    restore();
+  }
+});
+
+test('discovers sections from data-nav-label markup when no list is passed', () => {
+  const { registry, restore } = setupNavMocks();
+  try {
+    const sectionEls = SECTIONS.map((section) => {
+      const el = registry[section.id];
+      el.setAttribute('data-nav-label', section.label);
+      return el;
+    });
+    globalThis.document.querySelectorAll = (sel) =>
+      sel === '[data-nav-label]' ? sectionEls : [];
+
+    initSectionNav();
+
+    const nodes = registry['nav-nodes'].children;
+    assert.equal(nodes.length, SECTIONS.length);
+    assert.equal(nodes[0].getAttribute('aria-label'), 'Alpha');
+    assert.equal(registry['nav-label'].textContent, 'Alpha');
+  } finally {
+    restore();
+  }
+});
+
+test('discovery skips elements missing an id or a label value', () => {
+  const { registry, restore } = setupNavMocks();
+  try {
+    const anonymous = makeElement('section');
+    anonymous.setAttribute('data-nav-label', 'No Anchor');
+    const unlabeled = registry['sec-beta'];
+    unlabeled.setAttribute('data-nav-label', '');
+    const labeled = registry['sec-alpha'];
+    labeled.setAttribute('data-nav-label', 'Alpha');
+    globalThis.document.querySelectorAll = () => [anonymous, unlabeled, labeled];
+
+    initSectionNav();
+
+    assert.equal(registry['nav-nodes'].children.length, 1);
+    assert.equal(registry['nav-label'].textContent, 'Alpha');
   } finally {
     restore();
   }
@@ -177,6 +228,7 @@ test('intersection updates mark earlier nodes done and move the fill and label',
   try {
     initSectionNav(SECTIONS);
 
+    registry['sec-gamma'].rectTop = 100;
     observers[0].callback([
       { isIntersecting: false, target: registry['sec-alpha'] },
       { isIntersecting: true, target: registry['sec-gamma'] },
@@ -190,6 +242,151 @@ test('intersection updates mark earlier nodes done and move the fill and label',
     assert.ok(!nodes[3].classList.contains('active'));
     assert.equal(registry['nav-label'].textContent, 'Gamma');
     assert.ok(registry['nav-fill'].style.width.startsWith('66.6'));
+  } finally {
+    restore();
+  }
+});
+
+test('the last visible section past the scanline beats earlier visible ones', () => {
+  const { observers, registry, restore } = setupNavMocks();
+  try {
+    initSectionNav(SECTIONS);
+
+    // A short heading hovering above the viewport top and the tall card the
+    // reader is actually looking at are both on screen; the card wins because
+    // it is the later section whose top has passed the scanline (800 * 0.35).
+    registry['sec-beta'].rectTop = -50;
+    registry['sec-gamma'].rectTop = 60;
+    observers[0].callback([
+      { isIntersecting: true, target: registry['sec-beta'] },
+      { isIntersecting: true, target: registry['sec-gamma'] }
+    ]);
+    assert.equal(registry['nav-label'].textContent, 'Gamma');
+
+    // Once the card leaves, the heading is the only candidate again.
+    observers[0].callback([
+      { isIntersecting: false, target: registry['sec-gamma'] }
+    ]);
+    assert.equal(registry['nav-label'].textContent, 'Beta');
+  } finally {
+    restore();
+  }
+});
+
+test('falls back to the first visible section when none has passed the scanline', () => {
+  const { observers, registry, restore } = setupNavMocks();
+  try {
+    initSectionNav(SECTIONS);
+
+    registry['sec-beta'].rectTop = 500;
+    registry['sec-gamma'].rectTop = 700;
+    observers[0].callback([
+      { isIntersecting: true, target: registry['sec-beta'] },
+      { isIntersecting: true, target: registry['sec-gamma'] }
+    ]);
+    assert.equal(registry['nav-label'].textContent, 'Beta');
+  } finally {
+    restore();
+  }
+});
+
+test('keeps the current section when nothing is on screen', () => {
+  const { observers, registry, restore } = setupNavMocks();
+  try {
+    initSectionNav(SECTIONS);
+
+    registry['sec-beta'].rectTop = 100;
+    observers[0].callback([
+      { isIntersecting: true, target: registry['sec-beta'] }
+    ]);
+    assert.equal(registry['nav-label'].textContent, 'Beta');
+
+    observers[0].callback([
+      { isIntersecting: false, target: registry['sec-beta'] }
+    ]);
+    assert.equal(registry['nav-label'].textContent, 'Beta');
+  } finally {
+    restore();
+  }
+});
+
+test('scrolling re-runs the position check between enter and leave events', () => {
+  const { observers, registry, windowListeners, restore } = setupNavMocks();
+  try {
+    initSectionNav(SECTIONS);
+
+    registry['sec-beta'].rectTop = 100;
+    registry['sec-gamma'].rectTop = 600;
+    observers[0].callback([
+      { isIntersecting: true, target: registry['sec-beta'] },
+      { isIntersecting: true, target: registry['sec-gamma'] }
+    ]);
+    assert.equal(registry['nav-label'].textContent, 'Beta');
+
+    // The card's top crosses the scanline without any enter/leave firing; the
+    // passive scroll listener picks up the change.
+    registry['sec-gamma'].rectTop = 200;
+    assert.equal(windowListeners.scroll.options.passive, true);
+    windowListeners.scroll.handler();
+    assert.equal(registry['nav-label'].textContent, 'Gamma');
+  } finally {
+    restore();
+  }
+});
+
+test('pins the deepest visible section at the bottom of the page', () => {
+  const { observers, registry, windowListeners, restore } = setupNavMocks();
+  try {
+    initSectionNav(SECTIONS);
+
+    // The page has run out of scroll but the last section's top never reaches
+    // the scanline; the bottom pin promotes it anyway (via the resize listener
+    // here, which shares the same position check as scroll).
+    registry['sec-gamma'].rectTop = -100;
+    registry['sec-delta'].rectTop = 500;
+    observers[0].callback([
+      { isIntersecting: true, target: registry['sec-gamma'] },
+      { isIntersecting: true, target: registry['sec-delta'] }
+    ]);
+    assert.equal(registry['nav-label'].textContent, 'Gamma');
+
+    globalThis.document.documentElement.scrollHeight = 1600;
+    globalThis.window.scrollY = 800;
+    windowListeners.resize.handler();
+    assert.equal(registry['nav-label'].textContent, 'Delta');
+    assert.equal(registry['nav-fill'].style.width, '100%');
+  } finally {
+    restore();
+  }
+});
+
+test('does not bottom-pin on a non-scrollable page', () => {
+  const { observers, registry, restore } = setupNavMocks();
+  try {
+    initSectionNav(SECTIONS);
+
+    // A short page where scrollHeight fits within the viewport is not
+    // scrollable, so the bottom pin must not promote the last visible
+    // section while the reader is still at the top.
+    globalThis.document.documentElement.scrollHeight = 600;
+    registry['sec-gamma'].rectTop = -100;
+    registry['sec-delta'].rectTop = 500;
+    observers[0].callback([
+      { isIntersecting: true, target: registry['sec-gamma'] },
+      { isIntersecting: true, target: registry['sec-delta'] }
+    ]);
+    assert.equal(registry['nav-label'].textContent, 'Gamma');
+  } finally {
+    restore();
+  }
+});
+
+test('sections without a matching element are skipped by the observer', () => {
+  const { observers, registry, restore } = setupNavMocks();
+  try {
+    delete registry['sec-delta'];
+    initSectionNav(SECTIONS);
+    assert.equal(observers[0].targets.length, SECTIONS.length - 1);
   } finally {
     restore();
   }

@@ -1335,26 +1335,46 @@ body.app-prompt-caching .chv-legend-dot.is-rose { background: var(--pc-rose);
 }
 
 /* The provider comparison table rides the shared table styling inside
- * .table-wrap; only the uppercase headers and prose (left-aligned, top-aligned)
- * cell layout stay scoped, since the shared table is tuned for right-aligned
- * numeric data. */
-body.app-prompt-caching .pc-cmp { margin: var(--space-4) 0;
+ * .table-wrap; the prose-oriented layout (left-aligned headers and cells,
+ * fixed aspect column, row hover) stays scoped, since the shared table is
+ * tuned for right-aligned numeric data. Vertical rhythm lives on the wrap
+ * so the card hugs the table with no inner gap. */
+body.app-prompt-caching .table-wrap { margin: var(--space-4) 0;
 }
 
 body.app-prompt-caching .pc-cmp th {
-  text-align: center;
-  padding: 0.6rem 0.9rem;
+  text-align: left;
+  padding: 0.65rem 1rem;
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+
+}
+
+body.app-prompt-caching .pc-cmp th:first-child,
+body.app-prompt-caching .pc-cmp td:first-child {
+  width: 132px;
+  text-align: left;
 
 }
 
 body.app-prompt-caching .pc-cmp td {
-  padding: 0.6rem 0.9rem;
+  padding: 0.75rem 1rem;
   font-size: var(--font-size-md);
   color: var(--color-text-secondary);
   vertical-align: top;
   text-align: left;
+
+}
+
+body.app-prompt-caching .pc-cmp tbody tr {
+  transition: background var(--transition-fast) ease;
+
+}
+
+body.app-prompt-caching .pc-cmp tbody tr:hover {
+  background: var(--color-highlight-row);
 
 }
 

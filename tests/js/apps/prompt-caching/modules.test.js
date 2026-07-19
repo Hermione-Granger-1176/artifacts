@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -13,7 +14,6 @@ import {
   project2D
 } from '../../../../apps/prompt-caching/js/modules/math.js';
 import {
-  SECTIONS,
   WHOLE_TOKENS,
   SUB_PIECES,
   ATTN_DATA,
@@ -201,13 +201,25 @@ test('project2D selects the orthogonal axis with the highest true variance', () 
 
 // --- data integrity ---
 
-test('SECTIONS lists nine unique anchored stages', () => {
-  assert.equal(SECTIONS.length, 9);
-  const ids = new Set(SECTIONS.map((section) => section.id));
+test('the markup declares nine unique anchored nav stages', () => {
+  const html = readFileSync(
+    new URL('../../../../apps/prompt-caching/index.html', import.meta.url),
+    'utf8'
+  );
+  const tags = [...html.matchAll(/<[^>]*\bdata-nav-label=[^>]*>/g)];
+  const stages = [];
+  for (const [tag] of tags) {
+    const idMatch = tag.match(/\bid="(sec-[^"]+)"/);
+    const labelMatch = tag.match(/\bdata-nav-label="([^"]*)"/);
+    if (idMatch && labelMatch) {
+      stages.push([tag, idMatch[1], labelMatch[1]]);
+    }
+  }
+  assert.equal(stages.length, 9);
+  const ids = new Set(stages.map(([, id]) => id));
   assert.equal(ids.size, 9);
-  for (const section of SECTIONS) {
-    assert.ok(section.id.startsWith('sec-'));
-    assert.ok(section.label.length > 0);
+  for (const [, , label] of stages) {
+    assert.ok(label.length > 0);
   }
 });
 

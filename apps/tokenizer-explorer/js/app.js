@@ -30,13 +30,6 @@ let showWhitespace = false;
 /** @type {number | null} */
 let pickedTokenTimer = null;
 
-const NAV_SECTIONS = [
-  { id: "sec-tokens", label: "Tokens" },
-  { id: "sec-sampling", label: "Sampling" },
-  { id: "sec-distribution", label: "Distribution" },
-  { id: "concepts", label: "Concepts" }
-];
-
 const ELEMENT_IDS = [
   "tabs",
   "scenario-type",
@@ -74,7 +67,7 @@ initializeMatureApp({
     });
     initAccordion(elements.concepts);
     renderSectionNav(document.querySelector("[data-section-nav]"));
-    initSectionNav(NAV_SECTIONS);
+    initSectionNav();
     bindEvents();
     const tabButtons = renderTabs(elements.tabs, scenarios, activeIndex);
     initSegmented(elements.tabs, (button) => selectScenario(tabButtons.indexOf(button)));

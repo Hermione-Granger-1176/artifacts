@@ -1,22 +1,11 @@
 /* Static datasets for the Prompt Caching explainer.
  *
- * Everything here is frozen reference data: section metadata, the toy BPE
- * vocabulary, the worked attention example, the hand-tuned word embeddings, and
- * the canned demo scripts. Colors are expressed as shared-token names so the
- * canvas demos can resolve them per-theme at draw time.
+ * Everything here is frozen reference data: the toy BPE vocabulary, the worked
+ * attention example, the hand-tuned word embeddings, and the canned demo
+ * scripts. Colors are expressed as shared-token names so the canvas demos can
+ * resolve them per-theme at draw time. The section nav comes from the
+ * data-nav-label attributes in index.html.
  */
-
-export const SECTIONS = [
-  { id: "sec-intro", label: "Intro" },
-  { id: "sec-loop", label: "The Loop" },
-  { id: "sec-tokenizer", label: "Tokenizer" },
-  { id: "sec-embedding", label: "Embedding" },
-  { id: "sec-attention", label: "Attention" },
-  { id: "sec-kvcache", label: "KV Cache" },
-  { id: "sec-providers", label: "Providers" },
-  { id: "sec-calculator", label: "Calculator" },
-  { id: "sec-summary", label: "Summary" }
-];
 
 /* Tier 1: whole words any real tokenizer keeps intact (very high frequency). */
 export const WHOLE_TOKENS = new Set([
