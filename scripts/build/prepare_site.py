@@ -449,6 +449,8 @@ def _inject_modulepreload_hints() -> None:
 
         entry_href = script_match.group(1).split("?")[0]
         entry_file = (html_path.parent / entry_href).resolve()
+        if not entry_file.is_relative_to(DEPLOY_DIR.resolve()):
+            continue
         logger.debug("Walking module tree from %s", entry_file)
         deps = _resolve_module_tree(entry_file)
         if not deps:

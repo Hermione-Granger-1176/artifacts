@@ -979,6 +979,24 @@ def test_inject_modulepreload_hints_adds_links(
     assert result.index("modulepreload") < result.index("</head>")
 
 
+def test_inject_modulepreload_hints_skips_entry_outside_deploy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An entry script resolving outside the deploy root is never read or hinted."""
+    deploy = tmp_path / "deploy"
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", deploy)
+    write_text(
+        deploy / "index.html",
+        '<head>\n</head>\n<body>\n<script type="module" src="../outside.js"></script>\n</body>\n',
+    )
+    write_text(tmp_path / "outside.js", 'import { x } from "./lib.js";\n')
+    write_text(tmp_path / "lib.js", "export const x = 1;\n")
+
+    prepare_site._inject_modulepreload_hints()
+
+    assert "modulepreload" not in (deploy / "index.html").read_text(encoding="utf-8")
+
+
 def test_inject_modulepreload_hints_handles_nested_apps(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
