@@ -764,8 +764,46 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
     assert (
         ci_setup_cache["if"] == "inputs.install-deps == 'true' && inputs.install-browsers == 'true'"
     )
+    assert ci_setup_cache["id"] == "playwright-cache"
     assert ci_setup_cache["with"]["key"] == "playwright-${{ hashFiles('uv.lock') }}"
     assert ci_setup["inputs"]["install-browsers"]["default"] == "true"
+    venv_cache = next(
+        step
+        for step in ci_setup["runs"]["steps"]
+        if step.get("name") == "Cache virtual environment"
+    )
+    assert venv_cache["with"]["path"] == ".venv"
+    assert venv_cache["with"]["key"] == (
+        "venv-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('uv.lock') }}"
+    )
+    assert "restore-keys" not in venv_cache["with"]
+    node_modules_cache = next(
+        step for step in ci_setup["runs"]["steps"] if step.get("name") == "Cache node modules"
+    )
+    assert node_modules_cache["with"]["path"] == "node_modules"
+    assert node_modules_cache["with"]["key"] == (
+        "node-modules-${{ runner.os }}-${{ inputs.node-version }}"
+        "-${{ hashFiles('package-lock.json') }}"
+    )
+    assert "restore-keys" not in node_modules_cache["with"]
+    uv_install = next(
+        step for step in ci_setup["runs"]["steps"] if step.get("name") == "Install uv"
+    )
+    assert uv_install["if"] == (
+        "inputs.install-deps == 'true' && steps.venv-cache.outputs.cache-hit != 'true'"
+    )
+    workspace_install = next(
+        step
+        for step in ci_setup["runs"]["steps"]
+        if step.get("name") == "Install workspace dependencies"
+    )
+    for skip_guard in (
+        'if [ "$VENV_CACHE_HIT" != "true" ]',
+        'if [ "$NODE_MODULES_CACHE_HIT" != "true" ]',
+        'if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ]',
+        "make setup-playwright-ci",
+    ):
+        assert skip_guard in workspace_install["run"]
     publish_uv_install = _step_run(
         _job(update, "publish"), "Install uv for live browser verification"
     )

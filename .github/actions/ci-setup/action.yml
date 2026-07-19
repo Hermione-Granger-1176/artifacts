@@ -215,7 +215,24 @@ runs:
         node-version: ${{ inputs.node-version }}
         cache: npm
 
+    - name: Cache virtual environment
+      id: venv-cache
+      if: inputs.install-deps == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('uv.lock') }}
+
+    - name: Cache node modules
+      id: node-modules-cache
+      if: inputs.install-deps == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: node_modules
+        key: node-modules-${{ runner.os }}-${{ inputs.node-version }}-${{ hashFiles('package-lock.json') }}
+
     - name: Cache Playwright browsers
+      id: playwright-cache
       if: inputs.install-deps == 'true' && inputs.install-browsers == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
@@ -223,7 +240,7 @@ runs:
         key: playwright-${{ hashFiles('uv.lock') }}
 
     - name: Install uv
-      if: inputs.install-deps == 'true'
+      if: inputs.install-deps == 'true' && steps.venv-cache.outputs.cache-hit != 'true'
       shell: bash
       run: python -m pip install --upgrade pip uv
 
@@ -232,9 +249,20 @@ runs:
       shell: bash
       env:
         INSTALL_BROWSERS: ${{ inputs.install-browsers }}
+        VENV_CACHE_HIT: ${{ steps.venv-cache.outputs.cache-hit }}
+        NODE_MODULES_CACHE_HIT: ${{ steps.node-modules-cache.outputs.cache-hit }}
+        PLAYWRIGHT_CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
       run: |
+        if [ "$VENV_CACHE_HIT" != "true" ]; then
+          make install
+        fi
+        if [ "$NODE_MODULES_CACHE_HIT" != "true" ]; then
+          make node-install
+        fi
         if [ "$INSTALL_BROWSERS" = "true" ]; then
-          make setup-ci
-        else
-          make setup
+          if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ]; then
+            make setup-playwright
+          else
+            make setup-playwright-ci
+          fi
         fi

@@ -34,3 +34,4 @@ This document covers long-term stability contracts and recurring upkeep. It does
 - Update [`docs/adr/0002-shared-app-system-and-thumbnail-persistence.md`](adr/0002-shared-app-system-and-thumbnail-persistence.md) if thumbnail persistence or the shared app-system contract changes.
 - Update [`docs/adr/0003-makefile-first-and-single-source-of-truth.md`](adr/0003-makefile-first-and-single-source-of-truth.md) if the Makefile-first or single-source-of-truth policy changes.
 - Update [`docs/adr/0004-per-artifact-app-stylesheets.md`](adr/0004-per-artifact-app-stylesheets.md) if the app-local stylesheet split or the shared versus app CSS boundary changes.
+- Update [`docs/adr/0005-ci-scaling-architecture-and-roadmap.md`](adr/0005-ci-scaling-architecture-and-roadmap.md) if the impact planner, sharding, memoization ledger, or CI caching strategy changes, and check off roadmap items there as they land.
