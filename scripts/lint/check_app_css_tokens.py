@@ -14,7 +14,8 @@ app stylesheet:
       5px, instead of ``var(--radius-*)``, ``0``, or ``50%`` (px literals up to
       5px are allowed for deliberate sub-token decorative radii);
     - sets a ``font-size`` to a raw px literal instead of ``var(--font-size-*)``,
-      ``clamp()``, or an em / rem / % / inherit value; or
+      a ``clamp()`` built on token or relative units (a px literal inside
+      ``clamp()`` is still flagged), or an em / rem / % / inherit value; or
     - sets ``letter-spacing`` to a raw literal instead of ``var(--tracking-*)``
       or ``normal``.
 
@@ -172,8 +173,8 @@ def _font_size_violation(value: str) -> str | None:
     if _normalize(value) in FONT_SIZE_PX_ALLOWLIST:
         return None
     return (
-        f"raw px font-size '{_normalize(value)}'; use var(--font-size-*), clamp(), "
-        "or an em / rem / % / inherit value"
+        f"raw px font-size '{_normalize(value)}'; use var(--font-size-*), a clamp() "
+        "built on token or relative units, or an em / rem / % / inherit value"
     )
 
 
