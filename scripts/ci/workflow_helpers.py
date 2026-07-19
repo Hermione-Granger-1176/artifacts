@@ -35,6 +35,7 @@ import time
 from pathlib import Path
 
 from scripts.build import thumbnail_plan as _thumbnail_plan
+from scripts.ci import app_shards as _app_shards
 from scripts.ci import audit_previews as _audit_previews
 from scripts.ci import issue_alerts as _issue_alerts
 from scripts.ci import repo_audit as _repo_audit
@@ -289,13 +290,17 @@ def thumbnail_plan(
     actor: str = "",
     app_bot_login: str = "",
     apps_root: Path | None = None,
+    base_sha: str = "",
+    head_sha: str = "",
 ) -> dict[str, object]:
     """Return the strict thumbnail automation plan for one workflow event."""
-    return _thumbnail_plan.thumbnail_plan(
+    plan = _thumbnail_plan.thumbnail_plan(
         event_name=event_name,
         repo=repo,
         pr_number=pr_number,
         commit_sha=commit_sha,
+        base_sha=base_sha,
+        head_sha=head_sha,
         head_repo_fork=head_repo_fork,
         pr_author=pr_author,
         actor=actor,
@@ -307,6 +312,7 @@ def thumbnail_plan(
         runtime_change_plan_fn=runtime_change_plan,
         associated_pr_kind_for_commit_fn=associated_pr_kind_for_commit,
     )
+    return _app_shards.add_shards(plan, apps_root=apps_root)
 
 
 def _load_ruleset_detail(repo: str, ruleset: object) -> object:
@@ -342,19 +348,23 @@ def audit_previews(*, repo: str, pages_branch: str = "gh-pages") -> list[str]:
     )
 
 
-def list_changed_files(*, event_name: str, repo: str, pr_number: str, commit_sha: str) -> list[str]:
-    """Return the changed file list for a pull request or push event."""
+def list_changed_files(*, base_sha: str, head_sha: str) -> list[str]:
+    """Return changed files from the checked-out base and head revisions."""
     return _thumbnail_plan.list_changed_files(
-        event_name=event_name,
-        repo=repo,
-        pr_number=pr_number,
-        commit_sha=commit_sha,
-        run_gh_api_fn=_run_gh_api,
+        base_sha=base_sha,
+        head_sha=head_sha,
+        run_git_fn=subprocess.run,
     )
 
 
 def invalidate_thumbnails(
-    *, event_name: str, repo: str, pr_number: str, commit_sha: str
+    *,
+    event_name: str,
+    repo: str,
+    pr_number: str,
+    commit_sha: str,
+    base_sha: str = "",
+    head_sha: str = "",
 ) -> list[str]:
     """Delete thumbnails for apps whose runtime or shared site assets changed."""
     return _thumbnail_plan.invalidate_thumbnails(
@@ -362,6 +372,8 @@ def invalidate_thumbnails(
         repo=repo,
         pr_number=pr_number,
         commit_sha=commit_sha,
+        base_sha=base_sha,
+        head_sha=head_sha,
         list_changed_files_fn=list_changed_files,
         runtime_change_plan_fn=runtime_change_plan,
     )
@@ -381,14 +393,6 @@ def _plan_str(plan: dict[str, object], key: str) -> str:
     return value
 
 
-def _plan_slug_csv(plan: dict[str, object], key: str) -> str:
-    """Return a plan slug list joined into a comma-separated string."""
-    value = plan.get(key)
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise ValueError(f"Plan field {key} must be a list of strings")
-    return ",".join(value)
-
-
 def _plan_bool(plan: dict[str, object], key: str) -> bool:
     """Return a required boolean field from a thumbnail automation plan."""
     value = plan.get(key)
@@ -402,9 +406,9 @@ def plan_output_lines(plan: dict[str, object]) -> list[str]:
     skip = "true" if _plan_bool(plan, "skip_verification") else "false"
     return [
         f"browser-scope={_plan_str(plan, 'browser_scope')}",
-        f"changed-slugs={_plan_slug_csv(plan, 'changed_slugs')}",
         f"thumbnail-scope={_plan_str(plan, 'thumbnail_scope')}",
-        f"thumbnail-slugs={_plan_slug_csv(plan, 'thumbnail_slugs')}",
+        f"shard-matrix={_app_shards.compact_matrix(plan)}",
+        f"shard-count={_app_shards.shard_count(plan)}",
         f"persist-mode={_plan_str(plan, 'persist_mode')}",
         f"reason={_plan_str(plan, 'reason')}",
         f"skip-verification={skip}",
@@ -498,6 +502,8 @@ def _build_parser() -> argparse.ArgumentParser:
     thumb_parser.add_argument("--repo", required=True)
     thumb_parser.add_argument("--pr-number", default="")
     thumb_parser.add_argument("--commit-sha", default="")
+    thumb_parser.add_argument("--base-sha", default="")
+    thumb_parser.add_argument("--head-sha", default="")
 
     thumbnail_plan_parser = subparsers.add_parser(
         "thumbnail-plan",
@@ -507,6 +513,8 @@ def _build_parser() -> argparse.ArgumentParser:
     thumbnail_plan_parser.add_argument("--repo", required=True)
     thumbnail_plan_parser.add_argument("--pr-number", default="")
     thumbnail_plan_parser.add_argument("--commit-sha", default="")
+    thumbnail_plan_parser.add_argument("--base-sha", default="")
+    thumbnail_plan_parser.add_argument("--head-sha", default="")
     thumbnail_plan_parser.add_argument("--head-repo-fork", default="false")
     thumbnail_plan_parser.add_argument("--pr-author", default="")
     thumbnail_plan_parser.add_argument("--actor", default="")
@@ -610,6 +618,8 @@ def _handle_invalidate_thumbnails(args: argparse.Namespace) -> int:
         repo=args.repo,
         pr_number=args.pr_number,
         commit_sha=args.commit_sha,
+        base_sha=args.base_sha,
+        head_sha=args.head_sha,
     )
     if not invalidated:
         print("No thumbnails invalidated")
@@ -623,6 +633,8 @@ def _handle_thumbnail_plan(args: argparse.Namespace) -> int:
         repo=args.repo,
         pr_number=args.pr_number,
         commit_sha=args.commit_sha,
+        base_sha=args.base_sha,
+        head_sha=args.head_sha,
         head_repo_fork=_parse_bool(args.head_repo_fork),
         pr_author=args.pr_author,
         actor=args.actor,

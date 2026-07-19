@@ -413,15 +413,22 @@ def test_main_plan_outputs_flattens_plan_json(
         "persist_mode": "pr-branch",
         "reason": "runtime files changed",
         "skip_verification": False,
+        "shards": [
+            {
+                "index": 0,
+                "browser_slugs": ["demo"],
+                "thumbnail_slugs": ["demo"],
+            }
+        ],
     }
     monkeypatch.setenv("PLAN_JSON", json.dumps(plan))
 
     assert workflow_helpers.main(["plan-outputs"]) == 0
     assert capsys.readouterr().out.splitlines() == [
         "browser-scope=changed",
-        "changed-slugs=demo,other",
         "thumbnail-scope=changed",
-        "thumbnail-slugs=demo",
+        'shard-matrix={"include":[{"shard":0}]}',
+        "shard-count=1",
         "persist-mode=pr-branch",
         "reason=runtime files changed",
         "skip-verification=false",
@@ -440,6 +447,7 @@ def test_main_plan_outputs_reports_true_skip_verification(
         "persist_mode": "none",
         "reason": "no runtime changes",
         "skip_verification": True,
+        "shards": [],
     }
     monkeypatch.setenv("PLAN_JSON", json.dumps(plan))
 
@@ -471,13 +479,12 @@ def test_plan_output_lines_rejects_malformed_fields() -> None:
         "persist_mode": "none",
         "reason": "no runtime changes",
         "skip_verification": False,
+        "shards": [],
     }
     with pytest.raises(ValueError, match="Plan field browser_scope must be a string"):
         workflow_helpers.plan_output_lines({**valid, "browser_scope": 1})
-    with pytest.raises(ValueError, match="Plan field changed_slugs must be a list of strings"):
-        workflow_helpers.plan_output_lines({**valid, "changed_slugs": "demo"})
-    with pytest.raises(ValueError, match="Plan field changed_slugs must be a list of strings"):
-        workflow_helpers.plan_output_lines({**valid, "changed_slugs": ["demo", 2]})
+    with pytest.raises(ValueError, match="Plan field shards must be a list"):
+        workflow_helpers.plan_output_lines({**valid, "shards": "demo"})
     with pytest.raises(ValueError, match="Plan field skip_verification must be a boolean"):
         workflow_helpers.plan_output_lines({**valid, "skip_verification": "false"})
 

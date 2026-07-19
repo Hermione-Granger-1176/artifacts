@@ -1,19 +1,20 @@
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import expect
 
 from tests.browser.frontend_helpers import (
     MonitoredPage,
-    StaticServer,
     assert_minimum_contrast,
     assert_no_blocking_axe_violations,
-    build_real_site,
     run_axe,
     selected_app_slugs,
 )
+
+if TYPE_CHECKING:
+    from tests.browser.conftest import AppBrowserHarness
 
 
 def _app_path(slug: str) -> str:
@@ -21,15 +22,17 @@ def _app_path(slug: str) -> str:
 
 
 @pytest.mark.parametrize("slug", selected_app_slugs())
-def test_app_pages_have_no_blocking_axe_violations(tmp_path: Path, monkeypatch, slug: str) -> None:
+def test_app_pages_have_no_blocking_axe_violations(
+    app_browser: AppBrowserHarness, slug: str
+) -> None:
     """Test app pages have no blocking axe violations."""
-    deploy_root = build_real_site(tmp_path, monkeypatch)
-
-    with (
-        StaticServer(deploy_root) as server,
-        sync_playwright() as playwright,
-        MonitoredPage(playwright, server.url, name=f"app-a11y-{slug}", bypass_csp=True) as session,
-    ):
+    with MonitoredPage(
+        app_browser.playwright,
+        app_browser.server_url,
+        name=f"app-a11y-{slug}",
+        bypass_csp=True,
+        browser=app_browser.browser,
+    ) as session:
         page = session.page
         assert page is not None
         session.goto(_app_path(slug))

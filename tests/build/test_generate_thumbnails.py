@@ -306,6 +306,40 @@ def test_generate_thumbnails_rejects_manifest_outside_repo_root(
         generate_thumbnails.generate_thumbnails()
 
 
+def test_find_artifacts_uses_explicit_shard_manifest_scope(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Test a shard manifest can select no thumbnails without falling back to all apps."""
+    apps_root = tmp_path / "apps"
+    for slug in ("alpha", "beta"):
+        _write_text(apps_root / slug / "index.html", "<html></html>")
+    manifest_path = tmp_path / "shard.json"
+    manifest_path.write_text('{"thumbnail_slugs": ["beta"]}', encoding="utf-8")
+    monkeypatch.setattr(generate_thumbnails, "APPS_DIR", apps_root)
+    monkeypatch.setenv(generate_thumbnails.THUMBNAIL_SHARD_MANIFEST_ENV_VAR, str(manifest_path))
+
+    assert [path.name for path in generate_thumbnails.find_artifacts()] == ["beta"]
+
+    manifest_path.write_text('{"thumbnail_slugs": []}', encoding="utf-8")
+    assert generate_thumbnails.find_artifacts() == []
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [("[]", "JSON object"), ('{"thumbnail_slugs": [1]}', "thumbnail_slugs")],
+)
+def test_configured_thumbnail_slugs_rejects_malformed_shard_manifest(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, payload: str, message: str
+) -> None:
+    """Test thumbnail shard manifests require a string slug list."""
+    manifest_path = tmp_path / "shard.json"
+    manifest_path.write_text(payload, encoding="utf-8")
+    monkeypatch.setenv(generate_thumbnails.THUMBNAIL_SHARD_MANIFEST_ENV_VAR, str(manifest_path))
+
+    with pytest.raises(ValueError, match=message):
+        generate_thumbnails._configured_thumbnail_slugs()
+
+
 def test_artifact_url_prefers_http_base_when_configured(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

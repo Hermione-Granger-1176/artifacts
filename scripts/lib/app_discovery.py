@@ -39,6 +39,11 @@ SHARED_APP_BROWSER_TEST_PATHS = {
 }
 
 
+def is_shared_app_browser_test_path(filename: str) -> bool:
+    """Return whether a path changes the shared mature-app browser suite."""
+    return filename in SHARED_APP_BROWSER_TEST_PATHS
+
+
 def is_shared_app_runtime_path(filename: str) -> bool:
     """Return whether one repo-relative path is part of the shared app runtime."""
     if filename in SHARED_APP_RUNTIME_PATHS:
@@ -111,29 +116,68 @@ def _runtime_changed_slug(filename: str) -> str | None:
     return None
 
 
+def full_impact_plan() -> dict[str, object]:
+    """Return the conservative impact plan used when comparison data is unavailable."""
+    return {
+        "app_scope": "all",
+        "browser_scope": "all",
+        "thumbnail_scope": "all",
+        "static_checks_scope": "all",
+        "deploy_scope": "all",
+        "changed_slugs": [],
+        "runtime_changed": True,
+        "browser_changed": True,
+        "thumbnail_changed": True,
+        "shared_runtime_changed": True,
+        "shared_browser_test_changed": False,
+    }
+
+
 def runtime_change_plan(changed_files: list[str]) -> dict[str, object]:
-    """Classify runtime-impacting app changes from a changed-file list."""
+    """Classify changed files into independent browser and thumbnail impact axes."""
     changed_slugs: set[str] = set()
     shared_runtime_changed = False
+    shared_browser_test_changed = False
 
     for filename in changed_files:
         if is_shared_app_runtime_path(filename):
             shared_runtime_changed = True
             continue
 
+        if is_shared_app_browser_test_path(filename):
+            shared_browser_test_changed = True
+            continue
+
         slug = _runtime_changed_slug(filename)
         if slug is not None:
             changed_slugs.add(slug)
 
-    app_scope = "none"
+    thumbnail_scope = "none"
     if shared_runtime_changed:
-        app_scope = "all"
+        thumbnail_scope = "all"
     elif changed_slugs:
-        app_scope = "changed"
+        thumbnail_scope = "changed"
+
+    browser_scope = "none"
+    if shared_runtime_changed or shared_browser_test_changed:
+        browser_scope = "all"
+    elif changed_slugs:
+        browser_scope = "changed"
+
+    runtime_changed = shared_runtime_changed or bool(changed_slugs)
 
     return {
-        "app_scope": app_scope,
+        # app_scope remains for the thumbnail persistence interface. New callers
+        # must use the independent browser_scope and thumbnail_scope fields.
+        "app_scope": thumbnail_scope,
+        "browser_scope": browser_scope,
+        "thumbnail_scope": thumbnail_scope,
+        "static_checks_scope": "all" if changed_files else "none",
+        "deploy_scope": "all" if changed_files else "none",
         "changed_slugs": sorted(changed_slugs),
-        "runtime_changed": shared_runtime_changed or bool(changed_slugs),
+        "runtime_changed": runtime_changed,
+        "browser_changed": browser_scope != "none",
+        "thumbnail_changed": thumbnail_scope != "none",
         "shared_runtime_changed": shared_runtime_changed,
+        "shared_browser_test_changed": shared_browser_test_changed,
     }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,15 @@ import scripts.build.thumbnail_plan as thumbnail_plan
 import scripts.ci.workflow_helpers as workflow_helpers
 import scripts.lib.app_discovery as app_discovery
 from tests.ci.workflow_helpers_test_support import FakeSubprocessResult, write_text
+
+
+def set_git_diff(monkeypatch: pytest.MonkeyPatch, output: str) -> None:
+    """Configure checked-out git-diff changed-file discovery for one test."""
+    monkeypatch.setattr(
+        workflow_helpers.subprocess,
+        "run",
+        lambda *_args, **_kwargs: FakeSubprocessResult(output),
+    )
 
 
 def test_invalidate_thumbnails_deletes_stale_pr(
@@ -21,19 +31,20 @@ def test_invalidate_thumbnails_deletes_stale_pr(
     thumb = app_dir / "thumbnail.webp"
     thumb.write_bytes(b"old")
 
-    def fake_run(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
-        """Fake run."""
-        return FakeSubprocessResult("apps/my-app/index.html\nREADME.md\n")
-
-    monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
+    set_git_diff(monkeypatch, "apps/my-app/index.html\nREADME.md\n")
     result = workflow_helpers.invalidate_thumbnails(
-        event_name="pull_request", repo="owner/repo", pr_number="1", commit_sha=""
+        event_name="pull_request",
+        repo="owner/repo",
+        pr_number="1",
+        commit_sha="",
+        base_sha="base",
+        head_sha="head",
     )
     assert result == ["apps/my-app/thumbnail.webp"]
     assert not thumb.exists()
 
 
-def test_invalidate_thumbnails_uses_commits_api_for_push(
+def test_invalidate_thumbnails_uses_checked_out_git_diff_for_push(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test invalidate thumbnails uses commits api for push."""
@@ -54,11 +65,14 @@ def test_invalidate_thumbnails_uses_commits_api_for_push(
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
     workflow_helpers.invalidate_thumbnails(
-        event_name="push", repo="owner/repo", pr_number="", commit_sha="abc123"
+        event_name="push",
+        repo="owner/repo",
+        pr_number="",
+        commit_sha="abc123",
+        base_sha="base",
+        head_sha="head",
     )
-    assert "repos/owner/repo/commits/abc123" in captured_cmd
-    assert "--paginate" not in captured_cmd
-    assert ".files[].filename" in captured_cmd
+    assert captured_cmd == ["git", "diff", "--name-only", "base...head"]
     assert not thumb.exists()
 
 
@@ -74,7 +88,12 @@ def test_invalidate_thumbnails_skips_blank_lines(
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
     result = workflow_helpers.invalidate_thumbnails(
-        event_name="push", repo="owner/repo", pr_number="", commit_sha="abc"
+        event_name="push",
+        repo="owner/repo",
+        pr_number="",
+        commit_sha="abc",
+        base_sha="base",
+        head_sha="head",
     )
     assert result == []
 
@@ -95,7 +114,12 @@ def test_invalidate_thumbnails_skips_non_index_files(
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
     result = workflow_helpers.invalidate_thumbnails(
-        event_name="pull_request", repo="owner/repo", pr_number="1", commit_sha=""
+        event_name="pull_request",
+        repo="owner/repo",
+        pr_number="1",
+        commit_sha="",
+        base_sha="base",
+        head_sha="head",
     )
     assert result == []
     assert thumb.exists()
@@ -115,7 +139,12 @@ def test_invalidate_thumbnails_skips_missing_thumbnail(
 
     monkeypatch.setattr(workflow_helpers.subprocess, "run", fake_run)
     result = workflow_helpers.invalidate_thumbnails(
-        event_name="pull_request", repo="owner/repo", pr_number="1", commit_sha=""
+        event_name="pull_request",
+        repo="owner/repo",
+        pr_number="1",
+        commit_sha="",
+        base_sha="base",
+        head_sha="head",
     )
     assert result == []
 
@@ -130,14 +159,15 @@ def test_invalidate_thumbnails_deletes_when_runtime_js_changes(
     thumb = app_dir / "thumbnail.webp"
     thumb.write_bytes(b"old")
 
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api",
-        lambda *_args, **_kwargs: "apps/my-app/js/app.js\n",
-    )
+    set_git_diff(monkeypatch, "apps/my-app/js/app.js\n")
 
     result = workflow_helpers.invalidate_thumbnails(
-        event_name="pull_request", repo="owner/repo", pr_number="1", commit_sha=""
+        event_name="pull_request",
+        repo="owner/repo",
+        pr_number="1",
+        commit_sha="",
+        base_sha="base",
+        head_sha="head",
     )
 
     assert result == ["apps/my-app/thumbnail.webp"]
@@ -154,14 +184,15 @@ def test_invalidate_thumbnails_deletes_all_for_shared_app_infra_change(
         app_dir.mkdir(parents=True)
         (app_dir / "thumbnail.webp").write_bytes(b"old")
 
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api",
-        lambda *_args, **_kwargs: "css/style.css\n",
-    )
+    set_git_diff(monkeypatch, "css/style.css\n")
 
     result = workflow_helpers.invalidate_thumbnails(
-        event_name="push", repo="owner/repo", pr_number="", commit_sha="abc123"
+        event_name="push",
+        repo="owner/repo",
+        pr_number="",
+        commit_sha="abc123",
+        base_sha="base",
+        head_sha="head",
     )
 
     assert result == ["apps/alpha/thumbnail.webp", "apps/beta/thumbnail.webp"]
@@ -172,14 +203,15 @@ def test_invalidate_thumbnails_skips_missing_apps_root_for_shared_infra_change(
 ) -> None:
     """Test invalidate thumbnails skips missing apps root for shared infra change."""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api",
-        lambda *_args, **_kwargs: "css/style.css\n",
-    )
+    set_git_diff(monkeypatch, "css/style.css\n")
 
     result = workflow_helpers.invalidate_thumbnails(
-        event_name="push", repo="owner/repo", pr_number="", commit_sha="abc123"
+        event_name="push",
+        repo="owner/repo",
+        pr_number="",
+        commit_sha="abc123",
+        base_sha="base",
+        head_sha="head",
     )
 
     assert result == []
@@ -195,14 +227,15 @@ def test_invalidate_thumbnails_skips_browser_test_only_changes(
         app_dir.mkdir(parents=True)
         (app_dir / "thumbnail.webp").write_bytes(b"old")
 
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api",
-        lambda *_args, **_kwargs: "tests/browser/test_frontend_apps_smoke.py\n",
-    )
+    set_git_diff(monkeypatch, "tests/browser/test_frontend_apps_smoke.py\n")
 
     result = workflow_helpers.invalidate_thumbnails(
-        event_name="push", repo="owner/repo", pr_number="", commit_sha="abc123"
+        event_name="push",
+        repo="owner/repo",
+        pr_number="",
+        commit_sha="abc123",
+        base_sha="base",
+        head_sha="head",
     )
 
     assert result == []
@@ -216,17 +249,15 @@ def test_thumbnail_plan_uses_pr_branch_mode_for_trusted_runtime_changes(
     """Test thumbnail plan uses pr branch mode for trusted runtime changes."""
     monkeypatch.chdir(tmp_path)
     write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api",
-        lambda *_args, **_kwargs: "apps/loan-amortization/js/app.js\n",
-    )
+    set_git_diff(monkeypatch, "apps/loan-amortization/js/app.js\n")
 
     plan = workflow_helpers.thumbnail_plan(
         event_name="pull_request",
         repo="owner/repo",
         pr_number="1",
         commit_sha="",
+        base_sha="base",
+        head_sha="head",
         head_repo_fork=False,
         pr_author="alice",
     )
@@ -242,11 +273,7 @@ def test_thumbnail_plan_uses_followup_pr_mode_for_main_runtime_changes(
     """Test thumbnail plan uses followup pr mode for main runtime changes."""
     monkeypatch.chdir(tmp_path)
     write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api",
-        lambda *_args, **_kwargs: "apps/loan-amortization/index.html\n",
-    )
+    set_git_diff(monkeypatch, "apps/loan-amortization/index.html\n")
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
@@ -258,6 +285,8 @@ def test_thumbnail_plan_uses_followup_pr_mode_for_main_runtime_changes(
         repo="owner/repo",
         pr_number="",
         commit_sha="abc123",
+        base_sha="base",
+        head_sha="head",
     )
 
     assert plan["persist_mode"] == "followup-pr"
@@ -270,11 +299,7 @@ def test_thumbnail_plan_skips_followup_pr_merge_loops(
     """Test thumbnail plan skips followup pr merge loops."""
     monkeypatch.chdir(tmp_path)
     write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api",
-        lambda *_args, **_kwargs: "apps/loan-amortization/index.html\n",
-    )
+    set_git_diff(monkeypatch, "apps/loan-amortization/index.html\n")
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
@@ -286,6 +311,8 @@ def test_thumbnail_plan_skips_followup_pr_merge_loops(
         repo="owner/repo",
         pr_number="",
         commit_sha="abc123",
+        base_sha="base",
+        head_sha="head",
     )
 
     assert plan["persist_mode"] == "none"
@@ -298,17 +325,15 @@ def test_thumbnail_plan_blocks_dependabot_and_forks(
     """Test thumbnail plan blocks dependabot and forks."""
     monkeypatch.chdir(tmp_path)
     write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api",
-        lambda *_args, **_kwargs: "apps/loan-amortization/index.html\n",
-    )
+    set_git_diff(monkeypatch, "apps/loan-amortization/index.html\n")
 
     dependabot_plan = workflow_helpers.thumbnail_plan(
         event_name="pull_request",
         repo="owner/repo",
         pr_number="1",
         commit_sha="",
+        base_sha="base",
+        head_sha="head",
         head_repo_fork=False,
         pr_author="dependabot[bot]",
     )
@@ -317,6 +342,8 @@ def test_thumbnail_plan_blocks_dependabot_and_forks(
         repo="owner/repo",
         pr_number="1",
         commit_sha="",
+        base_sha="base",
+        head_sha="head",
         head_repo_fork=True,
         pr_author="alice",
     )
@@ -333,11 +360,7 @@ def test_thumbnail_plan_triggers_for_missing_thumbnail_even_without_runtime_chan
     """Test thumbnail plan triggers for missing thumbnail even without runtime change."""
     monkeypatch.chdir(tmp_path)
     write_text(tmp_path / "apps" / "tokenizer-explorer" / "index.html", "<html></html>\n")
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api",
-        lambda *_args, **_kwargs: "README.md\n",
-    )
+    set_git_diff(monkeypatch, "README.md\n")
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
@@ -349,6 +372,8 @@ def test_thumbnail_plan_triggers_for_missing_thumbnail_even_without_runtime_chan
         repo="owner/repo",
         pr_number="",
         commit_sha="abc123",
+        base_sha="base",
+        head_sha="head",
     )
 
     assert plan["persist_mode"] == "followup-pr"
@@ -362,11 +387,7 @@ def test_thumbnail_plan_treats_browser_test_only_changes_as_non_runtime(
     monkeypatch.chdir(tmp_path)
     write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api",
-        lambda *_args, **_kwargs: "tests/browser/test_frontend_apps_smoke.py\n",
-    )
+    set_git_diff(monkeypatch, "tests/browser/test_frontend_apps_smoke.py\n")
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
@@ -378,13 +399,60 @@ def test_thumbnail_plan_treats_browser_test_only_changes_as_non_runtime(
         repo="owner/repo",
         pr_number="",
         commit_sha="abc123",
+        base_sha="base",
+        head_sha="head",
     )
 
     assert plan["app_scope"] == "none"
-    assert plan["browser_scope"] == "none"
+    assert plan["browser_scope"] == "all"
     assert plan["thumbnail_scope"] == "none"
     assert plan["persist_mode"] == "none"
     assert plan["shared_runtime_changed"] is False
+
+
+def test_thumbnail_plan_fails_closed_when_git_comparison_is_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test unavailable checked-out history expands browser and thumbnails to all apps."""
+    monkeypatch.chdir(tmp_path)
+    write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
+    (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
+
+    def fail_git(*_args: object, **_kwargs: object) -> FakeSubprocessResult:
+        """Simulate a missing fetched comparison revision."""
+        raise subprocess.CalledProcessError(128, ["git", "diff"])
+
+    monkeypatch.setattr(workflow_helpers.subprocess, "run", fail_git)
+    plan = workflow_helpers.thumbnail_plan(
+        event_name="pull_request",
+        repo="owner/repo",
+        pr_number="1",
+        commit_sha="head",
+        base_sha="base",
+        head_sha="head",
+    )
+
+    assert plan["comparison_available"] is False
+    assert plan["browser_scope"] == "all"
+    assert plan["thumbnail_scope"] == "all"
+    assert plan["thumbnail_slugs"] == []
+
+
+def test_list_changed_files_handles_bulk_git_diff_without_api_pagination() -> None:
+    """Test an API-cap-sized change list remains complete in git-diff output."""
+    files = [f"apps/app-{index:04d}/index.html" for index in range(3001)]
+    captured: list[object] = []
+
+    def fake_git(*args: object, **_kwargs: object) -> FakeSubprocessResult:
+        """Return every synthetic changed file from one local comparison."""
+        captured.extend(args[0] if args else [])
+        return FakeSubprocessResult("\n".join(files))
+
+    assert (
+        thumbnail_plan.list_changed_files(base_sha="base", head_sha="head", run_git_fn=fake_git)
+        == files
+    )
+    assert captured == ["git", "diff", "--name-only", "base...head"]
 
 
 def test_thumbnail_plan_passes_none_apps_root_to_shared_planner(
@@ -399,6 +467,7 @@ def test_thumbnail_plan_passes_none_apps_root_to_shared_planner(
         return {"persist_mode": "none", "reason": "stub"}
 
     monkeypatch.setattr(workflow_helpers._thumbnail_plan, "thumbnail_plan", fake_thumbnail_plan)
+    monkeypatch.setattr(workflow_helpers._app_shards, "add_shards", lambda plan, **_kwargs: plan)
 
     plan = workflow_helpers.thumbnail_plan(
         event_name="push",
@@ -466,12 +535,11 @@ def test_runtime_change_plan_skips_app_docs_and_metadata_only_changes() -> None:
         ]
     )
 
-    assert plan == {
-        "app_scope": "none",
-        "changed_slugs": [],
-        "runtime_changed": False,
-        "shared_runtime_changed": False,
-    }
+    assert plan["app_scope"] == "none"
+    assert plan["browser_scope"] == "none"
+    assert plan["thumbnail_scope"] == "none"
+    assert plan["static_checks_scope"] == "all"
+    assert plan["runtime_changed"] is False
 
 
 def test_runtime_change_plan_rejects_non_kebab_slugs() -> None:
@@ -484,24 +552,20 @@ def test_runtime_change_plan_rejects_non_kebab_slugs() -> None:
         ]
     )
 
-    assert plan == {
-        "app_scope": "none",
-        "changed_slugs": [],
-        "runtime_changed": False,
-        "shared_runtime_changed": False,
-    }
+    assert plan["app_scope"] == "none"
+    assert plan["browser_scope"] == "none"
+    assert plan["thumbnail_scope"] == "none"
+    assert plan["changed_slugs"] == []
 
 
 def test_runtime_change_plan_treats_app_theme_bootstrap_as_shared_runtime() -> None:
     """Test runtime change plan treats app theme bootstrap as shared runtime."""
     plan = app_discovery.runtime_change_plan(["js/app-theme.js"])
 
-    assert plan == {
-        "app_scope": "all",
-        "changed_slugs": [],
-        "runtime_changed": True,
-        "shared_runtime_changed": True,
-    }
+    assert plan["app_scope"] == "all"
+    assert plan["browser_scope"] == "all"
+    assert plan["thumbnail_scope"] == "all"
+    assert plan["shared_runtime_changed"] is True
 
 
 def test_pr_field_and_generated_thumbnail_pr_helpers() -> None:
@@ -572,17 +636,15 @@ def test_thumbnail_plan_skips_docs_only_pr_and_unsupported_event(
 ) -> None:
     """Test thumbnail plan skips docs only pr and unsupported event."""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api",
-        lambda *_args, **_kwargs: "README.md\n",
-    )
+    set_git_diff(monkeypatch, "README.md\n")
 
     docs_only_plan = workflow_helpers.thumbnail_plan(
         event_name="pull_request",
         repo="owner/repo",
         pr_number="1",
         commit_sha="",
+        base_sha="base",
+        head_sha="head",
         head_repo_fork=False,
         pr_author="alice",
     )
@@ -606,11 +668,7 @@ def test_thumbnail_plan_skips_docs_only_push_without_missing_thumbnails(
     monkeypatch.chdir(tmp_path)
     write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api",
-        lambda *_args, **_kwargs: "README.md\n",
-    )
+    set_git_diff(monkeypatch, "README.md\n")
     monkeypatch.setattr(
         workflow_helpers,
         "associated_pr_kind_for_commit",
@@ -622,6 +680,8 @@ def test_thumbnail_plan_skips_docs_only_push_without_missing_thumbnails(
         repo="owner/repo",
         pr_number="",
         commit_sha="abc123",
+        base_sha="base",
+        head_sha="head",
     )
 
     assert plan["persist_mode"] == "none"

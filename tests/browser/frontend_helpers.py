@@ -25,6 +25,7 @@ ROOT_A11Y_STYLE_CONTENT = "\n".join(
 )
 ARTIFACT_DIR_ENV = "ARTIFACTS_BROWSER_ARTIFACT_DIR"
 APP_SLUGS_ENV = "ARTIFACTS_BROWSER_APP_SLUGS"
+APP_SHARD_MANIFEST_ENV = "ARTIFACTS_BROWSER_APP_MANIFEST"
 REAL_APPS_DIR = REPO_ROOT / "apps"
 
 
@@ -179,6 +180,15 @@ def discover_app_slugs() -> list[str]:
 
 def selected_app_slugs() -> list[str]:
     """Selected app slugs."""
+    manifest_path = os.environ.get(APP_SHARD_MANIFEST_ENV, "").strip()
+    if manifest_path:
+        payload = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("Browser shard manifest must be a JSON object")
+        slugs = payload.get("browser_slugs")
+        if not isinstance(slugs, list) or not all(isinstance(slug, str) for slug in slugs):
+            raise ValueError("Browser shard manifest must contain browser_slugs strings")
+        return sorted(set(cast("list[str]", slugs)))
     configured = os.environ.get(APP_SLUGS_ENV, "").strip()
     if not configured:
         return discover_app_slugs()
@@ -385,6 +395,7 @@ class MonitoredPage:
         allowed_console_errors: tuple[str, ...] = (),
         allowed_page_errors: tuple[str, ...] = (),
         bypass_csp: bool = False,
+        browser=None,
     ) -> None:
         self._playwright = playwright
         self._base_url = base_url.rstrip("/") + "/"
@@ -393,7 +404,8 @@ class MonitoredPage:
         self._reduced_motion = reduced_motion
         self._bypass_csp = bypass_csp
         self._artifact_dir = _artifact_dir(name)
-        self._browser = None
+        self._browser = browser
+        self._owns_browser = browser is None
         self._context = None
         self._trace_started = False
         self.monitor = RuntimeMonitor(
@@ -405,7 +417,8 @@ class MonitoredPage:
 
     def __enter__(self) -> MonitoredPage:
         """Enter the context manager."""
-        self._browser = launch_browser(self._playwright)
+        if self._browser is None:
+            self._browser = launch_browser(self._playwright)
         self._context = self._browser.new_context(
             viewport=self._viewport,
             color_scheme=self._color_scheme,
@@ -452,7 +465,7 @@ class MonitoredPage:
         finally:
             if self._context is not None:
                 self._context.close()
-            if self._browser is not None:
+            if self._browser is not None and self._owns_browser:
                 self._browser.close()
 
         if monitor_error is not None:
