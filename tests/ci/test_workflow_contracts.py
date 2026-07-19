@@ -229,7 +229,13 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
         assert result in verify_run
 
     ledger = _job(workflow, "save-app-ledger")
-    assert ledger["if"].strip().startswith("github.event_name == 'push'")
+    ledger_condition = ledger["if"].strip()
+    # The implicit success() would treat the transitively skipped
+    # dependency-review job as a failure and skip this job on every push.
+    assert ledger_condition.startswith("!cancelled() &&")
+    assert "github.event_name == 'push'" in ledger_condition
+    assert "github.ref == 'refs/heads/main'" in ledger_condition
+    assert "needs.verify.result == 'success'" in ledger_condition
     assert "make ci-update-app-ledger" in _step_run(ledger, "Update main verification ledger")
     assert _step(ledger, "Save verification ledger")["if"] == (
         "steps.app-ledger.outputs.cache-hit != 'true'"
@@ -359,6 +365,9 @@ def test_update_thumbnail_persistence_and_cleanup_stay_bounded() -> None:
     persist = _job(workflow, "persist-thumbnails")
     cleanup = _job(workflow, "cleanup-preview")
 
+    persist_condition = persist["if"].strip()
+    assert persist_condition.startswith("!cancelled() &&")
+    assert "needs.publish.result == 'success'" in persist_condition
     validate_run = _step_run(persist, "Validate thumbnail artifact")
     assert "validate-thumbnail-artifact --root .artifacts/thumbnail-persist" in validate_run
     assert 'echo "json=$plan" >> "$GITHUB_OUTPUT"' in validate_run
@@ -774,8 +783,13 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
     )
     assert venv_cache["with"]["path"] == ".venv"
     assert venv_cache["with"]["key"] == (
-        "venv-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('uv.lock') }}"
+        "venv-${{ runner.os }}-${{ runner.arch }}"
+        "-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('uv.lock') }}"
     )
+    setup_python = next(
+        step for step in ci_setup["runs"]["steps"] if step.get("name") == "Set up Python"
+    )
+    assert setup_python["id"] == "setup-python"
     assert "restore-keys" not in venv_cache["with"]
     node_modules_cache = next(
         step for step in ci_setup["runs"]["steps"] if step.get("name") == "Cache node modules"
@@ -789,9 +803,9 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
     uv_install = next(
         step for step in ci_setup["runs"]["steps"] if step.get("name") == "Install uv"
     )
-    assert uv_install["if"] == (
-        "inputs.install-deps == 'true' && steps.venv-cache.outputs.cache-hit != 'true'"
-    )
+    # uv itself must always be installed: audit-python invokes uv directly,
+    # so a cached .venv is not a substitute for the uv binary.
+    assert uv_install["if"] == "inputs.install-deps == 'true'"
     workspace_install = next(
         step
         for step in ci_setup["runs"]["steps"]
