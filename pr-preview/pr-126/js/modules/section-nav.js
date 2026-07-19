@@ -1,0 +1,12 @@
+const C=`
+  <nav class="section-nav" aria-label="Section progress">
+    <div class="section-nav-inner">
+      <div class="section-nav-track">
+        <div class="section-nav-line"></div>
+        <div class="section-nav-fill" id="nav-fill"></div>
+        <div class="section-nav-nodes" id="nav-nodes"></div>
+      </div>
+      <div class="section-nav-label" id="nav-label"></div>
+    </div>
+  </nav>
+`;export function renderSectionNav(i){!i||i.childElementCount>0||(i.innerHTML=C.trim())}export function scrollToSection(i){const c=document.getElementById(i);if(c){const n=window.matchMedia("(prefers-reduced-motion: reduce)").matches;c.scrollIntoView({behavior:n?"auto":"smooth"})}}function N(){const i=[];for(const c of document.querySelectorAll("[data-nav-label]")){const n=c.getAttribute("data-nav-label");c.id&&n&&i.push({id:c.id,label:n})}return i}export function initSectionNav(i,c={}){const n=i??N(),{nodesId:p="nav-nodes",fillId:h="nav-fill",labelId:E="nav-label"}=c,f=document.getElementById(p),m=document.getElementById(h),b=document.getElementById(E);if(n.length===0||!f||!m||!b)return;const w=m,y=b,I=n.map((t,s)=>{const e=document.createElement("button");e.type="button",e.className="section-nav-node",e.setAttribute("aria-label",t.label);const o=document.createElement("span");o.textContent=String(s+1);const l=document.createElement("span");return l.className="section-nav-tip",l.textContent=t.label,e.append(o,l),e.addEventListener("click",()=>scrollToSection(t.id)),f.appendChild(e),e});function v(t){I.forEach((e,o)=>{e.classList.toggle("done",o<t),e.classList.toggle("active",o===t)});const s=n.length>1?t/(n.length-1)*100:0;w.style.width=`${s}%`,y.textContent=n[t].label}if(v(0),typeof IntersectionObserver!="function")return;const a=[];n.forEach((t,s)=>{const e=document.getElementById(t.id);e&&a.push({index:s,target:e})});const d=new Set;function u(){if(d.size===0)return;const t=window.innerHeight||0,s=t*.35;let e=-1,o=-1,l=-1;for(const{index:r,target:B}of a)d.has(r)&&(o===-1&&(o=r),l=r,B.getBoundingClientRect().top<=s&&(e=r));const g=document.documentElement;if(g&&(window.scrollY||0)+t>=g.scrollHeight-2){v(l);return}v(e===-1?o:e)}const S=new IntersectionObserver(t=>{for(const s of t){const e=a.find(({target:o})=>o.id===s.target.id);e&&(s.isIntersecting?d.add(e.index):d.delete(e.index))}u()},{threshold:0});for(const{target:t}of a)S.observe(t);window.addEventListener("scroll",u,{passive:!0}),window.addEventListener("resize",u,{passive:!0})}
