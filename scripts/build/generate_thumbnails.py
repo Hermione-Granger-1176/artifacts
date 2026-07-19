@@ -63,6 +63,7 @@ MAX_CONCURRENT_PAGES = 4
 STRICT_THUMBNAILS_ENV_VAR = "ARTIFACTS_STRICT_THUMBNAILS"
 THUMBNAIL_SLUGS_ENV_VAR = "ARTIFACTS_THUMBNAIL_SLUGS"
 THUMBNAIL_MANIFEST_ENV_VAR = "ARTIFACTS_THUMBNAIL_MANIFEST"
+THUMBNAIL_SHARD_MANIFEST_ENV_VAR = "ARTIFACTS_THUMBNAIL_SHARD_MANIFEST"
 ThumbnailStatus = Literal["generated", "skipped", "failed"]
 ARTIFACT_BASE_URL = ""
 
@@ -122,16 +123,36 @@ def find_artifacts() -> list[Path]:
             raise ValueError(f"Refusing to thumbnail symlinked artifact: {artifact}")
         reject_symlinks(artifact)
 
-    configured_slugs = [
+    configured_slugs = _configured_thumbnail_slugs()
+    if configured_slugs is None:
+        return artifacts
+
+    return [artifact for artifact in artifacts if artifact.name in configured_slugs]
+
+
+def _configured_thumbnail_slugs() -> set[str] | None:
+    """Return an explicit thumbnail scope, or None when the full site is requested."""
+    shard_manifest = os.environ.get(THUMBNAIL_SHARD_MANIFEST_ENV_VAR, "").strip()
+    if shard_manifest:
+        manifest_path = Path(shard_manifest)
+        if manifest_path.is_symlink():
+            raise ValueError("Thumbnail shard manifest must not be a symlink")
+        if not manifest_path.is_file():
+            raise ValueError(f"Thumbnail shard manifest is missing: {manifest_path}")
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("Thumbnail shard manifest must be a JSON object")
+        slugs = payload.get("thumbnail_slugs")
+        if not isinstance(slugs, list) or not all(isinstance(slug, str) for slug in slugs):
+            raise ValueError("Thumbnail shard manifest must contain thumbnail_slugs strings")
+        return set(cast("list[str]", slugs))
+
+    configured = {
         slug.strip()
         for slug in os.environ.get(THUMBNAIL_SLUGS_ENV_VAR, "").split(",")
         if slug.strip()
-    ]
-    if not configured_slugs:
-        return artifacts
-
-    requested = set(configured_slugs)
-    return [artifact for artifact in artifacts if artifact.name in requested]
+    }
+    return configured or None
 
 
 def save_thumbnail(image_bytes: bytes, thumb_path: Path) -> None:

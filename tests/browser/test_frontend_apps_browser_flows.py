@@ -1,34 +1,30 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import expect
 
 from tests.browser.frontend_helpers import (
     MonitoredPage,
-    StaticServer,
     app_scope_skipif,
-    build_real_site,
 )
+
+if TYPE_CHECKING:
+    from tests.browser.conftest import AppBrowserHarness
 
 
 @app_scope_skipif("loan-amortization")
-def test_loan_amortization_flow_covers_theme_and_schedule(tmp_path: Path, monkeypatch) -> None:
+def test_loan_amortization_flow_covers_theme_and_schedule(app_browser: AppBrowserHarness) -> None:
     """Test loan amortization flow covers theme and schedule."""
-    deploy_root = build_real_site(tmp_path, monkeypatch)
-
-    with (
-        StaticServer(deploy_root) as server,
-        sync_playwright() as playwright,
-        MonitoredPage(
-            playwright,
-            server.url,
-            name="app-flow-loan",
-            viewport=(1100, 720),
-            bypass_csp=True,
-        ) as session,
-    ):
+    with MonitoredPage(
+        app_browser.playwright,
+        app_browser.server_url,
+        name="app-flow-loan",
+        viewport=(1100, 720),
+        bypass_csp=True,
+        browser=app_browser.browser,
+    ) as session:
         page = session.page
         assert page is not None
         session.goto("/apps/loan-amortization/")
@@ -64,17 +60,15 @@ def test_loan_amortization_flow_covers_theme_and_schedule(tmp_path: Path, monkey
 
 
 @app_scope_skipif("tokenizer-explorer")
-def test_tokenizer_explorer_flow_covers_sampling_and_theme(tmp_path: Path, monkeypatch) -> None:
+def test_tokenizer_explorer_flow_covers_sampling_and_theme(app_browser: AppBrowserHarness) -> None:
     """Test tokenizer explorer flow covers sampling and theme."""
-    deploy_root = build_real_site(tmp_path, monkeypatch)
-
-    with (
-        StaticServer(deploy_root) as server,
-        sync_playwright() as playwright,
-        MonitoredPage(
-            playwright, server.url, name="app-flow-tokenizer", bypass_csp=True
-        ) as session,
-    ):
+    with MonitoredPage(
+        app_browser.playwright,
+        app_browser.server_url,
+        name="app-flow-tokenizer",
+        bypass_csp=True,
+        browser=app_browser.browser,
+    ) as session:
         page = session.page
         assert page is not None
         session.goto("/apps/tokenizer-explorer/")
@@ -139,18 +133,16 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(tmp_path: Path, monke
 
 @app_scope_skipif("prompt-caching")
 def test_prompt_caching_flow_covers_calculator_attention_and_embeddings(
-    tmp_path: Path, monkeypatch
+    app_browser: AppBrowserHarness,
 ) -> None:
     """Test prompt caching calculator, attention walkthrough, and embedding output changes."""
-    deploy_root = build_real_site(tmp_path, monkeypatch)
-
-    with (
-        StaticServer(deploy_root) as server,
-        sync_playwright() as playwright,
-        MonitoredPage(
-            playwright, server.url, name="app-flow-prompt-caching", bypass_csp=True
-        ) as session,
-    ):
+    with MonitoredPage(
+        app_browser.playwright,
+        app_browser.server_url,
+        name="app-flow-prompt-caching",
+        bypass_csp=True,
+        browser=app_browser.browser,
+    ) as session:
         page = session.page
         assert page is not None
         session.goto("/apps/prompt-caching/")

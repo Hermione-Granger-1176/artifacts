@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from scripts.ci.repo_audit import require_response_type
 from scripts.lib.app_discovery import (
     artifact_base_path,
+    full_impact_plan,
     missing_thumbnail_slugs,
     runtime_change_plan,
 )
@@ -88,35 +90,26 @@ def associated_pr_kind_for_commit(
 
 def list_changed_files(
     *,
-    event_name: str,
-    repo: str,
-    pr_number: str,
-    commit_sha: str,
-    run_gh_api_fn: Callable[..., str] = run_gh_api,
+    base_sha: str,
+    head_sha: str,
+    run_git_fn: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> list[str]:
-    """Return the changed file list for a pull request or push event."""
-    request = {
-        "pull_request": {
-            "endpoint": f"repos/{repo}/pulls/{pr_number}/files",
-            "paginate": ["--paginate"],
-            "jq_expr": ".[].filename",
-        }
-    }.get(
-        event_name,
-        {
-            "endpoint": f"repos/{repo}/commits/{commit_sha}",
-            "paginate": [],
-            "jq_expr": ".files[].filename",
-        },
-    )
+    """Return files changed since the merge base of ``base_sha`` and ``head_sha``.
 
-    stdout = run_gh_api_fn(
-        request["endpoint"],
-        paginate=request["paginate"],
-        jq_expr=request["jq_expr"],
-        description=f"listing changed files for {event_name} {repo}",
+    GitHub's changed-files REST payload is bounded, so the checked-out history
+    is the only source of truth. Callers turn failures into a conservative
+    all-app plan instead of trusting an incomplete changed-file list.
+    """
+    if not base_sha or not head_sha:
+        raise RuntimeError("Both base and head revisions are required for changed-file detection")
+
+    result = run_git_fn(
+        ["git", "diff", "--name-only", f"{base_sha}...{head_sha}"],
+        check=True,
+        capture_output=True,
+        text=True,
     )
-    return [line for raw_line in stdout.splitlines() if (line := raw_line.strip())]
+    return [line for raw_line in result.stdout.splitlines() if (line := raw_line.strip())]
 
 
 def list_commit_files(
@@ -213,6 +206,8 @@ def thumbnail_plan(
     repo: str,
     pr_number: str,
     commit_sha: str,
+    base_sha: str = "",
+    head_sha: str = "",
     head_repo_fork: bool = False,
     pr_author: str = "",
     actor: str = "",
@@ -225,14 +220,15 @@ def thumbnail_plan(
     associated_pr_kind_for_commit_fn: Callable[..., str] = associated_pr_kind_for_commit,
 ) -> dict[str, object]:
     """Return the strict thumbnail automation plan for one workflow event."""
+    del pr_number
     apps_root = apps_root or Path(artifact_base_path())
-    changed_files = list_changed_files_fn(
-        event_name=event_name,
-        repo=repo,
-        pr_number=pr_number,
-        commit_sha=commit_sha,
-    )
-    runtime_plan = runtime_change_plan_fn(changed_files)
+    comparison_available = True
+    try:
+        changed_files = list_changed_files_fn(base_sha=base_sha, head_sha=head_sha)
+        runtime_plan = runtime_change_plan_fn(changed_files)
+    except (OSError, RuntimeError, subprocess.SubprocessError):
+        comparison_available = False
+        runtime_plan = full_impact_plan()
     changed_slugs = cast("list[str]", runtime_plan["changed_slugs"])
     runtime_changed = cast("bool", runtime_plan["runtime_changed"])
     shared_runtime_changed = cast("bool", runtime_plan["shared_runtime_changed"])
@@ -272,16 +268,20 @@ def thumbnail_plan(
 
     return {
         "app_scope": cast("str", runtime_plan["app_scope"]),
-        "browser_scope": cast("str", runtime_plan["app_scope"]),
+        "browser_scope": cast("str", runtime_plan["browser_scope"]),
+        "static_checks_scope": cast("str", runtime_plan["static_checks_scope"]),
+        "deploy_scope": cast("str", runtime_plan["deploy_scope"]),
         "changed_slugs": changed_slugs,
         "persist_mode": persist_mode,
         "reason": reason,
         "shared_runtime_changed": shared_runtime_changed,
+        "shared_browser_test_changed": cast("bool", runtime_plan["shared_browser_test_changed"]),
+        "comparison_available": comparison_available,
         "skip_verification": skip_verification,
         "thumbnail_scope": "all"
-        if shared_runtime_changed
+        if runtime_plan["thumbnail_scope"] == "all"
         else ("changed" if affected_slugs else "none"),
-        "thumbnail_slugs": [] if shared_runtime_changed else affected_slugs,
+        "thumbnail_slugs": [] if runtime_plan["thumbnail_scope"] == "all" else affected_slugs,
     }
 
 
@@ -302,7 +302,9 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
 
     plan = read_thumbnail_plan(root)
     allowed_slugs = set(cast("list[str]", plan.get("thumbnail_slugs", [])))
-    shared_runtime_changed = bool(plan.get("shared_runtime_changed", False))
+    all_thumbnail_scope = plan.get("thumbnail_scope") == "all" or bool(
+        plan.get("shared_runtime_changed", False)
+    )
     saw_thumbnail = False
 
     reject_symlinks(root)
@@ -319,7 +321,7 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
 
             saw_thumbnail = True
             slug = Path(relative).parts[1]
-            if not shared_runtime_changed and slug not in allowed_slugs:
+            if not all_thumbnail_scope and slug not in allowed_slugs:
                 raise ValueError(f"Thumbnail artifact contains slug outside plan scope: {slug}")
 
     if plan.get("persist_mode") != "none" and not saw_thumbnail:
@@ -357,20 +359,21 @@ def invalidate_thumbnails(
     repo: str,
     pr_number: str,
     commit_sha: str,
+    base_sha: str = "",
+    head_sha: str = "",
     list_changed_files_fn: Callable[..., list[str]] = list_changed_files,
     runtime_change_plan_fn: Callable[..., dict[str, object]] = runtime_change_plan,
 ) -> list[str]:
     """Delete thumbnails for apps whose runtime or shared site assets changed."""
-    changed_files = list_changed_files_fn(
-        event_name=event_name,
-        repo=repo,
-        pr_number=pr_number,
-        commit_sha=commit_sha,
-    )
-    plan = runtime_change_plan_fn(changed_files)
+    del event_name, repo, pr_number, commit_sha
+    try:
+        changed_files = list_changed_files_fn(base_sha=base_sha, head_sha=head_sha)
+        plan = runtime_change_plan_fn(changed_files)
+    except (OSError, RuntimeError, subprocess.SubprocessError):
+        plan = full_impact_plan()
     invalidated = []
     targets = thumbnail_targets(
-        app_scope=cast("str", plan["app_scope"]),
+        app_scope=cast("str", plan["thumbnail_scope"]),
         changed_slugs=cast("list[str]", plan["changed_slugs"]),
     )
 

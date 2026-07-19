@@ -87,6 +87,10 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
     ]
     assert set(_jobs(workflow)) == {
         "plan",
+        "platform-checks",
+        "root-browser",
+        "app-shard",
+        "assemble-site",
         "verify",
         "secret-scan",
         "dependency-review",
@@ -94,85 +98,103 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
         "persist-thumbnails",
         "cleanup-preview",
     }
-    assert _job(workflow, "verify")["needs"] == "plan"
-    assert set(_job(workflow, "publish")["needs"]) == {
+    assert _job(workflow, "platform-checks")["needs"] == "plan"
+    assert _job(workflow, "root-browser")["needs"] == "plan"
+    assert _job(workflow, "app-shard")["needs"] == "plan"
+    assert set(_job(workflow, "assemble-site")["needs"]) == {
         "plan",
-        "verify",
+        "platform-checks",
+        "root-browser",
+        "app-shard",
+    }
+    assert set(_job(workflow, "verify")["needs"]) == {
+        "plan",
+        "platform-checks",
+        "root-browser",
+        "app-shard",
+        "assemble-site",
         "secret-scan",
         "dependency-review",
     }
+    assert set(_job(workflow, "publish")["needs"]) == {"plan", "verify"}
     assert set(_job(workflow, "persist-thumbnails")["needs"]) == {
         "plan",
-        "verify",
+        "assemble-site",
         "publish",
     }
 
-    plan_run = _step_run(_job(workflow, "plan"), "Compute browser and thumbnail plan")
+    plan = _job(workflow, "plan")
+    assert _step(plan, "Checkout repository")["with"]["fetch-depth"] == 0
+    plan_run = _step_run(plan, "Compute app impact plan")
+    assert "make ci-thumbnail-plan" in plan_run
     assert 'PLAN_JSON="$plan" make ci-plan-outputs >> "$GITHUB_OUTPUT"' in plan_run
+    upload = _step(plan, "Upload app impact plan")
+    assert upload["with"]["name"] == "ci-plan-${{ github.run_id }}"
+    assert upload["with"]["path"] == ".artifacts/ci-plan/plan.json"
 
 
-def test_update_verify_job_runs_expected_make_targets() -> None:
-    """Update verify job runs expected make targets."""
+def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -> None:
+    """Update workflow keeps the bounded shard and single assembly contracts."""
     workflow = _load_workflow("update.yml")
-    verify = _job(workflow, "verify")
-
-    assert "make setup-ci" in _step_run(verify, "Install workspace dependencies")
-
-    coverage_summary_run = _step_run(verify, "Report JavaScript coverage")
-    assert "make ci-coverage-summary report=js-coverage.txt" in coverage_summary_run
-
-    parallel_step = _step(verify, "Run parallel checks")
-    parallel_run = _step_run(verify, "Run parallel checks")
-    assert "run_parallel_checks.py" in parallel_run
-    for target in (
-        "format-check",
-        "lint",
-        "typecheck",
-        "test-py",
-        "coverage-js",
-        "dead-code",
-        "security",
-        "validate",
-        "test-browser-root",
-    ):
-        assert target in parallel_run
-    assert parallel_step["env"]["COVERAGE_OUTPUT"] == "js-coverage.txt"
-
-    selective_browser = _step(verify, "Run selective app browser verification")
-    assert selective_browser["if"] == "needs.plan.outputs.browser-scope != 'none'"
-    expected_browser_scope = (
-        "${{ needs.plan.outputs.browser-scope == 'changed' "
-        "&& needs.plan.outputs.changed-slugs || '' }}"
+    platform = _job(workflow, "platform-checks")
+    assert "make ci-platform-checks" in _step_run(platform, "Run fixed platform checks")
+    assert "make ci-coverage-summary report=js-coverage.txt" in _step_run(
+        platform, "Report JavaScript coverage"
     )
-    assert selective_browser["env"]["ARTIFACTS_BROWSER_APP_SLUGS"] == (expected_browser_scope)
-    assert "make test-browser-apps" in _step_run(verify, "Run selective app browser verification")
-
-    build_step = _step(verify, "Build verified site")
-    expected_thumbnail_scope = (
-        "${{ needs.plan.outputs.thumbnail-scope == 'changed' "
-        "&& needs.plan.outputs.thumbnail-slugs || '' }}"
+    assert "make test-browser-root" in _step_run(
+        _job(workflow, "root-browser"), "Run root browser verification"
     )
-    assert build_step["env"]["ARTIFACTS_THUMBNAIL_SLUGS"] == (expected_thumbnail_scope)
+
+    shard = _job(workflow, "app-shard")
+    assert shard["strategy"] == {
+        "fail-fast": False,
+        "max-parallel": 12,
+        "matrix": "${{ fromJSON(needs.plan.outputs.shard-matrix) }}",
+    }
+    assert _step(shard, "Download app impact plan")["with"]["name"] == (
+        "ci-plan-${{ github.run_id }}"
+    )
+    assert "make ci-write-shard-manifest" in _step_run(shard, "Write shard manifest")
     assert (
-        build_step["env"]["ARTIFACTS_THUMBNAIL_MANIFEST"]
-        == ".artifacts/thumbnail-persist/manifest.json"
+        "make test-browser-apps-shard shard_manifest=.artifacts/shard-manifest.json"
+        in _step_run(shard, "Run app browser shard")
     )
-    build_run = _step_run(verify, "Build verified site")
-    assert "make thumbnails" in build_run
-    assert "make check-generated" in build_run
-    assert "make index" in build_run
-    assert "make site" in build_run
+    assert "make thumbnails-shard shard_manifest=.artifacts/shard-manifest.json" in _step_run(
+        shard, "Capture shard thumbnails"
+    )
+    assert "make ci-package-shard-result" in _step_run(shard, "Package shard thumbnail result")
+    assert _step(shard, "Upload shard thumbnail result")["with"]["name"] == (
+        "app-shard-${{ github.run_id }}-${{ matrix.shard }}"
+    )
 
-    package_run = _step_run(verify, "Package thumbnail persistence artifact")
-    assert 'printf \'%s\' "$PLAN_JSON" > "$root/plan.json"' in package_run
+    assemble = _job(workflow, "assemble-site")
+    download_results = _step(assemble, "Download shard thumbnail results")
+    assert download_results["with"]["pattern"] == "app-shard-${{ github.run_id }}-*"
+    assert "make ci-merge-shard-results root=.artifacts/shard-results" in _step_run(
+        assemble, "Merge shard thumbnails"
+    )
+    build_run = _step_run(assemble, "Build assembled site once")
+    assert (
+        build_run.index("make check-generated")
+        < build_run.index("make index")
+        < build_run.index("make site")
+    )
+    package_run = _step_run(assemble, "Package thumbnail persistence artifact")
+    assert 'cp .artifacts/ci-plan/plan.json "$root/plan.json"' in package_run
     assert "thumbnail-persist-${{ github.run_id }}" in package_run
 
-    upload_site = _step(verify, "Upload verified site artifact")
+    upload_site = _step(assemble, "Upload assembled site artifact")
     assert upload_site["with"]["name"] == "site-${{ github.run_id }}"
     assert upload_site["with"]["path"] == "_site"
 
-    upload_thumbnail = _step(verify, "Upload thumbnail persistence artifact")
+    upload_thumbnail = _step(assemble, "Upload thumbnail persistence artifact")
     assert upload_thumbnail["with"]["path"] == ".artifacts/thumbnail-persist"
+
+    verify = _job(workflow, "verify")
+    assert [step["name"] for step in _steps(verify)] == ["Check required job results"]
+    verify_run = _step_run(verify, "Check required job results")
+    for result in ("PLATFORM_RESULT", "ROOT_BROWSER_RESULT", "APP_SHARD_RESULT", "ASSEMBLE_RESULT"):
+        assert result in verify_run
 
 
 def test_update_publish_job_reuses_verified_site_artifact() -> None:
@@ -678,29 +700,11 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
         (REPO_ROOT / ".github" / "actions" / "ci-setup" / "action.yml").read_text(encoding="utf-8")
     )
 
-    verify_step = _step(_job(update, "verify"), "Set up Python")
-    assert verify_step["with"]["cache"] == "pip"
-    assert verify_step["with"]["cache-dependency-path"] == "uv.lock"
-    verify_uv_cache = _step(_job(update, "verify"), "Cache uv downloads")
-    assert _step_uses(_job(update, "verify"), "Cache uv downloads") == (
-        "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
-    )
-    assert verify_uv_cache["with"]["path"] == "~/.cache/uv"
-    assert verify_uv_cache["with"]["key"] == (
-        "uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('uv.lock') }}"
-    )
-    assert (
-        "uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-" in verify_uv_cache["with"]["restore-keys"]
-    )
-    assert _step_run(_job(update, "verify"), "Install uv").strip() == (
-        "python -m pip install --upgrade pip uv"
-    )
-    assert _step_with(_job(update, "verify"), "Cache Playwright browsers")["key"] == (
+    for job_name in ("platform-checks", "root-browser", "app-shard", "assemble-site"):
+        assert _step_uses(_job(update, job_name), "CI setup") == "./.github/actions/ci-setup"
+        assert _step_with(_job(update, job_name), "CI setup")["install-deps"] == "true"
+    assert _step_with(_job(update, "publish"), "Cache Playwright browsers")["key"] == (
         "playwright-${{ hashFiles('uv.lock') }}"
-    )
-    assert (
-        _step_with(_job(update, "publish"), "Cache Playwright browsers")["key"]
-        == "playwright-${{ hashFiles('uv.lock') }}"
     )
     publish_uv_install = _step_run(
         _job(update, "publish"), "Install uv for live browser verification"

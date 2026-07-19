@@ -111,7 +111,7 @@ check-overrides: ## Check npm overrides are still needed
 
 # ─── Format @format ───────────────────────────────────────────────────────────
 
-.PHONY: fmt fmt-py fmt-js fmt-css fmt-prettier format format-check format-py-check format-prettier-check
+.PHONY: fmt fmt-py fmt-js fmt-css fmt-prettier format format-check format-py-check format-py-diff format-prettier-check
 
 fmt: fmt-py fmt-js fmt-css fmt-prettier ## Auto-fix all formatting and lint fixes
 
@@ -134,6 +134,9 @@ format-check: format-py-check format-prettier-check ## Check Python and Prettier
 
 format-py-check: ## Check Python formatting only
 	$(VENV_PYTHON) -m ruff format --check .
+
+format-py-diff: ## Show Python formatting changes without modifying files
+	$(VENV_PYTHON) -m ruff format --check --diff .
 
 format-prettier-check: ## Check Prettier-managed files only
 	$(NPM) run format:check
@@ -164,7 +167,7 @@ dead-code-js: ## Detect unused JavaScript files, exports, and dependencies
 
 # ─── Test @test ───────────────────────────────────────────────────────────────
 
-.PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-live coverage-js coverage-js-floors
+.PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-apps-shard test-browser-live coverage-js coverage-js-floors
 
 test: test-py test-js ## Run non-browser Python tests + JS tests
 
@@ -198,7 +201,11 @@ test-browser-root-flows: ## Run root gallery browser-flow tests
 	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov \
 		tests/browser/test_frontend_browser_flows.py
 
-test-browser-apps: test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows ## Run all mature app browser tests
+test-browser-apps: ## Run all mature app browser tests in one shared test process
+	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov \
+		tests/browser/test_frontend_apps_smoke.py \
+		tests/browser/test_frontend_apps_accessibility.py \
+		tests/browser/test_frontend_apps_browser_flows.py
 
 test-browser-apps-smoke: ## Run mature app smoke browser tests
 	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov \
@@ -210,6 +217,13 @@ test-browser-apps-accessibility: ## Run mature app accessibility browser tests
 
 test-browser-apps-flows: ## Run mature app browser-flow tests
 	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov \
+		tests/browser/test_frontend_apps_browser_flows.py
+
+test-browser-apps-shard: ## Run one app-browser shard (make test-browser-apps-shard shard_manifest=PATH)
+	@test -n "$(shard_manifest)" || (printf 'Usage: make test-browser-apps-shard shard_manifest=.artifacts/shard-manifest.json\n' >&2; exit 1)
+	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 ARTIFACTS_BROWSER_APP_MANIFEST="$(shard_manifest)" $(VENV_PYTHON) -m pytest --no-cov \
+		tests/browser/test_frontend_apps_smoke.py \
+		tests/browser/test_frontend_apps_accessibility.py \
 		tests/browser/test_frontend_apps_browser_flows.py
 
 test-browser-live: ## Run live-site browser verification
@@ -229,13 +243,18 @@ coverage-js-floors: ## Enforce per-file JS coverage floors (reads the coverage-j
 
 # ─── Build @build ─────────────────────────────────────────────────────────────
 
-.PHONY: validate thumbnails styles index site serve generate new optimize-social-image
+.PHONY: validate thumbnails thumbnails-shard styles index site serve generate new optimize-social-image
 
 validate: ## Check artifact directories are complete
 	$(VENV_PYTHON) -c "from scripts.build.generate_index import validate; validate()"
 
 thumbnails: ## Regenerate WebP thumbnails (needs Chromium)
 	$(VENV_PYTHON) scripts/build/generate_thumbnails.py
+
+thumbnails-shard: ## Generate thumbnails from one shard manifest (make thumbnails-shard shard_manifest=PATH)
+	@test -n "$(shard_manifest)" || (printf 'Usage: make thumbnails-shard shard_manifest=.artifacts/shard-manifest.json\n' >&2; exit 1)
+	$(VENV_PYTHON) scripts/ci/app_shards.py invalidate-thumbnails --manifest "$(shard_manifest)"
+	ARTIFACTS_THUMBNAIL_SHARD_MANIFEST="$(shard_manifest)" $(VENV_PYTHON) scripts/build/generate_thumbnails.py
 
 styles: ## Rebuild css/style.css from ordered source partials
 	$(VENV_PYTHON) scripts/build/generate_styles.py
@@ -571,7 +590,7 @@ pr-close: ## Close the current PR and delete branch
 
 # ─── CI @ci ───────────────────────────────────────────────────────────────────
 
-.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-plan-outputs ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-alert-issue refresh-action-shas issues
+.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-thumbnail-plan ci-plan-outputs ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-alert-issue refresh-action-shas issues
 
 ci-runs: ## List recent CI workflow runs
 	gh run list -L "$(if $(limit),$(limit),10)"
@@ -604,8 +623,37 @@ ci-failures: ## Show failed-step logs for this branch's latest run (make ci-fail
 # work even when dependency installation itself failed. The helpers and
 # everything they import are stdlib-only. The monitor helpers read GH_TOKEN
 # from the environment.
+ci-platform-checks: ## Run fixed non-browser platform checks in parallel
+	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py --timeout 1200 \
+		format-check lint typecheck test-py coverage-js dead-code security validate
+
+ci-thumbnail-plan: ## Compute a git-diff app impact plan (event_name= base_sha= head_sha=)
+	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py thumbnail-plan \
+		--event-name "$(event_name)" \
+		--repo "$(repo)" \
+		--pr-number "$(pr_number)" \
+		--commit-sha "$(commit_sha)" \
+		--base-sha "$(base_sha)" \
+		--head-sha "$(head_sha)" \
+		--head-repo-fork "$(head_repo_fork)" \
+		--pr-author "$(pr_author)" \
+		--actor "$(actor)" \
+		--app-bot-login "$(app_bot_login)"
+
 ci-plan-outputs: ## Emit automation plan step outputs (reads PLAN_JSON from the environment)
 	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py plan-outputs
+
+ci-write-shard-manifest: ## Select one impact-plan shard (plan=PATH shard=N output=PATH)
+	@test -n "$(plan)" -a -n "$(shard)" -a -n "$(output)" || (printf 'Usage: make ci-write-shard-manifest plan=.artifacts/ci-plan/plan.json shard=0 output=.artifacts/shard-manifest.json\n' >&2; exit 1)
+	@PYTHONPATH=. $(PYTHON) scripts/ci/app_shards.py write-manifest --plan "$(plan)" --shard "$(shard)" --output "$(output)"
+
+ci-package-shard-result: ## Package one shard thumbnail result (manifest=PATH output=PATH)
+	@test -n "$(manifest)" -a -n "$(output)" || (printf 'Usage: make ci-package-shard-result manifest=.artifacts/shard-manifest.json output=.artifacts/shard-result\n' >&2; exit 1)
+	$(VENV_PYTHON) scripts/ci/app_shards.py package-result --manifest "$(manifest)" --output "$(output)"
+
+ci-merge-shard-results: ## Merge downloaded shard thumbnails (root=PATH)
+	@test -n "$(root)" || (printf 'Usage: make ci-merge-shard-results root=.artifacts/shard-results\n' >&2; exit 1)
+	$(VENV_PYTHON) scripts/ci/app_shards.py merge-results --root "$(root)"
 
 ci-coverage-summary: ## Summarize a JS coverage report (make ci-coverage-summary report=js-coverage.txt)
 	@test -n "$(report)" || (printf 'Usage: make ci-coverage-summary report=js-coverage.txt\n' >&2; exit 1)

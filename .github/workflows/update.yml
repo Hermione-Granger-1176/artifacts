@@ -33,9 +33,8 @@ env:
   GENERATED_OUTPUT_ARGS: js/data.js js/gallery-config.js README.md apps
 
 jobs:
-  # Decide the only allowed automation path for this event.
-  # The planner is the source of truth for browser scope, thumbnail scope,
-  # and whether thumbnails may be persisted back to source branches.
+  # The plan carries full slug lists only in its artifact. Job outputs remain
+  # small so GitHub Actions output limits cannot truncate large app changes.
   plan:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
@@ -44,11 +43,10 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      json: ${{ steps.plan.outputs.json }}
       browser-scope: ${{ steps.plan.outputs.browser-scope }}
-      changed-slugs: ${{ steps.plan.outputs.changed-slugs }}
       thumbnail-scope: ${{ steps.plan.outputs.thumbnail-scope }}
-      thumbnail-slugs: ${{ steps.plan.outputs.thumbnail-slugs }}
+      shard-matrix: ${{ steps.plan.outputs.shard-matrix }}
+      shard-count: ${{ steps.plan.outputs.shard-count }}
       persist-mode: ${{ steps.plan.outputs.persist-mode }}
       reason: ${{ steps.plan.outputs.reason }}
       skip-verification: ${{ steps.plan.outputs.skip-verification }}
@@ -56,7 +54,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Resolve primary app identity
         id: app-identity
@@ -66,7 +64,7 @@ jobs:
           app-id: ${{ vars.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Compute browser and thumbnail plan
+      - name: Compute app impact plan
         id: plan
         env:
           GH_TOKEN: ${{ github.token }}
@@ -75,17 +73,31 @@ jobs:
           ACTOR: ${{ github.actor }}
           APP_BOT_LOGIN: ${{ steps.app-identity.outputs.app-slug && format('{0}[bot]', steps.app-identity.outputs.app-slug) || '' }}
         run: |
-          plan=$(python3 scripts/ci/workflow_helpers.py thumbnail-plan \
-            --event-name "${{ github.event_name }}" \
-            --repo "${{ github.repository }}" \
-            --pr-number "${{ github.event.pull_request.number || '' }}" \
-            --commit-sha "${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}" \
-            --head-repo-fork "$HEAD_REPO_FORK" \
-            --pr-author "$PR_AUTHOR" \
-            --actor "$ACTOR" \
-            --app-bot-login "$APP_BOT_LOGIN")
-          echo "json=$plan" >> "$GITHUB_OUTPUT"
+          base_sha="${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}"
+          head_sha="${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}"
+          plan=$(make ci-thumbnail-plan \
+            event_name="${{ github.event_name }}" \
+            repo="${{ github.repository }}" \
+            pr_number="${{ github.event.pull_request.number || '' }}" \
+            commit_sha="$head_sha" \
+            base_sha="$base_sha" \
+            head_sha="$head_sha" \
+            head_repo_fork="$HEAD_REPO_FORK" \
+            pr_author="$PR_AUTHOR" \
+            actor="$ACTOR" \
+            app_bot_login="$APP_BOT_LOGIN")
+          mkdir -p .artifacts/ci-plan
+          printf '%s' "$plan" > .artifacts/ci-plan/plan.json
           PLAN_JSON="$plan" make ci-plan-outputs >> "$GITHUB_OUTPUT"
+
+      - name: Upload app impact plan
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-plan-${{ github.run_id }}
+          path: .artifacts/ci-plan/plan.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 1
 
       - name: Summarize automation plan
         env:
@@ -94,8 +106,7 @@ jobs:
           PLAN_SKIP_VERIFICATION: ${{ steps.plan.outputs.skip-verification }}
           PLAN_BROWSER_SCOPE: ${{ steps.plan.outputs.browser-scope }}
           PLAN_THUMBNAIL_SCOPE: ${{ steps.plan.outputs.thumbnail-scope }}
-          PLAN_CHANGED_SLUGS: ${{ steps.plan.outputs.changed-slugs }}
-          PLAN_THUMBNAIL_SLUGS: ${{ steps.plan.outputs.thumbnail-slugs }}
+          PLAN_SHARD_COUNT: ${{ steps.plan.outputs.shard-count }}
         run: |
           {
             echo "## Automation plan"
@@ -105,15 +116,10 @@ jobs:
             echo "Skip verification: $PLAN_SKIP_VERIFICATION"
             echo "Browser scope: $PLAN_BROWSER_SCOPE"
             echo "Thumbnail scope: $PLAN_THUMBNAIL_SCOPE"
-            echo "Changed slugs: ${PLAN_CHANGED_SLUGS:-none}"
-            echo "Thumbnail slugs: ${PLAN_THUMBNAIL_SLUGS:-none}"
+            echo "Shard count: $PLAN_SHARD_COUNT"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Build and verify once. This is the only job allowed to run the expensive
-  # thumbnail generation path. Later jobs must reuse the verified artifacts.
-  # Skipped when the planner detects an automated thumbnail-only commit
-  # (trusted app bot actor + exclusively thumbnail files in the commit).
-  verify:
+  platform-checks:
     if: >-
       github.event.action != 'closed' &&
       needs.plan.outputs.skip-verification != 'true'
@@ -122,81 +128,163 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      pull-requests: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: CI setup
+        uses: ./.github/actions/ci-setup
+        with:
+          event-name: ${{ github.event_name }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          node-version: ${{ env.NODE_VERSION }}
+          install-deps: "true"
+
+      - name: Run fixed platform checks
+        env:
+          COVERAGE_OUTPUT: js-coverage.txt
+        run: make ci-platform-checks
+
+      - name: Report JavaScript coverage
+        if: always()
+        run: |
+          if [ -f js-coverage.txt ]; then
+            make ci-coverage-summary report=js-coverage.txt >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  root-browser:
+    if: >-
+      github.event.action != 'closed' &&
+      needs.plan.outputs.skip-verification != 'true'
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: CI setup
+        uses: ./.github/actions/ci-setup
+        with:
+          event-name: ${{ github.event_name }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          node-version: ${{ env.NODE_VERSION }}
+          install-deps: "true"
+
+      - name: Run root browser verification
+        run: make test-browser-root
+
+  app-shard:
+    if: >-
+      github.event.action != 'closed' &&
+      needs.plan.outputs.skip-verification != 'true' &&
+      needs.plan.outputs.shard-count != '0'
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix: ${{ fromJSON(needs.plan.outputs.shard-matrix) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Download app impact plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ci-plan-${{ github.run_id }}
+          path: .artifacts/ci-plan
+
+      - name: Write shard manifest
+        run: >-
+          make ci-write-shard-manifest
+          plan=.artifacts/ci-plan/plan.json
+          shard=${{ matrix.shard }}
+          output=.artifacts/shard-manifest.json
+
+      - name: CI setup
+        uses: ./.github/actions/ci-setup
+        with:
+          event-name: ${{ github.event_name }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          node-version: ${{ env.NODE_VERSION }}
+          install-deps: "true"
+
+      - name: Run app browser shard
+        run: make test-browser-apps-shard shard_manifest=.artifacts/shard-manifest.json
+
+      - name: Capture shard thumbnails
+        run: make thumbnails-shard shard_manifest=.artifacts/shard-manifest.json
+
+      - name: Package shard thumbnail result
+        run: >-
+          make ci-package-shard-result
+          manifest=.artifacts/shard-manifest.json
+          output=.artifacts/shard-result
+
+      - name: Upload shard thumbnail result
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: app-shard-${{ github.run_id }}-${{ matrix.shard }}
+          path: .artifacts/shard-result
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 1
+
+  assemble-site:
+    if: >-
+      always() && github.event.action != 'closed' &&
+      needs.plan.outputs.skip-verification != 'true' &&
+      needs.platform-checks.result == 'success' &&
+      needs.root-browser.result == 'success' &&
+      (needs.app-shard.result == 'success' || needs.app-shard.result == 'skipped')
+    needs:
+      - plan
+      - platform-checks
+      - root-browser
+      - app-shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
     outputs:
       thumbnail-artifact-name: ${{ steps.thumbnail-artifact.outputs.artifact-name }}
       thumbnail-artifact-changed: ${{ steps.thumbnail-artifact.outputs.changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          fetch-depth: 1
 
-      - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      - name: Download app impact plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
+          name: ci-plan-${{ github.run_id }}
+          path: .artifacts/ci-plan
+
+      - name: Download shard thumbnail results
+        if: needs.plan.outputs.shard-count != '0'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: app-shard-${{ github.run_id }}-*
+          path: .artifacts/shard-results
+
+      - name: CI setup
+        uses: ./.github/actions/ci-setup
+        with:
+          event-name: ${{ github.event_name }}
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: uv.lock
-
-      - name: Cache uv downloads
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/uv
-          key: uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
-            uv-${{ runner.os }}-
-
-      - name: Install uv
-        run: python -m pip install --upgrade pip uv
-
-      - name: Set up Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          install-deps: "true"
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ hashFiles('uv.lock') }}
+      - name: Merge shard thumbnails
+        run: make ci-merge-shard-results root=.artifacts/shard-results
 
-      - name: Install workspace dependencies
-        run: make setup-ci
-
-      - name: Run parallel checks
-        env:
-          COVERAGE_OUTPUT: js-coverage.txt
-        run: >-
-          python3 scripts/ci/run_parallel_checks.py
-          --timeout 1200
-          format-check lint typecheck test-py coverage-js dead-code security validate test-browser-root
-
-      - name: Run selective app browser verification
-        if: needs.plan.outputs.browser-scope != 'none'
-        env:
-          ARTIFACTS_BROWSER_APP_SLUGS: ${{ needs.plan.outputs.browser-scope == 'changed' && needs.plan.outputs.changed-slugs || '' }}
-        run: make test-browser-apps
-
-      - name: Invalidate thumbnails for targeted runtime changes
-        if: needs.plan.outputs.thumbnail-scope != 'none'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: >-
-          python3 scripts/ci/workflow_helpers.py invalidate-thumbnails
-          --event-name "${{ github.event_name }}"
-          --repo "${{ github.repository }}"
-          --pr-number "${{ github.event.pull_request.number || '' }}"
-          --commit-sha "${{ github.sha }}"
-
-      - name: Build verified site
-        env:
-          ARTIFACTS_THUMBNAIL_SLUGS: ${{ needs.plan.outputs.thumbnail-scope == 'changed' && needs.plan.outputs.thumbnail-slugs || '' }}
-          ARTIFACTS_THUMBNAIL_MANIFEST: .artifacts/thumbnail-persist/manifest.json
+      - name: Build assembled site once
         run: |
-          make thumbnails
           make check-generated
           make index
           make site
@@ -204,13 +292,11 @@ jobs:
       - name: Package thumbnail persistence artifact
         id: thumbnail-artifact
         if: needs.plan.outputs.persist-mode != 'none'
-        env:
-          PLAN_JSON: ${{ needs.plan.outputs.json }}
         run: |
           root=.artifacts/thumbnail-persist
           rm -rf "$root"
           mkdir -p "$root"
-          printf '%s' "$PLAN_JSON" > "$root/plan.json"
+          cp .artifacts/ci-plan/plan.json "$root/plan.json"
 
           mapfile -t thumb_files < <((git diff --name-only -- 'apps/*/thumbnail.webp'; git ls-files --others --exclude-standard -- 'apps/*/thumbnail.webp') | awk 'NF' | sort -u)
 
@@ -228,7 +314,7 @@ jobs:
           echo "changed=true" >> "$GITHUB_OUTPUT"
           echo "artifact-name=thumbnail-persist-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
 
-      - name: Upload verified site artifact
+      - name: Upload assembled site artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: site-${{ github.run_id }}
@@ -246,31 +332,41 @@ jobs:
           overwrite: true
           retention-days: 1
 
-      - name: Report JavaScript coverage
-        if: always()
+  # Branch protection requires this stable name. It only aggregates dependency
+  # outcomes and intentionally does not run tests or build files.
+  verify:
+    if: >-
+      always() && github.event.action != 'closed' &&
+      needs.plan.outputs.skip-verification != 'true'
+    needs:
+      - plan
+      - platform-checks
+      - root-browser
+      - app-shard
+      - assemble-site
+      - secret-scan
+      - dependency-review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Check required job results
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          PLATFORM_RESULT: ${{ needs.platform-checks.result }}
+          ROOT_BROWSER_RESULT: ${{ needs.root-browser.result }}
+          APP_SHARD_RESULT: ${{ needs.app-shard.result }}
+          ASSEMBLE_RESULT: ${{ needs.assemble-site.result }}
+          SECRET_SCAN_RESULT: ${{ needs.secret-scan.result }}
+          DEPENDENCY_REVIEW_RESULT: ${{ needs.dependency-review.result }}
         run: |
-          if [ ! -f js-coverage.txt ]; then
-            {
-              echo "## JavaScript Coverage"
-              echo
-              echo "Coverage output was not generated because the fast local gate did not complete successfully."
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          make ci-coverage-summary report=js-coverage.txt >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Summarize verification
-        if: always()
-        run: |
-          {
-            echo "## Verify"
-            echo
-            echo "Generated changes detected during the build:"
-            echo
-            echo '```text'
-            git status --short -- ${GENERATED_OUTPUT_ARGS} || true
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$PLAN_RESULT" = "success" ]
+          [ "$PLATFORM_RESULT" = "success" ]
+          [ "$ROOT_BROWSER_RESULT" = "success" ]
+          [ "$APP_SHARD_RESULT" = "success" ] || [ "$APP_SHARD_RESULT" = "skipped" ]
+          [ "$ASSEMBLE_RESULT" = "success" ]
+          [ "$SECRET_SCAN_RESULT" = "success" ]
+          [ "$DEPENDENCY_REVIEW_RESULT" = "success" ] || [ "$DEPENDENCY_REVIEW_RESULT" = "skipped" ]
 
   secret-scan:
     if: github.event.action != 'closed'
@@ -312,14 +408,10 @@ jobs:
       github.event.action != 'closed' &&
       needs.plan.outputs.skip-verification != 'true' &&
       !failure() && !cancelled() &&
-      needs.verify.result == 'success' &&
-      needs.secret-scan.result == 'success' &&
-      (needs.dependency-review.result == 'success' || needs.dependency-review.result == 'skipped')
+      needs.verify.result == 'success'
     needs:
       - plan
       - verify
-      - secret-scan
-      - dependency-review
     runs-on: ubuntu-latest
     timeout-minutes: 25
     concurrency:
@@ -587,11 +679,11 @@ jobs:
     if: >-
       github.event.action != 'closed' &&
       needs.plan.outputs.persist-mode != 'none' &&
-      needs.verify.outputs.thumbnail-artifact-changed == 'true' &&
+      needs.assemble-site.outputs.thumbnail-artifact-changed == 'true' &&
       needs.publish.result == 'success'
     needs:
       - plan
-      - verify
+      - assemble-site
       - publish
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -622,7 +714,7 @@ jobs:
       - name: Download thumbnail persistence artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: ${{ needs.verify.outputs.thumbnail-artifact-name }}
+          name: ${{ needs.assemble-site.outputs.thumbnail-artifact-name }}
           path: .artifacts/thumbnail-persist
 
       - name: Validate thumbnail artifact
@@ -727,7 +819,7 @@ jobs:
             echo
             echo "Persist mode: ${{ needs.plan.outputs.persist-mode }}"
             echo "Reason: ${{ needs.plan.outputs.reason }}"
-            echo "Artifact changed: ${{ needs.verify.outputs.thumbnail-artifact-changed }}"
+            echo "Artifact changed: ${{ needs.assemble-site.outputs.thumbnail-artifact-changed }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
   # Preview cleanup is isolated from publish/persistence. Closing or merging a PR
