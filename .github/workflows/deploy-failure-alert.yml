@@ -1,0 +1,60 @@
+name: Deploy Failure Alert
+
+# The scheduled monitors alert on their own failures, but a failed main-branch
+# run of "Update Artifacts & Deploy" had no alerting. This workflow reacts to
+# that pipeline finishing and opens, updates, or closes one alert issue so a
+# broken main deploy is visible instead of silent.
+on:
+  workflow_run:
+    workflows:
+      - Update Artifacts & Deploy
+    types:
+      - completed
+
+env:
+  PYTHONPATH: "."
+  ALERT_TITLE: Main deploy pipeline failed
+  RUN_URL: ${{ github.event.workflow_run.html_url }}
+
+jobs:
+  alert:
+    # Only main-branch runs are deploy-relevant. Pull-request and fork runs of
+    # the pipeline carry a different head branch and are ignored here.
+    if: github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+
+      - name: Open or update deploy failure issue
+        if: github.event.workflow_run.conclusion == 'failure'
+        id: alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERT_DETAIL: "Failed run commit: ${{ github.event.workflow_run.head_sha }}"
+        run: |
+          url=$(make ci-alert-issue state=open title="$ALERT_TITLE" run_url="$RUN_URL" detail="$ALERT_DETAIL")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Close deploy failure issue when a main run succeeds
+        if: github.event.workflow_run.conclusion == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make ci-alert-issue state=close title="$ALERT_TITLE" run_url="$RUN_URL"
+
+      - name: Summarize deploy failure alert
+        if: github.event.workflow_run.conclusion == 'failure'
+        run: |
+          {
+            echo "## Main deploy pipeline failed"
+            echo
+            echo "Failed run: ${{ github.event.workflow_run.html_url }}"
+            echo "Commit: ${{ github.event.workflow_run.head_sha }}"
+            echo "Issue: ${{ steps.alert.outputs.url || 'issue not created' }}"
+          } >> "$GITHUB_STEP_SUMMARY"

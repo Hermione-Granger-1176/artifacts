@@ -112,6 +112,7 @@ export function initSectionNav(explicitSections, anchors = {}) {
     return node;
   });
 
+  /** @param {number} activeIndex - Index of the currently active section. */
   function updateNav(activeIndex) {
     nodeButtons.forEach((node, index) => {
       node.classList.toggle("done", index < activeIndex);

@@ -33,7 +33,26 @@ import {
   updateBiweeklyMode as syncBiweeklyModeVisibility
 } from "./modules/ui.js";
 
-let elements = {};
+/**
+ * @typedef {{
+ *   selFreq: HTMLSelectElement,
+ *   slPrincipal: HTMLInputElement,
+ *   slRate: HTMLInputElement,
+ *   slTenure: HTMLInputElement,
+ *   extraList: HTMLElement,
+ *   metrics: HTMLElement,
+ *   chartsWrap: HTMLElement,
+ *   tableWrap: HTMLElement,
+ *   tableSummary: HTMLElement,
+ *   tbody: HTMLElement,
+ *   ybody: HTMLElement,
+ *   [key: string]: HTMLElement
+ * }} LoanElements
+ */
+
+/** @type {LoanElements} */
+let elements = /** @type {LoanElements} */ (/** @type {unknown} */ ({}));
+/** @type {ReturnType<typeof createExtra>[]} */
 let extras = [];
 let nextExtraId = 0;
 let charts = {};
@@ -45,7 +64,7 @@ renderAppShell();
 initializeMatureApp({
   onErrorContext: "loan amortization initialization",
   run: () => {
-    elements = cacheElements();
+    elements = /** @type {LoanElements} */ (/** @type {unknown} */ (cacheElements()));
     initAppShell({
       onThemeChange: () => {
         refreshPalette();
@@ -104,6 +123,7 @@ function getFrequency() {
   return elements.selFreq.value;
 }
 
+/** @param {string} mode - Biweekly mode flag. */
 function setBiweeklyMode(mode) {
   bwMode = mode;
   syncBiweeklyModeUI(elements, bwMode);
@@ -122,27 +142,30 @@ function renderExtrasSection() {
   });
 }
 
+/** @param {Event} event - Delegated click event. */
 function handleExtraListClick(event) {
-  const button = event.target.closest("button[data-action]");
+  const target = /** @type {HTMLElement | null} */ (event.target);
+  const button = /** @type {HTMLElement | null} */ (target?.closest("button[data-action]") ?? null);
   if (!button) {
     return;
   }
 
-  const extraId = Number(button.closest("[data-extra-id]")?.dataset.extraId);
+  const extraRow = /** @type {HTMLElement | null} */ (button.closest("[data-extra-id]"));
+  const extraId = Number(extraRow?.dataset.extraId);
   if (Number.isNaN(extraId)) {
     return;
   }
 
   const actions = {
     "remove-extra": () => {
-      extras = removeExtraById(extras, extraId);
+      extras = /** @type {ReturnType<typeof createExtra>[]} */ (removeExtraById(extras, extraId));
     },
     "set-type": () => {
-      setExtraType(extras, extraId, button.dataset.type);
+      setExtraType(extras, extraId, button.dataset.type ?? "");
     }
   };
 
-  const action = actions[button.dataset.action];
+  const action = actions[/** @type {"remove-extra" | "set-type"} */ (button.dataset.action ?? "")];
   if (!action) {
     return;
   }
@@ -152,20 +175,23 @@ function handleExtraListClick(event) {
   recalc();
 }
 
+/** @param {Event} event - Delegated input event. */
 function handleExtraListInput(event) {
-  const input = event.target.closest("input[data-field]");
+  const target = /** @type {HTMLElement | null} */ (event.target);
+  const input = /** @type {HTMLInputElement | null} */ (target?.closest("input[data-field]") ?? null);
   if (!input) {
     return;
   }
 
-  const extraId = Number(input.closest("[data-extra-id]")?.dataset.extraId);
+  const extraRow = /** @type {HTMLElement | null} */ (input.closest("[data-extra-id]"));
+  const extraId = Number(extraRow?.dataset.extraId);
   if (Number.isNaN(extraId)) {
     return;
   }
 
-  updateExtraField(extras, extraId, input.dataset.field, input.value);
+  updateExtraField(extras, extraId, input.dataset.field ?? "", input.value);
   const extra = extras.find((item) => item.id === extraId);
-  const tip = input.closest(".extra-item")?.querySelector(".info-tip");
+  const tip = /** @type {HTMLElement | null} */ (input.closest(".extra-item")?.querySelector(".info-tip") ?? null);
   if (!extra || !tip) {
     recalc();
     return;

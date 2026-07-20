@@ -1,5 +1,27 @@
 import { chartGlobal, createPaletteCache } from "../../../../js/modules/chart-theme.js";
 
+/**
+ * @typedef {import("chart.js").Chart} ChartInstance
+ * @typedef {ReturnType<typeof colors>} Palette
+ * @typedef {import("chartjs-plugin-datalabels/types/context").Context} DataLabelsContext
+ * @typedef {import('./amortization.js').ScheduleResult} ScheduleResult
+ * @typedef {{ type?: string, beginAtZero?: boolean, stacked?: boolean, title?: object, ticks?: object, grid?: object }} AxisConfig
+ * @typedef {{
+ *   annotation: object,
+ *   base: ScheduleResult,
+ *   extra: ScheduleResult,
+ *   interestPaid: number,
+ *   interestSaved: number,
+ *   interestTotal: number,
+ *   lineLabels: number[],
+ *   maxPeriods: number,
+ *   palette: Palette,
+ *   periodLabel: string,
+ *   principal: number
+ * }} ChartState
+ * @typedef {{ balance: ChartInstance, comparison: ChartInstance, savings: ChartInstance, cumulative: ChartInstance, period: ChartInstance }} Charts
+ */
+
 // Per-theme chart palette read from CSS custom properties; refreshPalette
 // keeps the app's theme-change contract.
 const { colors, refreshPalette } = createPaletteCache(({ css, cssAlpha }) => ({
@@ -9,13 +31,13 @@ const { colors, refreshPalette } = createPaletteCache(({ css, cssAlpha }) => ({
   noteBlue: css("--note-blue"),
   noteGreen: css("--note-green"),
   noteRed: css("--note-red"),
-  blueA(alpha) {
+  blueA(/** @type {number} */ alpha) {
     return cssAlpha("--note-blue", alpha);
   },
-  greenA(alpha) {
+  greenA(/** @type {number} */ alpha) {
     return cssAlpha("--note-green", alpha);
   },
-  redA(alpha) {
+  redA(/** @type {number} */ alpha) {
     return cssAlpha("--note-red", alpha);
   },
   redText: css("--color-red-text"),
@@ -32,6 +54,11 @@ const { colors, refreshPalette } = createPaletteCache(({ css, cssAlpha }) => ({
 
 export { refreshPalette };
 
+/**
+ * @param {number[]} values - Values to pad.
+ * @param {number} length - Target length.
+ * @returns {number[]} Padded values.
+ */
 function pad(values, length) {
   if (values.length >= length) {
     return [...values];
@@ -39,6 +66,10 @@ function pad(values, length) {
   return [...values, ...new Array(length - values.length).fill(0)];
 }
 
+/**
+ * @param {{ base: ScheduleResult, extra: ScheduleResult, principal: number, interestSaved: number, periodLabel: string }} params - Schedule inputs.
+ * @returns {ChartState} Derived chart render state.
+ */
 function buildChartState({ base, extra, principal, interestSaved, periodLabel }) {
   const palette = colors();
   const maxPeriods = Math.max(base.periods, extra.periods);
@@ -85,9 +116,20 @@ function buildChartState({ base, extra, principal, interestSaved, periodLabel })
   };
 }
 
+/**
+ * @param {import("chart.js").ChartOptions["scales"]} scales - Chart scale options.
+ * @param {Palette} palette - Active color palette.
+ * @param {string} periodLabel - Default x axis label.
+ * @param {(value: number) => string} formatDollarTick - Y tick formatter.
+ * @param {{ stackedY?: boolean, showXGrid?: boolean, xTitle?: string, yTitle?: string | null }} [options={}] - Axis options.
+ * @returns {void}
+ */
 function applyAxes(scales, palette, periodLabel, formatDollarTick, options = {}) {
-  const xScale = scales.x;
-  const yScale = scales.y;
+  if (!scales) {
+    return;
+  }
+  const xScale = /** @type {AxisConfig} */ (scales.x);
+  const yScale = /** @type {AxisConfig} */ (scales.y);
   const {
     stackedY = false,
     showXGrid = true,
@@ -108,6 +150,10 @@ function applyAxes(scales, palette, periodLabel, formatDollarTick, options = {})
   yScale.grid = { ...yScale.grid, color: palette.grid };
 }
 
+/**
+ * @param {HTMLCanvasElement} canvas - Target canvas element.
+ * @returns {ChartInstance} The created chart.
+ */
 function createBalanceChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "line",
@@ -140,6 +186,7 @@ function createBalanceChart(canvas) {
         legend: { display: false },
         tooltip: {
           callbacks: {
+            /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
             label(context) {
               return `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`;
             }
@@ -154,6 +201,12 @@ function createBalanceChart(canvas) {
   });
 }
 
+/**
+ * @param {ChartInstance} chart - Chart to update.
+ * @param {ChartState} state - Current chart state.
+ * @param {(value: number) => string} formatDollarTick - Y tick formatter.
+ * @returns {void}
+ */
 function syncBalanceChart(chart, state, formatDollarTick) {
   const { base, extra, maxPeriods, lineLabels, palette, periodLabel } = state;
   chart.data.labels = lineLabels;
@@ -169,6 +222,10 @@ function syncBalanceChart(chart, state, formatDollarTick) {
   chart.update();
 }
 
+/**
+ * @param {HTMLCanvasElement} canvas - Target canvas element.
+ * @returns {ChartInstance} The created chart.
+ */
 function createComparisonChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "bar",
@@ -187,6 +244,7 @@ function createComparisonChart(canvas) {
         legend: { display: false },
         tooltip: {
           callbacks: {
+            /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
             label(context) {
               return `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`;
             }
@@ -201,6 +259,12 @@ function createComparisonChart(canvas) {
   });
 }
 
+/**
+ * @param {ChartInstance} chart - Chart to update.
+ * @param {ChartState} state - Current chart state.
+ * @param {(value: number) => string} formatDollarTick - Y tick formatter.
+ * @returns {void}
+ */
 function syncComparisonChart(chart, state, formatDollarTick) {
   const { base, extra, palette, principal } = state;
   chart.data.datasets[0].data = [principal, Math.max(0, Math.round(principal - extra.totalExtra))];
@@ -214,10 +278,15 @@ function syncComparisonChart(chart, state, formatDollarTick) {
     stackedY: true,
     xTitle: "Comparison"
   });
-  chart.options.scales.x.stacked = true;
+  const compScales = /** @type {Record<string, AxisConfig>} */ (/** @type {unknown} */ (chart.options.scales));
+  compScales.x.stacked = true;
   chart.update();
 }
 
+/**
+ * @param {HTMLCanvasElement} canvas - Target canvas element.
+ * @returns {ChartInstance} The created chart.
+ */
 function createSavingsChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "doughnut",
@@ -242,20 +311,23 @@ function createSavingsChart(canvas) {
         legend: { display: false },
         tooltip: {
           callbacks: {
+            /** @param {import("chart.js").TooltipItem<"doughnut">} context - Tooltip item. */
             label(context) {
               return `${context.label}: $${context.parsed.toLocaleString()}`;
             }
           }
         },
         datalabels: {
+          /** @param {DataLabelsContext} context - Datalabels context. */
           display(context) {
-            const value = context.dataset.data[context.dataIndex];
+            const value = /** @type {number} */ (context.dataset.data[context.dataIndex]);
             const total = context.chart.$artifactsInterestTotal || 1;
             return value > 0 && value / total <= 0.95;
           },
           anchor: "end",
           align: "end",
           offset: 8,
+          /** @param {DataLabelsContext} context - Datalabels context. */
           color(context) {
             const palette = context.chart.$artifactsPalette;
             if (!palette) {
@@ -263,8 +335,13 @@ function createSavingsChart(canvas) {
             }
             return context.dataIndex === 0 ? palette.redEmphasis : palette.greenEmphasis;
           },
-          font: { weight: "500", size: 12 },
+          font: { weight: 500, size: 12 },
           textAlign: "center",
+          /**
+           * @param {*} value - Datum value (untyped upstream).
+           * @param {DataLabelsContext} context - Datalabels context.
+           * @returns {string} Formatted label.
+           */
           formatter(value, context) {
             const total = context.chart.$artifactsInterestTotal || 1;
             const percentage = Math.round((value / total) * 100);
@@ -279,8 +356,9 @@ function createSavingsChart(canvas) {
     },
     plugins: [chartGlobal().ChartDataLabels, {
       id: "centerText",
+      /** @param {ChartInstance} chart - Chart being drawn. */
       afterDraw(chart) {
-        const dataset = chart.data.datasets[0].data;
+        const dataset = /** @type {number[]} */ (chart.data.datasets[0].data);
         const total = chart.$artifactsInterestTotal || dataset.reduce((sum, value) => sum + value, 0);
         const palette = chart.$artifactsPalette;
         const formatCurrencyFn = chart.$artifactsFormatCurrency;
@@ -318,6 +396,12 @@ function createSavingsChart(canvas) {
   });
 }
 
+/**
+ * @param {ChartInstance} chart - Chart to update.
+ * @param {ChartState} state - Current chart state.
+ * @param {(value: number) => string} formatCurrency - Currency formatter.
+ * @returns {void}
+ */
 function syncSavingsChart(chart, state, formatCurrency) {
   const { interestPaid, interestSaved, interestTotal, palette } = state;
   chart.$artifactsFormatCurrency = formatCurrency;
@@ -329,6 +413,10 @@ function syncSavingsChart(chart, state, formatCurrency) {
   chart.update();
 }
 
+/**
+ * @param {HTMLCanvasElement} canvas - Target canvas element.
+ * @returns {ChartInstance} The created chart.
+ */
 function createCumulativeChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "line",
@@ -369,6 +457,7 @@ function createCumulativeChart(canvas) {
         annotation: { annotations: {} },
         tooltip: {
           callbacks: {
+            /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
             label(context) {
               return `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`;
             }
@@ -383,6 +472,12 @@ function createCumulativeChart(canvas) {
   });
 }
 
+/**
+ * @param {ChartInstance} chart - Chart to update.
+ * @param {ChartState} state - Current chart state.
+ * @param {(value: number) => string} formatDollarTick - Y tick formatter.
+ * @returns {void}
+ */
 function syncCumulativeChart(chart, state, formatDollarTick) {
   const { extra, palette, periodLabel } = state;
   chart.data.labels = extra.rows.map((row) => row.period);
@@ -395,11 +490,15 @@ function syncCumulativeChart(chart, state, formatDollarTick) {
   chart.data.datasets[2].data = extra.cumulativeInterest;
   chart.data.datasets[2].borderColor = palette.red;
   chart.data.datasets[2].backgroundColor = palette.redA(0.1);
-  chart.options.plugins.annotation = state.annotation;
+  /** @type {Record<string, unknown>} */ (chart.options.plugins).annotation = state.annotation;
   applyAxes(chart.options.scales, palette, periodLabel, formatDollarTick);
   chart.update();
 }
 
+/**
+ * @param {HTMLCanvasElement} canvas - Target canvas element.
+ * @returns {ChartInstance} The created chart.
+ */
 function createPeriodChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "line",
@@ -442,6 +541,7 @@ function createPeriodChart(canvas) {
         legend: { display: false },
         tooltip: {
           callbacks: {
+            /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
             label(context) {
               return `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`;
             }
@@ -456,6 +556,12 @@ function createPeriodChart(canvas) {
   });
 }
 
+/**
+ * @param {ChartInstance} chart - Chart to update.
+ * @param {ChartState} state - Current chart state.
+ * @param {(value: number) => string} formatDollarTick - Y tick formatter.
+ * @returns {void}
+ */
 function syncPeriodChart(chart, state, formatDollarTick) {
   const { extra, palette, periodLabel } = state;
   chart.data.labels = extra.rows.map((row) => row.period);
@@ -474,16 +580,27 @@ function syncPeriodChart(chart, state, formatDollarTick) {
   chart.update();
 }
 
+/**
+ * @param {Record<string, HTMLElement>} elements - Canvas elements keyed by chart name.
+ * @returns {Charts} Chart instances.
+ */
 function createCharts(elements) {
   return {
-    balance: createBalanceChart(elements.balanceChart),
-    comparison: createComparisonChart(elements.compChart),
-    savings: createSavingsChart(elements.savingsChart),
-    cumulative: createCumulativeChart(elements.cumulChart),
-    period: createPeriodChart(elements.periodChart)
+    balance: createBalanceChart(/** @type {HTMLCanvasElement} */ (elements.balanceChart)),
+    comparison: createComparisonChart(/** @type {HTMLCanvasElement} */ (elements.compChart)),
+    savings: createSavingsChart(/** @type {HTMLCanvasElement} */ (elements.savingsChart)),
+    cumulative: createCumulativeChart(/** @type {HTMLCanvasElement} */ (elements.cumulChart)),
+    period: createPeriodChart(/** @type {HTMLCanvasElement} */ (elements.periodChart))
   };
 }
 
+/**
+ * @param {Charts} charts - Chart instances.
+ * @param {ChartState} state - Current chart state.
+ * @param {(value: number) => string} formatCurrency - Currency formatter.
+ * @param {(value: number) => string} formatDollarTick - Y tick formatter.
+ * @returns {void}
+ */
 function syncCharts(charts, state, formatCurrency, formatDollarTick) {
   syncBalanceChart(charts.balance, state, formatDollarTick);
   syncComparisonChart(charts.comparison, state, formatDollarTick);
@@ -494,8 +611,8 @@ function syncCharts(charts, state, formatCurrency, formatDollarTick) {
 
 /**
  * @typedef {{
- *   charts?: Record<string, any>,
- *   elements: Record<string, any>,
+ *   charts?: Partial<Charts>,
+ *   elements: Record<string, HTMLElement>,
  *   base: import('./amortization.js').ScheduleResult,
  *   extra: import('./amortization.js').ScheduleResult,
  *   principal: number,
@@ -509,7 +626,7 @@ function syncCharts(charts, state, formatCurrency, formatDollarTick) {
 /**
  * Create or update all loan amortization chart instances.
  * @param {ChartRenderOptions} options - Chart data and formatting callbacks.
- * @returns {Record<string, any>} Chart instances keyed by name.
+ * @returns {Charts} Chart instances keyed by name.
  */
 export function renderCharts({
   charts = {},
@@ -522,7 +639,7 @@ export function renderCharts({
   formatCurrency,
   formatDollarTick
 }) {
-  const nextCharts = charts.balance ? charts : createCharts(elements);
+  const nextCharts = charts.balance ? /** @type {Charts} */ (charts) : createCharts(elements);
   const state = buildChartState({
     base,
     extra,

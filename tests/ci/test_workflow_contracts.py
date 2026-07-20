@@ -84,6 +84,12 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
         "default": True,
         "type": "boolean",
     }
+    assert on_block["workflow_dispatch"]["inputs"]["redeploy-sha"] == {
+        "description": "Optional commit SHA to rebuild and redeploy (workflow_dispatch only).",
+        "required": False,
+        "default": "",
+        "type": "string",
+    }
     assert on_block["push"]["branches"] == ["main"]
     assert on_block["pull_request"]["branches"] == ["main"]
     assert on_block["pull_request"]["types"] == [
@@ -154,6 +160,40 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
     assert upload["with"]["path"] == ".artifacts/ci-plan/plan.json"
 
 
+def test_update_workflow_supports_one_click_redeploy_of_a_known_good_sha() -> None:
+    """A workflow_dispatch redeploy-sha rebuilds and deploys the chosen commit."""
+    workflow = _load_workflow("update.yml")
+
+    assert workflow["env"]["BUILD_REF"] == (
+        "${{ (github.event_name == 'workflow_dispatch' && inputs.redeploy-sha) || github.sha }}"
+    )
+
+    # Every build, verify, and deploy job checks out the redeploy target.
+    for job_name in (
+        "plan",
+        "quick-gates",
+        "heavy-checks",
+        "root-browser",
+        "app-shard",
+        "assemble-site",
+        "publish",
+    ):
+        checkout = _step(_job(workflow, job_name), "Checkout repository")
+        assert checkout["with"]["ref"] == "${{ env.BUILD_REF }}", job_name
+
+    plan = _job(workflow, "plan")
+    validate = _step(plan, "Validate redeploy SHA")
+    assert validate["if"] == "github.event_name == 'workflow_dispatch' && inputs.redeploy-sha != ''"
+    validate_run = _step_run(plan, "Validate redeploy SHA")
+    assert 'git cat-file -e "${REDEPLOY_SHA}^{commit}"' in validate_run
+
+    publish = _job(workflow, "publish")
+    assert _step(publish, "Deploy main site")["with"]["commit-sha"] == "${{ env.BUILD_REF }}"
+    assert '--expected-commit-sha "${{ env.BUILD_REF }}"' in _step_run(
+        publish, "Verify main site deployment"
+    )
+
+
 def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -> None:
     """Update workflow keeps the bounded shard and single assembly contracts."""
     workflow = _load_workflow("update.yml")
@@ -166,8 +206,14 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     )
     assert _step_with(quick, "CI setup")["install-browsers"] == "false"
     assert _step_with(heavy, "CI setup")["install-browsers"] == "false"
-    assert "make test-browser-root" in _step_run(
-        _job(workflow, "root-browser"), "Run root browser verification"
+    root_browser = _job(workflow, "root-browser")
+    assert "make test-browser-root" in _step_run(root_browser, "Run root browser verification")
+    assert (
+        _step_run(root_browser, "Install WebKit for the smoke pass").strip()
+        == "make setup-playwright-webkit-ci"
+    )
+    assert (
+        _step_run(root_browser, "Run WebKit smoke pass").strip() == "make test-browser-webkit-smoke"
     )
 
     shard = _job(workflow, "app-shard")
@@ -330,7 +376,7 @@ def test_update_publish_job_writes_classic_deployment_records() -> None:
     assert "repos/${{ github.repository }}/deployments" in create_run
     assert "--input -" in create_run
     assert '"required_contexts": []' in create_run
-    assert '"ref": "${{ github.sha }}"' in create_run
+    assert '"ref": "${{ env.BUILD_REF }}"' in create_run
     assert '"environment": "github-pages"' in create_run
     assert '"production_environment": true' in create_run
     assert 'echo "id=$deployment_id" >> "$GITHUB_OUTPUT"' in create_run
@@ -572,6 +618,73 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert _step_run(refresh_job, "Update action SHAs").strip() == "make refresh-action-shas"
     update_token = _step(refresh_job, "Update action SHAs")["env"]["GH_TOKEN"]
     assert update_token == "${{ steps.escalation-token.outputs.token }}"
+
+
+def test_deploy_failure_alert_workflow_opens_and_closes_issue() -> None:
+    """The deploy-failure alert reacts to the main pipeline and syncs one issue."""
+    workflow = _load_workflow("deploy-failure-alert.yml")
+    on_block = _workflow_on(workflow)
+
+    assert set(on_block) == {"workflow_run"}
+    assert on_block["workflow_run"]["workflows"] == ["Update Artifacts & Deploy"]
+    assert on_block["workflow_run"]["types"] == ["completed"]
+
+    assert set(_jobs(workflow)) == {"alert"}
+    alert = _job(workflow, "alert")
+    assert alert["if"] == "github.event.workflow_run.head_branch == 'main'"
+    assert alert["timeout-minutes"] == 10
+    assert alert["permissions"] == {"contents": "read", "issues": "write"}
+
+    open_step = _step(alert, "Open or update deploy failure issue")
+    assert open_step["if"] == "github.event.workflow_run.conclusion == 'failure'"
+    assert open_step["env"]["GH_TOKEN"] == "${{ github.token }}"
+    open_run = _step_run(alert, "Open or update deploy failure issue")
+    assert "make ci-alert-issue" in open_run
+    assert "state=open" in open_run
+
+    close_step = _step(alert, "Close deploy failure issue when a main run succeeds")
+    assert close_step["if"] == "github.event.workflow_run.conclusion == 'success'"
+    assert close_step["env"]["GH_TOKEN"] == "${{ github.token }}"
+    close_run = _step_run(alert, "Close deploy failure issue when a main run succeeds")
+    assert "make ci-alert-issue" in close_run
+    assert "state=close" in close_run
+
+
+def test_schedule_watchdog_runs_from_push_and_syncs_alert_issue() -> None:
+    """The schedule watchdog runs from a push context and syncs one alert issue."""
+    workflow = _load_workflow("schedule-watchdog.yml")
+    on_block = _workflow_on(workflow)
+
+    # A push (not a schedule) trigger is essential: GitHub never auto-disables it.
+    assert set(on_block) == {"push", "workflow_dispatch"}
+    assert on_block["push"]["branches"] == ["main"]
+
+    assert set(_jobs(workflow)) == {"watchdog"}
+    watchdog = _job(workflow, "watchdog")
+    assert watchdog["permissions"] == {
+        "actions": "read",
+        "contents": "read",
+        "issues": "write",
+    }
+
+    check_run = _step_run(watchdog, "Check scheduled workflow recency")
+    assert "make ci-schedule-watchdog" in check_run
+    assert 'echo "status=$status" >> "$GITHUB_OUTPUT"' in check_run
+
+    open_step = _step(watchdog, "Open or update stale schedule issue")
+    assert open_step["if"] == "steps.watchdog.outputs.status != '0'"
+    open_run = _step_run(watchdog, "Open or update stale schedule issue")
+    assert "make ci-alert-issue" in open_run
+    assert "state=open" in open_run
+    assert "detail_file=schedule-watchdog.txt" in open_run
+
+    close_step = _step(watchdog, "Close stale schedule issue when clean")
+    assert close_step["if"] == "steps.watchdog.outputs.status == '0'"
+    assert "state=close" in _step_run(watchdog, "Close stale schedule issue when clean")
+
+    fallback = _step(watchdog, "Alert when watchdog setup fails")
+    assert fallback["if"] == "failure() && steps.watchdog.outputs.status == ''"
+    assert "state=setup-failure" in _step_run(watchdog, "Alert when watchdog setup fails")
 
 
 def test_codeql_workflow_scans_supported_languages_with_shared_config() -> None:

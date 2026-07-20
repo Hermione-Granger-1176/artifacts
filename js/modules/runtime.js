@@ -221,6 +221,7 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
     });
   }
 
+  /** @param {string} value - Runtime status written to the document dataset. */
   const setStatus = (value) => {
     documentObj.documentElement.dataset.runtimeStatus = value;
   };
@@ -233,6 +234,11 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
     }
   };
 
+  /**
+   * @param {*} error - Arbitrary thrown value; error shapes are untyped upstream.
+   * @param {string} context - Human-readable failure context.
+   * @param {{ fatal?: boolean }} [options={}] - Whether the failure is fatal.
+   */
   const reportError = (error, context, { fatal = false } = {}) => {
     const errorRecord = {
       context,

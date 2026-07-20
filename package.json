@@ -22,6 +22,9 @@
   "devDependencies": {
     "actionlint": "2.0.6",
     "axe-core": "4.12.1",
+    "chart.js": "4.4.1",
+    "chartjs-plugin-annotation": "3.0.1",
+    "chartjs-plugin-datalabels": "2.2.0",
     "esbuild": "0.28.1",
     "eslint": "10.7.0",
     "globals": "17.7.0",

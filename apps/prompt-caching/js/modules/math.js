@@ -94,6 +94,9 @@ export function hashToken(value) {
 /**
  * Cosine similarity between two equal-length vectors. Returns 0 when either
  * vector has zero magnitude.
+ * @param {number[]} a - First vector.
+ * @param {number[]} b - Second vector.
+ * @returns {number} Cosine similarity.
  */
 export function cosineSim(a, b) {
   let dot = 0;
@@ -108,7 +111,12 @@ export function cosineSim(a, b) {
   return denom === 0 ? 0 : dot / denom;
 }
 
-/** Euclidean distance between two equal-length vectors. */
+/**
+ * Euclidean distance between two equal-length vectors.
+ * @param {number[]} a - First vector.
+ * @param {number[]} b - Second vector.
+ * @returns {number} Euclidean distance.
+ */
 export function eucDist(a, b) {
   let sum = 0;
   for (let i = 0; i < a.length; i += 1) {
@@ -120,6 +128,8 @@ export function eucDist(a, b) {
 /**
  * Numerically stable softmax over raw scores. `-Infinity` scores map to weight 0
  * (used by the causal mask). Always sums to ~1 when at least one score is finite.
+ * @param {number[]} scores - Raw scores.
+ * @returns {number[]} Softmax weights.
  */
 export function softmax(scores) {
   const finiteScores = scores.filter(Number.isFinite);
@@ -151,6 +161,8 @@ export function savingsMonthly({ sys, req, hitFraction, price }) {
 
 /**
  * Format a remaining-seconds count as `m:ss`, or "expired" once it runs out.
+ * @param {number} seconds - Remaining seconds.
+ * @returns {string} Formatted time.
  */
 export function formatTTL(seconds) {
   if (seconds <= 0) {
@@ -163,6 +175,7 @@ export function formatTTL(seconds) {
 
 /**
  * Human verdict + accent tone for a cosine similarity score.
+ * @param {number} sim - Cosine similarity score.
  * @returns {{label:string, tone:string}}
  */
 export function verdictForSimilarity(sim) {

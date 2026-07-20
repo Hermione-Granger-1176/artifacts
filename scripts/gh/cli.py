@@ -13,7 +13,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from . import ci_status, pr_review, pr_watch
+from . import ci_status, commit_message, pr_review, pr_watch
 from .gh_runner import GhError
 
 
@@ -110,6 +110,16 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     copilot_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
 
+    check_commit_parser = subparsers.add_parser(
+        "check-commit-message",
+        help="Reject a commit message that leaked shell text (heredoc fragments)",
+    )
+    check_commit_parser.add_argument(
+        "--message-file",
+        required=True,
+        help="Path to the commit message (- reads stdin)",
+    )
+
     return parser
 
 
@@ -194,6 +204,22 @@ def _handle_copilot_review(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_check_commit_message(args: argparse.Namespace) -> int:
+    """Validate a commit message and reject leaked shell fragments."""
+    if args.message_file == "-":
+        message = sys.stdin.read()
+    else:
+        try:
+            message = Path(args.message_file).read_text(encoding="utf-8")
+        except OSError as exc:
+            raise GhError(f"Could not read --message-file {args.message_file}: {exc}") from exc
+    try:
+        commit_message.validate_commit_message(message)
+    except ValueError as exc:
+        raise GhError(str(exc)) from exc
+    return 0
+
+
 COMMAND_HANDLERS = {
     "list": _handle_list,
     "reply": _handle_reply,
@@ -205,6 +231,7 @@ COMMAND_HANDLERS = {
     "watch": _handle_watch,
     "ci-failures": _handle_ci_failures,
     "copilot-review": _handle_copilot_review,
+    "check-commit-message": _handle_check_commit_message,
 }
 
 

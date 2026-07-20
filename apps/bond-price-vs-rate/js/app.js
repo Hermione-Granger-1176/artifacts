@@ -73,7 +73,11 @@ function readBond() {
   };
 }
 
-/** Sample price against the market rate and mark the bond's current point. */
+/**
+ * Sample price against the market rate and mark the bond's current point.
+ * @param {ReturnType<typeof readBond>} bond - Current bond terms.
+ * @returns {{ curve: Array<{ x: number, y: number }>, current: { x: number, y: number } }} Series data.
+ */
 function buildPriceRateSeries(bond) {
   const curve = [];
   for (let rate = RATE_AXIS_MIN; rate <= RATE_AXIS_MAX + 1e-9; rate += RATE_AXIS_STEP) {
@@ -83,7 +87,11 @@ function buildPriceRateSeries(bond) {
   return { curve, current: { x: bond.annualYieldPct, y: bondPrice(bond) } };
 }
 
-/** Sample the selected yield curve across maturities and mark the bond's maturity. */
+/**
+ * Sample the selected yield curve across maturities and mark the bond's maturity.
+ * @param {ReturnType<typeof readBond>} bond - Current bond terms.
+ * @returns {{ curve: Array<{ x: number, y: number }>, current: { x: number, y: number } }} Series data.
+ */
 function buildYieldCurveSeries(bond) {
   const shape = YIELD_CURVES[selectedCurveKey];
   const curve = [];
@@ -106,14 +114,22 @@ function applyCurveRate() {
   scheduleRecalc();
 }
 
-/** Percent price change for a one-point rate rise at a given maturity. */
+/**
+ * Percent price change for a one-point rate rise at a given maturity.
+ * @param {ReturnType<typeof readBond>} bond - Current bond terms.
+ * @param {number} years - Maturity in years.
+ * @returns {number} Percent price change.
+ */
 function shockPct(bond, years) {
   const atRate = bondPrice({ ...bond, years, annualYieldPct: bond.annualYieldPct });
   const atShock = bondPrice({ ...bond, years, annualYieldPct: bond.annualYieldPct + RATE_SHOCK });
   return (atShock / atRate - 1) * 100;
 }
 
-/** Compare the one-point price hit across maturities, highlighting the current one. */
+/**
+ * Compare the one-point price hit across maturities, highlighting the current one.
+ * @param {ReturnType<typeof readBond>} bond - Current bond terms.
+ */
 function buildSensitivity(bond) {
   const maturities = Array.from(new Set([...SENSITIVITY_MATURITIES, bond.years]))
     .filter((maturity) => maturity >= YEARS_MIN && maturity <= YEARS_MAX)

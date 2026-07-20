@@ -39,6 +39,12 @@ export function initCacheHits() {
     }, 1000);
   }
 
+  /**
+   * @param {Element[]} blocks - Block elements to animate.
+   * @param {string} hitClass - Class applied on hit.
+   * @param {() => void} [onDone] - Optional completion callback.
+   * @returns {void}
+   */
   function animateBlocks(blocks, hitClass, onDone) {
     let i = 0;
     const timer = setInterval(() => {

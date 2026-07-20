@@ -7,6 +7,11 @@ import { cosineSim, eucDist, verdictForSimilarity, project2D } from "./math.js";
 import { byId, makeEl, clear, initSegmented } from "./dom.js";
 import { createPaletteCache } from "../../../../js/modules/chart-theme.js";
 
+/** @type {Record<string, number[] | undefined>} */
+const EMB_VECS_BY_WORD = EMB_VECS;
+/** @type {Record<string, string[]>} */
+const EMB_CATEGORIES_BY_NAME = EMB_CATEGORIES;
+
 // Use the prompt-specific accent tokens (not the vibrant --color-* bases): they carry
 // the WCAG-AA text colors in light mode and flip to the vibrant hues in dark.
 const TONE_VARS = {
@@ -34,6 +39,7 @@ const { colors: canvasPalette, refreshPalette: refreshCanvasPalette } = createPa
   return resolved;
 });
 
+/** @param {string} spec - Font size/weight spec. @returns {string} Full canvas font string. */
 function bodyFont(spec) {
   return `${spec} ${canvasPalette().font}`;
 }
@@ -55,6 +61,11 @@ export function initEmbeddings() {
   };
 }
 
+/**
+ * @param {KeyboardEvent} event - Keydown event.
+ * @param {() => void} action - Action to run on activation.
+ * @returns {void}
+ */
 function activateOnKeyboard(event, action) {
   if (event.key !== "Enter" && event.key !== " ") {
     return;
@@ -103,6 +114,10 @@ function initDimensions() {
   let lastX = 0;
   let lastY = 0;
 
+  /**
+   * @param {{ x: number, y: number, z: number, token: string }} point - 3D point.
+   * @returns {{ px: number, py: number, depth: number, token: string }} Rotated point.
+   */
   function rotate(point) {
     const x = point.x - 0.5;
     const y = point.y - 0.5;
@@ -121,6 +136,15 @@ function initDimensions() {
     };
   }
 
+  /**
+   * @param {CanvasRenderingContext2D} ctx - Canvas context.
+   * @param {number} x - X coordinate.
+   * @param {number} y - Y coordinate.
+   * @param {string} token - Palette token key.
+   * @param {number} radius - Dot radius.
+   * @param {number} alpha - Fill alpha.
+   * @returns {void}
+   */
   function drawDot(ctx, x, y, token, radius, alpha) {
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -202,8 +226,8 @@ function initDimensions() {
   canvas.addEventListener("pointerup", stopDrag);
   canvas.addEventListener("pointerleave", stopDrag);
 
-  initSegmented(toggle, (btn) => {
-    currentDims = Number.parseInt(btn.dataset.dims, 10);
+  initSegmented(toggle, (/** @type {HTMLElement} */ btn) => {
+    currentDims = Number.parseInt(btn.dataset.dims ?? "", 10);
     caption.textContent = captions[currentDims - 1];
     canvas.classList.toggle("is-rotatable", currentDims === 3);
     dragging = false;
@@ -233,7 +257,9 @@ function initSimilarity() {
   let selB = "sad";
   let selecting = "a";
   let currentCat = Object.keys(EMB_CATEGORIES)[0];
+  /** @type {{ word: string, sx: number, sy: number }[]} */
   let screenPoints = [];
+  /** @type {string | null} */
   let hovered = null;
 
   const wordEls = new Map();
@@ -241,7 +267,7 @@ function initSimilarity() {
 
   if (cats) {
     for (const cat of Object.keys(EMB_CATEGORIES)) {
-      const btn = makeEl("button", "", cat);
+      const btn = /** @type {HTMLButtonElement} */ (makeEl("button", "", cat));
       btn.type = "button";
       btn.addEventListener("click", () => {
         currentCat = cat;
@@ -264,7 +290,7 @@ function initSimilarity() {
   function renderCloud() {
     clear(cloud);
     wordEls.clear();
-    const words = cats ? EMB_CATEGORIES[currentCat] : Object.values(EMB_CATEGORIES).flat();
+    const words = cats ? EMB_CATEGORIES_BY_NAME[currentCat] : Object.values(EMB_CATEGORIES).flat();
     for (const word of words) {
       const span = makeEl("span", "emb-word", word);
       span.dataset.word = word;
@@ -312,6 +338,7 @@ function initSimilarity() {
     }
   }
 
+  /** @param {string} word - Selected word. */
   function clickWord(word) {
     if (selecting === "a") {
       selA = word;
@@ -328,8 +355,8 @@ function initSimilarity() {
     selBEl.textContent = selB;
     highlightSelection();
 
-    const vecA = EMB_VECS[selA];
-    const vecB = EMB_VECS[selB];
+    const vecA = EMB_VECS_BY_WORD[selA];
+    const vecB = EMB_VECS_BY_WORD[selB];
     if (!vecA || !vecB) {
       simEl.textContent = "?";
       distEl.textContent = "?";
@@ -344,13 +371,18 @@ function initSimilarity() {
 
     const verdict = verdictForSimilarity(sim);
     verdEl.textContent = verdict.label;
-    verdEl.style.color = `var(${TONE_VARS[verdict.tone]})`;
+    verdEl.style.color = `var(${TONE_VARS[/** @type {keyof typeof TONE_VARS} */ (verdict.tone)]})`;
     const simTone = sim > 0.5 ? "--pc-teal" : sim > 0 ? "--pc-warm" : "--pc-rose";
     simEl.style.color = `var(${simTone})`;
 
     drawCanvas(vecA, vecB);
   }
 
+  /**
+   * @param {number[]} vecA - First word vector.
+   * @param {number[]} vecB - Second word vector.
+   * @returns {void}
+   */
   function drawCanvas(vecA, vecB) {
     if (!canvas || !canvas.getContext) {
       return;
@@ -378,7 +410,7 @@ function initSimilarity() {
     const scale = Math.min((W - 2 * pad) / rangeX, (H - 2 * pad) / rangeY);
     const midX = (minX + maxX) / 2;
     const midY = (minY + maxY) / 2;
-    const toScreen = (p) => ({ sx: W / 2 + (p.x - midX) * scale, sy: H / 2 - (p.y - midY) * scale });
+    const toScreen = (/** @type {{ x: number, y: number, word: string }} p */ p) => ({ sx: W / 2 + (p.x - midX) * scale, sy: H / 2 - (p.y - midY) * scale });
 
     const colors = canvasPalette();
     const muted = colors["--color-text-tertiary"];
@@ -434,6 +466,11 @@ function initSimilarity() {
     drawMarker(ctx, sB, selB, colorB, surface);
   }
 
+  /**
+   * @param {number} x - Pointer x.
+   * @param {number} y - Pointer y.
+   * @returns {string | null} Nearest word, if within range.
+   */
   function hitTest(x, y) {
     let best = null;
     let bestDist = 14 * 14;
@@ -451,8 +488,8 @@ function initSimilarity() {
   }
 
   function redrawCurrent() {
-    const vecA = EMB_VECS[selA];
-    const vecB = EMB_VECS[selB];
+    const vecA = EMB_VECS_BY_WORD[selA];
+    const vecB = EMB_VECS_BY_WORD[selB];
     if (vecA && vecB) {
       drawCanvas(vecA, vecB);
     }
@@ -492,6 +529,14 @@ function initSimilarity() {
   return { refresh };
 }
 
+/**
+ * @param {CanvasRenderingContext2D} ctx - Canvas context.
+ * @param {{ sx: number, sy: number } | null} screen - Screen position, if any.
+ * @param {string} word - Word label.
+ * @param {string} color - Marker color.
+ * @param {string} stroke - Outline color.
+ * @returns {void}
+ */
 function drawMarker(ctx, screen, word, color, stroke) {
   if (!screen) {
     return;

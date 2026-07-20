@@ -8,6 +8,11 @@ on:
         required: false
         default: true
         type: boolean
+      redeploy-sha:
+        description: Optional commit SHA to rebuild and redeploy (workflow_dispatch only).
+        required: false
+        default: ""
+        type: string
   schedule:
     - cron: "23 4 * * 0"
   push:
@@ -28,6 +33,12 @@ concurrency:
 
 env:
   PYTHONPATH: "."
+  # The ref every build/verify/deploy job checks out. It is github.sha for the
+  # normal push, PR, and schedule paths, and a one-click rollback target when a
+  # workflow_dispatch run supplies redeploy-sha. Because prepare_site derives the
+  # deploy commit SHA from the checked-out HEAD, the published metadata reflects
+  # the redeployed commit honestly with no extra plumbing.
+  BUILD_REF: ${{ (github.event_name == 'workflow_dispatch' && inputs.redeploy-sha) || github.sha }}
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "24"
   PAGES_BRANCH: gh-pages
@@ -62,7 +73,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ env.BUILD_REF }}
           fetch-depth: 0
+
+      - name: Validate redeploy SHA
+        if: github.event_name == 'workflow_dispatch' && inputs.redeploy-sha != ''
+        env:
+          REDEPLOY_SHA: ${{ inputs.redeploy-sha }}
+        run: |
+          if ! git cat-file -e "${REDEPLOY_SHA}^{commit}" 2>/dev/null; then
+            echo "redeploy-sha ${REDEPLOY_SHA} is not a commit in this repository." >&2
+            exit 1
+          fi
+          echo "Rebuilding and redeploying ${REDEPLOY_SHA}."
 
       - name: Resolve primary app identity
         id: app-identity
@@ -155,6 +178,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - name: CI setup
         uses: ./.github/actions/ci-setup
@@ -182,6 +207,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - name: CI setup
         uses: ./.github/actions/ci-setup
@@ -218,6 +245,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - name: CI setup
         uses: ./.github/actions/ci-setup
@@ -229,6 +258,14 @@ jobs:
 
       - name: Run root browser verification
         run: make test-browser-root
+
+      # A bounded cross-engine safety net: install WebKit and run the small
+      # root-plus-apps smoke pass in the job that already provisions browsers.
+      - name: Install WebKit for the smoke pass
+        run: make setup-playwright-webkit-ci
+
+      - name: Run WebKit smoke pass
+        run: make test-browser-webkit-smoke
 
   app-shard:
     if: >-
@@ -249,6 +286,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - name: Download app impact plan
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -316,6 +355,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ env.BUILD_REF }}
 
       - name: Download app impact plan
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -540,6 +581,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ env.BUILD_REF }}
           fetch-depth: 1
           persist-credentials: false
 
@@ -616,7 +658,7 @@ jobs:
           token: ${{ steps.setup.outputs.escalation-token }}
           pages-branch: ${{ env.PAGES_BRANCH }}
           preview-root: ${{ env.PREVIEW_ROOT }}
-          commit-sha: ${{ github.sha }}
+          commit-sha: ${{ env.BUILD_REF }}
           skip-build: "true"
 
       - name: Resolve gh-pages publish commit
@@ -678,7 +720,7 @@ jobs:
           deployment_id=$(gh api "repos/${{ github.repository }}/deployments" \
             --input - --jq '.id' <<'JSON'
           {
-            "ref": "${{ github.sha }}",
+            "ref": "${{ env.BUILD_REF }}",
             "environment": "github-pages",
             "auto_merge": false,
             "required_contexts": [],
@@ -739,7 +781,7 @@ jobs:
           python3 scripts/ci/verify_deploy.py
           --url "${{ steps.live-site-url.outputs.url }}"
           --expected-substring "js/app.js?v=${{ steps.deploy-version.outputs.content-hash }}"
-          --expected-commit-sha "${{ github.sha }}"
+          --expected-commit-sha "${{ env.BUILD_REF }}"
           --attempts ${{ env.VERIFY_DEPLOY_ATTEMPTS }}
           --delay-seconds ${{ env.VERIFY_DEPLOY_DELAY_SECONDS }}
 

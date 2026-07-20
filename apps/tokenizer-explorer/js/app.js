@@ -70,7 +70,7 @@ initializeMatureApp({
     initSectionNav();
     bindEvents();
     const tabButtons = renderTabs(elements.tabs, scenarios, activeIndex);
-    initSegmented(elements.tabs, (button) => selectScenario(tabButtons.indexOf(button)));
+    initSegmented(elements.tabs, (/** @type {HTMLButtonElement} */ button) => selectScenario(tabButtons.indexOf(button)));
     renderTokenExamples(elements.tokenExamples, showWhitespace);
     render();
   }
@@ -87,7 +87,7 @@ function cacheAppElements() {
 function bindEvents() {
   elements.tempSlider.addEventListener("input", handleDistributionChange);
   elements.toppSlider.addEventListener("input", handleDistributionChange);
-  elements.samplingPresets.addEventListener("click", (event) => {
+  elements.samplingPresets.addEventListener("click", (/** @type {MouseEvent} */ event) => {
     const target = /** @type {Element | null} */ (event.target);
     const preset = target?.closest(".sampling-preset");
     if (!preset) {
@@ -114,6 +114,7 @@ function bindEvents() {
   });
 }
 
+/** @param {number} index - Scenario index to select. */
 function selectScenario(index) {
   activeIndex = index;
   clearSamplingFeedback();
@@ -175,6 +176,10 @@ function currentSamplingState() {
   };
 }
 
+/**
+ * @param {number} temperature - Sampling temperature.
+ * @returns {string} Note text.
+ */
 function temperatureNote(temperature) {
   if (temperature === 0) {
     return "At 0, the model always picks the top token (greedy decoding).";

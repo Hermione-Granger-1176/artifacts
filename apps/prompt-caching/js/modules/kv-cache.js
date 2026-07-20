@@ -24,6 +24,7 @@ function initCacheAnimation() {
   let step = -1;
   let timer = /** @type {number | null} */ (null);
 
+  /** @param {HTMLElement} target - Container to render rows into. */
   function renderCacheRows(target) {
     if (step < 0) {
       clear(target);
@@ -146,8 +147,8 @@ function initCacheCompare() {
     );
   }
 
-  initSegmented(toggle, (btn) => {
-    mode = btn.dataset.compare;
+  initSegmented(toggle, (/** @type {HTMLElement} */ btn) => {
+    mode = btn.dataset.compare ?? "";
     render();
   });
   render();

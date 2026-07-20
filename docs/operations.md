@@ -17,13 +17,15 @@ make git        # show all git sub-commands
 
 Local Python dependency setup uses uv. Ensure `uv` is on PATH before running setup, install, lock, or security targets. On newer Linux hosts where Playwright has no native browser build, the Makefile exports a supported `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE` fallback for Playwright install, browser test, and thumbnail targets.
 
+`make commit` validates the message before recording it. The tested guard in `scripts/gh/commit_message.py` rejects obvious shell leaks (heredoc openers such as `<<'EOF'`, a bare heredoc terminator left in the body, shell redirections like `2>&1`, and pipes into a pager like `| tail`), which prevents heredoc fragments from ending up in the commit message the way commit `b68de52` did. Fix the flagged line and re-run `make commit` if it rejects a message.
+
 Recommended workflow when changing workspace code:
 
 1. `make new name=my-artifact` if you want a scaffold instead of creating files by hand, or `make new name=my-artifact src=path/to/page.html` to install an existing HTML file as the artifact. Both flows emit the metadata, stylesheet, app shell, docs, and matching `tests/js/apps/<slug>/app.test.js` test stub. The fresh-placeholder flow passes the gates without manual edits. A `src=` import preserves supplied off-origin references, so vendor or remove any reported references before the CSP gate can pass.
 2. `make setup` for fast local work, or `make setup-all` if you also need Chromium. Run `make install-hooks` once if you want local pre-commit checks.
 3. Edit files.
 4. Run `make check-local`.
-5. Run `make check-web` when you touch shared browser behavior or need fresh thumbnails. For targeted mature-app browser work, use `ARTIFACTS_BROWSER_APP_SLUGS="app-slug" make test-browser-apps`.
+5. Run `make check-web` when you touch shared browser behavior or need fresh thumbnails. For targeted mature-app browser work, use `ARTIFACTS_BROWSER_APP_SLUGS="app-slug" make test-browser-apps`. For the cross-engine smoke pass, run `make setup-playwright-webkit` once, then `make test-browser-webkit-smoke`.
 6. Run `make check` before opening a PR when you want the full local release gate.
 7. Run `make validate` if you changed top-level artifact directories and want an explicit structure check.
 8. Run `make index` if metadata or README markers may have changed.
@@ -36,7 +38,7 @@ CI uses the same `make` targets as local development. The `update.yml` workflow 
 
 - `quick-gates` runs `make ci-quick-gates` (`format-check`, `lint`, `typecheck`, `validate`).
 - `heavy-checks` runs `make ci-heavy-checks` (`test-py`, `coverage-js`, `dead-code`, `security`).
-- `root-browser` runs the root gallery browser verification with `make test-browser-root`.
+- `root-browser` runs the root gallery browser verification with `make test-browser-root`, then installs WebKit (`make setup-playwright-webkit-ci`) and runs the bounded cross-engine smoke pass (`make test-browser-webkit-smoke`) that loads the root gallery and every app entry page in WebKit. All other browser suites default to Chromium; set `ARTIFACTS_BROWSER_ENGINE` to override the engine for a run.
 - `app-shard` jobs each run one bounded shard of app browser tests (`make test-browser-apps-shard`) plus thumbnail capture (`make thumbnails-shard`).
 - `assemble-site` builds the generated files and the deployable site once (`make check-generated`, `make index`, `make site`) after the gates pass, and uploads the `_site/` artifact.
 - `verify` aggregates the dependency job results for branch protection. It runs no tests and builds no files.
@@ -90,6 +92,13 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - Thumbnail discovery rejects a symlinked artifact root or descendant before it starts the local server or Playwright, so an artifact cannot make the renderer follow files outside its own tree.
 - CI can regenerate thumbnails after push or during pull request preview builds, and trusted runs can save those generated `thumbnail.webp` files back to the same PR branch or open/update a follow-up PR for `main` pushes.
 
+## Visual regression baselines
+
+- `make test-visual` compares a fixed-viewport (1200x800) hero screenshot of the root gallery and each mature app against committed baselines in `tests/browser/baselines/`. The comparison (`scripts/ci/visual_regression.py`, Pillow) is deliberately tolerant: a pixel only counts as changed when a channel differs by more than 32/255, and an image only fails when more than 5% of pixels change (18% for the root gallery, whose animated 3D book scene renders a few percent of noise even after animations are frozen).
+- Screenshot rendering depends on the host's fonts, so this is a local, on-demand check. It is intentionally not part of the blocking CI browser gate. Regenerate the baselines in the same environment where you run the check.
+- After an intentional visual change, regenerate and commit the baselines with `make visual-baselines`, then review the resulting PNG diff before committing.
+- Both targets need Chromium (`make setup-all` or `make setup-playwright`).
+
 ## Required GitHub settings
 
 See [architecture.md: External GitHub settings](architecture.md#external-github-settings) for the full list of required repository settings (Pages, branch protection, app tokens, secrets, rulesets). Use `make help-ci` to discover the `make ci-audit-repo-settings` wrapper for the manual drift check.
@@ -110,7 +119,8 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
 
 - Gallery display fonts (Caveat, Fredoka One) are self-hosted as WOFF2 Latin subsets in `assets/fonts/`.
 - `@font-face` declarations live in `css/src/01-tokens.css` and are bundled into `css/style.css`.
-- When adding a new font, download the WOFF2 subset into `assets/fonts/`, add the `@font-face` rule to `css/src/01-tokens.css`, run `make styles`, and verify the CSP `font-src 'self'` directive still covers it.
+- Only the root gallery renders these display fonts. Artifact pages set `body.artifact-app`, which overrides `--font-body` and `--font-heading` to system fonts, so app pages never fetch the WOFF2 files. Because of that, the two `<link rel="preload" as="font" ... crossorigin>` hints live only in the root `index.html`; do not add them to app pages.
+- When adding a new font, download the WOFF2 subset into `assets/fonts/`, add the `@font-face` rule to `css/src/01-tokens.css`, run `make styles`, verify the CSP `font-src 'self'` directive still covers it, and add a matching `preload` hint to `index.html` only when the root gallery actually renders the font.
 
 ### Adding external assets to a new artifact
 
@@ -121,8 +131,8 @@ All runtime assets should be self-hosted. Do not load scripts, fonts, or stylesh
 ### Bad main deploy
 
 1. Identify the last known-good commit on `main`.
-2. Trigger the strict deploy workflow for that commit through the normal push/manual path so the repo rebuilds `_site/` and deploys from a verified artifact again.
-3. Verify the published site serves the expected `deploy-metadata.json` SHA and cache-busted asset query strings before declaring recovery complete.
+2. Redeploy it in one click: run the `Update Artifacts & Deploy` workflow manually (`workflow_dispatch`) and set the `redeploy-sha` input to that commit SHA. The `BUILD_REF` environment value makes every build, verify, and deploy job check out that commit instead of the branch tip, so the pipeline rebuilds and republishes the known-good `_site/` from a verified artifact. Leaving `redeploy-sha` empty keeps the normal behavior of building the current commit. The `plan` job validates that the supplied SHA is a real commit before doing any work.
+3. Verify the published site serves the expected `deploy-metadata.json` SHA (which now reflects the redeployed commit) and cache-busted asset query strings before declaring recovery complete.
 4. If the site is healthy but the Deployments page or `github-pages` environment badge looks stale, check the `Create main deployment record` and `Mark main deployment successful` steps in the latest `publish` run. Those steps write the classic deployment record for main-site publishes, so a failure there (not the deploy itself) is the usual cause of a frozen badge.
 
 ### Broken PR preview

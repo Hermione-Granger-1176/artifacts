@@ -88,6 +88,8 @@ Both flows emit a complete artifact structure: `index.html` wired to the shared 
 
 CI is intentionally strict for the root publishing platform: dependency review, secret scanning, browser-based checks, and fail-closed deploys. See [`docs/architecture.md`](docs/architecture.md) for the full pipeline, including how regenerated thumbnails flow back into PRs.
 
+To roll back a bad deploy, run the `Update Artifacts & Deploy` workflow manually with the `redeploy-sha` input set to the last known-good commit. See [`docs/operations.md`](docs/operations.md#bad-main-deploy) for the runbook.
+
 ## Local development
 
 - `make help`: the Makefile is the supported interface for setup, checks, generation, and GitHub helpers

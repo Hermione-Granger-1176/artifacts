@@ -73,7 +73,11 @@ const APP_SCROLL_TOP_MARKUP = `
   </button>
 `;
 
-/** Fill a placeholder slot element with the given markup if it is still empty. */
+/**
+ * Fill a placeholder slot element with the given markup if it is still empty.
+ * @param {Element | null | undefined} slot - Placeholder element to fill.
+ * @param {string} markup - HTML markup to insert.
+ */
 function renderMarkupSlot(slot, markup) {
   if (!slot || slot.childElementCount > 0) {
     return;
@@ -141,6 +145,7 @@ export function initAppShell({
     );
   }
 
+  /** @param {string} theme - Active theme name. */
   function syncThemeColor(theme) {
     if (!themeColorMeta) {
       return;
@@ -148,7 +153,7 @@ export function initAppShell({
 
     themeColorMeta.setAttribute(
       "content",
-      metaThemeColors[theme] || metaThemeColors.light
+      theme === "dark" ? metaThemeColors.dark : metaThemeColors.light
     );
   }
 
@@ -164,6 +169,7 @@ export function initAppShell({
     themeToggle.setAttribute("title", `Switch to ${nextTheme} theme`);
   }
 
+  /** @param {string} theme - Requested theme name. */
   function applyTheme(theme) {
     const normalizedTheme =
       windowObj.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(theme);

@@ -1,0 +1,69 @@
+name: Schedule Watchdog
+
+# GitHub auto-disables cron triggers after about 60 days of repository
+# inactivity, and a disabled schedule cannot open its own alert issue. This
+# watchdog runs from the push trigger (which GitHub never auto-disables) so a
+# stale or disabled scheduled workflow becomes a visible alert issue instead of
+# silently taking the monitoring layer offline.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  PYTHONPATH: "."
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  ALERT_TITLE: Scheduled workflow watchdog found stale or disabled schedules
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+
+      - name: Check scheduled workflow recency
+        id: watchdog
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          make ci-schedule-watchdog > schedule-watchdog.txt 2>&1
+          status=$?
+          set -e
+          cat schedule-watchdog.txt
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Open or update stale schedule issue
+        if: steps.watchdog.outputs.status != '0'
+        id: watchdog-issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          url=$(make ci-alert-issue state=open title="$ALERT_TITLE" run_url="$RUN_URL" detail_file=schedule-watchdog.txt)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Close stale schedule issue when clean
+        if: steps.watchdog.outputs.status == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make ci-alert-issue state=close title="$ALERT_TITLE" run_url="$RUN_URL"
+
+      - name: Alert when watchdog setup fails
+        if: failure() && steps.watchdog.outputs.status == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make ci-alert-issue state=setup-failure title="$ALERT_TITLE" run_url="$RUN_URL"
+
+      - name: Fail workflow when schedules are stale
+        if: steps.watchdog.outputs.status != '0'
+        run: exit 1

@@ -21,11 +21,13 @@ export function initInference() {
   let selected = prompts[0];
   let timer = /** @type {number | null} */ (null);
   let step = 0;
+  /** @type {string[]} */
   let promptTokens = [];
+  /** @type {string[]} */
   let genTokens = [];
 
   const chipEls = prompts.map((prompt) => {
-    const chip = makeEl("button", "", prompt);
+    const chip = /** @type {HTMLButtonElement} */ (makeEl("button", "", prompt));
     chip.type = "button";
     chip.addEventListener("click", () => {
       if (timer || prompt === selected) {
@@ -85,7 +87,7 @@ export function initInference() {
   function start() {
     reset();
     promptTokens = selected.split(/\s+/);
-    genTokens = INF_RESPONSES[selected];
+    genTokens = INF_RESPONSES[/** @type {keyof typeof INF_RESPONSES} */ (selected)];
 
     for (const tok of promptTokens) {
       tokensWrap.appendChild(makeEl("span", "chip is-mono inf-tok", tok));

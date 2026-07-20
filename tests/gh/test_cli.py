@@ -146,3 +146,37 @@ def test_body_text_empty_body_file_still_reads_path(
 
     assert text == "body"
     assert seen == ["."]
+
+
+def test_check_commit_message_accepts_clean_message(
+    tmp_path: Path,
+) -> None:
+    """A clean commit message file passes validation with exit code 0."""
+    message_file = tmp_path / "msg.txt"
+    message_file.write_text("Add a feature\n\n- detail\n", encoding="utf-8")
+
+    assert cli.main(["check-commit-message", "--message-file", str(message_file)]) == 0
+
+
+def test_check_commit_message_rejects_leaked_shell(tmp_path: Path) -> None:
+    """A message with leaked shell text raises GhError."""
+    message_file = tmp_path / "msg.txt"
+    message_file.write_text("Subject\n\nEOF && make push 2>&1 | tail -3\n", encoding="utf-8")
+
+    with pytest.raises(GhError, match="leaked shell text"):
+        cli.main(["check-commit-message", "--message-file", str(message_file)])
+
+
+def test_check_commit_message_reads_stdin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A --message-file of ``-`` reads the message from stdin."""
+    monkeypatch.setattr("sys.stdin", io.StringIO("Clean subject\n"))
+
+    assert cli.main(["check-commit-message", "--message-file", "-"]) == 0
+
+
+def test_check_commit_message_missing_file_raises(tmp_path: Path) -> None:
+    """A missing message file surfaces a GhError."""
+    missing = tmp_path / "nope.txt"
+
+    with pytest.raises(GhError, match="Could not read --message-file"):
+        cli.main(["check-commit-message", "--message-file", str(missing)])

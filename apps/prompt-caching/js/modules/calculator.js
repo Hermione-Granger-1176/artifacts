@@ -11,6 +11,7 @@ const PRESETS = [
 ];
 
 // Whole dollars once past $1,000 (grouped thousands), cents below that.
+/** @param {number} value - Dollar amount. @returns {string} Formatted currency. */
 function money(value) {
   return value >= 1000 ? formatCurrency(value, 0) : formatCurrency(value, 2);
 }
@@ -86,7 +87,7 @@ export function initCalculator() {
 
   clear(presetsWrap);
   for (const preset of PRESETS) {
-    const btn = makeEl("button", "", preset.name);
+    const btn = /** @type {HTMLButtonElement} */ (makeEl("button", "", preset.name));
     btn.type = "button";
     btn.addEventListener("click", () => {
       sys.value = String(preset.sys);

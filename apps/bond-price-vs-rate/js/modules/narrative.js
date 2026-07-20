@@ -44,12 +44,20 @@ const RATE_SCALE_MAX = 12;
  * }} NarrativeFormatters
  */
 
-/** Format a coupon or rate compactly, dropping a trailing ".0" (e.g. "5%", "5.4%"). */
+/**
+ * Format a coupon or rate compactly, dropping a trailing ".0".
+ * @param {number} value - Rate value.
+ * @returns {string} Formatted rate.
+ */
 function couponText(value) {
   return Number.isInteger(value) ? `${value}%` : `${value.toFixed(1)}%`;
 }
 
-/** Format a signed percentage move as a positive magnitude (e.g. "7.4%"). */
+/**
+ * Format a signed percentage move as a positive magnitude.
+ * @param {number} value - Signed percentage.
+ * @returns {string} Magnitude text.
+ */
 function magnitudeText(value) {
   return `${Math.abs(value).toFixed(1)}%`;
 }
@@ -267,7 +275,7 @@ const CURVE_STORY = {
  */
 export function curveExplainText({ bond, curve }, { formatPercent }) {
   return (
-    `${CURVE_STORY[curve.key]} At your ${bond.years}-year maturity this ` +
+    `${CURVE_STORY[/** @type {keyof typeof CURVE_STORY} */ (curve.key)]} At your ${bond.years}-year maturity this ` +
     `${curve.label.toLowerCase()} curve offers about ${formatPercent(curve.atMaturityPct)}, ` +
     `versus the ${formatPercent(bond.annualYieldPct)} market rate set at the top.`
   );
@@ -307,6 +315,13 @@ export function rippleExplainText({ regime }) {
  * Build one labelled comparison row (label, proportional bar, value) as a DOM
  * node. The bar uses the shared .meter / .meter-fill component; `fillTone` is an
  * optional meter tone modifier (e.g. "is-amber") or "" for the default blue.
+ */
+/**
+ * @param {string} label - Row label.
+ * @param {number} widthPct - Meter fill width percentage.
+ * @param {string} fillTone - Optional meter tone modifier.
+ * @param {string} valueText - Value text.
+ * @returns {HTMLElement} The compare row element.
  */
 function buildCompareRow(label, widthPct, fillTone, valueText) {
   const row = document.createElement("div");
@@ -441,9 +456,9 @@ export function renderNarrative(elements, state, formatters) {
   elements.regimeBadge.textContent = presentation.label;
   elements.regimeBadge.className = `chip ${presentation.badgeClass}`;
 
-  elements.rateArrow.textContent = ARROW_GLYPH[presentation.rateArrow];
+  elements.rateArrow.textContent = ARROW_GLYPH[/** @type {keyof typeof ARROW_GLYPH} */ (presentation.rateArrow)];
   elements.rateArrow.className = `br-arrow ${presentation.rateArrow}`;
-  elements.priceArrow.textContent = ARROW_GLYPH[presentation.priceArrow];
+  elements.priceArrow.textContent = ARROW_GLYPH[/** @type {keyof typeof ARROW_GLYPH} */ (presentation.priceArrow)];
   elements.priceArrow.className = `br-arrow ${presentation.priceArrow}`;
 
   elements.heroExplain.textContent = heroExplainText(state, formatters);

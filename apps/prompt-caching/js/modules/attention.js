@@ -6,9 +6,18 @@ import { softmax } from "./math.js";
 import { byId, makeEl, clear } from "./dom.js";
 import { formatPercent } from "../../../../js/modules/formatting.js";
 
+/** @param {number | string} v - Value to format. @returns {string} Formatted value. */
 const fmt = (v) => (typeof v === "number" ? v.toFixed(2) : v);
+/** @param {(number | string)[]} row - Row of values. @returns {string[]} Formatted row. */
 const fmtRow = (row) => row.map(fmt);
 
+/**
+ * @param {string} id - Matrix id used in data attributes.
+ * @param {string} label - Matrix label.
+ * @param {(number | string)[][]} rows - Matrix rows.
+ * @param {boolean} clickable - Whether output cells are clickable.
+ * @returns {HTMLElement} The matrix element.
+ */
 function buildMatrix(id, label, rows, clickable) {
   const cols = rows[0].length;
   const wrap = makeEl("div", "pc-matrix");
@@ -32,10 +41,22 @@ function buildMatrix(id, label, rows, clickable) {
   return wrap;
 }
 
+/**
+ * @param {string} symbol - Operator symbol.
+ * @param {boolean} [isText=false] - Whether the operator renders as text.
+ * @returns {HTMLElement} The operator element.
+ */
 function opNode(symbol, isText = false) {
   return makeEl("span", `pc-op${isText ? " is-text" : ""}`, symbol);
 }
 
+/**
+ * @param {HTMLElement} parent - Parent element to append into.
+ * @param {number} aVal - Row value.
+ * @param {number | string} bVal - Column value.
+ * @param {boolean} withPlus - Whether to prefix a plus sign.
+ * @returns {void}
+ */
 function term(parent, aVal, bVal, withPlus) {
   if (withPlus) {
     parent.appendChild(makeEl("span", "op-plus", " + "));
@@ -47,12 +68,21 @@ function term(parent, aVal, bVal, withPlus) {
   parent.appendChild(document.createTextNode(")"));
 }
 
+/** @param {Element} visual - Visual container element. */
 function clearHighlights(visual) {
   for (const el of visual.querySelectorAll(".pc-matrix-cell.hl-row, .pc-matrix-cell.hl-col, .pc-matrix-cell.hl-result")) {
     el.classList.remove("hl-row", "hl-col", "hl-result");
   }
 }
 
+/**
+ * @param {Element} visual - Visual container element.
+ * @param {HTMLElement} dot - Dot-product output element.
+ * @param {{ aId: string, bId: string, outId: string }} ids - Matrix ids.
+ * @param {{ r: number, c: number }} coords - Cell coordinates.
+ * @param {{ a: number[][], b: number[][], result: number[][] }} data - Matrix data.
+ * @returns {void}
+ */
 function showMatrixProduct(visual, dot, ids, coords, data) {
   const { aId, bId, outId } = ids;
   const { r, c } = coords;
@@ -83,14 +113,22 @@ function showMatrixProduct(visual, dot, ids, coords, data) {
   }
 }
 
+/**
+ * @param {Element} visual - Visual container element.
+ * @param {string} outId - Output matrix id.
+ * @param {(r: number, c: number, cell: HTMLElement) => void} handler - Cell click handler.
+ * @returns {void}
+ */
 function bindClickable(visual, outId, handler) {
-  for (const cell of visual.querySelectorAll(`[data-mx="${outId}"].clickable`)) {
+  for (const node of visual.querySelectorAll(`[data-mx="${outId}"].clickable`)) {
+    const cell = /** @type {HTMLElement} */ (node);
     cell.addEventListener("click", () => {
-      handler(Number.parseInt(cell.dataset.r, 10), Number.parseInt(cell.dataset.c, 10), cell);
+      handler(Number.parseInt(cell.dataset.r ?? "", 10), Number.parseInt(cell.dataset.c ?? "", 10), cell);
     });
   }
 }
 
+/** @param {HTMLElement} dot - Dot-product output element. */
 function defaultHint(dot) {
   clear(dot);
   dot.appendChild(makeEl("div", "pc-hint", "Click any cell in the output matrix to see how it was calculated."));
@@ -132,6 +170,7 @@ function initStepper() {
         let scrambled = false;
         let live = trained.Q;
 
+        /** @param {number} value - Value to round. @returns {number} Rounded value. */
         const round2 = (value) => Math.round(value * 100) / 100;
 
         function scramble() {
@@ -143,6 +182,7 @@ function initStepper() {
           draw();
         }
 
+        /** @param {"Q" | "K"} next - Projection mode. */
         function setMode(next) {
           mode = next;
           scrambled = false;
@@ -158,14 +198,14 @@ function initStepper() {
           const toggle = makeEl("div", "type-toggle");
           toggle.setAttribute("role", "group");
           toggle.setAttribute("aria-label", "Projection");
-          for (const m of ["Q", "K"]) {
-            const btn = makeEl("button", m === mode && !scrambled ? "active" : "", `W${m} → ${m}`);
+          for (const m of /** @type {("Q" | "K")[]} */ (["Q", "K"])) {
+            const btn = /** @type {HTMLButtonElement} */ (makeEl("button", m === mode && !scrambled ? "active" : "", `W${m} → ${m}`));
             btn.type = "button";
             btn.addEventListener("click", () => setMode(m));
             toggle.appendChild(btn);
           }
           controls.appendChild(toggle);
-          const scrambleBtn = makeEl("button", "btn btn-outline btn-sm", "Scramble weights");
+          const scrambleBtn = /** @type {HTMLButtonElement} */ (makeEl("button", "btn btn-outline btn-sm", "Scramble weights"));
           scrambleBtn.type = "button";
           scrambleBtn.addEventListener("click", scramble);
           controls.appendChild(scrambleBtn);
@@ -335,11 +375,12 @@ function initStepper() {
     }
   ];
 
+  /** @param {number} i - Step index to render. */
   function renderStep(i) {
     current = i;
     clear(stepper);
     steps.forEach((step, j) => {
-      const dotBtn = makeEl("button", `pc-step-dot${j === i ? " active" : j < i ? " done" : ""}`, String(j + 1));
+      const dotBtn = /** @type {HTMLButtonElement} */ (makeEl("button", `pc-step-dot${j === i ? " active" : j < i ? " done" : ""}`, String(j + 1)));
       dotBtn.type = "button";
       dotBtn.addEventListener("click", () => renderStep(j));
       stepper.appendChild(dotBtn);
@@ -363,6 +404,13 @@ function initStepper() {
   renderStep(0);
 }
 
+/**
+ * @param {HTMLElement} cell - Grid cell element.
+ * @param {number} value - Attention weight.
+ * @param {number} pct - Background intensity percentage.
+ * @param {boolean} strong - Whether to emphasize the cell.
+ * @returns {void}
+ */
 function paintCell(cell, value, pct, strong) {
   cell.style.background = value === 0
     ? "transparent"
@@ -407,7 +455,7 @@ function initGrid() {
       table.querySelectorAll("tr[data-row]").forEach((row, i) => {
         row.querySelectorAll("td:not(.row-label)").forEach((cell, ci) => {
           const value = AGRID_WEIGHTS[i][ci];
-          paintCell(cell, value, value * (i === activeRow ? 50 : 8), i === activeRow);
+          paintCell(/** @type {HTMLElement} */ (cell), value, value * (i === activeRow ? 50 : 8), i === activeRow);
         });
       });
 
@@ -434,6 +482,7 @@ function initSoftmax() {
   }
 
   const scores = [...SMX_INITIAL_SCORES];
+  /** @type {HTMLElement[]} */
   const valEls = [];
 
   SMX_TOKENS.forEach((tok, i) => {

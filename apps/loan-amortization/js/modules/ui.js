@@ -48,13 +48,14 @@ export function cacheElements(documentObj = document) {
 /**
  * Sync the formatted text inputs from the slider values.
  *
- * @param {Record<string, HTMLInputElement>} elements
+ * @param {Record<string, HTMLElement>} elements
  * @returns {void}
  */
 export function syncInputsFromSliders(elements) {
-  elements.inPrincipal.value = Math.round(+elements.slPrincipal.value).toLocaleString("en-US");
-  elements.inRate.value = (+elements.slRate.value).toFixed(2);
-  elements.inTenure.value = elements.slTenure.value;
+  const inputs = /** @type {Record<string, HTMLInputElement>} */ (elements);
+  inputs.inPrincipal.value = Math.round(+inputs.slPrincipal.value).toLocaleString("en-US");
+  inputs.inRate.value = (+inputs.slRate.value).toFixed(2);
+  inputs.inTenure.value = inputs.slTenure.value;
 }
 
 /**

@@ -6,6 +6,10 @@
   // reveal the existing #runtime-error container so the failure is visible.
   var DEFAULT_TIMEOUT_MS = 8000;
 
+  /**
+   * @param {Document | null | undefined} documentObject - Target document.
+   * @returns {string} The current runtime status attribute value.
+   */
   function readRuntimeStatus(documentObject) {
     if (!documentObject || !documentObject.documentElement) {
       return "";
@@ -16,11 +20,19 @@
   // The runtime sets data-runtime-status to "ready" on markReady() and to
   // "error" when a fatal error already surfaced its own banner. Either value
   // means the app started, so the guard should stand down.
+  /**
+   * @param {Document | null | undefined} documentObject - Target document.
+   * @returns {boolean} Whether the runtime already started.
+   */
   function isBooted(documentObject) {
     var status = readRuntimeStatus(documentObject);
     return status === "ready" || status === "error";
   }
 
+  /**
+   * @param {Document | null | undefined} documentObject - Target document.
+   * @returns {boolean} Whether the startup error banner was revealed.
+   */
   function revealStartupError(documentObject) {
     if (!documentObject || typeof documentObject.getElementById !== "function") {
       return false;
@@ -47,6 +59,10 @@
     return true;
   }
 
+  /**
+   * @param {Document | null | undefined} documentObject - Target document.
+   * @returns {boolean} Whether the guard revealed the startup error.
+   */
   function checkBoot(documentObject) {
     if (isBooted(documentObject)) {
       return false;
@@ -54,6 +70,11 @@
     return revealStartupError(documentObject);
   }
 
+  /**
+   * @param {typeof globalThis | null | undefined} target - Timer host.
+   * @param {number | undefined} timeoutMs - Guard delay in milliseconds.
+   * @returns {number | null} The scheduled timer id, or null when unavailable.
+   */
   function scheduleGuard(target, timeoutMs) {
     if (!target || typeof target.setTimeout !== "function") {
       return null;

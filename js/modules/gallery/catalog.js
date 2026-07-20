@@ -85,6 +85,11 @@ export function sortValuesByDisplayOrder(values, displayOrder) {
  * }} options - Filter/sort state.
  * @returns {(ArtifactRecord & { searchText: string })[]} Filtered and sorted artifacts.
  */
+/**
+ * @param {ArtifactRecord[]} artifacts - Hydrated artifact records.
+ * @param {{ currentQuery: string, currentSort: string, currentTags: string[], currentTools: string[] }} options - Active filter and sort state.
+ * @returns {ArtifactRecord[]} Filtered and sorted records.
+ */
 export function filterAndSortArtifacts(artifacts, options) {
   const {
     currentQuery,
@@ -92,11 +97,12 @@ export function filterAndSortArtifacts(artifacts, options) {
     currentTags,
     currentTools
   } = options;
+  /** @type {Record<'newest' | 'oldest', (left: ArtifactRecord, right: ArtifactRecord) => number>} */
   const comparators = {
     newest: (left, right) => right.id.localeCompare(left.id),
     oldest: (left, right) => left.id.localeCompare(right.id)
   };
-  const comparator = comparators[currentSort] || comparators.oldest;
+  const comparator = currentSort === "newest" ? comparators.newest : comparators.oldest;
   const toolSet = new Set(currentTools);
   const tagSet = new Set(currentTags);
 
@@ -110,7 +116,7 @@ export function filterAndSortArtifacts(artifacts, options) {
         return false;
       }
 
-      if (currentQuery && !item.searchText.includes(currentQuery)) {
+      if (currentQuery && !(item.searchText ?? "").includes(currentQuery)) {
         return false;
       }
 
@@ -130,7 +136,9 @@ export function getPageNumbers(current, total) {
     return Array.from({ length: total }, (_, index) => index + 1);
   }
 
+  /** @type {number[]} */
   const pages = [];
+  /** @param {number} page - Page number to add if not already present. */
   const addPage = (page) => {
     if (!pages.includes(page)) {
       pages.push(page);
