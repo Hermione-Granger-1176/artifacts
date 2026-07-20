@@ -5,7 +5,7 @@
 
 /**
  * Escape text for safe HTML content insertion.
- * @param {string|null|undefined} unsafe - Raw string to escape.
+ * @param {string|number|null|undefined} unsafe - Raw value to escape.
  * @returns {string} Escaped string safe for HTML templates.
  */
 export function escapeHtml(unsafe) {

@@ -44,6 +44,15 @@ const ACTIVATION_KEYS = new Set(['Enter', ' ']);
  *   value: string
  * }} FocusTargetDescriptor
  * @typedef {HTMLElement | FocusTargetDescriptor | null} FocusTarget
+ * @typedef {{
+ *   getExpandedId: () => string | null,
+ *   getCardById: (id: string) => HTMLElement | null,
+ *   updateExpandedCardState: () => void,
+ *   trapFocus: (event: KeyboardEvent) => boolean,
+ *   close: (opts?: { restoreFocus?: boolean, immediate?: boolean }) => void,
+ *   open: (id: string, triggerCard: HTMLElement | null, items: Map<string, ArtifactRecord>) => Promise<void>,
+ *   toggle: (id: string, triggerCard: HTMLElement | null, items: Map<string, ArtifactRecord>) => Promise<void>
+ * }} OverlayController
  */
 
 /**
@@ -86,12 +95,23 @@ function isTextEntryElement(element) {
   ));
 }
 
-/** Return whether a keyboard event should close the open detail overlay. */
+/**
+ * Return whether a keyboard event should close the open detail overlay.
+ * @param {KeyboardEvent} event - Keydown event.
+ * @param {OverlayController} overlay - Detail overlay controller.
+ * @returns {boolean} Whether Escape should close the overlay.
+ */
 function shouldCloseOverlayForEscape(event, overlay) {
   return event.key === 'Escape' && Boolean(overlay.getExpandedId());
 }
 
-/** Return whether a keyboard event should focus the gallery search input. */
+/**
+ * Return whether a keyboard event should focus the gallery search input.
+ * @param {KeyboardEvent} event - Keydown event.
+ * @param {OverlayController} overlay - Detail overlay controller.
+ * @param {Element | null} activeElement - Currently focused element.
+ * @returns {boolean} Whether the shortcut should focus search.
+ */
 function shouldFocusSearchShortcut(event, overlay, activeElement) {
   return (
     event.key === '/'
@@ -207,7 +227,10 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   let overlayActionToken = 0;
 
-  /** Lazy proxy for the detail overlay; methods are safe to call before the module loads. */
+  /**
+   * Lazy proxy for the detail overlay; methods are safe to call before the module loads.
+   * @type {OverlayController}
+   */
   const overlay = {
     getExpandedId: () => overlayInstance?.getExpandedId() ?? null,
     getCardById: (id) => overlayInstance?.getCardById(id) ?? null,
@@ -215,7 +238,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     trapFocus: (event) => overlayInstance?.trapFocus(event) ?? false,
     close: (opts) => {
       overlayActionToken += 1;
-      return overlayInstance?.close(opts);
+      overlayInstance?.close(opts);
     },
     async open(id, triggerCard, items) {
       const token = ++overlayActionToken;
@@ -273,6 +296,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return { type: focusTargetType(surface), dataset: 'filterTag', value };
     }
   };
+  /** @type {Record<string, () => void>} */
   const resetFiltersByNote = {
     'all-tags': () => {
       currentTags = [];
@@ -475,6 +499,10 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     motion.scrollToTop();
   });
 
+  /**
+   * @param {string} theme - Requested theme name.
+   * @param {boolean} [persist=true] - Whether to persist the theme.
+   */
   function applyTheme(theme, persist = true) {
     htmlElement.setAttribute('data-theme', theme);
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -558,6 +586,10 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   function updateFilterNotesState() {
+    /**
+     * @param {string} selector - Button selector.
+     * @param {string[]} activeValues - Currently active filter values.
+     */
     const updateButtons = (selector, activeValues) => {
       filterNotesContainer.querySelectorAll(selector).forEach((element) => {
         const button = /** @type {HTMLElement} */ (element);
@@ -599,6 +631,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     searchClear.classList.toggle('hidden', searchInput.value.length === 0);
   }
 
+  /** @param {boolean} isVisible - Whether the scroll-top button is visible. */
   function updateScrollTopVisibility(isVisible) {
     scrollTopBtn.classList.toggle('visible', isVisible);
     scrollTopBtn.setAttribute('aria-hidden', String(!isVisible));
@@ -641,6 +674,10 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     applyStateChange({ focusTarget: searchInput });
   }
 
+  /**
+   * @param {FocusTarget} target - Pending focus target.
+   * @returns {HTMLElement | null} The resolved focusable element.
+   */
   function resolvePendingFocusTarget(target) {
     if (!target) {
       return null;

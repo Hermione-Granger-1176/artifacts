@@ -5,13 +5,14 @@
  * @module chart-theme
  */
 
-// Chart.js and its plugins load as vendor globals on window. They ship no
-// local type definitions, so read them through an any-typed view of window
-// resolved at call time (never a cached reference) rather than adding a
-// runtime dependency.
-/** @returns {any} The window object typed loosely for vendor chart globals. */
+// Chart.js and its plugins load as vendor globals on window. The runtime
+// depends only on those UMD globals; the ambient ChartVendorGlobals type in
+// config/types/chart-vendor.d.ts gives this view real Chart.js types (sourced
+// from the types-only devDependencies) without adding a runtime dependency.
+// Resolve at call time (never a cached reference).
+/** @returns {ChartVendorGlobals} The window view of the vendor chart globals. */
 export function chartGlobal() {
-  return /** @type {any} */ (window);
+  return /** @type {ChartVendorGlobals} */ (/** @type {unknown} */ (window));
 }
 
 /**

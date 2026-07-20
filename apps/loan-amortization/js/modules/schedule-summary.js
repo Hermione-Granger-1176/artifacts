@@ -16,7 +16,7 @@ const FREQUENCY_PARAMS = {
  * @returns {{ periodsPerYear: number, label: string }}
  */
 export function getFrequencyParams(frequency) {
-  return FREQUENCY_PARAMS[frequency];
+  return FREQUENCY_PARAMS[/** @type {keyof typeof FREQUENCY_PARAMS} */ (frequency)];
 }
 
 /**

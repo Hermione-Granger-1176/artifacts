@@ -40,7 +40,7 @@ endif
 
 # ─── Setup @setup ─────────────────────────────────────────────────────────────
 
-.PHONY: install node-install install-hooks setup-base setup setup-all setup-ci setup-playwright setup-playwright-ci
+.PHONY: install node-install install-hooks setup-base setup setup-all setup-ci setup-playwright setup-playwright-ci setup-playwright-webkit setup-playwright-webkit-ci
 
 install: ## Install locked Python deps into the virtual environment
 	UV_PROJECT_ENVIRONMENT=$(VENV) $(UV) sync --all-groups --frozen --python $(PYTHON)
@@ -64,6 +64,12 @@ setup-playwright: ## Install Chromium for browser tests
 
 setup-playwright-ci: ## Install Chromium with system deps
 	$(VENV)/bin/playwright install chromium --with-deps
+
+setup-playwright-webkit: ## Install WebKit for the cross-engine smoke pass
+	$(VENV)/bin/playwright install webkit
+
+setup-playwright-webkit-ci: ## Install WebKit with system deps
+	$(VENV)/bin/playwright install webkit --with-deps
 
 # ─── Lint @lint ───────────────────────────────────────────────────────────────
 
@@ -170,7 +176,7 @@ dead-code-js: ## Detect unused JavaScript files, exports, and dependencies
 
 # ─── Test @test ───────────────────────────────────────────────────────────────
 
-.PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-apps-shard test-browser-live coverage-js coverage-js-floors
+.PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-apps-shard test-browser-webkit-smoke test-visual visual-baselines test-browser-live coverage-js coverage-js-floors
 
 define run_browser_pytest
 	@set +e; \
@@ -234,6 +240,15 @@ test-browser-apps-flows: ## Run mature app browser-flow tests
 test-browser-apps-shard: ## Run one app-browser shard (make test-browser-apps-shard shard_manifest=PATH)
 	@test -n "$(shard_manifest)" || (printf 'Usage: make test-browser-apps-shard shard_manifest=.artifacts/shard-manifest.json\n' >&2; exit 1)
 	$(call run_browser_pytest,ARTIFACTS_BROWSER_APP_MANIFEST="$(shard_manifest)",tests/browser/test_frontend_apps_smoke.py tests/browser/test_frontend_apps_accessibility.py tests/browser/test_frontend_apps_browser_flows.py)
+
+test-browser-webkit-smoke: ## Run the WebKit cross-engine smoke pass (root + apps, needs WebKit)
+	$(call run_browser_pytest,ARTIFACTS_BROWSER_ENGINE=webkit,tests/browser/test_frontend_webkit_smoke.py)
+
+test-visual: ## Compare hero screenshots against committed baselines (needs Chromium)
+	$(call run_browser_pytest,,tests/browser/test_frontend_visual.py)
+
+visual-baselines: ## Regenerate committed hero screenshot baselines (needs Chromium)
+	ARTIFACTS_UPDATE_VISUAL_BASELINES=1 ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov tests/browser/test_frontend_visual.py
 
 test-browser-live: ## Run live-site browser verification
 	$(call run_browser_pytest,,tests/browser/test_frontend_live.py)
@@ -361,8 +376,18 @@ status: ## Show workspace health (git, venv, node, generated files, PR)
 	@$(NPM) install --package-lock-only --ignore-scripts --dry-run >/dev/null 2>&1 && echo "OK: package-lock.json is current" || echo "STALE: run make lock-node"
 	@echo
 	@echo "=== Generated files ==="
-	@test -f js/data.js && echo "OK: js/data.js" || echo "STALE: run make index"
-	@test -f js/gallery-config.js && echo "OK: js/gallery-config.js" || echo "STALE: run make index"
+	@if [ -x "$(VENV_PYTHON)" ]; then \
+		if drift=$$($(VENV_PYTHON) scripts/lint/check_generated_drift.py 2>/dev/null); then \
+			echo "OK: js/data.js, js/gallery-config.js, css/style.css, README markers up to date"; \
+		else \
+			echo "STALE: run make index && make styles"; \
+			printf '%s\n' "$$drift" | sed -n 's/^- /  - /p'; \
+		fi; \
+	else \
+		echo "SKIPPED: venv missing, run make setup"; \
+		test -f js/data.js && echo "PRESENT: js/data.js" || echo "MISSING: js/data.js"; \
+		test -f js/gallery-config.js && echo "PRESENT: js/gallery-config.js" || echo "MISSING: js/gallery-config.js"; \
+	fi
 	@test -d _site && echo "OK: _site/" || echo "NOT BUILT: run make site"
 	@echo
 	@echo "=== Pull request ==="
@@ -463,11 +488,16 @@ stage-all: ## Stage all workspace changes
 
 commit: ## Commit staged changes (make commit message="..." OR message_file=path, - reads stdin [amend=1])
 	@test -n "$(message)$(message_file)" || (printf 'Usage: make commit message="Commit message" OR message_file=path (- reads the message from stdin, e.g. a heredoc)\n' >&2; exit 1)
-	@if [ -n "$(message_file)" ]; then \
-	  git commit $(if $(amend),--amend) -F "$(message_file)"; \
+	@set -e; \
+	tmp=$$(mktemp); \
+	trap 'rm -f "$$tmp"' EXIT; \
+	if [ -n "$(message_file)" ]; then \
+	  if [ "$(message_file)" = "-" ]; then cat > "$$tmp"; else cat "$(message_file)" > "$$tmp"; fi; \
 	else \
-	  git commit $(if $(amend),--amend) -m "$(message)"; \
-	fi
+	  printf '%s' "$(message)" > "$$tmp"; \
+	fi; \
+	$(GH) check-commit-message --message-file "$$tmp"; \
+	git commit $(if $(amend),--amend) -F "$$tmp"
 
 push: ## Push the current branch to origin
 	git push -u origin HEAD
@@ -605,7 +635,7 @@ pr-close: ## Close the current PR and delete branch
 
 # ─── CI @ci ───────────────────────────────────────────────────────────────────
 
-.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-alert-issue refresh-action-shas issues
+.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-schedule-watchdog ci-alert-issue refresh-action-shas issues
 
 ci-runs: ## List recent CI workflow runs
 	gh run list -L "$(if $(limit),$(limit),10)"
@@ -705,6 +735,10 @@ ci-audit-previews: ## Detect leaked gh-pages PR previews (make ci-audit-previews
 	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py audit-previews \
 		--repo "$(if $(repo),$(repo),$(REPO))" \
 		--pages-branch "$(if $(pages_branch),$(pages_branch),gh-pages)"
+
+ci-schedule-watchdog: ## Detect stale or auto-disabled scheduled workflows (make ci-schedule-watchdog [repo=owner/name])
+	@PYTHONPATH=. $(PYTHON) scripts/ci/schedule_watchdog.py \
+		--repo "$(if $(repo),$(repo),$(REPO))"
 
 ci-alert-issue: ## Sync a monitored alert issue (title=, run_url=, state=open|close|setup-failure, [detail=] [detail_file=] [labels="ops ci"] [repo=])
 	@test -n "$(title)" -a -n "$(run_url)" -a -n "$(state)" || \

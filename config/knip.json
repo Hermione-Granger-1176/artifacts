@@ -17,5 +17,5 @@
     ".github/actions/**/*.mjs"
   ],
   "ignore": ["apps/*/js/vendor/*.js", "js/data.js", "js/gallery-config.js"],
-  "ignoreDependencies": ["axe-core", "esbuild"]
+  "ignoreDependencies": ["axe-core", "esbuild", "chartjs-plugin-annotation"]
 }

@@ -1,6 +1,27 @@
 import { chartGlobal, createPaletteCache, cssAlpha, cssValue } from "../../../../js/modules/chart-theme.js";
 import { formatPercent } from "../../../../js/modules/formatting.js";
 
+/**
+ * @typedef {import("chart.js").Chart} ChartInstance
+ * @typedef {ReturnType<typeof colors>} Palette
+ * @typedef {{
+ *   inTopP: Set<number>,
+ *   sampleCounts: Map<number, number> | null,
+ *   selectedTokenIndex: number | null,
+ *   sorted: Array<{ adjustedProb: number, idx: number, prob: number, word: string }>
+ * }} ProbState
+ * @typedef {import("chart.js").ChartDataset & {
+ *   cutIndexes?: boolean[],
+ *   adjustedPercentages?: number[],
+ *   sampleCounts?: number[]
+ * }} ProbDataset
+ * @typedef {{
+ *   plugins: { legend: { display: boolean, labels: { color: string } } },
+ *   scales: { x: Record<string, unknown>, y: Record<string, unknown> },
+ *   animation: object
+ * }} MutableChartOptions
+ */
+
 const { colors, refreshPalette } = createPaletteCache(() => ({
   amber: cssValue("--color-amber"),
   blue: cssValue("--color-blue"),
@@ -53,6 +74,10 @@ export function buildProbabilityChartData(state) {
   };
 }
 
+/**
+ * @param {HTMLCanvasElement} canvas - Target canvas element.
+ * @returns {ChartInstance} The created chart.
+ */
 function createProbabilityChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "bar",
@@ -72,18 +97,20 @@ function createProbabilityChart(canvas) {
         legend: { display: false, labels: { color: "" } },
         tooltip: {
           callbacks: {
+            /** @param {import("chart.js").TooltipItem<"bar">} context - Tooltip item. */
             label(context) {
+              const dataset = /** @type {ProbDataset} */ (context.dataset);
               const percentage = formatPercent(Number(context.parsed.x ?? 0), 2);
               if (context.datasetIndex === 1) {
-                const count = context.dataset.sampleCounts?.[context.dataIndex] ?? 0;
-                return `${context.dataset.label}: ${percentage} (${count} of 100 draws)`;
+                const count = dataset.sampleCounts?.[context.dataIndex] ?? 0;
+                return `${dataset.label}: ${percentage} (${count} of 100 draws)`;
               }
 
-              if (context.dataset.cutIndexes?.[context.dataIndex]) {
-                return `${context.dataset.label}: ${percentage}, disabled by Top P`;
+              if (dataset.cutIndexes?.[context.dataIndex]) {
+                return `${dataset.label}: ${percentage}, disabled by Top P`;
               }
-              const adjusted = context.dataset.adjustedPercentages?.[context.dataIndex] ?? 0;
-              return `${context.dataset.label}: ${percentage}, renormalized to ${formatPercent(adjusted, 2)} in the pool`;
+              const adjusted = dataset.adjustedPercentages?.[context.dataIndex] ?? 0;
+              return `${dataset.label}: ${percentage}, renormalized to ${formatPercent(adjusted, 2)} in the pool`;
             }
           }
         }
@@ -96,12 +123,18 @@ function createProbabilityChart(canvas) {
   });
 }
 
+/**
+ * @param {ChartInstance} chart - Chart to update.
+ * @param {ProbState} state - Current chart state.
+ * @returns {void}
+ */
 function syncProbabilityChart(chart, state) {
   const palette = colors();
   const data = buildProbabilityChartData(state);
   const hasSamples = data.empiricalCounts !== null;
-  const theoretical = chart.data.datasets[0];
-  const observed = chart.data.datasets[1];
+  const theoretical = /** @type {ProbDataset} */ (chart.data.datasets[0]);
+  const observed = /** @type {ProbDataset} */ (chart.data.datasets[1]);
+  const options = /** @type {MutableChartOptions} */ (/** @type {unknown} */ (chart.options));
 
   chart.data.labels = data.labels;
   theoretical.data = data.shapedPercentages;
@@ -126,31 +159,32 @@ function syncProbabilityChart(chart, state) {
   observed.hidden = !hasSamples;
   observed.sampleCounts = data.empiricalCounts ?? [];
 
-  chart.options.plugins.legend.display = hasSamples;
-  chart.options.plugins.legend.labels.color = palette.tick;
-  chart.options.scales.x.title = {
+  options.plugins.legend.display = hasSamples;
+  options.plugins.legend.labels.color = palette.tick;
+  options.scales.x.title = {
     display: true,
     text: "Probability after temperature (%)",
     color: palette.tick
   };
-  chart.options.scales.x.ticks = {
+  options.scales.x.ticks = {
     color: palette.tick,
+    /** @param {number | string} value - Tick value. */
     callback(value) {
       return `${value}%`;
     }
   };
-  chart.options.scales.x.grid = { color: palette.grid };
-  chart.options.scales.y.title = { display: false, text: "", color: palette.tick };
-  chart.options.scales.y.ticks = { color: palette.tick };
-  chart.options.scales.y.grid = { display: false };
-  chart.options.animation = { duration: 280, easing: "easeOutQuart" };
+  options.scales.x.grid = { color: palette.grid };
+  options.scales.y.title = { display: false, text: "", color: palette.tick };
+  options.scales.y.ticks = { color: palette.tick };
+  options.scales.y.grid = { display: false };
+  options.animation = { duration: 280, easing: "easeOutQuart" };
   chart.update();
 }
 
 /**
  * Create once, then update the same Chart.js instance as controls change.
  *
- * @param {any | null} chart
+ * @param {ChartInstance | null} chart
  * @param {HTMLCanvasElement} canvas
  * @param {{
  *   inTopP: Set<number>,
@@ -158,7 +192,7 @@ function syncProbabilityChart(chart, state) {
  *   selectedTokenIndex: number | null,
  *   sorted: Array<{ adjustedProb: number, idx: number, prob: number, word: string }>
  * }} state
- * @returns {any}
+ * @returns {ChartInstance}
  */
 export function renderProbabilityChart(chart, canvas, state) {
   const nextChart = chart ?? createProbabilityChart(canvas);

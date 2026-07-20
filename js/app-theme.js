@@ -2,6 +2,10 @@
   const storageKey = "theme";
   const defaultTheme = "light";
 
+  /**
+   * @param {string | null | undefined} theme - Candidate theme value.
+   * @returns {string} "dark" or the default theme.
+   */
   function normalizeTheme(theme) {
     return theme === "dark" ? "dark" : defaultTheme;
   }
@@ -17,6 +21,11 @@
     }
   }
 
+  /**
+   * @param {Document | null | undefined} documentObject - Target document.
+   * @param {string | null | undefined} theme - Candidate theme value.
+   * @returns {string} The applied normalized theme.
+   */
   function applyDocumentTheme(documentObject, theme) {
     if (!documentObject?.documentElement) {
       return defaultTheme;

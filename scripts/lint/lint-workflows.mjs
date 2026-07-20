@@ -54,11 +54,15 @@ export async function runWorkflowLint({
   stdout = process.stdout,
   stderr = process.stderr,
 } = {}) {
-  const lint = await createLinterImpl();
   const workflowFiles = await listWorkflowFiles(repoRoot, readdirImpl);
   let hasErrors = false;
 
   for (const relativePath of workflowFiles) {
+    // Create a fresh linter per file. The actionlint WebAssembly module
+    // accumulates linear memory across calls on one instance and eventually
+    // panics with "RuntimeError: unreachable" on a large workflow such as
+    // update.yml. A per-file instance keeps each lint within its own heap.
+    const lint = await createLinterImpl();
     const filePath = path.join(repoRoot, relativePath);
     const content = await readFileImpl(filePath, "utf-8");
     const results = lint(content, relativePath);

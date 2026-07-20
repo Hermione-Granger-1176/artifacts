@@ -30,6 +30,9 @@ ROOT_A11Y_STYLE_CONTENT = "\n".join(
 ARTIFACT_DIR_ENV = "ARTIFACTS_BROWSER_ARTIFACT_DIR"
 APP_SLUGS_ENV = "ARTIFACTS_BROWSER_APP_SLUGS"
 APP_SHARD_MANIFEST_ENV = "ARTIFACTS_BROWSER_APP_MANIFEST"
+BROWSER_ENGINE_ENV = "ARTIFACTS_BROWSER_ENGINE"
+DEFAULT_BROWSER_ENGINE = "chromium"
+SUPPORTED_BROWSER_ENGINES = ("chromium", "firefox", "webkit")
 REAL_APPS_DIR = REPO_ROOT / "apps"
 
 
@@ -232,16 +235,32 @@ class StaticServer:
         self._thread.join(timeout=5)
 
 
-def launch_browser(playwright):
-    """Launch browser."""
+def selected_browser_engine() -> str:
+    """Return the Playwright engine name for this run (defaults to Chromium).
+
+    All existing suites default to Chromium. The WebKit smoke pass overrides
+    ``ARTIFACTS_BROWSER_ENGINE`` to run the same helpers against WebKit.
+    """
+    engine = os.environ.get(BROWSER_ENGINE_ENV, "").strip().lower() or DEFAULT_BROWSER_ENGINE
+    if engine not in SUPPORTED_BROWSER_ENGINES:
+        raise ValueError(
+            f"Unsupported browser engine {engine!r}; expected one of {SUPPORTED_BROWSER_ENGINES}"
+        )
+    return engine
+
+
+def launch_browser(playwright, *, engine: str | None = None):
+    """Launch the selected Playwright browser engine, skipping when it is absent."""
+    engine = engine or selected_browser_engine()
+    browser_type = getattr(playwright, engine)
     try:
-        return playwright.chromium.launch()
+        return browser_type.launch()
     except Exception as exc:  # pragma: no cover - environment specific
         if "Executable doesn't exist" not in str(exc):
             raise
         if REQUIRE_BROWSER_TESTS:
-            pytest.fail("Playwright Chromium is required for this test run")
-        pytest.skip("Playwright Chromium is not installed")
+            pytest.fail(f"Playwright {engine} is required for this test run")
+        pytest.skip(f"Playwright {engine} is not installed")
 
 
 def _sanitize_artifact_name(value: str) -> str:

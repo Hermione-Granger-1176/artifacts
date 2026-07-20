@@ -34,7 +34,7 @@ Run `make lint`, `make typecheck-py`, `make dead-code-py`, `make format-py-check
 - **Line length:** not enforced, but keep lines readable
 - **Linter:** ESLint 10 (flat config), configured in `config/eslint.config.js`
 - **Formatter:** Prettier covers supported JSON, YAML, markdown, config, and tooling script files that are not excluded by `config/prettierignore`
-- **Type checks:** TypeScript runs the web typecheck target from `config/jsconfig.json`
+- **Type checks:** TypeScript runs the web typecheck target from `config/jsconfig.json` under full `strict: true` (no relaxed flags). The vendored Chart.js UMD globals get real types from the exact-pinned `chart.js`, `chartjs-plugin-annotation`, and `chartjs-plugin-datalabels` devDependencies (installed for their bundled type packages only, never bundled into the site) plus the ambient declarations in `config/types/`. Type call sites with precise JSDoc, importing Chart.js types where needed (for example `import("chart.js").ChartOptions` or `@this {HTMLInputElement}`). Reach for `any` only where a value is genuinely untyped upstream and nothing narrower is honest, never as a shortcut past a strict error.
 - **Module format:** ES modules (`import`/`export`), no CommonJS
 - **JSDoc:** required on all exported functions and significant private functions
 - **Naming:** camelCase for variables and functions, PascalCase for classes

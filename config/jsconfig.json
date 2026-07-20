@@ -7,10 +7,9 @@
     "module": "ES2022",
     "moduleResolution": "Bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "strict": false,
-    "strictNullChecks": true
+    "strict": true
   },
-  "include": ["../js/**/*.js", "../apps/*/js/**/*.js"],
+  "include": ["../js/**/*.js", "../apps/*/js/**/*.js", "./types/**/*.d.ts"],
   "exclude": [
     "../js/data.js",
     "../js/gallery-config.js",

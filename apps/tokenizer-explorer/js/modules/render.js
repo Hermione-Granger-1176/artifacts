@@ -8,6 +8,11 @@ const CHIP_TONES = ["is-blue", "is-green", "is-amber", "is-purple", "is-red"];
 // winner pill rides the shared green tone plus a scoped emphasis rule.
 const PILL_TONES = ["is-blue", "is-green", "is-amber", "is-purple"];
 
+/**
+ * @param {{ word: string }} winner - Highest-probability token.
+ * @param {number} temperature - Sampling temperature.
+ * @returns {string} Explanatory copy.
+ */
 function temperatureInsight(winner, temperature) {
   if (temperature === 0) {
     return "At temperature 0, the model always picks the top token (greedy decoding).";
@@ -23,6 +28,11 @@ function temperatureInsight(winner, temperature) {
   return `At temperature ${value}, "${winner.word}" is the favorite but there is real variety. A solid balance between coherence and surprise.`;
 }
 
+/**
+ * @param {number} topP - Nucleus sampling threshold.
+ * @param {number} tokenCount - Number of tokens in the pool.
+ * @returns {string} Explanatory copy.
+ */
 function topPInsight(topP, tokenCount) {
   const value = topP.toFixed(2);
   if (topP <= 0.1) {

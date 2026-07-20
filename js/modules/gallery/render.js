@@ -21,12 +21,20 @@ const FILTER_NOTE_COLORS = [
 const BASE_ROTATIONS = ['-1.4deg', '0.6deg', '-0.4deg', '1.2deg', '-0.9deg', '1.5deg', '0.3deg', '-1.1deg', '0.8deg', '-0.5deg', '1.3deg', '-0.7deg'];
 const HOVER_ROTATIONS = ['-0.35deg', '0.2deg', '-0.12deg', '0.4deg', '-0.25deg', '0.45deg', '0.1deg', '-0.3deg', '0.25deg', '-0.15deg', '0.36deg', '-0.2deg'];
 
-/** Return the card background color for a given index. */
+/**
+ * Return the card background color for a given index.
+ * @param {number} index - Card position.
+ * @returns {string} The card background color.
+ */
 function getCardColor(index) {
   return CARD_COLORS[index % CARD_COLORS.length];
 }
 
-/** Return base and hover rotation values for a card at the given index. */
+/**
+ * Return base and hover rotation values for a card at the given index.
+ * @param {number} index - Card position.
+ * @returns {{ noteRotate: string, noteHoverRotate: string }} Rotation data.
+ */
 function getRotationData(index) {
   const rotationIndex = index % BASE_ROTATIONS.length;
   return { noteRotate: BASE_ROTATIONS[rotationIndex], noteHoverRotate: HOVER_ROTATIONS[rotationIndex] };
@@ -82,12 +90,22 @@ function createFilterControlButton({
   return `<button class="${className}${active ? ' is-active' : ''}" data-filter-surface="${surface}" ${datasetName}="${escapeHtml(datasetValue)}" data-chip-color="${escapeHtml(color)}"${rotateAttr} type="button" aria-controls="artifacts-grid" aria-pressed="${active}">${escapeHtml(label)}</button>`;
 }
 
-/** Look up the assigned color for a tool or tag label. */
+/**
+ * Look up the assigned color for a tool or tag label.
+ * @param {string} name - Tool or tag label.
+ * @returns {string} The assigned CSS color value.
+ */
 function getLabelColor(name) {
   return labelColorMap.get(name) || 'var(--color-capsule-default)';
 }
 
-/** Build an HTML snippet list of up to three capsule items. */
+/**
+ * Build an HTML snippet list of up to three capsule items.
+ * @param {string[] | undefined} items - Capsule label values.
+ * @param {string} className - Container class name.
+ * @param {string} [emptyValue] - Markup to use when the list is empty.
+ * @returns {string} The snippet HTML.
+ */
 function buildSnippetList(items, className, emptyValue = '') {
   if (!Array.isArray(items) || items.length === 0) {
     return emptyValue;
@@ -324,7 +342,13 @@ export function registerThumbnailFallback(grid) {
   grid.addEventListener('error', handleThumbnailError, true);
 }
 
-/** Build the HTML for a single artifact card in the grid. */
+/**
+ * Build the HTML for a single artifact card in the grid.
+ * @param {{ id: string, name: string, thumbnail?: string | null }} item - Artifact record.
+ * @param {boolean} isExpanded - Whether the card is expanded.
+ * @param {number} index - Card position.
+ * @returns {string} The card HTML.
+ */
 function createCard(item, isExpanded, index) {
   const cardColor = getCardColor(index);
   const thumbnailHtml = item.thumbnail

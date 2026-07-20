@@ -1,6 +1,19 @@
 import { chartGlobal, createPaletteCache } from "../../../../js/modules/chart-theme.js";
 
 /**
+ * @typedef {import("chart.js").Chart} ChartInstance
+ * @typedef {ReturnType<typeof colors>} Palette
+ * @typedef {{ priceRate: ChartInstance, sensitivity: ChartInstance, yieldCurve: ChartInstance }} Charts
+ * @typedef {{ type?: string, title?: object, ticks?: object, grid?: object }} AxisConfig
+ * @typedef {{
+ *   palette: Palette,
+ *   priceRate: MarkedSeries,
+ *   sensitivity: { labels: string[], values: number[], currentIndex: number },
+ *   yieldCurve: MarkedSeries
+ * }} ChartState
+ */
+
+/**
  * Format an axis tick as a percent with exactly two decimals, so Chart.js
  * auto-generated steps never leak floating-point noise and every tick lines
  * up (e.g. 4.800000000000001 renders as "4.80%" and 5 as "5.00%").
@@ -19,13 +32,13 @@ const { colors, refreshPalette } = createPaletteCache(({ css, cssAlpha }) => ({
   red: css("--color-red"),
   amber: css("--color-amber"),
   noteRed: css("--note-red"),
-  blueA(alpha) {
+  blueA(/** @type {number} */ alpha) {
     return cssAlpha("--note-blue", alpha);
   },
-  redA(alpha) {
+  redA(/** @type {number} */ alpha) {
     return cssAlpha("--note-red", alpha);
   },
-  amberA(alpha) {
+  amberA(/** @type {number} */ alpha) {
     return cssAlpha("--note-amber", alpha);
   },
   surface: css("--color-surface"),
@@ -35,9 +48,18 @@ const { colors, refreshPalette } = createPaletteCache(({ css, cssAlpha }) => ({
 
 export { refreshPalette };
 
+/**
+ * @param {import("chart.js").ChartOptions["scales"]} scales - Chart scale options.
+ * @param {Palette} palette - Active color palette.
+ * @param {{ xTitle: string, yTitle: string, xType?: string, formatY: (value: number) => string }} axisOptions - Axis titles, x scale type, and y tick formatter.
+ * @returns {void}
+ */
 function applyAxes(scales, palette, { xTitle, yTitle, xType = "category", formatY }) {
-  const xScale = scales.x;
-  const yScale = scales.y;
+  if (!scales) {
+    return;
+  }
+  const xScale = /** @type {AxisConfig} */ (scales.x);
+  const yScale = /** @type {AxisConfig} */ (scales.y);
 
   xScale.type = xType;
   xScale.title = { ...xScale.title, display: true, text: xTitle, color: palette.tick };
@@ -49,6 +71,10 @@ function applyAxes(scales, palette, { xTitle, yTitle, xType = "category", format
   yScale.grid = { ...yScale.grid, color: palette.grid };
 }
 
+/**
+ * @param {HTMLCanvasElement} canvas - Target canvas element.
+ * @returns {ChartInstance} The created chart.
+ */
 function createPriceRateChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "line",
@@ -82,6 +108,7 @@ function createPriceRateChart(canvas) {
         legend: { display: false },
         tooltip: {
           callbacks: {
+            /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
             label(context) {
               return `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`;
             }
@@ -96,6 +123,12 @@ function createPriceRateChart(canvas) {
   });
 }
 
+/**
+ * @param {ChartInstance} chart - Chart to update.
+ * @param {ChartState} state - Current chart state.
+ * @param {(value: number) => string} formatDollarTick - Dollar tick formatter.
+ * @returns {void}
+ */
 function syncPriceRateChart(chart, state, formatDollarTick) {
   const { palette, priceRate } = state;
   chart.data.datasets[0].data = priceRate.curve;
@@ -114,6 +147,10 @@ function syncPriceRateChart(chart, state, formatDollarTick) {
   chart.update();
 }
 
+/**
+ * @param {HTMLCanvasElement} canvas - Target canvas element.
+ * @returns {ChartInstance} The created chart.
+ */
 function createYieldCurveChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "line",
@@ -147,6 +184,7 @@ function createYieldCurveChart(canvas) {
         legend: { display: false },
         tooltip: {
           callbacks: {
+            /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
             label(context) {
               return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}%`;
             }
@@ -161,6 +199,11 @@ function createYieldCurveChart(canvas) {
   });
 }
 
+/**
+ * @param {ChartInstance} chart - Chart to update.
+ * @param {ChartState} state - Current chart state.
+ * @returns {void}
+ */
 function syncYieldCurveChart(chart, state) {
   const { palette, yieldCurve } = state;
   chart.data.datasets[0].data = yieldCurve.curve;
@@ -179,6 +222,10 @@ function syncYieldCurveChart(chart, state) {
   chart.update();
 }
 
+/**
+ * @param {HTMLCanvasElement} canvas - Target canvas element.
+ * @returns {ChartInstance} The created chart.
+ */
 function createSensitivityChart(canvas) {
   return new (chartGlobal().Chart)(canvas, {
     type: "bar",
@@ -193,6 +240,7 @@ function createSensitivityChart(canvas) {
         legend: { display: false },
         tooltip: {
           callbacks: {
+            /** @param {import("chart.js").TooltipItem<"bar">} context - Tooltip item. */
             label(context) {
               return `${context.parsed.y.toFixed(1)}%`;
             }
@@ -207,11 +255,16 @@ function createSensitivityChart(canvas) {
   });
 }
 
+/**
+ * @param {ChartInstance} chart - Chart to update.
+ * @param {ChartState} state - Current chart state.
+ * @returns {void}
+ */
 function syncSensitivityChart(chart, state) {
   const { palette, sensitivity } = state;
   chart.data.labels = sensitivity.labels;
   chart.data.datasets[0].data = sensitivity.values;
-  chart.data.datasets[0].backgroundColor = sensitivity.values.map((_value, index) =>
+  chart.data.datasets[0].backgroundColor = sensitivity.values.map((/** @type {number} */ _value, /** @type {number} */ index) =>
     index === sensitivity.currentIndex ? palette.red : palette.redA(0.45)
   );
   chart.data.datasets[0].borderColor = palette.noteRed;
@@ -223,14 +276,24 @@ function syncSensitivityChart(chart, state) {
   chart.update();
 }
 
+/**
+ * @param {Record<string, HTMLElement>} elements - Canvas elements keyed by chart name.
+ * @returns {Charts} Chart instances.
+ */
 function createCharts(elements) {
   return {
-    priceRate: createPriceRateChart(elements.priceRateChart),
-    sensitivity: createSensitivityChart(elements.sensitivityChart),
-    yieldCurve: createYieldCurveChart(elements.yieldCurveChart)
+    priceRate: createPriceRateChart(/** @type {HTMLCanvasElement} */ (elements.priceRateChart)),
+    sensitivity: createSensitivityChart(/** @type {HTMLCanvasElement} */ (elements.sensitivityChart)),
+    yieldCurve: createYieldCurveChart(/** @type {HTMLCanvasElement} */ (elements.yieldCurveChart))
   };
 }
 
+/**
+ * @param {Charts} charts - Chart instances.
+ * @param {ChartState} state - Current chart state.
+ * @param {(value: number) => string} formatDollarTick - Dollar tick formatter.
+ * @returns {void}
+ */
 function syncCharts(charts, state, formatDollarTick) {
   syncPriceRateChart(charts.priceRate, state, formatDollarTick);
   syncSensitivityChart(charts.sensitivity, state);
@@ -240,8 +303,8 @@ function syncCharts(charts, state, formatDollarTick) {
 /**
  * @typedef {{ curve: Array<{ x: number, y: number }>, current: { x: number, y: number } }} MarkedSeries
  * @typedef {{
- *   charts?: Record<string, any>,
- *   elements: Record<string, any>,
+ *   charts?: Partial<Charts>,
+ *   elements: Record<string, HTMLElement>,
  *   priceRate: MarkedSeries,
  *   sensitivity: { labels: string[], values: number[], currentIndex: number },
  *   yieldCurve: MarkedSeries,
@@ -252,7 +315,7 @@ function syncCharts(charts, state, formatDollarTick) {
 /**
  * Create or update the three explainer chart instances.
  * @param {ChartRenderOptions} options - Chart data and formatting callbacks.
- * @returns {Record<string, any>} Chart instances keyed by name.
+ * @returns {Charts} Chart instances keyed by name.
  */
 export function renderCharts({
   charts = {},
@@ -262,7 +325,7 @@ export function renderCharts({
   yieldCurve,
   formatDollarTick
 }) {
-  const nextCharts = charts.priceRate ? charts : createCharts(elements);
+  const nextCharts = charts.priceRate ? /** @type {Charts} */ (charts) : createCharts(elements);
   const state = { palette: colors(), priceRate, sensitivity, yieldCurve };
   syncCharts(nextCharts, state, formatDollarTick);
   return nextCharts;

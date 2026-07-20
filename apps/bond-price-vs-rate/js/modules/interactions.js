@@ -26,7 +26,7 @@ export function bindEvents({ elements, onSliderInput, onCurveSelect, onApplyCurv
     elements[id].addEventListener("input", onSliderInput);
   }
 
-  initSegmented(elements.curveToggle, (button) => {
+  initSegmented(elements.curveToggle, (/** @type {HTMLElement} */ button) => {
     onCurveSelect(CURVE_KEY_BY_ID[button.id]);
   });
 

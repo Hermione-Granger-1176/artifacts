@@ -50,8 +50,8 @@ export function initTokenizer() {
     });
   }
 
-  initSegmented(toggle, (btn) => {
-    viewMode = btn.dataset.view;
+  initSegmented(toggle, (/** @type {HTMLElement} */ btn) => {
+    viewMode = btn.dataset.view ?? "";
     render();
   });
 

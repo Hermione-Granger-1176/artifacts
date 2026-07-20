@@ -1,5 +1,6 @@
 import { escapeAttribute } from "../../../../js/modules/html-escape.js";
 
+/** @param {string} copy - Tooltip copy. @returns {string} Info-tip button HTML. */
 function metricTip(copy) {
   const escapedCopy = escapeAttribute(copy);
   return `<button type="button" class="info-tip" data-tip="${escapedCopy}" aria-label="${escapedCopy}">?</button>`;

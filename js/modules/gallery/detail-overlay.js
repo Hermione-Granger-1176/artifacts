@@ -54,6 +54,10 @@ export function createDetailOverlay({
     return expandedId;
   }
 
+  /**
+   * @param {string | null | undefined} id - Artifact id.
+   * @returns {HTMLElement | null} The card element for the id, if present.
+   */
   function getCardById(id) {
     return id
       ? /** @type {HTMLElement | null} */ (grid.querySelector(`.artifact-card[data-id="${CSS.escape(id)}"]`))
@@ -69,6 +73,11 @@ export function createDetailOverlay({
     }
   }
 
+  /**
+   * @param {DOMRect | null} originRect - Bounding rect of the trigger card.
+   * @param {DOMRect} panelRect - Bounding rect of the detail panel.
+   * @returns {void}
+   */
   function applyDetailMotion(originRect, panelRect) {
     clearDetailMotion();
     if (motion.prefersReducedMotion() || !originRect || !panelRect.width || !panelRect.height) {
@@ -95,6 +104,7 @@ export function createDetailOverlay({
     detailPanel.style.removeProperty('--detail-from-scale-y');
   }
 
+  /** @param {KeyboardEvent} event - Keydown event to trap within the overlay. */
   function trapFocus(event) {
     if (!expandedId) {
       return false;
@@ -141,6 +151,12 @@ export function createDetailOverlay({
     return false;
   }
 
+  /**
+   * @param {string} id - Artifact id to open.
+   * @param {HTMLElement | null} triggerCard - Card that triggered the overlay.
+   * @param {Map<string, import("./catalog.js").ArtifactRecord>} artifactById - Artifact lookup.
+   * @returns {void}
+   */
   function open(id, triggerCard, artifactById) {
     const item = artifactById.get(id);
     if (!item) {
@@ -215,6 +231,12 @@ export function createDetailOverlay({
     overlayResetTimer = windowObj.setTimeout(finishClose, detailCloseDelay);
   }
 
+  /**
+   * @param {string} id - Artifact id to toggle.
+   * @param {HTMLElement | null} triggerCard - Card that triggered the overlay.
+   * @param {Map<string, import("./catalog.js").ArtifactRecord>} artifactById - Artifact lookup.
+   * @returns {void}
+   */
   function toggle(id, triggerCard, artifactById) {
     if (expandedId === id) {
       close();

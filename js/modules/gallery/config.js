@@ -109,7 +109,11 @@ function validateNullableStringField(value, key, path) {
   assertShape(typeof value[key] === 'string', `${path}.${key} must be a string or null`);
 }
 
-/** Decode a URI component, returning the original value on failure. */
+/**
+ * Decode a URI component, returning the original value on failure.
+ * @param {string} value - Possibly percent-encoded value.
+ * @returns {string} The decoded value, or the original on failure.
+ */
 function decodeUriComponentSafely(value) {
   try {
     return decodeURIComponent(value);
@@ -118,34 +122,64 @@ function decodeUriComponentSafely(value) {
   }
 }
 
-/** Return the provided artifact contract or fall back to the default. */
+/**
+ * Return the provided artifact contract or fall back to the default.
+ * @param {ArtifactContract | null | undefined} value - Candidate contract.
+ * @returns {ArtifactContract} The resolved contract.
+ */
 function getArtifactContract(value) {
   return value || DEFAULT_CONFIG.artifactContract;
 }
 
-/** Compile the contract's artifact ID pattern into a RegExp. */
+/**
+ * Compile the contract's artifact ID pattern into a RegExp.
+ * @param {ArtifactContract} contract - Artifact contract.
+ * @returns {RegExp} Compiled artifact id pattern.
+ */
 function compileArtifactIdRegex(contract) {
   return new RegExp(contract.artifactIdPattern);
 }
 
-/** Return whether a value is a full match for the artifact ID pattern. */
+/**
+ * Return whether a value is a full match for the artifact ID pattern.
+ * @param {string} value - Candidate artifact id.
+ * @param {ArtifactContract} contract - Artifact contract.
+ * @param {RegExp | null | undefined} compiledRegex - Optional precompiled pattern.
+ * @returns {boolean} Whether the value fully matches the pattern.
+ */
 function matchesArtifactId(value, contract, compiledRegex) {
   const regex = compiledRegex || compileArtifactIdRegex(contract);
   const match = regex.exec(value);
-  return Boolean(match) && match.index === 0 && match[0] === value;
+  return match !== null && match.index === 0 && match[0] === value;
 }
 
-/** Build the expected URL path for an artifact. */
+/**
+ * Build the expected URL path for an artifact.
+ * @param {ArtifactContract} contract - Artifact contract.
+ * @param {string} artifactId - Artifact id.
+ * @returns {string} The expected artifact URL path.
+ */
 function buildArtifactUrl(contract, artifactId) {
   return `${contract.artifactBasePath}/${artifactId}/`;
 }
 
-/** Build the expected thumbnail path for an artifact. */
+/**
+ * Build the expected thumbnail path for an artifact.
+ * @param {ArtifactContract} contract - Artifact contract.
+ * @param {string} artifactId - Artifact id.
+ * @returns {string} The expected thumbnail path.
+ */
 function buildThumbnailPath(contract, artifactId) {
   return `${contract.artifactBasePath}/${artifactId}/${contract.thumbnailFile}`;
 }
 
-/** Return whether a URL matches the expected artifact URL structure. */
+/**
+ * Return whether a URL matches the expected artifact URL structure.
+ * @param {string} value - Candidate URL.
+ * @param {ArtifactContract} contract - Artifact contract.
+ * @param {RegExp | null | undefined} compiledRegex - Optional precompiled pattern.
+ * @returns {boolean} Whether the URL matches.
+ */
 function matchesArtifactUrlShape(value, contract, compiledRegex) {
   const parts = value.split('/');
   return parts.length === 3
@@ -154,7 +188,13 @@ function matchesArtifactUrlShape(value, contract, compiledRegex) {
     && matchesArtifactId(parts[1], contract, compiledRegex);
 }
 
-/** Return whether a path matches the expected thumbnail path structure. */
+/**
+ * Return whether a path matches the expected thumbnail path structure.
+ * @param {string} value - Candidate thumbnail path.
+ * @param {ArtifactContract} contract - Artifact contract.
+ * @param {RegExp | null | undefined} compiledRegex - Optional precompiled pattern.
+ * @returns {boolean} Whether the path matches.
+ */
 function matchesThumbnailShape(value, contract, compiledRegex) {
   const parts = value.split('/');
   return parts.length === 3
@@ -163,6 +203,12 @@ function matchesThumbnailShape(value, contract, compiledRegex) {
     && matchesArtifactId(parts[1], contract, compiledRegex);
 }
 
+/**
+ * Validate the runtime artifact contract object.
+ * @param {*} value - Runtime contract value to validate.
+ * @param {string} path - Dotted path for error messages.
+ * @returns {void}
+ */
 function validateArtifactContract(value, path) {
   assertShape(isPlainObject(value), `${path} must be an object`);
   assertShape(
@@ -190,7 +236,12 @@ function validateArtifactContract(value, path) {
   }
 }
 
-/** Assert that a value is a safe repo-relative path without protocol or traversal. */
+/**
+ * Assert that a value is a safe repo-relative path without protocol or traversal.
+ * @param {string} value - Candidate path.
+ * @param {string} path - Dotted path for error messages.
+ * @returns {void}
+ */
 function assertSafeRelativePath(value, path) {
   const decodedValue = decodeUriComponentSafely(value);
   assertShape(!value.includes('://'), `${path} must be a repo-relative path`);
@@ -204,6 +255,15 @@ function assertSafeRelativePath(value, path) {
   assertShape(!decodedValue.includes('..'), `${path} must not contain path traversal segments`);
 }
 
+/**
+ * Validate an artifact URL field against the contract.
+ * @param {*} value - Runtime URL value to validate.
+ * @param {string} path - Dotted path for error messages.
+ * @param {string} expectedId - Expected artifact id.
+ * @param {ArtifactContract} contract - Artifact contract.
+ * @param {RegExp} compiledRegex - Precompiled artifact id pattern.
+ * @returns {void}
+ */
 function validateArtifactUrl(value, path, expectedId, contract, compiledRegex) {
   assertShape(typeof value === 'string', `${path} must be a string`);
   assertSafeRelativePath(value, path);
@@ -219,6 +279,15 @@ function validateArtifactUrl(value, path, expectedId, contract, compiledRegex) {
   assertShape(false, `${path} must match ${buildArtifactUrl(contract, '<artifact-id>')}`);
 }
 
+/**
+ * Validate an artifact thumbnail path field against the contract.
+ * @param {*} value - Runtime thumbnail value to validate.
+ * @param {string} path - Dotted path for error messages.
+ * @param {string} expectedId - Expected artifact id.
+ * @param {ArtifactContract} contract - Artifact contract.
+ * @param {RegExp} compiledRegex - Precompiled artifact id pattern.
+ * @returns {void}
+ */
 function validateThumbnailPath(value, path, expectedId, contract, compiledRegex) {
   assertShape(typeof value === 'string', `${path} must be a string`);
   assertSafeRelativePath(value, path);
@@ -246,7 +315,7 @@ export function validateArtifactsData(value, artifactContract = DEFAULT_CONFIG.a
 
   const idRegex = compileArtifactIdRegex(contract);
 
-  value.forEach((item, index) => {
+  value.forEach(/** @param {*} item @param {number} index */ (item, index) => {
     const path = `window.ARTIFACTS_DATA[${index}]`;
     assertShape(isPlainObject(item), `${path} must be an object`);
     assertShape(typeof item.id === 'string', `${path}.id must be a string`);
@@ -261,12 +330,12 @@ export function validateArtifactsData(value, artifactContract = DEFAULT_CONFIG.a
     }
 
     assertShape(Array.isArray(item.tags), `${path}.tags must be an array`);
-    item.tags.forEach((tag, tagIndex) => {
+    item.tags.forEach(/** @param {string} tag @param {number} tagIndex */ (tag, tagIndex) => {
       assertShape(typeof tag === 'string', `${path}.tags[${tagIndex}] must be a string`);
     });
 
     assertShape(Array.isArray(item.tools), `${path}.tools must be an array`);
-    item.tools.forEach((tool, toolIndex) => {
+    item.tools.forEach(/** @param {string} tool @param {number} toolIndex */ (tool, toolIndex) => {
       assertShape(typeof tool === 'string', `${path}.tools[${toolIndex}] must be a string`);
     });
   });

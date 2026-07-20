@@ -60,6 +60,10 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     return false;
   }
 
+  /**
+   * @param {string} id - Element id.
+   * @returns {HTMLElement | null} The element, if present.
+   */
   function getElementById(id) {
     if (!documentObj || typeof documentObj.getElementById !== 'function') {
       return null;
@@ -105,11 +109,17 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       return;
     }
 
+    const style = /** @type {Record<string, string>} */ (/** @type {unknown} */ (element.style));
     for (const prop of properties) {
-      element.style[prop] = '';
+      style[prop] = '';
     }
   }
 
+  /**
+   * @param {HTMLElement} shell - Book shell element.
+   * @param {HTMLElement | null} cover - Book cover element.
+   * @returns {void}
+   */
   function finalizeIntroOpen(shell, cover) {
     shell.dataset.sceneIntro = 'open';
     shell.classList.remove('is-opening');
@@ -120,12 +130,20 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     }
   }
 
+  /**
+   * @param {number} ms - Delay in milliseconds.
+   * @returns {Promise<void>} Resolves after the delay.
+   */
   function delay(ms) {
     return new Promise((resolve) => {
       windowObj.setTimeout(resolve, ms);
     });
   }
 
+  /**
+   * @param {number} deg - Rotation in degrees.
+   * @returns {string} A CSS transform string.
+   */
   function getPerspectiveRotateY(deg) {
     return `perspective(${SCENE_PERSPECTIVE}) rotateY(${deg}deg)`;
   }
@@ -349,6 +367,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     }
 
     const directionConfig = PAGE_TURN_DIRECTIONS[turnDirection];
+    /** @type {Record<string, HTMLElement>} */
     const currentPages = { left: leftPage, right: rightPage };
     const flippingOutPage = currentPages[directionConfig.flippingOutPage];
 
@@ -385,6 +404,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       return;
     }
 
+    /** @type {Record<string, HTMLElement>} */
     const nextPages = { left: newLeft, right: newRight };
     const flippingInPage = nextPages[directionConfig.flippingInPage];
 

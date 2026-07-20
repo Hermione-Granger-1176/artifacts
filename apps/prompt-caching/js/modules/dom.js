@@ -14,6 +14,12 @@ export function byId(id) {
   return /** @type {HTMLElement} */ (document.getElementById(id));
 }
 
+/**
+ * @param {string} tag - Element tag name.
+ * @param {string} [className] - Optional class name.
+ * @param {string} [text] - Optional text content.
+ * @returns {HTMLElement} The created element.
+ */
 export function makeEl(tag, className = "", text = "") {
   const node = document.createElement(tag);
   if (className) {
@@ -25,6 +31,7 @@ export function makeEl(tag, className = "", text = "") {
   return node;
 }
 
+/** @param {Element} node - Element to empty. */
 export function clear(node) {
   node.replaceChildren();
 }

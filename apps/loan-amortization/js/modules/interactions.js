@@ -1,21 +1,30 @@
 import { initSegmented } from "../../../../js/modules/segmented.js";
 
-/** Bind change and Enter-key handling for a text input paired with a slider. */
+/**
+ * Bind change and Enter-key handling for a text input paired with a slider.
+ * @param {Record<string, HTMLElement>} elements - Cached app elements.
+ * @param {{ id: string, sliderId: string, min: number, max: number, parser: (value: string) => number, onCommit: () => void }} config - Input binding config.
+ * @returns {void}
+ */
 function bindTextInput(elements, { id, sliderId, min, max, parser, onCommit }) {
-  elements[id].addEventListener("change", function onChange() {
-    const value = parser(this.value);
-    if (!Number.isNaN(value) && value > 0) {
-      elements[sliderId].value = Math.min(Math.max(value, min), max);
-      onCommit();
-    }
-  });
+  elements[id].addEventListener(
+    "change",
+    /** @this {HTMLInputElement} */ function onChange() {
+      const value = parser(this.value);
+      if (!Number.isNaN(value) && value > 0) {
+        const slider = /** @type {HTMLInputElement} */ (elements[sliderId]);
+        slider.value = String(Math.min(Math.max(value, min), max));
+        onCommit();
+      }
+    },
+  );
 
-  elements[id].addEventListener("keydown", (event) => {
+  elements[id].addEventListener("keydown", (/** @type {KeyboardEvent} */ event) => {
     if (event.key !== "Enter") {
       return;
     }
 
-    event.currentTarget.blur();
+    /** @type {HTMLElement} */ (event.currentTarget).blur();
   });
 }
 
@@ -78,7 +87,7 @@ export function bindEvents({
     sliderId: "slTenure",
     min: 1,
     max: 30,
-    parser: (value) => parseInt(value, 10),
+    parser: (/** @type {string} */ value) => parseInt(value, 10),
     onCommit: onTenureCommit
   });
 
@@ -92,10 +101,10 @@ export function bindEvents({
   elements.btnAdd.addEventListener("click", onAddExtra);
   elements.extraList.addEventListener("click", onExtraListClick);
   elements.extraList.addEventListener("input", onExtraListInput);
-  initSegmented(elements.viewToggle, (button) => {
+  initSegmented(elements.viewToggle, (/** @type {HTMLElement} */ button) => {
     onViewModeChange(button.id === "btnCharts" ? "charts" : "table");
   });
-  initSegmented(elements.tableToggle, (button) => {
+  initSegmented(elements.tableToggle, (/** @type {HTMLElement} */ button) => {
     onTableModeChange(button.id === "btnPeriod" ? "period" : "yearly");
   });
 }
