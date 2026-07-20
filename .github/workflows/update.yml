@@ -70,22 +70,29 @@ jobs:
       reason: ${{ steps.plan.outputs.reason }}
       skip-verification: ${{ steps.plan.outputs.skip-verification }}
     steps:
+      # Validate the redeploy target before any checkout runs. A mistyped SHA
+      # would otherwise fail the BUILD_REF checkout below with an opaque error
+      # and skip this message entirely. gh api needs no working tree, and
+      # because every build and deploy job needs this plan job, a failure here
+      # stops the whole pipeline with a clear reason before any downstream
+      # BUILD_REF checkout is attempted.
+      - name: Validate redeploy SHA
+        if: github.event_name == 'workflow_dispatch' && inputs.redeploy-sha != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REDEPLOY_SHA: ${{ inputs.redeploy-sha }}
+        run: |
+          if ! gh api "repos/${{ github.repository }}/commits/${REDEPLOY_SHA}" --silent 2>/dev/null; then
+            echo "redeploy-sha ${REDEPLOY_SHA} is not a commit in this repository." >&2
+            exit 1
+          fi
+          echo "Rebuilding and redeploying ${REDEPLOY_SHA}."
+
       - name: Checkout repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ env.BUILD_REF }}
           fetch-depth: 0
-
-      - name: Validate redeploy SHA
-        if: github.event_name == 'workflow_dispatch' && inputs.redeploy-sha != ''
-        env:
-          REDEPLOY_SHA: ${{ inputs.redeploy-sha }}
-        run: |
-          if ! git cat-file -e "${REDEPLOY_SHA}^{commit}" 2>/dev/null; then
-            echo "redeploy-sha ${REDEPLOY_SHA} is not a commit in this repository." >&2
-            exit 1
-          fi
-          echo "Rebuilding and redeploying ${REDEPLOY_SHA}."
 
       - name: Resolve primary app identity
         id: app-identity

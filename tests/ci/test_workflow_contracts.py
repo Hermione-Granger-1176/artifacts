@@ -185,7 +185,15 @@ def test_update_workflow_supports_one_click_redeploy_of_a_known_good_sha() -> No
     validate = _step(plan, "Validate redeploy SHA")
     assert validate["if"] == "github.event_name == 'workflow_dispatch' && inputs.redeploy-sha != ''"
     validate_run = _step_run(plan, "Validate redeploy SHA")
-    assert 'git cat-file -e "${REDEPLOY_SHA}^{commit}"' in validate_run
+    # Validation uses the API (no working tree) so a bad SHA fails with a clear
+    # message instead of an opaque BUILD_REF checkout failure.
+    assert 'gh api "repos/${{ github.repository }}/commits/${REDEPLOY_SHA}"' in validate_run
+    assert "git cat-file" not in validate_run
+    # Validation must run before the checkout it guards against.
+    plan_step_names = [step.get("name") for step in _steps(plan)]
+    assert plan_step_names.index("Validate redeploy SHA") < plan_step_names.index(
+        "Checkout repository"
+    )
 
     publish = _job(workflow, "publish")
     assert _step(publish, "Deploy main site")["with"]["commit-sha"] == "${{ env.BUILD_REF }}"
