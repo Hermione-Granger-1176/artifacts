@@ -1,48 +1,46 @@
 # Prompt Caching, Demystified
 
-## Purpose
+A long-form interactive explainer on how LLM prompt caching works. Walks the inference pipeline from tokenizer to embeddings, attention, KV cache, and providers.
 
-A long-form, interactive explainer on how LLM prompt caching works. It walks the
-inference pipeline from tokenizer to embeddings, attention, KV cache, and
-providers. It shows that caching saves the attention mechanism's **K and V
-matrices**, not the model's text output.
+## Highlights
 
-## Features
-
-- Sticky section-progress nav with a clickable pipeline overview
+- Sticky section-progress nav with clickable pipeline overview
 - Inference simulator that streams tokens while the KV cache fills
-- BPE-style tokenizer with text / token-ID views
-- Embedding playground: cosine similarity + distance with a 2D projection canvas,
-  plus a 1D/2D/3D dimension explorer
-- Attention step explorer with clickable matrix dot-products, a hoverable
-  attention grid, and interactive softmax sliders
-- KV-cache fill animation and a no-cache / with-cache computation comparison
-- Cross-request cache-hit visualiser with a live TTL countdown
+- BPE-style tokenizer with text and token-ID views
+- Embedding playground: cosine similarity, 2D projection canvas, 1D/2D/3D dimension explorer
+- Attention step explorer with clickable matrix dot-products, hoverable attention grid, interactive softmax sliders
+- KV-cache fill animation and no-cache vs with-cache computation comparison
+- Cross-request cache-hit visualiser with live TTL countdown
 - Savings calculator for your own workload
-- Full light/dark theming via the shared app theme toggle
+- Full light/dark theming via shared app theme
+
+## Made with
+
+- Claude
+- No runtime dependencies (vanilla HTML, CSS, ES modules, CSP-safe)
 
 ## Structure
 
-- `index.html` - semantic layout inside the shared app shell with no inline styles or scripts
-- `css/app.css` - prompt caching layout selectors
-- `js/app.js` - entry point that wires the shared shell and the feature modules
-- `js/modules/` - one module per concern:
-  - `data.js` - static datasets (vocab, worked attention example, embeddings, scripts)
-  - `math.js` - pure, unit-tested logic (tokenize, cosine, softmax, savings, projection)
-  - `navigation.js`, `tokenizer.js`, `embeddings.js`, `inference.js`, `attention.js`,
-    `kv-cache.js`, `cache-hits.js`, `calculator.js` - DOM glue for each demo
-  - `dom.js` - small DOM helpers
-- `docs/` - internal engineering notes
+```text
+index.html
+css/app.css
+js/
+├── app.js
+└── modules/
+    ├── data.js
+    ├── math.js
+    ├── navigation.js
+    ├── tokenizer.js
+    ├── embeddings.js
+    ├── inference.js
+    ├── attention.js
+    ├── kv-cache.js
+    ├── cache-hits.js
+    ├── calculator.js
+    └── dom.js
+docs/
+```
 
-## Dependencies
+## Docs
 
-- None. No CDN scripts or web fonts; styling resolves through `../../css/style.css`
-  and `./css/app.css`, satisfying the strict `'self'` CSP.
-
-## Development
-
-- Make shared design changes in the `css/src/` partials (`01-tokens.css`, `03-artifact-shell.css`, `04-artifact-components.css`), which generate `../../css/style.css`, and keep app-specific layout selectors in `css/app.css`.
-- Numerical logic lives in `math.js` and is covered by
-  `tests/js/apps/prompt-caching/modules.test.js`.
-- Credit: based on Sam Rose's deep-dive at ngrok.com/blog/prompt-caching, rewritten
-  with original examples and interactive demos.
+See `docs/` for architecture, verification, and implementation decisions.

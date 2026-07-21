@@ -1,13 +1,15 @@
-# Artifacts
+<h1 align="center">Artifacts</h1>
 
-A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT, Gemini, etc.). Each artifact is a self-contained web application with its own page.
+<p align="center">
+  Interactive HTML artifacts built with AI tools.<br>
+  <sub>Self-contained web apps: calculators, visualizers, explainers, and more.</sub>
+</p>
 
-**Live site:** <!-- AUTO:SITE_URL -->https://hermione-granger-1176.github.io/artifacts/<!-- /AUTO:SITE_URL -->
+<p align="center">
+  <!-- AUTO:TOTAL_BADGE --><img src="https://img.shields.io/badge/Total-4-D97706?style=for-the-badge" alt="Total"><!-- /AUTO:TOTAL_BADGE -->
+</p>
 
-<!-- AUTO:TOTAL_BADGE --><img src="https://img.shields.io/badge/Total-4-D97706?style=for-the-badge" alt="Total"><!-- /AUTO:TOTAL_BADGE -->
-
-## Topics
-
+<p align="center">
 <!-- prettier-ignore-start -->
 <!-- AUTO:TAG_BADGES_START -->
 <img src="https://img.shields.io/badge/Finance-27AE60?style=flat-square" alt="Finance">&nbsp;
@@ -20,83 +22,83 @@ A collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT,
 <img src="https://img.shields.io/badge/Tokenization-F5E6A3?style=flat-square" alt="Tokenization">
 <!-- AUTO:TAG_BADGES_END -->
 <!-- prettier-ignore-end -->
+</p>
 
-## AI Tools
-
+<p align="center">
 <!-- prettier-ignore-start -->
 <!-- AUTO:TOOL_BADGES_START -->
 <img src="https://img.shields.io/badge/Claude-D97706?style=flat-square&logo=anthropic&logoColor=white" alt="Claude">
 <!-- AUTO:TOOL_BADGES_END -->
 <!-- prettier-ignore-end -->
+</p>
 
-## Snapshot
+<br>
 
-- <!-- AUTO:TOTAL_COUNT -->4<!-- /AUTO:TOTAL_COUNT --> artifacts published
-- Browse the live website for searchable thumbnails, multi-select filters, theme persistence, and detail overlays.
+## What it is
 
-## Docs
+Each directory under `apps/` is a standalone HTML page on a focused topic: bond math, token sampling, loan schedules, prompt caching, and more. Browse the live site at <!-- AUTO:SITE_URL -->https://hermione-granger-1176.github.io/artifacts/<!-- /AUTO:SITE_URL --> for searchable thumbnails, multi-select filters, and detail overlays.
 
-- [`workspace.md`](docs/workspace.md): repository layout and responsibilities
-- [`architecture.md`](docs/architecture.md): runtime, build, and deployment design
-- [`docs/adr/0001-root-publishing-platform.md`](docs/adr/0001-root-publishing-platform.md): accepted decision record for the strict root publish flow
-- [`docs/adr/0002-shared-app-system-and-thumbnail-persistence.md`](docs/adr/0002-shared-app-system-and-thumbnail-persistence.md): accepted decision record for the shared app shell and generated thumbnails
-- [`docs/adr/0003-makefile-first-and-single-source-of-truth.md`](docs/adr/0003-makefile-first-and-single-source-of-truth.md): accepted decision record for Makefile-first tooling and config ownership
-- [`docs/adr/0004-per-artifact-app-stylesheets.md`](docs/adr/0004-per-artifact-app-stylesheets.md): accepted decision record for splitting artifact CSS into app-local stylesheets
-- [`docs/adr/0005-ci-scaling-architecture-and-roadmap.md`](docs/adr/0005-ci-scaling-architecture-and-roadmap.md): accepted decision record for the sharded, memoized CI pipeline
-- [`docs/adr/0006-shared-design-tokens-and-component-system.md`](docs/adr/0006-shared-design-tokens-and-component-system.md): accepted decision record for the shared design-token and component system
-- [`frontend.md`](docs/frontend.md): JavaScript module layout and test coverage
-- [`operations.md`](docs/operations.md): local workflows, CI, and generation notes
-- [`maintenance.md`](docs/maintenance.md): maintenance rules and long-term repo hygiene
-- [`style.md`](docs/style.md): editor configuration and language conventions
-- [`CONTRIBUTING.md`](.github/CONTRIBUTING.md): contribution and dependency update workflow
-- [`SECURITY.md`](.github/SECURITY.md): how to report vulnerabilities
-- [`CODE_OF_CONDUCT.md`](.github/CODE_OF_CONDUCT.md): collaboration expectations
+<!-- AUTO:TOTAL_COUNT -->4<!-- /AUTO:TOTAL_COUNT --> artifacts published so far.
 
-## Structure
+<br>
 
-Each artifact lives in its own directory under `apps/` with an `index.html` entry point. All pages load the generated shared `css/style.css`, which provides the design tokens, reusable component families, common colours, controls, surfaces, and shell rules. Its ordered authoring sources live in `css/src/` and are rebuilt with `make styles`. Mature apps also load their app-local `css/app.css` for app-specific composition and layout, and reuse `js/app-theme.js`, `js/modules/app-shell.js`, and shared helper modules (`formatting`, `segmented`, `section-nav`, `chart-theme`) so the apps stay visually consistent.
+## Quick start
 
-```text
-apps/
-  artifact-name/
-    index.html        # Required entry point
-    js/
-      app.js          # App-local behavior
-    docs/
-      architecture.md # Internal engineering notes
-      verification.md # Formula and QA notes
-      decisions.md    # Local design/engineering decisions
-    README.md         # App-level overview and structure
-    name.txt          # Display name
-    description.txt   # Optional short description
-    tags.txt          # Optional content tags (one per line)
-    tools.txt         # Optional AI tools used (one per line)
-    thumbnail.webp    # Preferred auto-generated screenshot
+```bash
+make setup          # install Python + Node toolchain
+make check          # full local CI gate
+make new name=my-artifact   # scaffold a new artifact
 ```
 
-## Adding a new artifact
+<br>
 
-Both flows emit a complete artifact structure: `index.html` wired to the shared stylesheet and app shell with the self-only CSP meta, a `css/app.css` and `js/app.js` stub, a `README.md` plus `docs/` stubs, the metadata files, and a passing `tests/js/apps/<slug>/app.test.js`. The fresh-placeholder flow passes every gate out of the box. A `src=` import preserves supplied off-origin references, so vendor or remove any reported references before the CSP gate can pass.
+## Add an artifact
 
-1. Scaffold the directory:
-   - Fresh placeholder: `make new name=my-artifact`
-   - Drop in an existing AI-generated HTML file: `make new name=my-artifact src=path/to/file.html`. The file is installed as `index.html`; the CSP meta and shared stylesheet links are injected only when absent, and any off-origin script or style references are reported so you can vendor or remove them before the security lint runs.
-2. Build your artifact in `index.html` (or refine the drop-in) and fill in the metadata files
-3. Run `make validate` to catch missing required files before pushing
-4. Push to `main`: CI regenerates derived files, builds `_site/`, and deploys the site
-5. Open a PR to run the same checks and publish a live preview (preview deploys are skipped for fork and Dependabot PRs)
+```text
+apps/<slug>/
+├── index.html        # Entry point
+├── css/
+│   └── app.css       # App-local styles
+├── js/
+│   └── app.js        # App-local behavior
+├── README.md         # App overview
+├── name.txt          # Display name
+├── description.txt   # Short description
+├── tags.txt          # Content tags (one per line)
+├── tools.txt         # AI tools used (one per line)
+└── docs/             # Architecture, verification, decisions
+```
 
-CI is intentionally strict for the root publishing platform: dependency review, secret scanning, browser-based checks, and fail-closed deploys. See [`docs/architecture.md`](docs/architecture.md) for the full pipeline, including how regenerated thumbnails flow back into PRs.
+Two scaffolding flows:
 
-To roll back a bad deploy, run the `Update Artifacts & Deploy` workflow manually with the `redeploy-sha` input set to the last known-good commit. See [`docs/operations.md`](docs/operations.md#bad-main-deploy) for the runbook.
+- **Fresh placeholder:** `make new name=my-artifact` emits a complete, passing structure.
+- **Drop in existing HTML:** `make new name=my-artifact src=path/to/file.html` installs the file as `index.html`, injects the CSP meta and shared stylesheet links when absent, and reports any off-origin references to vendor or remove.
 
-## Local development
+After scaffolding, fill in the metadata files, run `make validate`, and push to `main`. CI generates thumbnails, builds the site, and deploys. See [`docs/architecture.md`](docs/architecture.md) for the full pipeline and PR preview workflow.
 
-- `make help`: the Makefile is the supported interface for setup, checks, generation, and GitHub helpers
-- `make setup`: default toolchain; `make setup-all` adds Chromium for browser tests and thumbnails
-- `make ci`: non-browser local gate; `make check-web` adds browser coverage; `make check` is the full CI-equivalent gate
-- For the day-to-day workflow, CI behavior, and troubleshooting, see [`docs/operations.md`](docs/operations.md) and [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md)
+<br>
+
+## Documentation
+
+- [Workspace](docs/workspace.md)
+- [Architecture](docs/architecture.md)
+- [Frontend](docs/frontend.md)
+- [Operations](docs/operations.md)
+- [Maintenance](docs/maintenance.md)
+- [Style Guide](docs/style.md)
+- [ADRs](docs/adr/)
+- [Contributing](.github/CONTRIBUTING.md)
+- [Security](.github/SECURITY.md)
+- [Code of Conduct](.github/CODE_OF_CONDUCT.md)
+
+<br>
 
 ## License
 
 [MIT](LICENSE)
+
+---
+
+<p align="center">
+  <sub>Created by <a href="https://github.com/Hermione-Granger-1176">Aditya Kumar Darak</a></sub>
+</p>
