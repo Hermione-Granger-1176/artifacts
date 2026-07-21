@@ -1351,6 +1351,56 @@ def test_request_copilot_review_propagates_error() -> None:
         pr_review.request_copilot_review(7, run_fn=runner)
 
 
+def test_edit_pr_builds_title_and_body_arguments() -> None:
+    """edit_pr passes the PR number, title, and body straight to gh."""
+    seen: dict[str, list[list[str]]] = {}
+    pr_review.edit_pr(7, title="New title", body="New body", run_fn=_copilot_runner(seen))
+    assert seen["cmds"][-1] == [
+        "gh",
+        "pr",
+        "edit",
+        "7",
+        "--title",
+        "New title",
+        "--body",
+        "New body",
+    ]
+
+
+def test_edit_pr_defaults_to_current_pr_and_body_only() -> None:
+    """edit_pr omits the number when unset and can edit the body alone."""
+    seen: dict[str, list[list[str]]] = {}
+    pr_review.edit_pr(body="Only body", run_fn=_copilot_runner(seen))
+    assert seen["cmds"][-1] == ["gh", "pr", "edit", "--body", "Only body"]
+
+
+def test_edit_pr_title_only_omits_body_argument() -> None:
+    """edit_pr with only a title never passes a --body flag."""
+    seen: dict[str, list[list[str]]] = {}
+    pr_review.edit_pr(7, title="Only title", run_fn=_copilot_runner(seen))
+    assert seen["cmds"][-1] == ["gh", "pr", "edit", "7", "--title", "Only title"]
+
+
+def test_edit_pr_forwards_body_file_to_gh() -> None:
+    """edit_pr passes a body file straight to gh so gh reads it (no oversized arg)."""
+    seen: dict[str, list[list[str]]] = {}
+    pr_review.edit_pr(7, body_file="-", run_fn=_copilot_runner(seen))
+    assert seen["cmds"][-1] == ["gh", "pr", "edit", "7", "--body-file", "-"]
+
+
+def test_edit_pr_prefers_body_file_over_inline_body() -> None:
+    """A body file wins over an inline body so gh never gets an oversized --body."""
+    seen: dict[str, list[list[str]]] = {}
+    pr_review.edit_pr(body="inline", body_file="notes.md", run_fn=_copilot_runner(seen))
+    assert seen["cmds"][-1] == ["gh", "pr", "edit", "--body-file", "notes.md"]
+
+
+def test_edit_pr_requires_title_or_body() -> None:
+    """edit_pr rejects a call with neither a title, body, nor body file."""
+    with pytest.raises(GhError):
+        pr_review.edit_pr(7)
+
+
 def test_remaining_thread_comments_result_not_dict_raises() -> None:
     """Test remaining thread comments result not dict raises."""
 

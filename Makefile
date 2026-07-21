@@ -11,6 +11,10 @@ VENV        ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
 NPM         ?= npm
 
+# Shared branch names. Override on the command line or in the environment.
+MAIN_BRANCH  ?= main
+PAGES_BRANCH ?= gh-pages
+
 # Port for the local static preview server (make serve). Override with PORT=NNNN.
 PORT        ?= 8000
 
@@ -20,6 +24,19 @@ PY_TYPE_PATHS := scripts/
 # Entry point for tested GitHub PR/CI helpers. Keep Make targets as thin
 # wrappers so GitHub behavior is testable Python instead of inline shell.
 GH = PYTHONPATH=. $(VENV_PYTHON) -m scripts.gh.cli
+
+# Repository slug (owner/name) for the @ci and @pr groups. Resolve from the
+# origin remote first, then fall back to gh. Kept in the shared Variables block
+# because @ci targets consume it alongside the @pr group.
+REPO ?= $(strip $(shell repo="$$(git remote get-url origin 2>/dev/null | sed -nE 's|.*github\.com[:/]([^/]+/[^/.]+)(\.git)?$$|\1|p')"; \
+	if [ -z "$$repo" ]; then repo="$$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)"; fi; \
+	printf '%s' "$$repo"))
+
+# Fail with a usage line when a required variable is empty.
+# Usage: $(call need,varname,make new name=my-artifact [src=file.html])
+define need
+@test -n "$($(1))" || { printf 'Usage: %s\n' '$(2)' >&2; exit 1; }
+endef
 
 # The pinned Playwright ships no browser build for very new distros (e.g. Ubuntu
 # 26.04 on WSL), so `playwright install` and browser launches abort. When the host
@@ -80,8 +97,8 @@ lint: editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-
 editorconfig-check: ## Check EditorConfig rules
 	$(VENV_PYTHON) scripts/lint/check_editorconfig.py
 
-lint-py: ## Run ruff only
-	$(VENV_PYTHON) -m ruff check .
+lint-py: ## Run ruff only [paths=...]
+	$(VENV_PYTHON) -m ruff check $(if $(paths),$(paths),.)
 
 lint-js: ## Run eslint only
 	$(NPM) run lint:js
@@ -89,8 +106,8 @@ lint-js: ## Run eslint only
 lint-css: ## Run stylelint only
 	$(NPM) run lint:css
 
-lint-yaml: ## Run yamllint only
-	$(VENV)/bin/yamllint .
+lint-yaml: ## Run yamllint only [paths=...]
+	$(VENV)/bin/yamllint $(if $(paths),$(paths),.)
 
 lint-workflows: ## Run workflow linter only
 	$(NPM) run lint:workflows
@@ -126,9 +143,9 @@ fmt: fmt-py fmt-js fmt-css fmt-prettier ## Auto-fix all formatting and lint fixe
 
 format: fmt ## Alias for fmt
 
-fmt-py: ## Auto-fix Python (ruff check --fix + ruff format)
-	$(VENV_PYTHON) -m ruff check --fix .
-	$(VENV_PYTHON) -m ruff format .
+fmt-py: ## Auto-fix Python (ruff check --fix + ruff format) [paths=...]
+	$(VENV_PYTHON) -m ruff check --fix $(if $(paths),$(paths),.)
+	$(VENV_PYTHON) -m ruff format $(if $(paths),$(paths),.)
 
 fmt-js: ## Auto-fix JavaScript (eslint --fix)
 	$(NPM) run lint:js -- --fix
@@ -141,11 +158,11 @@ fmt-prettier: ## Auto-format docs, metadata, workflows, and tooling scripts
 
 format-check: format-py-check format-prettier-check ## Check Python and Prettier formatting
 
-format-py-check: ## Check Python formatting only
-	$(VENV_PYTHON) -m ruff format --check .
+format-py-check: ## Check Python formatting only [paths=...]
+	$(VENV_PYTHON) -m ruff format --check $(if $(paths),$(paths),.)
 
-format-py-diff: ## Show Python formatting changes without modifying files
-	$(VENV_PYTHON) -m ruff format --check --diff .
+format-py-diff: ## Show Python formatting changes without modifying files [paths=...]
+	$(VENV_PYTHON) -m ruff format --check --diff $(if $(paths),$(paths),.)
 
 format-prettier-check: ## Check Prettier-managed files only
 	$(NPM) run format:check
@@ -156,8 +173,8 @@ format-prettier-check: ## Check Prettier-managed files only
 
 typecheck: typecheck-py typecheck-web ## Run all type checks
 
-typecheck-py: ## Run mypy strict type checking over scripts/
-	$(VENV_PYTHON) -m mypy $(PY_TYPE_PATHS)
+typecheck-py: ## Run mypy strict type checking over scripts/ [paths=...]
+	$(VENV_PYTHON) -m mypy $(if $(paths),$(paths),$(PY_TYPE_PATHS))
 
 typecheck-web: ## Run TypeScript checkJs over hand-written js/ modules
 	$(NPM) run typecheck:web
@@ -168,8 +185,8 @@ typecheck-web: ## Run TypeScript checkJs over hand-written js/ modules
 
 dead-code: dead-code-py dead-code-js ## Detect unused Python and JavaScript code
 
-dead-code-py: ## Detect unused Python code with vulture
-	$(VENV_PYTHON) -m vulture
+dead-code-py: ## Detect unused Python code with vulture [paths=...]
+	$(VENV_PYTHON) -m vulture $(if $(paths),$(paths))
 
 dead-code-js: ## Detect unused JavaScript files, exports, and dependencies
 	$(NPM) run dead-code
@@ -178,23 +195,12 @@ dead-code-js: ## Detect unused JavaScript files, exports, and dependencies
 
 .PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-apps-shard test-browser-webkit-smoke test-visual visual-baselines test-browser-live coverage-js coverage-js-floors
 
-define run_browser_pytest
-	@set +e; \
-	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(1) $(VENV_PYTHON) -m pytest --no-cov $(2); \
-	status=$$?; \
-	if [ "$$status" -eq 0 ]; then exit 0; fi; \
-	echo "::warning::Browser tests failed. Retrying only failed tests once."; \
-	ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(1) $(VENV_PYTHON) -m pytest --no-cov --last-failed --last-failed-no-failures none $(2); \
-	retry_status=$$?; \
-	if [ "$$retry_status" -eq 0 ]; then \
-		echo "::warning::FLAKY BROWSER TESTS: retry passed after an initial failure."; \
-		if [ -n "$${GITHUB_STEP_SUMMARY:-}" ]; then \
-			printf '## Flaky browser tests\n\nA retry passed after an initial failure.\n' >> "$$GITHUB_STEP_SUMMARY"; \
-		fi; \
-		exit 0; \
-	fi; \
-	exit "$$retry_status"
-endef
+# Browser targets run through the tested retry-once helper so the flaky-report
+# policy lives in scripts/ instead of inline shell. BROWSER_ARGS threads an
+# optional ARGS= tail (e.g. -k filters), honored only when passed on the make
+# command line so a stray ARGS environment variable cannot change the gate.
+RUN_BROWSER_TESTS = $(VENV_PYTHON) -m scripts.ci.run_browser_tests
+BROWSER_ARGS = $(if $(filter command line,$(origin ARGS)),$(ARGS))
 
 test: test-py test-js ## Run non-browser Python tests + JS tests
 
@@ -209,51 +215,51 @@ test-ci: ## Run CI Python tests only
 test-ci-workflows: ## Run GitHub workflow contract tests only
 	$(VENV_PYTHON) -m pytest --no-cov tests/ci/test_workflow_contracts.py
 
-test-js: ## Run JS tests only
-	$(NPM) run test
+test-js: ## Run JS tests only (pass ARGS="--test-name-pattern name" for a subset)
+	$(NPM) run test -- $(if $(filter command line,$(origin ARGS)),$(ARGS))
 
 test-browser: test-browser-root test-browser-apps ## Run all browser tests (needs Chromium)
 
 test-browser-root: test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows ## Run all root gallery browser tests
 
-test-browser-root-smoke: ## Run root gallery smoke browser tests
-	$(call run_browser_pytest,,tests/browser/test_frontend_smoke.py)
+test-browser-root-smoke: ## Run root gallery smoke browser tests (pass ARGS="-k name" for a subset)
+	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_smoke.py $(BROWSER_ARGS)
 
-test-browser-root-accessibility: ## Run root gallery accessibility browser tests
-	$(call run_browser_pytest,,tests/browser/test_frontend_accessibility.py)
+test-browser-root-accessibility: ## Run root gallery accessibility browser tests (pass ARGS="-k name" for a subset)
+	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_accessibility.py $(BROWSER_ARGS)
 
-test-browser-root-flows: ## Run root gallery browser-flow tests
-	$(call run_browser_pytest,,tests/browser/test_frontend_browser_flows.py)
+test-browser-root-flows: ## Run root gallery browser-flow tests (pass ARGS="-k name" for a subset)
+	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_browser_flows.py $(BROWSER_ARGS)
 
-test-browser-apps: ## Run all mature app browser tests in one shared test process
-	$(call run_browser_pytest,,tests/browser/test_frontend_apps_smoke.py tests/browser/test_frontend_apps_accessibility.py tests/browser/test_frontend_apps_browser_flows.py)
+test-browser-apps: ## Run all mature app browser tests in one shared test process (pass ARGS="-k name")
+	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_apps_smoke.py tests/browser/test_frontend_apps_accessibility.py tests/browser/test_frontend_apps_browser_flows.py $(BROWSER_ARGS)
 
-test-browser-apps-smoke: ## Run mature app smoke browser tests
-	$(call run_browser_pytest,,tests/browser/test_frontend_apps_smoke.py)
+test-browser-apps-smoke: ## Run mature app smoke browser tests (pass ARGS="-k name" for a subset)
+	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_apps_smoke.py $(BROWSER_ARGS)
 
-test-browser-apps-accessibility: ## Run mature app accessibility browser tests
-	$(call run_browser_pytest,,tests/browser/test_frontend_apps_accessibility.py)
+test-browser-apps-accessibility: ## Run mature app accessibility browser tests (pass ARGS="-k name" for a subset)
+	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_apps_accessibility.py $(BROWSER_ARGS)
 
-test-browser-apps-flows: ## Run mature app browser-flow tests
-	$(call run_browser_pytest,,tests/browser/test_frontend_apps_browser_flows.py)
+test-browser-apps-flows: ## Run mature app browser-flow tests (pass ARGS="-k name" for a subset)
+	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_apps_browser_flows.py $(BROWSER_ARGS)
 
-test-browser-apps-shard: ## Run one app-browser shard (make test-browser-apps-shard shard_manifest=PATH)
-	@test -n "$(shard_manifest)" || (printf 'Usage: make test-browser-apps-shard shard_manifest=.artifacts/shard-manifest.json\n' >&2; exit 1)
-	$(call run_browser_pytest,ARTIFACTS_BROWSER_APP_MANIFEST="$(shard_manifest)",tests/browser/test_frontend_apps_smoke.py tests/browser/test_frontend_apps_accessibility.py tests/browser/test_frontend_apps_browser_flows.py)
+test-browser-apps-shard: ## Run one app-browser shard (make test-browser-apps-shard shard_manifest=PATH [ARGS="-k name"])
+	$(call need,shard_manifest,make test-browser-apps-shard shard_manifest=.artifacts/shard-manifest.json)
+	$(RUN_BROWSER_TESTS) --env ARTIFACTS_BROWSER_APP_MANIFEST="$(shard_manifest)" tests/browser/test_frontend_apps_smoke.py tests/browser/test_frontend_apps_accessibility.py tests/browser/test_frontend_apps_browser_flows.py $(BROWSER_ARGS)
 
-test-browser-webkit-smoke: ## Run the WebKit cross-engine smoke pass (root + apps, needs WebKit)
-	$(call run_browser_pytest,ARTIFACTS_BROWSER_ENGINE=webkit,tests/browser/test_frontend_webkit_smoke.py)
+test-browser-webkit-smoke: ## Run the WebKit cross-engine smoke pass (root + apps, needs WebKit) (pass ARGS="-k name")
+	$(RUN_BROWSER_TESTS) --env ARTIFACTS_BROWSER_ENGINE=webkit tests/browser/test_frontend_webkit_smoke.py $(BROWSER_ARGS)
 
-test-visual: ## Compare hero screenshots against committed baselines (needs Chromium)
-	$(call run_browser_pytest,,tests/browser/test_frontend_visual.py)
+test-visual: ## Compare hero screenshots against committed baselines (needs Chromium) (pass ARGS="-k name")
+	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_visual.py $(BROWSER_ARGS)
 
 visual-baselines: ## Regenerate committed hero screenshot baselines (needs Chromium)
 	ARTIFACTS_UPDATE_VISUAL_BASELINES=1 ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov tests/browser/test_frontend_visual.py
 
-test-browser-live: ## Run live-site browser verification
-	$(call run_browser_pytest,,tests/browser/test_frontend_live.py)
+test-browser-live: ## Run live-site browser verification (pass ARGS="-k name" for a subset)
+	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_live.py $(BROWSER_ARGS)
 
-coverage-js: ## Run JS tests with coverage enforcement (emits .artifacts/js-coverage.lcov)
+coverage-js: ## Run JS tests with coverage enforcement (emits .artifacts/js-coverage.lcov) [COVERAGE_OUTPUT=path]
 	@mkdir -p .artifacts
 	@if [ -n "$(COVERAGE_OUTPUT)" ]; then \
 		bash -o pipefail -c '$(NPM) run test:coverage | tee "$(COVERAGE_OUTPUT)"'; \
@@ -271,11 +277,11 @@ coverage-js-floors: ## Enforce per-file JS coverage floors (reads the coverage-j
 validate: ## Check artifact directories are complete
 	$(VENV_PYTHON) -c "from scripts.build.generate_index import validate; validate()"
 
-thumbnails: ## Regenerate WebP thumbnails (needs Chromium)
-	$(VENV_PYTHON) scripts/build/generate_thumbnails.py
+thumbnails: ## Regenerate WebP thumbnails (needs Chromium) (make thumbnails [slug=a,b])
+	ARTIFACTS_THUMBNAIL_SLUGS="$(slug)" $(VENV_PYTHON) scripts/build/generate_thumbnails.py
 
 thumbnails-shard: ## Generate thumbnails from one shard manifest (make thumbnails-shard shard_manifest=PATH)
-	@test -n "$(shard_manifest)" || (printf 'Usage: make thumbnails-shard shard_manifest=.artifacts/shard-manifest.json\n' >&2; exit 1)
+	$(call need,shard_manifest,make thumbnails-shard shard_manifest=.artifacts/shard-manifest.json)
 	$(VENV_PYTHON) scripts/ci/app_shards.py invalidate-thumbnails --manifest "$(shard_manifest)"
 	ARTIFACTS_THUMBNAIL_SHARD_MANIFEST="$(shard_manifest)" $(VENV_PYTHON) scripts/build/generate_thumbnails.py
 
@@ -295,7 +301,7 @@ serve: index site ## Build the packaged site and serve it locally (make serve [P
 generate: styles thumbnails index ## Rebuild all canonical generated assets
 
 new: ## Scaffold a new artifact directory (make new name=X [src=file.html])
-	@test -n "$(name)" || (printf 'Usage: make new name=my-artifact [src=file.html]\n' >&2; exit 1)
+	$(call need,name,make new name=my-artifact [src=file.html])
 	$(VENV_PYTHON) scripts/build/scaffold_artifact.py "$(name)" $(if $(src),--from-html "$(src)")
 
 optimize-social-image: ## Recompress the Open Graph share image in place (make optimize-social-image [path=FILE])
@@ -364,34 +370,7 @@ align-tables: ## Align markdown table pipes across all docs
 	$(VENV_PYTHON) scripts/lint/align_tables.py
 
 status: ## Show workspace health (git, venv, node, generated files, PR)
-	@echo "=== Git ==="
-	@git status -sb
-	@echo
-	@echo "=== Venv ==="
-	@test -x $(VENV_PYTHON) && echo "OK: $(VENV_PYTHON) exists" || echo "MISSING: run make setup"
-	@echo
-	@echo "=== Node ==="
-	@test -d node_modules && echo "OK: node_modules exists" || echo "MISSING: run make setup"
-	@$(UV) lock --check >/dev/null 2>&1 && echo "OK: uv.lock is current" || echo "STALE: run make lock"
-	@$(NPM) install --package-lock-only --ignore-scripts --dry-run >/dev/null 2>&1 && echo "OK: package-lock.json is current" || echo "STALE: run make lock-node"
-	@echo
-	@echo "=== Generated files ==="
-	@if [ -x "$(VENV_PYTHON)" ]; then \
-		if drift=$$($(VENV_PYTHON) scripts/lint/check_generated_drift.py 2>/dev/null); then \
-			echo "OK: js/data.js, js/gallery-config.js, css/style.css, README markers up to date"; \
-		else \
-			echo "STALE: run make index && make styles"; \
-			printf '%s\n' "$$drift" | sed -n 's/^- /  - /p'; \
-		fi; \
-	else \
-		echo "SKIPPED: venv missing, run make setup"; \
-		test -f js/data.js && echo "PRESENT: js/data.js" || echo "MISSING: js/data.js"; \
-		test -f js/gallery-config.js && echo "PRESENT: js/gallery-config.js" || echo "MISSING: js/gallery-config.js"; \
-	fi
-	@test -d _site && echo "OK: _site/" || echo "NOT BUILT: run make site"
-	@echo
-	@echo "=== Pull request ==="
-	@if [ -x "$(VENV_PYTHON)" ]; then $(GH) summary || true; else echo "SKIPPED: venv missing, run make setup"; fi
+	@PYTHONPATH=. $(PYTHON) -m scripts.lib.workspace_status --venv-python "$(VENV_PYTHON)" --uv "$(UV)" --npm "$(NPM)"
 
 clean: ## Remove local environments, build outputs, and caches
 	rm -rf $(VENV) node_modules _site .artifacts .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
@@ -461,17 +440,17 @@ git: ## Git commands (make git)
 	@$(MAKE) --no-print-directory help-git
 
 branch: ## Create and switch to a new branch off main, or off base for a stacked branch (make branch name=X [base=branch])
-	@test -n "$(name)" || (printf 'Usage: make branch name=my-feature [base=other-branch]\n' >&2; exit 1)
-	git checkout "$(if $(base),$(base),main)" && \
-	if git rev-parse --symbolic-full-name --abbrev-ref '@{u}' >/dev/null 2>&1; then git pull; fi && \
+	$(call need,name,make branch name=my-feature [base=other-branch])
+	git checkout "$(if $(base),$(base),$(MAIN_BRANCH))" && \
+	{ ! git rev-parse --symbolic-full-name --abbrev-ref '@{u}' >/dev/null 2>&1 || git pull; } && \
 	git checkout -b "$(name)"
 
 branch-current: ## Create and switch to a branch from the current commit without pulling (make branch-current name=X)
-	@test -n "$(name)" || (printf 'Usage: make branch-current name=my-feature\n' >&2; exit 1)
+	$(call need,name,make branch-current name=my-feature)
 	git checkout -b "$(name)"
 
-rebase-main: ## Rebase the current branch onto origin/main
-	git fetch origin main && git rebase origin/main
+rebase-main: ## Rebase the current branch onto origin/main (make rebase-main [base=branch])
+	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && git rebase "origin/$(if $(base),$(base),$(MAIN_BRANCH))"
 
 rebase-continue: ## Continue an in-progress rebase after resolving conflicts
 	GIT_EDITOR=true git rebase --continue
@@ -480,22 +459,18 @@ sync-branch: ## Rebase the current branch onto its upstream branch
 	git pull --rebase
 
 stage: ## Stage selected files (make stage files="path ...")
-	@test -n "$(files)" || (printf 'Usage: make stage files="path ..."\n' >&2; exit 1)
+	$(call need,files,make stage files="path ...")
 	git add -- $(files)
 
 stage-all: ## Stage all workspace changes
 	git add -A
 
 commit: ## Commit staged changes (make commit message="..." OR message_file=path, - reads stdin [amend=1])
-	@test -n "$(message)$(message_file)" || (printf 'Usage: make commit message="Commit message" OR message_file=path (- reads the message from stdin, e.g. a heredoc)\n' >&2; exit 1)
+	@test -n "$(message)$(message_file)" || { printf 'Usage: make commit message="Commit message" OR message_file=path (- reads the message from stdin, e.g. a heredoc)\n' >&2; exit 1; }
 	@set -e; \
 	tmp=$$(mktemp); \
 	trap 'rm -f "$$tmp"' EXIT; \
-	if [ -n "$(message_file)" ]; then \
-	  if [ "$(message_file)" = "-" ]; then cat > "$$tmp"; else cat "$(message_file)" > "$$tmp"; fi; \
-	else \
-	  printf '%s' "$(message)" > "$$tmp"; \
-	fi; \
+	$(if $(message_file),$(if $(filter -,$(message_file)),cat,cat "$(message_file)"),printf '%s' "$(message)") > "$$tmp"; \
 	$(GH) check-commit-message --message-file "$$tmp"; \
 	git commit $(if $(amend),--amend) -F "$$tmp"
 
@@ -505,25 +480,27 @@ push: ## Push the current branch to origin
 push-force: ## Push the current branch to origin after a rebase (uses --force-with-lease)
 	git push --force-with-lease -u origin HEAD
 
-log: ## Show recent commit log
-	git log --oneline -20
+log: ## Show recent commit log (make log [limit=N])
+	git log --oneline -$(if $(limit),$(limit),20)
 
-log-file: ## Show recent commit log for one file (make log-file path=FILE)
-	@test -n "$(path)" || (printf 'Usage: make log-file path=.github/workflows/update.yml\n' >&2; exit 1)
-	git log --date=short --pretty=format:'%h %ad %s' -20 -- "$(path)"
+log-file: ## Show recent commit log for one file (make log-file path=FILE [limit=N])
+	$(call need,path,make log-file path=.github/workflows/update.yml [limit=N])
+	git log --date=short --pretty=format:'%h %ad %s' -$(if $(limit),$(limit),20) -- "$(path)"
 
-diff: ## Show unstaged changes
-	git diff
+diff: ## Show unstaged changes (make diff [path=FILE])
+	git diff $(if $(path),-- "$(path)")
 
-diff-staged: ## Show staged changes
-	git diff --cached
+diff-staged: ## Show staged changes (make diff-staged [path=FILE])
+	git diff --cached $(if $(path),-- "$(path)")
 
 # ─── Pull requests @pr ────────────────────────────────────────────────────────
 
-REPO ?= $(strip $(shell repo="$$(git remote get-url origin 2>/dev/null | sed -nE 's|.*github\.com[:/]([^/]+/[^/.]+)(\.git)?$$|\1|p')"; \
-	if [ -z "$$repo" ]; then repo="$$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)"; fi; \
-	printf '%s' "$$repo"))
 PR_NUM = $(if $(pr_num),$(pr_num),$(strip $(shell gh pr view --json number -q .number 2>/dev/null)))
+
+# Smart default for CI-run targets: the caller's run= else the latest run on the
+# current branch, resolved through the tested gh helper (same source as
+# ci-failures). Stays empty when nothing can be resolved so the guard can fire.
+RUN_ID = $(if $(run),$(run),$(strip $(shell $(GH) latest-run-id 2>/dev/null)))
 
 .PHONY: pr pr-create pr-edit pr-list pr-status pr-checks pr-diff pr-checkout pr-comments pr-comment pr-review-comments pr-reply pr-resolve pr-address pr-copilot-review pr-comments-list pr-comment-delete pr-summary pr-watch pr-merge pr-merge-admin pr-reviewers pr-label pr-close
 
@@ -537,68 +514,52 @@ pr-edit: export PR_EDIT_TITLE := $(title)
 pr-edit: export PR_EDIT_BODY := $(body)
 pr-edit: ## Edit the current PR title or body (make pr-edit title="..." [body="..." OR body_file=path, - reads stdin] [pr_num=N])
 	@test -n "$$PR_EDIT_TITLE$$PR_EDIT_BODY$(body_file)" || { printf 'Usage: make pr-edit title="New title" [body="..." OR body_file=- with the body piped on stdin] [pr_num=N]\n' >&2; exit 1; }
-	@set -e; \
-	tmp=""; \
-	trap 'test -n "$$tmp" && rm -f "$$tmp"' EXIT; \
-	set -- $(if $(PR_NUM),$(PR_NUM)); \
-	if [ -n "$$PR_EDIT_TITLE" ]; then set -- "$$@" --title "$$PR_EDIT_TITLE"; fi; \
-	if [ -n "$(body_file)" ]; then set -- "$$@" --body-file "$(body_file)"; \
-	elif [ -n "$$PR_EDIT_BODY" ]; then tmp=$$(mktemp); printf '%s' "$$PR_EDIT_BODY" > "$$tmp"; set -- "$$@" --body-file "$$tmp"; fi; \
-	gh pr edit "$$@"
+	@$(if $(body),printf '%s' "$$PR_EDIT_BODY" | )$(GH) edit-pr $(if $(PR_NUM),--pr $(PR_NUM)) \
+		$(if $(title),--title "$$PR_EDIT_TITLE") \
+		$(if $(body_file),--body-file "$(body_file)",$(if $(body),--body-file -))
 
 pr-list: ## List open pull requests
 	gh pr list
 
-pr-status: ## Show current PR status and CI checks
-	gh pr checks
+pr-status: ## Show a PR's status and CI checks (make pr-status [pr_num=N])
+	gh pr checks $(pr_num)
 
-pr-checks: ## Watch CI checks until done
-	gh pr checks --watch --fail-fast || true
+pr-checks: ## Watch CI checks until done (make pr-checks [pr_num=N])
+	gh pr checks $(pr_num) --watch --fail-fast || true
 
 pr-diff: ## Show the diff for the current PR (make pr-diff [pr_num=N])
 	gh pr diff $(pr_num)
 
 pr-checkout: ## Check out a PR's branch locally (make pr-checkout pr_num=N)
-	@test -n "$(pr_num)" || (printf 'Usage: make pr-checkout pr_num=123\n' >&2; exit 1)
+	$(call need,pr_num,make pr-checkout pr_num=123)
 	gh pr checkout $(pr_num)
 
-pr-comments: ## Show all comments on the current PR
-	gh pr view --comments
+pr-comments: ## Show all comments on a PR (make pr-comments [pr_num=N])
+	gh pr view $(pr_num) --comments
 
-pr-comment: ## Add a comment to the current PR (body="msg" OR body_file=path for multiline content, - reads stdin)
-	@test -n "$(body)$(body_file)" || (printf 'Usage: make pr-comment body="Looks good"  OR  make pr-comment body_file=- with the comment piped on stdin\n' >&2; exit 1)
-	@if [ -n "$(body_file)" ]; then \
-	  gh pr comment --body-file "$(body_file)"; \
-	else \
-	  gh pr comment --body "$(body)"; \
-	fi
+pr-comment: export PR_COMMENT_BODY := $(body)
+pr-comment: ## Add a comment to a PR (body="msg" OR body_file=path, - reads stdin) (make pr-comment [pr_num=N])
+	@test -n "$(body)$(body_file)" || { printf 'Usage: make pr-comment body="Looks good"  OR  make pr-comment body_file=- with the comment piped on stdin\n' >&2; exit 1; }
+	@gh pr comment $(pr_num) $(if $(body_file),--body-file "$(body_file)",--body "$$PR_COMMENT_BODY")
 
 pr-review-comments: ## List review threads with thread ids (make pr-review-comments [pr_num=N] [show=all])
 	@$(GH) list $(if $(pr_num),--pr $(pr_num)) $(if $(filter all,$(show)),--all)
 
 pr-reply: export PR_REPLY_BODY := $(body)
 pr-reply: ## Reply to a review thread (make pr-reply thread=PRRT_... body="msg" OR body_file=path, - reads stdin)
-	@test -n "$(thread)" || (printf 'Usage: make pr-reply thread=PRRT_... body="Fixed"  OR  body_file=- with the reply piped on stdin\n' >&2; exit 1)
-	@if [ -n "$(body_file)" ]; then \
-	  $(GH) reply --thread "$(thread)" --body-file "$(body_file)"; \
-	else \
-	  test -n "$$PR_REPLY_BODY" || (printf 'Provide body="..." or body_file=path.\n' >&2; exit 1); \
-	  $(GH) reply --thread "$(thread)" --body "$$PR_REPLY_BODY"; \
-	fi
+	$(call need,thread,make pr-reply thread=PRRT_... body="Fixed" OR body_file=- with the reply piped on stdin)
+	@test -n "$$PR_REPLY_BODY$(body_file)" || { printf 'Provide body="..." or body_file=path.\n' >&2; exit 1; }
+	@$(GH) reply --thread "$(thread)" $(if $(body_file),--body-file "$(body_file)",--body "$$PR_REPLY_BODY")
 
 pr-resolve: ## Resolve a review thread (make pr-resolve thread=PRRT_...)
-	@test -n "$(thread)" || (printf 'Usage: make pr-resolve thread=PRRT_...\n' >&2; exit 1)
+	$(call need,thread,make pr-resolve thread=PRRT_...)
 	@$(GH) resolve --thread "$(thread)"
 
 pr-address: export PR_ADDRESS_BODY := $(body)
 pr-address: ## Reply to and resolve a review thread (make pr-address thread=PRRT_... body="msg" OR body_file=path, - reads stdin)
-	@test -n "$(thread)" || (printf 'Usage: make pr-address thread=PRRT_... body="Fixed"  OR  body_file=- with the reply piped on stdin\n' >&2; exit 1)
-	@if [ -n "$(body_file)" ]; then \
-	  $(GH) address --thread "$(thread)" --body-file "$(body_file)"; \
-	else \
-	  test -n "$$PR_ADDRESS_BODY" || (printf 'Provide body="..." or body_file=path.\n' >&2; exit 1); \
-	  $(GH) address --thread "$(thread)" --body "$$PR_ADDRESS_BODY"; \
-	fi
+	$(call need,thread,make pr-address thread=PRRT_... body="Fixed" OR body_file=- with the reply piped on stdin)
+	@test -n "$$PR_ADDRESS_BODY$(body_file)" || { printf 'Provide body="..." or body_file=path.\n' >&2; exit 1; }
+	@$(GH) address --thread "$(thread)" $(if $(body_file),--body-file "$(body_file)",--body "$$PR_ADDRESS_BODY")
 
 pr-copilot-review: ## Request a Copilot code review on the current PR (make pr-copilot-review [pr_num=N])
 	@$(GH) copilot-review $(if $(pr_num),--pr $(pr_num))
@@ -607,7 +568,7 @@ pr-comments-list: ## List individual review comments with node ids (make pr-comm
 	@$(GH) list-comments $(if $(pr_num),--pr $(pr_num))
 
 pr-comment-delete: ## Delete a review comment by node id (make pr-comment-delete comment=PRRC_...)
-	@test -n "$(comment)" || (printf 'Usage: make pr-comment-delete comment=PRRC_...\n' >&2; exit 1)
+	$(call need,comment,make pr-comment-delete comment=PRRC_...)
 	@$(GH) delete-comment --comment "$(comment)"
 
 pr-summary: ## One-screen PR overview: state, CI rollup, open threads (make pr-summary [pr_num=N])
@@ -622,34 +583,36 @@ pr-merge: ## Merge a PR (squash, delete branch) (make pr-merge [pr_num=N])
 pr-merge-admin: ## Force merge bypassing branch protection (admin) (make pr-merge-admin [pr_num=N])
 	gh pr merge $(pr_num) --squash --delete-branch --admin
 
-pr-reviewers: ## Add reviewers (make pr-reviewers users="user1,user2")
-	@test -n "$(users)" || (printf 'Usage: make pr-reviewers users="octocat"\n' >&2; exit 1)
-	gh pr edit --add-reviewer $(users)
+pr-reviewers: ## Add reviewers (make pr-reviewers users="user1,user2" [pr_num=N])
+	$(call need,users,make pr-reviewers users="octocat")
+	gh pr edit $(pr_num) --add-reviewer $(users)
 
-pr-label: ## Add labels (make pr-label labels="bug")
-	@test -n "$(labels)" || (printf 'Usage: make pr-label labels="bug"\n' >&2; exit 1)
-	gh pr edit --add-label "$(labels)"
+pr-label: ## Add labels (make pr-label labels="bug" [pr_num=N])
+	$(call need,labels,make pr-label labels="bug")
+	gh pr edit $(pr_num) --add-label "$(labels)"
 
-pr-close: ## Close the current PR and delete branch
-	gh pr close --delete-branch
+pr-close: ## Close a PR and delete branch (make pr-close [pr_num=N])
+	gh pr close $(pr_num) --delete-branch
 
 # ─── CI @ci ───────────────────────────────────────────────────────────────────
 
-.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-schedule-watchdog ci-alert-issue refresh-action-shas issues
+.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-schedule-watchdog ci-alert-issue refresh-action-shas issues issue-create
 
 ci-runs: ## List recent CI workflow runs
 	gh run list -L "$(if $(limit),$(limit),10)"
 
 ci-pages-runs: ## List recent GitHub Pages deployment runs
-	gh run list -L "$(if $(limit),$(limit),20)" --workflow pages-build-deployment --branch "$(if $(branch),$(branch),gh-pages)"
+	gh run list -L "$(if $(limit),$(limit),20)" --workflow pages-build-deployment --branch "$(if $(branch),$(branch),$(PAGES_BRANCH))"
 
-ci-run: ## Show one CI workflow run (make ci-run run=ID)
-	@test -n "$(run)" || (printf 'Usage: make ci-run run=123456\n' >&2; exit 1)
-	gh run view "$(run)"
+ci-run: ## Show one CI workflow run (make ci-run [run=ID], defaults to this branch's latest)
+	@run_id="$(RUN_ID)"; \
+	test -n "$$run_id" || { printf 'Usage: make ci-run run=123456 (or run on a branch with a resolvable latest run)\n' >&2; exit 1; }; \
+	gh run view "$$run_id"
 
-ci-run-log: ## Show failed logs for one CI workflow run (make ci-run-log run=ID)
-	@test -n "$(run)" || (printf 'Usage: make ci-run-log run=123456\n' >&2; exit 1)
-	gh run view "$(run)" --log-failed
+ci-run-log: ## Show failed logs for one CI workflow run (make ci-run-log [run=ID], defaults to this branch's latest)
+	@run_id="$(RUN_ID)"; \
+	test -n "$$run_id" || { printf 'Usage: make ci-run-log run=123456 (or run on a branch with a resolvable latest run)\n' >&2; exit 1; }; \
+	gh run view "$$run_id" --log-failed
 
 ci-job-log: ## Show logs for one CI job (make ci-job-log run=ID job=ID)
 	@test -n "$(run)" -a -n "$(job)" || (printf 'Usage: make ci-job-log run=123456 job=789\n' >&2; exit 1)
@@ -681,6 +644,7 @@ ci-heavy-checks: ## Run slow test, coverage, dead-code, and security checks
 		test-py coverage-js dead-code security
 
 ci-thumbnail-plan: ## Compute a git-diff app impact plan (event_name= base_sha= head_sha= [force_full=true])
+	$(call need,event_name,make ci-thumbnail-plan event_name=push base_sha=SHA head_sha=SHA)
 	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py thumbnail-plan \
 		--event-name "$(event_name)" \
 		--repo "$(repo)" \
@@ -714,27 +678,27 @@ ci-package-shard-result: ## Package one shard thumbnail result (manifest=PATH ou
 	$(VENV_PYTHON) scripts/ci/app_shards.py package-result --manifest "$(manifest)" --output "$(output)"
 
 ci-merge-shard-results: ## Merge downloaded shard thumbnails (root=PATH)
-	@test -n "$(root)" || (printf 'Usage: make ci-merge-shard-results root=.artifacts/shard-results\n' >&2; exit 1)
+	$(call need,root,make ci-merge-shard-results root=.artifacts/shard-results)
 	$(VENV_PYTHON) scripts/ci/app_shards.py merge-results --root "$(root)"
 
 ci-coverage-summary: ## Summarize a JS coverage report (make ci-coverage-summary report=js-coverage.txt)
-	@test -n "$(report)" || (printf 'Usage: make ci-coverage-summary report=js-coverage.txt\n' >&2; exit 1)
+	$(call need,report,make ci-coverage-summary report=js-coverage.txt)
 	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py coverage-summary --report "$(report)"
 
 ci-finalize-pages-dir: ## Finalize a GitHub Pages payload directory (make ci-finalize-pages-dir root=DIR)
-	@test -n "$(root)" || (printf 'Usage: make ci-finalize-pages-dir root=.pages-publish\n' >&2; exit 1)
+	$(call need,root,make ci-finalize-pages-dir root=.pages-publish)
 	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py finalize-pages-dir --root "$(root)"
 
 ci-audit-repo-settings: ## Audit GitHub repo settings drift (make ci-audit-repo-settings [repo=owner/name])
 	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py audit-repo-settings \
 		--repo "$(if $(repo),$(repo),$(REPO))" \
-		--default-branch "$(if $(default_branch),$(default_branch),main)" \
-		--pages-branch "$(if $(pages_branch),$(pages_branch),gh-pages)"
+		--default-branch "$(if $(default_branch),$(default_branch),$(MAIN_BRANCH))" \
+		--pages-branch "$(if $(pages_branch),$(pages_branch),$(PAGES_BRANCH))"
 
 ci-audit-previews: ## Detect leaked gh-pages PR previews (make ci-audit-previews [repo=owner/name])
 	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py audit-previews \
 		--repo "$(if $(repo),$(repo),$(REPO))" \
-		--pages-branch "$(if $(pages_branch),$(pages_branch),gh-pages)"
+		--pages-branch "$(if $(pages_branch),$(pages_branch),$(PAGES_BRANCH))"
 
 ci-schedule-watchdog: ## Detect stale or auto-disabled scheduled workflows (make ci-schedule-watchdog [repo=owner/name])
 	@PYTHONPATH=. $(PYTHON) scripts/ci/schedule_watchdog.py \
@@ -757,3 +721,8 @@ refresh-action-shas: ## Repin tag-based GitHub Actions refs to commit SHAs (need
 
 issues: ## List open issues
 	gh issue list
+
+issue-create: export ISSUE_BODY := $(body)
+issue-create: ## Open an issue (make issue-create title="..." [body="msg" OR body_file=path, - reads stdin] [labels="a,b"])
+	$(call need,title,make issue-create title="Fix X" [body="..." OR body_file=- reads stdin] [labels=bug])
+	@gh issue create --title "$(title)" $(if $(body_file),--body-file "$(body_file)",--body "$$ISSUE_BODY") $(if $(labels),--label "$(labels)")

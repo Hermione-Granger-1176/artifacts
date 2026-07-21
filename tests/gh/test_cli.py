@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from scripts.gh import cli, pr_review, pr_watch
+from scripts.gh import ci_status, cli, pr_review, pr_watch
+from scripts.gh.ci_status import RunInfo
 from scripts.gh.gh_runner import GhError
 
 _SINCE = "2026-07-10T12:00:00Z"
@@ -102,6 +103,63 @@ def test_watch_subcommand_uses_defaults(monkeypatch: pytest.MonkeyPatch) -> None
         "max_polls": 40,
         "checks_only": False,
     }
+
+
+def test_edit_pr_subcommand_passes_title_and_body(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The edit-pr command forwards the PR number, title, and body."""
+    captured: dict[str, object] = {}
+
+    def edit_pr(pr: int | None = None, **kwargs: object) -> None:
+        """Record the parsed edit-pr arguments."""
+        captured["pr"] = pr
+        captured.update(kwargs)
+
+    monkeypatch.setattr(pr_review, "edit_pr", edit_pr)
+
+    assert cli.main(["edit-pr", "--pr", "9", "--title", "New", "--body", "Body"]) == 0
+    assert captured == {"pr": 9, "title": "New", "body": "Body", "body_file": None}
+    assert capsys.readouterr().out.strip() == "Edited PR"
+
+
+def test_edit_pr_subcommand_forwards_body_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A --body-file is forwarded to edit_pr so gh reads it, not the CLI."""
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(pr_review, "edit_pr", lambda _pr=None, **kwargs: captured.update(kwargs))
+
+    assert cli.main(["edit-pr", "--body-file", "-"]) == 0
+    assert captured == {"title": None, "body": None, "body_file": "-"}
+
+
+def test_edit_pr_subcommand_title_only_omits_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Editing only the title passes no body through."""
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(pr_review, "edit_pr", lambda _pr=None, **kwargs: captured.update(kwargs))
+
+    assert cli.main(["edit-pr", "--title", "Only title"]) == 0
+    assert captured == {"title": "Only title", "body": None, "body_file": None}
+
+
+def test_latest_run_id_subcommand_prints_run_id(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The latest-run-id command prints the newest run id for the branch."""
+    monkeypatch.setattr(
+        ci_status,
+        "latest_run",
+        lambda: RunInfo(
+            run_id=4242,
+            status="completed",
+            conclusion="success",
+            workflow="CI",
+            branch="feature",
+            url="https://example/run",
+        ),
+    )
+
+    assert cli.main(["latest-run-id"]) == 0
+    assert capsys.readouterr().out.strip() == "4242"
 
 
 def test_body_text_missing_file_raises_gh_error(

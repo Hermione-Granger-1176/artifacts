@@ -512,6 +512,35 @@ def request_copilot_review(pr: int | None = None, *, run_fn: RunFunction | None 
         raise GhError(f"Failed to request Copilot review on PR #{pr}: {exc}") from exc
 
 
+def edit_pr(
+    pr: int | None = None,
+    *,
+    title: str | None = None,
+    body: str | None = None,
+    body_file: str | None = None,
+    run_fn: RunFunction | None = None,
+) -> None:
+    """Edit a pull request's title and/or body (current branch when ``pr`` is omitted).
+
+    ``body_file`` is forwarded straight to ``gh pr edit --body-file`` (``-`` reads
+    stdin) so gh reads the file itself, which avoids an "argument list too long"
+    failure for a large body. ``body`` is a small inline string forwarded as
+    ``--body``. Raises ``GhError`` when no title, body, or body file is supplied.
+    """
+    if title is None and body is None and body_file is None:
+        raise GhError("Provide a title, body, or body file to edit.")
+    args = ["pr", "edit"]
+    if pr is not None:
+        args.append(str(pr))
+    if title is not None:
+        args += ["--title", title]
+    if body_file is not None:
+        args += ["--body-file", body_file]
+    elif body is not None:
+        args += ["--body", body]
+    gh_runner.run_gh(args, run_fn=run_fn)
+
+
 def rollup_summary(rollup: list[dict[str, Any]]) -> str:
     """Summarize a ``statusCheckRollup`` list as a conclusion tally."""
     if not rollup:
