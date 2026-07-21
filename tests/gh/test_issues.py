@@ -9,7 +9,7 @@ from scripts.gh.gh_runner import GhError
 from tests.gh.gh_test_support import FakeGh, completed_process, has
 
 
-def _issue_runner(payload: dict[str, object]) -> FakeGh:
+def _issue_runner(payload: object) -> FakeGh:
     """Build a fake gh runner that answers ``gh issue view`` with ``payload``."""
     return FakeGh([(has("issue", "view"), completed_process(0, json.dumps(payload)))])
 
@@ -102,7 +102,7 @@ def test_issue_summary_rejects_invalid_required_fields(field: str, value: object
 def test_issue_summary_non_dict_payload_raises() -> None:
     """A non-mapping ``gh issue view`` payload surfaces as a GhError."""
     with pytest.raises(GhError):
-        issues.issue_summary(1, run_fn=_issue_runner([1, 2]))  # type: ignore[arg-type]
+        issues.issue_summary(1, run_fn=_issue_runner([1, 2]))
 
 
 def test_login_rejects_malformed_author() -> None:
