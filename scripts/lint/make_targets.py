@@ -69,10 +69,11 @@ class ShellControlFlow:
 def _scan_quote_state(text: str, quote: str | None) -> str | None:
     """Return the quote state after scanning ``text`` from ``quote``.
 
-    Single and double quotes toggle each other off; a quote character inside the
-    other quote is literal. This tracks quoting across backslash-continued recipe
-    lines so control-flow keywords inside a quoted program body (for example the
-    ``@awk '...'`` help blocks) are not mistaken for shell control flow.
+    Outside a quote, either ``'`` or ``"`` opens a quoted span. While inside a
+    span only the matching quote character closes it, so the other quote is
+    literal until then. Tracking this across backslash-continued recipe lines
+    keeps control-flow keywords inside a quoted program body (for example the
+    ``@awk '...'`` help blocks) from being read as shell control flow.
     """
     for char in text:
         if quote is None:

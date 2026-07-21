@@ -605,12 +605,14 @@ ci-pages-runs: ## List recent GitHub Pages deployment runs
 	gh run list -L "$(if $(limit),$(limit),20)" --workflow pages-build-deployment --branch "$(if $(branch),$(branch),$(PAGES_BRANCH))"
 
 ci-run: ## Show one CI workflow run (make ci-run [run=ID], defaults to this branch's latest)
-	$(call need,RUN_ID,make ci-run run=123456 (or run on a branch with a resolvable latest run))
-	gh run view "$(RUN_ID)"
+	@run_id="$(RUN_ID)"; \
+	test -n "$$run_id" || { printf 'Usage: make ci-run run=123456 (or run on a branch with a resolvable latest run)\n' >&2; exit 1; }; \
+	gh run view "$$run_id"
 
 ci-run-log: ## Show failed logs for one CI workflow run (make ci-run-log [run=ID], defaults to this branch's latest)
-	$(call need,RUN_ID,make ci-run-log run=123456 (or run on a branch with a resolvable latest run))
-	gh run view "$(RUN_ID)" --log-failed
+	@run_id="$(RUN_ID)"; \
+	test -n "$$run_id" || { printf 'Usage: make ci-run-log run=123456 (or run on a branch with a resolvable latest run)\n' >&2; exit 1; }; \
+	gh run view "$$run_id" --log-failed
 
 ci-job-log: ## Show logs for one CI job (make ci-job-log run=ID job=ID)
 	@test -n "$(run)" -a -n "$(job)" || (printf 'Usage: make ci-job-log run=123456 job=789\n' >&2; exit 1)
