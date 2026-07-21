@@ -297,7 +297,7 @@ Describe what this artifact does.
 ## Made with
 
 - List AI tools used
-- List runtime dependencies here. Vendor them under `js/vendor/` so the self-only Content-Security-Policy keeps holding.
+- List runtime dependencies. Vendor them under `js/vendor/` to keep the CSP self-only.
 
 ## Structure
 
