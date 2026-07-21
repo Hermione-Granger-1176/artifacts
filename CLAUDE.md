@@ -61,29 +61,20 @@ Python dependencies and workspace metadata live in `pyproject.toml`, while froze
 
 ## Common commands
 
-High-frequency loops (full surface via `make help`). PR and CI triage targets wrap the tested `scripts/gh/` helper so agents do not need raw GitHub CLI flags.
+Discover the full surface with `make help`, then `make help-<group>` (for example `make help-pr`, `make help-issue`), or `make help-json`. The table below is only the argument patterns that are not obvious from that help. PR and CI triage targets (and `make issue-summary`) wrap the tested `scripts/gh/` helper so agents do not need raw GitHub CLI flags.
 
 | Need | Command |
 | --- | --- |
-| Review threads with resolution state | `make pr-review-comments [pr_num=N]` |
+| Review threads with thread ids | `make pr-review-comments [pr_num=N]` |
 | Reply to a review thread | `make pr-reply thread=PRRT_... body_file=- <<'EOF' ... EOF` |
 | Reply to and resolve a review thread | `make pr-address thread=PRRT_... body_file=- <<'EOF' ... EOF` |
 | Resolve a review thread | `make pr-resolve thread=PRRT_...` |
-| PR overview with checks and open threads | `make pr-summary [pr_num=N]` |
-| Wait for checks and a fresh Copilot review | `make pr-watch [pr_num=N]` |
-| List individual review comments | `make pr-comments-list [pr_num=N]` |
-| Show PR comments and timeline | `make pr-comments` |
-| Watch PR checks | `make pr-checks` |
-| Show failed CI logs for this branch | `make ci-failures` |
-| New branch off `main` | `make branch name=my-feature` |
+| Comment on a PR or issue | `make pr-comment [pr_num=N] body_file=- ...` / `make issue-comment issue=N body_file=- ...` |
+| Branch linked to an issue | `make issue-develop issue=N` |
 | New stacked branch | `make branch name=my-feature base=current-branch` |
-| Full local CI gate / parallel | `make ci` / `make ci-fast` |
-| Formatting and dead code checks | `make format-check` / `make dead-code` |
 | Commit staged work | `make commit message_file=- <<'EOF' ... EOF` |
-| Push the current branch | `make push` |
-| Discover commands | `make help`, then `make help-<group>`, or `make help-json` |
 
-For multi-line text (commit messages, PR replies, comments), pass `message_file=-` / `body_file=-` and pipe the content on stdin with a heredoc. Do not write temp message files; reserve `message_file=path` / `body_file=path` for content that already exists on disk. Short one-liners can use the inline `message="..."` / `body="..."` forms.
+For multi-line text (commit messages, PR/issue comments, replies), pass `message_file=-` / `body_file=-` and pipe the content on stdin with a heredoc. Do not write temp message files; reserve `message_file=path` / `body_file=path` for content that already exists on disk. Short one-liners can use the inline `message="..."` / `body="..."` forms.
 
 ## Tool configuration
 

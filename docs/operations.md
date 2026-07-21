@@ -10,10 +10,13 @@ make setup      # fast: Python + Node deps, no Chromium
 make setup-all  # full: also installs Chromium for browser tests and thumbnails
 make install-hooks # install local pre-commit hooks
 make pr         # show all PR sub-commands
+make issue      # show all issue sub-commands
 make ci         # full non-browser local CI gate
 make help-ci    # show CI and GitHub run sub-commands
 make git        # show all git sub-commands
 ```
+
+Issue work runs through the `make issue-*` group instead of raw `gh issue`. `make issue-list` filters by `state=`, `label=`, `assignee=`, `author=`, `search=`, `limit=`, or `mine=1`; `make issue-summary issue=N` prints a one-screen overview (state, labels, assignees, milestone, recent comments) via the tested `scripts/gh/issues.py` helper; and `make issue-develop issue=N` creates and checks out a branch linked to an issue. Bodies for `make issue-create`, `make issue-comment`, and `make issue-edit` take `body=` inline or `body_file=-` to read a heredoc from stdin, matching the PR targets; `make issue-close` and `make issue-reopen` take a short `comment=` instead.
 
 Local Python dependency setup uses uv. Ensure `uv` is on PATH before running setup, install, lock, or security targets. On newer Linux hosts where Playwright has no native browser build, the Makefile exports a supported `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE` fallback for Playwright install, browser test, and thumbnail targets.
 
