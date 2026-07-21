@@ -50,14 +50,15 @@ def _default_run(
 def _succeeds(
     cmd: Sequence[str], *, cwd: Path, run_fn: Runner
 ) -> subprocess.CompletedProcess[str] | None:
-    """Return the completed process, or ``None`` when the tool is missing.
+    """Return the completed process, or ``None`` when the tool cannot launch.
 
     Mirrors the shell ``cmd >/dev/null 2>&1 && ... || ...`` idiom, where a
-    command that cannot even launch counts as a plain failure.
+    command that cannot even launch (missing, not executable, wrong format)
+    counts as a plain failure. ``OSError`` covers every such launch error.
     """
     try:
         return run_fn(cmd, cwd=cwd)
-    except FileNotFoundError:
+    except OSError:
         return None
 
 

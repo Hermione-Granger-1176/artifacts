@@ -101,11 +101,13 @@ def test_report_without_venv_uses_fallbacks(tmp_path: Path) -> None:
     (tmp_path / "js").mkdir()
     (tmp_path / "js/data.js").write_text("", encoding="utf-8")
 
+    # A missing tool and other launch failures (not executable, wrong format)
+    # both raise OSError subclasses and must be treated as a plain failure.
     runner = FakeRun(
         [
-            (_first("git"), FileNotFoundError("git")),
+            (_first("git"), PermissionError("git")),
             (_first("uv"), FileNotFoundError("uv")),
-            (_first("npm"), FileNotFoundError("npm")),
+            (_first("npm"), OSError("npm exec format error")),
         ]
     )
 
