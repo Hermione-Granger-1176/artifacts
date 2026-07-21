@@ -35,8 +35,8 @@ js/
 │   └── ui.js
 └── vendor/
     ├── chart.umd.min.js
-    ├── chartjs-plugin-annotation.umd.min.js
-    └── chartjs-plugin-datalabels.umd.min.js
+    ├── chartjs-plugin-annotation.min.js
+    └── chartjs-plugin-datalabels.min.js
 docs/
 ```
 

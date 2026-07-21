@@ -25,12 +25,14 @@ index.html
 css/app.css
 js/
 ├── app.js
-└── modules/
-    ├── bond-math.js
-    ├── charts.js
-    ├── narrative.js
-    ├── interactions.js
-    └── ui.js
+├── modules/
+│   ├── bond-math.js
+│   ├── charts.js
+│   ├── narrative.js
+│   ├── interactions.js
+│   └── ui.js
+└── vendor/
+    └── chart.umd.min.js
 docs/
 ```
 
