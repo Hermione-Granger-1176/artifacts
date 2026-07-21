@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.gh import ci_status, cli, pr_review, pr_watch
+from scripts.gh import ci_status, cli, issues, pr_review, pr_watch
 from scripts.gh.ci_status import RunInfo
 from scripts.gh.gh_runner import GhError
 
@@ -139,6 +139,30 @@ def test_edit_pr_subcommand_title_only_omits_body(monkeypatch: pytest.MonkeyPatc
 
     assert cli.main(["edit-pr", "--title", "Only title"]) == 0
     assert captured == {"title": "Only title", "body": None, "body_file": None}
+
+
+def test_issue_summary_subcommand_prints_report(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The issue-summary command forwards the issue number and prints the report."""
+    captured: dict[str, object] = {}
+
+    def issue_summary(issue: int) -> str:
+        """Record the parsed issue number."""
+        captured["issue"] = issue
+        return "issue report"
+
+    monkeypatch.setattr(issues, "issue_summary", issue_summary)
+
+    assert cli.main(["issue-summary", "--issue", "42"]) == 0
+    assert captured["issue"] == 42
+    assert "issue report" in capsys.readouterr().out
+
+
+def test_issue_summary_subcommand_requires_issue() -> None:
+    """Omitting --issue is a usage error."""
+    with pytest.raises(SystemExit):
+        cli.main(["issue-summary"])
 
 
 def test_latest_run_id_subcommand_prints_run_id(

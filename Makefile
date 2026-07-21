@@ -594,9 +594,83 @@ pr-label: ## Add labels (make pr-label labels="bug" [pr_num=N])
 pr-close: ## Close a PR and delete branch (make pr-close [pr_num=N])
 	gh pr close $(pr_num) --delete-branch
 
+# ─── Issues @issue ────────────────────────────────────────────────────────────
+
+.PHONY: issue issue-list issue-view issue-summary issue-create issue-comment issue-edit issue-label issue-unlabel issue-assign issue-unassign issue-close issue-reopen issue-develop
+
+issue: ## Issue commands (make issue)
+	@$(MAKE) --no-print-directory help-issue
+
+issue-list: export ISSUE_SEARCH := $(search)
+issue-list: ## List issues (make issue-list [state=open|closed|all] [label=bug] [assignee=@me] [author=user] [search="..."] [limit=N] [mine=1])
+	gh issue list $(if $(state),--state "$(state)") $(if $(label),--label "$(label)") $(if $(assignee),--assignee "$(assignee)") $(if $(filter 1,$(mine)),--assignee @me) $(if $(author),--author "$(author)") $(if $(search),--search "$$ISSUE_SEARCH") $(if $(limit),--limit $(limit))
+
+issue-view: ## Show an issue with its comments (make issue-view issue=N)
+	$(call need,issue,make issue-view issue=123)
+	gh issue view $(issue) --comments
+
+issue-summary: ## One-screen issue overview: state, labels, assignees, recent comments (make issue-summary issue=N)
+	$(call need,issue,make issue-summary issue=123)
+	@$(GH) issue-summary --issue $(issue)
+
+issue-create: export ISSUE_TITLE := $(title)
+issue-create: export ISSUE_BODY := $(body)
+issue-create: ## Open an issue (make issue-create title="..." [body="msg" OR body_file=path, - reads stdin] [labels="a,b"] [assignee=@me])
+	$(call need,title,make issue-create title="Fix X" [body="..." OR body_file=- reads stdin] [labels=bug])
+	@gh issue create --title "$$ISSUE_TITLE" $(if $(body_file),--body-file "$(body_file)",--body "$$ISSUE_BODY") $(if $(labels),--label "$(labels)") $(if $(assignee),--assignee "$(assignee)")
+
+issue-comment: export ISSUE_COMMENT_BODY := $(body)
+issue-comment: ## Comment on an issue (make issue-comment issue=N body="msg" OR body_file=path, - reads stdin)
+	$(call need,issue,make issue-comment issue=123 body="On it")
+	@test -n "$$ISSUE_COMMENT_BODY$(body_file)" || { printf 'Provide body="..." or body_file=path.\n' >&2; exit 1; }
+	@gh issue comment $(issue) $(if $(body_file),--body-file "$(body_file)",--body "$$ISSUE_COMMENT_BODY")
+
+issue-edit: export ISSUE_EDIT_TITLE := $(title)
+issue-edit: export ISSUE_EDIT_BODY := $(body)
+issue-edit: ## Edit an issue title or body (make issue-edit issue=N [title="..."] [body="..." OR body_file=path, - reads stdin])
+	$(call need,issue,make issue-edit issue=123 title="New title")
+	@test -n "$$ISSUE_EDIT_TITLE$$ISSUE_EDIT_BODY$(body_file)" || { printf 'Provide title="...", body="...", or body_file=path.\n' >&2; exit 1; }
+	@$(if $(body),printf '%s' "$$ISSUE_EDIT_BODY" | )gh issue edit $(issue) \
+		$(if $(title),--title "$$ISSUE_EDIT_TITLE") \
+		$(if $(body_file),--body-file "$(body_file)",$(if $(body),--body-file -))
+
+issue-label: ## Add labels to an issue (make issue-label issue=N labels="bug,ci")
+	$(call need,issue,make issue-label issue=123 labels="bug")
+	$(call need,labels,make issue-label issue=123 labels="bug")
+	gh issue edit $(issue) --add-label "$(labels)"
+
+issue-unlabel: ## Remove labels from an issue (make issue-unlabel issue=N labels="bug,ci")
+	$(call need,issue,make issue-unlabel issue=123 labels="bug")
+	$(call need,labels,make issue-unlabel issue=123 labels="bug")
+	gh issue edit $(issue) --remove-label "$(labels)"
+
+issue-assign: ## Assign users to an issue (make issue-assign issue=N users="a,b" OR mine=1)
+	$(call need,issue,make issue-assign issue=123 users="octocat" OR mine=1)
+	@test -n "$(users)$(if $(filter 1,$(mine)),me)" || { printf 'Provide users="a,b" or mine=1.\n' >&2; exit 1; }
+	gh issue edit $(issue) $(if $(filter 1,$(mine)),--add-assignee @me) $(if $(users),--add-assignee "$(users)")
+
+issue-unassign: ## Remove assignees from an issue (make issue-unassign issue=N users="a,b" OR mine=1)
+	$(call need,issue,make issue-unassign issue=123 users="octocat" OR mine=1)
+	@test -n "$(users)$(if $(filter 1,$(mine)),me)" || { printf 'Provide users="a,b" or mine=1.\n' >&2; exit 1; }
+	gh issue edit $(issue) $(if $(filter 1,$(mine)),--remove-assignee @me) $(if $(users),--remove-assignee "$(users)")
+
+issue-close: export ISSUE_CLOSE_COMMENT := $(comment)
+issue-close: ## Close an issue (make issue-close issue=N [reason=completed|"not planned"] [comment="msg"])
+	$(call need,issue,make issue-close issue=123)
+	@gh issue close $(issue) $(if $(reason),--reason "$(reason)") $(if $(comment),--comment "$$ISSUE_CLOSE_COMMENT")
+
+issue-reopen: export ISSUE_REOPEN_COMMENT := $(comment)
+issue-reopen: ## Reopen a closed issue (make issue-reopen issue=N [comment="msg"])
+	$(call need,issue,make issue-reopen issue=123)
+	@gh issue reopen $(issue) $(if $(comment),--comment "$$ISSUE_REOPEN_COMMENT")
+
+issue-develop: ## Create and check out a branch linked to an issue (make issue-develop issue=N [base=branch] [name=branch])
+	$(call need,issue,make issue-develop issue=123)
+	gh issue develop $(issue) --checkout $(if $(base),--base "$(base)") $(if $(name),--name "$(name)")
+
 # ─── CI @ci ───────────────────────────────────────────────────────────────────
 
-.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-schedule-watchdog ci-alert-issue refresh-action-shas issues issue-create
+.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-schedule-watchdog ci-alert-issue refresh-action-shas
 
 ci-runs: ## List recent CI workflow runs
 	gh run list -L "$(if $(limit),$(limit),10)"
@@ -718,11 +792,3 @@ ci-alert-issue: ## Sync a monitored alert issue (title=, run_url=, state=open|cl
 
 refresh-action-shas: ## Repin tag-based GitHub Actions refs to commit SHAs (needs GH_TOKEN)
 	PYTHONPATH=. $(PYTHON) -m scripts.ci.refresh_action_shas
-
-issues: ## List open issues
-	gh issue list
-
-issue-create: export ISSUE_BODY := $(body)
-issue-create: ## Open an issue (make issue-create title="..." [body="msg" OR body_file=path, - reads stdin] [labels="a,b"])
-	$(call need,title,make issue-create title="Fix X" [body="..." OR body_file=- reads stdin] [labels=bug])
-	@gh issue create --title "$(title)" $(if $(body_file),--body-file "$(body_file)",--body "$$ISSUE_BODY") $(if $(labels),--label "$(labels)")

@@ -13,7 +13,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from . import ci_status, commit_message, pr_review, pr_watch
+from . import ci_status, commit_message, issues, pr_review, pr_watch
 from .gh_runner import GhError
 
 
@@ -91,6 +91,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     summary_parser = subparsers.add_parser("summary", help="One-screen PR overview")
     summary_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
+
+    issue_summary_parser = subparsers.add_parser("issue-summary", help="One-screen issue overview")
+    issue_summary_parser.add_argument("--issue", type=int, required=True, help="Issue number")
 
     watch_parser = subparsers.add_parser(
         "watch", help="Wait for settled checks and a fresh Copilot review"
@@ -198,6 +201,12 @@ def _handle_summary(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_issue_summary(args: argparse.Namespace) -> int:
+    """Print the issue overview."""
+    print(issues.issue_summary(args.issue))
+    return 0
+
+
 def _handle_watch(args: argparse.Namespace) -> int:
     """Wait for a pull request to settle, then print its report."""
     print(
@@ -256,6 +265,7 @@ COMMAND_HANDLERS = {
     "delete-comment": _handle_delete_comment,
     "edit-pr": _handle_edit_pr,
     "summary": _handle_summary,
+    "issue-summary": _handle_issue_summary,
     "watch": _handle_watch,
     "ci-failures": _handle_ci_failures,
     "latest-run-id": _handle_latest_run_id,
