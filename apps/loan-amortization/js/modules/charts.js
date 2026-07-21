@@ -244,7 +244,7 @@ function createComparisonChart(canvas) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
+            /** @param {import("chart.js").TooltipItem<"bar">} context - Tooltip item. */
             label(context) {
               return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
             }
