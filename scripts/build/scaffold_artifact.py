@@ -278,47 +278,41 @@ test('{slug} app.js boots the shared runtime without error', async () => {{
 
 def _readme_template(title: str, *, drop_in: bool = False) -> str:
     """Return starter app documentation."""
-    dependencies = (
-        "- List any runtime dependencies here. Vendor them under `js/vendor/` "
-        "so the self-only Content-Security-Policy keeps holding."
-    )
-    development = (
-        "- Make shared design changes in the `css/src/` partials "
-        "(`01-tokens.css`, `03-artifact-shell.css`, `04-artifact-components.css`), "
-        "which generate `../../css/style.css`, and keep app-specific layout in `css/app.css`\n"
-        "- Keep app-specific behavior scoped to this folder"
-    )
+    note = ""
     if drop_in:
-        development += (
-            "\n- This page was installed from an existing HTML file. Wiring "
-            "`js/app.js` through the shared app shell is optional for a "
-            "self-contained drop-in; keep the emitted bootstrap module and its "
+        note = (
+            "\n\n> Note: This page was installed from an existing HTML file. "
+            "Wiring `js/app.js` through the shared app shell is optional for a "
+            "self-contained drop-in. Keep the emitted bootstrap module and its "
             "test, or replace the app behavior with your own module of the same name."
         )
     return f"""# {title}
 
-## Purpose
-
 Describe what this artifact does.
 
-## Features
+## Highlights
 
 - Replace this with the app's core features
 
+## Made with
+
+- List AI tools used
+- List runtime dependencies here. Vendor them under `js/vendor/` so the self-only Content-Security-Policy keeps holding.
+
 ## Structure
 
-- `index.html` - app shell and semantic layout
-- `css/app.css` - app-specific layout styles
-- `js/app.js` - app-specific behavior
-- `docs/` - internal engineering notes
+```text
+index.html
+css/app.css
+js/
+├── app.js
+└── modules/
+docs/
+```{note}
 
-## Dependencies
+## Docs
 
-{dependencies}
-
-## Development
-
-{development}
+See `docs/` for architecture, verification, and implementation decisions.
 """
 
 
