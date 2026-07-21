@@ -458,9 +458,10 @@ rebase-continue: ## Continue an in-progress rebase after resolving conflicts
 sync-branch: ## Rebase the current branch onto its upstream branch
 	git pull --rebase
 
-stage: ## Stage selected files (make stage files="path ...")
-	$(call need,files,make stage files="path ...")
-	git add -- $(files)
+stage: export STAGE_FILES := $(files)
+stage: export STAGE_FILE := $(file)
+stage: ## Stage selected files (make stage [files="path ..."] [file="path with spaces"])
+	@PYTHONPATH=. $(PYTHON) -m scripts.lib.stage_files
 
 stage-all: ## Stage all workspace changes
 	git add -A
