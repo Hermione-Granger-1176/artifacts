@@ -596,7 +596,7 @@ pr-close: ## Close a PR and delete branch (make pr-close [pr_num=N])
 
 # ─── CI @ci ───────────────────────────────────────────────────────────────────
 
-.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-schedule-watchdog ci-alert-issue refresh-action-shas issues
+.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-schedule-watchdog ci-alert-issue refresh-action-shas issues issue-create
 
 ci-runs: ## List recent CI workflow runs
 	gh run list -L "$(if $(limit),$(limit),10)"
@@ -721,3 +721,8 @@ refresh-action-shas: ## Repin tag-based GitHub Actions refs to commit SHAs (need
 
 issues: ## List open issues
 	gh issue list
+
+issue-create: export ISSUE_BODY := $(body)
+issue-create: ## Open an issue (make issue-create title="..." [body="msg" OR body_file=path, - reads stdin] [labels="a,b"])
+	$(call need,title,make issue-create title="Fix X" [body="..." OR body_file=- reads stdin] [labels=bug])
+	@gh issue create --title "$(title)" $(if $(body_file),--body-file "$(body_file)",--body "$$ISSUE_BODY") $(if $(labels),--label "$(labels)")
