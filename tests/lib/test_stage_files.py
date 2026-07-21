@@ -83,7 +83,7 @@ def test_default_run_invokes_subprocess_without_shell(monkeypatch: pytest.Monkey
     assert result.returncode == 0
     assert recorded == {
         "cmd": ["git", "add", "--", "a;b.txt"],
-        "kwargs": {"check": False, "text": True},
+        "kwargs": {"check": False, "shell": False, "text": True},
     }
 
 

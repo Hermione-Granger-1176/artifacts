@@ -26,7 +26,7 @@ from collections.abc import Callable, Mapping, Sequence
 
 # A runner takes the git command vector and returns the completed process.
 # Injectable so tests never touch a real repository.
-GitRunner = Callable[..., "subprocess.CompletedProcess[str]"]
+GitRunner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
 
 USAGE = 'Usage: make stage files="a.txt b.txt" OR make stage file="one file with spaces.txt"'
 
@@ -47,7 +47,7 @@ def collect_paths(environ: Mapping[str, str]) -> list[str]:
 
 def _default_run(cmd: Sequence[str]) -> subprocess.CompletedProcess[str]:
     """Run ``git`` without a shell, never raising on a non-zero exit."""
-    return subprocess.run(list(cmd), check=False, text=True)
+    return subprocess.run(list(cmd), check=False, shell=False, text=True)
 
 
 def stage_paths(paths: Sequence[str], *, run_fn: GitRunner | None = None) -> int:
