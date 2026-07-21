@@ -30,7 +30,7 @@ from pathlib import Path
 # Injectable so tests never touch a real repository.
 GitRunner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
 
-USAGE = 'Usage: make stage files="a.txt b.txt" OR make stage file="one file with spaces.txt"'
+USAGE = 'Usage: make stage [files="a.txt b.txt"] [file="one file with spaces.txt"]'
 
 
 def collect_paths(
@@ -44,7 +44,7 @@ def collect_paths(
     preserves both the legacy multi-file syntax and the original spaced-path
     acceptance case. ``STAGE_FILE`` is always appended verbatim when non-blank.
     """
-    raw_files = environ.get("STAGE_FILES", "")
+    raw_files = environ.get("STAGE_FILES", "").strip()
     single = environ.get("STAGE_FILE", "")
     spaced_exact_path = (
         bool(raw_files.split())

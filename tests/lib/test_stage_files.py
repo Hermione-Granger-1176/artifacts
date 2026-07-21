@@ -40,6 +40,21 @@ def test_collect_paths_preserves_spaced_legacy_value_when_it_is_one_path() -> No
     ) == [raw]
 
 
+def test_collect_paths_trims_outer_whitespace_before_exact_probe() -> None:
+    """Outer list whitespace is ignored before deciding whether files names one path."""
+    expected = "one file.txt"
+    probed: list[str] = []
+
+    def is_exact_path(path: str) -> bool:
+        probed.append(path)
+        return path == expected
+
+    assert stage_files.collect_paths(
+        {"STAGE_FILES": f"  {expected}  "}, is_exact_path=is_exact_path
+    ) == [expected]
+    assert probed == [expected]
+
+
 def test_collect_paths_preserves_exact_single_path() -> None:
     """The file input preserves spaces and shell metacharacters verbatim."""
     path = "one file; $(not-a-command).txt"
