@@ -188,7 +188,7 @@ function createBalanceChart(canvas) {
           callbacks: {
             /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
             label(context) {
-              return `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`;
+              return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
             }
           }
         }
@@ -244,9 +244,9 @@ function createComparisonChart(canvas) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
+            /** @param {import("chart.js").TooltipItem<"bar">} context - Tooltip item. */
             label(context) {
-              return `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`;
+              return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
             }
           }
         }
@@ -459,7 +459,7 @@ function createCumulativeChart(canvas) {
           callbacks: {
             /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
             label(context) {
-              return `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`;
+              return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
             }
           }
         }
@@ -543,7 +543,7 @@ function createPeriodChart(canvas) {
           callbacks: {
             /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
             label(context) {
-              return `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`;
+              return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
             }
           }
         }

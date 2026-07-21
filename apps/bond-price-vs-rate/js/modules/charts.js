@@ -110,7 +110,7 @@ function createPriceRateChart(canvas) {
           callbacks: {
             /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
             label(context) {
-              return `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`;
+              return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
             }
           }
         }
@@ -186,7 +186,7 @@ function createYieldCurveChart(canvas) {
           callbacks: {
             /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
             label(context) {
-              return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}%`;
+              return `${context.dataset.label}: ${(context.parsed.y ?? 0).toFixed(2)}%`;
             }
           }
         }
@@ -242,7 +242,7 @@ function createSensitivityChart(canvas) {
           callbacks: {
             /** @param {import("chart.js").TooltipItem<"bar">} context - Tooltip item. */
             label(context) {
-              return `${context.parsed.y.toFixed(1)}%`;
+              return `${(context.parsed.y ?? 0).toFixed(1)}%`;
             }
           }
         }
