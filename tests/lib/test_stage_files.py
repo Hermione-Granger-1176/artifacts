@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 from collections.abc import Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
@@ -30,6 +31,15 @@ def test_collect_paths_splits_multi_file_input() -> None:
     ]
 
 
+def test_collect_paths_preserves_spaced_legacy_value_when_it_is_one_path() -> None:
+    """The files input stays intact when its full value resolves to one path."""
+    raw = "one file with spaces.txt"
+
+    assert stage_files.collect_paths(
+        {"STAGE_FILES": raw}, is_exact_path=lambda path: path == raw
+    ) == [raw]
+
+
 def test_collect_paths_preserves_exact_single_path() -> None:
     """The file input preserves spaces and shell metacharacters verbatim."""
     path = "one file; $(not-a-command).txt"
@@ -47,6 +57,48 @@ def test_collect_paths_ignores_blank_inputs() -> None:
     """Missing and whitespace-only inputs do not create empty path arguments."""
     assert stage_files.collect_paths({}) == []
     assert stage_files.collect_paths({"STAGE_FILES": "  ", "STAGE_FILE": "  "}) == []
+
+
+def test_existing_path_does_not_need_a_git_lookup(tmp_path: Path) -> None:
+    """An existing spaced path is recognized without invoking git."""
+    path = tmp_path / "one file.txt"
+    path.write_text("content", encoding="utf-8")
+
+    def unexpected_run(_cmd: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        raise AssertionError("git should not run for an existing path")
+
+    assert stage_files._is_existing_or_tracked(str(path), run_fn=unexpected_run)
+
+
+def test_tracked_path_lookup_is_literal_and_returns_git_status() -> None:
+    """Missing paths are checked as literal tracked paths without pathspec magic."""
+    calls: list[list[str]] = []
+    statuses = iter([0, 1])
+
+    def fake_run(cmd: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(list(cmd))
+        return subprocess.CompletedProcess(args=list(cmd), returncode=next(statuses))
+
+    assert stage_files._is_existing_or_tracked("tracked file.txt", run_fn=fake_run)
+    assert not stage_files._is_existing_or_tracked("missing file.txt", run_fn=fake_run)
+    assert calls == [
+        [
+            "git",
+            "--literal-pathspecs",
+            "ls-files",
+            "--error-unmatch",
+            "--",
+            "tracked file.txt",
+        ],
+        [
+            "git",
+            "--literal-pathspecs",
+            "ls-files",
+            "--error-unmatch",
+            "--",
+            "missing file.txt",
+        ],
+    ]
 
 
 def test_stage_paths_passes_literal_argv_and_returns_status() -> None:
@@ -99,6 +151,45 @@ def test_main_prints_usage_when_no_paths(capsys: pytest.CaptureFixture[str]) -> 
     assert stage_files.main(environ={}, run_fn=fake_run) == 1
     assert not called
     assert stage_files.USAGE in capsys.readouterr().err
+
+
+def test_main_preserves_tracked_spaced_files_value() -> None:
+    """The legacy files input stages one spaced path when git reports it tracked."""
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(list(cmd))
+        return subprocess.CompletedProcess(args=list(cmd), returncode=0)
+
+    raw = "one tracked file.txt"
+    assert stage_files.main(environ={"STAGE_FILES": raw}, run_fn=fake_run) == 0
+    assert calls == [
+        ["git", "--literal-pathspecs", "ls-files", "--error-unmatch", "--", raw],
+        ["git", "add", "--", raw],
+    ]
+
+
+def test_main_splits_unmatched_multi_file_value() -> None:
+    """The legacy files input still splits when its complete value is not one path."""
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(list(cmd))
+        returncode = 1 if "ls-files" in cmd else 0
+        return subprocess.CompletedProcess(args=list(cmd), returncode=returncode)
+
+    assert stage_files.main(environ={"STAGE_FILES": "a.txt b.txt"}, run_fn=fake_run) == 0
+    assert calls == [
+        [
+            "git",
+            "--literal-pathspecs",
+            "ls-files",
+            "--error-unmatch",
+            "--",
+            "a.txt b.txt",
+        ],
+        ["git", "add", "--", "a.txt", "b.txt"],
+    ]
 
 
 def test_main_stages_collected_paths() -> None:

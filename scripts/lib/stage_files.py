@@ -11,7 +11,8 @@ metacharacters in a filename stay inert.
 The Makefile forwards two optional inputs:
 
 - ``STAGE_FILE``: exactly one path, kept intact even when it contains spaces.
-- ``STAGE_FILES``: a whitespace-separated list for the common multi-file case.
+- ``STAGE_FILES``: a whitespace-separated list, unless its complete value names
+  one existing or tracked path (which preserves legacy spaced-path calls).
 
 At least one must be non-empty; otherwise a usage message is printed and the
 command exits non-zero.
@@ -23,6 +24,7 @@ import os
 import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 
 # A runner takes the git command vector and returns the completed process.
 # Injectable so tests never touch a real repository.
@@ -31,15 +33,27 @@ GitRunner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
 USAGE = 'Usage: make stage files="a.txt b.txt" OR make stage file="one file with spaces.txt"'
 
 
-def collect_paths(environ: Mapping[str, str]) -> list[str]:
-    """Return the paths to stage from ``STAGE_FILES`` (split) and ``STAGE_FILE`` (exact).
+def collect_paths(
+    environ: Mapping[str, str], *, is_exact_path: Callable[[str], bool] | None = None
+) -> list[str]:
+    """Return paths from the legacy multi-file input and the exact single-path input.
 
-    ``STAGE_FILES`` is split on whitespace for the multi-file case, so a single
-    path containing spaces cannot be expressed there; ``STAGE_FILE`` carries such
-    a path verbatim. A blank or whitespace-only ``STAGE_FILE`` counts as unset.
+    ``STAGE_FILES`` normally keeps its whitespace-separated behavior. When it
+    contains whitespace, no explicit ``STAGE_FILE`` is present, and its complete
+    raw value names one existing or tracked path, that value is kept intact. This
+    preserves both the legacy multi-file syntax and the original spaced-path
+    acceptance case. ``STAGE_FILE`` is always appended verbatim when non-blank.
     """
-    paths = environ.get("STAGE_FILES", "").split()
+    raw_files = environ.get("STAGE_FILES", "")
     single = environ.get("STAGE_FILE", "")
+    spaced_exact_path = (
+        bool(raw_files.split())
+        and not single.strip()
+        and any(char.isspace() for char in raw_files)
+        and is_exact_path is not None
+        and is_exact_path(raw_files)
+    )
+    paths = [raw_files] if spaced_exact_path else raw_files.split()
     if single.strip():
         paths.append(single)
     return paths
@@ -48,6 +62,14 @@ def collect_paths(environ: Mapping[str, str]) -> list[str]:
 def _default_run(cmd: Sequence[str]) -> subprocess.CompletedProcess[str]:
     """Run ``git`` without a shell, never raising on a non-zero exit."""
     return subprocess.run(list(cmd), check=False, shell=False, text=True)
+
+
+def _is_existing_or_tracked(path: str, *, run_fn: GitRunner) -> bool:
+    """Return whether ``path`` exists or is tracked, with pathspec magic disabled."""
+    if Path(path).exists():
+        return True
+    result = run_fn(["git", "--literal-pathspecs", "ls-files", "--error-unmatch", "--", path])
+    return result.returncode == 0
 
 
 def stage_paths(paths: Sequence[str], *, run_fn: GitRunner | None = None) -> int:
@@ -63,11 +85,15 @@ def stage_paths(paths: Sequence[str], *, run_fn: GitRunner | None = None) -> int
 
 def main(*, environ: Mapping[str, str] | None = None, run_fn: GitRunner | None = None) -> int:
     """Collect paths from the environment and stage them, returning an exit code."""
-    paths = collect_paths(os.environ if environ is None else environ)
+    runner = run_fn or _default_run
+    paths = collect_paths(
+        os.environ if environ is None else environ,
+        is_exact_path=lambda path: _is_existing_or_tracked(path, run_fn=runner),
+    )
     if not paths:
         print(USAGE, file=sys.stderr)
         return 1
-    return stage_paths(paths, run_fn=run_fn)
+    return stage_paths(paths, run_fn=runner)
 
 
 if __name__ == "__main__":  # pragma: no cover
