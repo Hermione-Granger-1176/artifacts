@@ -18,11 +18,11 @@ from .gh_runner import GhError
 
 
 def _add_body_options(parser: argparse.ArgumentParser, *, required: bool = True) -> None:
-    """Add shared reply body options to a subcommand parser."""
+    """Add the shared body options (reply, comment, or PR body) to a subcommand parser."""
     body_group = parser.add_mutually_exclusive_group(required=required)
-    body_group.add_argument("--body", help="Reply text")
+    body_group.add_argument("--body", help="Body text")
     body_group.add_argument(
-        "--body-file", help="Path to a file containing reply text (- reads stdin)"
+        "--body-file", help="Path to a file containing the body text (- reads stdin)"
     )
 
 

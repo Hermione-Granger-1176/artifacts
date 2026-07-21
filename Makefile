@@ -514,9 +514,9 @@ pr-edit: export PR_EDIT_TITLE := $(title)
 pr-edit: export PR_EDIT_BODY := $(body)
 pr-edit: ## Edit the current PR title or body (make pr-edit title="..." [body="..." OR body_file=path, - reads stdin] [pr_num=N])
 	@test -n "$$PR_EDIT_TITLE$$PR_EDIT_BODY$(body_file)" || { printf 'Usage: make pr-edit title="New title" [body="..." OR body_file=- with the body piped on stdin] [pr_num=N]\n' >&2; exit 1; }
-	@$(GH) edit-pr $(if $(PR_NUM),--pr $(PR_NUM)) \
+	@$(if $(body),printf '%s' "$$PR_EDIT_BODY" | )$(GH) edit-pr $(if $(PR_NUM),--pr $(PR_NUM)) \
 		$(if $(title),--title "$$PR_EDIT_TITLE") \
-		$(if $(body_file),--body-file "$(body_file)",$(if $(body),--body "$$PR_EDIT_BODY"))
+		$(if $(body_file),--body-file "$(body_file)",$(if $(body),--body-file -))
 
 pr-list: ## List open pull requests
 	gh pr list
