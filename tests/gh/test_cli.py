@@ -119,18 +119,17 @@ def test_edit_pr_subcommand_passes_title_and_body(
     monkeypatch.setattr(pr_review, "edit_pr", edit_pr)
 
     assert cli.main(["edit-pr", "--pr", "9", "--title", "New", "--body", "Body"]) == 0
-    assert captured == {"pr": 9, "title": "New", "body": "Body"}
+    assert captured == {"pr": 9, "title": "New", "body": "Body", "body_file": None}
     assert capsys.readouterr().out.strip() == "Edited PR"
 
 
-def test_edit_pr_subcommand_body_file_reads_stdin(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A --body-file of ``-`` feeds stdin into the edit body."""
+def test_edit_pr_subcommand_forwards_body_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A --body-file is forwarded to edit_pr so gh reads it, not the CLI."""
     captured: dict[str, object] = {}
-    monkeypatch.setattr("sys.stdin", io.StringIO("Piped body\n"))
     monkeypatch.setattr(pr_review, "edit_pr", lambda _pr=None, **kwargs: captured.update(kwargs))
 
     assert cli.main(["edit-pr", "--body-file", "-"]) == 0
-    assert captured == {"title": None, "body": "Piped body\n"}
+    assert captured == {"title": None, "body": None, "body_file": "-"}
 
 
 def test_edit_pr_subcommand_title_only_omits_body(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -139,7 +138,7 @@ def test_edit_pr_subcommand_title_only_omits_body(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(pr_review, "edit_pr", lambda _pr=None, **kwargs: captured.update(kwargs))
 
     assert cli.main(["edit-pr", "--title", "Only title"]) == 0
-    assert captured == {"title": "Only title", "body": None}
+    assert captured == {"title": "Only title", "body": None, "body_file": None}
 
 
 def test_latest_run_id_subcommand_prints_run_id(

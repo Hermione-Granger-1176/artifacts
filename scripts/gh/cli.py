@@ -181,9 +181,13 @@ def _handle_delete_comment(args: argparse.Namespace) -> int:
 
 
 def _handle_edit_pr(args: argparse.Namespace) -> int:
-    """Edit a pull request's title and/or body."""
-    body = _body_text(args) if (args.body is not None or args.body_file is not None) else None
-    pr_review.edit_pr(args.pr, title=args.title, body=body)
+    """Edit a pull request's title and/or body.
+
+    The body file is forwarded to ``gh pr edit --body-file`` rather than read
+    here, so gh handles large files (and ``-`` stdin) without an oversized
+    command-line argument.
+    """
+    pr_review.edit_pr(args.pr, title=args.title, body=args.body, body_file=args.body_file)
     print("Edited PR")
     return 0
 

@@ -517,22 +517,26 @@ def edit_pr(
     *,
     title: str | None = None,
     body: str | None = None,
+    body_file: str | None = None,
     run_fn: RunFunction | None = None,
 ) -> None:
     """Edit a pull request's title and/or body (current branch when ``pr`` is omitted).
 
-    Passing the body as a subprocess argument keeps multiline and special-character
-    text intact without a temporary file. Raises ``GhError`` when neither a title
-    nor a body is supplied.
+    ``body_file`` is forwarded straight to ``gh pr edit --body-file`` (``-`` reads
+    stdin) so gh reads the file itself, which avoids an "argument list too long"
+    failure for a large body. ``body`` is a small inline string forwarded as
+    ``--body``. Raises ``GhError`` when no title, body, or body file is supplied.
     """
-    if title is None and body is None:
+    if title is None and body is None and body_file is None:
         raise GhError("Provide a title or body to edit.")
     args = ["pr", "edit"]
     if pr is not None:
         args.append(str(pr))
     if title is not None:
         args += ["--title", title]
-    if body is not None:
+    if body_file is not None:
+        args += ["--body-file", body_file]
+    elif body is not None:
         args += ["--body", body]
     gh_runner.run_gh(args, run_fn=run_fn)
 
