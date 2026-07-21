@@ -488,10 +488,10 @@ log-file: ## Show recent commit log for one file (make log-file path=FILE [limit
 	git log --date=short --pretty=format:'%h %ad %s' -$(if $(limit),$(limit),20) -- "$(path)"
 
 diff: ## Show unstaged changes (make diff [path=FILE])
-	git diff $(if $(path),-- $(path))
+	git diff $(if $(path),-- "$(path)")
 
 diff-staged: ## Show staged changes (make diff-staged [path=FILE])
-	git diff --cached $(if $(path),-- $(path))
+	git diff --cached $(if $(path),-- "$(path)")
 
 # ─── Pull requests @pr ────────────────────────────────────────────────────────
 
