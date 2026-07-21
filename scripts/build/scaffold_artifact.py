@@ -281,10 +281,10 @@ def _readme_template(title: str, *, drop_in: bool = False) -> str:
     note = ""
     if drop_in:
         note = (
-            "\n\n> Note: This page was installed from an existing HTML file. "
+            "\n> Note: This page was installed from an existing HTML file. "
             "Wiring `js/app.js` through the shared app shell is optional for a "
             "self-contained drop-in. Keep the emitted bootstrap module and its "
-            "test, or replace the app behavior with your own module of the same name."
+            "test, or replace the app behavior with your own module of the same name.\n"
         )
     return f"""# {title}
 
@@ -308,8 +308,9 @@ js/
 ├── app.js
 └── modules/
 docs/
-```{note}
+```
 
+{note}
 ## Docs
 
 See `docs/` for architecture, verification, and implementation decisions.
