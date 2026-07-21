@@ -64,11 +64,23 @@ def _default_run(cmd: Sequence[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(list(cmd), check=False, shell=False, text=True)
 
 
-def _is_existing_or_tracked(path: str, *, run_fn: GitRunner) -> bool:
+def _default_probe(cmd: Sequence[str]) -> subprocess.CompletedProcess[str]:
+    """Run a read-only git probe quietly, returning its status."""
+    return subprocess.run(
+        list(cmd),
+        check=False,
+        shell=False,
+        stderr=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        text=True,
+    )
+
+
+def _is_existing_or_tracked(path: str, *, probe_fn: GitRunner) -> bool:
     """Return whether ``path`` exists or is tracked, with pathspec magic disabled."""
     if Path(path).exists():
         return True
-    result = run_fn(["git", "--literal-pathspecs", "ls-files", "--error-unmatch", "--", path])
+    result = probe_fn(["git", "--literal-pathspecs", "ls-files", "--error-unmatch", "--", path])
     return result.returncode == 0
 
 
@@ -83,12 +95,18 @@ def stage_paths(paths: Sequence[str], *, run_fn: GitRunner | None = None) -> int
     return runner(["git", "add", "--", *paths]).returncode
 
 
-def main(*, environ: Mapping[str, str] | None = None, run_fn: GitRunner | None = None) -> int:
+def main(
+    *,
+    environ: Mapping[str, str] | None = None,
+    run_fn: GitRunner | None = None,
+    probe_fn: GitRunner | None = None,
+) -> int:
     """Collect paths from the environment and stage them, returning an exit code."""
     runner = run_fn or _default_run
+    probe = probe_fn or _default_probe
     paths = collect_paths(
         os.environ if environ is None else environ,
-        is_exact_path=lambda path: _is_existing_or_tracked(path, run_fn=runner),
+        is_exact_path=lambda path: _is_existing_or_tracked(path, probe_fn=probe),
     )
     if not paths:
         print(USAGE, file=sys.stderr)

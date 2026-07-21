@@ -82,7 +82,7 @@ def test_existing_path_does_not_need_a_git_lookup(tmp_path: Path) -> None:
     def unexpected_run(_cmd: Sequence[str]) -> subprocess.CompletedProcess[str]:
         raise AssertionError("git should not run for an existing path")
 
-    assert stage_files._is_existing_or_tracked(str(path), run_fn=unexpected_run)
+    assert stage_files._is_existing_or_tracked(str(path), probe_fn=unexpected_run)
 
 
 def test_tracked_path_lookup_is_literal_and_returns_git_status() -> None:
@@ -94,8 +94,8 @@ def test_tracked_path_lookup_is_literal_and_returns_git_status() -> None:
         calls.append(list(cmd))
         return subprocess.CompletedProcess(args=list(cmd), returncode=next(statuses))
 
-    assert stage_files._is_existing_or_tracked("tracked file.txt", run_fn=fake_run)
-    assert not stage_files._is_existing_or_tracked("missing file.txt", run_fn=fake_run)
+    assert stage_files._is_existing_or_tracked("tracked file.txt", probe_fn=fake_run)
+    assert not stage_files._is_existing_or_tracked("missing file.txt", probe_fn=fake_run)
     assert calls == [
         [
             "git",
@@ -154,6 +154,36 @@ def test_default_run_invokes_subprocess_without_shell(monkeypatch: pytest.Monkey
     }
 
 
+def test_default_probe_suppresses_expected_lookup_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The tracked-path probe hides stdout and stderr without enabling a shell."""
+    recorded: dict[str, object] = {}
+
+    def fake_subprocess_run(
+        cmd: Sequence[str], **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        recorded["cmd"] = list(cmd)
+        recorded["kwargs"] = kwargs
+        return subprocess.CompletedProcess(args=list(cmd), returncode=1)
+
+    monkeypatch.setattr(stage_files.subprocess, "run", fake_subprocess_run)
+
+    result = stage_files._default_probe(["git", "ls-files", "missing file.txt"])
+
+    assert result.returncode == 1
+    assert recorded == {
+        "cmd": ["git", "ls-files", "missing file.txt"],
+        "kwargs": {
+            "check": False,
+            "shell": False,
+            "stderr": subprocess.DEVNULL,
+            "stdout": subprocess.DEVNULL,
+            "text": True,
+        },
+    }
+
+
 def test_main_prints_usage_when_no_paths(capsys: pytest.CaptureFixture[str]) -> None:
     """No input exits non-zero without invoking git."""
     called = False
@@ -177,7 +207,7 @@ def test_main_preserves_tracked_spaced_files_value() -> None:
         return subprocess.CompletedProcess(args=list(cmd), returncode=0)
 
     raw = "one tracked file.txt"
-    assert stage_files.main(environ={"STAGE_FILES": raw}, run_fn=fake_run) == 0
+    assert stage_files.main(environ={"STAGE_FILES": raw}, run_fn=fake_run, probe_fn=fake_run) == 0
     assert calls == [
         ["git", "--literal-pathspecs", "ls-files", "--error-unmatch", "--", raw],
         ["git", "add", "--", raw],
@@ -193,7 +223,10 @@ def test_main_splits_unmatched_multi_file_value() -> None:
         returncode = 1 if "ls-files" in cmd else 0
         return subprocess.CompletedProcess(args=list(cmd), returncode=returncode)
 
-    assert stage_files.main(environ={"STAGE_FILES": "a.txt b.txt"}, run_fn=fake_run) == 0
+    assert (
+        stage_files.main(environ={"STAGE_FILES": "a.txt b.txt"}, run_fn=fake_run, probe_fn=fake_run)
+        == 0
+    )
     assert calls == [
         [
             "git",
