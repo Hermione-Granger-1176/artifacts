@@ -11,6 +11,7 @@ from scripts import REPO_ROOT
 from scripts.lint.make_targets import (
     MAKEFILE_PATH,
     extract_make_references,
+    find_shell_control_flow,
     iter_markdown_files,
     load_makefile_targets,
 )
@@ -40,6 +41,17 @@ def run_check(paths: list[Path] | None = None, root: Path | None = None) -> list
     for path in candidate_paths:
         violations.extend(check_file(path, known_targets, root=workspace_root))
     return violations
+
+
+def run_control_flow_check(makefile_path: Path | None = None) -> list[str]:
+    """Return recipe lines that begin raw shell control flow in the Makefile."""
+    path = makefile_path or MAKEFILE_PATH
+    return [
+        f"{path.name}:{violation.line_number}: recipe for `{violation.target}` begins "
+        f"raw shell control flow (`{violation.keyword}`); move logic into scripts/ "
+        "or allowlist it"
+        for violation in find_shell_control_flow(path.read_text(encoding="utf-8"))
+    ]
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -75,7 +87,9 @@ def main(argv: list[str] | None = None) -> int:
             candidate_paths.append(resolved_path)
 
     violations = run_check(paths=candidate_paths, root=workspace_root)
-    if not violations:
+    control_flow_violations = run_control_flow_check(workspace_root / "Makefile")
+
+    if not violations and not control_flow_violations:
         print(
             "Make target check passed for "
             f"{len(candidate_paths)} file(s) against {MAKEFILE_PATH.name}"
@@ -83,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("Make target check failed:")
-    for violation in violations:
+    for violation in (*violations, *control_flow_violations):
         print(violation)
     return 1
 

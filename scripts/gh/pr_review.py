@@ -512,6 +512,31 @@ def request_copilot_review(pr: int | None = None, *, run_fn: RunFunction | None 
         raise GhError(f"Failed to request Copilot review on PR #{pr}: {exc}") from exc
 
 
+def edit_pr(
+    pr: int | None = None,
+    *,
+    title: str | None = None,
+    body: str | None = None,
+    run_fn: RunFunction | None = None,
+) -> None:
+    """Edit a pull request's title and/or body (current branch when ``pr`` is omitted).
+
+    Passing the body as a subprocess argument keeps multiline and special-character
+    text intact without a temporary file. Raises ``GhError`` when neither a title
+    nor a body is supplied.
+    """
+    if title is None and body is None:
+        raise GhError("Provide a title or body to edit.")
+    args = ["pr", "edit"]
+    if pr is not None:
+        args.append(str(pr))
+    if title is not None:
+        args += ["--title", title]
+    if body is not None:
+        args += ["--body", body]
+    gh_runner.run_gh(args, run_fn=run_fn)
+
+
 def rollup_summary(rollup: list[dict[str, Any]]) -> str:
     """Summarize a ``statusCheckRollup`` list as a conclusion tally."""
     if not rollup:

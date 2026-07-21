@@ -17,9 +17,9 @@ from . import ci_status, commit_message, pr_review, pr_watch
 from .gh_runner import GhError
 
 
-def _add_body_options(parser: argparse.ArgumentParser) -> None:
+def _add_body_options(parser: argparse.ArgumentParser, *, required: bool = True) -> None:
     """Add shared reply body options to a subcommand parser."""
-    body_group = parser.add_mutually_exclusive_group(required=True)
+    body_group = parser.add_mutually_exclusive_group(required=required)
     body_group.add_argument("--body", help="Reply text")
     body_group.add_argument(
         "--body-file", help="Path to a file containing reply text (- reads stdin)"
@@ -84,6 +84,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--comment", required=True, help="Comment node id (PRRC_...)"
     )
 
+    edit_pr_parser = subparsers.add_parser("edit-pr", help="Edit a PR title and/or body")
+    edit_pr_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
+    edit_pr_parser.add_argument("--title", help="New PR title")
+    _add_body_options(edit_pr_parser, required=False)
+
     summary_parser = subparsers.add_parser("summary", help="One-screen PR overview")
     summary_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
 
@@ -104,6 +109,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "ci-failures", help="Show failed-step logs for the latest run"
     )
     ci_parser.add_argument("--run", type=int, help="Run id (default: latest for this branch)")
+
+    subparsers.add_parser(
+        "latest-run-id", help="Print the latest workflow run id for the current branch"
+    )
 
     copilot_parser = subparsers.add_parser(
         "copilot-review", help="Request a Copilot code review on the PR"
@@ -171,6 +180,14 @@ def _handle_delete_comment(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_edit_pr(args: argparse.Namespace) -> int:
+    """Edit a pull request's title and/or body."""
+    body = _body_text(args) if (args.body is not None or args.body_file is not None) else None
+    pr_review.edit_pr(args.pr, title=args.title, body=body)
+    print("Edited PR")
+    return 0
+
+
 def _handle_summary(args: argparse.Namespace) -> int:
     """Print the PR overview."""
     print(pr_review.pr_summary(args.pr))
@@ -194,6 +211,12 @@ def _handle_watch(args: argparse.Namespace) -> int:
 def _handle_ci_failures(args: argparse.Namespace) -> int:
     """Print failed-step logs for a run."""
     print(ci_status.failure_digest(args.run))
+    return 0
+
+
+def _handle_latest_run_id(_args: argparse.Namespace) -> int:
+    """Print the latest workflow run id for the current branch."""
+    print(ci_status.latest_run().run_id)
     return 0
 
 
@@ -227,9 +250,11 @@ COMMAND_HANDLERS = {
     "address": _handle_address,
     "list-comments": _handle_list_comments,
     "delete-comment": _handle_delete_comment,
+    "edit-pr": _handle_edit_pr,
     "summary": _handle_summary,
     "watch": _handle_watch,
     "ci-failures": _handle_ci_failures,
+    "latest-run-id": _handle_latest_run_id,
     "copilot-review": _handle_copilot_review,
     "check-commit-message": _handle_check_commit_message,
 }

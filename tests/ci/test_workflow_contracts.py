@@ -358,12 +358,18 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
 
 
 def test_browser_make_targets_retry_only_failed_tests_once() -> None:
-    """Browser Make targets retry their failed tests and surface flaky passes."""
-    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    """Browser Make targets retry their failed tests and surface flaky passes.
 
-    assert "--last-failed --last-failed-no-failures none" in makefile
-    assert "FLAKY BROWSER TESTS" in makefile
-    assert "A retry passed after an initial failure." in makefile
+    The retry-once policy lives in the tested ``scripts.ci.run_browser_tests``
+    helper; the Makefile routes its browser targets through it.
+    """
+    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    helper = (REPO_ROOT / "scripts/ci/run_browser_tests.py").read_text(encoding="utf-8")
+
+    assert "scripts.ci.run_browser_tests" in makefile
+    assert '"--last-failed", "--last-failed-no-failures", "none"' in helper
+    assert "FLAKY BROWSER TESTS" in helper
+    assert "A retry passed after an initial failure." in helper
 
 
 def test_update_publish_job_writes_classic_deployment_records() -> None:
