@@ -528,7 +528,7 @@ def edit_pr(
     ``--body``. Raises ``GhError`` when no title, body, or body file is supplied.
     """
     if title is None and body is None and body_file is None:
-        raise GhError("Provide a title or body to edit.")
+        raise GhError("Provide a title, body, or body file to edit.")
     args = ["pr", "edit"]
     if pr is not None:
         args.append(str(pr))
