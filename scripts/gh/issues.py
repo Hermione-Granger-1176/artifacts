@@ -29,6 +29,20 @@ def _require_mapping(value: Any, message: str) -> dict[str, Any]:
     return value
 
 
+def _required_number(value: Any) -> int:
+    """Return a required issue number, rejecting missing or non-integer values."""
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise GhError("Unexpected number shape in issue view response.")
+    return value
+
+
+def _required_text(value: Any, field: str) -> str:
+    """Return a required non-empty text field from an issue response."""
+    if not isinstance(value, str) or not value:
+        raise GhError(f"Unexpected {field} shape in issue view response.")
+    return value
+
+
 def _login(value: Any) -> str:
     """Return an actor's login (``unknown`` for a null author or missing login).
 
@@ -88,14 +102,18 @@ def issue_summary(issue: int, *, run_fn: RunFunction | None = None) -> str:
         gh_runner.gh_json(["issue", "view", str(issue), "--json", _ISSUE_FIELDS], run_fn=run_fn),
         f"Unexpected issue view response shape for issue {issue}.",
     )
+    number = _required_number(meta.get("number"))
+    state = _required_text(meta.get("state"), "state")
+    title = _required_text(meta.get("title"), "title")
+    url = _required_text(meta.get("url"), "url")
     labels = _names(meta.get("labels"), "name", "Unexpected labels shape in issue view response.")
     assignees = _names(
         meta.get("assignees"), "login", "Unexpected assignees shape in issue view response."
     )
     comments = _comment_list(meta.get("comments"))
     lines = [
-        f"Issue #{meta.get('number')} [{meta.get('state')}] {meta.get('title')}",
-        f"  {meta.get('url')}",
+        f"Issue #{number} [{state}] {title}",
+        f"  {url}",
         f"  author: @{_login(meta.get('author'))}",
         f"  labels: {', '.join(labels) or 'none'}",
         f"  assignees: {', '.join(f'@{login}' for login in assignees) or 'none'}",

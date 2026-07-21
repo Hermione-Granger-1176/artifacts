@@ -74,6 +74,31 @@ def test_issue_summary_handles_empty_optional_fields() -> None:
     assert "recent comments:" not in text
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("number", "5"),
+        ("number", True),
+        ("state", None),
+        ("title", None),
+        ("title", ""),
+        ("url", None),
+    ],
+)
+def test_issue_summary_rejects_invalid_required_fields(field: str, value: object) -> None:
+    """Missing or malformed required metadata surfaces as a field-specific GhError."""
+    payload: dict[str, object] = {
+        "number": 5,
+        "title": "Issue title",
+        "state": "OPEN",
+        "url": "https://example/issues/5",
+    }
+    payload[field] = value
+
+    with pytest.raises(GhError, match=field):
+        issues.issue_summary(5, run_fn=_issue_runner(payload))
+
+
 def test_issue_summary_non_dict_payload_raises() -> None:
     """A non-mapping ``gh issue view`` payload surfaces as a GhError."""
     with pytest.raises(GhError):
