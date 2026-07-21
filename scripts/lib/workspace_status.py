@@ -48,16 +48,22 @@ def _default_run(
 
 
 def _succeeds(
-    cmd: Sequence[str], *, cwd: Path, run_fn: Runner
+    cmd: Sequence[str],
+    *,
+    cwd: Path,
+    run_fn: Runner,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str] | None:
     """Return the completed process, or ``None`` when the tool cannot launch.
 
     Mirrors the shell ``cmd >/dev/null 2>&1 && ... || ...`` idiom, where a
     command that cannot even launch (missing, not executable, wrong format)
-    counts as a plain failure. ``OSError`` covers every such launch error.
+    counts as a plain failure. ``OSError`` covers every such launch error. Every
+    subprocess in this module routes through here so no launch failure can hard
+    fail ``make status``.
     """
     try:
-        return run_fn(cmd, cwd=cwd)
+        return run_fn(cmd, cwd=cwd, env=env)
     except OSError:
         return None
 
@@ -126,13 +132,18 @@ def write_status(
     # --- Pull request ---
     emit("=== Pull request ===")
     if venv_ok:
-        summary = run(
+        summary = _succeeds(
             [venv_python, "-m", "scripts.gh.cli", "summary"],
             cwd=root,
+            run_fn=run,
             env={**os.environ, "PYTHONPATH": "."},
         )
-        out.write(summary.stdout)
-        out.write(summary.stderr)
+        # Old shell ran ``$(GH) summary || true``: any failure, including a
+        # launch failure, is swallowed and the target still succeeds. A launch
+        # failure yields ``None`` here, so nothing extra is printed.
+        if summary is not None:
+            out.write(summary.stdout)
+            out.write(summary.stderr)
     else:
         emit("SKIPPED: venv missing, run make setup")
 
@@ -156,14 +167,18 @@ def _write_generated_files(
         )
         return
 
-    drift = run([venv_python, DRIFT_CHECKER], cwd=root)
-    if drift.returncode == 0:
+    drift = _succeeds([venv_python, DRIFT_CHECKER], cwd=root, run_fn=run)
+    if drift is not None and drift.returncode == 0:
         emit("OK: js/data.js, js/gallery-config.js, css/style.css, README markers up to date")
         return
+    # Old shell: any failure (a nonzero exit or a launch failure) falls through
+    # to the STALE branch with whatever drift text was captured, which is empty
+    # on a launch failure (``drift`` is ``None`` here).
     emit("STALE: run make index && make styles")
-    for line in drift.stdout.splitlines():
-        if line.startswith("- "):
-            emit(f"  {line}")
+    if drift is not None:
+        for line in drift.stdout.splitlines():
+            if line.startswith("- "):
+                emit(f"  {line}")
 
 
 def main(argv: list[str] | None = None) -> int:

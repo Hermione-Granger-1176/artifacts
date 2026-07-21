@@ -148,6 +148,52 @@ def test_drift_and_stale_locks_with_venv(tmp_path: Path) -> None:
     assert "noise line" not in report
 
 
+def test_summary_launch_failure_is_swallowed(tmp_path: Path) -> None:
+    """A PR summary that cannot launch is swallowed, matching ``$(GH) summary || true``."""
+    _make_venv(tmp_path)
+
+    runner = FakeRun(
+        [
+            (_first("git"), _proc(0, "## main\n", "")),
+            (_first("uv"), _proc(0)),
+            (_first("npm"), _proc(0)),
+            (_contains(workspace_status.DRIFT_CHECKER), _proc(0)),
+            (_contains("summary"), OSError("interpreter is not executable")),
+        ]
+    )
+
+    report = _render(tmp_path, runner)
+
+    # The launch failure prints nothing extra, and the target still succeeds:
+    # the report simply stops after the Pull request header.
+    assert report.rstrip().endswith("=== Pull request ===")
+    assert "Traceback" not in report
+
+
+def test_drift_launch_failure_falls_through_to_stale(tmp_path: Path) -> None:
+    """A drift check that cannot launch reports STALE with no drift lines, not a crash."""
+    _make_venv(tmp_path)
+
+    runner = FakeRun(
+        [
+            (_first("git"), _proc(0, "## main\n", "")),
+            (_first("uv"), _proc(0)),
+            (_first("npm"), _proc(0)),
+            (
+                _contains(workspace_status.DRIFT_CHECKER),
+                OSError("interpreter is not executable"),
+            ),
+            (_contains("summary"), _proc(0, "No pull request found.\n")),
+        ]
+    )
+
+    report = _render(tmp_path, runner)
+
+    assert "STALE: run make index && make styles" in report
+    assert "  - " not in report
+    assert "No pull request found." in report
+
+
 def test_venv_python_path_absolute_is_unchanged(tmp_path: Path) -> None:
     """An absolute interpreter path is used verbatim."""
     absolute = tmp_path / "python"
