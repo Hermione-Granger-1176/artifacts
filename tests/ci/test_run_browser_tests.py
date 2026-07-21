@@ -102,6 +102,22 @@ def test_flaky_retry_pass_warns_and_writes_summary(
     assert summary_path.read_text(encoding="utf-8") == run_browser_tests.FLAKY_SUMMARY
 
 
+def test_flaky_retry_pass_survives_unwritable_summary(tmp_path: Path) -> None:
+    """A flaky pass still returns 0 when the summary path cannot be written."""
+    unwritable = tmp_path / "missing-dir" / "summary.md"
+    runner = FakeRunner([1, 0])
+
+    status = run_browser_tests.run_browser_tests(
+        ["tests/browser/test_smoke.py"],
+        base_env={run_browser_tests.STEP_SUMMARY_ENV_VAR: str(unwritable)},
+        run_fn=runner,
+        warn=lambda _message: None,
+    )
+
+    assert status == 0
+    assert not unwritable.exists()
+
+
 def test_flaky_retry_pass_without_summary_env_skips_file(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

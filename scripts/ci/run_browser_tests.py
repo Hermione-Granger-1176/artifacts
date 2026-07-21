@@ -22,6 +22,7 @@ Invoke as ``python -m scripts.ci.run_browser_tests [--env KEY=VAL ...]
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import subprocess
 import sys
@@ -54,12 +55,17 @@ def _emit_warning(message: str) -> None:
 
 
 def _append_flaky_summary(env: Mapping[str, str]) -> None:
-    """Append the flaky-test note to ``GITHUB_STEP_SUMMARY`` when it is set."""
+    """Append the flaky-test note to ``GITHUB_STEP_SUMMARY`` when it is set.
+
+    Best effort: a flaky retry still succeeds even if the summary path cannot be
+    written, matching the old shell macro that ran the append under ``set +e``.
+    """
     summary_path = env.get(STEP_SUMMARY_ENV_VAR, "").strip()
     if not summary_path:
         return
-    with Path(summary_path).open("a", encoding="utf-8") as summary_file:
-        summary_file.write(FLAKY_SUMMARY)
+    summary = Path(summary_path)
+    with contextlib.suppress(OSError), summary.open("a", encoding="utf-8") as handle:
+        handle.write(FLAKY_SUMMARY)
 
 
 def run_browser_tests(
