@@ -57,6 +57,22 @@ def test_extra_env_is_merged() -> None:
     assert env["ARTIFACTS_BROWSER_ENGINE"] == "webkit"
 
 
+def test_extra_env_cannot_disable_the_required_gate() -> None:
+    """The required flag wins over an --env pair so the gate cannot be turned off."""
+    runner = FakeRunner([0])
+
+    run_browser_tests.run_browser_tests(
+        ["tests/browser/test_smoke.py"],
+        extra_env={run_browser_tests.REQUIRE_BROWSER_TESTS_ENV_VAR: "0"},
+        base_env={},
+        run_fn=runner,
+        warn=lambda _message: None,
+    )
+
+    _flags, env = runner.calls[0]
+    assert env[run_browser_tests.REQUIRE_BROWSER_TESTS_ENV_VAR] == "1"
+
+
 def test_flaky_retry_pass_warns_and_writes_summary(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

@@ -72,8 +72,9 @@ def run_browser_tests(
 ) -> int:
     """Run browser pytest files with one retry, returning the final exit code."""
     env = dict(os.environ if base_env is None else base_env)
-    env[REQUIRE_BROWSER_TESTS_ENV_VAR] = "1"
     env.update(extra_env or {})
+    # Set the required flag last so an --env pair cannot disable the gate.
+    env[REQUIRE_BROWSER_TESTS_ENV_VAR] = "1"
 
     runner = run_fn or _default_run
     emit = warn or _emit_warning
