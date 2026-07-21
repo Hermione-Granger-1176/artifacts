@@ -305,8 +305,7 @@ Describe what this artifact does.
 index.html
 css/app.css
 js/
-├── app.js
-└── modules/
+└── app.js
 docs/
 ```
 

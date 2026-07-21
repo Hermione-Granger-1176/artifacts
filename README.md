@@ -36,7 +36,7 @@
 
 ## What it is
 
-Each directory under `apps/` is a standalone HTML page on a focused topic: bond math, token sampling, loan schedules, prompt caching, and more. Browse the [live site](<!-- AUTO:SITE_URL -->https://hermione-granger-1176.github.io/artifacts/<!-- /AUTO:SITE_URL -->) for searchable thumbnails, multi-select filters, and detail overlays.
+Each directory under `apps/` is a standalone HTML page on a focused topic: bond math, token sampling, loan schedules, prompt caching, and more. Browse the live site at <!-- AUTO:SITE_URL -->https://hermione-granger-1176.github.io/artifacts/<!-- /AUTO:SITE_URL --> for searchable thumbnails, multi-select filters, and detail overlays.
 
 <!-- AUTO:TOTAL_COUNT -->4<!-- /AUTO:TOTAL_COUNT --> artifacts published so far.
 
