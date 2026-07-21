@@ -602,7 +602,8 @@ issue: ## Issue commands (make issue)
 	@$(MAKE) --no-print-directory help-issue
 
 issue-list: export ISSUE_SEARCH := $(search)
-issue-list: ## List issues (make issue-list [state=open|closed|all] [label=bug] [assignee=@me] [author=user] [search="..."] [limit=N] [mine=1])
+issue-list: ## List issues (make issue-list [state=open|closed|all] [label=bug] [assignee=user OR mine=1] [author=user] [search="..."] [limit=N])
+	@test -z "$(and $(assignee),$(filter 1,$(mine)))" || { printf 'Use assignee=user or mine=1, not both.\n' >&2; exit 1; }
 	gh issue list $(if $(state),--state "$(state)") $(if $(label),--label "$(label)") $(if $(assignee),--assignee "$(assignee)") $(if $(filter 1,$(mine)),--assignee @me) $(if $(author),--author "$(author)") $(if $(search),--search "$$ISSUE_SEARCH") $(if $(limit),--limit $(limit))
 
 issue-view: ## Show an issue with its comments (make issue-view issue=N)
