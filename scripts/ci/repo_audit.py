@@ -166,7 +166,7 @@ def enabled_security_features(repository: dict[str, object]) -> set[str]:
     raw = repository.get("security_and_analysis")
     if not isinstance(raw, dict):
         return set()
-    enabled = set()
+    enabled: set[str] = set()
     for name, setting in raw.items():
         if (
             isinstance(name, str)
