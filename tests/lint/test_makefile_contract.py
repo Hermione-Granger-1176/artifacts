@@ -55,7 +55,13 @@ def test_vulture_scope_comes_from_its_own_config() -> None:
 
 def test_lock_node_update_bumps_selected_packages_only() -> None:
     """Selected lockfile bumps stay narrow instead of refreshing the whole lockfile."""
-    assert "$(NPM) update --package-lock-only $(packages)" in target_recipe("lock-node-update")
+    recipe = target_recipe("lock-node-update")
+
+    # Each name becomes its own quoted word, so a value carrying whitespace or a
+    # shell metacharacter reaches npm as one package name instead of being split
+    # or interpreted by /bin/sh.
+    assert '$(NPM) update --package-lock-only $(foreach pkg,$(packages),"$(pkg)")' in recipe
+    assert "--package-lock-only $(packages)" not in recipe
 
 
 def test_lock_node_update_guards_its_required_argument() -> None:
@@ -139,8 +145,11 @@ def test_ci_rerun_replays_a_run_and_can_narrow_to_failed_jobs() -> None:
 
     assert 'gh run rerun "$$run_id"' in recipe
     # Without this, a partially green run can only be replayed in full, which
-    # re-uploads artifacts the surviving jobs already produced.
-    assert "$(if $(failed),--failed)" in recipe
+    # re-uploads artifacts the surviving jobs already produced. Gated on the
+    # literal 1 like local_libs, so failed=0 reads as off rather than as merely
+    # non-empty and therefore on.
+    assert "$(if $(filter 1,$(failed)),--failed)" in recipe
+    assert "$(if $(failed),--failed)" not in recipe
 
 
 def test_ci_dispatch_starts_a_fresh_run_with_optional_inputs() -> None:

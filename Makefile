@@ -375,7 +375,7 @@ lock-node: ## Refresh package-lock.json after Node dependency changes
 
 lock-node-update: ## Update selected Node packages in the lockfile (packages="package ...")
 	$(call need,packages,make lock-node-update packages="package ...")
-	$(NPM) update --package-lock-only $(packages)
+	$(NPM) update --package-lock-only $(foreach pkg,$(packages),"$(pkg)")
 
 fix-deps: ## Refresh locks, reinstall, and npm audit fix
 	$(MAKE) lock
@@ -724,7 +724,7 @@ ci-run: ## Show one CI workflow run (make ci-run [run=ID], defaults to this bran
 ci-rerun: ## Re-run one CI workflow run (make ci-rerun [run=ID] [failed=1], defaults to this branch's latest)
 	@run_id="$(RUN_ID)"; \
 	test -n "$$run_id" || { printf 'Usage: make ci-rerun run=123456 (or run on a branch with a resolvable latest run)\n' >&2; exit 1; }; \
-	gh run rerun "$$run_id" $(if $(failed),--failed)
+	gh run rerun "$$run_id" $(if $(filter 1,$(failed)),--failed)
 
 # Prefer this over re-running a run whose jobs already uploaded an artifact:
 # attempts share one artifact namespace, so replaying a failed publish leaves two
