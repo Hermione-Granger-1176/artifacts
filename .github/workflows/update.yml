@@ -195,7 +195,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           node-version: ${{ env.NODE_VERSION }}
           install-deps: "true"
-          install-browsers: "false"
+          browser-engines: ""
 
       - name: Run quick gates
         run: make ci-quick-gates
@@ -224,7 +224,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           node-version: ${{ env.NODE_VERSION }}
           install-deps: "true"
-          install-browsers: "false"
+          browser-engines: ""
 
       - name: Run heavy checks
         env:
@@ -389,7 +389,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           node-version: ${{ env.NODE_VERSION }}
           install-deps: "true"
-          install-browsers: "false"
+          browser-engines: ""
 
       - name: Merge shard thumbnails
         run: make ci-merge-shard-results root=.artifacts/shard-results

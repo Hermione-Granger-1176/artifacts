@@ -213,8 +213,8 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     assert "make ci-coverage-summary report=js-coverage.txt" in _step_run(
         heavy, "Report JavaScript coverage"
     )
-    assert _step_with(quick, "CI setup")["install-browsers"] == "false"
-    assert _step_with(heavy, "CI setup")["install-browsers"] == "false"
+    assert _step_with(quick, "CI setup")["browser-engines"] == ""
+    assert _step_with(heavy, "CI setup")["browser-engines"] == ""
     root_browser = _job(workflow, "root-browser")
     assert "make test-browser-root" in _step_run(root_browser, "Run root browser verification")
     # WebKit is requested through the cache key rather than installed in a later
@@ -252,7 +252,7 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     )
 
     assemble = _job(workflow, "assemble-site")
-    assert _step_with(assemble, "CI setup")["install-browsers"] == "false"
+    assert _step_with(assemble, "CI setup")["browser-engines"] == ""
     download_results = _step(assemble, "Download shard thumbnail results")
     assert download_results["with"]["pattern"] == "app-shard-${{ github.run_id }}-*"
     assert "make ci-merge-shard-results root=.artifacts/shard-results" in _step_run(
@@ -897,7 +897,7 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
         assert _step_uses(_job(update, job_name), "CI setup") == "./.github/actions/ci-setup"
         assert _step_with(_job(update, job_name), "CI setup")["install-deps"] == "true"
     for job_name in ("quick-gates", "heavy-checks", "assemble-site"):
-        assert _step_with(_job(update, job_name), "CI setup")["install-browsers"] == "false"
+        assert _step_with(_job(update, job_name), "CI setup")["browser-engines"] == ""
     # Publish caches browsers through ci-setup now, so it no longer carries its
     # own duplicate of that step.
     assert all(
@@ -908,9 +908,7 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
         for step in ci_setup["runs"]["steps"]
         if step.get("name") == "Cache Playwright browsers"
     )
-    assert (
-        ci_setup_cache["if"] == "inputs.install-deps == 'true' && inputs.install-browsers == 'true'"
-    )
+    assert ci_setup_cache["if"] == "inputs.install-deps == 'true' && inputs.browser-engines != ''"
     assert ci_setup_cache["id"] == "playwright-cache"
     # The engine set is part of the key so a restored entry can never be a subset
     # of what the job needs. Keyed on the lockfile alone, whichever browser job
@@ -920,7 +918,10 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
     assert ci_setup_cache["with"]["key"] == (
         "playwright-${{ hashFiles('uv.lock') }}-${{ inputs.browser-engines }}"
     )
-    assert ci_setup["inputs"]["install-browsers"]["default"] == "true"
+    # One browser knob, not two. An engine set says both whether to install and
+    # what to install, so a caller cannot ask for no browsers and an engine at
+    # the same time, and the key cannot disagree with what was installed.
+    assert "install-browsers" not in ci_setup["inputs"]
     assert ci_setup["inputs"]["browser-engines"]["default"] == "chromium"
     venv_cache = next(
         step
