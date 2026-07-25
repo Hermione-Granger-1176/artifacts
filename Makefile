@@ -373,7 +373,7 @@ lock: ## Refresh uv.lock after Python dependency changes
 lock-node: ## Refresh package-lock.json after Node dependency changes
 	$(NPM) install --package-lock-only
 
-lock-node-update: ## Update selected transitive Node packages in the lockfile (packages="package ...")
+lock-node-update: ## Update selected Node packages in the lockfile (packages="package ...")
 	$(call need,packages,make lock-node-update packages="package ...")
 	$(NPM) update --package-lock-only $(packages)
 
@@ -395,17 +395,21 @@ status: ## Show workspace health (git, venv, node, generated files, PR)
 # reuses, so this target must never grow a path that reaches outside the repo.
 # Every other path below is a fixed repository-relative literal, so VENV is the
 # one way this rm -rf can be aimed elsewhere. It is ?=, and make imports the
-# environment, so an unrelated exported VENV would silently redirect it. Keep
-# the value only when it resolves under CURDIR, and let the recipe refuse the
-# empty result rather than delete a shorter path.
-CLEAN_VENV = $(if $(filter $(CURDIR)/%,$(abspath $(VENV))),$(abspath $(VENV)))
+# environment, so an unrelated exported VENV would silently redirect it. Make
+# functions split on whitespace, so a VENV holding spaces would expand into
+# several paths that each pass a containment filter and each get deleted. Keep
+# the value only when VENV is a single word that resolves under CURDIR, and let
+# the recipe refuse the empty result rather than delete a shorter path. The
+# expansion is quoted in the recipe too, while the fixed literals stay unquoted
+# so *.egg-info still globs.
+CLEAN_VENV = $(if $(filter 1,$(words $(VENV))),$(filter $(CURDIR)/%,$(abspath $(VENV))))
 
 clean: ## Remove local environments, build outputs, and caches (keeps shared Playwright browsers)
 	@test -n "$(CLEAN_VENV)" || { \
-		printf 'Refusing to clean: VENV=%s resolves outside %s\n' '$(VENV)' '$(CURDIR)' >&2; \
+		printf 'Refusing to clean: VENV=%s is not a single path under %s\n' '$(VENV)' '$(CURDIR)' >&2; \
 		exit 1; \
 	}
-	rm -rf $(CLEAN_VENV) node_modules _site .artifacts .playwright .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
+	rm -rf "$(CLEAN_VENV)" node_modules _site .artifacts .playwright .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
 
 help: ## Show command groups (expand one with make help-<group>)
 	@printf '\n  \033[1mmake <target>\033[0m   ·   expand a group: \033[1mmake help-<group>\033[0m   ·   machine-readable: \033[1mmake help-json\033[0m\n'
@@ -704,7 +708,7 @@ issue-develop: ## Create and check out a branch linked to an issue (make issue-d
 
 # ─── CI @ci ───────────────────────────────────────────────────────────────────
 
-.PHONY: ci-runs ci-pages-runs ci-run ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-schedule-watchdog ci-alert-issue refresh-action-shas
+.PHONY: ci-runs ci-pages-runs ci-run ci-rerun ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-schedule-watchdog ci-alert-issue refresh-action-shas
 
 ci-runs: ## List recent CI workflow runs
 	gh run list -L "$(if $(limit),$(limit),10)"
@@ -716,6 +720,11 @@ ci-run: ## Show one CI workflow run (make ci-run [run=ID], defaults to this bran
 	@run_id="$(RUN_ID)"; \
 	test -n "$$run_id" || { printf 'Usage: make ci-run run=123456 (or run on a branch with a resolvable latest run)\n' >&2; exit 1; }; \
 	gh run view "$$run_id"
+
+ci-rerun: ## Re-run one CI workflow run (make ci-rerun [run=ID] [failed=1], defaults to this branch's latest)
+	@run_id="$(RUN_ID)"; \
+	test -n "$$run_id" || { printf 'Usage: make ci-rerun run=123456 (or run on a branch with a resolvable latest run)\n' >&2; exit 1; }; \
+	gh run rerun "$$run_id" $(if $(failed),--failed)
 
 ci-run-log: ## Show failed logs for one CI workflow run (make ci-run-log [run=ID], defaults to this branch's latest)
 	@run_id="$(RUN_ID)"; \

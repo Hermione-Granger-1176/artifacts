@@ -6,6 +6,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MAKEFILE_TEXT = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
 
+# Make joins a trailing backslash to the next line, so a long .PHONY list can be
+# wrapped without changing what it declares. Assertions about declarations match
+# against this collapsed view so they track behavior rather than line breaks;
+# recipe bodies keep using MAKEFILE_TEXT, where the line structure is the point.
+MAKEFILE_LOGICAL_LINES = re.sub(r"\\\n[ \t]*", " ", MAKEFILE_TEXT)
+
 # Playwright installs browsers into this user-level cache, which every other
 # project on the machine reuses and which is therefore not ours to delete.
 SHARED_BROWSER_CACHE = "ms-playwright"
@@ -61,7 +67,7 @@ def test_lock_node_update_guards_its_required_argument() -> None:
 
 def test_lock_node_update_is_phony_and_documented() -> None:
     """The target joins its section's .PHONY list and carries a help description."""
-    assert re.search(r"^\.PHONY:.*\block-node-update\b", MAKEFILE_TEXT, re.MULTILINE)
+    assert re.search(r"^\.PHONY:.*\block-node-update\b", MAKEFILE_LOGICAL_LINES, re.MULTILINE)
     assert re.search(r"^lock-node-update:.*## \S", MAKEFILE_TEXT, re.MULTILINE)
 
 
@@ -94,15 +100,18 @@ def test_clean_cannot_be_aimed_outside_the_repository() -> None:
     # Pinned as the whole expression rather than its parts. Asserting only that
     # CURDIR and abspath appear would still pass if filter became filter-out,
     # which inverts the guard into deleting exactly the paths it should refuse.
+    # The words guard is part of the pin: make splits on whitespace, so without
+    # it a VENV holding spaces expands into several separately deleted paths.
     assert (
-        "CLEAN_VENV = $(if $(filter $(CURDIR)/%,$(abspath $(VENV))),$(abspath $(VENV)))"
+        "CLEAN_VENV = $(if $(filter 1,$(words $(VENV))),$(filter $(CURDIR)/%,$(abspath $(VENV))))"
         in MAKEFILE_TEXT
     )
 
     recipe = target_recipe("clean")
 
-    # The guarded value is what gets deleted, and the bare one never appears.
-    assert "rm -rf $(CLEAN_VENV)" in recipe
+    # The guarded value is what gets deleted, quoted so it stays one argument,
+    # and the bare one never appears.
+    assert 'rm -rf "$(CLEAN_VENV)"' in recipe
     assert "rm -rf $(VENV)" not in recipe
     # An empty result means VENV escaped the repository, so the recipe stops
     # rather than falling through to deleting the remaining shorter paths.
