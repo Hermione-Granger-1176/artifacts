@@ -16,6 +16,15 @@ EXPECTED_REPOSITORY_SECRETS = {
     "GITLEAKS_LICENSE",
 }
 EXPECTED_PAGES_BUILD_TYPE = "workflow"
+# GitHub's own secret scanning, which is free on public repositories. It is the
+# layer the gitleaks job cannot provide: push protection refuses the push that
+# carries a secret, rather than reporting it once it is already in history and
+# the credential has to be rotated regardless. The three GitHub App private keys
+# in EXPECTED_REPOSITORY_SECRETS are what makes that distinction matter here.
+EXPECTED_SECURITY_ANALYSIS = {
+    "secret_scanning",
+    "secret_scanning_push_protection",
+}
 EXPECTED_PAGES_RULESET_RULES = {
     "creation",
     "deletion",
@@ -147,6 +156,27 @@ def load_ruleset_detail(
     return cast("dict[str, object]", detail)
 
 
+def enabled_security_features(repository: dict[str, object]) -> set[str]:
+    """Return the security_and_analysis features reported as enabled.
+
+    The block is absent for callers without administration access, which reads
+    the same as every feature being off. That is the safe direction: the audit
+    reports it as drift rather than certifying a setting it could not see.
+    """
+    raw = repository.get("security_and_analysis")
+    if not isinstance(raw, dict):
+        return set()
+    enabled: set[str] = set()
+    for name, setting in raw.items():
+        if (
+            isinstance(name, str)
+            and isinstance(setting, dict)
+            and setting.get("status") == "enabled"
+        ):
+            enabled.add(name)
+    return enabled
+
+
 def audit_repo_settings(
     *,
     repo: str,
@@ -229,6 +259,14 @@ def audit_repo_settings(
     if pages_https_enforced is not True:
         issues.append("Pages HTTPS is not enforced")
 
+    security_features = enabled_security_features(repository)
+    append_missing_items(
+        issues,
+        actual=security_features,
+        expected=EXPECTED_SECURITY_ANALYSIS,
+        label="security and analysis features",
+    )
+
     required_checks = extract_required_checks(protection)
     branch_label = f"{default_branch} branch protection"
 
@@ -300,5 +338,6 @@ def audit_repo_settings(
         "pages-https-enforced": pages_https_enforced,
         "pages-path": pages_source_path,
         "required-checks": sorted(required_checks),
+        "security-features": sorted(security_features),
         "gh-pages-ruleset": True,
     }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -971,6 +972,49 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
     assert (
         "uv-${{ runner.os }}-${{ inputs.python-version }}-" in ci_uv_cache["with"]["restore-keys"]
     )
+
+
+def test_secret_scan_is_scoped_away_from_published_build_output() -> None:
+    """The scan covers source history and skips the copies CI publishes of it.
+
+    secret-scan checks out with fetch-depth 0, so an event with no commit range
+    walks every branch including gh-pages, where each pull request leaves a built
+    copy of the site under pr-preview/. That produced 75 generic-api-key hits on
+    minified bundles and, because secret-scan is a required check, made the
+    documented workflow_dispatch rollback impossible to run.
+    """
+    update = _load_workflow("update.yml")
+    scan = _step(_job(update, "secret-scan"), "Scan for committed secrets")
+
+    assert scan["env"]["GITLEAKS_CONFIG"] == "${{ github.workspace }}/.gitleaks.toml"
+
+    config = tomllib.loads((REPO_ROOT / ".gitleaks.toml").read_text(encoding="utf-8"))
+
+    # The default rule set stays on; only the path scope narrows.
+    assert config["extend"]["useDefault"] is True
+
+    # Nothing else may be excluded: pr-preview is safe to skip only because CI
+    # assembles it from source this same scan still covers in full. Asserting the
+    # whole allowlist, not just its paths, so a later commits/regexes/stopwords
+    # key cannot widen the scope past what this contract describes.
+    allowlist = config["allowlist"]
+    assert allowlist["paths"] == ["^pr-preview/"]
+    assert set(allowlist) <= {"description", "paths"}
+    assert "rules" not in config
+
+    # Individually reviewed historical findings are accepted by fingerprint
+    # instead, which pins rule, file, line, and commit, so the same file stays
+    # scanned and a new finding in it still fails.
+    fingerprints = [
+        line
+        for line in (REPO_ROOT / ".gitleaksignore").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    assert fingerprints
+    for fingerprint in fingerprints:
+        commit, path, rule, line_number = fingerprint.split(":")
+        assert re.fullmatch(r"[0-9a-f]{40}", commit)
+        assert path and rule and line_number.isdigit()
 
 
 def test_ci_setup_restores_download_caches_only_when_an_install_will_run() -> None:

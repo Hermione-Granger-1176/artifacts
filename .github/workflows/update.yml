@@ -539,11 +539,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      # GITLEAKS_CONFIG is set explicitly rather than relying on root discovery,
+      # so the scope stays wired to a file the workflow contract test pins.
       - name: Scan for committed secrets
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          GITLEAKS_CONFIG: ${{ github.workspace }}/.gitleaks.toml
 
   dependency-review:
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
