@@ -54,7 +54,7 @@ def test_vulture_scope_comes_from_its_own_config() -> None:
 
 
 def test_lock_node_update_bumps_selected_packages_only() -> None:
-    """Transitive lockfile bumps stay narrow instead of refreshing the whole lockfile."""
+    """Selected lockfile bumps stay narrow instead of refreshing the whole lockfile."""
     assert "$(NPM) update --package-lock-only $(packages)" in target_recipe("lock-node-update")
 
 
