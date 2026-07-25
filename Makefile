@@ -738,9 +738,12 @@ ci-dispatch: ## Start a fresh workflow run (make ci-dispatch workflow=update.yml
 ci-caches: ## List Actions caches, largest first (make ci-caches [limit=N] [key=prefix])
 	gh cache list --limit "$(if $(limit),$(limit),30)" --sort size_in_bytes --order desc $(if $(key),--key "$(key)")
 
-ci-cache-delete: ## Delete one Actions cache (make ci-cache-delete cache=ID_or_key)
-	$(call need,cache,make ci-cache-delete cache=1234 OR cache=my-cache-key)
-	gh cache delete "$(cache)"
+# gh takes an id or a key in the same positional slot, so one variable covers
+# both. A key is not unique on its own: the same key exists once per ref, and gh
+# resolves it against the current branch unless ref= names another one.
+ci-cache-delete: ## Delete one Actions cache (make ci-cache-delete cache=ID_or_key [ref=refs/heads/BRANCH])
+	$(call need,cache,make ci-cache-delete cache=1234 OR cache=my-cache-key [ref=refs/heads/main])
+	gh cache delete "$(cache)" $(if $(ref),--ref "$(ref)")
 
 ci-run-log: ## Show failed logs for one CI workflow run (make ci-run-log [run=ID], defaults to this branch's latest)
 	@run_id="$(RUN_ID)"; \

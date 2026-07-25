@@ -194,7 +194,12 @@ def test_ci_cache_delete_guards_its_required_argument() -> None:
     recipe = target_recipe("ci-cache-delete")
 
     assert "$(call need,cache," in recipe
+    # gh accepts an id or a key in the one positional slot, so a single variable
+    # serves both; there is no --key flag to route a key through.
     assert 'gh cache delete "$(cache)"' in recipe
+    # A key resolves against the current branch unless a ref disambiguates it,
+    # and retired keys usually have one entry per ref that once built them.
+    assert '$(if $(ref),--ref "$(ref)")' in recipe
 
 
 def test_ci_run_targets_are_phony_and_documented() -> None:
