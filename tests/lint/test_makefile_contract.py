@@ -81,3 +81,30 @@ def test_clean_keeps_the_shared_playwright_browser_cache() -> None:
 def test_clean_documents_that_it_keeps_shared_browsers() -> None:
     """The intent is stated in the help text, not left implicit in the path list."""
     assert re.search(r"^clean:.*## .*keeps shared Playwright browsers", MAKEFILE_TEXT, re.MULTILINE)
+
+
+def test_clean_cannot_be_aimed_outside_the_repository() -> None:
+    """The only variable path in the rm -rf is confined to the repository.
+
+    Every other entry is a fixed repository-relative literal, so VENV is the one
+    way this recipe can be pointed elsewhere. It is set with ?= and make imports
+    the environment, so an unrelated exported VENV would otherwise redirect an
+    rm -rf into the user's home with no flag and no warning.
+    """
+    # Pinned as the whole expression rather than its parts. Asserting only that
+    # CURDIR and abspath appear would still pass if filter became filter-out,
+    # which inverts the guard into deleting exactly the paths it should refuse.
+    assert (
+        "CLEAN_VENV = $(if $(filter $(CURDIR)/%,$(abspath $(VENV))),$(abspath $(VENV)))"
+        in MAKEFILE_TEXT
+    )
+
+    recipe = target_recipe("clean")
+
+    # The guarded value is what gets deleted, and the bare one never appears.
+    assert "rm -rf $(CLEAN_VENV)" in recipe
+    assert "rm -rf $(VENV)" not in recipe
+    # An empty result means VENV escaped the repository, so the recipe stops
+    # rather than falling through to deleting the remaining shorter paths.
+    assert 'test -n "$(CLEAN_VENV)"' in recipe
+    assert "exit 1" in recipe

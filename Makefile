@@ -373,7 +373,7 @@ lock: ## Refresh uv.lock after Python dependency changes
 lock-node: ## Refresh package-lock.json after Node dependency changes
 	$(NPM) install --package-lock-only
 
-lock-node-update: ## Update selected transitive Node packages in the lockfile (packages="name ...")
+lock-node-update: ## Update selected transitive Node packages in the lockfile (packages="package ...")
 	$(call need,packages,make lock-node-update packages="package ...")
 	$(NPM) update --package-lock-only $(packages)
 
@@ -393,8 +393,19 @@ status: ## Show workspace health (git, venv, node, generated files, PR)
 # Only repository-local state is removable here. Playwright's browsers live in
 # the shared ~/.cache/ms-playwright cache that every project on the machine
 # reuses, so this target must never grow a path that reaches outside the repo.
+# Every other path below is a fixed repository-relative literal, so VENV is the
+# one way this rm -rf can be aimed elsewhere. It is ?=, and make imports the
+# environment, so an unrelated exported VENV would silently redirect it. Keep
+# the value only when it resolves under CURDIR, and let the recipe refuse the
+# empty result rather than delete a shorter path.
+CLEAN_VENV = $(if $(filter $(CURDIR)/%,$(abspath $(VENV))),$(abspath $(VENV)))
+
 clean: ## Remove local environments, build outputs, and caches (keeps shared Playwright browsers)
-	rm -rf $(VENV) node_modules _site .artifacts .playwright .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
+	@test -n "$(CLEAN_VENV)" || { \
+		printf 'Refusing to clean: VENV=%s resolves outside %s\n' '$(VENV)' '$(CURDIR)' >&2; \
+		exit 1; \
+	}
+	rm -rf $(CLEAN_VENV) node_modules _site .artifacts .playwright .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
 
 help: ## Show command groups (expand one with make help-<group>)
 	@printf '\n  \033[1mmake <target>\033[0m   ·   expand a group: \033[1mmake help-<group>\033[0m   ·   machine-readable: \033[1mmake help-json\033[0m\n'
