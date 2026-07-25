@@ -217,9 +217,13 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     assert _step_with(heavy, "CI setup")["install-browsers"] == "false"
     root_browser = _job(workflow, "root-browser")
     assert "make test-browser-root" in _step_run(root_browser, "Run root browser verification")
-    assert (
-        _step_run(root_browser, "Install WebKit for the smoke pass").strip()
-        == "make setup-playwright-webkit-ci"
+    # WebKit is requested through the cache key rather than installed in a later
+    # step. A step after the restore can never be saved: the Chromium-only entry
+    # hits the primary key, and actions/cache skips the save on a hit, so the
+    # engine it installed was re-downloaded on every run.
+    assert _step_with(root_browser, "CI setup")["browser-engines"] == "chromium-webkit"
+    assert all("playwright" not in str(step.get("run", "")) for step in root_browser["steps"]), (
+        "browser installation belongs in ci-setup, inside the cache's save window"
     )
     assert (
         _step_run(root_browser, "Run WebKit smoke pass").strip() == "make test-browser-webkit-smoke"
@@ -321,9 +325,13 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     assert _step_uses(publish, "Download verified site artifact").startswith(
         "actions/download-artifact@"
     )
-    assert (
-        _step_run(publish, "Install dependencies for live browser verification").strip()
-        == "make setup-ci"
+    # Publish provisions through ci-setup like every other verifying job. It used
+    # to ask for no dependencies and then rebuild the environment by hand, which
+    # cost a full uv sync, an npm ci, and a Playwright --with-deps apt pass on
+    # every deploy while the caches that make those no-ops went unused.
+    assert _step_with(publish, "CI setup")["install-deps"] == "true"
+    assert all("make setup-ci" not in str(step.get("run", "")) for step in publish["steps"]), (
+        "publish must not rebuild an environment the caches already provide"
     )
     assert _step_uses(publish, "Deploy main site") == "./.github/actions/deploy-site"
     assert _step(publish, "Deploy main site")["with"]["skip-build"] == "true"
@@ -890,8 +898,10 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
         assert _step_with(_job(update, job_name), "CI setup")["install-deps"] == "true"
     for job_name in ("quick-gates", "heavy-checks", "assemble-site"):
         assert _step_with(_job(update, job_name), "CI setup")["install-browsers"] == "false"
-    assert _step_with(_job(update, "publish"), "Cache Playwright browsers")["key"] == (
-        "playwright-${{ hashFiles('uv.lock') }}"
+    # Publish caches browsers through ci-setup now, so it no longer carries its
+    # own duplicate of that step.
+    assert all(
+        step.get("name") != "Cache Playwright browsers" for step in _job(update, "publish")["steps"]
     )
     ci_setup_cache = next(
         step
@@ -902,8 +912,16 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
         ci_setup_cache["if"] == "inputs.install-deps == 'true' && inputs.install-browsers == 'true'"
     )
     assert ci_setup_cache["id"] == "playwright-cache"
-    assert ci_setup_cache["with"]["key"] == "playwright-${{ hashFiles('uv.lock') }}"
+    # The engine set is part of the key so a restored entry can never be a subset
+    # of what the job needs. Keyed on the lockfile alone, whichever browser job
+    # missed first decided the contents for everyone, and a job needing more
+    # engines then hit that entry and could never correct it, because
+    # actions/cache skips the save on a primary-key hit.
+    assert ci_setup_cache["with"]["key"] == (
+        "playwright-${{ hashFiles('uv.lock') }}-${{ inputs.browser-engines }}"
+    )
     assert ci_setup["inputs"]["install-browsers"]["default"] == "true"
+    assert ci_setup["inputs"]["browser-engines"]["default"] == "chromium"
     venv_cache = next(
         step
         for step in ci_setup["runs"]["steps"]
@@ -943,13 +961,16 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
         'if [ "$VENV_CACHE_HIT" != "true" ]',
         'if [ "$NODE_MODULES_CACHE_HIT" != "true" ]',
         'if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ]',
-        "make setup-playwright-ci",
+        'make setup-playwright-engines engines="$BROWSER_ENGINES"',
     ):
         assert skip_guard in workspace_install["run"]
-    publish_uv_install = _step_run(
-        _job(update, "publish"), "Install uv for live browser verification"
-    )
-    assert publish_uv_install.strip() == "python -m pip install --upgrade pip uv"
+    # A hit means every requested engine is present, so the apt system-deps pass
+    # is skipped with the downloads rather than run unconditionally.
+    assert "with_deps=1" in workspace_install["run"]
+    assert all(
+        step.get("name") != "Install uv for live browser verification"
+        for step in _job(update, "publish")["steps"]
+    ), "publish installs uv through ci-setup, at its pinned version and cached"
 
     refresh_step = _step(_job(refresh, "refresh-locks"), "Set up Python")
     assert refresh_step["with"]["cache"] == "pip"
