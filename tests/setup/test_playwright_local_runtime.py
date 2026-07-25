@@ -654,6 +654,33 @@ def test_validate_extracted_root_rejects_absolute_symlinks(tmp_path: Path) -> No
         runtime.validate_extracted_root(root)
 
 
+def test_validate_extracted_root_does_not_walk_through_symlinked_directories(
+    tmp_path: Path,
+) -> None:
+    """The walk refuses the escaping link itself without reading what it points at.
+
+    ``rglob`` yields a symlinked directory but does not descend through it, so a
+    hostile package cannot turn validation into a scan of the wider filesystem.
+    That containment is a property of pathlib rather than of this module, and
+    ``Path.resolve`` already changed behaviour under us between 3.12 and 3.13, so
+    it is pinned here rather than assumed.
+    """
+    outside = tmp_path / "outside"
+    (outside / "deep").mkdir(parents=True)
+    (outside / "deep" / "planted.so").write_text("", encoding="utf-8")
+
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "escape").symlink_to(outside)
+
+    assert sorted(entry.name for entry in root.rglob("*")) == ["escape"]
+
+    # The containment check resolves the link and rejects it before the symlink
+    # branch is reached, so this is the "escaped" message rather than "escapes".
+    with pytest.raises(runtime.RuntimeSetupError, match="path escaped the private runtime root"):
+        runtime.validate_extracted_root(root)
+
+
 def test_validate_extracted_root_accepts_relative_links_and_plain_files(
     tmp_path: Path,
 ) -> None:
