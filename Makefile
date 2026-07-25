@@ -21,6 +21,13 @@ PORT        ?= 8000
 # Python source tree that mypy strict-checks. Tests are intentionally excluded.
 PY_TYPE_PATHS := scripts/
 
+# Browser targets opt into the private Linux runtime only with local_libs=1.
+# Browsers install into Playwright's shared cache so every project reuses one
+# copy; only the extracted shared libraries and per-run scratch live below the
+# ignored .playwright cache. The wrapper refuses to download packages mid-run.
+PLAYWRIGHT_LOCAL_RUNTIME := $(VENV_PYTHON) scripts/setup/playwright_local_runtime.py
+PLAYWRIGHT_LOCAL_RUN = $(if $(filter 1,$(local_libs)),$(PLAYWRIGHT_LOCAL_RUNTIME) run --,)
+
 # Entry point for tested GitHub PR/CI helpers. Keep Make targets as thin
 # wrappers so GitHub behavior is testable Python instead of inline shell.
 GH = PYTHONPATH=. $(VENV_PYTHON) -m scripts.gh.cli
@@ -38,26 +45,9 @@ define need
 @test -n "$($(1))" || { printf 'Usage: %s\n' '$(2)' >&2; exit 1; }
 endef
 
-# The pinned Playwright ships no browser build for very new distros (e.g. Ubuntu
-# 26.04 on WSL), so `playwright install` and browser launches abort. When the host
-# is an Ubuntu release Playwright has no build for, fall back to a supported
-# platform key; Playwright then downloads/uses its fallback build, which runs fine.
-# Exported so every Playwright target (setup-all/ci, test-browser-*, thumbnails)
-# inherits it. On a supported image (CI) this stays empty and nothing changes.
-# Override or disable by setting PLAYWRIGHT_HOST_PLATFORM_OVERRIDE in the env.
-PLAYWRIGHT_SUPPORTED_UBUNTU := 18.04 20.04 22.04 24.04
-PLAYWRIGHT_HOST_PLATFORM_OVERRIDE ?= $(shell \
-	. /etc/os-release 2>/dev/null; \
-	if [ "$$ID" = ubuntu ] && ! printf '%s' "$(PLAYWRIGHT_SUPPORTED_UBUNTU)" | grep -qw "$$VERSION_ID"; then \
-		echo ubuntu22.04-x64; \
-	fi)
-ifneq ($(strip $(PLAYWRIGHT_HOST_PLATFORM_OVERRIDE)),)
-export PLAYWRIGHT_HOST_PLATFORM_OVERRIDE
-endif
-
 # ─── Setup @setup ─────────────────────────────────────────────────────────────
 
-.PHONY: install node-install install-hooks setup-base setup setup-all setup-ci setup-playwright setup-playwright-ci setup-playwright-webkit setup-playwright-webkit-ci
+.PHONY: install node-install install-hooks setup-base setup setup-all setup-ci setup-playwright setup-playwright-ci setup-playwright-webkit setup-playwright-webkit-ci setup-playwright-local setup-playwright-webkit-local playwright-local-status playwright-local-gate playwright-local-clean
 
 install: ## Install locked Python deps into the virtual environment
 	UV_PROJECT_ENVIRONMENT=$(VENV) $(UV) sync --all-groups --frozen --python $(PYTHON)
@@ -87,6 +77,30 @@ setup-playwright-webkit: ## Install WebKit for the cross-engine smoke pass
 
 setup-playwright-webkit-ci: ## Install WebKit with system deps
 	$(VENV)/bin/playwright install webkit --with-deps
+
+# The two local targets share one manifest. Preparing an engine extends the
+# recorded engine set instead of replacing it, so the extracted package closure
+# stays the union Chromium and WebKit both need and installing one engine never
+# strands the other. Preparing again after the browser install patches the shared
+# WebKit launcher so it appends the inherited library path.
+setup-playwright-local: ## Install Chromium and the private Ubuntu/Debian runtime without sudo
+	$(PLAYWRIGHT_LOCAL_RUNTIME) prepare --engine chromium
+	PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 $(VENV)/bin/playwright install chromium
+	$(PLAYWRIGHT_LOCAL_RUNTIME) prepare --engine chromium
+
+setup-playwright-webkit-local: ## Install WebKit and extend the private runtime to its libraries
+	$(PLAYWRIGHT_LOCAL_RUNTIME) prepare --engine webkit
+	PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 $(VENV)/bin/playwright install webkit
+	$(PLAYWRIGHT_LOCAL_RUNTIME) prepare --engine webkit
+
+playwright-local-status: ## Show repository-local Playwright runtime status
+	$(PLAYWRIGHT_LOCAL_RUNTIME) status
+
+playwright-local-gate: ## Launch every prepared engine in the private runtime
+	$(PLAYWRIGHT_LOCAL_RUNTIME) probe
+
+playwright-local-clean: ## Remove only the repository-local Playwright cache (keeps shared browsers)
+	$(PLAYWRIGHT_LOCAL_RUNTIME) clean
 
 # ─── Lint @lint ───────────────────────────────────────────────────────────────
 
@@ -199,7 +213,7 @@ dead-code-js: ## Detect unused JavaScript files, exports, and dependencies
 # policy lives in scripts/ instead of inline shell. BROWSER_ARGS threads an
 # optional ARGS= tail (e.g. -k filters), honored only when passed on the make
 # command line so a stray ARGS environment variable cannot change the gate.
-RUN_BROWSER_TESTS = $(VENV_PYTHON) -m scripts.ci.run_browser_tests
+RUN_BROWSER_TESTS = $(PLAYWRIGHT_LOCAL_RUN) $(VENV_PYTHON) -m scripts.ci.run_browser_tests
 BROWSER_ARGS = $(if $(filter command line,$(origin ARGS)),$(ARGS))
 
 test: test-py test-js ## Run non-browser Python tests + JS tests
@@ -254,7 +268,7 @@ test-visual: ## Compare hero screenshots against committed baselines (needs Chro
 	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_visual.py $(BROWSER_ARGS)
 
 visual-baselines: ## Regenerate committed hero screenshot baselines (needs Chromium)
-	ARTIFACTS_UPDATE_VISUAL_BASELINES=1 ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(VENV_PYTHON) -m pytest --no-cov tests/browser/test_frontend_visual.py
+	ARTIFACTS_UPDATE_VISUAL_BASELINES=1 ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(PLAYWRIGHT_LOCAL_RUN) $(VENV_PYTHON) -m pytest --no-cov tests/browser/test_frontend_visual.py
 
 test-browser-live: ## Run live-site browser verification (pass ARGS="-k name" for a subset)
 	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_live.py $(BROWSER_ARGS)
@@ -278,12 +292,12 @@ validate: ## Check artifact directories are complete
 	$(VENV_PYTHON) -c "from scripts.build.generate_index import validate; validate()"
 
 thumbnails: ## Regenerate WebP thumbnails (needs Chromium) (make thumbnails [slug=a,b])
-	ARTIFACTS_THUMBNAIL_SLUGS="$(slug)" $(VENV_PYTHON) scripts/build/generate_thumbnails.py
+	ARTIFACTS_THUMBNAIL_SLUGS="$(slug)" $(PLAYWRIGHT_LOCAL_RUN) $(VENV_PYTHON) scripts/build/generate_thumbnails.py
 
 thumbnails-shard: ## Generate thumbnails from one shard manifest (make thumbnails-shard shard_manifest=PATH)
 	$(call need,shard_manifest,make thumbnails-shard shard_manifest=.artifacts/shard-manifest.json)
 	$(VENV_PYTHON) scripts/ci/app_shards.py invalidate-thumbnails --manifest "$(shard_manifest)"
-	ARTIFACTS_THUMBNAIL_SHARD_MANIFEST="$(shard_manifest)" $(VENV_PYTHON) scripts/build/generate_thumbnails.py
+	ARTIFACTS_THUMBNAIL_SHARD_MANIFEST="$(shard_manifest)" $(PLAYWRIGHT_LOCAL_RUN) $(VENV_PYTHON) scripts/build/generate_thumbnails.py
 
 styles: ## Rebuild css/style.css from ordered source partials
 	$(VENV_PYTHON) scripts/build/generate_styles.py
@@ -373,7 +387,7 @@ status: ## Show workspace health (git, venv, node, generated files, PR)
 	@PYTHONPATH=. $(PYTHON) -m scripts.lib.workspace_status --venv-python "$(VENV_PYTHON)" --uv "$(UV)" --npm "$(NPM)"
 
 clean: ## Remove local environments, build outputs, and caches
-	rm -rf $(VENV) node_modules _site .artifacts .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
+	rm -rf $(VENV) node_modules _site .artifacts .playwright .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
 
 help: ## Show command groups (expand one with make help-<group>)
 	@printf '\n  \033[1mmake <target>\033[0m   ·   expand a group: \033[1mmake help-<group>\033[0m   ·   machine-readable: \033[1mmake help-json\033[0m\n'

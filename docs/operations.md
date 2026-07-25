@@ -18,7 +18,7 @@ make git        # show all git sub-commands
 
 Issue work runs through the `make issue-*` group instead of raw `gh issue`. `make issue-list` filters by `state=`, `label=`, `assignee=`, `author=`, `search=`, `limit=`, or `mine=1`; `make issue-summary issue=N` prints a one-screen overview (state, labels, assignees, milestone, recent comments) via the tested `scripts/gh/issues.py` helper; and `make issue-develop issue=N` creates and checks out a branch linked to an issue. Bodies for `make issue-create`, `make issue-comment`, and `make issue-edit` take `body=` inline or `body_file=-` to read a heredoc from stdin, matching the PR targets; `make issue-close` and `make issue-reopen` take a short `comment=` instead.
 
-Local Python dependency setup uses uv. Ensure `uv` is on PATH before running setup, install, lock, or security targets. On newer Linux hosts where Playwright has no native browser build, the Makefile exports a supported `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE` fallback for Playwright install, browser test, and thumbnail targets.
+Local Python dependency setup uses uv. Ensure `uv` is on PATH before running setup, install, lock, or security targets. Use native Playwright host detection. Do not set `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE`: the pinned Playwright supports current hosts natively, and forcing a platform key can leave the browser revision cache holding a build from the wrong platform archive. On a Debian or Ubuntu host that lacks the shared libraries the browsers need, use the no-sudo local runtime described in [Browser setup without sudo](#browser-setup-without-sudo).
 
 `make commit` validates the message before recording it. The tested guard in `scripts/gh/commit_message.py` rejects obvious shell leaks (heredoc openers such as `<<'EOF'`, a bare heredoc terminator left in the body, shell redirections like `2>&1`, and pipes into a pager like `| tail`), which prevents heredoc fragments from ending up in the commit message the way commit `b68de52` did. Fix the flagged line and re-run `make commit` if it rejects a message.
 
@@ -28,12 +28,46 @@ Recommended workflow when changing workspace code:
 2. `make setup` for fast local work, or `make setup-all` if you also need Chromium. Run `make install-hooks` once if you want local pre-commit checks.
 3. Edit files.
 4. Run `make check-local`.
-5. Run `make check-web` when you touch shared browser behavior or need fresh thumbnails. For targeted mature-app browser work, use `ARTIFACTS_BROWSER_APP_SLUGS="app-slug" make test-browser-apps`. For the cross-engine smoke pass, run `make setup-playwright-webkit` once, then `make test-browser-webkit-smoke`.
+5. Run `make check-web` when you touch shared browser behavior or need fresh thumbnails. For targeted mature-app browser work, use `ARTIFACTS_BROWSER_APP_SLUGS="app-slug" make test-browser-apps`. For the cross-engine smoke pass, run `make setup-playwright-webkit` once, then `make test-browser-webkit-smoke`. On a host missing the browsers' shared libraries, see [Browser setup without sudo](#browser-setup-without-sudo) and append `local_libs=1` to these targets.
 6. Run `make check` before opening a PR when you want the full local release gate.
 7. Run `make validate` if you changed top-level artifact directories and want an explicit structure check.
 8. Run `make index` if metadata or README markers may have changed.
 9. Run `make site` if you want to inspect the exact Pages output locally.
 10. Run `make lock` if you changed Python dependency declarations, and run `make lock-node` if you changed Node dependencies.
+
+## Browser setup without sudo
+
+`make setup-all` installs Chromium into Playwright's normal user-level browser cache. It is browser-only, installs no system packages, and needs no sudo. Use it when the host already provides the shared libraries the browsers need.
+
+On a Debian or Ubuntu host that lacks those libraries, use the repository-local runtime instead:
+
+```bash
+make setup-playwright-local        # Chromium plus its extracted library closure
+make setup-playwright-webkit-local # add WebKit for the cross-engine smoke pass
+make playwright-local-status       # report what the cache currently covers
+make playwright-local-gate         # launch every prepared engine for real
+make playwright-local-clean        # remove only this repository's cache
+```
+
+Setup downloads package archives from the already configured APT repositories and extracts them into this repository's ignored `.playwright/local-libs/` cache. It resolves the closure with APT simulation, downloads with `apt download`, and extracts with `dpkg-deb -x`. It never runs package installation, sudo, or `dpkg -i`, and it never changes the system package database. Browsers install into Playwright's shared `~/.cache/ms-playwright` cache, so every project on the machine reuses one copy instead of duplicating them per repository.
+
+Chromium and WebKit are installed by separate targets that share one manifest. Each target requests only its own engine, and the runtime records the union of that request with the engines already prepared. The extracted package closure therefore always covers every prepared engine, so installing WebKit later never strands Chromium's libraries. The manifest is rebuilt whenever the operating system, architecture, Playwright version, engine set, or resolved package versions change.
+
+Browser-running targets then opt in with `local_libs=1`:
+
+```bash
+make test-browser local_libs=1
+make test-browser-webkit-smoke local_libs=1
+make thumbnails local_libs=1
+make visual-baselines local_libs=1
+make check-web local_libs=1
+```
+
+The wrapper requires an already-prepared cache, points `PLAYWRIGHT_BROWSERS_PATH` at the shared browser cache, keeps browser home, cache, configuration, runtime, and temporary files under `.playwright/runtime/`, and prepends only discovered extracted library and browser-data paths to the child environment. Preparing the runtime also patches the shared WebKit bundle launcher so it appends any inherited library path after its own bundle directories. The wrapper never downloads packages during a test run, and runs without `local_libs=1` behave exactly as before.
+
+`make playwright-local-clean` and `make clean` both remove only this repository's `.playwright/` cache. Neither touches the shared browser cache, since other projects depend on it; manage shared browsers with Playwright's own tooling.
+
+Reserve `make setup-ci` and `make setup-playwright-webkit-ci` for CI and ephemeral runners. They keep Playwright's `--with-deps` mode, which may install operating-system packages on the disposable runner.
 
 ## CI behavior
 
@@ -100,7 +134,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - `make test-visual` compares a fixed-viewport (1200x800) hero screenshot of the root gallery and each mature app against committed baselines in `tests/browser/baselines/`. The comparison (`scripts/ci/visual_regression.py`, Pillow) is deliberately tolerant: a pixel only counts as changed when a channel differs by more than 32/255, and an image only fails when more than 5% of pixels change (18% for the root gallery, whose animated 3D book scene renders a few percent of noise even after animations are frozen).
 - Screenshot rendering depends on the host's fonts, so this is a local, on-demand check. It is intentionally not part of the blocking CI browser gate. Regenerate the baselines in the same environment where you run the check.
 - After an intentional visual change, regenerate and commit the baselines with `make visual-baselines`, then review the resulting PNG diff before committing.
-- Both targets need Chromium (`make setup-all` or `make setup-playwright`).
+- Both targets need Chromium (`make setup-all` or `make setup-playwright`, or `make setup-playwright-local` on a host missing the browsers' shared libraries, then append `local_libs=1`).
 
 ## Required GitHub settings
 
@@ -214,6 +248,7 @@ Use this on a brand-new fork or clone that has never deployed, or after `gh-page
 - Set `LOG_LEVEL=DEBUG` before any `make` command to get verbose output from build scripts (e.g., `LOG_LEVEL=DEBUG make index`). Accepted values: `DEBUG`, `INFO` (default), `WARNING`, `ERROR`. Applies to `generate_index.py`, `generate_thumbnails.py`, `prepare_site.py`, and `verify_deploy.py`.
 - If the Playwright Python package is unavailable locally, browser Playwright suites fail during collection and `make thumbnails` exits immediately; rerun `make setup-all`.
 - If Chromium is unavailable locally, `make check-web`, `make test-browser`, and `make test-browser-live` fail; run `make setup-all` to install it.
+- If the browsers install but fail to launch because the host lacks their shared libraries, run `make setup-playwright-local`, confirm it with `make playwright-local-gate`, and rerun the browser target with `local_libs=1`. Run `make playwright-local-status` to see which engines the cache currently covers.
 - `make check-local` intentionally avoids Playwright so it can stay fast on machines without Chromium.
 - If you need to manually audit repository settings drift outside the scheduled workflow, run `make help-ci` to discover `make ci-audit-repo-settings`, then pass `repo=<owner/repo>` when auditing a different repository.
 - If you want to inspect the deployable output locally, run `make site` and serve `_site/` from a static file server.
