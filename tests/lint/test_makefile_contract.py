@@ -1,0 +1,187 @@
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+MAKEFILE_TEXT = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+
+# Make joins a trailing backslash to the next line, so a long .PHONY list can be
+# wrapped without changing what it declares. Assertions about declarations match
+# against this collapsed view so they track behavior rather than line breaks;
+# recipe bodies keep using MAKEFILE_TEXT, where the line structure is the point.
+MAKEFILE_LOGICAL_LINES = re.sub(r"\\\n[ \t]*", " ", MAKEFILE_TEXT)
+
+# Playwright installs browsers into this user-level cache, which every other
+# project on the machine reuses and which is therefore not ours to delete.
+SHARED_BROWSER_CACHE = "ms-playwright"
+
+# Targets that lint, format, or scan Python. Their scope comes from the tool's
+# own config (CLAUDE.md rules 4 and 5); the Makefile only offers a per-invocation
+# paths= override on top of it.
+PYTHON_SCOPE_TARGETS = (
+    "lint-py",
+    "fmt-py",
+    "format-py-check",
+    "format-py-diff",
+    "dead-code-py",
+)
+
+
+def target_recipe(name: str) -> str:
+    """Return the recipe lines for one Makefile target."""
+    match = re.search(
+        rf"^{re.escape(name)}:.*\n(?P<recipe>(?:\t.*\n)+)",
+        MAKEFILE_TEXT,
+        re.MULTILINE,
+    )
+    assert match is not None, f"missing Makefile target: {name}"
+    return match.group("recipe")
+
+
+def test_python_scope_targets_keep_the_paths_override() -> None:
+    """A per-invocation ``paths=`` still narrows every Python scope target.
+
+    Checked in the recipe, not only in the help text. Advertising ``[paths=...]``
+    while the command line has lost ``$(if $(paths),...)`` is the failure worth
+    catching, and every command line has to carry it: fmt-py runs two tools, so
+    an override on only the first would silently widen the second back to the
+    whole tree.
+    """
+    for target in PYTHON_SCOPE_TARGETS:
+        assert re.search(rf"^{re.escape(target)}:.*\[paths=\.\.\.\]", MAKEFILE_TEXT, re.MULTILINE)
+
+        commands = [line for line in target_recipe(target).splitlines() if line.strip()]
+
+        assert commands
+        for command in commands:
+            assert "$(if $(paths),$(paths)" in command
+
+
+def test_vulture_scope_comes_from_its_own_config() -> None:
+    """dead-code-py passes no default path, so [tool.vulture] owns the scope."""
+    recipe = target_recipe("dead-code-py")
+
+    assert "$(if $(paths),$(paths))" in recipe
+    assert "pyproject.toml" not in recipe
+
+
+def test_lock_node_update_bumps_selected_packages_only() -> None:
+    """Selected lockfile bumps stay narrow instead of refreshing the whole lockfile."""
+    recipe = target_recipe("lock-node-update")
+
+    # Each name becomes its own quoted word, so a value carrying whitespace or a
+    # shell metacharacter reaches npm as one package name instead of being split
+    # or interpreted by /bin/sh.
+    assert '$(NPM) update --package-lock-only $(foreach pkg,$(packages),"$(pkg)")' in recipe
+    assert "--package-lock-only $(packages)" not in recipe
+
+
+def test_lock_node_update_guards_its_required_argument() -> None:
+    """The shared need macro prints the usage line when packages= is missing."""
+    recipe = target_recipe("lock-node-update")
+
+    assert '$(call need,packages,make lock-node-update packages="package ...")' in recipe
+
+
+def test_lock_node_update_is_phony_and_documented() -> None:
+    """The target joins its section's .PHONY list and carries a help description."""
+    assert re.search(r"^\.PHONY:.*\block-node-update\b", MAKEFILE_LOGICAL_LINES, re.MULTILINE)
+    assert re.search(r"^lock-node-update:.*## \S", MAKEFILE_TEXT, re.MULTILINE)
+
+
+def test_clean_keeps_the_shared_playwright_browser_cache() -> None:
+    """Make clean removes repository-local state only.
+
+    The browsers live in a user-level cache every project reuses, so a path that
+    reached it would cost every other checkout a multi-hundred-megabyte download.
+    """
+    recipe = target_recipe("clean")
+
+    assert SHARED_BROWSER_CACHE not in recipe
+    assert "$(HOME)" not in recipe
+    assert "~/" not in recipe
+
+
+def test_clean_documents_that_it_keeps_shared_browsers() -> None:
+    """The intent is stated in the help text, not left implicit in the path list."""
+    assert re.search(r"^clean:.*## .*keeps shared Playwright browsers", MAKEFILE_TEXT, re.MULTILINE)
+
+
+def test_clean_cannot_be_aimed_outside_the_repository() -> None:
+    """The only variable path in the rm -rf is confined to the repository.
+
+    Every other entry is a fixed repository-relative literal, so VENV is the one
+    way this recipe can be pointed elsewhere. It is set with ?= and make imports
+    the environment, so an unrelated exported VENV would otherwise redirect an
+    rm -rf into the user's home with no flag and no warning.
+    """
+    # Pinned as the whole expression rather than its parts. Asserting only that
+    # CURDIR and abspath appear would still pass if filter became filter-out,
+    # which inverts the guard into deleting exactly the paths it should refuse.
+    # The words guard is part of the pin: make splits on whitespace, so without
+    # it a VENV holding spaces expands into several separately deleted paths.
+    assert (
+        "CLEAN_VENV = $(if $(filter 1,$(words $(VENV))),$(filter $(CURDIR)/%,$(abspath $(VENV))))"
+        in MAKEFILE_TEXT
+    )
+
+    recipe = target_recipe("clean")
+
+    # The guarded value is what gets deleted, quoted so it stays one argument,
+    # and the bare one never appears.
+    assert 'rm -rf "$(CLEAN_VENV)"' in recipe
+    assert "rm -rf $(VENV)" not in recipe
+    # An empty result means VENV escaped the repository, so the recipe stops
+    # rather than falling through to deleting the remaining shorter paths.
+    assert 'test -n "$(CLEAN_VENV)"' in recipe
+    assert "exit 1" in recipe
+
+
+def test_clean_refusal_message_survives_a_quote_in_the_path() -> None:
+    """The refusal reaches the operator instead of dying in the shell.
+
+    VENV is the value most likely to be odd, and it is the one interpolated into
+    this printf. Single-quoting it turns a path containing an apostrophe into an
+    unterminated string, so the operator sees a shell syntax error rather than
+    the reason their clean was refused.
+    """
+    recipe = target_recipe("clean")
+
+    assert '"$(VENV)" "$(CURDIR)"' in recipe
+    assert "'$(VENV)'" not in recipe
+
+
+def test_ci_rerun_replays_a_run_and_can_narrow_to_failed_jobs() -> None:
+    """Replaying a run is a first-class target, not a raw gh invocation."""
+    recipe = target_recipe("ci-rerun")
+
+    assert 'gh run rerun "$$run_id"' in recipe
+    # Without this, a partially green run can only be replayed in full, which
+    # re-uploads artifacts the surviving jobs already produced. Gated on the
+    # literal 1 like local_libs, so failed=0 reads as off rather than as merely
+    # non-empty and therefore on.
+    assert "$(if $(filter 1,$(failed)),--failed)" in recipe
+    assert "$(if $(failed),--failed)" not in recipe
+
+
+def test_ci_dispatch_starts_a_fresh_run_with_optional_inputs() -> None:
+    """A fresh run is the escape hatch when replaying a run cannot work."""
+    recipe = target_recipe("ci-dispatch")
+
+    assert 'gh workflow run "$(workflow)"' in recipe
+    assert "$(if $(ref),--ref " in recipe
+    # Each key=value becomes its own quoted -f, so an input never word-splits.
+    assert '$(foreach kv,$(inputs),-f "$(kv)")' in recipe
+
+
+def test_ci_dispatch_guards_its_required_argument() -> None:
+    """The shared need macro prints the usage line when workflow= is missing."""
+    assert "$(call need,workflow," in target_recipe("ci-dispatch")
+
+
+def test_ci_run_targets_are_phony_and_documented() -> None:
+    """The CI run helpers stay declared and discoverable through make help."""
+    for target in ("ci-rerun", "ci-dispatch"):
+        assert re.search(rf"^\.PHONY:.*\b{target}\b", MAKEFILE_LOGICAL_LINES, re.MULTILINE)
+        assert re.search(rf"^{target}:.*## \S", MAKEFILE_TEXT, re.MULTILINE)

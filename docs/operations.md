@@ -251,6 +251,9 @@ Use this on a brand-new fork or clone that has never deployed, or after `gh-page
 - If the browsers install but fail to launch because the host lacks their shared libraries, run `make setup-playwright-local`, confirm it with `make playwright-local-gate`, and rerun the browser target with `local_libs=1`. Run `make playwright-local-status` to see which engines the cache currently covers.
 - `make check-local` intentionally avoids Playwright so it can stay fast on machines without Chromium.
 - If you need to manually audit repository settings drift outside the scheduled workflow, run `make help-ci` to discover `make ci-audit-repo-settings`, then pass `repo=<owner/repo>` when auditing a different repository.
+- If every workflow on a commit reports `startup_failure` at once, suspect a GitHub incident rather than the workflow files: `make lint-workflows` still passes, and no job ever starts, so there are no logs to read. Once the incident clears, replay each affected run with `make ci-rerun run=<id>` (add `failed=1` to retry only the failed jobs of a partially green run).
+- If a replayed deploy fails with `Multiple artifacts named "github-pages" were unexpectedly found`, the retry is the cause, not the payload: attempts of one run share a single artifact namespace, so a second upload of the same name leaves the deploy step with an ambiguity it refuses to resolve. Start a fresh run with `make ci-dispatch workflow=update.yml ref=main` instead of re-running that one again, and pass `inputs="redeploy-sha=<sha>"` when the target is an older commit.
+- If `actions/deploy-pages` times out with `Current status: updating_pages`, check `deploy-metadata.json` on the live site before assuming nothing shipped: a Pages backlog can publish the payload after the action stops waiting, so the deployed `commit_sha` may already match the commit whose run went red.
 - If you want to inspect the deployable output locally, run `make site` and serve `_site/` from a static file server.
 - If `make security` fails on the npm audit, either a new advisory in the workspace dependency graph needs triage, or a reviewed exception in `config/security_audit.json` has expired or no longer matches an active advisory.
 - If `make security` fails on the Python audit, either a new vulnerability needs triage, an exception review date has expired, an exception no longer matches the current lock files, or a fix is now available and the temporary exception must be removed.
@@ -261,6 +264,7 @@ Use this on a brand-new fork or clone that has never deployed, or after `gh-page
 - If no artifacts exist, the index generator still writes a valid empty `js/data.js`.
 - If Python dependency declarations change, rerun `make lock` before committing.
 - If Node dependency declarations change, run `make lock-node` before committing.
+- If only specific Node packages need to move (for example to clear an advisory), run `make lock-node-update packages="package-a package-b"` instead of refreshing the whole lockfile.
 - If generated thumbnails are intentionally removed from the working tree, `js/data.js` keeps the canonical `apps/<slug>/thumbnail.webp` path while CI regenerates the missing files.
 
 See [`maintenance.md`](maintenance.md) for the long-term upkeep checklist.
