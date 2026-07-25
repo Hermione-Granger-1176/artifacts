@@ -406,7 +406,7 @@ CLEAN_VENV = $(if $(filter 1,$(words $(VENV))),$(filter $(CURDIR)/%,$(abspath $(
 
 clean: ## Remove local environments, build outputs, and caches (keeps shared Playwright browsers)
 	@test -n "$(CLEAN_VENV)" || { \
-		printf 'Refusing to clean: VENV=%s is not a single path under %s\n' '$(VENV)' '$(CURDIR)' >&2; \
+		printf 'Refusing to clean: VENV=%s is not a single path under %s\n' "$(VENV)" "$(CURDIR)" >&2; \
 		exit 1; \
 	}
 	rm -rf "$(CLEAN_VENV)" node_modules _site .artifacts .playwright .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info

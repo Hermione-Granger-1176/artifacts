@@ -117,3 +117,49 @@ def test_clean_cannot_be_aimed_outside_the_repository() -> None:
     # rather than falling through to deleting the remaining shorter paths.
     assert 'test -n "$(CLEAN_VENV)"' in recipe
     assert "exit 1" in recipe
+
+
+def test_clean_refusal_message_survives_a_quote_in_the_path() -> None:
+    """The refusal reaches the operator instead of dying in the shell.
+
+    VENV is the value most likely to be odd, and it is the one interpolated into
+    this printf. Single-quoting it turns a path containing an apostrophe into an
+    unterminated string, so the operator sees a shell syntax error rather than
+    the reason their clean was refused.
+    """
+    recipe = target_recipe("clean")
+
+    assert '"$(VENV)" "$(CURDIR)"' in recipe
+    assert "'$(VENV)'" not in recipe
+
+
+def test_ci_rerun_replays_a_run_and_can_narrow_to_failed_jobs() -> None:
+    """Replaying a run is a first-class target, not a raw gh invocation."""
+    recipe = target_recipe("ci-rerun")
+
+    assert 'gh run rerun "$$run_id"' in recipe
+    # Without this, a partially green run can only be replayed in full, which
+    # re-uploads artifacts the surviving jobs already produced.
+    assert "$(if $(failed),--failed)" in recipe
+
+
+def test_ci_dispatch_starts_a_fresh_run_with_optional_inputs() -> None:
+    """A fresh run is the escape hatch when replaying a run cannot work."""
+    recipe = target_recipe("ci-dispatch")
+
+    assert 'gh workflow run "$(workflow)"' in recipe
+    assert "$(if $(ref),--ref " in recipe
+    # Each key=value becomes its own quoted -f, so an input never word-splits.
+    assert '$(foreach kv,$(inputs),-f "$(kv)")' in recipe
+
+
+def test_ci_dispatch_guards_its_required_argument() -> None:
+    """The shared need macro prints the usage line when workflow= is missing."""
+    assert "$(call need,workflow," in target_recipe("ci-dispatch")
+
+
+def test_ci_run_targets_are_phony_and_documented() -> None:
+    """The CI run helpers stay declared and discoverable through make help."""
+    for target in ("ci-rerun", "ci-dispatch"):
+        assert re.search(rf"^\.PHONY:.*\b{target}\b", MAKEFILE_LOGICAL_LINES, re.MULTILINE)
+        assert re.search(rf"^{target}:.*## \S", MAKEFILE_TEXT, re.MULTILINE)
