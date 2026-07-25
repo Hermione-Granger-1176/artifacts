@@ -965,9 +965,15 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
         'make setup-playwright-engines engines="$BROWSER_ENGINES"',
     ):
         assert skip_guard in workspace_install["run"]
-    # A hit means every requested engine is present, so the apt system-deps pass
-    # is skipped with the downloads rather than run unconditionally.
+    # A hit restores binaries, not the apt packages they load, so the system-deps
+    # pass may only be skipped for an engine set the runner image already
+    # satisfies. Chromium qualifies; WebKit does not, and skipping it left the
+    # restored MiniBrowser unable to load its shared libraries.
     assert "with_deps=1" in workspace_install["run"]
+    assert (
+        '[ "$PLAYWRIGHT_CACHE_HIT" = "true" ] && [ "$BROWSER_ENGINES" = "chromium" ]'
+        in workspace_install["run"]
+    )
     assert all(
         step.get("name") != "Install uv for live browser verification"
         for step in _job(update, "publish")["steps"]

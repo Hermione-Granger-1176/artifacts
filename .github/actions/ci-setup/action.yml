@@ -320,10 +320,14 @@ runs:
           make node-install
         fi
         if [ -n "$BROWSER_ENGINES" ]; then
-          # The cache key names the engine set, so a hit means every requested
-          # engine is already present and the apt system-deps pass can be
-          # skipped along with the downloads.
-          if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ]; then
+          # A cache hit restores browser binaries, never the system libraries
+          # they load. Those are apt packages on an ephemeral runner, so they
+          # are gone every time and --with-deps has to reinstall them for any
+          # engine the runner image does not already satisfy. Chromium's are on
+          # the standard image, which is why a Chromium-only hit may skip the
+          # pass; WebKit's are not, and skipping it left MiniBrowser unable to
+          # load its libraries even though the binary restored fine.
+          if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ] && [ "$BROWSER_ENGINES" = "chromium" ]; then
             make setup-playwright-engines engines="$BROWSER_ENGINES"
           else
             make setup-playwright-engines engines="$BROWSER_ENGINES" with_deps=1
