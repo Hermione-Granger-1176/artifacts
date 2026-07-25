@@ -261,6 +261,7 @@ Use this on a brand-new fork or clone that has never deployed, or after `gh-page
 - If no artifacts exist, the index generator still writes a valid empty `js/data.js`.
 - If Python dependency declarations change, rerun `make lock` before committing.
 - If Node dependency declarations change, run `make lock-node` before committing.
+- If only a transitive Node package needs to move (for example to clear an advisory), run `make lock-node-update packages="package-a package-b"` instead of refreshing the whole lockfile.
 - If generated thumbnails are intentionally removed from the working tree, `js/data.js` keeps the canonical `apps/<slug>/thumbnail.webp` path while CI regenerates the missing files.
 
 See [`maintenance.md`](maintenance.md) for the long-term upkeep checklist.

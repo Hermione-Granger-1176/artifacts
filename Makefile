@@ -365,13 +365,17 @@ fix: fmt check-local ## Auto-fix formatting, then run the full non-browser local
 
 # ─── Utilities @util ──────────────────────────────────────────────────────────
 
-.PHONY: lock lock-node fix-deps align-tables status clean help help-json
+.PHONY: lock lock-node lock-node-update fix-deps align-tables status clean help help-json
 
 lock: ## Refresh uv.lock after Python dependency changes
 	$(UV) lock
 
 lock-node: ## Refresh package-lock.json after Node dependency changes
 	$(NPM) install --package-lock-only
+
+lock-node-update: ## Update selected transitive Node packages in the lockfile (packages="name ...")
+	$(call need,packages,make lock-node-update packages="package ...")
+	$(NPM) update --package-lock-only $(packages)
 
 fix-deps: ## Refresh locks, reinstall, and npm audit fix
 	$(MAKE) lock
@@ -386,7 +390,10 @@ align-tables: ## Align markdown table pipes across all docs
 status: ## Show workspace health (git, venv, node, generated files, PR)
 	@PYTHONPATH=. $(PYTHON) -m scripts.lib.workspace_status --venv-python "$(VENV_PYTHON)" --uv "$(UV)" --npm "$(NPM)"
 
-clean: ## Remove local environments, build outputs, and caches
+# Only repository-local state is removable here. Playwright's browsers live in
+# the shared ~/.cache/ms-playwright cache that every project on the machine
+# reuses, so this target must never grow a path that reaches outside the repo.
+clean: ## Remove local environments, build outputs, and caches (keeps shared Playwright browsers)
 	rm -rf $(VENV) node_modules _site .artifacts .playwright .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
 
 help: ## Show command groups (expand one with make help-<group>)
