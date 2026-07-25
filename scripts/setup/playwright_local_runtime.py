@@ -1002,7 +1002,14 @@ def run_in_runtime(
 
 
 def probe(paths: RuntimePaths) -> int:
-    """Launch and close every prepared engine with the private runtime."""
+    """Launch and close every prepared engine with the private runtime.
+
+    The probe program imports Playwright, so it reuses the running interpreter
+    rather than resolving ``.venv/bin/python``. Every entry point is the Make
+    target, which already runs this module under the virtual-environment
+    interpreter, and that path is a symlink to the system interpreter, so the
+    containment guard used for the Playwright CLI cannot validate it.
+    """
     engines = require_ready(paths)
     return run_in_runtime(paths, [sys.executable, "-c", PROBE_PROGRAM, *engines])
 

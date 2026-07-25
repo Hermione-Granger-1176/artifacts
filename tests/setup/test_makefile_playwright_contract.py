@@ -62,6 +62,23 @@ def test_playwright_runtime_is_type_checked() -> None:
     assert re.search(r"^PY_TYPE_PATHS\s*:=\s*scripts/\s*$", MAKEFILE_TEXT, re.MULTILINE)
 
 
+def test_local_runtime_always_runs_under_the_repository_interpreter() -> None:
+    """Pin the single entry point that makes sys.executable the Playwright environment.
+
+    The probe re-launches Python through sys.executable, so it imports Playwright
+    only because every invocation starts from the virtual-environment interpreter.
+    Resolving .venv/bin/python inside the script cannot replace this contract: that
+    path is a symlink to the system interpreter, so the module's own containment
+    guard would reject it.
+    """
+    assert re.search(
+        r"^PLAYWRIGHT_LOCAL_RUNTIME\s*:="
+        r"\s*\$\(VENV_PYTHON\)\s+scripts/setup/playwright_local_runtime\.py\s*$",
+        MAKEFILE_TEXT,
+        re.MULTILINE,
+    )
+
+
 def test_browser_targets_share_one_opt_in_wrapper() -> None:
     """Require local_libs=1 to route browser work through a single wrapper variable."""
     assert (
