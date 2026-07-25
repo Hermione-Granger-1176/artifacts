@@ -57,17 +57,15 @@ inputs:
     description: Whether to install workspace dependencies.
     required: false
     default: "false"
-  install-browsers:
-    description: Whether dependency setup installs browsers for browser jobs.
-    required: false
-    default: "true"
   browser-engines:
     description: >-
-      Hyphen-separated Playwright engines to install, and part of the browser cache key. Keying on the
-      engine set is what stops a restored entry from being a subset of what the job needs: the key used
-      to name only the lockfile, so the Chromium-only entry it stored kept hitting for the job that also
-      needs WebKit, and because actions/cache skips the save on a primary-key hit, that entry could never
-      grow to include it. WebKit was therefore downloaded on every run.
+      Hyphen-separated Playwright engines to install, empty for none. This is the only browser knob:
+      the engine set says both whether to install and what to install, so there is no way to express
+      the contradiction a separate boolean allowed. It is also part of the browser cache key, which is
+      what stops a restored entry from being a subset of what the job needs. The key once named only
+      the lockfile, so the Chromium-only entry stored by one job kept hitting for the job that also
+      needs WebKit, and because actions/cache skips the save on a primary-key hit, that entry could
+      never grow to include it. WebKit was downloaded on every run for fifteen days.
     required: false
     default: chromium
   uv-version:
@@ -248,7 +246,7 @@ runs:
 
     - name: Cache Playwright browsers
       id: playwright-cache
-      if: inputs.install-deps == 'true' && inputs.install-browsers == 'true'
+      if: inputs.install-deps == 'true' && inputs.browser-engines != ''
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/ms-playwright
@@ -310,7 +308,6 @@ runs:
       if: inputs.install-deps == 'true'
       shell: bash
       env:
-        INSTALL_BROWSERS: ${{ inputs.install-browsers }}
         BROWSER_ENGINES: ${{ inputs.browser-engines }}
         VENV_CACHE_HIT: ${{ steps.venv-cache.outputs.cache-hit }}
         NODE_MODULES_CACHE_HIT: ${{ steps.node-modules-cache.outputs.cache-hit }}
@@ -322,11 +319,15 @@ runs:
         if [ "$NODE_MODULES_CACHE_HIT" != "true" ]; then
           make node-install
         fi
-        if [ "$INSTALL_BROWSERS" = "true" ]; then
-          # The cache key names the engine set, so a hit means every requested
-          # engine is already present and the apt system-deps pass can be
-          # skipped along with the downloads.
-          if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ]; then
+        if [ -n "$BROWSER_ENGINES" ]; then
+          # A cache hit restores browser binaries, never the system libraries
+          # they load. Those are apt packages on an ephemeral runner, so they
+          # are gone every time and --with-deps has to reinstall them for any
+          # engine the runner image does not already satisfy. Chromium's are on
+          # the standard image, which is why a Chromium-only hit may skip the
+          # pass; WebKit's are not, and skipping it left MiniBrowser unable to
+          # load its libraries even though the binary restored fine.
+          if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ] && [ "$BROWSER_ENGINES" = "chromium" ]; then
             make setup-playwright-engines engines="$BROWSER_ENGINES"
           else
             make setup-playwright-engines engines="$BROWSER_ENGINES" with_deps=1
