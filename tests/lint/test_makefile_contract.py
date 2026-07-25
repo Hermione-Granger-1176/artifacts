@@ -40,9 +40,22 @@ def target_recipe(name: str) -> str:
 
 
 def test_python_scope_targets_keep_the_paths_override() -> None:
-    """A per-invocation ``paths=`` still narrows every Python scope target."""
+    """A per-invocation ``paths=`` still narrows every Python scope target.
+
+    Checked in the recipe, not only in the help text. Advertising ``[paths=...]``
+    while the command line has lost ``$(if $(paths),...)`` is the failure worth
+    catching, and every command line has to carry it: fmt-py runs two tools, so
+    an override on only the first would silently widen the second back to the
+    whole tree.
+    """
     for target in PYTHON_SCOPE_TARGETS:
         assert re.search(rf"^{re.escape(target)}:.*\[paths=\.\.\.\]", MAKEFILE_TEXT, re.MULTILINE)
+
+        commands = [line for line in target_recipe(target).splitlines() if line.strip()]
+
+        assert commands
+        for command in commands:
+            assert "$(if $(paths),$(paths)" in command
 
 
 def test_vulture_scope_comes_from_its_own_config() -> None:
