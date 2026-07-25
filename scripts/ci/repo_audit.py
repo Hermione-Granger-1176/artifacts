@@ -168,7 +168,11 @@ def enabled_security_features(repository: dict[str, object]) -> set[str]:
         return set()
     enabled = set()
     for name, setting in raw.items():
-        if isinstance(setting, dict) and setting.get("status") == "enabled":
+        if (
+            isinstance(name, str)
+            and isinstance(setting, dict)
+            and setting.get("status") == "enabled"
+        ):
             enabled.add(name)
     return enabled
 

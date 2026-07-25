@@ -265,6 +265,9 @@ def test_enabled_security_features_reads_only_enabled_entries() -> None:
             "secret_scanning": {"status": "enabled"},
             "secret_scanning_push_protection": {"status": "disabled"},
             "secret_scanning_validity_checks": "enabled",
+            # A non-string key cannot come back from GitHub's JSON, but the value
+            # is typed as object, so the guard keeps the set[str] return honest.
+            9: {"status": "enabled"},
         }
     }
 

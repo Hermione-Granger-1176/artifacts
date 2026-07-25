@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -987,16 +988,19 @@ def test_secret_scan_is_scoped_away_from_published_build_output() -> None:
 
     assert scan["env"]["GITLEAKS_CONFIG"] == "${{ github.workspace }}/.gitleaks.toml"
 
-    config = (REPO_ROOT / ".gitleaks.toml").read_text(encoding="utf-8")
+    config = tomllib.loads((REPO_ROOT / ".gitleaks.toml").read_text(encoding="utf-8"))
 
     # The default rule set stays on; only the path scope narrows.
-    assert "useDefault = true" in config
-    assert "^pr-preview/" in config
+    assert config["extend"]["useDefault"] is True
+
     # Nothing else may be excluded: pr-preview is safe to skip only because CI
-    # assembles it from source this same scan still covers in full.
-    allowlisted = re.findall(r"paths\s*=\s*\[(.*?)\]", config, re.DOTALL)
-    assert len(allowlisted) == 1
-    assert allowlisted[0].count("'''") == 2
+    # assembles it from source this same scan still covers in full. Asserting the
+    # whole allowlist, not just its paths, so a later commits/regexes/stopwords
+    # key cannot widen the scope past what this contract describes.
+    allowlist = config["allowlist"]
+    assert allowlist["paths"] == ["^pr-preview/"]
+    assert set(allowlist) <= {"description", "paths"}
+    assert "rules" not in config
 
     # Individually reviewed historical findings are accepted by fingerprint
     # instead, which pins rule, file, line, and commit, so the same file stays
