@@ -1,0 +1,19 @@
+# Reviewed findings that are accepted, one fingerprint per line
+# (commit:path:rule:line). This is deliberately narrower than a path allowlist
+# in .gitleaks.toml: a fingerprint pins one rule firing at one line of one file
+# in one commit, so the same file staying scanned means a genuinely new finding
+# in it still fails the build.
+#
+# All five below are the generic-api-key rule firing on the tokenizer explorer's
+# render module while it was committed in minified form, between 2026-04-09 and
+# 2026-07-18. The rule keys on entropy, and a minifier's mangled identifiers read
+# like a high-entropy token. Each was checked by reading the blob at the commit:
+# every one is application code (palette lookups, an rgba() builder, token pill
+# rendering), and the file has since been committed unminified. No credential is
+# involved, and history cannot be edited to remove them without a force-push of
+# the default branch.
+0ef426ec34469e7088bdd15aa91600c8aa224e5a:apps/tokenizer-explorer/js/modules/render.js:generic-api-key:1
+32e981f4e04842f1c6a3020fbadb8b7b94962884:apps/tokenizer-explorer/js/modules/render.js:generic-api-key:1
+10785173647bdbf7e701b5c8e64c724573e4982a:apps/tokenizer-explorer/js/modules/render.js:generic-api-key:1
+78b363f3ec066d582593683821ffc58963fa4b6a:apps/tokenizer-explorer/js/modules/render.js:generic-api-key:1
+f515af8b058e666b1672f7b77d687d3317eb1d13:apps/tokenizer-explorer/js/modules/render.js:generic-api-key:1

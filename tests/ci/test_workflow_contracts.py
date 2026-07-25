@@ -998,6 +998,20 @@ def test_secret_scan_is_scoped_away_from_published_build_output() -> None:
     assert len(allowlisted) == 1
     assert allowlisted[0].count("'''") == 2
 
+    # Individually reviewed historical findings are accepted by fingerprint
+    # instead, which pins rule, file, line, and commit, so the same file stays
+    # scanned and a new finding in it still fails.
+    fingerprints = [
+        line
+        for line in (REPO_ROOT / ".gitleaksignore").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    assert fingerprints
+    for fingerprint in fingerprints:
+        commit, path, rule, line_number = fingerprint.split(":")
+        assert re.fullmatch(r"[0-9a-f]{40}", commit)
+        assert path and rule and line_number.isdigit()
+
 
 def test_ci_setup_restores_download_caches_only_when_an_install_will_run() -> None:
     """A download cache is restored only when the step that reads it will run.
