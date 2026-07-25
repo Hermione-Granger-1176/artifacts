@@ -214,8 +214,8 @@ def resolve_repo(*, run_fn: RunFunction | None = None) -> str:
     the ``origin`` git remote (which also covers the rate-limited case).
     """
     try:
-        slug = gh_json(["repo", "view", "--json", "nameWithOwner"], run_fn=run_fn)
-        owner_name = str(slug.get("nameWithOwner", "")) if isinstance(slug, dict) else ""
+        repo_view = gh_json(["repo", "view", "--json", "nameWithOwner"], run_fn=run_fn)
+        owner_name = str(repo_view.get("nameWithOwner", "")) if isinstance(repo_view, dict) else ""
     except GhError:
         owner_name = ""
 

@@ -168,7 +168,7 @@ def _write_generated_files(
         return
 
     drift = _succeeds([venv_python, DRIFT_CHECKER], cwd=root, run_fn=run)
-    if drift is not None and drift.returncode == 0:
+    if _ok(drift):
         emit("OK: js/data.js, js/gallery-config.js, css/style.css, README markers up to date")
         return
     # Old shell: any failure (a nonzero exit or a launch failure) falls through

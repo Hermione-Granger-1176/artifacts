@@ -67,7 +67,7 @@ The wrapper requires an already-prepared cache, points `PLAYWRIGHT_BROWSERS_PATH
 
 `make playwright-local-clean` and `make clean` both remove only this repository's `.playwright/` cache. Neither touches the shared browser cache, since other projects depend on it; manage shared browsers with Playwright's own tooling.
 
-Reserve `make setup-ci` and `make setup-playwright-webkit-ci` for CI and ephemeral runners. They keep Playwright's `--with-deps` mode, which may install operating-system packages on the disposable runner.
+Reserve the `--with-deps` setup targets (`make setup-ci`, `make setup-playwright-ci`, `make setup-playwright-webkit-ci`, and `make setup-playwright-engines with_deps=1`) for CI and ephemeral runners. They may install operating-system packages on the disposable runner. CI itself provisions browsers through `make setup-playwright-engines` inside the `ci-setup` action.
 
 ## CI behavior
 
@@ -75,7 +75,7 @@ CI uses the same `make` targets as local development. The `update.yml` workflow 
 
 - `quick-gates` runs `make ci-quick-gates` (`format-check`, `lint`, `typecheck`, `validate`).
 - `heavy-checks` runs `make ci-heavy-checks` (`test-py`, `coverage-js`, `dead-code`, `security`).
-- `root-browser` runs the root gallery browser verification with `make test-browser-root`, then installs WebKit (`make setup-playwright-webkit-ci`) and runs the bounded cross-engine smoke pass (`make test-browser-webkit-smoke`) that loads the root gallery and every app entry page in WebKit. All other browser suites default to Chromium; set `ARTIFACTS_BROWSER_ENGINE` to override the engine for a run.
+- `root-browser` provisions Chromium and WebKit together through `ci-setup` (`browser-engines: chromium-webkit`), runs the root gallery browser verification with `make test-browser-root`, then runs the bounded cross-engine smoke pass (`make test-browser-webkit-smoke`) that loads the root gallery and every app entry page in WebKit. All other browser suites default to Chromium; set `ARTIFACTS_BROWSER_ENGINE` to override the engine for a run.
 - `app-shard` jobs each run one bounded shard of app browser tests (`make test-browser-apps-shard`) plus thumbnail capture (`make thumbnails-shard`).
 - `assemble-site` builds the generated files and the deployable site once (`make check-generated`, `make index`, `make site`) after the gates pass, and uploads the `_site/` artifact.
 - `verify` aggregates the dependency job results for branch protection. It runs no tests and builds no files.
@@ -109,7 +109,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 - `make coverage-js` uses Node's built-in experimental coverage output and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across all source files imported by the grouped `tests/js/` suites. Coverage excludes `node_modules/` and `tests/`; thresholds and exclusions are configured in `package.json`.
 - `make security` is the umbrella target that runs `make audit-python` then `make audit-node`, mirroring the practical local dependency audits in CI. `make audit-python` exports the frozen uv dependency graph to a temporary requirements file, runs a policy-driven pip-audit against it, matches reviewed exceptions in `config/security_audit.json` by package and vulnerability id or alias, and fails expired, unused, or now-fixable exceptions. `make audit-node` runs `npm audit` through the policy wrapper in `scripts/ci/run_npm_audit.py`, which matches reviewed exceptions in `config/security_audit.json` (`npm_vulnerability_exceptions`) by advisory id and fails expired or unused exceptions the same way the Python audit does. Gitleaks and GitHub dependency review remain CI-only because this repo does not vendor those scanners locally.
 - `make check-generated` reruns the stylesheet and index generators in a restore-safe mode and fails if `css/style.css`, generated README markers, `js/data.js`, or `js/gallery-config.js` would drift from tracked source inputs.
-- Playwright browser suites validate both the built root gallery and mature app pages through `make test-browser`, while CI selectively scopes mature app suites with `ARTIFACTS_BROWSER_APP_SLUGS`.
+- Playwright browser suites validate both the built root gallery and mature app pages through `make test-browser`, while CI scopes mature app suites per shard with `ARTIFACTS_BROWSER_APP_MANIFEST` (set by `make test-browser-apps-shard`). Locally, `ARTIFACTS_BROWSER_APP_SLUGS` narrows `make test-browser-apps` to specific slugs.
 - `make test-browser-live` verifies an already-published site in a real browser when `ARTIFACTS_LIVE_SITE_URL` is set, and CI captures failure screenshots/traces/logs through `ARTIFACTS_BROWSER_ARTIFACT_DIR`.
 - Scheduled CI monitoring now uses GitHub-native issue alerts: `.github/workflows/audit-repo-settings.yml` opens/closes a single repository-settings drift issue, and `.github/workflows/live-site-smoke.yml` opens/closes a single live-site smoke issue.
 - `make ci` is the full non-browser local gate without browser Playwright suites or thumbnail generation, and it includes formatting, linting, tests, coverage, dead-code checks, dependency audits, validation, and canonical generated-file drift checks. `make check-local` is an alias.
@@ -122,7 +122,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 ## Thumbnail policy
 
 - `thumbnail.webp` is the preferred generated format.
-- Local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date. CI auto-invalidates thumbnails for apps whose runtime changed (`index.html`, `js/**`, `css/**`, `assets/**`) or when shared site assets changed, using `scripts/ci/workflow_helpers.py invalidate-thumbnails`.
+- Local and CI thumbnail generation skips artifacts whose checked-in thumbnails are already up to date. CI auto-invalidates thumbnails for apps whose runtime changed (`index.html`, `js/**`, `css/**`, `assets/**`) or when shared site assets changed, using `scripts/ci/app_shards.py invalidate-thumbnails`, run by `make thumbnails-shard`.
 - CI does not trigger mature-app browser suites for app docs or metadata-only edits; the thumbnail plan uses the same runtime-change classification to scope mature-app browser runs.
 - CI sets `ARTIFACTS_STRICT_THUMBNAILS=1`, so any attempted thumbnail failure fails the workflow instead of being logged as a warning.
 - Local working copies do not need checked-in thumbnails to function during development.
@@ -143,10 +143,10 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
 ## Vendored runtime dependencies
 
 - There are no external CDN dependencies at runtime. All third-party scripts are vendored locally.
-- `apps/loan-amortization/js/vendor/` contains:
-  - Chart.js `4.4.1`
-  - `chartjs-plugin-annotation` `3.0.1`
-  - `chartjs-plugin-datalabels` `2.2.0`
+- Three apps vendor libraries, with `config/vendored_assets.json` as the authoritative inventory:
+  - `apps/loan-amortization/js/vendor/`: Chart.js `4.4.1`, `chartjs-plugin-annotation` `3.0.1`, `chartjs-plugin-datalabels` `2.2.0`
+  - `apps/bond-price-vs-rate/js/vendor/`: Chart.js `4.4.1`
+  - `apps/tokenizer-explorer/js/vendor/`: Chart.js `4.4.1`
 - Versions are pinned and upgraded manually for stability. To upgrade, download the new UMD builds from the recorded `upstream` URLs (jsDelivr), replace the files in `js/vendor/`, update the matching `version`, `upstream`, and `sha256` entries in `config/vendored_assets.json`, and rerun the browser suites.
 - `make lint-vendored-assets` enforces the manifest: every vendored file must be listed in `config/vendored_assets.json` and match its recorded SHA-256.
 - Vendored directories are excluded from ESLint (`**/vendor/**` in `config/eslint.config.js`) and lint checks (`vendor` in `scripts/lint/__init__.py` `SKIP_DIRECTORIES`).
@@ -251,7 +251,7 @@ Use this on a brand-new fork or clone that has never deployed, or after `gh-page
 - If the browsers install but fail to launch because the host lacks their shared libraries, run `make setup-playwright-local`, confirm it with `make playwright-local-gate`, and rerun the browser target with `local_libs=1`. Run `make playwright-local-status` to see which engines the cache currently covers.
 - `make check-local` intentionally avoids Playwright so it can stay fast on machines without Chromium.
 - If you need to manually audit repository settings drift outside the scheduled workflow, run `make help-ci` to discover `make ci-audit-repo-settings`, then pass `repo=<owner/repo>` when auditing a different repository.
-- If `secret-scan` fails on an event with no commit range (`workflow_dispatch`, `schedule`), check which paths the findings name before treating them as real. That job checks out with `fetch-depth: 0`, so those events walk every branch, including `gh-pages`, where each pull request leaves a built copy of the site under `pr-preview/`. `.gitleaks.toml` excludes that prefix and nothing else; a finding anywhere outside it is genuine and the credential must be rotated, not allowlisted.
+- If `secret-scan` fails on an event with no commit range (`workflow_dispatch`, `schedule`), check which paths the findings name before treating them as real. That job checks out with `fetch-depth: 0`, so those events walk every branch, including `gh-pages`, where each pull request leaves a built copy of the site under `pr-preview/`. `.gitleaks.toml` excludes that prefix and nothing else. A finding outside it is either one of the reviewed fingerprints already recorded in `.gitleaksignore` (five entropy hits on the tokenizer explorer's once-minified `render.js`) or genuine, in which case rotate the credential. Accept a reviewed finding by fingerprint in `.gitleaksignore`, never by widening the path allowlist.
 - If every workflow on a commit reports `startup_failure` at once, suspect a GitHub incident rather than the workflow files: `make lint-workflows` still passes, and no job ever starts, so there are no logs to read. Once the incident clears, replay each affected run with `make ci-rerun run=<id>` (add `failed=1` to retry only the failed jobs of a partially green run).
 - If a replayed deploy fails with `Multiple artifacts named "github-pages" were unexpectedly found`, the retry is the cause, not the payload: attempts of one run share a single artifact namespace, so a second upload of the same name leaves the deploy step with an ambiguity it refuses to resolve. Start a fresh run with `make ci-dispatch workflow=update.yml ref=main` instead of re-running that one again, and pass `inputs="redeploy-sha=<sha>"` when the target is an older commit.
 - If `actions/deploy-pages` times out with `Current status: updating_pages`, check `deploy-metadata.json` on the live site before assuming nothing shipped: a Pages backlog can publish the payload after the action stops waiting, so the deployed `commit_sha` may already match the commit whose run went red.

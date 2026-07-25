@@ -109,10 +109,6 @@ export function runSchedule(
   let rollingInterest = 0;
   let rollingExtra = 0;
 
-  const balances = [];
-  const principalParts = [];
-  const interestParts = [];
-  const extraParts = [];
   const cumulativePrincipal = [];
   const cumulativeInterest = [];
   const cumulativeExtra = [];
@@ -141,10 +137,6 @@ export function runSchedule(
     rollingInterest += interestPart;
     rollingExtra += extraAmount;
 
-    balances.push(Math.round(balance));
-    principalParts.push(Math.round(principalPart));
-    interestParts.push(Math.round(interestPart));
-    extraParts.push(Math.round(extraAmount));
     cumulativePrincipal.push(Math.round(rollingPrincipal));
     cumulativeInterest.push(Math.round(rollingInterest));
     cumulativeExtra.push(Math.round(rollingExtra));
@@ -157,6 +149,13 @@ export function runSchedule(
       balance
     });
   }
+
+  // Rounded projections of the rows the loop already built, kept out of the
+  // loop body so only the genuinely running totals accumulate in place.
+  const balances = rows.map((row) => Math.round(row.balance));
+  const principalParts = rows.map((row) => Math.round(row.principal));
+  const interestParts = rows.map((row) => Math.round(row.interest));
+  const extraParts = rows.map((row) => Math.round(row.extra));
 
   let breakEven = /** @type {number | null} */ (null);
   for (let index = 1; index < cumulativePrincipal.length; index += 1) {

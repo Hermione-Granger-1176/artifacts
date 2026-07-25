@@ -290,7 +290,6 @@ def runtime_change_plan(changed_files: list[str], *, repo_root: Path = Path()) -
         if slug is not None:
             changed_slugs.add(slug)
 
-    shared_module_consumers_by_path: dict[str, set[str]] = {}
     if changed_shared_modules and not shared_runtime_changed:
         try:
             shared_module_consumers_by_path = shared_module_consumers(repo_root)

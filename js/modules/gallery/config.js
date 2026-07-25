@@ -231,8 +231,8 @@ function validateArtifactContract(value, path) {
 
   try {
     new RegExp(value.artifactIdPattern);
-  } catch {
-    assertShape(false, `${path}.artifactIdPattern must be a valid regular expression`);
+  } catch (error) {
+    throw new Error(`${path}.artifactIdPattern must be a valid regular expression`, { cause: error });
   }
 }
 
@@ -273,10 +273,10 @@ function validateArtifactUrl(value, path, expectedId, contract, compiledRegex) {
   }
 
   if (matchesArtifactUrlShape(value, contract, compiledRegex)) {
-    assertShape(false, `${path} must use the same artifact id as ${path.replace(/\.url$/, '.id')}`);
+    throw new Error(`${path} must use the same artifact id as ${path.replace(/\.url$/, '.id')}`);
   }
 
-  assertShape(false, `${path} must match ${buildArtifactUrl(contract, '<artifact-id>')}`);
+  throw new Error(`${path} must match ${buildArtifactUrl(contract, '<artifact-id>')}`);
 }
 
 /**
@@ -297,10 +297,10 @@ function validateThumbnailPath(value, path, expectedId, contract, compiledRegex)
   }
 
   if (matchesThumbnailShape(value, contract, compiledRegex)) {
-    assertShape(false, `${path} must use the same artifact id as ${path.replace(/\.thumbnail$/, '.id')}`);
+    throw new Error(`${path} must use the same artifact id as ${path.replace(/\.thumbnail$/, '.id')}`);
   }
 
-  assertShape(false, `${path} must match ${buildThumbnailPath(contract, '<artifact-id>')}`);
+  throw new Error(`${path} must match ${buildThumbnailPath(contract, '<artifact-id>')}`);
 }
 
 /**

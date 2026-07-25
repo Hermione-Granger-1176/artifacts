@@ -244,7 +244,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       const token = ++overlayActionToken;
       try {
         const inst = await ensureOverlay();
-        token === overlayActionToken && inst.open(id, triggerCard, items);
+        if (token === overlayActionToken) {
+          inst.open(id, triggerCard, items);
+        }
       } catch (error) {
         appRuntime.reportError(error, 'overlay open');
       }
@@ -253,7 +255,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       const token = ++overlayActionToken;
       try {
         const inst = await ensureOverlay();
-        token === overlayActionToken && inst.toggle(id, triggerCard, items);
+        if (token === overlayActionToken) {
+          inst.toggle(id, triggerCard, items);
+        }
       } catch (error) {
         appRuntime.reportError(error, 'overlay toggle');
       }
@@ -588,33 +592,21 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   function updateFilterNotesState() {
     /**
      * @param {string} selector - Button selector.
-     * @param {string[]} activeValues - Currently active filter values.
+     * @param {(button: HTMLElement) => boolean} isActive - Pressed-state test.
      */
-    const updateButtons = (selector, activeValues) => {
+    const setPressed = (selector, isActive) => {
       filterNotesContainer.querySelectorAll(selector).forEach((element) => {
         const button = /** @type {HTMLElement} */ (element);
-        const active = activeValues.includes(button.dataset.filterTool || button.dataset.filterTag || '');
+        const active = isActive(button);
         button.classList.toggle('is-active', active);
         button.setAttribute('aria-pressed', String(active));
       });
     };
 
-    updateButtons('[data-filter-tool]', currentTools);
-    updateButtons('[data-filter-tag]', currentTags);
-
-    /** @type {Array<[string, boolean]>} */
-    const filterNoteStates = [
-      ['[data-filter-note="all-tools"]', currentTools.length === 0],
-      ['[data-filter-note="all-tags"]', currentTags.length === 0]
-    ];
-
-    filterNoteStates.forEach(([selector, active]) => {
-      filterNotesContainer.querySelectorAll(selector).forEach((element) => {
-        const button = /** @type {HTMLElement} */ (element);
-        button.classList.toggle('is-active', active);
-        button.setAttribute('aria-pressed', String(active));
-      });
-    });
+    setPressed('[data-filter-tool]', (button) => currentTools.includes(button.dataset.filterTool || ''));
+    setPressed('[data-filter-tag]', (button) => currentTags.includes(button.dataset.filterTag || ''));
+    setPressed('[data-filter-note="all-tools"]', () => currentTools.length === 0);
+    setPressed('[data-filter-note="all-tags"]', () => currentTags.length === 0);
 
     const toolsSummary = filterNotesContainer.querySelector('[data-filter-summary="tools"]');
     if (toolsSummary) {

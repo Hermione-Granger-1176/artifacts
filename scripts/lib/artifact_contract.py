@@ -38,11 +38,10 @@ def read_artifact_contract_file(contract_file: Path) -> ArtifactContract:
         raise ValueError("Artifact contract must include " + ", ".join(sorted(missing)))
 
     artifact_id_pattern = contract["artifactIdPattern"]
-    artifact_base_path = contract["artifactBasePath"]
-    thumbnail_file = contract["thumbnailFile"]
+    base_path = contract["artifactBasePath"]
+    thumbnail_name = contract["thumbnailFile"]
     if not all(
-        isinstance(value, str)
-        for value in (artifact_id_pattern, artifact_base_path, thumbnail_file)
+        isinstance(value, str) for value in (artifact_id_pattern, base_path, thumbnail_name)
     ):
         raise ValueError("Artifact contract values must be strings")
 
@@ -50,9 +49,9 @@ def read_artifact_contract_file(contract_file: Path) -> ArtifactContract:
         re.compile(artifact_id_pattern)
     except re.error as exc:
         raise ValueError("Artifact contract artifactIdPattern must be valid") from exc
-    if "/" in artifact_base_path or artifact_base_path.startswith("."):
+    if "/" in base_path or base_path.startswith("."):
         raise ValueError("Artifact contract artifactBasePath must be one safe path segment")
-    if "/" in thumbnail_file or thumbnail_file.startswith("."):
+    if "/" in thumbnail_name or thumbnail_name.startswith("."):
         raise ValueError("Artifact contract thumbnailFile must be one safe file name")
 
     return cast("ArtifactContract", contract)
