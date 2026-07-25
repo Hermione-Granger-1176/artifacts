@@ -843,18 +843,21 @@ def discovered_directories(root: Path) -> dict[str, list[Path]]:
             found["gstreamer"].append(directory)
         if relative.parts[-2:] == ("glib-2.0", "schemas"):
             found["schemas"].append(directory)
-        contains_shared_library = any(
-            child.name.startswith("lib") and ".so" in child.name
-            for child in directory.iterdir()
-            if child.is_file()
-        )
         parts = relative.parts
         is_loader_directory = (
             bool(parts) and parts[0] in {"lib", "lib64"} and len(parts) <= 2
         ) or (
             len(parts) >= 2 and parts[:2] in {("usr", "lib"), ("usr", "lib64")} and len(parts) <= 3
         )
-        if contains_shared_library and is_loader_directory:
+        # Decide on the path shape before reading the directory. Only a handful of
+        # directories in an extracted tree are loader directories (7 of 331 in a
+        # 193-package cache), and this runs on every wrapped browser invocation, so
+        # the short circuit skips the iterdir syscalls for the other 98%.
+        if is_loader_directory and any(
+            child.name.startswith("lib") and ".so" in child.name
+            for child in directory.iterdir()
+            if child.is_file()
+        ):
             found["libraries"].append(directory)
     return found
 
