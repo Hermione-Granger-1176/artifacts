@@ -58,9 +58,18 @@ inputs:
     required: false
     default: "false"
   install-browsers:
-    description: Whether dependency setup installs Chromium for browser jobs.
+    description: Whether dependency setup installs browsers for browser jobs.
     required: false
     default: "true"
+  browser-engines:
+    description: >-
+      Hyphen-separated Playwright engines to install, and part of the browser cache key. Keying on the
+      engine set is what stops a restored entry from being a subset of what the job needs: the key used
+      to name only the lockfile, so the Chromium-only entry it stored kept hitting for the job that also
+      needs WebKit, and because actions/cache skips the save on a primary-key hit, that entry could never
+      grow to include it. WebKit was therefore downloaded on every run.
+    required: false
+    default: chromium
   uv-version:
     description: >-
       uv release to install. Pinned rather than floating: uv bootstraps the virtual environment, so it
@@ -243,7 +252,7 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/ms-playwright
-        key: playwright-${{ hashFiles('uv.lock') }}
+        key: playwright-${{ hashFiles('uv.lock') }}-${{ inputs.browser-engines }}
 
     # The download caches below are gated on their consumer having missed. A
     # .venv hit means `make install` never runs, so ~/.cache/uv is restored and
@@ -302,6 +311,7 @@ runs:
       shell: bash
       env:
         INSTALL_BROWSERS: ${{ inputs.install-browsers }}
+        BROWSER_ENGINES: ${{ inputs.browser-engines }}
         VENV_CACHE_HIT: ${{ steps.venv-cache.outputs.cache-hit }}
         NODE_MODULES_CACHE_HIT: ${{ steps.node-modules-cache.outputs.cache-hit }}
         PLAYWRIGHT_CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
@@ -313,9 +323,12 @@ runs:
           make node-install
         fi
         if [ "$INSTALL_BROWSERS" = "true" ]; then
+          # The cache key names the engine set, so a hit means every requested
+          # engine is already present and the apt system-deps pass can be
+          # skipped along with the downloads.
           if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ]; then
-            make setup-playwright
+            make setup-playwright-engines engines="$BROWSER_ENGINES"
           else
-            make setup-playwright-ci
+            make setup-playwright-engines engines="$BROWSER_ENGINES" with_deps=1
           fi
         fi

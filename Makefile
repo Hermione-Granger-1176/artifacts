@@ -47,7 +47,7 @@ endef
 
 # ─── Setup @setup ─────────────────────────────────────────────────────────────
 
-.PHONY: install node-install install-hooks setup-base setup setup-all setup-ci setup-playwright setup-playwright-ci setup-playwright-webkit setup-playwright-webkit-ci setup-playwright-local setup-playwright-webkit-local playwright-local-status playwright-local-gate playwright-local-clean
+.PHONY: install node-install install-hooks setup-base setup setup-all setup-ci setup-playwright setup-playwright-engines setup-playwright-ci setup-playwright-webkit setup-playwright-webkit-ci setup-playwright-local setup-playwright-webkit-local playwright-local-status playwright-local-gate playwright-local-clean
 
 install: ## Install locked Python deps into the virtual environment
 	UV_PROJECT_ENVIRONMENT=$(VENV) $(UV) sync --all-groups --frozen --python $(PYTHON)
@@ -71,6 +71,14 @@ setup-playwright: ## Install Chromium for browser tests
 
 setup-playwright-ci: ## Install Chromium with system deps
 	$(VENV)/bin/playwright install chromium --with-deps
+
+# Used by the ci-setup action, which keys its browser cache on the engine set so
+# a restored entry always holds exactly the engines the job asked for. Engines
+# arrive hyphen-separated (chromium-webkit) because the value is part of a cache
+# key; no engine name contains a hyphen, so splitting on it is unambiguous.
+setup-playwright-engines: ## Install named Playwright engines (make setup-playwright-engines engines=chromium-webkit [with_deps=1])
+	$(call need,engines,make setup-playwright-engines engines=chromium-webkit [with_deps=1])
+	$(VENV)/bin/playwright install $(if $(filter 1,$(with_deps)),--with-deps) $(subst -, ,$(engines))
 
 setup-playwright-webkit: ## Install WebKit for the cross-engine smoke pass
 	$(VENV)/bin/playwright install webkit
