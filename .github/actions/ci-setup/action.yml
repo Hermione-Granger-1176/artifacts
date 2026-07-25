@@ -260,8 +260,13 @@ runs:
           uv-${{ runner.os }}-${{ inputs.python-version }}-
           uv-${{ runner.os }}-
 
+    # Also gated on node-version, which the action allows to be empty: without
+    # it an empty caller would cache ~/.npm under a key with a hollow version
+    # segment for a toolchain that was never set up.
     - name: Cache npm downloads
-      if: inputs.install-deps == 'true' && steps.node-modules-cache.outputs.cache-hit != 'true'
+      if: >-
+        inputs.install-deps == 'true' && inputs.node-version != ''
+        && steps.node-modules-cache.outputs.cache-hit != 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.npm
@@ -271,13 +276,17 @@ runs:
 
     # Keyed on the pinned uv version, so it holds one wheel and actually hits.
     # Unlike the old lockfile-keyed pip cache, this key changes exactly when the
-    # thing it stores changes, so the frozen-entry problem cannot recur.
+    # thing it stores changes, so the frozen-entry problem cannot recur. The
+    # arch is part of the key for the same reason it is in the .venv key: the
+    # wheel is platform-specific, so without it the first architecture to
+    # populate the entry would pin an incompatible wheel for the others, and
+    # they could never correct it because a primary-key hit skips the save.
     - name: Cache uv installer download
       if: inputs.install-deps == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/pip
-        key: pip-uv-${{ runner.os }}-${{ inputs.python-version }}-${{ inputs.uv-version }}
+        key: pip-uv-${{ runner.os }}-${{ runner.arch }}-${{ inputs.python-version }}-${{ inputs.uv-version }}
 
     # Make targets such as audit-python invoke uv directly, so uv must be on
     # PATH even when the cached .venv makes the dependency install unnecessary.

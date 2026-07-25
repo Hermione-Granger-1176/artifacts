@@ -992,8 +992,11 @@ def test_ci_setup_restores_download_caches_only_when_an_install_will_run() -> No
         "inputs.install-deps == 'true' && steps.venv-cache.outputs.cache-hit != 'true'"
     )
     npm_cache = step("Cache npm downloads")
+    # node-version may be empty, and an empty toolchain has no ~/.npm worth
+    # keying, so the guard matches the one on Set up Node.js.
     assert npm_cache["if"] == (
-        "inputs.install-deps == 'true' && steps.node-modules-cache.outputs.cache-hit != 'true'"
+        "inputs.install-deps == 'true' && inputs.node-version != ''"
+        " && steps.node-modules-cache.outputs.cache-hit != 'true'"
     )
     assert npm_cache["with"]["path"] == "~/.npm"
 
@@ -1007,8 +1010,12 @@ def test_ci_setup_restores_download_caches_only_when_an_install_will_run() -> No
     # exactly when the stored wheel does and the entry cannot go stale.
     installer_cache = step("Cache uv installer download")
     assert installer_cache["with"]["path"] == "~/.cache/pip"
+    # runner.arch is in the key because the wheel is platform-specific; without
+    # it one architecture would pin an incompatible wheel that the others could
+    # never replace, since a primary-key hit skips the save.
     assert installer_cache["with"]["key"] == (
-        "pip-uv-${{ runner.os }}-${{ inputs.python-version }}-${{ inputs.uv-version }}"
+        "pip-uv-${{ runner.os }}-${{ runner.arch }}"
+        "-${{ inputs.python-version }}-${{ inputs.uv-version }}"
     )
     assert step("Install uv")["run"].strip() == 'python -m pip install "uv==${UV_VERSION}"'
     assert ci_setup["inputs"]["uv-version"]["default"] == "0.11.32"
