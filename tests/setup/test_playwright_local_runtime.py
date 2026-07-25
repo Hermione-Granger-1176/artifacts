@@ -441,6 +441,37 @@ def test_checked_run_reports_failures_with_bounded_output() -> None:
 # ─── Download, extraction, and validation ────────────────────────────────────
 
 
+def test_is_within_answers_for_unresolvable_paths(tmp_path: Path) -> None:
+    """Hostile filesystem entries get a plain answer instead of an escaping OSError.
+
+    ``resolve(strict=False)`` is what makes the containment guard total: a symlink
+    loop, a dangling target, and an unreadable parent each resolve best-effort
+    rather than raising, so validating an untrusted extracted tree cannot crash.
+    """
+    loop = tmp_path / "loop"
+    other = tmp_path / "other"
+    loop.symlink_to(other)
+    other.symlink_to(loop)
+
+    assert runtime.is_within(loop, tmp_path) is True
+    assert runtime.is_within(loop, tmp_path / "elsewhere") is False
+
+    dangling = tmp_path / "dangling"
+    dangling.symlink_to(tmp_path / "missing" / "target")
+
+    assert runtime.is_within(dangling, tmp_path) is True
+
+    blocked = tmp_path / "blocked"
+    (blocked / "inner").mkdir(parents=True)
+    blocked.chmod(0o000)
+    try:
+        assert runtime.is_within(blocked / "inner", tmp_path) is True
+    finally:
+        blocked.chmod(0o700)
+
+    assert runtime.is_within(tmp_path / "escape", Path(tmp_path.anchor) / "nowhere") is False
+
+
 def test_download_and_extract_uses_only_approved_package_commands(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
