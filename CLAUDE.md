@@ -53,6 +53,7 @@ When adding a user-provided artifact, prefer the minimal path: scaffold with `sr
 Key entry points:
 
 - `make setup`: fast default (Python + Node deps, no Chromium). `make setup-all` adds Chromium for browser tests and thumbnails; use only when browser work is explicitly needed. Requires `uv` on PATH.
+- `make setup-playwright-local`: no-sudo browser setup for a Debian or Ubuntu host missing the browsers' shared libraries (`make setup-playwright-webkit-local` adds WebKit). Browser targets then opt in with `local_libs=1`. See [`operations.md`](docs/operations.md#browser-setup-without-sudo).
 - `make ci` / `make ci-fast`: full / parallel non-browser local CI gate
 - `make check`: full gate (non-browser CI + browser tests + thumbnails + index + site build); `make check-web` for just the browser half
 - `make status`: workspace health check (git, deps, lock currency, generated files, PR summary)
