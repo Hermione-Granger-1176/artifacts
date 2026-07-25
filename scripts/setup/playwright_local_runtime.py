@@ -187,10 +187,19 @@ def fail(message: str) -> RuntimeSetupError:
 
 
 def is_within(path: Path, parent: Path) -> bool:
-    """Return whether a resolved path remains under the resolved parent."""
+    """Return whether a resolved path remains under the resolved parent.
+
+    Resolution itself can fail on hostile input, so this guard denies rather
+    than propagates. On Python 3.12 a symlink loop raises RuntimeError from
+    pathlib's own ELOOP check (3.13 rebuilt resolve() on os.path.realpath and
+    answers best-effort instead), and a filesystem can still surface OSError.
+    Callers validate untrusted extracted trees with this, so an unresolvable
+    path is treated as outside the parent and an escaping exception would turn
+    a containment check into a crash.
+    """
     try:
         path.resolve(strict=False).relative_to(parent.resolve(strict=False))
-    except ValueError:
+    except (OSError, RuntimeError, ValueError):
         return False
     return True
 

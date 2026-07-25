@@ -441,19 +441,22 @@ def test_checked_run_reports_failures_with_bounded_output() -> None:
 # ─── Download, extraction, and validation ────────────────────────────────────
 
 
-def test_is_within_answers_for_unresolvable_paths(tmp_path: Path) -> None:
-    """Hostile filesystem entries get a plain answer instead of an escaping OSError.
+def test_is_within_returns_a_verdict_for_unresolvable_paths(tmp_path: Path) -> None:
+    """Hostile filesystem entries get a verdict instead of an escaping exception.
 
-    ``resolve(strict=False)`` is what makes the containment guard total: a symlink
-    loop, a dangling target, and an unreadable parent each resolve best-effort
-    rather than raising, so validating an untrusted extracted tree cannot crash.
+    The containment guard validates untrusted extracted trees, so it has to answer
+    even when resolution fails. A symlink loop raises RuntimeError from pathlib's
+    ELOOP check on Python 3.12 and resolves best-effort on 3.13+, so the boolean
+    for that case is interpreter-dependent and only "does not raise" is asserted.
+    Denial is asserted where it is version-stable, since a guard that fails open
+    on an unresolvable path would let an escaping entry through.
     """
     loop = tmp_path / "loop"
     other = tmp_path / "other"
     loop.symlink_to(other)
     other.symlink_to(loop)
 
-    assert runtime.is_within(loop, tmp_path) is True
+    assert isinstance(runtime.is_within(loop, tmp_path), bool)
     assert runtime.is_within(loop, tmp_path / "elsewhere") is False
 
     dangling = tmp_path / "dangling"
