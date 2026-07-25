@@ -973,6 +973,32 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
     )
 
 
+def test_secret_scan_is_scoped_away_from_published_build_output() -> None:
+    """The scan covers source history and skips the copies CI publishes of it.
+
+    secret-scan checks out with fetch-depth 0, so an event with no commit range
+    walks every branch including gh-pages, where each pull request leaves a built
+    copy of the site under pr-preview/. That produced 75 generic-api-key hits on
+    minified bundles and, because secret-scan is a required check, made the
+    documented workflow_dispatch rollback impossible to run.
+    """
+    update = _load_workflow("update.yml")
+    scan = _step(_job(update, "secret-scan"), "Scan for committed secrets")
+
+    assert scan["env"]["GITLEAKS_CONFIG"] == "${{ github.workspace }}/.gitleaks.toml"
+
+    config = (REPO_ROOT / ".gitleaks.toml").read_text(encoding="utf-8")
+
+    # The default rule set stays on; only the path scope narrows.
+    assert "useDefault = true" in config
+    assert "^pr-preview/" in config
+    # Nothing else may be excluded: pr-preview is safe to skip only because CI
+    # assembles it from source this same scan still covers in full.
+    allowlisted = re.findall(r"paths\s*=\s*\[(.*?)\]", config, re.DOTALL)
+    assert len(allowlisted) == 1
+    assert allowlisted[0].count("'''") == 2
+
+
 def test_ci_setup_restores_download_caches_only_when_an_install_will_run() -> None:
     """A download cache is restored only when the step that reads it will run.
 

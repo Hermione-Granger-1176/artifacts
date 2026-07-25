@@ -183,7 +183,13 @@ def test_audit_repo_settings_returns_expected_summary(
 ) -> None:
     """Audit repo settings returns expected summary."""
     responses = {
-        "repos/owner/repo": {"default_branch": "main"},
+        "repos/owner/repo": {
+            "default_branch": "main",
+            "security_and_analysis": {
+                "secret_scanning": {"status": "enabled"},
+                "secret_scanning_push_protection": {"status": "enabled"},
+            },
+        },
         "repos/owner/repo/pages": {
             "build_type": "workflow",
             "https_enforced": True,
@@ -248,7 +254,78 @@ def test_audit_repo_settings_returns_expected_summary(
         "pages-https-enforced": True,
         "pages-path": "/",
         "required-checks": ["dependency-review", "secret-scan", "verify"],
+        "security-features": ["secret_scanning", "secret_scanning_push_protection"],
     }
+
+
+def test_enabled_security_features_reads_only_enabled_entries() -> None:
+    """Anything short of an explicit enabled status is not treated as enabled."""
+    repository = {
+        "security_and_analysis": {
+            "secret_scanning": {"status": "enabled"},
+            "secret_scanning_push_protection": {"status": "disabled"},
+            "secret_scanning_validity_checks": "enabled",
+        }
+    }
+
+    assert repo_audit.enabled_security_features(repository) == {"secret_scanning"}
+
+
+def test_enabled_security_features_treats_a_missing_block_as_nothing_enabled() -> None:
+    """The block is absent without administration access, which must read as drift.
+
+    Reporting an unreadable setting as satisfied would let the audit certify
+    push protection it never actually observed.
+    """
+    assert repo_audit.enabled_security_features({}) == set()
+    assert repo_audit.enabled_security_features({"security_and_analysis": None}) == set()
+
+
+def test_audit_repo_settings_flags_disabled_push_protection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Push protection off is drift, since it is the layer that blocks the push."""
+    responses = {
+        "repos/owner/repo": {
+            "default_branch": "main",
+            "security_and_analysis": {"secret_scanning": {"status": "enabled"}},
+        },
+        "repos/owner/repo/pages": {"build_type": "workflow", "https_enforced": True},
+        "repos/owner/repo/branches/main/protection": {
+            "required_status_checks": {"contexts": ["verify", "secret-scan", "dependency-review"]},
+            "required_pull_request_reviews": {"required_approving_review_count": 1},
+            "required_signatures": {"enabled": True},
+            "required_linear_history": {"enabled": True},
+            "required_conversation_resolution": {"enabled": True},
+        },
+        "repos/owner/repo/actions/variables": {
+            "variables": [
+                {"name": "APP_ID"},
+                {"name": "ESCALATION_APP_ID"},
+                {"name": "AUDIT_APP_ID"},
+            ]
+        },
+        "repos/owner/repo/actions/secrets": {
+            "secrets": [
+                {"name": "APP_PRIVATE_KEY"},
+                {"name": "ESCALATION_APP_PRIVATE_KEY"},
+                {"name": "AUDIT_APP_PRIVATE_KEY"},
+                {"name": "GITLEAKS_LICENSE"},
+            ]
+        },
+        "repos/owner/repo/rulesets": [],
+    }
+
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api_json",
+        lambda endpoint, *_args, **_kwargs: responses[endpoint],
+    )
+
+    with pytest.raises(ValueError, match="secret_scanning_push_protection") as excinfo:
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+    assert "security and analysis features" in str(excinfo.value)
 
 
 def test_audit_repo_settings_rejects_unexpected_response_types(

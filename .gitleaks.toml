@@ -1,0 +1,22 @@
+# Secret-scanning scope for the secret-scan job in .github/workflows/update.yml.
+#
+# The job checks out with fetch-depth: 0, which fetches every branch, and on the
+# events that have no commit range (workflow_dispatch, schedule) gitleaks walks
+# all of that history. That reaches gh-pages, which is not source: it is the
+# published site plus one built copy of it per pull request under pr-preview/.
+# Scanning it produced 75 findings, every one of them the generic-api-key rule
+# firing on minified application bundles, and because secret-scan is a required
+# check that made the documented workflow_dispatch rollback impossible to run.
+#
+# Excluding the built copies costs no real coverage. pr-preview/ exists on no
+# source branch, and its contents are assembled by CI from the repository tree
+# that this same scan already covers in full, so a secret could not reach a
+# preview without first passing through source that is still scanned. Every rule
+# stays active everywhere else, including all of the default branch's history.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "CI-generated PR preview copies published to gh-pages"
+paths = ['''^pr-preview/''']
