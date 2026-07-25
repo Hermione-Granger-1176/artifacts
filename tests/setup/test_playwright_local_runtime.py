@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 import dataclasses
+import errno
 import fcntl
 import os
 import shutil
@@ -1403,6 +1404,66 @@ def test_webkit_launchers_skips_unusable_bundles(tmp_path: Path) -> None:
 def test_webkit_launcher_is_patched_handles_unreadable_launchers(tmp_path: Path) -> None:
     """An unreadable launcher is reported as unpatched rather than crashing."""
     assert not runtime.webkit_launcher_is_patched(tmp_path)
+
+
+def test_patch_webkit_launchers_reports_an_unreadable_launcher(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A launcher that cannot be read is a concise setup error, not a traceback."""
+    paths = runtime.RuntimePaths.from_repo(tmp_path, browser_root=tmp_path / "shared-browsers")
+    write_webkit_launcher(paths, patched=False)
+
+    def refuse_read(*_args: object, **_kwargs: object) -> str:
+        raise OSError(errno.EACCES, "Permission denied")
+
+    monkeypatch.setattr(Path, "read_text", refuse_read)
+
+    with pytest.raises(runtime.RuntimeSetupError, match="cannot read the shared WebKit launcher"):
+        runtime.patch_webkit_launchers(paths)
+
+
+def test_patch_webkit_launchers_reports_an_unwritable_cache(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A read-only shared browser cache cannot stage a replacement launcher.
+
+    Shared and network-mounted homes routinely mount the Playwright cache
+    read-only, so this is the ordinary failure rather than an exotic one.
+    """
+    paths = runtime.RuntimePaths.from_repo(tmp_path, browser_root=tmp_path / "shared-browsers")
+    write_webkit_launcher(paths, patched=False)
+
+    def refuse_mkstemp(*_args: object, **_kwargs: object) -> tuple[int, str]:
+        raise OSError(errno.EROFS, "Read-only file system")
+
+    monkeypatch.setattr(runtime.tempfile, "mkstemp", refuse_mkstemp)
+
+    with pytest.raises(runtime.RuntimeSetupError, match="cannot patch the shared WebKit launcher"):
+        runtime.patch_webkit_launchers(paths)
+
+
+def test_patch_webkit_launchers_reports_a_failed_replacement(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A write that starts and then fails still surfaces concisely and cleans up."""
+    paths = runtime.RuntimePaths.from_repo(tmp_path, browser_root=tmp_path / "shared-browsers")
+    launcher = write_webkit_launcher(paths, patched=False)
+    original = launcher.read_text(encoding="utf-8")
+
+    def refuse_replace(*_args: object, **_kwargs: object) -> None:
+        raise OSError(errno.EXDEV, "Invalid cross-device link")
+
+    monkeypatch.setattr(Path, "replace", refuse_replace)
+
+    with pytest.raises(runtime.RuntimeSetupError, match="cannot patch the shared WebKit launcher"):
+        runtime.patch_webkit_launchers(paths)
+
+    assert launcher.read_text(encoding="utf-8") == original
+    staged = list(launcher.parent.glob(".MiniBrowser.*"))
+    assert staged == []
 
 
 # ─── Wrapped execution ───────────────────────────────────────────────────────

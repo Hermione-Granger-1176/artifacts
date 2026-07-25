@@ -31,7 +31,7 @@ import stat
 import subprocess
 import sys
 import tempfile
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -942,18 +942,30 @@ def webkit_launcher_is_patched(launcher: Path) -> bool:
 
 
 def patch_webkit_launchers(paths: RuntimePaths) -> None:
-    """Patch shared WebKit wrappers to retain the repository-local library path."""
+    """Patch shared WebKit wrappers to retain the repository-local library path.
+
+    These writes land in the shared browser cache, which is routinely read-only on
+    a mounted or shared home. Every filesystem step is therefore reported as a
+    concise setup error, since main() only renders RuntimeSetupError and anything
+    else would reach the Make user as a raw traceback.
+    """
     for launcher in webkit_launchers(paths):
-        content = launcher.read_text(encoding="utf-8")
+        try:
+            content = launcher.read_text(encoding="utf-8")
+        except OSError as error:
+            raise fail(f"cannot read the shared WebKit launcher {launcher}: {error}") from error
         if WEBKIT_LAUNCHER_LOCAL_LD_LINE in content:
             continue
         if content.count(WEBKIT_LAUNCHER_LD_LINE) != 1:
             raise fail(f"unexpected shared WebKit launcher format: {launcher}")
         updated = content.replace(WEBKIT_LAUNCHER_LD_LINE, WEBKIT_LAUNCHER_LOCAL_LD_LINE)
-        descriptor, temporary_name = tempfile.mkstemp(
-            prefix=".MiniBrowser.",
-            dir=launcher.parent,
-        )
+        try:
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=".MiniBrowser.",
+                dir=launcher.parent,
+            )
+        except OSError as error:
+            raise fail(f"cannot patch the shared WebKit launcher {launcher}: {error}") from error
         temporary = Path(temporary_name)
         try:
             with os.fdopen(descriptor, "w", encoding="utf-8") as temporary_file:
@@ -962,8 +974,14 @@ def patch_webkit_launchers(paths: RuntimePaths) -> None:
                 os.fsync(temporary_file.fileno())
             temporary.chmod(stat.S_IMODE(launcher.stat().st_mode))
             temporary.replace(launcher)
+        except OSError as error:
+            raise fail(f"cannot patch the shared WebKit launcher {launcher}: {error}") from error
         finally:
-            temporary.unlink(missing_ok=True)
+            # Never let cleanup replace the real diagnostic: on the success path the
+            # rename already consumed this name, and on the failure path the caller
+            # needs the write error, not a second one from tidying up after it.
+            with suppress(OSError):
+                temporary.unlink(missing_ok=True)
 
 
 def require_ready(paths: RuntimePaths) -> tuple[str, ...]:
