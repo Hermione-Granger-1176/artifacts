@@ -61,6 +61,13 @@ inputs:
     description: Whether dependency setup installs Chromium for browser jobs.
     required: false
     default: "true"
+  uv-version:
+    description: >-
+      uv release to install. Pinned rather than floating: uv bootstraps the virtual environment, so it
+      has to be installed before .venv exists and cannot come from uv.lock. A pinned version also gives
+      the installer cache below a stable key, which an --upgrade install can never have.
+    required: false
+    default: "0.11.32"
 
 outputs:
   app-token:
@@ -192,29 +199,27 @@ runs:
         [ -z "$ESCALATION_TOKEN" ] && echo "  - Harry1176 (ESCALATION_APP_ID) token missing" >&2
         exit 1
 
+    # Deliberately no `cache: pip`. Python dependencies are resolved by uv into
+    # .venv, which is cached whole below, so a pip download cache has no
+    # consumer on the hit path. It was also self-defeating: actions/cache skips
+    # the save on a primary-key hit, and the key was hashFiles('uv.lock'), so
+    # the entry froze at whatever it held when uv.lock last changed and went on
+    # being restored unused. The one pip install this action still runs is
+    # covered by the far smaller, version-keyed installer cache below.
     - name: Set up Python
       id: setup-python
       uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: ${{ inputs.python-version }}
-        cache: pip
-        cache-dependency-path: uv.lock
 
-    - name: Cache uv downloads
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ~/.cache/uv
-        key: uv-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('uv.lock') }}
-        restore-keys: |
-          uv-${{ runner.os }}-${{ inputs.python-version }}-
-          uv-${{ runner.os }}-
-
+    # Likewise no `cache: npm`: ~/.npm only matters when `npm ci` runs, and a
+    # node_modules hit means it does not. The conditional cache below restores
+    # it exactly when it will be read.
     - name: Set up Node.js
       if: inputs.node-version != ''
       uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: ${{ inputs.node-version }}
-        cache: npm
 
     - name: Cache virtual environment
       id: venv-cache
@@ -240,12 +245,48 @@ runs:
         path: ~/.cache/ms-playwright
         key: playwright-${{ hashFiles('uv.lock') }}
 
+    # The download caches below are gated on their consumer having missed. A
+    # .venv hit means `make install` never runs, so ~/.cache/uv is restored and
+    # then read by nothing; the same holds for ~/.npm against `npm ci`. Gating
+    # keeps them for the miss path, where they are what makes the rebuild fast,
+    # and skips the transfer on the hit path, which is the common case.
+    - name: Cache uv downloads
+      if: inputs.install-deps == 'true' && steps.venv-cache.outputs.cache-hit != 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/uv
+        key: uv-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('uv.lock') }}
+        restore-keys: |
+          uv-${{ runner.os }}-${{ inputs.python-version }}-
+          uv-${{ runner.os }}-
+
+    - name: Cache npm downloads
+      if: inputs.install-deps == 'true' && steps.node-modules-cache.outputs.cache-hit != 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.npm
+        key: npm-${{ runner.os }}-${{ inputs.node-version }}-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          npm-${{ runner.os }}-${{ inputs.node-version }}-
+
+    # Keyed on the pinned uv version, so it holds one wheel and actually hits.
+    # Unlike the old lockfile-keyed pip cache, this key changes exactly when the
+    # thing it stores changes, so the frozen-entry problem cannot recur.
+    - name: Cache uv installer download
+      if: inputs.install-deps == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/pip
+        key: pip-uv-${{ runner.os }}-${{ inputs.python-version }}-${{ inputs.uv-version }}
+
     # Make targets such as audit-python invoke uv directly, so uv must be on
     # PATH even when the cached .venv makes the dependency install unnecessary.
     - name: Install uv
       if: inputs.install-deps == 'true'
       shell: bash
-      run: python -m pip install --upgrade pip uv
+      env:
+        UV_VERSION: ${{ inputs.uv-version }}
+      run: python -m pip install "uv==${UV_VERSION}"
 
     - name: Install workspace dependencies
       if: inputs.install-deps == 'true'

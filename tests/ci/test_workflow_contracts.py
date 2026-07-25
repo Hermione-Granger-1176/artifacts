@@ -956,8 +956,12 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
 
     ci_setup_steps = ci_setup["runs"]["steps"]
     setup_python = next(s for s in ci_setup_steps if s.get("name") == "Set up Python")
-    assert setup_python["with"]["cache"] == "pip"
-    assert setup_python["with"]["cache-dependency-path"] == "uv.lock"
+    # No pip cache here. Python dependencies land in .venv via uv, and .venv is
+    # cached whole, so a pip download cache has no consumer on the hit path. It
+    # was also self-defeating: actions/cache skips the save on a primary-key
+    # hit, so a hashFiles('uv.lock') key froze the entry until uv.lock changed.
+    assert "cache" not in setup_python.get("with", {})
+    assert "cache-dependency-path" not in setup_python.get("with", {})
     ci_uv_cache = next(s for s in ci_setup_steps if s.get("name") == "Cache uv downloads")
     assert ci_uv_cache["uses"] == ("actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9")
     assert ci_uv_cache["with"]["path"] == "~/.cache/uv"
@@ -967,3 +971,44 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
     assert (
         "uv-${{ runner.os }}-${{ inputs.python-version }}-" in ci_uv_cache["with"]["restore-keys"]
     )
+
+
+def test_ci_setup_restores_download_caches_only_when_an_install_will_run() -> None:
+    """A download cache is restored only when the step that reads it will run.
+
+    ``~/.cache/uv`` is read by ``make install`` and ``~/.npm`` by ``npm ci``. A
+    ``.venv`` or ``node_modules`` hit means neither runs, so restoring them then
+    transfers hundreds of megabytes into a job that never opens them.
+    """
+    ci_setup = yaml.safe_load(
+        (REPO_ROOT / ".github" / "actions" / "ci-setup" / "action.yml").read_text(encoding="utf-8")
+    )
+    steps = ci_setup["runs"]["steps"]
+
+    def step(name: str) -> dict[str, object]:
+        return next(s for s in steps if s.get("name") == name)
+
+    assert step("Cache uv downloads")["if"] == (
+        "inputs.install-deps == 'true' && steps.venv-cache.outputs.cache-hit != 'true'"
+    )
+    npm_cache = step("Cache npm downloads")
+    assert npm_cache["if"] == (
+        "inputs.install-deps == 'true' && steps.node-modules-cache.outputs.cache-hit != 'true'"
+    )
+    assert npm_cache["with"]["path"] == "~/.npm"
+
+    # The gate only works if the cache it reads has already been restored, so
+    # each producer of a cache-hit output must come first.
+    order = [s.get("name") for s in steps]
+    assert order.index("Cache virtual environment") < order.index("Cache uv downloads")
+    assert order.index("Cache node modules") < order.index("Cache npm downloads")
+
+    # Keyed on the pinned version rather than a lockfile, so the key changes
+    # exactly when the stored wheel does and the entry cannot go stale.
+    installer_cache = step("Cache uv installer download")
+    assert installer_cache["with"]["path"] == "~/.cache/pip"
+    assert installer_cache["with"]["key"] == (
+        "pip-uv-${{ runner.os }}-${{ inputs.python-version }}-${{ inputs.uv-version }}"
+    )
+    assert step("Install uv")["run"].strip() == 'python -m pip install "uv==${UV_VERSION}"'
+    assert ci_setup["inputs"]["uv-version"]["default"] == "0.11.32"

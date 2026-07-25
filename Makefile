@@ -708,7 +708,7 @@ issue-develop: ## Create and check out a branch linked to an issue (make issue-d
 
 # ─── CI @ci ───────────────────────────────────────────────────────────────────
 
-.PHONY: ci-runs ci-pages-runs ci-run ci-rerun ci-dispatch ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-schedule-watchdog ci-alert-issue refresh-action-shas
+.PHONY: ci-runs ci-pages-runs ci-run ci-rerun ci-dispatch ci-caches ci-cache-delete ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-schedule-watchdog ci-alert-issue refresh-action-shas
 
 ci-runs: ## List recent CI workflow runs
 	gh run list -L "$(if $(limit),$(limit),10)"
@@ -732,6 +732,15 @@ ci-rerun: ## Re-run one CI workflow run (make ci-rerun [run=ID] [failed=1], defa
 ci-dispatch: ## Start a fresh workflow run (make ci-dispatch workflow=update.yml [ref=branch] [inputs="key=value ..."])
 	$(call need,workflow,make ci-dispatch workflow=update.yml [ref=branch] [inputs="key=value ..."])
 	gh workflow run "$(workflow)" $(if $(ref),--ref "$(ref)") $(foreach kv,$(inputs),-f "$(kv)")
+
+# Largest first, because the reason to look is almost always that something is
+# being restored that no step reads.
+ci-caches: ## List Actions caches, largest first (make ci-caches [limit=N] [key=prefix])
+	gh cache list --limit "$(if $(limit),$(limit),30)" --sort size_in_bytes --order desc $(if $(key),--key "$(key)")
+
+ci-cache-delete: ## Delete one Actions cache (make ci-cache-delete cache=ID_or_key)
+	$(call need,cache,make ci-cache-delete cache=1234 OR cache=my-cache-key)
+	gh cache delete "$(cache)"
 
 ci-run-log: ## Show failed logs for one CI workflow run (make ci-run-log [run=ID], defaults to this branch's latest)
 	@run_id="$(RUN_ID)"; \

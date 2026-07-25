@@ -180,8 +180,25 @@ def test_ci_dispatch_guards_its_required_argument() -> None:
     assert "$(call need,workflow," in target_recipe("ci-dispatch")
 
 
+def test_ci_caches_lists_largest_entries_first() -> None:
+    """Auditing cache waste starts from the biggest entries, so the sort is pinned."""
+    recipe = target_recipe("ci-caches")
+
+    assert "gh cache list" in recipe
+    assert "--sort size_in_bytes" in recipe
+    assert "--order desc" in recipe
+
+
+def test_ci_cache_delete_guards_its_required_argument() -> None:
+    """Deleting a cache is unrecoverable, so the target refuses an empty target."""
+    recipe = target_recipe("ci-cache-delete")
+
+    assert "$(call need,cache," in recipe
+    assert 'gh cache delete "$(cache)"' in recipe
+
+
 def test_ci_run_targets_are_phony_and_documented() -> None:
     """The CI run helpers stay declared and discoverable through make help."""
-    for target in ("ci-rerun", "ci-dispatch"):
+    for target in ("ci-rerun", "ci-dispatch", "ci-caches", "ci-cache-delete"):
         assert re.search(rf"^\.PHONY:.*\b{target}\b", MAKEFILE_LOGICAL_LINES, re.MULTILINE)
         assert re.search(rf"^{target}:.*## \S", MAKEFILE_TEXT, re.MULTILINE)
