@@ -51,13 +51,15 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- ci/                    Workflow helpers, deploy verification, security audits, issue alerts, parallel check runner
 |  |- gh/                    GitHub CLI backed PR review and CI triage helpers
 |  |- lib/                   Shared libraries (app discovery, artifact contract, GitHub API, project config, path validation)
-|  |- lint/                  EditorConfig check, table alignment, workflow linting, doc-command validation, JS test coverage lint, generated-drift detection, Make-target validation
+|  |- lint/                  EditorConfig check, table alignment, workflow linting, doc-command validation, JS test coverage lint, generated-drift detection, Make-target validation, artifact CSP checking, app CSS token linting, vendored-asset integrity
+|  |- setup/                 No-sudo Playwright local-runtime provisioning
 |- tests/
 |  |- build/                 Tests for scripts/build/
 |  |- ci/                    Tests for scripts/ci/
 |  |- gh/                    Tests for scripts/gh/
 |  |- lib/                   Tests for scripts/lib/
 |  |- lint/                  Tests for scripts/lint/
+|  |- setup/                 Tests for scripts/setup/
 |  |- browser/               Playwright smoke, accessibility, and flow tests
 |  |- js/
 |  |  |- home/               Root gallery Node unit tests

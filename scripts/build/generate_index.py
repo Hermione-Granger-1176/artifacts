@@ -52,19 +52,17 @@ README_FILE = REPO_ROOT / "README.md"
 # -- Type aliases re-exported for backward compatibility -----------------------
 
 ArtifactItem = index_sources.ArtifactItem
-ArtifactContract = index_sources.ArtifactContract
 BadgeConfig = index_outputs.BadgeConfig
-MetadataEntry = index_outputs.MetadataEntry
 GalleryMetadata = index_outputs.GalleryMetadata
 
-# -- Public convenience re-export for scaffold_artifact.py --------------------
+# -- Public convenience wrapper over the contract-driven check ----------------
 
 
 def is_kebab_case(name: str) -> bool:
     """Return True when a directory name follows kebab-case.
 
-    Uses the production artifact contract. Kept here for backward
-    compatibility with ``scaffold_artifact.py`` and external callers.
+    Wraps the production artifact contract so callers that only need the
+    check do not have to build an ``IndexConfig`` themselves.
     """
     config = IndexConfig.create_default()
     return config.is_kebab_case(name)

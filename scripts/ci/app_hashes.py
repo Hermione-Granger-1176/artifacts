@@ -200,9 +200,10 @@ def apply_memoization(
         return updated
 
     memoized = sorted(slug for slug in candidates if ledger.get(slug) == current_hashes.get(slug))
+    memoized_slugs = set(memoized)
     return {
         **updated,
-        "browser_slugs": [slug for slug in candidates if slug not in set(memoized)],
+        "browser_slugs": [slug for slug in candidates if slug not in memoized_slugs],
         "memoized_browser_slugs": memoized,
         "memoization_available": True,
     }

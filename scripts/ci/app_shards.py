@@ -129,14 +129,14 @@ def shard_count(plan: dict[str, object]) -> int:
     return len(_shards(plan))
 
 
-def read_plan(path: Path) -> dict[str, object]:
-    """Read one persisted JSON impact plan."""
-    reject_path_symlinks(path, label="Impact plan input")
+def read_plan(path: Path, *, label: str = "Impact plan") -> dict[str, object]:
+    """Read one persisted JSON object, named by ``label`` in every error message."""
+    reject_path_symlinks(path, label=f"{label} input")
     if not path.is_file():
-        raise ValueError(f"Impact plan is missing: {path}")
+        raise ValueError(f"{label} is missing: {path}")
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
-        raise ValueError("Impact plan must be a JSON object")
+        raise ValueError(f"{label} must be a JSON object")
     return cast("dict[str, object]", payload)
 
 
@@ -162,10 +162,7 @@ def write_shard_manifest(plan_path: Path, *, shard_index: int, output_path: Path
 
 def read_shard_manifest(path: Path) -> dict[str, object]:
     """Read and validate a standalone app-shard manifest."""
-    reject_path_symlinks(path, label="Shard manifest input")
-    if not path.is_file():
-        raise ValueError(f"Shard manifest is missing: {path}")
-    payload = read_plan(path)
+    payload = read_plan(path, label="Shard manifest")
     index = payload.get("index")
     if not isinstance(index, int) or index < 0:
         raise ValueError("Shard manifest index must be a non-negative integer")

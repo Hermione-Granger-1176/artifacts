@@ -319,16 +319,10 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
    */
   async function runPageTurn(renderNext, direction) {
     const grid = getElementById('artifacts-grid');
+    const sheet = getElementById('book-sheet');
     const render = typeof renderNext === 'function' ? renderNext : () => undefined;
 
-    if (!grid) {
-      await Promise.resolve(render());
-      return;
-    }
-
-    const sheet = getElementById('book-sheet');
-
-    if (!sheet) {
+    if (!grid || !sheet) {
       await Promise.resolve(render());
       return;
     }

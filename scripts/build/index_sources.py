@@ -17,6 +17,8 @@ __all__ = ["ArtifactContract", "read_artifact_contract_file"]
 
 
 class ArtifactItem(TypedDict):
+    """One gallery entry assembled from an artifact directory's metadata files."""
+
     id: str
     name: str
     description: str

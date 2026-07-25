@@ -46,6 +46,7 @@ VENV_DIRECTORY = ".venv"
 PACKAGE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+_.-]*(?::[A-Za-z0-9][A-Za-z0-9+_.-]*)?$")
 PACKAGE_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+_.:~%-]*$")
 DIST_INFO_RE = re.compile(r"^playwright-([A-Za-z0-9][A-Za-z0-9+_.!-]*)\.dist-info$")
+MISSING_DEPS_RE = re.compile(r"Missing system dependencies \((\d+)\):")
 UNSAFE_SHELL_CHARS = (";", "&", "|", "<", ">", "`", "$", "(", ")")
 AT_FDCWD = -100
 RENAME_EXCHANGE = 0x2
@@ -427,7 +428,7 @@ def parse_dependency_seeds(output: str) -> tuple[str, ...]:
             raise fail("cannot parse Playwright's dependency dry-run output") from error
         if any(any(char in token for char in UNSAFE_SHELL_CHARS) for token in tokens):
             raise fail("unsafe shell syntax in Playwright's dependency dry-run output")
-        if not tokens or tokens[0] == "sudo":
+        if tokens and tokens[0] == "sudo":
             tokens = tokens[1:]
         if len(tokens) < 3 or tokens[0] != "apt-get" or tokens[1] != "install":
             continue
@@ -441,20 +442,19 @@ def parse_dependency_seeds(output: str) -> tuple[str, ...]:
         return tuple(sorted(set(packages)))
 
     lines = output.splitlines()
-    header_index = next(
+    header_match = next(
         (
-            index
+            (index, match)
             for index, line in enumerate(lines)
-            if re.fullmatch(r"Missing system dependencies \((\d+)\):", line.strip()) is not None
+            if (match := MISSING_DEPS_RE.fullmatch(line.strip())) is not None
         ),
         None,
     )
-    if header_index is None:
+    if header_match is None:
         if any(line.strip() == "All system dependencies are installed." for line in lines):
             return ()
         raise fail("Playwright dependency dry run did not provide package seeds")
-    header = re.fullmatch(r"Missing system dependencies \((\d+)\):", lines[header_index].strip())
-    assert header is not None
+    header_index, header = header_match
     expected_count = int(header.group(1))
     for line in lines[header_index + 1 :]:
         if not line.startswith((" ", "\t")):

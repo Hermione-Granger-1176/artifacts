@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 APPS_DIR = REPO_ROOT / artifact_base_path()
 VIEWPORT_WIDTH = 1280
 VIEWPORT_HEIGHT = 800
-SCREENSHOT_FILE = thumbnail_file()
+THUMBNAIL_FILE = thumbnail_file()
 SHARED_APP_RUNTIME_FILES = shared_app_runtime_paths(REPO_ROOT)
 THUMBNAIL_WIDTH = 960
 THUMBNAIL_QUALITY = 85
@@ -177,7 +177,7 @@ def artifact_url(artifact_dir: Path) -> str:
 def should_generate_thumbnail(artifact_dir: Path) -> bool:
     """Return True when a thumbnail is missing or stale for one artifact."""
     logger.debug("Checking staleness for %s", artifact_dir.name)
-    thumb_path = artifact_dir / SCREENSHOT_FILE
+    thumb_path = artifact_dir / THUMBNAIL_FILE
 
     if not thumb_path.exists():
         return True
@@ -292,7 +292,7 @@ async def _process_artifact(
                 viewport={"width": VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
                 device_scale_factor=2,
             )
-            thumb_path = artifact_dir / SCREENSHOT_FILE
+            thumb_path = artifact_dir / THUMBNAIL_FILE
             page_url = artifact_url(artifact_dir)
 
             screenshot_bytes = await _capture_screenshot(page, page_url, artifact_dir.name)

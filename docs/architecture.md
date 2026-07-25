@@ -204,20 +204,19 @@ All of these are skipped when the planner sets `skip-verification: true` (automa
 
 **After `verify` succeeds → `publish` starts:**
 
-- **`publish`** (timeout: 25 min, needs `plan` and `verify`, permissions: actions read, contents write, issues write, pages write, pull-requests write, id-token write)
+- **`publish`** (timeout: 25 min, needs `plan` and `verify`, permissions: actions read, contents write, deployments write, issues write, pages write, pull-requests write, id-token write)
   - Skipped alongside the verification jobs when `skip-verification: true`.
   - Will not start unless `verify` succeeded; `verify` in turn already required `secret-scan` to pass and `dependency-review` to pass or be skipped.
   - Step by step:
     1. Checks out the PR branch code (for `pyproject.toml` reading only, `persist-credentials: false`).
-    2. Runs `ci-setup` action: calls `scripts/ci/workflow_helpers.py app-token-policy` → tokens allowed (same-repo, not fork, not Dependabot). Mints Hermione1176 (primary) and Harry1176 (escalation) tokens.
+    2. Runs `ci-setup` action: calls `scripts/ci/workflow_helpers.py app-token-policy` → tokens allowed (same-repo, not fork, not Dependabot). Mints Hermione1176 (primary) and Harry1176 (escalation) tokens, and installs Python, Node, and Chromium behind the same caches every other verifying job uses (`install-deps: "true"`), since this job runs live browser verification.
     3. Downloads the `site-{run_id}` artifact into `_site/`. Does NOT rebuild anything.
-    4. Restores cached Playwright browsers, then runs `make setup-ci` to install project dependencies and ensure Chromium is available for live browser tests.
-    5. Reads site URL from `pyproject.toml`, constructs preview URL: `{site_url}/pr-preview/pr-{N}/`.
-    6. Commits `_site/` to `gh-pages` under `pr-preview/pr-{N}/` using `deploy-verified.mjs` with `DEPLOY_SUBDIR`. This is a verified GraphQL commit using the Harry1176 (escalation) token. Only touches that subdirectory. The main site and other PR previews are untouched.
-    7. Fetches the exact `gh-pages` commit it just produced, materializes the full branch tree into `.artifacts/pages-publish`, rejects symlinks, keeps `.nojekyll`, uploads that full tree with `actions/upload-pages-artifact`, and deploys it with `actions/deploy-pages`.
-    8. Posts a sticky comment on the PR with the preview URL (recreated on each push so the latest is always at the bottom).
-    9. Calls `scripts/ci/verify_deploy.py` to poll the preview URL until it serves the expected cache-busted HTML and `deploy-metadata.json` SHA.
-    10. Runs `make test-browser-live` against the preview URL in Chromium.
+    4. Reads site URL from `pyproject.toml`, constructs preview URL: `{site_url}/pr-preview/pr-{N}/`.
+    5. Commits `_site/` to `gh-pages` under `pr-preview/pr-{N}/` using `deploy-verified.mjs` with `DEPLOY_SUBDIR`. This is a verified GraphQL commit using the Harry1176 (escalation) token. Only touches that subdirectory. The main site and other PR previews are untouched.
+    6. Fetches the exact `gh-pages` commit it just produced, materializes the full branch tree into `.artifacts/pages-publish`, rejects symlinks, keeps `.nojekyll`, uploads that full tree with `actions/upload-pages-artifact`, and deploys it with `actions/deploy-pages`.
+    7. Posts a sticky comment on the PR with the preview URL (recreated on each push so the latest is always at the bottom).
+    8. Calls `scripts/ci/verify_deploy.py` to poll the preview URL until it serves the expected cache-busted HTML and `deploy-metadata.json` SHA.
+    9. Runs `make test-browser-live` against the preview URL in Chromium.
   - Reads: `site-{run_id}` artifact. Writes: `gh-pages` branch (preview subdirectory only), GitHub Pages deployment, PR comment.
 
 **After `publish` succeeds AND `persist-mode` is not `none` AND `assemble-site` reported changed thumbnails → `persist-thumbnails` starts:**
@@ -310,7 +309,7 @@ graph TD
     end
 
     subgraph "Repo settings audit (weekly)"
-        audit_schedule["Monday 8:23 UTC / manual"] --> audit["audit-repo-settings<br/>Check Pages, branch protection,<br/>variables, secrets, gh-pages ruleset<br/>Report drift"]
+        audit_schedule["Monday 8:23 UTC / manual"] --> audit["audit-repo-settings<br/>Check Pages, branch protection,<br/>variables, secrets, secret scanning,<br/>gh-pages ruleset<br/>Report drift"]
     end
 
     subgraph "Live smoke (daily)"
@@ -332,9 +331,13 @@ graph TD
 
 **Dependency lock refresh** runs weekly to keep transitive Python and Node lock-file dependencies current even when Dependabot does not propose a direct update. It runs `make lock` and `make lock-node`, then opens or updates a maintenance PR for any lock-file changes.
 
-**Repo settings audit** runs weekly and on manual dispatch. It calls `scripts/ci/workflow_helpers.py audit-repo-settings` to check that Pages, branch protection, repository variables/secrets, and the gh-pages ruleset match the expected contract. Drift is reported to the step summary, opens or updates a dedicated GitHub issue, and closes that issue automatically once the audit passes again.
+**Repo settings audit** runs weekly and on manual dispatch. It calls `scripts/ci/workflow_helpers.py audit-repo-settings` to check that Pages, branch protection, repository variables/secrets, GitHub secret scanning and its push protection, and the gh-pages ruleset match the expected contract. Drift is reported to the step summary, opens or updates a dedicated GitHub issue, and closes that issue automatically once the audit passes again.
 
 **Live site smoke** runs daily and on manual dispatch. It executes `make test-browser-live` against the published site URL, uploads Playwright failure artifacts on regression, opens or updates a dedicated GitHub issue when the live smoke test fails, and closes that issue automatically once the live site passes again.
+
+**Deploy failure alert** reacts to every completed run of the main deploy pipeline. The scheduled monitors alert on their own failures, but a failed main-branch run of `update.yml` had no alerting, so this workflow opens, updates, or closes one alert issue to keep a broken main deploy visible. Pull request and fork runs carry a different head branch and are ignored.
+
+**Schedule watchdog** runs from the `push` trigger on `main` and on manual dispatch. GitHub auto-disables cron triggers after roughly 60 days of repository inactivity, and a disabled schedule cannot open its own alert issue, so the watchdog runs from a trigger GitHub never auto-disables and turns a stale or disabled scheduled workflow into a visible alert issue.
 
 **CodeQL** runs on every push to `main`, every pull request to `main`, and weekly on Monday. It analyzes JavaScript/TypeScript, Python, and GitHub Actions workflows in separate jobs, scopes the scan with `.github/codeql/codeql-config.yml` (which ignores tests, vendored app scripts, and generated gallery data), and uploads results to GitHub code scanning. It runs with least-privilege permissions (`security-events: write` plus read access) and needs no app tokens.
 
@@ -353,6 +356,8 @@ graph TD
 | `commit-python-locks.yml` | after refresh-python-locks completes | commit-locks |
 | `refresh-action-shas.yml` | monthly 1st 3:00 UTC, manual | refresh |
 | `refresh-locks.yml` | weekly Mon 12:00 UTC, manual | refresh |
+| `deploy-failure-alert.yml` | after Update Artifacts & Deploy completes (main only) | alert |
+| `schedule-watchdog.yml` | push to main, manual | watchdog |
 
 ### Custom actions
 

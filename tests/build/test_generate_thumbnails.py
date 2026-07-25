@@ -149,7 +149,7 @@ def test_should_generate_thumbnail_when_missing_or_stale(tmp_path: Path) -> None
 
     assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is True
 
-    thumb_path = artifact_dir / generate_thumbnails.SCREENSHOT_FILE
+    thumb_path = artifact_dir / generate_thumbnails.THUMBNAIL_FILE
     thumb_path.write_bytes(b"thumb")
 
     assert generate_thumbnails.should_generate_thumbnail(artifact_dir) is False
@@ -167,7 +167,7 @@ def test_should_generate_thumbnail_when_runtime_dependency_is_newer(
     """Test should generate thumbnail when runtime dependency is newer."""
     repo_root = tmp_path / "repo"
     artifact_dir = repo_root / "apps" / "loan-tool"
-    thumb_path = artifact_dir / generate_thumbnails.SCREENSHOT_FILE
+    thumb_path = artifact_dir / generate_thumbnails.THUMBNAIL_FILE
     _write_text(artifact_dir / "index.html", "<html></html>")
     _write_text(artifact_dir / "js" / "app.js", "export {};\n")
     _write_text(repo_root / "css" / "style.css", "body {}\n")
@@ -200,7 +200,7 @@ def test_should_generate_thumbnail_when_shared_stylesheet_is_newer(
     """Test should generate thumbnail when shared app shell is newer."""
     repo_root = tmp_path / "repo"
     artifact_dir = repo_root / "apps" / "loan-tool"
-    thumb_path = artifact_dir / generate_thumbnails.SCREENSHOT_FILE
+    thumb_path = artifact_dir / generate_thumbnails.THUMBNAIL_FILE
     _write_text(artifact_dir / "index.html", "<html></html>")
     _write_text(artifact_dir / "js" / "app.js", "export {};\n")
     stylesheet = repo_root / "css" / "style.css"
@@ -654,7 +654,7 @@ def test_generate_thumbnails_processes_artifacts_and_closes_browser(
         "skipped": 0,
         "failed": 0,
     }
-    assert save_calls == [(b"png-bytes", artifact_dir / generate_thumbnails.SCREENSHOT_FILE)]
+    assert save_calls == [(b"png-bytes", artifact_dir / generate_thumbnails.THUMBNAIL_FILE)]
 
 
 def test_generate_thumbnails_skips_up_to_date_artifacts(
@@ -706,7 +706,7 @@ def test_generate_thumbnails_retries_transient_failures_then_succeeds(
         "skipped": 0,
         "failed": 0,
     }
-    assert save_calls == [(b"png-bytes", artifact_dir / generate_thumbnails.SCREENSHOT_FILE)]
+    assert save_calls == [(b"png-bytes", artifact_dir / generate_thumbnails.THUMBNAIL_FILE)]
 
 
 def test_generate_thumbnails_logs_warning_for_failed_screenshot(

@@ -211,8 +211,9 @@ def default_badge(
 
 def sort_items(items: set[str], display_order_values: list[str]) -> list[str]:
     """Sort items with known ones first, then unknown alphabetically."""
+    known_values = set(display_order_values)
     known = [item for item in display_order_values if item in items]
-    unknown = sorted(item for item in items if item not in display_order_values)
+    unknown = sorted(item for item in items if item not in known_values)
     return known + unknown
 
 
@@ -243,10 +244,7 @@ def build_badges_block(
     sorted_items = sort_items(items, display_order_values)
     if not sorted_items:
         return ""
-    return "\n".join(
-        f"{build_badge_fn(item, config)}{'&nbsp;' if index < len(sorted_items) - 1 else ''}"
-        for index, item in enumerate(sorted_items)
-    )
+    return "&nbsp;\n".join(build_badge_fn(item, config) for item in sorted_items)
 
 
 def update_readme(
