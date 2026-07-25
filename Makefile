@@ -708,7 +708,7 @@ issue-develop: ## Create and check out a branch linked to an issue (make issue-d
 
 # ─── CI @ci ───────────────────────────────────────────────────────────────────
 
-.PHONY: ci-runs ci-pages-runs ci-run ci-rerun ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-schedule-watchdog ci-alert-issue refresh-action-shas
+.PHONY: ci-runs ci-pages-runs ci-run ci-rerun ci-dispatch ci-run-log ci-job-log ci-watch ci-failures ci-platform-checks ci-quick-gates ci-heavy-checks ci-thumbnail-plan ci-plan-outputs ci-apply-app-ledger ci-update-app-ledger ci-write-shard-manifest ci-package-shard-result ci-merge-shard-results ci-coverage-summary ci-finalize-pages-dir ci-audit-repo-settings ci-audit-previews ci-schedule-watchdog ci-alert-issue refresh-action-shas
 
 ci-runs: ## List recent CI workflow runs
 	gh run list -L "$(if $(limit),$(limit),10)"
@@ -725,6 +725,13 @@ ci-rerun: ## Re-run one CI workflow run (make ci-rerun [run=ID] [failed=1], defa
 	@run_id="$(RUN_ID)"; \
 	test -n "$$run_id" || { printf 'Usage: make ci-rerun run=123456 (or run on a branch with a resolvable latest run)\n' >&2; exit 1; }; \
 	gh run rerun "$$run_id" $(if $(failed),--failed)
+
+# Prefer this over re-running a run whose jobs already uploaded an artifact:
+# attempts share one artifact namespace, so replaying a failed publish leaves two
+# artifacts of the same name and the deploy step refuses the ambiguity.
+ci-dispatch: ## Start a fresh workflow run (make ci-dispatch workflow=update.yml [ref=branch] [inputs="key=value ..."])
+	$(call need,workflow,make ci-dispatch workflow=update.yml [ref=branch] [inputs="key=value ..."])
+	gh workflow run "$(workflow)" $(if $(ref),--ref "$(ref)") $(foreach kv,$(inputs),-f "$(kv)")
 
 ci-run-log: ## Show failed logs for one CI workflow run (make ci-run-log [run=ID], defaults to this branch's latest)
 	@run_id="$(RUN_ID)"; \
