@@ -89,6 +89,24 @@ def test_iter_workspace_files_skips_dependency_and_build_directories(
     assert files == [tmp_path / "docs" / "guide.md"]
 
 
+def test_iter_workspace_files_never_descends_into_skipped_directories(
+    tmp_path: Path, scanned_directories: list[Path]
+) -> None:
+    """Iter workspace files never opens a skipped directory."""
+    write_text(tmp_path / "docs" / "guide.md", "hello\n")
+    write_text(tmp_path / ".venv" / "lib" / "ignored.py", "print('x')\n")
+    write_text(tmp_path / "node_modules" / "pkg" / "index.js", "export {}\n")
+    write_text(tmp_path / "_site" / "assets" / "index.html", "<html></html>\n")
+
+    check_editorconfig.iter_workspace_files(tmp_path)
+
+    assert tmp_path in scanned_directories, "the recording scandir was not installed"
+    assert tmp_path / "docs" in scanned_directories
+    assert tmp_path / ".venv" not in scanned_directories
+    assert tmp_path / "node_modules" not in scanned_directories
+    assert tmp_path / "_site" not in scanned_directories
+
+
 def test_check_file_reports_expected_text_violations(tmp_path: Path) -> None:
     """Check file reports expected text violations."""
     file_path = tmp_path / "demo.js"
