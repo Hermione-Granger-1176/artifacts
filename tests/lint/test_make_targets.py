@@ -50,6 +50,22 @@ def test_iter_markdown_files_skips_build_directories(tmp_path: Path) -> None:
     assert files == [tmp_path / "README.md", tmp_path / "docs" / "guide.md"]
 
 
+def test_iter_markdown_files_never_descends_into_skipped_directories(
+    tmp_path: Path, scanned_directories: list[Path]
+) -> None:
+    """Iter markdown files never opens a skipped directory."""
+    write_text(tmp_path / "docs" / "guide.md", "# Guide\n")
+    write_text(tmp_path / "node_modules" / "pkg" / "README.md", "# Ignore\n")
+    write_text(tmp_path / ".venv" / "lib" / "notes.md", "# Ignore\n")
+
+    make_targets.iter_markdown_files(tmp_path)
+
+    assert tmp_path in scanned_directories, "the recording scandir was not installed"
+    assert tmp_path / "docs" in scanned_directories
+    assert tmp_path / "node_modules" not in scanned_directories
+    assert tmp_path / ".venv" not in scanned_directories
+
+
 def test_extract_make_references_handles_env_prefixes() -> None:
     """Extract make references handles env prefixes."""
     references = make_targets.extract_make_references(

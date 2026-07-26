@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
-from scripts.lint import SKIP_DIRECTORIES
+from scripts.lint import iter_lint_paths
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -106,12 +106,7 @@ def should_check_file(sections: list[EditorConfigSection], relative_path: str) -
 def iter_workspace_files(root: Path | None = None) -> list[Path]:
     """Return repository files, skipping cache, build, dependency, and VCS directories."""
     workspace_root = root or REPO_ROOT
-    return [
-        path
-        for path in sorted(workspace_root.rglob("*"))
-        if path.is_file()
-        and not any(part in SKIP_DIRECTORIES for part in path.relative_to(workspace_root).parts)
-    ]
+    return sorted(path for path in iter_lint_paths(workspace_root) if path.is_file())
 
 
 def _decode_text_file(path: Path) -> str | None:

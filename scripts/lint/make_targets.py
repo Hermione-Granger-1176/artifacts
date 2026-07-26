@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
-from scripts.lint import SKIP_DIRECTORIES
+from scripts.lint import iter_lint_paths
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -164,11 +164,7 @@ def load_makefile_targets(path: Path | None = None) -> set[str]:
 def iter_markdown_files(root: Path | None = None) -> list[Path]:
     """Return repository markdown files, skipping build and dependency folders."""
     workspace_root = root or REPO_ROOT
-    return [
-        path
-        for path in sorted(workspace_root.rglob("*.md"))
-        if not any(part in SKIP_DIRECTORIES for part in path.relative_to(workspace_root).parts)
-    ]
+    return sorted(path for path in iter_lint_paths(workspace_root) if path.suffix == ".md")
 
 
 def extract_markdown_code_snippets(text: str) -> list[CodeSnippet]:
