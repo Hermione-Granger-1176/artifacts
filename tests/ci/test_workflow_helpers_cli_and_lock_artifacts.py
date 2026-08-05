@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 
@@ -599,6 +600,7 @@ def test_main_sync_alert_issue_close_uses_default_labels(
         return ""
 
     monkeypatch.setattr(workflow_helpers, "sync_alert_issue", fake_sync_alert_issue)
+    monkeypatch.setattr(workflow_helpers.sys, "stdin", io.StringIO(""))
 
     exit_code = workflow_helpers.main(
         [
@@ -611,6 +613,8 @@ def test_main_sync_alert_issue_close_uses_default_labels(
             "https://github.com/owner/repo/actions/runs/9",
             "--state",
             "close",
+            "--detail-file",
+            "-",
         ]
     )
 
@@ -620,12 +624,53 @@ def test_main_sync_alert_issue_close_uses_default_labels(
     assert captured["should_exist"] is False
 
 
-def test_main_sync_alert_issue_combines_detail_and_detail_file(
+def test_main_sync_alert_issue_reads_detail_from_stdin(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Alert detail can arrive through stdin without a command-line argument."""
+    captured: dict[str, object] = {}
+
+    def fake_sync_alert_issue(**kwargs: object) -> str:
+        captured.update(kwargs)
+        return "https://github.com/owner/repo/issues/4"
+
+    monkeypatch.setattr(workflow_helpers, "sync_alert_issue", fake_sync_alert_issue)
+    monkeypatch.setattr(
+        workflow_helpers.sys,
+        "stdin",
+        io.StringIO("Published URL: https://example.test/\n"),
+    )
+
+    exit_code = workflow_helpers.main(
+        [
+            "sync-alert-issue",
+            "--repo",
+            "owner/repo",
+            "--title",
+            "Artifact alert",
+            "--run-url",
+            "https://github.com/owner/repo/actions/runs/9",
+            "--state",
+            "setup-failure",
+            "--detail-file",
+            "-",
+        ]
+    )
+
+    assert exit_code == 0
+    assert capsys.readouterr().out.strip() == "https://github.com/owner/repo/issues/4"
+    body = captured["body"]
+    assert isinstance(body, str)
+    assert "Published URL: https://example.test/" in body
+
+
+def test_main_sync_alert_issue_reads_detail_file(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
-    """Test main sync alert issue combines detail and detail file."""
+    """Alert detail files remain supported for generated reports."""
     captured: dict[str, object] = {}
 
     def fake_sync_alert_issue(**kwargs: object) -> str:
@@ -647,8 +692,6 @@ def test_main_sync_alert_issue_combines_detail_and_detail_file(
             "https://github.com/owner/repo/actions/runs/9",
             "--state",
             "setup-failure",
-            "--detail",
-            "Published URL: https://example.test/",
             "--detail-file",
             str(detail_file),
         ]
@@ -659,5 +702,4 @@ def test_main_sync_alert_issue_combines_detail_and_detail_file(
     assert captured["should_exist"] is True
     body = captured["body"]
     assert isinstance(body, str)
-    assert "Published URL: https://example.test/" in body
     assert 'Current failure output:\n\n```text\n{"drift": true}\n```' in body

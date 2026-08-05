@@ -17,9 +17,9 @@ Examples:
     make ci-finalize-pages-dir root=.pages-publish
     make ci-audit-repo-settings repo=owner/repo
     make ci-audit-previews repo=owner/repo
-    make ci-alert-issue title="Alert title" \
+    TITLE='Alert title' make ci-alert-issue \
         run_url=https://github.com/owner/repo/actions/runs/1 \
-        state=open detail="Optional extra context"
+        state=open < detail.md
     make refresh-action-shas
 """
 
@@ -571,7 +571,6 @@ def _build_parser() -> argparse.ArgumentParser:
     alert_parser.add_argument(
         "--state", required=True, choices=sorted(_issue_alerts.ALERT_BODY_LEADS)
     )
-    alert_parser.add_argument("--detail", default="")
     alert_parser.add_argument("--detail-file", default="")
     alert_parser.add_argument("--label", action="append", default=[])
 
@@ -703,11 +702,16 @@ def _handle_audit_previews(args: argparse.Namespace) -> int:
 
 
 def _alert_detail(args: argparse.Namespace) -> str:
-    """Combine inline detail text and the optional detail file into one block."""
-    parts = [args.detail] if args.detail else []
+    """Read optional alert detail from a file or standard input."""
+    parts: list[str] = []
     if args.detail_file:
-        content = Path(args.detail_file).read_text(encoding="utf-8").strip()
-        parts.append(f"Current failure output:\n\n```text\n{content}\n```")
+        content = (
+            sys.stdin.read()
+            if args.detail_file == "-"
+            else Path(args.detail_file).read_text(encoding="utf-8")
+        ).strip()
+        if content:
+            parts.append(f"Current failure output:\n\n```text\n{content}\n```")
     return "\n\n".join(parts)
 
 

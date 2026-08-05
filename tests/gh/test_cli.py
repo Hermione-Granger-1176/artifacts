@@ -141,6 +141,23 @@ def test_edit_pr_subcommand_title_only_omits_body(monkeypatch: pytest.MonkeyPatc
     assert captured == {"title": "Only title", "body": None, "body_file": None}
 
 
+def test_comment_subcommand_posts_a_pr_comment(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The comment command forwards the PR number and body."""
+    captured: dict[str, object] = {}
+
+    def comment_on_pr(pr: int | None, body: str) -> None:
+        """Record the parsed comment arguments."""
+        captured.update(pr=pr, body=body)
+
+    monkeypatch.setattr(pr_review, "comment_on_pr", comment_on_pr)
+
+    assert cli.main(["comment", "--pr", "9", "--body", "Looks good"]) == 0
+    assert captured == {"pr": 9, "body": "Looks good"}
+    assert capsys.readouterr().out.strip() == "Commented on the PR"
+
+
 def test_issue_summary_subcommand_prints_report(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

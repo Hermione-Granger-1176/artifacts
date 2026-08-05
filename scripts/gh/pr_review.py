@@ -438,6 +438,12 @@ def delete_review_comment(comment_id: str, *, run_fn: RunFunction | None = None)
     )
 
 
+def comment_on_pr(pr: int | None, body: str, *, run_fn: RunFunction | None = None) -> None:
+    """Post a PR-level comment on the current branch's PR or the given PR."""
+    pr = pr if pr is not None else gh_runner.current_pr_number(run_fn=run_fn)
+    gh_runner.run_gh(["pr", "comment", str(pr), "--body", body], run_fn=run_fn, retries=0)
+
+
 def format_comments(comments: list[ReviewComment]) -> str:
     """Render review comments as greppable one-line-per-comment text."""
     if not comments:

@@ -61,20 +61,11 @@ inputs:
     description: >-
       Hyphen-separated Playwright engines to install, empty for none. This is the only browser knob:
       the engine set says both whether to install and what to install, so there is no way to express
-      the contradiction a separate boolean allowed. It is also part of the browser cache key, which is
-      what stops a restored entry from being a subset of what the job needs. The key once named only
-      the lockfile, so the Chromium-only entry stored by one job kept hitting for the job that also
-      needs WebKit, and because actions/cache skips the save on a primary-key hit, that entry could
-      never grow to include it. WebKit was downloaded on every run for fifteen days.
+      the contradiction a separate boolean allowed. The installed Playwright package version and engine
+      set form the browser cache key, so a dependency or engine change downloads the required browsers
+      while unrelated lockfile changes keep reusing compatible binaries.
     required: false
     default: chromium
-  uv-version:
-    description: >-
-      uv release to install. Pinned rather than floating: uv bootstraps the virtual environment, so it
-      has to be installed before .venv exists and cannot come from uv.lock. A pinned version also gives
-      the installer cache below a stable key, which an --upgrade install can never have.
-    required: false
-    default: "0.11.32"
 
 outputs:
   app-token:
@@ -206,18 +197,21 @@ runs:
         [ -z "$ESCALATION_TOKEN" ] && echo "  - Harry1176 (ESCALATION_APP_ID) token missing" >&2
         exit 1
 
-    # Deliberately no `cache: pip`. Python dependencies are resolved by uv into
-    # .venv, which is cached whole below, so a pip download cache has no
-    # consumer on the hit path. It was also self-defeating: actions/cache skips
-    # the save on a primary-key hit, and the key was hashFiles('uv.lock'), so
-    # the entry froze at whatever it held when uv.lock last changed and went on
-    # being restored unused. The one pip install this action still runs is
-    # covered by the far smaller, version-keyed installer cache below.
     - name: Set up Python
       id: setup-python
       uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: ${{ inputs.python-version }}
+
+    # setup-uv reads tool.uv.required-version from pyproject.toml, which keeps
+    # local and CI invocations on one minimum-compatible policy. Its dependency cache is
+    # disabled because the conditional uv cache below is restored only when a
+    # .venv miss means uv will actually consume it.
+    - name: Set up uv
+      if: inputs.install-deps == 'true'
+      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      with:
+        enable-cache: false
 
     # Likewise no `cache: npm`: ~/.npm only matters when `npm ci` runs, and a
     # node_modules hit means it does not. The conditional cache below restores
@@ -228,29 +222,27 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
 
+    - name: Resolve Node.js version
+      id: node-version
+      if: inputs.install-deps == 'true' && inputs.node-version != ''
+      shell: bash
+      run: echo "version=$(node --version)" >> "$GITHUB_OUTPUT"
+
     - name: Cache virtual environment
       id: venv-cache
       if: inputs.install-deps == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: .venv
-        key: venv-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('uv.lock') }}
+        key: venv-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
 
     - name: Cache node modules
       id: node-modules-cache
-      if: inputs.install-deps == 'true'
+      if: inputs.install-deps == 'true' && inputs.node-version != ''
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: node_modules
-        key: node-modules-${{ runner.os }}-${{ inputs.node-version }}-${{ hashFiles('package-lock.json') }}
-
-    - name: Cache Playwright browsers
-      id: playwright-cache
-      if: inputs.install-deps == 'true' && inputs.browser-engines != ''
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ~/.cache/ms-playwright
-        key: playwright-${{ hashFiles('uv.lock') }}-${{ inputs.browser-engines }}
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.node-version.outputs.version }}-${{ hashFiles('package.json', 'package-lock.json') }}
 
     # The download caches below are gated on their consumer having missed. A
     # .venv hit means `make install` never runs, so ~/.cache/uv is restored and
@@ -262,10 +254,10 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/uv
-        key: uv-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('uv.lock') }}
+        key: uv-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
         restore-keys: |
-          uv-${{ runner.os }}-${{ inputs.python-version }}-
-          uv-${{ runner.os }}-
+          uv-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-python.outputs.python-version }}-
+          uv-${{ runner.os }}-${{ runner.arch }}-
 
     # Also gated on node-version, which the action allows to be empty: without
     # it an empty caller would cache ~/.npm under a key with a hollow version
@@ -277,59 +269,57 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.npm
-        key: npm-${{ runner.os }}-${{ inputs.node-version }}-${{ hashFiles('package-lock.json') }}
+        key: npm-${{ runner.os }}-${{ runner.arch }}-${{ steps.node-version.outputs.version }}-${{ hashFiles('package.json', 'package-lock.json') }}
         restore-keys: |
-          npm-${{ runner.os }}-${{ inputs.node-version }}-
-
-    # Keyed on the pinned uv version, so it holds one wheel and actually hits.
-    # Unlike the old lockfile-keyed pip cache, this key changes exactly when the
-    # thing it stores changes, so the frozen-entry problem cannot recur. The
-    # arch is part of the key for the same reason it is in the .venv key: the
-    # wheel is platform-specific, so without it the first architecture to
-    # populate the entry would pin an incompatible wheel for the others, and
-    # they could never correct it because a primary-key hit skips the save.
-    - name: Cache uv installer download
-      if: inputs.install-deps == 'true'
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ~/.cache/pip
-        key: pip-uv-${{ runner.os }}-${{ runner.arch }}-${{ inputs.python-version }}-${{ inputs.uv-version }}
-
-    # Make targets such as audit-python invoke uv directly, so uv must be on
-    # PATH even when the cached .venv makes the dependency install unnecessary.
-    - name: Install uv
-      if: inputs.install-deps == 'true'
-      shell: bash
-      env:
-        UV_VERSION: ${{ inputs.uv-version }}
-      run: python -m pip install "uv==${UV_VERSION}"
+          npm-${{ runner.os }}-${{ runner.arch }}-${{ steps.node-version.outputs.version }}-
+          npm-${{ runner.os }}-${{ runner.arch }}-
 
     - name: Install workspace dependencies
       if: inputs.install-deps == 'true'
       shell: bash
       env:
-        BROWSER_ENGINES: ${{ inputs.browser-engines }}
         VENV_CACHE_HIT: ${{ steps.venv-cache.outputs.cache-hit }}
         NODE_MODULES_CACHE_HIT: ${{ steps.node-modules-cache.outputs.cache-hit }}
-        PLAYWRIGHT_CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
+        NODE_VERSION: ${{ inputs.node-version }}
       run: |
         if [ "$VENV_CACHE_HIT" != "true" ]; then
           make install
+          make ci-prune-uv-cache
         fi
-        if [ "$NODE_MODULES_CACHE_HIT" != "true" ]; then
+        if [ -n "$NODE_VERSION" ] && [ "$NODE_MODULES_CACHE_HIT" != "true" ]; then
           make node-install
         fi
-        if [ -n "$BROWSER_ENGINES" ]; then
-          # A cache hit restores browser binaries, never the system libraries
-          # they load. Those are apt packages on an ephemeral runner, so they
-          # are gone every time and --with-deps has to reinstall them for any
-          # engine the runner image does not already satisfy. Chromium's are on
-          # the standard image, which is why a Chromium-only hit may skip the
-          # pass; WebKit's are not, and skipping it left MiniBrowser unable to
-          # load its libraries even though the binary restored fine.
-          if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ] && [ "$BROWSER_ENGINES" = "chromium" ]; then
-            make setup-playwright-engines engines="$BROWSER_ENGINES"
-          else
-            make setup-playwright-engines engines="$BROWSER_ENGINES" with_deps=1
-          fi
+
+    - name: Resolve Playwright version
+      id: playwright-version
+      if: inputs.install-deps == 'true' && inputs.browser-engines != ''
+      shell: bash
+      run: echo "version=$(make --no-print-directory playwright-version)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      if: inputs.install-deps == 'true' && inputs.browser-engines != ''
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright-version.outputs.version }}-${{ inputs.browser-engines }}
+
+    - name: Install Playwright browsers
+      if: inputs.install-deps == 'true' && inputs.browser-engines != ''
+      shell: bash
+      env:
+        BROWSER_ENGINES: ${{ inputs.browser-engines }}
+        PLAYWRIGHT_CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
+      run: |
+        # A cache hit restores browser binaries, never the system libraries
+        # they load. Those are apt packages on an ephemeral runner, so they
+        # are gone every time and --with-deps has to reinstall them for any
+        # engine the runner image does not already satisfy. Chromium's are on
+        # the standard image, which is why a Chromium-only hit may skip the
+        # pass; WebKit's are not, and skipping it left MiniBrowser unable to
+        # load its libraries even though the binary restored fine.
+        if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ] && [ "$BROWSER_ENGINES" = "chromium" ]; then
+          make setup-playwright-engines engines="$BROWSER_ENGINES"
+        else
+          make setup-playwright-engines engines="$BROWSER_ENGINES" with_deps=1
         fi

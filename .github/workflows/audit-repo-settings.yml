@@ -56,14 +56,14 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.setup.outputs.audit-token }}
         run: |
-          url=$(make ci-alert-issue state=open title="Repository settings drift detected" run_url="$RUN_URL" detail_file=audit-repo-settings.json)
+          url=$(TITLE="Repository settings drift detected" make ci-alert-issue state=open run_url="$RUN_URL" < audit-repo-settings.json)
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Close repository settings drift issue when clean
         if: steps.audit.outputs.status == '0'
         env:
           GH_TOKEN: ${{ steps.setup.outputs.audit-token }}
-        run: make ci-alert-issue state=close title="Repository settings drift detected" run_url="$RUN_URL"
+        run: TITLE="Repository settings drift detected" make ci-alert-issue state=close run_url="$RUN_URL"
 
       - name: Summarize audit
         if: steps.audit.outputs.status == '0'
@@ -91,7 +91,7 @@ jobs:
         if: failure() && steps.audit.outputs.status == ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: make ci-alert-issue state=setup-failure title="Repository settings drift detected" run_url="$RUN_URL"
+        run: TITLE="Repository settings drift detected" make ci-alert-issue state=setup-failure run_url="$RUN_URL"
 
       - name: Fail workflow when audit detects drift
         if: steps.audit.outputs.status != '0'

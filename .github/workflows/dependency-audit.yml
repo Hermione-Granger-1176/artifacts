@@ -57,14 +57,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ALERT_DETAIL: "Review the pip-audit, npm audit, and npm override checks from this run."
         run: |
-          url=$(make ci-alert-issue state=open title="Dependency audit failed" run_url="$RUN_URL" detail="$ALERT_DETAIL")
+          url=$(printf '%s\n' "$ALERT_DETAIL" | TITLE="Dependency audit failed" make ci-alert-issue state=open run_url="$RUN_URL")
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Close dependency audit issue when clean
         if: steps.audit.outputs.status == '0'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: make ci-alert-issue state=close title="Dependency audit failed" run_url="$RUN_URL"
+        run: TITLE="Dependency audit failed" make ci-alert-issue state=close run_url="$RUN_URL"
 
       - name: Summarize dependency audit failure
         if: steps.audit.outputs.status != '0'
@@ -80,7 +80,7 @@ jobs:
         if: failure() && steps.audit.outputs.status == ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: make ci-alert-issue state=setup-failure title="Dependency audit failed" run_url="$RUN_URL"
+        run: TITLE="Dependency audit failed" make ci-alert-issue state=setup-failure run_url="$RUN_URL"
 
       - name: Fail workflow when audit detects issues
         if: steps.audit.outputs.status != '0'

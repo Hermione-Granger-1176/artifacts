@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+
+import pytest
 
 import scripts.lint.align_tables as align_tables
-
-if TYPE_CHECKING:
-    import pytest
 
 
 def test_is_table_line_detects_pipe_rows() -> None:
@@ -96,6 +94,17 @@ def test_process_file_aligns_tables(tmp_path: Path) -> None:
     assert "| Very Long Column |" in header[0]
 
 
+def test_align_document_returns_aligned_text_without_writing() -> None:
+    """The pure formatter returns drift without mutating a file."""
+    text = "| Short | Very Long Column |\n| --- | --- |\n| a | b |\n"
+
+    aligned = align_tables.align_document(text)
+
+    assert aligned != text
+    assert "| Short " in aligned
+    assert text.startswith("| Short |")
+
+
 def test_process_file_skips_code_fences(tmp_path: Path) -> None:
     """Process file skips code fences."""
     md = tmp_path / "test.md"
@@ -180,6 +189,23 @@ def test_main_with_explicit_files(
     align_tables.main()
     captured = capsys.readouterr()
     assert "No tables needed alignment" in captured.out
+
+
+def test_main_check_mode_reports_drift_without_writing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Check mode reports drift and leaves the file unchanged."""
+    md = tmp_path / "test.md"
+    original = "| Short | Very Long Column |\n| --- | --- |\n| a | b |\n"
+    md.write_text(original, encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["align_tables.py", "--check", str(md)])
+
+    with pytest.raises(SystemExit) as error:
+        align_tables.main()
+
+    assert error.value.code == 1
+    assert md.read_text(encoding="utf-8") == original
+    assert f"Table alignment needed in {md}" in capsys.readouterr().out
 
 
 def test_main_skips_missing_files(

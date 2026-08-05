@@ -271,16 +271,16 @@ The code is fully validated but never deployed and never written back to the sou
 
 #### Branch write summary
 
-| Branch | Written by | When | What is written |
-| --- | --- | --- | --- |
-| PR branch (e.g. `feature/new-app`) | `persist-thumbnails` | Same-repo PR with runtime changes and thumbnail changes | `apps/*/thumbnail.webp` files via verified commit (Hermione1176) |
-| Dependabot PR branch | `commit-python-locks` | Same-repo Dependabot uv PRs when direct verified commit succeeds | `uv.lock` via verified commit |
-| `ci/refresh-python-locks-*` | `commit-python-locks` | Same-repo Dependabot uv PRs when lock refresh writeback falls back to a PR branch | Fallback PR branch containing refreshed `uv.lock` |
-| `ci/refresh-action-shas-*` | `refresh-action-shas` | Monthly or manually dispatched action SHA refreshes | Maintenance PR branch containing workflow SHA refreshes |
-| `ci/refresh-locks-*` | `refresh-locks` | Weekly or manually dispatched dependency lock refreshes | Maintenance PR branch containing refreshed dependency locks |
-| `gh-pages` | `publish` | Every successful deploy (PR preview or main site) | Verified commit replacing site root or preview subdirectory (Harry1176) |
-| `gh-pages` | `cleanup-preview` | PR closed/merged | Verified commit removing preview subdirectory (Harry1176) |
-| `ci/save-generated-thumbnails-*` | `persist-thumbnails` | Push to `main` with runtime-driven thumbnail changes or missing thumbnails | Follow-up PR branch with `thumbnail.webp` files (Harry1176) |
+| Branch                             | Written by            | When                                                                              | What is written                                                         |
+| ---------------------------------- | --------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| PR branch (e.g. `feature/new-app`) | `persist-thumbnails`  | Same-repo PR with runtime changes and thumbnail changes                           | `apps/*/thumbnail.webp` files via verified commit (Hermione1176)        |
+| Dependabot PR branch               | `commit-python-locks` | Same-repo Dependabot uv PRs when direct verified commit succeeds                  | `uv.lock` via verified commit                                           |
+| `ci/refresh-python-locks-*`        | `commit-python-locks` | Same-repo Dependabot uv PRs when lock refresh writeback falls back to a PR branch | Fallback PR branch containing refreshed `uv.lock`                       |
+| `ci/refresh-action-shas-*`         | `refresh-action-shas` | Monthly or manually dispatched action SHA refreshes                               | Maintenance PR branch containing workflow SHA refreshes                 |
+| `ci/refresh-locks-*`               | `refresh-locks`       | Weekly or manually dispatched dependency lock refreshes                           | Maintenance PR branch containing refreshed dependency locks             |
+| `gh-pages`                         | `publish`             | Every successful deploy (PR preview or main site)                                 | Verified commit replacing site root or preview subdirectory (Harry1176) |
+| `gh-pages`                         | `cleanup-preview`     | PR closed/merged                                                                  | Verified commit removing preview subdirectory (Harry1176)               |
+| `ci/save-generated-thumbnails-*`   | `persist-thumbnails`  | Push to `main` with runtime-driven thumbnail changes or missing thumbnails        | Follow-up PR branch with `thumbnail.webp` files (Harry1176)             |
 
 ```mermaid
 graph LR
@@ -345,49 +345,49 @@ graph TD
 
 ### Workflow reference
 
-| File | Triggers | Jobs |
-| --- | --- | --- |
-| `update.yml` | push to main, PR (open/sync/close), weekly Sun 4:23 UTC full sweep, manual | plan, quick-gates, heavy-checks, root-browser, app-shard, assemble-site, verify, secret-scan, dependency-review, save-app-ledger, publish, persist-thumbnails, cleanup-preview |
-| `audit-repo-settings.yml` | weekly Mon 8:23 UTC, manual | audit |
-| `live-site-smoke.yml` | daily 06:17 UTC, manual | smoke |
-| `codeql.yml` | push to main, PR to main, weekly Mon 6:30 UTC, manual | analyze-javascript, analyze-python, analyze-actions |
-| `dependency-audit.yml` | weekly Mon 6:00 UTC, manual | audit |
-| `refresh-python-locks.yml` | Same-repo Dependabot uv PR (`pyproject.toml`, `uv.lock`) | refresh-locks |
-| `commit-python-locks.yml` | after refresh-python-locks completes | commit-locks |
-| `refresh-action-shas.yml` | monthly 1st 3:00 UTC, manual | refresh |
-| `refresh-locks.yml` | weekly Mon 12:00 UTC, manual | refresh |
-| `deploy-failure-alert.yml` | after Update Artifacts & Deploy completes (main only) | alert |
-| `schedule-watchdog.yml` | push to main, manual | watchdog |
+| File                       | Triggers                                                                   | Jobs                                                                                                                                                                           |
+| -------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `update.yml`               | push to main, PR (open/sync/close), weekly Sun 4:23 UTC full sweep, manual | plan, quick-gates, heavy-checks, root-browser, app-shard, assemble-site, verify, secret-scan, dependency-review, save-app-ledger, publish, persist-thumbnails, cleanup-preview |
+| `audit-repo-settings.yml`  | weekly Mon 8:23 UTC, manual                                                | audit                                                                                                                                                                          |
+| `live-site-smoke.yml`      | daily 06:17 UTC, manual                                                    | smoke                                                                                                                                                                          |
+| `codeql.yml`               | push to main, PR to main, weekly Mon 6:30 UTC, manual                      | analyze-javascript, analyze-python, analyze-actions                                                                                                                            |
+| `dependency-audit.yml`     | weekly Mon 6:00 UTC, manual                                                | audit                                                                                                                                                                          |
+| `refresh-python-locks.yml` | Same-repo Dependabot uv PR (`pyproject.toml`, `uv.lock`)                   | refresh-locks                                                                                                                                                                  |
+| `commit-python-locks.yml`  | after refresh-python-locks completes                                       | commit-locks                                                                                                                                                                   |
+| `refresh-action-shas.yml`  | monthly 1st 3:00 UTC, manual                                               | refresh                                                                                                                                                                        |
+| `refresh-locks.yml`        | weekly Mon 12:00 UTC, manual                                               | refresh                                                                                                                                                                        |
+| `deploy-failure-alert.yml` | after Update Artifacts & Deploy completes (main only)                      | alert                                                                                                                                                                          |
+| `schedule-watchdog.yml`    | push to main, manual                                                       | watchdog                                                                                                                                                                       |
 
 ### Custom actions
 
-| Action | Purpose | Key behavior |
-| --- | --- | --- |
-| `ci-setup` | Mint app tokens (primary + escalation and/or audit), set up Python/Node, optionally install deps | Calls `scripts/ci/workflow_helpers.py app-token-policy` to gate minting and block tokens for forks and Dependabot; primary + escalation inputs are all-or-nothing, audit inputs are independent so audit-only callers pass only those and skip primary minting |
-| `deploy-site` | Build `_site/` and commit the deploy tree to gh-pages | Uses `deploy-verified.mjs` for GraphQL verified commits; the workflow publishes the full `gh-pages` tree with the official Pages Actions and then calls `scripts/ci/verify_deploy.py` to poll for expected HTML and metadata |
-| `verified-commit` | Create a verified commit or fall back to a PR | Uses `verified-commit.mjs`; supports direct, force-pr, and direct-or-pr modes; creates a dated fallback branch on conflict and force-resets it if it already exists to prevent stale commit accumulation |
+| Action            | Purpose                                                                                          | Key behavior                                                                                                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci-setup`        | Mint app tokens (primary + escalation and/or audit), set up Python/Node, optionally install deps | Calls `scripts/ci/workflow_helpers.py app-token-policy` to gate minting and block tokens for forks and Dependabot; primary + escalation inputs are all-or-nothing, audit inputs are independent so audit-only callers pass only those and skip primary minting |
+| `deploy-site`     | Build `_site/` and commit the deploy tree to gh-pages                                            | Uses `deploy-verified.mjs` for GraphQL verified commits; the workflow publishes the full `gh-pages` tree with the official Pages Actions and then calls `scripts/ci/verify_deploy.py` to poll for expected HTML and metadata                                   |
+| `verified-commit` | Create a verified commit or fall back to a PR                                                    | Uses `verified-commit.mjs`; supports direct, force-pr, and direct-or-pr modes; creates a dated fallback branch on conflict and force-resets it if it already exists to prevent stale commit accumulation                                                       |
 
 ### Script dependency map
 
-| Script | Called by | Purpose |
-| --- | --- | --- |
-| `scripts/ci/workflow_helpers.py thumbnail-plan` | plan job | Compute the full automation plan (browser/thumbnail/persist scope plus shard matrix) |
-| `scripts/ci/app_hashes.py apply-ledger` | plan job | Memoize apps whose input hash already passed on `main` out of the browser shards |
-| `scripts/ci/app_hashes.py update-ledger` | save-app-ledger job | Record main-verified app input hashes into the ledger cache |
-| `scripts/ci/app_shards.py write-manifest` | app-shard job | Select one shard's slugs from the plan into a standalone manifest |
-| `scripts/ci/app_shards.py package-result` | app-shard job | Package a shard manifest and its generated thumbnails for transfer |
-| `scripts/ci/app_shards.py merge-results` | assemble-site job | Merge every downloaded shard thumbnail result into the checkout |
-| `scripts/ci/app_shards.py invalidate-thumbnails` | app-shard job (`make thumbnails-shard`) | Delete stale thumbnails for a shard's slugs before regeneration |
-| `scripts/ci/workflow_helpers.py app-token-policy` | ci-setup action | Decide if app tokens should be minted |
-| `scripts/ci/workflow_helpers.py validate-thumbnail-artifact` | persist-thumbnails job | Validate thumbnail artifact matches the plan |
-| `scripts/ci/workflow_helpers.py audit-repo-settings` | audit-repo-settings workflow | Check Pages, protection, variables, secrets, ruleset |
-| `scripts/ci/workflow_helpers.py lock-refresh-workflow-run` | commit-python-locks workflow | Validate the triggering Dependabot workflow run and emit its trusted artifact and target values |
-| `scripts/ci/workflow_helpers.py validate-lock-artifact` | commit-python-locks workflow | Reject unsafe artifact trees and require metadata to match the trusted triggering run |
-| `scripts/ci/run_parallel_checks.py` | quick-gates and heavy-checks jobs | Run independent Make targets concurrently with captured CI-friendly output |
-| `scripts/ci/verify_deploy.py` | publish job | Poll published URL for expected HTML marker and deploy metadata SHA |
-| `scripts/gh/cli.py` | local `make pr-*` and `make ci-failures` targets | Provide tested GitHub PR review-thread and failed-CI helpers |
-| `deploy-verified.mjs` | deploy-site action, publish/cleanup jobs | Deploy to gh-pages via GraphQL verified commit; handles full site, preview subdirectory, and preview removal |
-| `verified-commit.mjs` | verified-commit action | Create verified commit via GraphQL; fall back to PR on conflict |
+| Script                                                       | Called by                                        | Purpose                                                                                                      |
+| ------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `scripts/ci/workflow_helpers.py thumbnail-plan`              | plan job                                         | Compute the full automation plan (browser/thumbnail/persist scope plus shard matrix)                         |
+| `scripts/ci/app_hashes.py apply-ledger`                      | plan job                                         | Memoize apps whose input hash already passed on `main` out of the browser shards                             |
+| `scripts/ci/app_hashes.py update-ledger`                     | save-app-ledger job                              | Record main-verified app input hashes into the ledger cache                                                  |
+| `scripts/ci/app_shards.py write-manifest`                    | app-shard job                                    | Select one shard's slugs from the plan into a standalone manifest                                            |
+| `scripts/ci/app_shards.py package-result`                    | app-shard job                                    | Package a shard manifest and its generated thumbnails for transfer                                           |
+| `scripts/ci/app_shards.py merge-results`                     | assemble-site job                                | Merge every downloaded shard thumbnail result into the checkout                                              |
+| `scripts/ci/app_shards.py invalidate-thumbnails`             | app-shard job (`make thumbnails-shard`)          | Delete stale thumbnails for a shard's slugs before regeneration                                              |
+| `scripts/ci/workflow_helpers.py app-token-policy`            | ci-setup action                                  | Decide if app tokens should be minted                                                                        |
+| `scripts/ci/workflow_helpers.py validate-thumbnail-artifact` | persist-thumbnails job                           | Validate thumbnail artifact matches the plan                                                                 |
+| `scripts/ci/workflow_helpers.py audit-repo-settings`         | audit-repo-settings workflow                     | Check Pages, protection, variables, secrets, ruleset                                                         |
+| `scripts/ci/workflow_helpers.py lock-refresh-workflow-run`   | commit-python-locks workflow                     | Validate the triggering Dependabot workflow run and emit its trusted artifact and target values              |
+| `scripts/ci/workflow_helpers.py validate-lock-artifact`      | commit-python-locks workflow                     | Reject unsafe artifact trees and require metadata to match the trusted triggering run                        |
+| `scripts/ci/run_parallel_checks.py`                          | quick-gates and heavy-checks jobs                | Run independent Make targets concurrently with captured CI-friendly output                                   |
+| `scripts/ci/verify_deploy.py`                                | publish job                                      | Poll published URL for expected HTML marker and deploy metadata SHA                                          |
+| `scripts/gh/cli.py`                                          | local `make pr-*` and `make ci-failures` targets | Provide tested GitHub PR review-thread and failed-CI helpers                                                 |
+| `deploy-verified.mjs`                                        | deploy-site action, publish/cleanup jobs         | Deploy to gh-pages via GraphQL verified commit; handles full site, preview subdirectory, and preview removal |
+| `verified-commit.mjs`                                        | verified-commit action                           | Create verified commit via GraphQL; fall back to PR on conflict                                              |
 
 ### Artifact flow
 
@@ -409,11 +409,11 @@ graph LR
 
 Three GitHub Apps provide elevated permissions beyond the default `GITHUB_TOKEN`, each scoped to a single role:
 
-| App | ID variable / Secret | Used for |
-| --- | --- | --- |
-| Hermione1176 (primary) | `vars.APP_ID` / `secrets.APP_PRIVATE_KEY` | Same-PR thumbnail writeback |
+| App                    | ID variable / Secret                                            | Used for                                                                                           |
+| ---------------------- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Hermione1176 (primary) | `vars.APP_ID` / `secrets.APP_PRIVATE_KEY`                       | Same-PR thumbnail writeback                                                                        |
 | Harry1176 (escalation) | `vars.ESCALATION_APP_ID` / `secrets.ESCALATION_APP_PRIVATE_KEY` | All deploys (main, preview, cleanup), scheduled maintenance PRs, follow-up thumbnail PRs from main |
-| Percy1176 (audit) | `vars.AUDIT_APP_ID` / `secrets.AUDIT_APP_PRIVATE_KEY` | Read-only repo-settings audit and drift-issue lifecycle |
+| Percy1176 (audit)      | `vars.AUDIT_APP_ID` / `secrets.AUDIT_APP_PRIVATE_KEY`           | Read-only repo-settings audit and drift-issue lifecycle                                            |
 
 Each installation should carry only the permissions its role actually exercises. The minimal sets below are derived from what the workflows and `.github/actions/*.mjs` helpers call.
 
@@ -456,11 +456,11 @@ Primary + escalation inputs to `ci-setup` are all-or-nothing (the action hard-fa
 
 The `plan` job computes a `persist-mode` from the event context:
 
-| Mode | When | What happens |
-| --- | --- | --- |
-| `none` | Fork PR, Dependabot PR, docs-only, no runtime changes | No source mutation |
-| `pr-branch` | Trusted same-repo PR with runtime changes | Thumbnails committed to the PR branch |
-| `followup-pr` | Push to main with missing thumbnails | New PR opened (or existing one updated) |
+| Mode          | When                                                  | What happens                            |
+| ------------- | ----------------------------------------------------- | --------------------------------------- |
+| `none`        | Fork PR, Dependabot PR, docs-only, no runtime changes | No source mutation                      |
+| `pr-branch`   | Trusted same-repo PR with runtime changes             | Thumbnails committed to the PR branch   |
+| `followup-pr` | Push to main with missing thumbnails                  | New PR opened (or existing one updated) |
 
 Loop prevention: merging a follow-up thumbnail PR is detected via PR provenance (not commit message), so squash-merge settings don't break the detection.
 
@@ -493,18 +493,18 @@ The workflows depend on repository settings that are not enforceable from source
 
 `workspace.md` owns the repository ownership map. This section only explains why these configuration files matter to the system design.
 
-| Config file | Owns |
-| --- | --- |
-| `pyproject.toml` | Python deps, pytest/coverage/ruff settings, site URL and metadata |
-| `package.json` | Node deps, JS test/coverage config, npm script commands |
-| `config/artifact_contract.json` | Shared artifact id, URL, and thumbnail path validation contract |
-| `config/eslint.config.js` | ESLint file patterns, ignores, rules |
-| `config/stylelint.config.js` | Stylelint rules, ignoreFiles |
-| `.yamllint.yml` | Yamllint rules, ignore patterns |
-| `.editorconfig` | Editor formatting rules per file type |
-| `config/gallery_metadata.json` | Tag/tool display metadata for gallery config and README badges |
-| `config/security_audit.json` | Python and npm audit policy, including reviewed vulnerability exceptions |
-| `config/vendored_assets.json` | Pinned version, upstream URL, and SHA-256 for each vendored library |
+| Config file                     | Owns                                                                     |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| `pyproject.toml`                | Python deps, pytest/coverage/ruff settings, site URL and metadata        |
+| `package.json`                  | Node deps, JS test/coverage config, npm script commands                  |
+| `config/artifact_contract.json` | Shared artifact id, URL, and thumbnail path validation contract          |
+| `config/eslint.config.js`       | ESLint file patterns, ignores, rules                                     |
+| `config/stylelint.config.js`    | Stylelint rules, ignoreFiles                                             |
+| `.yamllint.yml`                 | Yamllint rules, ignore patterns                                          |
+| `.editorconfig`                 | Editor formatting rules per file type                                    |
+| `config/gallery_metadata.json`  | Tag/tool display metadata for gallery config and README badges           |
+| `config/security_audit.json`    | Python and npm audit policy, including reviewed vulnerability exceptions |
+| `config/vendored_assets.json`   | Pinned version, upstream URL, and SHA-256 for each vendored library      |
 
 Each tool primarily reads its own config, and the Makefile mostly serves as the entry point that calls those tools. Prefer changing tool scope in the owning config file rather than scattering overlapping scope rules across workflow steps and scripts. See [ADR 0003](adr/0003-makefile-first-and-single-source-of-truth.md).
 

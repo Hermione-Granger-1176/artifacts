@@ -64,39 +64,39 @@ Python dependencies and workspace metadata live in `pyproject.toml`, while froze
 
 Discover the full surface with `make help`, then `make help-<group>` (for example `make help-pr`, `make help-issue`), or `make help-json`. The table below is only the argument patterns that are not obvious from that help. PR and CI triage targets (and `make issue-summary`) wrap the tested `scripts/gh/` helper so agents do not need raw GitHub CLI flags.
 
-| Need | Command |
-| --- | --- |
-| Review threads with thread ids | `make pr-review-comments [pr_num=N]` |
-| Reply to a review thread | `make pr-reply thread=PRRT_... body_file=- <<'EOF' ... EOF` |
-| Reply to and resolve a review thread | `make pr-address thread=PRRT_... body_file=- <<'EOF' ... EOF` |
-| Resolve a review thread | `make pr-resolve thread=PRRT_...` |
-| Comment on a PR or issue | `make pr-comment [pr_num=N] body_file=- ...` / `make issue-comment issue=N body_file=- ...` |
-| Branch linked to an issue | `make issue-develop issue=N` |
-| New stacked branch | `make branch name=my-feature base=current-branch` |
-| Commit staged work | `make commit message_file=- <<'EOF' ... EOF` |
+| Need                                 | Command                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| Review threads with thread ids       | `make pr-review-comments [pr_num=N]`                                                        |
+| Reply to a review thread             | `make pr-reply thread=PRRT_... <<'EOF' ... EOF`                                             |
+| Reply to and resolve a review thread | `make pr-address thread=PRRT_... <<'EOF' ... EOF`                                           |
+| Resolve a review thread              | `make pr-resolve thread=PRRT_...`                                                           |
+| Comment on a PR or issue             | `make pr-comment [pr_num=N] <<'EOF' ... EOF` / `make issue-comment issue=N <<'EOF' ... EOF` |
+| Branch linked to an issue            | `make issue-develop issue=N`                                                                |
+| New stacked branch                   | `make branch name=my-feature base=current-branch`                                           |
+| Commit staged work                   | `make commit <<'EOF' ... EOF`                                                               |
 
-For multi-line text (commit messages, PR/issue comments, replies), pass `message_file=-` / `body_file=-` and pipe the content on stdin with a heredoc. Do not write temp message files; reserve `message_file=path` / `body_file=path` for content that already exists on disk. Short one-liners can use the inline `message="..."` / `body="..."` forms.
+For multi-line text such as commit messages, PR or issue comments, replies, issue bodies, and alert details, pipe the content on stdin with a heredoc or redirect. Do not pass prose as make arguments. Use environment variables for short text such as `TITLE='...' make issue-create < issue.md`, `SEARCH='...' make issue-list`, or `COMMENT='...' make issue-close issue=N`.
 
 ## Tool configuration
 
 Each tool has one config file that owns its scope. The Makefile just calls tools. No file lists repeated anywhere.
 
-| Tool | Config (source of truth) | What it defines |
-| --- | --- | --- |
-| ruff | `pyproject.toml` | Python lint/format rules; built-in excludes skip `.venv/`, `node_modules/` |
-| pytest | `pyproject.toml` | Test paths, coverage target (`scripts/`), 100% threshold |
-| ESLint | `config/eslint.config.js` | JS file patterns, ignores, rules |
-| stylelint | `config/stylelint.config.js` | CSS rules, ignoreFiles |
-| yamllint | `.yamllint.yml` | YAML rules, ignore patterns |
-| JS coverage | `package.json` | Exclude patterns (`node_modules/`, `tests/`) |
-| tsc (checkJs) | `config/jsconfig.json` | TypeScript checkJs gate for hand-written js/ modules |
-| mypy | `pyproject.toml` | Strict Python type checking over `scripts/` |
-| Prettier | `config/prettierrc.json` | Docs, metadata, workflow, and tooling formatting |
-| Knip | `config/knip.json` | JS dead-code, unused exports, and unused dependency detection |
-| vulture | `pyproject.toml` | Python dead-code detection |
-| editorconfig | `.editorconfig` | Formatting rules per file type |
-| pre-commit | `.pre-commit-config.yaml` | Local Git hook stages (whitespace, lint, format, typecheck, and test gates) |
-| esbuild | `package.json` | CSS/JS minification during site assembly (`prepare_site.py`) |
+| Tool          | Config (source of truth)     | What it defines                                                             |
+| ------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| ruff          | `pyproject.toml`             | Python lint/format rules; built-in excludes skip `.venv/`, `node_modules/`  |
+| pytest        | `pyproject.toml`             | Test paths, coverage target (`scripts/`), 100% threshold                    |
+| ESLint        | `config/eslint.config.js`    | JS file patterns, ignores, rules                                            |
+| stylelint     | `config/stylelint.config.js` | CSS rules, ignoreFiles                                                      |
+| yamllint      | `.yamllint.yml`              | YAML rules, ignore patterns                                                 |
+| JS coverage   | `package.json`               | Exclude patterns (`node_modules/`, `tests/`)                                |
+| tsc (checkJs) | `config/jsconfig.json`       | TypeScript checkJs gate for hand-written js/ modules                        |
+| mypy          | `pyproject.toml`             | Strict Python type checking over `scripts/`                                 |
+| Prettier      | `config/prettierrc.json`     | Metadata, workflow, and tooling formatting                                  |
+| Knip          | `config/knip.json`           | JS dead-code, unused exports, and unused dependency detection               |
+| vulture       | `pyproject.toml`             | Python dead-code detection                                                  |
+| editorconfig  | `.editorconfig`              | Formatting rules per file type                                              |
+| pre-commit    | `.pre-commit-config.yaml`    | Local Git hook stages (whitespace, lint, format, typecheck, and test gates) |
+| esbuild       | `package.json`               | CSS/JS minification during site assembly (`prepare_site.py`)                |
 
 To change what gets linted/tested/typed, edit the tool's config file, nowhere else.
 

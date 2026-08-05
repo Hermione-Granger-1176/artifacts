@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import os
 import subprocess
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -164,10 +165,31 @@ def test_summary_launch_failure_is_swallowed(tmp_path: Path) -> None:
 
     report = _render(tmp_path, runner)
 
-    # The launch failure prints nothing extra, and the target still succeeds:
-    # the report simply stops after the Pull request header.
-    assert report.rstrip().endswith("=== Pull request ===")
+    # The launch failure remains visible, and the target still succeeds.
+    assert "UNAVAILABLE: .venv/bin/python could not be launched" in report
     assert "Traceback" not in report
+
+
+def test_child_env_prepends_the_root_without_dropping_an_existing_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The repository root is first while an existing Python path survives."""
+    monkeypatch.setenv("PYTHONPATH", f"/their/tools{os.pathsep}/more")
+
+    assert workspace_status._child_env(tmp_path)["PYTHONPATH"] == os.pathsep.join(
+        [str(tmp_path), "/their/tools", "/more"]
+    )
+
+
+def test_child_env_without_an_existing_path_has_only_the_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An empty or unset Python path does not create an empty import entry."""
+    monkeypatch.setenv("PYTHONPATH", "")
+    assert workspace_status._child_env(tmp_path)["PYTHONPATH"] == str(tmp_path)
+
+    monkeypatch.delenv("PYTHONPATH")
+    assert workspace_status._child_env(tmp_path)["PYTHONPATH"] == str(tmp_path)
 
 
 def test_drift_launch_failure_falls_through_to_stale(tmp_path: Path) -> None:

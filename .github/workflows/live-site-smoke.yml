@@ -66,14 +66,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ALERT_DETAIL: "Published URL: ${{ steps.site-url.outputs.url }}"
         run: |
-          url=$(make ci-alert-issue state=open title="Live site smoke check failed" run_url="$RUN_URL" detail="$ALERT_DETAIL")
+          url=$(printf '%s\n' "$ALERT_DETAIL" | TITLE="Live site smoke check failed" make ci-alert-issue state=open run_url="$RUN_URL")
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Close live-site smoke issue when clean
         if: steps.smoke.outputs.status == '0'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: make ci-alert-issue state=close title="Live site smoke check failed" run_url="$RUN_URL"
+        run: TITLE="Live site smoke check failed" make ci-alert-issue state=close run_url="$RUN_URL"
 
       - name: Summarize live-site smoke failure
         if: steps.smoke.outputs.status != '0'
@@ -89,7 +89,7 @@ jobs:
         if: failure() && steps.smoke.outputs.status == ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: make ci-alert-issue state=setup-failure title="Live site smoke check failed" run_url="$RUN_URL"
+        run: TITLE="Live site smoke check failed" make ci-alert-issue state=setup-failure run_url="$RUN_URL"
 
       - name: Fail workflow on smoke regression
         if: steps.smoke.outputs.status != '0'

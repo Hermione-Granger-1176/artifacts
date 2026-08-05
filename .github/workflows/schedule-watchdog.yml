@@ -49,20 +49,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          url=$(make ci-alert-issue state=open title="$ALERT_TITLE" run_url="$RUN_URL" detail_file=schedule-watchdog.txt)
+          url=$(TITLE="$ALERT_TITLE" make ci-alert-issue state=open run_url="$RUN_URL" < schedule-watchdog.txt)
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Close stale schedule issue when clean
         if: steps.watchdog.outputs.status == '0'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: make ci-alert-issue state=close title="$ALERT_TITLE" run_url="$RUN_URL"
+        run: TITLE="$ALERT_TITLE" make ci-alert-issue state=close run_url="$RUN_URL"
 
       - name: Alert when watchdog setup fails
         if: failure() && steps.watchdog.outputs.status == ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: make ci-alert-issue state=setup-failure title="$ALERT_TITLE" run_url="$RUN_URL"
+        run: TITLE="$ALERT_TITLE" make ci-alert-issue state=setup-failure run_url="$RUN_URL"
 
       - name: Fail workflow when schedules are stale
         if: steps.watchdog.outputs.status != '0'

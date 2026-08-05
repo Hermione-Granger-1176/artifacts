@@ -1134,6 +1134,29 @@ def test_main_delete_comment_invokes_helper(
     assert "Deleted PRRC_x" in capsys.readouterr().out
 
 
+def test_comment_on_pr_uses_explicit_pr_without_retry() -> None:
+    """PR-level comments use gh directly and do not retry a non-idempotent write."""
+    seen: dict[str, list[list[str]]] = {}
+    pr_review.comment_on_pr(7, "Looks good", run_fn=_copilot_runner(seen))
+
+    assert seen["cmds"][-1] == [
+        "gh",
+        "pr",
+        "comment",
+        "7",
+        "--body",
+        "Looks good",
+    ]
+
+
+def test_comment_on_pr_defaults_to_current_pr() -> None:
+    """PR-level comments resolve the current branch when no number is supplied."""
+    seen: dict[str, list[list[str]]] = {}
+    pr_review.comment_on_pr(None, "Looks good", run_fn=_copilot_runner(seen))
+
+    assert ["gh", "pr", "comment", "7", "--body", "Looks good"] in seen["cmds"]
+
+
 def test_main_list_prints_text(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

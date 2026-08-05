@@ -139,6 +139,19 @@ def test_ci_setup_targets_keep_system_dependency_installation() -> None:
     assert "playwright install webkit --with-deps" in target_recipe("setup-playwright-webkit-ci")
 
 
+def test_selected_playwright_setup_validates_engines_and_dependencies() -> None:
+    """Keep selective installs constrained to supported engines and dependency mode."""
+    recipe = target_recipe("setup-playwright-engines")
+
+    assert "PLAYWRIGHT_BROWSERS := chromium webkit" in MAKEFILE_TEXT
+    assert "unsupported Playwright engine(s): $(PLAYWRIGHT_INVALID_ENGINES)" in recipe
+    assert "engines must not contain duplicates" in recipe
+    assert "with_deps must be one value" in recipe
+    assert "with_deps must be 1 when provided" in recipe
+    assert "$(if $(filter 1,$(with_deps)),--with-deps)" in recipe
+    assert "$(filter $(PLAYWRIGHT_BROWSERS),$(PLAYWRIGHT_ENGINE_ARGS))" in recipe
+
+
 def test_local_setup_prepares_libraries_around_a_shared_browser_install() -> None:
     """Prepare the private libraries on both sides of a sudo-free browser install.
 

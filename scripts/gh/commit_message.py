@@ -1,7 +1,7 @@
 """Validate commit messages before they reach ``git commit``.
 
-Heredoc-driven commit flows (``make commit message_file=- <<'EOF' ... EOF``) can
-leak shell fragments into the recorded message when a terminator is mistyped or
+Stdin-driven commit flows (``make commit <<'EOF' ... EOF``) can leak shell
+fragments into the recorded message when a terminator is mistyped or
 trailing shell is pasted after the closing token. Commit ``b68de52`` captured
 ``EOF && make push 2>&1 | tail -3`` inside its message this way. This module
 rejects the obvious shell-leak shapes while keeping false positives unlikely, so
