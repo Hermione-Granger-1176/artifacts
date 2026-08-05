@@ -80,20 +80,25 @@ def align_table(lines: list[str]) -> list[str]:
 def process_file(path: Path) -> bool:
     """Align all tables in a markdown file. Return True if the file changed."""
     text = path.read_text(encoding="utf-8")
+    aligned_text = align_document(text)
+    if aligned_text == text:
+        return False
+    path.write_text(aligned_text, encoding="utf-8")
+    return True
+
+
+def align_document(text: str) -> str:
+    """Return Markdown text with every table aligned without writing a file."""
     lines = text.split("\n")
 
     output: list[str] = []
     table_block: list[str] = []
     in_code_fence = False
-    changed = False
 
     def flush_block() -> None:
-        nonlocal changed
         if not table_block:
             return
         aligned = align_table(table_block)
-        if aligned != table_block:
-            changed = True
         output.extend(aligned)
         table_block.clear()
 
@@ -108,11 +113,7 @@ def process_file(path: Path) -> bool:
             output.append(line)
 
     flush_block()
-
-    if changed:
-        path.write_text("\n".join(output), encoding="utf-8")
-
-    return changed
+    return "\n".join(output)
 
 
 def find_markdown_files() -> list[Path]:
@@ -129,19 +130,29 @@ def find_markdown_files() -> list[Path]:
 
 def main() -> None:
     """Entry point: align tables in the given files or all repo .md files."""
-    files = [Path(arg) for arg in sys.argv[1:]] if len(sys.argv) > 1 else find_markdown_files()
+    arguments = sys.argv[1:]
+    check_only = "--check" in arguments
+    files = [Path(arg) for arg in arguments if arg != "--check"]
+    files = files or find_markdown_files()
 
     changed_count = 0
     for path in files:
         if not path.exists():
             print(f"Skipping {path} (not found)")
             continue
-        if process_file(path):
+        original = path.read_text(encoding="utf-8") if check_only else ""
+        changed = align_document(original) != original if check_only else process_file(path)
+        if changed:
             changed_count += 1
-            print(f"Aligned tables in {path}")
+            print(
+                f"Table alignment needed in {path}" if check_only else f"Aligned tables in {path}"
+            )
 
     if changed_count == 0:
         print("No tables needed alignment")
+    elif check_only:
+        print(f"Table alignment needed in {changed_count} file(s)")
+        raise SystemExit(1)
     else:
         print(f"Aligned tables in {changed_count} file(s)")
 

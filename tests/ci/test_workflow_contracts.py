@@ -490,7 +490,11 @@ def test_refresh_python_locks_workflow_uses_dependabot_and_make_lock_contract() 
     assert "dependabot[bot]" in refresh["if"]
     assert "github.actor == 'dependabot[bot]'" in refresh["if"]
     assert "dependabot/uv/" in refresh["if"]
-    assert _step_run(refresh, "Install uv").strip() == "python -m pip install --upgrade pip uv"
+    setup_uv = _step(refresh, "Set up uv")
+    assert _step_uses(refresh, "Set up uv") == (
+        "astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b"
+    )
+    assert setup_uv["with"]["enable-cache"] is False
     assert _step_run(refresh, "Refresh Python lock files").strip() == "make lock"
     upload_step = _step(refresh, "Upload refreshed Python lock files")
     assert _step_uses(refresh, "Upload refreshed Python lock files").startswith(
@@ -588,7 +592,9 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     drift_open_run = _step_run(audit_job, "Open or update repository settings drift issue")
     assert "make ci-alert-issue" in drift_open_run
     assert "state=open" in drift_open_run
-    assert "detail_file=audit-repo-settings.json" in drift_open_run
+    assert "TITLE=" in drift_open_run
+    assert "< audit-repo-settings.json" in drift_open_run
+    assert "detail_file=" not in drift_open_run
     drift_close_run = _step_run(audit_job, "Close repository settings drift issue when clean")
     assert "make ci-alert-issue" in drift_close_run
     assert "state=close" in drift_close_run
@@ -618,6 +624,8 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     smoke_open_run = _step_run(smoke_job, "Open or update live-site smoke issue")
     assert "make ci-alert-issue" in smoke_open_run
     assert "state=open" in smoke_open_run
+    assert "TITLE=" in smoke_open_run
+    assert "|" in smoke_open_run
     smoke_close_run = _step_run(smoke_job, "Close live-site smoke issue when clean")
     assert "make ci-alert-issue" in smoke_close_run
     assert "state=close" in smoke_close_run
@@ -664,6 +672,8 @@ def test_deploy_failure_alert_workflow_opens_and_closes_issue() -> None:
     open_run = _step_run(alert, "Open or update deploy failure issue")
     assert "make ci-alert-issue" in open_run
     assert "state=open" in open_run
+    assert "TITLE=" in open_run
+    assert "|" in open_run
 
     close_step = _step(alert, "Close deploy failure issue when a main run succeeds")
     assert close_step["if"] == "github.event.workflow_run.conclusion == 'success'"
@@ -699,7 +709,9 @@ def test_schedule_watchdog_runs_from_push_and_syncs_alert_issue() -> None:
     open_run = _step_run(watchdog, "Open or update stale schedule issue")
     assert "make ci-alert-issue" in open_run
     assert "state=open" in open_run
-    assert "detail_file=schedule-watchdog.txt" in open_run
+    assert "TITLE=" in open_run
+    assert "< schedule-watchdog.txt" in open_run
+    assert "detail_file=" not in open_run
 
     close_step = _step(watchdog, "Close stale schedule issue when clean")
     assert close_step["if"] == "steps.watchdog.outputs.status == '0'"
@@ -835,6 +847,8 @@ def test_dependency_audit_workflow_runs_audits_and_syncs_alert_issue() -> None:
     open_run = _step_run(audit, "Open or update dependency audit issue")
     assert "make ci-alert-issue" in open_run
     assert "state=open" in open_run
+    assert "TITLE=" in open_run
+    assert "|" in open_run
 
     close_step = _step(audit, "Close dependency audit issue when clean")
     assert close_step["if"] == "steps.audit.outputs.status == '0'"
@@ -885,10 +899,11 @@ def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
         assert commit_inputs["fallback-branch-prefix"] == fallback_branch_prefix
 
 
-def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
-    """Setup python steps cache uv lock and uv downloads."""
+def test_setup_steps_cache_locked_environments_and_downloads() -> None:
+    """Setup steps cache locked environments and their download fallbacks."""
     update = _load_workflow("update.yml")
-    refresh = _load_workflow("refresh-python-locks.yml")
+    refresh_python = _load_workflow("refresh-python-locks.yml")
+    refresh_all = _load_workflow("refresh-locks.yml")
     ci_setup = yaml.safe_load(
         (REPO_ROOT / ".github" / "actions" / "ci-setup" / "action.yml").read_text(encoding="utf-8")
     )
@@ -910,13 +925,11 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
     )
     assert ci_setup_cache["if"] == "inputs.install-deps == 'true' && inputs.browser-engines != ''"
     assert ci_setup_cache["id"] == "playwright-cache"
-    # The engine set is part of the key so a restored entry can never be a subset
-    # of what the job needs. Keyed on the lockfile alone, whichever browser job
-    # missed first decided the contents for everyone, and a job needing more
-    # engines then hit that entry and could never correct it, because
-    # actions/cache skips the save on a primary-key hit.
+    # The exact installed package version changes only when Playwright changes.
+    # The engine set prevents a job from restoring a subset of what it needs.
     assert ci_setup_cache["with"]["key"] == (
-        "playwright-${{ hashFiles('uv.lock') }}-${{ inputs.browser-engines }}"
+        "playwright-${{ runner.os }}-${{ runner.arch }}"
+        "-${{ steps.playwright-version.outputs.version }}-${{ inputs.browser-engines }}"
     )
     # One browser knob, not two. An engine set says both whether to install and
     # what to install, so a caller cannot ask for no browsers and an engine at
@@ -931,7 +944,8 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
     assert venv_cache["with"]["path"] == ".venv"
     assert venv_cache["with"]["key"] == (
         "venv-${{ runner.os }}-${{ runner.arch }}"
-        "-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('uv.lock') }}"
+        "-${{ steps.setup-python.outputs.python-version }}"
+        "-${{ hashFiles('pyproject.toml', 'uv.lock') }}"
     )
     setup_python = next(
         step for step in ci_setup["runs"]["steps"] if step.get("name") == "Set up Python"
@@ -943,16 +957,17 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
     )
     assert node_modules_cache["with"]["path"] == "node_modules"
     assert node_modules_cache["with"]["key"] == (
-        "node-modules-${{ runner.os }}-${{ inputs.node-version }}"
-        "-${{ hashFiles('package-lock.json') }}"
+        "node-modules-${{ runner.os }}-${{ runner.arch }}"
+        "-${{ steps.node-version.outputs.version }}"
+        "-${{ hashFiles('package.json', 'package-lock.json') }}"
     )
     assert "restore-keys" not in node_modules_cache["with"]
-    uv_install = next(
-        step for step in ci_setup["runs"]["steps"] if step.get("name") == "Install uv"
-    )
+    setup_uv = next(step for step in ci_setup["runs"]["steps"] if step.get("name") == "Set up uv")
     # uv itself must always be installed: audit-python invokes uv directly,
     # so a cached .venv is not a substitute for the uv binary.
-    assert uv_install["if"] == "inputs.install-deps == 'true'"
+    assert setup_uv["if"] == "inputs.install-deps == 'true'"
+    assert setup_uv["uses"] == ("astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b")
+    assert setup_uv["with"]["enable-cache"] is False
     workspace_install = next(
         step
         for step in ci_setup["runs"]["steps"]
@@ -961,27 +976,45 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
     for skip_guard in (
         'if [ "$VENV_CACHE_HIT" != "true" ]',
         'if [ "$NODE_MODULES_CACHE_HIT" != "true" ]',
+        "make ci-prune-uv-cache",
+    ):
+        assert skip_guard in workspace_install["run"]
+    browser_install = next(
+        step
+        for step in ci_setup["runs"]["steps"]
+        if step.get("name") == "Install Playwright browsers"
+    )
+    for browser_guard in (
         'if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ]',
         'make setup-playwright-engines engines="$BROWSER_ENGINES"',
     ):
-        assert skip_guard in workspace_install["run"]
+        assert browser_guard in browser_install["run"]
     # A hit restores binaries, not the apt packages they load, so the system-deps
     # pass may only be skipped for an engine set the runner image already
     # satisfies. Chromium qualifies; WebKit does not, and skipping it left the
     # restored MiniBrowser unable to load its shared libraries.
-    assert "with_deps=1" in workspace_install["run"]
+    assert "with_deps=1" in browser_install["run"]
     assert (
         '[ "$PLAYWRIGHT_CACHE_HIT" = "true" ] && [ "$BROWSER_ENGINES" = "chromium" ]'
-        in workspace_install["run"]
+        in browser_install["run"]
     )
     assert all(
         step.get("name") != "Install uv for live browser verification"
         for step in _job(update, "publish")["steps"]
-    ), "publish installs uv through ci-setup, at its pinned version and cached"
+    ), "publish installs uv through ci-setup under the shared version policy"
 
-    refresh_step = _step(_job(refresh, "refresh-locks"), "Set up Python")
-    assert refresh_step["with"]["cache"] == "pip"
-    assert refresh_step["with"]["cache-dependency-path"] == "uv.lock"
+    for workflow, job_name in (
+        (refresh_python, "refresh-locks"),
+        (refresh_all, "refresh"),
+    ):
+        refresh_job = _job(workflow, job_name)
+        refresh_python_step = _step(refresh_job, "Set up Python")
+        assert "cache" not in refresh_python_step.get("with", {})
+        assert "cache-dependency-path" not in refresh_python_step.get("with", {})
+        refresh_uv_step = _step(refresh_job, "Set up uv")
+        assert refresh_uv_step["with"]["enable-cache"] is False
+    refresh_node_step = _step(_job(refresh_all, "refresh"), "Set up Node.js")
+    assert "cache" not in refresh_node_step.get("with", {})
 
     ci_setup_steps = ci_setup["runs"]["steps"]
     setup_python = next(s for s in ci_setup_steps if s.get("name") == "Set up Python")
@@ -995,11 +1028,17 @@ def test_setup_python_steps_cache_uv_lock_and_uv_downloads() -> None:
     assert ci_uv_cache["uses"] == ("actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9")
     assert ci_uv_cache["with"]["path"] == "~/.cache/uv"
     assert ci_uv_cache["with"]["key"] == (
-        "uv-${{ runner.os }}-${{ inputs.python-version }}-${{ hashFiles('uv.lock') }}"
+        "uv-${{ runner.os }}-${{ runner.arch }}"
+        "-${{ steps.setup-python.outputs.python-version }}"
+        "-${{ hashFiles('pyproject.toml', 'uv.lock') }}"
     )
     assert (
-        "uv-${{ runner.os }}-${{ inputs.python-version }}-" in ci_uv_cache["with"]["restore-keys"]
+        "uv-${{ runner.os }}-${{ runner.arch }}"
+        "-${{ steps.setup-python.outputs.python-version }}-" in ci_uv_cache["with"]["restore-keys"]
     )
+
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert pyproject["tool"]["uv"]["required-version"] == ">=0.11.0"
 
 
 def test_secret_scan_is_scoped_away_from_published_build_output() -> None:
@@ -1071,23 +1110,31 @@ def test_ci_setup_restores_download_caches_only_when_an_install_will_run() -> No
         " && steps.node-modules-cache.outputs.cache-hit != 'true'"
     )
     assert npm_cache["with"]["path"] == "~/.npm"
+    assert npm_cache["with"]["key"] == (
+        "npm-${{ runner.os }}-${{ runner.arch }}"
+        "-${{ steps.node-version.outputs.version }}"
+        "-${{ hashFiles('package.json', 'package-lock.json') }}"
+    )
 
     # The gate only works if the cache it reads has already been restored, so
     # each producer of a cache-hit output must come first.
     order = [s.get("name") for s in steps]
     assert order.index("Cache virtual environment") < order.index("Cache uv downloads")
+    assert order.index("Resolve Node.js version") < order.index("Cache node modules")
     assert order.index("Cache node modules") < order.index("Cache npm downloads")
 
-    # Keyed on the pinned version rather than a lockfile, so the key changes
-    # exactly when the stored wheel does and the entry cannot go stale.
-    installer_cache = step("Cache uv installer download")
-    assert installer_cache["with"]["path"] == "~/.cache/pip"
-    # runner.arch is in the key because the wheel is platform-specific; without
-    # it one architecture would pin an incompatible wheel that the others could
-    # never replace, since a primary-key hit skips the save.
-    assert installer_cache["with"]["key"] == (
-        "pip-uv-${{ runner.os }}-${{ runner.arch }}"
-        "-${{ inputs.python-version }}-${{ inputs.uv-version }}"
-    )
-    assert step("Install uv")["run"].strip() == 'python -m pip install "uv==${UV_VERSION}"'
-    assert ci_setup["inputs"]["uv-version"]["default"] == "0.11.32"
+    # setup-uv installs the centrally governed tool without restoring a second
+    # dependency cache that would duplicate the conditional uv cache above.
+    setup_uv = step("Set up uv")
+    assert setup_uv["uses"] == ("astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b")
+    assert setup_uv["with"]["enable-cache"] is False
+    assert all(s.get("name") != "Cache uv installer download" for s in steps)
+    assert all(s.get("name") != "Install uv" for s in steps)
+    assert "uv-version" not in ci_setup["inputs"]
+
+    # Browser cache resolution needs the installed dependency, then keys the
+    # binaries on that exact package version and requested engine set.
+    order = [s.get("name") for s in steps]
+    assert order.index("Install workspace dependencies") < order.index("Resolve Playwright version")
+    assert order.index("Resolve Playwright version") < order.index("Cache Playwright browsers")
+    assert order.index("Cache Playwright browsers") < order.index("Install Playwright browsers")

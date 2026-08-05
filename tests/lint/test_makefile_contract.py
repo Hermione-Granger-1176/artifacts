@@ -1,10 +1,69 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MAKEFILE_TEXT = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+
+
+def test_python_recipes_preserve_the_callers_python_path() -> None:
+    """Python recipes extend PYTHONPATH instead of replacing it."""
+    assert "PY_PATH_PREFIX = PYTHONPATH=.$${PYTHONPATH:+:$${PYTHONPATH}}" in MAKEFILE_TEXT
+    assert "PYTHONPATH=. " not in MAKEFILE_TEXT
+
+
+def test_markdown_formatting_has_one_non_conflicting_owner() -> None:
+    """Prettier and table alignment must not fight over Markdown whitespace."""
+    package = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
+
+    for name in ("format", "format:check"):
+        script = package["scripts"][name]
+        assert "*.{json,md,yml,yaml}" not in script
+        assert "docs/**/*.md" not in script
+        assert ".github/**/*.{json,md,yml,yaml,mjs}" not in script
+
+    assert "format-check: format-py-check format-prettier-check align-tables-check" in MAKEFILE_TEXT
+
+
+def test_free_text_transport_avoids_make_argument_expansion() -> None:
+    """Bodies use stdin and short prose uses the environment."""
+    assert "NO_TTY_READ := [ -t 0 ] ||" in MAKEFILE_TEXT
+    assert "FREE_TEXT_VARS := TITLE COMMENT SEARCH" in MAKEFILE_TEXT
+    assert "RETIRED_TEXT_ARGS := body title comment notes search detail" in MAKEFILE_TEXT
+    for expression in (
+        "$(body)",
+        "$(title)",
+        "$(comment)",
+        "$(search)",
+        "$(detail)",
+        "$(detail_file)",
+        "$(message)",
+        "$(message_file)",
+    ):
+        assert expression not in MAKEFILE_TEXT
+
+    for target in ("pr-comment", "pr-reply", "pr-address", "issue-comment"):
+        assert "--body-file -" in target_recipe(target)
+    assert "--body-file -" in target_recipe("issue-create")
+    assert "--detail-file -" in target_recipe("ci-alert-issue")
+    assert "--body-file -" in target_recipe("pr-create")
+    assert "$(GH) comment" in target_recipe("pr-comment")
+
+
+def test_optional_prose_targets_do_not_read_a_terminal() -> None:
+    """Optional bodies can be omitted interactively without hanging."""
+    for target in ("pr-edit", "issue-edit", "ci-alert-issue"):
+        assert "$(NO_TTY_READ)" in target_recipe(target)
+
+
+def test_comment_delete_uses_a_structured_identifier_name() -> None:
+    """A review comment id cannot be confused with free-form comment text."""
+    recipe = target_recipe("pr-comment-delete")
+    assert "comment_id=PRRC_" in recipe
+    assert "$(comment)" not in recipe
+
 
 # Make joins a trailing backslash to the next line, so a long .PHONY list can be
 # wrapped without changing what it declares. Assertions about declarations match

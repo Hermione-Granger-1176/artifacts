@@ -39,14 +39,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ALERT_DETAIL: "Failed run commit: ${{ github.event.workflow_run.head_sha }}"
         run: |
-          url=$(make ci-alert-issue state=open title="$ALERT_TITLE" run_url="$RUN_URL" detail="$ALERT_DETAIL")
+          url=$(printf '%s\n' "$ALERT_DETAIL" | TITLE="$ALERT_TITLE" make ci-alert-issue state=open run_url="$RUN_URL")
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Close deploy failure issue when a main run succeeds
         if: github.event.workflow_run.conclusion == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: make ci-alert-issue state=close title="$ALERT_TITLE" run_url="$RUN_URL"
+        run: TITLE="$ALERT_TITLE" make ci-alert-issue state=close run_url="$RUN_URL"
 
       - name: Summarize deploy failure alert
         if: github.event.workflow_run.conclusion == 'failure'

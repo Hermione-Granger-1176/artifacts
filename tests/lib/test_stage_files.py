@@ -16,8 +16,8 @@ def test_makefile_stage_target_uses_the_safe_helper() -> None:
     """The Make target exports both inputs and never interpolates paths into shell code."""
     makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
 
-    assert "stage: export STAGE_FILES := $(files)" in makefile
-    assert "stage: export STAGE_FILE := $(file)" in makefile
+    assert "stage: export STAGE_FILES := $(value files)" in makefile
+    assert "stage: export STAGE_FILE := $(value file)" in makefile
     assert "$(PYTHON) -m scripts.lib.stage_files" in makefile
     assert "git add -- $(files)" not in makefile
 

@@ -84,6 +84,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--comment", required=True, help="Comment node id (PRRC_...)"
     )
 
+    comment_parser = subparsers.add_parser("comment", help="Add a PR-level comment")
+    comment_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
+    _add_body_options(comment_parser)
+
     edit_pr_parser = subparsers.add_parser("edit-pr", help="Edit a PR title and/or body")
     edit_pr_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
     edit_pr_parser.add_argument("--title", help="New PR title")
@@ -183,6 +187,13 @@ def _handle_delete_comment(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_comment(args: argparse.Namespace) -> int:
+    """Post a PR-level comment."""
+    pr_review.comment_on_pr(args.pr, _body_text(args))
+    print("Commented on the PR")
+    return 0
+
+
 def _handle_edit_pr(args: argparse.Namespace) -> int:
     """Edit a pull request's title and/or body.
 
@@ -263,6 +274,7 @@ COMMAND_HANDLERS = {
     "address": _handle_address,
     "list-comments": _handle_list_comments,
     "delete-comment": _handle_delete_comment,
+    "comment": _handle_comment,
     "edit-pr": _handle_edit_pr,
     "summary": _handle_summary,
     "issue-summary": _handle_issue_summary,

@@ -21,16 +21,46 @@ PORT        ?= 8000
 # Python source tree that mypy strict-checks. Tests are intentionally excluded.
 PY_TYPE_PATHS := scripts/
 
+# Prefix Python commands with the repository root without discarding a
+# PYTHONPATH the developer set for their own tooling.
+PY_PATH_PREFIX = PYTHONPATH=.$${PYTHONPATH:+:$${PYTHONPATH}}
+
 # Browser targets opt into the private Linux runtime only with local_libs=1.
 # Browsers install into Playwright's shared cache so every project reuses one
 # copy; only the extracted shared libraries and per-run scratch live below the
 # ignored .playwright cache. The wrapper refuses to download packages mid-run.
+PLAYWRIGHT_BROWSERS := chromium webkit
+PLAYWRIGHT_ENGINE_ARGS = $(subst -, ,$(strip $(engines)))
+PLAYWRIGHT_INVALID_ENGINES = $(filter-out $(PLAYWRIGHT_BROWSERS),$(PLAYWRIGHT_ENGINE_ARGS))
 PLAYWRIGHT_LOCAL_RUNTIME := $(VENV_PYTHON) scripts/setup/playwright_local_runtime.py
 PLAYWRIGHT_LOCAL_RUN = $(if $(filter 1,$(local_libs)),$(PLAYWRIGHT_LOCAL_RUNTIME) run --,)
 
 # Entry point for tested GitHub PR/CI helpers. Keep Make targets as thin
 # wrappers so GitHub behavior is testable Python instead of inline shell.
-GH = PYTHONPATH=. $(VENV_PYTHON) -m scripts.gh.cli
+GH = $(PY_PATH_PREFIX) $(VENV_PYTHON) -m scripts.gh.cli
+
+# ─── Free text ────────────────────────────────────────────────────────────────
+#
+# Bodies arrive on standard input. That keeps multiline prose, quotes,
+# backticks, and shell-looking text out of make's parser and out of recipe
+# source. A title, search term, or close comment is short text, so it arrives
+# through the environment instead:
+#
+#     TITLE='Fix the retry loop' make issue-create < issue.md
+#     SEARCH='is:open label:bug' make issue-list
+#     COMMENT='Resolved in the latest deploy' make issue-close issue=7
+#
+# Make expands command-line assignments while parsing the file. Refuse those
+# spellings for free text so callers use the safe environment or stdin forms.
+NO_TTY_READ := [ -t 0 ] ||
+FREE_TEXT_VARS := TITLE COMMENT SEARCH
+$(foreach v,$(FREE_TEXT_VARS),$(if $(filter command line,$(origin $(v))),$(error \
+$(v) was passed as a make argument, which make expands; use $(v)='...' make <target>)))
+
+RETIRED_TEXT_ARGS := body title comment notes search detail \
+body_file message message_file notes_file detail_file
+$(foreach v,$(RETIRED_TEXT_ARGS),$(if $(filter command line,$(origin $(v))),$(error \
+$(v)= is no longer an argument: body and other prose arrive on stdin, while a title, search term, or close comment comes from the environment)))
 
 # Repository slug (owner/name) for the @ci and @pr groups. Resolve from the
 # origin remote first, then fall back to gh. Kept in the shared Variables block
@@ -47,7 +77,7 @@ endef
 
 # ─── Setup @setup ─────────────────────────────────────────────────────────────
 
-.PHONY: install node-install install-hooks setup-base setup setup-all setup-ci setup-playwright setup-playwright-engines setup-playwright-ci setup-playwright-webkit setup-playwright-webkit-ci setup-playwright-local setup-playwright-webkit-local playwright-local-status playwright-local-gate playwright-local-clean
+.PHONY: install node-install install-hooks setup-base setup setup-all setup-ci ci-prune-uv-cache playwright-version setup-playwright setup-playwright-engines setup-playwright-ci setup-playwright-webkit setup-playwright-webkit-ci setup-playwright-local setup-playwright-webkit-local playwright-local-status playwright-local-gate playwright-local-clean
 
 install: ## Install locked Python deps into the virtual environment
 	UV_PROJECT_ENVIRONMENT=$(VENV) $(UV) sync --all-groups --frozen --python $(PYTHON)
@@ -66,6 +96,12 @@ setup-all: setup-base setup-playwright ## Full setup including Chromium for brow
 
 setup-ci: setup-base setup-playwright-ci ## CI variant with Chromium system deps
 
+ci-prune-uv-cache: ## Remove uv cache entries that are inefficient to persist in CI
+	$(UV) cache prune --ci
+
+playwright-version: ## Print the installed Playwright package version
+	@$(VENV_PYTHON) -c "import importlib.metadata; print(importlib.metadata.version('playwright'))"
+
 setup-playwright: ## Install Chromium for browser tests
 	$(VENV)/bin/playwright install chromium
 
@@ -75,10 +111,18 @@ setup-playwright-ci: ## Install Chromium with system deps
 # Used by the ci-setup action, which keys its browser cache on the engine set so
 # a restored entry always holds exactly the engines the job asked for. Engines
 # arrive hyphen-separated (chromium-webkit) because the value is part of a cache
-# key; no engine name contains a hyphen, so splitting on it is unambiguous.
+# key; no supported engine name contains a hyphen, so splitting on it is
+# unambiguous. Validation below rejects malformed or unsupported values.
 setup-playwright-engines: ## Install named Playwright engines (make setup-playwright-engines engines=chromium-webkit [with_deps=1])
 	$(call need,engines,make setup-playwright-engines engines=chromium-webkit [with_deps=1])
-	$(VENV)/bin/playwright install $(if $(filter 1,$(with_deps)),--with-deps) $(subst -, ,$(engines))
+	$(if $(filter-out 1,$(words $(strip $(engines)))),$(error engines must be one hyphen-separated value),)
+	$(if $(filter -% %-,$(strip $(engines))),$(error engines must not start or end with a hyphen),)
+	$(if $(findstring --,$(strip $(engines))),$(error engines must not contain empty names),)
+	$(if $(PLAYWRIGHT_INVALID_ENGINES),$(error unsupported Playwright engine(s): $(PLAYWRIGHT_INVALID_ENGINES)),)
+	$(if $(filter-out $(words $(sort $(PLAYWRIGHT_ENGINE_ARGS))),$(words $(PLAYWRIGHT_ENGINE_ARGS))),$(error engines must not contain duplicates),)
+	$(if $(filter-out 0 1,$(words $(strip $(with_deps)))),$(error with_deps must be one value),)
+	$(if $(filter-out 1,$(strip $(with_deps))),$(error with_deps must be 1 when provided),)
+	$(VENV)/bin/playwright install $(if $(filter 1,$(with_deps)),--with-deps) $(filter $(PLAYWRIGHT_BROWSERS),$(PLAYWRIGHT_ENGINE_ARGS))
 
 setup-playwright-webkit: ## Install WebKit for the cross-engine smoke pass
 	$(VENV)/bin/playwright install webkit
@@ -159,7 +203,7 @@ check-overrides: ## Check npm overrides are still needed
 
 # ─── Format @format ───────────────────────────────────────────────────────────
 
-.PHONY: fmt fmt-py fmt-js fmt-css fmt-prettier format format-check format-py-check format-py-diff format-prettier-check
+.PHONY: fmt fmt-py fmt-js fmt-css fmt-prettier format format-check format-py-check format-py-diff format-prettier-check format-prettier-diff
 
 fmt: fmt-py fmt-js fmt-css fmt-prettier ## Auto-fix all formatting and lint fixes
 
@@ -175,10 +219,10 @@ fmt-js: ## Auto-fix JavaScript (eslint --fix)
 fmt-css: ## Auto-fix CSS (stylelint --fix)
 	$(NPM) run lint:css -- --fix
 
-fmt-prettier: ## Auto-format docs, metadata, workflows, and tooling scripts
+fmt-prettier: ## Auto-format metadata, workflows, and tooling scripts
 	$(NPM) run format
 
-format-check: format-py-check format-prettier-check ## Check Python and Prettier formatting
+format-check: format-py-check format-prettier-check align-tables-check ## Check Python, Prettier, and Markdown table formatting
 
 format-py-check: ## Check Python formatting only [paths=...]
 	$(VENV_PYTHON) -m ruff format --check $(if $(paths),$(paths),.)
@@ -186,8 +230,18 @@ format-py-check: ## Check Python formatting only [paths=...]
 format-py-diff: ## Show Python formatting changes without modifying files [paths=...]
 	$(VENV_PYTHON) -m ruff format --check --diff $(if $(paths),$(paths),.)
 
-format-prettier-check: ## Check Prettier-managed files only
+format-prettier-check: ## Check Prettier-managed non-Markdown files only
 	$(NPM) run format:check
+
+format-prettier-diff: ## Show Prettier formatting changes without modifying files (make format-prettier-diff path=config/eslint.config.js)
+	@test -n "$(path)" || (printf 'Usage: make format-prettier-diff path=config/eslint.config.js\n' >&2; exit 1)
+	$(if $(filter %.md %.markdown,$(path)),$(error Markdown formatting is owned by make align-tables-check),)
+	@set -e; \
+	formatted=$$(mktemp "$${TMPDIR:-/tmp}/artifacts-prettier.XXXXXX"); \
+	trap 'rm -f -- "$$formatted"' EXIT; \
+	$(NPM) exec --no -- prettier --config config/prettierrc.json --ignore-path config/prettierignore \
+		-- "$(path)" > "$$formatted"; \
+	diff -u -- "$(path)" "$$formatted" || test $$? -eq 1
 
 # ─── Typecheck @typecheck ────────────────────────────────────────────────────
 
@@ -373,7 +427,7 @@ fix: fmt check-local ## Auto-fix formatting, then run the full non-browser local
 
 # ─── Utilities @util ──────────────────────────────────────────────────────────
 
-.PHONY: lock lock-node lock-node-update fix-deps align-tables status clean help help-json
+.PHONY: lock lock-node lock-node-update fix-deps align-tables align-tables-check status clean help help-json
 
 lock: ## Refresh uv.lock after Python dependency changes
 	$(UV) lock
@@ -392,11 +446,14 @@ fix-deps: ## Refresh locks, reinstall, and npm audit fix
 	$(MAKE) node-install
 	$(MAKE) audit-fix-node
 
-align-tables: ## Align markdown table pipes across all docs
-	$(VENV_PYTHON) scripts/lint/align_tables.py
+align-tables: ## Align markdown table pipes across all docs [paths="README.md docs/example.md"]
+	$(VENV_PYTHON) scripts/lint/align_tables.py $(if $(paths),$(paths))
+
+align-tables-check: ## Check markdown table pipe alignment without modifying files [paths="README.md docs/example.md"]
+	$(VENV_PYTHON) scripts/lint/align_tables.py --check $(if $(paths),$(paths))
 
 status: ## Show workspace health (git, venv, node, generated files, PR)
-	@PYTHONPATH=. $(PYTHON) -m scripts.lib.workspace_status --venv-python "$(VENV_PYTHON)" --uv "$(UV)" --npm "$(NPM)"
+	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.workspace_status --venv-python "$(VENV_PYTHON)" --uv "$(UV)" --npm "$(NPM)"
 
 # Only repository-local state is removable here. Playwright's browsers live in
 # the shared ~/.cache/ms-playwright cache that every project on the machine
@@ -502,20 +559,21 @@ rebase-continue: ## Continue an in-progress rebase after resolving conflicts
 sync-branch: ## Rebase the current branch onto its upstream branch
 	git pull --rebase
 
-stage: export STAGE_FILES := $(files)
-stage: export STAGE_FILE := $(file)
+stage: export STAGE_FILES := $(value files)
+stage: export STAGE_FILE := $(value file)
 stage: ## Stage selected files (make stage [files="path ..."] [file="path with spaces"])
-	@PYTHONPATH=. $(PYTHON) -m scripts.lib.stage_files
+	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.stage_files
 
 stage-all: ## Stage all workspace changes
 	git add -A
 
-commit: ## Commit staged changes (make commit message="..." OR message_file=path, - reads stdin [amend=1])
-	@test -n "$(message)$(message_file)" || { printf 'Usage: make commit message="Commit message" OR message_file=path (- reads the message from stdin, e.g. a heredoc)\n' >&2; exit 1; }
+commit: ## Commit staged changes, message on stdin (make commit < msg.txt, or a heredoc [amend=1])
 	@set -e; \
-	tmp=$$(mktemp); \
-	trap 'rm -f "$$tmp"' EXIT; \
-	$(if $(message_file),$(if $(filter -,$(message_file)),cat,cat "$(message_file)"),printf '%s' "$(message)") > "$$tmp"; \
+	tmp=$$(mktemp "$${TMPDIR:-/tmp}/artifacts-commit-message.XXXXXX"); \
+	chmod 600 "$$tmp"; \
+	trap 'rm -f -- "$$tmp"' EXIT; \
+	cat > "$$tmp"; \
+	test -s "$$tmp" || { printf 'Empty commit message. Usage: make commit < msg.txt, or a heredoc\n' >&2; exit 1; }; \
 	$(GH) check-commit-message --message-file "$$tmp"; \
 	git commit $(if $(amend),--amend) -F "$$tmp"
 
@@ -552,16 +610,25 @@ RUN_ID = $(if $(run),$(run),$(strip $(shell $(GH) latest-run-id 2>/dev/null)))
 pr: ## PR commands (make pr)
 	@$(MAKE) --no-print-directory help-pr
 
-pr-create: ## Open a pull request for the current branch (make pr-create [base=branch])
-	gh pr create --fill $(if $(base),--base "$(base)")
+pr-create: ## Open a pull request (make pr-create [base=branch]; TITLE='...' make pr-create < body.md for an explicit one)
+	@if [ -z "$$TITLE" ]; then \
+		gh pr create --fill $(if $(base),--base "$(base)"); \
+	else \
+		gh pr create $(if $(base),--base "$(base)") --title "$$TITLE" --body-file -; \
+	fi
 
-pr-edit: export PR_EDIT_TITLE := $(title)
-pr-edit: export PR_EDIT_BODY := $(body)
-pr-edit: ## Edit the current PR title or body (make pr-edit title="..." [body="..." OR body_file=path, - reads stdin] [pr_num=N])
-	@test -n "$$PR_EDIT_TITLE$$PR_EDIT_BODY$(body_file)" || { printf 'Usage: make pr-edit title="New title" [body="..." OR body_file=- with the body piped on stdin] [pr_num=N]\n' >&2; exit 1; }
-	@$(if $(body_file),,$(if $(body),printf '%s' "$$PR_EDIT_BODY" | ))$(GH) edit-pr $(if $(PR_NUM),--pr $(PR_NUM)) \
-		$(if $(title),--title "$$PR_EDIT_TITLE") \
-		$(if $(body_file),--body-file "$(body_file)",$(if $(body),--body-file -))
+pr-edit: ## Edit the current PR (TITLE='...' make pr-edit; new body on stdin: make pr-edit < body.md) [pr_num=N]
+	@set -e; \
+	body=""; $(NO_TTY_READ) body=$$(cat); \
+	test -n "$$TITLE$$body" || \
+		{ printf "Usage: TITLE='New title' make pr-edit, or make pr-edit < body.md [pr_num=N]\n" >&2; exit 1; }; \
+	set -- $(if $(PR_NUM),--pr "$(PR_NUM)"); \
+	if [ -n "$$TITLE" ]; then set -- "$$@" --title "$$TITLE"; fi; \
+	if [ -n "$$body" ]; then \
+		printf '%s' "$$body" | $(GH) edit-pr "$$@" --body-file -; \
+	else \
+		$(GH) edit-pr "$$@"; \
+	fi
 
 pr-list: ## List open pull requests
 	gh pr list
@@ -582,29 +649,23 @@ pr-checkout: ## Check out a PR's branch locally (make pr-checkout pr_num=N)
 pr-comments: ## Show all comments on a PR (make pr-comments [pr_num=N])
 	gh pr view $(pr_num) --comments
 
-pr-comment: export PR_COMMENT_BODY := $(body)
-pr-comment: ## Add a comment to a PR (body="msg" OR body_file=path, - reads stdin) (make pr-comment [pr_num=N])
-	@test -n "$(body)$(body_file)" || { printf 'Usage: make pr-comment body="Looks good"  OR  make pr-comment body_file=- with the comment piped on stdin\n' >&2; exit 1; }
-	@gh pr comment $(pr_num) $(if $(body_file),--body-file "$(body_file)",--body "$$PR_COMMENT_BODY")
+pr-comment: ## Add a comment to a PR, body on stdin (make pr-comment < notes.md) [pr_num=N]
+	@$(GH) comment $(if $(pr_num),--pr "$(pr_num)") --body-file -
 
 pr-review-comments: ## List review threads with thread ids (make pr-review-comments [pr_num=N] [show=all])
 	@$(GH) list $(if $(pr_num),--pr $(pr_num)) $(if $(filter all,$(show)),--all)
 
-pr-reply: export PR_REPLY_BODY := $(body)
-pr-reply: ## Reply to a review thread (make pr-reply thread=PRRT_... body="msg" OR body_file=path, - reads stdin)
-	$(call need,thread,make pr-reply thread=PRRT_... body="Fixed" OR body_file=- with the reply piped on stdin)
-	@test -n "$$PR_REPLY_BODY$(body_file)" || { printf 'Provide body="..." or body_file=path.\n' >&2; exit 1; }
-	@$(GH) reply --thread "$(thread)" $(if $(body_file),--body-file "$(body_file)",--body "$$PR_REPLY_BODY")
+pr-reply: ## Reply to a review thread, body on stdin (make pr-reply thread=PRRT_... < notes.md)
+	$(call need,thread,make pr-reply thread=PRRT_... < notes.md)
+	@$(GH) reply --thread "$(thread)" --body-file -
 
 pr-resolve: ## Resolve a review thread (make pr-resolve thread=PRRT_...)
 	$(call need,thread,make pr-resolve thread=PRRT_...)
 	@$(GH) resolve --thread "$(thread)"
 
-pr-address: export PR_ADDRESS_BODY := $(body)
-pr-address: ## Reply to and resolve a review thread (make pr-address thread=PRRT_... body="msg" OR body_file=path, - reads stdin)
-	$(call need,thread,make pr-address thread=PRRT_... body="Fixed" OR body_file=- with the reply piped on stdin)
-	@test -n "$$PR_ADDRESS_BODY$(body_file)" || { printf 'Provide body="..." or body_file=path.\n' >&2; exit 1; }
-	@$(GH) address --thread "$(thread)" $(if $(body_file),--body-file "$(body_file)",--body "$$PR_ADDRESS_BODY")
+pr-address: ## Reply to and resolve a review thread, body on stdin (make pr-address thread=PRRT_... < notes.md)
+	$(call need,thread,make pr-address thread=PRRT_... < notes.md)
+	@$(GH) address --thread "$(thread)" --body-file -
 
 pr-copilot-review: ## Request a Copilot code review on the current PR (make pr-copilot-review [pr_num=N])
 	@$(GH) copilot-review $(if $(pr_num),--pr $(pr_num))
@@ -612,9 +673,9 @@ pr-copilot-review: ## Request a Copilot code review on the current PR (make pr-c
 pr-comments-list: ## List individual review comments with node ids (make pr-comments-list [pr_num=N])
 	@$(GH) list-comments $(if $(pr_num),--pr $(pr_num))
 
-pr-comment-delete: ## Delete a review comment by node id (make pr-comment-delete comment=PRRC_...)
-	$(call need,comment,make pr-comment-delete comment=PRRC_...)
-	@$(GH) delete-comment --comment "$(comment)"
+pr-comment-delete: ## Delete a review comment by node id (make pr-comment-delete comment_id=PRRC_...)
+	$(call need,comment_id,make pr-comment-delete comment_id=PRRC_...)
+	@$(GH) delete-comment --comment "$(comment_id)"
 
 pr-summary: ## One-screen PR overview: state, CI rollup, open threads (make pr-summary [pr_num=N])
 	@$(GH) summary $(if $(pr_num),--pr $(pr_num))
@@ -646,10 +707,14 @@ pr-close: ## Close a PR and delete branch (make pr-close [pr_num=N])
 issue: ## Issue commands (make issue)
 	@$(MAKE) --no-print-directory help-issue
 
-issue-list: export ISSUE_SEARCH := $(search)
-issue-list: ## List issues (make issue-list [state=open|closed|all] [label=bug] [assignee=user OR mine=1] [author=user] [search="..."] [limit=N])
+issue-list: ## List issues (make issue-list [state=open|closed|all] [label=bug] [assignee=user OR mine=1] [author=user] [limit=N]; SEARCH='...' to filter)
 	@test -z "$(and $(assignee),$(filter 1,$(mine)))" || { printf 'Use assignee=user or mine=1, not both.\n' >&2; exit 1; }
-	gh issue list $(if $(state),--state "$(state)") $(if $(label),--label "$(label)") $(if $(assignee),--assignee "$(assignee)") $(if $(filter 1,$(mine)),--assignee @me) $(if $(author),--author "$(author)") $(if $(search),--search "$$ISSUE_SEARCH") $(if $(limit),--limit $(limit))
+	@set -e; \
+	set -- $(if $(state),--state "$(state)") $(if $(label),--label "$(label)") \
+		$(if $(assignee),--assignee "$(assignee)") $(if $(filter 1,$(mine)),--assignee @me) \
+		$(if $(author),--author "$(author)") $(if $(limit),--limit "$(limit)"); \
+	if [ -n "$$SEARCH" ]; then set -- "$$@" --search "$$SEARCH"; fi; \
+	gh issue list "$$@"
 
 issue-view: ## Show an issue with its comments (make issue-view issue=N)
 	$(call need,issue,make issue-view issue=123)
@@ -659,26 +724,29 @@ issue-summary: ## One-screen issue overview: state, labels, assignees, recent co
 	$(call need,issue,make issue-summary issue=123)
 	@$(GH) issue-summary --issue $(issue)
 
-issue-create: export ISSUE_TITLE := $(title)
-issue-create: export ISSUE_BODY := $(body)
-issue-create: ## Open an issue (make issue-create title="..." [body="msg" OR body_file=path, - reads stdin] [labels="a,b"] [assignee=@me])
-	$(call need,title,make issue-create title="Fix X" [body="..." OR body_file=- reads stdin] [labels=bug])
-	@gh issue create --title "$$ISSUE_TITLE" $(if $(body_file),--body-file "$(body_file)",--body "$$ISSUE_BODY") $(if $(labels),--label "$(labels)") $(if $(assignee),--assignee "$(assignee)")
+issue-create: ## Open an issue, body on stdin (TITLE='Fix X' make issue-create < issue.md [labels="a,b"] [assignee=@me])
+	@test -n "$$TITLE" || \
+		(printf "Usage: TITLE='Fix X' make issue-create < issue.md [labels=\"bug,ci\"] [assignee=@me]\n" >&2; exit 1)
+	@gh issue create --title "$$TITLE" $(if $(labels),--label "$(labels)") \
+		$(if $(assignee),--assignee "$(assignee)") --body-file -
 
-issue-comment: export ISSUE_COMMENT_BODY := $(body)
-issue-comment: ## Comment on an issue (make issue-comment issue=N body="msg" OR body_file=path, - reads stdin)
-	$(call need,issue,make issue-comment issue=123 body="On it")
-	@test -n "$$ISSUE_COMMENT_BODY$(body_file)" || { printf 'Provide body="..." or body_file=path.\n' >&2; exit 1; }
-	@gh issue comment $(issue) $(if $(body_file),--body-file "$(body_file)",--body "$$ISSUE_COMMENT_BODY")
+issue-comment: ## Comment on an issue, body on stdin (make issue-comment issue=N < notes.md)
+	$(call need,issue,make issue-comment issue=123 < notes.md)
+	@gh issue comment "$(issue)" --body-file -
 
-issue-edit: export ISSUE_EDIT_TITLE := $(title)
-issue-edit: export ISSUE_EDIT_BODY := $(body)
-issue-edit: ## Edit an issue title or body (make issue-edit issue=N [title="..."] [body="..." OR body_file=path, - reads stdin])
-	$(call need,issue,make issue-edit issue=123 title="New title")
-	@test -n "$$ISSUE_EDIT_TITLE$$ISSUE_EDIT_BODY$(body_file)" || { printf 'Provide title="...", body="...", or body_file=path.\n' >&2; exit 1; }
-	@$(if $(body_file),,$(if $(body),printf '%s' "$$ISSUE_EDIT_BODY" | ))gh issue edit $(issue) \
-		$(if $(title),--title "$$ISSUE_EDIT_TITLE") \
-		$(if $(body_file),--body-file "$(body_file)",$(if $(body),--body-file -))
+issue-edit: ## Edit an issue (TITLE='...' make issue-edit issue=N; new body on stdin: make issue-edit issue=N < body.md)
+	$(call need,issue,make issue-edit issue=123 [TITLE='New title'] [< body.md])
+	@set -e; \
+	body=""; $(NO_TTY_READ) body=$$(cat); \
+	test -n "$$TITLE$$body" || \
+		{ printf "Nothing to change. Set TITLE='...' or pipe a new body in.\n" >&2; exit 1; }; \
+	set -- "$(issue)"; \
+	if [ -n "$$TITLE" ]; then set -- "$$@" --title "$$TITLE"; fi; \
+	if [ -n "$$body" ]; then \
+		printf '%s' "$$body" | gh issue edit "$$@" --body-file -; \
+	else \
+		gh issue edit "$$@"; \
+	fi
 
 issue-label: ## Add labels to an issue (make issue-label issue=N labels="bug,ci")
 	$(call need,issue,make issue-label issue=123 labels="bug")
@@ -700,15 +768,19 @@ issue-unassign: ## Remove assignees from an issue (make issue-unassign issue=N u
 	@test -n "$(users)$(if $(filter 1,$(mine)),me)" || { printf 'Provide users="a,b" or mine=1.\n' >&2; exit 1; }
 	gh issue edit $(issue) $(if $(filter 1,$(mine)),--remove-assignee @me) $(if $(users),--remove-assignee "$(users)")
 
-issue-close: export ISSUE_CLOSE_COMMENT := $(comment)
-issue-close: ## Close an issue (make issue-close issue=N [reason=completed|"not planned"] [comment="msg"])
+issue-close: ## Close an issue (make issue-close issue=N [reason=completed|"not planned"]; COMMENT='...' to say why)
 	$(call need,issue,make issue-close issue=123)
-	@gh issue close $(issue) $(if $(reason),--reason "$(reason)") $(if $(comment),--comment "$$ISSUE_CLOSE_COMMENT")
+	@set -e; \
+	set -- "$(issue)" $(if $(reason),--reason "$(reason)"); \
+	if [ -n "$$COMMENT" ]; then set -- "$$@" --comment "$$COMMENT"; fi; \
+	gh issue close "$$@"
 
-issue-reopen: export ISSUE_REOPEN_COMMENT := $(comment)
-issue-reopen: ## Reopen a closed issue (make issue-reopen issue=N [comment="msg"])
+issue-reopen: ## Reopen a closed issue (make issue-reopen issue=N; COMMENT='...' to say why)
 	$(call need,issue,make issue-reopen issue=123)
-	@gh issue reopen $(issue) $(if $(comment),--comment "$$ISSUE_REOPEN_COMMENT")
+	@set -e; \
+	set -- "$(issue)"; \
+	if [ -n "$$COMMENT" ]; then set -- "$$@" --comment "$$COMMENT"; fi; \
+	gh issue reopen "$$@"
 
 issue-develop: ## Create and check out a branch linked to an issue (make issue-develop issue=N [base=branch] [name=branch])
 	$(call need,issue,make issue-develop issue=123)
@@ -768,8 +840,8 @@ ci-watch: ## Watch the latest CI run until done
 ci-failures: ## Show failed-step logs for this branch's latest run (make ci-failures [run=ID])
 	@$(GH) ci-failures $(if $(run),--run $(run))
 
-# The workflow helpers below run on the system interpreter (PYTHONPATH=.
-# $(PYTHON)) instead of $(VENV_PYTHON): the scheduled monitor workflows and the
+# The workflow helpers below run on the system interpreter with the shared
+# repository path prefix instead of $(VENV_PYTHON): the scheduled monitor workflows and the
 # update.yml plan, publish, and cleanup jobs call them in contexts without a
 # provisioned venv, and the coverage-summary and setup-failure alert paths must
 # work even when dependency installation itself failed. The helpers and
@@ -789,7 +861,7 @@ ci-heavy-checks: ## Run slow test, coverage, dead-code, and security checks
 
 ci-thumbnail-plan: ## Compute a git-diff app impact plan (event_name= base_sha= head_sha= [force_full=true])
 	$(call need,event_name,make ci-thumbnail-plan event_name=push base_sha=SHA head_sha=SHA)
-	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py thumbnail-plan \
+	@$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/workflow_helpers.py thumbnail-plan \
 		--event-name "$(event_name)" \
 		--repo "$(repo)" \
 		--pr-number "$(pr_number)" \
@@ -803,19 +875,19 @@ ci-thumbnail-plan: ## Compute a git-diff app impact plan (event_name= base_sha= 
 		--force-full "$(if $(force_full),$(force_full),false)"
 
 ci-plan-outputs: ## Emit automation plan step outputs (reads PLAN_JSON from the environment)
-	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py plan-outputs
+	@$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/workflow_helpers.py plan-outputs
 
 ci-apply-app-ledger: ## Apply cached green app hashes to a persisted impact plan (plan=PATH ledger=PATH output=PATH)
 	@test -n "$(plan)" -a -n "$(ledger)" -a -n "$(output)" || (printf 'Usage: make ci-apply-app-ledger plan=.artifacts/ci-plan/plan.json ledger=.artifacts/app-ledger/ledger.json output=.artifacts/ci-plan/memoized-plan.json\n' >&2; exit 1)
-	@PYTHONPATH=. $(PYTHON) scripts/ci/app_hashes.py apply-ledger --plan "$(plan)" --ledger "$(ledger)" --output "$(output)"
+	@$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/app_hashes.py apply-ledger --plan "$(plan)" --ledger "$(ledger)" --output "$(output)"
 
 ci-update-app-ledger: ## Update a ledger from main-verified app hashes (plan=PATH ledger=PATH)
 	@test -n "$(plan)" -a -n "$(ledger)" || (printf 'Usage: make ci-update-app-ledger plan=.artifacts/ci-plan/plan.json ledger=.artifacts/app-ledger/ledger.json\n' >&2; exit 1)
-	@PYTHONPATH=. $(PYTHON) scripts/ci/app_hashes.py update-ledger --plan "$(plan)" --ledger "$(ledger)"
+	@$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/app_hashes.py update-ledger --plan "$(plan)" --ledger "$(ledger)"
 
 ci-write-shard-manifest: ## Select one impact-plan shard (plan=PATH shard=N output=PATH)
 	@test -n "$(plan)" -a -n "$(shard)" -a -n "$(output)" || (printf 'Usage: make ci-write-shard-manifest plan=.artifacts/ci-plan/plan.json shard=0 output=.artifacts/shard-manifest.json\n' >&2; exit 1)
-	@PYTHONPATH=. $(PYTHON) scripts/ci/app_shards.py write-manifest --plan "$(plan)" --shard "$(shard)" --output "$(output)"
+	@$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/app_shards.py write-manifest --plan "$(plan)" --shard "$(shard)" --output "$(output)"
 
 ci-package-shard-result: ## Package one shard thumbnail result (manifest=PATH output=PATH)
 	@test -n "$(manifest)" -a -n "$(output)" || (printf 'Usage: make ci-package-shard-result manifest=.artifacts/shard-manifest.json output=.artifacts/shard-result\n' >&2; exit 1)
@@ -827,38 +899,35 @@ ci-merge-shard-results: ## Merge downloaded shard thumbnails (root=PATH)
 
 ci-coverage-summary: ## Summarize a JS coverage report (make ci-coverage-summary report=js-coverage.txt)
 	$(call need,report,make ci-coverage-summary report=js-coverage.txt)
-	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py coverage-summary --report "$(report)"
+	@$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/workflow_helpers.py coverage-summary --report "$(report)"
 
 ci-finalize-pages-dir: ## Finalize a GitHub Pages payload directory (make ci-finalize-pages-dir root=DIR)
 	$(call need,root,make ci-finalize-pages-dir root=.pages-publish)
-	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py finalize-pages-dir --root "$(root)"
+	@$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/workflow_helpers.py finalize-pages-dir --root "$(root)"
 
 ci-audit-repo-settings: ## Audit GitHub repo settings drift (make ci-audit-repo-settings [repo=owner/name])
-	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py audit-repo-settings \
+	@$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/workflow_helpers.py audit-repo-settings \
 		--repo "$(if $(repo),$(repo),$(REPO))" \
 		--default-branch "$(if $(default_branch),$(default_branch),$(MAIN_BRANCH))" \
 		--pages-branch "$(if $(pages_branch),$(pages_branch),$(PAGES_BRANCH))"
 
 ci-audit-previews: ## Detect leaked gh-pages PR previews (make ci-audit-previews [repo=owner/name])
-	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py audit-previews \
+	@$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/workflow_helpers.py audit-previews \
 		--repo "$(if $(repo),$(repo),$(REPO))" \
 		--pages-branch "$(if $(pages_branch),$(pages_branch),$(PAGES_BRANCH))"
 
 ci-schedule-watchdog: ## Detect stale or auto-disabled scheduled workflows (make ci-schedule-watchdog [repo=owner/name])
-	@PYTHONPATH=. $(PYTHON) scripts/ci/schedule_watchdog.py \
+	@$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/schedule_watchdog.py \
 		--repo "$(if $(repo),$(repo),$(REPO))"
 
-ci-alert-issue: ## Sync a monitored alert issue (title=, run_url=, state=open|close|setup-failure, [detail=] [detail_file=] [labels="ops ci"] [repo=])
-	@test -n "$(title)" -a -n "$(run_url)" -a -n "$(state)" || \
-		(printf 'Usage: make ci-alert-issue title="..." run_url=https://... state=open|close|setup-failure [detail="..."] [detail_file=path] [labels="ops ci"] [repo=owner/name]\n' >&2; exit 1)
-	@PYTHONPATH=. $(PYTHON) scripts/ci/workflow_helpers.py sync-alert-issue \
-		--repo "$(if $(repo),$(repo),$(REPO))" \
-		--title "$(title)" \
-		--run-url "$(run_url)" \
-		--state "$(state)" \
-		--detail "$(detail)" \
-		--detail-file "$(detail_file)" \
-		$(foreach label,$(labels),--label $(label))
+ci-alert-issue: ## Sync a monitored alert issue, detail on stdin (TITLE='...' make ci-alert-issue run_url=URL state=open|close|setup-failure [labels="ops ci"] [repo=])
+	@test -n "$$TITLE" -a -n "$(run_url)" -a -n "$(state)" || \
+		(printf "Usage: TITLE='Alert title' make ci-alert-issue run_url=https://... state=open|close|setup-failure [labels=\"ops ci\"] [repo=owner/name] < detail.md\n" >&2; exit 1)
+	@set -e; \
+	set -- --repo "$(if $(repo),$(repo),$(REPO))" --title "$$TITLE" --run-url "$(run_url)" --state "$(state)" \
+		$(foreach label,$(labels),--label "$(label)"); \
+	$(NO_TTY_READ) set -- "$$@" --detail-file -; \
+	$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/workflow_helpers.py sync-alert-issue "$$@"
 
 refresh-action-shas: ## Repin tag-based GitHub Actions refs to commit SHAs (needs GH_TOKEN)
-	PYTHONPATH=. $(PYTHON) -m scripts.ci.refresh_action_shas
+	$(PY_PATH_PREFIX) $(PYTHON) -m scripts.ci.refresh_action_shas

@@ -32,11 +32,23 @@ INLINE_CODE_PATTERN = re.compile(r"`([^`\n]+)`")
 SHELL_CONTROL_FLOW_PATTERN = re.compile(r"^(?:if|for|while|case)\b")
 RECIPE_PREFIX_PATTERN = re.compile(r"^[@\-+]+")
 
-# Targets whose recipes may keep inline shell control flow. coverage-js branches
-# on COVERAGE_OUTPUT to optionally tee the coverage report; it is a doc-only
-# target kept unchanged by design, so its single ``if`` is allowlisted here
-# rather than pushed into scripts/.
-CONTROL_FLOW_ALLOWLIST = frozenset({"coverage-js"})
+# Targets whose recipes may keep inline shell control flow. These branches only
+# assemble optional GitHub CLI arguments around stdin-backed prose. Moving them
+# into a helper would add a second interface without removing the shell branch,
+# while putting the free text back into Make conditionals would reintroduce the
+# parser hazard this transport is designed to avoid. The allowlist is narrow
+# and each entry has one reason tied to its target's argument assembly.
+CONTROL_FLOW_ALLOWLIST = frozenset(
+    {
+        "coverage-js",  # optionally tee the JavaScript coverage report
+        "pr-create",  # TITLE selects --fill or an explicit title and body
+        "pr-edit",  # choose whether to send a title, a body, or both
+        "issue-edit",  # choose whether to send a title, a body, or both
+        "issue-list",  # append the optional SEARCH value
+        "issue-close",  # append the optional COMMENT value
+        "issue-reopen",  # append the optional COMMENT value
+    }
+)
 
 
 @dataclass(frozen=True)

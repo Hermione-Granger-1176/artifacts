@@ -25,6 +25,12 @@ dev = [
   "yamllint==1.38.0",
 ]
 
+[tool.uv]
+# A floor, not a pin. Contributors install uv independently, so an exact pin
+# would turn a routine setup into a mandatory self-update. Raise this only when
+# the project actually needs a newer uv behavior.
+required-version = ">=0.11.0"
+
 [tool.hatch.build.targets.wheel]
 packages = ["scripts"]
 
