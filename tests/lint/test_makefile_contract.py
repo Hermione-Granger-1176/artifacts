@@ -58,6 +58,13 @@ def test_optional_prose_targets_do_not_read_a_terminal() -> None:
         assert "$(NO_TTY_READ)" in target_recipe(target)
 
 
+def test_commit_requires_a_piped_message() -> None:
+    """Commit messages fail fast instead of blocking on an interactive terminal."""
+    recipe = target_recipe("commit")
+    assert "if [ -t 0 ]; then" in recipe
+    assert "Commit message must be provided on stdin." in recipe
+
+
 def test_comment_delete_uses_a_structured_identifier_name() -> None:
     """A review comment id cannot be confused with free-form comment text."""
     recipe = target_recipe("pr-comment-delete")

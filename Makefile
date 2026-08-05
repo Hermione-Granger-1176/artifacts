@@ -569,6 +569,10 @@ stage-all: ## Stage all workspace changes
 
 commit: ## Commit staged changes, message on stdin (make commit < msg.txt, or a heredoc [amend=1])
 	@set -e; \
+	if [ -t 0 ]; then \
+		printf 'Commit message must be provided on stdin. Usage: make commit < msg.txt, or a heredoc\n' >&2; \
+		exit 1; \
+	fi; \
 	tmp=$$(mktemp "$${TMPDIR:-/tmp}/artifacts-commit-message.XXXXXX"); \
 	chmod 600 "$$tmp"; \
 	trap 'rm -f -- "$$tmp"' EXIT; \

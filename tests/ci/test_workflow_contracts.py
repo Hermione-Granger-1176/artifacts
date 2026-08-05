@@ -975,7 +975,7 @@ def test_setup_steps_cache_locked_environments_and_downloads() -> None:
     )
     for skip_guard in (
         'if [ "$VENV_CACHE_HIT" != "true" ]',
-        'if [ "$NODE_MODULES_CACHE_HIT" != "true" ]',
+        'if [ -n "$NODE_VERSION" ] && [ "$NODE_MODULES_CACHE_HIT" != "true" ]',
         "make ci-prune-uv-cache",
     ):
         assert skip_guard in workspace_install["run"]
@@ -1102,6 +1102,8 @@ def test_ci_setup_restores_download_caches_only_when_an_install_will_run() -> No
     assert step("Cache uv downloads")["if"] == (
         "inputs.install-deps == 'true' && steps.venv-cache.outputs.cache-hit != 'true'"
     )
+    node_cache = step("Cache node modules")
+    assert node_cache["if"] == "inputs.install-deps == 'true' && inputs.node-version != ''"
     npm_cache = step("Cache npm downloads")
     # node-version may be empty, and an empty toolchain has no ~/.npm worth
     # keying, so the guard matches the one on Set up Node.js.
@@ -1115,6 +1117,9 @@ def test_ci_setup_restores_download_caches_only_when_an_install_will_run() -> No
         "-${{ steps.node-version.outputs.version }}"
         "-${{ hashFiles('package.json', 'package-lock.json') }}"
     )
+    install = step("Install workspace dependencies")
+    assert install["env"]["NODE_VERSION"] == "${{ inputs.node-version }}"
+    assert 'if [ -n "$NODE_VERSION" ]' in install["run"]
 
     # The gate only works if the cache it reads has already been restored, so
     # each producer of a cache-hit output must come first.

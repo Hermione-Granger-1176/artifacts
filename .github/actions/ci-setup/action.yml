@@ -238,7 +238,7 @@ runs:
 
     - name: Cache node modules
       id: node-modules-cache
-      if: inputs.install-deps == 'true'
+      if: inputs.install-deps == 'true' && inputs.node-version != ''
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: node_modules
@@ -280,12 +280,13 @@ runs:
       env:
         VENV_CACHE_HIT: ${{ steps.venv-cache.outputs.cache-hit }}
         NODE_MODULES_CACHE_HIT: ${{ steps.node-modules-cache.outputs.cache-hit }}
+        NODE_VERSION: ${{ inputs.node-version }}
       run: |
         if [ "$VENV_CACHE_HIT" != "true" ]; then
           make install
           make ci-prune-uv-cache
         fi
-        if [ "$NODE_MODULES_CACHE_HIT" != "true" ]; then
+        if [ -n "$NODE_VERSION" ] && [ "$NODE_MODULES_CACHE_HIT" != "true" ]; then
           make node-install
         fi
 
