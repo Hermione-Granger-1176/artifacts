@@ -41,6 +41,7 @@ RECIPE_PREFIX_PATTERN = re.compile(r"^[@\-+]+")
 CONTROL_FLOW_ALLOWLIST = frozenset(
     {
         "coverage-js",  # optionally tee the JavaScript coverage report
+        "commit",  # reject an interactive terminal before reading the required message
         "pr-create",  # TITLE selects --fill or an explicit title and body
         "pr-edit",  # choose whether to send a title, a body, or both
         "issue-edit",  # choose whether to send a title, a body, or both
