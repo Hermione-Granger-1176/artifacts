@@ -202,7 +202,7 @@ Re-mint an app:
 1. Create a new GitHub App (or reuse the existing one if only the key was lost) and generate a fresh private key.
 2. Grant exactly the permissions documented for that app in [architecture.md: Token model](architecture.md#token-model): Hermione needs `contents: write`; Harry needs `contents: write`, `pull_requests: write`, and `workflows: write`; Percy needs the read-only audit set plus `issues: write`.
 3. Install the app on this repository.
-4. Update the repository variable with the new app id: `APP_ID` for Hermione, `ESCALATION_APP_ID` for Harry, `AUDIT_APP_ID` for Percy.
+4. Update the repository variable with the new app client ID: `APP_ID` for Hermione, `ESCALATION_APP_ID` for Harry, `AUDIT_APP_ID` for Percy. The variable names remain unchanged.
 5. Update the matching repository secret with the new private key: `APP_PRIVATE_KEY`, `ESCALATION_APP_PRIVATE_KEY`, or `AUDIT_APP_PRIVATE_KEY`.
 
 Verify recovery:

@@ -15,7 +15,7 @@ inputs:
     default: ""
   app-id:
     description: >-
-      Primary GitHub App ID (Hermione1176). Primary and escalation inputs are all-or-nothing in trusted
+      Primary GitHub App Client ID (Hermione1176). Primary and escalation inputs are all-or-nothing in trusted
       contexts; omit all four to skip primary-token minting (audit-only callers).
     required: false
     default: ""
@@ -27,7 +27,7 @@ inputs:
     default: ""
   escalation-app-id:
     description: >-
-      Escalation GitHub App ID (Harry1176). All four primary/escalation inputs must be provided together
+      Escalation GitHub App Client ID (Harry1176). All four primary/escalation inputs must be provided together
       in trusted contexts.
     required: false
     default: ""
@@ -38,7 +38,7 @@ inputs:
     required: false
     default: ""
   audit-app-id:
-    description: Audit-only GitHub App ID (Percy1176). Only the audit workflow passes this; omit elsewhere.
+    description: Audit-only GitHub App Client ID (Percy1176). Only the audit workflow passes this; omit elsewhere.
     required: false
     default: ""
   audit-app-private-key:
@@ -131,7 +131,7 @@ runs:
       if: steps.token-policy.outputs.allowed == 'true' && inputs.app-id != '' && inputs.app-private-key != ''
       uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
       with:
-        app-id: ${{ inputs.app-id }}
+        client-id: ${{ inputs.app-id }}
         private-key: ${{ inputs.app-private-key }}
 
     - name: Create escalation token
@@ -139,7 +139,7 @@ runs:
       if: steps.token-policy.outputs.allowed == 'true' && inputs.escalation-app-id != '' && inputs.escalation-app-private-key != ''
       uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
       with:
-        app-id: ${{ inputs.escalation-app-id }}
+        client-id: ${{ inputs.escalation-app-id }}
         private-key: ${{ inputs.escalation-app-private-key }}
 
     - name: Create audit token
@@ -147,7 +147,7 @@ runs:
       if: steps.token-policy.outputs.allowed == 'true' && inputs.audit-app-id != '' && inputs.audit-app-private-key != ''
       uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
       with:
-        app-id: ${{ inputs.audit-app-id }}
+        client-id: ${{ inputs.audit-app-id }}
         private-key: ${{ inputs.audit-app-private-key }}
 
     - name: Validate audit token configuration
