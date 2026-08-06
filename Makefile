@@ -404,7 +404,9 @@ security: audit-python audit-node ## Run dependency audits
 audit-python: ## Export locked Python deps and run pip-audit
 	mkdir -p .artifacts
 	$(UV) export --all-groups --frozen --no-emit-project --format requirements.txt --output-file .artifacts/requirements-audit.txt
-	$(VENV_PYTHON) scripts/ci/run_security_audit.py --requirements .artifacts/requirements-audit.txt
+	$(VENV_PYTHON) scripts/ci/run_security_audit.py \
+		--requirements .artifacts/requirements-audit.txt \
+		--pip-audit "$(VENV_PYTHON) -m pip_audit"
 
 audit-node: ## Run policy-driven npm dependency audit with reviewed exceptions
 	$(VENV_PYTHON) scripts/ci/run_npm_audit.py --npm "$(NPM)"
