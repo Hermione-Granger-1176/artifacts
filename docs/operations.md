@@ -67,7 +67,7 @@ The wrapper requires an already-prepared cache, points `PLAYWRIGHT_BROWSERS_PATH
 
 `make playwright-local-clean` and `make clean` both remove only this repository's `.playwright/` cache. Neither touches the shared browser cache, since other projects depend on it; manage shared browsers with Playwright's own tooling.
 
-Reserve the `--with-deps` setup targets (`make setup-ci`, `make setup-playwright-ci`, `make setup-playwright-webkit-ci`, and `make setup-playwright-engines with_deps=1`) for CI and ephemeral runners. They may install operating-system packages on the disposable runner. CI itself provisions browsers through `make setup-playwright-engines` inside the `ci-setup` action.
+Reserve the `--with-deps` setup targets (`make setup-ci`, `make setup-playwright-ci`, `make setup-playwright-webkit-ci`, and `make setup-playwright-engines with_deps=1`) for CI and ephemeral runners. They may install operating-system packages on the disposable runner. Pure browser jobs use the official pinned Playwright Python container, so they set `browser-engines: ""` and do not restore or install host browser binaries. The mixed `publish` job intentionally stays on the hosted runner because it combines Pages deployment, GitHub CLI operations, and live browser verification. It explicitly sets `browser-engines: chromium`, so the shared `ci-setup` action provisions the host browser for that deployment-only exception.
 
 ## CI behavior
 
@@ -75,8 +75,10 @@ CI uses the same `make` targets as local development. The `update.yml` workflow 
 
 - `quick-gates` runs `make ci-quick-gates` (`format-check`, `lint`, `typecheck`, `validate`).
 - `heavy-checks` runs `make ci-heavy-checks` (`test-py`, `coverage-js`, `dead-code`, `security`).
-- `root-browser` provisions Chromium and WebKit together through `ci-setup` (`browser-engines: chromium-webkit`), runs the root gallery browser verification with `make test-browser-root`, then runs the bounded cross-engine smoke pass (`make test-browser-webkit-smoke`) that loads the root gallery and every app entry page in WebKit. All other browser suites default to Chromium; set `ARTIFACTS_BROWSER_ENGINE` to override the engine for a run.
-- `app-shard` jobs each run one bounded shard of app browser tests (`make test-browser-apps-shard`) plus thumbnail capture (`make thumbnails-shard`).
+- `root-browser` runs in the pinned official Playwright Python container, installs GNU make only because the image does not include it, and skips host browser setup. It runs the root gallery browser verification with `make test-browser-root`, then the bounded cross-engine smoke pass (`make test-browser-webkit-smoke`) that loads the root gallery and every app entry page in WebKit.
+- `app-shard` jobs use the same pinned container and GNU make bootstrap, skip host browser setup, and each run one bounded shard of app browser tests (`make test-browser-apps-shard`) plus thumbnail capture (`make thumbnails-shard`).
+- `publish` remains the deliberate host-runner exception. It uses `ci-setup` with `browser-engines: chromium` for live verification after Pages deployment because the same job also needs the GitHub CLI and deployment actions.
+- `live-site-smoke` uses the pinned official Playwright Python container and skips host browser setup. All other browser suites default to Chromium; set `ARTIFACTS_BROWSER_ENGINE` to override the engine for a local run.
 - `assemble-site` builds the generated files and the deployable site once (`make check-generated`, `make index`, `make site`) after the gates pass, and uploads the `_site/` artifact.
 - `verify` aggregates the dependency job results for branch protection. It runs no tests and builds no files.
 

@@ -667,13 +667,17 @@ jobs:
           escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
           python-version: ${{ env.PYTHON_VERSION }}
           node-version: ${{ env.NODE_VERSION }}
-          # This job runs live browser verification, so it needs the same
-          # environment every other verifying job has. It used to ask for none
-          # and then rebuild one by hand (pip install uv, then make setup-ci),
-          # which meant a full uv sync, an npm ci of 214 packages, and a
-          # Playwright --with-deps apt pass on every deploy, while the caches
-          # that make those no-ops sat unused. The install now happens here,
-          # behind the same cache hits the other jobs get.
+          # Publish intentionally stays on the hosted runner instead of the
+          # official Playwright container. This mixed deployment job needs the
+          # runner's GitHub CLI and deployment toolchain as well as a browser.
+          # The official Python image remains the boundary for pure browser
+          # jobs, while this job uses the shared host setup explicitly.
+          browser-engines: chromium
+          # This job used to ask for no dependencies and then rebuild one by
+          # hand (pip install uv, then make setup-ci), which meant a full uv
+          # sync, an npm ci of 214 packages, and a Playwright --with-deps apt
+          # pass on every deploy while the caches that make those no-ops sat
+          # unused. The install now happens here, behind the shared cache hits.
           #
           # The trade is that an untrusted run (fork or Dependabot), which skips
           # deploying because no app token is minted, still restores the caches.
