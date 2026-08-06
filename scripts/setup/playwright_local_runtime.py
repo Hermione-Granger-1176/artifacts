@@ -187,19 +187,31 @@ def fail(message: str) -> RuntimeSetupError:
     return RuntimeSetupError(message)
 
 
+def resolve_for_containment(path: Path) -> Path:
+    """Resolve a path while rejecting broken or cyclic symlink ancestors."""
+    absolute_path = path.absolute()
+    current = Path(absolute_path.anchor)
+    for part in absolute_path.parts[1:]:
+        current /= part
+        try:
+            mode = current.lstat().st_mode
+        except FileNotFoundError:
+            break
+        if stat.S_ISLNK(mode):
+            current.resolve(strict=True)
+    return absolute_path.resolve(strict=False)
+
+
 def is_within(path: Path, parent: Path) -> bool:
     """Return whether a resolved path remains under the resolved parent.
 
     Resolution itself can fail on hostile input, so this guard denies rather
-    than propagates. On Python 3.12 a symlink loop raises RuntimeError from
-    pathlib's own ELOOP check (3.13 rebuilt resolve() on os.path.realpath and
-    answers best-effort instead), and a filesystem can still surface OSError.
-    Callers validate untrusted extracted trees with this, so an unresolvable
-    path is treated as outside the parent and an escaping exception would turn
-    a containment check into a crash.
+    than propagates. Broken symlinks and symlink loops are rejected when they
+    are part of the path being checked. Callers that intentionally validate a
+    possibly dangling link target should check its lexical location separately.
     """
     try:
-        path.resolve(strict=False).relative_to(parent.resolve(strict=False))
+        resolve_for_containment(path).relative_to(resolve_for_containment(parent))
     except (OSError, RuntimeError, ValueError):
         return False
     return True
@@ -611,13 +623,23 @@ def validate_extracted_root(extracted_root: Path) -> None:
     if not extracted_root.exists():
         raise fail("package extraction did not create a runtime root")
     for entry in extracted_root.rglob("*"):
-        if not is_within(entry, extracted_root):
-            raise fail("extracted package path escaped the private runtime root")
+        # Containment applies to where a symlink sits, never to what it points
+        # at. Resolving through the link here would conflate a dangling link
+        # with an escaping one. The target gets its own lexical containment
+        # check below, which keeps valid APT documentation links usable even
+        # when their sibling package is already present on the host.
+        location = entry.parent if entry.is_symlink() else entry
+        if not is_within(location, extracted_root):
+            raise fail(
+                "extracted package path escaped the private runtime root: "
+                f"{entry.relative_to(extracted_root)}"
+            )
         if entry.is_symlink():
             target = entry.readlink()
             if target.is_absolute() or not is_within(entry.parent / target, extracted_root):
                 raise fail(
-                    "extracted package contains a symlink that escapes the private runtime root"
+                    "extracted package contains a symlink that escapes the private runtime "
+                    f"root: {entry.relative_to(extracted_root)} -> {target}"
                 )
         name = entry.name
         relative = entry.relative_to(extracted_root)

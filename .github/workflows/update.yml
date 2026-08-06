@@ -49,6 +49,9 @@ env:
   VERIFY_DEPLOY_ATTEMPTS: "12"
   VERIFY_DEPLOY_DELAY_SECONDS: "5"
   ARTIFACTS_STRICT_THUMBNAILS: "1"
+  # A retry hides an intermittent browser failure locally, but CI must keep the
+  # signal visible and fail until the underlying instability is understood.
+  ARTIFACTS_FAIL_ON_FLAKY_BROWSER_TESTS: "1"
   GENERATED_OUTPUT_ARGS: js/data.js js/gallery-config.js README.md apps
 
 jobs:
@@ -246,6 +249,11 @@ jobs:
       - plan
       - quick-gates
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.61.0-noble@sha256:a9731514f24121d1dcd25d58d0a38146646d290a5998fd80d3e533e7b5e21c69
+      # The official image does not include GNU make. Use its default root user
+      # only to install GNU make before the Makefile-only setup runs.
+      options: --init --ipc=host
     timeout-minutes: 20
     permissions:
       contents: read
@@ -255,6 +263,14 @@ jobs:
         with:
           ref: ${{ env.BUILD_REF }}
 
+      - name: Install GNU make
+        run: |
+          if ! command -v make >/dev/null 2>&1; then
+            apt-get update
+            apt-get install --no-install-recommends --yes make
+            rm -rf /var/lib/apt/lists/*
+          fi
+
       - name: CI setup
         uses: ./.github/actions/ci-setup
         with:
@@ -262,21 +278,32 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           node-version: ${{ env.NODE_VERSION }}
           install-deps: "true"
-          # This job also runs the WebKit smoke pass, so it asks for both
-          # engines here rather than installing WebKit in a later step. The
-          # engine set is part of the cache key, so this job gets its own entry
-          # holding both, and the install happens before the post-job save that
-          # stores it. Installing WebKit after a Chromium-only hit could never
-          # be saved, because actions/cache skips the save on a primary-key hit.
-          browser-engines: chromium-webkit
+          # The pinned Playwright image supplies browsers and Linux libraries.
+          # Skipping the host cache and install avoids mixing image binaries
+          # with runner packages.
+          browser-engines: ""
 
       - name: Run root browser verification
+        env:
+          ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-ci/root
         run: make test-browser-root
 
       # A bounded cross-engine safety net: the small root-plus-apps smoke pass,
       # in the job that already provisions both engines.
       - name: Run WebKit smoke pass
+        env:
+          ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-ci/root
         run: make test-browser-webkit-smoke
+
+      - name: Upload root browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: root-browser-artifacts-${{ github.run_id }}
+          path: .artifacts/browser-ci/root
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
 
   app-shard:
     if: >-
@@ -287,6 +314,11 @@ jobs:
       - plan
       - quick-gates
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.61.0-noble@sha256:a9731514f24121d1dcd25d58d0a38146646d290a5998fd80d3e533e7b5e21c69
+      # The official image does not include GNU make. Use its default root user
+      # only to install GNU make before the Makefile-only setup runs.
+      options: --init --ipc=host
     timeout-minutes: 20
     permissions:
       contents: read
@@ -306,6 +338,14 @@ jobs:
           name: ci-plan-${{ github.run_id }}
           path: .artifacts/ci-plan
 
+      - name: Install GNU make
+        run: |
+          if ! command -v make >/dev/null 2>&1; then
+            apt-get update
+            apt-get install --no-install-recommends --yes make
+            rm -rf /var/lib/apt/lists/*
+          fi
+
       - name: Write shard manifest
         run: >-
           make ci-write-shard-manifest
@@ -320,9 +360,24 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           node-version: ${{ env.NODE_VERSION }}
           install-deps: "true"
+          # Browser binaries and their system libraries come from the pinned
+          # container rather than the runner cache.
+          browser-engines: ""
 
       - name: Run app browser shard
+        env:
+          ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-ci/app-${{ matrix.shard }}
         run: make test-browser-apps-shard shard_manifest=.artifacts/shard-manifest.json
+
+      - name: Upload app browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: app-browser-artifacts-${{ github.run_id }}-${{ matrix.shard }}
+          path: .artifacts/browser-ci
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
 
       - name: Capture shard thumbnails
         run: make thumbnails-shard shard_manifest=.artifacts/shard-manifest.json

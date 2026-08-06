@@ -463,13 +463,13 @@ def test_is_within_returns_a_verdict_for_unresolvable_paths(tmp_path: Path) -> N
     dangling = tmp_path / "dangling"
     dangling.symlink_to(tmp_path / "missing" / "target")
 
-    assert runtime.is_within(dangling, tmp_path) is True
+    assert runtime.is_within(dangling, tmp_path) is False
 
     blocked = tmp_path / "blocked"
     (blocked / "inner").mkdir(parents=True)
     blocked.chmod(0o000)
     try:
-        assert runtime.is_within(blocked / "inner", tmp_path) is True
+        assert runtime.is_within(blocked / "inner", tmp_path) is False
     finally:
         blocked.chmod(0o700)
 
@@ -619,8 +619,58 @@ def test_validate_extracted_root_rejects_host_libc_and_escaping_symlinks(tmp_pat
     escaped_link.parent.mkdir(parents=True)
     escaped_link.symlink_to(tmp_path / "outside")
 
-    with pytest.raises(runtime.RuntimeSetupError, match="escaped"):
+    with pytest.raises(runtime.RuntimeSetupError, match="escapes"):
         runtime.validate_extracted_root(symlink_root)
+
+
+def test_validate_extracted_root_rejects_an_uncontained_entry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fail closed if the containment primitive cannot validate a tree entry."""
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "file").write_text("content", encoding="utf-8")
+    monkeypatch.setattr(runtime, "is_within", lambda _path, _parent: False)
+
+    with pytest.raises(runtime.RuntimeSetupError, match="path escaped the private runtime root"):
+        runtime.validate_extracted_root(root)
+
+
+def test_validate_extracted_root_accepts_dangling_internal_symlinks(tmp_path: Path) -> None:
+    """A dangling APT link is safe when its lexical target stays inside the root."""
+    root = tmp_path / "root"
+    docs = root / "usr" / "share" / "doc"
+    (docs / "libncurses6").mkdir(parents=True)
+    (docs / "libncurses6" / "changelog.gz").symlink_to("../libtinfo6/changelog.gz")
+    (docs / "libgomp1").symlink_to("gcc-16-base")
+
+    runtime.validate_extracted_root(root)
+
+    assert (docs / "libgomp1").readlink() == Path("gcc-16-base")
+    assert not (docs / "libgomp1").exists()
+
+
+def test_validate_extracted_root_rejects_dangling_external_symlinks(tmp_path: Path) -> None:
+    """A missing target still cannot escape the extracted runtime root."""
+    root = tmp_path / "root"
+    library_dir = root / "usr" / "lib"
+    library_dir.mkdir(parents=True)
+    (library_dir / "escape.so").symlink_to("../../../outside/missing.so")
+
+    with pytest.raises(runtime.RuntimeSetupError, match="escapes the private runtime root"):
+        runtime.validate_extracted_root(root)
+
+
+def test_validate_extracted_root_rejects_symlink_loops(tmp_path: Path) -> None:
+    """A cyclic link chain fails closed rather than being treated as contained."""
+    root = tmp_path / "root"
+    library_dir = root / "usr" / "lib"
+    library_dir.mkdir(parents=True)
+    (library_dir / "first.so").symlink_to("second.so")
+    (library_dir / "second.so").symlink_to("first.so")
+
+    with pytest.raises(runtime.RuntimeSetupError, match="escapes the private runtime root"):
+        runtime.validate_extracted_root(root)
 
 
 def test_validate_extracted_root_rejects_usr_lib64_host_overlay(tmp_path: Path) -> None:
@@ -675,9 +725,7 @@ def test_validate_extracted_root_does_not_walk_through_symlinked_directories(
 
     assert sorted(entry.name for entry in root.rglob("*")) == ["escape"]
 
-    # The containment check resolves the link and rejects it before the symlink
-    # branch is reached, so this is the "escaped" message rather than "escapes".
-    with pytest.raises(runtime.RuntimeSetupError, match="path escaped the private runtime root"):
+    with pytest.raises(runtime.RuntimeSetupError, match="escapes the private runtime root"):
         runtime.validate_extracted_root(root)
 
 
