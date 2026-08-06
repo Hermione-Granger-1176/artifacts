@@ -1,14 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import {
+  CREATE_COMMIT_MUTATION,
   createBranchName,
   createGitArgs,
   fetchJson,
+  isCliEntrypoint,
   isRefAlreadyExistsError,
   isRetryableError,
   parseDiffOutput,
   runVerifiedCommit,
+  selectReusablePull,
   splitPathspec
 } from '../../../.github/actions/verified-commit/verified-commit.mjs';
 
@@ -46,7 +51,12 @@ function createProtectedBranchResponse() {
   return createJsonResponse({ errors: [{ message: 'protected branch' }] });
 }
 
-function createFallbackFetchImpl({ requests, existingPullRequestUrl = null, existingBranch = false }) {
+function createFallbackFetchImpl({
+  requests,
+  existingPullRequestUrl = null,
+  existingPullRequest = null,
+  existingBranch = false
+}) {
   return async (url, options = {}) => {
     requests.push({ url, options });
 
@@ -70,8 +80,14 @@ function createFallbackFetchImpl({ requests, existingPullRequestUrl = null, exis
         return createJsonResponse({ ref: url.split('/git/refs/')[1], object: { sha: 'reset' } });
       case url.includes('/pulls?'):
         return createJsonResponse(
-          existingPullRequestUrl ? [{ html_url: existingPullRequestUrl }] : []
+          existingPullRequest
+            ? [existingPullRequest]
+            : existingPullRequestUrl
+              ? [{ number: 123, state: 'open', merged_at: null, html_url: existingPullRequestUrl }]
+              : []
         );
+      case url.includes('/pulls/') && options.method === 'PATCH':
+        return createJsonResponse({ state: 'open' });
       case Boolean(url.endsWith('/pulls') && !existingPullRequestUrl):
         return createJsonResponse({ html_url: 'https://example.com/pr/123' }, { status: 201 });
       default:
@@ -103,6 +119,28 @@ test('parseDiffOutput handles additions, deletions, and renames', () => {
 
   assert.deepEqual(result.deletions, [{ path: 'old.txt' }, { path: 'before.txt' }]);
   assert.deepEqual(result.additions.map((item) => item.path), ['new.txt', 'renamed.txt']);
+});
+
+test('parseDiffOutput uses staged contents for copied files', () => {
+  const result = parseDiffOutput('C100\told.txt\tnew.txt', {
+    existsSync() {
+      return false;
+    },
+    readFileSync(filePath) {
+      return Buffer.from(`working-tree:${filePath}`);
+    },
+    readStagedFileSync(filePath) {
+      return Buffer.from(`staged:${filePath}`);
+    }
+  });
+
+  assert.deepEqual(result.deletions, []);
+  assert.deepEqual(result.additions, [
+    {
+      path: 'new.txt',
+      contents: Buffer.from('staged:new.txt').toString('base64')
+    }
+  ]);
 });
 
 test('parseDiffOutput returns empty payloads for blank diff output', () => {
@@ -203,6 +241,29 @@ test('createBranchName is deterministic for a given date', () => {
   assert.equal(createBranchName('auto/update', new Date('2026-03-19T12:00:00Z')), 'auto/update-20260319');
 });
 
+test('verified commit exports a closed mutation and detects direct execution', () => {
+  assert.match(CREATE_COMMIT_MUTATION, /mutation \(\$input: CreateCommitOnBranchInput!\)/);
+  assert.equal((CREATE_COMMIT_MUTATION.match(/\{/g) || []).length, (CREATE_COMMIT_MUTATION.match(/\}/g) || []).length);
+
+  const actionPath = '.github/actions/verified-commit/verified-commit.mjs';
+  const moduleUrl = pathToFileURL(path.resolve(actionPath)).href;
+  assert.equal(isCliEntrypoint(moduleUrl, actionPath), true);
+  assert.equal(isCliEntrypoint(moduleUrl, path.resolve(actionPath)), true);
+  assert.equal(isCliEntrypoint(moduleUrl, 'scripts/other.mjs'), false);
+  assert.equal(isCliEntrypoint(moduleUrl, undefined), false);
+});
+
+test('selectReusablePull prefers the newest unmerged pull request', () => {
+  const merged = { number: 214, state: 'closed', merged_at: '2026-08-01T07:00:00Z', html_url: 'merged' };
+  const older = { number: 217, state: 'closed', merged_at: null, html_url: 'older' };
+  const newer = { number: 219, state: 'closed', merged_at: null, html_url: 'newer' };
+  const open = { number: 220, state: 'open', merged_at: null, html_url: 'open' };
+
+  assert.equal(selectReusablePull([merged, older, newer]), newer);
+  assert.equal(selectReusablePull([merged, open]), open);
+  assert.equal(selectReusablePull([merged]), undefined);
+});
+
 test('runVerifiedCommit exits early when there are no staged changes', async () => {
   const outputs = [];
   const result = await runVerifiedCommit({
@@ -232,7 +293,7 @@ test('runVerifiedCommit throws when required GitHub env is missing', async () =>
   );
 });
 
-test('runVerifiedCommit exits when staged files produce no payloads', async () => {
+test('runVerifiedCommit exits when staged diff has no usable file paths', async () => {
   const outputs = [];
   const result = await runVerifiedCommit({
     env: {
@@ -242,7 +303,7 @@ test('runVerifiedCommit exits when staged files produce no payloads', async () =
       PATHSPEC_INPUT: 'missing.txt'
     },
     execFileSyncImpl() {
-      return 'A\tmissing.txt';
+      return 'A\t';
     },
     existsSyncImpl() {
       return false;
@@ -273,8 +334,8 @@ test('runVerifiedCommit creates a direct verified commit when GraphQL succeeds',
       PR_BODY: 'Body',
       PATHSPEC_INPUT: 'js/data.js'
     },
-    execFileSyncImpl() {
-      return 'A\tjs/data.js';
+    execFileSyncImpl(_command, args) {
+      return args[0] === 'show' ? Buffer.from('staged payload') : 'A\tjs/data.js';
     },
     existsSyncImpl() {
       return true;
@@ -311,6 +372,13 @@ test('runVerifiedCommit creates a direct verified commit when GraphQL succeeds',
   assert.equal(result.resultUrl, 'https://example.com/commit/def456');
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, 'https://api.github.com/graphql');
+  const requestBody = JSON.parse(requests[0].options.body);
+  assert.deepEqual(requestBody.variables.input.fileChanges.additions, [
+    {
+      path: 'js/data.js',
+      contents: Buffer.from('staged payload').toString('base64')
+    }
+  ]);
   assert.ok(outputs.includes('changed=true'));
   assert.ok(outputs.includes('result-url=https://example.com/commit/def456'));
 });
@@ -420,6 +488,60 @@ test('runVerifiedCommit force-resets an existing fallback branch and reuses open
   assert.ok(outputs.includes('changed=true'));
   assert.ok(outputs.includes('result-url=https://example.com/pr/existing'));
   assert.equal(requests.some((request) => request.url.endsWith('/pulls')), false);
+});
+
+test('runVerifiedCommit reopens a closed unmerged fallback pull request', async () => {
+  const requests = [];
+  const result = await runVerifiedCommit({
+    env: {
+      GH_TOKEN_INPUT: 'token',
+      GITHUB_OUTPUT: '/tmp/output',
+      GITHUB_REPOSITORY: 'octo/repo',
+      BASE_BRANCH: 'main',
+      EXPECTED_HEAD_SHA: 'abc123',
+      COMMIT_HEADLINE: 'Update generated artifacts [skip ci]',
+      FALLBACK_BRANCH_PREFIX: 'auto/update-artifacts',
+      PR_TITLE: 'Update generated artifacts',
+      PR_BODY: 'Body',
+      PATHSPEC_INPUT: 'js/data.js'
+    },
+    execFileSyncImpl() {
+      return 'A\tjs/data.js';
+    },
+    existsSyncImpl() {
+      return true;
+    },
+    readFileSyncImpl() {
+      return Buffer.from('payload');
+    },
+    appendFileSyncImpl() {},
+    consoleObj: { log() {}, error() {} },
+    fetchDependencies: {
+      fetchImpl: createFallbackFetchImpl({
+        requests,
+        existingPullRequest: {
+          number: 217,
+          state: 'closed',
+          merged_at: null,
+          html_url: 'https://example.com/pr/closed'
+        },
+        existingBranch: true
+      }),
+      sleepImpl: async () => {}
+    },
+    now: new Date('2026-03-19T12:00:00Z')
+  });
+
+  assert.equal(result.resultUrl, 'https://example.com/pr/closed');
+  const reopenRequest = requests.find(
+    (request) => request.url.endsWith('/pulls/217') && request.options.method === 'PATCH'
+  );
+  assert.ok(reopenRequest);
+  assert.deepEqual(JSON.parse(reopenRequest.options.body), { state: 'open' });
+  assert.equal(
+    requests.some((request) => request.url.endsWith('/pulls') && request.options.method === 'POST'),
+    false
+  );
 });
 
 test('runVerifiedCommit force-pr mode skips direct commit attempts', async () => {
