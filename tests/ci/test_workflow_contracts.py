@@ -102,6 +102,39 @@ def _step_with(job: dict[str, object], name: str) -> dict[str, object]:
     return inputs
 
 
+def _github_app_token_steps(value: object) -> list[dict[str, object]]:
+    """Find every pinned GitHub App token action in a YAML document."""
+    found: list[dict[str, object]] = []
+    if isinstance(value, dict):
+        uses = value.get("uses")
+        if isinstance(uses, str) and CREATE_APP_TOKEN_SHA_PIN.fullmatch(uses):
+            found.append(value)
+        for child in value.values():
+            found.extend(_github_app_token_steps(child))
+    elif isinstance(value, list):
+        for child in value:
+            found.extend(_github_app_token_steps(child))
+    return found
+
+
+def test_github_app_token_actions_use_client_id_without_renaming_repository_variables() -> None:
+    """Use the current action input while preserving the repository variable contract."""
+    documents = [
+        yaml.safe_load(path.read_text(encoding="utf-8")) for path in _workflow_and_action_files()
+    ]
+    steps = [step for document in documents for step in _github_app_token_steps(document)]
+    assert len(steps) == 7
+    for step in steps:
+        inputs = step.get("with")
+        assert isinstance(inputs, dict)
+        assert "client-id" in inputs
+        assert "app-id" not in inputs
+
+    source = "\n".join(path.read_text(encoding="utf-8") for path in _workflow_and_action_files())
+    for variable in ("APP_ID", "ESCALATION_APP_ID", "AUDIT_APP_ID"):
+        assert f"vars.{variable}" in source
+
+
 def test_playwright_ci_images_match_locked_python_package() -> None:
     """Keep every browser container on one immutable image matching uv.lock."""
     images = _playwright_ci_images()
@@ -1025,7 +1058,7 @@ def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
         assert CREATE_APP_TOKEN_SHA_PIN.fullmatch(token_uses), (
             f"Expected actions/create-github-app-token pinned to a 40-char SHA, got {token_uses!r}"
         )
-        assert token_inputs["app-id"] == "${{ vars.ESCALATION_APP_ID }}"
+        assert token_inputs["client-id"] == "${{ vars.ESCALATION_APP_ID }}"
         assert token_inputs["private-key"] == "${{ secrets.ESCALATION_APP_PRIVATE_KEY }}"
 
         commit_inputs = _step_with(refresh, "Commit changes (verified)")

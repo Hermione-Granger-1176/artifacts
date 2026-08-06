@@ -495,7 +495,7 @@ The workflows depend on repository settings that are not enforceable from source
 
 - GitHub Pages source is set to GitHub Actions with HTTPS enforced
 - `gh-pages` remains the CI-managed deploy state branch for the live root and PR preview subtrees
-- `vars.APP_ID`, `vars.ESCALATION_APP_ID`, and `vars.AUDIT_APP_ID` contain the GitHub App IDs
+- `vars.APP_ID`, `vars.ESCALATION_APP_ID`, and `vars.AUDIT_APP_ID` contain the GitHub App Client IDs. The variable names remain unchanged for compatibility.
 - `secrets.APP_PRIVATE_KEY`, `secrets.ESCALATION_APP_PRIVATE_KEY`, and `secrets.AUDIT_APP_PRIVATE_KEY` contain the private keys
 - `secrets.GITLEAKS_LICENSE` for the Gitleaks action (gitleaks-action only requires a license for organization accounts, so this is inert while the repository is owned by a user)
 - GitHub secret scanning and its push protection are enabled. They are free on this public repository and are the layer the `secret-scan` job cannot provide: push protection refuses the push carrying a secret, where a CI check can only report one already in history, by which point the credential needs rotating regardless. `secret-scan` scans source history behind that, with `.gitleaks.toml` excluding only the built site copies under `pr-preview/` on `gh-pages`
