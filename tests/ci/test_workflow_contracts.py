@@ -223,8 +223,11 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     assert "make test-browser-root" in _step_run(root_browser, "Run root browser verification")
     assert root_browser["container"] == {
         "image": PLAYWRIGHT_CI_IMAGE,
-        "options": "--init --ipc=host --user 1001",
+        "options": "--init --ipc=host",
     }
+    make_bootstrap = _step_run(root_browser, "Install GNU make")
+    assert "apt-get update" in make_bootstrap
+    assert "apt-get install --no-install-recommends --yes make" in make_bootstrap
     assert _step_with(root_browser, "CI setup")["browser-engines"] == ""
     assert all("playwright" not in str(step.get("run", "")) for step in root_browser["steps"]), (
         "browser installation belongs in the pinned Playwright container"
@@ -248,6 +251,9 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     )
     assert "make ci-write-shard-manifest" in _step_run(shard, "Write shard manifest")
     assert shard["container"] == root_browser["container"]
+    make_bootstrap = _step_run(shard, "Install GNU make")
+    assert "apt-get update" in make_bootstrap
+    assert "apt-get install --no-install-recommends --yes make" in make_bootstrap
     assert _step_with(shard, "CI setup")["browser-engines"] == ""
     assert (
         "make test-browser-apps-shard shard_manifest=.artifacts/shard-manifest.json"
@@ -639,8 +645,11 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert smoke_job["permissions"] == {"contents": "read", "issues": "write"}
     assert smoke_job["container"] == {
         "image": PLAYWRIGHT_CI_IMAGE,
-        "options": "--init --ipc=host --user 1001",
+        "options": "--init --ipc=host",
     }
+    make_bootstrap = _step_run(smoke_job, "Install GNU make")
+    assert "apt-get update" in make_bootstrap
+    assert "apt-get install --no-install-recommends --yes make" in make_bootstrap
     assert _step_uses(smoke_job, "CI setup") == "./.github/actions/ci-setup"
     assert _step_with(smoke_job, "CI setup")["browser-engines"] == ""
     assert (
