@@ -246,6 +246,52 @@ def test_audit_repo_settings_rejects_malformed_core_fields(
     with pytest.raises(RuntimeError, match="https_enforced"):
         workflow_helpers.audit_repo_settings(repo="owner/repo")
 
+    responses = _minimal_audit_responses()
+    responses["repos/owner/repo/pages"] = {
+        "build_type": "workflow",
+        "https_enforced": True,
+        "source": {"branch": 9},
+    }
+    _patch_audit_responses(monkeypatch, responses)
+    with pytest.raises(RuntimeError, match="source branch"):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+    responses = _minimal_audit_responses()
+    responses["repos/owner/repo/pages"] = {
+        "build_type": "workflow",
+        "https_enforced": True,
+        "source": {"path": {}},
+    }
+    _patch_audit_responses(monkeypatch, responses)
+    with pytest.raises(RuntimeError, match="source path"):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+    responses = _minimal_audit_responses()
+    responses["repos/owner/repo/pages"] = {
+        "build_type": "workflow",
+        "https_enforced": True,
+        "source": [],
+    }
+    _patch_audit_responses(monkeypatch, responses)
+    with pytest.raises(RuntimeError, match="Pages source"):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+    responses = _minimal_audit_responses()
+    responses["repos/owner/repo/pages"] = {"build_type": "legacy", "https_enforced": True}
+    _patch_audit_responses(monkeypatch, responses)
+    with pytest.raises(RuntimeError, match="source branch"):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+    responses = _minimal_audit_responses()
+    responses["repos/owner/repo/pages"] = {
+        "build_type": "legacy",
+        "https_enforced": True,
+        "source": {"branch": "gh-pages"},
+    }
+    _patch_audit_responses(monkeypatch, responses)
+    with pytest.raises(RuntimeError, match="source path"):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
 
 @pytest.mark.parametrize(
     ("protection", "error", "message"),
@@ -789,6 +835,15 @@ def test_main_audit_repo_settings_prints_json(
         "pages-branch": "gh-pages",
         "repo": "owner/repo",
     }
+
+
+def test_report_checked_is_a_noop_without_github_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Local command use does not require a GitHub Actions output file."""
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+
+    workflow_helpers._report_checked("checked", True)
 
 
 @pytest.mark.parametrize(

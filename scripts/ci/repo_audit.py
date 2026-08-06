@@ -255,9 +255,19 @@ def audit_repo_settings(
         issues.append(f"default branch is {actual_default_branch!r} instead of {default_branch!r}")
 
     raw_pages_source = pages.get("source")
+    if raw_pages_source is not None and not isinstance(raw_pages_source, dict):
+        raise RuntimeError("Pages source must be a JSON object when present")
     pages_source = raw_pages_source if isinstance(raw_pages_source, dict) else {}
     pages_source_branch = pages_source.get("branch")
-    pages_source_path = pages_source.get("path") or "/"
+    pages_source_path = pages_source.get("path")
+    if pages_source_branch is not None and (
+        not isinstance(pages_source_branch, str) or not pages_source_branch
+    ):
+        raise RuntimeError("Pages source branch must be a non-empty string when present")
+    if pages_source_path is not None and (
+        not isinstance(pages_source_path, str) or not pages_source_path
+    ):
+        raise RuntimeError("Pages source path must be a non-empty string when present")
     pages_build_type = pages.get("build_type")
     if not isinstance(pages_build_type, str) or not pages_build_type:
         raise RuntimeError("Pages settings must include a string build_type")
@@ -265,6 +275,10 @@ def audit_repo_settings(
     if not isinstance(pages_https_enforced, bool):
         raise RuntimeError("Pages settings must include a boolean https_enforced value")
     if pages_build_type == "legacy":
+        if pages_source_branch is None:
+            raise RuntimeError("Legacy Pages settings must include a source branch")
+        if pages_source_path is None:
+            raise RuntimeError("Legacy Pages settings must include a source path")
         if pages_source_branch != pages_branch:
             issues.append(
                 f"Pages source branch is {pages_source_branch!r} instead of {pages_branch!r}"
@@ -277,6 +291,8 @@ def audit_repo_settings(
         )
     if pages_https_enforced is not True:
         issues.append("Pages HTTPS is not enforced")
+
+    pages_source_path = pages_source_path or "/"
 
     security_features = enabled_security_features(repository)
     append_missing_items(
