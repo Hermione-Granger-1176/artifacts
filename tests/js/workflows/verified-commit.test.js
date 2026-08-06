@@ -258,9 +258,11 @@ test('selectReusablePull prefers the newest unmerged pull request', () => {
   const older = { number: 217, state: 'closed', merged_at: null, html_url: 'older' };
   const newer = { number: 219, state: 'closed', merged_at: null, html_url: 'newer' };
   const open = { number: 220, state: 'open', merged_at: null, html_url: 'open' };
+  const inconsistent = { number: 221, state: 'open', merged_at: '2026-08-02T07:00:00Z', html_url: 'inconsistent' };
 
   assert.equal(selectReusablePull([merged, older, newer]), newer);
   assert.equal(selectReusablePull([merged, open]), open);
+  assert.equal(selectReusablePull([inconsistent]), undefined);
   assert.equal(selectReusablePull([merged]), undefined);
 });
 

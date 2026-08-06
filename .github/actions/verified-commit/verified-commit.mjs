@@ -212,7 +212,7 @@ export function createBranchName(prefix, date = new Date()) {
  */
 export function selectReusablePull(pulls) {
   return pulls
-    .filter((pull) => pull.state === "open" || !pull.merged_at)
+    .filter((pull) => pull.merged_at === null)
     .sort((left, right) => right.number - left.number)[0];
 }
 
