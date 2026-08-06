@@ -12,6 +12,10 @@ ACTIONS_DIR = REPO_ROOT / ".github" / "actions"
 
 CREATE_APP_TOKEN_SHA_PIN = re.compile(r"^actions/create-github-app-token@[0-9a-f]{40}$")
 CODEQL_ACTION_SHA_PIN = re.compile(r"^github/codeql-action/(init|autobuild|analyze)@[0-9a-f]{40}$")
+PLAYWRIGHT_CI_IMAGE = (
+    "mcr.microsoft.com/playwright/python:v1.61.0-noble@"
+    "sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a"
+)
 
 USES_LINE_PATTERN = re.compile(r"^\s*(?:-\s*)?uses:\s*(\S+)\s*(#.*)?$")
 SHA_PINNED_PATTERN = re.compile(r"^[^@\s]+@[0-9a-f]{40}$")
@@ -217,17 +221,21 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     assert _step_with(heavy, "CI setup")["browser-engines"] == ""
     root_browser = _job(workflow, "root-browser")
     assert "make test-browser-root" in _step_run(root_browser, "Run root browser verification")
-    # WebKit is requested through the cache key rather than installed in a later
-    # step. A step after the restore can never be saved: the Chromium-only entry
-    # hits the primary key, and actions/cache skips the save on a hit, so the
-    # engine it installed was re-downloaded on every run.
-    assert _step_with(root_browser, "CI setup")["browser-engines"] == "chromium-webkit"
+    assert root_browser["container"] == {
+        "image": PLAYWRIGHT_CI_IMAGE,
+        "options": "--init --ipc=host --user 1001",
+    }
+    assert _step_with(root_browser, "CI setup")["browser-engines"] == ""
     assert all("playwright" not in str(step.get("run", "")) for step in root_browser["steps"]), (
-        "browser installation belongs in ci-setup, inside the cache's save window"
+        "browser installation belongs in the pinned Playwright container"
     )
     assert (
         _step_run(root_browser, "Run WebKit smoke pass").strip() == "make test-browser-webkit-smoke"
     )
+    assert _step(root_browser, "Run root browser verification")["env"] == {
+        "ARTIFACTS_BROWSER_ARTIFACT_DIR": ".artifacts/browser-ci/root"
+    }
+    assert _step(root_browser, "Upload root browser failure artifacts")["if"] == "failure()"
 
     shard = _job(workflow, "app-shard")
     assert shard["strategy"] == {
@@ -239,6 +247,8 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
         "ci-plan-${{ github.run_id }}"
     )
     assert "make ci-write-shard-manifest" in _step_run(shard, "Write shard manifest")
+    assert shard["container"] == root_browser["container"]
+    assert _step_with(shard, "CI setup")["browser-engines"] == ""
     assert (
         "make test-browser-apps-shard shard_manifest=.artifacts/shard-manifest.json"
         in _step_run(shard, "Run app browser shard")
@@ -247,6 +257,10 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
         shard, "Capture shard thumbnails"
     )
     assert "make ci-package-shard-result" in _step_run(shard, "Package shard thumbnail result")
+    assert _step(shard, "Run app browser shard")["env"] == {
+        "ARTIFACTS_BROWSER_ARTIFACT_DIR": ".artifacts/browser-ci/app-${{ matrix.shard }}"
+    }
+    assert _step(shard, "Upload app browser failure artifacts")["if"] == "failure()"
     assert _step(shard, "Upload shard thumbnail result")["with"]["name"] == (
         "app-shard-${{ github.run_id }}-${{ matrix.shard }}"
     )
@@ -623,7 +637,12 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert _workflow_on(live_smoke)["schedule"] == [{"cron": "17 6 * * *"}]
     smoke_job = _job(live_smoke, "smoke")
     assert smoke_job["permissions"] == {"contents": "read", "issues": "write"}
+    assert smoke_job["container"] == {
+        "image": PLAYWRIGHT_CI_IMAGE,
+        "options": "--init --ipc=host --user 1001",
+    }
     assert _step_uses(smoke_job, "CI setup") == "./.github/actions/ci-setup"
+    assert _step_with(smoke_job, "CI setup")["browser-engines"] == ""
     assert (
         _step_run(smoke_job, "Run published-site browser verification").strip().startswith("set +e")
     )
@@ -887,6 +906,7 @@ def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
     workflows = {
         "refresh-action-shas.yml": "ci/refresh-action-shas",
         "refresh-locks.yml": "ci/refresh-locks",
+        "refresh-playwright.yml": "ci/refresh-playwright",
     }
 
     for workflow_name, fallback_branch_prefix in workflows.items():
@@ -913,6 +933,24 @@ def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
         assert commit_inputs["fallback-branch-prefix"] == fallback_branch_prefix
 
 
+def test_refresh_playwright_workflow_couples_the_lock_and_image_update() -> None:
+    """The scheduled Playwright refresh owns one version-and-image maintenance PR."""
+    workflow = _load_workflow("refresh-playwright.yml")
+    assert set(_workflow_on(workflow)) == {"schedule", "workflow_dispatch"}
+    assert _workflow_on(workflow)["schedule"] == [{"cron": "17 3 1 * *"}]
+    refresh = _job(workflow, "refresh")
+    assert _step_uses(refresh, "Set up uv").startswith("astral-sh/setup-uv@")
+    assert _step_run(refresh, "Refresh Playwright package and image pins").strip() == (
+        "make refresh-ci-pins"
+    )
+    detect = _step(refresh, "Detect workflow changes")
+    assert "pyproject.toml" in detect["run"]
+    assert "uv.lock" in detect["run"]
+    commit = _step(refresh, "Commit changes (verified)")
+    assert commit["with"]["fallback-branch-prefix"] == "ci/refresh-playwright"
+    assert "locked Python Playwright package" in commit["with"]["pr-body"]
+
+
 def test_setup_steps_cache_locked_environments_and_downloads() -> None:
     """Setup steps cache locked environments and their download fallbacks."""
     update = _load_workflow("update.yml")
@@ -925,7 +963,7 @@ def test_setup_steps_cache_locked_environments_and_downloads() -> None:
     for job_name in ("quick-gates", "heavy-checks", "root-browser", "app-shard", "assemble-site"):
         assert _step_uses(_job(update, job_name), "CI setup") == "./.github/actions/ci-setup"
         assert _step_with(_job(update, job_name), "CI setup")["install-deps"] == "true"
-    for job_name in ("quick-gates", "heavy-checks", "assemble-site"):
+    for job_name in ("quick-gates", "heavy-checks", "root-browser", "app-shard", "assemble-site"):
         assert _step_with(_job(update, job_name), "CI setup")["browser-engines"] == ""
     # Publish caches browsers through ci-setup now, so it no longer carries its
     # own duplicate of that step.

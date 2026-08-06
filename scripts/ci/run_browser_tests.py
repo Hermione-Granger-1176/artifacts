@@ -12,7 +12,8 @@ Behavior mirrors the old macro exactly:
 3. On failure, retry once with ``--no-cov --last-failed
    --last-failed-no-failures none <args>``.
 4. If the retry passes, emit a flaky ``::warning::`` line and append a note to
-   ``GITHUB_STEP_SUMMARY`` when that variable is set, then exit 0.
+   ``GITHUB_STEP_SUMMARY`` when that variable is set. Return 0 locally, or 1
+   when ``ARTIFACTS_FAIL_ON_FLAKY_BROWSER_TESTS=1`` is set in CI.
 5. Otherwise the exit code is the retry's exit code.
 
 Invoke as ``python -m scripts.ci.run_browser_tests [--env KEY=VAL ...]
@@ -36,6 +37,7 @@ Warner = Callable[[str], None]
 
 REQUIRE_BROWSER_TESTS_ENV_VAR = "ARTIFACTS_REQUIRE_BROWSER_TESTS"
 STEP_SUMMARY_ENV_VAR = "GITHUB_STEP_SUMMARY"
+FAIL_ON_FLAKY_BROWSER_TESTS_ENV_VAR = "ARTIFACTS_FAIL_ON_FLAKY_BROWSER_TESTS"
 FLAKY_SUMMARY = "## Flaky browser tests\n\nA retry passed after an initial failure.\n"
 
 
@@ -97,6 +99,9 @@ def run_browser_tests(
     if retry_status == 0:
         emit("FLAKY BROWSER TESTS: retry passed after an initial failure.")
         _append_flaky_summary(env)
+        if env.get(FAIL_ON_FLAKY_BROWSER_TESTS_ENV_VAR, "").strip() == "1":
+            emit("Flaky browser tests are failing this gate.")
+            return 1
         return 0
     return retry_status
 

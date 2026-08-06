@@ -8,10 +8,14 @@ on:
 env:
   PYTHONPATH: "."
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  ARTIFACTS_FAIL_ON_FLAKY_BROWSER_TESTS: "1"
 
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright/python:v1.61.0-noble@sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a
+      options: --init --ipc=host --user 1001
     timeout-minutes: 20
     permissions:
       contents: read
@@ -30,6 +34,7 @@ jobs:
           python-version: "3.12"
           node-version: "24"
           install-deps: "true"
+          browser-engines: ""
 
       - name: Resolve live site URL
         id: site-url

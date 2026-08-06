@@ -134,6 +134,20 @@ def test_flaky_retry_pass_without_summary_env_skips_file(
     assert "FLAKY BROWSER TESTS" in capsys.readouterr().out
 
 
+def test_flaky_retry_pass_can_fail_an_explicit_ci_gate() -> None:
+    """CI can make a flaky pass fail instead of hiding it behind a warning."""
+    runner = FakeRunner([1, 0])
+
+    status = run_browser_tests.run_browser_tests(
+        ["tests/browser/test_smoke.py"],
+        base_env={run_browser_tests.FAIL_ON_FLAKY_BROWSER_TESTS_ENV_VAR: "1"},
+        run_fn=runner,
+        warn=lambda _message: None,
+    )
+
+    assert status == 1
+
+
 def test_retry_failure_returns_retry_status() -> None:
     """When the retry also fails, its exit code is returned."""
     runner = FakeRunner([1, 3])

@@ -54,6 +54,7 @@ SCHEDULED_WORKFLOW_CADENCES: dict[str, int] = {
     "codeql.yml": 7 * DAY_SECONDS,  # "30 6 * * 1" weekly
     "update.yml": 7 * DAY_SECONDS,  # "23 4 * * 0" weekly full sweep
     "refresh-action-shas.yml": 31 * DAY_SECONDS,  # "0 3 1 * *" monthly
+    "refresh-playwright.yml": 31 * DAY_SECONDS,  # "17 3 1 * *" monthly
 }
 
 # Absorb runner backlog, delayed scheduling, and month-length variance so a
