@@ -364,7 +364,7 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     workflow = _load_workflow("update.yml")
     publish = _job(workflow, "publish")
 
-    assert workflow["env"]["PAGES_DEPLOY_TIMEOUT_MS"] == "240000"
+    assert workflow["env"]["PAGES_DEPLOY_TIMEOUT_MS"] == "600000"
     assert workflow["env"]["VERIFY_DEPLOY_ATTEMPTS"] == "12"
     assert workflow["env"]["VERIFY_DEPLOY_DELAY_SECONDS"] == "5"
     assert publish["permissions"] == {
@@ -395,6 +395,36 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     )
     assert _step_uses(publish, "Deploy main site") == "./.github/actions/deploy-site"
     assert _step(publish, "Deploy main site")["with"]["skip-build"] == "true"
+    merged_preview = _step(publish, "Resolve merged PR preview")
+    assert merged_preview["id"] == "merged-preview"
+    assert merged_preview["if"].strip() == (
+        "github.event_name == 'push' && github.ref == 'refs/heads/main' && "
+        "steps.setup.outputs.token-available == 'true'"
+    )
+    assert merged_preview["env"]["GH_TOKEN"] == "${{ github.token }}"
+    merged_preview_run = _step_run(publish, "Resolve merged PR preview")
+    assert "commits/${{ github.sha }}/pulls" in merged_preview_run
+    assert "merged_at != null" in merged_preview_run
+    assert 'echo "number=$merged_pr" >> "$GITHUB_OUTPUT"' in merged_preview_run
+    remove_merged_preview = _step(publish, "Remove merged PR preview")
+    assert remove_merged_preview["id"] == "merged-preview-removal"
+    assert remove_merged_preview["if"].strip() == (
+        "github.event_name == 'push' && github.ref == 'refs/heads/main' && "
+        "steps.setup.outputs.token-available == 'true' && "
+        "steps.merged-preview.outputs.number != ''"
+    )
+    assert remove_merged_preview["env"]["REMOVE_SUBDIR"] == (
+        "${{ env.PREVIEW_ROOT }}/pr-${{ steps.merged-preview.outputs.number }}"
+    )
+    assert _step_run(publish, "Remove merged PR preview").endswith(
+        "node ./.github/actions/deploy-site/deploy-verified.mjs"
+    )
+    remove_merged_comment = _step(publish, "Remove merged PR preview link comment")
+    assert remove_merged_comment["with"] == {
+        "header": "${{ env.PREVIEW_COMMENT_HEADER }}",
+        "number": "${{ steps.merged-preview.outputs.number }}",
+        "delete": True,
+    }
     assert "commit=$commit" in _step_run(publish, "Resolve gh-pages publish commit")
     materialize_run = _step_run(publish, "Materialize GitHub Pages payload")
     assert "git archive" in materialize_run
@@ -509,9 +539,10 @@ def test_update_thumbnail_persistence_and_cleanup_stay_bounded() -> None:
         == "./.github/actions/verified-commit"
     )
     assert cleanup["if"] == (
-        "github.event_name == 'pull_request' && github.event.action == 'closed'"
+        "github.event_name == 'pull_request' && github.event.action == 'closed' && "
+        "github.event.pull_request.merged != true"
     )
-    assert cleanup["timeout-minutes"] == 8
+    assert cleanup["timeout-minutes"] == 15
     assert cleanup["permissions"] == {
         "actions": "read",
         "contents": "write",
@@ -681,6 +712,7 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert _workflow_on(live_smoke)["schedule"] == [{"cron": "17 6 * * *"}]
     smoke_job = _job(live_smoke, "smoke")
     assert smoke_job["permissions"] == {"contents": "read", "issues": "write"}
+    assert live_smoke["env"]["REPO"] == "${{ github.repository }}"
     assert isinstance(smoke_job["container"], dict)
     smoke_container = smoke_job["container"]
     assert isinstance(smoke_container.get("image"), str)

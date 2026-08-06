@@ -7,6 +7,7 @@ on:
 
 env:
   PYTHONPATH: "."
+  REPO: ${{ github.repository }}
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
   ARTIFACTS_FAIL_ON_FLAKY_BROWSER_TESTS: "1"
 

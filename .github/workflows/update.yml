@@ -42,7 +42,9 @@ env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "24"
   PAGES_BRANCH: gh-pages
-  PAGES_DEPLOY_TIMEOUT_MS: "240000"
+  # Give the Pages backend its documented ten-minute queue window. A shorter
+  # local timeout turned transient deployment_queue delays into false failures.
+  PAGES_DEPLOY_TIMEOUT_MS: "600000"
   PAGES_PUBLISH_DIR: .artifacts/pages-publish
   PREVIEW_ROOT: pr-preview
   PREVIEW_COMMENT_HEADER: pr-preview
@@ -701,6 +703,41 @@ jobs:
           fi
           echo "content-hash=$hash" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve merged PR preview
+        id: merged-preview
+        if: >-
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          steps.setup.outputs.token-available == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          merged_pr=$(gh api \
+            "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+            --jq 'map(select(.merged_at != null and .base.ref == "main")) | .[0].number // empty')
+          if [ -n "$merged_pr" ]; then
+            echo "number=$merged_pr" >> "$GITHUB_OUTPUT"
+            echo "This push merged PR #$merged_pr; its preview will be removed before the main publish."
+          else
+            echo "No merged PR is associated with this main push."
+          fi
+
+      - name: Remove merged PR preview
+        id: merged-preview-removal
+        if: >-
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          steps.setup.outputs.token-available == 'true' &&
+          steps.merged-preview.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ steps.setup.outputs.escalation-token }}
+          PAGES_BRANCH: ${{ env.PAGES_BRANCH }}
+          PREVIEW_ROOT: ${{ env.PREVIEW_ROOT }}
+          COMMIT_MESSAGE: Remove preview for merged PR ${{ steps.merged-preview.outputs.number }}
+          REMOVE_SUBDIR: ${{ env.PREVIEW_ROOT }}/pr-${{ steps.merged-preview.outputs.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node ./.github/actions/deploy-site/deploy-verified.mjs
+
       - name: Resolve preview URL
         if: github.event_name == 'pull_request'
         id: preview-url
@@ -776,6 +813,18 @@ jobs:
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
         with:
           timeout: ${{ env.PAGES_DEPLOY_TIMEOUT_MS }}
+
+      - name: Remove merged PR preview link comment
+        if: >-
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          steps.setup.outputs.token-available == 'true' &&
+          steps.merged-preview.outputs.number != ''
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3
+        with:
+          header: ${{ env.PREVIEW_COMMENT_HEADER }}
+          number: ${{ steps.merged-preview.outputs.number }}
+          delete: true
 
       # Workflow-based Pages deploys do not write classic deployment records, so
       # create one ourselves for main-site publishes to keep the Deployments page
@@ -1053,12 +1102,16 @@ jobs:
             echo "Artifact changed: ${{ needs.assemble-site.outputs.thumbnail-artifact-changed }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Preview cleanup is isolated from publish/persistence. Closing or merging a PR
-  # removes only that PR's preview subtree and preview comment.
+  # Preview cleanup is isolated from publish/persistence. Closing an unmerged PR
+  # removes only that PR's preview subtree and preview comment. A merged PR is
+  # cleaned by the main push publish so the merge creates one Pages deployment.
   cleanup-preview:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged != true
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     concurrency:
       group: pages-publish-${{ github.repository }}
       cancel-in-progress: false
