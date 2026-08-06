@@ -518,7 +518,7 @@ def test_watch_pr_captures_baseline_before_request_and_reports_clean_state(
     )
     monkeypatch.setattr(pr_review, "list_threads", lambda *_args, **_kwargs: [])
 
-    report = pr_watch.watch_pr(12, interval=0, max_polls=1)
+    report = pr_watch.watch_pr(12, interval=0, max_polls=1, request_copilot=True)
 
     assert order == ["baseline", "request"]
     assert "latest Copilot review: generated no comments" in report
@@ -542,6 +542,7 @@ def test_watch_pr_sleeps_until_checks_and_review_are_ready(
         12,
         interval=2.5,
         max_polls=2,
+        request_copilot=True,
         sleep_fn=sleeps.append,
     )
 
@@ -611,6 +612,7 @@ def test_watch_pr_waits_for_threads_to_catch_up_with_comment_overview(
         12,
         interval=1,
         max_polls=2,
+        request_copilot=True,
         sleep_fn=sleeps.append,
     )
 
@@ -668,6 +670,7 @@ def test_watch_pr_counts_only_threads_newer_than_the_request_baseline(
         12,
         interval=1,
         max_polls=2,
+        request_copilot=True,
         sleep_fn=sleeps.append,
     )
 
@@ -774,11 +777,34 @@ def test_watch_pr_checks_only_skips_review_request(
         interval=0,
         max_polls=1,
         checks_only=True,
+        request_copilot=True,
     )
 
     assert requested == []
     assert "latest Copilot review: not requested" in report
     assert "merge ready: no" in report
+
+
+def test_watch_pr_waits_for_auto_requested_review_without_mutating_reviewers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The default watcher observes an automatic review without requesting another."""
+    requested, _ = _watch_stubs(
+        monkeypatch,
+        [_status(settled=True, review=_parsed_review())],
+    )
+    monkeypatch.setattr(
+        pr_watch,
+        "watch_baseline",
+        lambda *_args, **_kwargs: pytest.fail(
+            "observation mode should not capture a request baseline"
+        ),
+    )
+
+    report = pr_watch.watch_pr(12, interval=0, max_polls=1)
+
+    assert requested == []
+    assert "latest Copilot review: generated no comments" in report
 
 
 def test_watch_pr_defaults_current_pr_and_sleep(
@@ -896,6 +922,7 @@ def test_watch_cli_forwards_every_option_and_prints_report(
             "--expected-checks",
             "17",
             "--checks-only",
+            "--request-copilot",
         ]
     )
 
@@ -906,6 +933,7 @@ def test_watch_cli_forwards_every_option_and_prints_report(
         "max_polls": 3,
         "expected_checks": 17,
         "checks_only": True,
+        "request_copilot": True,
     }
     assert capsys.readouterr().out.strip() == "compact watch report"
 
@@ -928,4 +956,5 @@ def test_watch_cli_uses_conservative_defaults(monkeypatch: pytest.MonkeyPatch) -
         "max_polls": 40,
         "expected_checks": pr_watch.DEFAULT_EXPECTED_CHECKS,
         "checks_only": False,
+        "request_copilot": False,
     }

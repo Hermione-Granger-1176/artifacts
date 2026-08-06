@@ -718,8 +718,8 @@ pr-comment-delete: ## Delete a review comment by node id (make pr-comment-delete
 pr-summary: ## One-screen PR overview: state, CI rollup, open threads (make pr-summary [pr_num=N])
 	@$(GH) summary $(if $(pr_num),--pr $(pr_num))
 
-pr-watch: ## Request Copilot and wait for fresh review plus complete checks (make pr-watch [pr_num=N] [interval=S] [max_polls=K] [expected_checks=N] [checks_only=1])
-	@$(GH) watch $(if $(pr_num),--pr "$(pr_num)") $(if $(interval),--interval "$(interval)") $(if $(max_polls),--max-polls "$(max_polls)") $(if $(expected_checks),--expected-checks "$(expected_checks)") $(if $(filter 1,$(checks_only)),--checks-only)
+pr-watch: ## Observe the Copilot review and checks (make pr-watch [pr_num=N] [request=1] [interval=S] [max_polls=K] [expected_checks=N] [checks_only=1])
+	@$(GH) watch $(if $(pr_num),--pr "$(pr_num)") $(if $(filter 1,$(request)),--request-copilot) $(if $(interval),--interval "$(interval)") $(if $(max_polls),--max-polls "$(max_polls)") $(if $(expected_checks),--expected-checks "$(expected_checks)") $(if $(filter 1,$(checks_only)),--checks-only)
 
 pr-merge: ## Merge a PR (squash, delete branch) (make pr-merge [pr_num=N])
 	gh pr merge $(pr_num) --squash --delete-branch
