@@ -47,11 +47,19 @@ jobs:
           else
             status=0
           fi
+          settings_checked=$(sed -n 's/^settings_checked=//p' "$GITHUB_OUTPUT" | tail -n 1)
+          previews_checked=$(sed -n 's/^previews_checked=//p' "$GITHUB_OUTPUT" | tail -n 1)
+          if [ "$settings_checked" = 'true' ] && [ "$previews_checked" = 'true' ]; then
+            checked=true
+          else
+            checked=false
+          fi
           echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "checked=$checked" >> "$GITHUB_OUTPUT"
           exit 0
 
       - name: Open or update repository settings drift issue
-        if: steps.audit.outputs.status != '0'
+        if: steps.audit.outputs.checked == 'true' && steps.audit.outputs.status != '0'
         id: drift-issue
         env:
           GH_TOKEN: ${{ steps.setup.outputs.audit-token }}
@@ -60,13 +68,13 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Close repository settings drift issue when clean
-        if: steps.audit.outputs.status == '0'
+        if: steps.audit.outputs.checked == 'true' && steps.audit.outputs.status == '0'
         env:
           GH_TOKEN: ${{ steps.setup.outputs.audit-token }}
         run: TITLE="Repository settings drift detected" make ci-alert-issue state=close run_url="$RUN_URL"
 
       - name: Summarize audit
-        if: steps.audit.outputs.status == '0'
+        if: steps.audit.outputs.checked == 'true' && steps.audit.outputs.status == '0'
         run: |
           {
             echo "## Repository settings audit"
@@ -88,11 +96,11 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Alert when repository settings audit setup fails
-        if: failure() && steps.audit.outputs.status == ''
+        if: steps.audit.outputs.checked != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: TITLE="Repository settings drift detected" make ci-alert-issue state=setup-failure run_url="$RUN_URL"
 
-      - name: Fail workflow when audit detects drift
-        if: steps.audit.outputs.status != '0'
+      - name: Fail workflow when the audit reports a problem
+        if: steps.audit.outputs.checked != 'true' || steps.audit.outputs.status != '0'
         run: exit 1

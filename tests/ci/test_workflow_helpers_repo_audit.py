@@ -8,12 +8,21 @@ import scripts.ci.repo_audit as repo_audit
 import scripts.ci.workflow_helpers as workflow_helpers
 
 
-def test_collect_named_items_skips_non_lists_and_non_dict_entries() -> None:
-    """Collect named items skips non lists and non dict entries."""
-    assert repo_audit.collect_named_items({"variables": "invalid"}, "variables") == set()
+def test_collect_named_items_rejects_non_lists_and_non_dict_entries() -> None:
+    """Malformed Actions list responses must not be treated as empty lists."""
+    with pytest.raises(RuntimeError, match="must include a variables list"):
+        repo_audit.collect_named_items({"variables": "invalid"}, "variables")
+    with pytest.raises(RuntimeError, match="non-object entry"):
+        repo_audit.collect_named_items({"variables": ["bad", {"name": "APP_ID"}]}, "variables")
+    with pytest.raises(RuntimeError, match="without a name"):
+        repo_audit.collect_named_items({"variables": [{"name": 9}]}, "variables")
+
+
+def test_collect_named_items_returns_non_empty_names() -> None:
+    """Valid Actions list entries are collected without coercion."""
     assert repo_audit.collect_named_items(
-        {"variables": ["bad", {"name": "APP_ID"}, {"name": 9}]}, "variables"
-    ) == {"APP_ID"}
+        {"variables": [{"name": "APP_ID"}, {"name": "AUDIT_APP_ID"}]}, "variables"
+    ) == {"APP_ID", "AUDIT_APP_ID"}
 
 
 def test_extract_required_checks_handles_contexts_and_checks() -> None:
@@ -32,6 +41,16 @@ def test_extract_required_checks_handles_missing_data() -> None:
     """Extract required checks handles missing data."""
     assert repo_audit.extract_required_checks(None) == set()
     assert repo_audit.extract_required_checks({}) == set()
+
+
+def test_extract_required_checks_rejects_malformed_status_checks() -> None:
+    """Malformed required checks fail closed instead of looking like no checks."""
+    with pytest.raises(RuntimeError, match="required status checks must be a JSON object"):
+        repo_audit.extract_required_checks({"required_status_checks": []})
+    with pytest.raises(RuntimeError, match="contexts must be a JSON array"):
+        repo_audit.extract_required_checks({"required_status_checks": {"contexts": {}}})
+    with pytest.raises(RuntimeError, match="checks must be a JSON array"):
+        repo_audit.extract_required_checks({"required_status_checks": {"checks": {}}})
 
 
 def test_ruleset_targets_branch_detects_exact_refs() -> None:
@@ -176,6 +195,84 @@ def test_load_ruleset_detail_returns_input_when_ruleset_has_no_numeric_id(
     ruleset = {"id": "gh-pages-ruleset", "target": "branch"}
     assert workflow_helpers._load_ruleset_detail("owner/repo", ruleset) is ruleset
     assert calls == []
+
+
+def test_load_ruleset_detail_rejects_non_object_rulesets() -> None:
+    """Ruleset summaries must be objects before their fields are inspected."""
+    with pytest.raises(RuntimeError, match="non-object entry"):
+        repo_audit.load_ruleset_detail("owner/repo", [])
+
+
+def _minimal_audit_responses() -> dict[str, object]:
+    """Return typed API responses that reach the settings checks under test."""
+    return {
+        "repos/owner/repo": {"default_branch": "main"},
+        "repos/owner/repo/pages": {"build_type": "workflow", "https_enforced": True},
+        "repos/owner/repo/branches/main/protection": {},
+        "repos/owner/repo/actions/variables": {"variables": []},
+        "repos/owner/repo/actions/secrets": {"secrets": []},
+        "repos/owner/repo/rulesets": [],
+    }
+
+
+def _patch_audit_responses(monkeypatch: pytest.MonkeyPatch, responses: dict[str, object]) -> None:
+    """Route repository audit API calls to a local response map."""
+    monkeypatch.setattr(
+        workflow_helpers,
+        "_run_gh_api_json",
+        lambda endpoint, *_args, **_kwargs: responses[endpoint],
+    )
+
+
+def test_audit_repo_settings_rejects_malformed_core_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Malformed metadata, Pages, and HTTPS fields fail closed."""
+    responses = _minimal_audit_responses()
+    responses["repos/owner/repo"] = {"default_branch": 9}
+    _patch_audit_responses(monkeypatch, responses)
+    with pytest.raises(RuntimeError, match="default_branch"):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+    responses = _minimal_audit_responses()
+    responses["repos/owner/repo/pages"] = {"build_type": None, "https_enforced": True}
+    _patch_audit_responses(monkeypatch, responses)
+    with pytest.raises(RuntimeError, match="build_type"):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+    responses = _minimal_audit_responses()
+    responses["repos/owner/repo/pages"] = {"build_type": "workflow", "https_enforced": "yes"}
+    _patch_audit_responses(monkeypatch, responses)
+    with pytest.raises(RuntimeError, match="https_enforced"):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+
+@pytest.mark.parametrize(
+    ("protection", "error", "message"),
+    [
+        ({}, ValueError, "does not require at least 1 approving review"),
+        ({"required_pull_request_reviews": []}, RuntimeError, "review settings"),
+        (
+            {"required_pull_request_reviews": {"required_approving_review_count": "1"}},
+            RuntimeError,
+            "approval count",
+        ),
+    ],
+    ids=["missing", "wrong-type", "wrong-count-type"],
+)
+def test_audit_repo_settings_validates_review_settings(
+    monkeypatch: pytest.MonkeyPatch,
+    protection: dict[str, object],
+    error: type[Exception],
+    message: str,
+) -> None:
+    """Review requirements must be present and typed before they are trusted."""
+    responses = _minimal_audit_responses()
+    responses["repos/owner/repo/branches/main/protection"] = protection
+    _patch_audit_responses(monkeypatch, responses)
+
+    with pytest.raises(error, match=message):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
 
 
 def test_audit_repo_settings_returns_expected_summary(
@@ -692,3 +789,77 @@ def test_main_audit_repo_settings_prints_json(
         "pages-branch": "gh-pages",
         "repo": "owner/repo",
     }
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (None, "settings_checked=true"),
+        (ValueError("drift"), "settings_checked=true"),
+        (RuntimeError("unreadable"), "settings_checked=false"),
+    ],
+    ids=["healthy", "drift", "setup-failure"],
+)
+def test_audit_handler_records_whether_settings_were_checked(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    error: Exception | None,
+    expected: str,
+) -> None:
+    """The workflow can distinguish settings drift from an unreadable audit response."""
+    output = tmp_path / "github-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+
+    def fake_audit(**_kwargs: object) -> dict[str, object]:
+        if error is not None:
+            raise error
+        return {"ok": True}
+
+    monkeypatch.setattr(workflow_helpers, "audit_repo_settings", fake_audit)
+    args = ["audit-repo-settings", "--repo", "owner/repo"]
+
+    if error is None:
+        assert workflow_helpers.main(args) == 0
+    else:
+        with pytest.raises(type(error), match=str(error)):
+            workflow_helpers.main(args)
+
+    assert output.read_text(encoding="utf-8") == f"{expected}\n"
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (None, "previews_checked=true"),
+        (ValueError("drift"), "previews_checked=true"),
+        (RuntimeError("unreadable"), "previews_checked=false"),
+    ],
+    ids=["healthy", "drift", "setup-failure"],
+)
+def test_preview_handler_records_whether_previews_were_checked(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    capsys: pytest.CaptureFixture[str],
+    error: Exception | None,
+    expected: str,
+) -> None:
+    """Preview audit failures distinguish drift from an unreadable response."""
+    output = tmp_path / "github-output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+
+    def fake_audit(**_kwargs: object) -> list[str]:
+        if error is not None:
+            raise error
+        return ["pr-preview/pr-12"]
+
+    monkeypatch.setattr(workflow_helpers, "audit_previews", fake_audit)
+    args = ["audit-previews", "--repo", "owner/repo"]
+
+    if error is None:
+        assert workflow_helpers.main(args) == 0
+        assert json.loads(capsys.readouterr().out) == {"open-previews": ["pr-preview/pr-12"]}
+    else:
+        with pytest.raises(type(error), match=str(error)):
+            workflow_helpers.main(args)
+
+    assert output.read_text(encoding="utf-8") == f"{expected}\n"
