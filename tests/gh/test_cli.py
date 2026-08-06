@@ -10,8 +10,6 @@ from scripts.gh import ci_status, cli, issues, pr_review, pr_watch
 from scripts.gh.ci_status import RunInfo
 from scripts.gh.gh_runner import GhError
 
-_SINCE = "2026-07-10T12:00:00Z"
-
 
 def test_copilot_review_subcommand_passes_pr(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test copilot review subcommand passes pr."""
@@ -43,10 +41,9 @@ def test_watch_subcommand_passes_options_and_prints_report(
     """The watch command dispatches every CLI option and prints its report."""
     captured: dict[str, object] = {}
 
-    def watch_pr(pr: int | None, since: str | None, **kwargs: object) -> str:
+    def watch_pr(pr: int | None, **kwargs: object) -> str:
         """Record the parsed watch arguments."""
         captured["pr"] = pr
-        captured["since"] = since
         captured.update(kwargs)
         return "watch report"
 
@@ -57,12 +54,12 @@ def test_watch_subcommand_passes_options_and_prints_report(
             "watch",
             "--pr",
             "9",
-            "--since",
-            _SINCE,
             "--interval",
             "2.5",
             "--max-polls",
             "3",
+            "--expected-checks",
+            "17",
             "--checks-only",
         ]
     )
@@ -70,9 +67,9 @@ def test_watch_subcommand_passes_options_and_prints_report(
     assert exit_code == 0
     assert captured == {
         "pr": 9,
-        "since": _SINCE,
         "interval": 2.5,
         "max_polls": 3,
+        "expected_checks": 17,
         "checks_only": True,
     }
     assert capsys.readouterr().out.strip() == "watch report"
@@ -82,10 +79,9 @@ def test_watch_subcommand_uses_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     """The watch command preserves omitted optional values for watch_pr."""
     captured: dict[str, object] = {}
 
-    def watch_pr(pr: int | None, since: str | None, **kwargs: object) -> str:
+    def watch_pr(pr: int | None, **kwargs: object) -> str:
         """Record the default watch arguments."""
         captured["pr"] = pr
-        captured["since"] = since
         captured.update(kwargs)
         return "report"
 
@@ -98,9 +94,9 @@ def test_watch_subcommand_uses_defaults(monkeypatch: pytest.MonkeyPatch) -> None
     assert cli.main(["watch"]) == 0
     assert captured == {
         "pr": None,
-        "since": None,
         "interval": 45.0,
         "max_polls": 40,
+        "expected_checks": pr_watch.DEFAULT_EXPECTED_CHECKS,
         "checks_only": False,
     }
 

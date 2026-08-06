@@ -35,6 +35,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Make maps every failing recipe to exit code 2, so the Python
+          # watchdog writes `checked=true|false` for the alert decision.
           set +e
           make ci-schedule-watchdog > schedule-watchdog.txt 2>&1
           status=$?
@@ -44,7 +46,7 @@ jobs:
           exit 0
 
       - name: Open or update stale schedule issue
-        if: steps.watchdog.outputs.status != '0'
+        if: steps.watchdog.outputs.checked == 'true' && steps.watchdog.outputs.status != '0'
         id: watchdog-issue
         env:
           GH_TOKEN: ${{ github.token }}
@@ -53,17 +55,17 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Close stale schedule issue when clean
-        if: steps.watchdog.outputs.status == '0'
+        if: steps.watchdog.outputs.checked == 'true' && steps.watchdog.outputs.status == '0'
         env:
           GH_TOKEN: ${{ github.token }}
         run: TITLE="$ALERT_TITLE" make ci-alert-issue state=close run_url="$RUN_URL"
 
       - name: Alert when watchdog setup fails
-        if: failure() && steps.watchdog.outputs.status == ''
+        if: steps.watchdog.outputs.checked != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: TITLE="$ALERT_TITLE" make ci-alert-issue state=setup-failure run_url="$RUN_URL"
 
-      - name: Fail workflow when schedules are stale
+      - name: Fail workflow when the watchdog reports a problem
         if: steps.watchdog.outputs.status != '0'
         run: exit 1

@@ -33,7 +33,8 @@ PLAYWRIGHT_BROWSERS := chromium webkit
 PLAYWRIGHT_ENGINE_ARGS = $(subst -, ,$(strip $(engines)))
 PLAYWRIGHT_INVALID_ENGINES = $(filter-out $(PLAYWRIGHT_BROWSERS),$(PLAYWRIGHT_ENGINE_ARGS))
 PLAYWRIGHT_LOCAL_RUNTIME := $(VENV_PYTHON) scripts/setup/playwright_local_runtime.py
-PLAYWRIGHT_LOCAL_RUN = $(if $(filter 1,$(local_libs)),$(PLAYWRIGHT_LOCAL_RUNTIME) run --,)
+PLAYWRIGHT_LOCAL_ENV = PLAYWRIGHT_VENV="$(VENV)"
+PLAYWRIGHT_LOCAL_RUN = $(if $(filter 1,$(local_libs)),$(PLAYWRIGHT_LOCAL_ENV) $(PLAYWRIGHT_LOCAL_RUNTIME) run --,)
 
 # Entry point for tested GitHub PR/CI helpers. Keep Make targets as thin
 # wrappers so GitHub behavior is testable Python instead of inline shell.
@@ -136,23 +137,23 @@ setup-playwright-webkit-ci: ## Install WebKit with system deps
 # strands the other. Preparing again after the browser install patches the shared
 # WebKit launcher so it appends the inherited library path.
 setup-playwright-local: ## Install Chromium and the private Ubuntu/Debian runtime without sudo
-	$(PLAYWRIGHT_LOCAL_RUNTIME) prepare --engine chromium
+	$(PLAYWRIGHT_LOCAL_ENV) $(PLAYWRIGHT_LOCAL_RUNTIME) prepare --engine chromium
 	PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 $(VENV)/bin/playwright install chromium
-	$(PLAYWRIGHT_LOCAL_RUNTIME) prepare --engine chromium
+	$(PLAYWRIGHT_LOCAL_ENV) $(PLAYWRIGHT_LOCAL_RUNTIME) prepare --engine chromium
 
 setup-playwright-webkit-local: ## Install WebKit and extend the private runtime to its libraries
-	$(PLAYWRIGHT_LOCAL_RUNTIME) prepare --engine webkit
+	$(PLAYWRIGHT_LOCAL_ENV) $(PLAYWRIGHT_LOCAL_RUNTIME) prepare --engine webkit
 	PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 $(VENV)/bin/playwright install webkit
-	$(PLAYWRIGHT_LOCAL_RUNTIME) prepare --engine webkit
+	$(PLAYWRIGHT_LOCAL_ENV) $(PLAYWRIGHT_LOCAL_RUNTIME) prepare --engine webkit
 
 playwright-local-status: ## Show repository-local Playwright runtime status
-	$(PLAYWRIGHT_LOCAL_RUNTIME) status
+	$(PLAYWRIGHT_LOCAL_ENV) $(PLAYWRIGHT_LOCAL_RUNTIME) status
 
 playwright-local-gate: ## Launch every prepared engine in the private runtime
-	$(PLAYWRIGHT_LOCAL_RUNTIME) probe
+	$(PLAYWRIGHT_LOCAL_ENV) $(PLAYWRIGHT_LOCAL_RUNTIME) probe
 
 playwright-local-clean: ## Remove only the repository-local Playwright cache (keeps shared browsers)
-	$(PLAYWRIGHT_LOCAL_RUNTIME) clean
+	$(PLAYWRIGHT_LOCAL_ENV) $(PLAYWRIGHT_LOCAL_RUNTIME) clean
 
 # ─── Lint @lint ───────────────────────────────────────────────────────────────
 
@@ -404,7 +405,9 @@ security: audit-python audit-node ## Run dependency audits
 audit-python: ## Export locked Python deps and run pip-audit
 	mkdir -p .artifacts
 	$(UV) export --all-groups --frozen --no-emit-project --format requirements.txt --output-file .artifacts/requirements-audit.txt
-	$(VENV_PYTHON) scripts/ci/run_security_audit.py --requirements .artifacts/requirements-audit.txt
+	$(VENV_PYTHON) scripts/ci/run_security_audit.py \
+		--requirements .artifacts/requirements-audit.txt \
+		--pip-audit "$(VENV_PYTHON) -m pip_audit"
 
 audit-node: ## Run policy-driven npm dependency audit with reviewed exceptions
 	$(VENV_PYTHON) scripts/ci/run_npm_audit.py --npm "$(NPM)"
@@ -427,7 +430,7 @@ fix: fmt check-local ## Auto-fix formatting, then run the full non-browser local
 
 # ─── Utilities @util ──────────────────────────────────────────────────────────
 
-.PHONY: lock lock-node lock-node-update fix-deps align-tables align-tables-check status clean help help-json
+.PHONY: lock lock-node lock-node-update fix-deps align-tables align-tables-check status clean-venv clean help help-json
 
 lock: ## Refresh uv.lock after Python dependency changes
 	$(UV) lock
@@ -455,26 +458,13 @@ align-tables-check: ## Check markdown table pipe alignment without modifying fil
 status: ## Show workspace health (git, venv, node, generated files, PR)
 	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.workspace_status --venv-python "$(VENV_PYTHON)" --uv "$(UV)" --npm "$(NPM)"
 
-# Only repository-local state is removable here. Playwright's browsers live in
-# the shared ~/.cache/ms-playwright cache that every project on the machine
-# reuses, so this target must never grow a path that reaches outside the repo.
-# Every other path below is a fixed repository-relative literal, so VENV is the
-# one way this rm -rf can be aimed elsewhere. It is ?=, and make imports the
-# environment, so an unrelated exported VENV would silently redirect it. Make
-# functions split on whitespace, so a VENV holding spaces would expand into
-# several paths that each pass a containment filter and each get deleted. Keep
-# the value only when VENV is a single word that resolves under CURDIR, and let
-# the recipe refuse the empty result rather than delete a shorter path. The
-# expansion is quoted in the recipe too, while the fixed literals stay unquoted
-# so *.egg-info still globs.
-CLEAN_VENV = $(if $(filter 1,$(words $(VENV))),$(filter $(CURDIR)/%,$(abspath $(VENV))))
+clean-venv: export CLEAN_REPO_ROOT := $(CURDIR)
+clean-venv: export CLEAN_VENV := $(VENV)
+clean-venv: ## Safely remove the repository-local Python virtual environment
+	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.setup.clean_venv
 
-clean: ## Remove local environments, build outputs, and caches (keeps shared Playwright browsers)
-	@test -n "$(CLEAN_VENV)" || { \
-		printf 'Refusing to clean: VENV=%s is not a single path under %s\n' "$(VENV)" "$(CURDIR)" >&2; \
-		exit 1; \
-	}
-	rm -rf "$(CLEAN_VENV)" node_modules _site .artifacts .playwright .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
+clean: clean-venv ## Remove local environments, build outputs, and caches (keeps shared Playwright browsers)
+	rm -rf node_modules _site .artifacts .playwright .pytest_cache .ruff_cache .mypy_cache .coverage htmlcov coverage playwright-report test-results build dist *.egg-info
 
 help: ## Show command groups (expand one with make help-<group>)
 	@printf '\n  \033[1mmake <target>\033[0m   ·   expand a group: \033[1mmake help-<group>\033[0m   ·   machine-readable: \033[1mmake help-json\033[0m\n'
@@ -684,8 +674,8 @@ pr-comment-delete: ## Delete a review comment by node id (make pr-comment-delete
 pr-summary: ## One-screen PR overview: state, CI rollup, open threads (make pr-summary [pr_num=N])
 	@$(GH) summary $(if $(pr_num),--pr $(pr_num))
 
-pr-watch: ## Wait until PR checks settle and a fresh Copilot review lands (make pr-watch [pr_num=N] [since=ISO] [interval=S] [max_polls=K] [checks_only=1])
-	@$(GH) watch $(if $(pr_num),--pr $(pr_num)) $(if $(since),--since "$(since)") $(if $(interval),--interval $(interval)) $(if $(max_polls),--max-polls $(max_polls)) $(if $(filter 1,$(checks_only)),--checks-only)
+pr-watch: ## Request Copilot and wait for fresh review plus complete checks (make pr-watch [pr_num=N] [interval=S] [max_polls=K] [expected_checks=N] [checks_only=1])
+	@$(GH) watch $(if $(pr_num),--pr "$(pr_num)") $(if $(interval),--interval "$(interval)") $(if $(max_polls),--max-polls "$(max_polls)") $(if $(expected_checks),--expected-checks "$(expected_checks)") $(if $(filter 1,$(checks_only)),--checks-only)
 
 pr-merge: ## Merge a PR (squash, delete branch) (make pr-merge [pr_num=N])
 	gh pr merge $(pr_num) --squash --delete-branch

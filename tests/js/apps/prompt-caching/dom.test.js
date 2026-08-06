@@ -98,6 +98,13 @@ test('tokenizer renders colored tokens and an ID view', () => {
   });
 });
 
+test('tokenizer exits safely when required controls are missing', () => {
+  withHarness((h) => {
+    delete h.registry.tokCount;
+    assert.doesNotThrow(() => initTokenizer());
+  });
+});
+
 // --- embeddings.js ---
 
 test('embeddings drives the dimension explorer and similarity playground', () => {

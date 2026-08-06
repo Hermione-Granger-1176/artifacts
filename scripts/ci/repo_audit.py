@@ -45,13 +45,17 @@ def collect_named_items(payload: dict[str, object], key: str) -> set[str]:
     """Collect string ``name`` fields from a GitHub API list payload."""
     items = payload.get(key)
     if not isinstance(items, list):
-        return set()
+        raise RuntimeError(f"Actions {key} response must include a {key} list")
 
-    return {
-        item["name"]
-        for item in items
-        if isinstance(item, dict) and isinstance(item.get("name"), str)
-    }
+    names: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise RuntimeError(f"Actions {key} response contains a non-object entry")
+        name = item.get("name")
+        if not isinstance(name, str) or not name:
+            raise RuntimeError(f"Actions {key} response contains an entry without a name")
+        names.add(name)
+    return names
 
 
 def append_missing_items(
@@ -69,16 +73,23 @@ def extract_required_checks(protection: object) -> set[str]:
         return set()
 
     required_status_checks = protection.get("required_status_checks")
-    if not isinstance(required_status_checks, dict):
+    if required_status_checks is None:
         return set()
+    if not isinstance(required_status_checks, dict):
+        raise RuntimeError("Branch protection required status checks must be a JSON object")
 
     contexts = required_status_checks.get("contexts")
     checks = required_status_checks.get("checks")
-    names = {str(context) for context in (contexts or []) if isinstance(context, str) and context}
+    if contexts is not None and not isinstance(contexts, list):
+        raise RuntimeError("Branch protection contexts must be a JSON array")
+    if checks is not None and not isinstance(checks, list):
+        raise RuntimeError("Branch protection checks must be a JSON array")
+
+    names = {context for context in (contexts or []) if isinstance(context, str) and context}
     names.update(
-        str(item.get("context"))
+        item["context"]
         for item in (checks or [])
-        if isinstance(item, dict) and isinstance(item.get("context"), str)
+        if isinstance(item, dict) and isinstance(item.get("context"), str) and item["context"]
     )
     return names
 
@@ -126,9 +137,9 @@ def ruleset_id(ruleset: object) -> int | None:
         return None
 
     ruleset_value = ruleset.get("id")
-    if isinstance(ruleset_value, int):
+    if isinstance(ruleset_value, int) and not isinstance(ruleset_value, bool) and ruleset_value > 0:
         return ruleset_value
-    if isinstance(ruleset_value, str) and ruleset_value.isdigit():
+    if isinstance(ruleset_value, str) and ruleset_value.isdigit() and int(ruleset_value) > 0:
         return int(ruleset_value)
     return None
 
@@ -140,6 +151,8 @@ def load_ruleset_detail(
     run_gh_api_json_fn: Callable[..., object] = run_gh_api_json,
 ) -> object:
     """Fetch one ruleset detail payload when the summary response is incomplete."""
+    if not isinstance(ruleset, dict):
+        raise RuntimeError("Rulesets response contains a non-object entry")
     if isinstance(ruleset, dict) and isinstance(ruleset.get("conditions"), dict):
         return ruleset
 
@@ -236,6 +249,8 @@ def audit_repo_settings(
 
     issues = []
     actual_default_branch = repository.get("default_branch")
+    if not isinstance(actual_default_branch, str) or not actual_default_branch:
+        raise RuntimeError("Repository metadata must include a string default_branch")
     if actual_default_branch != default_branch:
         issues.append(f"default branch is {actual_default_branch!r} instead of {default_branch!r}")
 
@@ -244,7 +259,11 @@ def audit_repo_settings(
     pages_source_branch = pages_source.get("branch")
     pages_source_path = pages_source.get("path") or "/"
     pages_build_type = pages.get("build_type")
+    if not isinstance(pages_build_type, str) or not pages_build_type:
+        raise RuntimeError("Pages settings must include a string build_type")
     pages_https_enforced = pages.get("https_enforced")
+    if not isinstance(pages_https_enforced, bool):
+        raise RuntimeError("Pages settings must include a boolean https_enforced value")
     if pages_build_type == "legacy":
         if pages_source_branch != pages_branch:
             issues.append(
@@ -277,11 +296,16 @@ def audit_repo_settings(
         )
 
     review_settings = protection.get("required_pull_request_reviews")
-    if (
-        not isinstance(review_settings, dict)
-        or int(review_settings.get("required_approving_review_count", 0)) < 1
-    ):
+    if review_settings is None:
         issues.append(f"{branch_label} does not require at least 1 approving review")
+    elif not isinstance(review_settings, dict):
+        raise RuntimeError("Branch protection review settings must be a JSON object")
+    else:
+        approvals = review_settings.get("required_approving_review_count", 0)
+        if not isinstance(approvals, int) or isinstance(approvals, bool):
+            raise RuntimeError("Branch protection approval count must be an integer")
+        if approvals < 1:
+            issues.append(f"{branch_label} does not require at least 1 approving review")
 
     for key, message in (
         ("required_signatures", f"{branch_label} does not require signed commits"),

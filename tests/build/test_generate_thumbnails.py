@@ -111,6 +111,24 @@ def test_find_artifacts_returns_empty_when_apps_dir_is_missing(
     assert generate_thumbnails.find_artifacts() == []
 
 
+def test_find_artifacts_rejects_a_non_directory_or_symlinked_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Thumbnail discovery never serves files outside the artifact root."""
+    apps_dir = tmp_path / "apps"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    monkeypatch.setattr(generate_thumbnails, "APPS_DIR", apps_dir)
+    apps_dir.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(ValueError, match="must not be a symlinked path"):
+        generate_thumbnails.find_artifacts()
+
+    apps_dir.unlink()
+    apps_dir.write_text("not a directory", encoding="utf-8")
+    with pytest.raises(ValueError, match="Artifact root must be a directory"):
+        generate_thumbnails.find_artifacts()
+
+
 def test_find_artifacts_honors_configured_slug_scope(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -285,6 +303,24 @@ def test_generate_thumbnails_writes_manifest_when_requested(
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert stats["skipped"] == 1
     assert payload["artifacts"] == ["loan-tool"]
+
+
+def test_generate_thumbnails_rejects_a_symlinked_manifest_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Thumbnail manifests cannot redirect writes through a symlink."""
+    manifest_target = tmp_path / "manifest-target.json"
+    manifest_target.write_text("keep", encoding="utf-8")
+    manifest = tmp_path / "manifest.json"
+    manifest.symlink_to(manifest_target)
+    monkeypatch.setenv(generate_thumbnails.THUMBNAIL_MANIFEST_ENV_VAR, str(manifest))
+
+    with pytest.raises(ValueError, match="must not be a symlinked path"):
+        generate_thumbnails._write_manifest(
+            [], {"total": 0, "attempted": 0, "generated": 0, "skipped": 0, "failed": 0}
+        )
+
+    assert manifest_target.read_text(encoding="utf-8") == "keep"
 
 
 def test_generate_thumbnails_rejects_manifest_outside_repo_root(

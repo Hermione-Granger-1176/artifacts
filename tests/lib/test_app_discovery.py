@@ -35,6 +35,17 @@ def test_shared_app_runtime_paths_are_rooted(tmp_path: Path) -> None:
     )
 
 
+def test_shared_app_runtime_paths_rejects_symlinked_modules(tmp_path: Path) -> None:
+    """Shared runtime discovery never follows a symlinked module tree."""
+    modules = tmp_path / "modules"
+    modules.mkdir()
+    (tmp_path / "js").mkdir()
+    (tmp_path / "js" / "modules").symlink_to(modules, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="must not be a symlinked path"):
+        app_discovery.shared_app_runtime_paths(tmp_path)
+
+
 def test_artifact_uses_shared_app_runtime_detects_local_entrypoints(
     tmp_path: Path,
 ) -> None:
@@ -84,6 +95,27 @@ def test_discover_and_missing_thumbnail_helpers(tmp_path: Path) -> None:
 
     assert app_discovery.discover_app_slugs(apps_root) == ["alpha", "beta"]
     assert app_discovery.missing_thumbnail_slugs(apps_root) == ["alpha"]
+
+
+def test_discover_app_slugs_rejects_symlinks_and_non_directory_roots(tmp_path: Path) -> None:
+    """App discovery fails closed for redirected or malformed roots."""
+    target = tmp_path / "target"
+    target.mkdir()
+    linked = tmp_path / "apps-link"
+    linked.symlink_to(target, target_is_directory=True)
+    with pytest.raises(ValueError, match="must not be a symlinked path"):
+        app_discovery.discover_app_slugs(linked)
+
+    apps_file = tmp_path / "apps-file"
+    apps_file.write_text("not a directory", encoding="utf-8")
+    with pytest.raises(ValueError, match="App root must be a directory"):
+        app_discovery.discover_app_slugs(apps_file)
+
+    apps_root = tmp_path / "apps"
+    apps_root.mkdir()
+    (apps_root / "linked-child").symlink_to(target, target_is_directory=True)
+    with pytest.raises(ValueError, match="tree containing symlink"):
+        app_discovery.discover_app_slugs(apps_root)
 
 
 def test_runtime_change_plan_handles_changed_and_shared_runtime_paths() -> None:

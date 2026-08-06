@@ -314,12 +314,15 @@ export function validateArtifactsData(value, artifactContract = DEFAULT_CONFIG.a
   assertShape(Array.isArray(value), 'window.ARTIFACTS_DATA must be an array');
 
   const idRegex = compileArtifactIdRegex(contract);
+  const seenIds = new Set();
 
   value.forEach(/** @param {*} item @param {number} index */ (item, index) => {
     const path = `window.ARTIFACTS_DATA[${index}]`;
     assertShape(isPlainObject(item), `${path} must be an object`);
     assertShape(typeof item.id === 'string', `${path}.id must be a string`);
     assertShape(matchesArtifactId(item.id, contract, idRegex), `${path}.id must match the artifact id pattern`);
+    assertShape(!seenIds.has(item.id), `${path}.id must be unique`);
+    seenIds.add(item.id);
     assertShape(typeof item.name === 'string', `${path}.name must be a string`);
     validateArtifactUrl(item.url, `${path}.url`, item.id, contract, idRegex);
 

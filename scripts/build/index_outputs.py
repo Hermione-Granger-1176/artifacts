@@ -8,6 +8,8 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, TypedDict, cast
 
+from scripts.lib.path_validation import reject_path_symlinks
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -35,12 +37,25 @@ class GalleryMetadata(TypedDict):
     tags: list[dict[str, str | None]]
 
 
+def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """Reject duplicate JSON keys instead of silently accepting the last value."""
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"Gallery metadata contains a duplicate key: {key}")
+        result[key] = value
+    return result
+
+
 def read_gallery_metadata(metadata_file: Path) -> GalleryMetadata:
     """Load shared gallery metadata used by generators and the frontend."""
-    if not metadata_file.exists():
+    reject_path_symlinks(metadata_file, label="Gallery metadata")
+    if not metadata_file.is_file():
         raise FileNotFoundError(f"Gallery metadata file not found: {metadata_file}")
 
-    metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
+    metadata = json.loads(
+        metadata_file.read_text(encoding="utf-8"), object_pairs_hook=_reject_duplicate_keys
+    )
     if not isinstance(metadata, dict):
         raise ValueError("Gallery metadata must be a JSON object")
 
@@ -59,14 +74,27 @@ def validate_gallery_metadata_entries(group: str, entries: object) -> None:
         raise ValueError(f"Gallery metadata '{group}' must be a list")
 
     required_fields = ("id", "label", "color", "alt")
+    seen_ids: set[str] = set()
     for entry in entries:
         if not isinstance(entry, dict):
             raise ValueError(f"Gallery metadata '{group}' entries must be objects")
-        missing = [field for field in required_fields if not entry.get(field)]
+        missing: list[str] = []
+        for field in required_fields:
+            value = entry.get(field)
+            if not isinstance(value, str) or not value.strip():
+                missing.append(field)
         if missing:
             raise ValueError(
                 f"Gallery metadata '{group}' entries must include " + ", ".join(missing)
             )
+        entry_id = cast("str", entry["id"])
+        if entry_id in seen_ids:
+            raise ValueError(f"Gallery metadata '{group}' contains duplicate id: {entry_id}")
+        seen_ids.add(entry_id)
+        for field in ("logo", "logo_color"):
+            value = entry.get(field)
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"Gallery metadata '{group}' field {field} must be a string")
 
 
 def display_order(entries: Sequence[MetadataEntry]) -> list[str]:

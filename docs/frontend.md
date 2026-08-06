@@ -36,6 +36,7 @@ Shared modules (under `js/modules/`):
 
 - `js/modules/runtime.js`: startup status, error reporting, and guarded localStorage access
 - `js/modules/app-runtime.js`: mature-app bootstrap with fatal error handling
+- `js/modules/dom-events.js`: safe `closest()` lookup for delegated event targets
 - `js/modules/element-cache.js`: DOM element caching by ID
 - `js/modules/app-shell.js`: runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
 - `js/modules/html-escape.js`: `escapeHtml()` and `escapeAttribute()` helpers; the gallery `render.js` re-exports `escapeHtml()`, and app modules import the helpers they need directly

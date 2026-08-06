@@ -23,15 +23,20 @@ if TYPE_CHECKING:
 OS_RELEASE = Path("/etc/os-release")
 
 
-def install_fake_playwright(repo_root: Path, version: str = "1.61.0") -> Path:
+def install_fake_playwright(
+    repo_root: Path,
+    version: str = "1.61.0",
+    venv_directory: str = runtime.VENV_DIRECTORY,
+) -> Path:
     """Install a virtual-environment Playwright CLI and distribution metadata."""
-    executable = repo_root / runtime.VENV_DIRECTORY / "bin" / "playwright"
+    venv_root = repo_root / venv_directory
+    executable = venv_root / "bin" / "playwright"
     executable.parent.mkdir(parents=True, exist_ok=True)
     executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     executable.chmod(0o755)
     dist_info = (
         repo_root
-        / runtime.VENV_DIRECTORY
+        / venv_directory
         / "lib"
         / "python3.12"
         / "site-packages"
@@ -371,6 +376,44 @@ def test_playwright_version_rejects_an_unsafe_version(tmp_path: Path) -> None:
     install_fake_playwright(paths.repo_root, version="1!2.0")
 
     with pytest.raises(runtime.RuntimeSetupError, match="invalid version"):
+        runtime.playwright_version(paths)
+
+
+def test_playwright_discovery_honors_a_custom_in_repo_virtual_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Custom Make VENV values must identify the environment that runs Playwright."""
+    paths = runtime.RuntimePaths.from_repo(tmp_path)
+    custom = "build-venv"
+    install_fake_playwright(paths.repo_root, venv_directory=custom)
+    monkeypatch.setenv(runtime.VENV_ENV_VAR, custom)
+
+    assert runtime.playwright_cli(paths) == tmp_path / custom / "bin" / "playwright"
+    assert runtime.playwright_version(paths) == "1.61.0"
+
+
+def test_playwright_discovery_accepts_an_absolute_in_repo_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An absolute custom environment remains valid when it stays inside the repo."""
+    paths = runtime.RuntimePaths.from_repo(tmp_path)
+    custom = tmp_path / "absolute-venv"
+    install_fake_playwright(paths.repo_root, venv_directory=custom.name)
+    monkeypatch.setenv(runtime.VENV_ENV_VAR, str(custom))
+
+    assert runtime.playwright_cli(paths) == custom / "bin" / "playwright"
+
+
+def test_playwright_discovery_rejects_an_environment_outside_the_repo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A configured virtual environment cannot redirect setup to another tree."""
+    paths = runtime.RuntimePaths.from_repo(tmp_path)
+    monkeypatch.setenv(runtime.VENV_ENV_VAR, "../outside-venv")
+
+    with pytest.raises(RuntimeError, match="must remain under the repository"):
+        runtime.playwright_cli(paths)
+    with pytest.raises(RuntimeError, match="must remain under the repository"):
         runtime.playwright_version(paths)
 
 

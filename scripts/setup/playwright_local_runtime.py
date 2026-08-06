@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 MANIFEST_SCHEMA = 1
 ENGINES = ("chromium", "webkit")
 VENV_DIRECTORY = ".venv"
+VENV_ENV_VAR = "PLAYWRIGHT_VENV"
 PACKAGE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+_.-]*(?::[A-Za-z0-9][A-Za-z0-9+_.-]*)?$")
 PACKAGE_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+_.:~%-]*$")
 DIST_INFO_RE = re.compile(r"^playwright-([A-Za-z0-9][A-Za-z0-9+_.!-]*)\.dist-info$")
@@ -205,6 +206,13 @@ def is_within(path: Path, parent: Path) -> bool:
     return True
 
 
+def venv_root(paths: RuntimePaths) -> Path:
+    """Return the configured virtual-environment root without trusting escapes."""
+    configured = os.environ.get(VENV_ENV_VAR, VENV_DIRECTORY)
+    candidate = Path(configured)
+    return candidate if candidate.is_absolute() else paths.repo_root / candidate
+
+
 def require_regular_directory(path: Path, label: str) -> None:
     """Reject symlinked roots before reading, creating, or deleting their contents."""
     # lstat (unlike exists) does not follow symlinks, so a dangling symlink is
@@ -340,7 +348,10 @@ def current_host() -> HostPlatform:
 
 def playwright_cli(paths: RuntimePaths) -> Path:
     """Find the virtual-environment Playwright command without a global lookup."""
-    executable = paths.repo_root / VENV_DIRECTORY / "bin" / "playwright"
+    environment = venv_root(paths)
+    if not is_within(environment, paths.repo_root):
+        raise fail("configured Playwright virtual environment must remain under the repository")
+    executable = environment / "bin" / "playwright"
     if not executable.is_file() or not is_within(executable, paths.repo_root):
         raise fail("repository Playwright is missing; run make setup before local runtime setup")
     return executable
@@ -354,11 +365,12 @@ def playwright_version(paths: RuntimePaths) -> str:
     range. Reading the directory name keeps this dependency-free and fast enough
     to re-check before every wrapped command.
     """
+    environment = venv_root(paths)
+    if not is_within(environment, paths.repo_root):
+        raise fail("configured Playwright virtual environment must remain under the repository")
     versions = {
         match.group(1)
-        for site_packages in (paths.repo_root / VENV_DIRECTORY / "lib").glob(
-            "python*/site-packages"
-        )
+        for site_packages in (environment / "lib").glob("python*/site-packages")
         for entry in site_packages.glob("playwright-*.dist-info")
         if (match := DIST_INFO_RE.fullmatch(entry.name)) is not None
     }

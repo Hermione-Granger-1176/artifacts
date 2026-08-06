@@ -14,6 +14,7 @@ from scripts.lib.app_discovery import (
     missing_thumbnail_slugs,
     runtime_change_plan,
 )
+from scripts.lib.artifact_contract import ArtifactContract
 from scripts.lib.artifact_contract import load_contract as _load_contract
 from scripts.lib.gh_api import run_gh_api, run_gh_api_json
 from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
@@ -22,19 +23,10 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-def _build_thumbnail_pattern() -> str:
-    """Build the thumbnail path regex from the shared artifact contract."""
-    contract = _load_contract()
-    base = re.escape(contract["artifactBasePath"])
-    thumb = re.escape(contract["thumbnailFile"])
-    return rf"^{base}/[a-z0-9-]+/{thumb}$"
-
-
 THUMBNAIL_FOLLOWUP_BRANCH_PREFIX = "ci/save-generated-thumbnails"
 THUMBNAIL_FOLLOWUP_PR_TITLE = "Save generated app thumbnails"
 THUMBNAIL_FOLLOWUP_PR_MARKER = "<!-- artifacts:generated-thumbnails -->"
 THUMBNAIL_ARTIFACT_PLAN_FILE = Path("plan.json")
-THUMBNAIL_PATTERN = _build_thumbnail_pattern()
 _THUMBNAIL_FILE = _load_contract()["thumbnailFile"]
 
 
@@ -132,7 +124,21 @@ def list_commit_files(
 
 def _all_thumbnail_files(files: list[str]) -> bool:
     """Return True when every file matches the thumbnail pattern."""
-    return bool(files) and all(re.match(THUMBNAIL_PATTERN, f) for f in files)
+    if not files:
+        return False
+
+    contract: ArtifactContract = _load_contract()
+    artifact_id_re = re.compile(contract["artifactIdPattern"])
+    for filename in files:
+        parts = filename.split("/")
+        if (
+            len(parts) != 3
+            or parts[0] != contract["artifactBasePath"]
+            or parts[2] != contract["thumbnailFile"]
+            or artifact_id_re.fullmatch(parts[1]) is None
+        ):
+            return False
+    return True
 
 
 def is_automated_thumbnail_commit(
@@ -340,6 +346,11 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
 def thumbnail_targets(*, thumbnail_scope: str, changed_slugs: list[str]) -> list[Path]:
     """Return thumbnail paths that should be invalidated for the thumbnail scope."""
     apps_root = Path(artifact_base_path())
+    reject_path_symlinks(apps_root, label="Artifact root")
+    if apps_root.exists():
+        if not apps_root.is_dir():
+            raise ValueError(f"Artifact root must be a directory: {apps_root}")
+        reject_symlinks(apps_root)
 
     if thumbnail_scope == "all":
         if not apps_root.exists():
@@ -351,11 +362,13 @@ def thumbnail_targets(*, thumbnail_scope: str, changed_slugs: list[str]) -> list
         )
 
     if thumbnail_scope == "changed":
-        return [
-            apps_root / slug / _THUMBNAIL_FILE
-            for slug in changed_slugs
-            if (apps_root / slug / _THUMBNAIL_FILE).exists()
-        ]
+        targets: list[Path] = []
+        for slug in changed_slugs:
+            thumbnail = apps_root / slug / _THUMBNAIL_FILE
+            reject_path_symlinks(thumbnail, label="Thumbnail target")
+            if thumbnail.exists():
+                targets.append(thumbnail)
+        return targets
 
     return []
 
@@ -385,6 +398,7 @@ def invalidate_thumbnails(
     )
 
     for thumb in targets:
+        reject_path_symlinks(thumb, label="Thumbnail target")
         thumb.unlink()
         invalidated.append(str(thumb))
         print(f"Invalidating {thumb}")

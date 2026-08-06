@@ -611,6 +611,64 @@ def test_scaffold_artifact_rejects_existing_directory_before_reading_source(
     assert capsys.readouterr().err == ""
 
 
+def test_scaffold_artifact_rejects_an_existing_test_directory_before_reading_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stale test directory cannot be overwritten by a new scaffold."""
+    _, tests_js_apps_dir = _install_temp_roots(tmp_path, monkeypatch)
+    (tests_js_apps_dir / "budget-tracker").mkdir(parents=True)
+    source = tmp_path / "provided.html"
+    source.write_text("<html><head></head><body></body></html>", encoding="utf-8")
+
+    def _fail_read(_path: str) -> str:
+        raise AssertionError("source HTML must not be read when the test directory exists")
+
+    monkeypatch.setattr(scaffold_artifact, "_read_source_html", _fail_read)
+
+    with pytest.raises(FileExistsError, match="Artifact test directory already exists"):
+        scaffold_artifact.scaffold_artifact("budget-tracker", source_html=str(source))
+
+
+def test_scaffold_artifact_rejects_symlinked_output_roots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scaffolding never writes through a redirected apps or test root."""
+    apps_dir = tmp_path / "apps"
+    outside_apps = tmp_path / "outside-apps"
+    outside_apps.mkdir()
+    apps_dir.symlink_to(outside_apps, target_is_directory=True)
+    tests_js_apps_dir = tmp_path / "tests" / "js" / "apps"
+    monkeypatch.setattr(scaffold_artifact, "APPS_DIR", apps_dir)
+    monkeypatch.setattr(scaffold_artifact, "TESTS_JS_APPS_DIR", tests_js_apps_dir)
+
+    with pytest.raises(ValueError, match=r"Artifact root.*symlinked path"):
+        scaffold_artifact.scaffold_artifact("budget-tracker")
+
+    apps_dir.unlink()
+    apps_dir.mkdir()
+    outside_tests = tmp_path / "outside-tests"
+    outside_tests.mkdir()
+    tests_js_apps_dir.parent.mkdir(parents=True)
+    tests_js_apps_dir.symlink_to(outside_tests, target_is_directory=True)
+
+    with pytest.raises(ValueError, match=r"Artifact test root.*symlinked path"):
+        scaffold_artifact.scaffold_artifact("budget-tracker")
+
+
+def test_scaffold_artifact_rejects_non_directory_output_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scaffolding does not treat a regular file as an output directory."""
+    apps_dir = tmp_path / "apps"
+    apps_dir.write_text("not a directory", encoding="utf-8")
+    tests_js_apps_dir = tmp_path / "tests" / "js" / "apps"
+    monkeypatch.setattr(scaffold_artifact, "APPS_DIR", apps_dir)
+    monkeypatch.setattr(scaffold_artifact, "TESTS_JS_APPS_DIR", tests_js_apps_dir)
+
+    with pytest.raises(ValueError, match=r"Artifact root must be a directory"):
+        scaffold_artifact.scaffold_artifact("budget-tracker")
+
+
 def test_main_scaffolds_artifact_and_returns_zero(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

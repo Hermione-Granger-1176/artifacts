@@ -1,4 +1,5 @@
 import { getPageNumbers } from './catalog.js';
+import { closest } from '../dom-events.js';
 import { escapeHtml } from '../html-escape.js';
 
 export { escapeHtml };
@@ -321,7 +322,7 @@ export function handleThumbnailError(event) {
     return;
   }
 
-  const frame = target.closest('.card-photo-frame');
+  const frame = closest(event, '.card-photo-frame');
   const parent = frame?.parentNode;
   if (!frame || !parent) {
     return;

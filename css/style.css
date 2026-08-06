@@ -1506,10 +1506,15 @@ body.artifact-app .brand-link {
 
 }
 
-body.artifact-app .brand-link:hover,
+body.artifact-app .brand-link:hover {
+  color: var(--color-amber);
+
+}
+
 body.artifact-app .brand-link:focus-visible {
   color: var(--color-amber);
-  outline: none;
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 
 }
 
@@ -1548,11 +1553,17 @@ body.artifact-app .icon-button {
 
 }
 
-body.artifact-app .icon-button:hover,
+body.artifact-app .icon-button:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-blue);
+
+}
+
 body.artifact-app .icon-button:focus-visible {
   transform: translateY(-1px);
   border-color: var(--color-blue);
-  outline: none;
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 
 }
 
@@ -1637,13 +1648,12 @@ body.artifact-app .btn-add {
 body.artifact-app .btn-add:hover,
 body.artifact-app .btn-add:focus-visible {
   background: rgb(130, 180, 218);
-  outline: none;
 
 }
 
 body.artifact-app .btn-primary {
   background: var(--app-accent, var(--color-blue));
-  color: rgb(255, 255, 255);
+  color: var(--color-text-on-accent);
   font-weight: 600;
 
 }
@@ -1651,7 +1661,6 @@ body.artifact-app .btn-primary {
 body.artifact-app .btn-primary:hover,
 body.artifact-app .btn-primary:focus-visible {
   background: var(--app-accent-hover, var(--app-accent, var(--color-blue)));
-  outline: none;
 
 }
 
@@ -1666,7 +1675,6 @@ body.artifact-app .btn-outline:hover,
 body.artifact-app .btn-outline:focus-visible {
   border-color: var(--color-border-strong);
   color: var(--color-text);
-  outline: none;
 
 }
 
@@ -2550,7 +2558,7 @@ body.artifact-app .section-nav-node.done,
 body.artifact-app .section-nav-node.active {
   border-color: var(--app-accent, var(--color-blue));
   background: var(--app-accent, var(--color-blue));
-  color: rgb(255, 255, 255);
+  color: var(--color-text-on-accent);
 }
 
 body.artifact-app .section-nav-node.active {

@@ -75,17 +75,6 @@ export function sortValuesByDisplayOrder(values, displayOrder) {
 }
 
 /**
- * Filter artifacts by search text, tool, and tag selections, then sort by the chosen order.
- * @param {(ArtifactRecord & { searchText: string })[]} artifacts - Hydrated artifact records.
- * @param {{
- *   currentQuery: string,
- *   currentSort: string,
- *   currentTags: string[],
- *   currentTools: string[]
- * }} options - Filter/sort state.
- * @returns {(ArtifactRecord & { searchText: string })[]} Filtered and sorted artifacts.
- */
-/**
  * @param {ArtifactRecord[]} artifacts - Hydrated artifact records.
  * @param {{ currentQuery: string, currentSort: string, currentTags: string[], currentTools: string[] }} options - Active filter and sort state.
  * @returns {ArtifactRecord[]} Filtered and sorted records.

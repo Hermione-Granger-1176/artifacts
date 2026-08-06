@@ -1,5 +1,6 @@
 import { initAppShell, renderAppShell } from "../../../js/modules/app-shell.js";
 import { initializeMatureApp } from "../../../js/modules/app-runtime.js";
+import { closest } from "../../../js/modules/dom-events.js";
 import { cacheElements } from "../../../js/modules/element-cache.js";
 import { initSectionNav, renderSectionNav } from "../../../js/modules/section-nav.js";
 import { initSegmented } from "../../../js/modules/segmented.js";
@@ -88,8 +89,7 @@ function bindEvents() {
   elements.tempSlider.addEventListener("input", handleDistributionChange);
   elements.toppSlider.addEventListener("input", handleDistributionChange);
   elements.samplingPresets.addEventListener("click", (/** @type {MouseEvent} */ event) => {
-    const target = /** @type {Element | null} */ (event.target);
-    const preset = target?.closest(".sampling-preset");
+    const preset = closest(event, ".sampling-preset");
     if (!preset) {
       return;
     }

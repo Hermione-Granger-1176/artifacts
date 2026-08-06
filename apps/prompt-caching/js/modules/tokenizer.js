@@ -10,7 +10,7 @@ export function initTokenizer() {
   const tokCount = byId("tokCount");
   const wordCount = byId("wordCount");
   const charCount = byId("charCount");
-  if (!input || !output || !toggle) {
+  if (!input || !output || !toggle || !tokCount || !wordCount || !charCount) {
     return;
   }
 

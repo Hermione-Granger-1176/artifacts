@@ -13,6 +13,7 @@ import { ICONS } from './icons.js';
 import { setBackgroundContentInert } from './inert.js';
 import { createMotionHelper } from './motion.js';
 import { createBookScene } from './book-scene.js';
+import { closest } from '../dom-events.js';
 import {
   applyDynamicStyles,
   buildFilterNotes,
@@ -346,9 +347,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   });
 
   filterNotesContainer.addEventListener('click', (event) => {
-    const target = /** @type {Element | null} */ (event.target);
     const tab = /** @type {HTMLElement | null} */ (
-      target?.closest('.desk-note') || target?.closest('.mobile-filter-chip') || null
+      closest(event, '.desk-note') || closest(event, '.mobile-filter-chip')
     );
     if (!tab) {
       return;
@@ -389,8 +389,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   noResultsReset.addEventListener('click', resetFilters);
 
   detailOverlayEl.addEventListener('click', (event) => {
-    const target = /** @type {Element | null} */ (event.target);
-    if (target?.closest('[data-close-detail]')) {
+    if (closest(event, '[data-close-detail]')) {
       overlay.close();
     }
   });
@@ -398,8 +397,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   registerThumbnailFallback(grid);
 
   grid.addEventListener('click', (event) => {
-    const target = /** @type {Element | null} */ (event.target);
-    const card = /** @type {HTMLElement | null} */ (target?.closest('.artifact-card') || null);
+    const card = /** @type {HTMLElement | null} */ (closest(event, '.artifact-card'));
     if (!card) {
       return;
     }
@@ -412,8 +410,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return;
     }
 
-    const target = /** @type {Element | null} */ (event.target);
-    const card = /** @type {HTMLElement | null} */ (target?.closest('.artifact-card') || null);
+    const card = /** @type {HTMLElement | null} */ (closest(event, '.artifact-card'));
     if (!card) {
       return;
     }
@@ -423,8 +420,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   });
 
   paginationContainer.addEventListener('click', async (event) => {
-    const target = /** @type {Element | null} */ (event.target);
-    const button = /** @type {HTMLButtonElement | null} */ (target?.closest('[data-page]') || null);
+    const button = /** @type {HTMLButtonElement | null} */ (closest(event, '[data-page]'));
     if (!button || button.disabled) {
       return;
     }
@@ -508,13 +504,14 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
    * @param {boolean} [persist=true] - Whether to persist the theme.
    */
   function applyTheme(theme, persist = true) {
-    htmlElement.setAttribute('data-theme', theme);
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    themeToggle.setAttribute('aria-pressed', String(theme === 'dark'));
+    const normalizedTheme = theme === 'dark' ? 'dark' : 'light';
+    htmlElement.setAttribute('data-theme', normalizedTheme);
+    const nextTheme = normalizedTheme === 'dark' ? 'light' : 'dark';
+    themeToggle.setAttribute('aria-pressed', String(normalizedTheme === 'dark'));
     themeToggle.setAttribute('aria-label', `Switch to ${nextTheme} theme`);
     themeToggle.setAttribute('title', `Switch to ${nextTheme} theme`);
     if (persist) {
-      appRuntime.writeStorage('theme', theme);
+      appRuntime.writeStorage('theme', normalizedTheme);
     }
 
     const meta = documentObj.querySelector('meta[name="theme-color"]');
@@ -525,7 +522,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       }
     }
 
-    galleryStatus.textContent = `Theme switched to ${theme} mode.`;
+    galleryStatus.textContent = `Theme switched to ${normalizedTheme} mode.`;
   }
 
   function renderFilterNotes() {

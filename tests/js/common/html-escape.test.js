@@ -27,8 +27,8 @@ describe('escapeHtml', () => {
 describe('escapeAttribute', () => {
   test('escapes HTML-sensitive characters for attribute context', () => {
     assert.equal(
-      escapeAttribute('<a href="x">&'),
-      '&lt;a href=&quot;x&quot;&gt;&amp;'
+      escapeAttribute('<a href="x">&\''),
+      '&lt;a href=&quot;x&quot;&gt;&amp;&#039;'
     );
   });
 

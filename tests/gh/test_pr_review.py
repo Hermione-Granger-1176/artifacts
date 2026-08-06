@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from scripts.gh import cli, gh_runner, pr_review
-from scripts.gh.gh_runner import GhError
+from scripts.gh.gh_runner import GhError, GhRateLimitError
 from tests.gh.gh_test_support import FakeGh, completed_process, has
 
 if TYPE_CHECKING:
@@ -1371,6 +1371,26 @@ def test_request_copilot_review_propagates_error() -> None:
         raise GhError("graphql: rate limited")
 
     with pytest.raises(GhError):
+        pr_review.request_copilot_review(7, run_fn=runner)
+
+
+def test_request_copilot_review_does_not_retry_transient_failures() -> None:
+    """The reviewer mutation opts out of retries so it never double-requests."""
+    runner = FakeGh([(has("pr", "edit"), completed_process(1, "", "(HTTP 502) bad gateway"))])
+
+    with pytest.raises(GhError):
+        pr_review.request_copilot_review(7, run_fn=runner)
+
+    assert len(runner.calls) == 1
+
+
+def test_request_copilot_review_reraises_rate_limit() -> None:
+    """A rate limit surfaces unchanged so callers stop instead of retrying."""
+    runner = FakeGh(
+        [(has("pr", "edit"), completed_process(1, "", "API rate limit exceeded (HTTP 429)"))]
+    )
+
+    with pytest.raises(GhRateLimitError):
         pr_review.request_copilot_review(7, run_fn=runner)
 
 

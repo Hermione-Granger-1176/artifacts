@@ -71,6 +71,24 @@ def test_source_files_rejects_empty_source_directory(
         generate_styles.source_files()
 
 
+def test_source_files_rejects_a_redirected_or_non_directory_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stylesheet discovery never follows a redirected source root."""
+    source_dir, _ = configure_paths(tmp_path, monkeypatch)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    source_dir.parent.mkdir()
+    source_dir.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(ValueError, match="must not be a symlinked path"):
+        generate_styles.source_files()
+
+    source_dir.unlink()
+    source_dir.write_text("not a directory", encoding="utf-8")
+    with pytest.raises(ValueError, match="source root must be a directory"):
+        generate_styles.source_files()
+
+
 def test_source_files_rejects_symlinked_source(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -140,6 +158,22 @@ def test_generate_writes_the_public_stylesheet(
     generate_styles.generate()
 
     assert output_file.read_text(encoding="utf-8") == generate_styles.build_stylesheet()
+
+
+def test_generate_rejects_a_symlinked_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Stylesheet generation never overwrites a redirected output path."""
+    source_dir, output_file = configure_paths(tmp_path, monkeypatch)
+    write_text(source_dir / "01-base.css", "/* base */\n")
+    target = tmp_path / "outside.css"
+    target.write_text("keep", encoding="utf-8")
+    output_file.symlink_to(target)
+
+    with pytest.raises(ValueError, match="must not be a symlinked path"):
+        generate_styles.generate()
+
+    assert target.read_text(encoding="utf-8") == "keep"
 
 
 def test_repository_bundle_matches_discovered_sources() -> None:

@@ -6,13 +6,16 @@ from __future__ import annotations
 import tomllib
 from typing import TYPE_CHECKING
 
+from scripts.lib.path_validation import reject_path_symlinks
+
 if TYPE_CHECKING:
     from pathlib import Path
 
 
 def load_artifacts_config(pyproject_file: Path) -> dict[str, object]:
     """Load the ``[tool.artifacts]`` table from a ``pyproject.toml`` file."""
-    if not pyproject_file.exists():
+    reject_path_symlinks(pyproject_file, label="pyproject.toml")
+    if not pyproject_file.is_file():
         raise FileNotFoundError(f"pyproject.toml not found: {pyproject_file}")
 
     pyproject = tomllib.loads(pyproject_file.read_text(encoding="utf-8"))

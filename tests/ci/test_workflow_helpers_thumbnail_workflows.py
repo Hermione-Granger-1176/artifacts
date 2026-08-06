@@ -787,6 +787,38 @@ def test_validate_thumbnail_artifact_rejects_missing_thumbnails_for_persisting_p
         workflow_helpers.validate_thumbnail_artifact(artifact_root)
 
 
+@pytest.mark.skipif(not hasattr(Path, "symlink_to"), reason="symlinks unavailable")
+def test_thumbnail_invalidation_rejects_redirected_artifact_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Thumbnail invalidation never unlinks through an artifact symlink."""
+    monkeypatch.chdir(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "thumbnail.webp"
+    target.write_bytes(b"keep")
+    apps_root = tmp_path / "apps"
+    apps_root.mkdir()
+    (apps_root / "linked-app").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="tree containing symlink"):
+        thumbnail_plan.thumbnail_targets(thumbnail_scope="all", changed_slugs=[])
+
+    assert target.exists()
+
+
+def test_thumbnail_targets_rejects_a_non_directory_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Thumbnail invalidation reports malformed artifact roots clearly."""
+    monkeypatch.chdir(tmp_path)
+    apps_root = tmp_path / "apps"
+    apps_root.write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Artifact root must be a directory"):
+        thumbnail_plan.thumbnail_targets(thumbnail_scope="all", changed_slugs=[])
+
+
 def test_main_validate_thumbnail_artifact_prints_json(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -931,6 +963,42 @@ def test_is_automated_thumbnail_commit_false_when_non_thumbnail_file_present() -
         ],
     )
     assert result is False
+
+
+def test_is_automated_thumbnail_commit_uses_the_shared_artifact_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test thumbnail-only detection follows the configured artifact contract."""
+    monkeypatch.setattr(
+        thumbnail_plan,
+        "_load_contract",
+        lambda: {
+            "artifactIdPattern": "^[a-z]+$",
+            "artifactBasePath": "projects",
+            "thumbnailFile": "preview.webp",
+        },
+    )
+
+    assert (
+        thumbnail_plan.is_automated_thumbnail_commit(
+            actor="hermione1176[bot]",
+            app_bot_login="hermione1176[bot]",
+            repo="owner/repo",
+            commit_sha="abc123",
+            list_commit_files_fn=lambda **_kw: ["projects/loan/preview.webp"],
+        )
+        is True
+    )
+    assert (
+        thumbnail_plan.is_automated_thumbnail_commit(
+            actor="hermione1176[bot]",
+            app_bot_login="hermione1176[bot]",
+            repo="owner/repo",
+            commit_sha="abc123",
+            list_commit_files_fn=lambda **_kw: ["projects/loan-tool/preview.webp"],
+        )
+        is False
+    )
 
 
 def test_is_automated_thumbnail_commit_false_when_actor_is_human() -> None:

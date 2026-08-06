@@ -7,6 +7,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 MAKEFILE_TEXT = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
 
 LOCAL_RUNTIME = "$(PLAYWRIGHT_LOCAL_RUNTIME)"
+LOCAL_ENV = "$(PLAYWRIGHT_LOCAL_ENV)"
 LOCAL_RUN = "$(PLAYWRIGHT_LOCAL_RUN)"
 BROWSER_TESTS = "$(RUN_BROWSER_TESTS)"
 
@@ -83,7 +84,7 @@ def test_browser_targets_share_one_opt_in_wrapper() -> None:
     """Require local_libs=1 to route browser work through a single wrapper variable."""
     assert (
         "PLAYWRIGHT_LOCAL_RUN = $(if $(filter 1,$(local_libs)),"
-        "$(PLAYWRIGHT_LOCAL_RUNTIME) run --,)" in MAKEFILE_TEXT
+        "$(PLAYWRIGHT_LOCAL_ENV) $(PLAYWRIGHT_LOCAL_RUNTIME) run --,)" in MAKEFILE_TEXT
     )
     assert MAKEFILE_TEXT.count("run --,)") == 1
 
@@ -163,7 +164,7 @@ def test_local_setup_prepares_libraries_around_a_shared_browser_install() -> Non
         ("setup-playwright-webkit-local", "webkit"),
     ):
         recipe = target_recipe(target)
-        prepare = f"{LOCAL_RUNTIME} prepare --engine {engine}"
+        prepare = f"{LOCAL_ENV} {LOCAL_RUNTIME} prepare --engine {engine}"
         install = f"playwright install {engine}"
 
         assert recipe.count(prepare) == 2

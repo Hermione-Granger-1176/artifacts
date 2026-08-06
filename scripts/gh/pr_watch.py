@@ -1,7 +1,8 @@
-"""Poll a pull request until its checks settle and Copilot has reviewed it."""
+"""Conservatively watch PR checks and a newly requested Copilot review."""
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -14,53 +15,66 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 _COPILOT_LOGIN = "copilot-pull-request-reviewer"
-_PENDING_STATES = {"PENDING", "EXPECTED"}
+_PENDING_STATES = {"EXPECTED", "PENDING"}
+_SUCCESSFUL_CHECK_OUTCOMES = {"NEUTRAL", "SKIPPED", "SUCCESS"}
+# The latest artifacts PR exposed 31 status entries, including the conditional
+# jobs reported as skipped. Keep that completeness floor project-specific while
+# allowing callers to override it when the workflow surface changes.
+DEFAULT_EXPECTED_CHECKS = 31
+# Copilot writes "generated no comments" on a first review and "generated no new
+# comments" on a re-review, so "new" has to be optional or a clean first pass is
+# reported as unclassifiable.
+_COMMENT_COUNT_PATTERN = re.compile(
+    r"\bgenerated (?:(no(?: new)?)|(\d+)) comments?\b",
+    re.IGNORECASE,
+)
+
+
+@dataclass(frozen=True)
+class CopilotReview:
+    """One validated Copilot pull-request review."""
+
+    review_id: str
+    submitted_at: datetime
+    body: str
+    generated_comment_count: int | None
+    state: str = ""
+
+    @property
+    def is_explicitly_clean(self) -> bool:
+        """Return whether the review reports nothing to address.
+
+        Copilot review state is not evidence of a clean review. The review
+        wording must say "generated no comments" on a first review or
+        "generated no new comments" on a re-review. A numeric "generated 0
+        comments" deliberately does not count, so unexpected wording fails
+        closed.
+        """
+        match = _COMMENT_COUNT_PATTERN.search(self.body)
+        return match is not None and match.group(1) is not None
 
 
 @dataclass(frozen=True)
 class PollStatus:
-    """The current check and Copilot-review status for a pull request."""
+    """The current checks and fresh-review state for a pull request."""
 
     checks_settled: bool
+    checks_successful: bool
+    check_count: int
     rollup_tally: str
-    new_review_count: int
+    fresh_review: CopilotReview | None
 
 
-def default_since(pr: int, *, run_fn: RunFunction | None = None) -> str:
-    """Return the committed date of the newest commit on ``pr``."""
-    payload = gh_runner.gh_json(
-        ["pr", "view", str(pr), "--json", "commits"],
-        run_fn=run_fn,
-    )
-    if not isinstance(payload, dict):
-        raise GhError(f"Unexpected PR view response shape for PR {pr}.")
-    commits = payload.get("commits")
-    if not isinstance(commits, list):
-        raise GhError(f"Unexpected commits shape in PR view response for PR {pr}.")
-    if not commits:
-        raise GhError(f"PR {pr} has no commits in its PR view response.")
-    commit = commits[-1]
-    if not isinstance(commit, dict):
-        raise GhError(f"Unexpected last commit shape in PR view response for PR {pr}.")
-    committed_date = commit.get("committedDate")
-    if not isinstance(committed_date, str):
-        raise GhError(f"Last commit in PR {pr} is missing a string committedDate.")
-    if not committed_date:
-        raise GhError(f"Last commit in PR {pr} has an empty committedDate.")
-    return committed_date
+@dataclass(frozen=True)
+class WatchBaseline:
+    """Copilot review ids and every review thread id seen before a request.
 
+    ``thread_ids`` deliberately includes resolved threads so that a thread
+    resolved between polls is never mistaken for a newly generated one.
+    """
 
-def _checks_settled(rollup: list[dict[str, Any]]) -> bool:
-    """Return whether every check or status context in ``rollup`` has settled."""
-    if not rollup:
-        return False
-    for check in rollup:
-        if "status" in check:
-            if check.get("status") != "COMPLETED":
-                return False
-        elif check.get("state") in _PENDING_STATES:
-            return False
-    return True
+    review_ids: frozenset[str]
+    thread_ids: frozenset[str]
 
 
 def _parse_timestamp(value: str, context: str) -> datetime:
@@ -74,99 +88,282 @@ def _parse_timestamp(value: str, context: str) -> datetime:
     return parsed
 
 
-def _new_copilot_review_count(reviews: list[Any], since: str) -> int:
-    """Count Copilot reviews submitted after ``since``."""
-    since_at = _parse_timestamp(since, "The since timestamp")
-    count = 0
+def _generated_comment_count(body: str) -> int | None:
+    """Return the comment count from a Copilot overview, when recognized."""
+    match = _COMMENT_COUNT_PATTERN.search(body)
+    if match is None:
+        return None
+    if match.group(1) is not None:
+        return 0
+    return int(match.group(2))
+
+
+def _copilot_reviews(reviews: object) -> tuple[CopilotReview, ...]:
+    """Validate and return Copilot reviews from a PR view payload."""
+    if not isinstance(reviews, list):
+        raise GhError("Unexpected reviews shape in PR view response.")
+
+    parsed: list[CopilotReview] = []
     for review in reviews:
         if not isinstance(review, dict):
             raise GhError("Unexpected review entry shape in PR view response.")
         author = review.get("author")
         if author is not None and not isinstance(author, dict):
             raise GhError("Unexpected review author shape in PR view response.")
-        author = author or {}
+        if not isinstance(author, dict) or author.get("login") != _COPILOT_LOGIN:
+            continue
+
+        review_id = review.get("id")
+        if not isinstance(review_id, str) or not review_id.strip():
+            raise GhError("A Copilot review is missing a non-empty string id.")
         submitted_at = review.get("submittedAt")
-        if (
-            author.get("login") == _COPILOT_LOGIN
-            and isinstance(submitted_at, str)
-            and _parse_timestamp(submitted_at, "A review submittedAt") > since_at
-        ):
-            count += 1
-    return count
+        if not isinstance(submitted_at, str) or not submitted_at:
+            raise GhError("A Copilot review is missing a string submittedAt.")
+        body = review.get("body")
+        if not isinstance(body, str):
+            raise GhError("A Copilot review is missing a string body.")
+        state = review.get("state")
+        if not isinstance(state, str):
+            raise GhError("A Copilot review is missing a string state.")
+        parsed.append(
+            CopilotReview(
+                review_id=review_id,
+                submitted_at=_parse_timestamp(
+                    submitted_at,
+                    f"Copilot review {review_id} submittedAt",
+                ),
+                body=body,
+                generated_comment_count=_generated_comment_count(body),
+                state=state,
+            )
+        )
+    return tuple(parsed)
 
 
-def poll_once(
-    pr: int,
-    since: str,
-    *,
-    checks_only: bool = False,
-    run_fn: RunFunction | None = None,
-) -> PollStatus:
-    """Return one pull-request poll result for checks and fresh Copilot reviews."""
+def _review_payload(pr: int, *, run_fn: RunFunction | None = None) -> dict[str, object]:
+    """Return the validated PR fields needed by the watcher."""
     payload = gh_runner.gh_json(
         ["pr", "view", str(pr), "--json", "statusCheckRollup,reviews"],
         run_fn=run_fn,
     )
     if not isinstance(payload, dict):
         raise GhError(f"Unexpected PR view response shape for PR {pr}.")
-    rollup = payload.get("statusCheckRollup")
+    return payload
+
+
+def watch_baseline(pr: int, *, run_fn: RunFunction | None = None) -> WatchBaseline:
+    """Capture existing Copilot reviews and every review thread before a request.
+
+    Resolved threads are captured alongside open ones so that later polls only
+    wait on threads the requested review actually created.
+    """
+    payload = _review_payload(pr, run_fn=run_fn)
+    review_ids = frozenset(review.review_id for review in _copilot_reviews(payload.get("reviews")))
+    thread_ids = frozenset(
+        thread.thread_id
+        for thread in pr_review.list_threads(pr, include_resolved=True, run_fn=run_fn)
+    )
+    return WatchBaseline(review_ids, thread_ids)
+
+
+def _check_status(
+    rollup: object,
+    *,
+    expected_checks: int,
+) -> tuple[bool, bool, int, str]:
+    """Return settled, successful, count, and summary for a check rollup."""
     if not isinstance(rollup, list):
-        raise GhError(f"Unexpected statusCheckRollup shape in PR view response for PR {pr}.")
-    reviews = payload.get("reviews")
-    if not isinstance(reviews, list):
-        if not checks_only:
-            raise GhError(f"Unexpected reviews shape in PR view response for PR {pr}.")
-        reviews = []
-    rollup_tally = pr_review.rollup_summary(rollup)
-    try:
-        new_review_count = _new_copilot_review_count(reviews, since)
-    except GhError:
-        if not checks_only:
-            raise
-        new_review_count = 0
+        raise GhError("Unexpected statusCheckRollup shape in PR view response.")
+    if expected_checks < 1:
+        raise GhError("expected_checks must be at least 1.")
+
+    settled = len(rollup) >= expected_checks
+    successful = settled
+    validated: list[dict[str, Any]] = []
+    for entry in rollup:
+        if not isinstance(entry, dict):
+            raise GhError("Unexpected check entry shape in PR view response.")
+        validated.append(entry)
+        if "status" in entry:
+            status = entry.get("status")
+            if not isinstance(status, str):
+                raise GhError("A check run is missing a string status.")
+            if status != "COMPLETED":
+                settled = False
+                successful = False
+                continue
+            conclusion = entry.get("conclusion")
+            if not isinstance(conclusion, str):
+                raise GhError("A completed check run is missing a string conclusion.")
+            if conclusion not in _SUCCESSFUL_CHECK_OUTCOMES:
+                successful = False
+            continue
+
+        state = entry.get("state")
+        if not isinstance(state, str):
+            raise GhError("A status context is missing a string state.")
+        if state in _PENDING_STATES:
+            settled = False
+            successful = False
+        elif state != "SUCCESS":
+            successful = False
+
+    return settled, successful, len(validated), pr_review.rollup_summary(validated)
+
+
+def poll_once(
+    pr: int,
+    baseline_ids: frozenset[str],
+    *,
+    expected_checks: int = DEFAULT_EXPECTED_CHECKS,
+    checks_only: bool = False,
+    run_fn: RunFunction | None = None,
+) -> PollStatus:
+    """Return one current poll result relative to a captured review baseline."""
+    payload = _review_payload(pr, run_fn=run_fn)
+    settled, successful, check_count, tally = _check_status(
+        payload.get("statusCheckRollup"),
+        expected_checks=expected_checks,
+    )
+    reviews = _copilot_reviews(payload.get("reviews"))
+    fresh_reviews = tuple(review for review in reviews if review.review_id not in baseline_ids)
+    fresh_review = (
+        max(
+            enumerate(fresh_reviews),
+            key=lambda item: (item[1].submitted_at, item[0]),
+        )[1]
+        if fresh_reviews
+        else None
+    )
+    if checks_only:
+        fresh_review = None
     return PollStatus(
-        checks_settled=_checks_settled(rollup),
-        rollup_tally=rollup_tally,
-        new_review_count=new_review_count,
+        checks_settled=settled,
+        checks_successful=successful,
+        check_count=check_count,
+        rollup_tally=tally,
+        fresh_review=fresh_review,
+    )
+
+
+def _review_summary(review: CopilotReview | None, *, requested: bool) -> str:
+    """Return a compact classification for the latest fresh review."""
+    if review is None:
+        return "no new review yet" if requested else "not requested"
+    if review.generated_comment_count is None:
+        return "unrecognized Copilot overview"
+    if review.is_explicitly_clean:
+        return "generated no comments"
+    return f"generated {review.generated_comment_count} comment(s)"
+
+
+def _watch_report(
+    *,
+    pr: int,
+    poll_count: int,
+    status: PollStatus,
+    threads: list[pr_review.ReviewThread],
+    requested: bool,
+) -> str:
+    """Render the bounded final state from a completed watch."""
+    merge_ready = (
+        status.checks_successful
+        and status.fresh_review is not None
+        and status.fresh_review.is_explicitly_clean
+        and not threads
+    )
+    return "\n".join(
+        [
+            f"PR #{pr} settled after {poll_count} poll(s)",
+            f"checks: {status.rollup_tally} ({status.check_count} total)",
+            f"latest Copilot review: {_review_summary(status.fresh_review, requested=requested)}",
+            f"open review threads: {len(threads)}",
+            f"merge ready: {'yes' if merge_ready else 'no'}",
+            "",
+            pr_review.format_threads(threads),
+        ]
     )
 
 
 def watch_pr(
     pr: int | None = None,
-    since: str | None = None,
     *,
     interval: float = 45.0,
     max_polls: int = 40,
+    expected_checks: int = 15,
     checks_only: bool = False,
     run_fn: RunFunction | None = None,
     sleep_fn: Callable[[float], None] | None = None,
 ) -> str:
-    """Wait for settled checks and a fresh Copilot review, then report threads."""
+    """Wait for settled successful checks and, unless ``checks_only``, a fresh review.
+
+    With ``checks_only`` no Copilot review is requested or awaited, so the
+    report classifies the review state as not requested.
+    """
+    if interval < 0:
+        raise GhError("interval must not be negative.")
     if max_polls < 1:
         raise GhError("max_polls must be at least 1.")
+    if expected_checks < 1:
+        raise GhError("expected_checks must be at least 1.")
+
     pr = pr if pr is not None else gh_runner.current_pr_number(run_fn=run_fn)
-    since = since if since is not None else default_since(pr, run_fn=run_fn)
+    baseline = WatchBaseline(frozenset(), frozenset())
+    if not checks_only:
+        baseline = watch_baseline(pr, run_fn=run_fn)
+        pr_review.request_copilot_review(pr, run_fn=run_fn)
     sleeper = sleep_fn or time.sleep
+    threads: list[pr_review.ReviewThread] = []
 
     for poll_count in range(1, max_polls + 1):
-        status = poll_once(pr, since, checks_only=checks_only, run_fn=run_fn)
-        if status.checks_settled and (checks_only or status.new_review_count > 0):
-            break
+        status = poll_once(
+            pr,
+            baseline.review_ids,
+            expected_checks=expected_checks,
+            checks_only=checks_only,
+            run_fn=run_fn,
+        )
+        if status.checks_settled and not status.checks_successful:
+            raise GhError(f"PR #{pr} checks settled unsuccessfully: {status.rollup_tally}.")
+
+        ready_for_threads = status.checks_settled and (
+            checks_only or status.fresh_review is not None
+        )
+        if ready_for_threads:
+            all_threads = pr_review.list_threads(pr, include_resolved=True, run_fn=run_fn)
+            review_count = (
+                status.fresh_review.generated_comment_count
+                if status.fresh_review is not None
+                else 0
+            )
+            fresh_thread_count = sum(
+                thread.thread_id not in baseline.thread_ids for thread in all_threads
+            )
+            waiting_for_threads = review_count is not None and review_count > fresh_thread_count
+            if not waiting_for_threads:
+                if (
+                    status.fresh_review is not None
+                    and status.fresh_review.generated_comment_count is None
+                ):
+                    raise GhError(
+                        "The fresh Copilot review overview could not be classified; "
+                        "inspect `make pr-review-comments` before merging."
+                    )
+                threads = [thread for thread in all_threads if thread.state == "open"]
+                return _watch_report(
+                    pr=pr,
+                    poll_count=poll_count,
+                    status=status,
+                    threads=threads,
+                    requested=not checks_only,
+                )
+
         if poll_count < max_polls:
             sleeper(interval)
-    else:
-        raise GhError(
-            f"PR #{pr} did not settle after {max_polls} polls: checks: {status.rollup_tally}; "
-            f"new Copilot reviews since {since}: {status.new_review_count}."
-        )
 
-    threads = pr_review.list_threads(pr, run_fn=run_fn)
-    return "\n".join(
-        [
-            f"PR #{pr} settled after {poll_count} poll(s)",
-            f"checks: {status.rollup_tally}",
-            f"new Copilot reviews since {since}: {status.new_review_count}",
-            "",
-            pr_review.format_threads(threads),
-        ]
+    raise GhError(
+        f"PR #{pr} did not settle after {max_polls} polls: "
+        f"checks: {status.rollup_tally} ({status.check_count} total); "
+        f"latest Copilot review: "
+        f"{_review_summary(status.fresh_review, requested=not checks_only)}."
     )

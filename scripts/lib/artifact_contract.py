@@ -8,11 +8,22 @@ import re
 from typing import TYPE_CHECKING, TypedDict, cast
 
 from scripts import REPO_ROOT
+from scripts.lib.path_validation import reject_path_symlinks
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 CONTRACT_FILE = REPO_ROOT / "config" / "artifact_contract.json"
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """Reject duplicate JSON keys instead of silently accepting the last value."""
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"Artifact contract contains a duplicate key: {key}")
+        result[key] = value
+    return result
 
 
 class ArtifactContract(TypedDict):
@@ -25,10 +36,13 @@ class ArtifactContract(TypedDict):
 
 def read_artifact_contract_file(contract_file: Path) -> ArtifactContract:
     """Load and validate the shared artifact path contract."""
-    if not contract_file.exists():
+    reject_path_symlinks(contract_file, label="Artifact contract")
+    if not contract_file.is_file():
         raise FileNotFoundError(f"Artifact contract file not found: {contract_file}")
 
-    contract = json.loads(contract_file.read_text(encoding="utf-8"))
+    contract = json.loads(
+        contract_file.read_text(encoding="utf-8"), object_pairs_hook=_reject_duplicate_keys
+    )
     if not isinstance(contract, dict):
         raise ValueError("Artifact contract must be a JSON object")
 

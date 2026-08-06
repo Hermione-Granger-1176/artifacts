@@ -7,6 +7,7 @@ import urllib.parse
 from typing import TYPE_CHECKING, TypedDict
 
 from scripts.lib.artifact_contract import ArtifactContract, read_artifact_contract_file
+from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -30,6 +31,7 @@ class ArtifactItem(TypedDict):
 
 def read_file(file_path: Path) -> str:
     """Read and strip a text file, returning an empty string when missing."""
+    reject_path_symlinks(file_path, label="Artifact input")
     if not file_path.exists():
         return ""
     return file_path.read_text(encoding="utf-8").strip()
@@ -172,6 +174,9 @@ def artifact_issues(
     config: IndexConfig,
 ) -> list[str]:
     """Collect validation issues for one top-level artifact directory."""
+    if folder.is_symlink():
+        return ["directory must not be a symlink"]
+
     issues: list[str] = []
     has_index = (folder / config.index_file).exists()
     has_name = (folder / config.name_file).exists()
@@ -183,7 +188,13 @@ def artifact_issues(
     if missing_required_file_issue:
         issues.append(missing_required_file_issue)
 
-    if has_name and not read_file(folder / config.name_file):
+    for filename in (config.index_file, config.name_file):
+        path = folder / filename
+        if path.exists() and not path.is_file():
+            issues.append(f"{filename} must be a regular file")
+
+    name_path = folder / config.name_file
+    if has_name and name_path.is_file() and not read_file(name_path):
         issues.append(f"has an empty {config.name_file}")
 
     return issues
@@ -191,9 +202,13 @@ def artifact_issues(
 
 def iter_artifact_dirs(config: IndexConfig) -> list[Path]:
     """Return top-level visible artifact directories under apps/."""
+    reject_path_symlinks(config.apps_dir, label="Artifact root")
     if not config.apps_dir.exists():
         config.logger.info("Directory not found: %s (skipping)", config.apps_dir)
         return []
+    if not config.apps_dir.is_dir():
+        raise ValueError(f"Artifact root must be a directory: {config.apps_dir}")
+    reject_symlinks(config.apps_dir)
 
     return sorted(
         (

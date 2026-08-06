@@ -110,8 +110,11 @@ class ArtifactServer:
 def find_artifacts() -> list[Path]:
     """Find symlink-free artifact directories containing an index.html."""
     logger.debug("Scanning %s for artifacts", APPS_DIR)
+    reject_path_symlinks(APPS_DIR, label="Artifact root")
     if not APPS_DIR.exists():
         return []
+    if not APPS_DIR.is_dir():
+        raise ValueError(f"Artifact root must be a directory: {APPS_DIR}")
     artifacts = [
         item
         for item in sorted(APPS_DIR.iterdir())
@@ -156,6 +159,7 @@ def _configured_thumbnail_slugs() -> set[str] | None:
 
 def save_thumbnail(image_bytes: bytes, thumb_path: Path) -> None:
     """Resize a screenshot and save it as an optimized WebP thumbnail."""
+    reject_path_symlinks(thumb_path, label="Thumbnail output")
     with Image.open(BytesIO(image_bytes)) as opened:
         image: Image.Image = opened
         width = min(THUMBNAIL_WIDTH, image.width)
@@ -170,7 +174,7 @@ def save_thumbnail(image_bytes: bytes, thumb_path: Path) -> None:
 def artifact_url(artifact_dir: Path) -> str:
     """Return the best URL for one artifact page during thumbnail capture."""
     if ARTIFACT_BASE_URL:
-        return f"{ARTIFACT_BASE_URL}/apps/{artifact_dir.name}/"
+        return f"{ARTIFACT_BASE_URL}/{artifact_base_path()}/{artifact_dir.name}/"
     return (artifact_dir / "index.html").resolve().as_uri()
 
 
@@ -236,7 +240,9 @@ def _write_manifest(artifacts: list[Path], stats: ThumbnailStats) -> None:
     if not manifest_path:
         return
 
-    destination = Path(manifest_path).resolve()
+    destination_path = Path(manifest_path)
+    reject_path_symlinks(destination_path, label="Thumbnail manifest output")
+    destination = destination_path.resolve()
     if not destination.is_relative_to(REPO_ROOT.resolve()):
         raise ValueError(f"Manifest path escapes repository root: {destination}")
     destination.parent.mkdir(parents=True, exist_ok=True)

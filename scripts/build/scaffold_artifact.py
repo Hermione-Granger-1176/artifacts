@@ -35,6 +35,7 @@ from scripts import REPO_ROOT
 from scripts.build.index_config import IndexConfig
 from scripts.build.prepare_site import APP_SHARE_IMAGE_PLACEHOLDER, APP_URL_PLACEHOLDER
 from scripts.lib.app_discovery import artifact_base_path
+from scripts.lib.path_validation import reject_path_symlinks
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -470,11 +471,23 @@ def scaffold_artifact(name: str, *, source_html: str | None = None) -> Path:
     if not is_kebab_case(name):
         raise ValueError("Artifact name must use kebab-case")
 
+    reject_path_symlinks(APPS_DIR, label="Artifact root")
+    reject_path_symlinks(TESTS_JS_APPS_DIR, label="Artifact test root")
+    for root, label in (
+        (APPS_DIR, "Artifact root"),
+        (TESTS_JS_APPS_DIR, "Artifact test root"),
+    ):
+        if root.exists() and not root.is_dir():
+            raise ValueError(f"{label} must be a directory: {root}")
+
     # Fail on an existing directory before reading or warning about the source
     # HTML, so a re-run against a taken slug is a clean no-op with no output.
     artifact_dir = APPS_DIR / name
-    if artifact_dir.exists():
+    if artifact_dir.is_symlink() or artifact_dir.exists():
         raise FileExistsError(f"Artifact directory already exists: {artifact_dir}")
+    tests_dir = TESTS_JS_APPS_DIR / name
+    if tests_dir.is_symlink() or tests_dir.exists():
+        raise FileExistsError(f"Artifact test directory already exists: {tests_dir}")
 
     title = _title_from_slug(name)
     index_html = _resolve_index_html(title, name, source_html)
@@ -483,7 +496,6 @@ def scaffold_artifact(name: str, *, source_html: str | None = None) -> Path:
     TESTS_JS_APPS_DIR.mkdir(parents=True, exist_ok=True)
 
     artifact_dir.mkdir()
-    tests_dir = TESTS_JS_APPS_DIR / name
     tests_dir.mkdir(parents=True, exist_ok=True)
     (artifact_dir / "css").mkdir()
     (artifact_dir / "js").mkdir()

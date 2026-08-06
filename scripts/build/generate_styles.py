@@ -12,6 +12,7 @@ import sys
 from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
+from scripts.lib.path_validation import reject_path_symlinks
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -23,6 +24,9 @@ SOURCE_FILENAME_PATTERN = re.compile(r"\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*\.css")
 
 def source_files() -> tuple[Path, ...]:
     """Return the ordered shared stylesheet source files."""
+    reject_path_symlinks(SOURCE_DIR, label="Stylesheet source root")
+    if SOURCE_DIR.exists() and not SOURCE_DIR.is_dir():
+        raise ValueError(f"Stylesheet source root must be a directory: {SOURCE_DIR}")
     candidates = tuple(sorted(SOURCE_DIR.glob("*.css")))
     invalid_entries = [
         source_file.name
@@ -78,6 +82,7 @@ def build_stylesheet() -> str:
 
 def generate() -> None:
     """Write the public stylesheet from the ordered source partials."""
+    reject_path_symlinks(OUTPUT_FILE, label="Stylesheet output")
     OUTPUT_FILE.write_text(build_stylesheet(), encoding="utf-8")
 
 

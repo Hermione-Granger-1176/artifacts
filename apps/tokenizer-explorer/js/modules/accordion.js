@@ -1,3 +1,5 @@
+import { closest } from "../../../../js/modules/dom-events.js";
+
 /**
  * Bind click-to-toggle accordion behavior for tokenizer concept cards.
  *
@@ -6,8 +8,7 @@
  */
 export function initAccordion(container) {
   container.addEventListener("click", (event) => {
-    const target = /** @type {Element | null} */ (event.target);
-    const trigger = target?.closest(".card-trigger");
+    const trigger = closest(event, ".card-trigger");
     if (!trigger) {
       return;
     }

@@ -20,9 +20,11 @@ with the shared ``ci-alert-issue`` pattern.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from scripts.lib import gh_api
@@ -31,6 +33,16 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
 DAY_SECONDS = 86_400
+
+# The direct command-line codes remain useful to callers that run this module
+# without Make. The GitHub Actions workflow reads the checked output instead,
+# because make maps every failing recipe to its own exit code 2.
+EXIT_HEALTHY = 0
+EXIT_PROBLEMS_FOUND = 1
+EXIT_CHECK_FAILED = 2
+
+GITHUB_OUTPUT_ENV = "GITHUB_OUTPUT"
+CHECKED_OUTPUT = "checked"
 
 # Maximum expected gap between scheduled runs for each workflow, derived from
 # its cron expression. Keep these aligned with the crons in .github/workflows/.
@@ -65,31 +77,40 @@ def _require_dict(value: object, message: str) -> dict[str, object]:
     return value
 
 
-def _parse_timestamp(value: object) -> datetime | None:
-    """Parse a GitHub ISO 8601 timestamp into an aware datetime, or None."""
+def _parse_timestamp(value: object, context: str) -> datetime:
+    """Parse a GitHub ISO 8601 timestamp into an aware datetime.
+
+    A run that exists but carries an unreadable timestamp is a broken answer,
+    not a healthy schedule. Failing closed keeps malformed API data from
+    hiding the workflow this watchdog was asked to monitor.
+    """
     if not isinstance(value, str) or not value:
-        return None
-    normalized = value.replace("Z", "+00:00")
+        raise RuntimeError(f"{context} is missing a run timestamp")
+    normalized = f"{value[:-1]}+00:00" if value.endswith("Z") else value
     try:
         parsed = datetime.fromisoformat(normalized)
-    except ValueError:
-        return None
+    except ValueError as exc:
+        raise RuntimeError(
+            f"{context} has a timestamp that is not valid ISO-8601: {value!r}"
+        ) from exc
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=UTC)
+        raise RuntimeError(f"{context} has a timestamp without timezone information: {value!r}")
     return parsed
 
 
-def _latest_scheduled_run_at(payload: object) -> datetime | None:
-    """Return the created_at of the newest scheduled run in a runs payload."""
-    runs = _require_dict(payload, "workflow runs response must be a JSON object").get(
-        "workflow_runs"
-    )
-    if not isinstance(runs, list) or not runs:
+def _latest_scheduled_run_at(payload: object, workflow_file: str) -> datetime | None:
+    """Return the newest scheduled run timestamp, or None when there are none."""
+    runs = _require_dict(
+        payload, f"workflow runs response for {workflow_file} must be a JSON object"
+    ).get("workflow_runs")
+    if not isinstance(runs, list):
+        raise RuntimeError(f"workflow runs response for {workflow_file} must include a runs list")
+    if not runs:
         return None
     first = runs[0]
     if not isinstance(first, dict):
-        return None
-    return _parse_timestamp(first.get("created_at"))
+        raise RuntimeError(f"scheduled run entry for {workflow_file} must be a JSON object")
+    return _parse_timestamp(first.get("created_at"), f"scheduled run for {workflow_file}")
 
 
 def fetch_workflow_recency(
@@ -108,7 +129,7 @@ def fetch_workflow_recency(
         f"workflow metadata for {workflow_file} must be a JSON object",
     )
     state = meta.get("state")
-    if not isinstance(state, str):
+    if not isinstance(state, str) or not state:
         raise RuntimeError(f"workflow {workflow_file} metadata is missing a string state")
 
     runs_payload = run_gh_api_json_fn(
@@ -119,7 +140,7 @@ def fetch_workflow_recency(
     return WorkflowRecency(
         workflow_file=workflow_file,
         state=state,
-        latest_run_at=_latest_scheduled_run_at(runs_payload),
+        latest_run_at=_latest_scheduled_run_at(runs_payload, workflow_file),
     )
 
 
@@ -166,6 +187,21 @@ def check_scheduled_workflows(
     return problems
 
 
+def report_checked(reached_verdict: bool, *, env: Mapping[str, str] | None = None) -> None:
+    """Write whether the watchdog reached a schedule verdict to GitHub output.
+
+    The workflow uses this bit to distinguish stale schedules from a watchdog
+    setup failure. Local runs leave ``GITHUB_OUTPUT`` unset, so no output file
+    is needed outside GitHub Actions.
+    """
+    path = (os.environ if env is None else env).get(GITHUB_OUTPUT_ENV)
+    if not path:
+        return
+    value = "true" if reached_verdict else "false"
+    with Path(path).open("a", encoding="utf-8") as handle:
+        handle.write(f"{CHECKED_OUTPUT}={value}\n")
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     """Parse CLI arguments for the schedule watchdog."""
     parser = argparse.ArgumentParser(description="Detect stale or disabled scheduled workflows")
@@ -174,22 +210,25 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the watchdog and return a shell exit code (0 healthy, 1 stale)."""
+    """Run the watchdog and return one of the EXIT_* codes."""
     args = _parse_args(argv)
-    problems = check_scheduled_workflows(repo=args.repo)
+    try:
+        problems = check_scheduled_workflows(repo=args.repo)
+    except (RuntimeError, ValueError) as exc:
+        report_checked(False)
+        print(f"Schedule watchdog could not complete its check: {exc}", file=sys.stderr)
+        return EXIT_CHECK_FAILED
+
+    report_checked(True)
     if not problems:
         print("All scheduled workflows are active and recent")
-        return 0
+        return EXIT_HEALTHY
 
     print("Scheduled workflow watchdog found problems:")
     for problem in problems:
         print(f"- {problem}")
-    return 1
+    return EXIT_PROBLEMS_FOUND
 
 
 if __name__ == "__main__":  # pragma: no cover
-    try:
-        sys.exit(main())
-    except (RuntimeError, ValueError) as exc:
-        print(exc, file=sys.stderr)
-        sys.exit(1)
+    sys.exit(main())

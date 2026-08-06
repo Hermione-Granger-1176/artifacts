@@ -1,3 +1,5 @@
+import { closest } from './dom-events.js';
+
 /**
  * @typedef {{
  *   context: string,
@@ -212,8 +214,7 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
   if (typeof documentObj.addEventListener === 'function' && !runtimeWindow.__ARTIFACTS_DIAGNOSTICS_BOUND__) {
     runtimeWindow.__ARTIFACTS_DIAGNOSTICS_BOUND__ = true;
     documentObj.addEventListener('click', (event) => {
-      const target = /** @type {Element | null} */ (event.target);
-      const copyButton = target?.closest?.('#runtime-error-copy');
+      const copyButton = closest(event, '#runtime-error-copy');
       if (!copyButton) {
         return;
       }

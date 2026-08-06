@@ -82,6 +82,21 @@ def test_load_artifacts_setting_rejects_non_string_values(tmp_path: Path) -> Non
         project_config.load_artifacts_setting(pyproject, "site_url")
 
 
+def test_load_artifacts_config_rejects_symlinked_and_non_file_inputs(tmp_path: Path) -> None:
+    """Project configuration must come from a regular repository input file."""
+    target = tmp_path / "real-pyproject.toml"
+    write_text(target, '[tool.artifacts]\nsite_url = "https://example.com"\n')
+    linked = tmp_path / "pyproject.toml"
+    linked.symlink_to(target)
+    with pytest.raises(ValueError, match="must not be a symlinked path"):
+        project_config.load_artifacts_config(linked)
+
+    directory = tmp_path / "directory-pyproject.toml"
+    directory.mkdir()
+    with pytest.raises(FileNotFoundError, match=r"pyproject\.toml not found"):
+        project_config.load_artifacts_config(directory)
+
+
 def test_normalize_site_url_adds_trailing_slash() -> None:
     """Test normalize site url adds trailing slash."""
     assert project_config.normalize_site_url("https://example.com/demo") == (

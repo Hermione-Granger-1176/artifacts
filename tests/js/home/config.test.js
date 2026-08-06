@@ -221,6 +221,21 @@ test('validateArtifactsData requires kebab-case ids and matching urls', () => {
   );
 });
 
+test('validateArtifactsData rejects duplicate artifact ids', () => {
+  const record = {
+    id: 'loan-amortization',
+    name: 'Loan Amortization Schedule',
+    tags: [],
+    tools: [],
+    url: 'apps/loan-amortization/'
+  };
+
+  assert.throws(
+    () => validateArtifactsData([record, { ...record }]),
+    /window\.ARTIFACTS_DATA\[1\]\.id must be unique/
+  );
+});
+
 test('validateArtifactsData rejects invalid artifact shapes', () => {
   assert.throws(
     () => validateArtifactsData({}),

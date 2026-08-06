@@ -10,7 +10,7 @@ from scripts.lib.artifact_contract import (
 from scripts.lib.artifact_contract import (
     artifact_id_pattern as _artifact_id_pattern,
 )
-from scripts.lib.path_validation import reject_symlinks
+from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
 
 __all__ = ["artifact_base_path", "thumbnail_file"]
 
@@ -75,14 +75,20 @@ def is_global_app_runtime_path(filename: str) -> bool:
 
 def shared_app_runtime_paths(repo_root: Path) -> tuple[Path, ...]:
     """Return shared app runtime files rooted at ``repo_root``."""
-    gallery_root = repo_root / GALLERY_MODULES_DIR
+    reject_path_symlinks(repo_root, label="Repository root")
+    root = repo_root.resolve()
+    modules_root = root / SHARED_APP_MODULES_DIR
+    if modules_root.exists():
+        reject_path_symlinks(modules_root, label="Shared app modules")
+        reject_symlinks(modules_root)
+    gallery_root = root / GALLERY_MODULES_DIR
     module_files = sorted(
         path
-        for path in (repo_root / SHARED_APP_MODULES_DIR).rglob("*")
+        for path in modules_root.rglob("*")
         if path.is_file() and not path.is_relative_to(gallery_root)
     )
     return (
-        *(repo_root / relative_path for relative_path in SHARED_APP_RUNTIME_FILES),
+        *(root / relative_path for relative_path in SHARED_APP_RUNTIME_FILES),
         *module_files,
     )
 
@@ -206,8 +212,12 @@ def artifact_uses_shared_app_runtime(artifact_dir: Path) -> bool:
 
 def discover_app_slugs(apps_root: Path = Path("apps")) -> list[str]:
     """Return app slugs for directories with an ``index.html`` entry point."""
+    reject_path_symlinks(apps_root, label="App root")
     if not apps_root.exists():
         return []
+    if not apps_root.is_dir():
+        raise ValueError(f"App root must be a directory: {apps_root}")
+    reject_symlinks(apps_root)
 
     return sorted(
         path.name

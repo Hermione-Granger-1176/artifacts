@@ -2,6 +2,7 @@ import { runSchedule } from "./modules/amortization.js";
 import { refreshPalette, renderCharts } from "./modules/charts.js";
 import { initializeMatureApp } from "../../../js/modules/app-runtime.js";
 import { initAppShell, renderAppShell } from "../../../js/modules/app-shell.js";
+import { closest } from "../../../js/modules/dom-events.js";
 import { bindEvents } from "./modules/interactions.js";
 import {
   createExtra,
@@ -144,8 +145,7 @@ function renderExtrasSection() {
 
 /** @param {Event} event - Delegated click event. */
 function handleExtraListClick(event) {
-  const target = /** @type {HTMLElement | null} */ (event.target);
-  const button = /** @type {HTMLElement | null} */ (target?.closest("button[data-action]") ?? null);
+  const button = /** @type {HTMLElement | null} */ (closest(event, "button[data-action]"));
   if (!button) {
     return;
   }
@@ -177,8 +177,7 @@ function handleExtraListClick(event) {
 
 /** @param {Event} event - Delegated input event. */
 function handleExtraListInput(event) {
-  const target = /** @type {HTMLElement | null} */ (event.target);
-  const input = /** @type {HTMLInputElement | null} */ (target?.closest("input[data-field]") ?? null);
+  const input = /** @type {HTMLInputElement | null} */ (closest(event, "input[data-field]"));
   if (!input) {
     return;
   }
@@ -191,7 +190,9 @@ function handleExtraListInput(event) {
 
   updateExtraField(extras, extraId, input.dataset.field ?? "", input.value);
   const extra = extras.find((item) => item.id === extraId);
-  const tip = /** @type {HTMLElement | null} */ (input.closest(".extra-item")?.querySelector(".info-tip") ?? null);
+  const tip = /** @type {HTMLElement | null} */ (
+    input.closest(".extra-item")?.querySelector(".info-tip") ?? null
+  );
   if (!extra || !tip) {
     recalc();
     return;

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -240,6 +241,23 @@ def test_read_artifact_contract_requires_existing_file(
         read_artifact_contract_file(tmp_path / "config" / "artifact_contract.json")
 
 
+def test_read_artifact_contract_rejects_duplicate_keys_and_symlinks(tmp_path: Path) -> None:
+    """Contract loading does not accept ambiguous JSON or symlinked inputs."""
+    contract_file = tmp_path / "artifact_contract.json"
+    write_text(
+        contract_file,
+        '{"artifactIdPattern":"^[a-z]+$","artifactIdPattern":".*",'
+        '"artifactBasePath":"apps","thumbnailFile":"thumbnail.webp"}',
+    )
+    with pytest.raises(ValueError, match="duplicate key: artifactIdPattern"):
+        read_artifact_contract_file(contract_file)
+
+    linked = tmp_path / "linked-contract.json"
+    linked.symlink_to(contract_file)
+    with pytest.raises(ValueError, match="must not be a symlinked path"):
+        read_artifact_contract_file(linked)
+
+
 # -- Palette and badge color tests --------------------------------------------
 
 
@@ -347,6 +365,33 @@ def test_artifact_issues_include_non_kebab_case_name(
     assert index_sources.artifact_issues(folder, config=config) == [
         "directory name must use kebab-case",
         "missing index.html and name.txt",
+    ]
+
+
+def test_artifact_issues_reject_non_file_required_inputs(tmp_path: Path) -> None:
+    """Required artifact metadata must be regular files, not directories."""
+    config = make_config(tmp_path)
+    folder = tmp_path / "directory-inputs"
+    folder.mkdir()
+    (folder / "index.html").mkdir()
+    (folder / "name.txt").mkdir()
+
+    assert index_sources.artifact_issues(folder, config=config) == [
+        "index.html must be a regular file",
+        "name.txt must be a regular file",
+    ]
+
+
+def test_artifact_issues_rejects_a_symlinked_directory(tmp_path: Path) -> None:
+    """Direct artifact validation rejects a symlinked artifact root."""
+    config = make_config(tmp_path)
+    target = tmp_path / "target"
+    target.mkdir()
+    linked = tmp_path / "linked"
+    linked.symlink_to(target, target_is_directory=True)
+
+    assert index_sources.artifact_issues(linked, config=config) == [
+        "directory must not be a symlink"
     ]
 
 
@@ -488,6 +533,29 @@ def test_scan_artifacts_returns_empty_when_apps_dir_is_missing(
     config = make_config(tmp_path, apps_dir=tmp_path / "missing-apps")
 
     assert generate_index._scan_artifacts(config) == []
+
+
+def test_scan_artifacts_rejects_symlinked_inputs(tmp_path: Path) -> None:
+    """Index scanning refuses symlinks before reading artifact content."""
+    apps_dir = tmp_path / "apps"
+    apps_dir.mkdir()
+    target = tmp_path / "outside"
+    target.mkdir()
+    (apps_dir / "linked").symlink_to(target, target_is_directory=True)
+    config = make_config(tmp_path, apps_dir=apps_dir)
+
+    with pytest.raises(ValueError, match="tree containing symlink"):
+        generate_index._scan_artifacts(config)
+
+
+def test_scan_artifacts_rejects_a_non_directory_root(tmp_path: Path) -> None:
+    """Index scanning reports a malformed artifact root clearly."""
+    apps_file = tmp_path / "apps"
+    apps_file.write_text("not a directory", encoding="utf-8")
+    config = make_config(tmp_path, apps_dir=apps_file)
+
+    with pytest.raises(ValueError, match="Artifact root must be a directory"):
+        generate_index._scan_artifacts(config)
 
 
 # -- validate tests ------------------------------------------------------------
@@ -722,6 +790,67 @@ def test_read_gallery_metadata_raises_for_missing_required_fields(
     config = make_config(tmp_path)
 
     with pytest.raises(ValueError, match="must include label, color, alt"):
+        config.read_gallery_metadata()
+
+
+def test_read_gallery_metadata_rejects_wrong_types_and_duplicate_ids(
+    tmp_path: Path,
+) -> None:
+    """Gallery metadata entries must be typed and uniquely identifiable."""
+    metadata_file = tmp_path / "config" / "gallery_metadata.json"
+    write_text(
+        metadata_file,
+        json.dumps(
+            {
+                "tools": [
+                    {
+                        "id": "claude",
+                        "label": "Claude",
+                        "color": "D97706",
+                        "alt": "Claude",
+                        "logo": 42,
+                    }
+                ],
+                "tags": [],
+            }
+        ),
+    )
+    config = make_config(tmp_path)
+    with pytest.raises(ValueError, match="field logo must be a string"):
+        config.read_gallery_metadata()
+
+    write_text(
+        metadata_file,
+        json.dumps(
+            {
+                "tools": [
+                    {"id": "claude", "label": "Claude", "color": "D97706", "alt": "Claude"},
+                    {"id": "claude", "label": "Claude 2", "color": "D97706", "alt": "Claude 2"},
+                ],
+                "tags": [],
+            }
+        ),
+    )
+    with pytest.raises(ValueError, match="duplicate id: claude"):
+        config.read_gallery_metadata()
+
+
+def test_read_gallery_metadata_rejects_duplicate_keys_and_symlinks(tmp_path: Path) -> None:
+    """Gallery metadata loading does not follow symlinks or duplicate keys."""
+    metadata_file = tmp_path / "config" / "gallery_metadata.json"
+    write_text(
+        metadata_file,
+        '{"tools":[],"tools":[],"tags":[]}',
+    )
+    config = make_config(tmp_path)
+    with pytest.raises(ValueError, match="duplicate key: tools"):
+        config.read_gallery_metadata()
+
+    linked = tmp_path / "linked-metadata.json"
+    linked.symlink_to(metadata_file)
+    config = make_config(tmp_path)
+    config = replace(config, gallery_metadata_file=linked)
+    with pytest.raises(ValueError, match="must not be a symlinked path"):
         config.read_gallery_metadata()
 
 

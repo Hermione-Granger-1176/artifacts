@@ -89,10 +89,15 @@ body.artifact-app .brand-link {
 
 }
 
-body.artifact-app .brand-link:hover,
+body.artifact-app .brand-link:hover {
+  color: var(--color-amber);
+
+}
+
 body.artifact-app .brand-link:focus-visible {
   color: var(--color-amber);
-  outline: none;
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 
 }
 
@@ -131,11 +136,17 @@ body.artifact-app .icon-button {
 
 }
 
-body.artifact-app .icon-button:hover,
+body.artifact-app .icon-button:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-blue);
+
+}
+
 body.artifact-app .icon-button:focus-visible {
   transform: translateY(-1px);
   border-color: var(--color-blue);
-  outline: none;
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 
 }
 

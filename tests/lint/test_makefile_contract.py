@@ -175,47 +175,24 @@ def test_clean_documents_that_it_keeps_shared_browsers() -> None:
 
 
 def test_clean_cannot_be_aimed_outside_the_repository() -> None:
-    """The only variable path in the rm -rf is confined to the repository.
+    """The clean target delegates virtual environment deletion to the safe helper."""
+    assert re.search(r"^clean: clean-venv\b", MAKEFILE_TEXT, re.MULTILINE)
+    clean_recipe = target_recipe("clean")
+    assert "rm -rf $(VENV)" not in clean_recipe
+    assert "CLEAN_VENV" not in clean_recipe
 
-    Every other entry is a fixed repository-relative literal, so VENV is the one
-    way this recipe can be pointed elsewhere. It is set with ?= and make imports
-    the environment, so an unrelated exported VENV would otherwise redirect an
-    rm -rf into the user's home with no flag and no warning.
-    """
-    # Pinned as the whole expression rather than its parts. Asserting only that
-    # CURDIR and abspath appear would still pass if filter became filter-out,
-    # which inverts the guard into deleting exactly the paths it should refuse.
-    # The words guard is part of the pin: make splits on whitespace, so without
-    # it a VENV holding spaces expands into several separately deleted paths.
-    assert (
-        "CLEAN_VENV = $(if $(filter 1,$(words $(VENV))),$(filter $(CURDIR)/%,$(abspath $(VENV))))"
-        in MAKEFILE_TEXT
-    )
-
-    recipe = target_recipe("clean")
-
-    # The guarded value is what gets deleted, quoted so it stays one argument,
-    # and the bare one never appears.
-    assert 'rm -rf "$(CLEAN_VENV)"' in recipe
-    assert "rm -rf $(VENV)" not in recipe
-    # An empty result means VENV escaped the repository, so the recipe stops
-    # rather than falling through to deleting the remaining shorter paths.
-    assert 'test -n "$(CLEAN_VENV)"' in recipe
-    assert "exit 1" in recipe
+    helper_recipe = target_recipe("clean-venv")
+    assert "scripts.setup.clean_venv" in helper_recipe
+    assert "clean-venv: export CLEAN_REPO_ROOT := $(CURDIR)" in MAKEFILE_TEXT
+    assert "clean-venv: export CLEAN_VENV := $(VENV)" in MAKEFILE_TEXT
 
 
-def test_clean_refusal_message_survives_a_quote_in_the_path() -> None:
-    """The refusal reaches the operator instead of dying in the shell.
+def test_clean_delegates_quoted_path_handling_to_helper() -> None:
+    """The Python helper owns path validation instead of interpolating VENV in shell."""
+    recipe = target_recipe("clean-venv")
 
-    VENV is the value most likely to be odd, and it is the one interpolated into
-    this printf. Single-quoting it turns a path containing an apostrophe into an
-    unterminated string, so the operator sees a shell syntax error rather than
-    the reason their clean was refused.
-    """
-    recipe = target_recipe("clean")
-
-    assert '"$(VENV)" "$(CURDIR)"' in recipe
-    assert "'$(VENV)'" not in recipe
+    assert "scripts.setup.clean_venv" in recipe
+    assert '"$(VENV)"' not in recipe
 
 
 def test_ci_rerun_replays_a_run_and_can_narrow_to_failed_jobs() -> None:
