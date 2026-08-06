@@ -388,6 +388,8 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     # cost a full uv sync, an npm ci, and a Playwright --with-deps apt pass on
     # every deploy while the caches that make those no-ops went unused.
     assert _step_with(publish, "CI setup")["install-deps"] == "true"
+    assert _step_with(publish, "CI setup")["browser-engines"] == "chromium"
+    assert "container" not in publish
     assert all("make setup-ci" not in str(step.get("run", "")) for step in publish["steps"]), (
         "publish must not rebuild an environment the caches already provide"
     )
