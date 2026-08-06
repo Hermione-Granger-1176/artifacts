@@ -130,11 +130,9 @@ def test_github_app_token_actions_use_client_id_without_renaming_repository_vari
         assert "client-id" in inputs
         assert "app-id" not in inputs
 
-    assert "APP_ID" in (ACTIONS_DIR / "ci-setup" / "action.yml").read_text(encoding="utf-8")
-    assert "ESCALATION_APP_ID" in (ACTIONS_DIR / "ci-setup" / "action.yml").read_text(
-        encoding="utf-8"
-    )
-    assert "AUDIT_APP_ID" in (ACTIONS_DIR / "ci-setup" / "action.yml").read_text(encoding="utf-8")
+    source = "\n".join(path.read_text(encoding="utf-8") for path in _workflow_and_action_files())
+    for variable in ("APP_ID", "ESCALATION_APP_ID", "AUDIT_APP_ID"):
+        assert f"vars.{variable}" in source
 
 
 def test_playwright_ci_images_match_locked_python_package() -> None:
