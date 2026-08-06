@@ -226,6 +226,68 @@ test('runVerifiedDeploy creates a verified commit for full deploy', async () => 
   assert.equal(result.commitUrl, 'https://github.com/o/r/commit/abc');
 });
 
+test('runVerifiedDeploy retries when the branch moves after the HEAD read', async () => {
+  let refFetches = 0;
+  let graphqlCalls = 0;
+  let lastInput = null;
+
+  const env = {
+    GH_TOKEN: 'test-token',
+    PAGES_BRANCH: 'gh-pages',
+    PREVIEW_ROOT: 'pr-preview',
+    COMMIT_MESSAGE: 'Deploy site',
+    DEPLOY_DIR: 'site',
+    GITHUB_REPOSITORY: 'owner/repo'
+  };
+
+  const fakeFetch = async (url, options) => {
+    const body = options?.body ? JSON.parse(options.body) : null;
+
+    if (url === 'https://api.github.com/graphql') {
+      graphqlCalls += 1;
+      lastInput = body.variables.input;
+      if (graphqlCalls === 1) {
+        return jsonResponse({
+          errors: [
+            {
+              message: 'Expected branch to point to "stale-head" but it did not. Pull and try again.'
+            }
+          ]
+        });
+      }
+      return jsonResponse({
+        data: { createCommitOnBranch: { commit: { oid: 'retry-sha', url: 'https://example.test/retry' } } }
+      });
+    }
+    if (url.includes('/git/ref/heads/gh-pages')) {
+      refFetches += 1;
+      const head = refFetches === 1 ? 'stale-head' : 'current-head';
+      return jsonResponse({ object: { sha: head } });
+    }
+    if (url.includes('/git/commits/')) {
+      return jsonResponse({ tree: { sha: 'tree-sha' } });
+    }
+    if (url.includes('/git/trees/')) {
+      return jsonResponse({ tree: [] });
+    }
+    return jsonResponse({});
+  };
+
+  const result = await runVerifiedDeploy({
+    env,
+    consoleObj: { log() {}, error() {} },
+    fetchDependencies: { fetchImpl: fakeFetch },
+    readFileSyncImpl: () => Buffer.from('<html>'),
+    walkDirImpl: () => ['index.html']
+  });
+
+  assert.equal(refFetches, 2);
+  assert.equal(graphqlCalls, 2);
+  assert.equal(lastInput.expectedHeadOid, 'current-head');
+  assert.equal(result.commitSha, 'retry-sha');
+  assert.ok(result.deployed);
+});
+
 test('runVerifiedDeploy returns deployed false when nothing changed', async () => {
   const htmlContent = Buffer.from('<html>');
   const htmlSha = gitBlobSha(htmlContent);

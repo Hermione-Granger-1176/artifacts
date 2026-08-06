@@ -328,7 +328,8 @@ export async function runVerifiedDeploy({
       writeGitHubOutputs(result, env, appendFileSyncImpl);
       return result;
     } catch (error) {
-      if (attempt < maxAttempts && /expectedHeadOid/i.test(String(error.message || error))) {
+      const message = String(error.message || error);
+      if (attempt < maxAttempts && /expectedHeadOid|expected branch to point/i.test(message)) {
         consoleObj.log(`Branch moved (attempt ${attempt}/${maxAttempts}), refetching and retrying`);
         continue;
       }
