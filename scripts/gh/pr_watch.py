@@ -290,7 +290,7 @@ def watch_pr(
     *,
     interval: float = 45.0,
     max_polls: int = 40,
-    expected_checks: int = 15,
+    expected_checks: int = DEFAULT_EXPECTED_CHECKS,
     checks_only: bool = False,
     run_fn: RunFunction | None = None,
     sleep_fn: Callable[[float], None] | None = None,

@@ -801,6 +801,32 @@ def test_watch_pr_defaults_current_pr_and_sleep(
     assert sleeps == [3]
 
 
+def test_watch_pr_uses_the_conservative_default_check_count(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Direct watcher callers use the same check floor as the CLI."""
+    captured: list[int] = []
+    monkeypatch.setattr(
+        pr_watch,
+        "watch_baseline",
+        lambda *_args, **_kwargs: pr_watch.WatchBaseline(frozenset(), frozenset()),
+    )
+    monkeypatch.setattr(pr_review, "request_copilot_review", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        pr_watch,
+        "poll_once",
+        lambda *_args, **kwargs: (
+            captured.append(kwargs["expected_checks"])
+            or _status(settled=True, review=_parsed_review())
+        ),
+    )
+    monkeypatch.setattr(pr_review, "list_threads", lambda *_args, **_kwargs: [])
+
+    pr_watch.watch_pr(12, interval=0, max_polls=1)
+
+    assert captured == [pr_watch.DEFAULT_EXPECTED_CHECKS]
+
+
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
