@@ -578,9 +578,16 @@ def test_issue_payloads_by_title_delegates_to_issue_alerts_module(
     """Issue payloads by title delegates to issue alerts module."""
     captured = {}
 
-    def fake_issue_payloads_by_title(repo: str, title: str, *, run_gh_api_json_fn):
+    def fake_issue_payloads_by_title(
+        repo: str,
+        title: str,
+        *,
+        labels=None,
+        run_gh_api_json_fn,
+    ):
         captured["repo"] = repo
         captured["title"] = title
+        captured["labels"] = labels
         captured["run_gh_api_json_fn"] = run_gh_api_json_fn
         return [{"number": 1}]
 
@@ -593,4 +600,5 @@ def test_issue_payloads_by_title_delegates_to_issue_alerts_module(
     assert workflow_helpers._issue_payloads_by_title("owner/repo", "Alert") == [{"number": 1}]
     assert captured["repo"] == "owner/repo"
     assert captured["title"] == "Alert"
+    assert captured["labels"] is None
     assert captured["run_gh_api_json_fn"] is workflow_helpers._run_gh_api_json

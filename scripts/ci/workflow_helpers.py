@@ -436,11 +436,17 @@ def finalize_pages_dir(root: Path) -> None:
     (root / ".nojekyll").touch()
 
 
-def _issue_payloads_by_title(repo: str, title: str) -> list[dict[str, object]]:
-    """Return open issue payloads whose title exactly matches ``title``."""
+def _issue_payloads_by_title(
+    repo: str,
+    title: str,
+    *,
+    labels: list[str] | None = None,
+) -> list[dict[str, object]]:
+    """Return open issue payloads whose title and labels match."""
     return _issue_alerts.issue_payloads_by_title(
         repo,
         title,
+        labels=labels,
         run_gh_api_json_fn=_run_gh_api_json,
     )
 
