@@ -60,7 +60,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- lib/                   Tests for scripts/lib/
 |  |- lint/                  Tests for scripts/lint/
 |  |- setup/                 Tests for scripts/setup/
-|  |- browser/               Playwright smoke, accessibility, and flow tests
+|  |- browser/               Playwright smoke, accessibility, flow, cross-engine, and visual regression tests
 |  |- js/
 |  |  |- home/               Root gallery Node unit tests
 |  |  |- common/             Shared app/runtime Node unit tests
