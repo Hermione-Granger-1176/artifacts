@@ -326,6 +326,16 @@ def _load_ruleset_detail(repo: str, ruleset: object) -> object:
     )
 
 
+def _report_checked(output_name: str, reached_verdict: bool) -> None:
+    """Record whether a CI audit reached a trustworthy verdict."""
+    output_file = os.environ.get("GITHUB_OUTPUT")
+    if not output_file:
+        return
+    value = "true" if reached_verdict else "false"
+    with Path(output_file).open("a", encoding="utf-8") as handle:
+        handle.write(f"{output_name}={value}\n")
+
+
 def audit_repo_settings(
     *,
     repo: str,
@@ -690,18 +700,34 @@ def _handle_finalize_pages_dir(args: argparse.Namespace) -> int:
 
 def _handle_audit_repo_settings(args: argparse.Namespace) -> int:
     """Audit repository settings and print a JSON summary when they match expectations."""
-    summary = audit_repo_settings(
-        repo=args.repo,
-        default_branch=args.default_branch,
-        pages_branch=args.pages_branch,
-    )
+    try:
+        summary = audit_repo_settings(
+            repo=args.repo,
+            default_branch=args.default_branch,
+            pages_branch=args.pages_branch,
+        )
+    except ValueError:
+        _report_checked("settings_checked", True)
+        raise
+    except RuntimeError:
+        _report_checked("settings_checked", False)
+        raise
+    _report_checked("settings_checked", True)
     print(json.dumps(summary, sort_keys=True))
     return 0
 
 
 def _handle_audit_previews(args: argparse.Namespace) -> int:
     """Audit PR preview directories and print the live previews as JSON."""
-    previews = audit_previews(repo=args.repo, pages_branch=args.pages_branch)
+    try:
+        previews = audit_previews(repo=args.repo, pages_branch=args.pages_branch)
+    except ValueError:
+        _report_checked("previews_checked", True)
+        raise
+    except RuntimeError:
+        _report_checked("previews_checked", False)
+        raise
+    _report_checked("previews_checked", True)
     # Sorted so the output does not depend on Git trees API response ordering.
     print(json.dumps({"open-previews": sorted(previews)}, sort_keys=True))
     return 0

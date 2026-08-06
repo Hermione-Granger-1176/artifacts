@@ -589,22 +589,31 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert audit_job["permissions"] == {"contents": "read", "issues": "write"}
     assert "> audit-repo-settings.json 2>&1" in audit_run
     assert 'echo "status=$status" >> "$GITHUB_OUTPUT"' in audit_run
+    assert "settings_checked" in audit_run
+    assert "previews_checked" in audit_run
+    assert 'echo "checked=$checked" >> "$GITHUB_OUTPUT"' in audit_run
     drift_open_run = _step_run(audit_job, "Open or update repository settings drift issue")
     assert "make ci-alert-issue" in drift_open_run
     assert "state=open" in drift_open_run
     assert "TITLE=" in drift_open_run
     assert "< audit-repo-settings.json" in drift_open_run
     assert "detail_file=" not in drift_open_run
+    assert _step(audit_job, "Open or update repository settings drift issue")["if"] == (
+        "steps.audit.outputs.checked == 'true' && steps.audit.outputs.status != '0'"
+    )
     drift_close_run = _step_run(audit_job, "Close repository settings drift issue when clean")
     assert "make ci-alert-issue" in drift_close_run
     assert "state=close" in drift_close_run
+    assert _step(audit_job, "Close repository settings drift issue when clean")["if"] == (
+        "steps.audit.outputs.checked == 'true' && steps.audit.outputs.status == '0'"
+    )
 
     # The stale-preview audit is folded into the settings audit step so the run
     # stays green in the actionlint linter and shares one drift-alert channel.
     assert "make ci-audit-repo-settings" in audit_run
     assert "make ci-audit-previews" in audit_run
     audit_fallback = _step(audit_job, "Alert when repository settings audit setup fails")
-    assert audit_fallback["if"] == "failure() && steps.audit.outputs.status == ''"
+    assert audit_fallback["if"] == "steps.audit.outputs.checked != 'true'"
     assert audit_fallback["env"]["GH_TOKEN"] == "${{ github.token }}"
     audit_fallback_run = _step_run(audit_job, "Alert when repository settings audit setup fails")
     assert "make ci-alert-issue" in audit_fallback_run
