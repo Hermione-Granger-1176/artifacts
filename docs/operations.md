@@ -194,7 +194,7 @@ Use this when a private key is gone with no backup, or a GitHub App was deleted 
 What breaks per app:
 
 - **Hermione1176 (primary):** same-PR thumbnail writeback stops. Because primary and escalation credentials are all-or-nothing in trusted contexts, `ci-setup` hard-fails every trusted `publish` and `persist-thumbnails` run while either app is missing, so preview and main deploys stop too until both apps are healthy.
-- **Harry1176 (escalation):** all deploys stop (main site, PR previews, and preview cleanup), along with the follow-up thumbnail PR from `main` and the scheduled `refresh-locks` and `refresh-action-shas` maintenance PRs. As with Hermione, `ci-setup` hard-fails trusted runs while either primary or escalation credential is absent.
+- **Harry1176 (escalation):** all deploys stop (main site, PR previews, and preview cleanup), along with the follow-up thumbnail PR from `main` and the scheduled `refresh-locks`, `refresh-action-shas`, and `refresh-playwright` maintenance PRs. As with Hermione, `ci-setup` hard-fails trusted runs while either primary or escalation credential is absent.
 - **Percy1176 (audit):** only the weekly repository-settings audit stops. Deploys and previews are unaffected. A missing install surfaces as a 403 from `scripts/ci/repo_audit.py`.
 
 Re-mint an app:

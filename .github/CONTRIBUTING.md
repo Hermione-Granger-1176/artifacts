@@ -26,6 +26,7 @@ Do not hand-edit generated outputs unless you are intentionally changing the gen
 - Node tooling lives in `package.json` and `package-lock.json`.
 - Same-repo Dependabot uv PRs auto-refresh `uv.lock` through `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml`, but local/manual dependency edits still need `make lock`.
 - After changing Python dependency declarations, regenerate `uv.lock` with `make lock`.
+- The monthly `.github/workflows/refresh-playwright.yml` workflow runs `make refresh-ci-pins` to update the locked Python Playwright package and matching official CI image digest together.
 - After changing Node dependencies, refresh `package-lock.json` before rerunning the relevant `make` setup or check targets.
 - `axe-core` is pinned in `package-lock.json` because the Playwright accessibility suite injects it into real browser sessions.
 - Workspace-only maintenance changes do not need a standalone changelog entry; app release notes stay app-specific.
