@@ -14,7 +14,7 @@ def test_alert_should_exist_maps_states_to_lifecycle() -> None:
 
 def test_alert_should_exist_rejects_unknown_state() -> None:
     """Alert should exist rejects unknown state."""
-    with pytest.raises(ValueError, match="Unsupported alert state: bogus"):
+    with pytest.raises(ValueError, match="Unsupported alert state: 'bogus'"):
         issue_alerts.alert_should_exist("bogus")
 
 
@@ -47,14 +47,13 @@ def test_build_alert_body_appends_detail_when_given() -> None:
 
 def test_build_alert_body_rejects_unknown_state() -> None:
     """Build alert body rejects unknown state."""
-    with pytest.raises(ValueError, match="Unsupported alert state: bogus"):
+    with pytest.raises(ValueError, match="Unsupported alert state: 'bogus'"):
         issue_alerts.build_alert_body(state="bogus", run_url="https://example.test/run")
 
 
 def test_issue_payloads_by_title_filters_non_matching_issues_and_prs() -> None:
     """Issue payloads by title filters non matching issues and prs."""
     payload = [
-        "invalid",
         {
             "number": 1,
             "title": "Live site smoke check failed",
@@ -75,7 +74,7 @@ def test_issue_payloads_by_title_filters_non_matching_issues_and_prs() -> None:
         run_gh_api_json_fn=lambda *_args, **_kwargs: payload,
     )
 
-    assert matches == [payload[1]]
+    assert matches == [payload[0]]
 
 
 def test_issue_payloads_by_title_rejects_non_array_payloads() -> None:
@@ -131,6 +130,47 @@ def test_sync_alert_issue_creates_new_issue_when_missing() -> None:
     ]
 
 
+def test_sync_alert_issue_normalizes_labels_for_lookup_and_creation() -> None:
+    """Alert lookup and creation use the same deduplicated label sequence."""
+    lookup_labels: list[list[str]] = []
+    created_fields: list[list[tuple[str, str]]] = []
+
+    def fake_issue_payloads_by_title(
+        _repo: str, _title: str, *, labels: list[str], **_kwargs: object
+    ) -> list[dict[str, object]]:
+        lookup_labels.append(labels)
+        return []
+
+    def fake_run_gh_api_form(
+        _endpoint: str,
+        *,
+        fields: list[tuple[str, str]],
+        **_kwargs: object,
+    ) -> str:
+        created_fields.append(fields)
+        return "https://github.com/owner/repo/issues/11"
+
+    issue_alerts.sync_alert_issue(
+        repo="owner/repo",
+        title="Artifact alert",
+        body="Something broke",
+        labels=["ci", "ops", "ci"],
+        should_exist=True,
+        issue_payloads_by_title_fn=fake_issue_payloads_by_title,
+        run_gh_api_form_fn=fake_run_gh_api_form,
+    )
+
+    assert lookup_labels == [["ci", "ops"]]
+    assert created_fields == [
+        [
+            ("title", "Artifact alert"),
+            ("body", "Something broke"),
+            ("labels[]", "ci"),
+            ("labels[]", "ops"),
+        ]
+    ]
+
+
 def test_sync_alert_issue_updates_existing_issue_when_present() -> None:
     """Sync alert issue updates existing issue when present."""
     update_calls = []
@@ -162,14 +202,10 @@ def test_sync_alert_issue_updates_existing_issue_when_present() -> None:
     assert issue_url == "https://github.com/owner/repo/issues/7"
     assert update_calls == [
         (
-            "repos/owner/repo/issues/7",
-            "PATCH",
-            [
-                ("title", "Artifact alert"),
-                ("body", "Updated body"),
-                ("labels[]", "ci"),
-            ],
-            "updating alert issue Artifact alert for owner/repo",
+            "repos/owner/repo/issues/7/comments",
+            "POST",
+            [("body", "Updated body")],
+            "commenting on alert issue Artifact alert for owner/repo",
             "",
         )
     ]
@@ -217,7 +253,7 @@ def test_sync_alert_issue_closes_existing_issue_when_no_longer_needed() -> None:
 
 def test_sync_alert_issue_rejects_non_integer_issue_number_on_update() -> None:
     """Sync alert issue rejects non integer issue number on update."""
-    with pytest.raises(RuntimeError, match="Matched issue number must be an integer"):
+    with pytest.raises(RuntimeError, match="Matched issue number must be a positive integer"):
         issue_alerts.sync_alert_issue(
             repo="owner/repo",
             title="Artifact alert",
@@ -245,7 +281,7 @@ def test_sync_alert_issue_rejects_missing_html_url_on_update() -> None:
 
 def test_sync_alert_issue_rejects_non_integer_issue_number_on_close() -> None:
     """Sync alert issue rejects non integer issue number on close."""
-    with pytest.raises(RuntimeError, match="Matched issue number must be an integer"):
+    with pytest.raises(RuntimeError, match="Matched issue number must be a positive integer"):
         issue_alerts.sync_alert_issue(
             repo="owner/repo",
             title="Artifact alert",
@@ -271,3 +307,111 @@ def test_sync_alert_issue_returns_empty_when_no_open_issue_to_close() -> None:
         )
         == ""
     )
+
+
+@pytest.mark.parametrize(
+    ("run_url", "message"),
+    [
+        ("", "must not be empty"),
+        ("http://github.com/o/r/actions/runs/1", "https URL"),
+        ("https://github.com/o/r/actions/1", "Actions run"),
+    ],
+)
+def test_build_alert_body_rejects_unusable_run_urls(run_url: str, message: str) -> None:
+    """Alert bodies do not record malformed or misleading run links."""
+    with pytest.raises(ValueError, match=message):
+        issue_alerts.build_alert_body(state="open", run_url=run_url)
+
+
+def test_issue_payloads_by_title_scopes_query_to_labels() -> None:
+    """Issue lookup includes the supplied labels in the bounded API query."""
+    captured: dict[str, object] = {}
+
+    def fake_json(endpoint: str, **_kwargs: object) -> object:
+        captured["endpoint"] = endpoint
+        return []
+
+    assert (
+        issue_alerts.issue_payloads_by_title(
+            "owner/repo",
+            "Alert",
+            labels=["ops", "ci", "ops"],
+            run_gh_api_json_fn=fake_json,
+        )
+        == []
+    )
+    assert captured["endpoint"] == "repos/owner/repo/issues?state=open&per_page=100&labels=ops,ci"
+
+
+def test_issue_payloads_by_title_rejects_a_capped_result() -> None:
+    """A capped response cannot safely prove that an alert issue is absent."""
+    payload = [{"number": number, "title": "Other"} for number in range(100)]
+
+    with pytest.raises(RuntimeError, match="may be truncated"):
+        issue_alerts.issue_payloads_by_title(
+            "owner/repo",
+            "Alert",
+            run_gh_api_json_fn=lambda *_args, **_kwargs: payload,
+        )
+
+
+def test_issue_payloads_by_title_rejects_malformed_entries() -> None:
+    """A malformed issue entry fails closed instead of being ignored."""
+    with pytest.raises(RuntimeError, match="entries must be JSON objects"):
+        issue_alerts.issue_payloads_by_title(
+            "owner/repo",
+            "Alert",
+            run_gh_api_json_fn=lambda *_args, **_kwargs: ["not an issue"],
+        )
+
+
+def test_issue_payloads_by_title_prefers_the_oldest_duplicate() -> None:
+    """Duplicate alert issues converge on the oldest matching issue."""
+    payload = [
+        {"number": 12, "title": "Alert", "html_url": "https://example/12"},
+        {"number": 4, "title": "Alert", "html_url": "https://example/4"},
+    ]
+
+    matches = issue_alerts.issue_payloads_by_title(
+        "owner/repo",
+        "Alert",
+        run_gh_api_json_fn=lambda *_args, **_kwargs: payload,
+    )
+
+    assert [match["number"] for match in matches] == [4, 12]
+
+
+def test_sync_alert_issue_rejects_empty_create_url() -> None:
+    """Creating an alert without a returned URL is an operational failure."""
+    with pytest.raises(RuntimeError, match="returned no URL"):
+        issue_alerts.sync_alert_issue(
+            repo="owner/repo",
+            title="Alert",
+            body="Failure",
+            labels=["ci"],
+            should_exist=True,
+            issue_payloads_by_title_fn=lambda *_args, **_kwargs: [],
+            run_gh_api_form_fn=lambda *_args, **_kwargs: "",
+        )
+
+
+@pytest.mark.parametrize("field", ["repo", "title"])
+def test_sync_alert_issue_rejects_flag_like_identifiers(field: str) -> None:
+    """Structured alert identifiers cannot be passed as option-looking values."""
+    values = {
+        "repo": "-owner/repo",
+        "title": "-Alert",
+        "body": "Failure",
+        "labels": ["ci"],
+    }
+
+    with pytest.raises(ValueError, match="must not start"):
+        issue_alerts.sync_alert_issue(
+            repo=values["repo"] if field == "repo" else "owner/repo",
+            title=values["title"] if field == "title" else "Alert",
+            body="Failure",
+            labels=["ci"],
+            should_exist=True,
+            issue_payloads_by_title_fn=lambda *_args, **_kwargs: [],
+            run_gh_api_form_fn=lambda *_args, **_kwargs: "url",
+        )
