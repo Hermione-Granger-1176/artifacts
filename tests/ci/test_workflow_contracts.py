@@ -920,6 +920,7 @@ def test_dependency_audit_workflow_runs_audits_and_syncs_alert_issue() -> None:
     audit = _job(workflow, "audit")
     assert audit["permissions"] == {"contents": "read", "issues": "write"}
     assert _step_uses(audit, "CI setup") == "./.github/actions/ci-setup"
+    assert _step_with(audit, "CI setup")["browser-engines"] == ""
 
     audit_run = _step_run(audit, "Run dependency audits")
     assert audit_run.startswith("set +e")
@@ -952,6 +953,22 @@ def test_dependency_audit_workflow_runs_audits_and_syncs_alert_issue() -> None:
     fallback_run = _step_run(audit, "Alert when dependency audit setup fails")
     assert "make ci-alert-issue" in fallback_run
     assert "state=setup-failure" in fallback_run
+
+
+def test_dependency_install_callers_choose_browser_environment_explicitly() -> None:
+    """Require every dependency-installing CI caller to opt into browsers explicitly."""
+    for workflow_path in sorted(WORKFLOWS_DIR.glob("*.yml")):
+        workflow = _load_workflow(workflow_path.name)
+        for job_name, job in _jobs(workflow).items():
+            for step in _steps(job):
+                if step.get("uses") != "./.github/actions/ci-setup":
+                    continue
+                inputs = step.get("with")
+                assert isinstance(inputs, dict)
+                if inputs.get("install-deps") == "true":
+                    assert "browser-engines" in inputs, (
+                        f"{workflow_path.name}:{job_name} must choose browser-engines explicitly"
+                    )
 
 
 def test_scheduled_maintenance_workflows_always_create_pull_requests() -> None:
@@ -1040,7 +1057,7 @@ def test_setup_steps_cache_locked_environments_and_downloads() -> None:
     # what to install, so a caller cannot ask for no browsers and an engine at
     # the same time, and the key cannot disagree with what was installed.
     assert "install-browsers" not in ci_setup["inputs"]
-    assert ci_setup["inputs"]["browser-engines"]["default"] == "chromium"
+    assert ci_setup["inputs"]["browser-engines"]["default"] == ""
     venv_cache = next(
         step
         for step in ci_setup["runs"]["steps"]

@@ -63,9 +63,10 @@ inputs:
       the engine set says both whether to install and what to install, so there is no way to express
       the contradiction a separate boolean allowed. The installed Playwright package version and engine
       set form the browser cache key, so a dependency or engine change downloads the required browsers
-      while unrelated lockfile changes keep reusing compatible binaries.
+      while unrelated lockfile changes keep reusing compatible binaries. Browser installation is opt-in
+      so dependency, build, and deployment jobs cannot silently pay for host browser setup.
     required: false
-    default: chromium
+    default: ""
 
 outputs:
   app-token:

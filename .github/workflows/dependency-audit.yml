@@ -30,6 +30,7 @@ jobs:
           python-version: "3.12"
           node-version: "24"
           install-deps: "true"
+          browser-engines: ""
 
       - name: Run dependency audits
         id: audit
