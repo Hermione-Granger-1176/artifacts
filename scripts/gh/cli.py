@@ -100,16 +100,32 @@ def _build_parser() -> argparse.ArgumentParser:
     issue_summary_parser.add_argument("--issue", type=int, required=True, help="Issue number")
 
     watch_parser = subparsers.add_parser(
-        "watch", help="Wait for settled checks and a fresh Copilot review"
+        "watch",
+        help="Request and wait for a fresh Copilot review and successful checks",
     )
     watch_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
-    watch_parser.add_argument("--since", help="Review timestamp (default: newest PR commit)")
     watch_parser.add_argument(
-        "--interval", type=float, default=45.0, help="Poll interval in seconds"
+        "--interval",
+        type=float,
+        default=45.0,
+        help="Poll interval in seconds",
     )
-    watch_parser.add_argument("--max-polls", type=int, default=40, help="Maximum poll count")
     watch_parser.add_argument(
-        "--checks-only", action="store_true", help="Do not wait for a Copilot review"
+        "--max-polls",
+        type=int,
+        default=40,
+        help="Maximum poll count",
+    )
+    watch_parser.add_argument(
+        "--expected-checks",
+        type=int,
+        default=pr_watch.DEFAULT_EXPECTED_CHECKS,
+        help="Minimum expected check count",
+    )
+    watch_parser.add_argument(
+        "--checks-only",
+        action="store_true",
+        help="Wait for checks without requesting a Copilot review",
     )
 
     ci_parser = subparsers.add_parser(
@@ -223,9 +239,9 @@ def _handle_watch(args: argparse.Namespace) -> int:
     print(
         pr_watch.watch_pr(
             args.pr,
-            args.since,
             interval=args.interval,
             max_polls=args.max_polls,
+            expected_checks=args.expected_checks,
             checks_only=args.checks_only,
         )
     )
