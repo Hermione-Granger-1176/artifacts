@@ -136,12 +136,14 @@ def test_commit_sha_extracts_valid_sha() -> None:
     assert ras._commit_sha({"sha": SHA_A}) == SHA_A
 
 
-def test_commit_sha_rejects_missing_or_non_dict_payloads() -> None:
-    """Commit sha rejects missing or non dict payloads."""
-    with pytest.raises(RuntimeError, match="did not include a commit SHA"):
-        ras._commit_sha({"sha": 5})
-    with pytest.raises(RuntimeError, match="did not include a commit SHA"):
-        ras._commit_sha(["not", "a", "dict"])
+@pytest.mark.parametrize(
+    "payload",
+    [{}, {"sha": 5}, ["not", "a", "dict"], {"sha": "abc"}, {"sha": "A" * 40}],
+)
+def test_commit_sha_rejects_missing_or_invalid_payloads(payload: object) -> None:
+    """Never accept a response that is not a lowercase full commit SHA."""
+    with pytest.raises(RuntimeError, match="did not include a valid commit SHA"):
+        ras._commit_sha(payload)
 
 
 def test_default_urlopen_delegates_to_stdlib(monkeypatch: pytest.MonkeyPatch) -> None:
