@@ -141,13 +141,13 @@ def sync_alert_issue(
     """Create, comment on, close, or reuse one alert issue addressed by title and labels."""
     _require_argument(repo, "repository")
     _require_argument(title, "title")
-    _validate_labels(labels)
-    matches = issue_payloads_by_title_fn(repo, title, labels=labels)
+    normalized_labels = _validate_labels(labels)
+    matches = issue_payloads_by_title_fn(repo, title, labels=list(normalized_labels))
     primary = matches[0] if matches else None
     fields = [
         ("title", title),
         ("body", body),
-        *(("labels[]", label) for label in labels),
+        *(("labels[]", label) for label in normalized_labels),
     ]
 
     if primary is None:

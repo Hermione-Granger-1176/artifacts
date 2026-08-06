@@ -130,6 +130,47 @@ def test_sync_alert_issue_creates_new_issue_when_missing() -> None:
     ]
 
 
+def test_sync_alert_issue_normalizes_labels_for_lookup_and_creation() -> None:
+    """Alert lookup and creation use the same deduplicated label sequence."""
+    lookup_labels: list[list[str]] = []
+    created_fields: list[list[tuple[str, str]]] = []
+
+    def fake_issue_payloads_by_title(
+        _repo: str, _title: str, *, labels: list[str], **_kwargs: object
+    ) -> list[dict[str, object]]:
+        lookup_labels.append(labels)
+        return []
+
+    def fake_run_gh_api_form(
+        _endpoint: str,
+        *,
+        fields: list[tuple[str, str]],
+        **_kwargs: object,
+    ) -> str:
+        created_fields.append(fields)
+        return "https://github.com/owner/repo/issues/11"
+
+    issue_alerts.sync_alert_issue(
+        repo="owner/repo",
+        title="Artifact alert",
+        body="Something broke",
+        labels=["ci", "ops", "ci"],
+        should_exist=True,
+        issue_payloads_by_title_fn=fake_issue_payloads_by_title,
+        run_gh_api_form_fn=fake_run_gh_api_form,
+    )
+
+    assert lookup_labels == [["ci", "ops"]]
+    assert created_fields == [
+        [
+            ("title", "Artifact alert"),
+            ("body", "Something broke"),
+            ("labels[]", "ci"),
+            ("labels[]", "ops"),
+        ]
+    ]
+
+
 def test_sync_alert_issue_updates_existing_issue_when_present() -> None:
     """Sync alert issue updates existing issue when present."""
     update_calls = []
