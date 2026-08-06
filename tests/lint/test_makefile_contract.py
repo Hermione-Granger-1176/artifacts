@@ -231,6 +231,16 @@ def test_ci_rerun_replays_a_run_and_can_narrow_to_failed_jobs() -> None:
     assert "$(if $(failed),--failed)" not in recipe
 
 
+def test_ci_watch_resolves_a_run_and_surfaces_failure_status() -> None:
+    """The CI watcher works in noninteractive shells and returns run failures."""
+    recipe = target_recipe("ci-watch")
+
+    assert 'run_id="$(RUN_ID)"' in recipe
+    assert 'gh run watch "$$run_id" --exit-status' in recipe
+    assert "Usage: make ci-watch run=123456" in recipe
+    assert "gh run watch\n" not in recipe
+
+
 def test_ci_dispatch_starts_a_fresh_run_with_optional_inputs() -> None:
     """A fresh run is the escape hatch when replaying a run cannot work."""
     recipe = target_recipe("ci-dispatch")

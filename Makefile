@@ -872,8 +872,10 @@ ci-job-log: ## Show logs for one CI job (make ci-job-log run=ID job=ID)
 	@test -n "$(run)" -a -n "$(job)" || (printf 'Usage: make ci-job-log run=123456 job=789\n' >&2; exit 1)
 	gh run view "$(run)" --job "$(job)" --log
 
-ci-watch: ## Watch the latest CI run until done
-	gh run watch
+ci-watch: ## Watch one CI run until done (make ci-watch [run=ID], defaults to this branch's latest)
+	@run_id="$(RUN_ID)"; \
+	test -n "$$run_id" || { printf 'Usage: make ci-watch run=123456 (or run on a branch with a resolvable latest run)\n' >&2; exit 1; }; \
+	gh run watch "$$run_id" --exit-status
 
 ci-failures: ## Show failed-step logs for this branch's latest run (make ci-failures [run=ID])
 	@$(GH) ci-failures $(if $(run),--run $(run))

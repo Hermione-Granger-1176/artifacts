@@ -243,16 +243,16 @@ The flow is identical to Scenario 1 with these differences:
 - **`plan`**: `persist-mode` is `followup-pr` when runtime changes or missing thumbnails require thumbnail persistence, otherwise `none`. It is never `pr-branch` because there is no PR.
 - **`dependency-review`**: does not run (not a PR event). `verify` treats it as `skipped`, which is acceptable.
 - **`save-app-ledger`**: runs only here (guarded to `push` on `refs/heads/main` after `verify` succeeds). It merges the freshly main-verified app hashes into the ledger cache so later runs can memoize matching apps out of the browser shards.
-- **`publish`**: instead of deploying a preview, commits `_site/` to the **root** of `gh-pages`, replacing the live site state. Preserves the `pr-preview/` directory so existing PR previews keep working. Uses the `deploy-site` composite action with `skip-build: true`, then uploads and deploys the full `gh-pages` tree with the official Pages Actions. Verifies and browser-tests the live production URL. It also writes a classic deployment record: after the Pages deploy it creates a `github-pages` deployment via `POST /repos/{owner}/{repo}/deployments` (with `required_contexts: []` sent through `gh api --input -` so it does not wait on status checks), then marks that deployment `success` once verification and live browser tests pass, or `failure` if the job fails after the record was created. This runs for main-site publishes only (guarded by the same main-only condition as the main deploy) so the Deployments page and environment badge stay honest. The record is created with the workflow `GITHUB_TOKEN`, which carries `deployments: write` on the publish job.
+- **`publish`**: instead of deploying a preview, commits `_site/` to the **root** of `gh-pages`, replacing the live site state. On a push produced by a merged PR, resolves the associated PR, removes its `pr-preview/pr-N/` subtree, and deletes its sticky preview comment before the root commit. Other previews remain preserved so open PR previews keep working. This makes a merged PR use one Pages deployment instead of a separate close-event cleanup deployment. Uses the `deploy-site` composite action with `skip-build: true`, then uploads and deploys the full `gh-pages` tree with the official Pages Actions. Verifies and browser-tests the live production URL. It also writes a classic deployment record: after the Pages deploy it creates a `github-pages` deployment via `POST /repos/{owner}/{repo}/deployments` (with `required_contexts: []` sent through `gh api --input -` so it does not wait on status checks), then marks that deployment `success` once verification and live browser tests pass, or `failure` if the job fails after the record was created. This runs for main-site publishes only (guarded by the same main-only condition as the main deploy) so the Deployments page and environment badge stay honest. The record is created with the workflow `GITHUB_TOKEN`, which carries `deployments: write` on the publish job.
 - **`persist-thumbnails`**: if `persist-mode` is `followup-pr`, creates or updates a follow-up PR on a dated branch (`ci/save-generated-thumbnails-YYYYMMDD`) targeting `main`. Uses the Harry1176 (escalation) token with `commit-mode: force-pr`. The PR body contains a marker (`<!-- artifacts:generated-thumbnails -->`) for loop detection. When this follow-up PR is later merged to `main`, the planner recognizes it via PR provenance and sets `persist-mode: none` to prevent infinite loops. The commit-level files check also sets `skip-verification: true` when the merge commit contains only thumbnail files, eliminating the redundant deploy. Stale-check is not performed because there is no PR branch to check.
 
-#### Scenario 3: Close or merge a PR
+#### Scenario 3: Close an unmerged PR
 
 Trigger: `pull_request` event with `action: closed`.
 
-Only `cleanup-preview` runs. No other jobs run.
+Only `cleanup-preview` runs for a closed PR that was not merged. A merged PR skips this job. The push to `main` resolves the merged PR number, removes its preview before the root publish, and deploys the resulting Pages tree once.
 
-- **`cleanup-preview`** (timeout: 8 min, permissions: actions read, contents write, issues write, pages write, pull-requests write, id-token write)
+- **`cleanup-preview`** (timeout: 15 min, permissions: actions read, contents write, issues write, pages write, pull-requests write, id-token write)
   - Runs `ci-setup` to mint tokens (note: uses hardcoded `event-name: pull_request`, not `github.event_name`).
   - If tokens available: removes `pr-preview/pr-{N}/` from `gh-pages` using `deploy-verified.mjs` with `REMOVE_SUBDIR`, uploads and deploys the full updated `gh-pages` tree with the official Pages Actions, then deletes the sticky preview comment.
   - If tokens unavailable (fork/Dependabot): does nothing. There was no preview to clean up.
@@ -282,12 +282,15 @@ The code is fully validated but never deployed and never written back to the sou
 | `ci/refresh-playwright-*`          | `refresh-playwright`  | Monthly or manually dispatched Playwright package and image refreshes             | Maintenance PR branch containing `uv.lock` and workflow image pin changes |
 | `ci/refresh-locks-*`               | `refresh-locks`       | Weekly or manually dispatched dependency lock refreshes                           | Maintenance PR branch containing refreshed dependency locks               |
 | `gh-pages`                         | `publish`             | Every successful deploy (PR preview or main site)                                 | Verified commit replacing site root or preview subdirectory (Harry1176)   |
-| `gh-pages`                         | `cleanup-preview`     | PR closed/merged                                                                  | Verified commit removing preview subdirectory (Harry1176)                 |
+| `gh-pages`                         | `cleanup-preview`     | Unmerged PR closed                                                                | Verified commit removing preview subdirectory (Harry1176)                 |
 | `ci/save-generated-thumbnails-*`   | `persist-thumbnails`  | Push to `main` with runtime-driven thumbnail changes or missing thumbnails        | Follow-up PR branch with `thumbnail.webp` files (Harry1176)               |
 
 ```mermaid
 graph LR
-    close["PR closed/merged"] --> cleanup["cleanup-preview"]
+    close["PR closed"] --> merged{"Merged?"}
+    merged -->|yes| publish["main push publish"]
+    publish --> remove_merged["Remove merged pr-preview/pr-N/<br/>before root deploy"]
+    merged -->|no| cleanup["cleanup-preview"]
     cleanup --> remove["Remove pr-preview/pr-N/<br/>from gh-pages"]
     cleanup --> delete_comment["Delete sticky<br/>preview comment"]
 
