@@ -60,7 +60,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- lib/                   Tests for scripts/lib/
 |  |- lint/                  Tests for scripts/lint/
 |  |- setup/                 Tests for scripts/setup/
-|  |- browser/               Playwright smoke, accessibility, and flow tests
+|  |- browser/               Playwright smoke, accessibility, flow, cross-engine, and visual regression tests
 |  |- js/
 |  |  |- home/               Root gallery Node unit tests
 |  |  |- common/             Shared app/runtime Node unit tests
@@ -110,6 +110,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `.github/actions/deploy-site/action.yml` and `.github/actions/deploy-site/deploy-verified.mjs`: verified deploy logic for `gh-pages` (full site, preview deploy, and preview removal)
 - `.github/workflows/update.yml`: main automation workflow for pushes, PR previews, and manual runs
 - `.github/workflows/live-site-smoke.yml`: scheduled live published-site browser smoke checks with issue-based alerting
+- `.github/workflows/refresh-playwright.yml`: scheduled maintenance PRs that synchronize the locked Python Playwright package with the immutable official CI image pin
 
 ## Generated and derived files
 

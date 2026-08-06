@@ -66,6 +66,8 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `tests/browser/test_frontend_apps_smoke.py`: real app smoke coverage for mature app folders that opt into the shared app system
 - `tests/browser/test_frontend_apps_accessibility.py`: Playwright + axe coverage for mature app shared-shell accessibility and contrast
 - `tests/browser/test_frontend_apps_browser_flows.py`: mature app browser-flow coverage for app-specific interactions and theme behavior; each flow test skips when its app slug is outside `ARTIFACTS_BROWSER_APP_SLUGS`
+- `tests/browser/test_frontend_webkit_smoke.py`: bounded WebKit cross-engine smoke coverage for the root gallery and every mature app entry page
+- `tests/browser/test_frontend_visual.py`: local fixed-viewport visual baseline comparisons for the root gallery and mature app hero states; this suite is intentionally not part of blocking CI
 - `tests/browser/test_frontend_live.py`: post-deploy browser verification for the published root and `404.html` when `ARTIFACTS_LIVE_SITE_URL` is set
 
 ## Accessibility notes for the root shell
@@ -88,7 +90,9 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `make test-browser-root-smoke`, `make test-browser-root-accessibility`, and `make test-browser-root-flows` run the root smoke, accessibility, and browser-flow suites separately
 - `make test-browser-apps` runs all mature app Playwright suites; set `ARTIFACTS_BROWSER_APP_SLUGS` to limit coverage to specific app slugs
 - `make test-browser-apps-smoke`, `make test-browser-apps-accessibility`, and `make test-browser-apps-flows` run the mature app smoke, accessibility, and browser-flow suites separately
+- `make test-browser-webkit-smoke` runs the bounded WebKit smoke pass across the root gallery and all mature apps; prepare WebKit with `make setup-playwright-webkit` first, or use the local runtime instructions in [operations.md](operations.md#browser-setup-without-sudo)
 - `make check-web` runs both root and app browser suites plus thumbnail generation; use `make setup-all` first so Chromium is available
+- `make test-visual` compares committed hero baselines, while `make visual-baselines` regenerates them after an intentional visual change; both are local, on-demand checks rather than blocking CI gates
 - `make check` runs the full local release gate by combining `make check-local`, `make check-web`, index generation, and deployable site assembly
 - `make test-browser` sets `ARTIFACTS_REQUIRE_BROWSER_TESTS=1`, so root and mature app browser suites must execute successfully instead of skipping when Chromium is unavailable
 - `make test-browser-live` runs the published-site Playwright verification suite when `ARTIFACTS_LIVE_SITE_URL` is set
