@@ -417,3 +417,51 @@ def test_resolve_requested_paths_rejects_a_directory(tmp_path: Path) -> None:
     _, errors = check_editorconfig.resolve_requested_paths(["docs"], tmp_path)
 
     assert errors == ["docs: path does not exist or is not a file"]
+
+
+def test_resolve_requested_paths_reports_a_missing_path(tmp_path: Path) -> None:
+    """A missing explicit path gets a distinct diagnostic."""
+    _, errors = check_editorconfig.resolve_requested_paths(["missing.txt"], tmp_path)
+
+    assert errors == ["missing.txt: path does not exist"]
+
+
+def test_resolve_requested_paths_reports_an_inaccessible_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A path that cannot be resolved gets an access diagnostic."""
+    original = Path.resolve
+
+    def inaccessible_resolve(self: Path, strict: bool = False) -> Path:
+        """Simulate an operating-system access failure for one candidate."""
+        if self.name == "blocked.txt":
+            raise OSError("permission denied")
+        return original(self, strict=strict)
+
+    monkeypatch.setattr(Path, "resolve", inaccessible_resolve)
+
+    _, errors = check_editorconfig.resolve_requested_paths(["blocked.txt"], tmp_path)
+
+    assert errors == ["blocked.txt: path could not be accessed"]
+
+
+def test_resolve_requested_paths_reports_a_resolved_path_outside_the_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A resolved path outside the root gets a containment diagnostic."""
+    candidate = tmp_path / "candidate.txt"
+    candidate.write_text("safe\n", encoding="utf-8")
+    outside = tmp_path.parent / f"{tmp_path.name}-outside.txt"
+    original = Path.resolve
+
+    def escaping_resolve(self: Path, strict: bool = False) -> Path:
+        """Resolve one regular candidate outside the repository root."""
+        if self == candidate:
+            return outside
+        return original(self, strict=strict)
+
+    monkeypatch.setattr(Path, "resolve", escaping_resolve)
+
+    _, errors = check_editorconfig.resolve_requested_paths(["candidate.txt"], tmp_path)
+
+    assert errors == ["candidate.txt: path resolves outside the repository"]
