@@ -511,9 +511,7 @@ def test_refresh_python_locks_workflow_uses_dependabot_and_make_lock_contract() 
     assert "github.actor == 'dependabot[bot]'" in refresh["if"]
     assert "dependabot/uv/" in refresh["if"]
     setup_uv = _step(refresh, "Set up uv")
-    assert _step_uses(refresh, "Set up uv") == (
-        "astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b"
-    )
+    assert _step_uses(refresh, "Set up uv").startswith("astral-sh/setup-uv@")
     assert setup_uv["with"]["enable-cache"] is False
     assert _step_run(refresh, "Refresh Python lock files").strip() == "make lock"
     upload_step = _step(refresh, "Upload refreshed Python lock files")
@@ -836,6 +834,11 @@ def test_all_action_references_are_pinned_or_local() -> None:
     """Every uses: reference is a local path or a SHA pin with a version comment."""
     references = _iter_uses_references()
     assert references, "expected at least one uses: reference to validate"
+    setup_uv_refs = {ref for _, _, ref, _ in references if ref.startswith("astral-sh/setup-uv@")}
+    assert setup_uv_refs, "expected setup-uv references to validate"
+    assert len(setup_uv_refs) == 1, (
+        f"all setup-uv references must use one centrally governed SHA: {sorted(setup_uv_refs)}"
+    )
 
     for path, lineno, ref, comment in references:
         # Repo-relative so a failure names the exact file among the action.yml copies.
@@ -1027,7 +1030,7 @@ def test_setup_steps_cache_locked_environments_and_downloads() -> None:
     # uv itself must always be installed: audit-python invokes uv directly,
     # so a cached .venv is not a substitute for the uv binary.
     assert setup_uv["if"] == "inputs.install-deps == 'true'"
-    assert setup_uv["uses"] == ("astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b")
+    assert setup_uv["uses"].startswith("astral-sh/setup-uv@")
     assert setup_uv["with"]["enable-cache"] is False
     workspace_install = next(
         step
@@ -1192,7 +1195,7 @@ def test_ci_setup_restores_download_caches_only_when_an_install_will_run() -> No
     # setup-uv installs the centrally governed tool without restoring a second
     # dependency cache that would duplicate the conditional uv cache above.
     setup_uv = step("Set up uv")
-    assert setup_uv["uses"] == ("astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b")
+    assert setup_uv["uses"].startswith("astral-sh/setup-uv@")
     assert setup_uv["with"]["enable-cache"] is False
     assert all(s.get("name") != "Cache uv installer download" for s in steps)
     assert all(s.get("name") != "Install uv" for s in steps)
