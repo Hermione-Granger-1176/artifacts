@@ -150,7 +150,9 @@ def test_registry_digest_reads_the_immutable_python_image_digest(
 
     assert pins.registry_digest(image) == DIGEST
     assert requests[0].method == "HEAD"
-    assert requests[0].full_url.endswith("/manifests/v1.61.0-noble")
+    assert requests[0].full_url == (
+        "https://mcr.microsoft.com/v2/playwright/python/manifests/v1.61.0-noble"
+    )
 
 
 @pytest.mark.parametrize(

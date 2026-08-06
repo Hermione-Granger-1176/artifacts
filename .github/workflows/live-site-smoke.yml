@@ -14,7 +14,7 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright/python:v1.61.0-noble@sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a
+      image: mcr.microsoft.com/playwright/python:v1.61.0-noble@sha256:a9731514f24121d1dcd25d58d0a38146646d290a5998fd80d3e533e7b5e21c69
       options: --init --ipc=host --user 1001
     timeout-minutes: 20
     permissions:

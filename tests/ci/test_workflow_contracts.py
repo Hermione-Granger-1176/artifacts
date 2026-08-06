@@ -14,7 +14,7 @@ CREATE_APP_TOKEN_SHA_PIN = re.compile(r"^actions/create-github-app-token@[0-9a-f
 CODEQL_ACTION_SHA_PIN = re.compile(r"^github/codeql-action/(init|autobuild|analyze)@[0-9a-f]{40}$")
 PLAYWRIGHT_CI_IMAGE = (
     "mcr.microsoft.com/playwright/python:v1.61.0-noble@"
-    "sha256:57b65fdc9ceabe0ef613124c7bbe2babcf9362c4d85e382fe3b03604e84b428a"
+    "sha256:a9731514f24121d1dcd25d58d0a38146646d290a5998fd80d3e533e7b5e21c69"
 )
 
 USES_LINE_PATTERN = re.compile(r"^\s*(?:-\s*)?uses:\s*(\S+)\s*(#.*)?$")

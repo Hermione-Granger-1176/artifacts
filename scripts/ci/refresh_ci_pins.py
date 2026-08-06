@@ -90,7 +90,7 @@ def registry_digest(image: str, *, timeout: float = 15) -> str:
         raise ValueError(f"Unsupported Playwright image reference: {image}")
     tag = image.removeprefix(PLAYWRIGHT_IMAGE_PREFIX)
     request = Request(
-        f"https://mcr.microsoft.com/v2/playwright/manifests/{tag}",
+        f"https://mcr.microsoft.com/v2/playwright/python/manifests/{tag}",
         method="HEAD",
         headers={
             "Accept": (
