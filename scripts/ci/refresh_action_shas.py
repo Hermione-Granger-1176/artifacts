@@ -91,8 +91,10 @@ def _default_urlopen(request: Request, *, timeout: float) -> ResponseContext:
 def _commit_sha(payload: object) -> str:
     """Return the commit SHA from a GitHub commits API payload."""
     if isinstance(payload, dict) and isinstance(payload.get("sha"), str):
-        return cast("str", payload["sha"])
-    raise RuntimeError("GitHub commits API response did not include a commit SHA")
+        sha = cast("str", payload["sha"])
+        if SHA_PATTERN.fullmatch(sha):
+            return sha
+    raise RuntimeError("GitHub commits API response did not include a valid commit SHA")
 
 
 class ActionShaResolver:
