@@ -1,9 +1,21 @@
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
+import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
+import { pathToFileURL } from "node:url";
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
 export const DEFAULT_MAX_ATTEMPTS = 3;
+export const CREATE_COMMIT_MUTATION = `
+mutation ($input: CreateCommitOnBranchInput!) {
+  createCommitOnBranch(input: $input) {
+    commit {
+      oid
+      url
+    }
+  }
+}
+`;
 
 /**
  * Split newline-delimited pathspec input into trimmed entries.
@@ -22,14 +34,21 @@ export function splitPathspec(input) {
  * @param {string} diffOutput - Raw output from `git diff --name-status`.
  * @param {{
  *   existsSync: (path: string) => boolean,
- *   readFileSync: (path: string) => Buffer
+ *   readFileSync: (path: string) => Buffer,
+ *   readStagedFileSync?: (path: string) => Buffer
  * }} deps - File-system helpers.
  * @returns {{ additions: { path: string, contents: string }[], deletions: { path: string }[] }}
  *   GraphQL file payloads.
  */
-export function parseDiffOutput(diffOutput, { existsSync, readFileSync }) {
+export function parseDiffOutput(diffOutput, { existsSync, readFileSync, readStagedFileSync }) {
   const additions = [];
   const deletions = [];
+  const readFileForPayload = readStagedFileSync || readFileSync;
+  const canReadPayload = (filePath) => (readStagedFileSync ? true : existsSync(filePath));
+  const createAddition = (filePath) => ({
+    path: filePath,
+    contents: readFileForPayload(filePath).toString("base64"),
+  });
 
   if (!diffOutput.trim()) {
     return { additions, deletions };
@@ -41,11 +60,16 @@ export function parseDiffOutput(diffOutput, { existsSync, readFileSync }) {
 
     switch (code) {
       case "R":
-        if (!path1 || !path2) {
-          continue;
+        if (path1 && path2 && canReadPayload(path2)) {
+          deletions.push({ path: path1 });
+          additions.push(createAddition(path2));
         }
-        deletions.push({ path: path1 });
-        additions.push({ path: path2, contents: readFileSync(path2).toString("base64") });
+        continue;
+
+      case "C":
+        if (path2 && canReadPayload(path2)) {
+          additions.push(createAddition(path2));
+        }
         continue;
 
       case "D":
@@ -56,11 +80,11 @@ export function parseDiffOutput(diffOutput, { existsSync, readFileSync }) {
         continue;
 
       default:
-        if (!path1 || !existsSync(path1)) {
+        if (!path1 || !canReadPayload(path1)) {
           continue;
         }
 
-        additions.push({ path: path1, contents: readFileSync(path1).toString("base64") });
+        additions.push(createAddition(path1));
     }
   }
 
@@ -174,6 +198,32 @@ export function createGitArgs(pathspec) {
 export function createBranchName(prefix, date = new Date()) {
   const value = date.toISOString().slice(0, 10).replace(/-/g, "");
   return `${prefix}-${value}`;
+}
+
+/**
+ * Pick the newest unmerged pull request for a fallback branch.
+ *
+ * Resetting a dated branch can close its open pull request automatically. A
+ * lookup limited to open pull requests would then create a duplicate, while
+ * a closed unmerged pull request remains reusable. Merged pull requests are
+ * excluded because their branch has already served a different change.
+ * @param {Array<{number: number, state: string, merged_at: string | null, html_url: string}>} pulls - Pull requests for the branch.
+ * @returns {{number: number, state: string, merged_at: string | null, html_url: string} | undefined} Reusable pull request, if any.
+ */
+export function selectReusablePull(pulls) {
+  return pulls
+    .filter((pull) => pull.merged_at === null)
+    .sort((left, right) => right.number - left.number)[0];
+}
+
+/**
+ * Check whether a module URL matches the current Node.js entrypoint.
+ * @param {string} moduleUrl - Module URL, typically `import.meta.url`.
+ * @param {string | undefined} argvPath - Entrypoint path from `process.argv[1]`.
+ * @returns {boolean} Whether the module is being executed directly.
+ */
+export function isCliEntrypoint(moduleUrl, argvPath = process.argv[1]) {
+  return Boolean(argvPath) && moduleUrl === pathToFileURL(path.resolve(argvPath)).href;
 }
 
 /**
@@ -291,6 +341,7 @@ export async function runVerifiedCommit({
   const { additions, deletions } = parseDiffOutput(diffOutput, {
     existsSync: existsSyncImpl,
     readFileSync: readFileSyncImpl,
+    readStagedFileSync: (filePath) => execFileSyncImpl("git", ["show", `:${filePath}`]),
   });
 
   if (additions.length === 0 && deletions.length === 0) {
@@ -301,16 +352,8 @@ export async function runVerifiedCommit({
 
   const clients = createApiClients({ owner, repo, token, fetchDependencies });
 
-  const mutation = `
-    mutation ($input: CreateCommitOnBranchInput!) {
-      createCommitOnBranch(input: $input) {
-        commit { oid url }
-      }
-    }
-  `;
-
   const createCommit = async (branchName, headSha, headline) => {
-    const data = await clients.graphql(mutation, {
+    const data = await clients.graphql(CREATE_COMMIT_MUTATION, {
       input: {
         branch: {
           repositoryNameWithOwner: `${owner}/${repo}`,
@@ -392,15 +435,23 @@ export async function runVerifiedCommit({
 
   const pullsUrl = new URL(`https://api.github.com/repos/${owner}/${repo}/pulls`);
   pullsUrl.search = new URLSearchParams({
-    state: "open",
+    state: "all",
     head: `${owner}:${fallbackBranch}`,
   }).toString();
-  const existingPulls = await clients.fetchJson(pullsUrl.toString());
+  const reusablePull = selectReusablePull(await clients.fetchJson(pullsUrl.toString()));
 
-  if (existingPulls.length > 0) {
-    consoleObj.log(`Updated existing PR: ${existingPulls[0].html_url}`);
-    setOutput("result-url", existingPulls[0].html_url);
-    return { changed: true, resultUrl: existingPulls[0].html_url };
+  if (reusablePull) {
+    if (reusablePull.state !== "open") {
+      await clients.fetchJson(
+        `https://api.github.com/repos/${owner}/${repo}/pulls/${reusablePull.number}`,
+        { method: "PATCH", body: JSON.stringify({ state: "open" }) },
+      );
+      consoleObj.log(`Reopened closed fallback PR: ${reusablePull.html_url}`);
+    } else {
+      consoleObj.log(`Updated existing PR: ${reusablePull.html_url}`);
+    }
+    setOutput("result-url", reusablePull.html_url);
+    return { changed: true, resultUrl: reusablePull.html_url };
   }
 
   const pullRequest = await clients.fetchJson(
@@ -421,7 +472,7 @@ export async function runVerifiedCommit({
   return { changed: true, resultUrl: pullRequest.html_url };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isCliEntrypoint(import.meta.url)) {
   runVerifiedCommit().catch((error) => {
     console.error(error);
     process.exit(1);
