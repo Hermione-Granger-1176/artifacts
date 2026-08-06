@@ -12,10 +12,12 @@ ACTIONS_DIR = REPO_ROOT / ".github" / "actions"
 
 CREATE_APP_TOKEN_SHA_PIN = re.compile(r"^actions/create-github-app-token@[0-9a-f]{40}$")
 CODEQL_ACTION_SHA_PIN = re.compile(r"^github/codeql-action/(init|autobuild|analyze)@[0-9a-f]{40}$")
-PLAYWRIGHT_CI_IMAGE = (
-    "mcr.microsoft.com/playwright/python:v1.61.0-noble@"
-    "sha256:a9731514f24121d1dcd25d58d0a38146646d290a5998fd80d3e533e7b5e21c69"
+PLAYWRIGHT_CI_IMAGE_REFERENCE = re.compile(r"mcr\.microsoft\.com/playwright/python:\S+")
+PLAYWRIGHT_CI_IMAGE_PIN = re.compile(
+    r"^mcr\.microsoft\.com/playwright/python:v(?P<version>[0-9]+\.[0-9]+\.[0-9]+)"
+    r"-noble@sha256:[0-9a-f]{64}$"
 )
+PLAYWRIGHT_WORKFLOW_NAMES = ("update.yml", "live-site-smoke.yml")
 
 USES_LINE_PATTERN = re.compile(r"^\s*(?:-\s*)?uses:\s*(\S+)\s*(#.*)?$")
 SHA_PINNED_PATTERN = re.compile(r"^[^@\s]+@[0-9a-f]{40}$")
@@ -25,6 +27,30 @@ def _load_workflow(name: str) -> dict[str, object]:
     data = yaml.safe_load((WORKFLOWS_DIR / name).read_text(encoding="utf-8"))
     assert isinstance(data, dict)
     return data
+
+
+def _playwright_ci_images() -> list[str]:
+    """Return every official Playwright image reference owned by browser workflows."""
+    references: list[str] = []
+    for name in PLAYWRIGHT_WORKFLOW_NAMES:
+        text = (WORKFLOWS_DIR / name).read_text(encoding="utf-8")
+        references.extend(match.group(0) for match in PLAYWRIGHT_CI_IMAGE_REFERENCE.finditer(text))
+    return references
+
+
+def _locked_playwright_version() -> str:
+    """Read the one exact Playwright version resolved by uv."""
+    with (REPO_ROOT / "uv.lock").open("rb") as handle:
+        lock = tomllib.load(handle)
+    packages = lock.get("package")
+    assert isinstance(packages, list)
+    versions = [
+        package.get("version")
+        for package in packages
+        if isinstance(package, dict) and package.get("name") == "playwright"
+    ]
+    assert len(versions) == 1 and isinstance(versions[0], str)
+    return versions[0]
 
 
 def _workflow_on(workflow: dict[str, object]) -> dict[str, object]:
@@ -74,6 +100,17 @@ def _step_with(job: dict[str, object], name: str) -> dict[str, object]:
     inputs = _step(job, name).get("with")
     assert isinstance(inputs, dict)
     return inputs
+
+
+def test_playwright_ci_images_match_locked_python_package() -> None:
+    """Keep every browser container on one immutable image matching uv.lock."""
+    images = _playwright_ci_images()
+    assert images, "expected Playwright images in browser workflows"
+    assert all(PLAYWRIGHT_CI_IMAGE_PIN.fullmatch(image) for image in images), images
+    assert len(set(images)) == 1, f"browser workflows must share one image: {images}"
+    image = PLAYWRIGHT_CI_IMAGE_PIN.fullmatch(images[0])
+    assert image is not None
+    assert image.group("version") == _locked_playwright_version()
 
 
 def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
@@ -221,10 +258,11 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     assert _step_with(heavy, "CI setup")["browser-engines"] == ""
     root_browser = _job(workflow, "root-browser")
     assert "make test-browser-root" in _step_run(root_browser, "Run root browser verification")
-    assert root_browser["container"] == {
-        "image": PLAYWRIGHT_CI_IMAGE,
-        "options": "--init --ipc=host",
-    }
+    assert isinstance(root_browser["container"], dict)
+    root_container = root_browser["container"]
+    assert isinstance(root_container.get("image"), str)
+    assert PLAYWRIGHT_CI_IMAGE_PIN.fullmatch(root_container["image"])
+    assert root_container["options"] == "--init --ipc=host"
     make_bootstrap = _step_run(root_browser, "Install GNU make")
     assert "apt-get update" in make_bootstrap
     assert "apt-get install --no-install-recommends --yes make" in make_bootstrap
@@ -641,10 +679,11 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert _workflow_on(live_smoke)["schedule"] == [{"cron": "17 6 * * *"}]
     smoke_job = _job(live_smoke, "smoke")
     assert smoke_job["permissions"] == {"contents": "read", "issues": "write"}
-    assert smoke_job["container"] == {
-        "image": PLAYWRIGHT_CI_IMAGE,
-        "options": "--init --ipc=host",
-    }
+    assert isinstance(smoke_job["container"], dict)
+    smoke_container = smoke_job["container"]
+    assert isinstance(smoke_container.get("image"), str)
+    assert PLAYWRIGHT_CI_IMAGE_PIN.fullmatch(smoke_container["image"])
+    assert smoke_container["options"] == "--init --ipc=host"
     make_bootstrap = _step_run(smoke_job, "Install GNU make")
     assert "apt-get update" in make_bootstrap
     assert "apt-get install --no-install-recommends --yes make" in make_bootstrap
