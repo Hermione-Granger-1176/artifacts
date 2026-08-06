@@ -107,7 +107,7 @@ def _github_app_token_steps(value: object) -> list[dict[str, object]]:
     found: list[dict[str, object]] = []
     if isinstance(value, dict):
         uses = value.get("uses")
-        if isinstance(uses, str) and uses.startswith("actions/create-github-app-token@"):
+        if isinstance(uses, str) and CREATE_APP_TOKEN_SHA_PIN.fullmatch(uses):
             found.append(value)
         for child in value.values():
             found.extend(_github_app_token_steps(child))
@@ -120,11 +120,7 @@ def _github_app_token_steps(value: object) -> list[dict[str, object]]:
 def test_github_app_token_actions_use_client_id_without_renaming_repository_variables() -> None:
     """Use the current action input while preserving the repository variable contract."""
     documents = [
-        yaml.safe_load((ACTIONS_DIR / "ci-setup" / "action.yml").read_text(encoding="utf-8")),
-        *(
-            yaml.safe_load(path.read_text(encoding="utf-8"))
-            for path in sorted(WORKFLOWS_DIR.glob("*.yml"))
-        ),
+        yaml.safe_load(path.read_text(encoding="utf-8")) for path in _workflow_and_action_files()
     ]
     steps = [step for document in documents for step in _github_app_token_steps(document)]
     assert len(steps) == 7
