@@ -703,9 +703,12 @@ def test_schedule_watchdog_runs_from_push_and_syncs_alert_issue() -> None:
     check_run = _step_run(watchdog, "Check scheduled workflow recency")
     assert "make ci-schedule-watchdog" in check_run
     assert 'echo "status=$status" >> "$GITHUB_OUTPUT"' in check_run
+    assert "checked" in check_run
 
     open_step = _step(watchdog, "Open or update stale schedule issue")
-    assert open_step["if"] == "steps.watchdog.outputs.status != '0'"
+    assert open_step["if"] == (
+        "steps.watchdog.outputs.checked == 'true' && steps.watchdog.outputs.status != '0'"
+    )
     open_run = _step_run(watchdog, "Open or update stale schedule issue")
     assert "make ci-alert-issue" in open_run
     assert "state=open" in open_run
@@ -714,11 +717,13 @@ def test_schedule_watchdog_runs_from_push_and_syncs_alert_issue() -> None:
     assert "detail_file=" not in open_run
 
     close_step = _step(watchdog, "Close stale schedule issue when clean")
-    assert close_step["if"] == "steps.watchdog.outputs.status == '0'"
+    assert close_step["if"] == (
+        "steps.watchdog.outputs.checked == 'true' && steps.watchdog.outputs.status == '0'"
+    )
     assert "state=close" in _step_run(watchdog, "Close stale schedule issue when clean")
 
     fallback = _step(watchdog, "Alert when watchdog setup fails")
-    assert fallback["if"] == "failure() && steps.watchdog.outputs.status == ''"
+    assert fallback["if"] == "steps.watchdog.outputs.checked != 'true'"
     assert "state=setup-failure" in _step_run(watchdog, "Alert when watchdog setup fails")
 
 
