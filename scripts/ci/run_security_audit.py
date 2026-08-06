@@ -32,8 +32,8 @@ from scripts.ci.security_audit_policy import (
     load_security_audit_exceptions,
 )
 
-# Default pip-audit invocation. The Makefile overrides this with the uv-managed
-# form so the audit runs against the same resolver that produced the lock.
+# Default pip-audit invocation. The Makefile overrides this with the repository
+# virtualenv form so CI uses the managed pip-audit installation.
 DEFAULT_PIP_AUDIT_COMMAND = "pip-audit"
 MAX_SUBPROCESS_ERROR_DETAIL_LENGTH = 500
 
