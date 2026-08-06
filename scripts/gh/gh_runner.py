@@ -6,11 +6,14 @@ repository. Keeping the GitHub plumbing here means the PR and CI helpers share
 one place for repository and pull-request detection, timeouts, and retries.
 
 ``gh api`` has no built-in retry and treats a single 5xx, network blip, or
-rate-limit response as a hard non-zero exit. The shared policy in
-``scripts.lib.gh_policy`` retries only transient infrastructure errors with
-bounded exponential backoff and fails fast on rate limits. Non-idempotent
-mutations (posting a reply) opt out of retries so a lost response never
-double-posts.
+rate-limit response as a hard non-zero exit. Per GitHub's API guidance the
+shared policy in ``scripts.lib.gh_policy`` retries only transient
+infrastructure errors (HTTP 500, 502, 503, and 504 plus network and timeout
+failures) with bounded exponential backoff, and fails fast on rate limits
+rather than hammering the API (which can get an integration banned). HTTP 501
+is treated as fatal, since "Not Implemented" never clears on a retry.
+Non-idempotent mutations (posting a reply) opt out of retries so a lost
+response never double-posts.
 """
 
 from __future__ import annotations
@@ -31,8 +34,10 @@ RunFunction = Callable[..., subprocess.CompletedProcess[str]]
 DEFAULT_TIMEOUT = 30
 LOG_TIMEOUT = 120
 
-# Retry budget (extra attempts beyond the first) for idempotent calls, with
-# bounded exponential backoff plus jitter.
+# Retry budget (extra attempts beyond the first) for idempotent calls. The
+# classification rules and the bounded exponential backoff live in
+# ``scripts.lib.gh_policy`` so every ``gh`` caller in this repository shares one
+# rate-limit and transient-failure policy.
 DEFAULT_RETRIES = gh_policy.DEFAULT_GH_RETRIES
 
 
@@ -71,8 +76,9 @@ def _run(
         cmd: The full command vector (e.g. ``["gh", "api", ...]``).
         run_fn: Optional injected subprocess runner.
         timeout: Per-attempt timeout in seconds.
-        retries: Extra attempts allowed for transient failures (5xx, network,
-            timeout). Rate limits and other errors are never retried.
+        retries: Extra attempts allowed for transient failures (HTTP 500, 502,
+            503, 504, network, and timeout). Rate limits, forbidden responses,
+            and every other error are never retried.
 
     Raises:
         GhRateLimitError: If GitHub reports a rate limit.
@@ -97,18 +103,26 @@ def _run(
         if result.returncode == 0:
             return result
 
+        # Classify on the real output, but never raise a bare "failed:" when the
+        # command exited quietly: the exit code is the only clue left.
         detail = (result.stderr or result.stdout or "").strip()
+        reported = detail or f"no output (exit code {result.returncode})"
         kind = gh_policy.classify_gh_failure(detail)
         if kind == "rate_limit":
             raise GhRateLimitError(
                 f"GitHub rate limit hit running {_label(cmd)}: {detail}\n"
                 "Wait for the limit window to reset before retrying."
             )
+        if kind == "forbidden":
+            raise GhError(
+                f"{_label(cmd)} was refused: {detail}\n"
+                "The token is missing a permission or scope this call needs."
+            )
         if kind == "transient" and attempt < retries:
             _sleep(gh_policy.retry_backoff_seconds(attempt))
             attempt += 1
             continue
-        raise GhError(f"{_label(cmd)} failed: {detail}")
+        raise GhError(f"{_label(cmd)} failed: {reported}")
 
 
 def run_gh(

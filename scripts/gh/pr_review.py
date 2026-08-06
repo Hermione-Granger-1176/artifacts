@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from . import gh_runner
-from .gh_runner import GhError, RunFunction
+from .gh_runner import GhError, GhRateLimitError, RunFunction
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -513,7 +513,10 @@ def request_copilot_review(pr: int | None = None, *, run_fn: RunFunction | None 
         gh_runner.run_gh(
             ["pr", "edit", str(pr), "--add-reviewer", _COPILOT_REVIEWER],
             run_fn=run_fn,
+            retries=0,
         )
+    except GhRateLimitError:
+        raise
     except GhError as exc:
         raise GhError(f"Failed to request Copilot review on PR #{pr}: {exc}") from exc
 
