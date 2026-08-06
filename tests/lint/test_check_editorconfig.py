@@ -63,6 +63,48 @@ def test_resolve_settings_applies_later_unset() -> None:
     assert settings == {"insert_final_newline": "true"}
 
 
+def test_resolve_settings_expands_brace_patterns() -> None:
+    """Resolve settings supports EditorConfig brace patterns."""
+    sections = [
+        check_editorconfig.EditorConfigSection(
+            "*.{json,yaml,yml}",
+            {"indent_style": "space", "indent_size": "2"},
+        )
+    ]
+
+    assert check_editorconfig.resolve_settings(sections, "config/example.yaml") == {
+        "indent_style": "space",
+        "indent_size": "2",
+    }
+    assert check_editorconfig.resolve_settings(sections, "config/example.toml") == {}
+
+
+def test_resolve_settings_uses_separator_aware_globs() -> None:
+    """Single stars stay within a path segment while double stars recurse."""
+    sections = [
+        check_editorconfig.EditorConfigSection("*.md", {"scope": "basename"}),
+        check_editorconfig.EditorConfigSection("docs/*.md", {"depth": "direct"}),
+        check_editorconfig.EditorConfigSection("docs/**/guide.md", {"recursive": "true"}),
+    ]
+
+    assert check_editorconfig.resolve_settings(sections, "docs/guide.md") == {
+        "scope": "basename",
+        "depth": "direct",
+        "recursive": "true",
+    }
+    assert check_editorconfig.resolve_settings(sections, "docs/guides/guide.md") == {
+        "scope": "basename",
+        "recursive": "true",
+    }
+
+
+def test_parse_editorconfig_normalizes_property_names_and_values() -> None:
+    """Parse property names and values case-insensitively."""
+    sections = check_editorconfig.parse_editorconfig("[*.py]\nIndent_Style = SPACE\n")
+
+    assert sections == [check_editorconfig.EditorConfigSection("*.py", {"indent_style": "space"})]
+
+
 def test_should_check_file_limits_checks_to_supported_patterns() -> None:
     """Should check file limits checks to supported patterns."""
     sections = [
@@ -105,6 +147,18 @@ def test_iter_workspace_files_never_descends_into_skipped_directories(
     assert tmp_path / ".venv" not in scanned_directories
     assert tmp_path / "node_modules" not in scanned_directories
     assert tmp_path / "_site" not in scanned_directories
+
+
+def test_iter_workspace_files_skips_file_and_directory_symlinks(tmp_path: Path) -> None:
+    """Workspace scans do not follow or return symlinked files."""
+    target = tmp_path / "target.py"
+    write_text(target, "print('safe')\n")
+    (tmp_path / "linked.py").symlink_to(target)
+    external = tmp_path.parent / f"{tmp_path.name}-external-editorconfig-dir"
+    write_text(external / "outside.py", "print('outside')\n")
+    (tmp_path / "linked-directory").symlink_to(external, target_is_directory=True)
+
+    assert check_editorconfig.iter_workspace_files(tmp_path) == [target]
 
 
 def test_check_file_reports_expected_text_violations(tmp_path: Path) -> None:
@@ -266,6 +320,59 @@ def test_main_rejects_missing_path(
     assert "path does not exist" in captured
 
 
+def test_main_rejects_path_outside_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Main rejects explicit paths outside the repository."""
+    write_text(tmp_path / ".editorconfig", "[*.txt]\ninsert_final_newline = true\n")
+    outside = tmp_path.parent / f"{tmp_path.name}-outside.txt"
+    write_text(outside, "outside\n")
+    monkeypatch.setattr(check_editorconfig, "REPO_ROOT", tmp_path)
+
+    exit_code = check_editorconfig.main([str(outside)])
+
+    assert exit_code == 1
+    captured = capsys.readouterr().out
+    assert captured.startswith("EditorConfig check failed:\n")
+    assert "path must stay within the repository" in captured
+
+
+def test_main_rejects_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Main rejects explicit symbolic links."""
+    write_text(tmp_path / ".editorconfig", "[*.txt]\ninsert_final_newline = true\n")
+    target = tmp_path / "target.txt"
+    write_text(target, "safe\n")
+    (tmp_path / "linked.txt").symlink_to(target)
+    monkeypatch.setattr(check_editorconfig, "REPO_ROOT", tmp_path)
+
+    exit_code = check_editorconfig.main(["linked.txt"])
+
+    assert exit_code == 1
+    captured = capsys.readouterr().out
+    assert captured.startswith("EditorConfig check failed:\n")
+    assert "symbolic links are not supported" in captured
+
+
+def test_main_rejects_path_through_symlinked_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Main rejects paths reached through symbolic-link directories."""
+    write_text(tmp_path / ".editorconfig", "[*.txt]\ninsert_final_newline = true\n")
+    target_directory = tmp_path / "target-directory"
+    write_text(target_directory / "target.txt", "safe\n")
+    (tmp_path / "linked-directory").symlink_to(target_directory, target_is_directory=True)
+    monkeypatch.setattr(check_editorconfig, "REPO_ROOT", tmp_path)
+
+    exit_code = check_editorconfig.main(["linked-directory/target.txt"])
+
+    assert exit_code == 1
+    captured = capsys.readouterr().out
+    assert captured.startswith("EditorConfig check failed:\n")
+    assert "symbolic links are not supported" in captured
+
+
 def test_main_prints_failures_for_invalid_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -291,3 +398,22 @@ trim_trailing_whitespace = true
     assert exit_code == 1
     assert "EditorConfig check failed:" in captured
     assert "demo.md:1: trailing whitespace" in captured
+
+
+def test_expand_braces_keeps_an_unclosed_group_literal() -> None:
+    """A pattern with no closing brace is matched literally, not expanded."""
+    assert check_editorconfig._expand_braces("*.{js") == ["*.{js"]
+
+
+def test_expand_braces_keeps_a_single_choice_group_literal() -> None:
+    """A one-choice group is a literal brace, since EditorConfig needs two or more."""
+    assert check_editorconfig._expand_braces("*.{js}") == ["*.{js}"]
+
+
+def test_resolve_requested_paths_rejects_a_directory(tmp_path: Path) -> None:
+    """A directory is refused rather than read as a file."""
+    (tmp_path / "docs").mkdir()
+
+    _, errors = check_editorconfig.resolve_requested_paths(["docs"], tmp_path)
+
+    assert errors == ["docs: path does not exist or is not a file"]

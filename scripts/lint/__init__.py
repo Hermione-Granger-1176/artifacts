@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from pathlib import Path
 
 # Directories the lint walkers never descend into. Every ignored directory in
 # .gitignore that can be named by a single path component belongs here: an
@@ -45,19 +46,30 @@ SKIP_DIRECTORIES = frozenset(
 )
 
 
+def contains_symlink(path: Path, root: Path) -> bool:
+    """Return whether any repository-relative path component is a symbolic link."""
+    current = root
+    for part in path.relative_to(root).parts:
+        current /= part
+        if current.is_symlink():
+            return True
+    return False
+
+
 def iter_lint_paths(root: Path) -> Iterator[Path]:
-    """Yield every file under ``root``, never descending into SKIP_DIRECTORIES.
-
-    Pruning happens during the walk, not after it. Filtering the output of
-    ``Path.rglob`` would still read every ignored tree first, which is the slow
-    part: ``.playwright/`` alone holds hundreds of megabytes of extracted Debian
-    packages. Mutating ``directory_names`` in place is what ``Path.walk`` reads
-    back to decide where to recurse, so a pruned directory is never opened.
-
-    Order is walk order. Callers that promise a sorted result sort what they
-    collect.
-    """
-    for directory, directory_names, file_names in root.walk():
-        directory_names[:] = [name for name in directory_names if name not in SKIP_DIRECTORIES]
-        for file_name in file_names:
-            yield directory / file_name
+    """Yield sorted real files without descending into ignored or symlinked trees."""
+    for current_root, directory_names, file_names in os.walk(
+        root,
+        topdown=True,
+        followlinks=False,
+    ):
+        current_path = Path(current_root)
+        directory_names[:] = sorted(
+            name
+            for name in directory_names
+            if name not in SKIP_DIRECTORIES and not (current_path / name).is_symlink()
+        )
+        for file_name in sorted(file_names):
+            path = current_path / file_name
+            if path.is_file() and not path.is_symlink():
+                yield path

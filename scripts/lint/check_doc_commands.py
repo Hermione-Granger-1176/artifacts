@@ -10,7 +10,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from scripts import REPO_ROOT
+from scripts.lint import contains_symlink as _contains_symlink
 from scripts.lint.make_targets import (
+    INLINE_CODE_PATTERN,
     extract_markdown_code_snippets,
     load_makefile_targets,
 )
@@ -164,10 +166,20 @@ COMMAND_RULES = (
     CommandRule(re.compile(r"^\s*gh\s+pr\s+view\s+--comments\s*$"), "pr-comments", True),
     CommandRule(re.compile(r"^\s*gh\s+run\s+list\s*$"), "ci-runs", True),
     CommandRule(re.compile(r"^\s*gh\s+run\s+watch\s*$"), "ci-watch", True),
-    CommandRule(re.compile(r"^\s*gh\s+issue\s+list\s*$"), "issues", True),
+    CommandRule(re.compile(r"^\s*gh\s+issue\s+list\s*$"), "issue-list", True),
+    CommandRule(re.compile(r"^\s*gh\s+issue\s+create\s*$"), "issue-create", True),
+    CommandRule(re.compile(r"^\s*gh\s+issue\s+comment\s*$"), "issue-comment", True),
+    CommandRule(re.compile(r"^\s*gh\s+issue\s+edit\s*$"), "issue-edit", True),
+    CommandRule(re.compile(r"^\s*gh\s+issue\s+close\s*$"), "issue-close", True),
+    CommandRule(re.compile(r"^\s*gh\s+issue\s+reopen\s*$"), "issue-reopen", True),
+    CommandRule(re.compile(r"^\s*gh\s+pr\s+comment\s*$"), "pr-comment", True),
     CommandRule(re.compile(r"^\s*git\s+diff\s+--cached\s*$"), "diff-staged", True),
     CommandRule(re.compile(r"^\s*git\s+diff\s*$"), "diff", True),
     CommandRule(re.compile(r"^\s*git\s+log\s*$"), "log", True),
+    CommandRule(re.compile(r"^\s*git\s+commit\b.*$"), "commit", True),
+    CommandRule(re.compile(r"^\s*git\s+push\s*$"), "push", True),
+    CommandRule(re.compile(r"^\s*git\s+add\b.*$"), "stage", True),
+    CommandRule(re.compile(r"^\s*git\s+rebase\s+(?:origin/)?main\s*$"), "rebase-main", True),
 )
 COMMAND_SEPARATOR_PATTERN = re.compile(r"\s*(?:&&|\|\||;)\s*")
 INSTRUCTION_WORDS_PATTERN = (
@@ -233,14 +245,24 @@ def find_replacement_targets(snippet: str, known_targets: set[str]) -> list[str]
     return targets
 
 
-def _snippet_is_actionable(line: str, snippet: str) -> bool:
+def _mask_inline_code(text: str) -> str:
+    """Blank out inline-code spans so their contents cannot look like prose."""
+    return INLINE_CODE_PATTERN.sub(lambda match: "`" + "_" * len(match.group(1)) + "`", text)
+
+
+def _snippet_is_actionable(
+    line: str,
+    snippet: str,
+    column_start: int | None = None,
+) -> bool:
     """Return whether one inline snippet is presented as a command to run."""
-    marker = f"`{snippet}`"
-    if marker not in line:
+    if column_start is None:
         return not line.lstrip().startswith("#")
 
-    prefix, suffix = line.split(marker, 1)
-    local_prefix = CLAUSE_SEPARATOR_PATTERN.split(prefix)[-1]
+    marker = f"`{snippet}`"
+    prefix = line[:column_start]
+    suffix = line[column_start + len(marker) :]
+    local_prefix = CLAUSE_SEPARATOR_PATTERN.split(_mask_inline_code(prefix))[-1]
     if NEGATION_PREFIX_PATTERN.search(local_prefix):
         return False
     if CHECKLIST_PREFIX_PATTERN.match(prefix) or ORDERED_PREFIX_PATTERN.match(prefix):
@@ -255,12 +277,15 @@ def check_file(path: Path, known_targets: set[str], root: Path | None = None) ->
     """Return direct-command violations for one contributor-facing doc."""
     workspace_root = root or REPO_ROOT
     relative_path = path.relative_to(workspace_root).as_posix()
-    text = path.read_text(encoding="utf-8")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        return [f"{relative_path}: not valid UTF-8 text ({exc.reason})"]
     lines = text.splitlines()
     violations: list[str] = []
     for snippet in extract_markdown_code_snippets(text):
         line = lines[snippet.line_number - 1]
-        if not _snippet_is_actionable(line, snippet.text):
+        if not _snippet_is_actionable(line, snippet.text, snippet.column_start):
             continue
         for target in find_replacement_targets(snippet.text, known_targets):
             violations.append(
@@ -277,7 +302,17 @@ def run_check(paths: list[Path] | None = None, root: Path | None = None) -> list
     candidate_paths = paths if paths is not None else iter_default_paths(workspace_root)
     violations: list[str] = []
     for path in candidate_paths:
-        violations.extend(check_file(path, known_targets, root=workspace_root))
+        try:
+            relative_path = path.relative_to(workspace_root).as_posix()
+        except ValueError:
+            violations.append(f"{path}: path must stay within the repository")
+            continue
+
+        safe_paths, path_errors = resolve_requested_paths([relative_path], workspace_root)
+        if path_errors:
+            violations.extend(path_errors)
+            continue
+        violations.extend(check_file(safe_paths[0], known_targets, root=workspace_root))
     return violations
 
 
@@ -294,6 +329,56 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def resolve_requested_paths(raw_paths: list[str], root: Path) -> tuple[list[Path], list[str]]:
+    """Resolve safe repository-relative Markdown paths and return validation errors."""
+    resolved_paths: list[Path] = []
+    errors: list[str] = []
+    resolved_root = root.resolve()
+
+    for raw in raw_paths:
+        relative = Path(raw)
+        if relative.is_absolute() or ".." in relative.parts:
+            errors.append(f"{raw}: path must stay within the repository")
+            continue
+        if relative.suffix.lower() != ".md":
+            errors.append(f"{raw}: path must be a Markdown file")
+            continue
+
+        candidate = root / relative
+        if _contains_symlink(candidate, root):
+            errors.append(f"{raw}: symbolic links are not supported")
+            continue
+
+        try:
+            resolved = candidate.resolve(strict=True)
+        except FileNotFoundError:
+            errors.append(f"{raw}: path does not exist")
+            continue
+        except OSError:
+            errors.append(f"{raw}: path could not be accessed")
+            continue
+
+        try:
+            resolved.relative_to(resolved_root)
+        except ValueError:
+            errors.append(f"{raw}: path resolves outside the repository")
+            continue
+
+        if not resolved.is_file():
+            errors.append(f"{raw}: path does not exist or is not a file")
+            continue
+        resolved_paths.append(resolved)
+
+    return resolved_paths, errors
+
+
+def print_failures(messages: list[str]) -> None:
+    """Print command-lint failures with consistent CI-friendly context."""
+    print("Command lint failed:")
+    for message in messages:
+        print(f"  {message}")
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI entry point and return a shell exit code."""
     args = parse_args(argv)
@@ -302,22 +387,17 @@ def main(argv: list[str] | None = None) -> int:
     if not args.paths:
         candidate_paths = iter_default_paths(workspace_root)
     else:
-        candidate_paths = []
-        for raw_path in args.paths:
-            resolved_path = workspace_root / raw_path
-            if not resolved_path.is_file():
-                print(f"  {raw_path}: path does not exist or is not a file")
-                return 1
-            candidate_paths.append(resolved_path)
+        candidate_paths, path_errors = resolve_requested_paths(args.paths, workspace_root)
+        if path_errors:
+            print_failures(path_errors)
+            return 1
 
     violations = run_check(paths=candidate_paths, root=workspace_root)
     if not violations:
         print(f"Command lint passed for {len(candidate_paths)} file(s)")
         return 0
 
-    print("Command lint failed:")
-    for violation in violations:
-        print(violation)
+    print_failures(violations)
     return 1
 
 
