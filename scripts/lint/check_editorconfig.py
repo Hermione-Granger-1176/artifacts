@@ -7,13 +7,12 @@ import argparse
 import fnmatch
 import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from functools import cache
+from pathlib import Path
 
 from scripts import REPO_ROOT
+from scripts.lint import contains_symlink as _contains_symlink
 from scripts.lint import iter_lint_paths
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 EDITORCONFIG_FILE = REPO_ROOT / ".editorconfig"
 BINARY_SUFFIXES = {
@@ -66,7 +65,7 @@ def parse_editorconfig(content: str) -> list[EditorConfigSection]:
             continue
 
         key, value = line.split("=", 1)
-        current_properties[key.strip()] = value.strip()
+        current_properties[key.strip().lower()] = value.strip().lower()
 
     flush_current_section()
 
@@ -79,11 +78,67 @@ def load_editorconfig(path: Path | None = None) -> list[EditorConfigSection]:
     return parse_editorconfig(config_path.read_text(encoding="utf-8"))
 
 
+def _expand_braces(pattern: str) -> list[str]:
+    """Expand one or more comma-separated EditorConfig brace groups."""
+    opening = pattern.find("{")
+    if opening == -1:
+        return [pattern]
+
+    closing = pattern.find("}", opening + 1)
+    if closing == -1:
+        return [pattern]
+
+    choices = pattern[opening + 1 : closing].split(",")
+    if len(choices) == 1:
+        return [pattern]
+
+    prefix = pattern[:opening]
+    suffix = pattern[closing + 1 :]
+    expanded: list[str] = []
+    for choice in choices:
+        expanded.extend(_expand_braces(f"{prefix}{choice}{suffix}"))
+    return expanded
+
+
+def _matches(pattern: str, relative_path: str) -> bool:
+    """Return whether a repository-relative path matches an EditorConfig glob."""
+    return any(_matches_expanded(item, relative_path) for item in _expand_braces(pattern))
+
+
+def _matches_expanded(pattern: str, relative_path: str) -> bool:
+    """Match one brace-expanded glob without allowing single stars to cross directories."""
+    normalized_pattern = pattern.removeprefix("/")
+    if "/" not in normalized_pattern:
+        return fnmatch.fnmatchcase(relative_path.rsplit("/", 1)[-1], normalized_pattern)
+
+    pattern_parts = tuple(normalized_pattern.split("/"))
+    path_parts = tuple(relative_path.split("/"))
+
+    @cache
+    def match_parts(pattern_index: int, path_index: int) -> bool:
+        if pattern_index == len(pattern_parts):
+            return path_index == len(path_parts)
+
+        part = pattern_parts[pattern_index]
+        if part == "**":
+            return match_parts(pattern_index + 1, path_index) or (
+                path_index < len(path_parts) and match_parts(pattern_index, path_index + 1)
+            )
+
+        return (
+            path_index < len(path_parts)
+            and fnmatch.fnmatchcase(path_parts[path_index], part)
+            and match_parts(pattern_index + 1, path_index + 1)
+        )
+
+    return match_parts(0, 0)
+
+
 def resolve_settings(sections: list[EditorConfigSection], relative_path: str) -> dict[str, str]:
     """Resolve effective settings for one repository-relative path."""
     settings: dict[str, str] = {}
     for section in sections:
-        if not fnmatch.fnmatchcase(relative_path, section.pattern):
+        if not _matches(section.pattern, relative_path):
             continue
         for key, value in section.properties.items():
             if value == "unset":
@@ -98,15 +153,14 @@ def should_check_file(sections: list[EditorConfigSection], relative_path: str) -
     if relative_path == ".editorconfig":
         return True
     return any(
-        section.pattern != "*" and fnmatch.fnmatchcase(relative_path, section.pattern)
-        for section in sections
+        section.pattern != "*" and _matches(section.pattern, relative_path) for section in sections
     )
 
 
 def iter_workspace_files(root: Path | None = None) -> list[Path]:
     """Return repository files, skipping cache, build, dependency, and VCS directories."""
     workspace_root = root or REPO_ROOT
-    return sorted(path for path in iter_lint_paths(workspace_root) if path.is_file())
+    return list(iter_lint_paths(workspace_root))
 
 
 def _decode_text_file(path: Path) -> str | None:
@@ -194,6 +248,52 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def resolve_requested_paths(raw_paths: list[str], root: Path) -> tuple[list[Path], list[str]]:
+    """Resolve safe repository-relative file paths and return validation errors."""
+    resolved_paths: list[Path] = []
+    errors: list[str] = []
+
+    for raw in raw_paths:
+        relative = Path(raw)
+        if relative.is_absolute() or ".." in relative.parts:
+            errors.append(f"{raw}: path must stay within the repository")
+            continue
+
+        candidate = root / relative
+        if _contains_symlink(candidate, root):
+            errors.append(f"{raw}: symbolic links are not supported")
+            continue
+
+        try:
+            resolved = candidate.resolve(strict=True)
+        except FileNotFoundError:
+            errors.append(f"{raw}: path does not exist")
+            continue
+        except OSError:
+            errors.append(f"{raw}: path could not be accessed")
+            continue
+
+        try:
+            resolved.relative_to(root.resolve())
+        except ValueError:
+            errors.append(f"{raw}: path resolves outside the repository")
+            continue
+
+        if not resolved.is_file():
+            errors.append(f"{raw}: path does not exist or is not a file")
+            continue
+        resolved_paths.append(resolved)
+
+    return resolved_paths, errors
+
+
+def print_failures(messages: list[str]) -> None:
+    """Print EditorConfig failures with consistent CI-friendly context."""
+    print("EditorConfig check failed:")
+    for message in messages:
+        print(f"  {message}")
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI entry point and return a shell exit code."""
     args = parse_args(argv)
@@ -203,14 +303,10 @@ def main(argv: list[str] | None = None) -> int:
     if not args.paths:
         candidate_paths = iter_workspace_files(workspace_root)
     else:
-        resolved_paths = []
-        for raw in args.paths:
-            resolved = workspace_root / raw
-            if not resolved.is_file():
-                print(f"  {raw}: path does not exist or is not a file")
-                return 1
-            resolved_paths.append(resolved)
-        candidate_paths = resolved_paths
+        candidate_paths, path_errors = resolve_requested_paths(args.paths, workspace_root)
+        if path_errors:
+            print_failures(path_errors)
+            return 1
 
     checked_paths = [
         path
@@ -223,9 +319,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"EditorConfig check passed for {len(checked_paths)} file(s)")
         return 0
 
-    print("EditorConfig check failed:")
-    for violation in violations:
-        print(violation)
+    print_failures(violations)
     return 1
 
 
