@@ -137,7 +137,8 @@ def test_commit_sha_extracts_valid_sha() -> None:
 
 
 @pytest.mark.parametrize(
-    "payload", [{"sha": 5}, ["not", "a", "dict"], {"sha": "abc"}, {"sha": "A" * 40}]
+    "payload",
+    [{}, {"sha": 5}, ["not", "a", "dict"], {"sha": "abc"}, {"sha": "A" * 40}],
 )
 def test_commit_sha_rejects_missing_or_invalid_payloads(payload: object) -> None:
     """Never accept a response that is not a lowercase full commit SHA."""
