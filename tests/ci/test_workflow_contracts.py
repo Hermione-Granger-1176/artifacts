@@ -751,9 +751,11 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert isinstance(smoke_container.get("image"), str)
     assert PLAYWRIGHT_CI_IMAGE_PIN.fullmatch(smoke_container["image"])
     assert smoke_container["options"] == "--init --ipc=host"
-    make_bootstrap = _step_run(smoke_job, "Install GNU make")
-    assert "apt-get update" in make_bootstrap
-    assert "apt-get install --no-install-recommends --yes make" in make_bootstrap
+    tools_bootstrap = _step_run(smoke_job, "Install workflow tools")
+    assert "command -v make" in tools_bootstrap
+    assert "command -v gh" in tools_bootstrap
+    assert "apt-get update" in tools_bootstrap
+    assert "apt-get install --no-install-recommends --yes gh make" in tools_bootstrap
     assert _step_uses(smoke_job, "CI setup") == "./.github/actions/ci-setup"
     assert _step_with(smoke_job, "CI setup")["browser-engines"] == ""
     assert (
