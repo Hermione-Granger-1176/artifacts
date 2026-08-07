@@ -122,13 +122,13 @@ def extract_deployment_branch_policies(payload: object) -> set[str]:
     policies: set[str] = set()
     for policy in raw_policies:
         if not isinstance(policy, dict):
-            raise RuntimeError("Deployment branch policies contains a non-object entry")
+            raise RuntimeError("Deployment branch policies contain a non-object entry")
         name = policy.get("name")
         if not isinstance(name, str) or not name:
-            raise RuntimeError("Deployment branch policies contains an entry without a name")
+            raise RuntimeError("Deployment branch policies contain an entry without a name")
         policy_type = policy.get("type")
         if not isinstance(policy_type, str) or not policy_type:
-            raise RuntimeError("Deployment branch policies contains an entry without a type")
+            raise RuntimeError("Deployment branch policies contain an entry without a type")
         policies.add(f"{name}:{policy_type}")
     return policies
 
