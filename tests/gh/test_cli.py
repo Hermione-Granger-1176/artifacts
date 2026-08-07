@@ -61,6 +61,7 @@ def test_watch_subcommand_passes_options_and_prints_report(
             "--expected-checks",
             "17",
             "--checks-only",
+            "--request-copilot",
         ]
     )
 
@@ -71,6 +72,7 @@ def test_watch_subcommand_passes_options_and_prints_report(
         "max_polls": 3,
         "expected_checks": 17,
         "checks_only": True,
+        "request_copilot": True,
     }
     assert capsys.readouterr().out.strip() == "watch report"
 
@@ -98,6 +100,7 @@ def test_watch_subcommand_uses_defaults(monkeypatch: pytest.MonkeyPatch) -> None
         "max_polls": 40,
         "expected_checks": pr_watch.DEFAULT_EXPECTED_CHECKS,
         "checks_only": False,
+        "request_copilot": False,
     }
 
 

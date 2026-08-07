@@ -101,7 +101,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     watch_parser = subparsers.add_parser(
         "watch",
-        help="Request and wait for a fresh Copilot review and successful checks",
+        help="Observe the latest Copilot review and successful checks",
     )
     watch_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
     watch_parser.add_argument(
@@ -125,7 +125,12 @@ def _build_parser() -> argparse.ArgumentParser:
     watch_parser.add_argument(
         "--checks-only",
         action="store_true",
-        help="Wait for checks without requesting a Copilot review",
+        help="Wait for checks without waiting for a Copilot review",
+    )
+    watch_parser.add_argument(
+        "--request-copilot",
+        action="store_true",
+        help="Request Copilot after capturing the review baseline",
     )
 
     ci_parser = subparsers.add_parser(
@@ -243,6 +248,7 @@ def _handle_watch(args: argparse.Namespace) -> int:
             max_polls=args.max_polls,
             expected_checks=args.expected_checks,
             checks_only=args.checks_only,
+            request_copilot=args.request_copilot,
         )
     )
     return 0

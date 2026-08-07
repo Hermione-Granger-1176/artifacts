@@ -1,4 +1,4 @@
-"""Conservatively watch PR checks and a newly requested Copilot review."""
+"""Conservatively watch PR checks and an optionally requested Copilot review."""
 
 from __future__ import annotations
 
@@ -67,7 +67,7 @@ class PollStatus:
 
 @dataclass(frozen=True)
 class WatchBaseline:
-    """Copilot review ids and every review thread id seen before a request.
+    """Copilot review and thread ids seen before an explicit request.
 
     ``thread_ids`` deliberately includes resolved threads so that a thread
     resolved between polls is never mistaken for a newly generated one.
@@ -292,13 +292,17 @@ def watch_pr(
     max_polls: int = 40,
     expected_checks: int = DEFAULT_EXPECTED_CHECKS,
     checks_only: bool = False,
+    request_copilot: bool = False,
     run_fn: RunFunction | None = None,
     sleep_fn: Callable[[float], None] | None = None,
 ) -> str:
-    """Wait for settled successful checks and, unless ``checks_only``, a fresh review.
+    """Wait for settled successful checks and the latest available Copilot review.
 
-    With ``checks_only`` no Copilot review is requested or awaited, so the
-    report classifies the review state as not requested.
+    Automatic PR review starts outside this command, so the default mode observes
+    the latest available review without mutating reviewer state. Set
+    ``request_copilot`` when the caller explicitly wants this command to capture a
+    baseline and request a new review. With ``checks_only`` no Copilot review is
+    requested or awaited.
     """
     if interval < 0:
         raise GhError("interval must not be negative.")
@@ -309,7 +313,7 @@ def watch_pr(
 
     pr = pr if pr is not None else gh_runner.current_pr_number(run_fn=run_fn)
     baseline = WatchBaseline(frozenset(), frozenset())
-    if not checks_only:
+    if request_copilot and not checks_only:
         baseline = watch_baseline(pr, run_fn=run_fn)
         pr_review.request_copilot_review(pr, run_fn=run_fn)
     sleeper = sleep_fn or time.sleep
