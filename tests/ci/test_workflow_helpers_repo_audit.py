@@ -25,6 +25,65 @@ def test_collect_named_items_returns_non_empty_names() -> None:
     ) == {"APP_ID", "AUDIT_APP_ID"}
 
 
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (None, "must be a JSON object"),
+        ({}, "patterns_allowed must be a JSON array"),
+        ({"patterns_allowed": [9]}, "patterns_allowed must contain strings"),
+        ({"patterns_allowed": [""]}, "patterns_allowed must contain non-empty strings"),
+    ],
+    ids=["non-object", "missing-patterns", "non-string-pattern", "empty-pattern"],
+)
+def test_extract_allowed_action_patterns_rejects_malformed_responses(
+    payload: object, message: str
+) -> None:
+    """Selected Actions responses must contain non-empty string patterns."""
+    with pytest.raises(RuntimeError, match=message):
+        repo_audit.extract_allowed_action_patterns(payload)
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (None, "must be a JSON object"),
+        ({}, "must include a JSON array"),
+        ({"branch_policies": ["bad"]}, "non-object entry"),
+        (
+            {"branch_policies": [{"name": 9, "type": "branch"}]},
+            "without a name",
+        ),
+        (
+            {"branch_policies": [{"name": "", "type": "branch"}]},
+            "without a name",
+        ),
+        (
+            {"branch_policies": [{"name": "main", "type": 9}]},
+            "without a type",
+        ),
+        (
+            {"branch_policies": [{"name": "main", "type": ""}]},
+            "without a type",
+        ),
+    ],
+    ids=[
+        "non-object",
+        "missing-policies",
+        "non-object-policy",
+        "non-string-name",
+        "empty-name",
+        "non-string-type",
+        "empty-type",
+    ],
+)
+def test_extract_deployment_branch_policies_rejects_malformed_responses(
+    payload: object, message: str
+) -> None:
+    """Deployment policies must contain non-empty names and types."""
+    with pytest.raises(RuntimeError, match=message):
+        repo_audit.extract_deployment_branch_policies(payload)
+
+
 def test_extract_required_checks_handles_contexts_and_checks() -> None:
     """Extract required checks handles contexts and checks."""
     assert repo_audit.extract_required_checks(
@@ -208,6 +267,31 @@ def _minimal_audit_responses() -> dict[str, object]:
     return {
         "repos/owner/repo": {"default_branch": "main"},
         "repos/owner/repo/pages": {"build_type": "workflow", "https_enforced": True},
+        "repos/owner/repo/actions/permissions": {
+            "enabled": True,
+            "allowed_actions": "selected",
+            "sha_pinning_required": True,
+        },
+        "repos/owner/repo/actions/permissions/selected-actions": {
+            "github_owned_allowed": True,
+            "verified_allowed": False,
+            "patterns_allowed": sorted(repo_audit.EXPECTED_ACTION_PATTERNS),
+        },
+        "repos/owner/repo/environments/github-pages": {
+            "deployment_branch_policy": {
+                "protected_branches": False,
+                "custom_branch_policies": True,
+            }
+        },
+        "repos/owner/repo/environments/github-pages/deployment-branch-policies": {
+            "branch_policies": [
+                {"name": name, "type": policy_type}
+                for name, policy_type in (
+                    policy.split(":", maxsplit=1)
+                    for policy in sorted(repo_audit.EXPECTED_PAGES_DEPLOYMENT_POLICIES)
+                )
+            ]
+        },
         "repos/owner/repo/branches/main/protection": {},
         "repos/owner/repo/actions/variables": {"variables": []},
         "repos/owner/repo/actions/secrets": {"secrets": []},
@@ -217,10 +301,12 @@ def _minimal_audit_responses() -> dict[str, object]:
 
 def _patch_audit_responses(monkeypatch: pytest.MonkeyPatch, responses: dict[str, object]) -> None:
     """Route repository audit API calls to a local response map."""
+    complete_responses = _minimal_audit_responses()
+    complete_responses.update(responses)
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api_json",
-        lambda endpoint, *_args, **_kwargs: responses[endpoint],
+        lambda endpoint, *_args, **_kwargs: complete_responses[endpoint],
     )
 
 
@@ -375,13 +461,12 @@ def test_audit_repo_settings_returns_expected_summary(
         },
     }
 
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api_json",
-        lambda endpoint, *_args, **_kwargs: responses[endpoint],
-    )
+    _patch_audit_responses(monkeypatch, responses)
 
     assert workflow_helpers.audit_repo_settings(repo="owner/repo") == {
+        "actions-allowed": "selected",
+        "actions-selected-patterns": sorted(repo_audit.EXPECTED_ACTION_PATTERNS),
+        "actions-sha-pinning-required": True,
         "default-branch": "main",
         "gh-pages-rules": [
             "creation",
@@ -392,6 +477,7 @@ def test_audit_repo_settings_returns_expected_summary(
             "update",
         ],
         "gh-pages-ruleset": True,
+        "github-pages-deployment-policies": sorted(repo_audit.EXPECTED_PAGES_DEPLOYMENT_POLICIES),
         "pages-branch": None,
         "pages-build-type": "workflow",
         "pages-https-enforced": True,
@@ -462,16 +548,58 @@ def test_audit_repo_settings_flags_disabled_push_protection(
         "repos/owner/repo/rulesets": [],
     }
 
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api_json",
-        lambda endpoint, *_args, **_kwargs: responses[endpoint],
-    )
+    _patch_audit_responses(monkeypatch, responses)
 
     with pytest.raises(ValueError, match="secret_scanning_push_protection") as excinfo:
         workflow_helpers.audit_repo_settings(repo="owner/repo")
 
     assert "security and analysis features" in str(excinfo.value)
+
+
+def test_audit_repo_settings_reports_actions_and_pages_policy_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Actions and Pages deployment policy drift is reported together."""
+    responses = _minimal_audit_responses()
+    responses["repos/owner/repo/actions/permissions"] = {
+        "enabled": False,
+        "allowed_actions": "all",
+        "sha_pinning_required": False,
+    }
+    responses["repos/owner/repo/actions/permissions/selected-actions"] = {
+        "github_owned_allowed": False,
+        "verified_allowed": True,
+        "patterns_allowed": ["astral-sh/setup-uv@*", "example/unused-action@*"],
+    }
+    responses["repos/owner/repo/environments/github-pages"] = {
+        "deployment_branch_policy": {
+            "protected_branches": True,
+            "custom_branch_policies": False,
+        }
+    }
+    responses["repos/owner/repo/environments/github-pages/deployment-branch-policies"] = {
+        "branch_policies": [
+            {"name": "main", "type": "branch"},
+            {"name": "docs", "type": "tag"},
+        ]
+    }
+    _patch_audit_responses(monkeypatch, responses)
+
+    with pytest.raises(ValueError, match="Repository settings audit failed") as excinfo:
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+    message = str(excinfo.value)
+    assert "GitHub Actions are not enabled" in message
+    assert "Actions allowed policy is 'all' instead of 'selected'" in message
+    assert "Actions are not required to use full-length commit SHAs" in message
+    assert "GitHub-owned Actions are not allowed" in message
+    assert "Verified Marketplace Actions are allowed" in message
+    assert "missing allowed Actions patterns" in message
+    assert "unexpected allowed Actions patterns: example/unused-action@*" in message
+    assert "github-pages does not use selected deployment policies" in message
+    assert "github-pages allows protected-branch-only deployment policy" in message
+    assert "missing github-pages deployment policies" in message
+    assert "unexpected github-pages deployment policies: docs:tag" in message
 
 
 def test_audit_repo_settings_rejects_unexpected_response_types(
@@ -490,13 +618,62 @@ def test_audit_repo_settings_rejects_unexpected_response_types(
         "repos/owner/repo/actions/secrets": {"secrets": []},
         "repos/owner/repo/rulesets": [],
     }
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api_json",
-        lambda endpoint, *_args, **_kwargs: responses[endpoint],
-    )
+    _patch_audit_responses(monkeypatch, responses)
 
     with pytest.raises(RuntimeError, match="Repository metadata must be a JSON object"):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "response", "message"),
+    [
+        (
+            "repos/owner/repo/actions/permissions",
+            [],
+            "Actions permissions must be a JSON object",
+        ),
+        (
+            "repos/owner/repo/actions/permissions/selected-actions",
+            [],
+            "Selected Actions settings must be a JSON object",
+        ),
+        (
+            "repos/owner/repo/environments/github-pages",
+            [],
+            "github-pages environment must be a JSON object",
+        ),
+        (
+            "repos/owner/repo/environments/github-pages/deployment-branch-policies",
+            [],
+            "github-pages deployment policies must be a JSON object",
+        ),
+    ],
+    ids=["actions", "selected-actions", "environment", "deployment-policies"],
+)
+def test_audit_repo_settings_rejects_invalid_new_response_types(
+    monkeypatch: pytest.MonkeyPatch,
+    endpoint: str,
+    response: object,
+    message: str,
+) -> None:
+    """New policy endpoints fail closed when GitHub returns the wrong shape."""
+    responses = _minimal_audit_responses()
+    responses[endpoint] = response
+    _patch_audit_responses(monkeypatch, responses)
+
+    with pytest.raises(RuntimeError, match=message):
+        workflow_helpers.audit_repo_settings(repo="owner/repo")
+
+
+def test_audit_repo_settings_rejects_invalid_environment_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An environment without a deployment policy object fails closed."""
+    responses = _minimal_audit_responses()
+    responses["repos/owner/repo/environments/github-pages"] = {}
+    _patch_audit_responses(monkeypatch, responses)
+
+    with pytest.raises(RuntimeError, match="deployment policy must be a JSON object"):
         workflow_helpers.audit_repo_settings(repo="owner/repo")
 
 
@@ -512,11 +689,7 @@ def test_audit_repo_settings_rejects_invalid_pages_response(
         "repos/owner/repo/actions/secrets": {"secrets": []},
         "repos/owner/repo/rulesets": [],
     }
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api_json",
-        lambda endpoint, *_args, **_kwargs: responses[endpoint],
-    )
+    _patch_audit_responses(monkeypatch, responses)
 
     with pytest.raises(RuntimeError, match="Pages settings must be a JSON object"):
         workflow_helpers.audit_repo_settings(repo="owner/repo")
@@ -538,11 +711,7 @@ def test_audit_repo_settings_rejects_invalid_protection_response(
         "repos/owner/repo/actions/secrets": {"secrets": []},
         "repos/owner/repo/rulesets": [],
     }
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api_json",
-        lambda endpoint, *_args, **_kwargs: responses[endpoint],
-    )
+    _patch_audit_responses(monkeypatch, responses)
 
     with pytest.raises(RuntimeError, match="Branch protection settings must be a JSON object"):
         workflow_helpers.audit_repo_settings(repo="owner/repo")
@@ -564,11 +733,7 @@ def test_audit_repo_settings_rejects_invalid_variables_response(
         "repos/owner/repo/actions/secrets": {"secrets": []},
         "repos/owner/repo/rulesets": [],
     }
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api_json",
-        lambda endpoint, *_args, **_kwargs: responses[endpoint],
-    )
+    _patch_audit_responses(monkeypatch, responses)
 
     with pytest.raises(RuntimeError, match="Actions variables response must be a JSON object"):
         workflow_helpers.audit_repo_settings(repo="owner/repo")
@@ -590,11 +755,7 @@ def test_audit_repo_settings_rejects_invalid_secrets_response(
         "repos/owner/repo/actions/secrets": [],
         "repos/owner/repo/rulesets": [],
     }
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api_json",
-        lambda endpoint, *_args, **_kwargs: responses[endpoint],
-    )
+    _patch_audit_responses(monkeypatch, responses)
 
     with pytest.raises(RuntimeError, match="Actions secrets response must be a JSON object"):
         workflow_helpers.audit_repo_settings(repo="owner/repo")
@@ -616,11 +777,7 @@ def test_audit_repo_settings_rejects_invalid_rulesets_response(
         "repos/owner/repo/actions/secrets": {"secrets": []},
         "repos/owner/repo/rulesets": {},
     }
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api_json",
-        lambda endpoint, *_args, **_kwargs: responses[endpoint],
-    )
+    _patch_audit_responses(monkeypatch, responses)
 
     with pytest.raises(RuntimeError, match="Rulesets response must be a JSON array"):
         workflow_helpers.audit_repo_settings(repo="owner/repo")
@@ -654,11 +811,7 @@ def test_audit_repo_settings_reports_configuration_drift(
             "rules": [{"type": "update"}],
         },
     }
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api_json",
-        lambda endpoint, *_args, **_kwargs: responses[endpoint],
-    )
+    _patch_audit_responses(monkeypatch, responses)
 
     with pytest.raises(ValueError, match="Repository settings audit failed") as exc_info:
         workflow_helpers.audit_repo_settings(repo="owner/repo")
@@ -729,11 +882,7 @@ def test_audit_repo_settings_reports_only_build_type_for_compliant_legacy_source
         },
     }
 
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api_json",
-        lambda endpoint, *_args, **_kwargs: responses[endpoint],
-    )
+    _patch_audit_responses(monkeypatch, responses)
 
     with pytest.raises(ValueError, match="Repository settings audit failed") as exc_info:
         workflow_helpers.audit_repo_settings(repo="owner/repo")
@@ -793,11 +942,7 @@ def test_audit_repo_settings_requires_ruleset_targeting_pages_branch(
         },
     }
 
-    monkeypatch.setattr(
-        workflow_helpers,
-        "_run_gh_api_json",
-        lambda endpoint, *_args, **_kwargs: responses[endpoint],
-    )
+    _patch_audit_responses(monkeypatch, responses)
 
     with pytest.raises(ValueError, match="no branch ruleset explicitly targets 'gh-pages'"):
         workflow_helpers.audit_repo_settings(repo="owner/repo")
