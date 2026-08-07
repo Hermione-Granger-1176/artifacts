@@ -16,6 +16,21 @@ EXPECTED_REPOSITORY_SECRETS = {
     "GITLEAKS_LICENSE",
 }
 EXPECTED_PAGES_BUILD_TYPE = "workflow"
+EXPECTED_ACTIONS_ALLOWED = "selected"
+EXPECTED_ACTIONS_SHA_PINNING = True
+EXPECTED_GITHUB_OWNED_ACTIONS = True
+EXPECTED_VERIFIED_ACTIONS = False
+EXPECTED_ACTION_PATTERNS = {
+    "astral-sh/setup-uv@*",
+    "gitleaks/gitleaks-action@*",
+    "marocchino/sticky-pull-request-comment@*",
+}
+PAGES_ENVIRONMENT_NAME = "github-pages"
+EXPECTED_PAGES_DEPLOYMENT_POLICIES = {
+    "gh-pages:branch",
+    "main:branch",
+    "refs/pull/*/merge:branch",
+}
 # GitHub's own secret scanning, which is free on public repositories. It is the
 # layer the gitleaks job cannot provide: push protection refuses the push that
 # carries a secret, rather than reporting it once it is already in history and
@@ -65,6 +80,57 @@ def append_missing_items(
     missing_items = expected - actual
     if missing_items:
         issues.append(f"missing {label}: " + ", ".join(sorted(missing_items)))
+
+
+def append_unexpected_items(
+    issues: list[str], *, actual: set[str], expected: set[str], label: str
+) -> None:
+    """Append a formatted issue when unexpected items are present."""
+    unexpected_items = actual - expected
+    if unexpected_items:
+        issues.append(f"unexpected {label}: " + ", ".join(sorted(unexpected_items)))
+
+
+def extract_allowed_action_patterns(payload: object) -> set[str]:
+    """Return the non-GitHub action patterns from a selected-actions response."""
+    if not isinstance(payload, dict):
+        raise RuntimeError("Selected Actions settings must be a JSON object")
+
+    raw_patterns = payload.get("patterns_allowed")
+    if not isinstance(raw_patterns, list):
+        raise RuntimeError("Selected Actions patterns_allowed must be a JSON array")
+
+    patterns: set[str] = set()
+    for pattern in raw_patterns:
+        if not isinstance(pattern, str):
+            raise RuntimeError("Selected Actions patterns_allowed must contain strings")
+        if not pattern:
+            raise RuntimeError("Selected Actions patterns_allowed must contain non-empty strings")
+        patterns.add(pattern)
+    return patterns
+
+
+def extract_deployment_branch_policies(payload: object) -> set[str]:
+    """Return normalized name and type pairs from an environment policy response."""
+    if not isinstance(payload, dict):
+        raise RuntimeError("Deployment branch policies must be a JSON object")
+
+    raw_policies = payload.get("branch_policies")
+    if not isinstance(raw_policies, list):
+        raise RuntimeError("Deployment branch policies must include a JSON array")
+
+    policies: set[str] = set()
+    for policy in raw_policies:
+        if not isinstance(policy, dict):
+            raise RuntimeError("Deployment branch policies contain a non-object entry")
+        name = policy.get("name")
+        if not isinstance(name, str) or not name:
+            raise RuntimeError("Deployment branch policies contain an entry without a name")
+        policy_type = policy.get("type")
+        if not isinstance(policy_type, str) or not policy_type:
+            raise RuntimeError("Deployment branch policies contain an entry without a type")
+        policies.add(f"{name}:{policy_type}")
+    return policies
 
 
 def extract_required_checks(protection: object) -> set[str]:
@@ -208,6 +274,26 @@ def audit_repo_settings(
         description=f"reading Pages settings for {repo}",
         required_permission="pages: read",
     )
+    actions_permissions = run_gh_api_json_fn(
+        f"repos/{repo}/actions/permissions",
+        description=f"reading Actions permissions for {repo}",
+        required_permission="administration: read",
+    )
+    selected_actions = run_gh_api_json_fn(
+        f"repos/{repo}/actions/permissions/selected-actions",
+        description=f"reading selected Actions for {repo}",
+        required_permission="administration: read",
+    )
+    pages_environment = run_gh_api_json_fn(
+        f"repos/{repo}/environments/{PAGES_ENVIRONMENT_NAME}",
+        description=f"reading {PAGES_ENVIRONMENT_NAME} environment for {repo}",
+        required_permission="administration: read",
+    )
+    pages_deployment_policies = run_gh_api_json_fn(
+        f"repos/{repo}/environments/{PAGES_ENVIRONMENT_NAME}/deployment-branch-policies",
+        description=f"reading {PAGES_ENVIRONMENT_NAME} deployment policies for {repo}",
+        required_permission="administration: read",
+    )
     protection = run_gh_api_json_fn(
         f"repos/{repo}/branches/{default_branch}/protection",
         description=f"reading branch protection for {repo}:{default_branch}",
@@ -231,17 +317,31 @@ def audit_repo_settings(
 
     require_response_type(repository, dict, "Repository metadata must be a JSON object")
     require_response_type(pages, dict, "Pages settings must be a JSON object")
+    require_response_type(actions_permissions, dict, "Actions permissions must be a JSON object")
+    require_response_type(selected_actions, dict, "Selected Actions settings must be a JSON object")
+    require_response_type(
+        pages_environment, dict, f"{PAGES_ENVIRONMENT_NAME} environment must be a JSON object"
+    )
     require_response_type(protection, dict, "Branch protection settings must be a JSON object")
     require_response_type(variables, dict, "Actions variables response must be a JSON object")
     require_response_type(secrets, dict, "Actions secrets response must be a JSON object")
     require_response_type(rulesets, list, "Rulesets response must be a JSON array")
+    require_response_type(
+        pages_deployment_policies,
+        dict,
+        f"{PAGES_ENVIRONMENT_NAME} deployment policies must be a JSON object",
+    )
 
     repository = cast("dict[str, object]", repository)
     pages = cast("dict[str, object]", pages)
+    actions_permissions = cast("dict[str, object]", actions_permissions)
+    selected_actions = cast("dict[str, object]", selected_actions)
+    pages_environment = cast("dict[str, object]", pages_environment)
     protection = cast("dict[str, object]", protection)
     variables = cast("dict[str, object]", variables)
     secrets = cast("dict[str, object]", secrets)
     rulesets = cast("list[object]", rulesets)
+    pages_deployment_policies = cast("dict[str, object]", pages_deployment_policies)
     detailed_rulesets = [
         load_ruleset_detail(repo, ruleset, run_gh_api_json_fn=run_gh_api_json_fn)
         for ruleset in rulesets
@@ -293,6 +393,61 @@ def audit_repo_settings(
         issues.append("Pages HTTPS is not enforced")
 
     pages_source_path = pages_source_path or "/"
+
+    actions_enabled = actions_permissions.get("enabled")
+    if actions_enabled is not True:
+        issues.append("GitHub Actions are not enabled")
+    actions_allowed = actions_permissions.get("allowed_actions")
+    if actions_allowed != EXPECTED_ACTIONS_ALLOWED:
+        issues.append(
+            f"Actions allowed policy is {actions_allowed!r} instead of {EXPECTED_ACTIONS_ALLOWED!r}"
+        )
+    actions_sha_pinning = actions_permissions.get("sha_pinning_required")
+    if actions_sha_pinning is not EXPECTED_ACTIONS_SHA_PINNING:
+        issues.append("Actions are not required to use full-length commit SHAs")
+
+    github_owned_allowed = selected_actions.get("github_owned_allowed")
+    if github_owned_allowed is not EXPECTED_GITHUB_OWNED_ACTIONS:
+        issues.append("GitHub-owned Actions are not allowed")
+    verified_allowed = selected_actions.get("verified_allowed")
+    if verified_allowed is not EXPECTED_VERIFIED_ACTIONS:
+        issues.append("Verified Marketplace Actions are allowed")
+    allowed_action_patterns = extract_allowed_action_patterns(selected_actions)
+    append_missing_items(
+        issues,
+        actual=allowed_action_patterns,
+        expected=EXPECTED_ACTION_PATTERNS,
+        label="allowed Actions patterns",
+    )
+    append_unexpected_items(
+        issues,
+        actual=allowed_action_patterns,
+        expected=EXPECTED_ACTION_PATTERNS,
+        label="allowed Actions patterns",
+    )
+
+    environment_policy = pages_environment.get("deployment_branch_policy")
+    if not isinstance(environment_policy, dict):
+        raise RuntimeError(
+            f"{PAGES_ENVIRONMENT_NAME} environment deployment policy must be a JSON object"
+        )
+    if environment_policy.get("custom_branch_policies") is not True:
+        issues.append(f"{PAGES_ENVIRONMENT_NAME} does not use selected deployment policies")
+    if environment_policy.get("protected_branches") is not False:
+        issues.append(f"{PAGES_ENVIRONMENT_NAME} allows protected-branch-only deployment policy")
+    deployment_policies = extract_deployment_branch_policies(pages_deployment_policies)
+    append_missing_items(
+        issues,
+        actual=deployment_policies,
+        expected=EXPECTED_PAGES_DEPLOYMENT_POLICIES,
+        label=f"{PAGES_ENVIRONMENT_NAME} deployment policies",
+    )
+    append_unexpected_items(
+        issues,
+        actual=deployment_policies,
+        expected=EXPECTED_PAGES_DEPLOYMENT_POLICIES,
+        label=f"{PAGES_ENVIRONMENT_NAME} deployment policies",
+    )
 
     security_features = enabled_security_features(repository)
     append_missing_items(
@@ -372,7 +527,11 @@ def audit_repo_settings(
 
     return {
         "default-branch": actual_default_branch,
+        "actions-allowed": actions_allowed,
+        "actions-selected-patterns": sorted(allowed_action_patterns),
+        "actions-sha-pinning-required": actions_sha_pinning,
         "gh-pages-rules": sorted(extract_ruleset_rule_types(pages_ruleset)),
+        "github-pages-deployment-policies": sorted(deployment_policies),
         "pages-branch": pages_source_branch,
         "pages-build-type": pages_build_type,
         "pages-https-enforced": pages_https_enforced,

@@ -319,7 +319,7 @@ graph TD
     end
 
     subgraph "Repo settings audit (weekly)"
-        audit_schedule["Monday 8:23 UTC / manual"] --> audit["audit-repo-settings<br/>Check Pages, branch protection,<br/>variables, secrets, secret scanning,<br/>gh-pages ruleset<br/>Report drift"]
+        audit_schedule["Monday 8:23 UTC / manual"] --> audit["audit-repo-settings<br/>Check Actions, Pages, branch protection,<br/>variables, secrets, secret scanning,<br/>gh-pages ruleset<br/>Report drift"]
     end
 
     subgraph "Live smoke (daily)"
@@ -343,7 +343,7 @@ graph TD
 
 **Playwright CI pin refresh** runs monthly and on manual dispatch. It runs `make refresh-ci-pins`, derives the official Python Playwright image tag from the version locked in `uv.lock`, resolves the immutable registry digest, and opens or updates a maintenance PR containing the dependency and workflow pin changes together.
 
-**Repo settings audit** runs weekly and on manual dispatch. It calls `scripts/ci/workflow_helpers.py audit-repo-settings` to check that Pages, branch protection, repository variables/secrets, GitHub secret scanning and its push protection, and the gh-pages ruleset match the expected contract. Drift is reported to the step summary, opens or updates a dedicated GitHub issue, and closes that issue automatically once the audit passes again.
+**Repo settings audit** runs weekly and on manual dispatch. It calls `scripts/ci/workflow_helpers.py audit-repo-settings` to check that the Actions allowlist and SHA-pinning policy, the `github-pages` deployment policies, branch protection, repository variables/secrets, GitHub secret scanning and its push protection, and the gh-pages ruleset match the expected contract. Drift is reported to the step summary, opens or updates a dedicated GitHub issue, and closes that issue automatically once the audit passes again.
 
 **Live site smoke** runs daily and on manual dispatch. It executes `make test-browser-live` against the published site URL, uploads Playwright failure artifacts on regression, opens or updates a dedicated GitHub issue when the live smoke test fails, and closes that issue automatically once the live site passes again.
 
@@ -393,7 +393,7 @@ graph TD
 | `scripts/ci/app_shards.py invalidate-thumbnails`             | app-shard job (`make thumbnails-shard`)          | Delete stale thumbnails for a shard's slugs before regeneration                                              |
 | `scripts/ci/workflow_helpers.py app-token-policy`            | ci-setup action                                  | Decide if app tokens should be minted                                                                        |
 | `scripts/ci/workflow_helpers.py validate-thumbnail-artifact` | persist-thumbnails job                           | Validate thumbnail artifact matches the plan                                                                 |
-| `scripts/ci/workflow_helpers.py audit-repo-settings`         | audit-repo-settings workflow                     | Check Pages, protection, variables, secrets, ruleset                                                         |
+| `scripts/ci/workflow_helpers.py audit-repo-settings`         | audit-repo-settings workflow                     | Check Actions, Pages deployment policies, protection, variables, secrets, ruleset                            |
 | `scripts/ci/workflow_helpers.py lock-refresh-workflow-run`   | commit-python-locks workflow                     | Validate the triggering Dependabot workflow run and emit its trusted artifact and target values              |
 | `scripts/ci/workflow_helpers.py validate-lock-artifact`      | commit-python-locks workflow                     | Reject unsafe artifact trees and require metadata to match the trusted triggering run                        |
 | `scripts/ci/refresh_ci_pins.py`                              | refresh-playwright workflow                      | Update the locked Playwright package and matching official CI image digest                                   |
@@ -450,7 +450,7 @@ Harry does not need `pages: write`: the Pages publish itself runs on the workflo
 Percy1176's installation must carry exactly the permissions the audit reads, so that a 403 from `scripts/ci/repo_audit.py` unambiguously means a missing grant rather than an unrelated failure:
 
 - `metadata: read` (implicit, required to call any repo endpoint)
-- `administration: read` (branch protection, rulesets)
+- `administration: read` (Actions policy, branch protection, Pages environment, rulesets)
 - `pages: read`
 - `actions_variables: read`
 - `secrets: read` (names only; the audit never reads secret values)
