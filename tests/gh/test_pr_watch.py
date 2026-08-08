@@ -278,6 +278,40 @@ def test_check_status_settles_on_a_rollup_smaller_than_a_full_ci_run() -> None:
     assert identities == frozenset({"name:verify", "name:app-shard"})
 
 
+def test_watch_pr_ignores_stability_observed_while_checks_were_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An unchanged set seen while running cannot settle the first terminal poll.
+
+    Jobs gated on an earlier one have not registered yet at the moment that
+    earlier one completes, so the rollup is briefly terminal and incomplete at
+    the same time. Only consecutive settled polls count as stable.
+    """
+    early = frozenset({"name:plan", "name:secret-scan"})
+    running = _status(settled=False, review=_parsed_review(), check_ids=early)
+    terminal = _status(settled=True, review=_parsed_review(), check_ids=early)
+    complete = _status(
+        settled=True,
+        review=_parsed_review(),
+        check_ids=early | {"name:verify"},
+    )
+    _, sleeps = _watch_stubs(monkeypatch, [running, terminal, complete])
+
+    report = pr_watch.watch_pr(
+        12,
+        interval=7,
+        max_polls=5,
+        request_copilot=True,
+        sleep_fn=sleeps.append,
+    )
+
+    # Poll 2 must not settle despite matching poll 1's ids, so the run continues
+    # long enough to see the check that had not registered yet.
+    assert len(sleeps) == 3
+    assert sleeps[0] == 7
+    assert "merge ready: yes" in report
+
+
 def test_watch_pr_settles_once_the_check_set_repeats(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -602,15 +636,16 @@ def test_watch_pr_sleeps_until_checks_and_review_are_ready(
 
     report = pr_watch.watch_pr(
         12,
-        interval=2.5,
-        max_polls=2,
+        interval=3,
+        max_polls=3,
         request_copilot=True,
         sleep_fn=sleeps.append,
     )
 
+    # A full interval while checks run, then the short stability confirmation.
     assert requested == ["requested"]
-    assert sleeps == [2.5]
-    assert "settled after 2 poll(s)" in report
+    assert sleeps == [3, 3]
+    assert "settled after 3 poll(s)" in report
 
 
 def test_watch_pr_reports_actionable_threads_after_commented_review(
@@ -887,9 +922,9 @@ def test_watch_pr_defaults_current_pr_and_sleep(
     sleeps: list[float] = []
     monkeypatch.setattr(pr_watch.time, "sleep", sleeps.append)
 
-    pr_watch.watch_pr(interval=3, max_polls=2)
+    pr_watch.watch_pr(interval=3, max_polls=3)
 
-    assert sleeps == [3]
+    assert sleeps == [3, 3]
 
 
 def test_watch_pr_uses_the_conservative_default_check_count(

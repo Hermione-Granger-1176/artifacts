@@ -25,8 +25,8 @@ _SUCCESSFUL_CHECK_OUTCOMES = {"NEUTRAL", "SKIPPED", "SUCCESS"}
 # which meant any PR whose plan skipped work produced fewer checks than the
 # constant and could never settle: the watcher polled until max_polls and then
 # failed while reporting every check green. Completeness is now established by
-# ``_rollup_is_stable`` observing the check set stop changing, so this only has
-# to rule out settling against an empty rollup.
+# ``watch_pr`` observing the check set repeat across consecutive settled polls,
+# so this only has to rule out settling against an empty rollup.
 DEFAULT_EXPECTED_CHECKS = 1
 
 # How long to wait when the only outstanding condition is confirming that the
@@ -373,8 +373,17 @@ def watch_pr(
         if status.checks_settled and not status.checks_successful:
             raise GhError(f"PR #{pr} checks settled unsuccessfully: {status.rollup_tally}.")
 
-        rollup_stable = previous_check_ids == status.check_ids
-        previous_check_ids = status.check_ids
+        # Stability only counts across consecutive *settled* polls. Carrying ids
+        # over from a poll where checks were still running would let an unchanged
+        # set settle the very first time it turned terminal, which is the
+        # "terminal but still incomplete" race this is meant to close: jobs gated
+        # on an earlier one have not registered yet at that moment.
+        if status.checks_settled:
+            rollup_stable = previous_check_ids == status.check_ids
+            previous_check_ids = status.check_ids
+        else:
+            rollup_stable = False
+            previous_check_ids = None
         ready_for_threads = (
             status.checks_settled
             and rollup_stable
