@@ -10,7 +10,7 @@ from scripts.lib import prune_branches
 
 
 def make_runner(
-    responses: dict[tuple[str, ...], tuple[int, ...] | tuple[int, str] | tuple[int, str, str]],
+    responses: dict[tuple[str, ...], tuple[int, str] | tuple[int, str, str]],
     *,
     calls: list[tuple[str, ...]] | None = None,
 ) -> prune_branches.GitRunner:

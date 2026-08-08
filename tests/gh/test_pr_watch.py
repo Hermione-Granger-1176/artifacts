@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from itertools import chain, repeat
 
 import pytest
 
@@ -240,12 +241,66 @@ def test_check_status_waits_for_expected_count_and_pending_checks() -> None:
 
 def test_check_status_accepts_a_successful_status_context() -> None:
     """A legacy status context reporting SUCCESS settles like a completed check run."""
-    settled, successful, count, _ = pr_watch._check_status(
+    settled, successful, count, _, identities = pr_watch._check_status(
         [{"state": "SUCCESS"}],
         expected_checks=1,
     )
 
     assert (settled, successful, count) == (True, True, 1)
+    assert identities == frozenset({"index:0"})
+
+
+def test_check_identity_prefers_names_then_contexts_then_position() -> None:
+    """Every rollup entry gets a distinct identity so a growing rollup looks unstable."""
+    assert pr_watch._check_identity({"name": "verify"}, 0) == "name:verify"
+    assert pr_watch._check_identity({"context": "vercel"}, 0) == "context:vercel"
+    assert pr_watch._check_identity({"name": ""}, 3) == "index:3"
+
+
+def test_check_status_settles_on_a_rollup_smaller_than_a_full_ci_run() -> None:
+    """A scoped PR settles on its own check count, not a hardcoded total.
+
+    This is the regression that made ``pr-watch`` unusable: the settle test used
+    to require a fixed number of checks, so any PR whose plan skipped work could
+    never settle no matter how finished it was.
+    """
+    rollup = [
+        {"name": "verify", "status": "COMPLETED", "conclusion": "SUCCESS"},
+        {"name": "app-shard", "status": "COMPLETED", "conclusion": "SKIPPED"},
+    ]
+
+    settled, successful, count, _, identities = pr_watch._check_status(
+        rollup,
+        expected_checks=pr_watch.DEFAULT_EXPECTED_CHECKS,
+    )
+
+    assert (settled, successful, count) == (True, True, 2)
+    assert identities == frozenset({"name:verify", "name:app-shard"})
+
+
+def test_watch_pr_settles_once_the_check_set_repeats(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A rollup that grows between polls is not treated as finished."""
+    growing = _status(settled=True, review=_parsed_review(), check_ids=frozenset({"name:plan"}))
+    complete = _status(
+        settled=True,
+        review=_parsed_review(),
+        check_ids=frozenset({"name:plan", "name:verify"}),
+    )
+    _, sleeps = _watch_stubs(monkeypatch, [growing, complete])
+
+    report = pr_watch.watch_pr(
+        12,
+        interval=9,
+        max_polls=4,
+        request_copilot=True,
+        sleep_fn=sleeps.append,
+    )
+
+    # Two short confirmations: one after the rollup grew, one before settling.
+    assert sleeps == [pr_watch.CONFIRM_DELAY_SECONDS, pr_watch.CONFIRM_DELAY_SECONDS]
+    assert "merge ready: yes" in report
 
 
 def test_review_summary_flags_an_unrecognized_overview() -> None:
@@ -286,7 +341,7 @@ def test_watch_pr_rejects_an_approval_state_without_clean_wording(
     )
 
     with pytest.raises(GhError, match="could not be classified"):
-        pr_watch.watch_pr(12, interval=0, max_polls=1)
+        pr_watch.watch_pr(12, interval=0, max_polls=2)
 
 
 @pytest.mark.parametrize("conclusion", ["SUCCESS", "NEUTRAL", "SKIPPED"])
@@ -312,7 +367,7 @@ def test_check_status_rejects_or_waits_for_unsuccessful_contexts(
     rollup: list[dict[str, object]],
 ) -> None:
     """Failed contexts are unsuccessful and pending contexts remain unsettled."""
-    settled, successful, _, _ = pr_watch._check_status(
+    settled, successful, _, _, _ = pr_watch._check_status(
         rollup,
         expected_checks=1,
     )
@@ -426,6 +481,7 @@ def _status(
     successful: bool = True,
     review: pr_watch.CopilotReview | None = None,
     tally: str = "15 success",
+    check_ids: frozenset[str] = frozenset({"name:verify"}),
 ) -> pr_watch.PollStatus:
     """Build a poll result for watcher control-flow tests."""
     return pr_watch.PollStatus(
@@ -434,6 +490,7 @@ def _status(
         check_count=15,
         rollup_tally=tally,
         fresh_review=review,
+        check_ids=check_ids,
     )
 
 
@@ -460,8 +517,13 @@ def _watch_stubs(
     *,
     thread_batches: list[list[pr_review.ReviewThread]] | None = None,
 ) -> tuple[list[str], list[float]]:
-    """Stub watcher dependencies and return request and sleep records."""
-    sequence = iter(statuses)
+    """Stub watcher dependencies and return request and sleep records.
+
+    The final status repeats forever. Settling now requires the check set to be
+    observed twice, so a fixture describing one steady state supplies it once
+    and the watcher confirms it on the following poll.
+    """
+    sequence = chain(statuses, repeat(statuses[-1]))
     threads = iter(thread_batches or [[]])
     requested: list[str] = []
     sleeps: list[float] = []
@@ -518,7 +580,7 @@ def test_watch_pr_captures_baseline_before_request_and_reports_clean_state(
     )
     monkeypatch.setattr(pr_review, "list_threads", lambda *_args, **_kwargs: [])
 
-    report = pr_watch.watch_pr(12, interval=0, max_polls=1, request_copilot=True)
+    report = pr_watch.watch_pr(12, interval=0, max_polls=2, request_copilot=True)
 
     assert order == ["baseline", "request"]
     assert "latest Copilot review: generated no comments" in report
@@ -579,7 +641,7 @@ def test_watch_pr_reports_actionable_threads_after_commented_review(
         thread_batches=[[thread, second_thread]],
     )
 
-    report = pr_watch.watch_pr(12, interval=0, max_polls=1)
+    report = pr_watch.watch_pr(12, interval=0, max_polls=2)
 
     assert "generated 2 comment(s)" in report
     assert "thread=PRRT_1" in report
@@ -611,12 +673,13 @@ def test_watch_pr_waits_for_threads_to_catch_up_with_comment_overview(
     report = pr_watch.watch_pr(
         12,
         interval=1,
-        max_polls=2,
+        max_polls=3,
         request_copilot=True,
         sleep_fn=sleeps.append,
     )
 
-    assert sleeps == [1]
+    # First sleep is the short stability confirmation, second waits for threads.
+    assert sleeps == [1, 1]
     assert "thread=PRRT_1" in report
 
 
@@ -631,6 +694,7 @@ def test_watch_pr_counts_only_threads_newer_than_the_request_baseline(
     )
     sequence = iter(
         [
+            _status(settled=True, review=_parsed_review(count=2)),
             _status(settled=True, review=_parsed_review(count=2)),
             _status(settled=True, review=_parsed_review(count=2)),
         ]
@@ -669,12 +733,13 @@ def test_watch_pr_counts_only_threads_newer_than_the_request_baseline(
     report = pr_watch.watch_pr(
         12,
         interval=1,
-        max_polls=2,
+        max_polls=3,
         request_copilot=True,
         sleep_fn=sleeps.append,
     )
 
-    assert sleeps == [1]
+    # First sleep confirms rollup stability, second waits for the later thread.
+    assert sleeps == [1, 1]
     assert "open review threads: 3" in report
 
 
@@ -689,7 +754,7 @@ def test_watch_pr_clean_review_with_older_open_thread_is_not_merge_ready(
         thread_batches=[[thread]],
     )
 
-    report = pr_watch.watch_pr(12, interval=0, max_polls=1)
+    report = pr_watch.watch_pr(12, interval=0, max_polls=2)
 
     assert "latest Copilot review: generated no comments" in report
     assert "open review threads: 1" in report
@@ -722,7 +787,7 @@ def test_watch_pr_counts_resolved_fresh_threads_but_reports_only_open_threads(
         lambda *_args, **kwargs: calls.append(kwargs) or original(),
     )
 
-    report = pr_watch.watch_pr(12, interval=0, max_polls=1)
+    report = pr_watch.watch_pr(12, interval=0, max_polls=2)
 
     assert calls == [{"include_resolved": True, "run_fn": None}]
     assert "open review threads: 0" in report
@@ -740,7 +805,7 @@ def test_watch_pr_fails_immediately_for_settled_failed_checks(
     )
 
     with pytest.raises(GhError, match="checks settled unsuccessfully"):
-        pr_watch.watch_pr(12, interval=0, max_polls=1)
+        pr_watch.watch_pr(12, interval=0, max_polls=2)
 
 
 def test_watch_pr_rejects_unrecognized_fresh_overview(
@@ -755,7 +820,7 @@ def test_watch_pr_rejects_unrecognized_fresh_overview(
     # The remedy must name the review-thread target, since `make pr-comments`
     # shows conversation comments and never surfaces review threads.
     with pytest.raises(GhError, match=r"could not be classified.*make pr-review-comments"):
-        pr_watch.watch_pr(12, interval=0, max_polls=1)
+        pr_watch.watch_pr(12, interval=0, max_polls=2)
 
 
 def test_watch_pr_checks_only_skips_review_request(
@@ -775,7 +840,7 @@ def test_watch_pr_checks_only_skips_review_request(
     report = pr_watch.watch_pr(
         12,
         interval=0,
-        max_polls=1,
+        max_polls=2,
         checks_only=True,
         request_copilot=True,
     )
@@ -801,7 +866,7 @@ def test_watch_pr_waits_for_auto_requested_review_without_mutating_reviewers(
         ),
     )
 
-    report = pr_watch.watch_pr(12, interval=0, max_polls=1)
+    report = pr_watch.watch_pr(12, interval=0, max_polls=2)
 
     assert requested == []
     assert "latest Copilot review: generated no comments" in report
@@ -848,9 +913,9 @@ def test_watch_pr_uses_the_conservative_default_check_count(
     )
     monkeypatch.setattr(pr_review, "list_threads", lambda *_args, **_kwargs: [])
 
-    pr_watch.watch_pr(12, interval=0, max_polls=1)
+    pr_watch.watch_pr(12, interval=0, max_polls=2)
 
-    assert captured == [pr_watch.DEFAULT_EXPECTED_CHECKS]
+    assert captured == [pr_watch.DEFAULT_EXPECTED_CHECKS] * 2
 
 
 @pytest.mark.parametrize(
