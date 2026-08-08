@@ -257,6 +257,28 @@ def test_check_identity_prefers_names_then_contexts_then_position() -> None:
     assert pr_watch._check_identity({"name": ""}, 3) == "index:3"
 
 
+def test_check_status_identities_track_growth_past_duplicate_names() -> None:
+    """A duplicate name cannot make a growing rollup produce the same identities.
+
+    Ordinals come from the entry's index, not the number of identities collected
+    so far. With the latter, a duplicate stops the set growing, the following
+    unnamed entry reuses an ordinal, and a rollup that gained an entry looks
+    unchanged to the stability check.
+    """
+    ok = {"status": "COMPLETED", "conclusion": "SUCCESS"}
+    before = [{"name": "x", **ok}, dict(ok)]
+    after = [{"name": "x", **ok}, {"name": "x", **ok}, dict(ok)]
+
+    identities_before = pr_watch._check_status(before, expected_checks=1)[4]
+    identities_after = pr_watch._check_status(after, expected_checks=1)[4]
+
+    assert identities_before == frozenset({"name:x", "index:1"})
+    # Deriving the ordinal from len(identities) would have given the trailing
+    # entry "index:1" here too, making the grown rollup compare equal.
+    assert identities_after == frozenset({"name:x", "index:2"})
+    assert identities_before != identities_after
+
+
 def test_check_status_settles_on_a_rollup_smaller_than_a_full_ci_run() -> None:
     """A scoped PR settles on its own check count, not a hardcoded total.
 

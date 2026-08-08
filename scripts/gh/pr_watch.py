@@ -194,11 +194,11 @@ def _check_status(
     successful = settled
     validated: list[dict[str, Any]] = []
     identities: set[str] = set()
-    for entry in rollup:
+    for ordinal, entry in enumerate(rollup):
         if not isinstance(entry, dict):
             raise GhError("Unexpected check entry shape in PR view response.")
         validated.append(entry)
-        identities.add(_check_identity(entry, len(identities)))
+        identities.add(_check_identity(entry, ordinal))
         if "status" in entry:
             status = entry.get("status")
             if not isinstance(status, str):
@@ -236,9 +236,13 @@ def _check_identity(entry: dict[str, Any], ordinal: int) -> str:
     """Return a stable identity for one rollup entry.
 
     Check runs carry ``name`` and status contexts carry ``context``. Anything
-    without either falls back to its position, which keeps the identity set the
-    same size as the rollup so an unnamed entry cannot silently collapse into
-    another and make a growing rollup look stable.
+    without either falls back to its index in the rollup, so an unnamed entry
+    cannot collapse into another and make a growing rollup look stable.
+
+    The ordinal must be the entry's real index. Deriving it from the number of
+    identities collected so far breaks when earlier entries share a name: the
+    set stops growing, later unnamed entries reuse an ordinal, and a rollup that
+    gained an entry can produce an identity set identical to the previous poll's.
     """
     for key in ("name", "context"):
         value = entry.get(key)
