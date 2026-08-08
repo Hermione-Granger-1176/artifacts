@@ -127,11 +127,20 @@ def main(
     env = os.environ if environ is None else environ
     base, branches = candidate_branches(env, runner=runner)
 
+    # Resolve the base before probing for merge-tree support. Both fail the same
+    # way on an old git and on a missing base, so checking capability first would
+    # blame the git version for what is really an unresolvable ref.
+    try:
+        tree = base_tree(base, runner=runner)
+    except RuntimeError as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 1
+
     if not supports_merge_tree(base, runner=runner):
         print(MERGE_TREE_HINT, file=sys.stderr)
         return 1
 
-    contained, unique = classify(base, branches, base_tree(base, runner=runner), runner=runner)
+    contained, unique = classify(base, branches, tree, runner=runner)
 
     if unique:
         print(f"Branches holding content not in {base} (kept, review before deleting):")
@@ -150,8 +159,15 @@ def main(
         print("Dry run only. Re-run with confirm=1 to delete them.")
         return 0
 
+    # Deletion is the destructive step, so a refusal stops the run rather than
+    # continuing down the list. git explains itself on stderr, which the caller
+    # needs to see to know whether anything was actually removed.
     for branch in contained:
         result = runner(["branch", "-D", branch])
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip() or "git reported no detail"
+            print(f"ERROR: cannot delete {branch}: {detail}", file=sys.stderr)
+            return 1
         print(result.stdout.strip() or f"Deleted branch {branch}")
     return 0
 

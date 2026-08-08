@@ -10,18 +10,25 @@ from scripts.lib import prune_branches
 
 
 def make_runner(
-    responses: dict[tuple[str, ...], tuple[int, str]],
+    responses: dict[tuple[str, ...], tuple[int, ...] | tuple[int, str] | tuple[int, str, str]],
     *,
     calls: list[tuple[str, ...]] | None = None,
 ) -> prune_branches.GitRunner:
-    """Return a runner answering from a table and recording every invocation."""
+    """Return a runner answering from a table and recording every invocation.
+
+    An unlisted command raises rather than defaulting to success, so a test
+    cannot pass while the implementation quietly runs a command nobody declared.
+    """
 
     def runner(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
         key = tuple(command)
         if calls is not None:
             calls.append(key)
-        returncode, stdout = responses.get(key, (0, ""))
-        return subprocess.CompletedProcess(list(command), returncode, stdout, "")
+        if key not in responses:
+            raise AssertionError(f"unexpected git command: {' '.join(key)}")
+        returncode, stdout, *rest = responses[key]
+        stderr = rest[0] if rest else ""
+        return subprocess.CompletedProcess(list(command), returncode, str(stdout), str(stderr))
 
     return runner
 
@@ -225,10 +232,67 @@ def test_main_prints_a_fallback_line_when_git_is_quiet(
         ("merge-tree", "--write-tree", "origin/main", "origin/main"): (0, "tree1"),
         ("rev-parse", "origin/main^{tree}"): (0, "tree1"),
         ("merge-tree", "--write-tree", "origin/main", "done"): (0, "tree1"),
+        ("branch", "-D", "done"): (0, ""),
     }
     environ = base_environment() | {"PRUNE_CONFIRM": "1"}
     assert prune_branches.main(environ=environ, runner=make_runner(responses)) == 0
     assert "Deleted branch done" in capsys.readouterr().out
+
+
+def test_main_stops_and_reports_when_a_delete_is_refused(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A refused deletion surfaces git's stderr and exits non-zero instead of continuing."""
+    responses = {
+        ("branch", "--show-current"): (0, "main\n"),
+        ("show-ref", "--verify", "--quiet", "refs/remotes/origin/main"): (0, ""),
+        ("for-each-ref", "--format=%(refname:short)", "refs/heads/"): (0, "main\ndone\nalso\n"),
+        ("merge-tree", "--write-tree", "origin/main", "origin/main"): (0, "tree1"),
+        ("rev-parse", "origin/main^{tree}"): (0, "tree1"),
+        ("merge-tree", "--write-tree", "origin/main", "done"): (0, "tree1"),
+        ("merge-tree", "--write-tree", "origin/main", "also"): (0, "tree1"),
+        ("branch", "-D", "done"): (1, "", "error: cannot delete branch 'done'\n"),
+    }
+    calls: list[tuple[str, ...]] = []
+    environ = base_environment() | {"PRUNE_CONFIRM": "1"}
+    assert prune_branches.main(environ=environ, runner=make_runner(responses, calls=calls)) == 1
+
+    err = capsys.readouterr().err
+    assert "ERROR: cannot delete done: error: cannot delete branch 'done'" in err
+    assert ("branch", "-D", "also") not in calls
+
+
+def test_main_reports_a_silent_delete_refusal(capsys: pytest.CaptureFixture[str]) -> None:
+    """A refusal with no output still names the branch that could not be removed."""
+    responses = {
+        ("branch", "--show-current"): (0, "main\n"),
+        ("show-ref", "--verify", "--quiet", "refs/remotes/origin/main"): (0, ""),
+        ("for-each-ref", "--format=%(refname:short)", "refs/heads/"): (0, "main\ndone\n"),
+        ("merge-tree", "--write-tree", "origin/main", "origin/main"): (0, "tree1"),
+        ("rev-parse", "origin/main^{tree}"): (0, "tree1"),
+        ("merge-tree", "--write-tree", "origin/main", "done"): (0, "tree1"),
+        ("branch", "-D", "done"): (1, "", ""),
+    }
+    environ = base_environment() | {"PRUNE_CONFIRM": "1"}
+    assert prune_branches.main(environ=environ, runner=make_runner(responses)) == 1
+    assert "ERROR: cannot delete done: git reported no detail" in capsys.readouterr().err
+
+
+def test_main_fails_clearly_when_the_base_cannot_be_resolved(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A missing base is blamed on the ref, not on the git version."""
+    responses = {
+        ("branch", "--show-current"): (0, "main\n"),
+        ("show-ref", "--verify", "--quiet", "refs/remotes/origin/main"): (1, ""),
+        ("for-each-ref", "--format=%(refname:short)", "refs/heads/"): (0, "old\n"),
+        ("rev-parse", "main^{tree}"): (1, ""),
+    }
+    assert prune_branches.main(environ=base_environment(), runner=make_runner(responses)) == 1
+
+    err = capsys.readouterr().err
+    assert "ERROR: cannot resolve base branch main" in err
+    assert prune_branches.MERGE_TREE_HINT not in err
 
 
 def test_main_reports_when_nothing_is_contained(capsys: pytest.CaptureFixture[str]) -> None:
