@@ -20,7 +20,19 @@ _SUCCESSFUL_CHECK_OUTCOMES = {"NEUTRAL", "SKIPPED", "SUCCESS"}
 # The latest artifacts PR exposed 31 status entries, including the conditional
 # jobs reported as skipped. Keep that completeness floor project-specific while
 # allowing callers to override it when the workflow surface changes.
-DEFAULT_EXPECTED_CHECKS = 31
+# A floor on how many checks must exist before a rollup can settle, not a
+# prediction of the total. It used to be a fixed count matching a full CI run,
+# which meant any PR whose plan skipped work produced fewer checks than the
+# constant and could never settle: the watcher polled until max_polls and then
+# failed while reporting every check green. Completeness is now established by
+# ``watch_pr`` observing the check set repeat across consecutive settled polls,
+# so this only has to rule out settling against an empty rollup.
+DEFAULT_EXPECTED_CHECKS = 1
+
+# How long to wait when the only outstanding condition is confirming that the
+# check set has stopped changing. Short on purpose: it is a confirmation read,
+# not a wait for work to finish.
+CONFIRM_DELAY_SECONDS = 5.0
 # Copilot writes "generated no comments" on a first review and "generated no new
 # comments" on a re-review, so "new" has to be optional or a clean first pass is
 # reported as unclassifiable.
@@ -63,6 +75,7 @@ class PollStatus:
     check_count: int
     rollup_tally: str
     fresh_review: CopilotReview | None
+    check_ids: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -170,8 +183,8 @@ def _check_status(
     rollup: object,
     *,
     expected_checks: int,
-) -> tuple[bool, bool, int, str]:
-    """Return settled, successful, count, and summary for a check rollup."""
+) -> tuple[bool, bool, int, str, frozenset[str]]:
+    """Return settled, successful, count, summary, and identities for a rollup."""
     if not isinstance(rollup, list):
         raise GhError("Unexpected statusCheckRollup shape in PR view response.")
     if expected_checks < 1:
@@ -180,10 +193,12 @@ def _check_status(
     settled = len(rollup) >= expected_checks
     successful = settled
     validated: list[dict[str, Any]] = []
-    for entry in rollup:
+    identities: set[str] = set()
+    for ordinal, entry in enumerate(rollup):
         if not isinstance(entry, dict):
             raise GhError("Unexpected check entry shape in PR view response.")
         validated.append(entry)
+        identities.add(_check_identity(entry, ordinal))
         if "status" in entry:
             status = entry.get("status")
             if not isinstance(status, str):
@@ -208,7 +223,32 @@ def _check_status(
         elif state != "SUCCESS":
             successful = False
 
-    return settled, successful, len(validated), pr_review.rollup_summary(validated)
+    return (
+        settled,
+        successful,
+        len(validated),
+        pr_review.rollup_summary(validated),
+        frozenset(identities),
+    )
+
+
+def _check_identity(entry: dict[str, Any], ordinal: int) -> str:
+    """Return a stable identity for one rollup entry.
+
+    Check runs carry ``name`` and status contexts carry ``context``. Anything
+    without either falls back to its index in the rollup, so an unnamed entry
+    cannot collapse into another and make a growing rollup look stable.
+
+    The ordinal must be the entry's real index. Deriving it from the number of
+    identities collected so far breaks when earlier entries share a name: the
+    set stops growing, later unnamed entries reuse an ordinal, and a rollup that
+    gained an entry can produce an identity set identical to the previous poll's.
+    """
+    for key in ("name", "context"):
+        value = entry.get(key)
+        if isinstance(value, str) and value:
+            return f"{key}:{value}"
+    return f"index:{ordinal}"
 
 
 def poll_once(
@@ -221,7 +261,7 @@ def poll_once(
 ) -> PollStatus:
     """Return one current poll result relative to a captured review baseline."""
     payload = _review_payload(pr, run_fn=run_fn)
-    settled, successful, check_count, tally = _check_status(
+    settled, successful, check_count, tally, check_ids = _check_status(
         payload.get("statusCheckRollup"),
         expected_checks=expected_checks,
     )
@@ -243,6 +283,7 @@ def poll_once(
         check_count=check_count,
         rollup_tally=tally,
         fresh_review=fresh_review,
+        check_ids=check_ids,
     )
 
 
@@ -318,6 +359,12 @@ def watch_pr(
         pr_review.request_copilot_review(pr, run_fn=run_fn)
     sleeper = sleep_fn or time.sleep
     threads: list[pr_review.ReviewThread] = []
+    # GitHub registers check runs progressively, so a rollup can be briefly both
+    # small and entirely terminal before the rest appear. Requiring the check set
+    # to repeat before declaring success establishes completeness by observation
+    # rather than by a hardcoded total, which is what lets this settle on the
+    # first poll after CI is genuinely done, whatever the PR's check count is.
+    previous_check_ids: frozenset[str] | None = None
 
     for poll_count in range(1, max_polls + 1):
         status = poll_once(
@@ -330,8 +377,21 @@ def watch_pr(
         if status.checks_settled and not status.checks_successful:
             raise GhError(f"PR #{pr} checks settled unsuccessfully: {status.rollup_tally}.")
 
-        ready_for_threads = status.checks_settled and (
-            checks_only or status.fresh_review is not None
+        # Stability only counts across consecutive *settled* polls. Carrying ids
+        # over from a poll where checks were still running would let an unchanged
+        # set settle the very first time it turned terminal, which is the
+        # "terminal but still incomplete" race this is meant to close: jobs gated
+        # on an earlier one have not registered yet at that moment.
+        if status.checks_settled:
+            rollup_stable = previous_check_ids == status.check_ids
+            previous_check_ids = status.check_ids
+        else:
+            rollup_stable = False
+            previous_check_ids = None
+        ready_for_threads = (
+            status.checks_settled
+            and rollup_stable
+            and (checks_only or status.fresh_review is not None)
         )
         if ready_for_threads:
             all_threads = pr_review.list_threads(pr, include_resolved=True, run_fn=run_fn)
@@ -363,7 +423,17 @@ def watch_pr(
                 )
 
         if poll_count < max_polls:
-            sleeper(interval)
+            # When everything else is ready and only the stability confirmation is
+            # outstanding, a full interval is pure latency. Re-read after a short
+            # delay instead, so a finished PR settles in seconds rather than one
+            # poll cycle, while still giving a late-registering check a chance to
+            # appear before success is declared.
+            confirming = (
+                status.checks_settled
+                and not rollup_stable
+                and (checks_only or status.fresh_review is not None)
+            )
+            sleeper(min(interval, CONFIRM_DELAY_SECONDS) if confirming else interval)
 
     raise GhError(
         f"PR #{pr} did not settle after {max_polls} polls: "
