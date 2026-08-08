@@ -43,7 +43,7 @@ export function setExtraType(extras, id, type) {
   }
 }
 
-const ALLOWED_EXTRA_FIELDS = new Set(['amount', 'every', 'startPeriod', 'period']);
+const ALLOWED_EXTRA_FIELDS = new Set(["amount", "every", "startPeriod", "period"]);
 
 /**
  * Update one editable numeric field for an extra payment when the input is valid.
@@ -55,10 +55,18 @@ const ALLOWED_EXTRA_FIELDS = new Set(['amount', 'every', 'startPeriod', 'period'
  * @returns {void}
  */
 export function updateExtraField(extras, id, field, value) {
-  if (!ALLOWED_EXTRA_FIELDS.has(field)) return;
+  if (!ALLOWED_EXTRA_FIELDS.has(field)) {
+    return;
+  }
+
   const parsed = +value;
-  if (Number.isNaN(parsed) || parsed < 0) return;
-  if ((field === 'every' || field === 'startPeriod' || field === 'period') && parsed < 1) return;
+  if (Number.isNaN(parsed) || parsed < 0) {
+    return;
+  }
+  if (["every", "startPeriod", "period"].includes(field) && parsed < 1) {
+    return;
+  }
+
   const extra = extras.find((item) => item.id === id);
   if (extra) {
     extra[field] = parsed;

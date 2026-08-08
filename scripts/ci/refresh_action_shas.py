@@ -36,8 +36,9 @@ WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 ACTIONS_DIR = REPO_ROOT / ".github" / "actions"
 
 # Match ``uses:`` lines in both list form (``- uses: x@ref``) and mapping form
-# (``uses: x@ref`` under a named step). The action and ref are captured so the
-# ref can be rewritten to a resolved SHA while the surrounding text is kept.
+# (``uses: x@ref`` under a named step). The prefix, action, and ref are captured
+# so the ref can be rewritten to a resolved SHA. Any prior suffix is replaced
+# by the canonical comment that records the resolved ref.
 USES_PATTERN = re.compile(r"^(\s*(?:-\s*)?uses:\s*)([^@\s]+)@([^\s#]+)(.*)$")
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 

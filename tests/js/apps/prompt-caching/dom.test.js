@@ -92,6 +92,10 @@ test('tokenizer renders colored tokens and an ID view', () => {
     h.el('tokenView').children[1].fire('click'); // switch to IDs
     assert.ok(h.el('tokenOutput').children.length > 0);
 
+    h.el('tokenInput').value = '👋';
+    h.el('tokenInput').fire('input');
+    assert.equal(h.el('charCount').textContent, '1');
+
     h.el('tokenInput').value = '';
     h.el('tokenInput').fire('input');
     assert.equal(h.el('tokCount').textContent, '0');
@@ -289,6 +293,22 @@ test('kv cache animation clears stale rows before replaying', () => {
 
     assert.equal(h.el('kCacheVis').children[0].className, 'pc-empty');
     assert.equal(h.el('vCacheVis').children[0].className, 'pc-empty');
+  });
+});
+
+test('kv cache animation preserves vectors for rows already cached', () => {
+  withHarness((h) => {
+    initKvCache();
+    h.el('cachePlayBtn').fire('click');
+    const tick = [...h.intervals.values()][0];
+    tick();
+    const firstKey = h.el('kCacheVis').children[0].children[1].textContent;
+    const firstValue = h.el('vCacheVis').children[0].children[1].textContent;
+
+    tick();
+
+    assert.equal(h.el('kCacheVis').children[0].children[1].textContent, firstKey);
+    assert.equal(h.el('vCacheVis').children[0].children[1].textContent, firstValue);
   });
 });
 

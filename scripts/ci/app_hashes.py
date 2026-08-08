@@ -16,6 +16,7 @@ from scripts.lib.app_discovery import (
     discover_app_slugs,
     shared_app_runtime_paths,
 )
+from scripts.lib.artifact_contract import artifact_id_pattern
 from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
 
 if TYPE_CHECKING:
@@ -24,6 +25,13 @@ if TYPE_CHECKING:
 
 LEDGER_VERSION = 1
 LOCKFILE_PATHS = (Path("uv.lock"), Path("package-lock.json"))
+
+
+def _validated_slugs(values: list[str], message: str) -> list[str]:
+    """Return unique sorted artifact slugs after contract validation."""
+    if not all(artifact_id_pattern().fullmatch(value) for value in values):
+        raise ValueError(message)
+    return sorted(set(values))
 
 
 def _reject_symlinked_file(path: Path, *, label: str) -> None:
@@ -57,12 +65,16 @@ def read_ledger(path: Path) -> dict[str, str]:
         isinstance(slug, str) and isinstance(value, str) for slug, value in hashes.items()
     ):
         raise ValueError(f"Verification ledger hashes must map strings to strings: {path}")
+    _validated_slugs(
+        list(hashes), f"Verification ledger hashes must use valid artifact slugs: {path}"
+    )
     return cast("dict[str, str]", hashes)
 
 
 def _write_ledger(path: Path, hashes: dict[str, str]) -> None:
     """Write a deterministic ledger without following a symlinked output path."""
     _reject_symlinked_file(path, label="Verification ledger output")
+    _validated_slugs(list(hashes), "Verification ledger hashes must use valid artifact slugs")
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"hashes": dict(sorted(hashes.items())), "version": LEDGER_VERSION}
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -130,7 +142,7 @@ def app_input_hashes(
     reject_path_symlinks(apps_root, label="App root")
     if apps_root.exists():
         reject_symlinks(apps_root)
-    selected_slugs = sorted(set(slugs))
+    selected_slugs = _validated_slugs(slugs, "App inputs must use valid artifact slugs")
     if not selected_slugs:
         return {}
     common_records = git_blob_hashes(
@@ -156,7 +168,9 @@ def _string_list(plan: dict[str, object], key: str) -> list[str]:
     value = plan.get(key)
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise ValueError(f"Impact plan field {key} must be a list of strings")
-    return sorted(set(cast("list[str]", value)))
+    return _validated_slugs(
+        cast("list[str]", value), f"Impact plan field {key} must use valid artifact slugs"
+    )
 
 
 def _browser_slugs(plan: dict[str, object], apps_root: Path) -> list[str]:

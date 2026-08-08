@@ -7,6 +7,7 @@
 - `tests/js/apps/prompt-caching/modules.test.js` unit-tests every export of
   `math.js` and asserts the integrity of `data.js` (vocab ordering, attention rows
   summing to ~1, embedding catalogue completeness, section/summary shape).
+- `tests/js/apps/prompt-caching/dom.test.js` verifies the interactive module behavior, including that cached K and V vectors remain stable as later tokens are added.
 - Coverage of the tested modules: `math.js` 100% lines / ~96% branches / 100%
   functions, `data.js` 100%. This is comfortably above the repo gate (95/85/95).
 - `make check-local` runs lint (ESLint/stylelint), the JS tests, coverage,
@@ -22,6 +23,7 @@
   slightly overstates savings at very low request volumes.
 - **Softmax:** verified the produced weights sum to 1 and the largest score wins.
 - **Cosine similarity:** identical vectors → 1.0, orthogonal → 0, opposite → < 0.
+- **Character count:** Unicode code points are counted rather than UTF-16 code units, so a standalone emoji reports one character.
 
 ### Manual / in-browser
 

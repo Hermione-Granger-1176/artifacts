@@ -55,10 +55,9 @@ export function splitListParam(rawValue) {
  * @returns {string[]} Normalized selected values in display order.
  */
 export function normalizeSelection(values, allowedValues) {
-  const allowedSet = new Set(allowedValues);
-  const uniqueSet = new Set(values.filter((value) => allowedSet.has(value)));
+  const selectedValues = new Set(values);
 
-  return allowedValues.filter((value) => uniqueSet.has(value));
+  return allowedValues.filter((value) => selectedValues.has(value));
 }
 
 /**
@@ -69,22 +68,13 @@ export function normalizeSelection(values, allowedValues) {
  */
 export function sortValuesByDisplayOrder(values, displayOrder) {
   const configured = Array.isArray(displayOrder) ? displayOrder : [];
-  const known = configured.filter((value) => values.includes(value));
-  const unknown = values.filter((value) => !configured.includes(value)).sort();
+  const valueSet = new Set(values);
+  const configuredSet = new Set(configured);
+  const known = configured.filter((value) => valueSet.has(value));
+  const unknown = values.filter((value) => !configuredSet.has(value)).sort();
   return [...known, ...unknown];
 }
 
-/**
- * Filter artifacts by search text, tool, and tag selections, then sort by the chosen order.
- * @param {(ArtifactRecord & { searchText: string })[]} artifacts - Hydrated artifact records.
- * @param {{
- *   currentQuery: string,
- *   currentSort: string,
- *   currentTags: string[],
- *   currentTools: string[]
- * }} options - Filter/sort state.
- * @returns {(ArtifactRecord & { searchText: string })[]} Filtered and sorted artifacts.
- */
 /**
  * @param {ArtifactRecord[]} artifacts - Hydrated artifact records.
  * @param {{ currentQuery: string, currentSort: string, currentTags: string[], currentTools: string[] }} options - Active filter and sort state.

@@ -83,11 +83,14 @@ test('runSchedule respects emiOverride', () => {
 test('runSchedule reports breakEven when cumulative principal overtakes interest', () => {
   // High-rate short loan: interest dominates early, principal catches up
   const result = runSchedule(100000, 0.02, 60);
-  // breakEven is either null or a positive period number
-  if (result.breakEven !== null) {
-    assert.ok(result.breakEven > 1);
-    assert.ok(result.breakEven <= result.periods);
-  }
+  assert.ok(result.breakEven !== null);
+  assert.ok(result.breakEven > 1);
+  assert.ok(result.breakEven <= result.periods);
+});
+
+test('runSchedule reports period one when principal immediately exceeds interest', () => {
+  const result = runSchedule(12000, 0, 12);
+  assert.equal(result.breakEven, 1);
 });
 
 test('runSchedule caps extra at remaining balance', () => {
@@ -188,8 +191,8 @@ test('buildMetricsMarkup renders savings and escapes tooltip content', () => {
   assert.match(markup, /Monthly EMI/);
   assert.match(markup, /Save \$800/);
   assert.match(markup, /Break-even/);
-  assert.doesNotMatch(markup, /EMI \+ extras\) >/);
-  assert.match(markup, /EMI \+ extras\) &gt; interest/);
+  assert.doesNotMatch(markup, /EMI \+ extras\) >=/);
+  assert.match(markup, /EMI \+ extras\) &gt;= interest/);
 });
 
 test('buildMetricsMarkup omits savings and periods-saved pills when zero', () => {

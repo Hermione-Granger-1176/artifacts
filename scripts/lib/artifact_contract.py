@@ -23,6 +23,13 @@ class ArtifactContract(TypedDict):
     thumbnailFile: str
 
 
+def _is_safe_path_segment(value: str) -> bool:
+    """Return whether a contract value names one visible portable path segment."""
+    return not value.startswith(".") and not any(
+        separator in value for separator in ("/", "\\", "\0")
+    )
+
+
 def read_artifact_contract_file(contract_file: Path) -> ArtifactContract:
     """Load and validate the shared artifact path contract."""
     if not contract_file.exists():
@@ -49,9 +56,9 @@ def read_artifact_contract_file(contract_file: Path) -> ArtifactContract:
         re.compile(artifact_id_pattern)
     except re.error as exc:
         raise ValueError("Artifact contract artifactIdPattern must be valid") from exc
-    if "/" in base_path or base_path.startswith("."):
+    if not _is_safe_path_segment(base_path):
         raise ValueError("Artifact contract artifactBasePath must be one safe path segment")
-    if "/" in thumbnail_name or thumbnail_name.startswith("."):
+    if not _is_safe_path_segment(thumbnail_name):
         raise ValueError("Artifact contract thumbnailFile must be one safe file name")
 
     return cast("ArtifactContract", contract)

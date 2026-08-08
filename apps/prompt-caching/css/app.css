@@ -131,7 +131,7 @@ body.app-prompt-caching .pc-section-num {
 
 body.app-prompt-caching .pc-note {
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 
 }
 
@@ -256,7 +256,7 @@ body.app-prompt-caching .pc-card-label {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   margin-bottom: var(--space-3);
   font-weight: 600;
 
@@ -355,7 +355,7 @@ body.app-prompt-caching textarea.pc-input {
 }
 
 body.app-prompt-caching .pc-input::placeholder {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 
 }
 
@@ -412,14 +412,31 @@ body.app-prompt-caching .pc-meta {
   gap: var(--space-4);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 
 }
 
 body.app-prompt-caching .pc-meta strong { color: var(--pc-accent);
 }
 
-body.app-prompt-caching .pc-meta strong.is-plain { color: var(--color-text-secondary);
+body.app-prompt-caching .pc-meta .is-plain { color: var(--color-text-secondary);
+}
+
+body.app-prompt-caching .code-window-title { color: var(--color-text-secondary);
+}
+
+body.app-prompt-caching .btn-primary,
+body.app-prompt-caching .btn-primary:hover,
+body.app-prompt-caching .btn-primary:focus-visible {
+  background: var(--color-blue-emphasis);
+  color: var(--color-text-on-accent);
+}
+
+[data-theme="dark"] body.app-prompt-caching .btn-primary {
+  color: var(--color-bg);
+}
+
+body.app-prompt-caching .syn-cm { color: var(--color-text-secondary);
 }
 
 /* 3. Progress navigation, learning pipeline, and tokenisation. */
@@ -489,7 +506,7 @@ body.app-prompt-caching .pc-pipeline-node.is-rose { background: var(--pc-rose-bg
 }
 
 body.app-prompt-caching .pc-pipeline-arrow {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: 1rem;
   padding: 0 var(--space-1);
   flex-shrink: 0;
@@ -665,7 +682,7 @@ body.app-prompt-caching .pc-matrix-cell.hl-result {
 
 body.app-prompt-caching .pc-op {
   font-size: 1.3rem;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   padding: 0 12px;
   flex-shrink: 0;
 
@@ -728,14 +745,14 @@ body.app-prompt-caching .pc-dotcalc {
 body.app-prompt-caching .pc-dotcalc-hint {
   margin-bottom: 0.4rem;
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 
 }
 
 body.app-prompt-caching .op-mult { color: var(--pc-accent); font-weight: 600;
 }
 
-body.app-prompt-caching .op-plus { color: var(--color-text-tertiary);
+body.app-prompt-caching .op-plus { color: var(--color-text-secondary);
 }
 
 body.app-prompt-caching .op-result { color: var(--pc-accent); font-weight: 700; font-size: var(--font-size-base);
@@ -749,7 +766,7 @@ body.app-prompt-caching .op-col { color: var(--pc-warm);
 
 body.app-prompt-caching .pc-hint {
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-style: italic;
 
 }
@@ -805,7 +822,7 @@ body.app-prompt-caching .pc-step-dot {
   cursor: pointer;
   border: 2px solid var(--color-border-strong);
   background: transparent;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-family: var(--font-body);
   transition: all 0.2s;
 
@@ -910,7 +927,7 @@ body.app-prompt-caching .pc-smx-bars-head {
   display: flex;
   gap: 0.6rem;
   font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   margin-bottom: var(--space-2);
@@ -928,7 +945,7 @@ body.app-prompt-caching .pc-smx-grid {
 
 body.app-prompt-caching .pc-pane-label {
   font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   margin-bottom: var(--space-2);
@@ -944,7 +961,7 @@ body.app-prompt-caching .pc-smx-divider {
 body.app-prompt-caching .smx-label {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   min-width: 36px;
   text-align: right;
 
@@ -997,7 +1014,7 @@ body.app-prompt-caching .smx-bar {
 body.app-prompt-caching .pc-smx-formula {
   margin-top: 0.6rem;
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-family: var(--font-mono);
 
 }
@@ -1032,7 +1049,7 @@ body.app-prompt-caching .pc-cache-tokens {
  * sizing and fill transition stay scoped here. */
 body.app-prompt-caching .pc-cache-chip {
   padding: 0.45rem 0.9rem;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   transition: all 0.35s;
 
 }
@@ -1061,7 +1078,7 @@ body.app-prompt-caching .pc-cache-pane-label.is-warm { color: var(--pc-warm);
 
 body.app-prompt-caching .pc-empty {
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-style: italic;
 
 }
@@ -1083,7 +1100,7 @@ body.app-prompt-caching .cache-row {
 body.app-prompt-caching .cache-row.is-new { background: var(--pc-warm-bg);
 }
 
-body.app-prompt-caching .cache-row .tok-name { color: var(--color-text-tertiary); min-width: 60px;
+body.app-prompt-caching .cache-row .tok-name { color: var(--color-text-secondary); min-width: 60px;
 }
 
 body.app-prompt-caching .cache-row .tok-vals { color: var(--color-text-secondary);
@@ -1128,7 +1145,7 @@ body.app-prompt-caching .pc-inf-tokens {
 body.app-prompt-caching .pc-inf-tokens:empty::before {
   content: "Tokens will stream here";
   align-self: center;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
 
 }
@@ -1144,7 +1161,7 @@ body.app-prompt-caching .inf-tok {
 
 body.app-prompt-caching .pc-inf-status {
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   margin-top: var(--space-2);
   font-family: var(--font-mono);
 
@@ -1204,7 +1221,7 @@ body.app-prompt-caching .pc-chv-reqs {
 
 body.app-prompt-caching .chv-evicted {
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-family: var(--font-mono);
   padding: 0.4rem var(--space-3);
   background: var(--color-surface-alt);
@@ -1282,7 +1299,7 @@ body.app-prompt-caching .chv-block.miss { background: var(--pc-rose);
 
 body.app-prompt-caching .chv-block.waiting {
   background: var(--color-surface-alt);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
 
 }
@@ -1313,7 +1330,7 @@ body.app-prompt-caching .chv-legend {
   display: flex;
   gap: var(--space-4);
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   margin-top: var(--space-2);
 
 }
@@ -1438,7 +1455,7 @@ body.app-prompt-caching .pc-calc-hero {
 body.app-prompt-caching .pc-calc-hero-sub {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 
 }
 
@@ -1457,7 +1474,7 @@ body.app-prompt-caching .pc-calc-bar-row {
 
 body.app-prompt-caching .pc-calc-bar-name {
   font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   min-width: 78px;
@@ -1523,7 +1540,7 @@ body.app-prompt-caching .pc-calc-stat .stat-value {
 body.app-prompt-caching .pc-calc-label {
   text-align: center;
   font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
 
@@ -1835,7 +1852,7 @@ body.app-prompt-caching .pc-qkv.is-accent .pc-qkv-glyph { color: var(--pc-accent
 
 body.app-prompt-caching .pc-qkv-role {
   font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   margin-top: 0.4rem;
 
 }
@@ -1859,7 +1876,7 @@ body.app-prompt-caching .pc-reading-item strong { color: var(--color-text);
 body.app-prompt-caching .pc-footer {
   text-align: center;
   padding: 2.5rem var(--space-6);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-control);
   border-top: 1px solid var(--color-border);
 

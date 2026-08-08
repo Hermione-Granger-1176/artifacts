@@ -14,6 +14,7 @@ from scripts.lib.app_discovery import (
     missing_thumbnail_slugs,
     runtime_change_plan,
 )
+from scripts.lib.artifact_contract import artifact_id_pattern
 from scripts.lib.artifact_contract import load_contract as _load_contract
 from scripts.lib.gh_api import run_gh_api, run_gh_api_json
 from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
@@ -36,6 +37,16 @@ THUMBNAIL_FOLLOWUP_PR_MARKER = "<!-- artifacts:generated-thumbnails -->"
 THUMBNAIL_ARTIFACT_PLAN_FILE = Path("plan.json")
 THUMBNAIL_PATTERN = _build_thumbnail_pattern()
 _THUMBNAIL_FILE = _load_contract()["thumbnailFile"]
+
+
+def _artifact_slugs(value: object, *, field: str) -> list[str]:
+    """Return a validated list of artifact slugs from a plan field."""
+    if not isinstance(value, list) or not all(isinstance(slug, str) for slug in value):
+        raise ValueError(f"Thumbnail plan {field} must be a list of artifact slugs")
+    slugs = cast("list[str]", value)
+    if not all(artifact_id_pattern().fullmatch(slug) for slug in slugs):
+        raise ValueError(f"Thumbnail plan {field} must contain valid artifact slugs")
+    return slugs
 
 
 def pr_field(pr_payload: object, field_name: str) -> str:
@@ -308,7 +319,7 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
         raise ValueError(f"Thumbnail artifact root does not exist: {root}")
 
     plan = read_thumbnail_plan(root)
-    allowed_slugs = set(cast("list[str]", plan.get("thumbnail_slugs", [])))
+    allowed_slugs = set(_artifact_slugs(plan.get("thumbnail_slugs", []), field="thumbnail_slugs"))
     all_thumbnail_scope = plan.get("thumbnail_scope") == "all" or bool(
         plan.get("shared_runtime_changed", False)
     )
@@ -353,7 +364,7 @@ def thumbnail_targets(*, thumbnail_scope: str, changed_slugs: list[str]) -> list
     if thumbnail_scope == "changed":
         return [
             apps_root / slug / _THUMBNAIL_FILE
-            for slug in changed_slugs
+            for slug in _artifact_slugs(changed_slugs, field="changed_slugs")
             if (apps_root / slug / _THUMBNAIL_FILE).exists()
         ]
 

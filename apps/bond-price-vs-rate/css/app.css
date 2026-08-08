@@ -280,7 +280,7 @@ body.app-bond-price-vs-rate .br-schedule-wrap {
 
 body.app-bond-price-vs-rate .br-face-note {
   display: block;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
 

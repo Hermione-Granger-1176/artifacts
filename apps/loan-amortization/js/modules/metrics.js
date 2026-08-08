@@ -63,10 +63,10 @@ export function buildMetricsMarkup(
       <div class="stat-sub">Interest is ${((costRatio - 1) * 100).toFixed(1)}% of loan</div>
     </div>
     <div class="stat">
-      ${metricTip(`The ${label.toLowerCase()} when cumulative principal paid from EMI and extras surpasses cumulative interest`)}
+      ${metricTip(`The first ${label.toLowerCase()} when cumulative principal paid from EMI and extras meets or exceeds cumulative interest`)}
       <div class="stat-label">Break-even</div>
       <div class="stat-value">${extra.breakEven ? `${label} ${extra.breakEven}` : "N/A"}</div>
-      <div class="stat-sub">Principal (EMI + extras) &gt; interest</div>
+      <div class="stat-sub">Principal (EMI + extras) &gt;= interest</div>
     </div>
   `;
 }

@@ -264,7 +264,11 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
   };
 
-  grid.addEventListener('pointerenter', () => ensureOverlay(), { once: true });
+  grid.addEventListener('pointerenter', () => {
+    void ensureOverlay().catch((error) => {
+      appRuntime.reportError(error, 'overlay preload');
+    });
+  }, { once: true });
 
   let currentPage = DEFAULT_GALLERY_STATE.page;
   let currentQuery = DEFAULT_GALLERY_STATE.q;
@@ -508,13 +512,14 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
    * @param {boolean} [persist=true] - Whether to persist the theme.
    */
   function applyTheme(theme, persist = true) {
-    htmlElement.setAttribute('data-theme', theme);
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    themeToggle.setAttribute('aria-pressed', String(theme === 'dark'));
+    const normalizedTheme = theme === 'dark' ? 'dark' : 'light';
+    htmlElement.setAttribute('data-theme', normalizedTheme);
+    const nextTheme = normalizedTheme === 'dark' ? 'light' : 'dark';
+    themeToggle.setAttribute('aria-pressed', String(normalizedTheme === 'dark'));
     themeToggle.setAttribute('aria-label', `Switch to ${nextTheme} theme`);
     themeToggle.setAttribute('title', `Switch to ${nextTheme} theme`);
     if (persist) {
-      appRuntime.writeStorage('theme', theme);
+      appRuntime.writeStorage('theme', normalizedTheme);
     }
 
     const meta = documentObj.querySelector('meta[name="theme-color"]');
@@ -525,7 +530,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       }
     }
 
-    galleryStatus.textContent = `Theme switched to ${theme} mode.`;
+    galleryStatus.textContent = `Theme switched to ${normalizedTheme} mode.`;
   }
 
   function renderFilterNotes() {

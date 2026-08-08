@@ -437,7 +437,10 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       return Promise.resolve(output);
     }
 
-    pageTurnQueue = pageTurnQueue.then(() => runPageTurn(renderNext, direction));
+    // A failed caller receives its rejection, but later page turns should still run.
+    pageTurnQueue = pageTurnQueue
+      .catch(() => undefined)
+      .then(() => runPageTurn(renderNext, direction));
     return pageTurnQueue;
   }
 

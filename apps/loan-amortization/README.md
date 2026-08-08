@@ -6,7 +6,7 @@ Interactive loan amortization calculator with charts, extra payment scenarios, a
 
 - Baseline payoff vs extra-payment scenario comparison
 - Yearly, half-yearly, quarterly, monthly, bi-weekly, and weekly cadences
-- Five visual breakdowns: balance, interest, savings, per-period payments
+- Five visual breakdowns: balance, scenario comparison, interest savings, cumulative payments, and per-period payments
 - Per-period and yearly repayment tables
 - Light/dark theme persistence via shared app shell
 

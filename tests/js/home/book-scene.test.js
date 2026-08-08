@@ -457,6 +457,29 @@ test('turnPage queues overlapping turns sequentially', async () => {
   assert.deepEqual(renderOrder, ['first', 'second']);
 });
 
+test('turnPage continues the queue after a failed turn', async () => {
+  const harness = createHarness({ innerWidth: 600 });
+  const bookScene = createBookScene({
+    documentObj: harness.documentObj,
+    motion: { prefersReducedMotion: () => false },
+    windowObj: harness.windowObj
+  });
+  let rendered = false;
+
+  await assert.rejects(
+    bookScene.turnPage(() => {
+      throw new Error('render failed');
+    }),
+    /render failed/
+  );
+  await bookScene.turnPage(() => {
+    rendered = true;
+  });
+
+  assert.equal(rendered, true);
+  assert.equal(harness.sheet.classList.contains('is-turning'), false);
+});
+
 test('startIntro ignores invalid-state commitStyles errors from hidden elements', async () => {
   const harness = createHarness();
   harness.cover.animationFactories.push(() => ({

@@ -43,31 +43,32 @@ export function makeTestWithout({ pkg, execSyncImpl, writeFileSyncImpl }) {
     const cleanup = () => rmSync(tmp, { recursive: true, force: true });
     const run = (cmd) => execSyncImpl(cmd, { cwd: tmp, stdio: "pipe", timeout: 120_000 });
 
-    const testPkg = structuredClone(pkg);
-    for (const name of overridesToRemove) {
-      delete testPkg.overrides[name];
-    }
-    if (Object.keys(testPkg.overrides).length === 0) {
-      delete testPkg.overrides;
-    }
-    writeFileSyncImpl(join(tmp, "package.json"), `${JSON.stringify(testPkg, null, 2)}\n`);
-
     try {
-      run("npm install --package-lock-only --ignore-scripts");
-    } catch (err) {
-      cleanup();
-      return { ok: false, phase: "install", err };
-    }
+      const testPkg = structuredClone(pkg);
+      for (const name of overridesToRemove) {
+        delete testPkg.overrides[name];
+      }
+      if (Object.keys(testPkg.overrides).length === 0) {
+        delete testPkg.overrides;
+      }
+      writeFileSyncImpl(join(tmp, "package.json"), `${JSON.stringify(testPkg, null, 2)}\n`);
 
-    try {
-      run("npm audit --audit-level=high");
-    } catch (err) {
-      cleanup();
-      return { ok: false, phase: "audit", err };
-    }
+      try {
+        run("npm install --package-lock-only --ignore-scripts");
+      } catch (err) {
+        return { ok: false, phase: "install", err };
+      }
 
-    cleanup();
-    return { ok: true };
+      try {
+        run("npm audit --audit-level=high");
+      } catch (err) {
+        return { ok: false, phase: "audit", err };
+      }
+
+      return { ok: true };
+    } finally {
+      cleanup();
+    }
   };
 }
 

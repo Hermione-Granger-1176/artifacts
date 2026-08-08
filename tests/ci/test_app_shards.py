@@ -165,8 +165,13 @@ def test_add_shards_rejects_malformed_impact_fields(
         ("bad", "shards"),
         (["bad"], "shard"),
         ([{"index": -1, "browser_slugs": [], "thumbnail_slugs": []}], "index"),
+        ([{"index": False, "browser_slugs": [], "thumbnail_slugs": []}], "index"),
         ([{"index": 1, "browser_slugs": [], "thumbnail_slugs": []}], "contiguous"),
         ([{"index": 0, "browser_slugs": "bad", "thumbnail_slugs": []}], "browser_slugs"),
+        (
+            [{"index": 0, "browser_slugs": [], "thumbnail_slugs": ["../outside"]}],
+            "valid artifact slugs",
+        ),
     ],
 )
 def test_compact_matrix_rejects_malformed_shards(shards: object, message: str) -> None:
@@ -197,8 +202,19 @@ def test_plan_and_manifest_readers_validate_json(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="index"):
         app_shards.read_shard_manifest(manifest_path)
 
+    write_json(manifest_path, {"index": False, "browser_slugs": [], "thumbnail_slugs": []})
+    with pytest.raises(ValueError, match="index"):
+        app_shards.read_shard_manifest(manifest_path)
+
     write_json(manifest_path, {"index": 0, "browser_slugs": [], "thumbnail_slugs": "bad"})
     with pytest.raises(ValueError, match="thumbnail_slugs"):
+        app_shards.read_shard_manifest(manifest_path)
+
+    write_json(
+        manifest_path,
+        {"index": 0, "browser_slugs": [], "thumbnail_slugs": ["../outside"]},
+    )
+    with pytest.raises(ValueError, match="valid artifact slugs"):
         app_shards.read_shard_manifest(manifest_path)
 
     with pytest.raises(ValueError, match="Impact plan is missing"):
@@ -232,6 +248,8 @@ def test_write_and_read_shard_manifest_selects_requested_shard(tmp_path: Path) -
     }
     with pytest.raises(ValueError, match="not present"):
         app_shards.shard_manifest(app_shards.read_plan(plan_path), shard_index=2)
+    with pytest.raises(ValueError, match="non-negative integer"):
+        app_shards.shard_manifest(app_shards.read_plan(plan_path), shard_index=True)
 
 
 def test_invalidate_package_and_merge_shard_results(tmp_path: Path) -> None:
