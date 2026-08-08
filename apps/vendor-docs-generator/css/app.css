@@ -1,0 +1,852 @@
+/*
+ * Vendor document generator styles.
+ *
+ * Shared surfaces, controls, and feedback (cards, control fields, segmented
+ * toggles, chips, stat tiles, meters, callouts, and section kickers) live in
+ * css/style.css. This file holds two things only: the two-column workbench
+ * layout (sticky control rail beside a fitted A4 stage), and the printed
+ * document itself.
+ *
+ * Every selector is scoped under body.app-vendor-docs-generator and every
+ * colour derives from the shared design tokens. The document's per-vendor
+ * accent, ink, and typeface arrive as the --vd-* custom properties, which
+ * js/modules/paper-render.js sets through CSSOM: the app ships under a
+ * self-only Content-Security-Policy, so inline style attributes would never
+ * apply, and the six vendor brand colours are document content rather than app
+ * chrome. Literal colour definitions belong in css/src/, never here.
+ */
+
+body.app-vendor-docs-generator {
+  --vd-page-width: 794px;
+  --vd-page-height: 1123px;
+  --vd-page-pad: 44px;
+  --vd-rail-width: 310px;
+
+  /* One height for every chip and button on the stage head row. */
+  --vd-stage-control-height: 32px;
+
+  /* Vertical room the preview frame gives up to the header, intro and chips. */
+  --vd-frame-inset: 200px;
+  --vd-fullscreen-bar-height: 61px;
+}
+
+/* ── Workbench layout ─────────────────────────────────────────────── */
+
+body.app-vendor-docs-generator .vd-workbench {
+  display: grid;
+  align-items: start;
+  gap: var(--space-5);
+  grid-template-columns: var(--vd-rail-width) minmax(0, 1fr);
+}
+
+body.app-vendor-docs-generator .vd-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/*
+ * The rail only pins itself when the window is tall enough to hold all of it.
+ * Capping its height and scrolling it instead put a scrollbar inside a panel
+ * inside the scrolling page, which is the same nested-scroll problem the
+ * preview frame exists to avoid.
+ */
+
+@media (min-height: 940px) {
+  body.app-vendor-docs-generator .vd-rail {
+    position: sticky;
+    top: var(--space-4);
+  }
+}
+
+/*
+ * .page-card ships a border and surface only; padding is each app's call. The
+ * rail reads as three labelled groups, so the kicker gets a rule under it to
+ * separate the group heading from its controls.
+ */
+
+body.app-vendor-docs-generator .vd-rail-card {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4);
+  gap: var(--space-4);
+}
+
+body.app-vendor-docs-generator .vd-rail-card .section-kicker {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 0;
+}
+
+body.app-vendor-docs-generator .vd-field-label {
+  font-size: var(--font-size-control);
+  font-weight: 600;
+}
+
+/* The rail's toggles sit above full-width selects, so they match that width
+   and split it evenly rather than hugging their labels at the left edge. */
+
+body.app-vendor-docs-generator .vd-rail .segmented.is-fused {
+  flex-shrink: 1;
+}
+
+body.app-vendor-docs-generator .vd-rail .segmented button {
+  flex: 1;
+}
+
+body.app-vendor-docs-generator .vd-block-btn {
+  width: 100%;
+}
+
+/*
+ * The shared .btn-primary blue only reaches 3.6:1 against white, which is
+ * short of 4.5:1 for the button label. Deepen it, and flip the label to the
+ * page colour in dark, where the emphasis token is a pale blue.
+ */
+
+body.app-vendor-docs-generator .btn-primary,
+body.app-vendor-docs-generator .btn-primary:hover,
+body.app-vendor-docs-generator .btn-primary:focus-visible {
+  background: var(--color-blue-emphasis);
+  color: var(--color-text-on-accent);
+}
+
+[data-theme="dark"] body.app-vendor-docs-generator .btn-primary {
+  color: var(--color-bg);
+}
+
+body.app-vendor-docs-generator .vd-button-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+body.app-vendor-docs-generator .vd-button-row .btn {
+  flex: 1;
+}
+
+body.app-vendor-docs-generator .vd-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-control);
+}
+
+body.app-vendor-docs-generator .vd-check input {
+  accent-color: var(--color-blue);
+  cursor: pointer;
+}
+
+body.app-vendor-docs-generator .segmented.is-disabled {
+  opacity: 0.45;
+}
+
+body.app-vendor-docs-generator .vd-progress .meter-fill {
+  width: 0%;
+}
+
+body.app-vendor-docs-generator .vd-batch-status {
+  margin-top: 0;
+  text-align: center;
+}
+
+/* ── Stage ────────────────────────────────────────────────────────── */
+
+body.app-vendor-docs-generator .vd-stage {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+body.app-vendor-docs-generator .vd-stage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+body.app-vendor-docs-generator .vd-stage-chips {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+body.app-vendor-docs-generator .vd-stage-chips .is-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+body.app-vendor-docs-generator .vd-stage-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/*
+ * Chips and buttons ship different heights (a chip hugs its text, .btn carries
+ * a 2.75rem tap target). Side by side on one row that reads as a mistake, so
+ * everything in the stage head is pinned to one height and one radius.
+ */
+
+body.app-vendor-docs-generator .vd-stage-head .chip,
+body.app-vendor-docs-generator .vd-stage-head .btn {
+  min-height: var(--vd-stage-control-height);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+/*
+ * The frame is a fixed viewport-relative box and the whole A4 page is scaled
+ * to fit inside it, so the preview never scrolls in either direction. Reading
+ * the page at full size is a separate mode (the .vd-fullscreen dialog) rather
+ * than a scrollbar inside a panel.
+ */
+
+body.app-vendor-docs-generator .vd-paper-frame {
+  display: grid;
+  height: clamp(380px, calc(100vh - var(--vd-frame-inset)), var(--vd-page-height));
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  place-items: center;
+  overflow: hidden;
+}
+
+/*
+ * A transform does not change the layout box, so the wrapper is sized to the
+ * *scaled* page and the page itself is scaled from its top-left corner inside
+ * it. Scaling the wrapper instead would leave a full-size 794x1123 box in the
+ * layout, which overflows the frame and defeats centring.
+ */
+
+body.app-vendor-docs-generator .vd-paper-scale {
+  width: calc(var(--vd-page-width) * var(--vd-zoom, 1));
+  height: calc(var(--vd-page-height) * var(--vd-zoom, 1));
+}
+
+body.app-vendor-docs-generator .vd-paper-scale .vd-paper {
+  transform: scale(var(--vd-zoom, 1));
+  transform-origin: top left;
+}
+
+/* ── Full-size overlay ────────────────────────────────────────────── */
+
+body.app-vendor-docs-generator .vd-fullscreen {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  padding: 0;
+  border: 0;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+body.app-vendor-docs-generator .vd-fullscreen::backdrop {
+  background: var(--color-page-shadow);
+}
+
+body.app-vendor-docs-generator .vd-fullscreen-bar {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+/*
+ * The page sits at its true 794px here, so this is the one place a scrollbar
+ * is expected: it is a document reader, and A4 is taller than a laptop.
+ */
+
+body.app-vendor-docs-generator .vd-fullscreen-body {
+  display: flex;
+  height: calc(100vh - var(--vd-fullscreen-bar-height));
+  justify-content: center;
+  padding: var(--space-5) var(--space-4);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+body.app-vendor-docs-generator .vd-fullscreen-body .vd-paper-scale {
+  height: auto;
+  flex: 0 0 auto;
+}
+
+/* ── The printed page ─────────────────────────────────────────────── */
+
+body.app-vendor-docs-generator .vd-paper {
+  display: block;
+  width: var(--vd-page-width);
+  min-height: var(--vd-page-height);
+  background: var(--color-document-paper);
+  box-shadow: 0 10px 40px var(--color-page-shadow);
+  color: var(--color-document-ink);
+  font-family: var(--vd-font, var(--font-body));
+}
+
+body.app-vendor-docs-generator .vd-page {
+  position: relative;
+  display: flex;
+  min-height: var(--vd-page-height);
+  flex-direction: column;
+  padding: var(--vd-page-pad);
+  padding-bottom: 72px;
+}
+
+body.app-vendor-docs-generator .vd-page.is-dense {
+  padding: 32px 30px 72px;
+}
+
+body.app-vendor-docs-generator .vd-accent-bar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 5px;
+  background: var(--vd-accent, var(--color-blue));
+}
+
+/* ── Letterhead ───────────────────────────────────────────────────── */
+
+body.app-vendor-docs-generator .vd-doc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  margin-bottom: 22px;
+}
+
+body.app-vendor-docs-generator .vd-page.is-right .vd-doc-head {
+  flex-direction: row-reverse;
+}
+
+body.app-vendor-docs-generator .vd-page.is-center .vd-doc-head {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+body.app-vendor-docs-generator .vd-vendor-lines {
+  margin-top: var(--space-2);
+  color: var(--vd-ink, var(--color-document-ink));
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+body.app-vendor-docs-generator .vd-doc-title-wrap {
+  text-align: right;
+}
+
+body.app-vendor-docs-generator .vd-page.is-right .vd-doc-title-wrap {
+  text-align: left;
+}
+
+body.app-vendor-docs-generator .vd-page.is-center .vd-doc-title-wrap {
+  text-align: center;
+}
+
+body.app-vendor-docs-generator .vd-doc-title {
+  color: var(--vd-accent, var(--color-blue));
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: var(--tracking-wide);
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+body.app-vendor-docs-generator .vd-page.is-dense .vd-doc-title {
+  padding: 5px 14px;
+  border: 2px solid var(--vd-accent, var(--color-blue));
+  font-size: 1.15rem;
+}
+
+body.app-vendor-docs-generator .vd-doc-subtitle {
+  margin-top: 3px;
+  color: var(--color-document-faint);
+  font-size: 0.72rem;
+  letter-spacing: var(--tracking-label);
+}
+
+/* ── Logo treatments, one per vendor ──────────────────────────────── */
+
+body.app-vendor-docs-generator .vd-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--vd-ink, var(--color-document-ink));
+}
+
+body.app-vendor-docs-generator .vd-logo-name {
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+body.app-vendor-docs-generator .vd-logo.is-block .vd-logo-mark {
+  display: inline-flex;
+  width: 46px;
+  height: 46px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  background: var(--vd-accent, var(--color-blue));
+  color: var(--color-text-on-accent);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+body.app-vendor-docs-generator .vd-logo.is-stamp {
+  font-family: var(--font-mono);
+}
+
+body.app-vendor-docs-generator .vd-logo.is-stamp .vd-logo-mark {
+  display: inline-flex;
+  width: 50px;
+  height: 50px;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--vd-accent, var(--color-blue));
+  color: var(--vd-accent, var(--color-blue));
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+body.app-vendor-docs-generator .vd-logo.is-stamp .vd-logo-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+body.app-vendor-docs-generator .vd-logo.is-leaf {
+  flex-direction: column;
+  gap: 2px;
+}
+
+body.app-vendor-docs-generator .vd-logo.is-leaf .vd-logo-glyph {
+  color: var(--vd-accent, var(--color-green));
+  font-size: 1.6rem;
+}
+
+body.app-vendor-docs-generator .vd-logo.is-leaf .vd-logo-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+}
+
+body.app-vendor-docs-generator .vd-logo.is-mono .vd-logo-glyph {
+  color: var(--vd-accent, var(--color-purple));
+  font-size: 1.3rem;
+}
+
+body.app-vendor-docs-generator .vd-logo.is-mono .vd-logo-name {
+  font-size: 1.45rem;
+  font-weight: 300;
+  letter-spacing: var(--tracking-tight);
+}
+
+body.app-vendor-docs-generator .vd-logo.is-stripe {
+  padding-left: 11px;
+  border-left: 6px solid var(--vd-accent, var(--color-amber));
+}
+
+body.app-vendor-docs-generator .vd-logo.is-stripe .vd-logo-name {
+  font-size: 1.25rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+body.app-vendor-docs-generator .vd-logo.is-thin {
+  flex-direction: column;
+  gap: 2px;
+  text-align: center;
+}
+
+body.app-vendor-docs-generator .vd-logo.is-thin .vd-logo-name {
+  font-size: 1.5rem;
+  font-weight: 300;
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+}
+
+body.app-vendor-docs-generator .vd-logo.is-thin .vd-logo-sub {
+  color: var(--vd-accent, var(--color-green));
+  font-size: 0.69rem;
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+}
+
+/* ── Document body blocks ─────────────────────────────────────────── */
+
+body.app-vendor-docs-generator .vd-doc-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+}
+
+body.app-vendor-docs-generator .vd-stamp-row {
+  display: flex;
+  justify-content: center;
+}
+
+body.app-vendor-docs-generator .vd-stamp {
+  padding: 6px 26px;
+  border: 3px solid var(--vd-accent, var(--color-green));
+  color: var(--vd-accent, var(--color-green));
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: var(--tracking-wide);
+  transform: rotate(-5deg);
+}
+
+body.app-vendor-docs-generator .vd-parties {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
+body.app-vendor-docs-generator .vd-party {
+  flex: 1 1 240px;
+}
+
+body.app-vendor-docs-generator .vd-party-label {
+  margin-bottom: var(--space-1);
+  color: var(--color-document-faint);
+  font-size: 0.66rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+body.app-vendor-docs-generator .vd-party-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+body.app-vendor-docs-generator .vd-party-line {
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+body.app-vendor-docs-generator .vd-meta {
+  width: auto;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+body.app-vendor-docs-generator .vd-meta .vd-kv-key {
+  padding: 3px 14px 3px 0;
+  border: 0;
+  color: var(--color-document-muted);
+  font-size: inherit;
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+
+body.app-vendor-docs-generator .vd-meta .vd-kv-value {
+  padding: 3px 0;
+  border: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+body.app-vendor-docs-generator .vd-keygrid {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: 1fr 1fr;
+}
+
+body.app-vendor-docs-generator .vd-kv {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.65rem;
+}
+
+body.app-vendor-docs-generator .vd-kv .vd-kv-key {
+  width: 42%;
+  padding: 4px 9px;
+  border: 1px solid var(--color-document-rule-strong);
+  background: var(--color-document-fill);
+  color: var(--color-document-ink);
+  font-size: inherit;
+  font-weight: 600;
+  text-align: left;
+}
+
+body.app-vendor-docs-generator .vd-kv .vd-kv-value {
+  padding: 4px 9px;
+  border: 1px solid var(--color-document-rule-strong);
+  text-align: left;
+}
+
+body.app-vendor-docs-generator .vd-partypair {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.66rem;
+}
+
+body.app-vendor-docs-generator .vd-partypair-head {
+  width: 50%;
+  padding: 7px 9px;
+  border: 1px solid var(--color-document-rule-strong);
+  background: var(--vd-accent, var(--color-blue));
+  color: var(--color-text-on-accent);
+  font-size: inherit;
+  font-weight: 700;
+  text-align: left;
+}
+
+body.app-vendor-docs-generator .vd-partypair-cell {
+  padding: 7px 9px;
+  border: 1px solid var(--color-document-rule-strong);
+  vertical-align: top;
+}
+
+/* ── Item tables ──────────────────────────────────────────────────── */
+
+body.app-vendor-docs-generator .vd-items {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+/*
+ * The shared table skin sticks its thead, greys its th text, and pins a
+ * control-sized font on both. All three are right for a data table in the app
+ * chrome and wrong inside a printed page, so the document tables restate them.
+ */
+
+body.app-vendor-docs-generator .vd-items thead {
+  position: static;
+  background: var(--vd-accent, var(--color-blue));
+}
+
+body.app-vendor-docs-generator .vd-items th,
+body.app-vendor-docs-generator .vd-items td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-document-rule);
+  font-size: inherit;
+}
+
+body.app-vendor-docs-generator .vd-items thead th {
+  border-bottom: 0;
+  color: var(--color-text-on-accent);
+  font-weight: 700;
+}
+
+body.app-vendor-docs-generator .vd-items tbody tr:nth-child(even) {
+  background: var(--color-document-zebra);
+}
+
+body.app-vendor-docs-generator .vd-items.is-dense {
+  font-size: 0.6rem;
+}
+
+body.app-vendor-docs-generator .vd-items.is-dense th,
+body.app-vendor-docs-generator .vd-items.is-dense td {
+  padding: 4px;
+  border: 1px solid var(--color-document-rule-strong);
+}
+
+body.app-vendor-docs-generator .vd-items.is-dense tbody tr:nth-child(even) {
+  background: transparent;
+}
+
+body.app-vendor-docs-generator .vd-items tfoot td {
+  background: var(--vd-accent-soft, var(--color-surface-alt));
+  font-weight: 700;
+}
+
+body.app-vendor-docs-generator .vd-items .is-left {
+  text-align: left;
+}
+
+body.app-vendor-docs-generator .vd-items .is-center {
+  text-align: center;
+}
+
+body.app-vendor-docs-generator .vd-items .is-right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Totals, callouts, and closers ────────────────────────────────── */
+
+body.app-vendor-docs-generator .vd-totals-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+body.app-vendor-docs-generator .vd-totals {
+  width: auto;
+  min-width: 300px;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+body.app-vendor-docs-generator .vd-totals-label {
+  padding: 5px 12px;
+  border: 0;
+  color: var(--color-document-muted);
+  font-size: inherit;
+  font-weight: 400;
+  text-align: right;
+}
+
+body.app-vendor-docs-generator .vd-totals-value {
+  padding: 5px 12px;
+  border: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+body.app-vendor-docs-generator .vd-totals .is-emphasis {
+  background: var(--vd-accent, var(--color-blue));
+  color: var(--color-text-on-accent);
+}
+
+body.app-vendor-docs-generator .vd-totals .is-emphasis .vd-totals-label {
+  padding: 9px 12px;
+  color: var(--color-text-on-accent);
+  font-weight: 700;
+}
+
+body.app-vendor-docs-generator .vd-totals .is-emphasis .vd-totals-value {
+  padding: 9px 12px;
+  font-weight: 800;
+}
+
+body.app-vendor-docs-generator .vd-words {
+  padding: 6px 9px;
+  border: 1px solid var(--color-document-rule-strong);
+  background: var(--color-document-zebra);
+  font-size: 0.66rem;
+}
+
+body.app-vendor-docs-generator .vd-note {
+  margin: 0;
+  color: var(--color-document-muted);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+body.app-vendor-docs-generator .vd-note.is-accent {
+  padding-left: 12px;
+  border-left: 3px solid var(--vd-accent, var(--color-blue));
+}
+
+body.app-vendor-docs-generator .vd-doc-callout {
+  padding: 13px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--vd-accent-soft, var(--color-surface-alt));
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+body.app-vendor-docs-generator .vd-doc-chips {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+body.app-vendor-docs-generator .vd-doc-chip {
+  display: inline-flex;
+  gap: var(--space-2);
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--vd-accent-soft, var(--color-surface-alt));
+  font-size: 0.75rem;
+}
+
+body.app-vendor-docs-generator .vd-doc-chip-label {
+  font-weight: 700;
+}
+
+body.app-vendor-docs-generator .vd-banner-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+body.app-vendor-docs-generator .vd-banner {
+  display: inline-flex;
+  gap: var(--space-3);
+  padding: 11px 22px;
+  border-radius: var(--radius-sm);
+  background: var(--vd-accent, var(--color-blue));
+  color: var(--color-text-on-accent);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+body.app-vendor-docs-generator .vd-signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 34px;
+}
+
+body.app-vendor-docs-generator .vd-signature {
+  width: 170px;
+  padding-top: 5px;
+  border-top: 1px solid var(--color-document-muted);
+  font-size: 0.75rem;
+}
+
+body.app-vendor-docs-generator .vd-signoff {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+body.app-vendor-docs-generator .vd-doc-foot {
+  position: absolute;
+  right: var(--vd-page-pad);
+  bottom: 28px;
+  left: var(--vd-page-pad);
+  padding-top: 10px;
+  border-top: 1px solid var(--color-document-rule);
+  color: var(--color-document-faint);
+  font-size: 0.63rem;
+  text-align: center;
+}
+
+/* ── Trailing explainer section ───────────────────────────────────── */
+
+body.app-vendor-docs-generator .vd-about {
+  margin-top: var(--space-8);
+}
+
+body.app-vendor-docs-generator .vd-about-grid {
+  margin-bottom: var(--space-4);
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  body.app-vendor-docs-generator .vd-workbench {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.app-vendor-docs-generator .vd-rail {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.app-vendor-docs-generator .vd-stamp {
+    transform: none;
+  }
+}

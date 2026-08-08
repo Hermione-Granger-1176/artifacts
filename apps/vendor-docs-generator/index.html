@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Generate synthetic vendor paperwork for document-AI training: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each with its own branding, exported as searchable PDFs, PNGs, or a foldered ZIP batch.">
+  <link rel="canonical" href="__APP_URL__">
+  <meta property="og:title" content="Vendor Document Generator | Artifacts">
+  <meta property="og:description" content="Generate synthetic vendor paperwork for document-AI training: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each with its own branding, exported as searchable PDFs, PNGs, or a foldered ZIP batch.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="__APP_URL__">
+  <meta property="og:site_name" content="Artifacts">
+  <meta property="og:image" content="__APP_THUMBNAIL_URL__">
+  <meta property="og:image:secure_url" content="__APP_THUMBNAIL_URL__">
+  <meta property="og:image:alt" content="Preview card for the Vendor Document Generator app.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Vendor Document Generator | Artifacts">
+  <meta name="twitter:description" content="Generate synthetic vendor paperwork for document-AI training: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each with its own branding, exported as searchable PDFs, PNGs, or a foldered ZIP batch.">
+  <meta name="twitter:image" content="__APP_THUMBNAIL_URL__">
+  <meta name="twitter:image:alt" content="Preview card for the Vendor Document Generator app.">
+  <meta name="theme-color" content="rgb(248, 248, 246)">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <title>Vendor Document Generator | Artifacts</title>
+  <script src="../../js/app-theme.js"></script>
+  <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
+  <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
+  <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
+  <link rel="preload" href="./js/vendor/jspdf.umd.min.js" as="script">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="./css/app.css">
+  <script defer src="./js/vendor/jspdf.umd.min.js"></script>
+  <script defer src="./js/vendor/jspdf.plugin.autotable.min.js"></script>
+  <script defer src="./js/vendor/html2canvas.min.js"></script>
+  <script defer src="./js/vendor/jszip.min.js"></script>
+</head>
+<body class="artifact-app app-vendor-docs-generator">
+  <div data-app-shell="header"></div>
+
+  <main class="page-shell">
+    <div data-app-shell="runtime-error"></div>
+
+    <header class="page-intro">
+      <h1 class="page-title">Vendor document generator</h1>
+      <p class="page-lede">Six fictional businesses, six kinds of paperwork, and a fresh randomised document on every click. Built for producing labelled sample pages for document-AI, OCR, and extraction work without touching anyone's real invoices.</p>
+    </header>
+
+    <div class="vd-workbench">
+      <aside class="vd-rail" aria-label="Document controls">
+        <div class="page-card vd-rail-card">
+          <div class="section-kicker">Document</div>
+
+          <div class="control-field">
+            <div class="control-field-head">
+              <label for="vdVendor">Vendor</label>
+            </div>
+            <select id="vdVendor" class="select-input"></select>
+          </div>
+
+          <div class="control-field">
+            <div class="control-field-head">
+              <label for="vdDocType">Document type</label>
+            </div>
+            <select id="vdDocType" class="select-input"></select>
+          </div>
+
+          <div class="control-field">
+            <div class="control-field-head">
+              <span id="vdLayoutLabel" class="vd-field-label">Invoice layout</span>
+            </div>
+            <div class="segmented is-fused" id="vdLayout" role="group" aria-labelledby="vdLayoutLabel">
+              <button type="button" class="active" data-style="clean">Clean</button>
+              <button type="button" data-style="dense">Dense</button>
+            </div>
+            <p class="control-field-note" id="vdLayoutNote">The dense layout only applies to invoices.</p>
+          </div>
+
+          <button type="button" class="btn btn-primary vd-block-btn" id="vdGenerate">Generate new document</button>
+        </div>
+
+        <div class="page-card vd-rail-card">
+          <div class="section-kicker">Export this page</div>
+
+          <div class="control-field">
+            <div class="control-field-head">
+              <label for="vdPdfMode">PDF type</label>
+            </div>
+            <select id="vdPdfMode" class="select-input">
+              <option value="text">Text layer (searchable)</option>
+              <option value="image">Rasterised (scanned look)</option>
+            </select>
+          </div>
+
+          <div class="vd-button-row">
+            <button type="button" class="btn btn-outline" id="vdDownloadPdf">Download PDF</button>
+            <button type="button" class="btn btn-outline" id="vdDownloadPng">Download PNG</button>
+          </div>
+        </div>
+
+        <div class="page-card vd-rail-card">
+          <div class="section-kicker">Batch export</div>
+
+          <div class="control-field">
+            <div class="control-field-head">
+              <label for="vdBatchCount">Per combination</label>
+              <output id="vdBatchCountOut" for="vdBatchCount">10</output>
+            </div>
+            <input id="vdBatchCount" class="range-input" type="range" min="1" max="50" step="1" value="10">
+            <div class="control-field-hints"><span>1</span><span>50</span></div>
+          </div>
+
+          <div class="control-field">
+            <div class="control-field-head">
+              <label for="vdBatchFormat">Format</label>
+            </div>
+            <select id="vdBatchFormat" class="select-input">
+              <option value="pdf">PDF</option>
+              <option value="png">PNG</option>
+              <option value="both">Both</option>
+            </select>
+          </div>
+
+          <label class="vd-check" for="vdAllTypes">
+            <input type="checkbox" id="vdAllTypes">
+            <span>All 6 document types</span>
+          </label>
+          <label class="vd-check" for="vdAllVendors">
+            <input type="checkbox" id="vdAllVendors">
+            <span>All 6 vendors</span>
+          </label>
+
+          <button type="button" class="btn btn-primary vd-block-btn" id="vdBatch">Generate batch as ZIP</button>
+
+          <div class="meter vd-progress" id="vdProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Batch progress" hidden>
+            <div class="meter-fill" id="vdProgressFill"></div>
+          </div>
+          <p class="control-field-note vd-batch-status" id="vdBatchStatus" role="status">One ZIP, foldered as vendor / type.</p>
+        </div>
+      </aside>
+
+      <section class="vd-stage" aria-label="Document preview">
+        <div class="vd-stage-head">
+          <div class="vd-stage-chips">
+            <span class="chip" id="vdChipVendor">Vendor</span>
+            <span class="chip" id="vdChipType">Document</span>
+            <span class="chip is-mono" id="vdChipSeed">seed</span>
+          </div>
+          <div class="vd-stage-tools">
+            <span class="chip is-mono" id="vdZoomLevel">100%</span>
+            <button type="button" class="btn btn-outline btn-sm" id="vdFullOpen">Full size</button>
+          </div>
+        </div>
+
+        <div class="vd-paper-frame" id="vdPaperFrame">
+          <div class="vd-paper-scale" id="vdPaperScale">
+            <article class="vd-paper" id="vdPaper" aria-live="polite" aria-label="Generated document"></article>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <dialog class="vd-fullscreen" id="vdFullscreen" aria-label="Document at full size">
+      <div class="vd-fullscreen-bar">
+        <span class="chip is-mono" id="vdFullCaption">Document</span>
+        <button type="button" class="btn btn-outline btn-sm" id="vdFullClose">Close</button>
+      </div>
+      <div class="vd-fullscreen-body" id="vdFullscreenBody"></div>
+    </dialog>
+
+    <section class="page-section vd-about">
+      <div class="section-kicker">What the generator covers</div>
+
+      <div class="stat-grid vd-about-grid">
+        <div class="stat">
+          <div class="stat-label">Vendors</div>
+          <div class="stat-value">6</div>
+          <div class="stat-sub">Each with its own accent colour, typeface, logo treatment, and product catalogue</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Document types</div>
+          <div class="stat-value">6</div>
+          <div class="stat-sub">Invoice, receipt, quotation, delivery challan, credit or debit note, account statement</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Invoice layouts</div>
+          <div class="stat-value">2</div>
+          <div class="stat-sub">A clean commercial layout and a dense line-level tax invoice</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Combinations</div>
+          <div class="stat-value">42</div>
+          <div class="stat-sub">Before the seed varies buyer, dates, line items, quantities, and totals</div>
+        </div>
+      </div>
+
+      <div class="app-callout is-amber">
+        <div class="app-callout-title">Every name and number here is invented</div>
+        <div class="app-callout-body">The vendors, buyers, addresses, phone numbers, and tax identifiers are fabricated for sample data and do not refer to real businesses. Documents are marked as samples and are not valid invoices, receipts, or tax records. Sales tax is applied at a flat 8.25% for illustration and is not a real jurisdiction's rate.</div>
+      </div>
+
+      <div class="app-callout is-blue">
+        <div class="app-callout-title">How the randomisation works</div>
+        <div class="app-callout-body">Every document is driven by a single integer seed. Changing the vendor, type, or layout re-renders against the <em>same</em> seed so you can compare treatments side by side; <strong>Generate new document</strong> is what rolls a fresh seed. The seed appears on the preview and in every exported filename, so any sample can be reproduced exactly.</div>
+      </div>
+    </section>
+
+    <div data-app-shell="scroll-top"></div>
+  </main>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
