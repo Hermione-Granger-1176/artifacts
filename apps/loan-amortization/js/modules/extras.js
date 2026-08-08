@@ -1,4 +1,4 @@
-import{escapeAttribute as s}from"../../../../js/modules/html-escape.js";export function createExtra(t){return{id:t,type:"recurring",amount:500,every:1,startPeriod:1,period:1}}export function removeExtraById(t,n){return t.filter(e=>e.id!==n)}export function setExtraType(t,n,e){const a=t.find(r=>r.id===n);a&&(a.type=e)}const u=new Set(["amount","every","startPeriod","period"]);export function updateExtraField(t,n,e,a){if(!u.has(e))return;const r=+a;if(Number.isNaN(r)||r<0||(e==="every"||e==="startPeriod"||e==="period")&&r<1)return;const i=t.find(o=>o.id===n);i&&(i[e]=r)}export function summarizeExtra(t,n){return t.type==="recurring"?`Pays $${t.amount.toLocaleString()} every ${t.every===1?n:`${t.every} ${n}s`} starting from ${n} ${t.startPeriod}`:`One-time payment of $${t.amount.toLocaleString()} at ${n} ${t.period}`}export function renderExtras({container:t,extras:n,periodLabel:e}){t.innerHTML="";for(const a of n){const r=document.createElement("div"),i=summarizeExtra(a,e);r.className="extra-item",r.dataset.extraId=String(a.id),a.type==="recurring"?r.innerHTML=`
+import{escapeAttribute as s}from"../../../../js/modules/html-escape.js";export function createExtra(t){return{id:t,type:"recurring",amount:500,every:1,startPeriod:1,period:1}}export function removeExtraById(t,a){return t.filter(r=>r.id!==a)}export function setExtraType(t,a,r){const e=t.find(n=>n.id===a);e&&(e.type=r)}const u=new Set(["amount","every","startPeriod","period"]);export function updateExtraField(t,a,r,e){if(!u.has(r))return;const n=+e;if(Number.isNaN(n)||n<0||["every","startPeriod","period"].includes(r)&&n<1)return;const i=t.find(o=>o.id===a);i&&(i[r]=n)}export function summarizeExtra(t,a){return t.type==="recurring"?`Pays $${t.amount.toLocaleString()} every ${t.every===1?a:`${t.every} ${a}s`} starting from ${a} ${t.startPeriod}`:`One-time payment of $${t.amount.toLocaleString()} at ${a} ${t.period}`}export function renderExtras({container:t,extras:a,periodLabel:r}){t.innerHTML="";for(const e of a){const n=document.createElement("div"),i=summarizeExtra(e,r);n.className="extra-item",n.dataset.extraId=String(e.id),e.type==="recurring"?n.innerHTML=`
         <button type="button" class="info-tip card-tip" data-tip="${s(i)}" aria-label="${s(i)}">?</button>
         <div class="segmented is-fused">
           <button type="button" class="active" data-action="set-type" data-type="recurring" aria-pressed="true">Recurring</button>
@@ -6,19 +6,19 @@ import{escapeAttribute as s}from"../../../../js/modules/html-escape.js";export f
         </div>
         <div class="amt-group">
           <span>$</span>
-          <input class="amount-input" type="number" value="${a.amount}" min="0" step="100" data-field="amount">
+          <input class="amount-input" type="number" value="${e.amount}" min="0" step="100" data-field="amount">
         </div>
         <div class="param-group">
           <span>every</span>
-          <input class="period-input" type="number" value="${a.every}" min="1" max="60" data-field="every">
-          <span>${e}(s)</span>
+          <input class="period-input" type="number" value="${e.every}" min="1" max="60" data-field="every">
+          <span>${r}(s)</span>
         </div>
         <div class="param-group">
           <span>from</span>
-          <input class="period-input" type="number" value="${a.startPeriod}" min="1" max="2000" data-field="startPeriod">
+          <input class="period-input" type="number" value="${e.startPeriod}" min="1" max="2000" data-field="startPeriod">
         </div>
         <button type="button" class="btn-remove" data-action="remove-extra" aria-label="Remove extra payment">x</button>
-      `:r.innerHTML=`
+      `:n.innerHTML=`
         <button type="button" class="info-tip card-tip" data-tip="${s(i)}" aria-label="${s(i)}">?</button>
         <div class="segmented is-fused">
           <button type="button" data-action="set-type" data-type="recurring" aria-pressed="false">Recurring</button>
@@ -26,11 +26,11 @@ import{escapeAttribute as s}from"../../../../js/modules/html-escape.js";export f
         </div>
         <div class="amt-group">
           <span>$</span>
-          <input class="amount-input" type="number" value="${a.amount}" min="0" step="100" data-field="amount">
+          <input class="amount-input" type="number" value="${e.amount}" min="0" step="100" data-field="amount">
         </div>
         <div class="param-group">
-          <span>at ${e}</span>
-          <input class="period-input" type="number" value="${a.period}" min="1" max="2000" data-field="period">
+          <span>at ${r}</span>
+          <input class="period-input" type="number" value="${e.period}" min="1" max="2000" data-field="period">
         </div>
         <button type="button" class="btn-remove" data-action="remove-extra" aria-label="Remove extra payment">x</button>
-      `,t.appendChild(r)}}
+      `,t.appendChild(n)}}
