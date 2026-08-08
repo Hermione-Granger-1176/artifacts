@@ -77,7 +77,11 @@ test('the paper carries the letterhead, title, and sample footer', () => {
   assert.equal(findByClass(paper, 'vd-doc-title')[0].textContent, model.title);
   assert.match(findByClass(paper, 'vd-doc-foot')[0].textContent, /Not a valid tax record/);
 
-  const vendorLines = findByClass(paper, 'vd-vendor-line').map((node) => node.textContent);
+  // The middle line holds the phone and the email in two separately labelled
+  // spans, so it reads through textOf rather than off a single text node.
+  const vendorLines = findByClass(paper, 'vd-vendor-line').map((node) =>
+    textOf(node).replace(/\s+/g, ' ').trim()
+  );
   assert.deepEqual(vendorLines, [
     model.vendor.addr,
     `${model.vendor.phone} · ${model.vendor.email}`,

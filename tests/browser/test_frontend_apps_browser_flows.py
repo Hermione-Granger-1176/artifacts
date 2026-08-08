@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import re
 import zipfile
 from pathlib import Path
@@ -271,24 +272,75 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
 
         # Exports run the real vendored jsPDF, html2canvas and JSZip, so this is
         # the only place the produced files are known to be well-formed.
-        def download_bytes(selector: str) -> bytes:
-            with page.expect_download(timeout=60_000) as info:
-                page.locator(selector).click()
-            return Path(info.value.path()).read_bytes()
+        # A page export can produce two files, the page and its sidecar, and
+        # expect_download only catches what fires inside its own block. A
+        # standing listener catches both however they are ordered.
+        collected: list = []
 
-        text_pdf = download_bytes("#vdDownloadPdf")
+        def remember(item: object) -> None:
+            collected.append(item)
+
+        page.on("download", remember)
+
+        def download_all(selector: str, expected: int = 1) -> dict[str, bytes]:
+            collected.clear()
+            page.locator(selector).click()
+
+            for _ in range(600):
+                if len(collected) >= expected:
+                    break
+                page.wait_for_timeout(100)
+
+            names = [item.suggested_filename for item in collected]
+            assert len(collected) == expected, names
+            return {
+                item.suggested_filename.rsplit(".", 1)[-1]: Path(item.path()).read_bytes()
+                for item in collected
+            }
+
+        def download_bytes(selector: str) -> bytes:
+            return next(iter(download_all(selector).values()))
+
+        exported = download_all("#vdDownloadPdf", expected=2)
+        text_pdf = exported["pdf"]
         assert text_pdf.startswith(b"%PDF-"), text_pdf[:16]
         assert b"Ironwood" in text_pdf or b"FlateDecode" in text_pdf
 
+        # The sidecar rides along with the page and describes that same page.
+        sidecar = json.loads(exported["json"])
+        assert sidecar["schema_version"] == "1.0"
+        assert sidecar["vendor_id"] == "ironwood"
+        assert sidecar["fields"]["vendor_name"]["value"] == "Ironwood Construction Materials"
+        assert sidecar["fields"]["po_number"] is None, "a clean invoice prints no PO number"
+        assert sidecar["boxes"] is None, "boxes are off until asked for"
+        line_sum = sum(item["amount"]["value"] for item in sidecar["line_items"])
+        assert round(line_sum, 2) == sidecar["fields"]["subtotal"]["value"]
+
         page.locator("#vdPdfMode").select_option("image")
-        image_pdf = download_bytes("#vdDownloadPdf")
+        image_pdf = download_all("#vdDownloadPdf", expected=2)["pdf"]
         assert image_pdf.startswith(b"%PDF-")
         # A rasterised page carries an embedded image, so it is far heavier than
         # the same page as a text layer.
         assert len(image_pdf) > len(text_pdf)
 
-        png = download_bytes("#vdDownloadPng")
+        png = download_all("#vdDownloadPng", expected=2)["png"]
         assert png.startswith(b"\x89PNG\r\n\x1a\n"), png[:8]
+
+        # With boxes on, the JSON button alone carries the geometry.
+        page.locator("#vdBoxes").check()
+        boxed = json.loads(download_bytes("#vdDownloadJson"))
+        assert boxed["boxes_apply_to"] == ["png", "pdf_raster"]
+        assert boxed["boxes"]["page"] == {"width": 794, "height": 1123, "unit": "normalised"}
+        regions = boxed["boxes"]["regions"]
+        assert len(regions) > 12, len(regions)
+        assert all(0 <= value <= 1 for region in regions for value in region["box"])
+        assert any(region["field"] == "grand_total" for region in regions)
+        assert all("words" not in region for region in regions)
+
+        page.locator("#vdWordBoxes").check()
+        worded = json.loads(download_bytes("#vdDownloadJson"))
+        assert all("words" in region for region in worded["boxes"]["regions"])
+        page.locator("#vdBoxes").uncheck()
 
         page.locator("#vdBatchCount").fill("1")
         page.locator("#vdBatchFormat").select_option("pdf")
@@ -296,11 +348,19 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         assert zip_bytes.startswith(b"PK"), zip_bytes[:4]
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as archive:
             # JSZip writes the folder entries too, so only the files are counted.
-            entries = [item for item in archive.infolist() if not item.is_dir()]
-            assert len(entries) == 1, [item.filename for item in entries]
-            assert entries[0].filename.startswith("ironwood/invoice/")
-            assert entries[0].filename.endswith(".pdf")
-            assert archive.read(entries[0]).startswith(b"%PDF-")
+            entries = [item.filename for item in archive.infolist() if not item.is_dir()]
+            pages = [name for name in entries if name.endswith(".pdf")]
+            labels = [name for name in entries if name.endswith(".json")]
+            assert len(pages) == 1, entries
+            assert len(labels) == 1, entries
+            assert pages[0].startswith("ironwood/invoice/")
+            assert archive.read(pages[0]).startswith(b"%PDF-")
+            assert "manifest.jsonl" in entries
+            assert "README.txt" in entries
+            manifest = archive.read("manifest.jsonl").decode().strip().splitlines()
+            assert len(manifest) == 1
+            assert json.loads(manifest[0])["schema_version"] == "1.0"
+            assert b"Ground truth" in archive.read("README.txt")
 
         page.locator("#theme-toggle").click()
         expect(page.locator("html")).to_have_attribute("data-theme", "dark")
@@ -405,6 +465,125 @@ def test_vendor_docs_generator_pdf_never_overprints_itself(
                     }
                 }
                 return found.slice(0, 10);
+            }"""
+        )
+
+        assert problems == [], problems
+
+
+def test_vendor_docs_generator_boxes_land_on_the_ink_they_name(
+    app_browser: AppBrowserHarness,
+) -> None:
+    """Every reported box must actually cover the value it claims to.
+
+    The Node tests measure a fake layout, so they can only prove the walk and
+    the arithmetic. Whether a normalised box lands on the right pixels is a
+    question about a real browser laying out a real page, and the only honest
+    way to ask it is to convert each box back to viewport coordinates and see
+    what is underneath the middle of it.
+    """
+    with MonitoredPage(
+        app_browser.playwright,
+        app_browser.server_url,
+        name="app-vendor-docs-boxes",
+        viewport=(1400, 1000),
+        bypass_csp=True,
+        browser=app_browser.browser,
+    ) as session:
+        page = session.page
+        assert page is not None
+        session.goto("/apps/vendor-docs-generator/")
+        page.wait_for_function("window.__ARTIFACT_READY__ === true")
+
+        problems = page.evaluate(
+            """async () => {
+                const base = './js/modules/';
+                const { buildDocument } = await import(base + 'document-model.js');
+                const { renderPaper } = await import(base + 'paper-render.js');
+                const { collectBoxes } = await import(base + 'annotate-boxes.js');
+                const { buildAnnotations } = await import(base + 'annotations.js');
+                const { VENDORS, DOCUMENT_TYPES } = await import(base + 'vendors.js');
+
+                const paper = document.getElementById('vdPaper');
+                paper.scrollIntoView({ block: 'center' });
+                const found = [];
+
+                for (const vendor of VENDORS) {
+                    for (const type of DOCUMENT_TYPES) {
+                        const styles = type.id === 'invoice' ? ['clean', 'dense'] : ['clean'];
+                        for (const style of styles) {
+                            const seed = 3300 + vendor.id.length * 17 + type.id.length;
+                            const model = buildDocument({
+                                vendorId: vendor.id, docTypeId: type.id, style, seed
+                            });
+                            renderPaper(paper, model);
+                            const boxes = collectBoxes(paper, { words: true });
+                            const payload = buildAnnotations(model, boxes);
+                            const tag = `${vendor.id}/${type.id}/${style}`;
+                            const rect = paper.getBoundingClientRect();
+
+                            if (boxes.regions.length < 12) {
+                                found.push(`${tag} only ${boxes.regions.length} regions`);
+                            }
+
+                            for (const region of boxes.regions) {
+                                const [x, y, w, h] = region.box;
+                                if (x < 0 || y < 0 || x + w > 1.001 || y + h > 1.001) {
+                                    found.push(`${tag} ${region.field} outside the page`);
+                                    continue;
+                                }
+                                if (w <= 0 || h <= 0) {
+                                    found.push(`${tag} ${region.field} has no area`);
+                                    continue;
+                                }
+
+                                const cx = rect.left + (x + w / 2) * rect.width;
+                                const cy = rect.top + (y + h / 2) * rect.height;
+                                if (cx < 0 || cy < 0 || cx > innerWidth || cy > innerHeight) {
+                                    continue;
+                                }
+
+                                const owner = document.elementFromPoint(cx, cy);
+                                const named = owner && owner.closest('[data-field]');
+                                if (!named) {
+                                    found.push(`${tag} ${region.field}: nothing there`);
+                                } else if (named.getAttribute('data-field') !== region.field) {
+                                    found.push(
+                                        `${tag} ${region.field}: centre lands on ` +
+                                        named.getAttribute('data-field')
+                                    );
+                                }
+
+                                for (const word of region.words) {
+                                    const [wx, wy, ww, wh] = word.box;
+                                    const where = `${tag} ${region.field}: "${word.text}"`;
+                                    if (wx < x - 0.002 || wx + ww > x + w + 0.002) {
+                                        found.push(`${where} escapes its region`);
+                                    }
+                                    if (wy < y - 0.002 || wy + wh > y + h + 0.002) {
+                                        found.push(`${where} sits off its line`);
+                                    }
+                                }
+                            }
+
+                            for (const region of boxes.regions) {
+                                const parts = region.field.split('.');
+                                const annotation = parts.length === 1
+                                    ? payload.fields[region.field]
+                                    : payload[parts[0]][Number(parts[1])][parts[2]];
+                                if (!annotation) {
+                                    found.push(`${tag} ${region.field} has no sidecar entry`);
+                                } else if (!annotation.text.includes(region.text)) {
+                                    found.push(
+                                        `${tag} ${region.field}: page "${region.text}" ` +
+                                        `vs sidecar "${annotation.text}"`
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+                return found.slice(0, 12);
             }"""
         )
 

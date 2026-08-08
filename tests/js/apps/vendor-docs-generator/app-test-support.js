@@ -36,9 +36,16 @@ const ELEMENT_IDS = [
   'vdProgress',
   'vdProgressFill',
   'vdBatchStatus',
+  'vdBatchEstimate',
   'vdGenerate',
   'vdDownloadPdf',
   'vdDownloadPng',
+  'vdDownloadJson',
+  'vdGroundTruth',
+  'vdBoxes',
+  'vdWordBoxes',
+  'vdWordBoxesLabel',
+  'vdGroundTruthNote',
   'vdBatch'
 ];
 
@@ -100,6 +107,7 @@ export function setupAppMocks() {
   elementMap.vdGenerate.textContent = 'Generate new document';
   elementMap.vdDownloadPdf.textContent = 'Download PDF';
   elementMap.vdDownloadPng.textContent = 'Download PNG';
+  elementMap.vdDownloadJson.textContent = 'Download ground truth JSON';
   elementMap.vdBatch.textContent = 'Generate batch as ZIP';
 
   // index.html ships the meter with a `hidden` attribute; the mock has no
@@ -110,6 +118,16 @@ export function setupAppMocks() {
   elementMap.vdBatchFormat.value = 'pdf';
   elementMap.vdAllTypes.checked = false;
   elementMap.vdAllVendors.checked = false;
+  // index.html ships ground truth on and both box modes off, which is the
+  // "labels but no geometry" default the app opens in.
+  elementMap.vdGroundTruth.checked = true;
+  elementMap.vdBoxes.checked = false;
+  elementMap.vdWordBoxes.checked = false;
+  // The paper stands in for a laid-out A4 page so the box collector has real
+  // geometry to normalise against.
+  elementMap.vdPaper.offsetWidth = 794;
+  elementMap.vdPaper.offsetHeight = 1123;
+  elementMap.vdPaper.rect = { left: 0, top: 0, width: 794, height: 1123 };
 
   const pdf = createFakeJsPdf();
   const canvas = createFakeHtml2Canvas();

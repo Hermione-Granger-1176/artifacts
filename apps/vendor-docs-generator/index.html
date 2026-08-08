@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Generate synthetic vendor paperwork for document-AI training: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each with its own branding, exported as searchable PDFs, PNGs, or a foldered ZIP batch.">
+  <meta name="description" content="Generate labelled synthetic vendor paperwork for document-AI work: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each page shipped with a ground-truth JSON sidecar naming every printed value, with optional bounding boxes.">
   <link rel="canonical" href="__APP_URL__">
   <meta property="og:title" content="Vendor Document Generator | Artifacts">
-  <meta property="og:description" content="Generate synthetic vendor paperwork for document-AI training: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each with its own branding, exported as searchable PDFs, PNGs, or a foldered ZIP batch.">
+  <meta property="og:description" content="Generate labelled synthetic vendor paperwork for document-AI work: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each page shipped with a ground-truth JSON sidecar naming every printed value, with optional bounding boxes.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="__APP_URL__">
   <meta property="og:site_name" content="Artifacts">
@@ -15,7 +15,7 @@
   <meta property="og:image:alt" content="Preview card for the Vendor Document Generator app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Vendor Document Generator | Artifacts">
-  <meta name="twitter:description" content="Generate synthetic vendor paperwork for document-AI training: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each with its own branding, exported as searchable PDFs, PNGs, or a foldered ZIP batch.">
+  <meta name="twitter:description" content="Generate labelled synthetic vendor paperwork for document-AI work: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each page shipped with a ground-truth JSON sidecar naming every printed value, with optional bounding boxes.">
   <meta name="twitter:image" content="__APP_THUMBNAIL_URL__">
   <meta name="twitter:image:alt" content="Preview card for the Vendor Document Generator app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
@@ -43,7 +43,7 @@
 
     <header class="page-intro">
       <h1 class="page-title">Vendor document generator</h1>
-      <p class="page-lede">Six fictional businesses, six kinds of paperwork, and a fresh randomised document on every click. Built for producing labelled sample pages for document-AI, OCR, and extraction work without touching anyone's real invoices.</p>
+      <p class="page-lede">Six fictional businesses, six kinds of paperwork, and a labelled JSON sidecar for every page. Built for measuring document-AI extractors: each printed value comes back named, normalised, and optionally boxed, so you can score a parser instead of hand-labelling its test set.</p>
     </header>
 
     <div class="vd-workbench">
@@ -96,6 +96,26 @@
             <button type="button" class="btn btn-outline" id="vdDownloadPdf">Download PDF</button>
             <button type="button" class="btn btn-outline" id="vdDownloadPng">Download PNG</button>
           </div>
+          <button type="button" class="btn btn-outline vd-block-btn" id="vdDownloadJson">Download ground truth JSON</button>
+        </div>
+
+        <div class="page-card vd-rail-card">
+          <div class="section-kicker">Ground truth</div>
+
+          <label class="vd-check" for="vdGroundTruth">
+            <input type="checkbox" id="vdGroundTruth" checked>
+            <span>Label every export</span>
+          </label>
+          <label class="vd-check" for="vdBoxes">
+            <input type="checkbox" id="vdBoxes">
+            <span>Add field bounding boxes</span>
+          </label>
+          <label class="vd-check" for="vdWordBoxes" id="vdWordBoxesLabel">
+            <input type="checkbox" id="vdWordBoxes" disabled>
+            <span>Word-level boxes (slower)</span>
+          </label>
+
+          <p class="control-field-note" id="vdGroundTruthNote">Every page ships with a JSON sidecar naming what each printed value is.</p>
         </div>
 
         <div class="page-card vd-rail-card">
@@ -118,6 +138,7 @@
               <option value="pdf">PDF</option>
               <option value="png">PNG</option>
               <option value="both">Both</option>
+              <option value="json">JSON only (fastest)</option>
             </select>
           </div>
 
@@ -129,6 +150,8 @@
             <input type="checkbox" id="vdAllVendors">
             <span>All 6 vendors</span>
           </label>
+
+          <p class="control-field-note vd-estimate" id="vdBatchEstimate">6 documents, roughly 100 KB.</p>
 
           <button type="button" class="btn btn-primary vd-block-btn" id="vdBatch">Generate batch as ZIP</button>
 
@@ -169,28 +192,28 @@
     </dialog>
 
     <section class="page-section vd-about">
-      <div class="section-kicker">What the generator covers</div>
+      <div class="section-kicker">What you get per page</div>
 
       <div class="stat-grid vd-about-grid">
         <div class="stat">
-          <div class="stat-label">Vendors</div>
-          <div class="stat-value">6</div>
-          <div class="stat-sub">Each with its own accent colour, typeface, logo treatment, and product catalogue</div>
+          <div class="stat-label">Labelled fields</div>
+          <div class="stat-value">35</div>
+          <div class="stat-sub">Every sidecar carries the same keys, with null where the page prints nothing</div>
         </div>
         <div class="stat">
-          <div class="stat-label">Document types</div>
-          <div class="stat-value">6</div>
-          <div class="stat-sub">Invoice, receipt, quotation, delivery challan, credit or debit note, account statement</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Invoice layouts</div>
-          <div class="stat-value">2</div>
-          <div class="stat-sub">A clean commercial layout and a dense line-level tax invoice</div>
+          <div class="stat-label">Per-row labels</div>
+          <div class="stat-value">11</div>
+          <div class="stat-sub">Description, SKU, product code, quantity, unit, rate, amount, tax, and line total</div>
         </div>
         <div class="stat">
           <div class="stat-label">Combinations</div>
           <div class="stat-value">42</div>
-          <div class="stat-sub">Before the seed varies buyer, dates, line items, quantities, and totals</div>
+          <div class="stat-sub">Six vendors by six document types, plus a dense treatment of the invoice</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Box detail</div>
+          <div class="stat-value">2</div>
+          <div class="stat-sub">Field regions, and optionally every word, in normalised page coordinates</div>
         </div>
       </div>
 

@@ -136,8 +136,21 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     await flush(12);
 
     const files = [...zip.archives[0].files.keys()];
-    assert.equal(files.length, 2, 'one vendor, one type, two documents');
-    assert.ok(files.every((path) => path.startsWith('apex/invoice/')));
+    // Two documents, each as a PDF and a sidecar, plus the two root files that
+    // make the archive self-describing.
+    assert.deepEqual(files.filter((path) => !path.includes('/')).sort(), [
+      'README.txt',
+      'manifest.jsonl'
+    ]);
+    const documents = files.filter((path) => path.includes('/'));
+    assert.equal(documents.length, 4, 'one vendor, one type, two documents, page plus label');
+    assert.ok(documents.every((path) => path.startsWith('apex/invoice/')));
+    assert.equal(documents.filter((path) => path.endsWith('.json')).length, 2);
+
+    const manifest = zip.archives[0].files.get('manifest.jsonl').data.trim().split('\n');
+    assert.equal(manifest.length, 2, 'one compact object per document');
+    assert.equal(JSON.parse(manifest[0]).vendor_id, 'apex');
+    assert.equal(JSON.parse(manifest[0]).boxes, null, 'boxes are off by default');
     assert.match(elementMap.vdBatchStatus.textContent, /^Done\. 2 documents in [\d.]+s\.$/);
     assert.equal(elementMap.vdProgress.hidden, true, 'and goes away again when done');
     assert.equal(elementMap.vdProgressFill.style.width, '100%');
@@ -153,7 +166,7 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     await flush(40);
 
     assert.equal(
-      [...zip.archives[1].files.keys()].length,
+      [...zip.archives[1].files.keys()].filter((path) => path.endsWith('.pdf')).length,
       36,
       'six vendors by six types by one document each'
     );

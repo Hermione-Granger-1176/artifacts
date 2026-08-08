@@ -2,7 +2,7 @@
 
 ## Vendor Document Generator
 
-The app is a small pipeline with one branch point at the end. A seed and a selection go in; a renderer-agnostic model comes out; two independent renderers consume that same model.
+The app is a small pipeline with one branch point at the end. A seed and a selection go in; a renderer-agnostic model comes out; two independent renderers consume that same model; and a third consumer turns the model into labels rather than pixels.
 
 ```text
 { vendorId, docTypeId, style, seed }
@@ -11,23 +11,45 @@ The app is a small pipeline with one branch point at the end. A seed and a selec
    document-model.js  ──uses──▶  vendors.js, random.js, format.js
             │
             ▼
-   DocumentModel { header, blocks[] }
+   DocumentModel { header, blocks[], facts }
             │
-      ┌─────┴──────┐
-      ▼            ▼
-paper-render.js   pdf-render.js
-   (DOM)            (jsPDF)
-      │              │
-      └──────┬───────┘
+      ┌─────┴──────┬──────────────┐
+      ▼            ▼              ▼
+paper-render.js   pdf-render.js   annotations.js
+   (DOM)            (jsPDF)          │  ▲
+      │              │               │  │ boxes
+      │              │               │  │
+      │              │        annotate-boxes.js
+      │              │          (reads the DOM back)
+      └──────┬───────┴───────────────┘
              ▼
-        exporters.js  ──▶  PNG · PDF · ZIP batch
+        exporters.js  ──▶  PNG · PDF · JSON · ZIP batch
 ```
 
 ### The model is the contract
 
-`buildDocument` returns a `title`, a `subtitle`, a `footer`, and an ordered array of typed blocks (`parties`, `table`, `totals`, `stamp`, `keygrid`, `partypair`, `words`, `note`, `callout`, `chips`, `banner`, `signatures`, `signoff`). Each renderer is a switch over `block.kind`.
+`buildDocument` returns a `title`, a `subtitle`, a `footer`, an ordered array of typed blocks (`parties`, `table`, `totals`, `stamp`, `keygrid`, `partypair`, `words`, `note`, `callout`, `chips`, `banner`, `signatures`, `signoff`), and a `facts` record. Each renderer is a switch over `block.kind`.
 
 This is the structural change from the single-file original, which carried two hand-maintained copies of every layout: one that wrote HTML strings and one that drove jsPDF. Any fix to one had to be mirrored by hand in the other, and the two had already drifted. With one model, the preview and the searchable PDF cannot disagree about what a document says.
+
+### Facts, blocks, and the sidecar
+
+The blocks are display strings. `facts` is the structured truth a builder had in hand *before* it stringified anything: dates as `Date`, money as numbers, line items as records. The app used to compute all of that, print it, and throw it away, which is why the output was 500 pages someone still had to label.
+
+`annotations.js` walks `facts` into the wire schema. Two rules make it worth trusting:
+
+- **A key is always present.** The payload is built by walking `FIELD_KEYS`, not by spreading whatever a builder happened to record, so a document type that knows nothing about `vehicle_number` still emits `"vehicle_number": null`. A consumer can distinguish "this page has no PO number" from "the generator forgot".
+- **A key is non-null only when the page prints it.** A challan lists goods without prices, so its `unit_price` is null even though `buildItems` computed one. Scoring an extractor against a number that is not on the page is worse than not scoring it at all.
+
+### Boxes
+
+`paper-render.js` stamps `data-field` onto every node carrying a value; that attribute is the *only* coupling between the renderer and the annotation layer. `annotate-boxes.js` reads them back with `getBoundingClientRect`, so a new block type needs no change there.
+
+Coordinates are normalised into the 0..1 page box rather than reported in pixels. That is what makes them survive the preview's fit-to-frame CSS transform, the export's 2x capture scale, and any future change to the 794x1123 page: both the element rect and the page rect scale together, so the ratio does not move.
+
+A field printed in more than one place produces more than one region, in document order. A two-line address genuinely occupies two boxes, and merging them would claim a single box covering the gap between them that no ink lands in.
+
+The caveat that matters is recorded on every payload as `boxes_apply_to`, not left in a doc: boxes are measured on the HTML page, so they describe the PNG and the rasterised PDF. `pdf-render.js` lays out independently in A4 points, so they do **not** describe the text-layer PDF. Emitting boxes for that would mean instrumenting the jsPDF cursor to report its own positions, which is real work and has not been done.
 
 ### Determinism
 
@@ -51,5 +73,7 @@ App chrome in `css/app.css` is entirely token-derived. The printed page uses a s
 ### Export paths
 
 `exporters.js` reaches the three UMD globals through injected accessors rather than touching `window` directly, so the module runs under Node in tests with recording fakes, and a script that failed to load produces a readable message instead of a `TypeError` inside a click handler.
+
+A batch can also be labelled, in which case each document gets a `.json` sidecar beside it and the archive root gets a `manifest.jsonl` (every sidecar again, one compact object per line, because tooling that streams a dataset wants one file to read) and a `README.txt` recording the schema and the settings the run used. The `json` format skips both renderers entirely and is the fast path for iterating on an evaluation script.
 
 The text-PDF batch path never renders to the DOM at all: `renderPdf` writes straight from the model. Only the PNG and rasterised-PDF paths need `html2canvas`, and those run sequentially because they share one paper element. Because the fitted preview scales the paper with a CSS transform, `app.js` pins the zoom to 1 for the duration of any capture so every raster sample is a true 794px page, in either the inline frame or the full-size overlay.

@@ -32,6 +32,32 @@ Statements get their own sweep over six vendors and thirty seeds: the printed pe
 
 The same options rebuild a deep-equal model; different seeds produce different documents. The seeded generator is checked for reproducibility, for staying inside the open unit interval over 500 draws, and for normalising the seeds (`0`, the modulus) that would otherwise make it a fixed point.
 
+### Ground truth
+
+`annotations.test.js` sweeps every vendor by every type by both invoice treatments and asserts the three rules the schema promises:
+
+- **Completeness.** Every payload's `fields` key set is deep-equal to `FIELD_KEYS`, in order, and every line item and ledger row carries its full key set. A non-null field always has exactly `text` and `value`, and never an empty `text`, because an empty string would be a third state between "absent" and "present".
+- **Honesty.** A clean invoice is asserted to have no `po_number`, no `buyer_phone` and no `vendor_company_reg`; the dense treatment of the same document is asserted to have all three. A challan is asserted to price nothing and a statement to have an empty `line_items` and a populated `transactions`.
+- **Arithmetic.** Over 6 vendors by 7 treatments by 6 seeds, the line amounts must sum to the subtotal and subtotal plus tax plus shipping must equal the grand total, both to the cent. Where per-line tax is printed, it must sum to the document tax and each line total must be its own amount plus its own tax.
+
+Normalisation is checked too: dates are ISO in `value` and the document's own format in `text`, money is a number, a rate is a fraction under 1 while its text ends in `%`, and the buyer address keeps its line break in `text` and loses it in `value`. A separate sweep rebuilds each ISO date and asserts it names the same calendar day the page prints, which is the bug `toISOString` would have introduced west of Greenwich.
+
+The strongest of these closes the loop between the two outputs: for every combination the page is rendered, every `[data-field]` node is collected, and each node's text must appear in the sidecar entry for that field. A renamed label or a re-formatted value fails this immediately.
+
+### Boxes
+
+`annotate-boxes.test.js` measures a deterministic fake layout, so it can prove the walk and the arithmetic but not the pixels:
+
+- Every labelled node becomes exactly one region, in document order, and every box lies inside the 0..1 page.
+- Scaling every rect by 0.593, the way the fitted preview does, must produce byte-identical boxes. Without normalising against the page's own rect this is the test that would fail at any zoom other than 100%.
+- A two-line address must produce two regions, with the second below the first.
+- Row-scoped fields must be addressed as `line_items.<n>.<key>` and `transactions.<n>.<key>`.
+- A blank ledger cell must produce no region at all, because the sidecar reports that field as null and a box for it would be a box around nothing.
+- Word boxes are absent unless asked for, and when present each word must lie inside its own region and share its baseline.
+- A page that was never laid out must still produce finite coordinates rather than filling the payload with `Infinity`.
+
+Whether those boxes land on the right ink is a question only a browser can answer, and is asked in the browser suite below.
+
 ### Renderers
 
 `paper-render.test.js` renders into a fake DOM and asserts on the tree: all six logo treatments, the layout classes, per-column alignment, the emphasised totals row matching `emphasisIndex`, the dense-invoice grid and table footer, and that re-rendering replaces the page rather than stacking pages. It also asserts vendor branding arrives through `style.setProperty` rather than an inline style attribute, which is the property CSP depends on.
@@ -45,6 +71,8 @@ Both renderers are run across all 36 vendor/type combinations.
 ### Exports
 
 `exporters.test.js` covers the download anchor lifecycle (attached before click, revoked on a later tick, data URLs passed through unrevoked), the aspect-ratio maths in `canvasToPdf`, and that the text-PDF path never rasterises while the image path never emits a text layer. Batch runs are asserted on ZIP folder structure, base64 PNG entries, capture counts per format, and progress reporting.
+
+A labelled batch is asserted to write one sidecar per page plus `manifest.jsonl` and `README.txt`, with the manifest holding one compact object per document in generation order and the README recording the format and PDF mode the run actually used. An unlabelled batch must write neither root file. The `json` format is asserted to produce nothing but sidecars, which is the whole point of the fast path. The size estimate is asserted to grow monotonically as rasterisation, labels, boxes and word boxes are switched on, and to ignore box settings entirely when no labels are being written.
 
 ### Entry point
 
@@ -60,12 +88,18 @@ The single-test shape is deliberate. `app.js` is a module with side effects, so 
 - The overlay is asserted to take the live paper element, show it at exactly 794px, and hand it back on close.
 - A text PDF and a rasterised PDF both start with `%PDF-`, with the rasterised one larger; the PNG carries a PNG signature; the batch ZIP starts with `PK`, contains exactly one file under `vendor/type/`, and that file is itself a real PDF.
 - The statement is checked in the rendered page for negative balances and for a `$-` anywhere in the text.
+- A page export writes two files, so the flow collects downloads through a standing listener and asserts on both. The sidecar is parsed and checked against the page it describes: the schema version, the vendor, a null `po_number` on a clean invoice, and the line amounts re-summed against the printed subtotal.
+- With boxes on, the payload is asserted to declare `boxes_apply_to` as `["png", "pdf_raster"]`, report the page as 794x1123, and carry more than twelve regions all inside the unit square. Turning on word boxes must add a `words` array to every region.
+- The batch ZIP is asserted to contain the page, its sidecar, a one-line `manifest.jsonl`, and a `README.txt`.
 - `test_vendor_docs_generator_pdf_never_overprints_itself` instruments the real jsPDF, renders every vendor, type, and style across twelve seeds, and asserts no two drawn strings overlap and nothing lands off the page. The fake's text metrics are an approximation, so this is the only place the geometry is checked against the metrics that actually ship.
+- `test_vendor_docs_generator_boxes_land_on_the_ink_they_name` is the answer to the question the Node box tests cannot ask. For all 42 combinations it renders the real page, converts every normalised box back to viewport coordinates, and calls `elementFromPoint` at the centre of it. Whatever is under that point must be the element carrying that exact `data-field`. It also re-checks every region's text against the sidecar in a real layout, and asserts every word box stays inside its region.
 
 The app is also covered by the shared per-app smoke and axe passes. Every colour the document prints is held above 4.5:1 against the paper by `vendors.test.js` (accents, ink on paper, and ink on its own soft fill), because axe only ever sees whichever vendor happens to be selected.
 
 ### Not covered by tests
 
 Visual fidelity of the exported PDF and PNG is checked by eye rather than asserted.
+
+Box coordinates for the **text-layer PDF** are not merely untested, they are not produced: `pdf-render.js` lays out in its own coordinate system and the payload says so in `boxes_apply_to`. Nothing stops someone applying DOM boxes to a text PDF anyway; the field is the only thing telling them not to.
 
 The preview and the PDF still lay out independently: jsPDF positions in A4 points while the preview lays out in CSS pixels. They now agree on the vendor's font, alignment and monogram, but nothing asserts that the two renderings of a seed look alike, and a change to one will not fail a test because of the other.

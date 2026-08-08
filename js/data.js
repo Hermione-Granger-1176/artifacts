@@ -67,11 +67,13 @@ window.ARTIFACTS_DATA = [
   {
     "id": "vendor-docs-generator",
     "name": "Vendor Document Generator",
-    "description": "Generate synthetic vendor paperwork for document-AI work. Six fictional businesses, six document types, a fresh randomised page on every click, and export to searchable PDF, PNG, or a foldered ZIP batch.",
+    "description": "Generate labelled synthetic vendor paperwork for document-AI work. Six fictional businesses, six document types, and a ground-truth JSON sidecar per page naming every printed value, with optional bounding boxes. Export as searchable PDF, PNG, or a foldered ZIP with a streaming manifest.",
     "tags": [
       "tool",
       "ai",
-      "finance"
+      "finance",
+      "dataset",
+      "ocr"
     ],
     "tools": [
       "claude"

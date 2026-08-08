@@ -9,6 +9,7 @@
  * @module exporters
  */
 
+import { annotationsToJson, annotationsToJsonl, datasetReadme } from "./annotations.js";
 import { renderPdf } from "./pdf-render.js";
 
 /**
@@ -20,7 +21,7 @@ import { renderPdf } from "./pdf-render.js";
  *   getJsZip: () => ArtifactsJsZipConstructor,
  *   windowObj?: Window & typeof globalThis
  * }} ExportDeps
- * @typedef {"pdf" | "png" | "both"} BatchFormat
+ * @typedef {"both" | "json" | "pdf" | "png"} BatchFormat
  * @typedef {"text" | "image"} PdfMode
  */
 
@@ -131,6 +132,18 @@ export async function downloadPng(model, paper, deps) {
 }
 
 /**
+ * Export a document's ground truth as a JSON download.
+ * @param {Record<string, any>} annotations - Payload from `buildAnnotations`.
+ * @param {string} filenameBase - Filename stem, matching the page's other exports.
+ * @param {ExportDeps} deps - Injected library accessors and DOM injection points.
+ * @returns {void}
+ */
+export function downloadJson(annotations, filenameBase, deps) {
+  const blob = new Blob([annotationsToJson(annotations)], { type: "application/json" });
+  triggerDownload(blob, `${filenameBase}.json`, deps);
+}
+
+/**
  * Expand the batch selection into the full list of documents to generate.
  * @param {{
  *   docTypeIds: string[],
@@ -169,28 +182,120 @@ export function planBatch({
 }
 
 /**
+ * Rough compressed size of one document, per artefact, in bytes.
+ *
+ * Measured from real runs and deliberately generous. The point is not accuracy
+ * to the byte, it is that a 500-page PNG batch is generated and zipped entirely
+ * in the browser, and someone will ask for one. A number beside the button is a
+ * far better experience than a tab that stops responding.
+ */
+const BYTES_PER_DOCUMENT = {
+  png: 900_000,
+  pdfText: 16_000,
+  pdfImage: 1_000_000,
+  json: 1_400,
+  jsonRegions: 5_000,
+  jsonWords: 30_000
+};
+
+/**
+ * Estimate the compressed size of a batch before it runs.
+ * @param {{
+ *   boxes?: boolean,
+ *   count: number,
+ *   format: BatchFormat,
+ *   groundTruth?: boolean,
+ *   pdfMode: PdfMode,
+ *   words?: boolean
+ * }} options - The settings the batch would run under.
+ * @returns {number} Estimated archive size in bytes.
+ */
+export function estimateBatchBytes({ boxes = false, count, format, groundTruth = false, pdfMode, words = false }) {
+  let perDocument = 0;
+
+  if (format === "png" || format === "both") {
+    perDocument += BYTES_PER_DOCUMENT.png;
+  }
+
+  if (format === "pdf" || format === "both") {
+    perDocument += pdfMode === "image" ? BYTES_PER_DOCUMENT.pdfImage : BYTES_PER_DOCUMENT.pdfText;
+  }
+
+  if (groundTruth || format === "json") {
+    // Counted twice on purpose: every sidecar is written both as its own file
+    // and as a line of manifest.jsonl.
+    const perSidecar =
+      BYTES_PER_DOCUMENT.json +
+      (boxes ? BYTES_PER_DOCUMENT.jsonRegions : 0) +
+      (boxes && words ? BYTES_PER_DOCUMENT.jsonWords : 0);
+    perDocument += perSidecar * 2;
+  }
+
+  return count * perDocument;
+}
+
+/**
+ * Render a byte count the way a download prompt would.
+ * @param {number} bytes - Size in bytes.
+ * @returns {string} Human-readable size, for example `1.4 MB`.
+ */
+export function formatBytes(bytes) {
+  if (bytes < 1_000_000) {
+    return `${Math.max(1, Math.round(bytes / 1_000))} KB`;
+  }
+
+  if (bytes < 1_000_000_000) {
+    return `${(bytes / 1_000_000).toFixed(bytes < 10_000_000 ? 1 : 0)} MB`;
+  }
+
+  return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
+}
+
+/**
  * Generate a batch of documents and hand back a foldered ZIP.
  *
  * Text PDFs skip the DOM entirely, which is why they are so much faster than
  * the raster paths: nothing is rendered or rasterised, jsPDF writes straight
- * from the model.
+ * from the model. `json` is faster still, because it skips both renderers, and
+ * it is the right format for anyone iterating on an evaluation script rather
+ * than on the pages themselves.
+ *
+ * When ground truth is on, each document gets a sidecar next to it and the run
+ * also writes `manifest.jsonl` and `README.txt` at the archive root. The
+ * manifest exists because tooling that streams a dataset wants one file to
+ * read, not five hundred to glob; the README exists so a ZIP found in a
+ * downloads folder months later still explains its own schema and settings.
  * @param {{
+ *   annotate?: (model: DocumentModel) => Record<string, any>,
  *   deps: ExportDeps,
  *   format: BatchFormat,
  *   onProgress?: (progress: { done: number, phase: string, total: number }) => void,
  *   paper: HTMLElement,
  *   pdfMode: PdfMode,
  *   plan: ReturnType<typeof planBatch>,
+ *   readme?: { boxes: boolean, words: boolean },
  *   renderPreview: (item: { docTypeId: string, seed: number, style: string, vendorId: string }) => DocumentModel
  * }} options - Batch inputs.
  * @returns {Promise<{ blob: Blob, count: number }>} The archive and how many documents it holds.
  */
-export async function runBatch({ deps, format, onProgress = () => {}, paper, pdfMode, plan, renderPreview }) {
+export async function runBatch({
+  annotate,
+  deps,
+  format,
+  onProgress = () => {},
+  paper,
+  pdfMode,
+  plan,
+  readme = { boxes: false, words: false },
+  renderPreview
+}) {
   const JsZip = deps.getJsZip();
   const zip = new JsZip();
   const wantsPng = format === "png" || format === "both";
   const wantsPdf = format === "pdf" || format === "both";
   const wantsCanvas = wantsPng || (wantsPdf && pdfMode === "image");
+  /** @type {Record<string, any>[]} */
+  const manifest = [];
   let done = 0;
 
   for (const item of plan) {
@@ -215,8 +320,31 @@ export async function runBatch({ deps, format, onProgress = () => {}, paper, pdf
       }
     }
 
+    if (annotate) {
+      // Measured after any capture, so the sidecar describes the same paper the
+      // PNG was taken from rather than a page that has since been re-rendered.
+      const payload = annotate(model);
+      manifest.push(payload);
+      zip.file(`${base}.json`, annotationsToJson(payload));
+    }
+
     done += 1;
     onProgress({ done, total: plan.length, phase: "generating" });
+  }
+
+  if (annotate) {
+    zip.file("manifest.jsonl", annotationsToJsonl(manifest));
+    zip.file(
+      "README.txt",
+      datasetReadme({
+        boxes: readme.boxes,
+        count: plan.length,
+        format,
+        generatedAt: new Date().toISOString(),
+        pdfMode: wantsPdf ? pdfMode : "n/a",
+        words: readme.words
+      })
+    );
   }
 
   const blob = await zip.generateAsync(

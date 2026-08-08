@@ -12,10 +12,15 @@ import { initializeMatureApp } from "../../../js/modules/app-runtime.js";
 import { initAppShell, renderAppShell } from "../../../js/modules/app-shell.js";
 import { initSegmented } from "../../../js/modules/segmented.js";
 
+import { collectBoxes } from "./modules/annotate-boxes.js";
+import { buildAnnotations } from "./modules/annotations.js";
 import { buildDocument } from "./modules/document-model.js";
 import {
+  downloadJson,
   downloadPdf,
   downloadPng,
+  estimateBatchBytes,
+  formatBytes,
   planBatch,
   runBatch,
   triggerDownload
@@ -94,6 +99,12 @@ initializeMatureApp({
     const batchCountOut = byId("vdBatchCountOut");
     const allTypes = inputById("vdAllTypes");
     const allVendors = inputById("vdAllVendors");
+    const groundTruth = inputById("vdGroundTruth");
+    const boxesToggle = inputById("vdBoxes");
+    const wordBoxes = inputById("vdWordBoxes");
+    const wordBoxesLabel = byId("vdWordBoxesLabel");
+    const groundTruthNote = byId("vdGroundTruthNote");
+    const batchEstimate = byId("vdBatchEstimate");
     const paper = byId("vdPaper");
     const paperScale = byId("vdPaperScale");
     const paperFrame = byId("vdPaperFrame");
@@ -276,6 +287,74 @@ initializeMatureApp({
     }
 
     /**
+     * Build the ground-truth sidecar for a rendered document.
+     *
+     * Boxes are measured off the live paper element, so this has to be called
+     * while that element still holds the document being described.
+     * @param {ReturnType<typeof buildDocument>} model - Document on the paper.
+     * @returns {Record<string, any>} The sidecar payload.
+     */
+    function annotate(model) {
+      const boxes = boxesToggle.checked
+        ? collectBoxes(paper, { words: wordBoxes.checked })
+        : null;
+      return buildAnnotations(model, boxes);
+    }
+
+    /**
+     * Keep the ground-truth controls consistent and say what they will produce.
+     *
+     * The box toggle is not disabled for a text-PDF batch, because the PNG of
+     * the same run is still described correctly. It says so instead, and every
+     * payload repeats it in `boxes_apply_to`, so nobody has to remember which
+     * export the coordinates belong to.
+     * @returns {void}
+     */
+    function syncGroundTruth() {
+      const enabled = groundTruth.checked;
+      boxesToggle.disabled = !enabled;
+      wordBoxes.disabled = !enabled || !boxesToggle.checked;
+      wordBoxesLabel.classList.toggle("is-disabled", wordBoxes.disabled);
+
+      if (!enabled) {
+        groundTruthNote.textContent = "Exports are pages only. No labels are written.";
+        return;
+      }
+
+      if (boxesToggle.checked && batchFormatSelect.value === "pdf" && pdfModeSelect.value === "text") {
+        groundTruthNote.textContent =
+          "Boxes are measured on the rendered page, so they match the PNG and the rasterised PDF, not the text-layer PDF.";
+        return;
+      }
+
+      groundTruthNote.textContent = boxesToggle.checked
+        ? "Each labelled value also carries its box, in normalised page coordinates."
+        : "Every page ships with a JSON sidecar naming what each printed value is.";
+    }
+
+    /**
+     * Show what the current batch settings would download.
+     * @returns {void}
+     */
+    function syncEstimate() {
+      const perCombination = Number(batchCount.value);
+      const count =
+        perCombination *
+        (allVendors.checked ? VENDORS.length : 1) *
+        (allTypes.checked ? DOCUMENT_TYPES.length : 1);
+      const bytes = estimateBatchBytes({
+        boxes: boxesToggle.checked,
+        count,
+        format: /** @type {import("./modules/exporters.js").BatchFormat} */ (batchFormatSelect.value),
+        groundTruth: groundTruth.checked,
+        pdfMode: /** @type {import("./modules/exporters.js").PdfMode} */ (pdfModeSelect.value),
+        words: wordBoxes.checked
+      });
+
+      batchEstimate.textContent = `${count} documents, roughly ${formatBytes(bytes)}.`;
+    }
+
+    /**
      * Move the batch progress meter.
      * @param {number} fraction - Completion between 0 and 1.
      * @returns {void}
@@ -319,26 +398,68 @@ initializeMatureApp({
 
     batchCount.addEventListener("input", () => {
       batchCountOut.textContent = batchCount.value;
+      syncEstimate();
     });
+
+    for (const control of [groundTruth, boxesToggle, wordBoxes]) {
+      control.addEventListener("change", () => {
+        syncGroundTruth();
+        syncEstimate();
+      });
+    }
+
+    for (const control of [batchFormatSelect, pdfModeSelect]) {
+      control.addEventListener("change", () => {
+        syncGroundTruth();
+        syncEstimate();
+      });
+    }
+
+    for (const control of [allTypes, allVendors]) {
+      control.addEventListener("change", syncEstimate);
+    }
+
+    /**
+     * Write the sidecar alongside a page export, when labelling is on.
+     * @returns {void}
+     */
+    function alsoDownloadGroundTruth() {
+      if (groundTruth.checked) {
+        downloadJson(annotate(currentModel), currentModel.filenameBase, exportDeps);
+      }
+    }
 
     const downloadPdfButton = buttonById("vdDownloadPdf");
     downloadPdfButton.addEventListener("click", () => {
       void withBusyButton(downloadPdfButton, "Rendering...", () =>
-        atActualSize(() =>
-          downloadPdf(
+        atActualSize(async () => {
+          await downloadPdf(
             currentModel,
             /** @type {import("./modules/exporters.js").PdfMode} */ (pdfModeSelect.value),
             paper,
             exportDeps
-          )
-        )
+          );
+          alsoDownloadGroundTruth();
+        })
       );
     });
 
     const downloadPngButton = buttonById("vdDownloadPng");
     downloadPngButton.addEventListener("click", () => {
       void withBusyButton(downloadPngButton, "Rendering...", () =>
-        atActualSize(() => downloadPng(currentModel, paper, exportDeps))
+        atActualSize(async () => {
+          await downloadPng(currentModel, paper, exportDeps);
+          alsoDownloadGroundTruth();
+        })
+      );
+    });
+
+    const downloadJsonButton = buttonById("vdDownloadJson");
+    downloadJsonButton.addEventListener("click", () => {
+      void withBusyButton(downloadJsonButton, "Measuring...", async () =>
+        atActualSize(async () => {
+          downloadJson(annotate(currentModel), currentModel.filenameBase, exportDeps);
+        })
       );
     });
 
@@ -355,13 +476,17 @@ initializeMatureApp({
         batchStatus.textContent = `Generating ${plan.length} documents...`;
         const startedAt = Date.now();
 
+        const labelled = groundTruth.checked || batchFormatSelect.value === "json";
+
         const { blob, count } = await atActualSize(() =>
           runBatch({
+            annotate: labelled ? annotate : undefined,
             deps: exportDeps,
             format: /** @type {import("./modules/exporters.js").BatchFormat} */ (batchFormatSelect.value),
             paper,
             pdfMode: /** @type {import("./modules/exporters.js").PdfMode} */ (pdfModeSelect.value),
             plan,
+            readme: { boxes: boxesToggle.checked, words: wordBoxes.checked },
             onProgress: ({ done, total, phase }) => {
               setProgress(done / total);
               batchStatus.textContent = `${phase} ${done} of ${total}`;
@@ -384,6 +509,8 @@ initializeMatureApp({
     });
 
     syncLayoutAvailability();
+    syncGroundTruth();
+    syncEstimate();
     draw();
   }
 });

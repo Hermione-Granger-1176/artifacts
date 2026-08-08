@@ -36,6 +36,12 @@ export function makeElement(id) {
     id,
     hidden: false,
     disabled: false,
+    // Layout geometry a caller can overwrite when a test needs a measured
+    // element; zero everywhere else, the way a detached node measures.
+    offsetWidth: 0,
+    offsetHeight: 0,
+    rect: { left: 0, top: 0, width: 0, height: 0 },
+    getBoundingClientRect() { return this.rect; },
     textContent: '',
     value: '10',
     className: '',

@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { buildAnnotations } from '../../../../apps/vendor-docs-generator/js/modules/annotations.js';
 import { buildDocument } from '../../../../apps/vendor-docs-generator/js/modules/document-model.js';
 import {
   buildPdf,
   canvasToPdf,
   capturePaper,
+  downloadJson,
   downloadPdf,
   downloadPng,
+  estimateBatchBytes,
+  formatBytes,
   planBatch,
   runBatch,
   triggerDownload
@@ -288,4 +292,121 @@ test('runBatch tolerates a caller that supplies no progress callback', async () 
   });
 
   assert.equal(result.count, 1);
+});
+
+test('downloadJson writes an indented sidecar under the page filename', () => {
+  const host = createDownloadHost();
+  const payload = buildAnnotations(model());
+  downloadJson(payload, 'apex_invoice_4242', {
+    documentObj: host.documentObj,
+    windowObj: host.windowObj
+  });
+
+  assert.equal(host.anchors[0].download, 'apex_invoice_4242.json');
+  assert.equal(host.anchors[0].href, 'blob:fake-url');
+});
+
+test('a labelled batch writes a sidecar per page plus a manifest and a README', async () => {
+  const { deps, zip } = createExportDeps();
+  const plan = [
+    { vendorId: 'apex', docTypeId: 'invoice', seed: 1000, style: 'clean' },
+    { vendorId: 'verde', docTypeId: 'receipt', seed: 2000, style: 'clean' }
+  ];
+
+  await runBatch({
+    annotate: (built) => buildAnnotations(built),
+    deps,
+    format: 'json',
+    paper: createFakeElement('article'),
+    pdfMode: 'text',
+    plan,
+    readme: { boxes: true, words: false },
+    renderPreview: (item) => buildDocument({ ...item, today: TODAY })
+  });
+
+  const files = zip.archives[0].files;
+  assert.deepEqual(
+    [...files.keys()],
+    [
+      'apex/invoice/apex_invoice_1000.json',
+      'verde/receipt/verde_receipt_2000.json',
+      'manifest.jsonl',
+      'README.txt'
+    ],
+    'JSON only skips both renderers entirely'
+  );
+
+  const manifest = files.get('manifest.jsonl').data.trim().split('\n');
+  assert.equal(manifest.length, 2);
+  assert.deepEqual(
+    manifest.map((line) => JSON.parse(line).filename_base),
+    ['apex_invoice_1000', 'verde_receipt_2000']
+  );
+
+  const readme = files.get('README.txt').data;
+  assert.ok(readme.includes('Documents: 2'));
+  assert.ok(readme.includes('Format:    json'));
+  assert.ok(readme.includes('region level'));
+  assert.ok(readme.includes('PDF mode:  n/a'), 'a JSON run has no PDF mode to report');
+});
+
+test('an unlabelled batch writes no manifest and no README', async () => {
+  const { files } = await runFixture({ format: 'pdf', pdfMode: 'text' });
+
+  assert.ok(!files.includes('manifest.jsonl'));
+  assert.ok(!files.includes('README.txt'));
+});
+
+test('labelling a raster batch records the PDF mode the pages were made in', async () => {
+  const { deps, zip } = createExportDeps();
+
+  await runBatch({
+    annotate: (built) => buildAnnotations(built),
+    deps,
+    format: 'pdf',
+    paper: createFakeElement('article'),
+    pdfMode: 'image',
+    plan: [{ vendorId: 'apex', docTypeId: 'invoice', seed: 5, style: 'clean' }],
+    renderPreview: (item) => buildDocument({ ...item, today: TODAY })
+  });
+
+  assert.ok(zip.archives[0].files.get('README.txt').data.includes('PDF mode:  image'));
+});
+
+test('the batch estimate scales with what the run actually writes', () => {
+  const base = { count: 100, format: 'pdf', pdfMode: 'text' };
+
+  const textOnly = estimateBatchBytes(base);
+  const rasterOnly = estimateBatchBytes({ ...base, pdfMode: 'image' });
+  assert.ok(rasterOnly > textOnly * 10, 'a rasterised page dwarfs a text one');
+
+  const withPng = estimateBatchBytes({ ...base, format: 'both' });
+  assert.ok(withPng > textOnly);
+
+  const labelled = estimateBatchBytes({ ...base, groundTruth: true });
+  const boxed = estimateBatchBytes({ ...base, groundTruth: true, boxes: true });
+  const worded = estimateBatchBytes({ ...base, groundTruth: true, boxes: true, words: true });
+  assert.ok(labelled > textOnly);
+  assert.ok(boxed > labelled);
+  assert.ok(worded > boxed);
+
+  assert.equal(
+    estimateBatchBytes({ ...base, boxes: true, words: true }),
+    textOnly,
+    'box settings cost nothing when no labels are written'
+  );
+  assert.ok(
+    estimateBatchBytes({ ...base, format: 'json' }) > 0,
+    'a JSON-only run is labelled whether or not the toggle says so'
+  );
+  assert.equal(estimateBatchBytes({ ...base, count: 0 }), 0);
+});
+
+test('sizes read the way a download prompt writes them', () => {
+  assert.equal(formatBytes(0), '1 KB');
+  assert.equal(formatBytes(16_000), '16 KB');
+  assert.equal(formatBytes(999_000), '999 KB');
+  assert.equal(formatBytes(1_400_000), '1.4 MB');
+  assert.equal(formatBytes(90_000_000), '90 MB');
+  assert.equal(formatBytes(2_500_000_000), '2.5 GB');
 });

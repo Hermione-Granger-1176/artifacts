@@ -6,6 +6,28 @@
 
 The source artifact had two parallel implementations of every layout: one building HTML strings for the preview, one driving jsPDF for the text export. They had already drifted. Rather than port both, `buildDocument` now emits a typed block list that both renderers walk. Adding a document type means adding one builder, not two.
 
+### Facts are recorded, not reconstructed
+
+The obvious way to emit ground truth is to parse it back out of the rendered blocks. That would be a second implementation of every layout's meaning, which is exactly the duplication the one-model decision above exists to avoid, and it would silently start lying the day a builder changed a label. Instead every builder returns the structured values it already had, and `annotations.js` formats them. The sidecar and the page come from the same numbers or the build fails.
+
+The same reasoning drives the `data-field` attribute rather than matching printed text in the annotator: the renderer knows what each node is, so it says so, and `annotate-boxes.js` stays a pure measurement pass with no layout knowledge at all.
+
+### A field is null exactly when the page prints nothing
+
+An extractor scored against a field that is not on the page is being punished for being right. So `facts` carries a property only when the document actually shows the thing: a clean invoice records no `buyerPhone` even though `buildBuyer` computed one, and a challan records `itemsPriced: false` even though `buildItems` priced every row.
+
+The other half of the rule is that the key still appears, as an explicit `null`. Without that a consumer cannot tell "no PO number on this document" from "the generator has no idea about PO numbers", and those mean very different things when you are computing recall.
+
+### Boxes are normalised, and one region per node
+
+Pixel boxes would be wrong the moment anything scaled: the preview applies a CSS transform to fit the frame, and `capturePaper` rasterises at 2x. Normalising against the page's own rect makes both cancel out, and a consumer multiplies by whatever image dimensions they actually have.
+
+A field printed in more than one place gets more than one region rather than a merged box. A two-line address occupies two boxes with a gap between them, and a box drawn around both would claim ink in the gap. The thin logo lockup is the same case: the vendor name is split across two spans, so it is two regions, because there is genuinely no single box on that page containing the whole name.
+
+### Ground truth is a card, not a disclosure
+
+The rail was already three cards and this adds a fourth, which the plan for this work suggested collapsing behind an "Advanced" disclosure to keep the default view calm. It is a plain card instead. Labelled output is the reason to use this app rather than any of the several existing invoice generators; hiding the controls for it would be hiding the headline.
+
 ### Vendor brand colours stay literal
 
 `css/app.css` is fully token-derived, as the repo requires. The six vendor accents in `vendors.js` are raw hex, on purpose: they are the content of a generated document, not app chrome. Mapping them onto the shared bookmark-note palette would make all six businesses look like the same design system, which is exactly what makes a sample set useless for training an extractor to cope with visual variety. They reach the page through CSS custom properties, so no colour literal ever enters a stylesheet.

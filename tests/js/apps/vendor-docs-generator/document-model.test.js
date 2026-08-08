@@ -11,6 +11,7 @@ import {
   shippingCharge,
   vendorSalt
 } from '../../../../apps/vendor-docs-generator/js/modules/document-model.js';
+import { formatMoney } from '../../../../apps/vendor-docs-generator/js/modules/format.js';
 import { DOCUMENT_TYPES, TAX_RATE, VENDORS } from '../../../../apps/vendor-docs-generator/js/modules/vendors.js';
 
 const TODAY = new Date(2026, 5, 15);
@@ -582,4 +583,98 @@ test('buildDocument defaults to the current date when none is supplied', () => {
   const model = buildDocument({ docTypeId: 'invoice', seed: 12, vendorId: 'apex' });
   const issued = new Date(Object.fromEntries(blockOf(model, 'parties').meta).Date);
   assert.ok(issued <= new Date());
+});
+
+test('every builder records the facts behind what it printed', () => {
+  for (const type of DOCUMENT_TYPES) {
+    for (const style of type.id === 'invoice' ? ['clean', 'dense'] : ['clean']) {
+      const model = buildDocument({
+        docTypeId: type.id,
+        seed: 8_811,
+        style,
+        today: TODAY,
+        vendorId: 'apex'
+      });
+      const where = `${type.id}/${style}`;
+
+      assert.ok(model.facts, `${where} recorded no facts`);
+      assert.ok(model.facts.documentNumber, `${where} recorded no document number`);
+      assert.ok(model.facts.documentDate instanceof Date, `${where} document date`);
+      assert.equal(model.facts.buyer.name, buildBuyer(8_811).name, `${where} buyer`);
+    }
+  }
+});
+
+test('the recorded document number is the one the page prints', () => {
+  for (const type of DOCUMENT_TYPES) {
+    const model = buildDocument({ docTypeId: type.id, seed: 3_003, today: TODAY, vendorId: 'nimbus' });
+    const printed = model.blocks
+      .flatMap((block) => (block.kind === 'parties' ? block.meta : []))
+      .find(([, , field]) => field === 'document_number');
+
+    assert.ok(printed, `${type.id} should label its document number on the page`);
+    assert.equal(printed[1], model.facts.documentNumber);
+  }
+});
+
+test('the dense invoice records the shipping it added to the printed total', () => {
+  // The table footer totals the line items; only the summary carries shipping.
+  // Recording the pre-shipping total would put a number in the sidecar that
+  // does not appear anywhere on the page.
+  for (let seed = 1_000; seed < 1_060; seed += 7) {
+    const model = buildDocument({
+      docTypeId: 'invoice',
+      seed,
+      style: 'dense',
+      today: TODAY,
+      vendorId: 'apex'
+    });
+    const printed = model.blocks
+      .flatMap((block) => (block.kind === 'totals' ? block.rows : []))
+      .find(([, , field]) => field === 'grand_total');
+
+    assert.equal(printed[1], formatMoney(model.facts.totals.grand));
+    assert.equal(
+      Math.round(model.facts.totals.grand * 100),
+      Math.round((model.facts.totals.subtotal + model.facts.totals.tax + model.facts.shipping) * 100)
+    );
+  }
+});
+
+test('only the documents that print a fact record it', () => {
+  const dense = buildDocument({
+    docTypeId: 'invoice',
+    seed: 42,
+    style: 'dense',
+    today: TODAY,
+    vendorId: 'apex'
+  });
+  const clean = buildDocument({ docTypeId: 'invoice', seed: 42, today: TODAY, vendorId: 'apex' });
+
+  assert.ok(dense.facts.vendorCompanyReg, 'the dense key grid prints the registration');
+  assert.equal(clean.facts.vendorCompanyReg, undefined, 'a clean invoice does not');
+  assert.ok(dense.facts.buyerPhone);
+  assert.equal(clean.facts.buyerPhone, undefined);
+
+  const challan = buildDocument({ docTypeId: 'challan', seed: 42, today: TODAY, vendorId: 'apex' });
+  assert.equal(challan.facts.itemsPriced, false, 'a challan prints no prices');
+  assert.equal(challan.facts.totals, undefined);
+});
+
+test('the statement ledger is recorded as rows, not as formatted cells', () => {
+  const model = buildDocument({ docTypeId: 'statement', seed: 909, today: TODAY, vendorId: 'harbor' });
+  const [opening, ...movements] = model.facts.transactions;
+
+  assert.equal(opening.description, 'Balance brought forward');
+  assert.equal(opening.charge, null);
+  assert.equal(opening.payment, null);
+  assert.equal(movements.length, 6);
+
+  for (const entry of movements) {
+    assert.ok(entry.date instanceof Date);
+    assert.ok(entry.charge === null || entry.payment === null, 'a row is one or the other');
+    assert.ok(entry.balance >= 0);
+  }
+
+  assert.equal(model.facts.balanceDue, model.facts.transactions.at(-1).balance);
 });

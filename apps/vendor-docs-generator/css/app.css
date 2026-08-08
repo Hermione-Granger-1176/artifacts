@@ -138,6 +138,16 @@ body.app-vendor-docs-generator .vd-check input {
   cursor: pointer;
 }
 
+body.app-vendor-docs-generator .vd-check.is-disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+body.app-vendor-docs-generator .vd-estimate {
+  margin-bottom: 0;
+  text-align: center;
+}
+
 body.app-vendor-docs-generator .segmented.is-disabled {
   opacity: 0.45;
 }

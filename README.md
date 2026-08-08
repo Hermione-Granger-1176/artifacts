@@ -19,6 +19,8 @@
 <img src="https://img.shields.io/badge/Education-F39C12?style=flat-square" alt="Education">&nbsp;
 <img src="https://img.shields.io/badge/AI-A0C8E8?style=flat-square" alt="AI">&nbsp;
 <img src="https://img.shields.io/badge/LLM-E8C8A0?style=flat-square" alt="LLM">&nbsp;
+<img src="https://img.shields.io/badge/Dataset-E8C8A0?style=flat-square" alt="Dataset">&nbsp;
+<img src="https://img.shields.io/badge/Ocr-E8C8A0?style=flat-square" alt="Ocr">&nbsp;
 <img src="https://img.shields.io/badge/Sampling-E8C8A0?style=flat-square" alt="Sampling">&nbsp;
 <img src="https://img.shields.io/badge/Tokenization-F5E6A3?style=flat-square" alt="Tokenization">
 <!-- AUTO:TAG_BADGES_END -->

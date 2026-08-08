@@ -128,6 +128,23 @@ export function formatDate(date) {
 }
 
 /**
+ * Format a date as a calendar date in ISO 8601.
+ *
+ * This is the machine-readable half of every printed date in the ground-truth
+ * sidecar. `toISOString` is deliberately not used: it converts to UTC first, so
+ * a date built in a timezone behind UTC comes back as the previous day and the
+ * annotation would disagree with the page. Reading the local calendar fields is
+ * the only way the two stay in step.
+ * @param {Date} date - Date to format.
+ * @returns {string} Date as `YYYY-MM-DD`.
+ */
+export function isoDate(date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/**
  * Shift a date by a whole number of days.
  * @param {Date} date - Starting date.
  * @param {number} days - Days to add; negative values move backwards.

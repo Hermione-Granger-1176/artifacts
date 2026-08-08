@@ -33,17 +33,23 @@ import { TAX_RATE, catalogFor, findDocumentType, findVendor } from "./vendors.js
  * @typedef {"left" | "center" | "right"} Align
  * @typedef {{ align: Align, label: string, width?: number }} Column
  *
+ * A printed label, the value beside it, and optionally the ground-truth field
+ * that value belongs to. The third slot is what lets the paper renderer stamp
+ * `data-field` onto the node without knowing anything about the schema, and
+ * what keeps the box annotations and the JSON sidecar naming one thing once.
+ * @typedef {[label: string, value: string, field?: string]} LabelledValue
+ *
  * @typedef {{ kind: "stamp", text: string }} StampBlock
- * @typedef {{ kind: "parties", label: string, lines: string[], meta: [string, string][] }} PartiesBlock
- * @typedef {{ kind: "keygrid", columns: [string, string][][] }} KeyGridBlock
- * @typedef {{ kind: "partypair", headings: [string, string], columns: [string[], string[]] }} PartyPairBlock
- * @typedef {{ kind: "table", columns: Column[], rows: string[][], footer?: string[], dense?: boolean }} TableBlock
- * @typedef {{ kind: "totals", rows: [string, string][], emphasisIndex: number }} TotalsBlock
+ * @typedef {{ kind: "parties", label: string, lineFields?: (string | null)[], lines: string[], meta: LabelledValue[] }} PartiesBlock
+ * @typedef {{ kind: "keygrid", columns: LabelledValue[][] }} KeyGridBlock
+ * @typedef {{ kind: "partypair", columnFields?: (string | null)[][], columns: [string[], string[]], headings: [string, string] }} PartyPairBlock
+ * @typedef {{ kind: "table", columns: Column[], dense?: boolean, fields?: (string | null)[], footer?: string[], rowScope?: string, rows: string[][] }} TableBlock
+ * @typedef {{ kind: "totals", emphasisIndex: number, rows: LabelledValue[] }} TotalsBlock
  * @typedef {{ kind: "words", text: string }} WordsBlock
  * @typedef {{ kind: "note", text: string, tone: "plain" | "accent" }} NoteBlock
  * @typedef {{ kind: "callout", text: string }} CalloutBlock
- * @typedef {{ kind: "chips", items: [string, string][] }} ChipsBlock
- * @typedef {{ kind: "banner", label: string, value: string }} BannerBlock
+ * @typedef {{ kind: "chips", items: LabelledValue[] }} ChipsBlock
+ * @typedef {{ kind: "banner", field?: string, label: string, value: string }} BannerBlock
  * @typedef {{ kind: "signatures", labels: [string, string] }} SignaturesBlock
  * @typedef {{ kind: "signoff", text: string }} SignoffBlock
  *
@@ -51,12 +57,65 @@ import { TAX_RATE, catalogFor, findDocumentType, findVendor } from "./vendors.js
  *   | TotalsBlock | WordsBlock | NoteBlock | CalloutBlock | ChipsBlock | BannerBlock
  *   | SignaturesBlock | SignoffBlock} DocumentBlock
  *
+ * @typedef {{ balance: number, charge: number | null, date: Date, description: string, payment: number | null, reference: string }} LedgerEntry
+ * @typedef {{ grand: number, subtotal: number, tax: number, taxRate: number }} Totals
+ *
+ * The structured truth a builder had in hand before it stringified anything.
+ *
+ * Every property beyond `buyer`, `documentDate` and `documentNumber` is
+ * optional because document types genuinely differ: a delivery challan has no
+ * totals and a statement has no line items. `annotations.js` turns an absent
+ * property into an explicit `null` in the sidecar, so a consumer can always
+ * tell "this document has no due date" from "the generator forgot to record
+ * one".
+ * A property is set only when the document actually prints the thing. That is
+ * the whole contract: `buyer_phone` is null on a clean invoice because a clean
+ * invoice does not show one, and an extractor scored against this file is
+ * therefore never penalised for failing to read something that is not there.
+ * @typedef {{
+ *   againstInvoice?: string,
+ *   amountPaid?: number,
+ *   balanceDue?: number,
+ *   buyer: Buyer,
+ *   buyerContact?: string,
+ *   buyerPhone?: string,
+ *   documentDate: Date,
+ *   documentNumber: string,
+ *   dueDate?: Date,
+ *   items?: LineItem[],
+ *   itemsPriced?: boolean,
+ *   lineProductCodes?: string[],
+ *   lineRemarks?: string[],
+ *   lineSkus?: string[],
+ *   lineTaxes?: number[],
+ *   orderDate?: Date,
+ *   orderNumber?: string,
+ *   packageCount?: number,
+ *   paymentMethod?: string,
+ *   paymentTerms?: string,
+ *   periodEnd?: Date,
+ *   periodStart?: Date,
+ *   poNumber?: string,
+ *   reason?: string,
+ *   reference?: string,
+ *   shipping?: number,
+ *   totalQuantity?: number,
+ *   totals?: Totals,
+ *   transactions?: LedgerEntry[],
+ *   validUntil?: Date,
+ *   vehicleNumber?: string,
+ *   vendorCompanyReg?: string
+ * }} DocumentFacts
+ *
+ * @typedef {{ blocks: DocumentBlock[], facts: DocumentFacts, title?: string, variantId?: string }} BuiltDocument
+ *
  * @typedef {{
  *   blocks: DocumentBlock[],
  *   dense: boolean,
  *   docTypeId: string,
  *   docTypeLabel: string,
  *   docVariantId: string,
+ *   facts: DocumentFacts,
  *   filenameBase: string,
  *   footer: string,
  *   seed: number,
@@ -380,6 +439,39 @@ function pricedColumns() {
 }
 
 /**
+ * Ground-truth field for each column of the standard priced table.
+ *
+ * `null` marks a column that carries no extractable fact: the row number is an
+ * artefact of the layout, not something a parser should be scored on.
+ * @type {(string | null)[]}
+ */
+const PRICED_FIELDS = [null, "description", "quantity", "unit", "unit_price", "amount"];
+
+/**
+ * The buying party's address block, paired with the field each line belongs to.
+ *
+ * The renderer stamps these onto the individual line elements, so a two-line
+ * address produces two `buyer_address` regions rather than one box stretched
+ * over the gap between them.
+ * @param {Buyer} buyer - Buyer to render.
+ * @param {string} [trailing] - Optional last line, such as a contact or phone.
+ * @param {string} [trailingField] - Ground-truth field for that last line.
+ * @returns {{ lineFields: (string | null)[], lines: string[] }} Lines and their fields.
+ */
+function buyerBlock(buyer, trailing, trailingField) {
+  const lines = [buyer.name, ...buyer.lines];
+  /** @type {(string | null)[]} */
+  const lineFields = ["buyer_name", ...buyer.lines.map(() => "buyer_address")];
+
+  if (trailing !== undefined) {
+    lines.push(trailing);
+    lineFields.push(trailingField ?? null);
+  }
+
+  return { lines, lineFields };
+}
+
+/**
  * Turn line items into priced table rows.
  * @param {LineItem[]} items - Line items to render.
  * @returns {string[][]} Row cells as display strings.
@@ -404,9 +496,9 @@ function totalsBlock(totals) {
   return {
     kind: "totals",
     rows: [
-      ["Subtotal", formatMoney(totals.subtotal)],
-      [`Sales tax (${formatRate(totals.taxRate)})`, formatMoney(totals.tax)],
-      ["TOTAL", formatMoney(totals.grand)]
+      ["Subtotal", formatMoney(totals.subtotal), "subtotal"],
+      [`Sales tax (${formatRate(totals.taxRate)})`, formatMoney(totals.tax), "tax_amount"],
+      ["TOTAL", formatMoney(totals.grand), "grand_total"]
     ],
     emphasisIndex: 2
   };
@@ -427,39 +519,58 @@ function totalsBlock(totals) {
 /**
  * Clean commercial invoice.
  * @param {BuildContext} context - Shared document context.
- * @returns {DocumentBlock[]} Blocks for the document body.
+ * @returns {BuiltDocument} Body blocks and the facts behind them.
  */
 function buildInvoice(context) {
   const items = buildItems(context.vendor.id, context.seed * 3 + vendorSalt(context.vendor.id), pickCount(context.seed, 3, 5));
   const totals = computeTotals(items);
   const due = addDays(context.baseDate, 30);
+  const documentNumber = `INV-${context.number}`;
 
-  return [
-    {
-      kind: "parties",
-      label: "Bill to",
-      lines: [context.buyer.name, ...context.buyer.lines, context.buyer.contact],
-      meta: [
-        ["Invoice #", `INV-${context.number}`],
-        ["Date", formatDate(context.baseDate)],
-        ["Due date", formatDate(due)],
-        ["Terms", "Net 30"]
-      ]
+  return {
+    facts: {
+      buyer: context.buyer,
+      buyerContact: context.buyer.contact,
+      documentDate: context.baseDate,
+      documentNumber,
+      dueDate: due,
+      items,
+      paymentTerms: "Net 30",
+      totals
     },
-    { kind: "table", columns: pricedColumns(), rows: pricedRows(items) },
-    totalsBlock(totals),
-    {
-      kind: "note",
-      tone: "accent",
-      text: `Please remit payment by the due date. Make checks payable to ${context.vendor.name}. Late payments are subject to 1.5% monthly interest.`
-    }
-  ];
+    blocks: [
+      {
+        kind: "parties",
+        label: "Bill to",
+        ...buyerBlock(context.buyer, context.buyer.contact, "buyer_contact"),
+        meta: [
+          ["Invoice #", documentNumber, "document_number"],
+          ["Date", formatDate(context.baseDate), "document_date"],
+          ["Due date", formatDate(due), "due_date"],
+          ["Terms", "Net 30", "payment_terms"]
+        ]
+      },
+      {
+        kind: "table",
+        columns: pricedColumns(),
+        fields: PRICED_FIELDS,
+        rowScope: "line_items",
+        rows: pricedRows(items)
+      },
+      totalsBlock(totals),
+      {
+        kind: "note",
+        tone: "accent",
+        text: `Please remit payment by the due date. Make checks payable to ${context.vendor.name}. Late payments are subject to 1.5% monthly interest.`
+      }
+    ]
+  };
 }
 
 /**
  * Dense line-level tax invoice, the layout heavy extraction pipelines choke on.
  * @param {BuildContext} context - Shared document context.
- * @returns {DocumentBlock[]} Blocks for the document body.
+ * @returns {BuiltDocument} Body blocks and the facts behind them.
  */
 function buildDenseInvoice(context) {
   const { vendor, buyer, seed, baseDate, number, random } = context;
@@ -477,12 +588,19 @@ function buildDenseInvoice(context) {
   const lineTaxes = computeLineTaxes(items);
   const shipping = shippingCharge(items, seed);
   const grand = roundCents(totals.grand + shipping);
+  const documentNumber = `INV-${number}`;
+  const dueDate = addDays(baseDate, 30);
+  const orderDate = addDays(baseDate, -6);
+  const skus = items.map(
+    (_item, index) => `${vendor.id.slice(0, 3).toUpperCase()}${padNumber(seed * 7 + index * 13, 6)}`
+  );
+  const productCodes = items.map((item) => productCode(item.desc));
 
   const rows = items.map((item, index) => [
     String(index + 1),
     item.desc,
-    `${vendor.id.slice(0, 3).toUpperCase()}${padNumber(seed * 7 + index * 13, 6)}`,
-    productCode(item.desc),
+    skus[index],
+    productCodes[index],
     String(item.qty),
     item.unit,
     formatMoney(item.price),
@@ -492,7 +610,7 @@ function buildDenseInvoice(context) {
     formatMoney(roundCents(item.amount + lineTaxes[index]))
   ]);
 
-  return [
+  const blocks = /** @type {DocumentBlock[]} */ ([
     {
       kind: "keygrid",
       columns: [
@@ -502,26 +620,26 @@ function buildDenseInvoice(context) {
           ["Supply type", "B2B"],
           ["Document type code", "Invoice"],
           ["Seller legal name", `${vendor.name} Inc.`],
-          ["Seller address", vendor.addr],
-          ["Seller tax ID", vendor.taxId],
+          ["Seller address", vendor.addr, "vendor_address"],
+          ["Seller tax ID", vendor.taxId, "vendor_tax_id"],
           ["Tax scheme", "US sales tax"],
           ["Currency", "USD"],
           ["Invoice type", "Regular"],
-          ["Payment terms", "Net 30"]
+          ["Payment terms", "Net 30", "payment_terms"]
         ],
         [
           // A company registration belongs to the seller, not to the seed. It
           // used to be derived from the seed alone, so all six vendors shared
           // one registration number.
-          ["Company reg", vendor.companyReg],
-          ["Order number", orderNumber],
-          ["Order date", formatDate(addDays(baseDate, -6))],
-          ["Support email", vendor.email],
-          ["Support phone", vendor.phone],
-          ["Invoice number", `INV-${number}`],
-          ["Invoice date", formatDate(baseDate)],
-          ["Due date", formatDate(addDays(baseDate, 30))],
-          ["Reference", reference]
+          ["Company reg", vendor.companyReg, "vendor_company_reg"],
+          ["Order number", orderNumber, "order_number"],
+          ["Order date", formatDate(orderDate), "order_date"],
+          ["Support email", vendor.email, "vendor_email"],
+          ["Support phone", vendor.phone, "vendor_phone"],
+          ["Invoice number", documentNumber, "document_number"],
+          ["Invoice date", formatDate(baseDate), "document_date"],
+          ["Due date", formatDate(dueDate), "due_date"],
+          ["Reference", reference, "reference"]
         ]
       ]
     },
@@ -531,6 +649,13 @@ function buildDenseInvoice(context) {
       columns: [
         [buyer.name, ...buyer.lines, `Contact: ${buyer.contact}`],
         [buyer.name, ...buyer.lines, `Tel: ${buyer.phone}`]
+      ],
+      // Only the receiver column is tagged. The consignee repeats the same
+      // party, and tagging both would put two regions with the same field on
+      // opposite sides of the page for one printed fact.
+      columnFields: [
+        ["buyer_name", ...buyer.lines.map(() => "buyer_address"), null],
+        [null, ...buyer.lines.map(() => null), null]
       ]
     },
     {
@@ -549,6 +674,20 @@ function buildDenseInvoice(context) {
         { label: "Tax amt", align: "right" },
         { label: "Item total", align: "right" }
       ],
+      fields: [
+        null,
+        "description",
+        "sku",
+        "product_code",
+        "quantity",
+        "unit",
+        "unit_price",
+        "amount",
+        "tax_rate",
+        "tax_amount",
+        "line_total"
+      ],
+      rowScope: "line_items",
       rows,
       // The table footer totals the line items. Shipping is not a line item, so
       // it joins below and only the totals block carries the grand total.
@@ -569,10 +708,10 @@ function buildDenseInvoice(context) {
     {
       kind: "totals",
       rows: [
-        ["Total assessable value", formatMoney(totals.subtotal)],
-        ["Total sales tax", formatMoney(totals.tax)],
-        ["Shipping and handling", formatMoney(shipping)],
-        ["Grand total", formatMoney(grand)]
+        ["Total assessable value", formatMoney(totals.subtotal), "subtotal"],
+        ["Total sales tax", formatMoney(totals.tax), "tax_amount"],
+        ["Shipping and handling", formatMoney(shipping), "shipping"],
+        ["Grand total", formatMoney(grand), "grand_total"]
       ],
       emphasisIndex: 3
     },
@@ -584,148 +723,237 @@ function buildDenseInvoice(context) {
     },
     { kind: "signoff", text: `For ${vendor.name} Inc.` },
     { kind: "signatures", labels: ["Authorised signatory", "Date"] }
-  ];
+  ]);
+
+  return {
+    blocks,
+    facts: {
+      buyer,
+      buyerContact: buyer.contact,
+      buyerPhone: buyer.phone,
+      documentDate: baseDate,
+      documentNumber,
+      dueDate,
+      items,
+      lineProductCodes: productCodes,
+      lineSkus: skus,
+      lineTaxes,
+      orderDate,
+      orderNumber,
+      paymentTerms: "Net 30",
+      reference,
+      shipping,
+      // The printed grand total includes shipping, which is not a line item, so
+      // the sidecar's `grand_total` has to include it too or the JSON and the
+      // page disagree about the one number a payer cares about.
+      totals: { ...totals, grand },
+      vendorCompanyReg: vendor.companyReg
+    }
+  };
 }
 
 /**
  * Payment receipt with a PAID stamp and a zero balance.
  * @param {BuildContext} context - Shared document context.
- * @returns {DocumentBlock[]} Blocks for the document body.
+ * @returns {BuiltDocument} Body blocks and the facts behind them.
  */
 function buildReceipt(context) {
   const items = buildItems(context.vendor.id, context.seed * 5 + vendorSalt(context.vendor.id), pickCount(context.seed, 2, 4));
   const totals = computeTotals(items);
+  const documentNumber = `RCP-${context.number}`;
+  const againstInvoice = `INV-${context.number}`;
+  const paymentMethod = pickFrom(PAYMENT_METHODS, context.seed);
 
-  return [
-    { kind: "stamp", text: "PAID" },
-    {
-      kind: "parties",
-      label: "Received from",
-      lines: [context.buyer.name, ...context.buyer.lines, context.buyer.contact],
-      meta: [
-        ["Receipt #", `RCP-${context.number}`],
-        ["Date", formatDate(context.baseDate)],
-        // One seed is one commercial event, so the receipt settles the invoice
-        // that same seed produces. It used to derive its own unrelated number,
-        // which meant no receipt in the corpus could ever be matched to an
-        // invoice in the corpus.
-        ["Against invoice", `INV-${context.number}`],
-        ["Method", pickFrom(PAYMENT_METHODS, context.seed)]
-      ]
+  return {
+    facts: {
+      againstInvoice,
+      amountPaid: totals.grand,
+      balanceDue: 0,
+      buyer: context.buyer,
+      buyerContact: context.buyer.contact,
+      documentDate: context.baseDate,
+      documentNumber,
+      items,
+      paymentMethod,
+      totals
     },
-    { kind: "table", columns: pricedColumns(), rows: pricedRows(items) },
-    {
-      // The subtotal and tax rows are not decoration. Without them the receipt
-      // jumped from a line-item table straight to an amount due that silently
-      // included 8.25%, so the printed lines never summed to the printed total.
-      kind: "totals",
-      rows: [
-        ["Subtotal", formatMoney(totals.subtotal)],
-        [`Sales tax (${formatRate(totals.taxRate)})`, formatMoney(totals.tax)],
-        ["Amount due", formatMoney(totals.grand)],
-        ["AMOUNT PAID", formatMoney(totals.grand)],
-        ["Balance due", formatMoney(0)]
-      ],
-      emphasisIndex: 3
-    },
-    {
-      kind: "note",
-      tone: "plain",
-      text: "Thank you for your payment. This receipt confirms funds received in full."
-    }
-  ];
+    blocks: [
+      { kind: "stamp", text: "PAID" },
+      {
+        kind: "parties",
+        label: "Received from",
+        ...buyerBlock(context.buyer, context.buyer.contact, "buyer_contact"),
+        meta: [
+          ["Receipt #", documentNumber, "document_number"],
+          ["Date", formatDate(context.baseDate), "document_date"],
+          // One seed is one commercial event, so the receipt settles the invoice
+          // that same seed produces. It used to derive its own unrelated number,
+          // which meant no receipt in the corpus could ever be matched to an
+          // invoice in the corpus.
+          ["Against invoice", againstInvoice, "against_invoice"],
+          ["Method", paymentMethod, "payment_method"]
+        ]
+      },
+      {
+        kind: "table",
+        columns: pricedColumns(),
+        fields: PRICED_FIELDS,
+        rowScope: "line_items",
+        rows: pricedRows(items)
+      },
+      {
+        // The subtotal and tax rows are not decoration. Without them the receipt
+        // jumped from a line-item table straight to an amount due that silently
+        // included 8.25%, so the printed lines never summed to the printed total.
+        kind: "totals",
+        rows: [
+          ["Subtotal", formatMoney(totals.subtotal), "subtotal"],
+          [`Sales tax (${formatRate(totals.taxRate)})`, formatMoney(totals.tax), "tax_amount"],
+          ["Amount due", formatMoney(totals.grand), "grand_total"],
+          ["AMOUNT PAID", formatMoney(totals.grand), "amount_paid"],
+          ["Balance due", formatMoney(0), "balance_due"]
+        ],
+        emphasisIndex: 3
+      },
+      {
+        kind: "note",
+        tone: "plain",
+        text: "Thank you for your payment. This receipt confirms funds received in full."
+      }
+    ]
+  };
 }
 
 /**
  * Quotation, explicitly marked as not a tax invoice.
  * @param {BuildContext} context - Shared document context.
- * @returns {DocumentBlock[]} Blocks for the document body.
+ * @returns {BuiltDocument} Body blocks and the facts behind them.
  */
 function buildQuotation(context) {
   const items = buildItems(context.vendor.id, context.seed * 7 + vendorSalt(context.vendor.id), pickCount(context.seed, 3, 6));
   const totals = computeTotals(items);
+  const documentNumber = `QTE-${context.number}`;
+  const validUntil = addDays(context.baseDate, 14);
 
-  return [
-    {
-      kind: "parties",
-      label: "Prepared for",
-      lines: [context.buyer.name, ...context.buyer.lines],
-      meta: [
-        ["Quote #", `QTE-${context.number}`],
-        ["Date", formatDate(context.baseDate)],
-        ["Valid until", formatDate(addDays(context.baseDate, 14))],
-        ["Prepared by", "Sales team"]
-      ]
+  return {
+    facts: {
+      buyer: context.buyer,
+      documentDate: context.baseDate,
+      documentNumber,
+      items,
+      totals,
+      validUntil
     },
-    { kind: "table", columns: pricedColumns(), rows: pricedRows(items) },
-    totalsBlock(totals),
-    {
-      kind: "note",
-      tone: "accent",
-      text: "Prices are estimates valid for 14 days and subject to change. This quotation is not a tax invoice or a demand for payment. To proceed, issue a purchase order referencing the quote number above."
-    }
-  ];
+    blocks: [
+      {
+        kind: "parties",
+        label: "Prepared for",
+        ...buyerBlock(context.buyer),
+        meta: [
+          ["Quote #", documentNumber, "document_number"],
+          ["Date", formatDate(context.baseDate), "document_date"],
+          ["Valid until", formatDate(validUntil), "valid_until"],
+          ["Prepared by", "Sales team"]
+        ]
+      },
+      {
+        kind: "table",
+        columns: pricedColumns(),
+        fields: PRICED_FIELDS,
+        rowScope: "line_items",
+        rows: pricedRows(items)
+      },
+      totalsBlock(totals),
+      {
+        kind: "note",
+        tone: "accent",
+        text: "Prices are estimates valid for 14 days and subject to change. This quotation is not a tax invoice or a demand for payment. To proceed, issue a purchase order referencing the quote number above."
+      }
+    ]
+  };
 }
 
 /**
  * Delivery challan: goods dispatched, no prices, signature lines.
  * @param {BuildContext} context - Shared document context.
- * @returns {DocumentBlock[]} Blocks for the document body.
+ * @returns {BuiltDocument} Body blocks and the facts behind them.
  */
 function buildChallan(context) {
   const items = buildItems(context.vendor.id, context.seed * 11 + vendorSalt(context.vendor.id), pickCount(context.seed, 3, 6));
   const totalQty = items.reduce((sum, item) => sum + item.qty, 0);
-  const poNumber = padNumber(Math.floor(createSeededRandom(context.seed + 41)() * 8_999_999) + 1_000_000, 7);
+  const poNumber = `PO-${padNumber(Math.floor(createSeededRandom(context.seed + 41)() * 8_999_999) + 1_000_000, 7)}`;
+  const documentNumber = `DC-${context.number}`;
+  const vehicleNumber = `TX-${4100 + (context.seed % 900)}`;
+  const packages = packageCount(items, context.seed);
+  const remarks = items.map(
+    (_item, index) => `Lot ${lotCode(context.seed, index)}${dispatchNote(context.seed, index)}`
+  );
 
-  return [
-    {
-      kind: "parties",
-      label: "Deliver to",
-      lines: [context.buyer.name, ...context.buyer.lines],
-      meta: [
-        ["Challan #", `DC-${context.number}`],
-        ["Date", formatDate(context.baseDate)],
-        ["PO ref", `PO-${poNumber}`],
-        ["Vehicle no", `TX-${4100 + (context.seed % 900)}`]
-      ]
+  return {
+    facts: {
+      buyer: context.buyer,
+      documentDate: context.baseDate,
+      documentNumber,
+      items,
+      itemsPriced: false,
+      lineRemarks: remarks,
+      packageCount: packages,
+      poNumber,
+      totalQuantity: totalQty,
+      vehicleNumber
     },
-    {
-      kind: "table",
-      columns: [
-        { label: "#", align: "center", width: 24 },
-        { label: "Description", align: "left" },
-        { label: "Qty", align: "center" },
-        { label: "Unit", align: "center" },
-        { label: "Remarks", align: "left" }
-      ],
-      // The remarks column used to read "Goods only" on every row, which is a
-      // column of one repeated constant. A lot number plus the occasional
-      // handling note gives it something an extraction pipeline can actually be
-      // asked to read.
-      rows: items.map((item, index) => [
-        String(index + 1),
-        item.desc,
-        String(item.qty),
-        item.unit,
-        `Lot ${lotCode(context.seed, index)}${dispatchNote(context.seed, index)}`
-      ])
-    },
-    {
-      kind: "chips",
-      items: [
-        // Packages are how the goods are crated, not how many rows the table
-        // has. Those were the same number on every challan ever generated.
-        ["Total packages", String(packageCount(items, context.seed))],
-        ["Total qty", String(totalQty)]
-      ]
-    },
-    {
-      kind: "note",
-      tone: "accent",
-      text: "The goods described above are dispatched for delivery. This document is not a sale invoice and no payment is due against it. Any value shown is for transport and insurance purposes only."
-    },
-    { kind: "signatures", labels: ["Dispatched by", "Received by (sign and date)"] }
-  ];
+    blocks: [
+      {
+        kind: "parties",
+        label: "Deliver to",
+        ...buyerBlock(context.buyer),
+        meta: [
+          ["Challan #", documentNumber, "document_number"],
+          ["Date", formatDate(context.baseDate), "document_date"],
+          ["PO ref", poNumber, "po_number"],
+          ["Vehicle no", vehicleNumber, "vehicle_number"]
+        ]
+      },
+      {
+        kind: "table",
+        columns: [
+          { label: "#", align: "center", width: 24 },
+          { label: "Description", align: "left" },
+          { label: "Qty", align: "center" },
+          { label: "Unit", align: "center" },
+          { label: "Remarks", align: "left" }
+        ],
+        fields: [null, "description", "quantity", "unit", "remarks"],
+        rowScope: "line_items",
+        // The remarks column used to read "Goods only" on every row, which is a
+        // column of one repeated constant. A lot number plus the occasional
+        // handling note gives it something an extraction pipeline can actually be
+        // asked to read.
+        rows: items.map((item, index) => [
+          String(index + 1),
+          item.desc,
+          String(item.qty),
+          item.unit,
+          remarks[index]
+        ])
+      },
+      {
+        kind: "chips",
+        items: [
+          // Packages are how the goods are crated, not how many rows the table
+          // has. Those were the same number on every challan ever generated.
+          ["Total packages", String(packages), "package_count"],
+          ["Total qty", String(totalQty), "total_quantity"]
+        ]
+      },
+      {
+        kind: "note",
+        tone: "accent",
+        text: "The goods described above are dispatched for delivery. This document is not a sale invoice and no payment is due against it. Any value shown is for transport and insurance purposes only."
+      },
+      { kind: "signatures", labels: ["Dispatched by", "Received by (sign and date)"] }
+    ]
+  };
 }
 
 /**
@@ -737,7 +965,7 @@ function buildChallan(context) {
  * corpus. The resolved variant is returned so the filename can say which one it
  * actually is.
  * @param {BuildContext} context - Shared document context.
- * @returns {{ blocks: DocumentBlock[], title: string, variantId: string }} Body blocks, title, variant.
+ * @returns {BuiltDocument} Body blocks, facts, title, and the resolved variant.
  */
 function buildAdjustmentNote(context) {
   const isCredit = context.seed % 2 === 0;
@@ -746,23 +974,41 @@ function buildAdjustmentNote(context) {
   const items = buildItems(context.vendor.id, context.seed * 13 + vendorSalt(context.vendor.id), pickCount(context.seed, 1, 3));
   const totals = computeTotals(items);
   const reasons = isCredit ? CREDIT_REASONS : DEBIT_REASONS;
+  const documentNumber = `${isCredit ? "CN" : "DN"}-${context.number}`;
+  const againstInvoice = `INV-${context.number}`;
+  const reason = pickFrom(reasons, context.seed);
 
   return {
     title,
     variantId,
+    facts: {
+      againstInvoice,
+      buyer: context.buyer,
+      documentDate: context.baseDate,
+      documentNumber,
+      items,
+      reason,
+      totals
+    },
     blocks: [
       {
         kind: "parties",
         label: "Issued to",
-        lines: [context.buyer.name, ...context.buyer.lines],
+        ...buyerBlock(context.buyer),
         meta: [
-          [`${title} #`, `${isCredit ? "CN" : "DN"}-${context.number}`],
-          ["Date", formatDate(context.baseDate)],
-          ["Against invoice", `INV-${context.number}`],
-          ["Reason", pickFrom(reasons, context.seed)]
+          [`${title} #`, documentNumber, "document_number"],
+          ["Date", formatDate(context.baseDate), "document_date"],
+          ["Against invoice", againstInvoice, "against_invoice"],
+          ["Reason", reason, "adjustment_reason"]
         ]
       },
-      { kind: "table", columns: pricedColumns(), rows: pricedRows(items) },
+      {
+        kind: "table",
+        columns: pricedColumns(),
+        fields: PRICED_FIELDS,
+        rowScope: "line_items",
+        rows: pricedRows(items)
+      },
       totalsBlock(totals),
       {
         kind: "callout",
@@ -777,7 +1023,7 @@ function buildAdjustmentNote(context) {
 /**
  * Statement of account: a running ledger of invoices and payments.
  * @param {BuildContext} context - Shared document context.
- * @returns {DocumentBlock[]} Blocks for the document body.
+ * @returns {BuiltDocument} Body blocks and the facts behind them.
  */
 function buildStatement(context) {
   const random = createSeededRandom(context.seed * 17 + vendorSalt(context.vendor.id));
@@ -803,8 +1049,16 @@ function buildStatement(context) {
   // draw a payment first would go negative, which a statement of account never
   // does: you cannot pay down a debt you do not have.
   let balance = roundCents(180 + random() * 1400);
-  const rows = [
-    [formatDate(periodStart), "", "Balance brought forward", "", "", formatMoney(balance)]
+  /** @type {LedgerEntry[]} */
+  const transactions = [
+    {
+      balance,
+      charge: null,
+      date: periodStart,
+      description: "Balance brought forward",
+      payment: null,
+      reference: ""
+    }
   ];
 
   for (let index = 0; index < 6; index += 1) {
@@ -815,64 +1069,85 @@ function buildStatement(context) {
     // capped at the outstanding amount.
     if (random() > 0.45 || balance <= 0) {
       balance = roundCents(balance + amount);
-      rows.push([
-        formatDate(cursor),
-        `INV-${padNumber(1000 + index * 11 + context.seed + vendorSalt(context.vendor.id))}`,
-        "Invoice",
-        formatMoney(amount),
-        "",
-        formatMoney(balance)
-      ]);
+      transactions.push({
+        balance,
+        charge: amount,
+        date: cursor,
+        description: "Invoice",
+        payment: null,
+        reference: `INV-${padNumber(1000 + index * 11 + context.seed + vendorSalt(context.vendor.id))}`
+      });
     } else {
       const paid = Math.min(amount, balance);
       balance = roundCents(balance - paid);
-      rows.push([
-        formatDate(cursor),
-        `PMT-${padNumber(500 + index * 7 + context.seed + vendorSalt(context.vendor.id))}`,
-        "Payment received",
-        "",
-        formatMoney(paid),
-        formatMoney(balance)
-      ]);
+      transactions.push({
+        balance,
+        charge: null,
+        date: cursor,
+        description: "Payment received",
+        payment: paid,
+        reference: `PMT-${padNumber(500 + index * 7 + context.seed + vendorSalt(context.vendor.id))}`
+      });
     }
   }
 
   const lastMovement = addDays(periodStart, offsets[offsets.length - 1]);
+  const documentNumber = `STM-${context.number}`;
 
-  return [
-    {
-      kind: "parties",
-      label: "Account",
-      lines: [context.buyer.name, ...context.buyer.lines],
-      meta: [
-        ["Statement #", `STM-${context.number}`],
-        // The printed period describes the rows underneath it. The old label was
-        // `Q${1 + seed % 4}`, a quarter drawn from the seed and unrelated to
-        // both the transactions and the generated date, so a Q4 heading routinely
-        // sat on a ledger of Q2 rows.
-        ["Period", `${formatDate(periodStart)} - ${formatDate(lastMovement)}`],
-        ["Generated", formatDate(context.baseDate)]
-      ]
+  return {
+    facts: {
+      balanceDue: balance,
+      buyer: context.buyer,
+      documentDate: context.baseDate,
+      documentNumber,
+      periodEnd: lastMovement,
+      periodStart,
+      transactions
     },
-    {
-      kind: "table",
-      columns: [
-        { label: "Date", align: "left" },
-        { label: "Ref", align: "left" },
-        { label: "Description", align: "left" },
-        { label: "Charges", align: "right" },
-        { label: "Payments", align: "right" },
-        { label: "Balance", align: "right" }
-      ],
-      rows
-    },
-    { kind: "banner", label: "Balance due", value: formatMoney(balance) },
-    {
-      kind: "note",
-      tone: "plain",
-      text: `Summary of account activity for the period shown. Please remit any outstanding balance. Contact ${context.vendor.email} with questions.`
-    }
-  ];
+    blocks: [
+      {
+        kind: "parties",
+        label: "Account",
+        ...buyerBlock(context.buyer),
+        meta: [
+          ["Statement #", documentNumber, "document_number"],
+          // The printed period describes the rows underneath it. The old label was
+          // `Q${1 + seed % 4}`, a quarter drawn from the seed and unrelated to
+          // both the transactions and the generated date, so a Q4 heading routinely
+          // sat on a ledger of Q2 rows.
+          ["Period", `${formatDate(periodStart)} - ${formatDate(lastMovement)}`],
+          ["Generated", formatDate(context.baseDate), "document_date"]
+        ]
+      },
+      {
+        kind: "table",
+        columns: [
+          { label: "Date", align: "left" },
+          { label: "Ref", align: "left" },
+          { label: "Description", align: "left" },
+          { label: "Charges", align: "right" },
+          { label: "Payments", align: "right" },
+          { label: "Balance", align: "right" }
+        ],
+        fields: ["date", "reference", "description", "charge", "payment", "balance"],
+        rowScope: "transactions",
+        rows: transactions.map((entry) => [
+          formatDate(entry.date),
+          entry.reference,
+          entry.description,
+          entry.charge === null ? "" : formatMoney(entry.charge),
+          entry.payment === null ? "" : formatMoney(entry.payment),
+          formatMoney(entry.balance)
+        ])
+      },
+      { kind: "banner", label: "Balance due", value: formatMoney(balance), field: "balance_due" },
+      {
+        kind: "note",
+        tone: "plain",
+        text: `Summary of account activity for the period shown. Please remit any outstanding balance. Contact ${context.vendor.email} with questions.`
+      }
+    ]
+  };
 }
 
 const SUBTITLES = /** @type {Record<string, string>} */ ({
@@ -914,43 +1189,42 @@ export function buildDocument({ docTypeId, seed, style = "clean", today = new Da
   const context = { baseDate, buyer: buildBuyer(seed), number, random, seed, vendor };
 
   let title = docType.label;
-  let variantId = docType.id;
-  /** @type {DocumentBlock[]} */
-  let blocks;
+  /** @type {BuiltDocument} */
+  let built;
 
   if (dense) {
     title = "Tax invoice";
-    blocks = buildDenseInvoice(context);
+    built = buildDenseInvoice(context);
   } else if (docType.id === "invoice") {
-    blocks = buildInvoice(context);
+    built = buildInvoice(context);
   } else if (docType.id === "receipt") {
-    blocks = buildReceipt(context);
+    built = buildReceipt(context);
   } else if (docType.id === "quotation") {
-    blocks = buildQuotation(context);
+    built = buildQuotation(context);
   } else if (docType.id === "challan") {
-    blocks = buildChallan(context);
+    built = buildChallan(context);
   } else if (docType.id === "creditnote") {
-    const note = buildAdjustmentNote(context);
-    title = note.title;
-    variantId = note.variantId;
-    blocks = note.blocks;
+    built = buildAdjustmentNote(context);
   } else {
     title = "Statement";
-    blocks = buildStatement(context);
+    built = buildStatement(context);
   }
 
+  const variantId = built.variantId ?? docType.id;
+
   return {
-    blocks,
+    blocks: built.blocks,
     dense,
     docTypeId: docType.id,
     docTypeLabel: docType.label,
     docVariantId: variantId,
+    facts: built.facts,
     filenameBase: `${vendor.id}_${variantId}${dense ? "_dense" : ""}_${seed}`,
     footer: `${vendor.name} - ${vendor.email} - ${vendor.tagline}. ${SAMPLE_FOOTNOTE}`,
     seed,
     style: dense ? "dense" : "clean",
     subtitle: SUBTITLES[docType.id] ?? "",
-    title,
+    title: built.title ?? title,
     vendor
   };
 }

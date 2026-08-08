@@ -43,23 +43,46 @@ function make(doc, tag, className, text) {
 }
 
 /**
+ * Mark an element as carrying a ground-truth value.
+ *
+ * This is the entire coupling between the renderer and the annotation layer:
+ * `annotate-boxes.js` reads `[data-field]` back off the page and never needs to
+ * know what a totals block or a keygrid is. Empty values are skipped so a blank
+ * cell in a ledger does not produce a box for a field the sidecar reports as
+ * null.
+ * @param {HTMLElement} element - Element holding the value.
+ * @param {string | null | undefined} field - Ground-truth field key.
+ * @param {string} [value] - The printed value, used to skip blanks.
+ * @returns {HTMLElement} The same element, for chaining.
+ */
+function tag(element, field, value) {
+  if (field && value !== "") {
+    element.setAttribute("data-field", field);
+  }
+
+  return element;
+}
+
+/**
  * Append one element per line of text.
  * @param {Document} doc - Owning document.
  * @param {HTMLElement} parent - Element to append into.
  * @param {string[]} lines - Lines to render.
  * @param {string} className - Class for each line element.
+ * @param {(string | null)[]} [fields=[]] - Ground-truth field per line.
+ * @param {number} [fieldOffset=0] - Index into `fields` the first line maps to.
  * @returns {void}
  */
-function appendLines(doc, parent, lines, className) {
-  for (const line of lines) {
-    parent.appendChild(make(doc, "div", className, line));
-  }
+function appendLines(doc, parent, lines, className, fields = [], fieldOffset = 0) {
+  lines.forEach((line, index) => {
+    parent.appendChild(tag(make(doc, "div", className, line), fields[index + fieldOffset], line));
+  });
 }
 
 /**
  * Build a two-column key/value table.
  * @param {Document} doc - Owning document.
- * @param {[string, string][]} pairs - Label/value pairs.
+ * @param {import("./document-model.js").LabelledValue[]} pairs - Label/value/field triples.
  * @param {string} className - Class for the table element.
  * @returns {HTMLElement} The table.
  */
@@ -67,10 +90,10 @@ function keyValueTable(doc, pairs, className) {
   const table = make(doc, "table", className);
   const body = make(doc, "tbody");
 
-  for (const [label, value] of pairs) {
+  for (const [label, value, field] of pairs) {
     const row = make(doc, "tr");
     row.appendChild(make(doc, "th", "vd-kv-key", label));
-    row.appendChild(make(doc, "td", "vd-kv-value", value));
+    row.appendChild(tag(make(doc, "td", "vd-kv-value", value), field, value));
     body.appendChild(row);
   }
 
@@ -88,26 +111,36 @@ export function buildLogo(doc, vendor) {
   const logo = make(doc, "div", `vd-logo is-${vendor.logoStyle}`);
   const [firstWord, ...restWords] = vendor.name.split(" ");
 
+  /**
+   * @param {string} className - Class for the span.
+   * @param {string} text - Text to show.
+   * @returns {HTMLElement} A span tagged as part of the vendor name.
+   */
+  const namePart = (className, text) => tag(make(doc, "span", className, text), "vendor_name", text);
+
   if (vendor.logoStyle === "block" || vendor.logoStyle === "stamp") {
     logo.appendChild(make(doc, "span", "vd-logo-mark", initialsOf(vendor.name)));
-    logo.appendChild(make(doc, "span", "vd-logo-name", vendor.name));
+    logo.appendChild(namePart("vd-logo-name", vendor.name));
     return logo;
   }
 
   if (vendor.logoStyle === "leaf" || vendor.logoStyle === "mono") {
     const glyph = vendor.logoStyle === "leaf" ? "☘" : "☁";
     logo.appendChild(make(doc, "span", "vd-logo-glyph", glyph));
-    logo.appendChild(make(doc, "span", "vd-logo-name", vendor.name));
+    logo.appendChild(namePart("vd-logo-name", vendor.name));
     return logo;
   }
 
   if (vendor.logoStyle === "thin") {
-    logo.appendChild(make(doc, "span", "vd-logo-name", firstWord));
-    logo.appendChild(make(doc, "span", "vd-logo-sub", restWords.join(" ")));
+    // The thin lockup splits the name across two spans, so it produces two
+    // `vendor_name` regions rather than one. That is the truth of the layout:
+    // there is no single box on the page holding the whole name.
+    logo.appendChild(namePart("vd-logo-name", firstWord));
+    logo.appendChild(namePart("vd-logo-sub", restWords.join(" ")));
     return logo;
   }
 
-  logo.appendChild(make(doc, "span", "vd-logo-name", vendor.name));
+  logo.appendChild(namePart("vd-logo-name", vendor.name));
   return logo;
 }
 
@@ -130,8 +163,9 @@ function renderBlock(doc, block) {
       const party = make(doc, "div", "vd-party");
       party.appendChild(make(doc, "div", "vd-party-label", block.label));
       const [name, ...rest] = block.lines;
-      party.appendChild(make(doc, "div", "vd-party-name", name));
-      appendLines(doc, party, rest, "vd-party-line");
+      const fields = block.lineFields ?? [];
+      party.appendChild(tag(make(doc, "div", "vd-party-name", name), fields[0], name));
+      appendLines(doc, party, rest, "vd-party-line", fields, 1);
       wrapper.appendChild(party);
       wrapper.appendChild(keyValueTable(doc, block.meta, "vd-meta"));
       return wrapper;
@@ -162,13 +196,14 @@ function renderBlock(doc, block) {
       const body = make(doc, "tbody");
       const bodyRow = make(doc, "tr");
 
-      for (const lines of block.columns) {
+      block.columns.forEach((lines, columnIndex) => {
         const cell = make(doc, "td", "vd-partypair-cell");
+        const fields = block.columnFields?.[columnIndex] ?? [];
         const [name, ...rest] = lines;
-        cell.appendChild(make(doc, "div", "vd-party-name", name));
-        appendLines(doc, cell, rest, "vd-party-line");
+        cell.appendChild(tag(make(doc, "div", "vd-party-name", name), fields[0], name));
+        appendLines(doc, cell, rest, "vd-party-line", fields, 1);
         bodyRow.appendChild(cell);
-      }
+      });
 
       body.appendChild(bodyRow);
       table.appendChild(body);
@@ -189,14 +224,18 @@ function renderBlock(doc, block) {
 
       const body = make(doc, "tbody");
 
-      for (const row of block.rows) {
+      block.rows.forEach((row, rowIndex) => {
         const tableRow = make(doc, "tr");
         row.forEach((cell, index) => {
           const align = block.columns[index]?.align ?? "left";
-          tableRow.appendChild(make(doc, "td", `is-${align}`, cell));
+          const column = block.fields?.[index];
+          // Row-scoped fields are addressed the way a consumer indexes them:
+          // `line_items.2.amount` points at exactly one cell on exactly one page.
+          const field = block.rowScope && column ? `${block.rowScope}.${rowIndex}.${column}` : null;
+          tableRow.appendChild(tag(make(doc, "td", `is-${align}`, cell), field, cell));
         });
         body.appendChild(tableRow);
-      }
+      });
 
       table.appendChild(body);
 
@@ -219,10 +258,10 @@ function renderBlock(doc, block) {
       const table = make(doc, "table", "vd-totals");
       const body = make(doc, "tbody");
 
-      block.rows.forEach(([label, value], index) => {
+      block.rows.forEach(([label, value, field], index) => {
         const row = make(doc, "tr", index === block.emphasisIndex ? "is-emphasis" : undefined);
         row.appendChild(make(doc, "th", "vd-totals-label", label));
-        row.appendChild(make(doc, "td", "vd-totals-value", value));
+        row.appendChild(tag(make(doc, "td", "vd-totals-value", value), field, value));
         body.appendChild(row);
       });
 
@@ -243,10 +282,10 @@ function renderBlock(doc, block) {
     case "chips": {
       const wrapper = make(doc, "div", "vd-doc-chips");
 
-      for (const [label, value] of block.items) {
+      for (const [label, value, field] of block.items) {
         const chip = make(doc, "span", "vd-doc-chip");
         chip.appendChild(make(doc, "span", "vd-doc-chip-label", label));
-        chip.appendChild(make(doc, "span", "vd-doc-chip-value", value));
+        chip.appendChild(tag(make(doc, "span", "vd-doc-chip-value", value), field, value));
         wrapper.appendChild(chip);
       }
 
@@ -257,7 +296,9 @@ function renderBlock(doc, block) {
       const wrapper = make(doc, "div", "vd-banner-row");
       const banner = make(doc, "div", "vd-banner");
       banner.appendChild(make(doc, "span", "vd-banner-label", block.label));
-      banner.appendChild(make(doc, "span", "vd-banner-value", block.value));
+      banner.appendChild(
+        tag(make(doc, "span", "vd-banner-value", block.value), block.field, block.value)
+      );
       wrapper.appendChild(banner);
       return wrapper;
     }
@@ -312,17 +353,29 @@ export function renderPaper(paper, model, doc = document) {
   const brand = make(doc, "div", "vd-brand");
   brand.appendChild(buildLogo(doc, vendor));
   const vendorLines = make(doc, "div", "vd-vendor-lines");
-  appendLines(
-    doc,
-    vendorLines,
-    [vendor.addr, `${vendor.phone} · ${vendor.email}`, vendor.taxId],
-    "vd-vendor-line"
+  vendorLines.appendChild(
+    tag(make(doc, "div", "vd-vendor-line", vendor.addr), "vendor_address", vendor.addr)
+  );
+
+  // The phone and the email share one printed line but are two separate facts,
+  // so each gets its own span and its own box rather than one region holding
+  // both values and the separator between them.
+  const contactLine = make(doc, "div", "vd-vendor-line");
+  contactLine.appendChild(tag(make(doc, "span", "", vendor.phone), "vendor_phone", vendor.phone));
+  contactLine.appendChild(make(doc, "span", "", " · "));
+  contactLine.appendChild(tag(make(doc, "span", "", vendor.email), "vendor_email", vendor.email));
+  vendorLines.appendChild(contactLine);
+
+  vendorLines.appendChild(
+    tag(make(doc, "div", "vd-vendor-line", vendor.taxId), "vendor_tax_id", vendor.taxId)
   );
   brand.appendChild(vendorLines);
   header.appendChild(brand);
 
   const titleWrap = make(doc, "div", "vd-doc-title-wrap");
-  titleWrap.appendChild(make(doc, "div", "vd-doc-title", model.title));
+  titleWrap.appendChild(
+    tag(make(doc, "div", "vd-doc-title", model.title), "document_title", model.title)
+  );
 
   if (model.subtitle) {
     titleWrap.appendChild(make(doc, "div", "vd-doc-subtitle", model.subtitle));
