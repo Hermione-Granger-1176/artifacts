@@ -23,10 +23,6 @@ if TYPE_CHECKING:
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 REQUIRE_BROWSER_TESTS = os.environ.get("ARTIFACTS_REQUIRE_BROWSER_TESTS") == "1"
 AXE_SOURCE_FILE = REPO_ROOT / "node_modules" / "axe-core" / "axe.min.js"
-ROOT_A11Y_STYLE_CONTENT = "\n".join(
-    sorted_path.read_text(encoding="utf-8")
-    for sorted_path in sorted((REPO_ROOT / "css" / "gallery").glob("*.css"))
-)
 ARTIFACT_DIR_ENV = "ARTIFACTS_BROWSER_ARTIFACT_DIR"
 APP_SLUGS_ENV = "ARTIFACTS_BROWSER_APP_SLUGS"
 APP_SHARD_MANIFEST_ENV = "ARTIFACTS_BROWSER_APP_MANIFEST"
@@ -552,35 +548,15 @@ def ensure_axe_loaded(page) -> None:
 
 
 def ensure_axe_styles(page) -> None:
-    """Ensure axe styles."""
-    needs_root_styles = page.evaluate(
-        "Boolean(document.querySelector('link[href*=\"css/style.css\"]') "
-        "|| document.getElementById('artifacts-grid'))"
+    """Fail clearly if a linked stylesheet was not available to the audited page."""
+    unloaded_stylesheets = page.evaluate(
+        """Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+            .filter((link) => !link.sheet)
+            .map((link) => link.href)"""
     )
-    if not needs_root_styles:
-        return
-
-    already_injected = page.evaluate("Boolean(document.getElementById('axe-inline-styles'))")
-    if already_injected:
-        return
-
-    page.evaluate(
-        """(cssContent) => {
-            const rootStylesheet = document.querySelector('link[href*="css/style.css"]');
-            if (rootStylesheet) {
-                rootStylesheet.disabled = true;
-            }
-            const appStylesheet = document.querySelector('link[href*="css/app.css"]');
-            if (appStylesheet) {
-                appStylesheet.disabled = true;
-            }
-            const style = document.createElement('style');
-            style.id = 'axe-inline-styles';
-            style.textContent = cssContent;
-            document.head.appendChild(style);
-        }""",
-        ROOT_A11Y_STYLE_CONTENT,
-    )
+    if unloaded_stylesheets:
+        joined_paths = ", ".join(unloaded_stylesheets)
+        raise AssertionError(f"Stylesheets were not loaded before the axe audit: {joined_paths}")
 
 
 def run_axe(
@@ -629,7 +605,10 @@ def assert_no_blocking_axe_violations(
             f"{violation['id']} ({violation.get('impact', 'unknown')}): {violation['help']}"
         )
         for node in violation.get("nodes", [])[:5]:
-            targets = ", ".join(" > ".join(target) for target in node.get("target", []))
+            targets = ", ".join(
+                " > ".join(target) if isinstance(target, list) else str(target)
+                for target in node.get("target", [])
+            )
             lines.append(f"  - {targets or 'unknown target'}")
     raise AssertionError("Blocking axe violations found:\n" + "\n".join(lines))
 

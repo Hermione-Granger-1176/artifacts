@@ -74,12 +74,19 @@ def test_ledger_reader_and_writer_validate_paths_and_shape(tmp_path: Path) -> No
     app_hashes._write_ledger(ledger, {"beta": "b", "alpha": "a"})
     assert app_hashes.read_ledger(ledger) == {"alpha": "a", "beta": "b"}
 
+    with pytest.raises(ValueError, match="valid artifact slugs"):
+        app_hashes._write_ledger(ledger, {"../outside": "x"})
+
     write_json(ledger, {"version": 99, "hashes": {}})
     with pytest.raises(ValueError, match="unsupported version"):
         app_hashes.read_ledger(ledger)
 
     write_json(ledger, {"version": app_hashes.LEDGER_VERSION, "hashes": []})
     with pytest.raises(ValueError, match="map strings"):
+        app_hashes.read_ledger(ledger)
+
+    write_json(ledger, {"version": app_hashes.LEDGER_VERSION, "hashes": {"../outside": "x"}})
+    with pytest.raises(ValueError, match="valid artifact slugs"):
         app_hashes.read_ledger(ledger)
 
 
@@ -174,6 +181,13 @@ def test_hash_helpers_reject_invalid_plans_and_symlinked_parents(
             {"browser_scope": "changed", "changed_slugs": "alpha"},
             ledger_path=tmp_path / "ledger",
         )
+    with pytest.raises(ValueError, match="valid artifact slugs"):
+        app_hashes.apply_memoization(
+            {"browser_scope": "changed", "changed_slugs": ["../outside"]},
+            ledger_path=tmp_path / "ledger",
+        )
+    with pytest.raises(ValueError, match="valid artifact slugs"):
+        app_hashes.app_input_hashes(["../outside"], repo_root=tmp_path)
 
     real_parent = tmp_path / "real"
     real_parent.mkdir()

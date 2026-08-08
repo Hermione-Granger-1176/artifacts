@@ -520,6 +520,35 @@ def test_validate_thumbnail_artifact_rejects_unexpected_files(tmp_path: Path) ->
         workflow_helpers.validate_thumbnail_artifact(artifact_root)
 
 
+def test_thumbnail_plan_rejects_invalid_artifact_slugs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Persisted plans and invalidation targets cannot escape the app root."""
+    monkeypatch.chdir(tmp_path)
+    outside_thumbnail = tmp_path / "outside" / "thumbnail.webp"
+    outside_thumbnail.parent.mkdir()
+    outside_thumbnail.write_bytes(b"keep")
+
+    with pytest.raises(ValueError, match="valid artifact slugs"):
+        thumbnail_plan.thumbnail_targets(thumbnail_scope="changed", changed_slugs=["../outside"])
+    assert outside_thumbnail.read_bytes() == b"keep"
+
+    artifact_root = tmp_path / "thumb-artifact"
+    write_text(
+        artifact_root / "plan.json",
+        json.dumps({"persist_mode": "none", "thumbnail_slugs": ["../outside"]}),
+    )
+    with pytest.raises(ValueError, match="valid artifact slugs"):
+        workflow_helpers.validate_thumbnail_artifact(artifact_root)
+
+    write_text(
+        artifact_root / "plan.json",
+        json.dumps({"persist_mode": "none", "thumbnail_slugs": "outside"}),
+    )
+    with pytest.raises(ValueError, match="list of artifact slugs"):
+        workflow_helpers.validate_thumbnail_artifact(artifact_root)
+
+
 def test_discover_app_slugs_returns_empty_when_apps_dir_missing(tmp_path: Path) -> None:
     """Test discover app slugs returns empty when apps dir missing."""
     assert app_discovery.discover_app_slugs(tmp_path / "missing") == []

@@ -134,6 +134,9 @@ def test_list_open_pr_numbers_collects_integer_numbers() -> None:
             {"number": 7},
             {"missing": "number"},
             {"number": "x"},
+            {"number": True},
+            {"number": 0},
+            {"number": -1},
             "not-a-dict",
         ]
     }

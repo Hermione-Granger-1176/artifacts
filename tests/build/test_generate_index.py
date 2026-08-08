@@ -212,8 +212,40 @@ def test_read_artifact_contract_loads_shared_validation_rules(
         (
             {
                 "artifactIdPattern": "^[a-z]+$",
+                "artifactBasePath": "apps\\nested",
+                "thumbnailFile": "thumbnail.webp",
+            },
+            "artifactBasePath must be one safe path segment",
+        ),
+        (
+            {
+                "artifactIdPattern": "^[a-z]+$",
+                "artifactBasePath": "apps\0nested",
+                "thumbnailFile": "thumbnail.webp",
+            },
+            "artifactBasePath must be one safe path segment",
+        ),
+        (
+            {
+                "artifactIdPattern": "^[a-z]+$",
                 "artifactBasePath": "apps",
                 "thumbnailFile": "thumbs/preview.webp",
+            },
+            "thumbnailFile must be one safe file name",
+        ),
+        (
+            {
+                "artifactIdPattern": "^[a-z]+$",
+                "artifactBasePath": "apps",
+                "thumbnailFile": "thumbs\\preview.webp",
+            },
+            "thumbnailFile must be one safe file name",
+        ),
+        (
+            {
+                "artifactIdPattern": "^[a-z]+$",
+                "artifactBasePath": "apps",
+                "thumbnailFile": "thumbs\0preview.webp",
             },
             "thumbnailFile must be one safe file name",
         ),

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import cast
 
 from scripts.lib.app_discovery import artifact_base_path, discover_app_slugs, thumbnail_file
+from scripts.lib.artifact_contract import artifact_id_pattern
 from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
 
 SHARD_SIZE = 20
@@ -24,11 +25,14 @@ def browser_app_slugs(apps_root: Path, slugs: list[str] | None = None) -> list[s
 
 
 def _string_list(payload: dict[str, object], key: str) -> list[str]:
-    """Read one required list of strings from a JSON-compatible payload."""
+    """Read one required list of artifact slugs from a JSON-compatible payload."""
     value = payload.get(key)
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise ValueError(f"Plan field {key} must be a list of strings")
-    return sorted(set(cast("list[str]", value)))
+    slugs = cast("list[str]", value)
+    if not all(artifact_id_pattern().fullmatch(slug) for slug in slugs):
+        raise ValueError(f"Plan field {key} must contain valid artifact slugs")
+    return sorted(set(slugs))
 
 
 def _scope(payload: dict[str, object], key: str) -> str:
@@ -46,6 +50,13 @@ def _scope_slugs(scope: str, scoped_slugs: list[str], all_slugs: list[str]) -> l
     if scope == "changed":
         return sorted(set(scoped_slugs) & set(all_slugs))
     return []
+
+
+def _non_negative_index(value: object, message: str) -> int:
+    """Return a validated shard index, rejecting booleans as JSON integers."""
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise ValueError(message)
+    return value
 
 
 def _browser_scoped_slugs(plan: dict[str, object], browser_apps: list[str]) -> list[str]:
@@ -103,9 +114,7 @@ def _shards(plan: dict[str, object]) -> list[dict[str, object]]:
     for item in value:
         if not isinstance(item, dict):
             raise ValueError("Every shard must be an object")
-        index = item.get("index")
-        if not isinstance(index, int) or index < 0:
-            raise ValueError("Every shard index must be a non-negative integer")
+        _non_negative_index(item.get("index"), "Every shard index must be a non-negative integer")
         _string_list(item, "browser_slugs")
         _string_list(item, "thumbnail_slugs")
         shards.append(cast("dict[str, object]", item))
@@ -142,6 +151,7 @@ def read_plan(path: Path, *, label: str = "Impact plan") -> dict[str, object]:
 
 def shard_manifest(plan: dict[str, object], *, shard_index: int) -> dict[str, object]:
     """Return a validated shard manifest selected from one persisted plan."""
+    _non_negative_index(shard_index, "Shard index must be a non-negative integer")
     for shard in _shards(plan):
         if shard["index"] == shard_index:
             return {
@@ -163,9 +173,9 @@ def write_shard_manifest(plan_path: Path, *, shard_index: int, output_path: Path
 def read_shard_manifest(path: Path) -> dict[str, object]:
     """Read and validate a standalone app-shard manifest."""
     payload = read_plan(path, label="Shard manifest")
-    index = payload.get("index")
-    if not isinstance(index, int) or index < 0:
-        raise ValueError("Shard manifest index must be a non-negative integer")
+    index = _non_negative_index(
+        payload.get("index"), "Shard manifest index must be a non-negative integer"
+    )
     return {
         "index": index,
         "browser_slugs": _string_list(payload, "browser_slugs"),

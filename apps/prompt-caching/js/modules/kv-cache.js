@@ -23,9 +23,14 @@ function initCacheAnimation() {
 
   let step = -1;
   let timer = /** @type {number | null} */ (null);
+  let keyVectors = /** @type {string[]} */ ([]);
+  let valueVectors = /** @type {string[]} */ ([]);
 
-  /** @param {HTMLElement} target - Container to render rows into. */
-  function renderCacheRows(target) {
+  /**
+   * @param {HTMLElement} target - Container to render rows into.
+   * @param {string[]} vectors - Stable vectors generated for this animation run.
+   */
+  function renderCacheRows(target, vectors) {
     if (step < 0) {
       clear(target);
       target.appendChild(makeEl("span", "pc-empty", "Empty, press Play"));
@@ -35,7 +40,7 @@ function initCacheAnimation() {
     for (let i = 0; i <= step; i += 1) {
       const row = makeEl("div", `cache-row${i === step ? " is-new" : ""}`);
       row.appendChild(makeEl("span", "tok-name", CACHE_TOKENS[i]));
-      row.appendChild(makeEl("span", "tok-vals", randomVec()));
+      row.appendChild(makeEl("span", "tok-vals", vectors[i]));
       target.appendChild(row);
     }
   }
@@ -54,8 +59,8 @@ function initCacheAnimation() {
       tokensWrap.appendChild(makeEl("span", cls, tok));
     });
 
-    renderCacheRows(kVis);
-    renderCacheRows(vVis);
+    renderCacheRows(kVis, keyVectors);
+    renderCacheRows(vVis, valueVectors);
 
     if (step < 0) {
       narration.textContent = "Press Play to watch the cache build up one token at a time.";
@@ -78,6 +83,8 @@ function initCacheAnimation() {
       clearInterval(timer);
     }
     step = -1;
+    keyVectors = CACHE_TOKENS.map(randomVec);
+    valueVectors = CACHE_TOKENS.map(randomVec);
     renderState();
     playBtn.disabled = true;
     timer = setInterval(() => {

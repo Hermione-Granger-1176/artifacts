@@ -23,7 +23,7 @@ export function initTokenizer() {
 
     tokCount.textContent = String(tokens.length);
     wordCount.textContent = String(words);
-    charCount.textContent = String(text.length);
+    charCount.textContent = String(Array.from(text).length);
 
     clear(output);
 

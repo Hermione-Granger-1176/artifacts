@@ -98,9 +98,28 @@ body.app-tokenizer-explorer .token-example h3 {
 
 body.app-tokenizer-explorer .token-example-count {
   flex-shrink: 0;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
+}
+
+body.app-tokenizer-explorer .code-window-title {
+  color: var(--color-text-secondary);
+}
+
+body.app-tokenizer-explorer #pick-token,
+body.app-tokenizer-explorer #pick-token:hover,
+body.app-tokenizer-explorer #pick-token:focus-visible {
+  background: var(--color-blue-emphasis);
+  color: var(--color-text-on-accent);
+}
+
+[data-theme="dark"] body.app-tokenizer-explorer #pick-token {
+  color: var(--color-bg);
+}
+
+body.app-tokenizer-explorer .syn-cm {
+  color: var(--color-text-secondary);
 }
 
 body.app-tokenizer-explorer .token-example p {

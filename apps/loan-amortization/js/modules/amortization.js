@@ -43,10 +43,8 @@ export function calcEmi(principal, ratePerPeriod, totalPeriods) {
     return principal / totalPeriods;
   }
 
-  return (
-    (principal * ratePerPeriod * Math.pow(1 + ratePerPeriod, totalPeriods)) /
-    (Math.pow(1 + ratePerPeriod, totalPeriods) - 1)
-  );
+  const compoundFactor = Math.pow(1 + ratePerPeriod, totalPeriods);
+  return (principal * ratePerPeriod * compoundFactor) / (compoundFactor - 1);
 }
 
 /**
@@ -108,6 +106,7 @@ export function runSchedule(
   let rollingPrincipal = 0;
   let rollingInterest = 0;
   let rollingExtra = 0;
+  let breakEven = /** @type {number | null} */ (null);
 
   const cumulativePrincipal = [];
   const cumulativeInterest = [];
@@ -137,6 +136,10 @@ export function runSchedule(
     rollingInterest += interestPart;
     rollingExtra += extraAmount;
 
+    if (breakEven === null && rollingPrincipal + rollingExtra >= rollingInterest) {
+      breakEven = period;
+    }
+
     cumulativePrincipal.push(Math.round(rollingPrincipal));
     cumulativeInterest.push(Math.round(rollingInterest));
     cumulativeExtra.push(Math.round(rollingExtra));
@@ -156,17 +159,6 @@ export function runSchedule(
   const principalParts = rows.map((row) => Math.round(row.principal));
   const interestParts = rows.map((row) => Math.round(row.interest));
   const extraParts = rows.map((row) => Math.round(row.extra));
-
-  let breakEven = /** @type {number | null} */ (null);
-  for (let index = 1; index < cumulativePrincipal.length; index += 1) {
-    if (
-      cumulativePrincipal[index] + cumulativeExtra[index] >= cumulativeInterest[index] &&
-      cumulativePrincipal[index - 1] + cumulativeExtra[index - 1] < cumulativeInterest[index - 1]
-    ) {
-      breakEven = index + 1;
-      break;
-    }
-  }
 
   return {
     emi,

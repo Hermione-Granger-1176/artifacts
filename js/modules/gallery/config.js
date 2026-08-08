@@ -315,7 +315,7 @@ export function validateArtifactsData(value, artifactContract = DEFAULT_CONFIG.a
 
   const idRegex = compileArtifactIdRegex(contract);
 
-  value.forEach(/** @param {*} item @param {number} index */ (item, index) => {
+  for (const [index, item] of value.entries()) {
     const path = `window.ARTIFACTS_DATA[${index}]`;
     assertShape(isPlainObject(item), `${path} must be an object`);
     assertShape(typeof item.id === 'string', `${path}.id must be a string`);
@@ -330,15 +330,15 @@ export function validateArtifactsData(value, artifactContract = DEFAULT_CONFIG.a
     }
 
     assertShape(Array.isArray(item.tags), `${path}.tags must be an array`);
-    item.tags.forEach(/** @param {string} tag @param {number} tagIndex */ (tag, tagIndex) => {
+    for (const [tagIndex, tag] of item.tags.entries()) {
       assertShape(typeof tag === 'string', `${path}.tags[${tagIndex}] must be a string`);
-    });
+    }
 
     assertShape(Array.isArray(item.tools), `${path}.tools must be an array`);
-    item.tools.forEach(/** @param {string} tool @param {number} toolIndex */ (tool, toolIndex) => {
+    for (const [toolIndex, tool] of item.tools.entries()) {
       assertShape(typeof tool === 'string', `${path}.tools[${toolIndex}] must be a string`);
-    });
-  });
+    }
+  }
 
   return value;
 }
@@ -359,13 +359,13 @@ export function validateArtifactsConfig(value) {
     ['tags', validateLabelMap]
   ];
 
-  validators.forEach(([key, validator]) => {
+  for (const [key, validator] of validators) {
     if (!(key in value)) {
-      return;
+      continue;
     }
 
     validator(value[key], `window.ARTIFACTS_CONFIG.${key}`);
-  });
+  }
 
   if ('artifactContract' in value) {
     validateArtifactContract(value.artifactContract, 'window.ARTIFACTS_CONFIG.artifactContract');

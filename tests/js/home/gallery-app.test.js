@@ -656,6 +656,21 @@ test('initializeGalleryApp restores URL and theme state on startup', () => {
   assert.equal(harness.documentObj.body.classList.contains('js-loading'), false);
 });
 
+test('initializeGalleryApp normalizes an invalid stored theme', () => {
+  const harness = createGalleryHarness({ initialTheme: 'sepia' });
+
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+
+  assert.equal(harness.documentObj.documentElement.getAttribute('data-theme'), 'light');
+  assert.equal(harness.elements.themeToggle.getAttribute('aria-pressed'), 'false');
+  assert.equal(harness.elements.themeToggle.getAttribute('aria-label'), 'Switch to dark theme');
+  assert.equal(harness.elements.galleryStatus.textContent, 'Showing 13 artifacts; page 1 of 4.');
+});
+
 test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', () => {
   const harness = createGalleryHarness();
 

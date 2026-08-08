@@ -110,7 +110,10 @@ def list_open_pr_numbers(
         numbers.update(
             item["number"]
             for item in payload
-            if isinstance(item, dict) and isinstance(item.get("number"), int)
+            if isinstance(item, dict)
+            and isinstance(item.get("number"), int)
+            and not isinstance(item["number"], bool)
+            and item["number"] > 0
         )
         if len(payload) < _PULLS_PER_PAGE:
             break

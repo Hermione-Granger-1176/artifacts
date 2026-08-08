@@ -32,6 +32,9 @@ Use these as smoke-verification scenarios after refactors:
 3. Same loan, switch to bi-weekly accelerated mode
    - EMI display should halve the equivalent monthly EMI
    - Payoff should shorten versus true bi-weekly mode
+4. Principal `12000`, rate `0%`, tenure `1` year, monthly cadence, no extras
+   - Payment should remain exactly `$1,000`
+   - Break-even should be period `1`, the first period where cumulative principal meets or exceeds cumulative interest
 
 ## Edge cases
 
