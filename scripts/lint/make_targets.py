@@ -62,7 +62,6 @@ CONTROL_FLOW_ALLOWLIST = frozenset(
         "issue-list",  # append the optional SEARCH value
         "issue-close",  # append the optional COMMENT value
         "issue-reopen",  # append the optional COMMENT value
-        "branch-prune",  # keep the guarded git discovery and dry-run flow together
     }
 )
 

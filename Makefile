@@ -557,32 +557,11 @@ branch-current: ## Create and switch to a branch from the current commit without
 	$(call need,name,make branch-current name=my-feature)
 	git checkout -b "$(name)"
 
-branch-prune: ## Prune local branches merged into main (make branch-prune [confirm=1])
-	@set -eu; \
-	base="origin/$(MAIN_BRANCH)"; \
-	if ! git show-ref --verify --quiet "refs/remotes/$$base"; then \
-		base="$(MAIN_BRANCH)"; \
-	fi; \
-	current="$$(git branch --show-current)"; \
-	candidates="$$(git for-each-ref --format='%(refname:short)' --merged "$$base" refs/heads/ | \
-		while IFS= read -r branch; do \
-			case "$$branch" in \
-				"$(MAIN_BRANCH)"|"$(PAGES_BRANCH)"|"$$current") ;; \
-				*) printf '%s\n' "$$branch" ;; \
-			esac; \
-		done)"; \
-	if [ -z "$$candidates" ]; then \
-		printf 'No local branches merged into %s need pruning.\n' "$$base"; \
-		exit 0; \
-	fi; \
-	printf 'Local branches eligible for pruning (merged into %s):\n%s\n' "$$base" "$$candidates"; \
-	if [ "$(confirm)" != 1 ]; then \
-		printf 'Dry run only. Re-run with confirm=1 to delete them.\n'; \
-		exit 0; \
-	fi; \
-	printf '%s\n' "$$candidates" | while IFS= read -r branch; do \
-		git branch -d "$$branch"; \
-	done
+branch-prune: export PRUNE_MAIN_BRANCH := $(MAIN_BRANCH)
+branch-prune: export PRUNE_PAGES_BRANCH := $(PAGES_BRANCH)
+branch-prune: export PRUNE_CONFIRM := $(confirm)
+branch-prune: ## Prune local branches whose content is already in main (make branch-prune [confirm=1])
+	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.prune_branches
 
 rebase-main: ## Rebase the current branch onto origin/main (make rebase-main [base=branch])
 	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && git rebase "origin/$(if $(base),$(base),$(MAIN_BRANCH))"
