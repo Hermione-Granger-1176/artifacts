@@ -10,10 +10,12 @@
  */
 
 import { annotationsToJson, annotationsToJsonl, datasetReadme } from "./annotations.js";
+import { degradeCanvas, encodeCanvas } from "./degrade.js";
 import { renderPdf } from "./pdf-render.js";
 
 /**
  * @typedef {import("./document-model.js").DocumentModel} DocumentModel
+ * @typedef {import("./degrade.js").DegradePlan} DegradePlan
  * @typedef {{
  *   documentObj?: Document,
  *   getHtml2Canvas: () => ArtifactsHtml2Canvas,
@@ -21,6 +23,12 @@ import { renderPdf } from "./pdf-render.js";
  *   getJsZip: () => ArtifactsJsZipConstructor,
  *   windowObj?: Window & typeof globalThis
  * }} ExportDeps
+ * @typedef {{
+ *   canvas: HTMLCanvasElement,
+ *   clean: HTMLCanvasElement,
+ *   dataUrl: string,
+ *   extension: string
+ * }} Raster
  * @typedef {"both" | "json" | "pdf" | "png"} BatchFormat
  * @typedef {"text" | "image"} PdfMode
  */
@@ -76,17 +84,41 @@ export async function capturePaper(paper, deps) {
 }
 
 /**
- * Wrap a canvas into a single-page A4 PDF, producing the "scanned document"
- * look that image-based extraction pipelines need to be tested against.
- * @param {HTMLCanvasElement} canvas - Rasterised page.
+ * Rasterise the page and put it through the scan pipeline, if one is asked for.
+ *
+ * The clean capture is kept alongside the degraded one rather than discarded,
+ * because pair mode writes both from a single render. Rendering the page twice
+ * to get them would double the slowest step in the whole batch.
+ * @param {HTMLElement} paper - Element to capture.
+ * @param {ExportDeps} deps - Injected library accessors.
+ * @param {DegradePlan | null} [plan=null] - Degradation to apply, or null for clean.
+ * @returns {Promise<Raster>} The image to write, and the clean capture behind it.
+ */
+export async function renderRaster(paper, deps, plan = null) {
+  const clean = await capturePaper(paper, deps);
+
+  if (!plan) {
+    return { canvas: clean, clean, dataUrl: clean.toDataURL("image/png"), extension: "png" };
+  }
+
+  const canvas = degradeCanvas(clean, plan, { documentObj: deps.documentObj ?? document });
+  const { dataUrl, extension } = encodeCanvas(canvas, plan.applied);
+  return { canvas, clean, dataUrl, extension };
+}
+
+/**
+ * Wrap a rasterised page into a single-page A4 PDF, producing the "scanned
+ * document" look that image-based extraction pipelines need to be tested against.
+ * @param {Raster} raster - Rasterised page.
  * @param {ExportDeps} deps - Injected library accessors.
  * @returns {ArtifactsJsPdfDocument} A PDF holding the image.
  */
-export function canvasToPdf(canvas, deps) {
+export function canvasToPdf(raster, deps) {
   const JsPdf = deps.getJsPdf();
   const doc = new JsPdf("p", "pt", "a4");
   const width = doc.internal.pageSize.getWidth();
-  doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, width, canvas.height * (width / canvas.width));
+  const format = raster.extension === "jpg" ? "JPEG" : "PNG";
+  doc.addImage(raster.dataUrl, format, 0, 0, width, raster.canvas.height * (width / raster.canvas.width));
   return doc;
 }
 
@@ -96,14 +128,15 @@ export function canvasToPdf(canvas, deps) {
  * @param {PdfMode} mode - `text` for a real text layer, `image` for a raster page.
  * @param {HTMLElement} paper - Rendered paper element, used by the image mode.
  * @param {ExportDeps} deps - Injected library accessors.
+ * @param {DegradePlan | null} [plan=null] - Degradation to apply to the raster mode.
  * @returns {Promise<ArtifactsJsPdfDocument>} The finished PDF document.
  */
-export async function buildPdf(model, mode, paper, deps) {
+export async function buildPdf(model, mode, paper, deps, plan = null) {
   if (mode === "text") {
     return renderPdf(model, deps.getJsPdf());
   }
 
-  return canvasToPdf(await capturePaper(paper, deps), deps);
+  return canvasToPdf(await renderRaster(paper, deps, plan), deps);
 }
 
 /**
@@ -112,23 +145,33 @@ export async function buildPdf(model, mode, paper, deps) {
  * @param {PdfMode} mode - PDF mode.
  * @param {HTMLElement} paper - Rendered paper element.
  * @param {ExportDeps} deps - Injected library accessors.
+ * @param {DegradePlan | null} [plan=null] - Degradation to apply to the raster mode.
  * @returns {Promise<void>} Resolves once the download has been triggered.
  */
-export async function downloadPdf(model, mode, paper, deps) {
-  const doc = await buildPdf(model, mode, paper, deps);
+export async function downloadPdf(model, mode, paper, deps, plan = null) {
+  const doc = await buildPdf(model, mode, paper, deps, plan);
   doc.save(`${model.filenameBase}.pdf`);
 }
 
 /**
- * Export the on-screen document as a PNG download.
+ * Export the on-screen document as an image download.
+ *
+ * The extension follows the encoding rather than the button: a lossy scan
+ * preset writes a JPEG, because that is the compression a real scanner applied
+ * and calling the result a PNG would be a lie about the file.
  * @param {DocumentModel} model - Document to export.
  * @param {HTMLElement} paper - Rendered paper element.
  * @param {ExportDeps} deps - Injected library accessors.
+ * @param {{ pair?: boolean, plan?: DegradePlan | null }} [options={}] - Scan options.
  * @returns {Promise<void>} Resolves once the download has been triggered.
  */
-export async function downloadPng(model, paper, deps) {
-  const canvas = await capturePaper(paper, deps);
-  triggerDownload(canvas.toDataURL("image/png"), `${model.filenameBase}.png`, deps);
+export async function downloadImage(model, paper, deps, { pair = false, plan = null } = {}) {
+  const raster = await renderRaster(paper, deps, plan);
+  triggerDownload(raster.dataUrl, `${model.filenameBase}.${raster.extension}`, deps);
+
+  if (pair && plan) {
+    triggerDownload(raster.clean.toDataURL("image/png"), `${model.filenameBase}.clean.png`, deps);
+  }
 }
 
 /**
@@ -191,6 +234,10 @@ export function planBatch({
  */
 const BYTES_PER_DOCUMENT = {
   png: 900_000,
+  // Grain is close to incompressible, so a degraded page stored losslessly is
+  // roughly twice the size of the clean one it came from.
+  pngNoisy: 1_800_000,
+  jpg: 420_000,
   pdfText: 16_000,
   pdfImage: 1_000_000,
   json: 1_400,
@@ -203,18 +250,36 @@ const BYTES_PER_DOCUMENT = {
  * @param {{
  *   boxes?: boolean,
  *   count: number,
+ *   degraded?: boolean,
  *   format: BatchFormat,
  *   groundTruth?: boolean,
+ *   lossy?: boolean,
+ *   pair?: boolean,
  *   pdfMode: PdfMode,
  *   words?: boolean
  * }} options - The settings the batch would run under.
  * @returns {number} Estimated archive size in bytes.
  */
-export function estimateBatchBytes({ boxes = false, count, format, groundTruth = false, pdfMode, words = false }) {
+export function estimateBatchBytes({
+  boxes = false,
+  count,
+  degraded = false,
+  format,
+  groundTruth = false,
+  lossy = false,
+  pair = false,
+  pdfMode,
+  words = false
+}) {
   let perDocument = 0;
+  const imageBytes = lossy ? BYTES_PER_DOCUMENT.jpg : degraded ? BYTES_PER_DOCUMENT.pngNoisy : BYTES_PER_DOCUMENT.png;
 
   if (format === "png" || format === "both") {
-    perDocument += BYTES_PER_DOCUMENT.png;
+    perDocument += imageBytes;
+
+    if (degraded && pair) {
+      perDocument += BYTES_PER_DOCUMENT.png;
+    }
   }
 
   if (format === "pdf" || format === "both") {
@@ -266,29 +331,36 @@ export function formatBytes(bytes) {
  * read, not five hundred to glob; the README exists so a ZIP found in a
  * downloads folder months later still explains its own schema and settings.
  * @param {{
- *   annotate?: (model: DocumentModel) => Record<string, any>,
+ *   annotate?: (model: DocumentModel, degradation: DegradePlan | null) => Record<string, any>,
+ *   degrade?: (model: DocumentModel) => DegradePlan | null,
  *   deps: ExportDeps,
  *   format: BatchFormat,
  *   onProgress?: (progress: { done: number, phase: string, total: number }) => void,
+ *   pair?: boolean,
  *   paper: HTMLElement,
  *   pdfMode: PdfMode,
  *   plan: ReturnType<typeof planBatch>,
- *   readme?: { boxes: boolean, words: boolean },
+ *   readme?: { boxes: boolean, degradation: string, pair: boolean, words: boolean },
  *   renderPreview: (item: { docTypeId: string, seed: number, style: string, vendorId: string }) => DocumentModel
  * }} options - Batch inputs.
  * @returns {Promise<{ blob: Blob, count: number }>} The archive and how many documents it holds.
  */
 export async function runBatch({
   annotate,
+  degrade,
   deps,
   format,
   onProgress = () => {},
+  pair = false,
   paper,
   pdfMode,
   plan,
-  readme = { boxes: false, words: false },
+  readme,
   renderPreview
 }) {
+  // Merged rather than defaulted, so a caller that names only some of the
+  // README fields does not end up printing "undefined" into the archive.
+  const dataset = { boxes: false, degradation: "clean", pair: false, words: false, ...readme };
   const JsZip = deps.getJsZip();
   const zip = new JsZip();
   const wantsPng = format === "png" || format === "both";
@@ -301,6 +373,7 @@ export async function runBatch({
   for (const item of plan) {
     const model = renderPreview(item);
     const base = `${item.vendorId}/${item.docTypeId}/${model.filenameBase}`;
+    const degradation = degrade ? degrade(model) : null;
 
     if (wantsPdf && pdfMode === "text") {
       zip.file(`${base}.pdf`, renderPdf(model, deps.getJsPdf()).output("blob"));
@@ -309,21 +382,27 @@ export async function runBatch({
     if (wantsCanvas) {
       // Sequential on purpose: one shared paper element is reused for every
       // capture, so the renders cannot overlap.
-      const canvas = await capturePaper(paper, deps);
+      const raster = await renderRaster(paper, deps, degradation);
 
       if (wantsPng) {
-        zip.file(`${base}.png`, canvas.toDataURL("image/png").split(",")[1], { base64: true });
+        zip.file(`${base}.${raster.extension}`, raster.dataUrl.split(",")[1], { base64: true });
+
+        if (pair && degradation) {
+          // The whole point of pair mode: one seed, two images, differing only
+          // in scan quality, so accuracy can be plotted against it.
+          zip.file(`${base}.clean.png`, raster.clean.toDataURL("image/png").split(",")[1], { base64: true });
+        }
       }
 
       if (wantsPdf && pdfMode === "image") {
-        zip.file(`${base}.pdf`, canvasToPdf(canvas, deps).output("blob"));
+        zip.file(`${base}.pdf`, canvasToPdf(raster, deps).output("blob"));
       }
     }
 
     if (annotate) {
       // Measured after any capture, so the sidecar describes the same paper the
       // PNG was taken from rather than a page that has since been re-rendered.
-      const payload = annotate(model);
+      const payload = annotate(model, degradation);
       manifest.push(payload);
       zip.file(`${base}.json`, annotationsToJson(payload));
     }
@@ -337,12 +416,14 @@ export async function runBatch({
     zip.file(
       "README.txt",
       datasetReadme({
-        boxes: readme.boxes,
+        boxes: dataset.boxes,
         count: plan.length,
+        degradation: dataset.degradation,
         format,
         generatedAt: new Date().toISOString(),
+        pair: dataset.pair,
         pdfMode: wantsPdf ? pdfMode : "n/a",
-        words: readme.words
+        words: dataset.words
       })
     );
   }

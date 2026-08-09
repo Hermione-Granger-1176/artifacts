@@ -170,6 +170,96 @@ test('the vendor-docs-generator workbench boots and drives every control', async
       36,
       'six vendors by six types by one document each'
     );
+
+    // ── Scan quality ──────────────────────────────────────────────────
+    elementMap.vdAllTypes.checked = false;
+    elementMap.vdAllVendors.checked = false;
+
+    assert.equal(elementMap.vdKnobs.children.length, 9, 'a slider per exposed setting');
+    assert.equal(elementMap.vdDegradePreset.children.length, 6, 'five presets plus custom');
+    assert.equal(elementMap.vdPair.disabled, true, 'nothing to pair a clean page with');
+    assert.match(elementMap.vdDegradeNote.textContent, /No geometry, no grain/);
+
+    elementMap.vdDegradePreset.value = 'copier';
+    fire(elementMap.vdDegradePreset, 'change');
+    assert.equal(elementMap.vdPair.disabled, false);
+    assert.match(elementMap.vdDegradeNote.textContent, /dust on the platen/);
+    assert.match(elementMap.vdBatchEstimate.textContent, /documents, roughly/);
+
+    // Touching a knob is what makes a run custom, so the sidecar never claims a
+    // preset the page was not rendered under.
+    const grain = elementMap.vdKnobs.children[6].children[1];
+    grain.value = '3';
+    fire(grain, 'input');
+    assert.equal(elementMap.vdDegradePreset.value, 'custom');
+    assert.match(elementMap.vdDegradeNote.textContent, /still driven by the document seed/);
+    assert.equal(elementMap.vdKnobs.children[6].children[0].children[1].textContent, '3');
+
+    // ── Scan preview ──────────────────────────────────────────────────
+    const capturesBeforePreview = canvas.captures.length;
+    fire(elementMap.vdPreviewScan, 'click');
+    await flush();
+    assert.equal(canvas.captures.length, capturesBeforePreview + 1);
+    assert.equal(dialog.open, true);
+    assert.equal(elementMap.vdFullscreenBody.children.length, 1);
+    assert.equal(elementMap.vdFullscreenBody.children[0].className, 'vd-scan-preview');
+    assert.match(elementMap.vdFullCaption.textContent, / - Custom$/);
+
+    fire(elementMap.vdFullClose, 'click');
+    assert.equal(elementMap.vdFullscreenBody.children.length, 0, 'the preview image is cleared');
+    assert.equal(elementMap.vdPaperFrame.children[0], elementMap.vdPaperScale);
+
+    // ── A lossy preset writes a JPEG, and pair mode writes both ───────
+    elementMap.vdDegradePreset.value = 'fax';
+    fire(elementMap.vdDegradePreset, 'change');
+    elementMap.vdPair.checked = true;
+    fire(elementMap.vdPair, 'change');
+
+    // Downloads are normally unlinked on a timer that the mock runs inline;
+    // holding it open leaves the anchors in the body to be read back.
+    const realSetTimeout = globalThis.window.setTimeout;
+    globalThis.window.setTimeout = () => 0;
+    fire(elementMap.vdDownloadPng, 'click');
+    await flush();
+    globalThis.window.setTimeout = realSetTimeout;
+
+    const saved = globalThis.document.body.children.map((node) => node.download).filter(Boolean);
+    assert.deepEqual(
+      saved.map((name) => name.replace(/_\d+\./, '.')),
+      ['apex_invoice.jpg', 'apex_invoice.clean.png', 'apex_invoice.json'],
+      'a lossy scan, the clean original beside it, and one sidecar for both'
+    );
+
+    // ── A degraded batch labels what it actually rendered ─────────────
+    elementMap.vdBatchFormat.value = 'png';
+    elementMap.vdBoxes.checked = true;
+    fire(elementMap.vdBoxes, 'change');
+    elementMap.vdBatchCount.value = '1';
+    fire(elementMap.vdBatch, 'click');
+    await flush(20);
+
+    // The seed picks the layout, so the stem varies; what must not vary is that
+    // a lossy scan writes a JPEG, pair mode writes the clean PNG beside it, and
+    // one sidecar labels both.
+    const scanDocs = [...zip.archives[2].files.keys()].filter((path) => path.includes('/'));
+    assert.deepEqual(
+      scanDocs.map((path) => path.slice(path.indexOf('apex_invoice') + 'apex_invoice'.length).replace(/^[\w]*?(?=\.)/, '')),
+      ['.jpg', '.clean.png', '.json']
+    );
+    assert.ok(scanDocs.every((path) => path.startsWith('apex/invoice/apex_invoice_')));
+    assert.ok(zip.archives[2].files.get('README.txt').data.includes('Scan:      fax, paired'));
+
+    const scanned = JSON.parse(zip.archives[2].files.get('manifest.jsonl').data.trim());
+    assert.equal(scanned.degradation.preset, 'fax');
+    assert.equal(scanned.degradation.seed, scanned.seed, 'the page and its wear share one seed');
+    assert.deepEqual(scanned.degradation.applies_to, ['png', 'pdf_raster']);
+    // The mock paper has no queryable children, so the regions themselves are
+    // exercised in annotate-boxes.test.js and in Chromium; what matters here is
+    // that a degraded run still asks for boxes and still declares where they
+    // apply, rather than quietly dropping them.
+    assert.deepEqual(scanned.boxes_apply_to, ['png', 'pdf_raster']);
+    assert.deepEqual(scanned.boxes.page, { width: 794, height: 1123, unit: 'normalised' });
+    assert.ok(scanned.degradation.transform.flat().every(Number.isFinite));
   } finally {
     cleanupMocks();
   }

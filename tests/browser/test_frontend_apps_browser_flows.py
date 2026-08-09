@@ -308,7 +308,8 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
 
         # The sidecar rides along with the page and describes that same page.
         sidecar = json.loads(exported["json"])
-        assert sidecar["schema_version"] == "1.0"
+        assert sidecar["schema_version"] == "1.1"
+        assert sidecar["degradation"] is None, "the default scan preset is clean"
         assert sidecar["vendor_id"] == "ironwood"
         assert sidecar["fields"]["vendor_name"]["value"] == "Ironwood Construction Materials"
         assert sidecar["fields"]["po_number"] is None, "a clean invoice prints no PO number"
@@ -359,7 +360,7 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
             assert "README.txt" in entries
             manifest = archive.read("manifest.jsonl").decode().strip().splitlines()
             assert len(manifest) == 1
-            assert json.loads(manifest[0])["schema_version"] == "1.0"
+            assert json.loads(manifest[0])["schema_version"] == "1.1"
             assert b"Ground truth" in archive.read("README.txt")
 
         page.locator("#theme-toggle").click()
@@ -588,3 +589,116 @@ def test_vendor_docs_generator_boxes_land_on_the_ink_they_name(
         )
 
         assert problems == [], problems
+
+
+def test_vendor_docs_generator_degraded_boxes_follow_the_ink(
+    app_browser: AppBrowserHarness,
+) -> None:
+    """Tilting the page must move the labels with it, not leave them behind.
+
+    Degradation and boxes both pass their own tests in isolation, which is
+    exactly how a feature that silently corrupts another one ships. The only
+    check that catches it is this one: rasterise a real page, tilt it, and count
+    the ink actually inside each transformed box against the ink still inside
+    the box it started from.
+    """
+    with MonitoredPage(
+        app_browser.playwright,
+        app_browser.server_url,
+        name="app-vendor-docs-degrade",
+        viewport=(1400, 1000),
+        bypass_csp=True,
+        browser=app_browser.browser,
+    ) as session:
+        page = session.page
+        assert page is not None
+        session.goto("/apps/vendor-docs-generator/")
+        page.wait_for_function("window.__ARTIFACT_READY__ === true")
+
+        report = page.evaluate(
+            """async () => {
+                const base = './js/modules/';
+                const { buildDocument } = await import(base + 'document-model.js');
+                const { renderPaper } = await import(base + 'paper-render.js');
+                const { collectBoxes, transformBoxes } = await import(base + 'annotate-boxes.js');
+                const degrade = await import(base + 'degrade.js');
+
+                const paper = document.getElementById('vdPaper');
+                document.getElementById('vdPaperScale').style.setProperty('--vd-zoom', '1');
+                renderPaper(paper, buildDocument({
+                    vendorId: 'ironwood', docTypeId: 'invoice', style: 'clean', seed: 4242
+                }));
+
+                const clean = collectBoxes(paper);
+                // Geometry only. Grain and blur would blunt the ink test without
+                // telling us anything about whether the boxes moved correctly.
+                const settings = { ...degrade.resolveSettings('clean'), rotation: 3, skew: 1 };
+                const plan = degrade.planDegradation({
+                    width: paper.offsetWidth,
+                    height: paper.offsetHeight,
+                    preset: 'custom',
+                    seed: 4242,
+                    settings
+                });
+                const source = await window.html2canvas(paper, {
+                    backgroundColor: '#ffffff', logging: false, scale: 1, useCORS: true
+                });
+                const canvas = degrade.degradeCanvas(source, plan);
+                const image = canvas.getContext('2d')
+                    .getImageData(0, 0, canvas.width, canvas.height).data;
+                const moved = transformBoxes(clean, plan.transform);
+
+                const inkIn = ([x, y, w, h]) => {
+                    const left = Math.max(0, Math.round(x * canvas.width));
+                    const top = Math.max(0, Math.round(y * canvas.height));
+                    const right = Math.min(canvas.width, Math.round((x + w) * canvas.width));
+                    const bottom = Math.min(canvas.height, Math.round((y + h) * canvas.height));
+                    let dark = 0;
+                    for (let py = top; py < bottom; py += 1) {
+                        for (let px = left; px < right; px += 1) {
+                            if (image[(py * canvas.width + px) * 4] < 128) { dark += 1; }
+                        }
+                    }
+                    return dark;
+                };
+
+                const problems = [];
+                let movedInk = 0;
+                let staleInk = 0;
+                let empty = 0;
+
+                for (let index = 0; index < clean.regions.length; index += 1) {
+                    const before = clean.regions[index];
+                    const after = moved.regions[index];
+
+                    if (!after.quad) { problems.push(`${after.field} lost its quad`); continue; }
+                    if (after.quad.some((value) => value < -0.01 || value > 1.01)) {
+                        problems.push(`${after.field} was transformed off the page`);
+                    }
+
+                    const here = inkIn(after.box);
+                    movedInk += here;
+                    staleInk += inkIn(before.box);
+                    if (here === 0) { empty += 1; }
+                }
+
+                return {
+                    regions: clean.regions.length,
+                    rotation: plan.applied.rotation,
+                    problems: problems.slice(0, 8),
+                    movedInk,
+                    staleInk,
+                    empty
+                };
+            }"""
+        )
+
+        assert report["problems"] == [], report["problems"]
+        assert report["regions"] > 20, report
+        assert abs(report["rotation"]) > 2, report
+        # Every transformed box should still sit on ink. A handful of thin or
+        # near-empty values is tolerable; a systematic miss is not.
+        assert report["empty"] <= 2, report
+        # And the transform has to be doing real work: the boxes left where the
+        # DOM put them cover measurably less of the tilted page's ink.
+        assert report["movedInk"] > report["staleInk"] * 1.05, report

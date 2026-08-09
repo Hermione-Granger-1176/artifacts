@@ -23,7 +23,11 @@ paper-render.js   pdf-render.js   annotations.js
       │              │          (reads the DOM back)
       └──────┬───────┴───────────────┘
              ▼
-        exporters.js  ──▶  PNG · PDF · JSON · ZIP batch
+        exporters.js  ──▶  PNG/JPEG · PDF · JSON · ZIP batch
+             │                   ▲
+             ▼                   │ transform
+        degrade.js  ─────────────┘
+     (raster in, raster + matrix out)
 ```
 
 ### The model is the contract
@@ -51,6 +55,26 @@ A field printed in more than one place produces more than one region, in documen
 
 The caveat that matters is recorded on every payload as `boxes_apply_to`, not left in a doc: boxes are measured on the HTML page, so they describe the PNG and the rasterised PDF. `pdf-render.js` lays out independently in A4 points, so they do **not** describe the text-layer PDF. Emitting boxes for that would mean instrumenting the jsPDF cursor to report its own positions, which is real work and has not been done.
 
+### Degradation, and why it reports a matrix
+
+A corpus where every page is a pixel-perfect raster on pure white cannot tell you where an extractor breaks, because nothing in it is hard. `degrade.js` adds the axis that makes "how much accuracy do I lose to scan quality" measurable: the same seed rendered clean and rendered degraded, differing only in the pixels.
+
+Two contracts matter more than any individual effect.
+
+**Seeded.** Every stochastic choice is drawn from the document seed, in a fixed order, so a seed plus a preset always produces the same page and a dataset can be regenerated. Drawing every value up front is what makes the order fixed: turning grain off does not shift the tilt.
+
+**It reports its geometry.** Skew, rotation, and keystone move the ink; grain, blur, and JPEG do not. `planDegradation` returns the projective transform before anything is painted, and `transformBoxes` runs every box through it. Without that, phase 3 would quietly corrupt phase 2, and both halves would still pass their own tests.
+
+Planning is split from painting for a second reason: `planDegradation` is pure arithmetic over a seed and a page size, so the JSON-only batch path can move its boxes correctly without rasterising a single page.
+
+The matrix is expressed in normalised page coordinates, which is what lets one plan serve both the 794x1123 layout page it was made against and the 1588x2246 capture it is applied to. `toPixelMatrix` scales it into whatever bitmap is actually in hand at draw time.
+
+Canvas 2D cannot draw a projective transform in one call, so a keystoned page is drawn in four-pixel strips whose affine approximation is well under a pixel off. The matrix reported to the annotations is the exact projective one either way, and the approximation error sits far below the blur and grain applied immediately afterwards.
+
+Each transformed region carries both shapes. `box` stays an axis-aligned `[x, y, width, height]` so an evaluation script written against a clean run keeps working; `quad` carries the four corners the ink actually landed on. Reporting only the quad would break every existing reader, and reporting only the box would silently claim a tilted value is upright.
+
+JPEG loss is the encoding rather than a painted effect: asking the canvas for a lossy JPEG is the same compression a real scanner applies, and baking it into a PNG would need an async round-trip through an `Image` for a worse result. A lossy preset therefore writes `.jpg`.
+
 ### Determinism
 
 Everything downstream of the seed is deterministic. `random.js` provides a Lehmer generator; `Math.random` appears only in `rollSeed` (a new document) and `planBatch` (choosing seeds for a batch). `format.js` deliberately avoids `toLocaleString` and `toLocaleDateString` so that a seed produces byte-identical text in the browser, in Node tests, and in the CI thumbnail run.
@@ -75,5 +99,7 @@ App chrome in `css/app.css` is entirely token-derived. The printed page uses a s
 `exporters.js` reaches the three UMD globals through injected accessors rather than touching `window` directly, so the module runs under Node in tests with recording fakes, and a script that failed to load produces a readable message instead of a `TypeError` inside a click handler.
 
 A batch can also be labelled, in which case each document gets a `.json` sidecar beside it and the archive root gets a `manifest.jsonl` (every sidecar again, one compact object per line, because tooling that streams a dataset wants one file to read) and a `README.txt` recording the schema and the settings the run used. The `json` format skips both renderers entirely and is the fast path for iterating on an evaluation script.
+
+Pair mode writes the degraded page and the clean original from a single capture, which is why `renderRaster` returns both rather than the caller rendering twice. Rendering is the slowest step in a batch, and doing it twice for two images of the same page would double it.
 
 The text-PDF batch path never renders to the DOM at all: `renderPdf` writes straight from the model. Only the PNG and rasterised-PDF paths need `html2canvas`, and those run sequentially because they share one paper element. Because the fitted preview scales the paper with a CSS transform, `app.js` pins the zoom to 1 for the duration of any capture so every raster sample is a true 794px page, in either the inline frame or the full-size overlay.

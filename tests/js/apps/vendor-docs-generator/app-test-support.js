@@ -8,7 +8,7 @@
 
 import { makeElement, setupFullMocks } from '../../common/app-entry-test-support.js';
 
-import { createFakeHtml2Canvas, createFakeJsPdf, createFakeJsZip } from './library-fakes.js';
+import { createFakeCanvas, createFakeHtml2Canvas, createFakeJsPdf, createFakeJsZip } from './library-fakes.js';
 
 const ELEMENT_IDS = [
   'vdVendor',
@@ -46,6 +46,12 @@ const ELEMENT_IDS = [
   'vdWordBoxes',
   'vdWordBoxesLabel',
   'vdGroundTruthNote',
+  'vdDegradePreset',
+  'vdDegradeNote',
+  'vdKnobs',
+  'vdPair',
+  'vdPairLabel',
+  'vdPreviewScan',
   'vdBatch'
 ];
 
@@ -108,7 +114,9 @@ export function setupAppMocks() {
   elementMap.vdDownloadPdf.textContent = 'Download PDF';
   elementMap.vdDownloadPng.textContent = 'Download PNG';
   elementMap.vdDownloadJson.textContent = 'Download ground truth JSON';
+  elementMap.vdPreviewScan.textContent = 'Preview scan';
   elementMap.vdBatch.textContent = 'Generate batch as ZIP';
+  elementMap.vdPair.checked = false;
 
   // index.html ships the meter with a `hidden` attribute; the mock has no
   // markup to read it from, so the initial state is mirrored here.
@@ -130,14 +138,29 @@ export function setupAppMocks() {
   elementMap.vdPaper.rect = { left: 0, top: 0, width: 794, height: 1123 };
 
   const pdf = createFakeJsPdf();
-  const canvas = createFakeHtml2Canvas();
+  // A postage-stamp capture: the degradation pixel pass is a real loop over
+  // every byte, and running it over a 1588 x 2246 page in a UI test would spend
+  // seconds proving something the degrade tests already prove properly.
+  const canvas = createFakeHtml2Canvas({ width: 80, height: 113 });
   const zip = createFakeJsZip();
+  const scratchCanvases = [];
+  const createFakeElement = globalThis.document.createElement;
+
+  globalThis.document.createElement = (tag) => {
+    if (tag !== 'canvas') {
+      return createFakeElement(tag);
+    }
+
+    const scratch = createFakeCanvas(0, 0);
+    scratchCanvases.push(scratch);
+    return scratch;
+  };
 
   globalThis.window.jspdf = { jsPDF: pdf.JsPdf };
   globalThis.window.html2canvas = canvas.html2canvas;
   globalThis.window.JSZip = zip.JsZip;
 
-  return { ...shared, canvas, dialog, layoutButtons, pdf, zip };
+  return { ...shared, canvas, dialog, layoutButtons, pdf, scratchCanvases, zip };
 }
 
 /**

@@ -167,21 +167,112 @@ export function createFakeJsPdf(options = {}) {
 }
 
 /**
+ * A canvas that records every 2D drawing call and owns a real pixel buffer.
+ *
+ * The buffer is genuine, so the degradation pixel pass can be run over it and
+ * asserted on byte by byte; everything geometric is recorded rather than
+ * rasterised, because reproducing a browser's compositor under Node would test
+ * the reproduction rather than the code.
+ * @param {number} [width=1588] - Canvas width.
+ * @param {number} [height=2246] - Canvas height.
+ * @returns {Record<string, any>} The canvas, with `ctx` and `encodings` exposed.
+ */
+export function createFakeCanvas(width = 1588, height = 2246) {
+  const calls = [];
+  const encodings = [];
+  let imageData = null;
+  const record = (name) => (...args) => {
+    calls.push({ name, args });
+  };
+
+  const ctx = {
+    calls,
+    filter: 'none',
+    fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 1,
+    save: record('save'),
+    restore: record('restore'),
+    beginPath: record('beginPath'),
+    moveTo: record('moveTo'),
+    lineTo: record('lineTo'),
+    arc: record('arc'),
+    fill: record('fill'),
+    stroke: record('stroke'),
+    fillRect: record('fillRect'),
+    drawImage: record('drawImage'),
+    setTransform: record('setTransform'),
+    putImageData: record('putImageData'),
+    createLinearGradient(...args) {
+      calls.push({ name: 'createLinearGradient', args });
+      return { stops: [], addColorStop(offset, color) { this.stops.push([offset, color]); } };
+    },
+    // Allocated at the size actually asked for, so a canvas resized after
+    // construction still hands back a buffer the pixel pass can walk.
+    getImageData(_x, _y, dataWidth, dataHeight) {
+      calls.push({ name: 'getImageData', args: [_x, _y, dataWidth, dataHeight] });
+      imageData = {
+        data: new Uint8ClampedArray(dataWidth * dataHeight * 4).fill(255),
+        width: dataWidth,
+        height: dataHeight
+      };
+      return imageData;
+    }
+  };
+
+  return {
+    width,
+    height,
+    ctx,
+    encodings,
+    get imageData() {
+      return imageData;
+    },
+    getContext: () => ctx,
+    toDataURL(mime = 'image/png', quality) {
+      encodings.push({ mime, quality });
+      return `data:${mime};base64,ZmFrZQ==`;
+    }
+  };
+}
+
+/**
  * Build an html2canvas stand-in returning a fixed-size canvas.
+ * @param {{ height?: number, width?: number }} [size={}] - Capture size.
  * @returns {{ captures: any[], html2canvas: Function }} Fake and its call log.
  */
-export function createFakeHtml2Canvas() {
+export function createFakeHtml2Canvas({ height = 2246, width = 1588 } = {}) {
   const captures = [];
 
   return {
     captures,
     html2canvas: async (element, options) => {
-      captures.push({ element, options });
-      return {
-        width: 1588,
-        height: 2246,
-        toDataURL: () => 'data:image/png;base64,ZmFrZQ=='
-      };
+      const canvas = createFakeCanvas(width, height);
+      captures.push({ canvas, element, options });
+      return canvas;
+    }
+  };
+}
+
+/**
+ * A document stand-in whose only job is to hand out fake canvases.
+ * @returns {{ canvases: Record<string, any>[], documentObj: Record<string, any> }} Fake and its log.
+ */
+export function createFakeCanvasDocument() {
+  const canvases = [];
+
+  return {
+    canvases,
+    documentObj: {
+      createElement(tag) {
+        if (tag !== 'canvas') {
+          throw new Error(`unexpected createElement(${tag})`);
+        }
+
+        const canvas = createFakeCanvas(0, 0);
+        canvases.push(canvas);
+        return canvas;
+      }
     }
   };
 }
@@ -219,14 +310,16 @@ export function createFakeJsZip() {
  * @param {{ documentObj?: any, windowObj?: any }} [overrides={}] - DOM injection points.
  * @returns {Record<string, any>} Deps plus handles on every underlying fake.
  */
-export function createExportDeps(overrides = {}) {
+export function createExportDeps(overrides = {}, captureSize = {}) {
   const pdf = createFakeJsPdf();
-  const canvas = createFakeHtml2Canvas();
+  const canvas = createFakeHtml2Canvas(captureSize);
   const zip = createFakeJsZip();
+  const scratch = createFakeCanvasDocument();
 
   return {
     pdf,
     canvas,
+    scratch,
     zip,
     deps: {
       getJsPdf: () => pdf.JsPdf,

@@ -27,12 +27,14 @@
  */
 
 import { BOXES_APPLY_TO } from "./annotate-boxes.js";
+import { DEGRADATION_APPLIES_TO } from "./degrade.js";
 import { formatDate, formatMoney, formatRate, isoDate, roundCents } from "./format.js";
 
 /**
  * @typedef {import("./document-model.js").DocumentModel} DocumentModel
  * @typedef {import("./document-model.js").DocumentFacts} DocumentFacts
  * @typedef {import("./annotate-boxes.js").BoxAnnotations} BoxAnnotations
+ * @typedef {import("./degrade.js").DegradePlan} DegradePlan
  * @typedef {{ text: string, value: string | number } | null} AnnotatedField
  */
 
@@ -42,8 +44,12 @@ import { formatDate, formatMoney, formatRate, isoDate, roundCents } from "./form
  * Anyone who writes an evaluation script against these key names is hurt by a
  * silent rename, so the names are frozen: a key never changes meaning, and this
  * bumps if one ever has to.
+ *
+ * 1.1 added `degradation`, and a `quad` alongside `box` on every region of a
+ * geometrically degraded page. Both are additive: a reader written against 1.0
+ * still finds every key it knew, holding what it expected.
  */
-export const SCHEMA_VERSION = "1.0";
+export const SCHEMA_VERSION = "1.1";
 
 /**
  * Every document-level key the sidecar emits, in output order.
@@ -309,12 +315,37 @@ function transactions(facts) {
 }
 
 /**
+ * Describe the degradation a page was rendered under.
+ *
+ * The transform is recorded even though the boxes have already been moved
+ * through it, because "these labels are for a page that was tilted 1.4 degrees"
+ * is a fact about the sample worth filtering a dataset on, and because it lets a
+ * consumer map back to the clean render if they want to.
+ * @param {DegradePlan | null} degradation - Plan from `planDegradation`, or null.
+ * @returns {Record<string, any> | null} The payload block.
+ */
+function degradationBlock(degradation) {
+  if (!degradation) {
+    return null;
+  }
+
+  return {
+    preset: degradation.preset,
+    seed: degradation.seed,
+    settings: degradation.applied,
+    transform: degradation.transform,
+    applies_to: DEGRADATION_APPLIES_TO
+  };
+}
+
+/**
  * Build the ground-truth sidecar for one document.
  * @param {DocumentModel} model - Rendered document.
  * @param {BoxAnnotations | null} [boxes=null] - Region boxes, when they were collected.
+ * @param {DegradePlan | null} [degradation=null] - Degradation the page was rendered under.
  * @returns {Record<string, any>} The sidecar, ready to serialise.
  */
-export function buildAnnotations(model, boxes = null) {
+export function buildAnnotations(model, boxes = null, degradation = null) {
   return {
     schema_version: SCHEMA_VERSION,
     generator: "vendor-docs-generator",
@@ -334,7 +365,8 @@ export function buildAnnotations(model, boxes = null) {
     // Stated on the payload rather than left for a reader to discover: the
     // boxes are measured on the HTML page, so a text-layer PDF is not one of
     // the renderings they describe.
-    boxes_apply_to: boxes ? BOXES_APPLY_TO : null
+    boxes_apply_to: boxes ? BOXES_APPLY_TO : null,
+    degradation: degradationBlock(degradation)
   };
 }
 
@@ -368,8 +400,10 @@ export function annotationsToJsonl(entries) {
  * @param {{
  *   boxes: boolean,
  *   count: number,
+ *   degradation: string,
  *   format: string,
  *   generatedAt: string,
+ *   pair: boolean,
  *   pdfMode: string,
  *   words: boolean
  * }} settings - What the run was asked for.
@@ -385,12 +419,15 @@ export function datasetReadme(settings) {
     `Format:    ${settings.format}`,
     `PDF mode:  ${settings.pdfMode}`,
     `Boxes:     ${settings.boxes ? (settings.words ? "region and word level" : "region level") : "off"}`,
+    `Scan:      ${settings.degradation}${settings.pair ? ", paired with the clean original" : ""}`,
     `Schema:    ${SCHEMA_VERSION}`,
     "",
     "Layout",
     "------",
     "  <vendor>/<type>/<base>.pdf    rendered page, if PDF was requested",
     "  <vendor>/<type>/<base>.png    rendered page, if PNG was requested",
+    "  <vendor>/<type>/<base>.jpg    rendered page, when the scan preset is lossy",
+    "  <vendor>/<type>/<base>.clean.png   the undegraded original, in pair mode",
     "  <vendor>/<type>/<base>.json   ground truth for that page",
     "  manifest.jsonl                every sidecar again, one compact object per line",
     "",
@@ -418,6 +455,23 @@ export function datasetReadme(settings) {
     "Boxes are measured on the rendered HTML page, so they line up with the PNG and",
     "with the rasterised PDF. They do NOT describe the text-layer PDF, which jsPDF",
     "lays out independently. boxes_apply_to records this on every payload.",
+    "",
+    "Scan degradation",
+    "----------------",
+    "degradation is null on a clean run. Otherwise it names the preset, the seed it",
+    "was driven from, every resolved setting, and the projective transform applied,",
+    "as a 3x3 matrix over the same normalised coordinates the boxes use.",
+    "",
+    "Skew, rotation, and keystone move the ink, so the boxes have ALREADY been run",
+    "through that transform: they describe the degraded image, not the clean render.",
+    "Each region also carries quad, the four corners in x0,y0,x1,y1,x2,y2,x3,y3 order,",
+    "because a tilted value is not really an upright rectangle. box stays the",
+    "axis-aligned bounding box of that quad, so a reader that only knows about box",
+    "keeps working.",
+    "",
+    "The same seed and the same preset always produce the same page, so a clean run",
+    "and a degraded run over the same seeds are directly comparable, which is what",
+    "makes accuracy-against-scan-quality measurable.",
     "",
     "Provenance",
     "----------",

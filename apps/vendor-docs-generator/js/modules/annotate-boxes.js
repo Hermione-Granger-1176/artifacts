@@ -21,10 +21,14 @@
  * @module annotate-boxes
  */
 
+import { project } from "./degrade.js";
+
 /**
+ * @typedef {import("./degrade.js").Matrix3} Matrix3
  * @typedef {[x: number, y: number, width: number, height: number]} NormalisedBox
- * @typedef {{ box: NormalisedBox, text: string }} WordBox
- * @typedef {{ box: NormalisedBox, field: string, text: string, words?: WordBox[] }} Region
+ * @typedef {[number, number, number, number, number, number, number, number]} Quad
+ * @typedef {{ box: NormalisedBox, quad?: Quad, text: string }} WordBox
+ * @typedef {{ box: NormalisedBox, field: string, quad?: Quad, text: string, words?: WordBox[] }} Region
  * @typedef {{
  *   page: { height: number, unit: "normalised", width: number },
  *   regions: Region[]
@@ -186,5 +190,77 @@ export function collectBoxes(paper, { doc = document, words = false } = {}) {
       unit: "normalised"
     },
     regions
+  };
+}
+
+/**
+ * Whether a transform would leave every box exactly where it is.
+ * @param {Matrix3} matrix - Candidate transform.
+ * @returns {boolean} True for the identity.
+ */
+function isIdentity(matrix) {
+  return matrix.every((row, y) => row.every((value, x) => value === (x === y ? 1 : 0)));
+}
+
+/**
+ * Move one box through a transform.
+ *
+ * The result carries both shapes on purpose. `box` stays an axis-aligned
+ * `[x, y, width, height]` so an evaluation script written against a clean run
+ * keeps working unchanged against a degraded one; `quad` carries the four
+ * corners the ink actually landed on, which is what a rotated page really looks
+ * like and what a polygon-aware consumer wants. Reporting only the quad would
+ * break every existing reader; reporting only the box would silently claim a
+ * tilted value is upright.
+ * @param {NormalisedBox} box - Box before the transform.
+ * @param {Matrix3} matrix - Transform in normalised page coordinates.
+ * @returns {{ box: NormalisedBox, quad: Quad }} Bounding box and exact corners.
+ */
+function warpBox([x, y, width, height], matrix) {
+  const corners = [
+    [x, y],
+    [x + width, y],
+    [x + width, y + height],
+    [x, y + height]
+  ].map(([pointX, pointY]) => project(matrix, pointX, pointY));
+  const xs = corners.map((corner) => corner[0]);
+  const ys = corners.map((corner) => corner[1]);
+  const left = Math.min(...xs);
+  const top = Math.min(...ys);
+
+  return {
+    box: [round(left), round(top), round(Math.max(...xs) - left), round(Math.max(...ys) - top)],
+    quad: /** @type {Quad} */ (corners.flat().map(round))
+  };
+}
+
+/**
+ * Move every box on a page through a transform.
+ *
+ * Called with whatever geometry the degradation pass applied, so the labels
+ * describe the image that was actually written rather than the clean render it
+ * started from. This is the join between phases 2 and 3: skew, rotation, and
+ * keystone move the ink, and without this the boxes would keep pointing at
+ * where the ink used to be.
+ * @param {BoxAnnotations | null} boxes - Boxes measured on the clean page.
+ * @param {Matrix3} matrix - Transform in normalised page coordinates.
+ * @returns {BoxAnnotations | null} Transformed boxes, or the input untouched.
+ */
+export function transformBoxes(boxes, matrix) {
+  if (!boxes || isIdentity(matrix)) {
+    return boxes;
+  }
+
+  return {
+    page: boxes.page,
+    regions: boxes.regions.map((region) => {
+      const moved = { ...region, ...warpBox(region.box, matrix) };
+
+      if (region.words) {
+        moved.words = region.words.map((word) => ({ ...word, ...warpBox(word.box, matrix) }));
+      }
+
+      return moved;
+    })
   };
 }

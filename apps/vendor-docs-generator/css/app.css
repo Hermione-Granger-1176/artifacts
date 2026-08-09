@@ -148,6 +148,30 @@ body.app-vendor-docs-generator .vd-estimate {
   text-align: center;
 }
 
+/*
+ * The scan knobs are folded away by default. Eight sliders is the right amount
+ * of control and the wrong amount of rail: the presets are the common case, and
+ * the rail should stay as calm as it was before they existed.
+ */
+
+body.app-vendor-docs-generator .vd-advanced summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-control);
+  letter-spacing: var(--tracking-tight);
+}
+
+body.app-vendor-docs-generator .vd-advanced summary:hover {
+  color: var(--color-text);
+}
+
+body.app-vendor-docs-generator .vd-knobs {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--space-3);
+  gap: var(--space-3);
+}
+
 body.app-vendor-docs-generator .segmented.is-disabled {
   opacity: 0.45;
 }
@@ -291,6 +315,23 @@ body.app-vendor-docs-generator .vd-fullscreen-body {
 body.app-vendor-docs-generator .vd-fullscreen-body .vd-paper-scale {
   height: auto;
   flex: 0 0 auto;
+}
+
+/*
+ * The scan preview is a raster of the page rather than the page itself, so it
+ * is sized against the same A4 width the paper uses and left to shrink on a
+ * short window instead of forcing the overlay to scroll in both directions.
+ */
+
+body.app-vendor-docs-generator .vd-scan-preview {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 100%;
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  object-fit: contain;
 }
 
 /* ── The printed page ─────────────────────────────────────────────── */

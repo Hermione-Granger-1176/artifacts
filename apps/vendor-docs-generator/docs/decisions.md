@@ -67,3 +67,37 @@ Vendor phone numbers use the 555-01xx range reserved for fiction and every email
 ### The dense layout is invoice-only
 
 Only invoices get the second treatment, because the dense line-level tax layout is a thing that exists for invoices specifically. The control is disabled rather than hidden for other types, so the option stays discoverable and the UI never silently ignores a setting.
+
+### Degradation reports its geometry, and the boxes are moved before they are written
+
+Skew, rotation, and keystone move the ink; grain, blur, and JPEG do not. So `planDegradation` returns the projective transform before anything is painted, and the annotation path runs every box through it. The alternative, writing the boxes the DOM measured and letting a consumer work out that the page has since been tilted, would mean phase 3 quietly invalidating phase 2 while both halves kept passing their own tests. A browser test rasterises a real page, tilts it, and counts the ink inside each transformed box against the ink still inside the box it started from, because that is the only check that can actually fail if this rots.
+
+Each region carries both shapes. `box` stays an axis-aligned rectangle so an evaluation script written against a clean run keeps working unchanged; `quad` carries the four corners. Only the quad would break every existing reader, and only the box would silently claim a tilted value is upright.
+
+### Planning is separate from painting
+
+`planDegradation` is pure arithmetic over a seed and a page size. `degradeCanvas` is the only part that touches a canvas. That split is what lets the JSON-only batch path, which never rasterises anything, still transform its boxes correctly. It also puts the geometry and the seeded choices somewhere they can be tested exactly rather than inferred from pixels.
+
+The transform is normalised, so one plan serves both the 794x1123 layout page it was made against and the 1588x2246 capture it is applied to. The pixel matrix is derived at draw time from whatever bitmap is in hand.
+
+### Keystone is a real projective map, drawn in strips
+
+Tilting a page away from a lens narrows the far edge *and* foreshortens it. A horizontal squeeze would produce half of that, and a model trained on it would not have seen the other half. Canvas 2D cannot draw a projective transform in one call, so the page is drawn in four-pixel strips whose affine approximation is well under a pixel off, and the matrix handed to the annotations is the exact projective one. The approximation error sits far below the blur and grain applied immediately afterwards.
+
+### Every stochastic value is drawn up front
+
+Rotation, skew, the banding phase and period, and the light centre are all drawn from the seeded stream before any of them are used, and in a fixed order. Drawing them lazily would mean turning grain off changed how far the page tilted, which makes two runs that differ in one setting incomparable. Comparability across settings is the entire reason this feature exists.
+
+Magnitudes are jittered by a quarter either way and the direction is a coin flip, so a preset teaches a model the effect rather than the preset.
+
+### A lossy preset writes a JPEG, not a PNG
+
+JPEG loss is the encoding, not an effect painted onto the bitmap. Asking the canvas for a lossy JPEG applies the same compression a real scanner does; baking it into a PNG would need an async round-trip through an `Image` and produce a worse result. The file extension follows the encoding rather than the button that produced it, because calling a JPEG a PNG is a lie about the file.
+
+### The scan preview is a separate mode, not the live page
+
+Degradation happens to the raster, and the boxes are measured off the DOM, so the live preview cannot show the effect without breaking the thing that makes the boxes correct. Choosing between five presets from their descriptions alone is guesswork, so **Preview scan** rasterises the current page, degrades it, and shows the image in the existing full-size overlay. One close path empties the overlay and returns the live page to the frame, so the two modes cannot disagree about where the page is.
+
+### Eight sliders, folded away
+
+The presets are the common case and the rail was already at four cards. The custom knobs live behind a `<details>`, and they are built in `app.js` from the `DEGRADE_KNOBS` table rather than written into `index.html`, so the list of exposed settings has one home and adding one is a single edit. Touching any knob switches the preset to "custom", because the sidecar would otherwise name a preset the page was not rendered under.

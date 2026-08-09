@@ -11,6 +11,10 @@ import {
   buildAnnotations,
   datasetReadme
 } from '../../../../apps/vendor-docs-generator/js/modules/annotations.js';
+import {
+  planDegradation,
+  resolveSettings
+} from '../../../../apps/vendor-docs-generator/js/modules/degrade.js';
 import { buildDocument } from '../../../../apps/vendor-docs-generator/js/modules/document-model.js';
 import { renderPaper } from '../../../../apps/vendor-docs-generator/js/modules/paper-render.js';
 import {
@@ -289,12 +293,38 @@ test('JSON Lines holds one compact object per document', () => {
   assert.equal(annotationsToJsonl([]), '', 'an empty run writes an empty file');
 });
 
+test('degradation is null on a clean page and fully described otherwise', () => {
+  const built = buildDocument({ docTypeId: 'invoice', seed: 4242, today: TODAY, vendorId: 'apex' });
+  assert.equal(buildAnnotations(built).degradation, null);
+
+  const degradation = planDegradation({
+    width: 794,
+    height: 1123,
+    preset: 'copier',
+    seed: 4242,
+    settings: resolveSettings('copier')
+  });
+  const payload = buildAnnotations(built, null, degradation);
+
+  assert.equal(payload.degradation.preset, 'copier');
+  assert.equal(payload.degradation.seed, 4242);
+  assert.deepEqual(payload.degradation.applies_to, ['png', 'pdf_raster']);
+  assert.deepEqual(payload.degradation.transform, degradation.transform);
+  // Every resolved value, not just the ones the preset named, so a reader can
+  // reproduce the page without also owning this version of the preset table.
+  assert.equal(payload.degradation.settings.contrast, 1.35);
+  assert.ok('lightCenter' in payload.degradation.settings, 'the seeded choices count too');
+  assert.deepEqual(JSON.parse(JSON.stringify(payload)).degradation, payload.degradation);
+});
+
 test('the dataset README records the settings the run used', () => {
   const text = datasetReadme({
     boxes: true,
     count: 120,
+    degradation: 'copier',
     format: 'png',
     generatedAt: '2026-06-15T00:00:00.000Z',
+    pair: true,
     pdfMode: 'n/a',
     words: true
   });
@@ -306,13 +336,19 @@ test('the dataset README records the settings the run used', () => {
   assert.ok(text.includes('manifest.jsonl'));
   assert.ok(text.includes('not the text-layer PDF') || text.includes('text-layer PDF'));
 
+  assert.ok(text.includes('Scan:      copier, paired with the clean original'));
+
   const plain = datasetReadme({
     boxes: false,
     count: 1,
+    degradation: 'clean',
     format: 'json',
     generatedAt: '2026-06-15T00:00:00.000Z',
+    pair: false,
     pdfMode: 'n/a',
     words: false
   });
   assert.ok(plain.includes('Boxes:     off'));
+  assert.ok(plain.includes('Scan:      clean'));
+  assert.ok(!plain.includes('paired with'));
 });

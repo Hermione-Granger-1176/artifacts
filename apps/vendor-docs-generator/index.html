@@ -43,7 +43,7 @@
 
     <header class="page-intro">
       <h1 class="page-title">Vendor document generator</h1>
-      <p class="page-lede">Six fictional businesses, six kinds of paperwork, and a labelled JSON sidecar for every page. Built for measuring document-AI extractors: each printed value comes back named, normalised, and optionally boxed, so you can score a parser instead of hand-labelling its test set.</p>
+      <p class="page-lede">Six fictional businesses, six kinds of paperwork, and a labelled JSON sidecar for every page. Built for measuring document-AI extractors: each printed value comes back named, normalised, and optionally boxed, so you can score a parser instead of hand-labelling its test set. Run the same seeds clean and through a scanner, copier, fax, or phone camera to find where accuracy starts to fall away.</p>
     </header>
 
     <div class="vd-workbench">
@@ -119,6 +119,28 @@
         </div>
 
         <div class="page-card vd-rail-card">
+          <div class="section-kicker">Scan quality</div>
+
+          <div class="control-field">
+            <div class="control-field-head">
+              <label for="vdDegradePreset">Preset</label>
+            </div>
+            <select id="vdDegradePreset" class="select-input"></select>
+            <p class="control-field-note" id="vdDegradeNote">The render as-is. No geometry, no grain, lossless PNG.</p>
+          </div>
+
+          <details class="vd-advanced" id="vdDegradeCustom">
+            <summary>Custom knobs</summary>
+            <div class="vd-knobs" id="vdKnobs"></div>
+          </details>
+
+          <label class="vd-check" for="vdPair" id="vdPairLabel">
+            <input type="checkbox" id="vdPair" disabled>
+            <span>Also export the clean original</span>
+          </label>
+        </div>
+
+        <div class="page-card vd-rail-card">
           <div class="section-kicker">Batch export</div>
 
           <div class="control-field">
@@ -171,6 +193,7 @@
           </div>
           <div class="vd-stage-tools">
             <span class="chip is-mono" id="vdZoomLevel">100%</span>
+            <button type="button" class="btn btn-outline btn-sm" id="vdPreviewScan">Preview scan</button>
             <button type="button" class="btn btn-outline btn-sm" id="vdFullOpen">Full size</button>
           </div>
         </div>
@@ -215,6 +238,11 @@
           <div class="stat-value">2</div>
           <div class="stat-sub">Field regions, and optionally every word, in normalised page coordinates</div>
         </div>
+        <div class="stat">
+          <div class="stat-label">Scan presets</div>
+          <div class="stat-value">5</div>
+          <div class="stat-sub">Clean through phone photo, seeded so a degraded page is reproducible</div>
+        </div>
       </div>
 
       <div class="app-callout is-amber">
@@ -224,7 +252,7 @@
 
       <div class="app-callout is-blue">
         <div class="app-callout-title">How the randomisation works</div>
-        <div class="app-callout-body">Every document is driven by a single integer seed. Changing the vendor, type, or layout re-renders against the <em>same</em> seed so you can compare treatments side by side; <strong>Generate new document</strong> is what rolls a fresh seed. The seed appears on the preview and in every exported filename, so any sample can be reproduced exactly.</div>
+        <div class="app-callout-body">Every document is driven by a single integer seed. Changing the vendor, type, or layout re-renders against the <em>same</em> seed so you can compare treatments side by side; <strong>Generate new document</strong> is what rolls a fresh seed. The seed appears on the preview and in every exported filename, so any sample can be reproduced exactly. Scan degradation is driven from the same seed, so a given seed and preset always produce the same page, and the boxes follow the ink when the page is tilted.</div>
       </div>
     </section>
 

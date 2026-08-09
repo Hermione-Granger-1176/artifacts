@@ -12,13 +12,24 @@ import { initializeMatureApp } from "../../../js/modules/app-runtime.js";
 import { initAppShell, renderAppShell } from "../../../js/modules/app-shell.js";
 import { initSegmented } from "../../../js/modules/segmented.js";
 
-import { collectBoxes } from "./modules/annotate-boxes.js";
+import { collectBoxes, transformBoxes } from "./modules/annotate-boxes.js";
 import { buildAnnotations } from "./modules/annotations.js";
+import {
+  DEGRADE_KNOBS,
+  DEGRADE_PRESETS,
+  degradeCanvas,
+  encodeCanvas,
+  findPreset,
+  isClean,
+  planDegradation,
+  resolveSettings
+} from "./modules/degrade.js";
 import { buildDocument } from "./modules/document-model.js";
 import {
+  capturePaper,
+  downloadImage,
   downloadJson,
   downloadPdf,
-  downloadPng,
   estimateBatchBytes,
   formatBytes,
   planBatch,
@@ -105,6 +116,11 @@ initializeMatureApp({
     const wordBoxesLabel = byId("vdWordBoxesLabel");
     const groundTruthNote = byId("vdGroundTruthNote");
     const batchEstimate = byId("vdBatchEstimate");
+    const degradePreset = selectById("vdDegradePreset");
+    const degradeNote = byId("vdDegradeNote");
+    const knobPanel = byId("vdKnobs");
+    const pairToggle = inputById("vdPair");
+    const pairLabel = byId("vdPairLabel");
     const paper = byId("vdPaper");
     const paperScale = byId("vdPaperScale");
     const paperFrame = byId("vdPaperFrame");
@@ -123,6 +139,9 @@ initializeMatureApp({
 
     const state = {
       docTypeId: DOCUMENT_TYPES[0].id,
+      /** @type {Partial<import("./modules/degrade.js").DegradeSettings>} */
+      degradeOverrides: {},
+      degradePreset: DEGRADE_PRESETS[0].id,
       seed: rollSeed(),
       style: "clean",
       vendorId: VENDORS[0].id
@@ -130,6 +149,76 @@ initializeMatureApp({
 
     /** @type {ReturnType<typeof buildDocument>} */
     let currentModel;
+
+    for (const preset of [...DEGRADE_PRESETS, { id: "custom", label: "Custom" }]) {
+      const option = document.createElement("option");
+      option.value = preset.id;
+      option.textContent = preset.label;
+      degradePreset.appendChild(option);
+    }
+
+    degradePreset.value = state.degradePreset;
+
+    /**
+     * Every setting the current preset and knob positions add up to.
+     * @returns {import("./modules/degrade.js").DegradeSettings} Resolved settings.
+     */
+    function currentSettings() {
+      return resolveSettings(state.degradePreset, state.degradeOverrides);
+    }
+
+    /**
+     * Name the scan settings for a human.
+     *
+     * `findPreset` falls back to clean for an unknown id, which is right for
+     * settings and wrong for a caption: "custom" is a real state, and labelling
+     * it "Clean" would describe a page that is anything but.
+     * @returns {string} Preset label, or "Custom".
+     */
+    function presetLabel() {
+      return state.degradePreset === "custom" ? "Custom" : findPreset(state.degradePreset).label;
+    }
+
+    /** @type {{ input: HTMLInputElement, key: string, output: HTMLElement, unit: string }[]} */
+    const knobs = [];
+
+    // Built from DEGRADE_KNOBS rather than written into index.html, so the list
+    // of exposed settings lives in one place and adding one is a single edit.
+    for (const knob of DEGRADE_KNOBS) {
+      const field = document.createElement("div");
+      const head = document.createElement("div");
+      const label = document.createElement("label");
+      const output = document.createElement("output");
+      const input = document.createElement("input");
+      const inputId = `vdKnob-${knob.key}`;
+
+      field.className = "control-field";
+      head.className = "control-field-head";
+      label.setAttribute("for", inputId);
+      label.textContent = knob.label;
+      output.setAttribute("for", inputId);
+      input.id = inputId;
+      input.className = "range-input";
+      input.type = "range";
+      input.min = String(knob.min);
+      input.max = String(knob.max);
+      input.step = String(knob.step);
+
+      head.append(label, output);
+      field.append(head, input);
+      knobPanel.appendChild(field);
+      knobs.push({ input, key: knob.key, output, unit: knob.unit });
+
+      input.addEventListener("input", () => {
+        // Touching a knob is what makes a run custom: the preset it started from
+        // has stopped being an honest description of what will be rendered, and
+        // the sidecar would otherwise claim a preset that was not used.
+        state.degradeOverrides = { ...currentSettings(), [knob.key]: Number(input.value) };
+        state.degradePreset = "custom";
+        degradePreset.value = "custom";
+        syncDegrade();
+      });
+    }
 
     for (const vendor of VENDORS) {
       const option = document.createElement("option");
@@ -207,16 +296,21 @@ initializeMatureApp({
      */
     function openFullscreen() {
       fullCaption.textContent = `${chipVendor.textContent} - ${chipType.textContent}`;
-      fullscreenBody.appendChild(paperScale);
+      fullscreenBody.replaceChildren(paperScale);
       paperScale.style.setProperty("--vd-zoom", "1");
       fullscreen.showModal();
     }
 
     /**
      * Return the paper to the inline frame and restore the fitted scale.
+     *
+     * Runs for the scan preview too, which puts an image in the overlay rather
+     * than the live page; emptying the overlay first means one close path serves
+     * both instead of two that can disagree.
      * @returns {void}
      */
     function closeFullscreen() {
+      fullscreenBody.replaceChildren();
       paperFrame.appendChild(paperScale);
       syncFitScale();
     }
@@ -287,18 +381,73 @@ initializeMatureApp({
     }
 
     /**
+     * Plan the degradation for one document, or nothing if the run is clean.
+     *
+     * Planned against the layout page rather than the 2x capture: the transform
+     * is normalised, so one plan serves both, and the JSON-only path can move
+     * its boxes without rasterising anything.
+     * @param {ReturnType<typeof buildDocument>} model - Document being exported.
+     * @returns {import("./modules/degrade.js").DegradePlan | null} The plan.
+     */
+    function degradationFor(model) {
+      const settings = currentSettings();
+
+      if (isClean(settings)) {
+        return null;
+      }
+
+      return planDegradation({
+        height: PAPER_HEIGHT,
+        preset: state.degradePreset,
+        seed: model.seed,
+        settings,
+        width: PAPER_WIDTH
+      });
+    }
+
+    /**
      * Build the ground-truth sidecar for a rendered document.
      *
      * Boxes are measured off the live paper element, so this has to be called
-     * while that element still holds the document being described.
+     * while that element still holds the document being described. They are then
+     * moved through whatever geometry the scan preset applies, because a tilted
+     * page has its ink somewhere other than where the DOM put it, and labels
+     * pointing at the clean layout would be worse than no labels at all.
      * @param {ReturnType<typeof buildDocument>} model - Document on the paper.
+     * @param {import("./modules/degrade.js").DegradePlan | null} [degradation] - Scan plan.
      * @returns {Record<string, any>} The sidecar payload.
      */
-    function annotate(model) {
-      const boxes = boxesToggle.checked
+    function annotate(model, degradation = degradationFor(model)) {
+      const measured = boxesToggle.checked
         ? collectBoxes(paper, { words: wordBoxes.checked })
         : null;
-      return buildAnnotations(model, boxes);
+      const boxes = degradation ? transformBoxes(measured, degradation.transform) : measured;
+      return buildAnnotations(model, boxes, degradation);
+    }
+
+    /**
+     * Keep the scan controls, their readouts, and the note in step.
+     * @returns {void}
+     */
+    function syncDegrade() {
+      const settings = currentSettings();
+      const clean = isClean(settings);
+
+      for (const knob of knobs) {
+        const value = Number(settings[/** @type {keyof typeof settings} */ (knob.key)]);
+        knob.input.value = String(value);
+        knob.output.textContent = `${value}${knob.unit}`;
+      }
+
+      // Pair mode writes the clean original beside the degraded page, which is
+      // the same file twice when there is nothing to degrade.
+      pairToggle.disabled = clean;
+      pairLabel.classList.toggle("is-disabled", clean);
+      degradeNote.textContent =
+        state.degradePreset === "custom"
+          ? "Custom settings, still driven by the document seed, so the page stays reproducible."
+          : findPreset(state.degradePreset).note;
+      syncEstimate();
     }
 
     /**
@@ -342,11 +491,16 @@ initializeMatureApp({
         perCombination *
         (allVendors.checked ? VENDORS.length : 1) *
         (allTypes.checked ? DOCUMENT_TYPES.length : 1);
+      const settings = currentSettings();
+      const degraded = !isClean(settings);
       const bytes = estimateBatchBytes({
         boxes: boxesToggle.checked,
         count,
+        degraded,
         format: /** @type {import("./modules/exporters.js").BatchFormat} */ (batchFormatSelect.value),
         groundTruth: groundTruth.checked,
+        lossy: degraded && settings.jpeg < 1,
+        pair: pairToggle.checked,
         pdfMode: /** @type {import("./modules/exporters.js").PdfMode} */ (pdfModeSelect.value),
         words: wordBoxes.checked
       });
@@ -415,9 +569,17 @@ initializeMatureApp({
       });
     }
 
-    for (const control of [allTypes, allVendors]) {
+    for (const control of [allTypes, allVendors, pairToggle]) {
       control.addEventListener("change", syncEstimate);
     }
+
+    degradePreset.addEventListener("change", () => {
+      state.degradePreset = degradePreset.value;
+      // A named preset owns every setting, so choosing one drops the custom
+      // overrides rather than layering on top of them.
+      state.degradeOverrides = {};
+      syncDegrade();
+    });
 
     /**
      * Write the sidecar alongside a page export, when labelling is on.
@@ -437,7 +599,8 @@ initializeMatureApp({
             currentModel,
             /** @type {import("./modules/exporters.js").PdfMode} */ (pdfModeSelect.value),
             paper,
-            exportDeps
+            exportDeps,
+            degradationFor(currentModel)
           );
           alsoDownloadGroundTruth();
         })
@@ -448,10 +611,36 @@ initializeMatureApp({
     downloadPngButton.addEventListener("click", () => {
       void withBusyButton(downloadPngButton, "Rendering...", () =>
         atActualSize(async () => {
-          await downloadPng(currentModel, paper, exportDeps);
+          await downloadImage(currentModel, paper, exportDeps, {
+            pair: pairToggle.checked,
+            plan: degradationFor(currentModel)
+          });
           alsoDownloadGroundTruth();
         })
       );
+    });
+
+    const previewScanButton = buttonById("vdPreviewScan");
+    previewScanButton.addEventListener("click", () => {
+      void withBusyButton(previewScanButton, "Rendering...", async () => {
+        // Choosing between five scan presets from their descriptions alone is
+        // guesswork, and the live page cannot show the effect: degradation
+        // happens to the raster, and the boxes are measured off the DOM.
+        const dataUrl = await atActualSize(async () => {
+          const canvas = await capturePaper(paper, exportDeps);
+          const degradation = degradationFor(currentModel);
+          return degradation
+            ? encodeCanvas(degradeCanvas(canvas, degradation), degradation.applied).dataUrl
+            : canvas.toDataURL("image/png");
+        });
+        const image = document.createElement("img");
+        image.className = "vd-scan-preview";
+        image.src = dataUrl;
+        image.alt = `Scan preview of the generated ${chipType.textContent}`;
+        fullCaption.textContent = `${chipVendor.textContent} - ${presetLabel()}`;
+        fullscreenBody.replaceChildren(image);
+        fullscreen.showModal();
+      });
     });
 
     const downloadJsonButton = buttonById("vdDownloadJson");
@@ -481,12 +670,19 @@ initializeMatureApp({
         const { blob, count } = await atActualSize(() =>
           runBatch({
             annotate: labelled ? annotate : undefined,
+            degrade: degradationFor,
             deps: exportDeps,
             format: /** @type {import("./modules/exporters.js").BatchFormat} */ (batchFormatSelect.value),
+            pair: pairToggle.checked,
             paper,
             pdfMode: /** @type {import("./modules/exporters.js").PdfMode} */ (pdfModeSelect.value),
             plan,
-            readme: { boxes: boxesToggle.checked, words: wordBoxes.checked },
+            readme: {
+              boxes: boxesToggle.checked,
+              degradation: state.degradePreset,
+              pair: pairToggle.checked && !isClean(currentSettings()),
+              words: wordBoxes.checked
+            },
             onProgress: ({ done, total, phase }) => {
               setProgress(done / total);
               batchStatus.textContent = `${phase} ${done} of ${total}`;
@@ -510,7 +706,7 @@ initializeMatureApp({
 
     syncLayoutAvailability();
     syncGroundTruth();
-    syncEstimate();
+    syncDegrade();
     draw();
   }
 });
