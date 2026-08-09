@@ -621,12 +621,12 @@ function drawArtifacts(ctx, applied, width, height, random) {
  */
 function drawEdgeShadow(ctx, strength, width, height) {
   const depth = Math.max(width, height) * 0.05;
-  /** @type {[number, number, number, number, number, number][]} */
+  /** @type {[number, number, number, number][]} */
   const edges = [
-    [0, 0, depth, 0, 0, 0],
-    [width, 0, width - depth, 0, 0, 0],
-    [0, 0, 0, depth, 0, 0],
-    [0, height, 0, height - depth, 0, 0]
+    [0, 0, depth, 0],
+    [width, 0, width - depth, 0],
+    [0, 0, 0, depth],
+    [0, height, 0, height - depth]
   ];
 
   ctx.save();

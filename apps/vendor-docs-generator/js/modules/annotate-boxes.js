@@ -95,11 +95,6 @@ function unionRects(rects) {
  */
 function textNodesIn(node) {
   const children = Array.from(node.childNodes ?? []);
-
-  if (!children.length) {
-    return [];
-  }
-
   return children.flatMap((child) =>
     child.nodeType === TEXT_NODE ? [child] : textNodesIn(child)
   );

@@ -64,11 +64,11 @@ export function pdfFontFor(stack) {
     return "courier";
   }
 
-  if (lowered.includes("serif") && !lowered.includes("sans-serif")) {
-    return "times";
-  }
-
-  if (lowered.includes("georgia") || lowered.includes("times")) {
+  if (
+    (lowered.includes("serif") && !lowered.includes("sans-serif")) ||
+    lowered.includes("georgia") ||
+    lowered.includes("times")
+  ) {
     return "times";
   }
 

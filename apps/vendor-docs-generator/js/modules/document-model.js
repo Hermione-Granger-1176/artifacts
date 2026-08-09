@@ -200,6 +200,24 @@ const SAMPLE_FOOTNOTE = "Sample document generated for testing. Not a valid tax 
 const PERIOD_DAYS = 91;
 
 /**
+ * Rolling hash over a string, seeded and bounded by its caller.
+ * @param {string} text - Text to hash.
+ * @param {number} initial - Starting value.
+ * @param {number} multiplier - Per-character multiplier.
+ * @param {number} modulo - Upper bound on the result.
+ * @returns {number} Deterministic hash below `modulo`.
+ */
+function hashText(text, initial, multiplier, modulo) {
+  let hash = initial;
+
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * multiplier + text.charCodeAt(index)) % modulo;
+  }
+
+  return hash;
+}
+
+/**
  * A small stable number derived from a vendor id.
  *
  * The seed owns the commercial event: which buyer, which dates. The vendor owns
@@ -214,13 +232,7 @@ const PERIOD_DAYS = 91;
  * @returns {number} Deterministic salt for that vendor.
  */
 export function vendorSalt(vendorId) {
-  let hash = 11;
-
-  for (let index = 0; index < vendorId.length; index += 1) {
-    hash = (hash * 37 + vendorId.charCodeAt(index)) % 99_991;
-  }
-
-  return hash;
+  return hashText(vendorId, 11, 37, 99_991);
 }
 
 /**
@@ -295,13 +307,7 @@ export function buildItems(vendorId, seed, count) {
  * @returns {string} Six-digit product code.
  */
 export function productCode(description) {
-  let hash = 7;
-
-  for (let index = 0; index < description.length; index += 1) {
-    hash = (hash * 31 + description.charCodeAt(index)) % 1_000_000;
-  }
-
-  return padNumber(hash, 6);
+  return padNumber(hashText(description, 7, 31, 1_000_000), 6);
 }
 
 /**
@@ -368,23 +374,14 @@ const DISPATCH_NOTES = [
 ];
 
 /**
- * Lot number stamped against one challan row.
+ * Lot number and optional handling note stamped against one challan row.
  * @param {number} seed - Document seed.
  * @param {number} index - Row index.
- * @returns {string} Lot code.
+ * @returns {string} Distinct dispatch remark.
  */
-function lotCode(seed, index) {
-  return `${padNumber(((seed * 13 + index * 29) % 8_999) + 1_000, 4)}-${padNumber(index + 1, 2)}`;
-}
-
-/**
- * Optional handling note appended to a challan row.
- * @param {number} seed - Document seed.
- * @param {number} index - Row index.
- * @returns {string} Note text, empty for most rows.
- */
-function dispatchNote(seed, index) {
-  return DISPATCH_NOTES[(seed * 7 + index * 5) % DISPATCH_NOTES.length];
+function dispatchRemark(seed, index) {
+  const lot = `${padNumber(((seed * 13 + index * 29) % 8_999) + 1_000, 4)}-${padNumber(index + 1, 2)}`;
+  return `Lot ${lot}${DISPATCH_NOTES[(seed * 7 + index * 5) % DISPATCH_NOTES.length]}`;
 }
 
 /**
@@ -423,10 +420,7 @@ export function shippingCharge(items, seed) {
   return random() < 0.2 ? 0 : roundCents(Math.round(random() * 340 + 35) + 0.5);
 }
 
-/**
- * Standard priced item table columns.
- * @returns {Column[]} Column definitions.
- */
+/** @returns {Column[]} Standard priced item table columns. */
 function pricedColumns() {
   return [
     { label: "#", align: "center", width: 24 },
@@ -453,12 +447,14 @@ const PRICED_FIELDS = [null, "description", "quantity", "unit", "unit_price", "a
  * The renderer stamps these onto the individual line elements, so a two-line
  * address produces two `buyer_address` regions rather than one box stretched
  * over the gap between them.
+ * @param {string} label - Heading above the buyer.
  * @param {Buyer} buyer - Buyer to render.
+ * @param {LabelledValue[]} meta - Document metadata beside the buyer.
  * @param {string} [trailing] - Optional last line, such as a contact or phone.
  * @param {string} [trailingField] - Ground-truth field for that last line.
- * @returns {{ lineFields: (string | null)[], lines: string[] }} Lines and their fields.
+ * @returns {PartiesBlock} Buyer and document metadata block.
  */
-function buyerBlock(buyer, trailing, trailingField) {
+function partiesBlock(label, buyer, meta, trailing, trailingField) {
   const lines = [buyer.name, ...buyer.lines];
   /** @type {(string | null)[]} */
   const lineFields = ["buyer_name", ...buyer.lines.map(() => "buyer_address")];
@@ -468,11 +464,10 @@ function buyerBlock(buyer, trailing, trailingField) {
     lineFields.push(trailingField ?? null);
   }
 
-  return { lines, lineFields };
+  return { kind: "parties", label, lines, lineFields, meta };
 }
 
 /**
- * Turn line items into priced table rows.
  * @param {LineItem[]} items - Line items to render.
  * @returns {string[][]} Row cells as display strings.
  */
@@ -485,6 +480,20 @@ function pricedRows(items) {
     formatMoney(item.price),
     formatMoney(item.amount)
   ]);
+}
+
+/**
+ * @param {LineItem[]} items - Line items to render.
+ * @returns {TableBlock} Standard priced line-item table.
+ */
+function pricedTable(items) {
+  return {
+    kind: "table",
+    columns: pricedColumns(),
+    fields: PRICED_FIELDS,
+    rowScope: "line_items",
+    rows: pricedRows(items)
+  };
 }
 
 /**
@@ -526,12 +535,23 @@ function totalsBlock(totals, shipping = null) {
  */
 
 /**
- * Clean commercial invoice.
  * @param {BuildContext} context - Shared document context.
- * @returns {BuiltDocument} Body blocks and the facts behind them.
+ * @returns {LineItem[]} Lines shared by an invoice, its receipt, and its adjustment notes.
+ */
+function invoiceItems(context) {
+  return buildItems(
+    context.vendor.id,
+    context.seed * 3 + vendorSalt(context.vendor.id),
+    pickCount(context.seed, 3, 5)
+  );
+}
+
+/**
+ * @param {BuildContext} context - Shared document context.
+ * @returns {BuiltDocument} Clean commercial invoice.
  */
 function buildInvoice(context) {
-  const items = buildItems(context.vendor.id, context.seed * 3 + vendorSalt(context.vendor.id), pickCount(context.seed, 3, 5));
+  const items = invoiceItems(context);
   const totals = computeTotals(items);
   const shipping = shippingCharge(items, context.seed);
   const billedTotals = { ...totals, grand: roundCents(totals.grand + shipping) };
@@ -551,24 +571,19 @@ function buildInvoice(context) {
       totals: billedTotals
     },
     blocks: [
-      {
-        kind: "parties",
-        label: "Bill to",
-        ...buyerBlock(context.buyer, context.buyer.contact, "buyer_contact"),
-        meta: [
+      partiesBlock(
+        "Bill to",
+        context.buyer,
+        [
           ["Invoice #", documentNumber, "document_number"],
           ["Date", formatDate(context.baseDate), "document_date"],
           ["Due date", formatDate(due), "due_date"],
           ["Terms", "Net 30", "payment_terms"]
-        ]
-      },
-      {
-        kind: "table",
-        columns: pricedColumns(),
-        fields: PRICED_FIELDS,
-        rowScope: "line_items",
-        rows: pricedRows(items)
-      },
+        ],
+        context.buyer.contact,
+        "buyer_contact"
+      ),
+      pricedTable(items),
       totalsBlock(billedTotals, shipping),
       {
         kind: "note",
@@ -580,17 +595,15 @@ function buildInvoice(context) {
 }
 
 /**
- * Dense line-level tax invoice, the layout heavy extraction pipelines choke on.
  * @param {BuildContext} context - Shared document context.
- * @returns {BuiltDocument} Body blocks and the facts behind them.
+ * @returns {BuiltDocument} Dense line-level tax invoice.
  */
 function buildDenseInvoice(context) {
   const { vendor, buyer, seed, baseDate, number, random } = context;
-  const salt = vendorSalt(vendor.id);
   // Deliberately the same draw as `buildInvoice`. The two layouts are two
   // treatments of one invoice, which is what the layout toggle promises, and it
   // is the only way the grand totals can be expected to agree.
-  const items = buildItems(vendor.id, seed * 3 + salt, pickCount(seed, 3, 5));
+  const items = invoiceItems(context);
   const orderNumber = `ORD-${padNumber(Math.floor(random() * 8_999_999_999) + 1_000_000_000, 10)}`;
   const reference = `${vendor.id}-${padNumber(Math.floor(random() * 899_999_999_999) + 100_000_000_000, 12)}-1`;
 
@@ -765,18 +778,13 @@ function buildDenseInvoice(context) {
 }
 
 /**
- * Payment receipt with a PAID stamp and a zero balance.
  * @param {BuildContext} context - Shared document context.
- * @returns {BuiltDocument} Body blocks and the facts behind them.
+ * @returns {BuiltDocument} Payment receipt with a zero balance.
  */
 function buildReceipt(context) {
   // A receipt settles the invoice produced by the same seed, so it must repeat
   // that invoice's lines and amount rather than merely borrowing its number.
-  const items = buildItems(
-    context.vendor.id,
-    context.seed * 3 + vendorSalt(context.vendor.id),
-    pickCount(context.seed, 3, 5)
-  );
+  const items = invoiceItems(context);
   const totals = computeTotals(items);
   const shipping = shippingCharge(items, context.seed);
   const paidTotals = { ...totals, grand: roundCents(totals.grand + shipping) };
@@ -804,11 +812,10 @@ function buildReceipt(context) {
     },
     blocks: [
       { kind: "stamp", text: "PAID" },
-      {
-        kind: "parties",
-        label: "Received from",
-        ...buyerBlock(context.buyer, context.buyer.contact, "buyer_contact"),
-        meta: [
+      partiesBlock(
+        "Received from",
+        context.buyer,
+        [
           ["Receipt #", documentNumber, "document_number"],
           ["Date", formatDate(receiptDate), "document_date"],
           // One seed is one commercial event, so the receipt settles the invoice
@@ -817,15 +824,11 @@ function buildReceipt(context) {
           // invoice in the corpus.
           ["Against invoice", againstInvoice, "against_invoice"],
           ["Method", paymentMethod, "payment_method"]
-        ]
-      },
-      {
-        kind: "table",
-        columns: pricedColumns(),
-        fields: PRICED_FIELDS,
-        rowScope: "line_items",
-        rows: pricedRows(items)
-      },
+        ],
+        context.buyer.contact,
+        "buyer_contact"
+      ),
+      pricedTable(items),
       {
         // The subtotal and tax rows are not decoration. Without them the receipt
         // jumped from a line-item table straight to an amount due that silently
@@ -851,9 +854,8 @@ function buildReceipt(context) {
 }
 
 /**
- * Quotation, explicitly marked as not a tax invoice.
  * @param {BuildContext} context - Shared document context.
- * @returns {BuiltDocument} Body blocks and the facts behind them.
+ * @returns {BuiltDocument} Quotation, explicitly marked as not a tax invoice.
  */
 function buildQuotation(context) {
   const items = buildItems(context.vendor.id, context.seed * 7 + vendorSalt(context.vendor.id), pickCount(context.seed, 3, 6));
@@ -871,24 +873,13 @@ function buildQuotation(context) {
       validUntil
     },
     blocks: [
-      {
-        kind: "parties",
-        label: "Prepared for",
-        ...buyerBlock(context.buyer),
-        meta: [
-          ["Quote #", documentNumber, "document_number"],
-          ["Date", formatDate(context.baseDate), "document_date"],
-          ["Valid until", formatDate(validUntil), "valid_until"],
-          ["Prepared by", "Sales team"]
-        ]
-      },
-      {
-        kind: "table",
-        columns: pricedColumns(),
-        fields: PRICED_FIELDS,
-        rowScope: "line_items",
-        rows: pricedRows(items)
-      },
+      partiesBlock("Prepared for", context.buyer, [
+        ["Quote #", documentNumber, "document_number"],
+        ["Date", formatDate(context.baseDate), "document_date"],
+        ["Valid until", formatDate(validUntil), "valid_until"],
+        ["Prepared by", "Sales team"]
+      ]),
+      pricedTable(items),
       totalsBlock(totals),
       {
         kind: "note",
@@ -900,9 +891,8 @@ function buildQuotation(context) {
 }
 
 /**
- * Delivery challan: goods dispatched, no prices, signature lines.
  * @param {BuildContext} context - Shared document context.
- * @returns {BuiltDocument} Body blocks and the facts behind them.
+ * @returns {BuiltDocument} Delivery challan with no prices.
  */
 function buildChallan(context) {
   const items = buildItems(context.vendor.id, context.seed * 11 + vendorSalt(context.vendor.id), pickCount(context.seed, 3, 6));
@@ -911,9 +901,7 @@ function buildChallan(context) {
   const documentNumber = `DC-${context.number}`;
   const vehicleNumber = `TX-${4100 + (context.seed % 900)}`;
   const packages = packageCount(items, context.seed);
-  const remarks = items.map(
-    (_item, index) => `Lot ${lotCode(context.seed, index)}${dispatchNote(context.seed, index)}`
-  );
+  const remarks = items.map((_item, index) => dispatchRemark(context.seed, index));
 
   return {
     facts: {
@@ -929,17 +917,12 @@ function buildChallan(context) {
       vehicleNumber
     },
     blocks: [
-      {
-        kind: "parties",
-        label: "Deliver to",
-        ...buyerBlock(context.buyer),
-        meta: [
-          ["Challan #", documentNumber, "document_number"],
-          ["Date", formatDate(context.baseDate), "document_date"],
-          ["PO ref", poNumber, "po_number"],
-          ["Vehicle no", vehicleNumber, "vehicle_number"]
-        ]
-      },
+      partiesBlock("Deliver to", context.buyer, [
+        ["Challan #", documentNumber, "document_number"],
+        ["Date", formatDate(context.baseDate), "document_date"],
+        ["PO ref", poNumber, "po_number"],
+        ["Vehicle no", vehicleNumber, "vehicle_number"]
+      ]),
       {
         kind: "table",
         columns: [
@@ -998,18 +981,14 @@ function buildAdjustmentNote(context) {
   const title = isCredit ? "Credit note" : "Debit note";
   const variantId = isCredit ? "creditnote" : "debitnote";
   const salt = vendorSalt(context.vendor.id);
-  const invoiceItems = buildItems(
-    context.vendor.id,
-    context.seed * 3 + salt,
-    pickCount(context.seed, 3, 5)
-  );
+  const sourceItems = invoiceItems(context);
   const itemOrder = shuffleIndices(
-    invoiceItems.length,
+    sourceItems.length,
     createSeededRandom(context.seed * 13 + salt)
   );
   const items = itemOrder
-    .slice(0, pickCount(context.seed, 1, Math.min(3, invoiceItems.length)))
-    .map((index) => invoiceItems[index]);
+    .slice(0, pickCount(context.seed, 1, Math.min(3, sourceItems.length)))
+    .map((index) => sourceItems[index]);
   const totals = computeTotals(items);
   const reasons = isCredit ? CREDIT_REASONS : DEBIT_REASONS;
   const documentNumber = `${isCredit ? "CN" : "DN"}-${context.number}`;
@@ -1029,24 +1008,13 @@ function buildAdjustmentNote(context) {
       totals
     },
     blocks: [
-      {
-        kind: "parties",
-        label: "Issued to",
-        ...buyerBlock(context.buyer),
-        meta: [
-          [`${title} #`, documentNumber, "document_number"],
-          ["Date", formatDate(context.baseDate), "document_date"],
-          ["Against invoice", againstInvoice, "against_invoice"],
-          ["Reason", reason, "adjustment_reason"]
-        ]
-      },
-      {
-        kind: "table",
-        columns: pricedColumns(),
-        fields: PRICED_FIELDS,
-        rowScope: "line_items",
-        rows: pricedRows(items)
-      },
+      partiesBlock("Issued to", context.buyer, [
+        [`${title} #`, documentNumber, "document_number"],
+        ["Date", formatDate(context.baseDate), "document_date"],
+        ["Against invoice", againstInvoice, "against_invoice"],
+        ["Reason", reason, "adjustment_reason"]
+      ]),
+      pricedTable(items),
       totalsBlock(totals),
       {
         kind: "callout",
@@ -1059,12 +1027,12 @@ function buildAdjustmentNote(context) {
 }
 
 /**
- * Statement of account: a running ledger of invoices and payments.
  * @param {BuildContext} context - Shared document context.
- * @returns {BuiltDocument} Body blocks and the facts behind them.
+ * @returns {BuiltDocument} Statement of account with a running ledger.
  */
 function buildStatement(context) {
-  const random = createSeededRandom(context.seed * 17 + vendorSalt(context.vendor.id));
+  const salt = vendorSalt(context.vendor.id);
+  const random = createSeededRandom(context.seed * 17 + salt);
 
   // The ledger has to end on or before the day the statement was generated. It
   // used to start at `new Date(year, seed % 6, 3)`, which had no relationship to
@@ -1105,28 +1073,21 @@ function buildStatement(context) {
 
     // A payment is only drawn when there is something outstanding, and it is
     // capped at the outstanding amount.
-    if (random() > 0.45 || balance <= 0) {
-      balance = roundCents(balance + amount);
-      transactions.push({
-        balance,
-        charge: amount,
-        date: cursor,
-        description: "Invoice",
-        payment: null,
-        reference: `INV-${padNumber(1000 + index * 11 + context.seed + vendorSalt(context.vendor.id))}`
-      });
-    } else {
-      const paid = Math.min(amount, balance);
-      balance = roundCents(balance - paid);
-      transactions.push({
-        balance,
-        charge: null,
-        date: cursor,
-        description: "Payment received",
-        payment: paid,
-        reference: `PMT-${padNumber(500 + index * 7 + context.seed + vendorSalt(context.vendor.id))}`
-      });
-    }
+    const isCharge = random() > 0.45 || balance <= 0;
+    const charge = isCharge ? amount : null;
+    const paid = Math.min(amount, balance);
+    const payment = isCharge ? null : paid;
+    balance = roundCents(isCharge ? balance + amount : balance - paid);
+    transactions.push({
+      balance,
+      charge,
+      date: cursor,
+      description: isCharge ? "Invoice" : "Payment received",
+      payment,
+      reference: `${isCharge ? "INV" : "PMT"}-${padNumber(
+        (isCharge ? 1000 + index * 11 : 500 + index * 7) + context.seed + salt
+      )}`
+    });
   }
 
   const lastMovement = addDays(periodStart, offsets[offsets.length - 1]);
@@ -1143,20 +1104,15 @@ function buildStatement(context) {
       transactions
     },
     blocks: [
-      {
-        kind: "parties",
-        label: "Account",
-        ...buyerBlock(context.buyer),
-        meta: [
-          ["Statement #", documentNumber, "document_number"],
-          // The printed period describes the rows underneath it. The old label was
-          // `Q${1 + seed % 4}`, a quarter drawn from the seed and unrelated to
-          // both the transactions and the generated date, so a Q4 heading routinely
-          // sat on a ledger of Q2 rows.
-          ["Period", `${formatDate(periodStart)} - ${formatDate(lastMovement)}`],
-          ["Generated", formatDate(context.baseDate), "document_date"]
-        ]
-      },
+      partiesBlock("Account", context.buyer, [
+        ["Statement #", documentNumber, "document_number"],
+        // The printed period describes the rows underneath it. The old label was
+        // `Q${1 + seed % 4}`, a quarter drawn from the seed and unrelated to
+        // both the transactions and the generated date, so a Q4 heading routinely
+        // sat on a ledger of Q2 rows.
+        ["Period", `${formatDate(periodStart)} - ${formatDate(lastMovement)}`],
+        ["Generated", formatDate(context.baseDate), "document_date"]
+      ]),
       {
         kind: "table",
         columns: [
@@ -1196,6 +1152,16 @@ const SUBTITLES = /** @type {Record<string, string>} */ ({
   statement: "STATEMENT OF ACCOUNT"
 });
 
+/** @type {Record<string, (context: BuildContext) => BuiltDocument>} */
+const DOCUMENT_BUILDERS = {
+  invoice: buildInvoice,
+  receipt: buildReceipt,
+  quotation: buildQuotation,
+  challan: buildChallan,
+  creditnote: buildAdjustmentNote,
+  statement: buildStatement
+};
+
 /**
  * Build the complete model for one document.
  * @param {{
@@ -1227,27 +1193,8 @@ export function buildDocument({ docTypeId, seed, style = "clean", today = new Da
   /** @type {BuildContext} */
   const context = { baseDate, buyer: buildBuyer(seed), daysAgo, number, random, seed, vendor };
 
-  let title = docType.label;
-  /** @type {BuiltDocument} */
-  let built;
-
-  if (dense) {
-    title = "Tax invoice";
-    built = buildDenseInvoice(context);
-  } else if (docType.id === "invoice") {
-    built = buildInvoice(context);
-  } else if (docType.id === "receipt") {
-    built = buildReceipt(context);
-  } else if (docType.id === "quotation") {
-    built = buildQuotation(context);
-  } else if (docType.id === "challan") {
-    built = buildChallan(context);
-  } else if (docType.id === "creditnote") {
-    built = buildAdjustmentNote(context);
-  } else {
-    title = "Statement";
-    built = buildStatement(context);
-  }
+  const title = dense ? "Tax invoice" : docType.id === "statement" ? "Statement" : docType.label;
+  const built = dense ? buildDenseInvoice(context) : DOCUMENT_BUILDERS[docType.id](context);
 
   const variantId = built.variantId ?? docType.id;
 

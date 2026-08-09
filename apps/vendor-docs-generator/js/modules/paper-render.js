@@ -69,13 +69,12 @@ function tag(element, field, value) {
  * @param {HTMLElement} parent - Element to append into.
  * @param {string[]} lines - Lines to render.
  * @param {string} className - Class for each line element.
- * @param {(string | null)[]} [fields=[]] - Ground-truth field per line.
- * @param {number} [fieldOffset=0] - Index into `fields` the first line maps to.
+ * @param {(string | null)[]} fields - Ground-truth field per line, including the name.
  * @returns {void}
  */
-function appendLines(doc, parent, lines, className, fields = [], fieldOffset = 0) {
+function appendLines(doc, parent, lines, className, fields) {
   lines.forEach((line, index) => {
-    parent.appendChild(tag(make(doc, "div", className, line), fields[index + fieldOffset], line));
+    parent.appendChild(tag(make(doc, "div", className, line), fields[index + 1], line));
   });
 }
 
@@ -165,7 +164,7 @@ function renderBlock(doc, block) {
       const [name, ...rest] = block.lines;
       const fields = block.lineFields ?? [];
       party.appendChild(tag(make(doc, "div", "vd-party-name", name), fields[0], name));
-      appendLines(doc, party, rest, "vd-party-line", fields, 1);
+      appendLines(doc, party, rest, "vd-party-line", fields);
       wrapper.appendChild(party);
       wrapper.appendChild(keyValueTable(doc, block.meta, "vd-meta"));
       return wrapper;
@@ -201,7 +200,7 @@ function renderBlock(doc, block) {
         const fields = block.columnFields?.[columnIndex] ?? [];
         const [name, ...rest] = lines;
         cell.appendChild(tag(make(doc, "div", "vd-party-name", name), fields[0], name));
-        appendLines(doc, cell, rest, "vd-party-line", fields, 1);
+        appendLines(doc, cell, rest, "vd-party-line", fields);
         bodyRow.appendChild(cell);
       });
 

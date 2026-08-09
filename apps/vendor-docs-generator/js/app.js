@@ -563,14 +563,7 @@ initializeMatureApp({
       syncEstimate();
     });
 
-    for (const control of [groundTruth, boxesToggle, wordBoxes]) {
-      control.addEventListener("change", () => {
-        syncGroundTruth();
-        syncEstimate();
-      });
-    }
-
-    for (const control of [batchFormatSelect, pdfModeSelect]) {
+    for (const control of [groundTruth, boxesToggle, wordBoxes, batchFormatSelect, pdfModeSelect]) {
       control.addEventListener("change", () => {
         syncGroundTruth();
         syncEstimate();

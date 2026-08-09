@@ -140,16 +140,27 @@ function textField(value) {
 }
 
 /**
+ * Share the null handling and pair shape of numeric annotations.
+ * @param {number | undefined | null} value - Number the page may print.
+ * @param {(value: number) => string} format - Printed representation.
+ * @param {(value: number) => number} [normalise] - Machine-readable representation.
+ * @returns {AnnotatedField} Field pair, or null when nothing is printed.
+ */
+function numericField(value, format, normalise = (number) => number) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  return { text: format(value), value: normalise(value) };
+}
+
+/**
  * A money field: grouped and symbol-prefixed on the page, a plain number off it.
  * @param {number | undefined | null} amount - Amount in the document's currency.
  * @returns {AnnotatedField} Field pair, or null when nothing is printed.
  */
 function moneyField(amount) {
-  if (amount === undefined || amount === null) {
-    return null;
-  }
-
-  return { text: formatMoney(amount), value: roundCents(amount) };
+  return numericField(amount, formatMoney, roundCents);
 }
 
 /**
@@ -171,11 +182,7 @@ function dateField(date) {
  * @returns {AnnotatedField} Field pair, or null when nothing is printed.
  */
 function rateField(rate) {
-  if (rate === undefined || rate === null) {
-    return null;
-  }
-
-  return { text: formatRate(rate), value: rate };
+  return numericField(rate, formatRate);
 }
 
 /**
@@ -184,11 +191,7 @@ function rateField(rate) {
  * @returns {AnnotatedField} Field pair, or null when nothing is printed.
  */
 function countField(count) {
-  if (count === undefined || count === null) {
-    return null;
-  }
-
-  return { text: String(count), value: count };
+  return numericField(count, String);
 }
 
 /**
@@ -315,30 +318,6 @@ function transactions(facts) {
 }
 
 /**
- * Describe the degradation a page was rendered under.
- *
- * The transform is recorded even though the boxes have already been moved
- * through it, because "these labels are for a page that was tilted 1.4 degrees"
- * is a fact about the sample worth filtering a dataset on, and because it lets a
- * consumer map back to the clean render if they want to.
- * @param {DegradePlan | null} degradation - Plan from `planDegradation`, or null.
- * @returns {Record<string, any> | null} The payload block.
- */
-function degradationBlock(degradation) {
-  if (!degradation) {
-    return null;
-  }
-
-  return {
-    preset: degradation.preset,
-    seed: degradation.seed,
-    settings: degradation.applied,
-    transform: degradation.transform,
-    applies_to: DEGRADATION_APPLIES_TO
-  };
-}
-
-/**
  * Build the ground-truth sidecar for one document.
  * @param {DocumentModel} model - Rendered document.
  * @param {BoxAnnotations | null} [boxes=null] - Region boxes, when they were collected.
@@ -366,7 +345,17 @@ export function buildAnnotations(model, boxes = null, degradation = null) {
     // boxes are measured on the HTML page, so a text-layer PDF is not one of
     // the renderings they describe.
     boxes_apply_to: boxes ? BOXES_APPLY_TO : null,
-    degradation: degradationBlock(degradation)
+    // The transform stays visible after boxes are moved through it so a
+    // consumer can filter samples by geometry or map back to the clean render.
+    degradation: degradation
+      ? {
+          preset: degradation.preset,
+          seed: degradation.seed,
+          settings: degradation.applied,
+          transform: degradation.transform,
+          applies_to: DEGRADATION_APPLIES_TO
+        }
+      : null
   };
 }
 
