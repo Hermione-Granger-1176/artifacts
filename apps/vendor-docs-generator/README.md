@@ -4,7 +4,7 @@ A workbench for producing **labelled** synthetic business paperwork: invoices, r
 
 Rendering plausible paperwork is the easy half. Every page here also emits a JSON sidecar naming what each printed value is, generated from the same numbers the page was printed from, so the labels cannot drift out of agreement with the pixels. Download 500 documents and you have 500 scored examples, not 500 things to annotate.
 
-Every document is a pure function of one integer seed, so any sample can be reproduced exactly from its filename.
+Every random choice is driven by one integer seed, while document dates are relative to the day of generation. The filename records the seed so samples remain identifiable. Exact replay in code also needs the original reference date, which is recoverable from the sidecar's `document_date` and the seed-derived date offsets. Phase 4 is the natural place to record it directly when locale date controls are added.
 
 ## Highlights
 
@@ -14,10 +14,10 @@ Every document is a pure function of one integer seed, so any sample can be repr
 - Two-column workbench: a sticky control rail beside an A4 stage with fit-width and actual-size preview
 - Ground truth per page: a frozen 35-key field schema plus 11 per-line keys, each carrying both the printed `text` and the normalised `value` (ISO dates, numeric money, fractional rates). A key is `null` exactly when the page prints nothing for it, so an extractor is never scored against a field that is not there
 - Optional bounding boxes in normalised 0..1 page coordinates, at field level or word level, so the same run can train a layout model
-- Five scan-quality presets, from a clean render to a phone photo, with eight sliders behind them. Degradation is driven by the document seed, so a seed plus a preset always produces the same page, and geometry is reported as a transform that the boxes are run through before they are written
-- Pair mode writes the degraded page and the clean original from one seed, which is what makes "how much accuracy do I lose to scan quality" a question you can plot
+- Five scan-quality presets, from a clean render to a phone photo, with nine sliders behind them. Degradation is driven by the document seed, so a seed plus a preset reproduce the same wear, and geometry is reported as a transform that the boxes are run through before they are written
+- Pair mode writes a degraded PNG output and its clean original from one seed, which is what makes "how much accuracy do I lose to scan quality" a question you can plot
 - Arithmetic that holds: line amounts sum to the subtotal, and subtotal plus tax plus shipping equals the grand total, on every document the generator can produce
-- Three export paths: a real text-layer PDF (searchable and selectable), a rasterised PDF that looks scanned, and a PNG. A fourth, JSON only, skips both renderers and is the fast path for iterating on an evaluation script
+- Three export paths: a real text-layer PDF (searchable and selectable), a rasterised PDF that looks scanned, and a PNG. A fourth, JSON only, skips PDF and raster generation while the stage still advances through the batch as visible progress
 - Batch export to a single ZIP foldered as `vendor/type/`, optionally across all vendors and all types at once, with live progress, a `manifest.jsonl` for streaming, and a `README.txt` recording the schema and the exact settings the run used
 - Every page is footered as sample data, and every name, address, phone number, and tax identifier is invented
 
@@ -101,6 +101,16 @@ Skew, rotation, and keystone move the ink, so **the boxes have already been run 
 ```
 
 A lossy preset writes a JPEG rather than a PNG, because that is the compression a real scanner applied and calling the result a PNG would be a lie about the file.
+
+## Known limitations
+
+Three things are deliberately unresolved. Each needs a product decision rather than a fix, so they are recorded here instead of being quietly worked around.
+
+**The batch loop is synchronous.** JSON and text-PDF batches run their whole document loop without yielding, so at the 1,800-document maximum the browser can sit unresponsive even though the stage and the progress meter are being updated. The meter reports work that has already happened rather than work in flight. Fixing it means choosing a cooperative yielding policy (how often to yield, and against what budget) and having a performance test that would notice if it regressed. Yielding every document would be the safe default and the slowest one.
+
+**Every document type is available to every vendor.** The type list is not filtered by what a vendor plausibly issues, so a delivery challan can carry service rows: Nimbus dispatching "Priority support SLA" against a package count. The arithmetic is right and the layout is right; the pairing is not. Resolving it needs either per-type catalogues or a vendor-to-type compatibility table, which is a content decision about how much of the cross product is worth keeping.
+
+**The reference date is recoverable but not recorded.** Document dates are relative to the day of generation, so exact replay needs the seed, the degradation settings, and the original reference date. That date can be reconstructed from the sidecar's `document_date` plus the seed-derived day offset, but nothing writes it down. Recording it in `manifest.jsonl` and `README.txt`, or exposing it as a replay control, belongs with the locale and date work in phase 4 rather than as a standalone schema addition.
 
 ## Docs
 

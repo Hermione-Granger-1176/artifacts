@@ -490,17 +490,25 @@ function pricedRows(items) {
 /**
  * Build the standard subtotal / tax / total block.
  * @param {ReturnType<typeof computeTotals>} totals - Computed totals.
+ * @param {number | null} [shipping] - Optional shipping charge.
  * @returns {TotalsBlock} Totals block with the grand total emphasised.
  */
-function totalsBlock(totals) {
+function totalsBlock(totals, shipping = null) {
+  const rows = /** @type {LabelledValue[]} */ ([
+    ["Subtotal", formatMoney(totals.subtotal), "subtotal"],
+    [`Sales tax (${formatRate(totals.taxRate)})`, formatMoney(totals.tax), "tax_amount"]
+  ]);
+
+  if (shipping !== null) {
+    rows.push(["Shipping and handling", formatMoney(shipping), "shipping"]);
+  }
+
+  rows.push(["TOTAL", formatMoney(totals.grand), "grand_total"]);
+
   return {
     kind: "totals",
-    rows: [
-      ["Subtotal", formatMoney(totals.subtotal), "subtotal"],
-      [`Sales tax (${formatRate(totals.taxRate)})`, formatMoney(totals.tax), "tax_amount"],
-      ["TOTAL", formatMoney(totals.grand), "grand_total"]
-    ],
-    emphasisIndex: 2
+    rows,
+    emphasisIndex: rows.length - 1
   };
 }
 
@@ -509,6 +517,7 @@ function totalsBlock(totals) {
  * @typedef {{
  *   baseDate: Date,
  *   buyer: Buyer,
+ *   daysAgo: number,
  *   number: string,
  *   random: () => number,
  *   seed: number,
@@ -524,6 +533,8 @@ function totalsBlock(totals) {
 function buildInvoice(context) {
   const items = buildItems(context.vendor.id, context.seed * 3 + vendorSalt(context.vendor.id), pickCount(context.seed, 3, 5));
   const totals = computeTotals(items);
+  const shipping = shippingCharge(items, context.seed);
+  const billedTotals = { ...totals, grand: roundCents(totals.grand + shipping) };
   const due = addDays(context.baseDate, 30);
   const documentNumber = `INV-${context.number}`;
 
@@ -536,7 +547,8 @@ function buildInvoice(context) {
       dueDate: due,
       items,
       paymentTerms: "Net 30",
-      totals
+      shipping,
+      totals: billedTotals
     },
     blocks: [
       {
@@ -557,7 +569,7 @@ function buildInvoice(context) {
         rowScope: "line_items",
         rows: pricedRows(items)
       },
-      totalsBlock(totals),
+      totalsBlock(billedTotals, shipping),
       {
         kind: "note",
         tone: "accent",
@@ -758,24 +770,37 @@ function buildDenseInvoice(context) {
  * @returns {BuiltDocument} Body blocks and the facts behind them.
  */
 function buildReceipt(context) {
-  const items = buildItems(context.vendor.id, context.seed * 5 + vendorSalt(context.vendor.id), pickCount(context.seed, 2, 4));
+  // A receipt settles the invoice produced by the same seed, so it must repeat
+  // that invoice's lines and amount rather than merely borrowing its number.
+  const items = buildItems(
+    context.vendor.id,
+    context.seed * 3 + vendorSalt(context.vendor.id),
+    pickCount(context.seed, 3, 5)
+  );
   const totals = computeTotals(items);
+  const shipping = shippingCharge(items, context.seed);
+  const paidTotals = { ...totals, grand: roundCents(totals.grand + shipping) };
   const documentNumber = `RCP-${context.number}`;
   const againstInvoice = `INV-${context.number}`;
   const paymentMethod = pickFrom(PAYMENT_METHODS, context.seed);
+  const receiptDate = addDays(
+    context.baseDate,
+    pickCount(context.seed * 11, 0, Math.min(30, context.daysAgo))
+  );
 
   return {
     facts: {
       againstInvoice,
-      amountPaid: totals.grand,
+      amountPaid: paidTotals.grand,
       balanceDue: 0,
       buyer: context.buyer,
       buyerContact: context.buyer.contact,
-      documentDate: context.baseDate,
+      documentDate: receiptDate,
       documentNumber,
       items,
       paymentMethod,
-      totals
+      shipping,
+      totals: paidTotals
     },
     blocks: [
       { kind: "stamp", text: "PAID" },
@@ -785,7 +810,7 @@ function buildReceipt(context) {
         ...buyerBlock(context.buyer, context.buyer.contact, "buyer_contact"),
         meta: [
           ["Receipt #", documentNumber, "document_number"],
-          ["Date", formatDate(context.baseDate), "document_date"],
+          ["Date", formatDate(receiptDate), "document_date"],
           // One seed is one commercial event, so the receipt settles the invoice
           // that same seed produces. It used to derive its own unrelated number,
           // which meant no receipt in the corpus could ever be matched to an
@@ -809,11 +834,12 @@ function buildReceipt(context) {
         rows: [
           ["Subtotal", formatMoney(totals.subtotal), "subtotal"],
           [`Sales tax (${formatRate(totals.taxRate)})`, formatMoney(totals.tax), "tax_amount"],
-          ["Amount due", formatMoney(totals.grand), "grand_total"],
-          ["AMOUNT PAID", formatMoney(totals.grand), "amount_paid"],
+          ["Shipping and handling", formatMoney(shipping), "shipping"],
+          ["Amount due", formatMoney(paidTotals.grand), "grand_total"],
+          ["AMOUNT PAID", formatMoney(paidTotals.grand), "amount_paid"],
           ["Balance due", formatMoney(0), "balance_due"]
         ],
-        emphasisIndex: 3
+        emphasisIndex: 4
       },
       {
         kind: "note",
@@ -971,7 +997,19 @@ function buildAdjustmentNote(context) {
   const isCredit = context.seed % 2 === 0;
   const title = isCredit ? "Credit note" : "Debit note";
   const variantId = isCredit ? "creditnote" : "debitnote";
-  const items = buildItems(context.vendor.id, context.seed * 13 + vendorSalt(context.vendor.id), pickCount(context.seed, 1, 3));
+  const salt = vendorSalt(context.vendor.id);
+  const invoiceItems = buildItems(
+    context.vendor.id,
+    context.seed * 3 + salt,
+    pickCount(context.seed, 3, 5)
+  );
+  const itemOrder = shuffleIndices(
+    invoiceItems.length,
+    createSeededRandom(context.seed * 13 + salt)
+  );
+  const items = itemOrder
+    .slice(0, pickCount(context.seed, 1, Math.min(3, invoiceItems.length)))
+    .map((index) => invoiceItems[index]);
   const totals = computeTotals(items);
   const reasons = isCredit ? CREDIT_REASONS : DEBIT_REASONS;
   const documentNumber = `${isCredit ? "CN" : "DN"}-${context.number}`;
@@ -1176,7 +1214,8 @@ export function buildDocument({ docTypeId, seed, style = "clean", today = new Da
   const random = createSeededRandom(seed + 13);
   // Draw order matters: days-ago first, then the document number, so a seed
   // keeps producing the same dates and numbers as it always has.
-  const baseDate = addDays(today, -Math.floor(random() * 180));
+  const daysAgo = Math.floor(random() * 180);
+  const baseDate = addDays(today, -daysAgo);
   // A document number comes out of the issuing vendor's own series, so the
   // vendor salt goes in here. The buyer and the base date above stay purely
   // seed-derived, which is what lets the same seed be compared across vendors.
@@ -1186,7 +1225,7 @@ export function buildDocument({ docTypeId, seed, style = "clean", today = new Da
   );
 
   /** @type {BuildContext} */
-  const context = { baseDate, buyer: buildBuyer(seed), number, random, seed, vendor };
+  const context = { baseDate, buyer: buildBuyer(seed), daysAgo, number, random, seed, vendor };
 
   let title = docType.label;
   /** @type {BuiltDocument} */

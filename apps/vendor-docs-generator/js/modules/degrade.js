@@ -114,7 +114,7 @@ export const DEGRADE_PRESETS = [
   {
     id: "clean",
     label: "Clean",
-    note: "The render as-is. No geometry, no grain, lossless PNG.",
+    note: "The render is unchanged. No geometry, no grain, lossless PNG.",
     settings: {}
   },
   {
@@ -337,8 +337,8 @@ export function planDegradation({ height, preset = "custom", seed, settings, wid
     )
   );
   const centred = about(base, centreX, centreY);
-  const fit = fitScale(centred, width, height);
-  const transformPx = multiply(about(/** @type {Matrix3} */ ([[fit, 0, 0], [0, fit, 0], [0, 0, 1]]), centreX, centreY), centred);
+  const fit = fitTransform(centred, width, height);
+  const transformPx = multiply(fit, centred);
 
   return {
     applied,
@@ -350,22 +350,31 @@ export function planDegradation({ height, preset = "custom", seed, settings, wid
 }
 
 /**
- * Shrink just enough that the transformed page still fits its own frame.
+ * Scale and centre the transformed page so it still fits its own frame.
  *
- * Rotating a page inside a fixed canvas would otherwise slice the corners off,
- * and a corner is where the totals block lives.
+ * Rotating a page inside a fixed canvas would otherwise slice the corners off.
+ * A projective transform also moves the bounding box away from the page centre,
+ * so scaling about the old centre is not sufficient for a keystoned page.
  * @param {Matrix3} m - Transform before fitting.
  * @param {number} width - Page width.
  * @param {number} height - Page height.
- * @returns {number} Scale factor, never above 1.
+ * @returns {Matrix3} Scale and translation that centre the transformed page.
  */
-function fitScale(m, width, height) {
+function fitTransform(m, width, height) {
   const corners = [[0, 0], [width, 0], [width, height], [0, height]].map(([x, y]) => project(m, x, y));
-  const spanX = Math.max(...corners.map((point) => point[0])) - Math.min(...corners.map((point) => point[0]));
-  const spanY = Math.max(...corners.map((point) => point[1])) - Math.min(...corners.map((point) => point[1]));
+  const xs = corners.map((point) => point[0]);
+  const ys = corners.map((point) => point[1]);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const spanX = Math.max(...xs) - minX;
+  const spanY = Math.max(...ys) - minY;
   // A page with no measurable size has nothing to overflow, so it needs no
   // shrinking; guarding here keeps a detached preview out of 0/0.
-  return Math.min(1, spanX ? width / spanX : 1, spanY ? height / spanY : 1);
+  const scale = Math.min(1, spanX ? width / spanX : 1, spanY ? height / spanY : 1);
+  const left = (width - spanX * scale) / 2;
+  const top = (height - spanY * scale) / 2;
+
+  return /** @type {Matrix3} */ ([[scale, 0, left - minX * scale], [0, scale, top - minY * scale], [0, 0, 1]]);
 }
 
 /**

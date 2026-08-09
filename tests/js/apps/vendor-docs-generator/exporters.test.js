@@ -180,8 +180,30 @@ test('planBatch expands the full cross product of vendors, types, and count', ()
 
   assert.equal(plan.length, 12);
   assert.deepEqual(new Set(plan.map((item) => item.vendorId)), new Set(['apex', 'verde']));
-  assert.ok(plan.every((item) => item.seed === 451_000));
+  for (const vendorId of ['apex', 'verde']) {
+    for (const docTypeId of ['invoice', 'receipt']) {
+      assert.deepEqual(
+        plan
+          .filter((item) => item.vendorId === vendorId && item.docTypeId === docTypeId)
+          .map((item) => item.seed),
+        [451_000, 451_001, 451_002],
+        `${vendorId}/${docTypeId} should not overwrite repeated random seeds`
+      );
+    }
+  }
   assert.ok(plan.every((item) => item.style === 'clean'), 'a 0.9 draw stays under the dense threshold');
+});
+
+test('planBatch wraps collision resolution inside the documented seed range', () => {
+  const plan = planBatch({
+    vendorIds: ['apex'],
+    docTypeIds: ['receipt'],
+    perCombination: 3,
+    seedSource: () => 0.999_999_9,
+    styleSource: () => 0.9
+  });
+
+  assert.deepEqual(plan.map((item) => item.seed), [900_999, 1_000, 1_001]);
 });
 
 test('planBatch only marks invoices dense, and only below the threshold', () => {
@@ -340,7 +362,7 @@ test('a labelled batch writes a sidecar per page plus a manifest and a README', 
       'manifest.jsonl',
       'README.txt'
     ],
-    'JSON only skips both renderers entirely'
+    'JSON only skips page files'
   );
 
   const manifest = files.get('manifest.jsonl').data.trim().split('\n');
@@ -355,6 +377,27 @@ test('a labelled batch writes a sidecar per page plus a manifest and a README', 
   assert.ok(readme.includes('Format:    json'));
   assert.ok(readme.includes('region level'));
   assert.ok(readme.includes('PDF mode:  n/a'), 'a JSON run has no PDF mode to report');
+});
+
+test('pair mode is not advertised when a batch has no PNG output', async () => {
+  const { deps, zip } = createExportDeps();
+
+  await runBatch({
+    annotate: (built) => buildAnnotations(built),
+    degrade: () => scan('copier'),
+    deps,
+    format: 'json',
+    pair: true,
+    paper: createFakeElement('article'),
+    pdfMode: 'text',
+    plan: [{ vendorId: 'apex', docTypeId: 'invoice', seed: 1000, style: 'clean' }],
+    readme: { degradation: 'copier' },
+    renderPreview: (item) => buildDocument({ ...item, today: TODAY })
+  });
+
+  const readme = zip.archives[0].files.get('README.txt').data;
+  assert.ok(!readme.includes('paired with the clean original'));
+  assert.ok(![...zip.archives[0].files.keys()].some((path) => path.endsWith('.clean.png')));
 });
 
 test('an unlabelled batch writes no manifest and no README', async () => {
@@ -468,7 +511,7 @@ test('a degraded batch writes both images and records the scan in the README', a
     paper: createFakeElement('article'),
     pdfMode: 'text',
     plan: [{ vendorId: 'apex', docTypeId: 'invoice', seed: 1000, style: 'clean' }],
-    readme: { degradation: 'copier', pair: true },
+    readme: { degradation: 'copier' },
     renderPreview: (item) => buildDocument({ ...item, today: TODAY })
   });
 

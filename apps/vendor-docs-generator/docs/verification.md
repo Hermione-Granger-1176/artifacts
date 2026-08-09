@@ -30,7 +30,7 @@ Statements get their own sweep over six vendors and thirty seeds: the printed pe
 
 ### Determinism
 
-The same options rebuild a deep-equal model; different seeds produce different documents. The seeded generator is checked for reproducibility, for staying inside the open unit interval over 500 draws, and for normalising the seeds (`0`, the modulus) that would otherwise make it a fixed point.
+The same seed and reference date rebuild a deep-equal model; different seeds produce different documents. The seeded generator is checked for reproducibility, for staying inside the open unit interval over 500 draws, and for normalising the seeds (`0`, the modulus) that would otherwise make it a fixed point.
 
 ### Ground truth
 
@@ -74,7 +74,7 @@ Both renderers are run across all 36 vendor/type combinations.
 
 A labelled batch is asserted to write one sidecar per page plus `manifest.jsonl` and `README.txt`, with the manifest holding one compact object per document in generation order and the README recording the format and PDF mode the run actually used. An unlabelled batch must write neither root file. The `json` format is asserted to produce nothing but sidecars, which is the whole point of the fast path. The size estimate is asserted to grow monotonically as rasterisation, labels, boxes and word boxes are switched on, to ignore box settings entirely when no labels are being written, to grow again for grain and for pair mode, to shrink for a lossy scan, and to charge nothing for pair mode when there is no scan to pair with.
 
-A degraded run is asserted to render the page once and keep the clean capture beside the degraded one, rather than capturing twice; a clean run must hand back the capture itself rather than copying it. A rasterised PDF built from a lossy scan must declare `JPEG` to jsPDF. Pair mode downloads the degraded page and the original, and downloads only one file when there is nothing to degrade. A degraded batch is asserted to write `.jpg`, `.clean.png`, and `.json` per document, to record the preset in the README, and to carry the degradation block through into the manifest.
+A degraded run is asserted to render the page once and keep the clean capture beside the degraded one, rather than capturing twice; a clean run must hand back the capture itself rather than copying it. A rasterised PDF built from a lossy scan must declare `JPEG` to jsPDF. Pair mode applies to PNG outputs, downloads the degraded page and the original, and downloads only one file when there is nothing to degrade. A degraded PNG batch is asserted to write `.jpg`, `.clean.png`, and `.json` per document, to record the preset in the README, and to carry the degradation block through into the manifest. A JSON-only batch cannot advertise a clean pair that it did not write.
 
 ### Scan degradation
 
@@ -106,7 +106,7 @@ The single-test shape is deliberate. `app.js` is a module with side effects, so 
 
 - The fitted preview is asserted to have zero overflow in both axes and to hold the whole page inside the frame, which is the property the layout exists to provide.
 - The overlay is asserted to take the live paper element, show it at exactly 794px, and hand it back on close.
-- A text PDF and a rasterised PDF both start with `%PDF-`, with the rasterised one larger; the PNG carries a PNG signature; the batch ZIP starts with `PK`, contains exactly one file under `vendor/type/`, and that file is itself a real PDF.
+- A text PDF and a rasterised PDF both start with `%PDF-`, with the rasterised one larger; the PNG carries a PNG signature; the batch ZIP starts with `PK`, contains exactly one PDF under `vendor/type/`, and that file is itself a real PDF.
 - The statement is checked in the rendered page for negative balances and for a `$-` anywhere in the text.
 - A page export writes two files, so the flow collects downloads through a standing listener and asserts on both. The sidecar is parsed and checked against the page it describes: the schema version, the vendor, a null `po_number` on a clean invoice, and the line amounts re-summed against the printed subtotal.
 - With boxes on, the payload is asserted to declare `boxes_apply_to` as `["png", "pdf_raster"]`, report the page as 794x1123, and carry more than twelve regions all inside the unit square. Turning on word boxes must add a `words` array to every region.

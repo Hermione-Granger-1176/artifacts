@@ -1,11 +1,12 @@
 /**
  * Seeded pseudo-random helpers.
  *
- * Every generated document is a pure function of one integer seed, so the
- * preview, the PNG, the text PDF, and the batch entry for a given seed all
- * agree. That rules out `Math.random()` anywhere inside document construction;
- * it is confined to `rollSeed`, which is the only place a new document is
- * chosen.
+ * Every random choice inside a generated document is a pure function of one
+ * integer seed, so the preview, the PNG, the text PDF, and the batch entry for
+ * a given seed and reference date all agree. That rules out `Math.random()`
+ * anywhere inside document construction. It is used only when `rollSeed`
+ * chooses a new document and when `planBatch` uses its default seed and style
+ * sources.
  *
  * @module random
  */

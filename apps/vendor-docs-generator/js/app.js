@@ -460,13 +460,21 @@ initializeMatureApp({
      * @returns {void}
      */
     function syncGroundTruth() {
-      const enabled = groundTruth.checked;
+      const jsonOnly = batchFormatSelect.value === "json";
+      const enabled = groundTruth.checked || jsonOnly;
       boxesToggle.disabled = !enabled;
       wordBoxes.disabled = !enabled || !boxesToggle.checked;
       wordBoxesLabel.classList.toggle("is-disabled", wordBoxes.disabled);
 
       if (!enabled) {
         groundTruthNote.textContent = "Exports are pages only. No labels are written.";
+        return;
+      }
+
+      if (!groundTruth.checked) {
+        groundTruthNote.textContent = boxesToggle.checked
+          ? "JSON-only batches still contain labels and boxes; page exports do not write sidecars."
+          : "JSON-only batches still contain labels; page exports do not write sidecars.";
         return;
       }
 
@@ -666,13 +674,16 @@ initializeMatureApp({
         const startedAt = Date.now();
 
         const labelled = groundTruth.checked || batchFormatSelect.value === "json";
+        const batchFormat = /** @type {import("./modules/exporters.js").BatchFormat} */ (
+          batchFormatSelect.value
+        );
 
         const { blob, count } = await atActualSize(() =>
           runBatch({
             annotate: labelled ? annotate : undefined,
             degrade: degradationFor,
             deps: exportDeps,
-            format: /** @type {import("./modules/exporters.js").BatchFormat} */ (batchFormatSelect.value),
+            format: batchFormat,
             pair: pairToggle.checked,
             paper,
             pdfMode: /** @type {import("./modules/exporters.js").PdfMode} */ (pdfModeSelect.value),
@@ -680,7 +691,6 @@ initializeMatureApp({
             readme: {
               boxes: boxesToggle.checked,
               degradation: state.degradePreset,
-              pair: pairToggle.checked && !isClean(currentSettings()),
               words: wordBoxes.checked
             },
             onProgress: ({ done, total, phase }) => {

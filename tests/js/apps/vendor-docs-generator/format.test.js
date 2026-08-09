@@ -61,6 +61,22 @@ test('addDays moves forwards and backwards without mutating the input', () => {
   assert.equal(formatDate(start), 'Jan 05, 2026');
 });
 
+test('addDays advances calendar dates across daylight saving transitions', () => {
+  const originalTimeZone = process.env.TZ;
+  process.env.TZ = 'America/New_York';
+
+  try {
+    const beforeFallBack = new Date(2026, 10, 1);
+    assert.equal(formatDate(addDays(beforeFallBack, 1)), 'Nov 02, 2026');
+  } finally {
+    if (originalTimeZone === undefined) {
+      delete process.env.TZ;
+    } else {
+      process.env.TZ = originalTimeZone;
+    }
+  }
+});
+
 test('formatRate renders a fraction as a percentage', () => {
   assert.equal(formatRate(0.0825), '8.25%');
   assert.equal(formatRate(0.0825, 1), '8.3%');

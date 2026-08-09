@@ -136,7 +136,7 @@
 
           <label class="vd-check" for="vdPair" id="vdPairLabel">
             <input type="checkbox" id="vdPair" disabled>
-            <span>Also export the clean original</span>
+            <span>Also export the clean original with PNG outputs</span>
           </label>
         </div>
 
@@ -252,7 +252,7 @@
 
       <div class="app-callout is-blue">
         <div class="app-callout-title">How the randomisation works</div>
-        <div class="app-callout-body">Every document is driven by a single integer seed. Changing the vendor, type, or layout re-renders against the <em>same</em> seed so you can compare treatments side by side; <strong>Generate new document</strong> is what rolls a fresh seed. The seed appears on the preview and in every exported filename, so any sample can be reproduced exactly. Scan degradation is driven from the same seed, so a given seed and preset always produce the same page, and the boxes follow the ink when the page is tilted.</div>
+        <div class="app-callout-body">Within a run, every random choice is driven by a single integer seed, while document dates are relative to the day of generation. Changing the vendor, type, or layout re-renders against the <em>same</em> seed so you can compare treatments side by side; <strong>Generate new document</strong> is what rolls a fresh seed. The seed appears on the preview and in every exported filename so each sample remains identifiable. Exact replay in code also needs the original reference date, which can be recovered from the sidecar's document date and the seed-derived date offsets. Scan degradation is driven from the same seed, so a given seed and preset reproduce the same wear, and the boxes follow the ink when the page is tilted.</div>
       </div>
     </section>
 

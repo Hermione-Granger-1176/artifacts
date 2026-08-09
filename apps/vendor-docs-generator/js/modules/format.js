@@ -66,8 +66,6 @@ const SCALES = /** @type {[string, number][]} */ ([
   ["Thousand", 1_000]
 ]);
 
-const MILLISECONDS_PER_DAY = 86_400_000;
-
 /**
  * Round a value to whole cents, avoiding the float drift that makes repeated
  * addition of `x.xx5` values disagree between runs.
@@ -151,7 +149,9 @@ export function isoDate(date) {
  * @returns {Date} A new date instance.
  */
 export function addDays(date, days) {
-  return new Date(date.getTime() + days * MILLISECONDS_PER_DAY);
+  const shifted = new Date(date.getTime());
+  shifted.setDate(shifted.getDate() + days);
+  return shifted;
 }
 
 /**

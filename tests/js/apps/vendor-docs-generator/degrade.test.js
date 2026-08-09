@@ -140,6 +140,30 @@ test('keystone narrows the far edge and foreshortens it', () => {
   assert.ok(lowerHalf > upperHalf, 'the far half should be squashed, not merely narrowed');
 });
 
+test('combined phone geometry keeps every page corner inside the sheet', () => {
+  // Pure centred keystone fits even with the old scale-only implementation.
+  // Rotation and skew expose its missing translation; seed 1131 is a known
+  // witness, and the sweep guards the full jittered preset rather than one
+  // hand-picked transform.
+  const tolerance = 1e-6;
+
+  for (let seed = 1_000; seed < 1_200; seed += 1) {
+    const { transform } = plan('phone', {}, seed);
+    const corners = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([x, y]) => project(transform, x, y));
+
+    for (const [x, y] of corners) {
+      assert.ok(
+        x >= -tolerance && x <= 1 + tolerance,
+        `seed ${seed} ran off the sheet horizontally: ${x}`
+      );
+      assert.ok(
+        y >= -tolerance && y <= 1 + tolerance,
+        `seed ${seed} ran off the sheet vertically: ${y}`
+      );
+    }
+  }
+});
+
 test('the transform is expressed in page fractions, not pixels', () => {
   // The plan is made against the 794 x 1123 layout page and applied to the 2x
   // capture. Same aspect ratio, so one normalised matrix has to serve both.

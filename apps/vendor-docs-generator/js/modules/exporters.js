@@ -205,14 +205,32 @@ export function planBatch({
   vendorIds
 }) {
   const plan = [];
+  const seedRange = 900_000;
 
   for (const vendorId of vendorIds) {
     for (const docTypeId of docTypeIds) {
+      const usedSeeds = new Set();
+
       for (let index = 0; index < perCombination; index += 1) {
+        if (usedSeeds.size >= seedRange) {
+          throw new RangeError(`Cannot generate more than ${seedRange} unique documents per vendor and type.`);
+        }
+
+        let seed = Math.floor(seedSource() * seedRange) + 1_000;
+
+        // A repeated seed would produce the same filename and JSZip would
+        // silently replace the earlier document. Probe the finite seed range
+        // instead of retrying the random source, which may legitimately be a
+        // deterministic or constant function in tests and scripted runs.
+        for (let offset = 0; usedSeeds.has(seed) && offset < usedSeeds.size; offset += 1) {
+          seed = seed === 900_999 ? 1_000 : seed + 1;
+        }
+
+        usedSeeds.add(seed);
         plan.push({
           vendorId,
           docTypeId,
-          seed: Math.floor(seedSource() * 900_000) + 1_000,
+          seed,
           // Mix dense invoices into roughly 40% of the invoice samples so a
           // batch exercises both layouts without needing two runs.
           style: docTypeId === "invoice" && styleSource() < 0.4 ? "dense" : "clean"
@@ -319,11 +337,11 @@ export function formatBytes(bytes) {
 /**
  * Generate a batch of documents and hand back a foldered ZIP.
  *
- * Text PDFs skip the DOM entirely, which is why they are so much faster than
- * the raster paths: nothing is rendered or rasterised, jsPDF writes straight
- * from the model. `json` is faster still, because it skips both renderers, and
- * it is the right format for anyone iterating on an evaluation script rather
- * than on the pages themselves.
+ * Text PDFs skip raster capture because jsPDF writes straight from the model.
+ * `json` skips both file renderers, although the application can still update
+ * its DOM stage through `renderPreview` as visible batch progress or to measure
+ * boxes. It is the right format for anyone iterating on an evaluation script
+ * rather than on the pages themselves.
  *
  * When ground truth is on, each document gets a sidecar next to it and the run
  * also writes `manifest.jsonl` and `README.txt` at the archive root. The
@@ -340,7 +358,7 @@ export function formatBytes(bytes) {
  *   paper: HTMLElement,
  *   pdfMode: PdfMode,
  *   plan: ReturnType<typeof planBatch>,
- *   readme?: { boxes: boolean, degradation: string, pair: boolean, words: boolean },
+ *   readme?: { boxes: boolean, degradation: string, words: boolean },
  *   renderPreview: (item: { docTypeId: string, seed: number, style: string, vendorId: string }) => DocumentModel
  * }} options - Batch inputs.
  * @returns {Promise<{ blob: Blob, count: number }>} The archive and how many documents it holds.
@@ -360,15 +378,21 @@ export async function runBatch({
 }) {
   // Merged rather than defaulted, so a caller that names only some of the
   // README fields does not end up printing "undefined" into the archive.
-  const dataset = { boxes: false, degradation: "clean", pair: false, words: false, ...readme };
   const JsZip = deps.getJsZip();
   const zip = new JsZip();
   const wantsPng = format === "png" || format === "both";
   const wantsPdf = format === "pdf" || format === "both";
   const wantsCanvas = wantsPng || (wantsPdf && pdfMode === "image");
+  const dataset = {
+    boxes: false,
+    degradation: "clean",
+    words: false,
+    ...readme
+  };
   /** @type {Record<string, any>[]} */
   const manifest = [];
   let done = 0;
+  let wrotePair = false;
 
   for (const item of plan) {
     const model = renderPreview(item);
@@ -391,6 +415,7 @@ export async function runBatch({
           // The whole point of pair mode: one seed, two images, differing only
           // in scan quality, so accuracy can be plotted against it.
           zip.file(`${base}.clean.png`, raster.clean.toDataURL("image/png").split(",")[1], { base64: true });
+          wrotePair = true;
         }
       }
 
@@ -421,7 +446,7 @@ export async function runBatch({
         degradation: dataset.degradation,
         format,
         generatedAt: new Date().toISOString(),
-        pair: dataset.pair,
+        pair: wrotePair,
         pdfMode: wantsPdf ? pdfMode : "n/a",
         words: dataset.words
       })

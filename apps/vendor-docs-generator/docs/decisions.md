@@ -98,6 +98,6 @@ JPEG loss is the encoding, not an effect painted onto the bitmap. Asking the can
 
 Degradation happens to the raster, and the boxes are measured off the DOM, so the live preview cannot show the effect without breaking the thing that makes the boxes correct. Choosing between five presets from their descriptions alone is guesswork, so **Preview scan** rasterises the current page, degrades it, and shows the image in the existing full-size overlay. One close path empties the overlay and returns the live page to the frame, so the two modes cannot disagree about where the page is.
 
-### Eight sliders, folded away
+### Nine sliders, folded away
 
 The presets are the common case and the rail was already at four cards. The custom knobs live behind a `<details>`, and they are built in `app.js` from the `DEGRADE_KNOBS` table rather than written into `index.html`, so the list of exposed settings has one home and adding one is a single edit. Touching any knob switches the preset to "custom", because the sidecar would otherwise name a preset the page was not rendered under.

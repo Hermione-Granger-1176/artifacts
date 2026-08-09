@@ -132,8 +132,20 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     assert.equal(elementMap.vdProgress.hidden, true, 'the meter starts hidden');
 
     elementMap.vdBatchCount.value = '2';
+    const replacePaperChildren = elementMap.vdPaper.replaceChildren.bind(elementMap.vdPaper);
+    let paperRenderCount = 0;
+    elementMap.vdPaper.replaceChildren = (...nodes) => {
+      paperRenderCount += 1;
+      replacePaperChildren(...nodes);
+    };
+    const rendersBeforeTextBatch = paperRenderCount;
     fire(elementMap.vdBatch, 'click');
     await flush(12);
+    assert.equal(
+      paperRenderCount - rendersBeforeTextBatch,
+      3,
+      'the two text-PDF documents and restored preview should render on stage'
+    );
 
     const files = [...zip.archives[0].files.keys()];
     // Two documents, each as a PDF and a sidecar, plus the two root files that
@@ -260,6 +272,50 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     assert.deepEqual(scanned.boxes_apply_to, ['png', 'pdf_raster']);
     assert.deepEqual(scanned.boxes.page, { width: 794, height: 1123, unit: 'normalised' });
     assert.ok(scanned.degradation.transform.flat().every(Number.isFinite));
+
+    // ── JSON-only format gating ───────────────────────────────────────
+    // JSON is necessarily labelled, so its box controls must remain available
+    // even when page-export sidecars are off.
+    elementMap.vdGroundTruth.checked = false;
+    fire(elementMap.vdGroundTruth, 'change');
+    elementMap.vdBatchFormat.value = 'json';
+    fire(elementMap.vdBatchFormat, 'change');
+    assert.equal(elementMap.vdBoxes.disabled, false);
+    assert.match(elementMap.vdGroundTruthNote.textContent, /JSON-only batches still contain labels/);
+
+    const archivesBeforeBoxedJson = zip.archives.length;
+    const rendersBeforeBoxedJson = paperRenderCount;
+    fire(elementMap.vdBatch, 'click');
+    await flush(12);
+    assert.equal(zip.archives.length, archivesBeforeBoxedJson + 1);
+    assert.equal(
+      paperRenderCount - rendersBeforeBoxedJson,
+      2,
+      'the JSON document and restored preview should render on stage'
+    );
+    const boxedJsonArchive = zip.archives.at(-1).files;
+    const boxedSidecarPath = [...boxedJsonArchive.keys()].find((path) => path.includes('/') && path.endsWith('.json'));
+    assert.ok(boxedSidecarPath, 'the boxed JSON batch should contain a document sidecar');
+    assert.ok(JSON.parse(boxedJsonArchive.get(boxedSidecarPath).data).boxes);
+
+    elementMap.vdBoxes.checked = false;
+    fire(elementMap.vdBoxes, 'change');
+    const archivesBeforeUnboxedJson = zip.archives.length;
+    const rendersBeforeUnboxedJson = paperRenderCount;
+    fire(elementMap.vdBatch, 'click');
+    await flush(12);
+    assert.equal(zip.archives.length, archivesBeforeUnboxedJson + 1);
+    assert.equal(
+      paperRenderCount - rendersBeforeUnboxedJson,
+      2,
+      'unboxed JSON should preserve the same stage progress behavior'
+    );
+    const unboxedJsonArchive = zip.archives.at(-1).files;
+    const unboxedSidecarPath = [...unboxedJsonArchive.keys()].find(
+      (path) => path.includes('/') && path.endsWith('.json')
+    );
+    assert.ok(unboxedSidecarPath, 'the unboxed JSON batch should contain a document sidecar');
+    assert.equal(JSON.parse(unboxedJsonArchive.get(unboxedSidecarPath).data).boxes, null);
   } finally {
     cleanupMocks();
   }

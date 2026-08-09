@@ -11,7 +11,7 @@ import {
   shippingCharge,
   vendorSalt
 } from '../../../../apps/vendor-docs-generator/js/modules/document-model.js';
-import { formatMoney } from '../../../../apps/vendor-docs-generator/js/modules/format.js';
+import { addDays, formatMoney } from '../../../../apps/vendor-docs-generator/js/modules/format.js';
 import { DOCUMENT_TYPES, TAX_RATE, VENDORS } from '../../../../apps/vendor-docs-generator/js/modules/vendors.js';
 
 const TODAY = new Date(2026, 5, 15);
@@ -122,17 +122,14 @@ test('the clean and dense invoices of one seed print the same grand total', () =
       const cleanTotals = blockOf(clean, 'totals').rows;
       const denseTotals = blockOf(dense, 'totals').rows;
       const cleanGrand = parseMoney(cleanTotals[cleanTotals.length - 1][1]);
-      const denseAssessable = parseMoney(denseTotals[0][1]);
-      const denseTax = parseMoney(denseTotals[1][1]);
+      const denseGrand = parseMoney(denseTotals[denseTotals.length - 1][1]);
 
-      // The dense invoice adds shipping on top, so the comparable quantity is
-      // its line-item total. Harbor at one seed used to print $53,484.92 clean
-      // and $53,484.93 dense off the very same five lines.
       assert.equal(
-        Math.round((denseAssessable + denseTax) * 100) / 100,
+        denseGrand,
         cleanGrand,
         `${vendor.id} seed ${seed} disagrees between layouts`
       );
+      assert.equal(dense.facts.shipping, clean.facts.shipping);
     }
   }
 });
@@ -164,6 +161,24 @@ test('every document type builds, for every vendor, with a stable filename', () 
       assert.ok(model.title.length > 0);
       assert.equal(model.filenameBase, `${vendor.id}_${model.docVariantId}_2024`);
       assert.match(model.footer, /Not a valid tax record/);
+    }
+  }
+});
+
+test('no generated document is dated after its reference date', () => {
+  for (let seed = 1_000; seed < 3_000; seed += 1) {
+    for (const type of DOCUMENT_TYPES) {
+      const model = buildDocument({
+        docTypeId: type.id,
+        seed,
+        today: TODAY,
+        vendorId: 'apex'
+      });
+
+      assert.ok(
+        model.facts.documentDate <= TODAY,
+        `${type.id} seed ${seed} was dated ${model.facts.documentDate.toISOString()}`
+      );
     }
   }
 });
@@ -307,11 +322,9 @@ test('the clean invoice totals match its own printed line items', () => {
   assert.equal(parseMoney(totals[0][1]), expectedSubtotal, 'printed subtotal');
   assert.equal(totals[1][0], 'Sales tax (8.25%)');
   assert.equal(parseMoney(totals[1][1]), expectedTax, 'printed tax');
-  assert.equal(
-    parseMoney(totals[2][1]),
-    Math.round((expectedSubtotal + expectedTax) * 100) / 100,
-    'printed grand total'
-  );
+  const expectedGrand = Math.round((expectedSubtotal + expectedTax + parseMoney(totals[2][1])) * 100) / 100;
+  assert.equal(totals[2][0], 'Shipping and handling');
+  assert.equal(parseMoney(totals[3][1]), expectedGrand, 'printed grand total');
 });
 
 test('the invoice dates the document today and thirty days out', () => {
@@ -320,9 +333,9 @@ test('the invoice dates the document today and thirty days out', () => {
   const issued = new Date(meta.Date);
   const due = new Date(meta['Due date']);
 
-  assert.equal((due - issued) / 86_400_000, 30, 'net-30 terms should be exactly 30 days');
+  assert.equal(due.getTime(), addDays(issued, 30).getTime(), 'net-30 terms should be 30 calendar days');
   assert.ok(issued <= TODAY, 'documents are backdated, never postdated');
-  assert.ok((TODAY - issued) / 86_400_000 <= 180, 'documents stay within the last 180 days');
+  assert.ok(issued >= addDays(TODAY, -179), 'documents stay within the last 180 calendar dates');
   assert.equal(meta.Terms, 'Net 30');
 });
 
@@ -365,7 +378,10 @@ test('the dense invoice carries per-line tax that sums to its own footer', () =>
   const totals = blockOf(model, 'totals');
   assert.equal(parseMoney(totals.rows[0][1]), assessable);
   assert.equal(parseMoney(totals.rows[1][1]), tax);
-  assert.equal(parseMoney(totals.rows[3][1]), Math.round((assessable + tax) * 100) / 100);
+  assert.equal(
+    parseMoney(totals.rows[3][1]),
+    Math.round((assessable + tax + parseMoney(totals.rows[2][1])) * 100) / 100
+  );
 });
 
 test('the dense invoice spells its grand total the way the summary states it', () => {
@@ -411,13 +427,18 @@ test('the receipt shows the tax it charged and closes at a zero balance', () => 
   // total and nothing on the page explained the gap.
   assert.equal(parseMoney(rows.Subtotal), lineSum, 'the subtotal must equal the printed lines');
   assert.equal(
-    Math.round((parseMoney(rows.Subtotal) + parseMoney(rows['Sales tax (8.25%)'])) * 100) / 100,
+    Math.round(
+      (parseMoney(rows.Subtotal) +
+        parseMoney(rows['Sales tax (8.25%)']) +
+        parseMoney(rows['Shipping and handling'])) *
+        100
+    ) / 100,
     parseMoney(rows['Amount due']),
-    'subtotal plus tax must equal the amount due'
+    'subtotal plus tax plus shipping must equal the amount due'
   );
   assert.equal(rows['Amount due'], rows['AMOUNT PAID'], 'amount paid should clear the amount due');
   assert.equal(parseMoney(rows['Balance due']), 0, 'balance due should be zero');
-  assert.equal(blockOf(model, 'totals').emphasisIndex, 3);
+  assert.equal(blockOf(model, 'totals').emphasisIndex, 4);
 });
 
 test('a receipt settles the invoice its own seed produces', () => {
@@ -436,6 +457,40 @@ test('a receipt settles the invoice its own seed produces', () => {
     // invoice in the corpus.
     assert.equal(settled, invoiceNumber, `${vendor.id} receipt points elsewhere`);
     assert.equal(adjusted, invoiceNumber, `${vendor.id} note points elsewhere`);
+    assert.deepEqual(
+      receipt.facts.items,
+      invoice.facts.items,
+      `${vendor.id} receipt lists other items`
+    );
+    assert.deepEqual(
+      receipt.facts.totals,
+      invoice.facts.totals,
+      `${vendor.id} receipt totals another sale`
+    );
+    assert.equal(receipt.facts.shipping, invoice.facts.shipping);
+    assert.equal(
+      receipt.facts.amountPaid,
+      invoice.facts.totals.grand,
+      `${vendor.id} receipt pays a different amount`
+    );
+    assert.ok(
+      receipt.facts.documentDate >= invoice.facts.documentDate,
+      `${vendor.id} receipt predates its invoice`
+    );
+    assert.ok(
+      receipt.facts.documentDate <= addDays(invoice.facts.documentDate, 30),
+      `${vendor.id} receipt falls outside the Net 30 window`
+    );
+    assert.ok(
+      note.facts.items.every((item) =>
+        invoice.facts.items.some((invoiceItem) => JSON.stringify(invoiceItem) === JSON.stringify(item))
+      ),
+      `${vendor.id} note adjusts items absent from its invoice`
+    );
+    assert.ok(
+      note.facts.totals.grand <= invoice.facts.totals.grand,
+      `${vendor.id} note exceeds its invoice`
+    );
   }
 });
 
@@ -445,7 +500,7 @@ test('the quotation is valid for fourteen days and disclaims being an invoice', 
   const issued = new Date(meta.Date);
   const valid = new Date(meta['Valid until']);
 
-  assert.equal((valid - issued) / 86_400_000, 14);
+  assert.equal(valid.getTime(), addDays(issued, 14).getTime());
   assert.equal(model.subtitle, 'THIS IS NOT A TAX INVOICE');
   assert.match(blockOf(model, 'note').text, /not a tax invoice/);
 });
