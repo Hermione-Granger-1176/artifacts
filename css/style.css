@@ -46,6 +46,21 @@
   --color-accent-ghost: rgba(212, 114, 92, 0.1);
   --color-page-paper: rgb(254, 252, 248);
   --color-page-shadow: rgba(0, 0, 0, 0.08);
+  /*
+   * Printed-document palette. Deliberately theme-independent: these are not
+   * overridden in the dark block because a preview of a page that will be
+   * exported to PDF or PNG has to keep looking like paper in both themes.
+   * Because white paper is the only background these ever sit on, the ink,
+   * muted and faint steps are each held above 4.5:1 against it.
+   */
+  --color-document-paper: rgb(255, 255, 255);
+  --color-document-ink: rgb(26, 26, 26);
+  --color-document-muted: rgb(84, 90, 102);
+  --color-document-faint: rgb(106, 113, 127);
+  --color-document-rule: rgb(226, 226, 226);
+  --color-document-rule-strong: rgb(201, 201, 201);
+  --color-document-zebra: rgb(247, 247, 250);
+  --color-document-fill: rgb(244, 244, 244);
   --color-border: rgba(45, 32, 23, 0.1);
   --color-border-solid: rgb(212, 207, 200);
   --color-note-text: rgb(61, 46, 31);
@@ -210,7 +225,11 @@ body.artifact-app {
   --font-size-md: 14px;
   --font-size-base: 16px;
   --font-size-lg: 18px;
+  --tracking-tight: -0.02em;
   --tracking-label: 0.08em;
+  --tracking-wide: 0.14em;
+  --tracking-wider: 0.24em;
+  --tracking-widest: 0.4em;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

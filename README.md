@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <!-- AUTO:TOTAL_BADGE --><img src="https://img.shields.io/badge/Total-4-D97706?style=for-the-badge" alt="Total"><!-- /AUTO:TOTAL_BADGE -->
+  <!-- AUTO:TOTAL_BADGE --><img src="https://img.shields.io/badge/Total-5-D97706?style=for-the-badge" alt="Total"><!-- /AUTO:TOTAL_BADGE -->
 </p>
 
 <p align="center">
@@ -15,9 +15,12 @@
 <img src="https://img.shields.io/badge/Finance-27AE60?style=flat-square" alt="Finance">&nbsp;
 <img src="https://img.shields.io/badge/Calculator-2E86C1?style=flat-square" alt="Calculator">&nbsp;
 <img src="https://img.shields.io/badge/Visualization-E67E22?style=flat-square" alt="Visualization">&nbsp;
+<img src="https://img.shields.io/badge/Tool-8E44AD?style=flat-square" alt="Tool">&nbsp;
 <img src="https://img.shields.io/badge/Education-F39C12?style=flat-square" alt="Education">&nbsp;
 <img src="https://img.shields.io/badge/AI-A0C8E8?style=flat-square" alt="AI">&nbsp;
 <img src="https://img.shields.io/badge/LLM-E8C8A0?style=flat-square" alt="LLM">&nbsp;
+<img src="https://img.shields.io/badge/Dataset-E8C8A0?style=flat-square" alt="Dataset">&nbsp;
+<img src="https://img.shields.io/badge/Ocr-E8C8A0?style=flat-square" alt="Ocr">&nbsp;
 <img src="https://img.shields.io/badge/Sampling-E8C8A0?style=flat-square" alt="Sampling">&nbsp;
 <img src="https://img.shields.io/badge/Tokenization-F5E6A3?style=flat-square" alt="Tokenization">
 <!-- AUTO:TAG_BADGES_END -->
@@ -38,7 +41,7 @@
 
 Each directory under `apps/` is a standalone HTML page on a focused topic: bond math, token sampling, loan schedules, prompt caching, and more. Browse the live site at <!-- AUTO:SITE_URL -->https://hermione-granger-1176.github.io/artifacts/<!-- /AUTO:SITE_URL --> for searchable thumbnails, multi-select filters, and detail overlays.
 
-<!-- AUTO:TOTAL_COUNT -->4<!-- /AUTO:TOTAL_COUNT --> artifacts published so far.
+<!-- AUTO:TOTAL_COUNT -->5<!-- /AUTO:TOTAL_COUNT --> artifacts published so far.
 
 <br>
 

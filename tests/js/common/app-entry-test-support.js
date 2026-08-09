@@ -1,17 +1,59 @@
-function makeElement(id) {
+/**
+ * Unlink a node from whatever currently holds it.
+ * @param {Record<string, any>} node - Node to detach.
+ * @returns {void}
+ */
+function detach(node) {
+  if (node && typeof node === 'object' && node.parentNode) {
+    const siblings = node.parentNode.children;
+    node.parentNode.children = siblings.filter((sibling) => sibling !== node);
+    node.parentNode = null;
+  }
+}
+
+/**
+ * Move a node under a new parent, the way appendChild does: a node has one
+ * parent, so appending it somewhere else removes it from where it was.
+ * @param {Record<string, any>} parent - New parent.
+ * @param {Record<string, any>} node - Node to move.
+ * @returns {void}
+ */
+function adopt(parent, node) {
+  detach(node);
+  parent.children.push(node);
+
+  if (node && typeof node === 'object') {
+    node.parentNode = parent;
+  }
+}
+
+export function makeElement(id) {
   const classes = new Set();
   const attrs = {};
   const listeners = {};
+  const styleProperties = {};
   return {
     id,
     hidden: false,
+    disabled: false,
+    // Layout geometry a caller can overwrite when a test needs a measured
+    // element; zero everywhere else, the way a detached node measures.
+    offsetWidth: 0,
+    offsetHeight: 0,
+    rect: { left: 0, top: 0, width: 0, height: 0 },
+    getBoundingClientRect() { return this.rect; },
     textContent: '',
     value: '10',
     className: '',
     innerHTML: '',
-    childElementCount: 0,
+    get childElementCount() { return this.children.length; },
+    parentNode: null,
     tabIndex: -1,
-    style: {},
+    style: {
+      properties: styleProperties,
+      setProperty(name, value) { styleProperties[name] = value; },
+      getPropertyValue(name) { return styleProperties[name] ?? ''; }
+    },
     dataset: {},
     children: [],
     classList: {
@@ -35,8 +77,19 @@ function makeElement(id) {
       listeners[type] = listeners[type] || [];
       listeners[type].push(handler);
     },
-    appendChild(child) { this.children.push(child); return child; },
-    append(...nodes) { this.children.push(...nodes); },
+    appendChild(child) { adopt(this, child); return child; },
+    append(...nodes) { for (const node of nodes) adopt(this, node); },
+    replaceChildren(...nodes) {
+      for (const existing of [...this.children]) detach(existing);
+      this.children = [];
+      for (const node of nodes) adopt(this, node);
+    },
+    remove() { detach(this); },
+    click() {
+      for (const handler of listeners.click || []) {
+        handler.call(this, { type: 'click' });
+      }
+    },
     querySelector() { return null; },
     querySelectorAll() { return []; },
     closest() { return null; },
@@ -116,10 +169,12 @@ export function setupFullMocks() {
   elementMap['topp-slider'].value = '90';
 
   const shellSlots = {};
+  const body = makeElement('body');
 
   globalThis.document = {
     readyState: 'interactive',
     referrer: '',
+    body,
     documentElement: {
       dataset: {},
       getAttribute(name) { return name === 'data-theme' ? 'light' : null; },
@@ -162,6 +217,11 @@ export function setupFullMocks() {
       getItem() { return null; },
       setItem() {}
     },
+    URL: {
+      createObjectURL() { return 'blob:mock'; },
+      revokeObjectURL() {}
+    },
+    setTimeout(fn) { return fn(); },
     addEventListener() {},
     requestAnimationFrame(fn) { fn(); return 1; },
     Chart: function MockChart(_canvas, config) {
@@ -183,7 +243,7 @@ export function setupFullMocks() {
 
   globalThis.HTMLElement = globalThis.HTMLElement ?? class {};
 
-  return { elementMap, shellSlots };
+  return { body, elementMap, shellSlots };
 }
 
 export function cleanupMocks() {

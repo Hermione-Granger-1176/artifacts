@@ -63,5 +63,22 @@ window.ARTIFACTS_DATA = [
     ],
     "url": "apps/tokenizer-explorer/",
     "thumbnail": "apps/tokenizer-explorer/thumbnail.webp"
+  },
+  {
+    "id": "vendor-docs-generator",
+    "name": "Vendor Document Generator",
+    "description": "Generate labelled synthetic vendor paperwork for document-AI work. Six fictional businesses, six document types, and a ground-truth JSON sidecar per page naming every printed value, with optional bounding boxes. Five seeded scan-quality presets degrade the page and move the boxes with it. Export as searchable PDF, PNG, or a foldered ZIP with a streaming manifest.",
+    "tags": [
+      "tool",
+      "ai",
+      "finance",
+      "dataset",
+      "ocr"
+    ],
+    "tools": [
+      "claude"
+    ],
+    "url": "apps/vendor-docs-generator/",
+    "thumbnail": "apps/vendor-docs-generator/thumbnail.webp"
   }
 ];

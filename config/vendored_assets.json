@@ -34,6 +34,34 @@
       "version": "4.4.1",
       "upstream": "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js",
       "sha256": "81ffafe13c37e1b25793b020d446f4d9739b949dadb7f9f79d709a0cad781c2f"
+    },
+    {
+      "path": "apps/vendor-docs-generator/js/vendor/jspdf.umd.min.js",
+      "package": "jspdf",
+      "version": "2.5.1",
+      "upstream": "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
+      "sha256": "98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875"
+    },
+    {
+      "path": "apps/vendor-docs-generator/js/vendor/jspdf.plugin.autotable.min.js",
+      "package": "jspdf-autotable",
+      "version": "3.8.2",
+      "upstream": "https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js",
+      "sha256": "27a9c3b61843c6312b87f142d40fe77c0f0f054c9f3cdeccc4bfd5f3322859c8"
+    },
+    {
+      "path": "apps/vendor-docs-generator/js/vendor/html2canvas.min.js",
+      "package": "html2canvas",
+      "version": "1.4.1",
+      "upstream": "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js",
+      "sha256": "e87e550794322e574a1fda0c1549a3c70dae5a93d9113417a429016838eab8cb"
+    },
+    {
+      "path": "apps/vendor-docs-generator/js/vendor/jszip.min.js",
+      "package": "jszip",
+      "version": "3.10.1",
+      "upstream": "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js",
+      "sha256": "acc7e41455a80765b5fd9c7ee1b8078a6d160bbbca455aeae854de65c947d59e"
     }
   ]
 }
