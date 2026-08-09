@@ -46,7 +46,7 @@ export function makeElement(id) {
     value: '10',
     className: '',
     innerHTML: '',
-    childElementCount: 0,
+    get childElementCount() { return this.children.length; },
     parentNode: null,
     tabIndex: -1,
     style: {
