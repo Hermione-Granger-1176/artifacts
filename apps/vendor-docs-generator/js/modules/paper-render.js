@@ -312,6 +312,7 @@ function renderBlock(doc, block) {
       return wrapper;
     }
 
+    case "signoff":
     default:
       return make(doc, "div", "vd-signoff", block.text);
   }

@@ -321,6 +321,7 @@ initializeMatureApp({
      */
     function draw() {
       const isInvoice = state.docTypeId === "invoice";
+      const documentType = findDocumentType(state.docTypeId);
       currentModel = buildDocument({
         docTypeId: state.docTypeId,
         seed: state.seed,
@@ -331,8 +332,8 @@ initializeMatureApp({
       renderPaper(paper, currentModel);
       chipVendor.textContent = findVendor(state.vendorId).name;
       chipType.textContent = currentModel.dense
-        ? `${findDocumentType(state.docTypeId).label} (dense)`
-        : findDocumentType(state.docTypeId).label;
+        ? `${documentType.label} (dense)`
+        : documentType.label;
       chipSeed.textContent = `seed ${state.seed}`;
       syncFitScale();
     }
@@ -687,53 +688,55 @@ initializeMatureApp({
           batchFormatSelect.value
         );
 
-        const { blob, count, stopped } = await atActualSize(() =>
-          runBatch({
-            shouldStop: () => stopRequested,
-            annotate: labelled ? annotate : undefined,
-            degrade: degradationFor,
-            deps: exportDeps,
-            format: batchFormat,
-            pair: pairToggle.checked,
-            paper,
-            pdfMode: /** @type {import("./modules/exporters.js").PdfMode} */ (pdfModeSelect.value),
-            plan,
-            readme: {
-              boxes: boxesToggle.checked,
-              degradation: state.degradePreset,
-              words: wordBoxes.checked
-            },
-            onProgress: ({ done, total, phase }) => {
-              setProgress(done / total);
-              batchStatus.textContent = `${phase} ${done} of ${total}`;
-            },
-            renderPreview: (item) => {
-              const model = buildDocument(item);
-              renderPaper(paper, model);
-              return model;
-            }
-          })
-        );
+        try {
+          const { blob, count, stopped } = await atActualSize(() =>
+            runBatch({
+              shouldStop: () => stopRequested,
+              annotate: labelled ? annotate : undefined,
+              degrade: degradationFor,
+              deps: exportDeps,
+              format: batchFormat,
+              pair: pairToggle.checked,
+              paper,
+              pdfMode: /** @type {import("./modules/exporters.js").PdfMode} */ (pdfModeSelect.value),
+              plan,
+              readme: {
+                boxes: boxesToggle.checked,
+                degradation: state.degradePreset,
+                words: wordBoxes.checked
+              },
+              onProgress: ({ done, total, phase }) => {
+                setProgress(done / total);
+                batchStatus.textContent = `${phase} ${done} of ${total}`;
+              },
+              renderPreview: (item) => {
+                const model = buildDocument(item);
+                renderPaper(paper, model);
+                return model;
+              }
+            })
+          );
 
-        batchStopButton.hidden = true;
-        const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+          const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
 
-        // Stopping before the first document finished leaves an archive holding
-        // nothing but a README describing an empty run, which is a worse thing
-        // to hand someone than no file at all.
-        if (count === 0) {
-          batchStatus.textContent = "Stopped before the first document. Nothing downloaded.";
-        } else {
-          const stamp = new Date().toISOString().slice(0, 10);
-          const suffix = stopped ? "docs_partial" : "docs";
-          triggerDownload(blob, `vendor_docs_${stamp}_${count}${suffix}.zip`);
-          batchStatus.textContent = stopped
-            ? `Stopped. ${count} of ${plan.length} documents in ${seconds}s.`
-            : `Done. ${count} documents in ${seconds}s.`;
+          // Stopping before the first document finished leaves an archive holding
+          // nothing but a README describing an empty run, which is a worse thing
+          // to hand someone than no file at all.
+          if (count === 0) {
+            batchStatus.textContent = "Stopped before the first document. Nothing downloaded.";
+          } else {
+            const stamp = new Date().toISOString().slice(0, 10);
+            const suffix = stopped ? "docs_partial" : "docs";
+            triggerDownload(blob, `vendor_docs_${stamp}_${count}${suffix}.zip`);
+            batchStatus.textContent = stopped
+              ? `Stopped. ${count} of ${plan.length} documents in ${seconds}s.`
+              : `Done. ${count} documents in ${seconds}s.`;
+          }
+        } finally {
+          batchStopButton.hidden = true;
+          progress.hidden = true;
+          draw();
         }
-
-        progress.hidden = true;
-        draw();
       });
     });
 

@@ -301,6 +301,19 @@ test('each vendor letterhead prints in its own font family', () => {
   assert.ok(new Set(families.values()).size >= 3, 'the corpus needs more than one typeface');
 });
 
+test('each vendor font family reaches every autotable block', () => {
+  for (const vendor of VENDORS) {
+    for (const style of ['clean', 'dense']) {
+      const { doc } = renderInto({ docTypeId: 'invoice', seed: 5150, style, vendorId: vendor.id });
+      const family = pdfFontFor(vendor.font);
+
+      for (const table of doc.tables) {
+        assert.equal(table.styles.font, family, `${vendor.id}/${style} table should use ${family}`);
+      }
+    }
+  }
+});
+
 test('pdfFontFor maps CSS stacks onto the jsPDF core fonts', () => {
   assert.equal(pdfFontFor("'SFMono-Regular', Menlo, monospace"), 'courier');
   assert.equal(pdfFontFor("Georgia, 'Times New Roman', serif"), 'times');

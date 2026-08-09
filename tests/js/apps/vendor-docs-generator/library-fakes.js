@@ -308,6 +308,7 @@ export function createFakeJsZip() {
 /**
  * Assemble an ExportDeps bag over fresh fakes.
  * @param {{ documentObj?: any, windowObj?: any }} [overrides={}] - DOM injection points.
+ * @param {{ height?: number, width?: number }} [captureSize={}] - Capture dimensions.
  * @returns {Record<string, any>} Deps plus handles on every underlying fake.
  */
 export function createExportDeps(overrides = {}, captureSize = {}) {

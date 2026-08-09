@@ -384,7 +384,13 @@ function drawBlock(cursor, block) {
           margin: { left: MARGIN + index * (half + 8) },
           tableWidth: half,
           body: column.map(([label, value]) => [label, value]),
-          styles: { fontSize: 7.5, cellPadding: 3, lineColor: LINE, lineWidth: 0.4 },
+          styles: {
+            font: family,
+            fontSize: 7.5,
+            cellPadding: 3,
+            lineColor: LINE,
+            lineWidth: 0.4
+          },
           columnStyles: {
             0: { fillColor: [244, 244, 244], fontStyle: "bold", cellWidth: half * 0.42 }
           }
@@ -456,7 +462,7 @@ function drawBlock(cursor, block) {
         margin: { left: width - MARGIN - 230 },
         tableWidth: 230,
         body: block.rows.map(([label, value]) => [label, value]),
-        styles: { fontSize: 9, cellPadding: 4, lineColor: LINE, lineWidth: 0.4 },
+        styles: { font: family, fontSize: 9, cellPadding: 4, lineColor: LINE, lineWidth: 0.4 },
         columnStyles: { 0: { halign: "right", textColor: MUTED }, 1: { halign: "right" } },
         didParseCell: (data) => {
           if (data.row.index === block.emphasisIndex) {
@@ -537,6 +543,7 @@ function drawBlock(cursor, block) {
       return;
     }
 
+    case "signoff":
     default:
       cursor.y += 14;
       doc.setFont(family, "bold");

@@ -16,6 +16,7 @@ import {
 test('roundCents settles float drift onto whole cents', () => {
   assert.equal(roundCents(0.1 + 0.2), 0.3);
   assert.equal(roundCents(1.005), 1.01);
+  assert.equal(roundCents(-1.005), -1.01);
   assert.equal(roundCents(1234.5678), 1234.57);
 });
 

@@ -73,7 +73,8 @@ const SCALES = /** @type {[string, number][]} */ ([
  * @returns {number} Amount rounded to two decimal places.
  */
 export function roundCents(value) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  const correction = value < 0 ? -Number.EPSILON : Number.EPSILON;
+  return Math.round((value + correction) * 100) / 100;
 }
 
 /**

@@ -5,6 +5,16 @@ import { cleanupMocks } from '../../common/app-entry-test-support.js';
 
 import { fire, flush, setupAppMocks } from './app-test-support.js';
 
+async function waitForBatch(button, maxTicks = 500) {
+  for (let tick = 0; tick < maxTicks; tick += 1) {
+    if (!button.disabled) {
+      return;
+    }
+    await flush(1);
+  }
+  assert.fail('batch did not return to its idle state');
+}
+
 // One import, one pass over every control. The entry point is a module with
 // side effects, so re-importing it per assertion would both re-run the
 // bootstrap and split its coverage across cache-busted URLs; driving the whole
@@ -140,7 +150,7 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     };
     const rendersBeforeTextBatch = paperRenderCount;
     fire(elementMap.vdBatch, 'click');
-    await flush(12);
+    await waitForBatch(elementMap.vdBatch);
     assert.equal(
       paperRenderCount - rendersBeforeTextBatch,
       3,
@@ -171,6 +181,19 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     assert.equal(elementMap.vdBatch.textContent, 'Generate batch as ZIP');
     assert.equal(elementMap.vdBatchStop.hidden, true, 'the stop button goes away with the run');
 
+    // A failed archive still restores the idle controls and the selected page.
+    const realJsZip = globalThis.window.JSZip;
+    delete globalThis.window.JSZip;
+    const previewBeforeFailedBatch = elementMap.vdChipSeed.textContent;
+    fire(elementMap.vdBatch, 'click');
+    await waitForBatch(elementMap.vdBatch);
+    assert.match(elementMap.vdBatchStatus.textContent, /JSZip did not load/);
+    assert.equal(elementMap.vdBatchStop.hidden, true);
+    assert.equal(elementMap.vdProgress.hidden, true);
+    assert.equal(elementMap.vdBatch.disabled, false);
+    assert.equal(elementMap.vdChipSeed.textContent, previewBeforeFailedBatch);
+    globalThis.window.JSZip = realJsZip;
+
     // ── Stopping a run keeps what it finished ─────────────────────────
     elementMap.vdBatchCount.value = '4';
     const archivesBeforeStop = zip.archives.length;
@@ -186,7 +209,7 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     };
     fire(elementMap.vdBatch, 'click');
     assert.equal(elementMap.vdBatchStop.hidden, false, 'the stop button appears with the run');
-    await flush(24);
+    await waitForBatch(elementMap.vdBatch);
 
     assert.equal(elementMap.vdBatchStop.hidden, true);
     assert.match(elementMap.vdBatchStatus.textContent, /^Stopped\. \d+ of 4 documents in [\d.]+s\.$/);
@@ -208,7 +231,7 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     elementMap.vdAllVendors.checked = true;
     elementMap.vdBatchCount.value = '1';
     fire(elementMap.vdBatch, 'click');
-    await flush(40);
+    await waitForBatch(elementMap.vdBatch);
 
     assert.equal(
       [...zip.archives.at(-1).files.keys()].filter((path) => path.endsWith('.pdf')).length,
@@ -281,7 +304,7 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     fire(elementMap.vdBoxes, 'change');
     elementMap.vdBatchCount.value = '1';
     fire(elementMap.vdBatch, 'click');
-    await flush(20);
+    await waitForBatch(elementMap.vdBatch);
 
     // The seed picks the layout, so the stem varies; what must not vary is that
     // a lossy scan writes a JPEG, pair mode writes the clean PNG beside it, and
@@ -319,7 +342,7 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     const archivesBeforeBoxedJson = zip.archives.length;
     const rendersBeforeBoxedJson = paperRenderCount;
     fire(elementMap.vdBatch, 'click');
-    await flush(12);
+    await waitForBatch(elementMap.vdBatch);
     assert.equal(zip.archives.length, archivesBeforeBoxedJson + 1);
     assert.equal(
       paperRenderCount - rendersBeforeBoxedJson,
@@ -336,7 +359,7 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     const archivesBeforeUnboxedJson = zip.archives.length;
     const rendersBeforeUnboxedJson = paperRenderCount;
     fire(elementMap.vdBatch, 'click');
-    await flush(12);
+    await waitForBatch(elementMap.vdBatch);
     assert.equal(zip.archives.length, archivesBeforeUnboxedJson + 1);
     assert.equal(
       paperRenderCount - rendersBeforeUnboxedJson,
