@@ -76,6 +76,21 @@ function normalise(rect, page) {
 }
 
 /**
+ * Union normalised boxes into the smallest box containing all of them.
+ * @param {NormalisedBox[]} boxes - Boxes to merge.
+ * @returns {NormalisedBox} Bounding box.
+ */
+function unionBoxes(boxes) {
+  const factor = 10 ** PRECISION;
+  const left = Math.floor(Math.min(...boxes.map(([x]) => x)) * factor) / factor;
+  const top = Math.floor(Math.min(...boxes.map(([, y]) => y)) * factor) / factor;
+  const right = Math.ceil(Math.max(...boxes.map(([x, , width]) => x + width)) * factor) / factor;
+  const bottom =
+    Math.ceil(Math.max(...boxes.map(([, y, , height]) => y + height)) * factor) / factor;
+  return [round(left), round(top), round(right - left), round(bottom - top)];
+}
+
+/**
  * Union a list of rects into the smallest box containing all of them.
  * @param {{ bottom: number, left: number, right: number, top: number }[]} rects - Rects to merge.
  * @returns {{ height: number, left: number, top: number, width: number }} Bounding rect.
@@ -170,6 +185,12 @@ export function collectBoxes(paper, { doc = document, words = false } = {}) {
 
     if (words) {
       region.words = wordBoxes(element, page, doc);
+      if (region.words.length) {
+        // Chromium can report a text Range that extends slightly beyond its
+        // element's layout box for some font metrics. A labelled region must
+        // contain the ink-level word boxes on every browser version.
+        region.box = unionBoxes([region.box, ...region.words.map((word) => word.box)]);
+      }
     }
 
     regions.push(region);

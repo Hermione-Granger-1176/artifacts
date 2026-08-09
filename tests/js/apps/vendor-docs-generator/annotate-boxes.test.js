@@ -154,13 +154,42 @@ test('word boxes are off by default and land inside their region when on', () =>
     multiWord.text.split(/\s+/)
   );
 
-  const [regionX, regionY, regionWidth] = multiWord.box;
+  const [regionX, regionY, regionWidth, regionHeight] = multiWord.box;
 
   for (const word of multiWord.words) {
-    const [x, y, width] = word.box;
+    const [x, y, width, height] = word.box;
     assert.ok(x >= regionX - 0.0001, `${word.text} starts left of its region`);
     assert.ok(x + width <= regionX + regionWidth + 0.0001, `${word.text} runs past its region`);
-    assert.equal(y, regionY, 'words share the baseline of the line they are on');
+    assert.ok(y >= regionY, `${word.text} starts above its region`);
+    assert.ok(y + height <= regionY + regionHeight, `${word.text} ends below its region`);
+  }
+});
+
+test('regions include text ranges that extend beyond the element layout box', () => {
+  const { doc, paper } = render();
+  const createRange = doc.createRange;
+  doc.createRange = () => {
+    const range = createRange();
+    const getClientRects = range.getClientRects;
+    range.getClientRects = () =>
+      getClientRects().map((rect) => ({
+        ...rect,
+        top: rect.top - 2,
+        bottom: rect.bottom + 2,
+        height: rect.height + 4
+      }));
+    return range;
+  };
+
+  const { regions } = collectBoxes(paper, { doc, words: true });
+
+  for (const region of regions) {
+    const [x, y, width, height] = region.box;
+    for (const word of region.words) {
+      const [wordX, wordY, wordWidth, wordHeight] = word.box;
+      assert.ok(wordX >= x && wordX + wordWidth <= x + width);
+      assert.ok(wordY >= y && wordY + wordHeight <= y + height);
+    }
   }
 });
 
