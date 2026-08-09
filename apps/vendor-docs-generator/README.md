@@ -19,6 +19,7 @@ Every random choice is driven by one integer seed, while document dates are rela
 - Arithmetic that holds: line amounts sum to the subtotal, and subtotal plus tax plus shipping equals the grand total, on every document the generator can produce
 - Three export paths: a real text-layer PDF (searchable and selectable), a rasterised PDF that looks scanned, and a PNG. A fourth, JSON only, skips PDF and raster generation while the stage still advances through the batch as visible progress
 - Batch export to a single ZIP foldered as `vendor/type/`, optionally across all vendors and all types at once, with live progress, a `manifest.jsonl` for streaming, and a `README.txt` recording the schema and the exact settings the run used
+- Stoppable: a long run can be cut short and still hands over the documents it finished, in an archive whose `README.txt` says how many of the planned total it holds
 - Every page is footered as sample data, and every name, address, phone number, and tax identifier is invented
 
 ## Made with
@@ -106,7 +107,9 @@ A lossy preset writes a JPEG rather than a PNG, because that is the compression 
 
 Three things are deliberately unresolved. Each needs a product decision rather than a fix, so they are recorded here instead of being quietly worked around.
 
-**The batch loop is synchronous.** JSON and text-PDF batches run their whole document loop without yielding, so at the 1,800-document maximum the browser can sit unresponsive even though the stage and the progress meter are being updated. The meter reports work that has already happened rather than work in flight. Fixing it means choosing a cooperative yielding policy (how often to yield, and against what budget) and having a performance test that would notice if it regressed. Yielding every document would be the safe default and the slowest one.
+Measured, so the numbers here are not guesses: the whole 900-document cross product takes 0.8s as JSON and 4.5s as text PDFs, with the progress meter moving throughout both. PNG runs are far slower, and always did yield, because `html2canvas` awaits per page.
+
+**A batch holds its memory until the ZIP is written.** Every rendered page stays in the archive in memory until the run finishes, so a large PNG batch is bounded by what the tab can hold rather than by anything the app checks. The estimate under the batch button is the mitigation: it tells you the size before you ask for it. Streaming each page out as it is produced would remove the ceiling, and it needs a different archive strategy than JSZip's build-then-generate.
 
 **Every document type is available to every vendor.** The type list is not filtered by what a vendor plausibly issues, so a delivery challan can carry service rows: Nimbus dispatching "Priority support SLA" against a package count. The arithmetic is right and the layout is right; the pairing is not. Resolving it needs either per-type catalogues or a vendor-to-type compatibility table, which is a content decision about how much of the cross product is worth keeping.
 

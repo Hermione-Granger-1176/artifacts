@@ -394,8 +394,9 @@ export function annotationsToJsonl(entries) {
  *   generatedAt: string,
  *   pair: boolean,
  *   pdfMode: string,
+ *   planned?: number,
  *   words: boolean
- * }} settings - What the run was asked for.
+ * }} settings - What the run was asked for, and what it actually wrote.
  * @returns {string} Plain-text README.
  */
 export function datasetReadme(settings) {
@@ -404,7 +405,14 @@ export function datasetReadme(settings) {
     "=================================",
     "",
     `Generated: ${settings.generatedAt}`,
-    `Documents: ${settings.count}`,
+    // A stopped run still writes an archive, and an archive that reports the
+    // number asked for rather than the number inside it is the one thing this
+    // file exists to prevent.
+    `Documents: ${settings.count}${
+      settings.planned && settings.planned !== settings.count
+        ? ` (run stopped early; ${settings.planned} were planned)`
+        : ""
+    }`,
     `Format:    ${settings.format}`,
     `PDF mode:  ${settings.pdfMode}`,
     `Boxes:     ${settings.boxes ? (settings.words ? "region and word level" : "region level") : "off"}`,

@@ -169,6 +169,39 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     assert.equal(elementMap.vdProgress.getAttribute('aria-valuenow'), '100');
     assert.equal(elementMap.vdBatch.disabled, false);
     assert.equal(elementMap.vdBatch.textContent, 'Generate batch as ZIP');
+    assert.equal(elementMap.vdBatchStop.hidden, true, 'the stop button goes away with the run');
+
+    // ── Stopping a run keeps what it finished ─────────────────────────
+    elementMap.vdBatchCount.value = '4';
+    const archivesBeforeStop = zip.archives.length;
+    let stoppedAt = 0;
+    elementMap.vdPaper.replaceChildren = (...nodes) => {
+      paperRenderCount += 1;
+      // Click Stop the way a person would: mid-run, once pages are appearing.
+      if (!stoppedAt && !elementMap.vdBatchStop.hidden && paperRenderCount % 2 === 0) {
+        stoppedAt = paperRenderCount;
+        fire(elementMap.vdBatchStop, 'click');
+      }
+      replacePaperChildren(...nodes);
+    };
+    fire(elementMap.vdBatch, 'click');
+    assert.equal(elementMap.vdBatchStop.hidden, false, 'the stop button appears with the run');
+    await flush(24);
+
+    assert.equal(elementMap.vdBatchStop.hidden, true);
+    assert.match(elementMap.vdBatchStatus.textContent, /^Stopped\. \d+ of 4 documents in [\d.]+s\.$/);
+    const partial = [...zip.archives[archivesBeforeStop].files.keys()]
+      .filter((path) => path.endsWith('.pdf'));
+    assert.ok(partial.length > 0 && partial.length < 4, `kept a partial run, got ${partial.length}`);
+    assert.match(
+      zip.archives[archivesBeforeStop].files.get('README.txt').data,
+      new RegExp(`Documents: ${partial.length} \\(run stopped early; 4 were planned\\)`)
+    );
+    // Back to plain counting; the later runs still measure stage renders.
+    elementMap.vdPaper.replaceChildren = (...nodes) => {
+      paperRenderCount += 1;
+      replacePaperChildren(...nodes);
+    };
 
     // ── Full cross product ────────────────────────────────────────────
     elementMap.vdAllTypes.checked = true;
@@ -178,7 +211,7 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     await flush(40);
 
     assert.equal(
-      [...zip.archives[1].files.keys()].filter((path) => path.endsWith('.pdf')).length,
+      [...zip.archives.at(-1).files.keys()].filter((path) => path.endsWith('.pdf')).length,
       36,
       'six vendors by six types by one document each'
     );
@@ -253,15 +286,15 @@ test('the vendor-docs-generator workbench boots and drives every control', async
     // The seed picks the layout, so the stem varies; what must not vary is that
     // a lossy scan writes a JPEG, pair mode writes the clean PNG beside it, and
     // one sidecar labels both.
-    const scanDocs = [...zip.archives[2].files.keys()].filter((path) => path.includes('/'));
+    const scanDocs = [...zip.archives.at(-1).files.keys()].filter((path) => path.includes('/'));
     assert.deepEqual(
       scanDocs.map((path) => path.slice(path.indexOf('apex_invoice') + 'apex_invoice'.length).replace(/^[\w]*?(?=\.)/, '')),
       ['.jpg', '.clean.png', '.json']
     );
     assert.ok(scanDocs.every((path) => path.startsWith('apex/invoice/apex_invoice_')));
-    assert.ok(zip.archives[2].files.get('README.txt').data.includes('Scan:      fax, paired'));
+    assert.ok(zip.archives.at(-1).files.get('README.txt').data.includes('Scan:      fax, paired'));
 
-    const scanned = JSON.parse(zip.archives[2].files.get('manifest.jsonl').data.trim());
+    const scanned = JSON.parse(zip.archives.at(-1).files.get('manifest.jsonl').data.trim());
     assert.equal(scanned.degradation.preset, 'fax');
     assert.equal(scanned.degradation.seed, scanned.seed, 'the page and its wear share one seed');
     assert.deepEqual(scanned.degradation.applies_to, ['png', 'pdf_raster']);

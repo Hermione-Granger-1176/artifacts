@@ -52,7 +52,8 @@ const ELEMENT_IDS = [
   'vdPair',
   'vdPairLabel',
   'vdPreviewScan',
-  'vdBatch'
+  'vdBatch',
+  'vdBatchStop'
 ];
 
 /**
@@ -116,11 +117,14 @@ export function setupAppMocks() {
   elementMap.vdDownloadJson.textContent = 'Download ground truth JSON';
   elementMap.vdPreviewScan.textContent = 'Preview scan';
   elementMap.vdBatch.textContent = 'Generate batch as ZIP';
+  elementMap.vdBatchStop.textContent = 'Stop and keep what is done';
   elementMap.vdPair.checked = false;
 
-  // index.html ships the meter with a `hidden` attribute; the mock has no
-  // markup to read it from, so the initial state is mirrored here.
+  // index.html ships the meter and the stop button with a `hidden` attribute;
+  // the mock has no markup to read it from, so the initial state is mirrored
+  // here.
   elementMap.vdProgress.hidden = true;
+  elementMap.vdBatchStop.hidden = true;
   elementMap.vdBatchCount.value = '2';
   elementMap.vdPdfMode.value = 'text';
   elementMap.vdBatchFormat.value = 'pdf';

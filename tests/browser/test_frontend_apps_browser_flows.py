@@ -426,6 +426,91 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
 
 
 @app_scope_skipif("vendor-docs-generator")
+def test_vendor_docs_generator_batch_can_be_stopped_mid_run(
+    app_browser: AppBrowserHarness,
+) -> None:
+    """A stop click lands while the batch is running and keeps what finished."""
+    with MonitoredPage(
+        app_browser.playwright,
+        app_browser.server_url,
+        name="app-flow-vendor-docs-stop",
+        viewport=(1400, 900),
+        bypass_csp=True,
+        browser=app_browser.browser,
+    ) as session:
+        page = session.page
+        assert page is not None
+        session.goto("/apps/vendor-docs-generator/")
+        page.wait_for_function("window.__ARTIFACT_READY__ === true")
+
+        page.locator("#vdGroupBatch > summary").click()
+        expect(page.locator("#vdBatchStop")).to_be_hidden()
+
+        # Text PDF across the whole cross product. jsPDF is synchronous, so this
+        # is the format whose loop never awaits anything: it is precisely the
+        # run that used to hold the main thread from the first document to the
+        # last. 900 documents take about 4.5 seconds, which is long enough that
+        # a stop click has somewhere to land.
+        page.locator("#vdBatchFormat").select_option("pdf")
+        page.locator("#vdAllTypes").check()
+        page.locator("#vdAllVendors").check()
+        page.locator("#vdBatchCount").fill("25")
+        planned = 6 * 6 * 25
+
+        downloads: list = []
+
+        def remember(item: object) -> None:
+            downloads.append(item)
+
+        page.on("download", remember)
+
+        page.locator("#vdBatch").click()
+        expect(page.locator("#vdBatchStop")).to_be_visible()
+
+        # Wait for the run to be genuinely under way, then click. If the loop
+        # never yielded, this click would sit in the queue until the whole batch
+        # had already been written and the assertions below would see a full run.
+        page.wait_for_function(
+            "planned => {"
+            "  const match = document.querySelector('#vdBatchStatus')"
+            "    .textContent.match(/generating (\\d+) of/);"
+            "  return match && Number(match[1]) >= 20 && Number(match[1]) < planned;"
+            "}",
+            arg=planned,
+            timeout=30000,
+        )
+        page.locator("#vdBatchStop").click()
+
+        for _ in range(600):
+            if downloads:
+                break
+            page.wait_for_timeout(100)
+
+        assert downloads, "a stopped run still hands over what it finished"
+        name = downloads[0].suggested_filename
+        assert name.endswith("_partial.zip"), name
+
+        expect(page.locator("#vdBatchStop")).to_be_hidden()
+        status = page.locator("#vdBatchStatus").text_content() or ""
+        assert re.match(rf"^Stopped\. \d+ of {planned} documents in [\d.]+s\.$", status), status
+
+        payload = Path(downloads[0].path()).read_bytes()
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            entries = [item.filename for item in archive.infolist() if not item.is_dir()]
+            labels = [item for item in entries if item.endswith(".json")]
+            assert 0 < len(labels) < planned, len(labels)
+            manifest = archive.read("manifest.jsonl").decode().strip().splitlines()
+            assert len(manifest) == len(labels), (len(manifest), len(labels))
+            readme = archive.read("README.txt").decode()
+            assert f"Documents: {len(labels)} (run stopped early; {planned} were planned)" in readme
+
+        # The workbench is usable again, not left in the busy state.
+        expect(page.locator("#vdBatch")).to_be_enabled()
+        expect(page.locator("#vdBatch")).to_have_text("Generate batch as ZIP")
+        expect(page.locator("#vdProgress")).to_be_hidden()
+
+
+@app_scope_skipif("vendor-docs-generator")
 def test_vendor_docs_generator_pdf_never_overprints_itself(
     app_browser: AppBrowserHarness,
 ) -> None:

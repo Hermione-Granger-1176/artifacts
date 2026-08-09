@@ -129,3 +129,19 @@ Degradation happens to the raster, and the boxes are measured off the DOM, so th
 ### Nine sliders, folded away
 
 The presets are the common case and the rail was already at four cards. The custom knobs live behind a `<details>`, and they are built in `app.js` from the `DEGRADE_KNOBS` table rather than written into `index.html`, so the list of exposed settings has one home and adding one is a single edit. Touching any knob switches the preset to "custom", because the sidecar would otherwise name a preset the page was not rendered under.
+
+### Stopping a batch keeps what it finished
+
+A run that can be started and not stopped is a run that has to be waited out or killed with the tab, and killing the tab throws away work that was already done. So **Stop and keep what is done** ends the loop between documents and writes the archive anyway.
+
+Three things follow from "between documents" rather than "immediately". The document in flight is completed rather than abandoned, so no half-written page reaches the ZIP. The archive is real output rather than a consolation prize: it is foldered, manifested, and labelled exactly like a full run. And the `README.txt` reports the count it actually holds plus the count that was planned, because an archive that claims 900 documents while holding 118 is the one failure this file exists to prevent. The filename carries `_partial` for the same reason.
+
+Stopping before the first document finishes downloads nothing. An archive holding only a README describing an empty run is worse than no file.
+
+### The stop button is what forced the loop to yield
+
+The batch loop is `await`-free for text PDFs, because jsPDF is synchronous, and nearly so for JSON. A click cannot be delivered to a thread that never returns to the event loop, so a stop button on the old loop would have been unclickable for exactly as long as it was needed, then pointless. Yielding is not a companion improvement here, it is the feature.
+
+It is time-sliced at 50ms rather than once per document. A trip through the task queue per document is real cost on a 900 document run and buys responsiveness below what anyone can perceive. The canvas formats already yielded inside `html2canvas`, so this only changes the two formats that never touched it.
+
+Measured after the change: the full 900 document cross product runs in 0.8s as JSON and 4.5s as text PDFs, with the meter moving throughout. The earlier claim in the README, that these formats could leave the browser unresponsive at the maximum batch size, was written from reading the loop rather than timing it, and overstated the JSON case by a wide margin.

@@ -309,6 +309,112 @@ test('batch progress reports each document and then the zipping phase', async ()
   );
 });
 
+test('a stopped batch keeps the documents it finished and says it was cut short', async () => {
+  const { deps, zip } = createExportDeps();
+  const plan = [1000, 2000, 3000, 4000].map((seed) => ({
+    vendorId: 'apex', docTypeId: 'invoice', seed, style: 'clean'
+  }));
+  let rendered = 0;
+
+  const result = await runBatch({
+    deps,
+    format: 'pdf',
+    paper: createFakeElement('article'),
+    pdfMode: 'text',
+    plan,
+    annotate: (docModel) => buildAnnotations(docModel),
+    readme: { boxes: false, degradation: 'clean', words: false },
+    // Ask to stop once two documents exist, the way a click landing mid-run
+    // would. The third iteration is the one that sees it.
+    shouldStop: () => rendered >= 2,
+    renderPreview: (item) => {
+      rendered += 1;
+      return buildDocument({ ...item, today: TODAY });
+    }
+  });
+
+  assert.equal(result.stopped, true);
+  assert.equal(result.count, 2, 'the two finished documents survive the stop');
+  const files = [...zip.archives[0].files.keys()];
+  assert.deepEqual(files.filter((name) => name.endsWith('.pdf')), [
+    'apex/invoice/apex_invoice_1000.pdf',
+    'apex/invoice/apex_invoice_2000.pdf'
+  ]);
+
+  const readme = zip.archives[0].files.get('README.txt').data;
+  assert.match(readme, /Documents: 2 \(run stopped early; 4 were planned\)/);
+  assert.equal(
+    zip.archives[0].files.get('manifest.jsonl').data.trim().split('\n').length,
+    2,
+    'the manifest must not list documents the archive does not contain'
+  );
+});
+
+test('a batch that runs to the end reports no stop and no partial note', async () => {
+  const { deps, zip } = createExportDeps();
+  const result = await runBatch({
+    deps,
+    format: 'pdf',
+    paper: createFakeElement('article'),
+    pdfMode: 'text',
+    plan: [{ vendorId: 'apex', docTypeId: 'invoice', seed: 1000, style: 'clean' }],
+    annotate: (docModel) => buildAnnotations(docModel),
+    readme: { boxes: false, degradation: 'clean', words: false },
+    renderPreview: (item) => buildDocument({ ...item, today: TODAY })
+  });
+
+  assert.equal(result.stopped, false);
+  assert.equal(result.count, 1);
+  assert.match(zip.archives[0].files.get('README.txt').data, /Documents: 1\n/);
+});
+
+test('stopping before the first document writes an archive holding nothing', async () => {
+  const { deps, zip } = createExportDeps();
+  const result = await runBatch({
+    deps,
+    format: 'pdf',
+    paper: createFakeElement('article'),
+    pdfMode: 'text',
+    plan: [{ vendorId: 'apex', docTypeId: 'invoice', seed: 1000, style: 'clean' }],
+    shouldStop: () => true,
+    renderPreview: (item) => buildDocument({ ...item, today: TODAY })
+  });
+
+  assert.equal(result.stopped, true);
+  assert.equal(result.count, 0);
+  assert.equal(zip.archives[0].files.size, 0);
+});
+
+test('a long batch hands the main thread back so a stop click can be seen', async () => {
+  const { deps } = createExportDeps();
+  const plan = Array.from({ length: 12 }, (_entry, index) => ({
+    vendorId: 'apex', docTypeId: 'invoice', seed: 1000 + index, style: 'clean'
+  }));
+  // A batch that never yields runs to completion before anything queued behind
+  // it gets a turn, which is exactly the bug the stop button would hit.
+  let sawTurn = false;
+  setTimeout(() => { sawTurn = true; }, 0);
+  const realNow = Date.now;
+  let clock = realNow();
+  Date.now = () => (clock += 30);
+
+  try {
+    const result = await runBatch({
+      deps,
+      format: 'pdf',
+      paper: createFakeElement('article'),
+      pdfMode: 'text',
+      plan,
+      renderPreview: (item) => buildDocument({ ...item, today: TODAY })
+    });
+    assert.equal(result.count, 12);
+  } finally {
+    Date.now = realNow;
+  }
+
+  assert.ok(sawTurn, 'the event loop must get a turn during the run');
+});
+
 test('runBatch tolerates a caller that supplies no progress callback', async () => {
   const { deps } = createExportDeps();
   const result = await runBatch({

@@ -654,8 +654,24 @@ initializeMatureApp({
     });
 
     const batchButton = buttonById("vdBatch");
+    const batchStopButton = buttonById("vdBatchStop");
+    // Read by `runBatch` between documents. A plain flag rather than an
+    // AbortController because there is nothing to abort: the run is a loop, and
+    // stopping it means finishing the archive early rather than discarding it.
+    let stopRequested = false;
+
+    batchStopButton.addEventListener("click", () => {
+      stopRequested = true;
+      batchStopButton.disabled = true;
+      batchStatus.textContent = "Stopping after the current document...";
+    });
+
     batchButton.addEventListener("click", () => {
       void withBusyButton(batchButton, "Generating...", async () => {
+        stopRequested = false;
+        batchStopButton.disabled = false;
+        batchStopButton.hidden = false;
+
         const plan = planBatch({
           vendorIds: allVendors.checked ? VENDORS.map((vendor) => vendor.id) : [state.vendorId],
           docTypeIds: allTypes.checked ? DOCUMENT_TYPES.map((type) => type.id) : [state.docTypeId],
@@ -671,8 +687,9 @@ initializeMatureApp({
           batchFormatSelect.value
         );
 
-        const { blob, count } = await atActualSize(() =>
+        const { blob, count, stopped } = await atActualSize(() =>
           runBatch({
+            shouldStop: () => stopRequested,
             annotate: labelled ? annotate : undefined,
             degrade: degradationFor,
             deps: exportDeps,
@@ -698,10 +715,23 @@ initializeMatureApp({
           })
         );
 
-        const stamp = new Date().toISOString().slice(0, 10);
-        triggerDownload(blob, `vendor_docs_${stamp}_${count}docs.zip`);
+        batchStopButton.hidden = true;
         const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
-        batchStatus.textContent = `Done. ${count} documents in ${seconds}s.`;
+
+        // Stopping before the first document finished leaves an archive holding
+        // nothing but a README describing an empty run, which is a worse thing
+        // to hand someone than no file at all.
+        if (count === 0) {
+          batchStatus.textContent = "Stopped before the first document. Nothing downloaded.";
+        } else {
+          const stamp = new Date().toISOString().slice(0, 10);
+          const suffix = stopped ? "docs_partial" : "docs";
+          triggerDownload(blob, `vendor_docs_${stamp}_${count}${suffix}.zip`);
+          batchStatus.textContent = stopped
+            ? `Stopped. ${count} of ${plan.length} documents in ${seconds}s.`
+            : `Done. ${count} documents in ${seconds}s.`;
+        }
+
         progress.hidden = true;
         draw();
       });

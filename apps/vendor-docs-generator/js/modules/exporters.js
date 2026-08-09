@@ -35,6 +35,9 @@ import { renderPdf } from "./pdf-render.js";
 
 const DOWNLOAD_CLEANUP_MS = 1500;
 
+/** How long a batch may hold the main thread before handing it back. */
+const YIELD_INTERVAL_MS = 50;
+
 /**
  * Hand a blob or data URL to the browser as a download.
  *
@@ -359,9 +362,10 @@ export function formatBytes(bytes) {
  *   pdfMode: PdfMode,
  *   plan: ReturnType<typeof planBatch>,
  *   readme?: { boxes: boolean, degradation: string, words: boolean },
- *   renderPreview: (item: { docTypeId: string, seed: number, style: string, vendorId: string }) => DocumentModel
+ *   renderPreview: (item: { docTypeId: string, seed: number, style: string, vendorId: string }) => DocumentModel,
+ *   shouldStop?: () => boolean
  * }} options - Batch inputs.
- * @returns {Promise<{ blob: Blob, count: number }>} The archive and how many documents it holds.
+ * @returns {Promise<{ blob: Blob, count: number, stopped: boolean }>} The archive, how many documents it holds, and whether it was cut short.
  */
 export async function runBatch({
   annotate,
@@ -374,7 +378,8 @@ export async function runBatch({
   pdfMode,
   plan,
   readme,
-  renderPreview
+  renderPreview,
+  shouldStop = () => false
 }) {
   // Merged rather than defaulted, so a caller that names only some of the
   // README fields does not end up printing "undefined" into the archive.
@@ -393,8 +398,15 @@ export async function runBatch({
   const manifest = [];
   let done = 0;
   let wrotePair = false;
+  let stopped = false;
+  let sliceStartedAt = Date.now();
 
   for (const item of plan) {
+    if (shouldStop()) {
+      stopped = true;
+      break;
+    }
+
     const model = renderPreview(item);
     const base = `${item.vendorId}/${item.docTypeId}/${model.filenameBase}`;
     const degradation = degrade ? degrade(model) : null;
@@ -434,6 +446,20 @@ export async function runBatch({
 
     done += 1;
     onProgress({ done, total: plan.length, phase: "generating" });
+
+    // Hand the main thread back often enough that a click can be seen. The
+    // canvas formats already yield inside `renderRaster`, but text PDFs and
+    // JSON do not touch it, so without this the loop runs to completion before
+    // the browser can process the Stop button at all. Time-sliced rather than
+    // every document, because a round trip through the task queue per document
+    // is real cost on a 1,800 document JSON run and buys nothing beyond
+    // responsiveness the eye cannot resolve.
+    if (Date.now() - sliceStartedAt >= YIELD_INTERVAL_MS) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+      sliceStartedAt = Date.now();
+    }
   }
 
   if (annotate) {
@@ -442,12 +468,13 @@ export async function runBatch({
       "README.txt",
       datasetReadme({
         boxes: dataset.boxes,
-        count: plan.length,
+        count: done,
         degradation: dataset.degradation,
         format,
         generatedAt: new Date().toISOString(),
         pair: wrotePair,
         pdfMode: wantsPdf ? pdfMode : "n/a",
+        planned: plan.length,
         words: dataset.words
       })
     );
@@ -456,9 +483,9 @@ export async function runBatch({
   const blob = await zip.generateAsync(
     { type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } },
     (metadata) => {
-      onProgress({ done: plan.length, total: plan.length, phase: `zipping ${Math.round(metadata.percent)}%` });
+      onProgress({ done, total: done, phase: `zipping ${Math.round(metadata.percent)}%` });
     }
   );
 
-  return { blob, count: plan.length };
+  return { blob, count: done, stopped };
 }
