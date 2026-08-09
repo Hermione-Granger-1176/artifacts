@@ -4,14 +4,14 @@ A workbench for producing **labelled** synthetic business paperwork: invoices, r
 
 Rendering plausible paperwork is the easy half. Every page here also emits a JSON sidecar naming what each printed value is, generated from the same numbers the page was printed from, so the labels cannot drift out of agreement with the pixels. Download 500 documents and you have 500 scored examples, not 500 things to annotate.
 
-Every random choice is driven by one integer seed, while document dates are relative to the day of generation. The filename records the seed so samples remain identifiable. Exact replay in code also needs the original reference date, which is recoverable from the sidecar's `document_date` and the seed-derived date offsets. Phase 4 is the natural place to record it directly when locale date controls are added.
+Every random choice is driven by one integer seed, while document dates are relative to the day of generation. The filename records the seed so samples remain identifiable. Exact replay in code also needs the original reference date, which is recoverable from the sidecar's `document_date` and the seed-derived date offsets.
 
 ## Highlights
 
 - Six fictional vendors, each with its own accent colour, typeface, logo treatment, letterhead layout, and product catalogue, so generated pages do not all look like the same template
 - Six document types plus a second, much denser tax-invoice layout for invoices, giving 42 vendor/type/layout combinations before the seed varies anything
 - Seeded generation: changing the vendor, type, or layout re-renders against the same seed so treatments can be compared side by side, and only **Generate new document** rolls a fresh one
-- Two-column workbench: a sticky control rail beside an A4 stage with fit-width and actual-size preview
+- Two-column workbench: a control rail beside a pinned A4 stage with fit-width and actual-size preview. The rail is an accordion of five groups with only **Document** open; the groups do not close each other, so the scan preset stays readable while the batch that will run under it is set up, and the page stays in view when opening several sends the rail past the bottom of the window
 - Ground truth per page: a frozen 35-key field schema plus 11 per-line keys, each carrying both the printed `text` and the normalised `value` (ISO dates, numeric money, fractional rates). A key is `null` exactly when the page prints nothing for it, so an extractor is never scored against a field that is not there
 - Optional bounding boxes in normalised 0..1 page coordinates, at field level or word level, so the same run can train a layout model
 - Five scan-quality presets, from a clean render to a phone photo, with nine sliders behind them. Degradation is driven by the document seed, so a seed plus a preset reproduce the same wear, and geometry is reported as a transform that the boxes are run through before they are written
@@ -110,7 +110,7 @@ Three things are deliberately unresolved. Each needs a product decision rather t
 
 **Every document type is available to every vendor.** The type list is not filtered by what a vendor plausibly issues, so a delivery challan can carry service rows: Nimbus dispatching "Priority support SLA" against a package count. The arithmetic is right and the layout is right; the pairing is not. Resolving it needs either per-type catalogues or a vendor-to-type compatibility table, which is a content decision about how much of the cross product is worth keeping.
 
-**The reference date is recoverable but not recorded.** Document dates are relative to the day of generation, so exact replay needs the seed, the degradation settings, and the original reference date. That date can be reconstructed from the sidecar's `document_date` plus the seed-derived day offset, but nothing writes it down. Recording it in `manifest.jsonl` and `README.txt`, or exposing it as a replay control, belongs with the locale and date work in phase 4 rather than as a standalone schema addition.
+**The reference date is recoverable but not recorded.** Document dates are relative to the day of generation, so exact replay needs the seed, the degradation settings, and the original reference date. That date can be reconstructed from the sidecar's `document_date` plus the seed-derived day offset, but nothing writes it down. Recording it in `manifest.jsonl` and `README.txt`, or exposing it as a replay control, would be a small schema addition if exact replay ever matters more than it does today.
 
 ## Docs
 

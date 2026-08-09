@@ -46,36 +46,87 @@ body.app-vendor-docs-generator .vd-rail {
 }
 
 /*
- * The rail only pins itself when the window is tall enough to hold all of it.
- * Capping its height and scrolling it instead put a scrollbar inside a panel
- * inside the scrolling page, which is the same nested-scroll problem the
- * preview frame exists to avoid.
+ * The rail scrolls; the stage is what pins. See the Stage section for why that
+ * way round, and for the one case where it reads oddly.
  */
-
-@media (min-height: 940px) {
-  body.app-vendor-docs-generator .vd-rail {
-    position: sticky;
-    top: var(--space-4);
-  }
-}
 
 /*
- * .page-card ships a border and surface only; padding is each app's call. The
- * rail reads as three labelled groups, so the kicker gets a rule under it to
- * separate the group heading from its controls.
+ * The rail is an accordion, because it grew.
+ *
+ * Five open cards stack to about 1,565px against a stage that stops at 744px,
+ * so the right half of the workbench was blank from roughly the fold down. Each
+ * group is now a <details> collapsed to its 44px header, with Document open, so
+ * the rail opens at about 648px and the dead column is gone.
+ *
+ * The groups are deliberately not exclusive: no `name` attribute, no handler
+ * closing its siblings. This app exists to compare treatments, and being unable
+ * to see the scan preset while setting up the batch that uses it would trade
+ * one usability problem for another. Opening everything is the user's call and
+ * only then costs the height it used to cost by default.
+ *
+ * .page-card ships a border and surface only, so padding is split here: the
+ * header owns its own so the whole strip is clickable, and the body owns the
+ * rest.
  */
 
-body.app-vendor-docs-generator .vd-rail-card {
+body.app-vendor-docs-generator .vd-group-head {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  list-style: none;
+  text-transform: uppercase;
+}
+
+/* Firefox honours list-style; WebKit needs its own pseudo-element hidden. */
+
+body.app-vendor-docs-generator .vd-group-head::-webkit-details-marker {
+  display: none;
+}
+
+body.app-vendor-docs-generator .vd-group-head:hover {
+  color: var(--color-text);
+}
+
+body.app-vendor-docs-generator .vd-group-head:focus-visible {
+  border-radius: var(--radius-md);
+  outline: var(--focus-ring);
+  outline-offset: -3px;
+}
+
+/* A chevron drawn from two borders, so it inherits the header's colour and
+   needs no asset under the self-only CSP. */
+
+body.app-vendor-docs-generator .vd-group-head::after {
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentcolor;
+  border-bottom: 1.5px solid currentcolor;
+  content: "";
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 150ms ease;
+}
+
+body.app-vendor-docs-generator .vd-group[open] > .vd-group-head {
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+body.app-vendor-docs-generator .vd-group[open] > .vd-group-head::after {
+  transform: translateY(1px) rotate(225deg);
+}
+
+body.app-vendor-docs-generator .vd-group-body {
   display: flex;
   flex-direction: column;
   padding: var(--space-4);
   gap: var(--space-4);
-}
-
-body.app-vendor-docs-generator .vd-rail-card .section-kicker {
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: 0;
 }
 
 body.app-vendor-docs-generator .vd-field-label {
@@ -149,9 +200,15 @@ body.app-vendor-docs-generator .vd-estimate {
 }
 
 /*
- * The scan knobs are folded away by default. Eight sliders is the right amount
+ * The scan knobs are folded away by default. Nine sliders is the right amount
  * of control and the wrong amount of rail: the presets are the common case, and
  * the rail should stay as calm as it was before they existed.
+ *
+ * This is a disclosure inside a disclosure now that the group itself collapses.
+ * Promoting the knobs would flatten that, but it would also make Scan quality
+ * the tallest group by some way and hand back most of what the accordion won,
+ * so the nesting stays. The two read differently on purpose: a group header is
+ * an uppercase label with a chevron, this is running text with a triangle.
  */
 
 body.app-vendor-docs-generator .vd-advanced summary {
@@ -187,7 +244,33 @@ body.app-vendor-docs-generator .vd-batch-status {
 
 /* ── Stage ────────────────────────────────────────────────────────── */
 
+/*
+ * The stage pins, so the page stays in view while the controls scroll past it.
+ * That is the point: reading a rail that is taller than the window should not
+ * mean losing sight of the document the controls are describing.
+ *
+ * It pins unconditionally rather than behind a media query. The stage's height
+ * comes from the viewport, not from content (32px of chips, a 12px gap, and a
+ * `100vh - 200px` frame is `100vh - 156px`), and both ends of the frame's clamp
+ * stay inside the window too, so there is no size at which pinning it strands
+ * its own bottom. The rail could never say the same, which is why the old
+ * `min-height: 940px` guard on the rail was a no-op for its whole life: the
+ * rail was the taller column, so it had no room to travel.
+ *
+ * Known rough edge, accepted rather than hidden. A sticky item can only travel
+ * as far as its own grid area, and the stage's area is the row, so its travel
+ * is however much taller the rail is. With one group open the rail is shorter
+ * and it never pins, which costs nothing because everything already fits. With
+ * exactly two it has 93px of travel, so it holds briefly and then releases
+ * mid-scroll. From three groups up it pins for the whole way down. Only the
+ * two-group case reads oddly, and the alternatives are worse: pinning the rail
+ * instead just mirrors it onto the taller column, and shrinking the frame to
+ * buy travel would shrink the preview for everybody.
+ */
+
 body.app-vendor-docs-generator .vd-stage {
+  position: sticky;
+  top: var(--space-4);
   display: flex;
   min-width: 0;
   flex-direction: column;

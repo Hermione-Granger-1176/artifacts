@@ -48,140 +48,145 @@
 
     <div class="vd-workbench">
       <aside class="vd-rail" aria-label="Document controls">
-        <div class="page-card vd-rail-card">
-          <div class="section-kicker">Document</div>
-
-          <div class="control-field">
-            <div class="control-field-head">
-              <label for="vdVendor">Vendor</label>
+        <details class="page-card vd-group" id="vdGroupDocument" open>
+          <summary class="vd-group-head">Document</summary>
+          <div class="vd-group-body">
+            <div class="control-field">
+              <div class="control-field-head">
+                <label for="vdVendor">Vendor</label>
+              </div>
+              <select id="vdVendor" class="select-input"></select>
             </div>
-            <select id="vdVendor" class="select-input"></select>
-          </div>
 
-          <div class="control-field">
-            <div class="control-field-head">
-              <label for="vdDocType">Document type</label>
+            <div class="control-field">
+              <div class="control-field-head">
+                <label for="vdDocType">Document type</label>
+              </div>
+              <select id="vdDocType" class="select-input"></select>
             </div>
-            <select id="vdDocType" class="select-input"></select>
-          </div>
 
-          <div class="control-field">
-            <div class="control-field-head">
-              <span id="vdLayoutLabel" class="vd-field-label">Invoice layout</span>
+            <div class="control-field">
+              <div class="control-field-head">
+                <span id="vdLayoutLabel" class="vd-field-label">Invoice layout</span>
+              </div>
+              <div class="segmented is-fused" id="vdLayout" role="group" aria-labelledby="vdLayoutLabel">
+                <button type="button" class="active" data-style="clean">Clean</button>
+                <button type="button" data-style="dense">Dense</button>
+              </div>
+              <p class="control-field-note" id="vdLayoutNote">The dense layout only applies to invoices.</p>
             </div>
-            <div class="segmented is-fused" id="vdLayout" role="group" aria-labelledby="vdLayoutLabel">
-              <button type="button" class="active" data-style="clean">Clean</button>
-              <button type="button" data-style="dense">Dense</button>
+
+            <button type="button" class="btn btn-primary vd-block-btn" id="vdGenerate">Generate new document</button>
+          </div>
+        </details>
+
+        <details class="page-card vd-group" id="vdGroupExport">
+          <summary class="vd-group-head">Export this page</summary>
+          <div class="vd-group-body">
+            <div class="control-field">
+              <div class="control-field-head">
+                <label for="vdPdfMode">PDF type</label>
+              </div>
+              <select id="vdPdfMode" class="select-input">
+                <option value="text">Text layer (searchable)</option>
+                <option value="image">Rasterised (scanned look)</option>
+              </select>
             </div>
-            <p class="control-field-note" id="vdLayoutNote">The dense layout only applies to invoices.</p>
-          </div>
 
-          <button type="button" class="btn btn-primary vd-block-btn" id="vdGenerate">Generate new document</button>
-        </div>
-
-        <div class="page-card vd-rail-card">
-          <div class="section-kicker">Export this page</div>
-
-          <div class="control-field">
-            <div class="control-field-head">
-              <label for="vdPdfMode">PDF type</label>
+            <div class="vd-button-row">
+              <button type="button" class="btn btn-outline" id="vdDownloadPdf">Download PDF</button>
+              <button type="button" class="btn btn-outline" id="vdDownloadPng">Download PNG</button>
             </div>
-            <select id="vdPdfMode" class="select-input">
-              <option value="text">Text layer (searchable)</option>
-              <option value="image">Rasterised (scanned look)</option>
-            </select>
+            <button type="button" class="btn btn-outline vd-block-btn" id="vdDownloadJson">Download ground truth JSON</button>
           </div>
+        </details>
 
-          <div class="vd-button-row">
-            <button type="button" class="btn btn-outline" id="vdDownloadPdf">Download PDF</button>
-            <button type="button" class="btn btn-outline" id="vdDownloadPng">Download PNG</button>
+        <details class="page-card vd-group" id="vdGroupTruth">
+          <summary class="vd-group-head">Ground truth</summary>
+          <div class="vd-group-body">
+            <label class="vd-check" for="vdGroundTruth">
+              <input type="checkbox" id="vdGroundTruth" checked>
+              <span>Label every export</span>
+            </label>
+            <label class="vd-check" for="vdBoxes">
+              <input type="checkbox" id="vdBoxes">
+              <span>Add field bounding boxes</span>
+            </label>
+            <label class="vd-check" for="vdWordBoxes" id="vdWordBoxesLabel">
+              <input type="checkbox" id="vdWordBoxes" disabled>
+              <span>Word-level boxes (slower)</span>
+            </label>
+
+            <p class="control-field-note" id="vdGroundTruthNote">Every page ships with a JSON sidecar naming what each printed value is.</p>
           </div>
-          <button type="button" class="btn btn-outline vd-block-btn" id="vdDownloadJson">Download ground truth JSON</button>
-        </div>
+        </details>
 
-        <div class="page-card vd-rail-card">
-          <div class="section-kicker">Ground truth</div>
-
-          <label class="vd-check" for="vdGroundTruth">
-            <input type="checkbox" id="vdGroundTruth" checked>
-            <span>Label every export</span>
-          </label>
-          <label class="vd-check" for="vdBoxes">
-            <input type="checkbox" id="vdBoxes">
-            <span>Add field bounding boxes</span>
-          </label>
-          <label class="vd-check" for="vdWordBoxes" id="vdWordBoxesLabel">
-            <input type="checkbox" id="vdWordBoxes" disabled>
-            <span>Word-level boxes (slower)</span>
-          </label>
-
-          <p class="control-field-note" id="vdGroundTruthNote">Every page ships with a JSON sidecar naming what each printed value is.</p>
-        </div>
-
-        <div class="page-card vd-rail-card">
-          <div class="section-kicker">Scan quality</div>
-
-          <div class="control-field">
-            <div class="control-field-head">
-              <label for="vdDegradePreset">Preset</label>
+        <details class="page-card vd-group" id="vdGroupScan">
+          <summary class="vd-group-head">Scan quality</summary>
+          <div class="vd-group-body">
+            <div class="control-field">
+              <div class="control-field-head">
+                <label for="vdDegradePreset">Preset</label>
+              </div>
+              <select id="vdDegradePreset" class="select-input"></select>
+              <p class="control-field-note" id="vdDegradeNote">The render as-is. No geometry, no grain, lossless PNG.</p>
             </div>
-            <select id="vdDegradePreset" class="select-input"></select>
-            <p class="control-field-note" id="vdDegradeNote">The render as-is. No geometry, no grain, lossless PNG.</p>
+
+            <details class="vd-advanced" id="vdDegradeCustom">
+              <summary>Custom knobs</summary>
+              <div class="vd-knobs" id="vdKnobs"></div>
+            </details>
+
+            <label class="vd-check" for="vdPair" id="vdPairLabel">
+              <input type="checkbox" id="vdPair" disabled>
+              <span>Also export the clean original with PNG outputs</span>
+            </label>
           </div>
+        </details>
 
-          <details class="vd-advanced" id="vdDegradeCustom">
-            <summary>Custom knobs</summary>
-            <div class="vd-knobs" id="vdKnobs"></div>
-          </details>
-
-          <label class="vd-check" for="vdPair" id="vdPairLabel">
-            <input type="checkbox" id="vdPair" disabled>
-            <span>Also export the clean original with PNG outputs</span>
-          </label>
-        </div>
-
-        <div class="page-card vd-rail-card">
-          <div class="section-kicker">Batch export</div>
-
-          <div class="control-field">
-            <div class="control-field-head">
-              <label for="vdBatchCount">Per combination</label>
-              <output id="vdBatchCountOut" for="vdBatchCount">10</output>
+        <details class="page-card vd-group" id="vdGroupBatch">
+          <summary class="vd-group-head">Batch export</summary>
+          <div class="vd-group-body">
+            <div class="control-field">
+              <div class="control-field-head">
+                <label for="vdBatchCount">Per combination</label>
+                <output id="vdBatchCountOut" for="vdBatchCount">10</output>
+              </div>
+              <input id="vdBatchCount" class="range-input" type="range" min="1" max="50" step="1" value="10">
+              <div class="control-field-hints"><span>1</span><span>50</span></div>
             </div>
-            <input id="vdBatchCount" class="range-input" type="range" min="1" max="50" step="1" value="10">
-            <div class="control-field-hints"><span>1</span><span>50</span></div>
-          </div>
 
-          <div class="control-field">
-            <div class="control-field-head">
-              <label for="vdBatchFormat">Format</label>
+            <div class="control-field">
+              <div class="control-field-head">
+                <label for="vdBatchFormat">Format</label>
+              </div>
+              <select id="vdBatchFormat" class="select-input">
+                <option value="pdf">PDF</option>
+                <option value="png">PNG</option>
+                <option value="both">Both</option>
+                <option value="json">JSON only (fastest)</option>
+              </select>
             </div>
-            <select id="vdBatchFormat" class="select-input">
-              <option value="pdf">PDF</option>
-              <option value="png">PNG</option>
-              <option value="both">Both</option>
-              <option value="json">JSON only (fastest)</option>
-            </select>
+
+            <label class="vd-check" for="vdAllTypes">
+              <input type="checkbox" id="vdAllTypes">
+              <span>All 6 document types</span>
+            </label>
+            <label class="vd-check" for="vdAllVendors">
+              <input type="checkbox" id="vdAllVendors">
+              <span>All 6 vendors</span>
+            </label>
+
+            <p class="control-field-note vd-estimate" id="vdBatchEstimate">6 documents, roughly 100 KB.</p>
+
+            <button type="button" class="btn btn-primary vd-block-btn" id="vdBatch">Generate batch as ZIP</button>
+
+            <div class="meter vd-progress" id="vdProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Batch progress" hidden>
+              <div class="meter-fill" id="vdProgressFill"></div>
+            </div>
+            <p class="control-field-note vd-batch-status" id="vdBatchStatus" role="status">One ZIP, foldered as vendor / type.</p>
           </div>
-
-          <label class="vd-check" for="vdAllTypes">
-            <input type="checkbox" id="vdAllTypes">
-            <span>All 6 document types</span>
-          </label>
-          <label class="vd-check" for="vdAllVendors">
-            <input type="checkbox" id="vdAllVendors">
-            <span>All 6 vendors</span>
-          </label>
-
-          <p class="control-field-note vd-estimate" id="vdBatchEstimate">6 documents, roughly 100 KB.</p>
-
-          <button type="button" class="btn btn-primary vd-block-btn" id="vdBatch">Generate batch as ZIP</button>
-
-          <div class="meter vd-progress" id="vdProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Batch progress" hidden>
-            <div class="meter-fill" id="vdProgressFill"></div>
-          </div>
-          <p class="control-field-note vd-batch-status" id="vdBatchStatus" role="status">One ZIP, foldered as vendor / type.</p>
-        </div>
+        </details>
       </aside>
 
       <section class="vd-stage" aria-label="Document preview">

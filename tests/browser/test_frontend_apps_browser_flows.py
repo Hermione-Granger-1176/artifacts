@@ -225,6 +225,64 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         assert fit["paperBottom"] <= fit["frameBottom"] + 1, "the whole page should be in view"
         expect(page.locator("#vdZoomLevel")).to_have_text(re.compile(r"^\d+%$"))
 
+        # The rail is an accordion because five open cards stacked to roughly
+        # twice the stage's height and left a dead column beside them. Only
+        # Document opens, and the guard that this stays fixed is the rail
+        # measuring no taller than the stage it sits next to.
+        expect(page.locator(".vd-rail > details")).to_have_count(5)
+        assert page.locator("#vdGroupDocument").get_attribute("open") is not None
+        assert page.locator("#vdGroupBatch").get_attribute("open") is None
+        expect(page.locator("#vdBatch")).to_be_hidden()
+
+        rail_fit = page.evaluate(
+            """() => ({
+                rail: document.querySelector('.vd-rail').getBoundingClientRect().height,
+                stage: document.querySelector('.vd-stage').getBoundingClientRect().height
+            })"""
+        )
+        assert rail_fit["rail"] <= rail_fit["stage"], rail_fit
+
+        # The groups are not exclusive. Opening the batch controls must leave
+        # the scan preset readable, because the preset is what that batch runs
+        # under and hiding it would trade one usability problem for another.
+        page.locator("#vdGroupScan > summary").click()
+        page.locator("#vdGroupBatch > summary").click()
+        expect(page.locator("#vdDegradePreset")).to_be_visible()
+        expect(page.locator("#vdBatch")).to_be_visible()
+
+        # The rest of this flow drives controls in every group.
+        page.evaluate(
+            "() => document.querySelectorAll('.vd-rail > details')"
+            ".forEach(group => { group.open = true; })"
+        )
+
+        # With every group open the rail is far taller than the window, and the
+        # stage pins so the page stays in view while those controls scroll past
+        # it. Checked at several depths rather than one, because a sticky item
+        # can only travel as far as its own grid area and a single sample would
+        # pass just as well against an element that had already let go.
+        for depth in (300, 600, 900):
+            page.evaluate(f"window.scrollTo(0, {depth})")
+            page.wait_for_timeout(150)
+            pinned = page.evaluate(
+                """() => {
+                    const frame = document.querySelector('#vdPaperFrame').getBoundingClientRect();
+                    const rail = document.querySelector('.vd-rail').getBoundingClientRect();
+                    return {
+                        top: frame.top,
+                        bottom: frame.bottom,
+                        viewport: window.innerHeight,
+                        railRunsOn: rail.bottom - frame.bottom
+                    };
+                }"""
+            )
+            assert pinned["railRunsOn"] > 0, (depth, pinned)
+            assert pinned["top"] >= 0, (depth, pinned)
+            assert pinned["bottom"] <= pinned["viewport"], (depth, pinned)
+
+        page.evaluate("window.scrollTo(0, 0)")
+        page.wait_for_timeout(150)
+
         # Selection drives the preview and the chips.
         page.locator("#vdVendor").select_option("ironwood")
         page.locator("#vdDocType").select_option("statement")

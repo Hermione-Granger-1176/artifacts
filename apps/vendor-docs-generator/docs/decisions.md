@@ -28,6 +28,34 @@ A field printed in more than one place gets more than one region rather than a m
 
 The rail was already three cards and this adds a fourth, which the plan for this work suggested collapsing behind an "Advanced" disclosure to keep the default view calm. It is a plain card instead. Labelled output is the reason to use this app rather than any of the several existing invoice generators; hiding the controls for it would be hiding the headline.
 
+### The rail is an accordion, and the groups are not exclusive
+
+Five open cards measure 1,572px against a stage that stops at 744px, because the preview frame is pinned to `clamp(380px, 100vh - 200px, 1123px)` and the grid uses `align-items: start`. The right half of the workbench was therefore blank from roughly the fold down, by about 800px. Collapsing each group to its header brings the rail to 629px, which is 115px inside the stage, so the dead column is gone rather than merely smaller.
+
+Four other layouts were drawn to scale before this one was picked. A tab bar absorbs further growth better, since a collapsed tab costs nothing while a collapsed header still costs 44px; a two-column rail in a wider band hides nothing but only halves the growth; putting the stage on top removes the dead column entirely and breaks the thing the tool is for, because changing the vendor would put the page being compared above the fold and the control below it.
+
+The groups deliberately do not close each other. There is no `name` attribute and no handler doing it by hand, so the exclusivity that usually comes with an accordion is absent on purpose: this app exists to compare treatments, and not being able to see which scan preset a batch will run under while setting that batch up would trade one usability problem for another. The default state is what buys the height back, and opening everything is a choice that costs only what it used to cost by default.
+
+One consequence is that the rail's height is now a user choice, which no media query can read. That is what finally settled which element should pin.
+
+A second consequence is a disclosure inside a disclosure, since Custom knobs was already a `<details>`. Promoting the nine sliders into the group would flatten that and would also make Scan quality the tallest group by some way, handing back most of what the accordion won. The two read differently instead: a group header is an uppercase label with a chevron, the knobs are running text with a triangle.
+
+### The stage pins, and the rail scrolls past it
+
+Open a few groups and the rail runs well past the window. Scrolling to reach a control should not cost sight of the document that control is describing, so the stage pins and the page stays put while the rail moves.
+
+It pins unconditionally, with no media query. The stage's height comes from the viewport rather than from content, `100vh - 156px` once the chips and the gap are counted, and both ends of the frame's clamp stay inside the window, so there is no window size at which pinning it strands its own bottom. The rail could never say that, which is why the old `min-height: 940px` guard on the rail did nothing for its entire existence: a sticky item can only travel inside its own grid area, and the rail was always the taller column, so its area was exactly its own height.
+
+That same rule leaves one rough edge, which is accepted rather than hidden. The stage's travel is however much taller the rail is, so the behaviour is not uniform. With one group open the rail is the shorter column and the stage never pins, which costs nothing because the whole workbench already fits. With exactly two it has 93px of travel, so the page holds briefly and then releases mid-scroll. From three groups up it pins the whole way down.
+
+Only the two-group case reads oddly, and both alternatives are worse. Pinning the rail instead just moves the same behaviour onto the taller column. Shrinking the frame to buy more travel would shrink the preview for everyone, including the readers who never open a second group.
+
+An earlier attempt to remove the mismatch entirely, by having the frame take its height from the row so both columns always ended level, is not in the code. It aligned the edges and broke the app: the frame grew past the window as soon as two groups were open, so the page it exists to show no longer fit on screen. Fitting the page is worth more than matching two edges.
+
+### A separate finding: the preview is bound by height, not width
+
+Scaling A4 into a 700px-tall frame lands at 0.593 whatever the column is doing, so the sheet renders 471 x 666 inside 636px of available width and leaves 82px of grey on each side. None of the five layouts considered above changes that by a pixel, and widening the workbench would spend every new pixel on gutter. Making the page bigger on screen is a vertical problem (`--vd-frame-inset`, the length of the intro lede) and a separate decision from how the controls are grouped.
+
 ### Vendor brand colours stay literal
 
 `css/app.css` is fully token-derived, as the repo requires. The six vendor accents in `vendors.js` are raw hex, on purpose: they are the content of a generated document, not app chrome. Mapping them onto the shared bookmark-note palette would make all six businesses look like the same design system, which is exactly what makes a sample set useless for training an extractor to cope with visual variety. They reach the page through CSS custom properties, so no colour literal ever enters a stylesheet.
