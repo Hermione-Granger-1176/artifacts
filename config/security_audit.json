@@ -1,12 +1,4 @@
 {
-  "python_vulnerability_exceptions": [
-    {
-      "id": "PYSEC-2026-3721",
-      "package": "pip",
-      "reason": "pip is an internal build/tooling dependency not exposed to end users; no fixed release is available in the current locked environment. Re-evaluate when a patched pip version is available.",
-      "review_by": "2026-11-23",
-      "ignore_only_without_fix": true
-    }
-  ],
+  "python_vulnerability_exceptions": [],
   "npm_vulnerability_exceptions": []
 }
