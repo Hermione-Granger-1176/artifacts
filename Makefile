@@ -442,9 +442,9 @@ lock-node-update: ## Update selected Node packages in the lockfile (packages="pa
 	$(NPM) update --package-lock-only $(foreach pkg,$(packages),"$(pkg)")
 
 refresh-ci-pins: ## Refresh the Playwright package, uv lock, and pinned CI image
-	$(PYTHON) scripts/ci/refresh_ci_pins.py upgrade-project
+	$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/refresh_ci_pins.py upgrade-project
 	$(MAKE) lock
-	$(PYTHON) scripts/ci/refresh_ci_pins.py refresh-image
+	$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/refresh_ci_pins.py refresh-image
 
 fix-deps: ## Refresh locks, reinstall, and npm audit fix
 	$(MAKE) lock
