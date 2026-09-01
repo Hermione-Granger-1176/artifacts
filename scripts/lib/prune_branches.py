@@ -73,7 +73,7 @@ def base_tree(base: str, *, runner: GitRunner = run_git) -> str:
 
 def is_contained(base: str, branch: str, tree: str, *, runner: GitRunner = run_git) -> bool:
     """Return whether merging the branch into the base would change nothing."""
-    result = runner(["merge-tree", "--write-tree", base, branch])
+    result = merge_tree_result(base, branch, runner=runner)
     if result.returncode != 0:
         return False
     return result.stdout.strip() == tree
@@ -112,8 +112,28 @@ def candidate_branches(
 
 
 def supports_merge_tree(base: str, *, runner: GitRunner = run_git) -> bool:
-    """Return whether this git build understands ``merge-tree --write-tree``."""
-    return runner(["merge-tree", "--write-tree", base, base]).returncode == 0
+    """Return whether the ``merge-tree --write-tree`` probe succeeds."""
+    return merge_tree_result(base, base, runner=runner).returncode == 0
+
+
+def merge_tree_result(
+    base: str, branch: str, *, runner: GitRunner = run_git
+) -> subprocess.CompletedProcess[str]:
+    """Run merge-tree and preserve its output for callers that report errors."""
+    return runner(["merge-tree", "--write-tree", base, branch])
+
+
+def merge_tree_error_detail(result: subprocess.CompletedProcess[str]) -> str:
+    """Return diagnostic output without mistaking a tree id for an error."""
+    stderr = result.stderr.strip()
+    if stderr:
+        return stderr
+
+    stdout = result.stdout.strip()
+    error_prefixes = ("error:", "fatal:", "usage:")
+    if any(line.lower().startswith(error_prefixes) for line in stdout.splitlines()):
+        return stdout
+    return ""
 
 
 def main(
@@ -136,8 +156,13 @@ def main(
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
 
-    if not supports_merge_tree(base, runner=runner):
-        print(MERGE_TREE_HINT, file=sys.stderr)
+    merge_tree_check = merge_tree_result(base, base, runner=runner)
+    if merge_tree_check.returncode != 0:
+        detail = merge_tree_error_detail(merge_tree_check)
+        if detail:
+            print(f"ERROR: git merge-tree --write-tree failed: {detail}", file=sys.stderr)
+        else:
+            print(MERGE_TREE_HINT, file=sys.stderr)
         return 1
 
     contained, unique = classify(base, branches, tree, runner=runner)
