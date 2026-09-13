@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Generate labelled synthetic vendor paperwork for document-AI work: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each page shipped with a ground-truth JSON sidecar naming every printed value, with optional bounding boxes.">
+  <link rel="canonical" href="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/">
+  <meta property="og:title" content="Vendor Document Generator | Artifacts">
+  <meta property="og:description" content="Generate labelled synthetic vendor paperwork for document-AI work: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each page shipped with a ground-truth JSON sidecar naming every printed value, with optional bounding boxes.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/">
+  <meta property="og:site_name" content="Artifacts">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=9f5bee5feb27">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=9f5bee5feb27">
+  <meta property="og:image:alt" content="Preview card for the Vendor Document Generator app.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Vendor Document Generator | Artifacts">
+  <meta name="twitter:description" content="Generate labelled synthetic vendor paperwork for document-AI work: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each page shipped with a ground-truth JSON sidecar naming every printed value, with optional bounding boxes.">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=9f5bee5feb27">
+  <meta name="twitter:image:alt" content="Preview card for the Vendor Document Generator app.">
+  <meta name="theme-color" content="rgb(248, 248, 246)">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <title>Vendor Document Generator | Artifacts</title>
+  <script src="../../js/app-theme.js?v=b235ce6712fd"></script>
+  <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
+  <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
+  <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
+  <link rel="preload" href="./js/vendor/jspdf.umd.min.js" as="script">
+  <link rel="stylesheet" href="../../css/style.css?v=b88ceb307ec2">
+  <link rel="stylesheet" href="./css/app.css?v=63d2fd006a42">
+  <script defer src="./js/vendor/jspdf.umd.min.js"></script>
+  <script defer src="./js/vendor/jspdf.plugin.autotable.min.js"></script>
+  <script defer src="./js/vendor/html2canvas.min.js"></script>
+  <script defer src="./js/vendor/jszip.min.js"></script>
+  <link rel="modulepreload" href="../../js/modules/app-runtime.js">
+  <link rel="modulepreload" href="../../js/modules/runtime.js">
+  <link rel="modulepreload" href="../../js/modules/app-shell.js">
+  <link rel="modulepreload" href="../../js/modules/segmented.js">
+  <link rel="modulepreload" href="js/modules/annotate-boxes.js">
+  <link rel="modulepreload" href="js/modules/degrade.js">
+  <link rel="modulepreload" href="js/modules/random.js">
+  <link rel="modulepreload" href="js/modules/annotations.js">
+  <link rel="modulepreload" href="js/modules/format.js">
+  <link rel="modulepreload" href="js/modules/document-model.js">
+  <link rel="modulepreload" href="js/modules/vendors.js">
+  <link rel="modulepreload" href="js/modules/exporters.js">
+  <link rel="modulepreload" href="js/modules/pdf-render.js">
+  <link rel="modulepreload" href="js/modules/paper-render.js">
+</head>
+<body class="artifact-app app-vendor-docs-generator">
+  <div data-app-shell="header"></div>
+
+  <main class="page-shell">
+    <div data-app-shell="runtime-error"></div>
+
+    <header class="page-intro">
+      <h1 class="page-title">Vendor document generator</h1>
+      <p class="page-lede">Six fictional businesses, six kinds of paperwork, and a labelled JSON sidecar for every page. Built for measuring document-AI extractors: each printed value comes back named, normalised, and optionally boxed, so you can score a parser instead of hand-labelling its test set. Run the same seeds clean and through a scanner, copier, fax, or phone camera to find where accuracy starts to fall away.</p>
+    </header>
+
+    <div class="vd-workbench">
+      <aside class="vd-rail" aria-label="Document controls">
+        <details class="page-card vd-group" id="vdGroupDocument" open>
+          <summary class="vd-group-head">Document</summary>
+          <div class="vd-group-body">
+            <div class="control-field">
+              <div class="control-field-head">
+                <label for="vdVendor">Vendor</label>
+              </div>
+              <select id="vdVendor" class="select-input"></select>
+            </div>
+
+            <div class="control-field">
+              <div class="control-field-head">
+                <label for="vdDocType">Document type</label>
+              </div>
+              <select id="vdDocType" class="select-input"></select>
+            </div>
+
+            <div class="control-field">
+              <div class="control-field-head">
+                <span id="vdLayoutLabel" class="vd-field-label">Invoice layout</span>
+              </div>
+              <div class="segmented is-fused" id="vdLayout" role="group" aria-labelledby="vdLayoutLabel">
+                <button type="button" class="active" data-style="clean">Clean</button>
+                <button type="button" data-style="dense">Dense</button>
+              </div>
+              <p class="control-field-note" id="vdLayoutNote">The dense layout only applies to invoices.</p>
+            </div>
+
+            <button type="button" class="btn btn-primary vd-block-btn" id="vdGenerate">Generate new document</button>
+          </div>
+        </details>
+
+        <details class="page-card vd-group" id="vdGroupExport">
+          <summary class="vd-group-head">Export this page</summary>
+          <div class="vd-group-body">
+            <div class="control-field">
+              <div class="control-field-head">
+                <label for="vdPdfMode">PDF type</label>
+              </div>
+              <select id="vdPdfMode" class="select-input">
+                <option value="text">Text layer (searchable)</option>
+                <option value="image">Rasterised (scanned look)</option>
+              </select>
+            </div>
+
+            <div class="vd-button-row">
+              <button type="button" class="btn btn-outline" id="vdDownloadPdf">Download PDF</button>
+              <button type="button" class="btn btn-outline" id="vdDownloadPng">Download PNG</button>
+            </div>
+            <button type="button" class="btn btn-outline vd-block-btn" id="vdDownloadJson">Download ground truth JSON</button>
+          </div>
+        </details>
+
+        <details class="page-card vd-group" id="vdGroupTruth">
+          <summary class="vd-group-head">Ground truth</summary>
+          <div class="vd-group-body">
+            <label class="vd-check" for="vdGroundTruth">
+              <input type="checkbox" id="vdGroundTruth" checked>
+              <span>Label every export</span>
+            </label>
+            <label class="vd-check" for="vdBoxes">
+              <input type="checkbox" id="vdBoxes">
+              <span>Add field bounding boxes</span>
+            </label>
+            <label class="vd-check" for="vdWordBoxes" id="vdWordBoxesLabel">
+              <input type="checkbox" id="vdWordBoxes" disabled>
+              <span>Word-level boxes (slower)</span>
+            </label>
+
+            <p class="control-field-note" id="vdGroundTruthNote">Every page ships with a JSON sidecar naming what each printed value is.</p>
+          </div>
+        </details>
+
+        <details class="page-card vd-group" id="vdGroupScan">
+          <summary class="vd-group-head">Scan quality</summary>
+          <div class="vd-group-body">
+            <div class="control-field">
+              <div class="control-field-head">
+                <label for="vdDegradePreset">Preset</label>
+              </div>
+              <select id="vdDegradePreset" class="select-input"></select>
+              <p class="control-field-note" id="vdDegradeNote">The render as-is. No geometry, no grain, lossless PNG.</p>
+            </div>
+
+            <details class="vd-advanced" id="vdDegradeCustom">
+              <summary>Custom knobs</summary>
+              <div class="vd-knobs" id="vdKnobs"></div>
+            </details>
+
+            <label class="vd-check" for="vdPair" id="vdPairLabel">
+              <input type="checkbox" id="vdPair" disabled>
+              <span>Also export the clean original with PNG outputs</span>
+            </label>
+          </div>
+        </details>
+
+        <details class="page-card vd-group" id="vdGroupBatch">
+          <summary class="vd-group-head">Batch export</summary>
+          <div class="vd-group-body">
+            <div class="control-field">
+              <div class="control-field-head">
+                <label for="vdBatchCount">Per combination</label>
+                <output id="vdBatchCountOut" for="vdBatchCount">10</output>
+              </div>
+              <input id="vdBatchCount" class="range-input" type="range" min="1" max="50" step="1" value="10">
+              <div class="control-field-hints"><span>1</span><span>50</span></div>
+            </div>
+
+            <div class="control-field">
+              <div class="control-field-head">
+                <label for="vdBatchFormat">Format</label>
+              </div>
+              <select id="vdBatchFormat" class="select-input">
+                <option value="pdf">PDF</option>
+                <option value="png">PNG</option>
+                <option value="both">Both</option>
+                <option value="json">JSON only (fastest)</option>
+              </select>
+            </div>
+
+            <label class="vd-check" for="vdAllTypes">
+              <input type="checkbox" id="vdAllTypes">
+              <span>All 6 document types</span>
+            </label>
+            <label class="vd-check" for="vdAllVendors">
+              <input type="checkbox" id="vdAllVendors">
+              <span>All 6 vendors</span>
+            </label>
+
+            <p class="control-field-note vd-estimate" id="vdBatchEstimate">Calculating batch size...</p>
+
+            <button type="button" class="btn btn-primary vd-block-btn" id="vdBatch">Generate batch as ZIP</button>
+            <button type="button" class="btn btn-outline vd-block-btn" id="vdBatchStop" hidden>Stop and keep what is done</button>
+
+            <div class="meter vd-progress" id="vdProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Batch progress" hidden>
+              <div class="meter-fill" id="vdProgressFill"></div>
+            </div>
+            <p class="control-field-note vd-batch-status" id="vdBatchStatus" role="status">One ZIP, foldered as vendor / type.</p>
+          </div>
+        </details>
+      </aside>
+
+      <section class="vd-stage" aria-label="Document preview">
+        <div class="vd-stage-head">
+          <div class="vd-stage-chips">
+            <span class="chip" id="vdChipVendor">Vendor</span>
+            <span class="chip" id="vdChipType">Document</span>
+            <span class="chip is-mono" id="vdChipSeed">seed</span>
+          </div>
+          <div class="vd-stage-tools">
+            <span class="chip is-mono" id="vdZoomLevel">100%</span>
+            <button type="button" class="btn btn-outline btn-sm" id="vdPreviewScan">Preview scan</button>
+            <button type="button" class="btn btn-outline btn-sm" id="vdFullOpen">Full size</button>
+          </div>
+        </div>
+
+        <div class="vd-paper-frame" id="vdPaperFrame">
+          <div class="vd-paper-scale" id="vdPaperScale">
+            <article class="vd-paper" id="vdPaper" aria-live="polite" aria-label="Generated document"></article>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <dialog class="vd-fullscreen" id="vdFullscreen" aria-label="Document at full size">
+      <div class="vd-fullscreen-bar">
+        <span class="chip is-mono" id="vdFullCaption">Document</span>
+        <button type="button" class="btn btn-outline btn-sm" id="vdFullClose">Close</button>
+      </div>
+      <div class="vd-fullscreen-body" id="vdFullscreenBody"></div>
+    </dialog>
+
+    <section class="page-section vd-about">
+      <div class="section-kicker">What you get per page</div>
+
+      <div class="stat-grid vd-about-grid">
+        <div class="stat">
+          <div class="stat-label">Labelled fields</div>
+          <div class="stat-value">35</div>
+          <div class="stat-sub">Every sidecar carries the same keys, with null where the page prints nothing</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Per-row labels</div>
+          <div class="stat-value">11</div>
+          <div class="stat-sub">Description, SKU, product code, quantity, unit, rate, amount, tax, and line total</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Combinations</div>
+          <div class="stat-value">42</div>
+          <div class="stat-sub">Six vendors by six document types, plus a dense treatment of the invoice</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Box detail</div>
+          <div class="stat-value">2</div>
+          <div class="stat-sub">Field regions, and optionally every word, in normalised page coordinates</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Scan presets</div>
+          <div class="stat-value">5</div>
+          <div class="stat-sub">Clean through phone photo, seeded so a degraded page is reproducible</div>
+        </div>
+      </div>
+
+      <div class="app-callout is-amber">
+        <div class="app-callout-title">Every name and number here is invented</div>
+        <div class="app-callout-body">The vendors, buyers, addresses, phone numbers, and tax identifiers are fabricated for sample data and do not refer to real businesses. Documents are marked as samples and are not valid invoices, receipts, or tax records. Sales tax is applied at a flat 8.25% for illustration and is not a real jurisdiction's rate.</div>
+      </div>
+
+      <div class="app-callout is-blue">
+        <div class="app-callout-title">How the randomisation works</div>
+        <div class="app-callout-body">Within a run, every random choice is driven by a single integer seed, while document dates are relative to the day of generation. Changing the vendor, type, or layout re-renders against the <em>same</em> seed so you can compare treatments side by side; <strong>Generate new document</strong> is what rolls a fresh seed. The seed appears on the preview and in every exported filename so each sample remains identifiable. Exact replay in code also needs the original reference date, which can be recovered from the sidecar's document date and the seed-derived date offsets. Scan degradation is driven from the same seed, so a given seed and preset reproduce the same wear, and the boxes follow the ink when the page is tilted.</div>
+      </div>
+    </section>
+
+    <div data-app-shell="scroll-top"></div>
+  </main>
+
+  <script type="module" src="./js/app.js?v=d5d766619b98"></script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+export function initSegmented(n,r){const e=Array.from(n.querySelectorAll("button")),o=()=>{for(const t of e)t.setAttribute("aria-pressed",t.classList.contains("active")?"true":"false")};o();for(const t of e)t.addEventListener("click",()=>{for(const s of e)s.classList.toggle("active",s===t);o(),r(t)});return e}
