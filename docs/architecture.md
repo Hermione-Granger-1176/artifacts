@@ -349,7 +349,7 @@ graph TD
 
 **Deploy failure alert** reacts to every completed run of the main deploy pipeline. The scheduled monitors alert on their own failures, but a failed main-branch run of `update.yml` had no alerting, so this workflow opens, updates, or closes one alert issue to keep a broken main deploy visible. Pull request and fork runs carry a different head branch and are ignored.
 
-**Schedule watchdog** runs from the `push` trigger on `main` and on manual dispatch. GitHub auto-disables cron triggers after roughly 60 days of repository inactivity, and a disabled schedule cannot open its own alert issue, so the watchdog runs from a trigger GitHub never auto-disables and turns a stale or disabled scheduled workflow into a visible alert issue.
+**Schedule watchdog** runs from the `push` trigger on `main` and on manual dispatch. GitHub auto-disables cron triggers after roughly 60 days of repository inactivity, and a disabled schedule cannot open its own alert issue, so the watchdog runs from a trigger GitHub never auto-disables and checks the enabled state of workflows declaring cron schedules. A non-active workflow opens or updates the watchdog alert issue; all active workflows close it. The watchdog does not inspect run age.
 
 **CodeQL** runs on every push to `main`, every pull request to `main`, and weekly on Monday. It analyzes JavaScript/TypeScript, Python, and GitHub Actions workflows in separate jobs, scopes the scan with `.github/codeql/codeql-config.yml` (which ignores tests, vendored app scripts, and generated gallery data), and uploads results to GitHub code scanning. It runs with least-privilege permissions (`security-events: write` plus read access) and needs no app tokens.
 
