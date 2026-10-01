@@ -935,7 +935,7 @@ ci-audit-previews: ## Detect leaked gh-pages PR previews (make ci-audit-previews
 		--repo "$(if $(repo),$(repo),$(REPO))" \
 		--pages-branch "$(if $(pages_branch),$(pages_branch),$(PAGES_BRANCH))"
 
-ci-schedule-watchdog: ## Detect stale or auto-disabled scheduled workflows (make ci-schedule-watchdog [repo=owner/name])
+ci-schedule-watchdog: ## Detect disabled scheduled workflows (make ci-schedule-watchdog [repo=owner/name])
 	@$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/schedule_watchdog.py \
 		--repo "$(if $(repo),$(repo),$(REPO))"
 
