@@ -69,7 +69,7 @@ jobs:
         run: TITLE="$ALERT_TITLE" make ci-alert-issue state=close run_url="$RUN_URL"
 
       - name: Alert when watchdog setup fails
-        if: steps.watchdog.outputs.checked != 'true'
+        if: ${{ !cancelled() && steps.watchdog.outputs.checked != 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: TITLE="$ALERT_TITLE" make ci-alert-issue state=setup-failure run_url="$RUN_URL"

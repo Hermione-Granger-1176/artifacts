@@ -871,7 +871,8 @@ def test_schedule_watchdog_runs_from_push_and_syncs_alert_issue() -> None:
     )
 
     fallback = _step(watchdog, "Alert when watchdog setup fails")
-    assert fallback["if"] == "steps.watchdog.outputs.checked != 'true'"
+    # A status function overrides implicit success(), so setup failures alert too.
+    assert fallback["if"] == "${{ !cancelled() && steps.watchdog.outputs.checked != 'true' }}"
     assert "state=setup-failure" in _step_run(watchdog, "Alert when watchdog setup fails")
 
 
