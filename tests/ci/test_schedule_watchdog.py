@@ -20,6 +20,25 @@ def test_discover_only_scheduled_yaml_files(tmp_path):
     assert schedule_watchdog.scheduled_workflow_files(tmp_path) == ("a.yaml", "b.yml")
 
 
+def test_discovery_reads_schedule_structure(tmp_path):
+    """Flow-style schedules count, while cron text inside scripts does not."""
+    (tmp_path / "flow.yml").write_text("on: {schedule: [{cron: '0 7 * * *'}]}\n")
+    (tmp_path / "script.yml").write_text(
+        "on: workflow_dispatch\njobs:\n  manual:\n    steps:\n      - run: |\n"
+        "          - cron: '0 7 * * *'\n"
+    )
+    (tmp_path / "empty.yml").write_text("")
+    (tmp_path / "no-schedules.yml").write_text("on: {schedule: []}\n")
+    assert schedule_watchdog.scheduled_workflow_files(tmp_path) == ("flow.yml",)
+
+
+def test_invalid_workflow_yaml_is_check_failure(tmp_path):
+    """A parse failure cannot silently exclude a disabled workflow."""
+    (tmp_path / "broken.yml").write_text("on: [\n")
+    with pytest.raises(RuntimeError, match=r"Cannot parse workflow broken\.yml"):
+        schedule_watchdog.scheduled_workflow_files(tmp_path)
+
+
 @pytest.mark.parametrize("payload", [None, [], {}, {"state": None}, {"state": ""}, {"state": 1}])
 def test_unreadable_metadata_is_check_failure(payload):
     """Unreadable metadata cannot produce a healthy verdict."""

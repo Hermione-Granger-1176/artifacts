@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import argparse
 import os
-import re
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+import yaml
 
 from scripts.lib import gh_api
 
@@ -30,13 +31,21 @@ WORKFLOW_ROOT = Path(__file__).resolve().parents[2] / ".github" / "workflows"
 
 def scheduled_workflow_files(workflow_root: Path = WORKFLOW_ROOT) -> tuple[str, ...]:
     """Discover cron workflows from the repository's YAML files."""
-    return tuple(
-        path.name
-        for path in sorted(workflow_root.iterdir())
-        if path.is_file()
-        and path.suffix in {".yml", ".yaml"}
-        and re.search(r"^\s*-\s*cron:", path.read_text(encoding="utf-8"), re.MULTILINE)
-    )
+    workflows: list[str] = []
+    for path in sorted(workflow_root.iterdir()):
+        if not path.is_file() or path.suffix not in {".yml", ".yaml"}:
+            continue
+        try:
+            # BaseLoader preserves GitHub's `on` key as a string.
+            workflow = yaml.load(path.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+        except yaml.YAMLError as exc:
+            raise RuntimeError(f"Cannot parse workflow {path.name}: {exc}") from exc
+        if not isinstance(workflow, dict):
+            continue
+        triggers = workflow.get("on")
+        if isinstance(triggers, dict) and triggers.get("schedule"):
+            workflows.append(path.name)
+    return tuple(workflows)
 
 
 def fetch_workflow_state(

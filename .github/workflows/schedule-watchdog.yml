@@ -31,6 +31,13 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: CI setup
+        uses: ./.github/actions/ci-setup
+        with:
+          event-name: ${{ github.event_name }}
+          install-deps: "true"
+          browser-engines: ""
+
       - name: Check scheduled workflow enabled states
         id: watchdog
         env:

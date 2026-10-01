@@ -843,6 +843,9 @@ def test_schedule_watchdog_runs_from_push_and_syncs_alert_issue() -> None:
         "issues": "write",
     }
 
+    setup = _step(watchdog, "CI setup")
+    assert setup["uses"] == "./.github/actions/ci-setup"
+    assert setup["with"]["install-deps"] == "true"
     check_run = _step_run(watchdog, "Check scheduled workflow enabled states")
     assert "make ci-schedule-watchdog" in check_run
     assert 'echo "status=$status" >> "$GITHUB_OUTPUT"' in check_run
