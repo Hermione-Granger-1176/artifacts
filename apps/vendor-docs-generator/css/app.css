@@ -92,8 +92,6 @@ body.app-vendor-docs-generator .vd-workbench .select-input {
 }
 
 body.app-vendor-docs-generator .vd-workbench .segmented.is-fused {
-  padding: var(--space-1);
-  background: var(--color-surface-alt);
   flex-shrink: 1;
 }
 
@@ -101,11 +99,6 @@ body.app-vendor-docs-generator .vd-workbench .segmented.is-fused button {
   min-height: var(--vd-segment-height);
   padding: 0 var(--space-2);
   flex: 1;
-  border-radius: var(--radius-xs);
-}
-
-body.app-vendor-docs-generator .vd-workbench .segmented.is-fused button.active {
-  box-shadow: 0 1px 2px var(--color-page-shadow);
 }
 
 body.app-vendor-docs-generator .vd-workbench .segmented.is-fused button:disabled {
@@ -1331,22 +1324,10 @@ body.app-vendor-docs-generator #vdDegradePreset [data-preset="phone"]:hover::bef
 }
 
 /*
- * One texture for every choice: a tint on hover, a small press on :active,
- * and a lift on buttons. Only transform animates on .btn, so fills flip with
+ * Buttons lift on hover and press on :active, the same feel the shared
+ * .is-inset choices have. Only transform animates on .btn, so fills flip with
  * the theme instead of fading through a low-contrast midpoint.
  */
-
-body.app-vendor-docs-generator .vd-workbench .segmented.is-fused button {
-  transition:
-    background var(--transition-fast) ease,
-    color var(--transition-fast) ease,
-    transform var(--transition-fast) ease;
-}
-
-body.app-vendor-docs-generator .vd-workbench .segmented.is-fused button:not(.active, :disabled):hover {
-  background: var(--color-surface-dim);
-  color: var(--color-text);
-}
 
 body.app-vendor-docs-generator .vd-workbench .btn {
   transition: transform var(--transition-fast) ease;
@@ -1356,21 +1337,18 @@ body.app-vendor-docs-generator .vd-workbench .btn:not(:disabled):hover {
   transform: translateY(-1px);
 }
 
-body.app-vendor-docs-generator .vd-workbench .btn:not(:disabled):active,
-body.app-vendor-docs-generator .vd-workbench .segmented.is-fused button:not(:disabled):active {
+body.app-vendor-docs-generator .vd-workbench .btn:not(:disabled):active {
   transform: scale(0.97);
 }
 
 @media (prefers-reduced-motion: reduce) {
   body.app-vendor-docs-generator .vd-workbench .btn,
-  body.app-vendor-docs-generator .vd-workbench .segmented.is-fused button,
   body.app-vendor-docs-generator #vdDegradePreset button::before {
     transition: none;
   }
 
   body.app-vendor-docs-generator .vd-workbench .btn:not(:disabled):hover,
-  body.app-vendor-docs-generator .vd-workbench .btn:not(:disabled):active,
-  body.app-vendor-docs-generator .vd-workbench .segmented.is-fused button:not(:disabled):active {
+  body.app-vendor-docs-generator .vd-workbench .btn:not(:disabled):active {
     transform: none;
   }
 }

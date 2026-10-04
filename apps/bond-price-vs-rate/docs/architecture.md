@@ -29,7 +29,7 @@ The bond is a single object with a fixed face value ($1,000) and annual coupons 
 
 Muted chapters drop their heading to the secondary text colour, keep the number badge hollow, and fade their charts. Body text is never faded with opacity because that would push it under the 4.5:1 contrast floor. The filled badge, full-strength heading, and full-strength charts mark the current chapter.
 
-Choices share one texture with the vendor docs app: the yield-curve toggle is an inset-pill segmented control (recessed track, raised active pill with a small shadow), choices tint on hover, everything presses slightly on `:active`, and buttons lift on hover. Only `transform` transitions on `.btn`, so fills flip with the theme instead of fading through a low-contrast midpoint. Transitions use `--transition-fast`, and `prefers-reduced-motion: reduce` turns off every transition, the press and lift transforms, and the rate readout flash. Icons are inline SVG (16px, `currentColor`, 1.5px stroke) and always sit beside a label.
+Choices share one texture with the vendor docs app: the yield-curve toggle uses the shared inset pill, `.segmented.is-fused.is-inset` (recessed track, raised active pill with a small shadow). Its choices tint on hover, everything presses slightly on `:active`, and buttons lift on hover. Only `transform` transitions on `.btn`, so fills flip with the theme instead of fading through a low-contrast midpoint. Transitions use `--transition-fast`, and `prefers-reduced-motion: reduce` turns off every transition, the press and lift transforms, and the rate readout flash. Icons are inline SVG (16px, `currentColor`, 1.5px stroke) and always sit beside a label.
 
 ## Module map
 

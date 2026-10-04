@@ -34,7 +34,7 @@ The prompt chips and the tokenization examples both show leading spaces, so one 
 
 ## Why the shared app system is reused
 
-The page should feel like one product family alongside the bond explainer. Shared tokens, control fields, the inset-pill segmented skin, header chrome, and theme behavior keep that cohesion while tokenizer-specific layout selectors stay in the app-local stylesheet.
+The page should feel like one product family alongside the bond explainer. Shared tokens, control fields, the shared inset-pill segmented skin (`.is-inset`), header chrome, and theme behavior keep that cohesion while tokenizer-specific layout selectors stay in the app-local stylesheet.
 
 ## Deferred items
 

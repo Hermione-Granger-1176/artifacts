@@ -496,8 +496,6 @@ body.app-bond-price-vs-rate .br-compare-num {
 body.app-bond-price-vs-rate .br-story .segmented.is-fused {
   width: 100%;
   max-width: 360px;
-  padding: var(--space-1);
-  background: var(--color-surface-alt);
 }
 
 body.app-bond-price-vs-rate .br-story .segmented.is-fused button {
@@ -508,11 +506,6 @@ body.app-bond-price-vs-rate .br-story .segmented.is-fused button {
   justify-content: center;
   gap: var(--space-2);
   padding: 0 var(--space-2);
-  border-radius: var(--radius-xs);
-}
-
-body.app-bond-price-vs-rate .br-story .segmented.is-fused button.active {
-  box-shadow: 0 1px 2px var(--color-page-shadow);
 }
 
 body.app-bond-price-vs-rate .br-story .btn {
@@ -569,22 +562,10 @@ body.app-bond-price-vs-rate .br-grid-3 p {
 /* ── Control feel ─────────────────────────────────────────────────── */
 
 /*
- * One texture for every choice: a tint on hover, a small press on :active, and
- * a lift on buttons. Only transform animates on .btn, so fills flip with the
- * theme instead of fading through a low-contrast midpoint.
+ * Buttons lift on hover and press on :active, the same feel the shared
+ * .is-inset choices have. Only transform animates on .btn, so fills flip with
+ * the theme instead of fading through a low-contrast midpoint.
  */
-
-body.app-bond-price-vs-rate .br-story .segmented.is-fused button {
-  transition:
-    background var(--transition-fast) ease,
-    color var(--transition-fast) ease,
-    transform var(--transition-fast) ease;
-}
-
-body.app-bond-price-vs-rate .br-story .segmented.is-fused button:not(.active, :disabled):hover {
-  background: var(--color-surface-dim);
-  color: var(--color-text);
-}
 
 body.app-bond-price-vs-rate .br-story .btn {
   transition: transform var(--transition-fast) ease;
@@ -594,8 +575,7 @@ body.app-bond-price-vs-rate .br-story .btn:not(:disabled):hover {
   transform: translateY(-1px);
 }
 
-body.app-bond-price-vs-rate .br-story .btn:not(:disabled):active,
-body.app-bond-price-vs-rate .br-story .segmented.is-fused button:not(:disabled):active {
+body.app-bond-price-vs-rate .br-story .btn:not(:disabled):active {
   transform: scale(0.97);
 }
 
@@ -645,8 +625,7 @@ body.app-bond-price-vs-rate .br-story .segmented.is-fused button:not(:disabled):
   body.app-bond-price-vs-rate .br-chapter-head h2,
   body.app-bond-price-vs-rate .br-chapter .chart-frame,
   body.app-bond-price-vs-rate .br-chapter-num,
-  body.app-bond-price-vs-rate .br-story .btn,
-  body.app-bond-price-vs-rate .br-story .segmented.is-fused button {
+  body.app-bond-price-vs-rate .br-story .btn {
     transition: none;
   }
 
@@ -655,8 +634,7 @@ body.app-bond-price-vs-rate .br-story .segmented.is-fused button:not(:disabled):
   }
 
   body.app-bond-price-vs-rate .br-story .btn:not(:disabled):hover,
-  body.app-bond-price-vs-rate .br-story .btn:not(:disabled):active,
-  body.app-bond-price-vs-rate .br-story .segmented.is-fused button:not(:disabled):active {
+  body.app-bond-price-vs-rate .br-story .btn:not(:disabled):active {
     transform: none;
   }
 }

@@ -592,20 +592,10 @@ body.app-tokenizer-explorer .tk-workbench .select-input {
   font-size: var(--font-size-control);
 }
 
-body.app-tokenizer-explorer .tk-workbench .segmented.is-fused {
-  padding: var(--space-1);
-  background: var(--color-surface-alt);
-}
-
 body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button {
   min-height: var(--tk-segment-height);
   padding: 0 var(--space-2);
   flex: 1;
-  border-radius: var(--radius-xs);
-}
-
-body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button.active {
-  box-shadow: 0 1px 2px var(--color-page-shadow);
 }
 
 /*
@@ -833,22 +823,10 @@ body.app-tokenizer-explorer .tip {
 /* ── Control feel ─────────────────────────────────────────────────── */
 
 /*
- * One texture for every choice: a tint on hover, a small press on :active,
- * and a lift on buttons. Only transform animates on .btn, so fills flip with
+ * Buttons lift on hover and press on :active, the same feel the shared
+ * .is-inset choices have. Only transform animates on .btn, so fills flip with
  * the theme instead of fading through a low-contrast midpoint.
  */
-
-body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button {
-  transition:
-    background var(--transition-fast) ease,
-    color var(--transition-fast) ease,
-    transform var(--transition-fast) ease;
-}
-
-body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button:not(.active, :disabled):hover {
-  background: var(--color-surface-dim);
-  color: var(--color-text);
-}
 
 body.app-tokenizer-explorer .tk-workbench .btn {
   transition: transform var(--transition-fast) ease;
@@ -858,8 +836,7 @@ body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):hover {
   transform: translateY(-1px);
 }
 
-body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):active,
-body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button:not(:disabled):active {
+body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):active {
   transform: scale(0.97);
 }
 
@@ -951,7 +928,6 @@ body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button:not(:disabl
 
 @media (prefers-reduced-motion: reduce) {
   body.app-tokenizer-explorer .tk-workbench .btn,
-  body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button,
   body.app-tokenizer-explorer .tk-fill,
   body.app-tokenizer-explorer .tk-seen-fill,
   body.app-tokenizer-explorer .tk-disclosure summary::after,
@@ -960,8 +936,7 @@ body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button:not(:disabl
   }
 
   body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):hover,
-  body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):active,
-  body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button:not(:disabled):active {
+  body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):active {
     transform: none;
   }
 }

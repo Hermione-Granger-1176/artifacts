@@ -14,7 +14,7 @@
   - Charts / Schedule toggle
   - Charts view: all five charts stacked in the same chart-card style (title, legend, frame at one shared height). Scenario comparison and Interest saved sit as a pair when the column is wide enough and stack otherwise
   - Schedule view: per-period schedule and yearly summary tables
-- Choice controls (Charts / Schedule, Per period / Yearly, recurring / one-time, bi-weekly method) share the shared joined `.segmented.is-fused` skin. The first three carry small inline SVG icons left of the label. All buttons share a tint on hover, a small press on `:active`, and the shared focus ring, and motion is dropped under `prefers-reduced-motion`
+- Choice controls (Charts / Schedule, Per period / Yearly, recurring / one-time, bi-weekly method) use the shared inset pill: `.segmented.is-fused.is-inset`, or `.type-toggle.is-inset` for the bi-weekly method. The app adds only a gap between choices and a softer track border. The first three carry small inline SVG icons left of the label. All buttons share a tint on hover, a small press on `:active`, and the shared focus ring, and motion is dropped under `prefers-reduced-motion`
 
 ## Module map
 

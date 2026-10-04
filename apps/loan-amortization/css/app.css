@@ -427,15 +427,10 @@ body.app-loan-amortization tr.year-row td {
 }
 
 /*
- * Choice controls and buttons share one texture: the joined segmented skin
- * (shared .is-fused), a tint on hover, a small press on :active, and the
- * shared focus ring. Icons sit left of the label and inherit its color.
+ * Choice controls use the shared inset pill (.is-fused.is-inset), so they get
+ * its hover tint and press. Buttons lift on hover and press on :active to
+ * match. Icons sit left of the label and inherit its color.
  */
-
-body.app-loan-amortization .segmented.is-fused,
-body.app-loan-amortization .type-toggle {
-  background: var(--color-surface-alt);
-}
 
 body.app-loan-amortization .loan-view .segmented.is-fused {
   width: fit-content;
@@ -459,8 +454,6 @@ body.app-loan-amortization .loan-icon {
   flex: none;
 }
 
-body.app-loan-amortization .segmented.is-fused button,
-body.app-loan-amortization .type-toggle button,
 body.app-loan-amortization .btn-remove {
   transition:
     background var(--transition-fast) ease,
@@ -473,35 +466,23 @@ body.app-loan-amortization .btn {
   transition: transform var(--transition-fast) ease;
 }
 
-body.app-loan-amortization .segmented.is-fused button:not(.active):hover,
-body.app-loan-amortization .type-toggle button:not(.active):hover {
-  background: var(--color-surface-dim);
-  color: var(--color-text);
-}
-
 body.app-loan-amortization .btn:hover {
   transform: translateY(-1px);
 }
 
 body.app-loan-amortization .btn:active,
-body.app-loan-amortization .segmented.is-fused button:active,
-body.app-loan-amortization .type-toggle button:active,
 body.app-loan-amortization .btn-remove:active {
   transform: scale(0.97);
 }
 
 @media (prefers-reduced-motion: reduce) {
   body.app-loan-amortization .btn,
-  body.app-loan-amortization .segmented.is-fused button,
-  body.app-loan-amortization .type-toggle button,
   body.app-loan-amortization .btn-remove {
     transition: none;
   }
 
   body.app-loan-amortization .btn:hover,
   body.app-loan-amortization .btn:active,
-  body.app-loan-amortization .segmented.is-fused button:active,
-  body.app-loan-amortization .type-toggle button:active,
   body.app-loan-amortization .btn-remove:active {
     transform: none;
   }
@@ -527,27 +508,10 @@ body.app-loan-amortization .btn-remove:active {
   }
 }
 
-/*
- * Inset-pill skin, shared in spirit with the vendor generator: the track is a
- * recessed surface with a small inner padding, and the active choice is a
- * raised card inside it rather than a filled cell.
- */
+/* The loan pills space their choices apart and use a softer track border. */
 
 body.app-loan-amortization .segmented.is-fused,
 body.app-loan-amortization .type-toggle {
-  padding: var(--space-1);
   gap: var(--space-1);
   border-color: var(--color-border);
-}
-
-body.app-loan-amortization .segmented.is-fused button,
-body.app-loan-amortization .type-toggle button {
-  border-radius: var(--radius-xs);
-}
-
-body.app-loan-amortization .segmented.is-fused button.active,
-body.app-loan-amortization .type-toggle button.active {
-  background: var(--color-surface);
-  box-shadow: 0 1px 2px var(--color-page-shadow);
-  color: var(--color-text);
 }

@@ -62,7 +62,7 @@
           <div class="control-field-head">
             <span id="vdDocTypeLabel" class="vd-field-label">Document</span>
           </div>
-          <div class="segmented is-fused vd-type-pills" id="vdDocType" role="group" aria-labelledby="vdDocTypeLabel"></div>
+          <div class="segmented is-fused is-inset vd-type-pills" id="vdDocType" role="group" aria-labelledby="vdDocTypeLabel"></div>
           <select id="vdDocTypeSelect" class="select-input vd-type-select" aria-labelledby="vdDocTypeLabel"></select>
         </div>
 
@@ -70,7 +70,7 @@
           <div class="control-field-head">
             <span id="vdLayoutLabel" class="vd-field-label">Invoice layout</span>
           </div>
-          <div class="segmented is-fused" id="vdLayout" role="group" aria-labelledby="vdLayoutLabel" title="The dense layout only applies to invoices.">
+          <div class="segmented is-fused is-inset" id="vdLayout" role="group" aria-labelledby="vdLayoutLabel" title="The dense layout only applies to invoices.">
             <button type="button" class="active" data-style="clean">Clean</button>
             <button type="button" data-style="dense">Dense</button>
           </div>
@@ -105,7 +105,7 @@
 
         <aside class="page-card vd-output" aria-label="Output">
           <div class="vd-output-head">
-            <div class="segmented is-fused" id="vdMode" role="group" aria-label="Export scope">
+            <div class="segmented is-fused is-inset" id="vdMode" role="group" aria-label="Export scope">
               <button type="button" class="active" data-mode="page">This page</button>
               <button type="button" data-mode="batch">Batch</button>
             </div>
@@ -126,7 +126,7 @@
                 <div class="control-field-head">
                   <span id="vdIncludeLabel" class="vd-field-label">Include</span>
                 </div>
-                <div class="segmented is-fused" id="vdInclude" role="group" aria-labelledby="vdIncludeLabel">
+                <div class="segmented is-fused is-inset" id="vdInclude" role="group" aria-labelledby="vdIncludeLabel">
                   <button type="button" class="active" data-include="combo">This combo</button>
                   <button type="button" data-include="types">All types</button>
                   <button type="button" data-include="vendors">All vendors</button>
@@ -140,7 +140,7 @@
                 <h2 class="section-kicker" id="vdScanLabel">Scan quality</h2>
                 <button type="button" class="btn btn-outline btn-sm vd-quiet-btn" id="vdPreviewScan">Preview scan</button>
               </div>
-              <div class="segmented is-fused" id="vdDegradePreset" role="group" aria-labelledby="vdScanLabel"></div>
+              <div class="segmented is-fused is-inset" id="vdDegradePreset" role="group" aria-labelledby="vdScanLabel"></div>
               <p class="control-field-note" id="vdDegradeNote">The render as-is. No geometry, no grain, lossless PNG.</p>
 
               <details class="vd-disclosure" id="vdDegradeCustom">
@@ -159,7 +159,7 @@
                 <h2 class="section-kicker" id="vdLabelsLabel">Labels</h2>
                 <button type="button" class="btn btn-outline btn-sm vd-quiet-btn" id="vdDownloadJson">Download JSON only</button>
               </div>
-              <div class="segmented is-fused" id="vdLabels" role="group" aria-labelledby="vdLabelsLabel">
+              <div class="segmented is-fused is-inset" id="vdLabels" role="group" aria-labelledby="vdLabelsLabel">
                 <button type="button" data-labels="none">None</button>
                 <button type="button" class="active" data-labels="json">JSON</button>
                 <button type="button" data-labels="fields">+ Fields</button>
@@ -170,7 +170,7 @@
 
             <section class="vd-section" aria-labelledby="vdFormatLabel">
               <h2 class="section-kicker" id="vdFormatLabel">Format</h2>
-              <div class="segmented is-fused" id="vdFormat" role="group" aria-labelledby="vdFormatLabel">
+              <div class="segmented is-fused is-inset" id="vdFormat" role="group" aria-labelledby="vdFormatLabel">
                 <button type="button" class="active" data-format="pdf">PDF</button>
                 <button type="button" data-format="png">PNG</button>
                 <button type="button" data-format="both">Both</button>
@@ -179,7 +179,7 @@
 
               <div class="vd-inline-field" id="vdPdfModeField">
                 <span id="vdPdfModeLabel" class="vd-field-label">PDF type</span>
-                <div class="segmented is-fused" id="vdPdfMode" role="group" aria-labelledby="vdPdfModeLabel">
+                <div class="segmented is-fused is-inset" id="vdPdfMode" role="group" aria-labelledby="vdPdfModeLabel">
                   <button type="button" class="active" data-pdf-mode="text" title="Searchable text layer">Text layer</button>
                   <button type="button" data-pdf-mode="image" title="Scanned look, images only">Rasterised</button>
                 </div>

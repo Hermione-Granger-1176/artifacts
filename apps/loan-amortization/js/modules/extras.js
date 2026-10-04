@@ -168,10 +168,10 @@ export function renderExtras({ container, extras, periodLabel }) {
           max: 2000
         });
 
-    // eslint-disable-next-line no-restricted-syntax -- numbers and cadence labels are controlled; the free-text summary is escaped via escapeAttribute
+    // eslint-disable-next-line no-restricted-syntax -- numbers and cadence labels are controlled; the free-text summary is escaped via escapeHtml
     item.innerHTML = `
         <div class="extra-head">
-          <div class="segmented is-fused">
+          <div class="segmented is-fused is-inset">
             <button type="button"${isRecurring ? ' class="active"' : ""} data-action="set-type" data-type="recurring" aria-pressed="${isRecurring}">${RECURRING_ICON}Recurring</button>
             <button type="button"${isRecurring ? "" : ' class="active"'} data-action="set-type" data-type="onetime" aria-pressed="${!isRecurring}">${ONETIME_ICON}One-time</button>
           </div>
