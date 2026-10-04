@@ -2,12 +2,12 @@
 
 ## Day-to-day local workflow
 
-Use the Makefile instead of ad hoc shell commands.
+Use Make targets for workspace commands. Start with the targets below:
 
 ```bash
 make help       # see all available targets (auto-generated, two-level)
-make setup      # fast: Python + Node deps, no Chromium
-make setup-all  # full: also installs Chromium for browser tests and thumbnails
+make setup      # Install Python and Node dependencies without Chromium
+make setup-all  # Also install Chromium for browser tests and thumbnails
 make install-hooks # install local pre-commit hooks
 make pr         # show all PR sub-commands
 make issue      # show all issue sub-commands
@@ -16,15 +16,19 @@ make help-ci    # show CI and GitHub run sub-commands
 make git        # show all git sub-commands
 ```
 
-Issue work runs through the `make issue-*` group instead of raw `gh issue`. `make issue-list` filters by `state=`, `label=`, `assignee=`, `author=`, `limit=`, or `mine=1`, with `SEARCH='...'` for a free-text search; `make issue-summary issue=N` prints a one-screen overview (state, labels, assignees, milestone, recent comments) via the tested `scripts/gh/issues.py` helper; and `make issue-develop issue=N` creates and checks out a branch linked to an issue. Bodies for `make issue-create` and `make issue-comment` arrive on stdin, while `make issue-edit` reads an optional new body from stdin and an optional title from `TITLE='...'`; `make issue-close` and `make issue-reopen` take an optional short `COMMENT='...'` from the environment.
+Use `make issue-*` for issue work. `make issue-list` supports `state=`, `label=`, `assignee=`, `author=`, `limit=`, and `mine=1`. Set `SEARCH='...'` for a free-text search.
+
+Run `make issue-summary issue=N` for state, labels, assignees, milestone, and recent comments. To create a branch linked to an issue, run `make issue-develop issue=N`.
+
+Supply issue bodies on stdin. `make issue-edit` also accepts a title through `TITLE='...'`. For short close or reopen comments, set `COMMENT='...'`.
 
 PR review watching observes the Copilot review automatically started when a pull request is created and waits for settled checks. It does not request a second review by default. Use `make pr-watch request=1` after pushing a correction when a fresh review is required, or use `make pr-watch checks_only=1` when only CI should be observed. The separate `make pr-copilot-review` target remains available for an explicit standalone request.
 
 Local Python dependency setup uses uv. Ensure `uv` is on PATH before running setup, install, lock, or security targets. Use native Playwright host detection. Do not set `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE`: the pinned Playwright supports current hosts natively, and forcing a platform key can leave the browser revision cache holding a build from the wrong platform archive. On a Debian or Ubuntu host that lacks the shared libraries the browsers need, use the no-sudo local runtime described in [Browser setup without sudo](#browser-setup-without-sudo).
 
-`make commit` validates the message before recording it. The tested guard in `scripts/gh/commit_message.py` rejects obvious shell leaks (heredoc openers such as `<<'EOF'`, a bare heredoc terminator left in the body, shell redirections like `2>&1`, and pipes into a pager like `| tail`), which prevents heredoc fragments from ending up in the commit message the way commit `b68de52` did. Fix the flagged line and re-run `make commit` if it rejects a message.
+If `make commit` rejects a message, fix the flagged line and rerun the target. `scripts/gh/commit_message.py` checks the message before Git records it. It rejects heredoc fragments, shell redirections, and pager pipes that could have been pasted into the message.
 
-Recommended workflow when changing workspace code:
+To change workspace code, follow these steps:
 
 1. `make new name=my-artifact` if you want a scaffold instead of creating files by hand, or `make new name=my-artifact src=path/to/page.html` to install an existing HTML file as the artifact. Both flows emit the metadata, stylesheet, app shell, docs, and matching `tests/js/apps/<slug>/app.test.js` test stub. The fresh-placeholder flow passes the gates without manual edits. A `src=` import preserves supplied off-origin references, so vendor or remove any reported references before the CSP gate can pass.
 2. `make setup` for fast local work, or `make setup-all` if you also need Chromium. Run `make install-hooks` once if you want local pre-commit checks.
@@ -71,58 +75,17 @@ The wrapper requires an already-prepared cache, points `PLAYWRIGHT_BROWSERS_PATH
 
 Reserve the `--with-deps` setup targets (`make setup-ci`, `make setup-playwright-ci`, `make setup-playwright-webkit-ci`, and `make setup-playwright-engines with_deps=1`) for CI and ephemeral runners. They may install operating-system packages on the disposable runner. Pure browser jobs use the official pinned Playwright Python container, so they set `browser-engines: ""` and do not restore or install host browser binaries. The mixed `publish` job intentionally stays on the hosted runner because it combines Pages deployment, GitHub CLI operations, and live browser verification. It explicitly sets `browser-engines: chromium`, so the shared `ci-setup` action provisions the host browser for that deployment-only exception.
 
-## CI behavior
+## Inspect CI failures
 
-CI uses the same `make` targets as local development. The `update.yml` workflow splits verification across several jobs that fan out from a `plan` job:
+Use `make ci-runs` to find a run, then `make ci-failures run=ID` for failed-step output. To follow an active run, use `make ci-watch run=ID`.
 
-- `quick-gates` runs `make ci-quick-gates` (`format-check`, `lint`, `typecheck`, `validate`).
-- `heavy-checks` runs `make ci-heavy-checks` (`test-py`, `coverage-js`, `dead-code`, `security`).
-- `root-browser` runs in the pinned official Playwright Python container, installs GNU make only because the image does not include it, and skips host browser setup. It runs the root gallery browser verification with `make test-browser-root`, then the bounded cross-engine smoke pass (`make test-browser-webkit-smoke`) that loads the root gallery and every app entry page in WebKit.
-- `app-shard` jobs use the same pinned container and GNU make bootstrap, skip host browser setup, and each run one bounded shard of app browser tests (`make test-browser-apps-shard`) plus thumbnail capture (`make thumbnails-shard`).
-- `publish` remains the deliberate host-runner exception. It uses `ci-setup` with `browser-engines: chromium` for live verification after Pages deployment because the same job also needs the GitHub CLI and deployment actions.
-- `live-site-smoke` uses the pinned official Playwright Python container and skips host browser setup. All other browser suites default to Chromium; set `ARTIFACTS_BROWSER_ENGINE` to override the engine for a local run.
-- `assemble-site` builds the generated files and the deployable site once (`make check-generated`, `make index`, `make site`) after the gates pass, and uploads the `_site/` artifact.
-- `verify` aggregates the dependency job results for branch protection. It runs no tests and builds no files.
+CI uses the same Make targets as local development. [Architecture](architecture.md#main-pipeline-updateyml) describes job dependencies, shard selection, and build and publish behavior.
 
-This keeps local results predictive of CI results.
+## Choose checks
 
-For the full pipeline reference (job flow diagrams, token model, artifact flow, script dependencies, and deploy behavior), see [architecture.md](architecture.md#cicd-layer).
+Run `make check-local` for the non-browser gate. If browser behavior or thumbnails changed, also run `make check-web`. Use `make check` for the full local release gate.
 
-## Coverage and quality gates
-
-- `make editorconfig-check` enforces supported `.editorconfig` rules such as LF endings, final-newline policy, trailing whitespace trimming, and indentation style for covered repository files, while skipping configured cache/build/dependency directories and binary assets.
-- `ruff` scans the repo root; built-in excludes skip `.venv/`, `node_modules/`, etc. Config: `pyproject.toml`.
-- `eslint` scans the repo root; file patterns and ignores are in `config/eslint.config.js`.
-- `stylelint` scans all `**/*.css`; ignores are in `config/stylelint.config.js`.
-- `yamllint` scans the repo root; ignores are in `.yamllint.yml`.
-- Workflow linting runs through `scripts/lint/lint-workflows.mjs`, which wraps `actionlint` across `.github/workflows/*.yml` and `.github/workflows/*.yaml`.
-- `make lint-doc-commands` checks contributor-facing docs for direct commands that should use Make targets instead.
-- `make lint-make-targets` verifies that `make <target>` references in Markdown, `.github` shell blocks, and non-test Python or JavaScript source still exist in `Makefile`, and rejects unallowlisted raw shell control flow in recipes.
-- `make lint-js-test-coverage` verifies that every JS or MJS source file under the tracked source roots is imported by at least one test file.
-- `make lint-artifact-csp` verifies that every `apps/<slug>/index.html` carries a strict self-only Content-Security-Policy meta tag in document head before resource-capable markup and references no external scripts, stylesheets, or `url()` resources. The root `index.html` is exempt for its documented badge-image exception.
-- `make lint-app-css-tokens` verifies that every `apps/<slug>/css/*.css` stays on the shared design tokens: no hex colors, no color functions (`rgb()` / `rgba()` / `hsl()` / `oklch()` and friends) whose channels do not start from `var()` or `color-mix()`, no `color-mix()` that mixes no token, no named colors in color-bearing declarations (`transparent` and `currentcolor` stay allowed), no `border-radius` px literals above 5px (use `var(--radius-*)`), no raw px font sizes (use `var(--font-size-*)` or relative units, including inside `clamp()`), and `letter-spacing` that is exactly one `var(--tracking-*)` token or `normal`. It fails when it finds no stylesheets to scan. Small documented allowlists in the checker, scoped per stylesheet, grandfather a few deliberate literals.
-- `make lint-vendored-assets` reconciles vendored bundles under `apps/*/js/vendor/` with the integrity manifest in `config/vendored_assets.json`, failing on unlisted files, missing files, or SHA-256 mismatches.
-- `make check-overrides` reports whether npm `overrides` entries are still needed when that package field exists.
-- `make format-check` verifies ruff formatting, Markdown table alignment, and Prettier-managed metadata, config, workflows, and tooling scripts without writing files.
-- `make typecheck` runs mypy strict over `scripts/` and the web typecheck target from `config/jsconfig.json`.
-- `make dead-code` runs vulture for Python and Knip for JavaScript files, exports, and dependency usage.
-- `make test-py` enforces 100% line and branch coverage for the `scripts` package and treats warnings as errors.
-- `make test-ci` runs the CI-focused Python tests under `tests/ci/`.
-- `make test-ci-workflows` runs narrow contract tests against `.github/workflows/*.yml` so local and CI checks can catch workflow-structure drift early.
-- `node --test` covers the grouped Node suites under `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, `tests/js/tooling/`, and `tests/js/workflows/`.
-- `make coverage-js` uses Node's built-in experimental coverage output and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across all source files imported by the grouped `tests/js/` suites. Coverage excludes `node_modules/` and `tests/`; thresholds and exclusions are configured in `package.json`.
-- `make security` is the umbrella target that runs `make audit-python` then `make audit-node`, mirroring the practical local dependency audits in CI. `make audit-python` exports the frozen uv dependency graph to a temporary requirements file, runs a policy-driven pip-audit against it, matches reviewed exceptions in `config/security_audit.json` by package and vulnerability id or alias, and fails expired, unused, or now-fixable exceptions. `make audit-node` runs `npm audit` through the policy wrapper in `scripts/ci/run_npm_audit.py`, which matches reviewed exceptions in `config/security_audit.json` (`npm_vulnerability_exceptions`) by advisory id and fails expired or unused exceptions the same way the Python audit does. Gitleaks and GitHub dependency review remain CI-only because this repo does not vendor those scanners locally.
-- `make check-generated` reruns the stylesheet and index generators in a restore-safe mode and fails if `css/style.css`, generated README markers, `js/data.js`, or `js/gallery-config.js` would drift from tracked source inputs.
-- Playwright browser suites validate both the built root gallery and mature app pages through `make test-browser`, while CI scopes mature app suites per shard with `ARTIFACTS_BROWSER_APP_MANIFEST` (set by `make test-browser-apps-shard`). Locally, `ARTIFACTS_BROWSER_APP_SLUGS` narrows `make test-browser-apps` to specific slugs.
-- `make test-browser-live` verifies an already-published site in a real browser when `ARTIFACTS_LIVE_SITE_URL` is set, and CI captures failure screenshots/traces/logs through `ARTIFACTS_BROWSER_ARTIFACT_DIR`.
-- Scheduled CI monitoring now uses GitHub-native issue alerts: `.github/workflows/audit-repo-settings.yml` opens/closes a single repository-settings drift issue, and `.github/workflows/live-site-smoke.yml` opens/closes a single live-site smoke issue.
-- `.github/workflows/schedule-watchdog.yml` runs on pushes to `main` and manual dispatch. It discovers YAML workflows declaring cron schedules and checks their enabled state. It does not query run history or infer failures from run age. An active workflow that stops firing is outside this check. Smoke tests keep their own failure and recovery alerts. The existing watchdog alert title is retained so healthy runs can close previously opened issues.
-- `make ci` is the full non-browser local gate without browser Playwright suites or thumbnail generation, and it includes formatting, linting, tests, coverage, dead-code checks, dependency audits, validation, and canonical generated-file drift checks. `make check-local` is an alias.
-- `make test-browser-root-smoke`, `make test-browser-root-accessibility`, and `make test-browser-root-flows` let you run the root gallery Playwright suites separately.
-- `make test-browser-apps-smoke`, `make test-browser-apps-accessibility`, and `make test-browser-apps-flows` let you run the mature app Playwright suites separately while preserving `make test-browser-apps` as the aggregate app gate.
-- `make check-web` is the browser-only gate for the aggregate root/app browser suites and thumbnails.
-- `make validate` fails if a top-level artifact directory is missing `index.html` or `name.txt`, has an empty `name.txt`, or uses a non-kebab-case directory name.
-- Coverage policy is configured in `pyproject.toml`.
+For individual target behavior, scope, and configuration ownership, see [Quality checks](checks.md).
 
 ## Thumbnail policy
 
@@ -138,7 +101,7 @@ For the full pipeline reference (job flow diagrams, token model, artifact flow, 
 
 - `make test-visual` compares a fixed-viewport (1200x800) hero screenshot of the root gallery and each mature app against committed baselines in `tests/browser/baselines/`. The comparison (`scripts/ci/visual_regression.py`, Pillow) is deliberately tolerant: a pixel only counts as changed when a channel differs by more than 32/255, and an image only fails when more than 5% of pixels change (18% for the root gallery, whose animated 3D book scene renders a few percent of noise even after animations are frozen).
 - Screenshot rendering depends on the host's fonts, so this is a local, on-demand check. It is intentionally not part of the blocking CI browser gate. Regenerate the baselines in the same environment where you run the check.
-- After an intentional visual change, regenerate and commit the baselines with `make visual-baselines`, then review the resulting PNG diff before committing.
+- After an intentional visual change, regenerate the baselines with `make visual-baselines`. Review the PNG diff before committing.
 - Both targets need Chromium (`make setup-all` or `make setup-playwright`, or `make setup-playwright-local` on a host missing the browsers' shared libraries, then append `local_libs=1`).
 
 ## Required GitHub settings
@@ -173,7 +136,7 @@ All runtime assets should be self-hosted. Do not load scripts, fonts, or stylesh
 ### Bad main deploy
 
 1. Identify the last known-good commit on `main`.
-2. Redeploy it in one click: run the `Update Artifacts & Deploy` workflow manually (`workflow_dispatch`) and set the `redeploy-sha` input to that commit SHA. The `BUILD_REF` environment value makes every build, verify, and deploy job check out that commit instead of the branch tip, so the pipeline rebuilds and republishes the known-good `_site/` from a verified artifact. Leaving `redeploy-sha` empty keeps the normal behavior of building the current commit. The `plan` job validates that the supplied SHA is a real commit before doing any work.
+2. To redeploy that commit, run the `Update Artifacts & Deploy` workflow manually (`workflow_dispatch`) and set the `redeploy-sha` input to that commit SHA. The `BUILD_REF` environment value makes every build, verify, and deploy job check out that commit instead of the branch tip, so the pipeline rebuilds and republishes the known-good `_site/` from a verified artifact. Leaving `redeploy-sha` empty keeps the normal behavior of building the current commit. The `plan` job validates that the supplied SHA is a real commit before doing any work.
 3. Verify the published site serves the expected `deploy-metadata.json` SHA (which now reflects the redeployed commit) and cache-busted asset query strings before declaring recovery complete.
 4. If the site is healthy but the Deployments page or `github-pages` environment badge looks stale, check the `Create main deployment record` and `Mark main deployment successful` steps in the latest `publish` run. Those steps write the classic deployment record for main-site publishes, so a failure there (not the deploy itself) is the usual cause of a frozen badge.
 
@@ -231,7 +194,7 @@ Use this on a brand-new fork or clone that has never deployed, or after `gh-page
 
 ### Generated-file drift in CI
 
-1. Treat generated drift as a source-of-truth mismatch, not a deploy-time nuisance.
+1. Treat generated drift as a mismatch between source inputs and generated outputs.
 2. Inspect the generated diff and determine whether the source change or the generator contract is wrong.
 3. Land the source or generator fix, then rerun the strict gate.
 
@@ -246,11 +209,11 @@ Use this on a brand-new fork or clone that has never deployed, or after `gh-page
 
 1. Treat dependency audit or secret scan failures as release blockers.
 2. Triage whether the issue is a real leak/vulnerability, an expired exception, or a stale lock/dependency review mismatch.
-3. Only resume deploys after the finding is resolved or consciously documented.
+3. Resume deploys only after resolving the finding or recording a reviewed exception.
 
 ## Troubleshooting
 
-- Set `LOG_LEVEL=DEBUG` before any `make` command to get verbose output from build scripts (e.g., `LOG_LEVEL=DEBUG make index`). Accepted values: `DEBUG`, `INFO` (default), `WARNING`, `ERROR`. Applies to `generate_index.py`, `generate_thumbnails.py`, `prepare_site.py`, and `verify_deploy.py`.
+- Set `LOG_LEVEL=DEBUG` before any `make` command to get verbose output from build scripts (for example, `LOG_LEVEL=DEBUG make index`). Accepted values: `DEBUG`, `INFO` (default), `WARNING`, `ERROR`. Applies to `generate_index.py`, `generate_thumbnails.py`, `prepare_site.py`, and `verify_deploy.py`.
 - If the Playwright Python package is unavailable locally, browser Playwright suites fail during collection and `make thumbnails` exits immediately; rerun `make setup-all`.
 - If Chromium is unavailable locally, `make check-web`, `make test-browser`, and `make test-browser-live` fail; run `make setup-all` to install it.
 - If the browsers install but fail to launch because the host lacks their shared libraries, run `make setup-playwright-local`, confirm it with `make playwright-local-gate`, and rerun the browser target with `local_libs=1`. Run `make playwright-local-status` to see which engines the cache currently covers.

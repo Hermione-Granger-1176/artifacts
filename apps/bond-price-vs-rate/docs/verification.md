@@ -32,9 +32,9 @@ All fixtures below assume a 10-year, 5% annual coupon, $1,000 face bond unless s
 
 ## Edge cases
 
-- A market rate near `0%` must not divide by zero; discount factors approach 1 and the price approaches the undiscounted sum of the cash flows
+- Near `0%`, discount factors approach 1 and the price approaches the undiscounted cash-flow total without division by zero
 - A 1-year bond has a single coupon-plus-face cash flow and prices to `(C + F) / (1 + i)` (asserted directly)
-- A hair-thin coupon/rate difference is classified as par so slider rounding does not flicker the badge (asserted directly)
+- A coupon and market rate difference within the rounding tolerance is classified as par so slider rounding does not flicker the badge (asserted directly)
 
 ## Precision notes
 
@@ -51,4 +51,4 @@ All fixtures below assume a 10-year, 5% annual coupon, $1,000 face bond unless s
 - Applying the inverted curve moves the market-rate slider in the rail and keeps its readout in sync
 - At 800px wide the rail is static, stacks above the first chapter, and the page does not scroll sideways
 
-`tests/js/apps/bond-price-vs-rate/chapters.test.js` covers the highlighter with a fake IntersectionObserver: the initial state, the band and tail observers, one current chapter at a time, and the no-observer and no-chapter fallbacks. The browser accessibility test also runs axe over the page, which is what rules out fading body text with opacity.
+`tests/js/apps/bond-price-vs-rate/chapters.test.js` covers the highlighter with a fake IntersectionObserver: the initial state, the band and tail observers, one current chapter at a time, and the no-observer and no-chapter fallbacks. The browser accessibility test also runs axe over the page, which detects insufficient body-text contrast.

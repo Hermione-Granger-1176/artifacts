@@ -13,7 +13,7 @@ Keeping every app layout in the shared file also made an app-local visual change
 ## Decision
 
 1. The ordered `css/src/` source partials own shared font declarations, gallery styles, app tokens, shell rules, reusable app components such as surfaces, buttons, inputs, toggles, and callouts, accessibility utilities, and responsive rules. `make styles` deterministically bundles them into the single public `css/style.css` stylesheet.
-2. Each mature app keeps only its app-specific composition and layout rules in `apps/<slug>/css/app.css`, loaded after `../../css/style.css` as a second stylesheet. These rules cover app-specific dimensions, grids, visualisations, and component variants rather than repeating shared component foundations.
+2. Each mature app keeps only its app-specific composition and layout rules in `apps/<slug>/css/app.css`, loaded after `../../css/style.css` as a second stylesheet. These rules cover app-specific dimensions, grids, visualizations, and component variants. Shared components remain in `css/src/`.
 3. App-specific selectors retain their existing `body.app-<slug>` scope.
 4. `apps/<slug>/css/**` is classified as an app-scoped runtime change for CI test selection and thumbnail regeneration.
 5. New mature apps are scaffolded with an app-local `css/app.css` starter file and its corresponding stylesheet link.

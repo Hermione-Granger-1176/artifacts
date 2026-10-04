@@ -2,7 +2,7 @@
 
 ## Why this is a conceptual simulator
 
-The goal is to explain tokenization, temperature, top-p, and sampling, not to connect to a live tokenizer or model API. Local scenarios keep the artifact deterministic, portable, and easy to verify.
+The goal is to explain tokenization, temperature, top-p, and sampling, not to connect to a live tokenizer or model API. Local scenarios keep the artifact deterministic and portable. Tests can verify its calculations without API access.
 
 ## Why token examples are canned
 
@@ -22,7 +22,7 @@ The settings sit beside the text they change, the way LLM playgrounds do, so a s
 
 ## Why the code window is folded
 
-The "Order matters" key idea says the same thing in words, so the pseudo-code sits under a "Show the code" disclosure in the settings card. It is reflowed with comments above each statement so it fits the narrow panel without horizontal scrolling.
+The "Order matters" key idea says the same thing in words, so the pseudocode sits under a "Show the code" disclosure in the settings card. It is reflowed with comments above each statement so it fits the narrow panel without horizontal scrolling.
 
 ## Why the whitespace toggle lives in the main card
 
@@ -34,7 +34,7 @@ The prompt chips and the tokenization examples both show leading spaces, so one 
 
 ## Why the shared app system is reused
 
-The page should feel like one product family alongside the bond explainer. Shared tokens, control fields, the shared inset-pill segmented skin (`.is-inset`), header chrome, and theme behavior keep that cohesion while tokenizer-specific layout selectors stay in the app-local stylesheet.
+The page shares the bond explainer's controls and theme. Shared tokens, control fields, the shared inset-pill segmented skin (`.is-inset`), header chrome, and theme behavior keep that cohesion while tokenizer-specific layout selectors stay in the app-local stylesheet.
 
 ## Deferred items
 

@@ -1,14 +1,14 @@
-# Security Policy
+# Security policy
 
-## Supported surface
+## Repository scope
 
-This repository is a static GitHub Pages site plus build and deployment tooling. There is no supported private-data workflow in the repository itself, but supply-chain, deployment, and client-side issues still matter.
+This repository is a static GitHub Pages site plus build and deployment tooling. The repository does not support private-data workflows. Security reports can cover the dependency supply chain, deployment tooling, and browser code.
 
 ## Reporting a vulnerability
 
-Please do not open a public issue for a suspected security problem.
+Do not open a public issue for a suspected security problem.
 
-Report vulnerabilities through GitHub private vulnerability reporting if it is enabled for the repository. If that option is unavailable, contact the maintainer directly and include:
+If GitHub private vulnerability reporting is enabled, use it to report the vulnerability. Otherwise, contact the maintainer directly. Include the following details:
 
 - Affected file paths or workflow names.
 - Reproduction steps.
@@ -19,4 +19,4 @@ Report vulnerabilities through GitHub private vulnerability reporting if it is e
 
 - Do not commit secrets, tokens, or `.env` files.
 - Keep workflow actions pinned to full commit SHAs.
-- Prefer updating lock files and rerunning `make check` with every dependency change.
+- Update lockfiles and rerun `make check` for dependency changes.

@@ -19,15 +19,15 @@ The page is two columns on the normal page scroll (there is no inner scroll box)
 6. The analyst readout: four stat tiles (current yield, Macaulay duration, modified duration, convexity), a coupons-vs-face present-value split of the price, and an adaptive paragraph tying the duration estimate, the convexity cushion, and the DV01 together
 7. The ripple: an adaptive paragraph plus three cards (existing bondholders, tomorrow's bonds, the real economy)
 
-Chapter copy that used to say "the control panel above" now points to the controls on the left.
+Chapter text refers to the controls on the left.
 
-The bond is a single object with a fixed face value ($1,000) and annual coupons (`frequency = 1`); the rail's three sliders supply the market rate, the coupon, and the years to maturity.
+The bond has a fixed $1,000 face value and annual coupons (`frequency = 1`). The three sliders supply market rate, coupon, and years to maturity.
 
-## Chapter tracking and control feel
+## Chapter tracking and controls
 
 `js/modules/chapters.js` marks one chapter `.is-current`. An IntersectionObserver watches a band 10% tall, 30% from the top of the viewport, and the chapter crossing it becomes current. A second observer covers the last chapter, which can be too short to reach the band before the page runs out of scroll, by activating it once it is fully visible. The story gets `.is-tracking` only when IntersectionObserver exists, and the muting CSS is gated on it, so a browser without it leaves every chapter at full strength.
 
-Muted chapters drop their heading to the secondary text colour, keep the number badge hollow, and fade their charts. Body text is never faded with opacity because that would push it under the 4.5:1 contrast floor. The filled badge, full-strength heading, and full-strength charts mark the current chapter.
+Muted chapters drop their heading to the secondary text color, keep the number badge hollow, and fade their charts. Body text is never faded with opacity because that would push it under the 4.5:1 contrast floor. The filled badge, full-strength heading, and full-strength charts mark the current chapter.
 
 Choices share one texture with the vendor docs app: the yield-curve toggle uses the shared inset pill, `.segmented.is-fused.is-inset` (recessed track, raised active pill with a small shadow). Its choices tint on hover, everything presses slightly on `:active`, and buttons lift on hover. Only `transform` transitions on `.btn`, so fills flip with the theme instead of fading through a low-contrast midpoint. Transitions use `--transition-fast`, and `prefers-reduced-motion: reduce` turns off every transition, the press and lift transforms, and the rate readout flash. Icons are inline SVG (16px, `currentColor`, 1.5px stroke) and always sit beside a label.
 
@@ -74,6 +74,6 @@ Choices share one texture with the vendor docs app: the yield-curve toggle uses 
 ## Theme model
 
 - `<html>` owns `data-theme="light|dark"`
-- The shared `../../../js/app-theme.js` head script applies the saved theme before first paint
-- The same `theme` localStorage key as the root gallery is reused so theme changes stay synchronized across pages
+- The shared `../../js/app-theme.js` head script applies the saved theme before first paint
+- The app and root gallery share the `theme` localStorage key
 - Charts read colors from CSS custom properties, cache the palette keyed by theme, and invalidate it through `refreshPalette()` on theme change

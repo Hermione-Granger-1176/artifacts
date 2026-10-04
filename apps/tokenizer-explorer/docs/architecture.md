@@ -6,7 +6,7 @@
 - Intro: app title and the full tokenization-to-sampling story
 - Sampler workbench (`#sec-sampling`): two top-aligned columns, a flexible main card and a 300px settings card
   - Main card: scenario type and the Show whitespace toggle in the header, the prompt as token chips with the completion blank inline, the Next token bar list (`#sec-distribution`) with the insight line, and a footer with Pick next token, Sample 100x, Reset, and the sample status
-  - Settings card: scenario dropdown, temperature slider and note, top-p slider and note, presets segmented control, the "Order matters" key idea, and the sampling pseudo-code under a "Show the code" disclosure
+  - Settings card: scenario dropdown, temperature slider and note, top-p slider and note, presets segmented control, the "Order matters" key idea, and the sampling pseudocode under a "Show the code" disclosure
   - Below 900px the settings card stacks above the main card
 - Tokenization card (`#sec-tokens`): pre-split illustrative examples with token and character counts, in a two-column grid on the same outer edges as the workbench
 - Concepts: delegated accordion cards for tokens, temperature, nucleus sampling, and token-driven behavior
@@ -36,7 +36,7 @@
 
 1. The scenario dropdown, a slider, or a preset changes the active scenario or sampling settings.
 2. `buildTopPSelection()` applies temperature to logits, softmaxes the result, ranks tokens, and retains the smallest cumulative top-p nucleus.
-3. The surviving probabilities are renormalized into `adjustedProb`, the only distribution used for a pick or a 100-draw tally.
+3. The surviving probabilities are renormalized into `adjustedProb`. Picks and 100-draw tallies both use that distribution.
 4. `buildCandidateRows()` keeps the temperature-shaped probability as the bar and odds value, the renormalized value as the Draw column, and the tally as the Seen column and thin second bar.
 5. The DOM renderer updates the prompt chips, bar rows, insight line, slider notes, preset highlight, and accessible sample-status copy.
 
@@ -45,10 +45,10 @@
 - The page shell and header widen to 1200px (app-local), with the 700px gutter rule restated
 - Both workbench cards share one padding, one gap, and one header row height. Inside the main card the header, prompt, bar list, and footer share one left and right edge. Inside the settings card every control field, the segmented control, the key idea, and the disclosure do the same
 - Select, buttons, and the segmented track share one control height (`--tk-control-height`)
-- Candidate rows and the column-label row share one grid template, so the token, bar, and number columns line up all the way down. The Seen column only exists after Sample 100x, and is dropped on phones where the thin bar carries the tally
+- Candidate rows and the column-label row share one grid template, so the token, bar, and number columns line up all the way down. The Seen column appears only after **Sample 100x**. On phones, the thin bar carries the tally instead
 
 ## Theme model
 
 - `<html>` owns `data-theme="light|dark"`
 - Shared shell behavior reads the same `theme` localStorage key as the root gallery
-- All colours come from shared tokens, so a theme change needs no JavaScript work in this app
+- All colors come from shared tokens, so a theme change needs no JavaScript work in this app

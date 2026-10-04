@@ -2,7 +2,7 @@
 
 <p align="center">
   Interactive HTML artifacts built with AI tools.<br>
-  <sub>Self-contained web apps: calculators, visualizers, explainers, and more.</sub>
+  <sub>Self-contained calculators, visualizers, and explainers.</sub>
 </p>
 
 <p align="center">
@@ -39,23 +39,17 @@
 
 ## What it is
 
-Each directory under `apps/` is a standalone HTML page on a focused topic: bond math, token sampling, loan schedules, prompt caching, and more. Browse the live site at <!-- AUTO:SITE_URL -->https://hermione-granger-1176.github.io/artifacts/<!-- /AUTO:SITE_URL --> for searchable thumbnails, multi-select filters, and detail overlays.
+Each directory under `apps/` is a standalone HTML page on a focused topic: bond math, token sampling, loan schedules, prompt caching, and synthetic documents. Browse the live site at <!-- AUTO:SITE_URL -->https://hermione-granger-1176.github.io/artifacts/<!-- /AUTO:SITE_URL --> for searchable thumbnails, multi-select filters, and detail overlays.
 
 <!-- AUTO:TOTAL_COUNT -->5<!-- /AUTO:TOTAL_COUNT --> artifacts published so far.
 
 <br>
 
-## Quick start
+## Workspace setup
 
-```bash
-make setup          # install Python + Node toolchain
-make check          # full local CI gate
-make new name=my-artifact   # scaffold a new artifact
-```
+[Operations](docs/operations.md) covers dependency setup, local verification, and browser prerequisites. [Quality checks](docs/checks.md) describes each check target.
 
-<br>
-
-## Add an artifact
+## Artifact structure
 
 ```text
 apps/<slug>/
@@ -72,12 +66,12 @@ apps/<slug>/
 └── docs/             # Architecture, verification, decisions
 ```
 
-Two scaffolding flows:
+The scaffold supports two inputs:
 
 - **Fresh placeholder:** `make new name=my-artifact` emits a complete, passing structure.
 - **Drop in existing HTML:** `make new name=my-artifact src=path/to/file.html` installs the file as `index.html`, injects the CSP meta and shared stylesheet links when absent, and reports any off-origin references to vendor or remove.
 
-After scaffolding, fill in the metadata files, run `make validate`, and push to `main`. CI generates thumbnails, builds the site, and deploys. See [`docs/architecture.md`](docs/architecture.md) for the full pipeline and PR preview workflow.
+For the steps to add an artifact, see [Contributing](.github/CONTRIBUTING.md). CI generates thumbnails, builds the site, and deploys after a push to `main`. [Architecture](docs/architecture.md) describes deployment and PR previews.
 
 <br>
 
@@ -87,12 +81,13 @@ After scaffolding, fill in the metadata files, run `make validate`, and push to 
 - [Architecture](docs/architecture.md)
 - [Frontend](docs/frontend.md)
 - [Operations](docs/operations.md)
+- [Quality checks](docs/checks.md)
 - [Maintenance](docs/maintenance.md)
-- [Style Guide](docs/style.md)
+- [Style guide](docs/style.md)
 - [ADRs](docs/adr/)
 - [Contributing](.github/CONTRIBUTING.md)
 - [Security](.github/SECURITY.md)
-- [Code of Conduct](.github/CODE_OF_CONDUCT.md)
+- [Code of conduct](.github/CODE_OF_CONDUCT.md)
 
 <br>
 

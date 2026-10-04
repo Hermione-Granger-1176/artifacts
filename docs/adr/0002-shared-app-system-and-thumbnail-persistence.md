@@ -21,7 +21,7 @@ The earlier workflow shape mixed planning, build, deploy, and source-branch muta
 2. App-local JS lives inside each app folder and only owns app-specific runtime behavior. App-specific layout selectors live in the shared stylesheet and are scoped by `app-<slug>` body classes.
 3. Workflow policy is driven by a single planner implemented in `scripts/build/thumbnail_plan.py` and exposed to workflows through `scripts/ci/workflow_helpers.py`.
 4. Thumbnail generation runs once in the verified build path, and later jobs reuse the generated artifact instead of regenerating thumbnails.
-5. Thumbnail persistence is deny-by-default and allows only three modes:
+5. Thumbnail persistence defaults to no writes. The planner allows three modes:
    - `none`
    - `pr-branch`
    - `followup-pr`
@@ -31,7 +31,7 @@ The earlier workflow shape mixed planning, build, deploy, and source-branch muta
 
 ## Amendment (ADR 0004)
 
-ADR 0004 split app-specific layout out of the shared stylesheet. Decision point 2 above should now be read as: app-specific layout lives in `apps/<slug>/css/app.css`, while the shared tokens, shell, and component families live in the generated shared stylesheet (`css/style.css`, built from `css/src/`). App-local JS still owns only app-specific runtime behavior as stated.
+ADR 0004 split app-specific layout out of the shared stylesheet. This amendment supersedes the stylesheet location in decision point 2. App-specific layout lives in `apps/<slug>/css/app.css`. Shared tokens, shell rules, and components live in `css/src/`, which generates `css/style.css`. App-local JS still owns app-specific runtime behavior.
 
 ## Consequences
 

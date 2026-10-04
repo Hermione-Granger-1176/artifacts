@@ -1,17 +1,17 @@
-# Code of Conduct
+# Code of conduct
 
 ## Our standard
 
-Please be respectful, direct, and constructive.
+Be respectful, direct, and constructive.
 
-Examples of expected behavior:
+Expected behavior includes the following:
 
 - Assume good intent.
 - Give actionable feedback.
 - Keep discussions technical and professional.
 - Respect different experience levels and backgrounds.
 
-Examples of unacceptable behavior:
+Unacceptable behavior includes the following:
 
 - Harassment or personal attacks.
 - Discriminatory language.

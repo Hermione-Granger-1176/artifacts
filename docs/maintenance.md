@@ -1,39 +1,72 @@
-# Maintenance Notes
+# Maintain the workspace
 
-This document covers long-term stability contracts and recurring upkeep. It does not repeat day-to-day commands or recovery runbooks.
+Use this checklist when changes affect shared behavior, dependencies, automation, or repository settings. [Operations](operations.md) covers daily commands and recovery. [Workspace structure](workspace.md) lists file ownership, and [Architecture](architecture.md) explains the deployment design.
 
-- See [`workspace.md`](workspace.md) for file ownership and generated-output ownership.
-- See [`architecture.md`](architecture.md) for the current runtime, build, and CI/CD design.
-- See [`operations.md`](operations.md) for exact commands, troubleshooting, and recovery steps.
+## Preserve shared contracts
 
-## Stability contracts
+For changes to tooling or deployment, check these rules:
 
-- `Makefile` remains the supported entry point for normal local workflows and the primary entry point for shared CI verification gates.
-- Tool scope should live in its owning config file, primarily `pyproject.toml`, `package.json`, `config/eslint.config.js`, `config/stylelint.config.js`, `config/jsconfig.json`, `config/knip.json`, `config/prettierrc.json`, `config/prettierignore`, `.yamllint.yml`, and `.editorconfig`. Avoid adding overlapping scope rules in multiple places unless a workflow truly needs a narrow exception.
-- `pyproject.toml` under `[tool.artifacts]` owns the canonical site URL, site path, and repository URL.
-- Generated outputs such as `js/data.js`, `js/gallery-config.js`, README auto markers, `apps/*/thumbnail.webp`, and `_site/` stay outputs. Change their source inputs or generators instead of hand-editing them.
-- `_site/` is the deploy artifact, and `gh-pages` is CI-managed deploy state. Neither should be maintained manually.
-- `.github/workflows/update.yml` owns the main verify and publish flow. Reusable write logic belongs in `.github/actions/deploy-site/*`, `.github/actions/verified-commit/*`, and `scripts/ci/workflow_helpers.py` instead of being copied into workflow YAML.
-- Trusted same-repo PRs may deploy previews and persist thumbnails. Fork PRs remain non-mutating, while same-repo Dependabot uv PRs may receive refreshed `uv.lock` updates either as a verified branch commit or through a fallback maintenance PR branch.
-- Publish steps deploy the verified `_site/` artifact. They do not rebuild from source during deploy.
+- Use the Makefile for local workflows and shared CI gates.
+- Keep tool scope in the owning configuration file. Avoid duplicate file selection in targets and workflows.
+- Keep site URL, site path, and repository URL under `[tool.artifacts]` in `pyproject.toml`.
+- Change inputs or generators for generated files. Do not maintain `_site/` or `gh-pages` by hand.
+- Keep the main verification and publish flow in `.github/workflows/update.yml`. Reuse the shared deployment actions and workflow helpers for writes.
+- Preserve trust restrictions on previews, thumbnail persistence, and Dependabot lock updates.
+- Deploy the verified `_site/` artifact without rebuilding during publish.
 
-## Recurring upkeep
+## Review workflow changes
 
-- **Workflow changes:** keep action references pinned to full commit SHAs, preserve read-only verification before write-capable publish steps, and keep preview deploy and preview cleanup behavior symmetric.
-- **Generator changes:** update matching tests, keep `make validate` aligned with the artifact folder contract, and update workspace docs when ownership or generated-output boundaries change.
-- **Dependency changes:** keep declarations and lockfiles in sync. Same-repo Dependabot uv PRs rely on `.github/workflows/refresh-python-locks.yml` and `.github/workflows/commit-python-locks.yml` to refresh `uv.lock` back onto the PR branch when possible or through a fallback maintenance PR branch when direct writeback is not possible. The write-capable consumer must validate the triggering Dependabot workflow-run identity and require downloaded artifact metadata to match its trusted PR, SHA, and branch values. Scheduled lock refreshes use `.github/workflows/refresh-locks.yml` and always open or update a maintenance PR instead of committing directly to `main`. The monthly `.github/workflows/refresh-playwright.yml` workflow uses `make refresh-ci-pins` to keep the locked Python Playwright package and matching official CI image digest synchronized in the same maintenance PR.
-- **Strictness changes:** keep `make lint`, `make typecheck`, `make dead-code`, `make format-check`, and `make test-py` green together. Add or update focused tests when branch coverage or vulture findings change.
-- **Repository settings:** keep Pages, app IDs, app private keys, branch protection, and the `gh-pages` ruleset aligned with the contract documented in [`architecture.md`](architecture.md#external-github-settings) and audited by `.github/workflows/audit-repo-settings.yml`.
-- **Scheduled monitoring:** keep `.github/workflows/live-site-smoke.yml` and `.github/workflows/audit-repo-settings.yml` issue titles stable so their alert issues can be updated and auto-closed instead of duplicating.
-- **Deploy pipeline alerting:** `.github/workflows/deploy-failure-alert.yml` reacts to `Update Artifacts & Deploy` finishing on `main`. It opens or updates the `Main deploy pipeline failed` alert issue when a main run fails and closes it when a later main run succeeds. Keep that issue title stable so the open/close lifecycle keeps addressing the same issue. Unlike a schedule, a `workflow_run` trigger is not auto-disabled by inactivity, so this alert keeps working as long as the main pipeline runs.
-- **Scheduled workflow auto-disable:** GitHub disables `cron` triggers after about 60 days without repository activity. That would silently stop the daily `live-site-smoke.yml`, the weekly `audit-repo-settings.yml`, `dependency-audit.yml`, `refresh-locks.yml`, `codeql.yml`, and `update.yml` full-sweep, and the monthly `refresh-action-shas.yml` and `refresh-playwright.yml`, taking the entire monitoring layer offline with no alert (a disabled schedule cannot open its own issue). `.github/workflows/schedule-watchdog.yml` mitigates this: it runs from the `push` trigger (which GitHub never auto-disables) and calls `make ci-schedule-watchdog` (`scripts/ci/schedule_watchdog.py`). That check discovers YAML workflows declaring cron schedules and reads each workflow's `state` through the Actions API. It opens or updates the `Scheduled workflow watchdog found stale or disabled schedules` alert issue when any workflow is not active, and closes it once all scheduled workflows are active. Keep that issue title stable so recovery can close existing alerts. The watchdog does not inspect run history or detect active workflows that stop firing; each scheduled check owns its result alerts. If a scheduled run stops appearing on the Actions tab, re-enable the workflow from that tab. Pushing any commit to the repository resets the inactivity clock, so an active repo normally never trips this.
-- **Pinned actions:** add new third-party actions with full SHAs immediately. `.github/workflows/refresh-action-shas.yml` is a safety net that pins non-SHA action refs through a maintenance PR branch instead of committing directly to `main`; it does not advance existing full-SHA pins.
+Pin action references to full commit SHAs. Keep verification read-only and require it before write-capable jobs. Preserve matching preview deploy and cleanup behavior.
 
-## When contracts change
+For a new third-party action, add its full SHA immediately. `refresh-action-shas.yml` pins non-SHA references through a maintenance PR, but does not advance existing full-SHA pins.
 
-- Update [`docs/adr/0001-root-publishing-platform.md`](adr/0001-root-publishing-platform.md) if the verified-artifact, fail-closed, or branch-mutation guardrails change.
-- Update [`docs/adr/0002-shared-app-system-and-thumbnail-persistence.md`](adr/0002-shared-app-system-and-thumbnail-persistence.md) if thumbnail persistence or the shared app-system contract changes.
-- Update [`docs/adr/0003-makefile-first-and-single-source-of-truth.md`](adr/0003-makefile-first-and-single-source-of-truth.md) if the Makefile-first or single-source-of-truth policy changes.
-- Update [`docs/adr/0004-per-artifact-app-stylesheets.md`](adr/0004-per-artifact-app-stylesheets.md) if the app-local stylesheet split or the shared versus app CSS boundary changes.
-- Update [`docs/adr/0005-ci-scaling-architecture-and-roadmap.md`](adr/0005-ci-scaling-architecture-and-roadmap.md) if the impact planner, sharding, memoization ledger, or CI caching strategy changes, and check off roadmap items there as they land.
-- Update [`docs/adr/0006-shared-design-tokens-and-component-system.md`](adr/0006-shared-design-tokens-and-component-system.md) if the shared design tokens, component families, shared frontend helper modules, or the app CSS token lint policy change.
+Update `tests/ci/test_workflow_contracts.py` when job dependencies, step names, or cache keys change. [ADR 0005](adr/0005-ci-scaling-architecture-and-roadmap.md) records the CI design and rejected alternatives.
+
+## Review generator changes
+
+Update the matching tests and keep `make validate` consistent with the artifact contract. If ownership of generated files changes, update [Workspace structure](workspace.md).
+
+## Refresh dependencies
+
+Keep dependency declarations and lockfiles synchronized. For local edits, use the lock targets in [Operations](operations.md).
+
+For Dependabot uv updates, preserve these checks in `refresh-python-locks.yml` and `commit-python-locks.yml`:
+
+1. Validate the triggering workflow-run identity.
+2. Require downloaded metadata to match the trusted PR, SHA, and branch.
+3. Reject unsafe artifacts and stale branch heads before writeback.
+4. Use a verified PR-branch commit or a fallback maintenance PR.
+
+Scheduled `refresh-locks.yml` updates use maintenance PRs instead of direct commits to `main`. `refresh-playwright.yml` uses `make refresh-ci-pins` to update the locked Playwright package and matching official image digest together.
+
+## Check stricter rules
+
+After changing lint, type, dead-code, format, or coverage rules, run `make lint`, `make typecheck`, `make dead-code`, `make format-check`, and `make test-py`. Add focused tests for new branches or exceptions.
+
+## Review repository settings
+
+Keep Pages, GitHub App credentials, branch protection, and the `gh-pages` ruleset consistent with [External GitHub settings](architecture.md#external-github-settings). Use `make ci-audit-repo-settings` to check drift.
+
+## Preserve alert issue identities
+
+Keep alert titles stable so failed and recovered runs update the same issue. The alert workflows are:
+
+- `live-site-smoke.yml`, for published-site browser failures.
+- `audit-repo-settings.yml`, for repository-settings drift.
+- `deploy-failure-alert.yml`, for completed `Update Artifacts & Deploy` runs on `main`. It updates `Main deploy pipeline failed` after a failure and closes the issue after success.
+- `schedule-watchdog.yml`, for inactive scheduled workflows. It updates `Scheduled workflow watchdog found stale or disabled schedules` and closes the issue when every scheduled workflow is active.
+
+The deploy alert uses `workflow_run`, so scheduled-trigger inactivity does not disable it. The schedule watchdog runs on pushes and manual dispatch because a disabled schedule cannot report its own disabled state.
+
+If a scheduled workflow stops appearing in Actions, inspect its enabled state and re-enable it if needed. The watchdog discovers workflows with cron schedules and checks their API `state`. It does not inspect run history or detect an active workflow that stops firing. Each scheduled check owns its result alerts.
+
+## Update decision records
+
+When a contract changes, update the corresponding record:
+
+- [ADR 0001](adr/0001-root-publishing-platform.md), for verified artifacts, blocked publication after failed checks, or source-branch write restrictions.
+- [ADR 0002](adr/0002-shared-app-system-and-thumbnail-persistence.md), for thumbnail persistence or the shared app system.
+- [ADR 0003](adr/0003-makefile-first-and-single-source-of-truth.md), for Makefile use or configuration ownership.
+- [ADR 0004](adr/0004-per-artifact-app-stylesheets.md), for app-local stylesheets or CSS ownership.
+- [ADR 0005](adr/0005-ci-scaling-architecture-and-roadmap.md), for impact planning, shards, verification ledgers, or CI caches. Update its roadmap as work lands.
+- [ADR 0006](adr/0006-shared-design-tokens-and-component-system.md), for shared tokens, components, frontend helpers, or app CSS token checks.
