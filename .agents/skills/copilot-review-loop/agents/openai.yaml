@@ -1,0 +1,6 @@
+interface:
+  display_name: "GitHub Copilot review loop"
+  short_description: "Close verified Copilot feedback through approval"
+  default_prompt: "Use $copilot-review-loop to run the current pull request through GitHub Copilot review until it is clean."
+policy:
+  allow_implicit_invocation: true
