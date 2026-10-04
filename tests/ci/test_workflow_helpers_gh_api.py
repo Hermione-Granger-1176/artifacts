@@ -10,26 +10,26 @@ from scripts.lib import gh_policy
 from tests.ci.workflow_helpers_test_support import FakeSubprocessResult
 
 
-def test_is_retryable_gh_api_failure_matches_expected_cases() -> None:
-    """Is retryable gh api failure matches expected cases."""
-    assert gh_api.is_retryable_gh_api_failure("503 Service Unavailable")
-    assert gh_api.is_retryable_gh_api_failure("timed out while calling API")
-    assert gh_api.is_retryable_gh_api_failure("network error")
-    assert not gh_api.is_retryable_gh_api_failure("404 Not Found")
+def test_classify_gh_failure_identifies_transient_errors() -> None:
+    """The shared policy distinguishes transient errors from permanent failures."""
+    assert gh_policy.classify_gh_failure("503 Service Unavailable") == "transient"
+    assert gh_policy.classify_gh_failure("timed out while calling API") == "transient"
+    assert gh_policy.classify_gh_failure("network error") == "transient"
+    assert gh_policy.classify_gh_failure("404 Not Found") != "transient"
     # Rate limits must never be treated as retryable; they fail fast instead.
-    assert not gh_api.is_retryable_gh_api_failure("API rate limit exceeded (HTTP 429)")
-    assert not gh_api.is_retryable_gh_api_failure("You have exceeded a secondary rate limit")
+    assert gh_policy.classify_gh_failure("API rate limit exceeded (HTTP 429)") != "transient"
+    assert gh_policy.classify_gh_failure("You have exceeded a secondary rate limit") != "transient"
 
 
-def test_is_rate_limited_gh_api_failure_matches_variants() -> None:
-    """Is rate limited gh api failure matches variants."""
-    assert gh_api.is_rate_limited_gh_api_failure("API rate limit exceeded")
-    assert gh_api.is_rate_limited_gh_api_failure("gh: something failed (HTTP 429)")
-    assert gh_api.is_rate_limited_gh_api_failure("You have exceeded a secondary rate limit")
-    assert gh_api.is_rate_limited_gh_api_failure("triggered abuse detection")
-    assert gh_api.is_rate_limited_gh_api_failure("content submitted too quickly")
-    assert not gh_api.is_rate_limited_gh_api_failure("503 Service Unavailable")
-    assert not gh_api.is_rate_limited_gh_api_failure("404 Not Found")
+def test_classify_gh_failure_identifies_rate_limits() -> None:
+    """The shared policy recognizes primary and secondary rate-limit messages."""
+    assert gh_policy.classify_gh_failure("API rate limit exceeded") == "rate_limit"
+    assert gh_policy.classify_gh_failure("gh: something failed (HTTP 429)") == "rate_limit"
+    assert gh_policy.classify_gh_failure("You have exceeded a secondary rate limit") == "rate_limit"
+    assert gh_policy.classify_gh_failure("triggered abuse detection") == "rate_limit"
+    assert gh_policy.classify_gh_failure("content submitted too quickly") == "rate_limit"
+    assert gh_policy.classify_gh_failure("503 Service Unavailable") != "rate_limit"
+    assert gh_policy.classify_gh_failure("404 Not Found") != "rate_limit"
 
 
 def test_run_gh_api_fails_fast_on_rate_limit_without_retry(

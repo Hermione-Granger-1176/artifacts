@@ -210,7 +210,12 @@ def test_load_ruleset_detail_uses_summary_when_conditions_exist(
         "target": "branch",
         "conditions": {"ref_name": {"include": ["refs/heads/gh-pages"]}},
     }
-    assert workflow_helpers._load_ruleset_detail("owner/repo", summary) is summary
+    assert (
+        repo_audit.load_ruleset_detail(
+            "owner/repo", summary, run_gh_api_json_fn=workflow_helpers._run_gh_api_json
+        )
+        is summary
+    )
     assert calls == []
 
 
@@ -229,7 +234,11 @@ def test_load_ruleset_detail_fetches_detail_for_summary_only_ruleset(
         },
     )
 
-    assert workflow_helpers._load_ruleset_detail("owner/repo", {"id": 99, "target": "branch"}) == {
+    assert repo_audit.load_ruleset_detail(
+        "owner/repo",
+        {"id": 99, "target": "branch"},
+        run_gh_api_json_fn=workflow_helpers._run_gh_api_json,
+    ) == {
         "id": 99,
         "target": "branch",
         "conditions": {"ref_name": {"include": ["refs/heads/gh-pages"]}},
@@ -252,7 +261,12 @@ def test_load_ruleset_detail_returns_input_when_ruleset_has_no_numeric_id(
     monkeypatch.setattr(workflow_helpers, "_run_gh_api_json", fail_if_called)
 
     ruleset = {"id": "gh-pages-ruleset", "target": "branch"}
-    assert workflow_helpers._load_ruleset_detail("owner/repo", ruleset) is ruleset
+    assert (
+        repo_audit.load_ruleset_detail(
+            "owner/repo", ruleset, run_gh_api_json_fn=workflow_helpers._run_gh_api_json
+        )
+        is ruleset
+    )
     assert calls == []
 
 

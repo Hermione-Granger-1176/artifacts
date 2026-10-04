@@ -175,11 +175,6 @@ def _parse_nodes(nodes: Any) -> list[ReviewThread]:
     return threads
 
 
-def parse_threads(data: Any) -> list[ReviewThread]:
-    """Convert a single GraphQL ``reviewThreads`` page into ``ReviewThread`` objects."""
-    return _parse_nodes(_review_thread_nodes(_review_threads(data)))
-
-
 def _page_info(connection: dict[str, Any], message: str) -> dict[str, Any]:
     """Return a GraphQL connection's pageInfo mapping, or raise ``GhError``."""
     page_info = connection.get("pageInfo")

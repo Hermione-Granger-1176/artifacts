@@ -637,9 +637,11 @@ def test_list_comments_bad_top_level_pageinfo_raises() -> None:
         pr_review.list_comments(7, run_fn=runner)
 
 
-def test_parse_threads_maps_fields() -> None:
+def test_review_thread_parser_maps_fields() -> None:
     """Map a GraphQL payload into ReviewThread objects."""
-    threads = pr_review.parse_threads(THREADS_PAYLOAD["data"])
+    threads = pr_review._parse_nodes(
+        pr_review._review_thread_nodes(pr_review._review_threads(THREADS_PAYLOAD["data"]))
+    )
 
     assert [thread.thread_id for thread in threads] == ["PRRT_open1", "PRRT_done1"]
     first = threads[0]
@@ -705,11 +707,13 @@ def test_list_threads_follows_pagination() -> None:
     assert any("after=CURSOR1" in command for command in graphql_calls)
 
 
-def test_parse_threads_raises_on_missing_pull_request() -> None:
+def test_review_thread_parser_raises_on_missing_pull_request() -> None:
     """A null/absent repository or pull request raises a clear GhError."""
     for payload in ({}, {"repository": None}, {"repository": {"pullRequest": None}}):
         with pytest.raises(GhError):
-            pr_review.parse_threads(payload)
+            pr_review._parse_nodes(
+                pr_review._review_thread_nodes(pr_review._review_threads(payload))
+            )
 
 
 def test_list_threads_filters_resolved_by_default() -> None:
@@ -733,7 +737,9 @@ def test_list_threads_filters_resolved_by_default() -> None:
 
 def test_format_threads_is_greppable() -> None:
     """Render each open thread with its id and state."""
-    threads = pr_review.parse_threads(THREADS_PAYLOAD["data"])
+    threads = pr_review._parse_nodes(
+        pr_review._review_thread_nodes(pr_review._review_threads(THREADS_PAYLOAD["data"]))
+    )
     text = pr_review.format_threads(threads)
 
     assert "thread=PRRT_open1" in text

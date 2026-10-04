@@ -35,19 +35,6 @@ GH_API_TIMEOUT_SECONDS = 15
 GH_API_MAX_ATTEMPTS = gh_policy.DEFAULT_GH_RETRIES + 1
 
 
-def is_rate_limited_gh_api_failure(message: str) -> bool:
-    """Return True when ``gh api`` failed because of a primary/secondary rate limit."""
-    return gh_policy.classify_gh_failure(message) == "rate_limit"
-
-
-def is_retryable_gh_api_failure(message: str) -> bool:
-    """Return True when ``gh api`` failed with a likely transient error.
-
-    Rate limits are excluded on purpose; callers must fail fast on those.
-    """
-    return gh_policy.classify_gh_failure(message) == "transient"
-
-
 def is_forbidden_gh_api_failure(message: str) -> bool:
     """Return True when ``gh api`` failed with a permission-related 403."""
     return gh_policy.classify_gh_failure(message) == "forbidden"
