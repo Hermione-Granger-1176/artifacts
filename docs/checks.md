@@ -15,7 +15,8 @@ The formatting and lint targets check these rules:
 - `make lint-doc-commands` checks contributor-facing docs for direct commands that should use Make targets instead.
 - `make lint-make-targets` verifies that `make <target>` references in Markdown, `.github` shell blocks, and non-test Python or JavaScript source still exist in `Makefile`, and rejects unallowlisted raw shell control flow in recipes.
 - `make lint-js-test-coverage` verifies that every JS or MJS source file under the tracked source roots is imported by at least one test file.
-- `make lint-artifact-csp` verifies that every `apps/<slug>/index.html` carries a strict self-only Content-Security-Policy meta tag in document head before resource-capable markup and references no external scripts, stylesheets, or `url()` resources. The root `index.html` is exempt for its documented badge-image exception.
+- `make lint-artifact-csp` checks the root `index.html` and every `apps/<slug>/index.html`. Each page needs a Content-Security-Policy meta tag in the document head, before any markup that can load a resource. The policy must limit `default-src` and `script-src` to `'self'` or `'none'`. It must also set `object-src 'none'` and restrict `base-uri` and `form-action` to `'self'` or `'none'`, because those three directives do not fall back to `default-src`. The check fails on external scripts, external stylesheets, and external `url()` resources. The root page may also load images from `https://img.shields.io` for its badges. Artifact pages may not.
+- Browsers ignore `frame-ancestors` in a meta tag, and GitHub Pages cannot send response headers. Any page can therefore be framed by another site, and no lint can change that.
 - `make lint-app-css-tokens` checks app CSS colors, radii, font sizes, and letter spacing against shared tokens. It fails if no stylesheets are found. [Style guide](style.md#token-lint) lists allowed values and exceptions.
 - `make lint-vendored-assets` reconciles vendored bundles under `apps/*/js/vendor/` with the integrity manifest in `config/vendored_assets.json`, failing on unlisted files, missing files, or SHA-256 mismatches.
 - `make check-overrides` reports whether npm `overrides` entries are still needed when that package field exists.
@@ -37,11 +38,12 @@ These targets check source types, test results, coverage, and unused code:
 
 The dependency audit targets use the shared policy:
 
-- `make security` runs `make audit-python` and then `make audit-node`.
+- `make security` runs `make audit-python`, `make audit-node`, and then `make audit-vendored`.
 - `make audit-python` exports the frozen uv graph and checks it with pip-audit. It matches reviewed exceptions in `config/security_audit.json` by both package name and vulnerability ID or alias. Expired and unused exceptions fail the check.
 - `make audit-node` checks npm advisories through `scripts/ci/run_npm_audit.py`. It matches `npm_vulnerability_exceptions` by both package name and advisory ID or alias and rejects expired or unused exceptions.
+- `make audit-vendored` runs `scripts/ci/audit_vendored_assets.py`, which asks [OSV](https://osv.dev) about every package and version in `config/vendored_assets.json`. `npm audit` and `pip-audit` read lock files and never see the bundles under `apps/*/js/vendor/`, so this is the only audit that covers them. It matches `vendored_vulnerability_exceptions` by both package name and advisory ID or alias and rejects expired or unused exceptions. It fails when OSV is unreachable, because a skipped query would look the same as a clean result.
 
-For both audits, a matching finding with a fix invalidates an exception only when `ignore_only_without_fix` is `true`. The flag defaults to `false`. The current npm exception explicitly uses `false`.
+For all three audits, a matching finding with a fix invalidates an exception only when `ignore_only_without_fix` is `true`. The flag defaults to `false`. The current npm exception explicitly uses `false`.
 
 Gitleaks and GitHub dependency review run only in CI. The repository does not install those scanners for local checks.
 

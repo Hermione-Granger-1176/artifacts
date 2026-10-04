@@ -1,5 +1,5 @@
 export default {
-  ignoreFiles: ["node_modules/**", ".venv/**", "_site/**"],
+  ignoreFiles: ["node_modules/**", ".venv/**", "_site/**", ".worktrees/**"],
   rules: {
     "block-no-empty": true,
     "color-no-invalid-hex": true,

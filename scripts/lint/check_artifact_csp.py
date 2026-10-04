@@ -7,7 +7,8 @@ page. This checker fails fast when an artifact:
 
     - is missing the Content-Security-Policy meta tag, or its policy does not
       restrict ``default-src`` and ``script-src`` to ``'self'`` or ``'none'``
-      sources; or
+      sources, or omits ``object-src``, ``base-uri``, or ``form-action``, which
+      do not fall back to ``default-src``; or
     - references an external (scheme or protocol-relative) URL from a
       ``<script src>``, a stylesheet ``<link href>``, or a ``url()`` inside an
       inline ``<style>`` block. Inline ``data:`` URIs and ``#fragment``
@@ -36,6 +37,14 @@ ROOT_INDEX_FILENAME = "index.html"
 _RESTRICTIVE_SOURCES = frozenset({"'self'", "'none'"})
 _APP_IMG_SOURCES = frozenset({"'self'", "'none'", "data:"})
 _ROOT_IMG_SOURCES = _APP_IMG_SOURCES | frozenset({"https://img.shields.io"})
+
+# Directives that do not fall back to default-src, so each must be stated.
+# frame-ancestors is deliberately absent: browsers ignore it in a meta tag.
+_NON_FALLBACK_DIRECTIVES = (
+    ("object-src", frozenset({"'none'"})),
+    ("base-uri", _RESTRICTIVE_SOURCES),
+    ("form-action", _RESTRICTIVE_SOURCES),
+)
 
 # Opening tags and inline style blocks. Artifact markup keeps attribute values
 # free of ``>``, so a non-greedy attribute scan is robust enough here.
@@ -281,6 +290,19 @@ def _csp_violations(
             f"{display_path}: img-src must use only approved image sources "
             f"({allowed}; found: img-src {' '.join(img_src)})"
         )
+
+    for directive, allowed_sources in _NON_FALLBACK_DIRECTIVES:
+        sources = directives.get(directive)
+        if sources is None:
+            violations.append(
+                f"{display_path}: Content-Security-Policy is missing a {directive} directive"
+            )
+        elif not _directive_has_only_allowed_sources(sources, allowed_sources):
+            allowed = " ".join(sorted(allowed_sources))
+            violations.append(
+                f"{display_path}: {directive} must be restricted to {allowed} "
+                f"(found: {directive} {' '.join(sources)})"
+            )
 
     return violations
 

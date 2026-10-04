@@ -52,7 +52,8 @@ TOOLS_FILE = "tools.txt"
 # flow can inject the exact same meta the placeholder template ships with.
 CSP_CONTENT = (
     "default-src 'self'; script-src 'self'; style-src 'self'; "
-    "img-src 'self' data:; connect-src 'self'"
+    "img-src 'self' data:; connect-src 'self'; "
+    "object-src 'none'; base-uri 'self'; form-action 'none'"
 )
 CSP_META = f'<meta http-equiv="Content-Security-Policy" content="{CSP_CONTENT}">'
 

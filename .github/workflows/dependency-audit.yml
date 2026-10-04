@@ -40,10 +40,12 @@ jobs:
           python_status=$?
           make audit-node
           node_status=$?
+          make audit-vendored
+          vendored_status=$?
           make check-overrides
           overrides_status=$?
           set -e
-          if [ "$python_status" -ne 0 ] || [ "$node_status" -ne 0 ] || [ "$overrides_status" -ne 0 ]; then
+          if [ "$python_status" -ne 0 ] || [ "$node_status" -ne 0 ] || [ "$vendored_status" -ne 0 ] || [ "$overrides_status" -ne 0 ]; then
             status=1
           else
             status=0
@@ -56,7 +58,7 @@ jobs:
         id: audit-issue
         env:
           GH_TOKEN: ${{ github.token }}
-          ALERT_DETAIL: "Review the pip-audit, npm audit, and npm override checks from this run."
+          ALERT_DETAIL: "Review the pip-audit, npm audit, vendored bundle audit, and npm override checks from this run."
         run: |
           url=$(printf '%s\n' "$ALERT_DETAIL" | TITLE="Dependency audit failed" make ci-alert-issue state=open run_url="$RUN_URL")
           echo "url=$url" >> "$GITHUB_OUTPUT"
@@ -73,7 +75,7 @@ jobs:
           {
             echo "## Dependency audit failed"
             echo
-            echo "Inspect the pip-audit, npm audit, and npm override output in this run."
+            echo "Inspect the pip-audit, npm audit, vendored bundle audit, and npm override output in this run."
             echo "Issue: ${{ steps.audit-issue.outputs.url || 'issue not created' }}"
           } >> "$GITHUB_STEP_SUMMARY"
 

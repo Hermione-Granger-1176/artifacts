@@ -18,13 +18,14 @@ from scripts.lint.check_artifact_csp import (
     run_check,
 )
 
+_HARDENING = "object-src 'none'; base-uri 'self'; form-action 'none'"
 _GOOD_CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; "
-    "img-src 'self' data:; connect-src 'self'"
+    "img-src 'self' data:; connect-src 'self'; " + _HARDENING
 )
 _ROOT_CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; "
-    "img-src 'self' data: https://img.shields.io; connect-src 'self'"
+    "img-src 'self' data: https://img.shields.io; connect-src 'self'; " + _HARDENING
 )
 
 
@@ -316,8 +317,33 @@ def test_check_page_allows_script_src_falling_back_to_default(tmp_path: Path) ->
     """Check page allows script src falling back to default."""
     # The trailing semicolon exercises the empty-directive skip while script-src
     # falls back to the restrictive default-src.
-    path = _write_page(tmp_path, "demo", _page(csp="default-src 'self';"))
+    path = _write_page(tmp_path, "demo", _page(csp=f"default-src 'self'; {_HARDENING};"))
     assert check_page(path, display_path="apps/demo/index.html") == []
+
+
+def test_check_page_flags_missing_non_fallback_directives(tmp_path: Path) -> None:
+    """Check page requires object-src, base-uri, and form-action to be stated."""
+    path = _write_page(tmp_path, "demo", _page(csp="default-src 'self'; script-src 'self'"))
+    violations = check_page(path, display_path="apps/demo/index.html")
+    for directive in ("object-src", "base-uri", "form-action"):
+        expected = (
+            f"apps/demo/index.html: Content-Security-Policy is missing a {directive} directive"
+        )
+        assert expected in violations
+
+
+def test_check_page_flags_relaxed_non_fallback_directives(tmp_path: Path) -> None:
+    """Check page rejects permissive object-src, base-uri, and form-action values."""
+    csp = "default-src 'self'; object-src 'self'; base-uri *; form-action https://example.com"
+    path = _write_page(tmp_path, "demo", _page(csp=csp))
+    violations = check_page(path, display_path="apps/demo/index.html")
+    expected = (
+        "apps/demo/index.html: object-src must be restricted to 'none' (found: object-src 'self')"
+    )
+    assert expected in violations
+    for directive in ("base-uri", "form-action"):
+        prefix = f"apps/demo/index.html: {directive} must be restricted"
+        assert any(message.startswith(prefix) for message in violations)
 
 
 def test_check_page_flags_empty_default_src(tmp_path: Path) -> None:

@@ -33,6 +33,7 @@ SKIP_DIRECTORIES = frozenset(
         ".ruff_cache",
         ".venv",
         ".vscode",
+        ".worktrees",
         "__pycache__",
         "_site",
         "build",

@@ -997,7 +997,12 @@ def test_dependency_audit_workflow_runs_audits_and_syncs_alert_issue() -> None:
 
     audit_run = _step_run(audit, "Run dependency audits")
     assert audit_run.startswith("set +e")
-    for target in ("make audit-python", "make audit-node", "make check-overrides"):
+    for target in (
+        "make audit-python",
+        "make audit-node",
+        "make audit-vendored",
+        "make check-overrides",
+    ):
         assert target in audit_run
     assert 'echo "status=$status" >> "$GITHUB_OUTPUT"' in audit_run
     assert audit_run.rstrip().endswith("exit 0")

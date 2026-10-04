@@ -353,7 +353,7 @@ graph TD
 
 **CodeQL** runs on every push to `main`, every pull request to `main`, and weekly on Monday. It analyzes JavaScript/TypeScript, Python, and GitHub Actions workflows in separate jobs, scopes the scan with `.github/codeql/codeql-config.yml` (which ignores tests, vendored app scripts, and generated gallery data), and uploads results to GitHub code scanning. It runs with least-privilege permissions (`security-events: write` plus read access) and needs no app tokens.
 
-**Dependency audit** runs weekly on Monday and on manual dispatch. It runs `make audit-python`, `make audit-node`, and `make check-overrides` under `set +e`, records the combined pass or fail state, then uses `scripts/ci/workflow_helpers.py sync-alert-issue` to open or update a dedicated GitHub issue when the audit fails and close it once the audit passes again. A final step fails the run when any audit failed. It uses the plain workflow token (`issues: write`), not an app token.
+**Dependency audit** runs weekly on Monday and on manual dispatch. It runs `make audit-python`, `make audit-node`, `make audit-vendored`, and `make check-overrides` under `set +e`, records the combined pass or fail state, then uses `scripts/ci/workflow_helpers.py sync-alert-issue` to open or update a dedicated GitHub issue when the audit fails and close it once the audit passes again. A final step fails the run when any audit failed. It uses the plain workflow token (`issues: write`), not an app token.
 
 ### Workflow reference
 

@@ -25,6 +25,7 @@ __pycache__/
 node_modules/
 _site/
 .artifacts/
+.worktrees/
 .playwright/
 .pytest_cache/
 .ruff_cache/
