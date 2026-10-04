@@ -122,6 +122,12 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
   let runner = null;
   /** @type {number | null} */
   let pendingTarget = null;
+  // Settles once the current drag has ended and the queue after it is empty.
+  /** @type {Promise<void>} */
+  let dragDone = Promise.resolve();
+  // Re-copies the live left page into the cover while the intro swings it open.
+  /** @type {(() => void) | null} */
+  let syncCover = null;
 
   /** @param {unknown} error - Error from an animation path. */
   function reportError(error) {
@@ -354,6 +360,28 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     return turn;
   }
 
+  /**
+   * Put a copy of the live left page inside the opening cover, replacing any
+   * earlier copy. With no left page (no results), the inside stays blank.
+   * @param {IntroState} state - Intro bookkeeping.
+   * @param {Element} endpaper - The inside of the cover.
+   * @param {HTMLElement} grid - Page grid element.
+   */
+  function carryLeftPage(state, endpaper, grid) {
+    state.insidePage?.remove();
+    state.insidePage = undefined;
+    const liveLeft = grid.querySelector('.artifact-page-left');
+    if (!liveLeft) {
+      return;
+    }
+
+    const inside = /** @type {HTMLElement} */ (liveLeft.cloneNode(true));
+    inside.setAttribute('aria-hidden', 'true');
+    inside.inert = true;
+    endpaper.appendChild(inside);
+    state.insidePage = inside;
+  }
+
   /** Stop the active turn immediately without rendering it. Safe to call from any path. */
   function abortActive() {
     const turn = active;
@@ -506,7 +534,13 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       return runner;
     }
 
-    if (active || pendingTarget === null) {
+    // Only a drag holds the book without a running queue. Its release starts
+    // the queue, so a request made now settles with the drag.
+    if (active) {
+      return dragDone;
+    }
+
+    if (pendingTarget === null) {
       return Promise.resolve();
     }
 
@@ -543,6 +577,8 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
   /**
    * Publish where the reader is, for the page-edge stacks and corner peels.
+   * The gallery calls this after every render, so it also refreshes the page
+   * the cover carries while the intro is still swinging it open.
    * @param {{ page: number, totalPages: number }} position - Shown page and page count.
    */
   function setPosition({ page, totalPages }) {
@@ -551,6 +587,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       return;
     }
 
+    syncCover?.();
     sheet.style.setProperty('--stack-left-n', String(page));
     sheet.style.setProperty('--stack-right-n', String(totalPages - page + 1));
     sheet.dataset.hasPrevious = String(page > 1);
@@ -658,10 +695,18 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       }
     };
 
+    /** @type {(settled: Promise<void>) => void} */
+    let finishDrag;
+    dragDone = new Promise((resolve) => {
+      finishDrag = resolve;
+    });
     const baseCleanup = turn.cleanup;
     turn.cleanup = () => {
       detach();
       baseCleanup();
+      // Every way a drag ends runs this cleanup. One tick later the drag no
+      // longer holds the book, so kick() returns the queue that follows it.
+      finishDrag(Promise.resolve().then(kick));
     };
 
     /** @param {PointerEvent} event - Pointer move event. */
@@ -827,14 +872,12 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     // The inside of the cover carries the first left page, cards already
     // attached, exactly like the back face of a turning leaf. When the cover
     // lands, the live page underneath takes over with nothing to fade in.
+    // A search or filter during the swing re-renders the grid, and
+    // setPosition then copies the new page so the landing still matches.
     const endpaper = cover.querySelector('.book-endpaper');
-    const liveLeft = grid.querySelector('.artifact-page-left');
-    if (endpaper && liveLeft) {
-      const inside = /** @type {HTMLElement} */ (liveLeft.cloneNode(true));
-      inside.setAttribute('aria-hidden', 'true');
-      inside.inert = true;
-      endpaper.appendChild(inside);
-      state.insidePage = inside;
+    if (endpaper) {
+      syncCover = () => carryLeftPage(state, endpaper, grid);
+      syncCover();
     }
 
     const options = { duration: COVER_OPEN_MS, easing: COVER_EASING };
@@ -909,6 +952,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       }
     } finally {
       abortIntro = null;
+      syncCover = null;
       state.animations.forEach((animation) => animation.cancel());
       openShell(shell);
       shell.dataset.sceneIntro = 'open';

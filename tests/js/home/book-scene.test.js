@@ -499,6 +499,36 @@ test('startIntro slides the ribbon off, then the cover lands carrying the first 
   assert.equal(endpaper.children.length, 0, 'the copy is removed once the book is open');
 });
 
+test('a render during the swing refreshes the page the cover carries', async () => {
+  const harness = createHarness();
+  const endpaper = harness.cover.querySelector('.book-endpaper');
+  const intro = harness.scene.startIntro();
+  await harness.advance(1500);
+  const firstCopy = endpaper.children[0];
+
+  // A search re-renders the grid mid-swing: the cover now carries the new page.
+  const oldLeft = harness.grid.querySelector('.artifact-page-left');
+  const newLeft = oldLeft.cloneNode();
+  oldLeft.remove();
+  harness.grid.appendChild(newLeft);
+  harness.scene.setPosition({ page: 1, totalPages: 2 });
+  assert.equal(endpaper.children.length, 1, 'the old copy is replaced, not stacked');
+  assert.notEqual(endpaper.children[0], firstCopy);
+  assert.equal(endpaper.children[0].clonedFrom, newLeft);
+  assert.equal(endpaper.children[0].inert, true);
+
+  // No results: the cover lands blank, like the empty page under it.
+  newLeft.remove();
+  harness.scene.setPosition({ page: 1, totalPages: 1 });
+  assert.equal(endpaper.children.length, 0);
+
+  await harness.advance(3000);
+  await intro;
+  harness.grid.appendChild(oldLeft);
+  harness.scene.setPosition({ page: 1, totalPages: 2 });
+  assert.equal(endpaper.children.length, 0, 'once the book is open, renders leave the cover alone');
+});
+
 test('startIntro tolerates a book without a left page or a cover endpaper', async () => {
   const harness = createHarness();
   harness.cover.querySelector('.book-endpaper').remove();
@@ -1082,12 +1112,33 @@ test('a page requested during a drag keeps its selection when the drag completes
   const harness = createHarness({ open: true });
   dragFromRight(harness);
   harness.sheet.dispatch('pointermove', pointer(CENTER_X));
-  void harness.scene.turnPage(4);
+  let commitsWhenSettled = null;
+  const queued = harness.scene.turnPage(4).then(() => {
+    commitsWhenSettled = [...harness.model.commits];
+  });
   harness.sheet.dispatch('pointerup', pointer(CENTER_X));
   await harness.advance(3000);
+  await queued;
 
   assert.deepEqual(harness.model.selects, [4], 'the drag does not select its own, older page');
   assert.deepEqual(harness.model.commits, [2, 4], 'the drag lands, then the queued page');
+  assert.deepEqual(commitsWhenSettled, [2, 4], 'turnPage settles only after the queued page lands');
+});
+
+test('a request made during a drag settles when the drag is cancelled', async () => {
+  const harness = createHarness({ open: true });
+  dragFromRight(harness);
+  let settled = false;
+  const queued = harness.scene.turnPage(3).then(() => {
+    settled = true;
+  });
+  await Promise.resolve();
+  assert.equal(settled, false, 'the request waits for the drag');
+
+  harness.scene.cancelTurn();
+  await queued;
+  assert.equal(settled, true);
+  assert.deepEqual(harness.model.commits, [], 'a cancelled drag drops the queued request too');
 });
 
 test('releasing short of the threshold springs back without changing the page', async () => {
