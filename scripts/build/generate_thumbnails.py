@@ -66,6 +66,21 @@ THUMBNAIL_MANIFEST_ENV_VAR = "ARTIFACTS_THUMBNAIL_MANIFEST"
 THUMBNAIL_SHARD_MANIFEST_ENV_VAR = "ARTIFACTS_THUMBNAIL_SHARD_MANIFEST"
 ThumbnailStatus = Literal["generated", "skipped", "failed"]
 ARTIFACT_BASE_URL = ""
+# Apps that roll random content or show dates relative to today would render a
+# new picture on every capture, so CI would commit a fresh thumbnail each run.
+# Every capture sees the same clock and the same Math.random sequence instead.
+THUMBNAIL_FIXED_TIME = "2026-01-15T12:00:00Z"
+SEEDED_RANDOM_SCRIPT = """
+(() => {
+  let state = 0x2545f491;
+  Math.random = () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  };
+})();
+"""
 
 
 class ThumbnailStats(TypedDict):
@@ -292,6 +307,8 @@ async def _process_artifact(
                 viewport={"width": VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
                 device_scale_factor=2,
             )
+            await page.clock.set_fixed_time(THUMBNAIL_FIXED_TIME)
+            await page.add_init_script(SEEDED_RANDOM_SCRIPT)
             thumb_path = artifact_dir / THUMBNAIL_FILE
             page_url = artifact_url(artifact_dir)
 

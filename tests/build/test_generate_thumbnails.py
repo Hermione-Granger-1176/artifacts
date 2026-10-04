@@ -426,6 +426,17 @@ def test_generate_thumbnails_exits_when_playwright_is_missing(
 # Async fake helpers used by the browser-free thumbnail tests.
 
 
+class FakeClock:
+    """FakeClock."""
+
+    def __init__(self) -> None:
+        self.fixed_time: str | None = None
+
+    async def set_fixed_time(self, time: str) -> None:
+        """Set fixed time."""
+        self.fixed_time = time
+
+
 class FakePage:
     """FakePage."""
 
@@ -442,9 +453,18 @@ class FakePage:
         self._screenshot_bytes = screenshot_bytes
         self._goto_calls = 0
         self.closed = False
+        self.init_scripts: list[str] = []
+        self.clock = FakeClock()
+
+    async def add_init_script(self, script: str) -> None:
+        """Add init script."""
+        self.init_scripts.append(script)
 
     async def goto(self, url: str, wait_until: str, timeout: int) -> None:
         """Goto."""
+        # Every capture pins the clock and Math.random before the page loads.
+        assert self.clock.fixed_time == generate_thumbnails.THUMBNAIL_FIXED_TIME
+        assert self.init_scripts == [generate_thumbnails.SEEDED_RANDOM_SCRIPT]
         assert url.startswith(("file://", "http://127.0.0.1:"))
         assert wait_until == "networkidle"
         assert timeout == 30000
