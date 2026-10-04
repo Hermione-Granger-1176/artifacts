@@ -56,7 +56,10 @@ OSV_RETRY_DELAY_SECONDS = 2
 _COMPARABLE_RANGE_TYPES = frozenset({"SEMVER", "ECOSYSTEM"})
 _KNOWN_RANGE_TYPES = _COMPARABLE_RANGE_TYPES | {"GIT"}
 _EVENT_KINDS = frozenset({"introduced", "fixed", "last_affected", "limit"})
-_SEMVER_PATTERN = re.compile(r"(\d+(?:\.\d+)*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?")
+# One to three release numbers, because OSV allows shorthand such as ``3.5``, then
+# optional dot-separated pre-release and build identifiers that are never empty.
+_IDENTIFIERS = r"[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*"
+_SEMVER_PATTERN = re.compile(rf"(\d+(?:\.\d+){{0,2}})(?:-({_IDENTIFIERS}))?(?:\+{_IDENTIFIERS})?")
 
 # (release numbers, 1 for a release or 0 for a pre-release, pre-release identifiers)
 VersionKey = tuple[tuple[int, ...], int, tuple[tuple[int, int, str], ...]]
@@ -166,21 +169,20 @@ def _version_key(value: object, advisory: object) -> VersionKey:
     pre-release identifiers compare as numbers and sort before alphanumeric
     ones, and a shorter identifier list sorts first. Missing release numbers
     count as zero, so OSV's ``3.5`` orders against ``4.2.1``. Build metadata is
-    ignored. Any other form raises ``ValueError``, including a leading zero in a
-    number, so the audit fails closed instead of guessing an order.
+    ignored. Any other form raises ``ValueError``, including more than three
+    release numbers, a leading zero in a number, and an empty identifier, so the
+    audit fails closed instead of guessing an order.
     """
     match = _SEMVER_PATTERN.fullmatch(value) if isinstance(value, str) else None
     if match is None or _has_leading_zero(match.group(1).split(".")):
         raise ValueError(f"OSV version {value!r} is not a semantic version for {advisory}")
     numbers = [int(part) for part in match.group(1).split(".")]
     numbers.extend([0] * (3 - len(numbers)))
-    while len(numbers) > 3 and numbers[-1] == 0:
-        numbers.pop()
     prerelease = match.group(2)
     if prerelease is None:
         return (tuple(numbers), 1, ())
     identifiers = prerelease.split(".")
-    if "" in identifiers or _has_leading_zero([i for i in identifiers if i.isdecimal()]):
+    if _has_leading_zero([i for i in identifiers if i.isdecimal()]):
         raise ValueError(f"OSV version {value!r} is not a semantic version for {advisory}")
     return (
         tuple(numbers),

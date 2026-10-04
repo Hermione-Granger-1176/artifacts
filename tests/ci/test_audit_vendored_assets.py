@@ -350,7 +350,7 @@ def test_version_key_follows_semver_precedence() -> None:
 def test_version_key_treats_missing_zeros_and_build_metadata_as_equal() -> None:
     """``3.5`` equals ``3.5.0``, and build metadata does not change the order."""
     assert audit._version_key("3.5", "A") == audit._version_key("3.5.0", "A")
-    assert audit._version_key("2", "A") == audit._version_key("2.0.0.0", "A")
+    assert audit._version_key("2", "A") == audit._version_key("2.0.0", "A")
     assert audit._version_key("1.0.0+build.7", "A") == audit._version_key("1.0.0", "A")
 
 
@@ -363,6 +363,11 @@ def test_version_key_treats_missing_zeros_and_build_metadata_as_equal() -> None:
         "1..2",
         "1.0.0-",
         "1.0.0-a..b",
+        "1.0.0-a.",
+        "1.2.3.4",
+        "2.0.0.0",
+        "1.2.3+a..b",
+        "1.2.3+",
         "01.0.0",
         "1.00.0",
         "1.0.0-01",
