@@ -90,18 +90,38 @@ function makeCell(tag, className, text = "") {
   return element;
 }
 
+/**
+ * Give an element its table role, or hide it from assistive technology when
+ * `role` is null. The list is a `<ul role="table">`, so each row and cell needs
+ * a role for screen readers to pair every value with its column header.
+ *
+ * @param {HTMLElement} element
+ * @param {string | null} role
+ * @returns {HTMLElement}
+ */
+function withRole(element, role) {
+  if (role === null) {
+    element.setAttribute("aria-hidden", "true");
+  } else {
+    element.setAttribute("role", role);
+  }
+  return element;
+}
+
 /** @returns {HTMLElement} The static column-label row that heads the list. */
 function createHead() {
-  const head = makeCell("li", "tk-row tk-list-head");
+  const head = withRole(makeCell("li", "tk-row tk-list-head"), "row");
+  // The bar repeats the Odds value, so its column is hidden from screen readers.
+  /** @type {[string, string, string, string | null][]} */
   const labels = [
-    ["tk-token", "Token", "The candidate token"],
-    ["tk-track-label", "After temperature", "Probability after temperature, before the top P cut"],
-    ["tk-odds", "Odds", "Probability after temperature"],
-    ["tk-draw", "Draw", "Chance of being drawn once top P renormalizes the survivors"],
-    ["tk-seen", "Seen", "Times drawn in the last 100 samples"]
+    ["tk-token", "Token", "The candidate token", "columnheader"],
+    ["tk-track-label", "After temperature", "Probability after temperature, before the top P cut", null],
+    ["tk-odds", "Odds", "Probability after temperature", "columnheader"],
+    ["tk-draw", "Draw", "Chance of being drawn once top P renormalizes the survivors", "columnheader"],
+    ["tk-seen", "Seen", "Times drawn in the last 100 samples", "columnheader"]
   ];
-  for (const [className, text, title] of labels) {
-    const cell = makeCell("span", className, text);
+  for (const [className, text, title, role] of labels) {
+    const cell = withRole(makeCell("span", className, text), role);
     cell.title = title;
     head.appendChild(cell);
   }
@@ -110,17 +130,18 @@ function createHead() {
 
 /** @returns {RowParts} One reusable candidate row with every cell in place. */
 function createRowParts() {
-  const item = makeCell("li", "tk-row");
-  const cutLabel = makeCell("span", "tk-cut-label", "top P cut");
+  const item = withRole(makeCell("li", "tk-row"), "row");
+  // A cut row's Draw cell already reads "cut", so the divider label is visual only.
+  const cutLabel = withRole(makeCell("span", "tk-cut-label", "top P cut"), null);
   cutLabel.hidden = true;
-  const token = makeCell("span", "tk-token");
-  const track = makeCell("span", "tk-track");
+  const token = withRole(makeCell("span", "tk-token"), "cell");
+  const track = withRole(makeCell("span", "tk-track"), null);
   const fill = makeCell("span", "tk-fill");
   const seenFill = makeCell("span", "tk-seen-fill");
   track.append(fill, seenFill);
-  const odds = makeCell("span", "tk-odds");
-  const draw = makeCell("span", "tk-draw");
-  const seen = makeCell("span", "tk-seen");
+  const odds = withRole(makeCell("span", "tk-odds"), "cell");
+  const draw = withRole(makeCell("span", "tk-draw"), "cell");
+  const seen = withRole(makeCell("span", "tk-seen"), "cell");
   item.append(cutLabel, token, track, odds, draw, seen);
   return { cutLabel, draw, fill, item, odds, seen, seenFill, token };
 }
@@ -136,7 +157,7 @@ function updateRowParts(parts, row) {
   parts.cutLabel.hidden = !row.startsCut;
   parts.token.textContent = row.word;
   parts.token.title = row.word;
-  parts.fill.style.width = `${Math.max(row.oddsPercent, MIN_BAR_PERCENT)}%`;
+  parts.fill.style.width = `${row.oddsPercent > 0 ? Math.max(row.oddsPercent, MIN_BAR_PERCENT) : 0}%`;
   parts.seenFill.style.width = `${row.seenPercent}%`;
   parts.odds.textContent = formatPercent(row.oddsPercent);
   parts.draw.textContent = row.drawPercent === null ? "cut" : formatPercent(row.drawPercent);

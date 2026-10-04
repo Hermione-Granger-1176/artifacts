@@ -356,15 +356,40 @@ test('renderDistribution keeps a tiny probability visible and handles an empty t
       elements,
       makeDistributionState({
         sampleCounts: new Map(),
-        sorted: [{ adjustedProb: 1, idx: 0, prob: 0, word: 'only' }],
+        sorted: [
+          { adjustedProb: 1, idx: 0, prob: 0.00001, word: 'only' },
+          { adjustedProb: 0, idx: 1, prob: 0, word: 'never' }
+        ],
         inTopP: new Set([0]),
         topTokens: [{ adjustedProb: 1, idx: 0, word: 'only' }]
       })
     );
-    const row = elements.candidateList.children[1];
-    assert.equal(row.children[2].children[0].style.width, '0.5%');
-    assert.equal(row.children[2].children[1].style.width, '0%');
-    assert.equal(row.children[5].textContent, '0');
+    const [, tiny, zero] = elements.candidateList.children;
+    assert.equal(tiny.children[2].children[0].style.width, '0.5%');
+    assert.equal(tiny.children[2].children[1].style.width, '0%');
+    assert.equal(tiny.children[5].textContent, '0');
+    // A zero probability (greedy decoding at temperature 0) draws no bar at all.
+    assert.equal(zero.children[2].children[0].style.width, '0%');
+  } finally {
+    restoreDocument(mocks);
+  }
+});
+
+test('renderDistribution gives the candidate list table roles for screen readers', () => {
+  const mocks = setupDocumentMock();
+  try {
+    const elements = makeDistributionElements();
+    renderDistribution(elements, makeDistributionState());
+    const [head, row] = elements.candidateList.children;
+    const roles = (element) => element.children.map((cell) => cell.getAttribute('role'));
+    const hidden = (element) => element.children.map((cell) => cell.getAttribute('aria-hidden'));
+
+    assert.equal(head.getAttribute('role'), 'row');
+    assert.deepEqual(roles(head), ['columnheader', null, 'columnheader', 'columnheader', 'columnheader']);
+    assert.deepEqual(hidden(head), [null, 'true', null, null, null]);
+    assert.equal(row.getAttribute('role'), 'row');
+    assert.deepEqual(roles(row), [null, 'cell', null, 'cell', 'cell', 'cell']);
+    assert.deepEqual(hidden(row), ['true', null, 'true', null, null, null]);
   } finally {
     restoreDocument(mocks);
   }

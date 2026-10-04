@@ -21,7 +21,7 @@
   - exports `softmax()`, greedy decoding at temperature zero, top-p selection, renormalized draws, and tally aggregation
 - `js/modules/candidates.js`
   - `buildCandidateRows()` turns the sorted distribution into display rows (shaped odds, renormalized draw chance, cut flag, observed count)
-  - `renderCandidateList()` owns the `<ul>` rows. Rows are created once and updated in place, and re-inserted only when the order changes, so bar widths can transition on slider moves
+  - `renderCandidateList()` owns the `<ul>` rows. Rows are created once and updated in place, and re-inserted only when the order changes, so bar widths can transition on slider moves. The list carries ARIA table roles so screen readers pair each value with its Token, Odds, Draw, or Seen header. The bars and the "top P cut" divider are hidden from screen readers because the Odds and Draw cells already carry the same values
 - `js/modules/token-examples.js`
   - exports static illustrative token chunks, count and whitespace-display helpers, and `splitPromptTokens()` for the prompt chips
 - `js/modules/render.js`
