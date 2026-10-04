@@ -31,15 +31,20 @@ These targets check source types, test results, coverage, and unused code:
 - `make test-ci-workflows` runs narrow contract tests against `.github/workflows/*.yml` so local and CI checks can catch workflow-structure drift early.
 - `make test-js` covers the grouped Node suites under `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, `tests/js/tooling/`, and `tests/js/workflows/`.
 - `make coverage-js` uses Node's built-in experimental coverage output and enforces the current baseline gate of 95% lines, 85% branches, and 95% functions across all source files imported by the grouped `tests/js/` suites. Coverage excludes `node_modules/` and `tests/`; thresholds and exclusions are configured in `package.json`.
+- `make coverage-js-floors` checks per-file JS coverage floors using the LCOV output from `make coverage-js`. If the report is missing, it reruns coverage.
+
 ## Dependency audits
 
 The dependency audit targets use the shared policy:
 
 - `make security` runs `make audit-python` and then `make audit-node`.
-- `make audit-python` exports the frozen uv graph and checks it with pip-audit. It matches reviewed exceptions in `config/security_audit.json` by package and vulnerability ID or alias. Expired, unused, or fixable exceptions fail the check.
-- `make audit-node` checks npm advisories through `scripts/ci/run_npm_audit.py`. It matches `npm_vulnerability_exceptions` by advisory ID and rejects expired or unused exceptions.
+- `make audit-python` exports the frozen uv graph and checks it with pip-audit. It matches reviewed exceptions in `config/security_audit.json` by both package name and vulnerability ID or alias. Expired and unused exceptions fail the check.
+- `make audit-node` checks npm advisories through `scripts/ci/run_npm_audit.py`. It matches `npm_vulnerability_exceptions` by both package name and advisory ID or alias and rejects expired or unused exceptions.
+
+For both audits, a matching finding with a fix invalidates an exception only when `ignore_only_without_fix` is `true`. The flag defaults to `false`. The current npm exception explicitly uses `false`.
 
 Gitleaks and GitHub dependency review run only in CI. The repository does not install those scanners for local checks.
+
 ## Generated files and browser checks
 
 These targets check generated output and browser behavior:
@@ -47,12 +52,14 @@ These targets check generated output and browser behavior:
 - `make check-generated` reruns the stylesheet and index generators in a restore-safe mode and fails if `css/style.css`, generated README markers, `js/data.js`, or `js/gallery-config.js` would drift from tracked source inputs.
 - Playwright browser suites check both the built root gallery and mature app pages through `make test-browser`, while CI scopes mature app suites per shard with `ARTIFACTS_BROWSER_APP_MANIFEST` (set by `make test-browser-apps-shard`). Locally, `ARTIFACTS_BROWSER_APP_SLUGS` narrows `make test-browser-apps` to specific slugs.
 - `make test-browser-live` verifies an already-published site in a real browser when `ARTIFACTS_LIVE_SITE_URL` is set, and CI captures failure screenshots, traces, and logs through `ARTIFACTS_BROWSER_ARTIFACT_DIR`.
+
 ## Scheduled monitoring
 
 The monitoring workflows report failures through issues:
 
 - Scheduled CI monitoring uses GitHub-native issue alerts: `.github/workflows/audit-repo-settings.yml` opens or closes a single repository-settings drift issue, and `.github/workflows/live-site-smoke.yml` opens or closes a single live-site smoke issue.
 - `.github/workflows/schedule-watchdog.yml` runs on pushes to `main` and manual dispatch. It discovers YAML workflows declaring cron schedules and checks their enabled state. It does not query run history or infer failures from run age. An active workflow that stops firing is outside this check. Smoke tests keep their own failure and recovery alerts. The existing watchdog alert title is retained so healthy runs can close previously opened issues.
+
 ## Aggregate and scoped gates
 
 These targets combine checks or select a narrower scope:

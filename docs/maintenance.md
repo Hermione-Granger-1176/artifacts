@@ -41,7 +41,7 @@ Scheduled `refresh-locks.yml` updates use maintenance PRs instead of direct comm
 
 ## Check stricter rules
 
-After changing lint, type, dead-code, format, or coverage rules, run `make lint`, `make typecheck`, `make dead-code`, `make format-check`, and `make test-py`. Add focused tests for new branches or exceptions.
+After changing lint, type, dead-code, format, or coverage rules, run `make lint`, `make typecheck`, `make dead-code`, `make format-check`, `make test-py`, `make coverage-js`, and `make coverage-js-floors`. Add focused tests for new branches or exceptions.
 
 ## Review repository settings
 
