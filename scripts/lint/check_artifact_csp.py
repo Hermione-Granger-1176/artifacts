@@ -219,15 +219,25 @@ def _extract_csp_policy(html: str) -> str | None:
     return parser.policy
 
 
-def _parse_csp_directives(policy: str) -> dict[str, list[str]]:
-    """Parse a CSP policy string into a directive-to-sources mapping."""
+def _parse_csp_directives(policy: str) -> tuple[dict[str, list[str]], list[str]]:
+    """Parse a CSP policy into a directive-to-sources mapping and its repeated names.
+
+    Browsers ignore every copy of a directive after the first, so the mapping
+    keeps the first copy. A repeated name is also returned, because a later
+    copy that looks strict would otherwise hide a permissive first one.
+    """
     directives: dict[str, list[str]] = {}
+    repeated: list[str] = []
     for chunk in policy.split(";"):
         tokens = chunk.split()
         if not tokens:
             continue
-        directives[tokens[0].lower()] = tokens[1:]
-    return directives
+        name = tokens[0].lower()
+        if name not in directives:
+            directives[name] = tokens[1:]
+        elif name not in repeated:
+            repeated.append(name)
+    return directives, repeated
 
 
 def _directive_has_only_allowed_sources(
@@ -259,7 +269,12 @@ def _csp_violations(
             "before resource-capable markup"
         )
 
-    directives = _parse_csp_directives(policy)
+    directives, repeated = _parse_csp_directives(policy)
+    violations.extend(
+        f"{display_path}: Content-Security-Policy repeats the {name} directive, "
+        "and browsers ignore every copy after the first"
+        for name in repeated
+    )
 
     default_src = directives.get("default-src")
     if default_src is None:

@@ -363,6 +363,33 @@ def test_check_page_flags_missing_both_directives(tmp_path: Path) -> None:
     assert not any("script-src" in message for message in violations)
 
 
+def test_check_page_flags_a_repeated_directive_that_hides_a_permissive_first_copy(
+    tmp_path: Path,
+) -> None:
+    """A strict second object-src cannot hide a permissive first one."""
+    path = _write_page(tmp_path, "demo", _page(csp=f"object-src *; {_GOOD_CSP}"))
+    violations = check_page(path, display_path="apps/demo/index.html")
+
+    assert (
+        "apps/demo/index.html: object-src must be restricted to 'none' (found: object-src *)"
+        in violations
+    )
+    assert (
+        "apps/demo/index.html: Content-Security-Policy repeats the object-src directive, "
+        "and browsers ignore every copy after the first"
+    ) in violations
+
+
+def test_check_page_flags_repeated_directives_once_and_ignores_name_case(tmp_path: Path) -> None:
+    """A name repeated three times, or in another case, is reported once."""
+    csp = f"{_GOOD_CSP}; Default-Src 'self'; default-src 'self'"
+    path = _write_page(tmp_path, "demo", _page(csp=csp))
+    violations = check_page(path, display_path="apps/demo/index.html")
+
+    repeats = [message for message in violations if "repeats the default-src" in message]
+    assert len(repeats) == 1
+
+
 def test_check_page_flags_external_script_src(tmp_path: Path) -> None:
     """Check page flags external script src."""
     head = '  <script src="https://cdn.example.com/lib.js"></script>\n'
