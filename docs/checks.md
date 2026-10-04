@@ -70,4 +70,4 @@ These targets combine checks or select a narrower scope:
 - `make test-browser-apps-smoke`, `make test-browser-apps-accessibility`, and `make test-browser-apps-flows` let you run the mature app Playwright suites separately while preserving `make test-browser-apps` as the aggregate app gate.
 - `make check-web` is the browser-only gate for the aggregate root and app browser suites and thumbnails.
 - `make validate` fails if a top-level artifact directory is missing `index.html` or `name.txt`, has an empty `name.txt`, or uses a non-kebab-case directory name.
-- Coverage policy is configured in `pyproject.toml`.
+- Python coverage policy is configured in `pyproject.toml`. Aggregate JavaScript coverage thresholds and exclusions are configured in `package.json`. Per-file JavaScript coverage floors are defined in `scripts/lint/check-js-coverage-floors.mjs`.
