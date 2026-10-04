@@ -108,6 +108,8 @@ test('document types are unique and labelled', () => {
 
   for (const type of DOCUMENT_TYPES) {
     assert.ok(type.label.length > 0);
+    // The toolbar pills show the short name and keep the full one as a tooltip.
+    assert.ok(type.short.length > 0 && type.short.length <= type.label.length, `${type.id} short label`);
   }
 });
 

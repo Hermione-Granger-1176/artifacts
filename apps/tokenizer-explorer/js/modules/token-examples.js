@@ -68,3 +68,14 @@ export function formatTokenForDisplay(token, showWhitespace) {
   }
   return token.replace(/^ +/, (spaces) => "·".repeat(spaces.length));
 }
+
+/**
+ * Split a scenario prompt into illustrative tokens: one per word, each word
+ * after the first keeping its leading space the way BPE vocabularies do.
+ *
+ * @param {string} prefix
+ * @returns {string[]}
+ */
+export function splitPromptTokens(prefix) {
+  return prefix.split(/(?= )/);
+}

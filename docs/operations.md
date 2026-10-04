@@ -151,7 +151,7 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
 - Three apps vendor libraries, with `config/vendored_assets.json` as the authoritative inventory:
   - `apps/loan-amortization/js/vendor/`: Chart.js `4.4.1`, `chartjs-plugin-annotation` `3.0.1`, `chartjs-plugin-datalabels` `2.2.0`
   - `apps/bond-price-vs-rate/js/vendor/`: Chart.js `4.4.1`
-  - `apps/tokenizer-explorer/js/vendor/`: Chart.js `4.4.1`
+  - `apps/vendor-docs-generator/js/vendor/`: jsPDF `2.5.1`, `jspdf-autotable` `3.8.2`, html2canvas `1.4.1`, JSZip `3.10.1`
 - Versions are pinned and upgraded manually for stability. To upgrade, download the new UMD builds from the recorded `upstream` URLs (jsDelivr), replace the files in `js/vendor/`, update the matching `version`, `upstream`, and `sha256` entries in `config/vendored_assets.json`, and rerun the browser suites.
 - `make lint-vendored-assets` enforces the manifest: every vendored file must be listed in `config/vendored_assets.json` and match its recorded SHA-256.
 - Vendored directories are excluded from ESLint (`**/vendor/**` in `config/eslint.config.js`) and lint checks (`vendor` in `scripts/lint/__init__.py` `SKIP_DIRECTORIES`).
@@ -237,7 +237,7 @@ Use this on a brand-new fork or clone that has never deployed, or after `gh-page
 
 ### Vendored dependency update
 
-1. Download the new UMD builds from the `upstream` URLs recorded in `config/vendored_assets.json` into the exact `path` recorded for each affected entry. Multiple apps vendor assets (`loan-amortization`, `bond-price-vs-rate`, and `tokenizer-explorer` all vendor Chart.js, and `loan-amortization` also vendors the annotation and datalabels plugins), so update every entry that references the bumped package.
+1. Download the new UMD builds from the `upstream` URLs recorded in `config/vendored_assets.json` into the exact `path` recorded for each affected entry. Multiple apps vendor assets (`loan-amortization` and `bond-price-vs-rate` both vendor Chart.js, and `loan-amortization` also vendors the annotation and datalabels plugins), so update every entry that references the bumped package.
 2. Update the `version`, `upstream`, and `sha256` fields for every affected entry in `config/vendored_assets.json` so `make lint-vendored-assets` passes.
 3. Update the version numbers in each affected app's docs (for example `apps/loan-amortization/docs/decisions.md`) and README.
 4. Run browser suites before publishing.

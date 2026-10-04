@@ -20,7 +20,11 @@ import {
   parseNumber
 } from '../../../../js/modules/formatting.js';
 import { escapeAttribute } from '../../../../js/modules/html-escape.js';
-import { buildMetricsMarkup, renderMetrics } from '../../../../apps/loan-amortization/js/modules/metrics.js';
+import {
+  buildMetricsMarkup,
+  formatPeriodsAsDuration,
+  renderMetrics
+} from '../../../../apps/loan-amortization/js/modules/metrics.js';
 import {
   getBiweeklyEmiOverride,
   getFrequencyParams,
@@ -174,44 +178,83 @@ test('summarizeScheduleRows totals EMI, principal, interest, and extras', () => 
   });
 });
 
-test('buildMetricsMarkup renders savings and escapes tooltip content', () => {
+test('buildMetricsMarkup promotes the EMI to the hero and keeps the other metrics', () => {
   const markup = buildMetricsMarkup(
     {
       base: { emi: 300, totalInterest: 5000 },
-      extra: { totalInterest: 4200, periods: 18, breakEven: 9 },
+      extra: { totalInterest: 4200, totalExtra: 6000, periods: 18, breakEven: 9 },
       savings: 800,
       periodsSaved: 2,
       totalPaid: 54200,
       costRatio: 1.084,
-      label: 'Month'
+      label: 'Month',
+      periodsPerYear: 12
     },
     (value) => `$${value}`
   );
 
-  assert.match(markup, /Monthly EMI/);
-  assert.match(markup, /Save \$800/);
+  assert.match(markup, /class="loan-hero-value">\$300</);
+  assert.equal(markup.match(/Monthly EMI/g)?.length, 1);
+  assert.match(markup, /Plus \$6000 in extra payments over the loan/);
+  assert.match(markup, /Saves \$800 \u00b7 2m sooner/);
+  assert.match(markup, /Total interest/);
+  assert.match(markup, /Without extras: \$5000/);
+  assert.match(markup, /Payoff in/);
+  assert.match(markup, /2 earlier than without extras/);
+  assert.match(markup, /Total paid/);
   assert.match(markup, /Break-even/);
   assert.doesNotMatch(markup, /EMI \+ extras\) >=/);
   assert.match(markup, /EMI \+ extras\) &gt;= interest/);
+  assert.match(markup, /class="info-tip is-start"/);
 });
 
-test('buildMetricsMarkup omits savings and periods-saved pills when zero', () => {
+test('buildMetricsMarkup omits the savings chip and extras sub-line when there are no extras', () => {
   const markup = buildMetricsMarkup(
     {
       base: { emi: 300, totalInterest: 5000 },
-      extra: { totalInterest: 5000, periods: 20, breakEven: null },
+      extra: { totalInterest: 5000, totalExtra: 0, periods: 20, breakEven: null },
       savings: 0,
       periodsSaved: 0,
       totalPaid: 55000,
       costRatio: 1.1,
-      label: 'Week'
+      label: 'Week',
+      periodsPerYear: 52
     },
     (value) => `$${value}`
   );
 
-  assert.doesNotMatch(markup, /savings-pill/);
+  assert.doesNotMatch(markup, /chip/);
+  assert.doesNotMatch(markup, /extra payments over the loan/);
+  assert.match(markup, /Fixed payment, no extras/);
+  assert.match(markup, /Until the loan is repaid/);
   assert.match(markup, /N\/A/);
   assert.match(markup, /Weekly EMI/);
+});
+
+test('buildMetricsMarkup chip shows only the part that applies', () => {
+  const base = {
+    base: { emi: 300, totalInterest: 5000 },
+    extra: { totalInterest: 4990, totalExtra: 100, periods: 20, breakEven: 3 },
+    totalPaid: 55000,
+    costRatio: 1.1,
+    label: 'Month',
+    periodsPerYear: 12
+  };
+  const formatter = (value) => `$${value}`;
+
+  const timeOnly = buildMetricsMarkup({ ...base, savings: 0.5, periodsSaved: 14 }, formatter);
+  assert.match(timeOnly, /<span class="chip is-green">1y 2m sooner<\/span>/);
+
+  const moneyOnly = buildMetricsMarkup({ ...base, savings: 10, periodsSaved: 0 }, formatter);
+  assert.match(moneyOnly, /<span class="chip is-green">Saves \$10<\/span>/);
+});
+
+test('formatPeriodsAsDuration converts periods to years and months', () => {
+  assert.equal(formatPeriodsAsDuration(30, 12), '2y 6m');
+  assert.equal(formatPeriodsAsDuration(24, 12), '2y');
+  assert.equal(formatPeriodsAsDuration(5, 12), '5m');
+  assert.equal(formatPeriodsAsDuration(26, 26), '1y');
+  assert.equal(formatPeriodsAsDuration(1, 52), 'under 1m');
 });
 
 test('renderMetrics sets container innerHTML', () => {
@@ -220,12 +263,13 @@ test('renderMetrics sets container innerHTML', () => {
     container,
     {
       base: { emi: 500, totalInterest: 8000 },
-      extra: { totalInterest: 7000, periods: 24, breakEven: 10 },
+      extra: { totalInterest: 7000, totalExtra: 0, periods: 24, breakEven: 10 },
       savings: 1000,
       periodsSaved: 3,
       totalPaid: 67000,
       costRatio: 1.12,
-      label: 'Month'
+      label: 'Month',
+      periodsPerYear: 12
     },
     (value) => `$${value}`
   );
@@ -345,6 +389,16 @@ test('renderExtras builds recurring and one-time DOM elements', () => {
   assert.match(children[0].innerHTML, /data-field="amount"/);
   assert.match(children[1].innerHTML, /One-time/);
   assert.match(children[1].innerHTML, /data-field="period"/);
+  assert.match(children[0].innerHTML, /class="btn-remove"/);
+  assert.match(children[0].innerHTML, /class="extra-summary">Pays \$500 every Month starting from Month 1</);
+  assert.match(children[0].innerHTML, /data-field="every"/);
+  assert.match(children[0].innerHTML, /data-field="startPeriod"/);
+  assert.match(children[1].innerHTML, /extra-fields is-onetime/);
+  assert.match(children[1].innerHTML, /One-time payment of \$2,000 at Month 6/);
+  assert.doesNotMatch(children[1].innerHTML, /info-tip/);
+  assert.equal(children[0].innerHTML.match(/<svg class="loan-icon"/g)?.length, 2);
+  assert.match(children[0].innerHTML, /<\/svg>Recurring/);
+  assert.match(children[1].innerHTML, /<\/svg>One-time/);
 
   // Restore
   if (origCreate) {

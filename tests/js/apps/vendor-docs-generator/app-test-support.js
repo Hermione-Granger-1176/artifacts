@@ -12,47 +12,47 @@ import { createFakeCanvas, createFakeHtml2Canvas, createFakeJsPdf, createFakeJsZ
 
 const ELEMENT_IDS = [
   'vdVendor',
+  'vdVendorSwatch',
   'vdDocType',
-  'vdPdfMode',
-  'vdBatchFormat',
+  'vdDocTypeSelect',
+  'vdLayout',
+  'vdMode',
+  'vdInclude',
+  'vdBatchOptions',
   'vdBatchCount',
   'vdBatchCountOut',
-  'vdAllTypes',
-  'vdAllVendors',
+  'vdDegradePreset',
+  'vdDegradeNote',
+  'vdKnobs',
+  'vdPair',
+  'vdPairLabel',
+  'vdLabels',
+  'vdLabelsNote',
+  'vdFormat',
+  'vdFormatJson',
+  'vdPdfMode',
+  'vdPdfModeField',
   'vdPaper',
   'vdPaperScale',
   'vdPaperFrame',
-  'vdLayout',
-  'vdLayoutNote',
   'vdZoomLevel',
   'vdFullOpen',
   'vdFullClose',
   'vdFullscreen',
   'vdFullscreenBody',
   'vdFullCaption',
-  'vdChipVendor',
-  'vdChipType',
+  'vdCaptionVendor',
+  'vdCaptionType',
+  'vdCaptionScan',
   'vdChipSeed',
   'vdProgress',
   'vdProgressFill',
   'vdBatchStatus',
-  'vdBatchEstimate',
+  'vdEstimate',
   'vdGenerate',
-  'vdDownloadPdf',
-  'vdDownloadPng',
   'vdDownloadJson',
-  'vdGroundTruth',
-  'vdBoxes',
-  'vdWordBoxes',
-  'vdWordBoxesLabel',
-  'vdGroundTruthNote',
-  'vdDegradePreset',
-  'vdDegradeNote',
-  'vdKnobs',
-  'vdPair',
-  'vdPairLabel',
   'vdPreviewScan',
-  'vdBatch',
+  'vdExport',
   'vdBatchStop'
 ];
 
@@ -77,6 +77,38 @@ function makeToggleButton(id, attribute, value, active) {
 }
 
 /**
+ * Fill a segmented container with buttons, the way index.html ships them, and
+ * make the container find them the way `querySelectorAll('button')` would.
+ * @param {Record<string, any>} container - The segmented container.
+ * @param {string} attribute - Data attribute carrying each value.
+ * @param {string[]} values - One button per value.
+ * @param {string} [active] - Value that starts active.
+ * @returns {Record<string, any>[]} The buttons.
+ */
+function fillToggle(container, attribute, values, active) {
+  const buttons = values.map((value) => makeToggleButton(`${container.id}-${value}`, attribute, value, value === active));
+
+  for (const button of buttons) {
+    container.appendChild(button);
+  }
+
+  container.querySelectorAll = () => container.children;
+  return buttons;
+}
+
+/**
+ * Click the button of a segmented control that carries a value.
+ * @param {Record<string, any>} container - The segmented container.
+ * @param {string} attribute - Data attribute carrying each value.
+ * @param {string} value - Value to choose.
+ * @returns {void}
+ */
+export function choose(container, attribute, value) {
+  const button = container.children.find((candidate) => candidate.getAttribute(attribute) === value);
+  fire(button, 'click');
+}
+
+/**
  * Install every mock the app entry point needs.
  * @returns {Record<string, any>} Element handles and library fakes.
  */
@@ -88,12 +120,17 @@ export function setupAppMocks() {
     elementMap[id] = makeElement(id);
   }
 
-  const layoutButtons = [
-    makeToggleButton('vdLayoutClean', 'data-style', 'clean', true),
-    makeToggleButton('vdLayoutDense', 'data-style', 'dense', false)
-  ];
-
-  elementMap.vdLayout.querySelectorAll = () => layoutButtons;
+  // The statically authored segmented controls. The type pills and the preset
+  // row are built by app.js from its data tables, so they start empty.
+  const layoutButtons = fillToggle(elementMap.vdLayout, 'data-style', ['clean', 'dense'], 'clean');
+  fillToggle(elementMap.vdMode, 'data-mode', ['page', 'batch'], 'page');
+  fillToggle(elementMap.vdInclude, 'data-include', ['combo', 'types', 'vendors', 'all'], 'combo');
+  fillToggle(elementMap.vdLabels, 'data-labels', ['none', 'json', 'fields', 'words'], 'json');
+  const formatButtons = fillToggle(elementMap.vdFormat, 'data-format', ['pdf', 'png', 'both', 'json'], 'pdf');
+  fillToggle(elementMap.vdPdfMode, 'data-pdf-mode', ['text', 'image'], 'text');
+  elementMap.vdFormatJson = formatButtons[3];
+  elementMap.vdDocType.querySelectorAll = () => elementMap.vdDocType.children;
+  elementMap.vdDegradePreset.querySelectorAll = () => elementMap.vdDegradePreset.children;
 
   // A <dialog> stand-in: showModal/close flip `open` and close() notifies its
   // listeners the way the real element does for both the button and Escape.
@@ -111,30 +148,22 @@ export function setupAppMocks() {
   };
   // Mirror the labels index.html ships, since the busy-state handling swaps
   // them out and puts them back.
-  elementMap.vdGenerate.textContent = 'Generate new document';
-  elementMap.vdDownloadPdf.textContent = 'Download PDF';
-  elementMap.vdDownloadPng.textContent = 'Download PNG';
-  elementMap.vdDownloadJson.textContent = 'Download ground truth JSON';
+  elementMap.vdGenerate.textContent = 'New document';
+  elementMap.vdDownloadJson.textContent = 'Download JSON only';
   elementMap.vdPreviewScan.textContent = 'Preview scan';
-  elementMap.vdBatch.textContent = 'Generate batch as ZIP';
+  elementMap.vdExport.textContent = 'Download';
   elementMap.vdBatchStop.textContent = 'Stop and keep what is done';
   elementMap.vdPair.checked = false;
 
-  // index.html ships the meter and the stop button with a `hidden` attribute;
-  // the mock has no markup to read it from, so the initial state is mirrored
-  // here.
+  // index.html ships these with a `hidden` attribute; the mock has no markup to
+  // read it from, so the initial state is mirrored here.
   elementMap.vdProgress.hidden = true;
+  elementMap.vdBatchStatus.hidden = true;
   elementMap.vdBatchStop.hidden = true;
+  elementMap.vdBatchOptions.hidden = true;
+  elementMap.vdFormatJson.hidden = true;
+  elementMap.vdPairLabel.hidden = true;
   elementMap.vdBatchCount.value = '2';
-  elementMap.vdPdfMode.value = 'text';
-  elementMap.vdBatchFormat.value = 'pdf';
-  elementMap.vdAllTypes.checked = false;
-  elementMap.vdAllVendors.checked = false;
-  // index.html ships ground truth on and both box modes off, which is the
-  // "labels but no geometry" default the app opens in.
-  elementMap.vdGroundTruth.checked = true;
-  elementMap.vdBoxes.checked = false;
-  elementMap.vdWordBoxes.checked = false;
   // The paper stands in for a laid-out A4 page so the box collector has real
   // geometry to normalise against.
   elementMap.vdPaper.offsetWidth = 794;

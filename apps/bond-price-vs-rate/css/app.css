@@ -1,109 +1,91 @@
 /*
  * Bonds vs interest rates app styles.
  *
- * Shared surfaces, controls, and feedback (stat tiles, chips, meters, segmented
- * toggles, callout tones, and section kickers) live in css/style.css. This file
- * holds only this explainer's layout: the hero stage with its three-slider
- * control panel, the price-rate curve, the coupon-vs-market and price-split
- * comparison rows, the sensitivity chart, the CSS-built pricing formula and its
- * worked cash-flow table, the yield-curve apply action, and the ripple cards.
+ * Shared surfaces, controls, and feedback (cards, control fields, stat tiles,
+ * chips, meters, segmented toggles, callouts, and section kickers) live in
+ * css/style.css. This file holds only this explainer's layout: a pinned left
+ * rail (price, price-rate curve, three sliders) beside a column of numbered
+ * story chapters, the CSS-built pricing formula and its worked cash-flow table,
+ * the coupon-vs-market and price-split comparison rows, the yield-curve apply
+ * action, and the ripple cards.
+ *
  * Every selector is scoped under body.app-bond-price-vs-rate and every color
  * derives from the shared design tokens (var() or a color-mix() over them);
  * literal color definitions belong in css/src/, never here.
  */
 
-body.app-bond-price-vs-rate .page-section {
-  margin-bottom: 2rem;
+body.app-bond-price-vs-rate {
+  --br-rail-width: 352px;
+
+  /*
+   * One height for every button and segmented control in the story. The
+   * segmented track is 1px border and 4px padding either side, so its buttons
+   * are 10px shorter than the track they sit in.
+   */
+  --br-control-height: 2.5rem;
+  --br-segment-height: calc(var(--br-control-height) - 10px);
+  --br-badge-size: 1.75rem;
 }
 
-body.app-bond-price-vs-rate .control-copy {
-  margin-top: var(--space-2);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  line-height: 1.55;
+/* ── Page shell ───────────────────────────────────────────────────── */
+
+/*
+ * A rail beside a story needs more than the shared 1000px shell, so this app
+ * widens its own. The header widens with it so the two keep one left edge. The
+ * shared 700px rule has the same specificity as the rule below, so it is
+ * restated at the bottom.
+ */
+
+body.app-bond-price-vs-rate .page-shell,
+body.app-bond-price-vs-rate .app-header-inner {
+  width: min(100% - 2rem, 1200px);
 }
 
-body.app-bond-price-vs-rate .br-explain {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-md);
-  line-height: 1.7;
+body.app-bond-price-vs-rate .page-intro {
+  margin-bottom: var(--space-6);
 }
 
-body.app-bond-price-vs-rate .br-section > p {
-  color: var(--color-text-secondary);
-  line-height: 1.7;
+body.app-bond-price-vs-rate .page-lede {
+  max-width: 72ch;
 }
 
-/* Shared slider head: label on the left, live value on the right. */
+/* ── Two columns on the normal page scroll ────────────────────────── */
 
-body.app-bond-price-vs-rate .br-rate-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-body.app-bond-price-vs-rate .br-rate-label {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-control);
-  font-weight: 600;
-}
-
-body.app-bond-price-vs-rate .br-rate-value {
-  color: var(--color-text-heading);
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Hero stage. */
-
-body.app-bond-price-vs-rate .br-hero {
+body.app-bond-price-vs-rate .br-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: var(--br-rail-width) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-8);
+}
+
+/*
+ * The rail pins while the story scrolls past. If a short window cannot hold it
+ * whole, it scrolls inside itself rather than letting the sliders fall off the
+ * bottom of the screen.
+ */
+
+body.app-bond-price-vs-rate .br-rail {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  max-height: calc(100vh - var(--space-8));
+  flex-direction: column;
   gap: var(--space-4);
-  align-items: stretch;
+  padding: var(--space-5);
+  overflow-y: auto;
 }
 
-body.app-bond-price-vs-rate .br-stage {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  padding: 1.5rem;
+body.app-bond-price-vs-rate .br-rail > * + * {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
 }
 
-/* All three sliders live in one panel, separated by hairlines. */
-
-body.app-bond-price-vs-rate .br-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-body.app-bond-price-vs-rate .br-control + .br-control {
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-border-subtle);
-}
-
-body.app-bond-price-vs-rate .br-outcome {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--color-border-subtle);
-}
-
-/* align-items keeps the shared .chip regime badge at pill width instead of
-   stretching to fill this column; the text children are unaffected. */
+/* align-items keeps the shared .chip regime badge at pill width. */
 body.app-bond-price-vs-rate .br-price-block {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.4rem;
+  gap: var(--space-2);
 }
 
 body.app-bond-price-vs-rate .br-price-caption {
@@ -113,24 +95,225 @@ body.app-bond-price-vs-rate .br-price-caption {
 
 body.app-bond-price-vs-rate .br-price {
   color: var(--color-text-heading);
-  font-size: clamp(2.5rem, 6vw, 3.75rem);
+  font-size: 2.75rem;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
-/* Seesaw: the rate and price arrows point opposite ways. */
+body.app-bond-price-vs-rate .br-rail-curve .section-kicker {
+  margin-bottom: var(--space-2);
+}
+
+body.app-bond-price-vs-rate .chart-frame.is-rail {
+  height: 200px;
+}
+
+body.app-bond-price-vs-rate .br-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+body.app-bond-price-vs-rate .br-field .range-input {
+  height: var(--space-5);
+  margin: 0;
+  cursor: pointer;
+}
+
+body.app-bond-price-vs-rate .br-field .control-field-note {
+  margin-top: var(--space-1);
+}
+
+/* The readout flashes when the apply button moves the slider for the reader. */
+
+body.app-bond-price-vs-rate .br-field output {
+  border-radius: var(--radius-xs);
+}
+
+body.app-bond-price-vs-rate .br-field output.is-nudged {
+  animation: br-nudge 900ms ease-out;
+}
+
+@keyframes br-nudge {
+  from {
+    background: color-mix(in srgb, var(--color-blue) 24%, transparent);
+  }
+
+  to {
+    background: transparent;
+  }
+}
+
+/* ── Numbered chapters ────────────────────────────────────────────── */
+
+body.app-bond-price-vs-rate .br-story {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+body.app-bond-price-vs-rate .br-chapter {
+  display: grid;
+  grid-template-columns: var(--br-badge-size) minmax(0, 1fr);
+  gap: var(--space-4);
+  padding: var(--space-8) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+body.app-bond-price-vs-rate .br-chapter:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+body.app-bond-price-vs-rate .br-chapter-num {
+  display: grid;
+  width: var(--br-badge-size);
+  height: var(--br-badge-size);
+  place-items: center;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 50%;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-control);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+body.app-bond-price-vs-rate .br-chapter.is-current .br-chapter-num {
+  border-color: transparent;
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+body.app-bond-price-vs-rate .br-chapter-num {
+  transition:
+    background var(--transition-fast) ease,
+    color var(--transition-fast) ease,
+    border-color var(--transition-fast) ease;
+}
+
+/*
+ * Chapters out of view are muted: the heading drops to the secondary text
+ * colour, the badge stays hollow, and the charts fade. Body text keeps its
+ * full colour because fading it with opacity would push it below the 4.5:1
+ * contrast floor. Muting only applies once the tracker is running, so no
+ * chapter is ever left faded without it.
+ */
+
+body.app-bond-price-vs-rate .br-chapter-head h2,
+body.app-bond-price-vs-rate .br-chapter .chart-frame {
+  transition:
+    color var(--transition-fast) ease,
+    opacity var(--transition-fast) ease;
+}
+
+body.app-bond-price-vs-rate .br-story.is-tracking .br-chapter:not(.is-current) .br-chapter-head h2 {
+  color: var(--color-text-secondary);
+}
+
+body.app-bond-price-vs-rate .br-story.is-tracking .br-chapter:not(.is-current) .chart-frame {
+  opacity: 0.55;
+}
+
+/* Text, callouts, cards, and charts share one measure, so every block in a
+   chapter ends on the same right edge instead of zig-zagging. */
+
+body.app-bond-price-vs-rate .br-chapter-body {
+  display: flex;
+  width: 100%;
+  max-width: 46rem;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+body.app-bond-price-vs-rate .br-chapter-head .section-kicker {
+  margin: 0 0 var(--space-1);
+}
+
+body.app-bond-price-vs-rate .br-chapter-head h2 {
+  margin: 0;
+  color: var(--color-text-heading);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+body.app-bond-price-vs-rate .br-chapter-body > p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  line-height: 1.7;
+}
+
+body.app-bond-price-vs-rate .control-copy {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+}
+
+body.app-bond-price-vs-rate .br-card .control-copy {
+  margin-top: var(--space-3);
+}
+
+/* The one key idea per chapter: the shared blue callout, tightened to the chapter rhythm. */
+
+body.app-bond-price-vs-rate .br-chapter .app-callout {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+}
+
+body.app-bond-price-vs-rate .br-chapter .app-callout-title {
+  margin-bottom: var(--space-1);
+}
+
+body.app-bond-price-vs-rate .br-chapter .app-callout-body {
+  margin: 0;
+}
+
+body.app-bond-price-vs-rate .br-chapter .app-callout-body + .app-callout-body {
+  margin-top: var(--space-2);
+}
+
+/* ── Cards inside chapters ────────────────────────────────────────── */
+
+body.app-bond-price-vs-rate .br-card {
+  margin: 0;
+  padding: var(--space-5);
+}
+
+body.app-bond-price-vs-rate .br-card-title {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-heading);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+
+body.app-bond-price-vs-rate .chart-frame.is-medium {
+  height: 280px;
+}
+
+/* Rate and price arrows: opposite ways for the same move. */
 
 body.app-bond-price-vs-rate .br-seesaw {
   display: flex;
-  gap: 1.5rem;
+  width: fit-content;
+  gap: var(--space-6);
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
 
 body.app-bond-price-vs-rate .br-vs-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--space-1);
+}
+
+body.app-bond-price-vs-rate .br-vs-item .section-kicker {
+  margin: 0;
 }
 
 body.app-bond-price-vs-rate .br-arrow {
@@ -152,39 +335,21 @@ body.app-bond-price-vs-rate .br-arrow.is-flat {
   color: var(--color-text-tertiary);
 }
 
-/* Section headers and control cards. */
+/* ── The maths ────────────────────────────────────────────────────── */
 
-body.app-bond-price-vs-rate .br-section-head {
-  margin-bottom: 0.75rem;
-}
-
-body.app-bond-price-vs-rate .br-section-head h2 {
-  color: var(--color-text-heading);
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-}
-
-body.app-bond-price-vs-rate .br-control-card {
-  margin: 1.1rem 0;
-  padding: 1.25rem;
-}
-
-/* The mathematics: the CSS-built pricing formula, its legend, and the worked
-   cash-flow table. No math library is used, so the formula is styled spans with
-   border-top fraction bars and sup/sub for the exponents and sum bounds. */
-
-body.app-bond-price-vs-rate .br-formula-card {
-  margin: 1.1rem 0;
-  padding: 1.5rem 1.25rem;
-}
+/*
+ * The CSS-built pricing formula, its legend, and the worked cash-flow table. No
+ * math library is used, so the formula is styled spans with border-top fraction
+ * bars and sup/sub for the exponents and sum bounds.
+ */
 
 body.app-bond-price-vs-rate .br-formula {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0 1.5rem;
+  gap: var(--space-3);
+  padding: var(--space-2) 0 var(--space-5);
   color: var(--color-text-heading);
   font-size: 1.5rem;
   font-variant-numeric: tabular-nums;
@@ -213,7 +378,7 @@ body.app-bond-price-vs-rate .br-f-sigma {
 
 body.app-bond-price-vs-rate .br-f-bound {
   color: var(--color-text-secondary);
-  font-size: 0.7rem;
+  font-size: var(--font-size-xs);
 }
 
 body.app-bond-price-vs-rate .br-fraction {
@@ -225,11 +390,11 @@ body.app-bond-price-vs-rate .br-fraction {
 }
 
 body.app-bond-price-vs-rate .br-f-top {
-  padding: 0 0.5rem 0.15rem;
+  padding: 0 var(--space-2) var(--space-1);
 }
 
 body.app-bond-price-vs-rate .br-f-bottom {
-  padding: 0.2rem 0.5rem 0;
+  padding: var(--space-1) var(--space-2) 0;
   border-top: 2px solid var(--color-border);
 }
 
@@ -238,9 +403,9 @@ body.app-bond-price-vs-rate .br-f-bottom {
 body.app-bond-price-vs-rate .br-legend {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem 1.5rem;
+  gap: var(--space-2) var(--space-6);
   margin: 0;
-  padding: 1.25rem 0 0;
+  padding: var(--space-5) 0 0;
   border-top: 1px solid var(--color-border-subtle);
   list-style: none;
 }
@@ -248,13 +413,13 @@ body.app-bond-price-vs-rate .br-legend {
 body.app-bond-price-vs-rate .br-legend li {
   display: flex;
   align-items: baseline;
-  gap: 0.6rem;
+  gap: var(--space-2);
   color: var(--color-text-secondary);
   font-size: var(--font-size-control);
 }
 
 body.app-bond-price-vs-rate .br-legend-sym {
-  min-width: 1.2rem;
+  min-width: var(--space-5);
   color: var(--color-text-heading);
   font-style: italic;
   font-weight: 600;
@@ -268,14 +433,8 @@ body.app-bond-price-vs-rate .br-legend-def span {
 
 /* Worked cash-flow table: a scrollable body (up to 30 rows) plus a total row. */
 
-body.app-bond-price-vs-rate .br-schedule-card {
-  margin: 1.1rem 0;
-  padding: 1.25rem;
-}
-
 body.app-bond-price-vs-rate .br-schedule-wrap {
   max-height: 320px;
-  margin-top: 0.25rem;
 }
 
 body.app-bond-price-vs-rate .br-face-note {
@@ -294,47 +453,23 @@ body.app-bond-price-vs-rate .br-schedule-total td:first-child {
   text-align: right;
 }
 
-/* Yield-curve shape toggle spacing (the toggle itself is the shared .segmented)
-   and the apply-rate action. */
-
-body.app-bond-price-vs-rate .segmented {
-  margin: 1.1rem 0;
-}
-
-body.app-bond-price-vs-rate .br-curve-apply {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.35rem;
-  margin-top: 1.1rem;
-}
-
-/* Analyst readout: the price decomposition bars beside the shared stat tiles. */
-
-body.app-bond-price-vs-rate .br-split-title {
-  margin-bottom: 0.75rem;
-  color: var(--color-text-heading);
-  font-size: var(--font-size-md);
-  font-weight: 600;
-}
-
-body.app-bond-price-vs-rate .br-split .br-compare-row {
-  grid-template-columns: 6.5rem minmax(0, 1fr) 3.5rem;
-}
-
-/* Coupon vs market comparison rows (the bars are the shared .meter). */
+/* ── Comparison rows (the bars are the shared .meter) ─────────────── */
 
 body.app-bond-price-vs-rate .br-compare {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: var(--space-3);
 }
 
 body.app-bond-price-vs-rate .br-compare-row {
   display: grid;
   grid-template-columns: 5.5rem minmax(0, 1fr) 3rem;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-3);
+}
+
+body.app-bond-price-vs-rate .br-split .br-compare-row {
+  grid-template-columns: 6.5rem minmax(0, 1fr) 3.5rem;
 }
 
 body.app-bond-price-vs-rate .br-compare-label {
@@ -350,62 +485,149 @@ body.app-bond-price-vs-rate .br-compare-num {
   font-variant-numeric: tabular-nums;
 }
 
-/* Charts. */
+/* ── Yield curve choices and the apply action ─────────────────────── */
 
-body.app-bond-price-vs-rate .chart-card {
-  margin-bottom: 0;
+/*
+ * One skin for the curve shapes: a recessed track with a raised pill for the
+ * active shape. Segments split the track evenly, so every shape gets the same
+ * width and the icons line up.
+ */
+
+body.app-bond-price-vs-rate .br-story .segmented.is-fused {
+  width: 100%;
+  max-width: 360px;
+  padding: var(--space-1);
+  background: var(--color-surface-alt);
 }
 
-body.app-bond-price-vs-rate .br-curve-card {
+body.app-bond-price-vs-rate .br-story .segmented.is-fused button {
+  display: inline-flex;
+  min-height: var(--br-segment-height);
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-xs);
+}
+
+body.app-bond-price-vs-rate .br-story .segmented.is-fused button.active {
+  box-shadow: 0 1px 2px var(--color-page-shadow);
+}
+
+body.app-bond-price-vs-rate .br-story .btn {
+  min-height: var(--br-control-height);
+  gap: var(--space-2);
+}
+
+body.app-bond-price-vs-rate .br-curve-apply {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
 }
 
-body.app-bond-price-vs-rate .chart-frame.is-tall {
-  height: 320px;
+/* Small line icons that sit beside a label and never replace it. */
+
+body.app-bond-price-vs-rate .br-icon {
+  width: var(--space-4);
+  height: var(--space-4);
+  flex: none;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-body.app-bond-price-vs-rate .chart-frame.is-medium {
-  height: 280px;
-}
-
-/* Ripple cards. */
+/* ── Ripple cards ─────────────────────────────────────────────────── */
 
 body.app-bond-price-vs-rate .br-grid-3 {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
   gap: var(--space-4);
-  margin-top: 1.1rem;
 }
 
 body.app-bond-price-vs-rate .br-grid-3 .page-card {
-  padding: 1.1rem 1.25rem;
+  padding: var(--space-4) var(--space-5);
 }
 
 body.app-bond-price-vs-rate .br-grid-3 h3 {
-  margin-bottom: 0.4rem;
+  margin-bottom: var(--space-2);
   color: var(--color-text-heading);
   font-size: var(--font-size-md);
   font-weight: 600;
 }
 
 body.app-bond-price-vs-rate .br-grid-3 p {
+  margin: 0;
   color: var(--color-text-secondary);
   font-size: var(--font-size-control);
   line-height: 1.65;
 }
 
-/* Responsive layout. */
+/* ── Control feel ─────────────────────────────────────────────────── */
 
-@media (max-width: 900px) {
-  body.app-bond-price-vs-rate .br-hero {
-    grid-template-columns: 1fr;
+/*
+ * One texture for every choice: a tint on hover, a small press on :active, and
+ * a lift on buttons. Only transform animates on .btn, so fills flip with the
+ * theme instead of fading through a low-contrast midpoint.
+ */
+
+body.app-bond-price-vs-rate .br-story .segmented.is-fused button {
+  transition:
+    background var(--transition-fast) ease,
+    color var(--transition-fast) ease,
+    transform var(--transition-fast) ease;
+}
+
+body.app-bond-price-vs-rate .br-story .segmented.is-fused button:not(.active, :disabled):hover {
+  background: var(--color-surface-dim);
+  color: var(--color-text);
+}
+
+body.app-bond-price-vs-rate .br-story .btn {
+  transition: transform var(--transition-fast) ease;
+}
+
+body.app-bond-price-vs-rate .br-story .btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+body.app-bond-price-vs-rate .br-story .btn:not(:disabled):active,
+body.app-bond-price-vs-rate .br-story .segmented.is-fused button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+/* ── Responsive layout ────────────────────────────────────────────── */
+
+/* Below 960px the rail stops pinning and stacks above the story. */
+
+@media (max-width: 960px) {
+  body.app-bond-price-vs-rate .br-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-6);
+  }
+
+  body.app-bond-price-vs-rate .br-rail {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
   }
 }
 
-@media (max-width: 800px) {
-  body.app-bond-price-vs-rate .br-grid-3 {
-    grid-template-columns: 1fr;
+@media (max-width: 700px) {
+  body.app-bond-price-vs-rate .page-shell,
+  body.app-bond-price-vs-rate .app-header-inner {
+    width: min(100% - 1.25rem, 1200px);
+  }
+}
+
+@media (max-width: 600px) {
+  body.app-bond-price-vs-rate .br-chapter {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+    padding: var(--space-6) 0;
   }
 }
 
@@ -416,5 +638,25 @@ body.app-bond-price-vs-rate .br-grid-3 p {
 
   body.app-bond-price-vs-rate .br-legend {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.app-bond-price-vs-rate .br-chapter-head h2,
+  body.app-bond-price-vs-rate .br-chapter .chart-frame,
+  body.app-bond-price-vs-rate .br-chapter-num,
+  body.app-bond-price-vs-rate .br-story .btn,
+  body.app-bond-price-vs-rate .br-story .segmented.is-fused button {
+    transition: none;
+  }
+
+  body.app-bond-price-vs-rate .br-field output.is-nudged {
+    animation: none;
+  }
+
+  body.app-bond-price-vs-rate .br-story .btn:not(:disabled):hover,
+  body.app-bond-price-vs-rate .br-story .btn:not(:disabled):active,
+  body.app-bond-price-vs-rate .br-story .segmented.is-fused button:not(:disabled):active {
+    transform: none;
   }
 }

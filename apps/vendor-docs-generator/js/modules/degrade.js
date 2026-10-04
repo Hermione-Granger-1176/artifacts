@@ -103,7 +103,7 @@ const CLEAN = /** @type {DegradeSettings} */ ({
 });
 
 /**
- * The presets, in the order the rail lists them.
+ * The presets, in the order the output panel lists them.
  *
  * Each is a rough physical story rather than a set of numbers picked to look
  * pretty: a desk scanner that is basically fine, a shared office copier with a
@@ -114,18 +114,21 @@ export const DEGRADE_PRESETS = [
   {
     id: "clean",
     label: "Clean",
+    short: "Clean",
     note: "The render is unchanged. No geometry, no grain, lossless PNG.",
     settings: {}
   },
   {
     id: "light_scan",
     label: "Light scan",
+    short: "Light",
     note: "A desk scanner behaving itself: a hair of skew, mild grain, light JPEG.",
     settings: { rotation: 0.4, blur: 0.3, contrast: 1.08, brightness: -4, noise: 6, edgeShadow: 0.15, dust: 6, jpeg: 0.92 }
   },
   {
     id: "copier",
     label: "Office copier",
+    short: "Copier",
     note: "Blown highlights, visible grain, dust on the platen, punched and stapled.",
     settings: {
       rotation: 1.1,
@@ -146,6 +149,7 @@ export const DEGRADE_PRESETS = [
   {
     id: "fax",
     label: "Bad fax",
+    short: "Fax",
     note: "Monochrome, most of the greyscale gone. Strokes bleed, bands run across.",
     settings: {
       mono: 1,
@@ -167,6 +171,7 @@ export const DEGRADE_PRESETS = [
   {
     id: "phone",
     label: "Phone photo",
+    short: "Phone",
     note: "Held at an angle under one light: keystone, uneven exposure, heavy JPEG.",
     settings: {
       rotation: 2.4,
@@ -188,7 +193,7 @@ export const DEGRADE_PRESETS = [
 /**
  * The subset of settings the custom panel exposes as sliders.
  *
- * Not every knob: a rail with eighteen sliders in it is a rail nobody reads.
+ * Not every knob: a panel with eighteen sliders in it is a panel nobody reads.
  * These are the ones that change what an extractor sees the most, and anything
  * left out still moves when the preset changes.
  */

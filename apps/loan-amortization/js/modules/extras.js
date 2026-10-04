@@ -1,4 +1,4 @@
-import { escapeAttribute } from "../../../../js/modules/html-escape.js";
+import { escapeHtml } from "../../../../js/modules/html-escape.js";
 
 /**
  * Create one extra-payment model with the default recurring values.
@@ -90,6 +90,27 @@ export function summarizeExtra(extra, periodLabel) {
   return `One-time payment of $${extra.amount.toLocaleString()} at ${periodLabel} ${extra.period}`;
 }
 
+const ICON_ATTRS =
+  'class="loan-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"';
+const RECURRING_ICON = `<svg ${ICON_ATTRS}><path d="M13 7.5A5 5 0 0 0 4.2 4.9"/><path d="M3.5 2.75v2.5h2.5"/><path d="M3 8.5a5 5 0 0 0 8.8 2.6"/><path d="M12.5 13.25v-2.5H10"/></svg>`;
+const ONETIME_ICON = `<svg ${ICON_ATTRS}><circle cx="8" cy="8" r="2.25"/></svg>`;
+
+/**
+ * Build one labelled numeric field for an extra-payment row.
+ *
+ * @param {{ label: string, name: string, className: string, field: string, value: number, min: number, max?: number, step?: number }} options
+ * @returns {string}
+ */
+function extraField({ label, name, className, field, value, min, max, step }) {
+  const maxAttr = max === undefined ? "" : ` max="${max}"`;
+  const stepAttr = step === undefined ? "" : ` step="${step}"`;
+  return `
+        <label class="extra-field">
+          <span>${label}</span>
+          <input class="${className}" type="number" aria-label="${name}" value="${value}" min="${min}"${maxAttr}${stepAttr} data-field="${field}">
+        </label>`;
+}
+
 /**
  * Render the editable extra-payment rows for the current repayment cadence.
  *
@@ -105,52 +126,61 @@ export function renderExtras({ container, extras, periodLabel }) {
 
   for (const extra of extras) {
     const item = document.createElement("div");
-    const summary = summarizeExtra(extra, periodLabel);
+    const isRecurring = extra.type === "recurring";
     item.className = "extra-item";
     item.dataset.extraId = String(extra.id);
 
-    if (extra.type === "recurring") {
-      // eslint-disable-next-line no-restricted-syntax -- numbers are controlled; the free-text summary is escaped via escapeAttribute
-      item.innerHTML = `
-        <button type="button" class="info-tip card-tip" data-tip="${escapeAttribute(summary)}" aria-label="${escapeAttribute(summary)}">?</button>
-        <div class="segmented is-fused">
-          <button type="button" class="active" data-action="set-type" data-type="recurring" aria-pressed="true">Recurring</button>
-          <button type="button" data-action="set-type" data-type="onetime" aria-pressed="false">One-time</button>
+    const amountField = extraField({
+      label: "Amount ($)",
+      name: "Extra payment amount",
+      className: "amount-input",
+      field: "amount",
+      value: extra.amount,
+      min: 0,
+      step: 100
+    });
+    const timingFields = isRecurring
+      ? extraField({
+          label: "Every",
+          name: `Extra payment repeats every (${periodLabel}s)`,
+          className: "period-input",
+          field: "every",
+          value: extra.every,
+          min: 1,
+          max: 60
+        }) +
+        extraField({
+          label: "From",
+          name: `Extra payment starts from ${periodLabel}`,
+          className: "period-input",
+          field: "startPeriod",
+          value: extra.startPeriod,
+          min: 1,
+          max: 2000
+        })
+      : extraField({
+          label: "At",
+          name: `One-time extra payment at ${periodLabel}`,
+          className: "period-input",
+          field: "period",
+          value: extra.period,
+          min: 1,
+          max: 2000
+        });
+
+    // eslint-disable-next-line no-restricted-syntax -- numbers and cadence labels are controlled; the free-text summary is escaped via escapeAttribute
+    item.innerHTML = `
+        <div class="extra-head">
+          <div class="segmented is-fused">
+            <button type="button"${isRecurring ? ' class="active"' : ""} data-action="set-type" data-type="recurring" aria-pressed="${isRecurring}">${RECURRING_ICON}Recurring</button>
+            <button type="button"${isRecurring ? "" : ' class="active"'} data-action="set-type" data-type="onetime" aria-pressed="${!isRecurring}">${ONETIME_ICON}One-time</button>
+          </div>
+          <button type="button" class="btn-remove" data-action="remove-extra" aria-label="Remove extra payment">\u00d7</button>
         </div>
-        <div class="amt-group">
-          <span>$</span>
-          <input class="amount-input" type="number" value="${extra.amount}" min="0" step="100" data-field="amount">
+        <div class="extra-fields ${isRecurring ? "is-recurring" : "is-onetime"}">${amountField}${timingFields}
         </div>
-        <div class="param-group">
-          <span>every</span>
-          <input class="period-input" type="number" value="${extra.every}" min="1" max="60" data-field="every">
-          <span>${periodLabel}(s)</span>
-        </div>
-        <div class="param-group">
-          <span>from</span>
-          <input class="period-input" type="number" value="${extra.startPeriod}" min="1" max="2000" data-field="startPeriod">
-        </div>
-        <button type="button" class="btn-remove" data-action="remove-extra" aria-label="Remove extra payment">x</button>
+        <div class="extra-summary">${escapeHtml(summarizeExtra(extra, periodLabel))}</div>
       `;
-    } else {
-      // eslint-disable-next-line no-restricted-syntax -- numbers are controlled; the free-text summary is escaped via escapeAttribute
-      item.innerHTML = `
-        <button type="button" class="info-tip card-tip" data-tip="${escapeAttribute(summary)}" aria-label="${escapeAttribute(summary)}">?</button>
-        <div class="segmented is-fused">
-          <button type="button" data-action="set-type" data-type="recurring" aria-pressed="false">Recurring</button>
-          <button type="button" class="active" data-action="set-type" data-type="onetime" aria-pressed="true">One-time</button>
-        </div>
-        <div class="amt-group">
-          <span>$</span>
-          <input class="amount-input" type="number" value="${extra.amount}" min="0" step="100" data-field="amount">
-        </div>
-        <div class="param-group">
-          <span>at ${periodLabel}</span>
-          <input class="period-input" type="number" value="${extra.period}" min="1" max="2000" data-field="period">
-        </div>
-        <button type="button" class="btn-remove" data-action="remove-extra" aria-label="Remove extra payment">x</button>
-      `;
-    }
 
     container.appendChild(item);
   }

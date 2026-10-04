@@ -4,29 +4,28 @@
 
 - Header shell: back button, home logo, and shared theme toggle
 - Intro: app title and the full tokenization-to-sampling story
-- Tokenization card: pre-split illustrative examples, token and character counts, token chips, and a whitespace toggle
-- Sampling explorer: scenario tabs, a sentence with a temporary sampled completion, and a visible two-step pipeline
-- Sampling controls: temperature, top-p, live values, greedy-decoding explanation, and presets
-- Probability chart: a fixed-height Chart.js horizontal bar chart for theoretical and empirical probabilities
-- Token pool: post-cutoff, renormalized probability pills and plain-language insight
+- Sampler workbench (`#sec-sampling`): two top-aligned columns, a flexible main card and a 300px settings card
+  - Main card: scenario type and the Show whitespace toggle in the header, the prompt as token chips with the completion blank inline, the Next token bar list (`#sec-distribution`) with the insight line, and a footer with Pick next token, Sample 100x, Reset, and the sample status
+  - Settings card: scenario dropdown, temperature slider and note, top-p slider and note, presets segmented control, the "Order matters" key idea, and the sampling pseudo-code under a "Show the code" disclosure
+  - Below 900px the settings card stacks above the main card
+- Tokenization card (`#sec-tokens`): pre-split illustrative examples with token and character counts, in a two-column grid on the same outer edges as the workbench
 - Concepts: delegated accordion cards for tokens, temperature, nucleus sampling, and token-driven behavior
 
 ## Module map
 
 - `js/app.js`
-  - owns DOM caching, interaction handlers, selected-token state, sample tallies, chart reuse, and the render loop
+  - owns DOM caching, interaction handlers, selected-token state, sample tallies, preset highlighting, and the render loop
 - `js/modules/scenarios.js`
   - exports the canned next-token scenario dataset
 - `js/modules/sampling.js`
   - exports `softmax()`, greedy decoding at temperature zero, top-p selection, renormalized draws, and tally aggregation
-- `js/modules/charts.js`
-  - creates one horizontal Chart.js instance and updates it in place as the scenario or sliders change
-  - builds its colors with the shared `chart-theme.js` cache and refreshes them on a theme change
+- `js/modules/candidates.js`
+  - `buildCandidateRows()` turns the sorted distribution into display rows (shaped odds, renormalized draw chance, cut flag, observed count)
+  - `renderCandidateList()` owns the `<ul>` rows. Rows are created once and updated in place, and re-inserted only when the order changes, so bar widths can transition on slider moves
 - `js/modules/token-examples.js`
-  - exports static illustrative token chunks plus count and whitespace-display helpers
+  - exports static illustrative token chunks, count and whitespace-display helpers, and `splitPromptTokens()` for the prompt chips
 - `js/modules/render.js`
-  - renders tabs, the sentence completion, token examples, top-p pills, and explanatory copy
-  - uses the shared chart-theme color helpers for dynamically colored pills
+  - renders the scenario dropdown options, the prompt chips and completion blank, token examples, the insight line, and the sample status
 - shared `js/modules/section-nav.js`
   - builds the sticky frosted section-progress nav and its IntersectionObserver scroll spy
   - shared repo-root module, also used by the prompt-caching app
@@ -35,15 +34,21 @@
 
 ## Sampling data flow
 
-1. A tab, slider, or preset changes the active scenario or sampling settings.
+1. The scenario dropdown, a slider, or a preset changes the active scenario or sampling settings.
 2. `buildTopPSelection()` applies temperature to logits, softmaxes the result, ranks tokens, and retains the smallest cumulative top-p nucleus.
 3. The surviving probabilities are renormalized into `adjustedProb`, the only distribution used for a pick or a 100-draw tally.
-4. The chart updates the same Chart.js instance with temperature-shaped theoretical percentages, muted exclusions that keep their bar widths, and optional observed percentages; renormalized values ride along for tooltips.
-5. The DOM renderer updates the sentence, pills, insight, and accessible sample-status copy.
+4. `buildCandidateRows()` keeps the temperature-shaped probability as the bar and odds value, the renormalized value as the Draw column, and the tally as the Seen column and thin second bar.
+5. The DOM renderer updates the prompt chips, bar rows, insight line, slider notes, preset highlight, and accessible sample-status copy.
+
+## Layout model
+
+- The page shell and header widen to 1200px (app-local), with the 700px gutter rule restated
+- Both workbench cards share one padding, one gap, and one header row height. Inside the main card the header, prompt, bar list, and footer share one left and right edge. Inside the settings card every control field, the segmented control, the key idea, and the disclosure do the same
+- Select, buttons, and the segmented track share one control height (`--tk-control-height`)
+- Candidate rows and the column-label row share one grid template, so the token, bar, and number columns line up all the way down. The Seen column only exists after Sample 100x, and is dropped on phones where the thin bar carries the tally
 
 ## Theme model
 
 - `<html>` owns `data-theme="light|dark"`
 - Shared shell behavior reads the same `theme` localStorage key as the root gallery
-- Theme changes clear the app-local palette caches before the chart and pills render again
-- The chart reads `--chart-tick`, `--chart-grid`, and shared palette variables rather than owning color constants
+- All colours come from shared tokens, so a theme change needs no JavaScript work in this app

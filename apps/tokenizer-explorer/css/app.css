@@ -1,4 +1,26 @@
-/* Tokenizer explorer app styles. */
+/*
+ * Tokenizer explorer styles.
+ *
+ * Shared surfaces, controls, and feedback (page cards, control fields,
+ * segmented toggles, chips, callouts, buttons, and the code window) live in
+ * css/style.css. This file holds the layout: a sampler workbench with one main
+ * card (prompt, next-token bars, actions) beside one settings card, then the
+ * tokenization examples and the concept accordion on the same outer edges.
+ *
+ * Every selector is scoped under body.app-tokenizer-explorer and every colour
+ * derives from the shared design tokens.
+ */
+
+body.app-tokenizer-explorer {
+  /*
+   * One height for every select, button, and segmented control in the
+   * workbench. The segmented track is 1px border and 4px padding either side,
+   * so its buttons are 10px shorter than the track they sit in.
+   */
+  --tk-control-height: 2.5rem;
+  --tk-segment-height: calc(var(--tk-control-height) - 10px);
+  --tk-settings-width: 300px;
+}
 
 /* The section-nav is injected into this slot by renderSectionNav; display:
  * contents keeps the sticky nav's containing block at the body so it still
@@ -7,44 +29,37 @@ body.app-tokenizer-explorer [data-section-nav] {
   display: contents;
 }
 
+/* ── Page shell ───────────────────────────────────────────────────── */
+
+/*
+ * A settings card beside the sampler does not fit the shared 1000px shell, so
+ * this app widens its own. The header and section nav widen with it so the
+ * three keep one left edge. The shared 700px rule narrows the side gutters and
+ * has the same specificity as the rule below, so it is restated at the bottom.
+ */
+
+body.app-tokenizer-explorer .page-shell,
+body.app-tokenizer-explorer .app-header-inner,
+body.app-tokenizer-explorer .section-nav-inner {
+  width: min(100% - 2rem, 1200px);
+}
+
 /* Section-nav scroll targets clear the sticky frosted nav when jumped to. */
 
+body.app-tokenizer-explorer #sec-sampling,
+body.app-tokenizer-explorer #sec-distribution,
 body.app-tokenizer-explorer .tokenization-card,
-body.app-tokenizer-explorer .sampling-heading,
-body.app-tokenizer-explorer .probability-chart-card,
 body.app-tokenizer-explorer .concepts {
   scroll-margin-top: 4rem;
 }
 
-/* Tokenization examples. */
-
+body.app-tokenizer-explorer .tk-sampler,
 body.app-tokenizer-explorer .tokenization-card,
-body.app-tokenizer-explorer .sampling-controls-card,
-body.app-tokenizer-explorer .token-pool-card {
-  padding: 1.25rem;
+body.app-tokenizer-explorer .concepts {
+  margin-top: var(--space-6);
 }
 
-body.app-tokenizer-explorer .section-heading-row,
-body.app-tokenizer-explorer .probability-chart-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-/* .section-kicker rides the shared component; .preset-label mirrors that eyebrow style. */
-body.app-tokenizer-explorer .preset-label {
-  margin-bottom: var(--space-1);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-}
-
-body.app-tokenizer-explorer .tokenization-card h2,
-body.app-tokenizer-explorer .sampling-heading h2,
-body.app-tokenizer-explorer .probability-chart-heading h2,
+body.app-tokenizer-explorer .tk-section-head h2,
 body.app-tokenizer-explorer .concepts-heading h2 {
   color: var(--color-text-heading);
   font-size: clamp(1.35rem, 2.6vw, 1.65rem);
@@ -52,31 +67,604 @@ body.app-tokenizer-explorer .concepts-heading h2 {
   letter-spacing: -0.01em;
 }
 
+body.app-tokenizer-explorer .tk-sampler > .tk-section-head,
+body.app-tokenizer-explorer .concepts-heading {
+  margin-bottom: var(--space-4);
+}
+
+/* ── Workbench ────────────────────────────────────────────────────── */
+
+body.app-tokenizer-explorer .tk-workbench {
+  display: grid;
+  align-items: start;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr) var(--tk-settings-width);
+}
+
+/* Both columns are the same card: one padding, one gap, one header row. */
+
+body.app-tokenizer-explorer .tk-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: var(--space-5);
+  gap: var(--space-5);
+}
+
+body.app-tokenizer-explorer .tk-card-head {
+  display: flex;
+  min-height: var(--space-8);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+body.app-tokenizer-explorer .tk-card-head .section-kicker {
+  margin: 0;
+}
+
+/* ── Prompt ───────────────────────────────────────────────────────── */
+
+/*
+ * The prompt is a flow of token chips and the completion blank is its last
+ * item, so the blank sits inline at the end of the line and only wraps when
+ * the line is genuinely full. The wrapper that holds the chips dissolves so
+ * the chips and the blank are siblings in one flex row.
+ */
+
+body.app-tokenizer-explorer .tk-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-1);
+}
+
+body.app-tokenizer-explorer .tk-prompt-tokens {
+  display: contents;
+}
+
+body.app-tokenizer-explorer .prompt-chip {
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+body.app-tokenizer-explorer .blank {
+  display: inline-flex;
+  min-width: calc(var(--space-8) * 2);
+  min-height: var(--space-8);
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-2);
+  border-bottom: 2px dashed var(--color-blue);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+
+body.app-tokenizer-explorer .blank:empty::before {
+  color: var(--color-text-secondary);
+  content: "?";
+}
+
+body.app-tokenizer-explorer .blank.has-choice {
+  min-width: 0;
+  border: 1px solid var(--color-green);
+  border-radius: var(--radius-xs);
+  background: var(--note-green);
+  color: var(--color-green-text);
+}
+
+/* ── Next-token bars ──────────────────────────────────────────────── */
+
+body.app-tokenizer-explorer .tk-next {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+  gap: var(--space-3);
+}
+
+body.app-tokenizer-explorer .tk-next-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+body.app-tokenizer-explorer .tk-next-head h3 {
+  color: var(--color-text-heading);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+}
+
+body.app-tokenizer-explorer .tk-copy,
+body.app-tokenizer-explorer .tk-insight,
+body.app-tokenizer-explorer .tk-status,
 body.app-tokenizer-explorer .section-copy,
-body.app-tokenizer-explorer .chart-copy,
-body.app-tokenizer-explorer .token-example p,
-body.app-tokenizer-explorer .control-note,
-body.app-tokenizer-explorer .sample-status {
+body.app-tokenizer-explorer .token-example p {
+  margin: 0;
   color: var(--color-text-secondary);
   font-size: var(--font-size-control);
   line-height: 1.6;
 }
 
-body.app-tokenizer-explorer .section-copy {
-  margin-top: var(--space-3);
+body.app-tokenizer-explorer .tk-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
 }
 
-body.app-tokenizer-explorer .whitespace-toggle {
-  flex-shrink: 0;
+body.app-tokenizer-explorer .tk-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+body.app-tokenizer-explorer .tk-swatch {
+  display: inline-block;
+  width: var(--space-4);
+  height: var(--space-2);
+  flex: none;
+  border-radius: 2px;
+}
+
+body.app-tokenizer-explorer .tk-swatch.is-odds {
+  background: var(--color-blue);
+}
+
+body.app-tokenizer-explorer .tk-swatch.is-cut,
+body.app-tokenizer-explorer .is-cut .tk-fill {
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-text-secondary) 60%, transparent) 0 2px,
+    transparent 2px 6px
+  );
+  box-shadow: inset 0 0 0 1px var(--color-border-strong);
+}
+
+body.app-tokenizer-explorer .tk-swatch.is-seen {
+  height: var(--space-1);
+  background: var(--color-amber);
+}
+
+/*
+ * One grid template for the header row and every candidate row, so the token,
+ * bar, and number columns share their edges all the way down. The Seen column
+ * only exists once Sample 100x has run.
+ */
+
+body.app-tokenizer-explorer .tk-candidates {
+  --tk-cols: 7.5rem minmax(0, 1fr) 3.5rem 3.5rem;
+
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+body.app-tokenizer-explorer .tk-candidates.has-samples {
+  --tk-cols: 7.5rem minmax(0, 1fr) 3.5rem 3.5rem 3.5rem;
+}
+
+body.app-tokenizer-explorer .tk-row {
+  display: grid;
+  align-items: center;
+  grid-auto-rows: minmax(var(--space-8), auto);
+  column-gap: var(--space-3);
+  grid-template-columns: var(--tk-cols);
+}
+
+body.app-tokenizer-explorer .tk-list-head {
+  grid-auto-rows: minmax(var(--space-6), auto);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+body.app-tokenizer-explorer .tk-candidates:not(.has-samples) .tk-seen {
+  display: none;
+}
+
+body.app-tokenizer-explorer .tk-list-head > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.app-tokenizer-explorer .tk-token {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-control);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.app-tokenizer-explorer .tk-list-head .tk-token {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+body.app-tokenizer-explorer .tk-odds,
+body.app-tokenizer-explorer .tk-draw,
+body.app-tokenizer-explorer .tk-seen {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-control);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+body.app-tokenizer-explorer .tk-list-head .tk-odds,
+body.app-tokenizer-explorer .tk-list-head .tk-draw,
+body.app-tokenizer-explorer .tk-list-head .tk-seen {
+  font-size: inherit;
+}
+
+body.app-tokenizer-explorer .tk-draw {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+body.app-tokenizer-explorer .tk-list-head .tk-draw {
+  color: inherit;
+}
+
+body.app-tokenizer-explorer .tk-track {
+  position: relative;
+  height: var(--space-4);
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-alt);
+}
+
+body.app-tokenizer-explorer .tk-fill,
+body.app-tokenizer-explorer .tk-seen-fill {
+  position: absolute;
+  left: 0;
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+}
+
+body.app-tokenizer-explorer .tk-fill {
+  top: 0;
+  height: 100%;
+  background: var(--color-blue);
+  transition:
+    width var(--transition-fast) ease,
+    height var(--transition-fast) ease;
+}
+
+/* After Sample 100x the tally rides as a thin second bar under the blue one. */
+
+body.app-tokenizer-explorer .has-samples .tk-fill {
+  height: 10px;
+}
+
+body.app-tokenizer-explorer .tk-seen-fill {
+  bottom: 0;
+  height: var(--space-1);
+  background: var(--color-amber);
+  transition: width var(--transition-fast) ease;
+}
+
+/* A cut token keeps its row, struck through, with a hatched bar under the cut line. */
+
+body.app-tokenizer-explorer .tk-cut-label {
+  display: flex;
+  min-height: var(--space-6);
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  grid-column: 1 / -1;
+}
+
+body.app-tokenizer-explorer .tk-cut-label[hidden] {
+  display: none;
+}
+
+body.app-tokenizer-explorer .tk-cut-label::before,
+body.app-tokenizer-explorer .tk-cut-label::after {
+  flex: 1;
+  border-top: 1px dashed var(--color-border-strong);
+  content: "";
+}
+
+body.app-tokenizer-explorer .is-cut .tk-token,
+body.app-tokenizer-explorer .is-cut .tk-odds {
+  text-decoration: line-through;
+}
+
+body.app-tokenizer-explorer .is-cut .tk-draw {
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+
+/* The drawn token is bold, ringed, and checked, so colour is never the only cue. */
+
+body.app-tokenizer-explorer .is-picked .tk-token {
+  color: var(--color-green-text);
+  font-weight: 700;
+}
+
+body.app-tokenizer-explorer .is-picked .tk-token::after {
+  display: inline-block;
+  width: 4px;
+  height: 8px;
+  margin-left: var(--space-2);
+  border-right: 2px solid currentcolor;
+  border-bottom: 2px solid currentcolor;
+  content: "";
+  transform: translateY(-2px) rotate(45deg);
+}
+
+body.app-tokenizer-explorer .is-picked .tk-fill {
+  box-shadow: inset 0 0 0 2px var(--color-green);
+}
+
+/* ── Actions ──────────────────────────────────────────────────────── */
+
+body.app-tokenizer-explorer .tk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+  gap: var(--space-2);
+}
+
+/* Room for two lines, so the buttons never shift when the status changes length. */
+
+body.app-tokenizer-explorer .tk-status {
+  display: flex;
+  min-height: var(--tk-control-height);
+  flex: 1 1 14rem;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: var(--font-size-sm);
+  line-height: 1.25rem;
+  text-align: right;
+}
+
+/* ── Settings ─────────────────────────────────────────────────────── */
+
+body.app-tokenizer-explorer .tk-settings .control-field-head label,
+body.app-tokenizer-explorer .tk-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--font-size-control);
+  font-weight: 600;
+}
+
+body.app-tokenizer-explorer .tk-field-label {
+  margin-bottom: var(--space-1);
+}
+
+body.app-tokenizer-explorer .tk-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+body.app-tokenizer-explorer .control-field-head label .tk-icon {
+  color: var(--color-text-secondary);
+}
+
+/* Room for two lines of note, so the sliders below never jump as the copy changes. */
+
+body.app-tokenizer-explorer .control-field-note {
+  min-height: 2.5em;
+  margin-bottom: 0;
+  line-height: 1.25;
+}
+
+body.app-tokenizer-explorer .tk-key {
+  margin: 0;
+  padding: var(--space-4);
+}
+
+body.app-tokenizer-explorer .tk-key .app-callout-title,
+body.app-tokenizer-explorer .tk-key .app-callout-body {
+  margin: 0;
+}
+
+body.app-tokenizer-explorer .tk-key .app-callout-title {
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-control);
+}
+
+body.app-tokenizer-explorer .tk-key .app-callout-body {
+  font-size: var(--font-size-control);
+  line-height: 1.6;
+}
+
+/*
+ * The sampling pseudo-code is folded away by default: the key idea above says
+ * the same thing in words, so the code is there for whoever wants to read it.
+ */
+
+body.app-tokenizer-explorer .tk-disclosure {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+body.app-tokenizer-explorer .tk-disclosure summary {
+  display: flex;
+  min-height: var(--space-6);
+  align-items: center;
+  justify-content: space-between;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-control);
+  gap: var(--space-2);
+  list-style: none;
+}
+
+/* Firefox honours list-style; WebKit needs its own pseudo-element hidden. */
+
+body.app-tokenizer-explorer .tk-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A chevron drawn from two borders, so it inherits the label's colour and
+   needs no asset under the self-only CSP. */
+
+body.app-tokenizer-explorer .tk-disclosure summary::after {
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentcolor;
+  border-bottom: 1.5px solid currentcolor;
+  content: "";
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform var(--transition-fast) ease;
+}
+
+body.app-tokenizer-explorer .tk-disclosure[open] > summary::after {
+  transform: translateY(1px) rotate(225deg);
+}
+
+body.app-tokenizer-explorer .tk-disclosure summary:hover {
+  color: var(--color-text);
+}
+
+body.app-tokenizer-explorer .tk-disclosure summary:focus-visible {
+  border-radius: var(--radius-xs);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+body.app-tokenizer-explorer .tk-code {
+  margin-top: var(--space-3);
+  box-shadow: none;
+}
+
+body.app-tokenizer-explorer .tk-code .code-window-head {
+  padding: var(--space-2) var(--space-3);
+}
+
+body.app-tokenizer-explorer .code-window-title {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  letter-spacing: var(--tracking-label);
+}
+
+body.app-tokenizer-explorer .tk-code pre {
+  padding: var(--space-3) var(--space-2);
+  font-size: var(--font-size-xs);
+  white-space: pre-wrap;
+}
+
+body.app-tokenizer-explorer .syn-cm {
+  color: var(--color-text-secondary);
+}
+
+/* ── Controls: one height, one skin per kind of choice ────────────── */
+
+/*
+ * Dropdown, buttons, and the segmented track share --tk-control-height, and
+ * the track gets a tinted trough so the active preset reads as a raised pill
+ * and not as a label that happens to be darker. Presets split their track
+ * evenly, so the row shares both card edges.
+ */
+
+body.app-tokenizer-explorer .tk-workbench .select-input,
+body.app-tokenizer-explorer .tk-workbench .btn {
+  min-height: var(--tk-control-height);
+}
+
+body.app-tokenizer-explorer .tk-workbench .btn.btn-sm {
+  min-height: var(--space-8);
+}
+
+body.app-tokenizer-explorer .tk-workbench .btn {
+  gap: var(--space-2);
+}
+
+body.app-tokenizer-explorer .tk-workbench .select-input {
+  font-size: var(--font-size-control);
+}
+
+body.app-tokenizer-explorer .tk-workbench .segmented.is-fused {
+  padding: var(--space-1);
+  background: var(--color-surface-alt);
+}
+
+body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button {
+  min-height: var(--tk-segment-height);
+  padding: 0 var(--space-2);
+  flex: 1;
+  border-radius: var(--radius-xs);
+}
+
+body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button.active {
+  box-shadow: 0 1px 2px var(--color-page-shadow);
+}
+
+/*
+ * The shared .btn-primary blue only reaches 3.6:1 against white, which is
+ * short of 4.5:1 for the button label. Deepen it, and flip the label to the
+ * page colour in dark, where the emphasis token is a pale blue.
+ */
+
+body.app-tokenizer-explorer .btn-primary,
+body.app-tokenizer-explorer .btn-primary:hover,
+body.app-tokenizer-explorer .btn-primary:focus-visible {
+  background: var(--color-blue-emphasis);
+  color: var(--color-text-on-accent);
+}
+
+[data-theme="dark"] body.app-tokenizer-explorer .btn-primary {
+  color: var(--color-bg);
+}
+
+/* Reset is the quietest action: no border, just a tint on hover. */
+
+body.app-tokenizer-explorer .btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+body.app-tokenizer-explorer .btn-ghost:hover,
+body.app-tokenizer-explorer .btn-ghost:focus-visible,
+body.app-tokenizer-explorer .btn-outline:hover,
+body.app-tokenizer-explorer .btn-outline:focus-visible {
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+body.app-tokenizer-explorer .btn-outline[aria-pressed="true"] {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+}
+
+/* ── Tokenization examples ────────────────────────────────────────── */
+
+body.app-tokenizer-explorer .tokenization-card {
+  padding: var(--space-5);
+}
+
+body.app-tokenizer-explorer .tokenization-card .tk-section-head {
+  margin-bottom: var(--space-3);
 }
 
 body.app-tokenizer-explorer .token-example-list {
   display: grid;
   gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: var(--space-4);
 }
 
 body.app-tokenizer-explorer .token-example {
+  min-width: 0;
   padding: var(--space-3);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
@@ -103,25 +691,6 @@ body.app-tokenizer-explorer .token-example-count {
   font-variant-numeric: tabular-nums;
 }
 
-body.app-tokenizer-explorer .code-window-title {
-  color: var(--color-text-secondary);
-}
-
-body.app-tokenizer-explorer #pick-token,
-body.app-tokenizer-explorer #pick-token:hover,
-body.app-tokenizer-explorer #pick-token:focus-visible {
-  background: var(--color-blue-emphasis);
-  color: var(--color-text-on-accent);
-}
-
-[data-theme="dark"] body.app-tokenizer-explorer #pick-token {
-  color: var(--color-bg);
-}
-
-body.app-tokenizer-explorer .syn-cm {
-  color: var(--color-text-secondary);
-}
-
 body.app-tokenizer-explorer .token-example p {
   margin-top: var(--space-1);
 }
@@ -136,252 +705,11 @@ body.app-tokenizer-explorer .token-chips {
 /* Colors and base come from shared .chip.is-mono plus tone modifiers; only the
  * token-specific sizing and whitespace preservation stay scoped here. */
 body.app-tokenizer-explorer .token-chip {
-  min-height: 1.9rem;
+  min-height: var(--space-8);
   white-space: pre;
 }
 
-/* Scenario selection and context. */
-
-body.app-tokenizer-explorer .sampling-explorer {
-  margin-top: 2rem;
-}
-
-body.app-tokenizer-explorer .sampling-heading {
-  margin-bottom: var(--space-4);
-}
-
-/* The scenario switcher rides the shared .segmented skin; only wrap and spacing stay scoped. */
-body.app-tokenizer-explorer .scenario-tabs {
-  flex-wrap: wrap;
-  margin-bottom: var(--space-4);
-}
-
-body.app-tokenizer-explorer .scenario-box {
-  margin-bottom: var(--space-4);
-}
-
-body.app-tokenizer-explorer .scenario-body {
-  padding: 14px 18px;
-}
-
-body.app-tokenizer-explorer .sampling-code {
-  margin-top: var(--space-4);
-}
-
-body.app-tokenizer-explorer .sentence-display {
-  color: var(--color-text);
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 1.6;
-}
-
-body.app-tokenizer-explorer .blank {
-  display: inline-block;
-  min-width: 70px;
-  height: 1.5em;
-  margin-left: var(--space-2);
-  border-bottom: 2px dashed var(--color-blue);
-  vertical-align: baseline;
-}
-
-body.app-tokenizer-explorer .blank.has-choice {
-  min-width: 0;
-  padding: 0 var(--space-1);
-  border: 1px solid var(--color-green);
-  border-radius: var(--radius-xs);
-  background: var(--note-green);
-  color: var(--color-green-text);
-  line-height: 1.4;
-}
-
-body.app-tokenizer-explorer .section-label,
-body.app-tokenizer-explorer .control-label {
-  color: var(--color-text-secondary);
-}
-
-/* Sampling pipeline and controls. */
-
-body.app-tokenizer-explorer .sampling-pipeline {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 2rem minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-5);
-}
-
-body.app-tokenizer-explorer .pipeline-step {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 2.75rem;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text);
-  font-size: var(--font-size-control);
-  font-weight: 600;
-}
-
-body.app-tokenizer-explorer .pipeline-step.is-temperature {
-  background: var(--note-blue);
-}
-
-body.app-tokenizer-explorer .pipeline-step.is-topp {
-  background: var(--note-purple);
-}
-
-body.app-tokenizer-explorer .pipeline-number {
-  display: inline-flex;
-  width: 1.5rem;
-  height: 1.5rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
-}
-
-body.app-tokenizer-explorer .pipeline-connector {
-  height: 2px;
-  background: var(--color-border-strong);
-}
-
-body.app-tokenizer-explorer .controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-6);
-}
-
-body.app-tokenizer-explorer .control-group {
-  flex: 1 1 260px;
-}
-
-body.app-tokenizer-explorer .control-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: var(--space-1);
-}
-
-body.app-tokenizer-explorer .control-label,
-body.app-tokenizer-explorer .control-value {
-  font-size: var(--font-size-control);
-}
-
-body.app-tokenizer-explorer .control-value {
-  color: var(--color-text);
-  font-weight: 600;
-}
-
-body.app-tokenizer-explorer .range-hints {
-  display: flex;
-  justify-content: space-between;
-  margin-top: var(--space-1);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-}
-
-body.app-tokenizer-explorer .control-note {
-  min-height: 2.5em;
-  margin-top: var(--space-2);
-}
-
-body.app-tokenizer-explorer .sampling-presets {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
-body.app-tokenizer-explorer .preset-label {
-  margin: 0 var(--space-1) 0 0;
-}
-
-/* Probability chart and sampling feedback. */
-
-body.app-tokenizer-explorer .probability-chart-card {
-  margin-top: var(--space-4);
-}
-
-body.app-tokenizer-explorer .probability-chart-heading {
-  margin-bottom: var(--space-3);
-}
-
-body.app-tokenizer-explorer .chart-copy {
-  margin-top: var(--space-1);
-}
-
-body.app-tokenizer-explorer .chart-frame.is-probability {
-  height: 360px;
-}
-
-body.app-tokenizer-explorer .chart-legend {
-  justify-content: flex-end;
-  margin: var(--space-1) 0 0;
-}
-
-body.app-tokenizer-explorer .dot.is-theoretical {
-  background: var(--color-blue);
-}
-
-body.app-tokenizer-explorer .dot.is-observed {
-  background: var(--color-amber);
-}
-
-body.app-tokenizer-explorer .sample-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-}
-
-body.app-tokenizer-explorer .sample-status {
-  min-height: 1.6em;
-  margin-top: var(--space-2);
-}
-
-/* Candidate pool and result summary. */
-
-body.app-tokenizer-explorer .token-pool-card {
-  margin-top: var(--space-4);
-}
-
-body.app-tokenizer-explorer .section-label {
-  margin-bottom: var(--space-2);
-  font-size: var(--font-size-control);
-}
-
-body.app-tokenizer-explorer .pills-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-/* Colors ride shared .chip.is-mono plus tone modifiers; only the roomier pill
- * sizing stays scoped here. */
-body.app-tokenizer-explorer .pill {
-  padding: var(--space-1) var(--space-3);
-  cursor: default;
-  font-size: var(--font-size-control);
-}
-
-/* Winner keeps the shared green tone (via .is-green) plus this emphasis. */
-body.app-tokenizer-explorer .pill.winner {
-  color: var(--color-green-text);
-  font-weight: 700;
-}
-
-/* Tokenizer concept accordion. */
-
-body.app-tokenizer-explorer .concepts {
-  margin-top: 2rem;
-}
-
-body.app-tokenizer-explorer .concepts-heading {
-  margin-bottom: var(--space-4);
-}
+/* ── Concept accordion ────────────────────────────────────────────── */
 
 body.app-tokenizer-explorer .card {
   margin-bottom: var(--space-2);
@@ -398,7 +726,7 @@ body.app-tokenizer-explorer .card-trigger {
   border: 0;
   background: transparent;
   cursor: pointer;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-5);
   text-align: left;
 }
 
@@ -406,7 +734,7 @@ body.app-tokenizer-explorer .card-trigger:hover,
 body.app-tokenizer-explorer .card-trigger:focus-visible {
   background: var(--color-surface-alt);
   outline: var(--focus-ring);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
 body.app-tokenizer-explorer .card-left {
@@ -467,7 +795,7 @@ body.app-tokenizer-explorer .card-tagline {
 body.app-tokenizer-explorer .card-arrow {
   flex-shrink: 0;
   font-size: var(--font-size-xs);
-  transition: transform 0.2s;
+  transition: transform var(--transition-fast) ease;
 }
 
 body.app-tokenizer-explorer .card.open .card-arrow {
@@ -476,7 +804,7 @@ body.app-tokenizer-explorer .card.open .card-arrow {
 
 body.app-tokenizer-explorer .card-body {
   display: none;
-  padding: 0 16px 14px 54px;
+  padding: 0 var(--space-5) var(--space-4) calc(var(--space-5) + 28px + var(--space-3));
   font-size: var(--font-size-control);
   line-height: 1.7;
 }
@@ -502,39 +830,97 @@ body.app-tokenizer-explorer .tip {
   font-size: var(--font-size-sm);
 }
 
-/* Tokenizer-specific responsive layout. */
+/* ── Control feel ─────────────────────────────────────────────────── */
+
+/*
+ * One texture for every choice: a tint on hover, a small press on :active,
+ * and a lift on buttons. Only transform animates on .btn, so fills flip with
+ * the theme instead of fading through a low-contrast midpoint.
+ */
+
+body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button {
+  transition:
+    background var(--transition-fast) ease,
+    color var(--transition-fast) ease,
+    transform var(--transition-fast) ease;
+}
+
+body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button:not(.active, :disabled):hover {
+  background: var(--color-surface-dim);
+  color: var(--color-text);
+}
+
+body.app-tokenizer-explorer .tk-workbench .btn {
+  transition: transform var(--transition-fast) ease;
+}
+
+body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):active,
+body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+/* ── Responsive layout ────────────────────────────────────────────── */
+
+/* Below 900px the settings stack above the main card. */
+
+@media (max-width: 900px) {
+  body.app-tokenizer-explorer .tk-workbench {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.app-tokenizer-explorer .tk-settings {
+    order: -1;
+  }
+}
 
 @media (max-width: 700px) {
-  body.app-tokenizer-explorer .section-heading-row,
-  body.app-tokenizer-explorer .probability-chart-heading {
-    flex-direction: column;
+  body.app-tokenizer-explorer .page-shell,
+  body.app-tokenizer-explorer .app-header-inner,
+  body.app-tokenizer-explorer .section-nav-inner {
+    width: min(100% - 1.25rem, 1200px);
   }
 
-  body.app-tokenizer-explorer .sampling-pipeline {
-    grid-template-columns: 1fr;
+  body.app-tokenizer-explorer .token-example-list {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  body.app-tokenizer-explorer .pipeline-connector {
-    width: 2px;
-    height: 1rem;
-    margin: 0 auto;
-  }
-
-  body.app-tokenizer-explorer .chart-legend {
+  body.app-tokenizer-explorer .tk-status {
+    flex-basis: 100%;
     justify-content: flex-start;
-  }
-
-  body.app-tokenizer-explorer .chart-frame.is-probability {
-    height: 390px;
+    text-align: left;
   }
 }
 
 @media (max-width: 480px) {
-  body.app-tokenizer-explorer .tokenization-card,
-  body.app-tokenizer-explorer .sampling-controls-card,
-  body.app-tokenizer-explorer .token-pool-card,
-  body.app-tokenizer-explorer .chart-card {
-    padding: var(--space-3);
+  body.app-tokenizer-explorer .tk-card,
+  body.app-tokenizer-explorer .tokenization-card {
+    padding: var(--space-4);
+  }
+
+  /* A phone has no room for a fifth column: the thin observed bar carries the tally. */
+  body.app-tokenizer-explorer .tk-candidates,
+  body.app-tokenizer-explorer .tk-candidates.has-samples {
+    --tk-cols: 5.5rem minmax(0, 1fr) 2.75rem 2.75rem;
+  }
+
+  body.app-tokenizer-explorer .tk-candidates.has-samples .tk-seen {
+    display: none;
+  }
+
+  body.app-tokenizer-explorer .tk-row {
+    column-gap: var(--space-2);
+  }
+
+  body.app-tokenizer-explorer .tk-actions .btn {
+    flex: 1 1 auto;
+  }
+
+  body.app-tokenizer-explorer .tk-actions .btn-primary {
+    flex-basis: 100%;
   }
 
   body.app-tokenizer-explorer .token-example-header {
@@ -542,11 +928,28 @@ body.app-tokenizer-explorer .tip {
     gap: 2px;
   }
 
-  body.app-tokenizer-explorer .sample-actions .btn {
-    flex: 1 1 100%;
+  body.app-tokenizer-explorer .card-trigger {
+    padding: var(--space-3) var(--space-4);
   }
 
   body.app-tokenizer-explorer .card-body {
-    padding-left: var(--space-4);
+    padding: 0 var(--space-4) var(--space-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.app-tokenizer-explorer .tk-workbench .btn,
+  body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button,
+  body.app-tokenizer-explorer .tk-fill,
+  body.app-tokenizer-explorer .tk-seen-fill,
+  body.app-tokenizer-explorer .tk-disclosure summary::after,
+  body.app-tokenizer-explorer .card-arrow {
+    transition: none;
+  }
+
+  body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):hover,
+  body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):active,
+  body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button:not(:disabled):active {
+    transform: none;
   }
 }

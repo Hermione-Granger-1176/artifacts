@@ -1,8 +1,14 @@
 # Decisions
 
-## Why a focused scroll-through explainer
+## Why a pinned rail beside numbered chapters
 
-The app trades a full metric dashboard for one story told top to bottom: the inverse move, why it happens, how hard it swings, and how it ripples out. All three sliders sit together in one hero control panel, right next to the price readout they drive, so the inputs and the headline output are never separated. The sliders originally lived one per section, but that scattered the controls across the page while the price stayed pinned at the top. The later sections stay focused on reading the story (the comparison bars, the sensitivity chart, the ripple cards) while pointing back to the panel. Fixed face value ($1,000) and annual coupons keep the numbers clean (a par bond prices to exactly its face value), so the reader's attention stays on the relationship rather than on conventions.
+The app tells one story (the inverse move, why it happens, how hard it swings, the yield curve, the maths, the analyst readout, the ripple), but every chapter is about the same three inputs and the same price. The sliders originally sat in one hero card at the top, so readers scrolled back up to change something and down again to see what it did, and sections told them to "drag the slider in the control panel above" while it was out of sight. Pinning the price, the price-rate curve, and all three sliders in a left rail removes that round trip, and the story scrolls past them on the normal page scroll. A nested scroll box was rejected because two scroll areas confuse trackpad users and break anchor and find-in-page behavior. Below 960px a pinned rail would eat the screen, so it stacks above the chapters instead. If a short desktop window cannot hold the rail whole, it scrolls inside itself so the sliders never fall off the bottom.
+
+Each chapter gets a number badge and a heading, and the chapter in view is marked with an IntersectionObserver so readers keep their place. Muting out-of-view chapters is done on the heading, the badge, and the charts rather than with opacity on the whole chapter, because opacity pushed body text below the 4.5:1 contrast floor and failed the accessibility gate. Each chapter carries at most one key-idea box in one style (the shared blue callout), and the longer per-slider copy moved into the chapters that use it so each slider keeps at most one short helper line. Fixed face value ($1,000) and annual coupons keep the numbers clean (a par bond prices to exactly its face value), so the reader's attention stays on the relationship rather than on conventions.
+
+## Why the apply button flashes the rate readout
+
+"Set the market rate to this curve's rate" changes a slider in the rail, which can be a few hundred pixels from the button. The slider thumb moves on its own, and the readout also flashes briefly so the cause and effect are visible without looking for it. The flash is a CSS animation that the reduced-motion rule turns off.
 
 ## Why plain ES modules
 
@@ -25,17 +31,17 @@ The teaching bond (10-year, 5% coupon, $1,000 face) is easiest to reason about w
 
 Rather than approximate the price move with modified duration, the sensitivity bars reprice the bond directly at the current rate and at the current rate plus one point for each maturity, then report the exact percent change. This keeps the chart honest and free of approximation error, while still showing the headline result: longer bonds swing far more.
 
-## Why a separate analyst readout section
+## Why a separate analyst readout chapter
 
-Duration, convexity, DV01, and current yield are the numbers a practitioner would actually quote, but leading with them would bury the story for a general reader. They live in their own late section as live stat tiles, after the intuition has been built, and the accompanying paragraph deliberately contrasts the duration straight-line estimate with the exact reprice so convexity is shown doing real work rather than named in passing. The price-split bars reuse the comparison-bar pattern from the coupon section so the page keeps one visual language.
+Duration, convexity, DV01, and current yield are the numbers a practitioner would actually quote, but leading with them would bury the story for a general reader. They live in their own late chapter as live stat tiles, after the intuition has been built, and the accompanying paragraph deliberately contrasts the duration straight-line estimate with the exact reprice so convexity is shown doing real work rather than named in passing. The price-split bars reuse the comparison-bar pattern from the coupon chapter so the page keeps one visual language.
 
 ## Why the mathematics is shown with a live table and an HTML-rendered formula
 
-The mathematics section makes the pricing fully explicit: the formula, a legend of live values, and a worked cash-flow table whose present values total the price. The formula is built from styled spans (flex rows, border-top fraction bars, and sup/sub for the sum bounds and exponents) rather than MathJax or KaTeX, because the page ships a strict self-only Content-Security-Policy and vendoring a full math-typesetting library for one equation is not worth the weight or the added surface. The table is generated with createElement per recalc (no interpolated markup), reuses the shared `.table-wrap` and table styles other apps already use, and scrolls inside a fixed-height container so a 30-year bond's 30 rows do not stretch the page. Its total is the same bond price the hero shows, so the reader can watch every payment shrink and add back up to the headline number.
+The maths chapter makes the pricing fully explicit: the formula, a legend of live values, and a worked cash-flow table whose present values total the price. The formula is built from styled spans (flex rows, border-top fraction bars, and sup/sub for the sum bounds and exponents) rather than MathJax or KaTeX, because the page ships a strict self-only Content-Security-Policy and vendoring a full math-typesetting library for one equation is not worth the weight or the added surface. The table is generated with createElement per recalc (no interpolated markup), reuses the shared `.table-wrap` and table styles other apps already use, and scrolls inside a fixed-height container so a 30-year bond's 30 rows do not stretch the page. Its total is the same bond price the rail shows, so the reader can watch every payment shrink and add back up to the headline number.
 
 ## Why three preset yield-curve shapes instead of a free-form curve
 
-The yield-curve section teaches one idea: rates differ by maturity and the shape is a signal. Three canonical presets (normal, flat, inverted) cover the shapes people actually talk about, and an exponential blend from a short-end rate to a long-end rate gives smooth, realistic curves with two numbers per preset and no curve-fitting machinery. The bond itself still prices against the single market-rate slider so the earlier sections stay untouched; the bridge is an explicit button that copies the curve's rate at the bond's maturity into that slider, keeping one obvious source of truth for the price.
+The yield-curve chapter teaches one idea: rates differ by maturity and the shape is a signal. Three canonical presets (normal, flat, inverted) cover the shapes people actually talk about, and an exponential blend from a short-end rate to a long-end rate gives smooth, realistic curves with two numbers per preset and no curve-fitting machinery. The bond itself still prices against the single market-rate slider so the earlier chapters stay untouched; the bridge is an explicit button that copies the curve's rate at the bond's maturity into that slider, keeping one obvious source of truth for the price.
 
 ## Why `data-theme` plus localStorage
 
@@ -49,4 +55,4 @@ The root gallery already uses this model. Reusing it keeps theme state consisten
 
 - Semiannual and continuous compounding, day-count conventions
 - Accrued interest and dirty vs clean price
-- Discounting each cash flow off the curve's spot rates (the bond still prices against one flat rate; the curve section is context, not the discounting engine)
+- Discounting each cash flow off the curve's spot rates (the bond still prices against one flat rate; the curve chapter is context, not the discounting engine)

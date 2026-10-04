@@ -94,6 +94,14 @@ The page ships with `default-src 'self'; script-src 'self'; style-src 'self'`, w
 
 App chrome in `css/app.css` is entirely token-derived. The printed page uses a separate, deliberately theme-independent set of `--color-document-*` tokens (`css/src/01-tokens.css`) so a preview of something that will be exported to PDF keeps looking like paper in dark mode. The six vendor accents are literals in `vendors.js` because they are document *content*, not app chrome: six businesses should not look like six shades of one design system.
 
+### The studio UI
+
+`app.js` keeps a small state object (vendor, document type, invoice style, seed, scan preset and overrides, and the output choices: scope, format, labels, include, PDF type) and two render passes. `draw` rebuilds the paper and the caption from the selection. `syncOutput` recomputes everything in the Output panel from state: which rows exist, the Labels note, whether pair mode applies, the size estimate, and the primary button's label. Controls only write state and call one of the two.
+
+Two lookup tables turn the compact controls back into the old switches, so exporters and sidecars see the same inputs as before. `LABEL_LEVELS` maps the Labels ladder (None, JSON, + Fields, + Words) onto ground truth, field boxes, and word boxes. `INCLUDE_SCOPES` maps the Include control onto the all-types and all-vendors switches. The type pills, the preset row, and the dropdown the pills fall back to below 700px are built from `DOCUMENT_TYPES` and `DEGRADE_PRESETS` (their `short` labels), and `wireSegment` wraps the shared `initSegmented` with a setter so code-driven changes move the highlight too.
+
+The layout is three regions: a toolbar, the stage, and a pinned Output panel whose head (scope switch) and foot (estimate, progress, status, primary button) stay put while its middle scrolls. The vendor swatch reads the same `--vd-accent` custom property the paper does, set through CSSOM.
+
 ### Export paths
 
 `exporters.js` reaches the three UMD globals through injected accessors rather than touching `window` directly, so the module runs under Node in tests with recording fakes, and a script that failed to load produces a readable message instead of a `TypeError` inside a click handler.

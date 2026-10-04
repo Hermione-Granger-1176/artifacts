@@ -1,12 +1,13 @@
-import { formatPercent } from "../../../../js/modules/formatting.js";
-import { formatTokenForDisplay, getTokenExampleStats, tokenExamples } from "./token-examples.js";
+import { buildCandidateRows, renderCandidateList } from "./candidates.js";
+import {
+  formatTokenForDisplay,
+  getTokenExampleStats,
+  splitPromptTokens,
+  tokenExamples
+} from "./token-examples.js";
 
 // Shared chip tone modifiers cycled across the illustrative token chips.
 const CHIP_TONES = ["is-blue", "is-green", "is-amber", "is-purple", "is-red"];
-
-// Shared chip tone modifiers cycled across the non-winner top-p pills. The
-// winner pill rides the shared green tone plus a scoped emphasis rule.
-const PILL_TONES = ["is-blue", "is-green", "is-amber", "is-purple"];
 
 /**
  * @param {{ word: string }} winner - Highest-probability token.
@@ -48,38 +49,47 @@ function topPInsight(topP, tokenCount) {
 }
 
 /**
- * Build one scenario button per entry on the shared segmented skin and return
- * them so the caller can wire selection through initSegmented, which owns the
- * active class and aria-pressed sync.
+ * Fill the scenario dropdown with one option per scenario, showing the label
+ * only (the prefix sentence lives in the prompt card).
  *
- * @param {HTMLElement} container
+ * @param {HTMLSelectElement} select
  * @param {{ label: string }[]} scenarios
  * @param {number} activeIndex
- * @returns {HTMLButtonElement[]}
+ * @returns {void}
  */
-export function renderTabs(container, scenarios, activeIndex) {
-  container.innerHTML = "";
-  return scenarios.map((scenario, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = index === activeIndex ? "active" : "";
-    button.textContent = scenario.label;
-    container.appendChild(button);
-    return button;
-  });
+export function renderScenarioOptions(select, scenarios, activeIndex) {
+  select.replaceChildren(
+    ...scenarios.map((scenario, index) => {
+      const option = document.createElement("option");
+      option.value = String(index);
+      option.textContent = scenario.label;
+      return option;
+    })
+  );
+  select.value = String(activeIndex);
 }
 
 /**
- * Render the current scenario label and sentence prefix.
+ * Render the scenario type, the prompt as coloured token chips, and the
+ * completion blank that sits inline after the last chip.
  *
  * @param {{ scenarioType: HTMLElement, sentencePrefix: HTMLElement, sentenceCompletion?: HTMLElement }} elements
  * @param {{ prefix: string, type: string }} scenario
  * @param {string | null} [chosenWord=null]
+ * @param {boolean} [showWhitespace=false]
  * @returns {void}
  */
-export function renderScenario(elements, scenario, chosenWord = null) {
+export function renderScenario(elements, scenario, chosenWord = null, showWhitespace = false) {
   elements.scenarioType.textContent = scenario.type;
-  elements.sentencePrefix.textContent = scenario.prefix;
+  elements.sentencePrefix.replaceChildren(
+    ...splitPromptTokens(scenario.prefix).map((token, index) => {
+      const chip = document.createElement("span");
+      chip.className = `chip is-mono token-chip prompt-chip ${CHIP_TONES[index % CHIP_TONES.length]}`;
+      chip.title = token;
+      chip.textContent = formatTokenForDisplay(token, showWhitespace);
+      return chip;
+    })
+  );
   if (elements.sentenceCompletion) {
     elements.sentenceCompletion.textContent = chosenWord ?? "";
     elements.sentenceCompletion.classList.toggle("has-choice", Boolean(chosenWord));
@@ -131,12 +141,15 @@ export function renderTokenExamples(container, showWhitespace) {
 }
 
 /**
- * Render top-p pills and explanatory insight copy. The chart itself lives in
- * charts.js so slider updates can animate an existing Chart.js instance.
+ * Render the candidate list, the insight line, and the sample status. The
+ * list owns its own rows (see candidates.js) so slider updates can animate
+ * the existing bars.
  *
- * @param {{ insightBox: HTMLElement, sampleStatus?: HTMLElement, tokenPills: HTMLElement }} elements
+ * @param {{ candidateList: HTMLElement, insightBox: HTMLElement, sampleStatus?: HTMLElement }} elements
  * @param {{
+ *   inTopP: Set<number>,
  *   selectedTokenIndex: number | null,
+ *   sorted: Array<{ adjustedProb: number, idx: number, prob: number, word: string }>,
  *   temperature: number,
  *   topP: number,
  *   topTokens: Array<{ adjustedProb: number, idx: number, word: string }>,
@@ -145,28 +158,17 @@ export function renderTokenExamples(container, showWhitespace) {
  * @returns {void}
  */
 export function renderDistribution(elements, state) {
-  const pills = elements.tokenPills;
-  const insight = elements.insightBox;
-
-  pills.innerHTML = "";
-  state.topTokens.forEach((token, index) => {
-    const selected = token.idx === state.selectedTokenIndex;
-    const tone = selected ? "is-green" : PILL_TONES[index % PILL_TONES.length];
-    const pill = document.createElement("span");
-    pill.className = `chip is-mono pill ${tone}${selected ? " winner" : ""}`;
-    pill.textContent = `${token.word} ${formatPercent(token.adjustedProb * 100)}`;
-    pills.appendChild(pill);
-  });
+  renderCandidateList(elements.candidateList, buildCandidateRows(state));
 
   const winner = state.topTokens[0];
-  insight.textContent = `${temperatureInsight(winner, state.temperature)} ${topPInsight(
+  elements.insightBox.textContent = `${temperatureInsight(winner, state.temperature)} ${topPInsight(
     state.topP,
     state.topTokens.length
   )}`;
 
   if (elements.sampleStatus) {
     elements.sampleStatus.textContent = state.sampleCounts
-      ? "The amber bars show the tally from 100 draws. Draws follow the renormalized pool, so a surviving token can land above its blue bar."
+      ? "Thin bars: tally from 100 draws of the renormalized pool, so a token can land above its blue bar."
       : "Run 100 draws to compare the observed tally with the distribution.";
   }
 }

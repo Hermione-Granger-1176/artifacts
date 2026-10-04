@@ -2,8 +2,9 @@
  * Vendor document generator: UI wiring.
  *
  * Holds the small amount of mutable state the workbench needs (which vendor,
- * which document type, which invoice layout, and the current seed), and hands
- * everything else to the model, renderer, and exporter modules.
+ * which document type, which invoice layout, the current seed, and the output
+ * choices: scope, format, labels, and batch size), and hands everything else
+ * to the model, renderer, and exporter modules.
  *
  * @module app
  */
@@ -91,6 +92,34 @@ const FRAME_PADDING = 32;
 /** Floor on the fit scale, so a very short window still shows a legible page. */
 const MIN_FIT_SCALE = 0.25;
 
+/**
+ * The Labels ladder, as the three switches it stands for. Each rung includes
+ * everything below it, which is why one segmented control can replace three
+ * checkboxes: "words" without "boxes" or "boxes" without "labels" is not a
+ * state the page can ever be in.
+ * @type {Record<string, { boxes: boolean, truth: boolean, words: boolean }>}
+ */
+const LABEL_LEVELS = {
+  none: { boxes: false, truth: false, words: false },
+  json: { boxes: false, truth: true, words: false },
+  fields: { boxes: true, truth: true, words: false },
+  words: { boxes: true, truth: true, words: true }
+};
+
+/**
+ * The Include control, as the two cross-product switches it stands for.
+ * @type {Record<string, { types: boolean, vendors: boolean }>}
+ */
+const INCLUDE_SCOPES = {
+  combo: { types: false, vendors: false },
+  types: { types: true, vendors: false },
+  vendors: { types: false, vendors: true },
+  all: { types: true, vendors: true }
+};
+
+/** What the status line says in batch mode before anything has run. */
+const IDLE_BATCH_STATUS = "One ZIP, foldered as vendor / type.";
+
 /** @type {import("./modules/exporters.js").ExportDeps} */
 const exportDeps = {
   getJsPdf: () => requireGlobal("jsPDF", () => window.jspdf?.jsPDF),
@@ -98,25 +127,70 @@ const exportDeps = {
   getJsZip: () => requireGlobal("JSZip", () => window.JSZip)
 };
 
+/**
+ * Wire a segmented control whose buttons carry one data attribute each, and
+ * return a setter so state changed elsewhere can move the highlight.
+ *
+ * `initSegmented` only reacts to clicks. The Labels ladder, the preset row, and
+ * the format control are also moved by code (a JSON batch lifts Labels off
+ * None, a knob makes the preset custom), and `.active` is the source of truth
+ * for the pressed state, so the setter writes both rather than leaving the two
+ * to drift apart.
+ * @param {HTMLElement} container - Element wrapping the buttons.
+ * @param {string} attribute - Data attribute holding each button's value.
+ * @param {(value: string) => void} onSelect - Called with the chosen value.
+ * @returns {{ buttons: HTMLButtonElement[], set: (value: string) => void }} The buttons and a setter.
+ */
+function wireSegment(container, attribute, onSelect) {
+  const buttons = initSegmented(container, (/** @type {HTMLButtonElement} */ button) =>
+    onSelect(button.getAttribute(attribute) ?? "")
+  );
+
+  return {
+    buttons,
+    set: (value) => {
+      for (const button of buttons) {
+        const active = button.getAttribute(attribute) === value;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+      }
+    }
+  };
+}
+
+/**
+ * Fill a segmented container with one button per item.
+ * @param {HTMLElement} container - Empty segmented container.
+ * @param {string} attribute - Data attribute to hold each value.
+ * @param {ReadonlyArray<{ id: string, label: string, short: string }>} items - What to offer.
+ * @returns {void}
+ */
+function fillSegment(container, attribute, items) {
+  for (const item of items) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.setAttribute(attribute, item.id);
+    button.textContent = item.short;
+    button.title = item.label;
+    container.appendChild(button);
+  }
+}
+
 initializeMatureApp({
   run: ({ runtime }) => {
     initAppShell();
 
     const vendorSelect = selectById("vdVendor");
-    const typeSelect = selectById("vdDocType");
-    const pdfModeSelect = selectById("vdPdfMode");
-    const batchFormatSelect = selectById("vdBatchFormat");
+    const vendorSwatch = byId("vdVendorSwatch");
+    const typeSelect = selectById("vdDocTypeSelect");
+    const batchOptions = byId("vdBatchOptions");
     const batchCount = inputById("vdBatchCount");
     const batchCountOut = byId("vdBatchCountOut");
-    const allTypes = inputById("vdAllTypes");
-    const allVendors = inputById("vdAllVendors");
-    const groundTruth = inputById("vdGroundTruth");
-    const boxesToggle = inputById("vdBoxes");
-    const wordBoxes = inputById("vdWordBoxes");
-    const wordBoxesLabel = byId("vdWordBoxesLabel");
-    const groundTruthNote = byId("vdGroundTruthNote");
-    const batchEstimate = byId("vdBatchEstimate");
-    const degradePreset = selectById("vdDegradePreset");
+    const formatJsonButton = buttonById("vdFormatJson");
+    const downloadJsonButton = buttonById("vdDownloadJson");
+    const pdfModeField = byId("vdPdfModeField");
+    const labelsNote = byId("vdLabelsNote");
+    const estimate = byId("vdEstimate");
     const degradeNote = byId("vdDegradeNote");
     const knobPanel = byId("vdKnobs");
     const pairToggle = inputById("vdPair");
@@ -125,23 +199,31 @@ initializeMatureApp({
     const paperScale = byId("vdPaperScale");
     const paperFrame = byId("vdPaperFrame");
     const layoutToggle = byId("vdLayout");
-    const layoutNote = byId("vdLayoutNote");
     const zoomLevel = byId("vdZoomLevel");
     const fullscreen = /** @type {HTMLDialogElement} */ (byId("vdFullscreen"));
     const fullscreenBody = byId("vdFullscreenBody");
     const fullCaption = byId("vdFullCaption");
-    const chipVendor = byId("vdChipVendor");
-    const chipType = byId("vdChipType");
+    const captionVendor = byId("vdCaptionVendor");
+    const captionType = byId("vdCaptionType");
+    const captionScan = byId("vdCaptionScan");
     const chipSeed = byId("vdChipSeed");
     const progress = byId("vdProgress");
     const progressFill = byId("vdProgressFill");
     const batchStatus = byId("vdBatchStatus");
+    const exportButton = buttonById("vdExport");
 
     const state = {
       docTypeId: DOCUMENT_TYPES[0].id,
       /** @type {Partial<import("./modules/degrade.js").DegradeSettings>} */
       degradeOverrides: {},
       degradePreset: DEGRADE_PRESETS[0].id,
+      /** @type {import("./modules/exporters.js").BatchFormat} */
+      format: "pdf",
+      include: "combo",
+      labels: "json",
+      mode: "page",
+      /** @type {import("./modules/exporters.js").PdfMode} */
+      pdfMode: "text",
       seed: rollSeed(),
       style: "clean",
       vendorId: VENDORS[0].id
@@ -150,14 +232,21 @@ initializeMatureApp({
     /** @type {ReturnType<typeof buildDocument>} */
     let currentModel;
 
-    for (const preset of [...DEGRADE_PRESETS, { id: "custom", label: "Custom" }]) {
-      const option = document.createElement("option");
-      option.value = preset.id;
-      option.textContent = preset.label;
-      degradePreset.appendChild(option);
+    /**
+     * The three switches the Labels ladder stands for.
+     * @returns {{ boxes: boolean, truth: boolean, words: boolean }} Ground truth, field boxes, word boxes.
+     */
+    function labelFlags() {
+      return LABEL_LEVELS[state.labels];
     }
 
-    degradePreset.value = state.degradePreset;
+    /**
+     * Whether the batch crosses every type, every vendor, or both.
+     * @returns {{ types: boolean, vendors: boolean }} The cross-product switches.
+     */
+    function includeScope() {
+      return INCLUDE_SCOPES[state.include];
+    }
 
     /**
      * Every setting the current preset and knob positions add up to.
@@ -177,6 +266,16 @@ initializeMatureApp({
      */
     function presetLabel() {
       return state.degradePreset === "custom" ? "Custom" : findPreset(state.degradePreset).label;
+    }
+
+    /**
+     * Set the status line, and hide it while it has nothing to say.
+     * @param {string} text - Message, or an empty string to clear it.
+     * @returns {void}
+     */
+    function setStatus(text) {
+      batchStatus.textContent = text;
+      batchStatus.hidden = text === "";
     }
 
     /** @type {{ input: HTMLInputElement, key: string, output: HTMLElement, unit: string }[]} */
@@ -212,10 +311,9 @@ initializeMatureApp({
       input.addEventListener("input", () => {
         // Touching a knob is what makes a run custom: the preset it started from
         // has stopped being an honest description of what will be rendered, and
-        // the sidecar would otherwise claim a preset that was not used.
+        // the sidecar would otherwise name a preset that was not used.
         state.degradeOverrides = { ...currentSettings(), [knob.key]: Number(input.value) };
         state.degradePreset = "custom";
-        degradePreset.value = "custom";
         syncDegrade();
       });
     }
@@ -227,6 +325,8 @@ initializeMatureApp({
       vendorSelect.appendChild(option);
     }
 
+    // The type pills and this dropdown are one control in two shapes: the CSS
+    // shows the pills while they fit and the dropdown when they would not.
     for (const type of DOCUMENT_TYPES) {
       const option = document.createElement("option");
       option.value = type.id;
@@ -237,9 +337,57 @@ initializeMatureApp({
     vendorSelect.value = state.vendorId;
     typeSelect.value = state.docTypeId;
 
-    const layoutButtons = /** @type {HTMLButtonElement[]} */ (
-      Array.from(layoutToggle.querySelectorAll("button"))
-    );
+    fillSegment(byId("vdDocType"), "data-type", DOCUMENT_TYPES);
+    fillSegment(byId("vdDegradePreset"), "data-preset", DEGRADE_PRESETS);
+
+    const typePills = wireSegment(byId("vdDocType"), "data-type", (typeId) => {
+      setDocType(typeId);
+    });
+    const presetRow = wireSegment(byId("vdDegradePreset"), "data-preset", (presetId) => {
+      state.degradePreset = presetId;
+      // A named preset owns every setting, so choosing one drops the custom
+      // overrides rather than layering on top of them.
+      state.degradeOverrides = {};
+      syncDegrade();
+    });
+    const layoutSegment = wireSegment(layoutToggle, "data-style", (style) => {
+      state.style = style;
+      draw();
+    });
+    const modeSegment = wireSegment(byId("vdMode"), "data-mode", (mode) => {
+      state.mode = mode;
+      setStatus(mode === "batch" ? IDLE_BATCH_STATUS : "");
+      syncOutput();
+    });
+    const includeSegment = wireSegment(byId("vdInclude"), "data-include", (include) => {
+      state.include = include;
+      syncOutput();
+    });
+    const labelsSegment = wireSegment(byId("vdLabels"), "data-labels", (labels) => {
+      state.labels = labels;
+      syncOutput();
+    });
+    const formatSegment = wireSegment(byId("vdFormat"), "data-format", (format) => {
+      state.format = /** @type {import("./modules/exporters.js").BatchFormat} */ (format);
+      syncOutput();
+    });
+    const pdfModeSegment = wireSegment(byId("vdPdfMode"), "data-pdf-mode", (pdfMode) => {
+      state.pdfMode = /** @type {import("./modules/exporters.js").PdfMode} */ (pdfMode);
+      syncOutput();
+    });
+
+    /**
+     * Switch the document type from either shape of the control.
+     * @param {string} typeId - Document type id.
+     * @returns {void}
+     */
+    function setDocType(typeId) {
+      state.docTypeId = typeId;
+      typeSelect.value = typeId;
+      typePills.set(typeId);
+      syncLayoutAvailability();
+      draw();
+    }
 
     /**
      * The dense layout is an invoice-only treatment; grey it out elsewhere so
@@ -249,11 +397,14 @@ initializeMatureApp({
     function syncLayoutAvailability() {
       const isInvoice = state.docTypeId === "invoice";
       layoutToggle.classList.toggle("is-disabled", !isInvoice);
-      layoutNote.textContent = isInvoice
-        ? "Dense is the line-level tax invoice, built from the same seed."
-        : "The dense layout only applies to invoices.";
+      layoutToggle.setAttribute(
+        "title",
+        isInvoice
+          ? "Dense is the line-level tax invoice, built from the same seed."
+          : "The dense layout only applies to invoices."
+      );
 
-      for (const button of layoutButtons) {
+      for (const button of layoutSegment.buttons) {
         button.disabled = !isInvoice;
       }
     }
@@ -295,7 +446,7 @@ initializeMatureApp({
      * @returns {void}
      */
     function openFullscreen() {
-      fullCaption.textContent = `${chipVendor.textContent} - ${chipType.textContent}`;
+      fullCaption.textContent = `${captionVendor.textContent} - ${captionType.textContent}`;
       fullscreenBody.replaceChildren(paperScale);
       paperScale.style.setProperty("--vd-zoom", "1");
       fullscreen.showModal();
@@ -316,12 +467,13 @@ initializeMatureApp({
     }
 
     /**
-     * Render the current selection onto the paper and refresh the chips.
+     * Render the current selection onto the paper and refresh the caption.
      * @returns {void}
      */
     function draw() {
       const isInvoice = state.docTypeId === "invoice";
       const documentType = findDocumentType(state.docTypeId);
+      const vendor = findVendor(state.vendorId);
       currentModel = buildDocument({
         docTypeId: state.docTypeId,
         seed: state.seed,
@@ -330,8 +482,11 @@ initializeMatureApp({
       });
 
       renderPaper(paper, currentModel);
-      chipVendor.textContent = findVendor(state.vendorId).name;
-      chipType.textContent = currentModel.dense
+      // CSSOM rather than an inline style attribute, like the paper's own
+      // vendor colours: the self-only CSP would drop the attribute.
+      vendorSwatch.style.setProperty("--vd-accent", vendor.accent);
+      captionVendor.textContent = vendor.name;
+      captionType.textContent = currentModel.dense
         ? `${documentType.label} (dense)`
         : documentType.label;
       chipSeed.textContent = `seed ${state.seed}`;
@@ -374,7 +529,7 @@ initializeMatureApp({
         await task();
       } catch (error) {
         runtime.reportError(error, "document export");
-        batchStatus.textContent = error instanceof Error ? error.message : "Export failed.";
+        setStatus(error instanceof Error ? error.message : "Export failed.");
       } finally {
         button.disabled = false;
         button.textContent = originalLabel;
@@ -419,9 +574,8 @@ initializeMatureApp({
      * @returns {Record<string, any>} The sidecar payload.
      */
     function annotate(model, degradation = degradationFor(model)) {
-      const measured = boxesToggle.checked
-        ? collectBoxes(paper, { words: wordBoxes.checked })
-        : null;
+      const { boxes: withBoxes, words } = labelFlags();
+      const measured = withBoxes ? collectBoxes(paper, { words }) : null;
       const boxes = degradation ? transformBoxes(measured, degradation.transform) : measured;
       return buildAnnotations(model, boxes, degradation);
     }
@@ -432,7 +586,6 @@ initializeMatureApp({
      */
     function syncDegrade() {
       const settings = currentSettings();
-      const clean = isClean(settings);
 
       for (const knob of knobs) {
         const value = Number(settings[/** @type {keyof typeof settings} */ (knob.key)]);
@@ -440,81 +593,129 @@ initializeMatureApp({
         knob.output.textContent = `${value}${knob.unit}`;
       }
 
-      // Pair mode writes the clean original beside the degraded page, which is
-      // the same file twice when there is nothing to degrade.
-      pairToggle.disabled = clean;
-      pairLabel.classList.toggle("is-disabled", clean);
+      presetRow.set(state.degradePreset);
+      captionScan.textContent = presetLabel();
       degradeNote.textContent =
         state.degradePreset === "custom"
           ? "Custom settings, still driven by the document seed, so the page stays reproducible."
           : findPreset(state.degradePreset).note;
-      syncEstimate();
+      syncOutput();
     }
 
     /**
-     * Keep the ground-truth controls consistent and say what they will produce.
+     * Say what the Labels ladder will produce for the format picked.
      *
-     * The box toggle is not disabled for a text-PDF batch, because the PNG of
-     * the same run is still described correctly. It says so instead, and every
-     * payload repeats it in `boxes_apply_to`, so nobody has to remember which
-     * export the coordinates belong to.
-     * @returns {void}
+     * The text-layer PDF is called out because it is the one export boxes do
+     * not describe, and every payload repeats it in `boxes_apply_to`, so nobody
+     * has to remember which export the coordinates belong to.
+     * @returns {string} The note.
      */
-    function syncGroundTruth() {
-      const jsonOnly = batchFormatSelect.value === "json";
-      const enabled = groundTruth.checked || jsonOnly;
-      boxesToggle.disabled = !enabled;
-      wordBoxes.disabled = !enabled || !boxesToggle.checked;
-      wordBoxesLabel.classList.toggle("is-disabled", wordBoxes.disabled);
+    function labelsNoteText() {
+      const { boxes, truth, words } = labelFlags();
 
-      if (!enabled) {
-        groundTruthNote.textContent = "Exports are pages only. No labels are written.";
-        return;
+      if (!truth) {
+        return "Exports are pages only. No labels are written.";
       }
 
-      if (!groundTruth.checked) {
-        groundTruthNote.textContent = boxesToggle.checked
-          ? "JSON-only batches still contain labels and boxes; page exports do not write sidecars."
-          : "JSON-only batches still contain labels; page exports do not write sidecars.";
-        return;
+      if (boxes && state.format === "pdf" && state.pdfMode === "text") {
+        return "Boxes are measured on the rendered page, so they match the PNG and the rasterised PDF, not the text-layer PDF.";
       }
 
-      if (boxesToggle.checked && batchFormatSelect.value === "pdf" && pdfModeSelect.value === "text") {
-        groundTruthNote.textContent =
-          "Boxes are measured on the rendered page, so they match the PNG and the rasterised PDF, not the text-layer PDF.";
-        return;
+      if (words) {
+        return "Each labelled value carries its box, and so does every word (slower).";
       }
 
-      groundTruthNote.textContent = boxesToggle.checked
+      return boxes
         ? "Each labelled value also carries its box, in normalised page coordinates."
         : "Every page ships with a JSON sidecar naming what each printed value is.";
     }
 
     /**
-     * Show what the current batch settings would download.
+     * Describe the files one page export writes.
+     * @param {boolean} degraded - Whether the scan settings change the page.
+     * @returns {string} For example `PDF + PNG + JSON`.
+     */
+    function pageFileList(degraded) {
+      const wantsPng = state.format === "png" || state.format === "both";
+      return [
+        (state.format === "pdf" || state.format === "both") && "PDF",
+        wantsPng && (pairToggle.checked && degraded ? "PNG + clean PNG" : "PNG"),
+        labelFlags().truth && "JSON"
+      ]
+        .filter(Boolean)
+        .join(" + ");
+    }
+
+    /**
+     * Keep the output panel consistent with its state, and say what it will do.
+     *
+     * One pass over everything the scope, format, labels, and scan choices
+     * decide between: which rows exist, what the primary button says, and what
+     * the size estimate is. Written as a function of state rather than as a set
+     * of handlers poking at each other, so a change from any control, or from
+     * code, lands the panel in the same place.
      * @returns {void}
      */
-    function syncEstimate() {
-      const perCombination = Number(batchCount.value);
-      const count =
-        perCombination *
-        (allVendors.checked ? VENDORS.length : 1) *
-        (allTypes.checked ? DOCUMENT_TYPES.length : 1);
+    function syncOutput() {
+      const batch = state.mode === "batch";
       const settings = currentSettings();
       const degraded = !isClean(settings);
+      const { boxes, truth, words } = labelFlags();
+
+      // JSON is only a batch format. Leaving batch with it selected falls back
+      // to PDF rather than leaving page mode on a format it cannot write.
+      if (!batch && state.format === "json") {
+        state.format = "pdf";
+      }
+
+      // A JSON batch is labels and nothing else, so it cannot sit on None.
+      if (state.format === "json" && state.labels === "none") {
+        state.labels = "json";
+      }
+
+      modeSegment.set(state.mode);
+      includeSegment.set(state.include);
+      labelsSegment.set(state.labels);
+      formatSegment.set(state.format);
+      pdfModeSegment.set(state.pdfMode);
+
+      batchOptions.hidden = !batch;
+      formatJsonButton.hidden = !batch;
+      downloadJsonButton.hidden = batch;
+      // None is the first rung, and the one a JSON batch cannot stand on.
+      labelsSegment.buttons[0].disabled = state.format === "json";
+      pdfModeField.hidden = state.format !== "pdf" && state.format !== "both";
+      // Pair mode writes the clean original beside a degraded PNG, so it means
+      // nothing for a clean page or an export with no PNG in it.
+      pairLabel.hidden = !degraded || (state.format !== "png" && state.format !== "both");
+      labelsNote.textContent = labelsNoteText();
+
+      const perCombination = Number(batchCount.value);
+      const count = batch
+        ? perCombination *
+          (includeScope().vendors ? VENDORS.length : 1) *
+          (includeScope().types ? DOCUMENT_TYPES.length : 1)
+        : 1;
       const bytes = estimateBatchBytes({
-        boxes: boxesToggle.checked,
+        boxes,
         count,
         degraded,
-        format: /** @type {import("./modules/exporters.js").BatchFormat} */ (batchFormatSelect.value),
-        groundTruth: groundTruth.checked,
+        format: state.format,
+        groundTruth: truth,
         lossy: degraded && settings.jpeg < 1,
         pair: pairToggle.checked,
-        pdfMode: /** @type {import("./modules/exporters.js").PdfMode} */ (pdfModeSelect.value),
-        words: wordBoxes.checked
+        pdfMode: state.pdfMode,
+        words
       });
 
-      batchEstimate.textContent = `${count} documents, roughly ${formatBytes(bytes)}.`;
+      estimate.textContent = batch
+        ? `${count} documents, roughly ${formatBytes(bytes)}.`
+        : `${pageFileList(degraded)}, roughly ${formatBytes(bytes)}.`;
+
+      // A run in flight owns the button's label, and restores it when it ends.
+      if (!exportButton.disabled) {
+        exportButton.textContent = batch ? "Generate ZIP" : "Download";
+      }
     }
 
     /**
@@ -526,7 +727,7 @@ initializeMatureApp({
       const percent = Math.round(Math.min(1, Math.max(0, fraction)) * 100);
       progressFill.style.width = `${percent}%`;
       progress.setAttribute("aria-valuenow", String(percent));
-      // An empty track is just a grey slab sitting under the button, so the
+      // An empty track is just a grey slab sitting above the button, so the
       // meter only exists while there is progress to report.
       progress.hidden = false;
     }
@@ -537,14 +738,7 @@ initializeMatureApp({
     });
 
     typeSelect.addEventListener("change", () => {
-      state.docTypeId = typeSelect.value;
-      syncLayoutAvailability();
-      draw();
-    });
-
-    initSegmented(layoutToggle, (/** @type {HTMLButtonElement} */ button) => {
-      state.style = button.getAttribute("data-style") ?? "clean";
-      draw();
+      setDocType(typeSelect.value);
     });
 
     buttonById("vdFullOpen").addEventListener("click", openFullscreen);
@@ -561,66 +755,45 @@ initializeMatureApp({
 
     batchCount.addEventListener("input", () => {
       batchCountOut.textContent = batchCount.value;
-      syncEstimate();
+      syncOutput();
     });
 
-    for (const control of [groundTruth, boxesToggle, wordBoxes, batchFormatSelect, pdfModeSelect]) {
-      control.addEventListener("change", () => {
-        syncGroundTruth();
-        syncEstimate();
-      });
-    }
-
-    for (const control of [allTypes, allVendors, pairToggle]) {
-      control.addEventListener("change", syncEstimate);
-    }
-
-    degradePreset.addEventListener("change", () => {
-      state.degradePreset = degradePreset.value;
-      // A named preset owns every setting, so choosing one drops the custom
-      // overrides rather than layering on top of them.
-      state.degradeOverrides = {};
-      syncDegrade();
-    });
+    pairToggle.addEventListener("change", syncOutput);
 
     /**
      * Write the sidecar alongside a page export, when labelling is on.
      * @returns {void}
      */
     function alsoDownloadGroundTruth() {
-      if (groundTruth.checked) {
+      if (labelFlags().truth) {
         downloadJson(annotate(currentModel), currentModel.filenameBase, exportDeps);
       }
     }
 
-    const downloadPdfButton = buttonById("vdDownloadPdf");
-    downloadPdfButton.addEventListener("click", () => {
-      void withBusyButton(downloadPdfButton, "Rendering...", () =>
-        atActualSize(async () => {
-          await downloadPdf(
-            currentModel,
-            /** @type {import("./modules/exporters.js").PdfMode} */ (pdfModeSelect.value),
-            paper,
-            exportDeps,
-            degradationFor(currentModel)
-          );
-          alsoDownloadGroundTruth();
-        })
-      );
-    });
+    /**
+     * Export the page on screen in whichever formats are selected.
+     *
+     * One click is one export: the PDF, the PNG, or both, then a single sidecar
+     * describing the page. The sidecar used to follow each download button, so
+     * asking for both formats wrote it twice.
+     * @returns {Promise<void>} Resolves once everything has been handed to the browser.
+     */
+    function exportPage() {
+      return atActualSize(async () => {
+        if (state.format === "pdf" || state.format === "both") {
+          await downloadPdf(currentModel, state.pdfMode, paper, exportDeps, degradationFor(currentModel));
+        }
 
-    const downloadPngButton = buttonById("vdDownloadPng");
-    downloadPngButton.addEventListener("click", () => {
-      void withBusyButton(downloadPngButton, "Rendering...", () =>
-        atActualSize(async () => {
+        if (state.format === "png" || state.format === "both") {
           await downloadImage(currentModel, paper, exportDeps, {
             pair: pairToggle.checked,
             plan: degradationFor(currentModel)
           });
-          alsoDownloadGroundTruth();
-        })
-      );
-    });
+        }
+
+        alsoDownloadGroundTruth();
+      });
+    }
 
     const previewScanButton = buttonById("vdPreviewScan");
     previewScanButton.addEventListener("click", () => {
@@ -638,14 +811,13 @@ initializeMatureApp({
         const image = document.createElement("img");
         image.className = "vd-scan-preview";
         image.src = dataUrl;
-        image.alt = `Scan preview of the generated ${chipType.textContent}`;
-        fullCaption.textContent = `${chipVendor.textContent} - ${presetLabel()}`;
+        image.alt = `Scan preview of the generated ${captionType.textContent}`;
+        fullCaption.textContent = `${captionVendor.textContent} - ${presetLabel()}`;
         fullscreenBody.replaceChildren(image);
         fullscreen.showModal();
       });
     });
 
-    const downloadJsonButton = buttonById("vdDownloadJson");
     downloadJsonButton.addEventListener("click", () => {
       void withBusyButton(downloadJsonButton, "Measuring...", async () =>
         atActualSize(async () => {
@@ -654,7 +826,6 @@ initializeMatureApp({
       );
     });
 
-    const batchButton = buttonById("vdBatch");
     const batchStopButton = buttonById("vdBatchStop");
     // Read by `runBatch` between documents. A plain flag rather than an
     // AbortController because there is nothing to abort: the run is a loop, and
@@ -664,84 +835,94 @@ initializeMatureApp({
     batchStopButton.addEventListener("click", () => {
       stopRequested = true;
       batchStopButton.disabled = true;
-      batchStatus.textContent = "Stopping after the current document...";
+      setStatus("Stopping after the current document...");
     });
 
-    batchButton.addEventListener("click", () => {
-      void withBusyButton(batchButton, "Generating...", async () => {
-        stopRequested = false;
-        batchStopButton.disabled = false;
-        batchStopButton.hidden = false;
+    /**
+     * Run the batch the panel describes and hand over the ZIP.
+     * @returns {Promise<void>} Resolves once the archive has been offered for download.
+     */
+    async function exportBatch() {
+      stopRequested = false;
+      batchStopButton.disabled = false;
+      batchStopButton.hidden = false;
 
-        const plan = planBatch({
-          vendorIds: allVendors.checked ? VENDORS.map((vendor) => vendor.id) : [state.vendorId],
-          docTypeIds: allTypes.checked ? DOCUMENT_TYPES.map((type) => type.id) : [state.docTypeId],
-          perCombination: Number(batchCount.value)
-        });
+      const scope = includeScope();
+      const plan = planBatch({
+        vendorIds: scope.vendors ? VENDORS.map((vendor) => vendor.id) : [state.vendorId],
+        docTypeIds: scope.types ? DOCUMENT_TYPES.map((type) => type.id) : [state.docTypeId],
+        perCombination: Number(batchCount.value)
+      });
 
-        setProgress(0);
-        batchStatus.textContent = `Generating ${plan.length} documents...`;
-        const startedAt = Date.now();
+      setProgress(0);
+      setStatus(`Generating ${plan.length} documents...`);
+      const startedAt = Date.now();
+      const flags = labelFlags();
 
-        const labelled = groundTruth.checked || batchFormatSelect.value === "json";
-        const batchFormat = /** @type {import("./modules/exporters.js").BatchFormat} */ (
-          batchFormatSelect.value
+      try {
+        const { blob, count, stopped } = await atActualSize(() =>
+          runBatch({
+            shouldStop: () => stopRequested,
+            annotate: flags.truth ? annotate : undefined,
+            degrade: degradationFor,
+            deps: exportDeps,
+            format: state.format,
+            pair: pairToggle.checked,
+            paper,
+            pdfMode: state.pdfMode,
+            plan,
+            readme: {
+              boxes: flags.boxes,
+              degradation: state.degradePreset,
+              words: flags.words
+            },
+            onProgress: ({ done, total, phase }) => {
+              setProgress(done / total);
+              setStatus(`${phase} ${done} of ${total}`);
+            },
+            renderPreview: (item) => {
+              const model = buildDocument(item);
+              renderPaper(paper, model);
+              return model;
+            }
+          })
         );
 
-        try {
-          const { blob, count, stopped } = await atActualSize(() =>
-            runBatch({
-              shouldStop: () => stopRequested,
-              annotate: labelled ? annotate : undefined,
-              degrade: degradationFor,
-              deps: exportDeps,
-              format: batchFormat,
-              pair: pairToggle.checked,
-              paper,
-              pdfMode: /** @type {import("./modules/exporters.js").PdfMode} */ (pdfModeSelect.value),
-              plan,
-              readme: {
-                boxes: boxesToggle.checked,
-                degradation: state.degradePreset,
-                words: wordBoxes.checked
-              },
-              onProgress: ({ done, total, phase }) => {
-                setProgress(done / total);
-                batchStatus.textContent = `${phase} ${done} of ${total}`;
-              },
-              renderPreview: (item) => {
-                const model = buildDocument(item);
-                renderPaper(paper, model);
-                return model;
-              }
-            })
-          );
+        const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
 
-          const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
-
-          // Stopping before the first document finished leaves an archive holding
-          // nothing but a README describing an empty run, which is a worse thing
-          // to hand someone than no file at all.
-          if (count === 0) {
-            batchStatus.textContent = "Stopped before the first document. Nothing downloaded.";
-          } else {
-            const stamp = new Date().toISOString().slice(0, 10);
-            const suffix = stopped ? "docs_partial" : "docs";
-            triggerDownload(blob, `vendor_docs_${stamp}_${count}${suffix}.zip`);
-            batchStatus.textContent = stopped
+        // Stopping before the first document finished leaves an archive holding
+        // nothing but a README describing an empty run, which is a worse thing
+        // to hand someone than no file at all.
+        if (count === 0) {
+          setStatus("Stopped before the first document. Nothing downloaded.");
+        } else {
+          const stamp = new Date().toISOString().slice(0, 10);
+          const suffix = stopped ? "docs_partial" : "docs";
+          triggerDownload(blob, `vendor_docs_${stamp}_${count}${suffix}.zip`);
+          setStatus(
+            stopped
               ? `Stopped. ${count} of ${plan.length} documents in ${seconds}s.`
-              : `Done. ${count} documents in ${seconds}s.`;
-          }
-        } finally {
-          batchStopButton.hidden = true;
-          progress.hidden = true;
-          draw();
+              : `Done. ${count} documents in ${seconds}s.`
+          );
         }
-      });
+      } finally {
+        batchStopButton.hidden = true;
+        progress.hidden = true;
+        draw();
+      }
+    }
+
+    // One primary button for the whole panel: what it does is the scope above.
+    exportButton.addEventListener("click", () => {
+      const batch = state.mode === "batch";
+      void withBusyButton(exportButton, batch ? "Generating..." : "Rendering...", () =>
+        batch ? exportBatch() : exportPage()
+      ).then(syncOutput);
     });
 
     syncLayoutAvailability();
-    syncGroundTruth();
+    typePills.set(state.docTypeId);
+    layoutSegment.set(state.style);
     syncDegrade();
     draw();
   }

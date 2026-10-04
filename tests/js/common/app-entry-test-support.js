@@ -118,13 +118,13 @@ export function setupFullMocks() {
     'sensitivityChart', 'sensitivityExplain', 'priceRateChart', 'rippleExplain',
     'statCurrentYield', 'statMacaulay', 'statModified', 'statConvexity',
     'pvSplit', 'analystExplain',
-    'curveToggle', 'btnCurveNormal', 'btnCurveFlat', 'btnCurveInverted', 'btnApplyCurve',
+    'curveToggle', 'btnCurveNormal', 'btnCurveFlat', 'btnCurveInverted', 'btnApplyCurve', 'btnApplyCurveLabel',
     'yieldCurveChart', 'curveExplain',
-    'tabs', 'scenario-type', 'sentence-prefix', 'sentence-completion',
-    'temp-slider', 'temp-val', 'temp-note', 'topp-slider', 'topp-val',
+    'scenario-select', 'scenario-type', 'sentence-prefix', 'sentence-completion',
+    'temp-slider', 'temp-val', 'temp-note', 'topp-slider', 'topp-val', 'topp-note',
     'sampling-presets', 'pick-token', 'sample-hundred', 'reset-samples',
-    'sample-status', 'probability-chart', 'token-pills', 'insight-box',
-    'sec-tokens', 'sec-sampling', 'sec-distribution',
+    'sample-status', 'candidate-list', 'insight-box',
+    'sec-sampling', 'sec-distribution', 'sec-tokens',
     'token-examples', 'whitespace-toggle', 'concepts',
     'nav-fill', 'nav-nodes', 'nav-label',
     'back-button', 'theme-toggle', 'scroll-top',
@@ -136,8 +136,8 @@ export function setupFullMocks() {
   // Mirror the tokenizer markup's id + data-nav-label pairs so the shared
   // section-nav's markup discovery finds them in document order.
   const navSectionDefs = [
-    ['sec-tokens', 'Tokens'], ['sec-sampling', 'Sampling'],
-    ['sec-distribution', 'Distribution'], ['concepts', 'Concepts']
+    ['sec-sampling', 'Sampling'], ['sec-distribution', 'Distribution'],
+    ['sec-tokens', 'Tokens'], ['concepts', 'Concepts']
   ];
   for (const [id, label] of navSectionDefs) {
     elementMap[id].id = id;
@@ -153,11 +153,6 @@ export function setupFullMocks() {
     elementMap.btnCurveFlat,
     elementMap.btnCurveInverted
   ];
-  // The tokenizer scenario tabs are rendered into #tabs at runtime; mirror the
-  // real API by matching the selector and returning a snapshot of the current
-  // buttons at call time.
-  elementMap.tabs.querySelectorAll = (selector) =>
-    selector === 'button' ? [...elementMap.tabs.children] : [];
 
   elementMap.slPrincipal.value = '100000';
   elementMap.slRate.value = '6';

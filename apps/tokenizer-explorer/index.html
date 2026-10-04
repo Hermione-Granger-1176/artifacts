@@ -28,10 +28,8 @@
   <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
-  <link rel="preload" href="./js/vendor/chart.umd.min.js" as="script">
   <link rel="stylesheet" href="../../css/style.css">
   <link rel="stylesheet" href="./css/app.css">
-  <script defer src="./js/vendor/chart.umd.min.js"></script>
 </head>
 <body class="artifact-app app-tokenizer-explorer">
   <div data-app-shell="header"></div>
@@ -46,116 +44,134 @@
       <p class="page-lede">Text becomes tokens, the model scores possible continuations, temperature and top-p reshape the odds, then sampling rolls the dice.</p>
     </header>
 
-    <section class="page-card tokenization-card" id="sec-tokens" data-nav-label="Tokens" aria-labelledby="tokenization-heading">
-      <div class="section-heading-row">
-        <div>
-          <p class="section-kicker">Before the model predicts</p>
-          <h2 id="tokenization-heading">How text becomes tokens</h2>
-        </div>
-        <button class="btn btn-outline btn-sm whitespace-toggle" id="whitespace-toggle" type="button" aria-pressed="false">Show whitespace</button>
-      </div>
-      <p class="section-copy">Illustrative examples of how BPE tokenizers typically split text. Real vocabularies vary, especially across languages and emoji.</p>
-      <div class="token-example-list" id="token-examples"></div>
-    </section>
-
-    <section class="sampling-explorer" aria-labelledby="sampling-heading">
-      <div class="sampling-heading" id="sec-sampling" data-nav-label="Sampling">
+    <section class="tk-sampler" aria-labelledby="sampling-heading">
+      <div class="tk-section-head" id="sec-sampling" data-nav-label="Sampling">
         <p class="section-kicker">Sampling explorer</p>
         <h2 id="sampling-heading">Score a next token, then choose one</h2>
       </div>
 
-      <div class="segmented scenario-tabs" id="tabs" role="group" aria-label="Sampling scenario"></div>
-
-      <section class="code-window scenario-box">
-        <div class="code-window-head">
-          <span class="code-dots" aria-hidden="true"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></span>
-          <span class="code-window-title" id="scenario-type"></span>
-        </div>
-        <div class="scenario-body">
-          <div class="sentence-display">
-            <span id="sentence-prefix"></span><span class="blank" id="sentence-completion" aria-live="polite"></span>
+      <div class="tk-workbench">
+        <section class="page-card tk-card tk-main" aria-label="Prompt and next-token odds">
+          <div class="tk-card-head">
+            <span class="section-kicker" id="scenario-type"></span>
+            <button class="btn btn-outline btn-sm whitespace-toggle" id="whitespace-toggle" type="button" aria-pressed="false">Show whitespace</button>
           </div>
-          <div class="app-callout">The model is choosing the next token.</div>
-        </div>
-      </section>
 
-      <section class="page-card sampling-controls-card" aria-label="Sampling controls">
-        <div class="sampling-pipeline" aria-label="Sampling order of operations">
-          <div class="pipeline-step is-temperature">
-            <span class="pipeline-number">1</span>
-            <span>Temperature reshapes the scores</span>
+          <div class="tk-prompt">
+            <span class="tk-prompt-tokens" id="sentence-prefix"></span>
+            <span class="blank" id="sentence-completion" aria-live="polite"></span>
           </div>
-          <div class="pipeline-connector" aria-hidden="true"></div>
-          <div class="pipeline-step is-topp">
-            <span class="pipeline-number">2</span>
-            <span>Top P cuts the pool</span>
-          </div>
-        </div>
 
-        <div class="controls">
-          <div class="control-group">
-            <div class="control-header">
-              <label class="control-label" for="temp-slider">Temperature</label>
-              <output class="control-value" id="temp-val" for="temp-slider">1.0</output>
+          <div class="tk-next" id="sec-distribution" data-nav-label="Distribution" aria-labelledby="next-token-heading" role="group">
+            <div class="tk-next-head">
+              <h3 id="next-token-heading">Next token</h3>
+              <div class="tk-legend" aria-label="Bar legend">
+                <span><i class="tk-swatch is-odds" aria-hidden="true"></i>After temperature</span>
+                <span><i class="tk-swatch is-cut" aria-hidden="true"></i>Cut by top P</span>
+                <span><i class="tk-swatch is-seen" aria-hidden="true"></i>Observed, after Sample 100x</span>
+              </div>
+            </div>
+            <p class="tk-copy">The model is choosing the next token. Bars show the odds after temperature. Tokens below the top P cut cannot be drawn, and Draw renormalizes the survivors.</p>
+            <ul class="tk-candidates" id="candidate-list" aria-label="Next-token candidates"></ul>
+            <p class="tk-insight" id="insight-box"></p>
+          </div>
+
+          <div class="tk-actions">
+            <button class="btn btn-primary" id="pick-token" type="button">
+              <svg class="tk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1" fill="currentColor" stroke="none"/></svg>
+              Pick next token
+            </button>
+            <button class="btn btn-outline" id="sample-hundred" type="button">
+              <svg class="tk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+              Sample 100x
+            </button>
+            <button class="btn btn-ghost" id="reset-samples" type="button" title="Clear the pick and the 100-draw tally">Reset</button>
+            <p class="tk-status" id="sample-status" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section class="page-card tk-card tk-settings" aria-labelledby="settings-heading">
+          <div class="tk-card-head">
+            <h3 class="section-kicker" id="settings-heading">Settings</h3>
+          </div>
+
+          <div class="control-field">
+            <div class="control-field-head">
+              <label for="scenario-select">Scenario</label>
+            </div>
+            <select class="select-input" id="scenario-select"></select>
+          </div>
+
+          <div class="control-field">
+            <div class="control-field-head">
+              <label for="temp-slider">
+                <svg class="tk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
+                Temperature
+              </label>
+              <output id="temp-val" for="temp-slider">1.0</output>
             </div>
             <input class="range-input" type="range" min="0" max="30" value="10" id="temp-slider" step="1" aria-describedby="temp-hints temp-note">
-            <div class="range-hints" id="temp-hints"><span>Greedy (0)</span><span>Wild (3.0)</span></div>
-            <p class="control-note" id="temp-note">A middle setting balances coherence and surprise.</p>
+            <div class="control-field-hints" id="temp-hints"><span>Greedy (0)</span><span>Wild (3.0)</span></div>
+            <p class="control-field-note" id="temp-note">A middle setting balances coherence and surprise.</p>
           </div>
-          <div class="control-group">
-            <div class="control-header">
-              <label class="control-label" for="topp-slider">Top P</label>
-              <output class="control-value" id="topp-val" for="topp-slider">0.70</output>
+
+          <div class="control-field">
+            <div class="control-field-head">
+              <label for="topp-slider">
+                <svg class="tk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3Z"/></svg>
+                Top P
+              </label>
+              <output id="topp-val" for="topp-slider">0.70</output>
             </div>
-            <input class="range-input" type="range" min="1" max="100" value="70" id="topp-slider" step="1" aria-describedby="topp-hints">
-            <div class="range-hints" id="topp-hints"><span>P=0.01 (tight)</span><span>P=1.0 (all)</span></div>
+            <input class="range-input" type="range" min="1" max="100" value="70" id="topp-slider" step="1" aria-describedby="topp-hints topp-note">
+            <div class="control-field-hints" id="topp-hints"><span>P=0.01 (tight)</span><span>P=1.0 (all)</span></div>
+            <p class="control-field-note" id="topp-note"></p>
           </div>
-        </div>
 
-        <div class="sampling-presets" id="sampling-presets" role="group" aria-label="Sampling presets">
-          <span class="preset-label">Presets</span>
-          <button class="btn btn-outline btn-sm sampling-preset" type="button" data-temperature="0.2" data-topp="0.9">Precise</button>
-          <button class="btn btn-outline btn-sm sampling-preset" type="button" data-temperature="0.7" data-topp="0.9">Chat</button>
-          <button class="btn btn-outline btn-sm sampling-preset" type="button" data-temperature="1.2" data-topp="0.95">Creative</button>
-        </div>
-      </section>
-
-      <section class="page-card chart-card probability-chart-card" id="sec-distribution" data-nav-label="Distribution" aria-labelledby="probability-chart-heading">
-        <div class="probability-chart-heading">
-          <div>
-            <h2 id="probability-chart-heading">The adjusted next-token distribution</h2>
-            <p class="chart-copy">Blue bars are the probabilities temperature produced. Faded bars are disabled by top-p and cannot be sampled; the pool below renormalizes the survivors.</p>
+          <div class="control-field">
+            <span class="tk-field-label" id="presets-label">Presets</span>
+            <div class="segmented is-fused" id="sampling-presets" role="group" aria-labelledby="presets-label">
+              <button class="sampling-preset" type="button" data-temperature="0.2" data-topp="0.9">Precise</button>
+              <button class="sampling-preset" type="button" data-temperature="0.7" data-topp="0.9">Chat</button>
+              <button class="sampling-preset" type="button" data-temperature="1.2" data-topp="0.95">Creative</button>
+            </div>
           </div>
-          <div class="chart-legend" aria-label="Probability chart legend">
-            <span><i class="dot is-theoretical" aria-hidden="true"></i>After temperature</span>
-            <span><i class="dot is-observed" aria-hidden="true"></i>Observed, after Sample 100x</span>
+
+          <div class="app-callout is-blue tk-key">
+            <p class="app-callout-title">Order matters</p>
+            <p class="app-callout-body">Temperature reshapes the scores first. Top P then cuts the pool, keeping the smallest set of tokens whose odds add up to P.</p>
           </div>
-        </div>
-        <div class="chart-frame is-probability"><canvas id="probability-chart"></canvas></div>
-        <div class="sample-actions">
-          <button class="btn btn-primary" id="pick-token" type="button">Pick next token</button>
-          <button class="btn btn-outline" id="sample-hundred" type="button">Sample 100x</button>
-          <button class="btn btn-outline" id="reset-samples" type="button">Reset samples</button>
-        </div>
-        <p class="sample-status" id="sample-status" aria-live="polite"></p>
-      </section>
 
-      <section class="page-card token-pool-card" aria-label="Top P token pool">
-        <p class="section-label">Token pool after the Top P cutoff:</p>
-        <div class="pills-row" id="token-pills"></div>
-        <div class="app-callout is-blue" id="insight-box"></div>
-      </section>
-
-      <div class="code-window sampling-code">
-        <div class="code-window-head">
-          <span class="code-dots" aria-hidden="true"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></span>
-          <span class="code-window-title">The whole sampling step</span>
-        </div>
-        <pre>scores = <span class="syn-fn">model</span>(prompt)                      <span class="syn-cm"># one raw score per candidate</span>
-probs = <span class="syn-fn">softmax</span>(scores / <span class="syn-const">temperature</span>)      <span class="syn-cm"># step 1: temperature reshapes</span>
-pool = <span class="syn-fn">keep_until</span>(probs, total >= <span class="syn-const">top_p</span>)   <span class="syn-cm"># step 2: top-p cuts</span>
-<span class="syn-kw">return</span> <span class="syn-fn">sample</span>(<span class="syn-fn">renormalize</span>(pool))          <span class="syn-cm"># roll the dice</span></pre>
+          <details class="tk-disclosure">
+            <summary>Show the code</summary>
+            <div class="code-window tk-code">
+              <div class="code-window-head">
+                <span class="code-dots" aria-hidden="true"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></span>
+                <span class="code-window-title">The whole sampling step</span>
+              </div>
+              <pre><span class="syn-cm"># one raw score per candidate</span>
+scores = <span class="syn-fn">model</span>(prompt)
+<span class="syn-cm"># step 1: temperature reshapes</span>
+probs = <span class="syn-fn">softmax</span>(
+  scores / <span class="syn-const">temperature</span>)
+<span class="syn-cm"># step 2: top-p cuts</span>
+pool = <span class="syn-fn">keep_until</span>(
+  probs, total >= <span class="syn-const">top_p</span>)
+<span class="syn-cm"># roll the dice</span>
+<span class="syn-kw">return</span> <span class="syn-fn">sample</span>(<span class="syn-fn">renormalize</span>(pool))</pre>
+            </div>
+          </details>
+        </section>
       </div>
+    </section>
+
+    <section class="page-card tk-section tokenization-card" id="sec-tokens" data-nav-label="Tokens" aria-labelledby="tokenization-heading">
+      <div class="tk-section-head">
+        <p class="section-kicker">Before the model predicts</p>
+        <h2 id="tokenization-heading">How text becomes tokens</h2>
+      </div>
+      <p class="section-copy">Illustrative examples of how BPE tokenizers typically split text. Real vocabularies vary, especially across languages and emoji. The Show whitespace toggle in the sampler marks leading spaces here too.</p>
+      <div class="token-example-list" id="token-examples"></div>
     </section>
 
     <section class="concepts" id="concepts" data-nav-label="Concepts">
