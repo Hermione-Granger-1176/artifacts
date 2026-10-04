@@ -214,6 +214,9 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     assert.match(elementMap.vdLabelsNote.textContent, /not the text-layer PDF/);
     const fieldSidecar = await downloadsDuring(() => fire(elementMap.vdDownloadJson, 'click'));
     assert.deepEqual(fieldSidecar, ['apex_invoice.json']);
+    // Both still writes the text-layer PDF, so the boxes caveat stays.
+    choose(elementMap.vdFormat, 'data-format', 'both');
+    assert.match(elementMap.vdLabelsNote.textContent, /not the text-layer PDF/);
 
     choose(elementMap.vdFormat, 'data-format', 'png');
     assert.match(elementMap.vdLabelsNote.textContent, /carries its box, in normalised page coordinates/);

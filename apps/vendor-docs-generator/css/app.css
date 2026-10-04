@@ -1300,7 +1300,7 @@ body.app-vendor-docs-generator #vdDegradePreset button::before {
   transition: transform var(--transition-fast) ease;
 }
 
-body.app-vendor-docs-generator #vdDegradePreset [data-preset="light"]::before {
+body.app-vendor-docs-generator #vdDegradePreset [data-preset="light_scan"]::before {
   filter: grayscale(0.5) contrast(0.9);
 }
 

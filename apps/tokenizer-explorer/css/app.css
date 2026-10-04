@@ -901,14 +901,26 @@ body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button:not(:disabl
     padding: var(--space-4);
   }
 
-  /* A phone has no room for a fifth column: the thin observed bar carries the tally. */
+  /*
+   * A phone has no room for a fifth column: the thin observed bar carries the tally.
+   * The Seen cells are only visually hidden, because the bar is hidden from screen
+   * readers and these cells are their only way to hear the counts.
+   */
   body.app-tokenizer-explorer .tk-candidates,
   body.app-tokenizer-explorer .tk-candidates.has-samples {
     --tk-cols: 5.5rem minmax(0, 1fr) 2.75rem 2.75rem;
   }
 
   body.app-tokenizer-explorer .tk-candidates.has-samples .tk-seen {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   body.app-tokenizer-explorer .tk-row {

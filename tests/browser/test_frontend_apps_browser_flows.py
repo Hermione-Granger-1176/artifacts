@@ -224,6 +224,18 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(app_browser: AppBrows
         page.locator("#sample-hundred").click()
         expect(page.locator("#sample-status")).to_contain_text("tally from 100 draws")
         expect(page.locator("#candidate-list .tk-list-head .tk-seen")).to_be_visible()
+
+        # Screen readers get four columns, and a phone keeps the Seen tally readable.
+        table = page.get_by_role("table", name="Next-token candidates")
+        expect(table.get_by_role("columnheader")).to_have_count(4)
+        desktop_viewport = page.viewport_size
+        assert desktop_viewport is not None
+        page.set_viewport_size({"width": 390, "height": 844})
+        seen_header = table.get_by_role("columnheader", name="Seen")
+        expect(seen_header).to_have_count(1)
+        expect(seen_header).to_have_css("position", "absolute")
+        page.set_viewport_size(desktop_viewport)
+
         page.locator("#reset-samples").click()
         expect(page.locator("#sample-status")).to_contain_text("Run 100 draws")
         expect(page.locator("#candidate-list .tk-list-head .tk-seen")).to_be_hidden()

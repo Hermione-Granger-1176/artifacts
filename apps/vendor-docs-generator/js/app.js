@@ -617,7 +617,8 @@ initializeMatureApp({
         return "Exports are pages only. No labels are written.";
       }
 
-      if (boxes && state.format === "pdf" && state.pdfMode === "text") {
+      const writesPdf = state.format === "pdf" || state.format === "both";
+      if (boxes && writesPdf && state.pdfMode === "text") {
         return "Boxes are measured on the rendered page, so they match the PNG and the rasterised PDF, not the text-layer PDF.";
       }
 
