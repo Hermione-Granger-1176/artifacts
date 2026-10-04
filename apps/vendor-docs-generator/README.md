@@ -1,26 +1,28 @@
-# Vendor Document Generator
+# Vendor document generator
 
-A workbench for producing **labelled** synthetic business paperwork: invoices, receipts, quotations, delivery challans, credit and debit notes, and account statements, from six fictional vendors that each look like a different company. Built for people measuring a document-AI extractor who would rather not feed a model somebody's real invoices, and would rather not hand-label a test set either.
+This app produces labeled synthetic business documents for evaluating document-AI extractors. Six fictional vendors provide distinct layouts for invoices, receipts, quotations, delivery challans, credit and debit notes, and account statements.
 
-Rendering plausible paperwork is the easy half. Every page here also emits a JSON sidecar naming what each printed value is, generated from the same numbers the page was printed from, so the labels cannot drift out of agreement with the pixels. Download 500 documents and you have 500 scored examples, not 500 things to annotate.
+Each page can include a JSON sidecar with labels for the printed values. The page and sidecar use the same document model, so a batch does not require manual field annotation.
 
 Every random choice is driven by one integer seed, while document dates are relative to the day of generation. The filename records the seed so samples remain identifiable. Exact replay in code also needs the original reference date, which is recoverable from the sidecar's `document_date` and the seed-derived date offsets.
 
-## Highlights
+## Features
 
-- Six fictional vendors, each with its own accent colour, typeface, logo treatment, letterhead layout, and product catalogue, so generated pages do not all look like the same template
-- Six document types plus a second, much denser tax-invoice layout for invoices, giving 42 vendor/type/layout combinations before the seed varies anything
-- Seeded generation: changing the vendor, type, or layout re-renders against the same seed so treatments can be compared side by side, and only **New document** rolls a fresh one
-- Studio layout: a toolbar across the top (vendor dropdown with an accent swatch, six document-type pills, invoice layout, seed, and **New document**), a pinned-size A4 stage with fit-width and actual-size preview, and one Output panel on the right. The panel has a This page / Batch switch at the top, scan quality, one Labels ladder (None, JSON, + Fields, + Words), the format, and a footer with the size estimate and the single primary button (**Download** or **Generate ZIP**). Below about 1000px it stacks as toolbar, page, output
-- Ground truth per page: a frozen 35-key field schema plus 11 per-line keys, each carrying both the printed `text` and the normalised `value` (ISO dates, numeric money, fractional rates). A key is `null` exactly when the page prints nothing for it, so an extractor is never scored against a field that is not there
-- Optional bounding boxes in normalised 0..1 page coordinates, at field level or word level, so the same run can train a layout model
-- Five scan-quality presets, from a clean render to a phone photo, with nine sliders behind a Fine-tune disclosure. Degradation is driven by the document seed, so a seed plus a preset reproduce the same wear, and geometry is reported as a transform that the boxes are run through before they are written
-- Pair mode writes a degraded PNG output and its clean original from one seed, which is what makes "how much accuracy do I lose to scan quality" a question you can plot
-- Arithmetic that holds: line amounts sum to the subtotal, and subtotal plus tax plus shipping equals the grand total, on every document the generator can produce
-- Three export paths: a real text-layer PDF (searchable and selectable), a rasterised PDF that looks scanned, and a PNG. A fourth, JSON only, skips PDF and raster generation while the stage still advances through the batch as visible progress
-- Batch export to a single ZIP foldered as `vendor/type/`, optionally across all types, all vendors, or both (the Include control), with live progress, a `manifest.jsonl` for streaming, and a `README.txt` recording the schema and the exact settings the run used
-- Stoppable: a long run can be cut short and still hands over the documents it finished, in an archive whose `README.txt` says how many of the planned total it holds
-- Every page is footered as sample data, and every name, address, phone number, and tax identifier is invented
+The generator supports these outputs and controls:
+
+- Six vendors and six document types. Invoices also have a dense tax layout, giving 42 vendor, type, and layout combinations.
+- Seeded generation. Vendor, type, and layout changes retain the seed. **New document** selects a fresh seed.
+- An A4 preview with fitted and full-size modes. Below about 1000px, the toolbar, page, and Output panel stack vertically.
+- JSON field labels with printed text and normalized values. Unprinted fields are `null`.
+- Optional field and word boxes in normalized page coordinates.
+- Five scan presets and nine fine-tune sliders. Geometric effects also transform exported boxes.
+- Clean and degraded image pairs from one capture.
+- Text-layer PDF, rasterized PDF, and PNG exports. Lossy raster presets write JPEG files.
+- ZIP batches across selected vendors and types, with optional sidecars, `manifest.jsonl`, and `README.txt`. JSON-only mode skips PDF and raster generation. It still renders each DOM preview for progress and requested box measurements.
+- Partial archives when a batch stops. The README records completed and planned counts.
+- Fictional contact details and a sample-data footer on every document.
+
+[Architecture](docs/architecture.md) describes control mappings, rendering, and export paths.
 
 ## Made with
 
@@ -59,7 +61,7 @@ docs/
 
 ## Ground truth
 
-Each sidecar looks like this, trimmed:
+A shortened sidecar example shows the schema:
 
 ```json
 {
@@ -83,13 +85,13 @@ Each sidecar looks like this, trimmed:
 }
 ```
 
-One caveat is stated on every payload rather than left to be discovered. Boxes are measured on the rendered HTML page, so they describe the PNG and the rasterised PDF. They do not describe the text-layer PDF, which jsPDF lays out independently in its own coordinate system.
+`boxes_apply_to` identifies the outputs that use the box coordinates. Boxes describe the rendered HTML page used for PNG and rasterized PDF exports. The text-layer PDF has an independent jsPDF layout.
 
 ## Scan degradation
 
-`degradation` is `null` on a clean run. Otherwise it names the preset, the seed, every resolved setting, and the projective transform applied, as a 3x3 matrix over the same normalised coordinates the boxes use.
+`degradation` is `null` on a clean run. Otherwise it names the preset, the seed, every resolved setting, and the projective transform applied, as a 3x3 matrix over the same normalized coordinates the boxes use.
 
-Skew, rotation, and keystone move the ink, so **the boxes have already been run through that transform**: they describe the degraded image, not the clean render it started from. Each region also gains a `quad` holding the four corners the ink actually landed on, while `box` stays the axis-aligned hull of that quad, so an evaluation script written against a clean run keeps working unchanged.
+Skew, rotation, and keystone change the geometry. The exported boxes already include that transform. Each region has a `quad` with the four transformed corners and a `box` with their axis-aligned bounding rectangle.
 
 ```json
 "degradation": {
@@ -101,20 +103,16 @@ Skew, rotation, and keystone move the ink, so **the boxes have already been run 
 }
 ```
 
-A lossy preset writes a JPEG rather than a PNG, because that is the compression a real scanner applied and calling the result a PNG would be a lie about the file.
+A lossy preset writes a `.jpg` file because the output uses JPEG encoding.
 
 ## Known limitations
 
-Three things are deliberately unresolved. Each needs a product decision rather than a fix, so they are recorded here instead of being quietly worked around.
+The generator has three known limitations:
 
-Measured, so the numbers here are not guesses: the whole 900-document cross product takes 0.8s as JSON and 4.5s as text PDFs, with the progress meter moving throughout both. PNG runs are far slower, and always did yield, because `html2canvas` awaits per page.
+- **Batch memory.** JSZip holds each exported file in memory until it writes the archive. Large raster batches can exceed the tab's memory. The size estimate reports expected output size, but the app enforces no memory limit. Streaming output requires a different archive strategy.
+- **Vendor and document compatibility.** Every vendor can issue every document type. A delivery challan can therefore contain service items. The arithmetic and layout are valid, but some combinations are implausible. Restricting them requires per-type catalogs or a compatibility table.
+- **Reference date.** Dates are relative to the generation day. Exact replay requires the seed, degradation settings, and original reference date. The date can be reconstructed from `document_date` and the seeded offset, but the manifest does not record it directly.
 
-**A batch holds its memory until the ZIP is written.** Every rendered page stays in the archive in memory until the run finishes, so a large PNG batch is bounded by what the tab can hold rather than by anything the app checks. The estimate under the batch button is the mitigation: it tells you the size before you ask for it. Streaming each page out as it is produced would remove the ceiling, and it needs a different archive strategy than JSZip's build-then-generate.
+## Documentation
 
-**Every document type is available to every vendor.** The type list is not filtered by what a vendor plausibly issues, so a delivery challan can carry service rows: Nimbus dispatching "Priority support SLA" against a package count. The arithmetic is right and the layout is right; the pairing is not. Resolving it needs either per-type catalogues or a vendor-to-type compatibility table, which is a content decision about how much of the cross product is worth keeping.
-
-**The reference date is recoverable but not recorded.** Document dates are relative to the day of generation, so exact replay needs the seed, the degradation settings, and the original reference date. That date can be reconstructed from the sidecar's `document_date` plus the seed-derived day offset, but nothing writes it down. Recording it in `manifest.jsonl` and `README.txt`, or exposing it as a replay control, would be a small schema addition if exact replay ever matters more than it does today.
-
-## Docs
-
-See `docs/` for architecture, verification, and implementation decisions.
+The app documentation covers [architecture](docs/architecture.md), [verification](docs/verification.md), and [implementation decisions](docs/decisions.md).

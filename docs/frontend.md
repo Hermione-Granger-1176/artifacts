@@ -1,4 +1,4 @@
-# Frontend Guide
+# Frontend reference
 
 ## Root gallery entry points
 
@@ -12,14 +12,16 @@
 
 - `css/src/01-tokens.css` owns the shared bookmark-note palette and light and dark themes, including the `body.artifact-app` design tokens (hue colors with `-text` and `-emphasis` variants, note pastels, the type and spacing scales, radii, and `--shadow-card`). The remaining ordered `css/src/` partials own root gallery styling, app shell styling, reusable components, utilities, and responsive behavior
 - `css/src/04-artifact-components.css` is the shared artifact component layer: reusable `body.artifact-app` families such as `.control-field`, `.stat-grid` / `.stat`, `.chip`, `.segmented`, `.meter`, `.app-callout`, `.section-kicker`, buttons, inputs, tables, code windows, and `.section-nav`. Apps compose these rather than restating them
-- `apps/<slug>/css/app.css` owns app-specific dimensions, grids, visualisations, and component variants, while reusable colours, controls, surfaces, and callouts stay in the shared stylesheet. It keeps the `body.app-<slug>` selector scope
+- `apps/<slug>/css/app.css` owns app-specific dimensions, grids, visualizations, and component variants, while reusable colors, controls, surfaces, and callouts stay in the shared stylesheet. It keeps the `body.app-<slug>` selector scope
 - `js/app-theme.js` applies the saved mature-app theme before CSS loads
 - `js/modules/app-shell.js` owns runtime theme toggling, back-button fallback behavior, and scroll-to-top behavior for app pages
 - Mature app pages import `../../css/style.css` first and `./css/app.css` second, use `artifact-app` plus an `app-<slug>` body class, and keep app-local JavaScript inside `apps/<slug>/`
 
 ## JavaScript module responsibilities
 
-Gallery modules (under `js/modules/gallery/`):
+The gallery modules divide responsibilities by feature.
+
+The gallery modules under `js/modules/gallery/` are:
 
 - `js/modules/gallery/gallery-app.js`: DOM wiring, event handlers, URL state, filtering, pagination, theme behavior, and book-scene integration
 - `js/modules/gallery/catalog.js`: pure catalog helpers for search text, selection normalization, sorting, and pagination math
@@ -32,7 +34,7 @@ Gallery modules (under `js/modules/gallery/`):
 - `js/modules/gallery/render.js`: HTML generation and DOM sync helpers for cards, detail content, desk-note filters, and pagination
 - `js/modules/gallery/gallery-url.js`: URL state sync for gallery search, filters, and sort
 
-Shared modules (under `js/modules/`):
+The shared modules under `js/modules/` are:
 
 - `js/modules/runtime.js`: startup status, error reporting, and guarded localStorage access
 - `js/modules/app-runtime.js`: mature-app bootstrap with fatal error handling
@@ -46,23 +48,46 @@ Shared modules (under `js/modules/`):
 
 The root filter UI is rendered as desk notes by `buildFilterNotes()` in `js/modules/gallery/render.js` and toggled in `js/modules/gallery/gallery-app.js`.
 
-The search is a wide sticky note above the book, with the sort and reset buttons as small notes beside it. While a search is active, `#search-count` shows how many artifacts match, and `#gallery-status` announces the same result to screen readers. The visible sort label ("newest" or "oldest") comes from `.sort-toggle::after`, and the button's accessible name ("Sort by newest first") contains that label. Press `/` to focus the search.
+## Search and sort
 
-### The scrapbook book
+The search field appears above the book, beside sort and reset controls. `#search-count` shows the number of matches during a search. `#gallery-status` announces that result to screen readers. The `/` shortcut focuses the search field.
 
-The artifact pages sit in a post-bound scrapbook. The closed book is centered and shows a charcoal card-stock cover with a ribbon tie, binding posts, index tabs, a taped title note, doodles, and placeholder snapshots. The cover colors are the `--color-album-*` tokens in `css/src/01-tokens.css`, and the doodle and snapshot images live in `assets/scrapbook/`. Every paper surface uses the same ruled paper: the endpaper inside the cover, both pages, and both faces of a turning leaf. The rules therefore never shift when a leaf lands. Each card is a print held by tape, a paper clip, or photo corners, with a pencil-style Caveat caption. `getAttachmentData()` in `render.js` picks the attachment from the artifact id, so an artifact always looks the same.
+`.sort-toggle::after` supplies the visible label, "newest" or "oldest". The accessible button name includes the same label.
 
-On load, `startIntro()` slides the ribbon off and starts swinging the cover before the ribbon has finished. The cover turns a full 180 degrees around the spine while the book slides from centered-closed to centered-open. The left half of the book stays hidden until the cover lands on it. The inside of the cover carries a copy of the first left page with its cards attached, the same way a turning leaf carries its back page. When the cover lands, the live left page replaces the copy, and nothing fades or moves.
+## Book scene
 
-A page turn is one leaf with two faces, hinged at the spine. The front face shows the page being turned, and the back face shows the page it becomes. The page underneath already shows the destination, so no content changes during the turn. The leaf box matches the settled page box exactly. To turn a page by hand, drag from a page's outer edge or bottom corner. The leaf follows the pointer. If you release it past `DRAG_COMPLETE_THRESHOLD` (45% of the turn), the turn completes. Otherwise the leaf springs back. `.book-sheet` sets `touch-action: pan-y pinch-zoom`, so a touch browser leaves horizontal drags to the book but still scrolls and zooms the page. A broken thumbnail on a turning leaf gets the same placeholder as one in the grid, because the fallback listener sits on `#book-sheet`.
+The gallery uses a post-bound scrapbook layout. Its closed cover includes a ribbon, binding posts, tabs, a title note, doodles, and placeholder snapshots. `--color-album-*` tokens define cover colors, and `assets/scrapbook/` contains the images.
 
-Requests from the Prev and Next buttons and the page numbers go through one queue. The queue always turns straight to the latest requested page, so fast clicks end on the right page and no click is lost. A filter, search, sort, or history change calls `renderContent()`, which cancels any turn in progress before it renders. Every animation path removes its inline styles and temporary leaf when it finishes, is cancelled, or fails. Reduced motion and the mobile layout (700px wide and below) use short cross-fades instead of 3D motion.
+The endpaper, settled pages, and turning leaf faces share the same ruled-paper pattern. `getAttachmentData()` in `render.js` selects tape, clips, or photo corners from the artifact ID, keeping each card's attachment consistent.
 
-On screens wider than 900px, the open book fits the viewport height. `.book-shell` gives the book the height left after the header, search, and pagination, set by `--book-chrome-y`. That height stays between `--book-fit-min-height` (460px) and `--book-sheet-min-height` (800px). The book width shrinks with the height by `--book-spread-ratio`, so the pages keep their shape. On screens 900px tall or less, the header, search, and pagination spacing is tighter and the desk notes are smaller. Card captions scale with the book width. Tablet and mobile layouts keep their fixed sizes.
+### Cover introduction
 
-Interaction-heavy modules prefer guard clauses and small lookup maps when that keeps event routing linear and testable.
+`startIntro()` releases the ribbon and starts the cover turn before the ribbon animation finishes. The cover rotates 180 degrees around the spine while the book moves to its centered-open position.
 
-Invalid generated bootstrap data fails startup before the gallery initializes, which routes through the runtime error banner and global error reporting.
+The left page stays hidden until the cover lands. The inside cover contains a copy of the first left page. After landing, the live page replaces that copy without a fade or position change.
+
+### Page turns and requests
+
+A turning leaf has two faces and matches the settled page dimensions. Its front shows the source page, its back shows the destination page, and the page underneath already contains destination content.
+
+Dragging an outer edge or bottom corner moves the leaf with the pointer. Releasing beyond `DRAG_COMPLETE_THRESHOLD` (45%) completes the turn. An earlier release returns the leaf to its starting position. `.book-sheet` uses `touch-action: pan-y pinch-zoom` so horizontal drags turn pages while vertical scrolling and zoom remain available.
+
+**Prev**, **Next**, and page-number requests share one queue. After the current transition, the queue uses the latest requested page. A request made during a drag remains selected after that drag ends.
+
+Search, filter, sort, and history changes call `renderContent()`, which cancels an active turn before rendering. Completed, canceled, and failed animations remove temporary leaves and inline styles. The fallback listener on `#book-sheet` replaces broken thumbnails on turning leaves with the grid's placeholder.
+
+Reduced-motion mode and layouts at 700px or narrower use short cross-fades instead of 3D turns.
+
+### Viewport fit
+
+Above 900px wide, the open book fits the viewport height. `--book-chrome-y` reserves space for the header, search, and pagination. Book height stays between `--book-fit-min-height` (460px) and `--book-sheet-min-height` (800px).
+
+`--book-spread-ratio` scales width with height to preserve page proportions. At viewport heights of 900px or less, header and control spacing shrink and desk notes become smaller. Captions scale with book width. Tablet and mobile layouts retain fixed sizes.
+
+Interaction modules use guard clauses and lookup maps to separate event paths.
+
+
+Invalid generated bootstrap data stops startup before gallery initialization. The runtime displays the error banner and reports the error globally.
 
 ## Test coverage
 
@@ -94,7 +119,7 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `css/src/01-tokens.css` owns focus ring tokens. The relevant component, utility, and responsive partials own skip-link behavior and accessible contrast tuning for active pagination and detail CTA states.
 - `tests/browser/frontend_helpers.py` fails browser suites on `pageerror`, unexpected `console.error`, failed requests, and HTTP 4xx/5xx responses, and can emit screenshots, traces, and runtime logs for CI artifacts.
 
-## Local vs CI expectations
+## Local and CI checks
 
 - Use [operations.md](operations.md) as the canonical workflow reference; the targets below are the frontend-specific checkpoints you will use most often.
 - `make test-js` runs the JavaScript unit suite with Node's built-in test runner across `tests/js/home/`, `tests/js/common/`, `tests/js/apps/`, `tests/js/tooling/`, and `tests/js/workflows/`
@@ -110,4 +135,4 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `make check` runs the full local release gate by combining `make check-local`, `make check-web`, index generation, and deployable site assembly
 - `make test-browser` sets `ARTIFACTS_REQUIRE_BROWSER_TESTS=1`, so root and mature app browser suites must execute successfully instead of skipping when Chromium is unavailable
 - `make test-browser-live` runs the published-site Playwright verification suite when `ARTIFACTS_LIVE_SITE_URL` is set
-- full Istanbul/nyc-style instrumentation is intentionally not added because that would require extra dependencies beyond the current production-readiness scope
+- The workspace uses Node's built-in coverage report. It has no Istanbul or nyc instrumentation dependencies

@@ -1,17 +1,17 @@
-# Style Guide
+# Style guide
 
-Editor and language conventions for the artifacts workspace. These rules are enforced by tooling where possible and by review otherwise.
+This reference defines the workspace's editor settings and language conventions. Configuration files enforce tool rules. Review covers prose and conventions that tools do not check.
 
 ## Editor configuration
 
-The `.editorconfig` file at the repository root defines per-filetype settings. Most editors and IDEs support it natively or through a plugin. `make editorconfig-check` enforces the supported rules for covered repository files in automation, while `make lint` layers language-specific linters on top. Both targets are discoverable through `make help`.
+The root `.editorconfig` defines settings by file type. `make editorconfig-check` checks supported rules, and `make lint` also runs language-specific linters. Editors use `.editorconfig` through built-in support or a plugin.
 
-Summary of settings:
+The shared settings are:
 
 - All files use UTF-8 encoding, LF line endings, and a trailing newline
 - Trailing whitespace is trimmed (except in markdown, where trailing spaces can be significant)
 - Indentation varies by file type (see below)
-- `apps/**/*.js`, `apps/**/*.css`, `apps/**/*.html`, and `apps/**/*.md` now follow the same indentation rules as the rest of the workspace
+- `apps/**/*.js`, `apps/**/*.css`, `apps/**/*.html`, and `apps/**/*.md` follow the same indentation rules as the rest of the workspace
 
 ## Python
 
@@ -34,7 +34,7 @@ Run `make lint`, `make typecheck-py`, `make dead-code-py`, `make format-py-check
 - **Line length:** not enforced, but keep lines readable
 - **Linter:** ESLint 10 (flat config), configured in `config/eslint.config.js`
 - **Formatter:** Prettier covers supported JSON, YAML, config, and tooling script files that are not excluded by `config/prettierignore`; Markdown table alignment is owned by `make align-tables-check`
-- **Type checks:** TypeScript runs the web typecheck target from `config/jsconfig.json` under full `strict: true` (no relaxed flags). The vendored Chart.js UMD globals get real types from the exact-pinned `chart.js`, `chartjs-plugin-annotation`, and `chartjs-plugin-datalabels` devDependencies (installed for their bundled type packages only, never bundled into the site) plus the ambient declarations in `config/types/`. Type call sites with precise JSDoc, importing Chart.js types where needed (for example `import("chart.js").ChartOptions` or `@this {HTMLInputElement}`). Reach for `any` only where a value is genuinely untyped upstream and nothing narrower is honest, never as a shortcut past a strict error.
+- **Type checks:** `make typecheck-web` uses `config/jsconfig.json` with `strict: true`. Chart.js UMD globals use exact-pinned `chart.js` and plugin devDependencies for types, plus ambient declarations in `config/types/`. These packages are not bundled into the site. JSDoc identifies call-site types, such as `import("chart.js").ChartOptions` or `@this {HTMLInputElement}`. `any` is reserved for upstream values with no usable narrower type
 - **Module format:** ES modules (`import`/`export`), no CommonJS
 - **JSDoc:** required on all exported functions and significant private functions
 - **Naming:** camelCase for variables and functions, PascalCase for classes
@@ -54,11 +54,11 @@ Run `make lint`, `make typecheck-web`, `make dead-code-js`, `make coverage-js`, 
 
 - **Indent:** 2 spaces
 - **Shared stylesheet sources:** `css/src/` provides gallery styles, app tokens, shell rules, reusable app components, utilities, and responsive rules in numeric load order
-- **Shared public stylesheet:** generated `css/style.css` is the single stylesheet loaded by the gallery and mature apps. Rebuild it with `make styles`; do not edit it directly
+- **Shared public stylesheet:** `css/style.css` is the generated shared bundle. Mature apps also load their own `css/app.css`. `make styles` rebuilds the shared bundle
 - **App stylesheet:** `apps/<slug>/css/app.css` provides app-specific composition and layout selectors scoped by `body.app-<slug>`
 - **Linter:** stylelint, configured in `config/stylelint.config.js`
 - **Conventions:**
-  - BEM-inspired class names (e.g., `.artifact-card`, `.detail-close`)
+  - BEM-inspired class names (for example, `.artifact-card`, `.detail-close`)
   - CSS custom properties for theming and shared geometry (for example `--color-bg-primary`, `--text-primary`, `--accent`, `--book-sheet-min-height`, `--gallery-*`, `--desk-note-*`, and the shared app-shell tokens)
   - Mature apps use the bookmark-note palette as the shared source of truth for light and dark themes
   - Authored colors use `rgb()` and `rgba()` values instead of hex literals; in app stylesheets they must additionally be token-derived (see the color rule below)
@@ -86,18 +86,28 @@ The shared design system lives in `css/src/` and is bundled into `css/style.css`
 
 ### Color rule
 
-- Colors are authored as `rgb()` / `rgba()` values or tokens, never hex literals. In `apps/<slug>/css/*.css` every color must be token-derived (a `var()` reference or a `color-mix()` over one); raw color literals of any form (hex, `rgb()` / `rgba()`, `hsl()` / `oklch()` and friends, or named colors; `transparent` and `currentcolor` stay allowed) belong only in the shared `css/src/` layer where the tokens are defined
+- Shared token definitions use `rgb()`, `rgba()`, or other tokens, never hex literals. In `apps/<slug>/css/*.css`, colors derive from `var()` or a `color-mix()` over tokens. Raw color values belong in the shared `css/src/` definitions. `transparent` and `currentcolor` remain allowed
 - Prefer a token over a raw color whenever one fits, so a theme change stays a single-file edit in `css/src/01-tokens.css`
 
 ### Shared components versus app-local CSS
 
 - Reach for the shared component families in `css/src/04-artifact-components.css` before writing app CSS: `.control-field` (with `-head`, `-hints`, `-note`), `.stat-grid` / `.stat` (modifiers `.is-center`, `.stat-label.is-caps`, `.stat-value.is-mono`), `.chip` (hue tones `.is-*`, `.is-mono`, solid `.is-solid-*`), `.segmented` (`.is-fused`, the inset pill `.is-inset`, `.active`), `.meter` / `.meter-fill` (tone modifiers), `.app-callout` (hue tones), `.section-kicker`, plus the shared buttons, inputs, tables, code windows, and `.section-nav`
-- Keep `apps/<slug>/css/app.css` focused on app-specific dimensions, grids, visualisations, and component variants built on those tokens and families. It retains its `body.app-<slug>` scope
+- Keep `apps/<slug>/css/app.css` focused on app-specific dimensions, grids, visualizations, and component variants built on those tokens and families. It retains its `body.app-<slug>` scope
 - A change to a shared component or token is intentional shared work in `css/src/`, not an app-local edit
 
 ### Token lint
 
-`make lint-app-css-tokens` guards `apps/*/css/*.css` against drift. It forbids hex colors in declaration values; color functions (`rgb()` / `rgba()` / `hsl()` / `hwb()` / `lab()` / `lch()` / `oklab()` / `oklch()` / `color()`) whose channels do not start from a `var()` reference or a `color-mix()` (a token only in the alpha does not count); `color-mix()` calls that mix no `var()` token; and named colors in color-bearing declarations (`transparent` and `currentcolor` stay allowed). It also flags `border-radius` px literals above 5px, raw px font sizes, and any `letter-spacing` that is not exactly one `var(--tracking-*)` token or `normal`. Sub-token decorative radii up to 5px and font sizes in em / rem / % or a `clamp()` built on token or relative units (a px literal inside `clamp()` is still flagged) stay allowed, alongside a few documented allowlist entries scoped in the checker to the one stylesheet that owns them.
+`make lint-app-css-tokens` checks `apps/*/css/*.css`. It rejects these values:
+
+- Hex colors in declarations.
+- Color functions whose channels do not start with `var()` or `color-mix()`. A token used only for alpha does not satisfy the rule. Functions include `rgb()`, `rgba()`, `hsl()`, `hwb()`, `lab()`, `lch()`, `oklab()`, `oklch()`, and `color()`.
+- `color-mix()` calls with no `var()` token.
+- Named colors in color declarations, except `transparent` and `currentcolor`.
+- `border-radius` pixel literals above 5px.
+- Pixel font sizes, including inside `clamp()`.
+- `letter-spacing` values other than one `var(--tracking-*)` token or `normal`.
+
+Decorative radii up to 5px remain allowed. Font sizes can use relative units or `clamp()` with tokens and relative units. The checker also contains documented exceptions scoped to their owning stylesheet.
 
 ## HTML
 
@@ -111,7 +121,7 @@ The shared design system lives in `css/src/` and is bundled into `css/style.css`
 - Shared app tokens live in `css/src/01-tokens.css`
 - Shared mature-app theme bootstrap lives in `js/app-theme.js`, and `js/modules/app-shell.js` owns the reusable shell markup plus shell behavior
 - Mature apps should import the shared stylesheet first, then `./css/app.css`, and use `artifact-app` plus an `app-<slug>` body class
-- Reusable colours, controls, surfaces, and callouts live in the relevant `css/src/` partial and are bundled into `css/style.css`. App-specific layout selectors live in `apps/<slug>/css/app.css` and retain their `body.app-<slug>` scope
+- Reusable colors, controls, surfaces, and callouts live in the relevant `css/src/` partial and are bundled into `css/style.css`. App-specific layout selectors live in `apps/<slug>/css/app.css` and retain their `body.app-<slug>` scope
 - Mature app HTML should keep app-specific body content local, while shell placeholders (`data-app-shell`) let the shared module render the common header, runtime-error banner, and scroll-to-top control
 - App headers should reuse the Artifacts logo, back button, theme toggle, and app-styled scroll-to-top pattern
 - App content containers should stay near `1000px` wide unless a product requirement clearly needs more space
@@ -120,7 +130,7 @@ The shared design system lives in `css/src/` and is bundled into `css/style.css`
 
 - **Indent:** 2 spaces
 - **Linter:** yamllint with repository overrides in `.yamllint.yml`
-- **GitHub Actions:** pin third-party actions to full commit SHAs with a version comment (e.g., `actions/checkout@abc123 # v6`)
+- **GitHub Actions:** pin third-party actions to full commit SHAs with a version comment (for example, `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1`)
 
 Run `make lint-yaml` for YAML structure/format checks and `make lint-workflows` for workflow-specific action linting.
 
@@ -132,14 +142,30 @@ Run `make lint-yaml` for YAML structure/format checks and `make lint-workflows` 
 ## Markdown
 
 - **Indent:** 2 spaces for nested lists
-- **Tables:** align pipe characters vertically using `make align-tables`
+- **Tables:** `make align-tables-check` checks pipe alignment without edits. Run `make align-tables` only when table formatting is requested
 - **Punctuation:**
   - Use standard dashes (`-`) for list items and horizontal rules
   - Do not use em dashes or en dashes in prose
-  - Use commas, semicolons, or parentheses instead
-- **Line length:** not enforced, but wrap at natural sentence boundaries when practical
-- **Code blocks:** use fenced blocks with language identifiers (e.g., ` ```python `)
+  - Rephrase with periods, commas, colons, or parentheses. Do not replace a dash with a hyphen
+- **Prose:** keep each paragraph on one line and let the editor soft-wrap it. Do not hard-wrap prose. Tables, code blocks, and list items retain their normal line structure
+- **Code blocks:** use fenced blocks with language identifiers, such as `python`
 - **Links:** prefer relative paths for in-repo references
+
+## Documentation prose
+
+Each document has one purpose: a tutorial teaches through visible results, a how-to gives steps to a goal, a reference describes facts, and an explanation gives reasons. Index pages link readers to those documents. Agent instructions preserve mandatory rules even when they include command reference material.
+
+- Write instructions as commands. Put the condition before the action.
+- Use present tense and name the actor. Prefer active voice unless the actor does not matter.
+- Keep one thought per sentence. Split dense sentences without forcing every sentence to the same length.
+- Use everyday words and the real path, symbol, flag, or command name.
+- Keep terminology consistent. Replace vague metaphors with the mechanism they describe.
+- Remove filler, promotional claims, unnecessary adverbs, and unsupported performance numbers.
+- Keep `only` beside the word it modifies. Give pronouns one clear referent.
+- Use sentence case for headings and one level-one heading per page. Do not skip heading levels.
+- Use numbered lists for steps and bullets for parallel facts. Introduce each list with a complete sentence.
+- Format code as code and UI labels in bold. Use descriptive link text and serial commas.
+- Preserve generated README sections and the meaning of policies and historical decisions.
 
 ## Logo and favicon
 

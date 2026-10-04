@@ -1,140 +1,140 @@
 # CLAUDE.md
 
-Collection of interactive HTML artifacts built with AI tools (Claude, ChatGPT, Gemini, etc.). Hosted via GitHub Pages. The canonical site URL is configured in `pyproject.toml` under `[tool.artifacts]`.
+This repository contains interactive HTML artifacts built with AI tools and hosted on GitHub Pages. `pyproject.toml` defines the canonical site URL under `[tool.artifacts]`. `AGENTS.md` is a symlink to this file, so agents share one set of repository instructions.
 
-## Rules
+## Required workflow
 
-1. **The Makefile is the only interface.** Never run `.venv/bin/*`, `pytest`, `ruff`, `mypy`, `npm run`, `npx`, `tsc`, `playwright`, or `gh` directly. Always use `make <target>`. If unsure what's available, run `make help` first. The list is auto-generated from the Makefile.
-2. **Use the `make pr-*` / `make git` targets for GitHub work** instead of raw `gh` or `git` (see the Common commands table). `make pr-review-comments` prints `thread=PRRT_...` ids; pass that id straight to `make pr-reply`, `make pr-resolve`, or `make pr-address`. The PR number is auto-detected from the current branch (override with `pr_num=N`). Never pass extra flags like `--jq` to a make target, since make parses them itself and errors.
-3. **If a target is missing, add it.** Put `## description` after the target name in the Makefile and it appears in `make help` automatically.
-4. **Each tool has one config file.** To change what gets linted/tested/typed, edit the tool's config, nowhere else. See the tool configuration table below.
-5. **Configs auto-discover from roots; never enumerate files in multiple places.** Point tools at directory roots, globs, or shared config files so new artifacts, scripts, and tests are covered automatically. Don't repeat per-file source lists; that rots the day someone adds a file and forgets. Tool config-file location pointers are fine; per-file source lists are not.
-6. **Read before acting.** Read the Makefile and existing code before proposing changes. Don't reinvent what already exists.
-7. **Don't run auto-fix commands** (`make align-tables`, `make fmt`, `make format`, etc.) unless the user asks.
-8. **Don't commit, push, or open/merge PRs unless asked.** Make and verify changes in the working tree and stop there until the user asks for GitHub actions. For small tooling/doc tweaks, fold them into the current in-progress branch instead of opening a separate PR.
+1. Use `make <target>` for workspace tools and GitHub actions. Do not run `.venv/bin/*`, `pytest`, `ruff`, `mypy`, `npm run`, `npx`, `tsc`, `playwright`, `gh`, or `git` directly. `make git` lists Git targets. Run `make help` to find command groups, then `make help-<group>` to list a group's targets.
+2. If a target is missing, add it before using the tool. Add `## description` after the target name so generated help includes it.
+3. Read the Makefile and existing code before proposing changes. Reuse existing behavior and helpers.
+4. Keep each tool's scope in its owning configuration file. Use roots, globs, and exclusions so new files are discovered automatically. Do not duplicate source-file lists in targets, workflows, and configuration files. Configuration-file path references are allowed.
+5. Run auto-fix commands only when the user asks. These include `make align-tables`, `make fmt`, and `make format`.
+6. Commit, push, open PRs, or merge PRs only when the user asks. Otherwise, make and verify changes in the working tree. Keep small tooling and documentation changes on the current branch unless the user requests a separate branch or worktree.
+7. Before adding or modifying an artifact, verify its behavior or calculations at least once.
 
-## Structure
+## Repository structure
 
-Each artifact lives in its own directory under `apps/` with an `index.html` entry point. The root `index.html` is a gallery page with searchable thumbnails, multi-select filters, theme persistence, and detail overlays.
+Each artifact has an `apps/<slug>/index.html` entry point. Metadata lives beside it in `name.txt`, `description.txt`, `tags.txt`, and `tools.txt`. The root `index.html` is the gallery, with searchable thumbnails, filters, theme persistence, and detail overlays.
 
-- `apps/<slug>/`: artifacts, each with `index.html`, `name.txt`, `description.txt`, `tags.txt`, `tools.txt`
-- `scripts/{build,ci,gh,lib,lint,setup}/`: Python tooling organized by concern, 100% test coverage enforced
-- `tests/{build,ci,gh,lib,lint,setup}/`: mirrors scripts structure; `tests/browser/` for Playwright; `tests/js/{home,common,apps,tooling,workflows}/` for Node
-- `js/`, `css/`: gallery + shared app modules and styles
-- `docs/`: developer documentation
-- `config/`: gallery metadata, artifact contract, and security audit policy
+The main directories are:
 
-## Adding a new artifact
+- `apps/`: artifact implementations, metadata, and app documentation.
+- `scripts/`: Python tooling grouped under `build`, `ci`, `gh`, `lib`, `lint`, and `setup`. Tests enforce 100% line and branch coverage.
+- `tests/`: matching Python groups, Playwright suites under `browser`, and Node suites under `js`.
+- `js/` and `css/`: gallery code, shared app modules, and styles.
+- `config/`: tool configuration, gallery metadata, the artifact contract, and audit policy.
+- `docs/`: workspace documentation and architecture decision records.
 
-Two one-command flows. Both emit a complete artifact structure. The fresh-placeholder flow passes every gate (`make validate`, ESLint, stylelint, Knip, tsc, and the JS test-coverage check) with zero hand edits. A `src=` import preserves supplied off-origin references, so its CSP gate passes only after any reported references are vendored or removed.
+[Workspace structure](docs/workspace.md) owns the full layout and file-ownership reference.
 
-**Fresh placeholder:**
+## Add an artifact
 
-1. `make new name=my-artifact`: emits the full artifact. `index.html` is wired to `../../css/style.css`, `./css/app.css`, and the shared app shell with the self-only CSP meta; `css/app.css` and `js/app.js` are stubbed; `README.md` plus `docs/architecture.md`, `docs/verification.md`, and `docs/decisions.md` are stubbed; metadata files are created; and a passing `tests/js/apps/<slug>/app.test.js` is emitted.
-2. Build your artifact in `index.html`, then fill in `name.txt`, `description.txt`, `tags.txt`, `tools.txt`
-3. `make validate`: fail fast on incomplete directories
-4. Push to `main`: CI generates thumbnails, updates gallery data, builds, and deploys
-5. Trusted PRs (same-repo, non-Dependabot) get live preview links posted as comments
+Use one of the two scaffold inputs:
 
-**Drop-in of an existing AI-generated HTML file:**
+1. For a new placeholder, run `make new name=my-artifact`.
+2. For an existing HTML file, run `make new name=my-artifact src=path/to/file.html` instead.
 
-1. `make new name=my-artifact src=path/to/file.html`: installs the file as `index.html` and scaffolds the same metadata, `css/app.css`, `js/app.js`, docs, and test stub. It injects the CSP meta and the shared stylesheet links only when they are absent, and it reports (does not rewrite) any off-origin script or style references so you can vendor or remove them before the security lint runs.
-2. Fill in the metadata files, then `make validate`
-3. Push to `main` (steps 4-5 above)
+Both inputs create metadata files, `css/app.css`, `js/app.js`, a README, architecture and verification docs, decision notes, and `tests/js/apps/<slug>/app.test.js`.
 
-The app-shell wiring is optional for a self-contained drop-in; keep the emitted `js/app.js` and its test, or replace them with your own module of the same name.
+The placeholder includes the shared stylesheets, app shell, and self-only CSP. It passes validation, lint, dead-code, type, and JS test-import checks without manual edits.
 
-When adding a user-provided artifact, prefer the minimal path: scaffold with `src=`, fill metadata. Don't refactor, don't block on thumbnails (CI handles them). Verify artifact code/calculations at least once before committing.
+The import preserves supplied HTML. It adds the CSP and shared stylesheet links when absent and reports off-origin script or style references. Vendor or remove those references before the CSP check. Shared app-shell wiring is optional for a self-contained import. Keep the generated `js/app.js` and its test, or replace them with your own module and test.
+
+After the scaffold, complete these steps:
+
+1. Build the artifact and fill in its metadata.
+2. Verify its behavior or calculations.
+3. Run `make validate` and the relevant checks in [Operations](docs/operations.md).
+
+For user-provided artifacts, prefer the `src=` import and metadata edits. Avoid unrelated refactors. CI generates thumbnails, so missing local thumbnails do not block the contribution. Push only when authorized.
 
 ## Local commands
 
-**Run `make help` for command groups, then `make help-<group>` to expand one** (for example `make help-pr`). `make help-json` emits the same surface for tooling. Everything is auto-generated from `## comment` annotations and `# ─── Title @slug ───` section headers in the Makefile.
+The Makefile generates help from target descriptions and section headers. `make help-json` exposes the same groups and commands as JSON.
 
-Key entry points:
+The main entry points are:
 
-- `make setup`: fast default (Python + Node deps, no Chromium). `make setup-all` adds Chromium for browser tests and thumbnails; use only when browser work is explicitly needed. Requires `uv` on PATH.
-- `make setup-playwright-local`: no-sudo browser setup for a Debian or Ubuntu host missing the browsers' shared libraries (`make setup-playwright-webkit-local` adds WebKit). Browser targets then opt in with `local_libs=1`. See [`operations.md`](docs/operations.md#browser-setup-without-sudo).
-- `make ci` / `make ci-fast`: full / parallel non-browser local CI gate
-- `make check`: full gate (non-browser CI + browser tests + thumbnails + index + site build); `make check-web` for just the browser half
-- `make status`: workspace health check (git, deps, lock currency, generated files, PR summary)
+- `make setup`: install Python and Node dependencies without Chromium. Setup requires `uv` on PATH.
+- `make setup-all`: also install Chromium. Use it when browser work is required.
+- `make setup-playwright-local`: prepare Chromium and local libraries on Debian or Ubuntu without sudo. `make setup-playwright-webkit-local` adds WebKit. Browser targets use the prepared libraries with `local_libs=1`.
+- `make ci`: run the complete non-browser local gate.
+- `make ci-fast`: run parallel non-browser checks, followed by generated-file checks. This target omits per-file JS coverage floors. Run `make coverage-js-floors` afterward to check those floors.
+- `make check`: run the full local gate, including browsers, thumbnails, index generation, and site assembly. `make check-web` runs the browser and thumbnail checks.
+- `make status`: inspect Git state, dependencies, lockfiles, generated files, and the PR summary.
 
-Python dependencies and workspace metadata live in `pyproject.toml`, while frozen installs live in `uv.lock` and `package-lock.json`.
+[Operations](docs/operations.md) describes command selection, CI behavior, browser setup, and recovery.
 
-## Common commands
+## GitHub commands
 
-Discover the full surface with `make help`, then `make help-<group>` (for example `make help-pr`, `make help-issue`), or `make help-json`. The table below is only the argument patterns that are not obvious from that help. PR and CI triage targets (and `make issue-summary`) wrap the tested `scripts/gh/` helper so agents do not need raw GitHub CLI flags.
+Use the `make pr-*`, `make issue-*`, and Git targets. The PR number defaults to the current branch's PR. Override it with `pr_num=N`. Do not pass raw CLI flags such as `--jq` to Make targets.
 
-| Need                                 | Command                                                                                     |
-| ------------------------------------ | ------------------------------------------------------------------------------------------- |
-| Review threads with thread ids       | `make pr-review-comments [pr_num=N]`                                                        |
-| Reply to a review thread             | `make pr-reply thread=PRRT_... <<'EOF' ... EOF`                                             |
-| Reply to and resolve a review thread | `make pr-address thread=PRRT_... <<'EOF' ... EOF`                                           |
-| Resolve a review thread              | `make pr-resolve thread=PRRT_...`                                                           |
-| Comment on a PR or issue             | `make pr-comment [pr_num=N] <<'EOF' ... EOF` / `make issue-comment issue=N <<'EOF' ... EOF` |
-| Branch linked to an issue            | `make issue-develop issue=N`                                                                |
-| New stacked branch                   | `make branch name=my-feature base=current-branch`                                           |
-| Commit staged work                   | `make commit <<'EOF' ... EOF`                                                               |
+`make pr-review-comments` prints `thread=PRRT_...` identifiers. Pass the identifier to the reply or resolution target.
 
-For multi-line text such as commit messages, PR or issue comments, replies, issue bodies, and alert details, pipe the content on stdin with a heredoc or redirect. Do not pass prose as make arguments. Use environment variables for short text such as `TITLE='...' make issue-create < issue.md`, `SEARCH='...' make issue-list`, or `COMMENT='...' make issue-close issue=N`.
+The commands with less obvious argument patterns are:
+
+| Task                    | Command                                           |
+| ----------------------- | ------------------------------------------------- |
+| List review threads     | `make pr-review-comments [pr_num=N]`              |
+| Reply to a thread       | `make pr-reply thread=PRRT_... < reply.md`        |
+| Reply and resolve       | `make pr-address thread=PRRT_... < reply.md`      |
+| Resolve a thread        | `make pr-resolve thread=PRRT_...`                 |
+| Comment on a PR         | `make pr-comment [pr_num=N] < comment.md`         |
+| Comment on an issue     | `make issue-comment issue=N < comment.md`         |
+| Create an issue branch  | `make issue-develop issue=N`                      |
+| Create a stacked branch | `make branch name=my-feature base=current-branch` |
+| Commit staged work      | `make commit < message.txt`                       |
+
+Supply multiline messages on stdin through a heredoc or file redirect. Do not pass prose as Make arguments. For short fields, use environment variables such as `TITLE='...'`, `SEARCH='...'`, or `COMMENT='...'` with the relevant target.
 
 ## Tool configuration
 
-Each tool has one config file that owns its scope. The Makefile just calls tools. No file lists repeated anywhere.
+Each tool has one configuration file that owns its scope. The Makefile calls the tools.
 
-| Tool          | Config (source of truth)     | What it defines                                                             |
-| ------------- | ---------------------------- | --------------------------------------------------------------------------- |
-| ruff          | `pyproject.toml`             | Python lint/format rules; built-in excludes skip `.venv/`, `node_modules/`  |
-| pytest        | `pyproject.toml`             | Test paths, coverage target (`scripts/`), 100% threshold                    |
-| ESLint        | `config/eslint.config.js`    | JS file patterns, ignores, rules                                            |
-| stylelint     | `config/stylelint.config.js` | CSS rules, ignoreFiles                                                      |
-| yamllint      | `.yamllint.yml`              | YAML rules, ignore patterns                                                 |
-| JS coverage   | `package.json`               | Exclude patterns (`node_modules/`, `tests/`)                                |
-| tsc (checkJs) | `config/jsconfig.json`       | TypeScript checkJs gate for hand-written js/ modules                        |
-| mypy          | `pyproject.toml`             | Strict Python type checking over `scripts/`                                 |
-| Prettier      | `config/prettierrc.json`     | Metadata, workflow, and tooling formatting                                  |
-| Knip          | `config/knip.json`           | JS dead-code, unused exports, and unused dependency detection               |
-| vulture       | `pyproject.toml`             | Python dead-code detection                                                  |
-| editorconfig  | `.editorconfig`              | Formatting rules per file type                                              |
-| pre-commit    | `.pre-commit-config.yaml`    | Local Git hook stages (whitespace, lint, format, typecheck, and test gates) |
-| esbuild       | `package.json`               | CSS/JS minification during site assembly (`prepare_site.py`)                |
+| Tool         | Configuration                | Scope                                        |
+| ------------ | ---------------------------- | -------------------------------------------- |
+| ruff         | `pyproject.toml`             | Python lint and format rules                 |
+| pytest       | `pyproject.toml`             | Test paths and 100% coverage for `scripts/`  |
+| ESLint       | `config/eslint.config.js`    | JS patterns, ignores, and rules              |
+| stylelint    | `config/stylelint.config.js` | CSS rules and ignores                        |
+| yamllint     | `.yamllint.yml`              | YAML rules and ignores                       |
+| JS coverage  | `package.json`               | Thresholds and exclusions                    |
+| TypeScript   | `config/jsconfig.json`       | Strict checks for authored JS                |
+| mypy         | `pyproject.toml`             | Strict checks for `scripts/`                 |
+| Prettier     | `config/prettierrc.json`     | Metadata, workflows, and tooling format      |
+| Knip         | `config/knip.json`           | Unused JS files, exports, and dependencies   |
+| vulture      | `pyproject.toml`             | Unused Python code                           |
+| EditorConfig | `.editorconfig`              | Settings by file type                        |
+| pre-commit   | `.pre-commit-config.yaml`    | Hook checks                                  |
+| esbuild      | `package.json`               | CSS and JS minification during site assembly |
 
-To change what gets linted/tested/typed, edit the tool's config file, nowhere else.
+Python declarations and workspace metadata live in `pyproject.toml`. `uv.lock` and `package-lock.json` record the frozen dependency graphs. Change lint, test, and type scope in the owning tool configuration.
 
-## Auto-generated files
+## Generated files
 
-Do not manually edit these outputs unless updating generator logic:
+Change the inputs or generator for these outputs. Do not edit the outputs by hand:
 
-- `js/data.js`, `js/gallery-config.js`: generated by `scripts/build/generate_index.py`
-- `css/style.css`: generated by `scripts/build/generate_styles.py` from `css/src/`
-- `apps/*/thumbnail.webp`: generated by `scripts/build/generate_thumbnails.py`
-- `_site/`: assembled by `scripts/build/prepare_site.py` for deployment and previews
-- Auto-managed marker sections in `README.md`
+- `js/data.js` and `js/gallery-config.js`, generated by `scripts/build/generate_index.py`.
+- `css/style.css`, generated from `css/src/` by `scripts/build/generate_styles.py`.
+- `apps/*/thumbnail.webp`, generated by `scripts/build/generate_thumbnails.py`.
+- `_site/`, assembled by `scripts/build/prepare_site.py`.
+- Auto-managed marker sections in `README.md`.
 
 ## Deployment
 
-- GitHub Pages publishes via GitHub Actions: pushes to `main` update the live site root, and trusted PRs (same-repo, non-Dependabot) get previews under `gh-pages/pr-preview/pr-<number>/` with the link posted as a PR comment on each push
-- `gh-pages` is CI-managed and should not be edited manually
-- Deploys use GitHub App tokens and verified GraphQL commits; see [`docs/architecture.md`](docs/architecture.md) for the full pipeline, token model, and deployment records
+Pushes to `main` trigger the GitHub Actions deployment to GitHub Pages. Trusted PRs (same repository, excluding Dependabot) receive previews under `gh-pages/pr-preview/pr-<number>/` and a preview-link comment on each push.
 
-## Docs
+CI manages `gh-pages`. Do not edit it manually. Deployments use GitHub App tokens and verified GraphQL commits. [Architecture](docs/architecture.md) describes the pipeline, token roles, and deployment records.
 
-Workspace documentation lives in `docs/`:
+## App conventions
 
-- [`workspace.md`](docs/workspace.md): repository layout and generated files
-- [`architecture.md`](docs/architecture.md): runtime, build, and deploy flow
-- [`frontend.md`](docs/frontend.md): root gallery modules, bootstrap flow, and frontend tests
-- [`operations.md`](docs/operations.md): local commands, CI behavior, and troubleshooting
-- [`maintenance.md`](docs/maintenance.md): long-term upkeep and workflow hygiene
-- [`style.md`](docs/style.md): editor configuration and language conventions
-- [`adr/`](docs/adr): architecture decision records
+- Use kebab-case artifact directory names and `index.html` entry points.
+- Load `css/style.css` in the gallery. In mature apps, load `../../css/style.css` before `./css/app.css`.
+- Reuse `js/app-theme.js`, `js/modules/app-shell.js`, and the shared `formatting.js`, `segmented.js`, `section-nav.js`, and `chart-theme.js` modules.
+- Use the tokens in `css/src/01-tokens.css` and components in `css/src/04-artifact-components.css` before adding app-local CSS. Shared families include `.control-field`, `.stat`, `.chip`, `.segmented`, `.meter`, `.app-callout`, `.section-kicker`, and `.section-nav`.
+- Keep app behavior in `apps/<slug>/js/app.js` and app-local modules. Keep app-specific layout in `apps/<slug>/css/app.css`.
+- Use the shared bookmark-note palette. Derive app CSS colors from tokens through `var()` or `color-mix()`. Raw color values belong in the shared token definitions. `make lint-app-css-tokens` also checks radius, font-size, and letter-spacing values. [Style guide](docs/style.md) documents allowed values and exceptions.
+- Keep Markdown paragraphs on one line. Use sentence case headings and direct instructions. Do not use em dashes or en dashes.
 
-## Conventions
+## Documentation ownership
 
-- Artifact directories use kebab-case names
-- Each artifact keeps `index.html` as the entry point
-- The root gallery should import `css/style.css`; mature apps should import `../../css/style.css` first, then their app-local `./css/app.css`
-- Mature apps should reuse `js/app-theme.js`, `js/modules/app-shell.js`, and the shared helper modules `js/modules/{formatting,segmented,section-nav,chart-theme}.js` instead of re-implementing them
-- Mature apps should reach for the shared design tokens (`css/src/01-tokens.css`) and component families (`css/src/04-artifact-components.css`: `.control-field`, `.stat`, `.chip`, `.segmented`, `.meter`, `.app-callout`, `.section-kicker`, plus shared buttons, inputs, tables, and `.section-nav`) before writing app-local CSS
-- App-local behavior should live in `apps/<slug>/js/app.js` plus app-local modules/docs, and `apps/<slug>/css/app.css` should hold only app-specific layout built on the shared tokens
-- The bookmark-note palette is the shared color system. App CSS colors must be token-derived (`var()` or a `color-mix()` over tokens), never hex, color-function, or named-color literals; raw color values belong in the `css/src/` token definitions. `make lint-app-css-tokens` enforces this plus token usage for radius, font-size, and letter-spacing
-- Before adding or modifying an artifact, always verify the artifact code or calculations at least once
+[Workspace documentation](docs/README.md) links to the owning document for each concern: structure, architecture, frontend behavior, operations, maintenance, style, and architecture decisions. Link to those sources instead of repeating their policies.

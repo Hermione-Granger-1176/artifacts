@@ -9,7 +9,7 @@ Use the Artifacts repository's Make targets throughout the review loop.
 
 ## Inspect the current round
 
-Start with the smallest useful view:
+Inspect the summary and open threads:
 
 ```bash
 make pr-summary
@@ -45,7 +45,7 @@ Reply to and resolve every addressed open thread:
 make pr-address thread=PRRT_... < notes.md
 ```
 
-The reply should state what was verified, what changed or why no change was needed, and the validation result. A pushed fix does not replace the reply and resolution.
+State what you verified, what changed or why no change was needed, and the validation result. A pushed fix does not replace the reply and resolution.
 
 Confirm that no addressed thread remains open:
 

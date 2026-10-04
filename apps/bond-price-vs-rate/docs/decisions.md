@@ -2,9 +2,13 @@
 
 ## Why a pinned rail beside numbered chapters
 
-The app tells one story (the inverse move, why it happens, how hard it swings, the yield curve, the maths, the analyst readout, the ripple), but every chapter is about the same three inputs and the same price. The sliders originally sat in one hero card at the top, so readers scrolled back up to change something and down again to see what it did, and sections told them to "drag the slider in the control panel above" while it was out of sight. Pinning the price, the price-rate curve, and all three sliders in a left rail removes that round trip, and the story scrolls past them on the normal page scroll. A nested scroll box was rejected because two scroll areas confuse trackpad users and break anchor and find-in-page behavior. Below 960px a pinned rail would eat the screen, so it stacks above the chapters instead. If a short desktop window cannot hold the rail whole, it scrolls inside itself so the sliders never fall off the bottom.
+All seven chapters use the same price and three inputs. The original top-of-page controls forced readers to scroll back to change a value. A sticky left column keeps the price, curve, and sliders visible beside the explanation.
 
-Each chapter gets a number badge and a heading, and the chapter in view is marked with an IntersectionObserver so readers keep their place. Muting out-of-view chapters is done on the heading, the badge, and the charts rather than with opacity on the whole chapter, because opacity pushed body text below the 4.5:1 contrast floor and failed the accessibility gate. Each chapter carries at most one key-idea box in one style (the shared blue callout), and the longer per-slider copy moved into the chapters that use it so each slider keeps at most one short helper line. Fixed face value ($1,000) and annual coupons keep the numbers clean (a par bond prices to exactly its face value), so the reader's attention stays on the relationship rather than on conventions.
+The story uses normal page scrolling so anchors and find-in-page work without a second scroll area. Below 960px, the controls stack above the chapters. In a short desktop window, the control column scrolls internally so every slider remains reachable.
+
+IntersectionObserver marks the current chapter with a filled badge and a stronger heading and chart. Body text retains full opacity because fading it failed the 4.5:1 contrast check. Each chapter has at most one shared blue callout. Longer slider explanations belong in their chapters, leaving one short helper line per slider.
+
+The bond uses a fixed $1,000 face value and annual coupons. Those assumptions keep the lesson focused on the price-rate relationship.
 
 ## Why the apply button flashes the rate readout
 
@@ -29,7 +33,7 @@ The teaching bond (10-year, 5% coupon, $1,000 face) is easiest to reason about w
 
 ## Why the sensitivity chart uses a direct reprice
 
-Rather than approximate the price move with modified duration, the sensitivity bars reprice the bond directly at the current rate and at the current rate plus one point for each maturity, then report the exact percent change. This keeps the chart honest and free of approximation error, while still showing the headline result: longer bonds swing far more.
+For each maturity, the sensitivity bars price the bond at the current rate and one percentage point higher. They report the exact percentage change rather than a duration approximation. The resulting comparison shows how longer maturities increase rate sensitivity.
 
 ## Why a separate analyst readout chapter
 
@@ -37,7 +41,9 @@ Duration, convexity, DV01, and current yield are the numbers a practitioner woul
 
 ## Why the mathematics is shown with a live table and an HTML-rendered formula
 
-The maths chapter makes the pricing fully explicit: the formula, a legend of live values, and a worked cash-flow table whose present values total the price. The formula is built from styled spans (flex rows, border-top fraction bars, and sup/sub for the sum bounds and exponents) rather than MathJax or KaTeX, because the page ships a strict self-only Content-Security-Policy and vendoring a full math-typesetting library for one equation is not worth the weight or the added surface. The table is generated with createElement per recalc (no interpolated markup), reuses the shared `.table-wrap` and table styles other apps already use, and scrolls inside a fixed-height container so a 30-year bond's 30 rows do not stretch the page. Its total is the same bond price the rail shows, so the reader can watch every payment shrink and add back up to the headline number.
+The mathematics chapter includes the pricing formula, live symbol values, and a cash-flow table whose present values sum to the displayed price. Styled spans, fraction borders, and `sup` and `sub` elements render the formula without another library. That keeps the self-only CSP and avoids vendoring a typesetting dependency for one equation.
+
+Each recalculation builds table cells with `createElement`. Shared `.table-wrap` styles provide a fixed-height scroll container, so a 30-year bond does not extend the page by 30 rows.
 
 ## Why three preset yield-curve shapes instead of a free-form curve
 

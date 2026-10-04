@@ -1,113 +1,80 @@
 # Architecture
 
-## Vendor Document Generator
+The Vendor document generator builds one model from the selected vendor, document type, layout, seed, and reference date. The HTML renderer, PDF renderer, and annotation builder consume that model.
 
-The app is a small pipeline with one branch point at the end. A seed and a selection go in; a renderer-agnostic model comes out; two independent renderers consume that same model; and a third consumer turns the model into labels rather than pixels.
+## Module flow
 
-```text
-{ vendorId, docTypeId, style, seed }
-            │
-            ▼
-   document-model.js  ──uses──▶  vendors.js, random.js, format.js
-            │
-            ▼
-   DocumentModel { header, blocks[], facts }
-            │
-      ┌─────┴──────┬──────────────┐
-      ▼            ▼              ▼
-paper-render.js   pdf-render.js   annotations.js
-   (DOM)            (jsPDF)          │  ▲
-      │              │               │  │ boxes
-      │              │               │  │
-      │              │        annotate-boxes.js
-      │              │          (reads the DOM back)
-      └──────┬───────┴───────────────┘
-             ▼
-        exporters.js  ──▶  PNG/JPEG · PDF · JSON · ZIP batch
-             │                   ▲
-             ▼                   │ transform
-        degrade.js  ─────────────┘
-     (raster in, raster + matrix out)
-```
+The modules divide the pipeline as follows:
 
-### The model is the contract
+1. `document-model.js` uses `vendors.js`, `random.js`, and `format.js` to build document blocks and structured facts.
+2. `paper-render.js` renders the blocks into the DOM. `pdf-render.js` renders them through jsPDF.
+3. `annotations.js` converts facts into sidecar fields. `annotate-boxes.js` measures the DOM when boxes are requested.
+4. `exporters.js` creates page downloads or ZIP batches. `degrade.js` supplies scan effects and coordinate transforms for raster output and annotations.
 
-`buildDocument` returns a `title`, a `subtitle`, a `footer`, an ordered array of typed blocks (`parties`, `table`, `totals`, `stamp`, `keygrid`, `partypair`, `words`, `note`, `callout`, `chips`, `banner`, `signatures`, `signoff`), and a `facts` record. Each renderer is a switch over `block.kind`.
+## Document model
 
-This is the structural change from the single-file original, which carried two hand-maintained copies of every layout: one that wrote HTML strings and one that drove jsPDF. Any fix to one had to be mirrored by hand in the other, and the two had already drifted. With one model, the preview and the searchable PDF cannot disagree about what a document says.
+`buildDocument` returns `title`, `subtitle`, `footer`, typed `blocks`, and `facts`. Block kinds include `parties`, `table`, `totals`, `stamp`, `keygrid`, `partypair`, `words`, `note`, `callout`, `chips`, `banner`, `signatures`, and `signoff`. Each renderer dispatches on `block.kind`.
 
-### Facts, blocks, and the sidecar
+The blocks contain display strings. `facts` preserves structured values before formatting: dates as `Date`, money as numbers, and line items as records. Both renderers and the sidecar use the same values, which prevents independent arithmetic or field definitions from diverging.
 
-The blocks are display strings. `facts` is the structured truth a builder had in hand *before* it stringified anything: dates as `Date`, money as numbers, line items as records. The app used to compute all of that, print it, and throw it away, which is why the output was 500 pages someone still had to label.
+## Sidecar fields
 
-`annotations.js` walks `facts` into the wire schema. Two rules make it worth trusting:
+`annotations.js` emits fields in `FIELD_KEYS` order. Every schema key is present. Fields not printed on the page are `null`, including prices on a challan even when the item builder has computed them.
 
-- **A key is always present.** The payload is built by walking `FIELD_KEYS`, not by spreading whatever a builder happened to record, so a document type that knows nothing about `vehicle_number` still emits `"vehicle_number": null`. A consumer can distinguish "this page has no PO number" from "the generator forgot".
-- **A key is non-null only when the page prints it.** A challan lists goods without prices, so its `unit_price` is null even though `buildItems` computed one. Scoring an extractor against a number that is not on the page is worse than not scoring it at all.
+Present fields carry the printed `text` and a normalized `value`. Dates use ISO values, money uses numbers, and rates use fractions.
 
-### Boxes
+## Annotation boxes
 
-`paper-render.js` stamps `data-field` onto every node carrying a value; that attribute is the *only* coupling between the renderer and the annotation layer. `annotate-boxes.js` reads them back with `getBoundingClientRect`, so a new block type needs no change there.
+`paper-render.js` marks value nodes with `data-field`. `annotate-boxes.js` reads their rectangles through `getBoundingClientRect` and normalizes them against the page rectangle. Preview scaling and 2x capture scaling change both rectangles by the same factor, so normalized coordinates remain stable.
 
-Coordinates are normalised into the 0..1 page box rather than reported in pixels. That is what makes them survive the preview's fit-to-frame CSS transform, the export's 2x capture scale, and any future change to the 794x1123 page: both the element rect and the page rect scale together, so the ratio does not move.
+Repeated fields and multiline values produce separate regions in document order. The `boxes_apply_to` field identifies PNG and rasterized PDF outputs. DOM measurements do not describe the text-layer PDF, which jsPDF lays out independently in A4 points.
 
-A field printed in more than one place produces more than one region, in document order. A two-line address genuinely occupies two boxes, and merging them would claim a single box covering the gap between them that no ink lands in.
+## Scan degradation
 
-The caveat that matters is recorded on every payload as `boxes_apply_to`, not left in a doc: boxes are measured on the HTML page, so they describe the PNG and the rasterised PDF. `pdf-render.js` lays out independently in A4 points, so they do **not** describe the text-layer PDF. Emitting boxes for that would mean instrumenting the jsPDF cursor to report its own positions, which is real work and has not been done.
+`planDegradation` computes settings and geometry from a seed and page size. `degradeCanvas` applies the plan to a raster. Fixed random draw order keeps geometry unchanged when a non-geometric effect is disabled.
 
-### Degradation, and why it reports a matrix
+Skew, rotation, and keystone produce a projective transform. `transformBoxes` applies that transform to regions and word boxes. Each region includes a `quad` of transformed corners and a `box` containing their axis-aligned bounds.
 
-A corpus where every page is a pixel-perfect raster on pure white cannot tell you where an extractor breaks, because nothing in it is hard. `degrade.js` adds the axis that makes "how much accuracy do I lose to scan quality" measurable: the same seed rendered clean and rendered degraded, differing only in the pixels.
+The matrix uses normalized page coordinates. `toPixelMatrix` converts it for the actual bitmap size. JSON-only exports can apply annotation geometry without rasterization.
 
-Two contracts matter more than any individual effect.
+Canvas 2D approximates keystone with four-pixel affine strips. Annotations retain the exact projective matrix. Lossy presets use JPEG encoding and write `.jpg` files.
 
-**Seeded.** Every stochastic choice is drawn from the document seed, in a fixed order, so a seed plus a preset always produces the same page and a dataset can be regenerated. Drawing every value up front is what makes the order fixed: turning grain off does not shift the tilt.
+## Determinism and reference dates
 
-**It reports its geometry.** Skew, rotation, and keystone move the ink; grain, blur, and JPEG do not. `planDegradation` returns the projective transform before anything is painted, and `transformBoxes` runs every box through it. Without that, phase 3 would quietly corrupt phase 2, and both halves would still pass their own tests.
+The seed and reference date determine the document model. `buildDocument` defaults `today` to the generation day, so exact replay later requires the original date. The sidecar's `document_date` and seeded offset can recover that date, but the manifest does not record it directly.
 
-Planning is split from painting for a second reason: `planDegradation` is pure arithmetic over a seed and a page size, so the JSON-only batch path can move its boxes correctly without rasterising a single page.
+`random.js` provides a Lehmer generator. `Math.random` is used only by `rollSeed` and `planBatch` to choose new seeds. `format.js` avoids locale-dependent formatting so the same inputs produce the same text in browsers, Node tests, and thumbnail generation.
 
-The matrix is expressed in normalised page coordinates, which is what lets one plan serve both the 794x1123 layout page it was made against and the 1588x2246 capture it is applied to. `toPixelMatrix` scales it into whatever bitmap is actually in hand at draw time.
+Random draw order is part of replay behavior. Drawing the day offset before the document number preserves earlier samples. Reordering those draws changes the generated documents.
 
-Canvas 2D cannot draw a projective transform in one call, so a keystoned page is drawn in four-pixel strips whose affine approximation is well under a pixel off. The matrix reported to the annotations is the exact projective one either way, and the approximation error sits far below the blur and grain applied immediately afterwards.
+## CSP and DOM rendering
 
-Each transformed region carries both shapes. `box` stays an axis-aligned `[x, y, width, height]` so an evaluation script written against a clean run keeps working; `quad` carries the four corners the ink actually landed on. Reporting only the quad would break every existing reader, and reporting only the box would silently claim a tilted value is upright.
+The page uses a self-only CSP without `unsafe-inline`. The HTML renderer creates nodes through `createElement` and writes values through `textContent`. It emits classes instead of inline style attributes.
 
-JPEG loss is the encoding rather than a painted effect: asking the canvas for a lossy JPEG is the same compression a real scanner applies, and baking it into a PNG would need an async round-trip through an `Image` for a worse result. A lossy preset therefore writes `.jpg`.
+Vendor branding reaches the page through CSSOM custom properties such as `--vd-accent`, `--vd-accent-soft`, `--vd-ink`, and `--vd-font`. Scripts and styles are local files, and export libraries are vendored under `js/vendor/`.
 
-### Determinism
+## Color ownership
 
-Everything downstream of the seed and reference date is deterministic. `buildDocument` defaults that date to the day of generation, so replaying an exact page later requires passing the original date as `today`; the seed alone reproduces the random choices but not date-relative fields. The reference date is recoverable from the sidecar's `document_date` by reversing the seed-derived date offsets, and is not recorded directly. `random.js` provides a Lehmer generator; `Math.random` appears only in `rollSeed` (a new document) and `planBatch` (choosing seeds for a batch). `format.js` deliberately avoids `toLocaleString` and `toLocaleDateString` so that the same seed and reference date produce byte-identical text in the browser, in Node tests, and in the CI thumbnail run.
+App controls in `css/app.css` use shared tokens. Printed pages use theme-independent `--color-document-*` tokens from `css/src/01-tokens.css`, so dark mode does not change exported paper colors.
 
-Draw order inside `buildDocument` is load-bearing: the day offset is drawn before the document number, so changing that order would silently renumber every previously generated sample.
+Vendor accents in `vendors.js` are document content. They remain distinct literals applied through CSSOM instead of being mapped to the shared app palette.
 
-### Content-Security-Policy and rendering
+## State and render passes
 
-The page ships with `default-src 'self'; script-src 'self'; style-src 'self'`, with no `unsafe-inline`. Two consequences drive the renderer:
+`app.js` stores vendor, document type, invoice layout, seed, scan preset, overrides, and output choices. `draw` rebuilds the page and caption. `syncOutput` derives visible output controls, label notes, pair availability, size estimates, and the primary button label.
 
-- **Inline `style` attributes never apply.** The original built each document out of `style="..."` strings, which would have rendered a completely unstyled page here. `paper-render.js` emits classes instead, and the six vendor brand values arrive as the `--vd-accent`, `--vd-accent-soft`, `--vd-ink`, and `--vd-font` custom properties set through CSSOM, which CSP does not police.
-- **No inline `<script>` or `<style>`.** All behaviour lives in ES modules under `js/`, all styling in `css/app.css`, and the four export libraries are vendored under `js/vendor/` rather than pulled from a CDN.
+`LABEL_LEVELS` maps label choices to ground truth, field boxes, and word boxes. `INCLUDE_SCOPES` maps batch scope to vendor and type selection. `DOCUMENT_TYPES` and `DEGRADE_PRESETS` provide control labels. `wireSegment` wraps `initSegmented` so programmatic changes also update selection highlights.
 
-`paper-render.js` also builds every node with `createElement` and `textContent`, never `innerHTML`, which the repo's ESLint rule requires and which makes the rendered content injection-proof by construction.
+The layout has a toolbar, a fitted page stage, and a sticky Output panel. The panel's scope switch and footer stay visible while its middle scrolls. Its vendor swatch uses the same `--vd-accent` as the printed page.
 
-### Colour
+## Export paths
 
-App chrome in `css/app.css` is entirely token-derived. The printed page uses a separate, deliberately theme-independent set of `--color-document-*` tokens (`css/src/01-tokens.css`) so a preview of something that will be exported to PDF keeps looking like paper in dark mode. The six vendor accents are literals in `vendors.js` because they are document *content*, not app chrome: six businesses should not look like six shades of one design system.
+`exporters.js` accesses UMD library globals through injected accessors. Tests supply recording fakes, and unavailable libraries produce a readable error.
 
-### The studio UI
+Text PDFs render directly from the model. PNG and rasterized PDFs use `html2canvas` sequentially because they share one paper element. Raster capture temporarily sets zoom to 1, including when the page is in the full-size dialog.
 
-`app.js` keeps a small state object (vendor, document type, invoice style, seed, scan preset and overrides, and the output choices: scope, format, labels, include, PDF type) and two render passes. `draw` rebuilds the paper and the caption from the selection. `syncOutput` recomputes everything in the Output panel from state: which rows exist, the Labels note, whether pair mode applies, the size estimate, and the primary button's label. Controls only write state and call one of the two.
+A labeled batch writes one sidecar per page, a `manifest.jsonl` with one compact sidecar per line, and a `README.txt` with the schema and settings. JSON-only batches skip PDF and raster generation. The DOM stage still advances for progress and requested box measurements.
 
-Two lookup tables turn the compact controls back into the old switches, so exporters and sidecars see the same inputs as before. `LABEL_LEVELS` maps the Labels ladder (None, JSON, + Fields, + Words) onto ground truth, field boxes, and word boxes. `INCLUDE_SCOPES` maps the Include control onto the all-types and all-vendors switches. The type pills, the preset row, and the dropdown the pills fall back to below 700px are built from `DOCUMENT_TYPES` and `DEGRADE_PRESETS` (their `short` labels), and `wireSegment` wraps the shared `initSegmented` with a setter so code-driven changes move the highlight too.
+Pair mode applies to PNG output. `renderRaster` returns both the degraded image and its clean capture, so a pair does not require two captures. JSZip retains batch files in memory until it creates the archive.
 
-The layout is three regions: a toolbar, the stage, and a pinned Output panel whose head (scope switch) and foot (estimate, progress, status, primary button) stay put while its middle scrolls. The vendor swatch reads the same `--vd-accent` custom property the paper does, set through CSSOM.
-
-### Export paths
-
-`exporters.js` reaches the three UMD globals through injected accessors rather than touching `window` directly, so the module runs under Node in tests with recording fakes, and a script that failed to load produces a readable message instead of a `TypeError` inside a click handler.
-
-A batch can also be labelled, in which case each document gets a `.json` sidecar beside it and the archive root gets a `manifest.jsonl` (every sidecar again, one compact object per line, because tooling that streams a dataset wants one file to read) and a `README.txt` recording the schema and the settings the run used. The `json` format skips PDF and raster generation, but the DOM renderer still advances the stage through each document as visible progress and provides layout coordinates when boxes are requested.
-
-Pair mode applies to PNG outputs. It writes the degraded page and the clean original from a single capture, which is why `renderRaster` returns both rather than the caller rendering twice. Rendering is the slowest step in a batch, and doing it twice for two images of the same page would double it.
-
-The text-PDF batch path writes its files straight from the model, while the DOM stage still advances through each document as visible progress and supplies layout coordinates when boxes are requested. Only the PNG and rasterised-PDF paths need `html2canvas`, and those run sequentially because they share one paper element. Because the fitted preview scales the paper with a CSS transform, `app.js` pins the zoom to 1 for the duration of any capture so every raster sample is a true 794px page, in either the inline frame or the full-size overlay.
+The batch loop yields during synchronous formats so progress and stop controls can run. A stop completes the active document, writes the completed files, and records partial counts. [Decisions](decisions.md) explains these trade-offs. [Verification](verification.md) describes test coverage and its limits.

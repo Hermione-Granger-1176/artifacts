@@ -1,16 +1,18 @@
-# Loan Amortization Schedule
+# Loan amortization schedule
 
 Interactive loan amortization calculator with charts, extra payment scenarios, and detailed repayment schedules.
 
-## Highlights
+## Features
+
+The calculator includes these views and controls:
 
 - Baseline payoff vs extra-payment scenario comparison
 - Yearly, half-yearly, quarterly, monthly, bi-weekly, and weekly cadences
 - Two-column calculator: a sticky input column (loan, frequency, extra payments) beside the results, which stack above each other below 900px
-- EMI as the hero number, with a savings chip and four supporting KPIs
+- The periodic payment (EMI) as the main result, with a savings chip and four supporting metrics
 - Five visual breakdowns stacked in one consistent chart-card style: balance, scenario comparison, interest savings, cumulative payments, and per-period payments
 - Per-period and yearly repayment tables
-- Light/dark theme persistence via shared app shell
+- Light and dark theme persistence through the shared app shell
 
 ## Made with
 
@@ -42,6 +44,6 @@ js/
 docs/
 ```
 
-## Docs
+## Documentation
 
-See `docs/` for architecture, verification, and implementation decisions.
+The app documentation covers [architecture](docs/architecture.md), [verification](docs/verification.md), and [implementation decisions](docs/decisions.md).

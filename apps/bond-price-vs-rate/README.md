@@ -1,8 +1,10 @@
-# Bonds vs Interest Rates
+# Bonds and interest rates
 
-An explainer of why bond prices fall when interest rates rise. The price, its curve, and three sliders stay pinned on the left while seven numbered chapters scroll on the right, so you can reprice a bond you already own and read why the price moved and what the same move does to the wider economy.
+This interactive explainer shows why bond prices fall when interest rates rise. The price, curve, and three sliders stay in a sticky left column while seven chapters explain the price change and its wider effects.
 
-## Highlights
+## Features
+
+The explainer includes these views and controls:
 
 - Two columns on the normal page scroll: a sticky left rail (price, premium/par/discount badge, price-vs-rate curve, then the market rate, coupon, and years sliders) beside the story. Below 960px the rail stops pinning and stacks above the chapters
 - Seven numbered chapters (the inverse move, why it happens, how hard it swings, the yield curve, the maths, the analyst readout, the ripple). The chapter in view gets a filled number badge and full-strength heading and charts while the others sit slightly muted, tracked with an IntersectionObserver
@@ -38,6 +40,6 @@ js/
 docs/
 ```
 
-## Docs
+## Documentation
 
-See `docs/` for architecture, verification, and implementation decisions.
+The app documentation covers [architecture](docs/architecture.md), [verification](docs/verification.md), and [implementation decisions](docs/decisions.md).

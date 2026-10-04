@@ -1,6 +1,6 @@
-# Workspace Structure
+# Workspace structure
 
-This is the canonical reference for repository layout, file ownership, generated-output ownership, and source-of-truth files.
+This reference describes repository layout, file ownership, generated outputs, and their source files.
 
 - For runtime, build, and deploy design, see [`architecture.md`](architecture.md).
 - For day-to-day commands, CI parity, troubleshooting, and recovery, see [`operations.md`](operations.md).
@@ -114,7 +114,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 
 ## Generated and derived files
 
-These files are outputs. Prefer changing the generator instead of editing them directly.
+These files are generated outputs. Their inputs and generators determine their contents.
 
 - `js/data.js`: generated from `apps/*/{name,description,tags,tools}.txt` and artifact discovery by `scripts/build/generate_index.py`
 - `js/gallery-config.js`: generated from `config/gallery_metadata.json` and `config/artifact_contract.json` by `scripts/build/generate_index.py`
@@ -126,7 +126,7 @@ The website is the canonical artifact catalog. `README.md` intentionally keeps o
 
 ## Artifact folder contract
 
-Each artifact directory under `apps/` is expected to contain:
+The artifact contract includes these files. Paths are relative to the artifact directory unless they start with `tests/`:
 
 - `index.html`: required entry point
 - `js/app.js`: recommended app-local runtime entry for mature apps
@@ -140,7 +140,9 @@ Each artifact directory under `apps/` is expected to contain:
 - `tools.txt`: optional AI tools, one per line
 - `thumbnail.webp`: preferred generated thumbnail when present
 
-## Editing rules
+## Editing workflow
+
+[Contributing](../.github/CONTRIBUTING.md) gives the steps to add an artifact. [Operations](operations.md) lists the local checks and generation commands. The ownership rules are:
 
 - Add or modify artifacts in `apps/`.
 - Use Makefile targets for normal local and documented workflows. See [`operations.md`](operations.md) for which targets to run in each workflow.

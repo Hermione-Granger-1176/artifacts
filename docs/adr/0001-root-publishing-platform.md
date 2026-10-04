@@ -14,7 +14,7 @@ The root-level publish path previously mixed validation, regeneration, deploymen
 
 ## Decision
 
-The repository root is treated as a strict publishing platform with these rules:
+The repository root follows these publishing rules:
 
 1. `verify` is the only workflow job that builds the deployable `_site/` output.
 2. `publish` deploys only the verified `_site/` artifact produced by `verify`.
@@ -25,7 +25,7 @@ The repository root is treated as a strict publishing platform with these rules:
 
 ## Amendment (ADR 0005)
 
-ADR 0005 moved site assembly out of `verify`. The `assemble-site` job now builds and uploads the deployable `_site/` artifact after the build gates (`quick-gates`, `heavy-checks`, `root-browser`, and the app-shard jobs) pass. The `verify` job became an aggregation-only job that gates branch protection by checking dependency job results, and it no longer runs tests or builds files. Decision points 1 and 2 above should be read with that split in mind: the strict "build once, then publish only the verified artifact" property is preserved, but the build now happens in `assemble-site` and `publish` deploys that job's uploaded `_site/` artifact.
+ADR 0005 moved site assembly out of `verify`. The `assemble-site` job now builds and uploads the deployable `_site/` artifact after the build gates (`quick-gates`, `heavy-checks`, `root-browser`, and the app-shard jobs) pass. The `verify` job checks dependency results for branch protection. It no longer runs tests or builds files. This amendment supersedes the job assignments in decision points 1 and 2. The build happens once in `assemble-site`, and `publish` deploys that uploaded `_site/` artifact after verification.
 
 ## Consequences
 
@@ -33,7 +33,7 @@ ADR 0005 moved site assembly out of `verify`. The `assemble-site` job now builds
 - Preview and production deploys share the same verified build input instead of rebuilding on the write path.
 - Generated-file drift in CI becomes a review signal instead of an automatic branch mutation.
 - Deploy debugging now includes both published asset markers and deploy metadata.
-- Root-shell changes must keep keyboard/focus/accessibility behavior covered by tests and documentation.
+- Root-shell changes must keep keyboard behavior, focus, and accessibility covered by tests and documentation.
 
 ## Out of scope
 

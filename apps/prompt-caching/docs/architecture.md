@@ -1,19 +1,19 @@
 # Architecture
 
-## Prompt Caching, Demystified
+## Prompt caching, demystified
 
 ### Runtime flow
 
 1. `index.html` loads `../../js/app-theme.js` (synchronous theme bootstrap), then the shared stylesheet at `../../css/style.css` followed by `./css/app.css`.
 2. `js/app.js` calls `renderAppShell()` to mount the shared shell markup, then `initializeMatureApp({ run })`.
-3. Inside `run`, `initAppShell({ onThemeChange })` wires the header (back / brand / theme toggle) and scroll-to-top behavior, then each feature module initialises itself.
+3. Inside `run`, `initAppShell({ onThemeChange })` wires the header (back / brand / theme toggle) and scroll-to-top behavior, then each feature module initializes itself.
 
 ### Module map
 
 - `modules/data.js`: frozen reference data: section list, toy BPE vocabulary, the pre-computed 4×3 attention example, hand-tuned 8-D word embeddings, demo scripts, and summary steps. Cluster colors are stored as shared-token names.
 - `modules/math.js`: pure functions with no DOM access: `bpeTokenize`, `hashToken`, `cosineSim`, `eucDist`, `softmax`, `savingsMonthly`, `formatTTL`, `verdictForSimilarity`, `project2D`. This is the unit-tested core.
 - `modules/dom.js`: `byId`, `makeEl`, `clear`, and a re-export of the shared `initSegmented`.
-- Feature modules (`navigation`, `tokenizer`, `embeddings`, `inference`, `attention`, `kv-cache`, `cache-hits`, `calculator`) are thin DOM glue. They read state, build nodes via `createElement`, and bind events with `addEventListener`.
+- Feature modules (`navigation`, `tokenizer`, `embeddings`, `inference`, `attention`, `kv-cache`, `cache-hits`, and `calculator`) connect state to browser interactions. They build nodes with `createElement` and bind events with `addEventListener`.
 
 ### Theming
 

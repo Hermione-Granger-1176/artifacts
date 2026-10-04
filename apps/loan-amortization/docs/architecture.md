@@ -8,7 +8,7 @@
 - Input column, top to bottom:
   - Loan group: loan amount, interest rate, and tenure, each a shared `.control-field` row with the label left, the value field right, and the slider underneath
   - EMI frequency select, with the bi-weekly True/Accelerated toggle and its note beneath it only when bi-weekly is selected
-  - Extra payments group: compact rows (type toggle, remove, labelled amount and timing fields, and a one-line summary), a quiet empty-state line, and the Add button
+  - Extra payments group: compact rows (type toggle, remove, labeled amount and timing fields, and a one-line summary), a quiet empty-state line, and the Add button
 - Results column, top to bottom:
   - `#metrics`: the EMI as the hero number with a sub-line and a "saves $X, Ny Mm sooner" chip when extras help, then four KPI tiles (total interest, payoff in, total paid, break-even)
   - Charts / Schedule toggle
@@ -20,7 +20,7 @@
 
 - `js/vendor/`: vendored Chart.js 4.4.1, chartjs-plugin-annotation 3.0.1, chartjs-plugin-datalabels 2.2.0 (loaded via `<script defer>` with `<link rel="preload">` hints)
 - `js/app.js`
-  - owns bootstrap, mutable app state, and high-level recalc orchestration
+  - owns bootstrap, mutable app state, and recalculation
 - `../../../js/modules/app-shell.js`
   - owns shared theme sync, back-button fallback behavior, and scroll-to-top behavior
 - `js/modules/amortization.js`
@@ -60,10 +60,10 @@
 2. `syncInputsFromSliders()` normalizes formatted text inputs
 3. `recalc()` derives cadence params and optional accelerated bi-weekly EMI
 4. `runSchedule()` returns baseline and extra-payment schedules
-5. Metrics are rerendered, visible charts are updated in place, and visible tables are refreshed from those derived values
+5. The renderer refreshes metrics, visible charts, and visible tables from the derived values
 
 ## Theme model
 
 - `<html>` owns `data-theme="light|dark"`
-- The shared `../../../js/app-theme.js` head script applies the saved theme before first paint
-- The same `theme` localStorage key as the root gallery is reused so theme changes stay synchronized across pages
+- The shared `../../js/app-theme.js` head script applies the saved theme before first paint
+- The app and root gallery share the `theme` localStorage key

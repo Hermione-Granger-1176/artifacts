@@ -1,8 +1,10 @@
-# Prompt Caching, Demystified
+# Prompt caching, demystified
 
-A long-form interactive explainer on how LLM prompt caching works. Walks the inference pipeline from tokenizer to embeddings, attention, KV cache, and providers.
+This interactive explainer follows LLM inference through tokenization, embeddings, attention, the key-value (KV) cache, and provider caching.
 
-## Highlights
+## Features
+
+The page includes these interactive examples:
 
 - Sticky section-progress nav with clickable pipeline overview
 - Inference simulator that streams tokens while the KV cache fills
@@ -10,9 +12,9 @@ A long-form interactive explainer on how LLM prompt caching works. Walks the inf
 - Embedding playground: cosine similarity, 2D projection canvas, 1D/2D/3D dimension explorer
 - Attention step explorer with clickable matrix dot-products, hoverable attention grid, interactive softmax sliders
 - KV-cache fill animation and no-cache vs with-cache computation comparison
-- Cross-request cache-hit visualiser with live TTL countdown
+- Cross-request cache-hit visualizer with live TTL countdown
 - Savings calculator for your own workload
-- Full light/dark theming via shared app theme
+- Light and dark themes through the shared app theme
 
 ## Made with
 
@@ -41,6 +43,6 @@ js/
 docs/
 ```
 
-## Docs
+## Documentation
 
-See `docs/` for architecture, verification, and implementation decisions.
+The app documentation covers [architecture](docs/architecture.md), [verification](docs/verification.md), and [implementation decisions](docs/decisions.md).

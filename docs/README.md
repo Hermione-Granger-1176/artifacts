@@ -1,15 +1,16 @@
-# Workspace Docs
+# Workspace documentation
 
-This folder documents repository-level behavior. It should route readers to the right canonical doc instead of restating the same policy in multiple places.
+This index links to the document that owns each repository concern.
 
-Read in this order when you are new to the repo:
+For a first review of the repository, the documents follow this order:
 
-1. [`workspace.md`](workspace.md): canonical for repository layout, file ownership, generated outputs, and source-of-truth files
-2. [`architecture.md`](architecture.md): canonical for runtime, build, and CI/CD design
-3. [`frontend.md`](frontend.md): canonical for root-gallery modules, shared frontend behavior, and browser-test scope
-4. [`operations.md`](operations.md): canonical for day-to-day `make` workflows, CI parity, troubleshooting, and recovery
-5. [`maintenance.md`](maintenance.md): canonical for long-term stability contracts and periodic upkeep
-6. [`style.md`](style.md): canonical for editor configuration and language conventions
-7. [`adr/`](adr/): canonical for accepted architecture decision records (numbered `0001` through `0006`)
+1. [`workspace.md`](workspace.md): reference for repository layout, file ownership, generated outputs, and source-of-truth files
+2. [`architecture.md`](architecture.md): reference for runtime, build, and CI/CD design
+3. [`frontend.md`](frontend.md): reference for root-gallery modules, shared frontend behavior, and browser-test scope
+4. [`operations.md`](operations.md): reference for day-to-day `make` workflows, CI parity, troubleshooting, and recovery
+5. [Quality checks](checks.md): reference for check targets, scope, and configuration
+6. [`maintenance.md`](maintenance.md): reference for long-term stability contracts and periodic upkeep
+7. [`style.md`](style.md): reference for editor configuration and language conventions
+8. [`adr/`](adr/): reference for accepted architecture decision records (numbered `0001` through `0006`)
 
-If two docs seem to overlap, prefer the one that owns the concern above and link to it instead of copying the policy again.
+Each concern has one owning document. Other documents link to that source instead of repeating its policy.

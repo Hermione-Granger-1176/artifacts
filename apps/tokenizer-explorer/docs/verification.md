@@ -10,10 +10,10 @@
 
 ## Representative checks
 
-Use these as regression checks after refactors:
+The regression scenarios have these expected results:
 
 1. Temperature `1.0`, top-p `0.70`, default scenario
-   - `mat` should lead the Next token list
+   - `mat` leads the Next token list
    - the Odds column shows post-temperature probabilities and sums to `100%` across all eight rows
    - rows below the "top P cut" line are struck through, have hatched bars that keep their pre-cutoff length, and show `cut` in the Draw column
 2. Temperature `0`, any top-p value, default scenario
@@ -42,7 +42,7 @@ For the default scenario at temperature `1.0`, the top two logits are `4.2` for 
 - Token count is the array length and character count uses Unicode code points
 - When whitespace is shown, each leading space becomes a middle dot inside its chip, in both the examples and the prompt chips
 
-## Interpretation guardrails
+## Interpretation limits
 
 - This app is illustrative, not a production tokenizer or model-serving client
 - The token examples teach common BPE patterns but do not claim to match one vendor vocabulary
