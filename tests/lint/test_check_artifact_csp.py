@@ -321,7 +321,7 @@ def test_check_page_allows_script_src_falling_back_to_default(tmp_path: Path) ->
     assert check_page(path, display_path="apps/demo/index.html") == []
 
 
-def test_check_page_flags_missing_non_fallback_directives(tmp_path: Path) -> None:
+def test_check_page_flags_missing_required_directives(tmp_path: Path) -> None:
     """Check page requires object-src, base-uri, and form-action to be stated."""
     path = _write_page(tmp_path, "demo", _page(csp="default-src 'self'; script-src 'self'"))
     violations = check_page(path, display_path="apps/demo/index.html")
@@ -332,7 +332,7 @@ def test_check_page_flags_missing_non_fallback_directives(tmp_path: Path) -> Non
         assert expected in violations
 
 
-def test_check_page_flags_relaxed_non_fallback_directives(tmp_path: Path) -> None:
+def test_check_page_flags_relaxed_required_directives(tmp_path: Path) -> None:
     """Check page rejects permissive object-src, base-uri, and form-action values."""
     csp = "default-src 'self'; object-src 'self'; base-uri *; form-action https://example.com"
     path = _write_page(tmp_path, "demo", _page(csp=csp))

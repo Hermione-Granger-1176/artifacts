@@ -27,7 +27,7 @@ The generator supports these outputs and controls:
 ## Made with
 
 - Claude
-- jsPDF 2.5.1 and jspdf-autotable 3.8.2 (vendored)
+- jsPDF 4.2.1 and jspdf-autotable 5.0.8 (vendored)
 - html2canvas 1.4.1 (vendored)
 - JSZip 3.10.1 (vendored)
 

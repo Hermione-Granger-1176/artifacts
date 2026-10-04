@@ -114,7 +114,7 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
 - Three apps vendor libraries, with `config/vendored_assets.json` as the authoritative inventory:
   - `apps/loan-amortization/js/vendor/`: Chart.js `4.4.1`, `chartjs-plugin-annotation` `3.0.1`, `chartjs-plugin-datalabels` `2.2.0`
   - `apps/bond-price-vs-rate/js/vendor/`: Chart.js `4.4.1`
-  - `apps/vendor-docs-generator/js/vendor/`: jsPDF `2.5.1`, `jspdf-autotable` `3.8.2`, html2canvas `1.4.1`, JSZip `3.10.1`
+  - `apps/vendor-docs-generator/js/vendor/`: jsPDF `4.2.1`, `jspdf-autotable` `5.0.8`, html2canvas `1.4.1`, JSZip `3.10.1`
 - Versions are pinned and upgraded manually for stability. To upgrade, download the new UMD builds from the recorded `upstream` URLs (jsDelivr), replace the files in `js/vendor/`, update the matching `version`, `upstream`, and `sha256` entries in `config/vendored_assets.json`, and rerun the browser suites.
 - `make lint-vendored-assets` enforces the manifest: every vendored file must be listed in `config/vendored_assets.json` and match its recorded SHA-256.
 - Vendored directories are excluded from ESLint (`**/vendor/**` in `config/eslint.config.js`) and lint checks (`vendor` in `scripts/lint/__init__.py` `SKIP_DIRECTORIES`).

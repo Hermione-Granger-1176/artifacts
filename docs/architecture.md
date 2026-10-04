@@ -331,7 +331,7 @@ graph TD
     end
 
     subgraph "Dependency audit (weekly)"
-        audit_dep_schedule["Monday 06:00 UTC / manual"] --> dep_audit["dependency-audit<br/>Run make audit-python, audit-node,<br/>check-overrides<br/>Open or close alert issue"]
+        audit_dep_schedule["Monday 06:00 UTC / manual"] --> dep_audit["dependency-audit<br/>Run make audit-python, audit-node,<br/>audit-vendored, check-overrides<br/>Open or close alert issue"]
     end
 ```
 

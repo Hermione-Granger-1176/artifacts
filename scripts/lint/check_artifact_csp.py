@@ -7,8 +7,7 @@ page. This checker fails fast when an artifact:
 
     - is missing the Content-Security-Policy meta tag, or its policy does not
       restrict ``default-src`` and ``script-src`` to ``'self'`` or ``'none'``
-      sources, or omits ``object-src``, ``base-uri``, or ``form-action``, which
-      do not fall back to ``default-src``; or
+      sources, or omits ``object-src``, ``base-uri``, or ``form-action``; or
     - references an external (scheme or protocol-relative) URL from a
       ``<script src>``, a stylesheet ``<link href>``, or a ``url()`` inside an
       inline ``<style>`` block. Inline ``data:`` URIs and ``#fragment``
@@ -38,9 +37,11 @@ _RESTRICTIVE_SOURCES = frozenset({"'self'", "'none'"})
 _APP_IMG_SOURCES = frozenset({"'self'", "'none'", "data:"})
 _ROOT_IMG_SOURCES = _APP_IMG_SOURCES | frozenset({"https://img.shields.io"})
 
-# Directives that do not fall back to default-src, so each must be stated.
-# frame-ancestors is deliberately absent: browsers ignore it in a meta tag.
-_NON_FALLBACK_DIRECTIVES = (
+# Directives every page must state. base-uri and form-action do not fall back to
+# default-src. object-src does, but an explicit 'none' is stricter than the 'self'
+# that default-src gives it. frame-ancestors is deliberately absent: browsers
+# ignore it in a meta tag.
+_REQUIRED_DIRECTIVES = (
     ("object-src", frozenset({"'none'"})),
     ("base-uri", _RESTRICTIVE_SOURCES),
     ("form-action", _RESTRICTIVE_SOURCES),
@@ -306,7 +307,7 @@ def _csp_violations(
             f"({allowed}; found: img-src {' '.join(img_src)})"
         )
 
-    for directive, allowed_sources in _NON_FALLBACK_DIRECTIVES:
+    for directive, allowed_sources in _REQUIRED_DIRECTIVES:
         sources = directives.get(directive)
         if sources is None:
             violations.append(
