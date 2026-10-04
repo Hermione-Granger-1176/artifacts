@@ -128,8 +128,10 @@
     transform: none;
   }
 
+  /* Phones turn pages by button only, so the sheet keeps every native gesture. */
   .book-sheet {
     height: auto;
+    touch-action: auto;
     --book-sheet-min-height: 0;
   }
 

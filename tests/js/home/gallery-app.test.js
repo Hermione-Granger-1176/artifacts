@@ -1073,6 +1073,21 @@ test('pagination ignores disabled buttons, the current page, and non-page target
   assert.equal(harness.historyCalls.length, 0);
 });
 
+test('broken thumbnails are caught on the whole book sheet, or on the grid without a book', () => {
+  const withBook = createGalleryHarness({ withBook: true });
+  initializeGalleryApp({ documentObj: withBook.documentObj, runtime: withBook.runtime, windowObj: withBook.windowObj });
+  assert.equal(withBook.book.sheet.listeners.get('error')?.length, 1, 'the sheet covers turning leaves and ghost pages');
+  assert.equal(withBook.elements.grid.listeners.get('error'), undefined);
+
+  const withoutBook = createGalleryHarness();
+  initializeGalleryApp({
+    documentObj: withoutBook.documentObj,
+    runtime: withoutBook.runtime,
+    windowObj: withoutBook.windowObj
+  });
+  assert.equal(withoutBook.elements.grid.listeners.get('error')?.length, 1);
+});
+
 test('page turns keep the live book untouched until the leaf lands and then render the page', async () => {
   const harness = createGalleryHarness({ withBook: true });
   initializeGalleryApp({

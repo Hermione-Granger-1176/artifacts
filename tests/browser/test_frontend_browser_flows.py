@@ -403,6 +403,9 @@ def test_dragging_a_page_edge_scrubs_the_leaf_then_completes_or_springs_back(
         session.goto("/")
         _wait_for_open_book(page)
 
+        # Touch browsers leave horizontal drags to the book but still scroll and zoom.
+        expect(page.locator("#book-sheet")).to_have_css("touch-action", "pan-y pinch-zoom")
+
         grid = _box(page, "#artifacts-grid")
         y = grid["y"] + grid["height"] / 2
         edge_x = grid["x"] + grid["width"] - 12
@@ -444,6 +447,10 @@ def test_dragging_a_page_edge_scrubs_the_leaf_then_completes_or_springs_back(
         page.locator(".artifact-card").first.click()
         expect(page.locator("#detail-overlay")).to_have_class("detail-overlay visible open")
         page.keyboard.press("Escape")
+
+        # Phones turn by button only, so the sheet hands every gesture back.
+        page.set_viewport_size({"width": 390, "height": 844})
+        expect(page.locator("#book-sheet")).to_have_css("touch-action", "auto")
 
 
 def test_reduced_motion_book_cross_fades_without_a_leaf(tmp_path: Path, monkeypatch) -> None:

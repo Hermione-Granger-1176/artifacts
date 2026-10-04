@@ -417,7 +417,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
   });
 
-  registerThumbnailFallback(grid);
+  // A turning leaf, its ghost page, and the cover's inside page sit outside the
+  // grid, so catch broken thumbnails on the whole sheet when the book is there.
+  registerThumbnailFallback(documentObj.getElementById('book-sheet') ?? grid);
 
   grid.addEventListener('click', (event) => {
     const target = /** @type {Element | null} */ (event.target);

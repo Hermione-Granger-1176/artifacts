@@ -443,6 +443,9 @@ button {
   width: 100%;
   height: min(var(--book-fit-height), calc(100cqi / var(--book-spread-ratio)));
   transform-style: preserve-3d;
+
+  /* Horizontal drags turn pages, so touch browsers must not take them for panning. */
+  touch-action: pan-y pinch-zoom;
 }
 
 /* Closed: the right half (the cover) sits centred in the stage. */
