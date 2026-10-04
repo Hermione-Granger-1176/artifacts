@@ -12,6 +12,7 @@ from scripts.lint.check_artifact_csp import (
     _ROOT_IMG_SOURCES,
     _extract_csp_policy,
     _is_external_reference,
+    _parse_csp_directives,
     check_page,
     discover_artifact_pages,
     main,
@@ -70,23 +71,32 @@ def _inline_content_hashes(html: str, tag_name: str) -> list[str]:
     ]
 
 
-def test_404_csp_hashes_allow_its_self_contained_style_and_script() -> None:
-    """The arbitrary-path 404 page allows only its exact inline resources."""
+def test_404_csp_is_exactly_the_hardened_policy() -> None:
+    """The arbitrary-path 404 page is outside ``run_check``, so this pins its whole policy.
+
+    The policy is parsed the way the lint parses every other page, so a repeated
+    directive fails here too. Its inline style and script are allowed only by hash.
+    """
     html = (REPO_ROOT / "404.html").read_text(encoding="utf-8")
     policy = _extract_csp_policy(html)
     assert policy is not None
 
-    assert "default-src 'self'" in policy
-    assert "object-src 'none'" in policy
-    assert "base-uri 'self'" in policy
-    assert "form-action 'none'" in policy
-    missing_hashes = [
-        content_hash
-        for tag_name in ("style", "script")
-        for content_hash in _inline_content_hashes(html, tag_name)
-        if content_hash not in policy
-    ]
-    assert not missing_hashes, f"404.html is missing CSP hash(es): {missing_hashes}"
+    directives, repeated = _parse_csp_directives(policy)
+
+    assert repeated == []
+    expected = {
+        "default-src": ["'self'"],
+        "script-src": ["'self'", *_inline_content_hashes(html, "script")],
+        "style-src": ["'self'", *_inline_content_hashes(html, "style")],
+        "img-src": ["'self'", "data:"],
+        "connect-src": ["'self'"],
+        "object-src": ["'none'"],
+        "base-uri": ["'self'"],
+        "form-action": ["'none'"],
+    }
+    assert {name: sorted(sources) for name, sources in directives.items()} == {
+        name: sorted(sources) for name, sources in expected.items()
+    }
 
 
 def test_check_page_passes_for_strict_page(tmp_path: Path) -> None:

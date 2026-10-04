@@ -354,7 +354,22 @@ def test_version_key_treats_missing_zeros_and_build_metadata_as_equal() -> None:
     assert audit._version_key("1.0.0+build.7", "A") == audit._version_key("1.0.0", "A")
 
 
-@pytest.mark.parametrize("value", ["latest", "", "v1.0.0", "1..2", "1.0.0-", "1.0.0-a..b", 3, None])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "latest",
+        "",
+        "v1.0.0",
+        "1..2",
+        "1.0.0-",
+        "1.0.0-a..b",
+        "01.0.0",
+        "1.00.0",
+        "1.0.0-01",
+        3,
+        None,
+    ],
+)
 def test_version_key_rejects_anything_that_is_not_a_semantic_version(value: object) -> None:
     """An unorderable value raises so the audit fails closed."""
     with pytest.raises(ValueError, match="OSV version"):
@@ -544,10 +559,12 @@ def test_has_fix_is_false_when_the_fixed_release_is_listed_as_affected() -> None
     assert audit._has_fix(listed, "jspdf", "3.0.0") is False
 
 
-def test_has_fix_skips_listed_versions_that_cannot_be_ordered() -> None:
-    """A listed string that is not a semantic version cannot equal a fixed release."""
-    record = _record([{"introduced": "0"}, {"fixed": "4.0.0"}], versions=["latest", 5, "3.0.0"])
-    assert audit._has_fix(record, "jspdf", "3.0.0") is True
+@pytest.mark.parametrize("listed", ["latest", "v4.0.0", 5, "1.0.0-a..b"])
+def test_has_fix_rejects_a_listed_version_it_cannot_order(listed: object) -> None:
+    """A listed ``v4.0.0`` could be the fixed ``4.0.0``, so an unreadable value is not skipped."""
+    record = _record([{"introduced": "0"}, {"fixed": "4.0.0"}], versions=["3.0.0", listed])
+    with pytest.raises(ValueError, match="OSV version"):
+        audit._has_fix(record, "jspdf", "3.0.0")
 
 
 def test_has_fix_rejects_a_versions_field_that_is_not_a_list() -> None:

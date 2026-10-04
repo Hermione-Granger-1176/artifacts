@@ -233,7 +233,20 @@ def test_load_manifest_accepts_a_scoped_package(tmp_path: Path) -> None:
     assert _load_manifest(manifest)[0].package == "@scope/pkg"
 
 
-@pytest.mark.parametrize("version", ["1.0", "v1.0.0", "latest", "1.0.0-", "1.0.0+build"])
+@pytest.mark.parametrize(
+    "version",
+    [
+        "1.0",
+        "v1.0.0",
+        "latest",
+        "1.0.0-",
+        "1.0.0+build",
+        "01.0.0",
+        "1.00.0",
+        "1.0.0-01",
+        "1.0.0-a..b",
+    ],
+)
 def test_load_manifest_rejects_a_version_that_is_not_a_semantic_version(
     tmp_path: Path, version: str
 ) -> None:
@@ -247,14 +260,15 @@ def test_load_manifest_rejects_a_version_that_is_not_a_semantic_version(
         _load_manifest(manifest)
 
 
-def test_load_manifest_accepts_a_pre_release_version(tmp_path: Path) -> None:
-    """A pre-release is a valid semantic version."""
+@pytest.mark.parametrize("version", ["2.0.0-beta.1", "1.0.0-0", "1.0.0-x-y", "0.0.0"])
+def test_load_manifest_accepts_valid_semantic_versions(tmp_path: Path, version: str) -> None:
+    """A pre-release, a zero identifier, and a hyphenated identifier are valid SemVer."""
     manifest = tmp_path / "vendored_assets.json"
     entry = _entry(_REL, _SHA_A)
-    entry["version"] = "2.0.0-beta.1"
-    entry["upstream"] = "https://cdn.jsdelivr.net/npm/chart.js@2.0.0-beta.1/dist/pkg.js"
+    entry["version"] = version
+    entry["upstream"] = f"https://cdn.jsdelivr.net/npm/chart.js@{version}/dist/pkg.js"
     _write_manifest(manifest, [entry])
-    assert _load_manifest(manifest)[0].version == "2.0.0-beta.1"
+    assert _load_manifest(manifest)[0].version == version
 
 
 def test_load_manifest_rejects_an_upstream_for_another_version(tmp_path: Path) -> None:

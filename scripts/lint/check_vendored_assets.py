@@ -43,8 +43,13 @@ _VENDOR_PATH_PATTERN = re.compile(r"^apps/[^/]+/js/vendor/[^/]+\.js$")
 # A lower-case npm package name, optionally scoped.
 _PACKAGE_PATTERN = re.compile(r"(?:@[a-z0-9][a-z0-9._~-]*/)?[a-z0-9][a-z0-9._~-]*")
 
-# A three-part semantic version with an optional pre-release.
-_VERSION_PATTERN = re.compile(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?")
+# A three-part semantic version with an optional pre-release, as in SemVer 2.0:
+# no leading zeros in a number and no empty pre-release identifier.
+_NUMBER = r"(?:0|[1-9]\d*)"
+_IDENTIFIER = rf"(?:{_NUMBER}|\d*[A-Za-z-][0-9A-Za-z-]*)"
+_VERSION_PATTERN = re.compile(
+    rf"{_NUMBER}\.{_NUMBER}\.{_NUMBER}(?:-{_IDENTIFIER}(?:\.{_IDENTIFIER})*)?"
+)
 
 # A SHA-256 digest is exactly 64 lower-case hexadecimal characters.
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")

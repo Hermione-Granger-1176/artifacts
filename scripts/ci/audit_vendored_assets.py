@@ -154,18 +154,23 @@ def _is_queried_package(entry: dict[str, object], package: str) -> bool:
     )
 
 
+def _has_leading_zero(numbers: list[str]) -> bool:
+    """Return whether any number has a leading zero, which SemVer 2.0 forbids."""
+    return any(len(number) > 1 and number.startswith("0") for number in numbers)
+
+
 def _version_key(value: object, advisory: object) -> VersionKey:
     """Return a sortable key following SemVer 2.0 precedence.
 
     A release sorts after every pre-release of the same numbers. Numeric
     pre-release identifiers compare as numbers and sort before alphanumeric
     ones, and a shorter identifier list sorts first. Missing release numbers
-    count as zero, so OSV's ``0`` and ``3.5`` order against ``4.2.1``. Build
-    metadata is ignored. Any other form raises ``ValueError``, so the audit
-    fails closed instead of guessing an order.
+    count as zero, so OSV's ``3.5`` orders against ``4.2.1``. Build metadata is
+    ignored. Any other form raises ``ValueError``, including a leading zero in a
+    number, so the audit fails closed instead of guessing an order.
     """
     match = _SEMVER_PATTERN.fullmatch(value) if isinstance(value, str) else None
-    if match is None:
+    if match is None or _has_leading_zero(match.group(1).split(".")):
         raise ValueError(f"OSV version {value!r} is not a semantic version for {advisory}")
     numbers = [int(part) for part in match.group(1).split(".")]
     numbers.extend([0] * (3 - len(numbers)))
@@ -175,7 +180,7 @@ def _version_key(value: object, advisory: object) -> VersionKey:
     if prerelease is None:
         return (tuple(numbers), 1, ())
     identifiers = prerelease.split(".")
-    if "" in identifiers:
+    if "" in identifiers or _has_leading_zero([i for i in identifiers if i.isdecimal()]):
         raise ValueError(f"OSV version {value!r} is not a semantic version for {advisory}")
     return (
         tuple(numbers),
@@ -256,19 +261,14 @@ def _comparable_ranges(entry: dict[str, object], advisory: object) -> list[list[
 def _listed_versions(entry: dict[str, object], advisory: object) -> set[VersionKey]:
     """Return the keys of the versions an entry lists as affected.
 
-    A listed string that is not a semantic version can never equal a fixed
-    release being tested, so it is skipped.
+    Every listed value must be a semantic version. A value that cannot be
+    ordered, such as ``v4.0.0``, could still name the same release as a fixed
+    version, so skipping it could report a fix that does not exist.
     """
     versions = entry.get("versions", [])
     if not isinstance(versions, list):
         raise ValueError(f"OSV 'versions' must be a list for {advisory}")
-    keys: set[VersionKey] = set()
-    for listed in versions:
-        try:
-            keys.add(_version_key(listed, advisory))
-        except ValueError:
-            continue
-    return keys
+    return {_version_key(listed, advisory) for listed in versions}
 
 
 def _has_fix(vulnerability: dict[str, object], package: str, version: str) -> bool:
