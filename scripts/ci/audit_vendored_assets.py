@@ -71,22 +71,50 @@ def query_osv(package: str, version: str) -> object:
     return payload
 
 
-def _has_fix(vulnerability: dict[str, object]) -> bool:
-    """Return whether any affected range in one OSV record names a fixed version."""
+def _is_queried_package(entry: dict[str, object], package: str) -> bool:
+    """Return whether one ``affected`` entry describes the queried npm package."""
+    info = entry.get("package")
+    return (
+        isinstance(info, dict)
+        and info.get("ecosystem") == OSV_ECOSYSTEM
+        and isinstance(info.get("name"), str)
+        and info["name"].casefold() == package.casefold()
+    )
+
+
+def _has_fix(vulnerability: dict[str, object], package: str) -> bool:
+    """Return whether an OSV record names a fixed version for the queried package.
+
+    One record can cover several packages, so only the ``affected`` entry for
+    ``package`` counts. A malformed structure, or a record with no entry for the
+    package, raises ``ValueError`` so the audit fails closed instead of treating
+    unreadable data as "no fix".
+    """
+    advisory = vulnerability.get("id")
     affected = vulnerability.get("affected", [])
     if not isinstance(affected, list):
-        return False
+        raise ValueError(f"OSV 'affected' must be a list for {advisory}")
+
+    matched = False
+    fixed = False
     for entry in affected:
-        ranges = entry.get("ranges", []) if isinstance(entry, dict) else []
-        if not isinstance(ranges, list):
+        if not isinstance(entry, dict):
+            raise ValueError(f"OSV 'affected' entries must be objects for {advisory}")
+        if not _is_queried_package(entry, package):
             continue
+        matched = True
+        ranges = entry.get("ranges", [])
+        if not isinstance(ranges, list):
+            raise ValueError(f"OSV 'ranges' must be a list for {advisory}")
         for version_range in ranges:
-            events = version_range.get("events", []) if isinstance(version_range, dict) else []
-            if isinstance(events, list) and any(
-                isinstance(event, dict) and "fixed" in event for event in events
-            ):
-                return True
-    return False
+            events = version_range.get("events", []) if isinstance(version_range, dict) else None
+            if not isinstance(events, list) or not all(isinstance(e, dict) for e in events):
+                raise ValueError(f"OSV range 'events' must be a list of objects for {advisory}")
+            fixed = fixed or any("fixed" in event for event in events)
+
+    if not matched:
+        raise ValueError(f"OSV record {advisory} has no affected entry for npm package {package}")
+    return fixed
 
 
 def parse_findings(package: str, version: str, payload: object) -> tuple[VendoredFinding, ...]:
@@ -111,7 +139,7 @@ def parse_findings(package: str, version: str, payload: object) -> tuple[Vendore
                 else (),
                 package=package,
                 version=version,
-                fix_available=_has_fix(vulnerability),
+                fix_available=_has_fix(vulnerability, package),
             )
         )
     return tuple(findings)

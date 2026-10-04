@@ -83,6 +83,13 @@ def test_query_osv_posts_package_and_version(monkeypatch: pytest.MonkeyPatch) ->
     }
 
 
+def _affected(
+    *events: dict[str, str], name: str = "jspdf", ecosystem: str = "npm"
+) -> dict[str, object]:
+    """Build one OSV ``affected`` entry with a single range of events."""
+    return {"package": {"name": name, "ecosystem": ecosystem}, "ranges": [{"events": list(events)}]}
+
+
 def test_parse_findings_reads_ids_aliases_and_fix_state() -> None:
     """A record with a fixed event is fixable, and aliases are kept."""
     payload = {
@@ -90,9 +97,9 @@ def test_parse_findings_reads_ids_aliases_and_fix_state() -> None:
             {
                 "id": "GHSA-1",
                 "aliases": ["CVE-1", 7],
-                "affected": [{"ranges": [{"events": [{"introduced": "0"}, {"fixed": "4.2.1"}]}]}],
+                "affected": [_affected({"introduced": "0"}, {"fixed": "4.2.1"})],
             },
-            {"id": "GHSA-2"},
+            {"id": "GHSA-2", "affected": [_affected({"introduced": "0"})]},
         ]
     }
 
@@ -106,7 +113,8 @@ def test_parse_findings_reads_ids_aliases_and_fix_state() -> None:
 
 def test_parse_findings_ignores_non_list_aliases() -> None:
     """A malformed aliases field degrades to no aliases."""
-    (finding,) = audit.parse_findings("jspdf", "2.5.1", {"vulns": [{"id": "A", "aliases": "x"}]})
+    record = {"id": "A", "aliases": "x", "affected": [_affected()]}
+    (finding,) = audit.parse_findings("jspdf", "2.5.1", {"vulns": [record]})
     assert finding.aliases == ()
 
 
@@ -125,20 +133,62 @@ def test_parse_findings_rejects_unexpected_shapes(payload: object) -> None:
         audit.parse_findings("jspdf", "2.5.1", payload)
 
 
-@pytest.mark.parametrize(
-    "affected",
-    [
-        "x",
-        ["x"],
-        [{"ranges": "x"}],
-        [{"ranges": ["x"]}],
-        [{"ranges": [{"events": "x"}]}],
-        [{"ranges": [{"events": ["x", {"introduced": "0"}]}]}],
-    ],
-)
-def test_has_fix_is_false_for_missing_or_malformed_ranges(affected: object) -> None:
-    """Only a well-formed ``fixed`` event counts as a fix."""
-    assert audit._has_fix({"affected": affected}) is False
+def test_has_fix_matches_the_package_case_insensitively() -> None:
+    """Package names compare without regard to case."""
+    record = {"id": "A", "affected": [_affected({"fixed": "2"}, name="JSPDF")]}
+    assert audit._has_fix(record, "jspdf") is True
+
+
+def test_has_fix_ignores_fixed_events_for_other_packages_and_ecosystems() -> None:
+    """A fix for another package or ecosystem does not make this package fixable."""
+    record = {
+        "id": "A",
+        "affected": [
+            _affected({"fixed": "9"}, name="other"),
+            _affected({"fixed": "9"}, ecosystem="PyPI"),
+            _affected({"introduced": "0"}),
+        ],
+    }
+    assert audit._has_fix(record, "jspdf") is False
+
+
+def test_has_fix_accepts_an_entry_without_ranges() -> None:
+    """A record that lists only versions has no fixed event."""
+    record = {"id": "A", "affected": [{"package": {"name": "jspdf", "ecosystem": "npm"}}]}
+    assert audit._has_fix(record, "jspdf") is False
+
+
+_MALFORMED_RECORDS = [
+    {"id": "A", "affected": "x"},
+    {"id": "A", "affected": ["x"]},
+    {"id": "A"},
+    {"id": "A", "affected": []},
+    {"id": "A", "affected": [{"package": "jspdf"}]},
+    {"id": "A", "affected": [_affected(name="other")]},
+    {"id": "A", "affected": [{"package": {"name": "jspdf", "ecosystem": "npm"}, "ranges": "x"}]},
+    {"id": "A", "affected": [{"package": {"name": "jspdf", "ecosystem": "npm"}, "ranges": ["x"]}]},
+    {
+        "id": "A",
+        "affected": [
+            {"package": {"name": "jspdf", "ecosystem": "npm"}, "ranges": [{"events": "x"}]}
+        ],
+    },
+    {
+        "id": "A",
+        "affected": [
+            {"package": {"name": "jspdf", "ecosystem": "npm"}, "ranges": [{"events": ["x"]}]}
+        ],
+    },
+]
+
+
+@pytest.mark.parametrize("record", _MALFORMED_RECORDS)
+def test_has_fix_fails_closed_on_malformed_or_missing_affected_data(
+    record: dict[str, object],
+) -> None:
+    """Unreadable data raises instead of reading as "no fix"."""
+    with pytest.raises(ValueError, match="OSV"):
+        audit._has_fix(record, "jspdf")
 
 
 def test_collect_findings_queries_each_package_version_once() -> None:
@@ -147,7 +197,14 @@ def test_collect_findings_queries_each_package_version_once() -> None:
 
     def query(package: str, version: str) -> object:
         calls.append((package, version))
-        return {"vulns": [{"id": f"GHSA-{package}"}]}
+        return {
+            "vulns": [
+                {
+                    "id": f"GHSA-{package}",
+                    "affected": [_affected(name=package)],
+                }
+            ]
+        }
 
     findings = audit.collect_findings(
         (_asset(path="a"), _asset(path="b"), _asset(package="chart.js", version="4.4.1")), query
