@@ -1,5 +1,6 @@
 {
   "python_vulnerability_exceptions": [],
+  "vendored_vulnerability_exceptions": [],
   "npm_vulnerability_exceptions": [
     {
       "id": "GHSA-vfj7-8cjw-p6xm",

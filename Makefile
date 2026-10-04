@@ -385,7 +385,7 @@ optimize-social-image: ## Recompress the Open Graph share image in place (make o
 
 # ─── Quality gates @quality ───────────────────────────────────────────────────
 
-.PHONY: ci-python ci-web ci ci-fast security audit-python audit-node audit-fix-node check-generated check-local check-fast check-web check fix
+.PHONY: ci-python ci-web ci ci-fast security audit-python audit-node audit-vendored audit-fix-node check-generated check-local check-fast check-web check fix
 
 ci-python: format-py-check lint-py typecheck-py dead-code-py test-py ## Python CI gate
 
@@ -399,7 +399,7 @@ ci-fast: ## Run the non-browser CI checks in parallel
 	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py format-check lint typecheck test-py coverage-js dead-code security validate
 	@$(MAKE) --no-print-directory check-generated
 
-security: audit-python audit-node ## Run dependency audits
+security: audit-python audit-node audit-vendored ## Run dependency audits
 
 audit-python: ## Export locked Python deps and run pip-audit
 	mkdir -p .artifacts
@@ -410,6 +410,9 @@ audit-python: ## Export locked Python deps and run pip-audit
 
 audit-node: ## Run policy-driven npm dependency audit with reviewed exceptions
 	$(VENV_PYTHON) scripts/ci/run_npm_audit.py --npm "$(NPM)"
+
+audit-vendored: ## Check vendored bundles against OSV advisories with reviewed exceptions
+	$(VENV_PYTHON) scripts/ci/audit_vendored_assets.py
 
 audit-fix-node: ## Apply available npm audit fixes to package-lock.json
 	$(NPM) audit fix --package-lock-only

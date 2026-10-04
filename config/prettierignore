@@ -2,6 +2,7 @@
 .coverage
 .venv/
 _site/
+.worktrees/
 coverage/
 htmlcov/
 node_modules/

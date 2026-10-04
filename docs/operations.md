@@ -111,12 +111,13 @@ See [architecture.md: External GitHub settings](architecture.md#external-github-
 ## Vendored runtime dependencies
 
 - There are no external CDN dependencies at runtime. All third-party scripts are vendored locally.
-- Three apps vendor libraries, with `config/vendored_assets.json` as the authoritative inventory:
-  - `apps/loan-amortization/js/vendor/`: Chart.js `4.4.1`, `chartjs-plugin-annotation` `3.0.1`, `chartjs-plugin-datalabels` `2.2.0`
-  - `apps/bond-price-vs-rate/js/vendor/`: Chart.js `4.4.1`
-  - `apps/vendor-docs-generator/js/vendor/`: jsPDF `2.5.1`, `jspdf-autotable` `3.8.2`, html2canvas `1.4.1`, JSZip `3.10.1`
+- Three apps vendor libraries. `config/vendored_assets.json` is the inventory and the only place that records versions:
+  - `apps/loan-amortization/js/vendor/`: Chart.js, `chartjs-plugin-annotation`, `chartjs-plugin-datalabels`
+  - `apps/bond-price-vs-rate/js/vendor/`: Chart.js
+  - `apps/vendor-docs-generator/js/vendor/`: jsPDF, `jspdf-autotable`, html2canvas, JSZip
 - Versions are pinned and upgraded manually for stability. To upgrade, download the new UMD builds from the recorded `upstream` URLs (jsDelivr), replace the files in `js/vendor/`, update the matching `version`, `upstream`, and `sha256` entries in `config/vendored_assets.json`, and rerun the browser suites.
-- `make lint-vendored-assets` enforces the manifest: every vendored file must be listed in `config/vendored_assets.json` and match its recorded SHA-256.
+- `make lint-vendored-assets` enforces the manifest: every vendored file must be listed in `config/vendored_assets.json` and match its recorded SHA-256. Each entry must also name a lower-case npm package, a semantic version, and an upstream URL that contains `<package>@<version>`.
+- `make audit-vendored` checks every package and version in the manifest against published advisories. See [Dependency audits](checks.md#dependency-audits).
 - Vendored directories are excluded from ESLint (`**/vendor/**` in `config/eslint.config.js`) and lint checks (`vendor` in `scripts/lint/__init__.py` `SKIP_DIRECTORIES`).
 - See `apps/loan-amortization/docs/decisions.md` for rationale.
 
@@ -201,9 +202,10 @@ Use this on a brand-new fork or clone that has never deployed, or after `gh-page
 ### Vendored dependency update
 
 1. Download the new UMD builds from the `upstream` URLs recorded in `config/vendored_assets.json` into the exact `path` recorded for each affected entry. Multiple apps vendor assets (`loan-amortization` and `bond-price-vs-rate` both vendor Chart.js, and `loan-amortization` also vendors the annotation and datalabels plugins), so update every entry that references the bumped package.
-2. Update the `version`, `upstream`, and `sha256` fields for every affected entry in `config/vendored_assets.json` so `make lint-vendored-assets` passes.
-3. Update the version numbers in each affected app's docs (for example `apps/loan-amortization/docs/decisions.md`) and README.
-4. Run browser suites before publishing.
+2. Update the `version`, `upstream`, and `sha256` fields for every affected entry in `config/vendored_assets.json` so `make lint-vendored-assets` passes. The `upstream` URL must contain `<package>@<version>`.
+3. Run `make audit-vendored`. It fails if OSV lists an advisory for the new version.
+4. Recheck the hand-written declarations in `config/types/pdf-vendor.d.ts` when a PDF library changed, and update any version numbers in each affected app's docs (for example `apps/loan-amortization/docs/decisions.md`).
+5. Run browser suites before publishing.
 
 ### Security gate failure
 
@@ -230,6 +232,7 @@ Use this on a brand-new fork or clone that has never deployed, or after `gh-page
 - If you want to inspect the deployable output locally, run `make site` and serve `_site/` from a static file server.
 - If `make security` fails on the npm audit, either a new advisory in the workspace dependency graph needs triage, or a reviewed exception in `config/security_audit.json` has expired or no longer matches an active advisory.
 - If `make security` fails on the Python audit, either a new vulnerability needs triage, an exception review date has expired, an exception no longer matches the current lock files, or a fix is available for an exception with `ignore_only_without_fix: true`. See [Dependency audits](checks.md#dependency-audits) for exception matching and defaults.
+- If `make security` fails on the vendored dependency audit, read the first message. `Unreviewed vendored vulnerability` means OSV lists an advisory for a bundled version. Upgrade the bundle to a fixed version and update its entry in `config/vendored_assets.json`, or add a reviewed exception under `vendored_vulnerability_exceptions` with a `reason` and a `review_by` date. `Could not query OSV` means `api.osv.dev` stayed unreachable after three attempts, so rerun the job. `Could not use the OSV response` and `could not read config/vendored_assets.json` mean the data is malformed. No exception can silence those, so fix the manifest or the record the message names.
 - If the post-deploy verifier flakes, inspect both the published `?v=<sha>` asset query strings and the deployed `deploy-metadata.json` payload before rerunning.
 - If live browser verification fails in CI, download the `live-browser-artifacts-<run_id>` artifact for screenshots, traces, and runtime error logs.
 - If the daily live-site smoke workflow fails, inspect the `live-site-smoke-artifacts-<run_id>` artifact and the automatically managed GitHub issue before rerunning.

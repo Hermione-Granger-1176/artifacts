@@ -27,9 +27,9 @@ The generator supports these outputs and controls:
 ## Made with
 
 - Claude
-- jsPDF 2.5.1 and jspdf-autotable 3.8.2 (vendored)
-- html2canvas 1.4.1 (vendored)
-- JSZip 3.10.1 (vendored)
+- jsPDF and jspdf-autotable (vendored)
+- html2canvas (vendored)
+- JSZip (vendored)
 
 All four libraries are vendored under `js/vendor/` and pinned by SHA-256 in `config/vendored_assets.json`, which keeps the page's self-only Content-Security-Policy intact.
 

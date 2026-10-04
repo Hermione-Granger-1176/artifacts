@@ -4,6 +4,7 @@ ignore: |
   node_modules/
   .venv/
   _site/
+  .worktrees/
 
 rules:
   comments: disable

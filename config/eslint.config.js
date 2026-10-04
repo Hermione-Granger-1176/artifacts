@@ -30,6 +30,7 @@ export default [
       "node_modules/**",
       ".venv/**",
       "_site/**",
+      ".worktrees/**",
       "assets/**",
       "**/vendor/**",
       "js/data.js",

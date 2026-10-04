@@ -37,7 +37,7 @@ def _entry(path: str, sha256: str, *, package: str = "chart.js") -> dict[str, st
         "path": path,
         "package": package,
         "version": "1.0.0",
-        "upstream": "https://cdn.jsdelivr.net/npm/pkg/dist/pkg.js",
+        "upstream": f"https://cdn.jsdelivr.net/npm/{package}@1.0.0/dist/pkg.js",
         "sha256": sha256,
     }
 
@@ -210,6 +210,74 @@ def test_load_manifest_rejects_malformed_sha256(tmp_path: Path) -> None:
     manifest = tmp_path / "vendored_assets.json"
     _write_manifest(manifest, [_entry(_REL, "deadbeef")])
     with pytest.raises(ValueError, match="must be a 64-character hex digest"):
+        _load_manifest(manifest)
+
+
+@pytest.mark.parametrize("package", ["jsPDF", "jspdf autotable", "-jspdf", "jspdf/"])
+def test_load_manifest_rejects_a_package_name_osv_would_not_match(
+    tmp_path: Path, package: str
+) -> None:
+    """OSV matches names case-sensitively, so a name that is not lower-case npm is rejected."""
+    manifest = tmp_path / "vendored_assets.json"
+    entry = _entry(_REL, _SHA_A)
+    entry["package"] = package
+    _write_manifest(manifest, [entry])
+    with pytest.raises(ValueError, match="lower-case npm package name"):
+        _load_manifest(manifest)
+
+
+def test_load_manifest_accepts_a_scoped_package(tmp_path: Path) -> None:
+    """A scoped npm name is a valid package."""
+    manifest = tmp_path / "vendored_assets.json"
+    _write_manifest(manifest, [_entry(_REL, _SHA_A, package="@scope/pkg")])
+    assert _load_manifest(manifest)[0].package == "@scope/pkg"
+
+
+@pytest.mark.parametrize(
+    "version",
+    [
+        "1.0",
+        "v1.0.0",
+        "latest",
+        "1.0.0-",
+        "1.0.0+build",
+        "01.0.0",
+        "1.00.0",
+        "1.0.0-01",
+        "1.0.0-a..b",
+    ],
+)
+def test_load_manifest_rejects_a_version_that_is_not_a_semantic_version(
+    tmp_path: Path, version: str
+) -> None:
+    """A mistyped version would make OSV return nothing, so it is rejected."""
+    manifest = tmp_path / "vendored_assets.json"
+    entry = _entry(_REL, _SHA_A)
+    entry["version"] = version
+    entry["upstream"] = f"https://cdn.jsdelivr.net/npm/chart.js@{version}/dist/pkg.js"
+    _write_manifest(manifest, [entry])
+    with pytest.raises(ValueError, match="semantic version"):
+        _load_manifest(manifest)
+
+
+@pytest.mark.parametrize("version", ["2.0.0-beta.1", "1.0.0-0", "1.0.0-x-y", "0.0.0"])
+def test_load_manifest_accepts_valid_semantic_versions(tmp_path: Path, version: str) -> None:
+    """A pre-release, a zero identifier, and a hyphenated identifier are valid SemVer."""
+    manifest = tmp_path / "vendored_assets.json"
+    entry = _entry(_REL, _SHA_A)
+    entry["version"] = version
+    entry["upstream"] = f"https://cdn.jsdelivr.net/npm/chart.js@{version}/dist/pkg.js"
+    _write_manifest(manifest, [entry])
+    assert _load_manifest(manifest)[0].version == version
+
+
+def test_load_manifest_rejects_an_upstream_for_another_version(tmp_path: Path) -> None:
+    """The upstream URL must name the audited package and version."""
+    manifest = tmp_path / "vendored_assets.json"
+    entry = _entry(_REL, _SHA_A)
+    entry["upstream"] = "https://cdn.jsdelivr.net/npm/chart.js@2.0.0/dist/pkg.js"
+    _write_manifest(manifest, [entry])
+    with pytest.raises(ValueError, match=r"upstream must contain /chart\.js@1\.0\.0/"):
         _load_manifest(manifest)
 
 

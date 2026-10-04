@@ -12,19 +12,22 @@ from scripts.lint.check_artifact_csp import (
     _ROOT_IMG_SOURCES,
     _extract_csp_policy,
     _is_external_reference,
+    _parse_csp_directives,
     check_page,
     discover_artifact_pages,
     main,
+    policy_violations,
     run_check,
 )
 
+_HARDENING = "object-src 'none'; base-uri 'self'; form-action 'none'"
 _GOOD_CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; "
-    "img-src 'self' data:; connect-src 'self'"
+    "img-src 'self' data:; connect-src 'self'; " + _HARDENING
 )
 _ROOT_CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; "
-    "img-src 'self' data: https://img.shields.io; connect-src 'self'"
+    "img-src 'self' data: https://img.shields.io; connect-src 'self'; " + _HARDENING
 )
 
 
@@ -68,21 +71,32 @@ def _inline_content_hashes(html: str, tag_name: str) -> list[str]:
     ]
 
 
-def test_404_csp_hashes_allow_its_self_contained_style_and_script() -> None:
-    """The arbitrary-path 404 page allows only its exact inline resources."""
+def test_404_csp_is_exactly_the_hardened_policy() -> None:
+    """The arbitrary-path 404 page is outside ``run_check``, so this pins its whole policy.
+
+    The policy is parsed the way the lint parses every other page, so a repeated
+    directive fails here too. Its inline style and script are allowed only by hash.
+    """
     html = (REPO_ROOT / "404.html").read_text(encoding="utf-8")
     policy = _extract_csp_policy(html)
     assert policy is not None
 
-    assert "default-src 'self'" in policy
-    assert "object-src 'none'" in policy
-    missing_hashes = [
-        content_hash
-        for tag_name in ("style", "script")
-        for content_hash in _inline_content_hashes(html, tag_name)
-        if content_hash not in policy
-    ]
-    assert not missing_hashes, f"404.html is missing CSP hash(es): {missing_hashes}"
+    directives, repeated = _parse_csp_directives(policy)
+
+    assert repeated == []
+    expected = {
+        "default-src": ["'self'"],
+        "script-src": ["'self'", *_inline_content_hashes(html, "script")],
+        "style-src": ["'self'", *_inline_content_hashes(html, "style")],
+        "img-src": ["'self'", "data:"],
+        "connect-src": ["'self'"],
+        "object-src": ["'none'"],
+        "base-uri": ["'self'"],
+        "form-action": ["'none'"],
+    }
+    assert {name: sorted(sources) for name, sources in directives.items()} == {
+        name: sorted(sources) for name, sources in expected.items()
+    }
 
 
 def test_check_page_passes_for_strict_page(tmp_path: Path) -> None:
@@ -316,8 +330,38 @@ def test_check_page_allows_script_src_falling_back_to_default(tmp_path: Path) ->
     """Check page allows script src falling back to default."""
     # The trailing semicolon exercises the empty-directive skip while script-src
     # falls back to the restrictive default-src.
-    path = _write_page(tmp_path, "demo", _page(csp="default-src 'self';"))
+    path = _write_page(tmp_path, "demo", _page(csp=f"default-src 'self'; {_HARDENING};"))
     assert check_page(path, display_path="apps/demo/index.html") == []
+
+
+def test_check_page_flags_missing_required_directives(tmp_path: Path) -> None:
+    """Check page requires object-src, base-uri, and form-action to be stated."""
+    path = _write_page(tmp_path, "demo", _page(csp="default-src 'self'; script-src 'self'"))
+    violations = check_page(path, display_path="apps/demo/index.html")
+    for directive in ("object-src", "base-uri", "form-action"):
+        expected = (
+            f"apps/demo/index.html: Content-Security-Policy is missing a {directive} directive"
+        )
+        assert expected in violations
+
+
+def test_check_page_flags_relaxed_required_directives(tmp_path: Path) -> None:
+    """Check page rejects permissive object-src, base-uri, and form-action values."""
+    csp = "default-src 'self'; object-src 'self'; base-uri *; form-action https://example.com"
+    path = _write_page(tmp_path, "demo", _page(csp=csp))
+    violations = check_page(path, display_path="apps/demo/index.html")
+    expected = (
+        "apps/demo/index.html: object-src must be restricted to 'none' (found: object-src 'self')"
+    )
+    assert expected in violations
+    assert (
+        "apps/demo/index.html: base-uri must be restricted to 'self' or 'none' (found: base-uri *)"
+        in violations
+    )
+    assert any(
+        message.startswith("apps/demo/index.html: form-action must be restricted to 'self' or")
+        for message in violations
+    )
 
 
 def test_check_page_flags_empty_default_src(tmp_path: Path) -> None:
@@ -335,6 +379,33 @@ def test_check_page_flags_missing_both_directives(tmp_path: Path) -> None:
     violations = check_page(path, display_path="apps/demo/index.html")
     assert any("missing a default-src directive" in message for message in violations)
     assert not any("script-src" in message for message in violations)
+
+
+def test_check_page_flags_a_repeated_directive_that_hides_a_permissive_first_copy(
+    tmp_path: Path,
+) -> None:
+    """A strict second object-src cannot hide a permissive first one."""
+    path = _write_page(tmp_path, "demo", _page(csp=f"object-src *; {_GOOD_CSP}"))
+    violations = check_page(path, display_path="apps/demo/index.html")
+
+    assert (
+        "apps/demo/index.html: object-src must be restricted to 'none' (found: object-src *)"
+        in violations
+    )
+    assert (
+        "apps/demo/index.html: Content-Security-Policy repeats the object-src directive, "
+        "and browsers ignore every copy after the first"
+    ) in violations
+
+
+def test_check_page_flags_repeated_directives_once_and_ignores_name_case(tmp_path: Path) -> None:
+    """A name repeated three times, or in another case, is reported once."""
+    csp = f"{_GOOD_CSP}; Default-Src 'self'; default-src 'self'"
+    path = _write_page(tmp_path, "demo", _page(csp=csp))
+    violations = check_page(path, display_path="apps/demo/index.html")
+
+    repeats = [message for message in violations if "repeats the default-src" in message]
+    assert len(repeats) == 1
 
 
 def test_check_page_flags_external_script_src(tmp_path: Path) -> None:
@@ -458,3 +529,9 @@ def test_main_returns_one_when_violations(tmp_path: Path) -> None:
     _write_root_page(tmp_path)
     _write_page(tmp_path, "demo", _page(csp="default-src *"))
     assert main(["--root", str(tmp_path)]) == 1
+
+
+def test_policy_violations_checks_html_without_a_file() -> None:
+    """The scaffold checks page HTML directly, so it needs the policy half on its own."""
+    assert policy_violations(_page()) == []
+    assert policy_violations(_page(csp="default-src *"), "demo.html")[0].startswith("demo.html:")
