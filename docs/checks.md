@@ -64,6 +64,7 @@ The monitoring workflows report failures through issues:
 
 These targets combine checks or select a narrower scope:
 
+- `make ci-fast` runs parallel non-browser checks and then generated-file checks. It omits `make coverage-js-floors`, which can run afterward using the generated LCOV report.
 - `make ci` is the full non-browser local gate without browser Playwright suites or thumbnail generation, and it includes formatting, linting, tests, coverage, dead-code checks, dependency audits, validation, and canonical generated-file drift checks. `make check-local` is an alias.
 - `make test-browser-root-smoke`, `make test-browser-root-accessibility`, and `make test-browser-root-flows` let you run the root gallery Playwright suites separately.
 - `make test-browser-apps-smoke`, `make test-browser-apps-accessibility`, and `make test-browser-apps-flows` let you run the mature app Playwright suites separately while preserving `make test-browser-apps` as the aggregate app gate.

@@ -18,7 +18,7 @@ The generator supports these outputs and controls:
 - Five scan presets and nine fine-tune sliders. Geometric effects also transform exported boxes.
 - Clean and degraded image pairs from one capture.
 - Text-layer PDF, rasterized PDF, and PNG exports. Lossy raster presets write JPEG files.
-- ZIP batches across selected vendors and types, with optional sidecars, `manifest.jsonl`, and `README.txt`. JSON-only mode skips document rendering for export.
+- ZIP batches across selected vendors and types, with optional sidecars, `manifest.jsonl`, and `README.txt`. JSON-only mode skips PDF and raster generation. It still renders each DOM preview for progress and requested box measurements.
 - Partial archives when a batch stops. The README records completed and planned counts.
 - Fictional contact details and a sample-data footer on every document.
 

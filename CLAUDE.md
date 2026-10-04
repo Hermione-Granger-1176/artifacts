@@ -57,7 +57,8 @@ The main entry points are:
 - `make setup`: install Python and Node dependencies without Chromium. Setup requires `uv` on PATH.
 - `make setup-all`: also install Chromium. Use it when browser work is required.
 - `make setup-playwright-local`: prepare Chromium and local libraries on Debian or Ubuntu without sudo. `make setup-playwright-webkit-local` adds WebKit. Browser targets use the prepared libraries with `local_libs=1`.
-- `make ci`: run the non-browser local gate. `make ci-fast` runs its checks in parallel.
+- `make ci`: run the complete non-browser local gate.
+- `make ci-fast`: run parallel non-browser checks, followed by generated-file checks. This target omits per-file JS coverage floors. Run `make coverage-js-floors` afterward to check those floors.
 - `make check`: run the full local gate, including browsers, thumbnails, index generation, and site assembly. `make check-web` runs the browser and thumbnail checks.
 - `make status`: inspect Git state, dependencies, lockfiles, generated files, and the PR summary.
 
