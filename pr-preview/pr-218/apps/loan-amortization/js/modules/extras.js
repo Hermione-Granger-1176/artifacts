@@ -4,7 +4,7 @@ import{escapeHtml as l}from"../../../../js/modules/html-escape.js";export functi
           <input class="${a}" type="number" aria-label="${t}" value="${n}" min="${i}"${c}${m} data-field="${r}">
         </label>`}export function renderExtras({container:e,extras:t,periodLabel:a}){e.innerHTML="";for(const r of t){const n=document.createElement("div"),i=r.type==="recurring";n.className="extra-item",n.dataset.extraId=String(r.id);const s=d({label:"Amount ($)",name:"Extra payment amount",className:"amount-input",field:"amount",value:r.amount,min:0,step:100}),o=i?d({label:"Every",name:`Extra payment repeats every (${a}s)`,className:"period-input",field:"every",value:r.every,min:1,max:60})+d({label:"From",name:`Extra payment starts from ${a}`,className:"period-input",field:"startPeriod",value:r.startPeriod,min:1,max:2e3}):d({label:"At",name:`One-time extra payment at ${a}`,className:"period-input",field:"period",value:r.period,min:1,max:2e3});n.innerHTML=`
         <div class="extra-head">
-          <div class="segmented is-fused">
+          <div class="segmented is-fused is-inset">
             <button type="button"${i?' class="active"':""} data-action="set-type" data-type="recurring" aria-pressed="${i}">${v}Recurring</button>
             <button type="button"${i?"":' class="active"'} data-action="set-type" data-type="onetime" aria-pressed="${!i}">${$}One-time</button>
           </div>

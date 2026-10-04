@@ -10,13 +10,13 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/">
   <meta property="og:site_name" content="Artifacts">
-  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=e8eec83fd54c">
-  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=e8eec83fd54c">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=08b6898cc1c2">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=08b6898cc1c2">
   <meta property="og:image:alt" content="Preview card for the Vendor Document Generator app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Vendor Document Generator | Artifacts">
   <meta name="twitter:description" content="Generate labelled synthetic vendor paperwork for document-AI work: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each page shipped with a ground-truth JSON sidecar naming every printed value, with optional bounding boxes.">
-  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=e8eec83fd54c">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=08b6898cc1c2">
   <meta name="twitter:image:alt" content="Preview card for the Vendor Document Generator app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -28,8 +28,8 @@
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
   <link rel="preload" href="./js/vendor/jspdf.umd.min.js" as="script">
-  <link rel="stylesheet" href="../../css/style.css?v=b88ceb307ec2">
-  <link rel="stylesheet" href="./css/app.css?v=02f39fe62a96">
+  <link rel="stylesheet" href="../../css/style.css?v=68a1312eb664">
+  <link rel="stylesheet" href="./css/app.css?v=e8fca506b995">
   <script defer src="./js/vendor/jspdf.umd.min.js"></script>
   <script defer src="./js/vendor/jspdf.plugin.autotable.min.js"></script>
   <script defer src="./js/vendor/html2canvas.min.js"></script>
@@ -76,7 +76,7 @@
           <div class="control-field-head">
             <span id="vdDocTypeLabel" class="vd-field-label">Document</span>
           </div>
-          <div class="segmented is-fused vd-type-pills" id="vdDocType" role="group" aria-labelledby="vdDocTypeLabel"></div>
+          <div class="segmented is-fused is-inset vd-type-pills" id="vdDocType" role="group" aria-labelledby="vdDocTypeLabel"></div>
           <select id="vdDocTypeSelect" class="select-input vd-type-select" aria-labelledby="vdDocTypeLabel"></select>
         </div>
 
@@ -84,7 +84,7 @@
           <div class="control-field-head">
             <span id="vdLayoutLabel" class="vd-field-label">Invoice layout</span>
           </div>
-          <div class="segmented is-fused" id="vdLayout" role="group" aria-labelledby="vdLayoutLabel" title="The dense layout only applies to invoices.">
+          <div class="segmented is-fused is-inset" id="vdLayout" role="group" aria-labelledby="vdLayoutLabel" title="The dense layout only applies to invoices.">
             <button type="button" class="active" data-style="clean">Clean</button>
             <button type="button" data-style="dense">Dense</button>
           </div>
@@ -119,7 +119,7 @@
 
         <aside class="page-card vd-output" aria-label="Output">
           <div class="vd-output-head">
-            <div class="segmented is-fused" id="vdMode" role="group" aria-label="Export scope">
+            <div class="segmented is-fused is-inset" id="vdMode" role="group" aria-label="Export scope">
               <button type="button" class="active" data-mode="page">This page</button>
               <button type="button" data-mode="batch">Batch</button>
             </div>
@@ -140,7 +140,7 @@
                 <div class="control-field-head">
                   <span id="vdIncludeLabel" class="vd-field-label">Include</span>
                 </div>
-                <div class="segmented is-fused" id="vdInclude" role="group" aria-labelledby="vdIncludeLabel">
+                <div class="segmented is-fused is-inset" id="vdInclude" role="group" aria-labelledby="vdIncludeLabel">
                   <button type="button" class="active" data-include="combo">This combo</button>
                   <button type="button" data-include="types">All types</button>
                   <button type="button" data-include="vendors">All vendors</button>
@@ -154,7 +154,7 @@
                 <h2 class="section-kicker" id="vdScanLabel">Scan quality</h2>
                 <button type="button" class="btn btn-outline btn-sm vd-quiet-btn" id="vdPreviewScan">Preview scan</button>
               </div>
-              <div class="segmented is-fused" id="vdDegradePreset" role="group" aria-labelledby="vdScanLabel"></div>
+              <div class="segmented is-fused is-inset" id="vdDegradePreset" role="group" aria-labelledby="vdScanLabel"></div>
               <p class="control-field-note" id="vdDegradeNote">The render as-is. No geometry, no grain, lossless PNG.</p>
 
               <details class="vd-disclosure" id="vdDegradeCustom">
@@ -173,7 +173,7 @@
                 <h2 class="section-kicker" id="vdLabelsLabel">Labels</h2>
                 <button type="button" class="btn btn-outline btn-sm vd-quiet-btn" id="vdDownloadJson">Download JSON only</button>
               </div>
-              <div class="segmented is-fused" id="vdLabels" role="group" aria-labelledby="vdLabelsLabel">
+              <div class="segmented is-fused is-inset" id="vdLabels" role="group" aria-labelledby="vdLabelsLabel">
                 <button type="button" data-labels="none">None</button>
                 <button type="button" class="active" data-labels="json">JSON</button>
                 <button type="button" data-labels="fields">+ Fields</button>
@@ -184,7 +184,7 @@
 
             <section class="vd-section" aria-labelledby="vdFormatLabel">
               <h2 class="section-kicker" id="vdFormatLabel">Format</h2>
-              <div class="segmented is-fused" id="vdFormat" role="group" aria-labelledby="vdFormatLabel">
+              <div class="segmented is-fused is-inset" id="vdFormat" role="group" aria-labelledby="vdFormatLabel">
                 <button type="button" class="active" data-format="pdf">PDF</button>
                 <button type="button" data-format="png">PNG</button>
                 <button type="button" data-format="both">Both</button>
@@ -193,7 +193,7 @@
 
               <div class="vd-inline-field" id="vdPdfModeField">
                 <span id="vdPdfModeLabel" class="vd-field-label">PDF type</span>
-                <div class="segmented is-fused" id="vdPdfMode" role="group" aria-labelledby="vdPdfModeLabel">
+                <div class="segmented is-fused is-inset" id="vdPdfMode" role="group" aria-labelledby="vdPdfModeLabel">
                   <button type="button" class="active" data-pdf-mode="text" title="Searchable text layer">Text layer</button>
                   <button type="button" data-pdf-mode="image" title="Scanned look, images only">Rasterised</button>
                 </div>
