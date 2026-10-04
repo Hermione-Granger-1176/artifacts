@@ -189,14 +189,6 @@ def load_makefile_targets(path: Path | None = None) -> set[str]:
     return parse_makefile_targets(makefile_path.read_text(encoding="utf-8"))
 
 
-def iter_markdown_files(root: Path | None = None) -> list[Path]:
-    """Return Markdown paths while pruning ignored and symlinked directories."""
-    workspace_root = root or REPO_ROOT
-    return [
-        path for path in iter_lint_paths(workspace_root) if path.suffix.lower() == MARKDOWN_SUFFIX
-    ]
-
-
 def extract_markdown_code_snippets(text: str) -> list[CodeSnippet]:
     """Extract inline-code and fenced-code snippets from Markdown text."""
     snippets: list[CodeSnippet] = []
@@ -327,11 +319,6 @@ def iter_reference_files(root: Path) -> list[Path]:
         for path in iter_lint_paths(root)
         if snippet_extractor(path.relative_to(root)) is not None
     ]
-
-
-def extract_make_references(text: str) -> list[MakeReference]:
-    """Extract documented ``make <target>`` references from Markdown code."""
-    return _references_from_snippets(extract_markdown_code_snippets(text))
 
 
 def extract_path_make_references(relative_path: Path, text: str) -> list[MakeReference]:

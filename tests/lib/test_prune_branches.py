@@ -155,10 +155,10 @@ def test_candidate_branches_defaults_when_environment_is_empty() -> None:
     assert branches == ["old"]
 
 
-def test_supports_merge_tree_reports_old_git() -> None:
-    """A git without merge-tree --write-tree is detected up front."""
+def test_merge_tree_result_preserves_unsupported_command_exit_code() -> None:
+    """An unsupported merge-tree command preserves its failure status."""
     runner = make_runner({("merge-tree", "--write-tree", "main", "main"): (129, "")})
-    assert prune_branches.supports_merge_tree("main", runner=runner) is False
+    assert prune_branches.merge_tree_result("main", "main", runner=runner).returncode == 129
 
 
 def test_merge_tree_error_detail_accepts_error_like_stdout() -> None:

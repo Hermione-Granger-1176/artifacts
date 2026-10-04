@@ -317,15 +317,6 @@ def thumbnail_plan(
     return _app_shards.add_shards(plan, apps_root=apps_root)
 
 
-def _load_ruleset_detail(repo: str, ruleset: object) -> object:
-    """Fetch one ruleset detail payload when the summary response is incomplete."""
-    return _repo_audit.load_ruleset_detail(
-        repo,
-        ruleset,
-        run_gh_api_json_fn=_run_gh_api_json,
-    )
-
-
 def _report_checked(output_name: str, reached_verdict: bool) -> None:
     """Record whether a CI audit reached a trustworthy verdict."""
     output_file = os.environ.get("GITHUB_OUTPUT")

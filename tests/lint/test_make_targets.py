@@ -39,26 +39,26 @@ def test_parse_makefile_targets_adds_group_help_targets() -> None:
     assert {"help-pr", "help-quality"}.issubset(targets)
 
 
-def test_iter_markdown_files_skips_build_directories(tmp_path: Path) -> None:
-    """Iter markdown files skips build directories."""
+def test_iter_reference_files_skips_build_directories(tmp_path: Path) -> None:
+    """Reference discovery skips build directories."""
     write_text(tmp_path / "README.md", "# Root\n")
     write_text(tmp_path / "docs" / "guide.md", "# Guide\n")
     write_text(tmp_path / "node_modules" / "pkg" / "README.md", "# Ignore\n")
 
-    files = make_targets.iter_markdown_files(tmp_path)
+    files = make_targets.iter_reference_files(tmp_path)
 
     assert files == [tmp_path / "README.md", tmp_path / "docs" / "guide.md"]
 
 
-def test_iter_markdown_files_never_descends_into_skipped_directories(
+def test_iter_reference_files_never_descends_into_skipped_directories(
     tmp_path: Path, scanned_directories: list[Path]
 ) -> None:
-    """Iter markdown files never opens a skipped directory."""
+    """Reference discovery never opens a skipped directory."""
     write_text(tmp_path / "docs" / "guide.md", "# Guide\n")
     write_text(tmp_path / "node_modules" / "pkg" / "README.md", "# Ignore\n")
     write_text(tmp_path / ".venv" / "lib" / "notes.md", "# Ignore\n")
 
-    make_targets.iter_markdown_files(tmp_path)
+    make_targets.iter_reference_files(tmp_path)
 
     assert tmp_path in scanned_directories, "the recording scandir was not installed"
     assert tmp_path / "docs" in scanned_directories
@@ -66,7 +66,7 @@ def test_iter_markdown_files_never_descends_into_skipped_directories(
     assert tmp_path / ".venv" not in scanned_directories
 
 
-def test_iter_markdown_files_skips_symlinked_files_and_directories(tmp_path: Path) -> None:
+def test_iter_reference_files_skips_symlinked_files_and_directories(tmp_path: Path) -> None:
     """Repository scans do not follow or return symlinked Markdown."""
     write_text(tmp_path / "README.md", "# Root\n")
     external = tmp_path.parent / f"{tmp_path.name}-external-docs"
@@ -74,16 +74,17 @@ def test_iter_markdown_files_skips_symlinked_files_and_directories(tmp_path: Pat
     (tmp_path / "linked.md").symlink_to(tmp_path / "README.md")
     (tmp_path / "linked-docs").symlink_to(external, target_is_directory=True)
 
-    assert make_targets.iter_markdown_files(tmp_path) == [tmp_path / "README.md"]
+    assert make_targets.iter_reference_files(tmp_path) == [tmp_path / "README.md"]
 
 
-def test_extract_make_references_handles_env_prefixes() -> None:
-    """Extract make references handles env prefixes."""
-    references = make_targets.extract_make_references(
+def test_extract_path_make_references_handles_env_prefixes() -> None:
+    """Markdown command parsing handles environment prefixes."""
+    references = make_targets.extract_path_make_references(
+        Path("README.md"),
         "Use `make check-local`\n"
         'Run `ARTIFACTS_BROWSER_APP_SLUGS="demo" make test-browser-apps`\n'
         "Run `make --no-print-directory playwright-version`\n"
-        "Generic `make <target>` guidance should be ignored.\n"
+        "Generic `make <target>` guidance should be ignored.\n",
     )
 
     assert references == [
@@ -105,11 +106,12 @@ def test_extract_make_references_handles_env_prefixes() -> None:
     ]
 
 
-def test_extract_make_references_ignores_plain_prose_make_mentions() -> None:
-    """Extract make references ignores plain prose make mentions."""
-    references = make_targets.extract_make_references(
+def test_extract_path_make_references_ignores_plain_prose_make_mentions() -> None:
+    """Markdown command parsing ignores Make mentions in ordinary prose."""
+    references = make_targets.extract_path_make_references(
+        Path("README.md"),
         "Adding a new make target with ## description makes it appear automatically.\n"
-        "CI and local workflows use the same make targets.\n"
+        "CI and local workflows use the same make targets.\n",
     )
 
     assert references == []
@@ -663,12 +665,13 @@ def test_parse_makefile_targets_does_not_invent_group_help_without_pattern() -> 
     assert "help-pr" not in targets
 
 
-def test_extract_make_references_requires_standalone_make_command() -> None:
+def test_extract_path_make_references_requires_standalone_make_command() -> None:
     """Executable-name substrings and paths are not mistaken for Make commands."""
-    references = make_targets.extract_make_references(
+    references = make_targets.extract_path_make_references(
+        Path("README.md"),
         "Ignore `remake check-local`, `gmake check-local`, and `foo-make check-local`.\n"
         "Ignore `./make check-local` and `$make check-local`.\n"
-        "Accept `make check-local&&make lint-py`.\n"
+        "Accept `make check-local&&make lint-py`.\n",
     )
 
     assert [reference.target for reference in references] == ["check-local", "lint-py"]
