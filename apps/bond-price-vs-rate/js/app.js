@@ -6,6 +6,7 @@ import {
   curveYieldPct,
   priceRegime
 } from "./modules/bond-math.js";
+import { initChapterTracking } from "./modules/chapters.js";
 import { refreshPalette, renderCharts } from "./modules/charts.js";
 import { initializeMatureApp } from "../../../js/modules/app-runtime.js";
 import { initAppShell, renderAppShell } from "../../../js/modules/app-shell.js";
@@ -15,6 +16,7 @@ import { renderNarrative } from "./modules/narrative.js";
 import {
   cacheElements,
   getChartElements,
+  nudgeRateValue,
   syncSliderLabels
 } from "./modules/ui.js";
 
@@ -59,6 +61,7 @@ initializeMatureApp({
     });
     syncSliderLabels(elements);
     recalc();
+    initChapterTracking();
   }
 });
 
@@ -104,13 +107,17 @@ function buildYieldCurveSeries(bond) {
   };
 }
 
-/** Push the selected curve's rate at the bond's maturity into the market-rate slider. */
+/**
+ * Push the selected curve's rate at the bond's maturity into the market-rate
+ * slider, and flash its readout so the move is visible in the controls.
+ */
 function applyCurveRate() {
   const bond = readBond();
   const ratePct = curveYieldPct(YIELD_CURVES[selectedCurveKey], bond.years);
   const clamped = Math.min(RATE_AXIS_MAX, Math.max(RATE_AXIS_MIN, ratePct));
   elements.slRate.value = String(Math.round(clamped * 10) / 10);
   syncSliderLabels(elements);
+  nudgeRateValue(elements);
   scheduleRecalc();
 }
 

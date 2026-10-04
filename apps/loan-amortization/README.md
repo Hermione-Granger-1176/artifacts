@@ -6,7 +6,9 @@ Interactive loan amortization calculator with charts, extra payment scenarios, a
 
 - Baseline payoff vs extra-payment scenario comparison
 - Yearly, half-yearly, quarterly, monthly, bi-weekly, and weekly cadences
-- Five visual breakdowns: balance, scenario comparison, interest savings, cumulative payments, and per-period payments
+- Two-column calculator: a sticky input column (loan, frequency, extra payments) beside the results, which stack above each other below 900px
+- EMI as the hero number, with a savings chip and four supporting KPIs
+- Five visual breakdowns stacked in one consistent chart-card style: balance, scenario comparison, interest savings, cumulative payments, and per-period payments
 - Per-period and yearly repayment tables
 - Light/dark theme persistence via shared app shell
 

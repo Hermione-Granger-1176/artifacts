@@ -191,15 +191,16 @@ function handleExtraListInput(event) {
 
   updateExtraField(extras, extraId, input.dataset.field ?? "", input.value);
   const extra = extras.find((item) => item.id === extraId);
-  const tip = /** @type {HTMLElement | null} */ (input.closest(".extra-item")?.querySelector(".info-tip") ?? null);
-  if (!extra || !tip) {
-    recalc();
-    return;
+  const summaryNode = /** @type {HTMLElement | null} */ (
+    input.closest(".extra-item")?.querySelector(".extra-summary") ?? null
+  );
+  if (extra && summaryNode) {
+    summaryNode.textContent = summarizeExtra(
+      extra,
+      getFrequencyParams(getFrequency()).label.toLowerCase()
+    );
   }
 
-  const summary = summarizeExtra(extra, getFrequencyParams(getFrequency()).label.toLowerCase());
-  tip.dataset.tip = summary;
-  tip.setAttribute("aria-label", summary);
   recalc();
 }
 
@@ -254,7 +255,8 @@ function recalc() {
       periodsSaved,
       totalPaid,
       costRatio,
-      label: frequency.label
+      label: frequency.label,
+      periodsPerYear: frequency.periodsPerYear
     },
     formatCurrency
   );

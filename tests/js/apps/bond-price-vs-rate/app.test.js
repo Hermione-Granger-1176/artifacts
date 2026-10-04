@@ -55,6 +55,12 @@ test('bond-price-vs-rate app.js boots the shared runtime without error', async (
       'applying the normal curve at 20 years should round its ~5.29% rate to 5.3'
     );
 
+    assert.equal(
+      elementMap.rateValue.classList.contains('is-nudged'),
+      true,
+      'applying the curve rate should flash the market-rate readout'
+    );
+
     // Trigger the theme-change callback wired through the shell.
     const themeToggle = globalThis.document.getElementById('theme-toggle');
     fire(themeToggle, 'click');

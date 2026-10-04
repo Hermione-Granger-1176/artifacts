@@ -36,7 +36,7 @@
  *   taxId: string
  * }} Vendor
  * @typedef {{ basePrice: number, desc: string, unit: string }} CatalogEntry
- * @typedef {{ id: string, label: string }} DocumentType
+ * @typedef {{ id: string, label: string, short: string }} DocumentType
  */
 
 /** @type {readonly Vendor[]} */
@@ -198,12 +198,12 @@ const CATALOGS = {
 
 /** @type {readonly DocumentType[]} */
 export const DOCUMENT_TYPES = [
-  { id: "invoice", label: "Invoice" },
-  { id: "receipt", label: "Receipt" },
-  { id: "quotation", label: "Quotation" },
-  { id: "challan", label: "Delivery challan" },
-  { id: "creditnote", label: "Credit or debit note" },
-  { id: "statement", label: "Statement of account" }
+  { id: "invoice", label: "Invoice", short: "Invoice" },
+  { id: "receipt", label: "Receipt", short: "Receipt" },
+  { id: "quotation", label: "Quotation", short: "Quote" },
+  { id: "challan", label: "Delivery challan", short: "Challan" },
+  { id: "creditnote", label: "Credit or debit note", short: "Credit note" },
+  { id: "statement", label: "Statement of account", short: "Statement" }
 ];
 
 /** Flat sales-tax rate used across every priced document. */

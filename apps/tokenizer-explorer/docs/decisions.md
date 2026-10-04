@@ -8,13 +8,25 @@ The goal is to explain tokenization, temperature, top-p, and sampling, not to co
 
 The tokenization card uses pre-split examples rather than a real tokenizer. Different BPE vocabularies differ, especially for non-English text and emoji, so the page labels them illustrative instead of implying exact production output. This also preserves the self-only CSP and avoids a large tokenizer vocabulary download.
 
-## Why Chart.js is vendored
+## Why the bars are plain DOM and not a canvas chart
 
-The former flexbox strips could stretch across the shell and made the distribution hard to read. A local Chart.js 4.4.1 bundle provides a bounded, fixed-height horizontal chart with exact-percent tooltips and smooth in-place updates. Its integrity record lives in `config/vendored_assets.json`, and the chart palette comes from shared CSS custom properties so theme changes stay consistent.
+The first version used a vendored Chart.js horizontal chart in its own card, with the pool and insight in two more cards. The playground layout folds those into one next-token list inside the main card. A row list handles what this view needs better than a canvas: each row can carry a struck-through token, a hatched cut bar, a "top P cut" label, and numeric columns that align with the header, all selectable and readable by assistive tech. Dropping the chart also removed the vendored Chart.js bundle, its manifest entry, and the palette cache from this app.
 
-## Why the chart uses temperature-shaped probabilities
+## Why the bars use temperature-shaped probabilities
 
-The blue dataset shows the distribution after temperature only, so each slider has a distinct visual effect: temperature changes bar lengths, while top-p flips excluded tokens into a disabled state (muted bars with an `off` label) without resizing anything. Renormalized draw chances appear in the tooltips and in the token pool below, which keeps the pre-cutoff probabilities from being mistaken for draw chances while making the disable-then-renormalize order explicit.
+The blue bar shows the distribution after temperature only, so each slider has a distinct visual effect: temperature changes bar lengths, while top-p flips tail tokens into a cut state (struck through, hatched, below the "top P cut" line) without resizing anything. The renormalized draw chances sit in the Draw column of the same row, which keeps the pre-cutoff probabilities from being mistaken for draw chances while making the cut-then-renormalize order explicit.
+
+## Why the layout is a playground
+
+The settings sit beside the text they change, the way LLM playgrounds do, so a slider and the bars it reshapes are visible together. One main card and one settings card use the same card style, padding, and header row, and every block in a column shares its left and right edge. The earlier pipeline strip, chart card, token-pool card, and insight box became the bar list, the "Order matters" key idea, and a single quiet insight line.
+
+## Why the code window is folded
+
+The "Order matters" key idea says the same thing in words, so the pseudo-code sits under a "Show the code" disclosure in the settings card. It is reflowed with comments above each statement so it fits the narrow panel without horizontal scrolling.
+
+## Why the whitespace toggle lives in the main card
+
+The prompt chips and the tokenization examples both show leading spaces, so one toggle in the main card header drives both.
 
 ## Why draw helpers accept a random callback
 
@@ -22,7 +34,7 @@ The blue dataset shows the distribution after temperature only, so each slider h
 
 ## Why the shared app system is reused
 
-The page should feel like one product family alongside the bond explainer. Shared tokens, chart-frame rules, header chrome, and theme behavior keep that cohesion while tokenizer-specific layout selectors stay in the app-local stylesheet.
+The page should feel like one product family alongside the bond explainer. Shared tokens, control fields, the shared inset-pill segmented skin (`.is-inset`), header chrome, and theme behavior keep that cohesion while tokenizer-specific layout selectors stay in the app-local stylesheet.
 
 ## Deferred items
 

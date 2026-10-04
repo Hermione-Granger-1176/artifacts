@@ -27,6 +27,7 @@ import {
   CURVE_BUTTON_IDS,
   cacheElements,
   getChartElements,
+  nudgeRateValue,
   syncSliderLabels
 } from '../../../../apps/bond-price-vs-rate/js/modules/ui.js';
 import { refreshPalette, renderCharts } from '../../../../apps/bond-price-vs-rate/js/modules/charts.js';
@@ -274,7 +275,8 @@ function narrativeElements() {
     statModified: makeElement(),
     statConvexity: makeElement(),
     curveExplain: makeElement(),
-    btnApplyCurve: makeElement()
+    btnApplyCurve: makeElement(),
+    btnApplyCurveLabel: makeElement()
   };
 }
 
@@ -318,7 +320,7 @@ test('curveExplainText tells each shape story and quotes the rate at maturity', 
   const normal = curveExplainText(narrativeState(), FORMATTERS);
   assert.match(normal, /A normal curve slopes up/);
   assert.match(normal, /At your 10-year maturity this normal curve offers about 4.8%/);
-  assert.match(normal, /versus the 6.0% market rate set at the top/);
+  assert.match(normal, /versus the 6.0% market rate set on the left/);
 
   const flat = curveExplainText(
     narrativeState({ curve: { key: 'flat', label: 'Flat', atMaturityPct: 4.5 } }),
@@ -353,7 +355,7 @@ test('renderNarrative writes the discount readouts and up/down arrows', () => {
     assert.equal(elements.statModified.textContent, '7.6');
     assert.match(elements.analystExplain.textContent, /Modified duration/);
     assert.match(elements.curveExplain.textContent, /normal curve/);
-    assert.equal(elements.btnApplyCurve.textContent, 'Set the market rate to 4.8%');
+    assert.equal(elements.btnApplyCurveLabel.textContent, 'Set the market rate to 4.8%');
   } finally {
     restoreDocument(orig);
   }
@@ -486,6 +488,27 @@ test('bindEvents wires the sliders, curve presets, and apply button', () => {
   assert.deepEqual(calls, [
     'slider', 'slider', 'slider',
     'curve:normal', 'curve:flat', 'curve:inverted', 'apply'
+  ]);
+});
+
+test('nudgeRateValue restarts the readout highlight on every call', () => {
+  const classes = new Set();
+  const log = [];
+  const readout = {
+    get offsetWidth() { log.push('reflow'); return 0; },
+    classList: {
+      add(cls) { classes.add(cls); log.push(`add:${cls}`); },
+      remove(cls) { classes.delete(cls); log.push(`remove:${cls}`); }
+    }
+  };
+
+  nudgeRateValue({ rateValue: readout });
+  nudgeRateValue({ rateValue: readout });
+
+  assert.equal(classes.has('is-nudged'), true);
+  assert.deepEqual(log, [
+    'remove:is-nudged', 'reflow', 'add:is-nudged',
+    'remove:is-nudged', 'reflow', 'add:is-nudged'
   ]);
 });
 

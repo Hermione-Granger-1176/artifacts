@@ -268,7 +268,7 @@ const CURVE_STORY = {
 
 /**
  * Build the yield-curve explanation: what the selected shape signals, plus the
- * rate this curve offers at the bond's maturity versus the rate set at the top.
+ * rate this curve offers at the bond's maturity versus the rate set on the left.
  * @param {NarrativeState} state
  * @param {NarrativeFormatters} formatters
  * @returns {string}
@@ -277,7 +277,7 @@ export function curveExplainText({ bond, curve }, { formatPercent }) {
   return (
     `${CURVE_STORY[/** @type {keyof typeof CURVE_STORY} */ (curve.key)]} At your ${bond.years}-year maturity this ` +
     `${curve.label.toLowerCase()} curve offers about ${formatPercent(curve.atMaturityPct)}, ` +
-    `versus the ${formatPercent(bond.annualYieldPct)} market rate set at the top.`
+    `versus the ${formatPercent(bond.annualYieldPct)} market rate set on the left.`
   );
 }
 
@@ -467,7 +467,7 @@ export function renderNarrative(elements, state, formatters) {
   elements.sensitivityExplain.textContent = sensitivityExplainText(state, formatters);
   elements.analystExplain.textContent = analystExplainText(state, formatters);
   elements.curveExplain.textContent = curveExplainText(state, formatters);
-  elements.btnApplyCurve.textContent =
+  elements.btnApplyCurveLabel.textContent =
     `Set the market rate to ${formatters.formatPercent(state.curve.atMaturityPct)}`;
   elements.rippleExplain.textContent = rippleExplainText(state);
 

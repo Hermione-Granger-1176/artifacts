@@ -2,13 +2,11 @@ import { initAppShell, renderAppShell } from "../../../js/modules/app-shell.js";
 import { initializeMatureApp } from "../../../js/modules/app-runtime.js";
 import { cacheElements } from "../../../js/modules/element-cache.js";
 import { initSectionNav, renderSectionNav } from "../../../js/modules/section-nav.js";
-import { initSegmented } from "../../../js/modules/segmented.js";
-import { refreshPalette, renderProbabilityChart } from "./modules/charts.js";
 import { initAccordion } from "./modules/accordion.js";
 import {
   renderDistribution,
   renderScenario,
-  renderTabs,
+  renderScenarioOptions,
   renderTokenExamples
 } from "./modules/render.js";
 import { buildTopPSelection, drawToken, tallyDraws } from "./modules/sampling.js";
@@ -20,8 +18,6 @@ import { scenarios } from "./modules/scenarios.js";
 const elements = {};
 
 let activeIndex = 0;
-/** @type {any | null} */
-let probabilityChart = null;
 /** @type {number | null} */
 let selectedTokenIndex = null;
 /** @type {Map<number, number> | null} */
@@ -31,7 +27,7 @@ let showWhitespace = false;
 let pickedTokenTimer = null;
 
 const ELEMENT_IDS = [
-  "tabs",
+  "scenario-select",
   "scenario-type",
   "sentence-prefix",
   "sentence-completion",
@@ -40,13 +36,13 @@ const ELEMENT_IDS = [
   "temp-note",
   "topp-slider",
   "topp-val",
+  "topp-note",
   "sampling-presets",
   "pick-token",
   "sample-hundred",
   "reset-samples",
   "sample-status",
-  "probability-chart",
-  "token-pills",
+  "candidate-list",
   "insight-box",
   "token-examples",
   "whitespace-toggle",
@@ -59,18 +55,12 @@ initializeMatureApp({
   onErrorContext: "tokenizer explorer initialization",
   run: () => {
     cacheAppElements();
-    initAppShell({
-      onThemeChange: () => {
-        refreshPalette();
-        render();
-      }
-    });
+    initAppShell();
     initAccordion(elements.concepts);
     renderSectionNav(document.querySelector("[data-section-nav]"));
     initSectionNav();
     bindEvents();
-    const tabButtons = renderTabs(elements.tabs, scenarios, activeIndex);
-    initSegmented(elements.tabs, (/** @type {HTMLButtonElement} */ button) => selectScenario(tabButtons.indexOf(button)));
+    renderScenarioOptions(elements.scenarioSelect, scenarios, activeIndex);
     renderTokenExamples(elements.tokenExamples, showWhitespace);
     render();
   }
@@ -85,6 +75,9 @@ function cacheAppElements() {
 }
 
 function bindEvents() {
+  elements.scenarioSelect.addEventListener("change", () => {
+    selectScenario(Number.parseInt(elements.scenarioSelect.value, 10));
+  });
   elements.tempSlider.addEventListener("input", handleDistributionChange);
   elements.toppSlider.addEventListener("input", handleDistributionChange);
   elements.samplingPresets.addEventListener("click", (/** @type {MouseEvent} */ event) => {
@@ -111,6 +104,7 @@ function bindEvents() {
     elements.whitespaceToggle.setAttribute("aria-pressed", String(showWhitespace));
     elements.whitespaceToggle.textContent = showWhitespace ? "Hide whitespace" : "Show whitespace";
     renderTokenExamples(elements.tokenExamples, showWhitespace);
+    render();
   });
 }
 
@@ -193,6 +187,34 @@ function temperatureNote(temperature) {
   return "A middle setting balances coherence and surprise.";
 }
 
+/**
+ * @param {number} keptCount - Tokens that survive the cut.
+ * @param {number} totalCount - Tokens in the scenario.
+ * @param {number} retainedMass - Pre-cutoff probability the survivors cover.
+ * @returns {string} Note text.
+ */
+function topPNote(keptCount, totalCount, retainedMass) {
+  const percent = Math.round(Math.min(retainedMass, 1) * 100);
+  return `Keeps ${keptCount} of ${totalCount} tokens, ${percent}% of the odds.`;
+}
+
+/**
+ * Mark the preset whose temperature and top-p match the sliders, if any, so
+ * the segmented control reads as a state and not just a row of buttons.
+ *
+ * @param {number} temperature - Current temperature.
+ * @param {number} topP - Current top-p.
+ */
+function syncPresets(temperature, topP) {
+  for (const button of elements.samplingPresets.querySelectorAll(".sampling-preset")) {
+    const matches =
+      Number(button.getAttribute("data-temperature")) === temperature &&
+      Number(button.getAttribute("data-topp")) === topP;
+    button.classList.toggle("active", matches);
+    button.setAttribute("aria-pressed", String(matches));
+  }
+}
+
 function render() {
   const state = currentSamplingState();
   const scenario = scenarios[activeIndex];
@@ -201,12 +223,13 @@ function render() {
   elements.tempVal.textContent = state.temperature.toFixed(1);
   elements.tempNote.textContent = temperatureNote(state.temperature);
   elements.toppVal.textContent = state.topP.toFixed(2);
-  renderScenario(elements, scenario, selectedToken?.word ?? null);
-  probabilityChart = renderProbabilityChart(probabilityChart, elements.probabilityChart, {
-    ...state,
-    sampleCounts,
-    selectedTokenIndex
-  });
+  elements.toppNote.textContent = topPNote(
+    state.topTokens.length,
+    state.sorted.length,
+    state.retainedProbabilityMass
+  );
+  syncPresets(state.temperature, state.topP);
+  renderScenario(elements, scenario, selectedToken?.word ?? null, showWhitespace);
   renderDistribution(elements, {
     ...state,
     sampleCounts,

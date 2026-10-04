@@ -35,6 +35,7 @@ const ELEMENT_IDS = [
   "btnCurveFlat",
   "btnCurveInverted",
   "btnApplyCurve",
+  "btnApplyCurveLabel",
   "yieldCurveChart",
   "curveExplain",
   "rippleExplain"
@@ -71,6 +72,21 @@ export function syncSliderLabels(elements) {
   elements.rateValue.textContent = `${rate.toFixed(1)}%`;
   elements.couponValue.textContent = `${coupon.toFixed(1)}%`;
   elements.yearsValue.textContent = `${years} year${years === 1 ? "" : "s"}`;
+}
+
+/**
+ * Replay the short highlight on the market-rate readout. Removing the class and
+ * forcing a reflow restarts the CSS animation even when it is already applied,
+ * so repeated clicks of the apply button each flash the readout.
+ *
+ * @param {Record<string, HTMLElement>} elements
+ * @returns {void}
+ */
+export function nudgeRateValue(elements) {
+  const readout = elements.rateValue;
+  readout.classList.remove("is-nudged");
+  void readout.offsetWidth;
+  readout.classList.add("is-nudged");
 }
 
 /**

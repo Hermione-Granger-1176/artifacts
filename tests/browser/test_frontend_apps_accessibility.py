@@ -52,16 +52,31 @@ def test_app_pages_have_no_blocking_axe_violations(
             assert_minimum_contrast(page, "#btnAdd", minimum_ratio=4.5)
 
         if slug == "tokenizer-explorer":
-            assert_minimum_contrast(page, "#tabs button.active", minimum_ratio=4.5)
+            page.locator("#sampling-presets button").nth(1).click()
+            for selector in (
+                "#sampling-presets button.active",
+                "#pick-token",
+                "#sample-hundred",
+                "#reset-samples",
+                "#whitespace-toggle",
+            ):
+                assert_minimum_contrast(page, selector, minimum_ratio=4.5)
             page.locator("#pick-token").click()
-            expect(page.locator("#token-pills .pill.winner")).to_be_visible()
-            assert_minimum_contrast(page, "#token-pills .pill.winner", minimum_ratio=4.5)
+            expect(page.locator("#candidate-list .is-picked .tk-token")).to_be_visible()
+            assert_minimum_contrast(page, "#candidate-list .is-picked .tk-token", minimum_ratio=4.5)
             page.locator("#theme-toggle").click()
             expect(page.locator("html")).to_have_attribute("data-theme", "dark")
             expect(page.locator('meta[name="theme-color"]')).to_have_attribute(
                 "content", "rgb(20, 20, 20)"
             )
-            assert_minimum_contrast(page, "#tabs button.active", minimum_ratio=4.5)
+            for selector in (
+                "#sampling-presets button.active",
+                "#pick-token",
+                "#sample-hundred",
+                "#reset-samples",
+                "#whitespace-toggle",
+            ):
+                assert_minimum_contrast(page, selector, minimum_ratio=4.5)
             page.locator("#pick-token").click()
-            expect(page.locator("#token-pills .pill.winner")).to_be_visible()
-            assert_minimum_contrast(page, "#token-pills .pill.winner", minimum_ratio=4.5)
+            expect(page.locator("#candidate-list .is-picked .tk-token")).to_be_visible()
+            assert_minimum_contrast(page, "#candidate-list .is-picked .tk-token", minimum_ratio=4.5)

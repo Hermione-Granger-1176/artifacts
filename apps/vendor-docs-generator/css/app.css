@@ -2,10 +2,10 @@
  * Vendor document generator styles.
  *
  * Shared surfaces, controls, and feedback (cards, control fields, segmented
- * toggles, chips, stat tiles, meters, callouts, and section kickers) live in
- * css/style.css. This file holds two things only: the two-column workbench
- * layout (sticky control rail beside a fitted A4 stage), and the printed
- * document itself.
+ * toggles, chips, meters, callouts, and section kickers) live in
+ * css/style.css. This file holds two things only: the studio layout (a toolbar
+ * across the top, a fitted A4 stage in the middle, and one Output panel on the
+ * right), and the printed document itself.
  *
  * Every selector is scoped under body.app-vendor-docs-generator and every
  * colour derives from the shared design tokens. The document's per-vendor
@@ -13,120 +13,56 @@
  * js/modules/paper-render.js sets through CSSOM: the app ships under a
  * self-only Content-Security-Policy, so inline style attributes would never
  * apply, and the six vendor brand colours are document content rather than app
- * chrome. Literal colour definitions belong in css/src/, never here.
+ * chrome. The toolbar's vendor swatch reads the same --vd-accent. Literal
+ * colour definitions belong in css/src/, never here.
  */
 
 body.app-vendor-docs-generator {
   --vd-page-width: 794px;
   --vd-page-height: 1123px;
   --vd-page-pad: 44px;
-  --vd-rail-width: 310px;
+  --vd-output-width: 360px;
 
-  /* One height for every chip and button on the stage head row. */
-  --vd-stage-control-height: 32px;
+  /*
+   * One height for every select, button, and segmented control in the studio.
+   * The segmented track is 1px border and 4px padding either side, so its
+   * buttons are 10px shorter than the track they sit in.
+   */
+  --vd-control-height: 2.5rem;
+  --vd-segment-height: calc(var(--vd-control-height) - 10px);
 
-  /* Vertical room the preview frame gives up to the header, intro and chips. */
-  --vd-frame-inset: 200px;
+  /* Vertical room the preview frame gives up to the header, intro, toolbar and caption. */
+  --vd-frame-inset: 300px;
   --vd-fullscreen-bar-height: 61px;
 }
 
-/* ── Workbench layout ─────────────────────────────────────────────── */
+/* ── Page shell ───────────────────────────────────────────────────── */
+
+/*
+ * Three columns of controls and a page do not fit the shared 1000px shell, so
+ * this app widens its own. The header is widened with it so the two keep one
+ * left edge. The shared 700px rule narrows the side gutters, and it has the
+ * same specificity as the rule below, so it is restated at the bottom.
+ */
+
+body.app-vendor-docs-generator .page-shell,
+body.app-vendor-docs-generator .app-header-inner {
+  width: min(100% - 2rem, 1232px);
+}
+
+/* ── Studio layout ────────────────────────────────────────────────── */
 
 body.app-vendor-docs-generator .vd-workbench {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+body.app-vendor-docs-generator .vd-body {
   display: grid;
   align-items: start;
   gap: var(--space-5);
-  grid-template-columns: var(--vd-rail-width) minmax(0, 1fr);
-}
-
-body.app-vendor-docs-generator .vd-rail {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-/*
- * The rail scrolls; the stage is what pins. See the Stage section for why that
- * way round, and for the one case where it reads oddly.
- */
-
-/*
- * The rail is an accordion, because it grew.
- *
- * Five open cards stack to about 1,565px against a stage that stops at 744px,
- * so the right half of the workbench was blank from roughly the fold down. Each
- * group is now a <details> collapsed to its 44px header, with Document open, so
- * the rail opens at about 648px and the dead column is gone.
- *
- * The groups are deliberately not exclusive: no `name` attribute, no handler
- * closing its siblings. This app exists to compare treatments, and being unable
- * to see the scan preset while setting up the batch that uses it would trade
- * one usability problem for another. Opening everything is the user's call and
- * only then costs the height it used to cost by default.
- *
- * .page-card ships a border and surface only, so padding is split here: the
- * header owns its own so the whole strip is clickable, and the body owns the
- * rest.
- */
-
-body.app-vendor-docs-generator .vd-group-head {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  letter-spacing: var(--tracking-label);
-  list-style: none;
-  text-transform: uppercase;
-}
-
-/* Firefox honours list-style; WebKit needs its own pseudo-element hidden. */
-
-body.app-vendor-docs-generator .vd-group-head::-webkit-details-marker {
-  display: none;
-}
-
-body.app-vendor-docs-generator .vd-group-head:hover {
-  color: var(--color-text);
-}
-
-body.app-vendor-docs-generator .vd-group-head:focus-visible {
-  border-radius: var(--radius-md);
-  outline: var(--focus-ring);
-  outline-offset: -3px;
-}
-
-/* A chevron drawn from two borders, so it inherits the header's colour and
-   needs no asset under the self-only CSP. */
-
-body.app-vendor-docs-generator .vd-group-head::after {
-  width: 6px;
-  height: 6px;
-  border-right: 1.5px solid currentcolor;
-  border-bottom: 1.5px solid currentcolor;
-  content: "";
-  transform: translateY(-2px) rotate(45deg);
-  transition: transform 150ms ease;
-}
-
-body.app-vendor-docs-generator .vd-group[open] > .vd-group-head {
-  border-bottom: 1px solid var(--color-border);
-  color: var(--color-text);
-}
-
-body.app-vendor-docs-generator .vd-group[open] > .vd-group-head::after {
-  transform: translateY(1px) rotate(225deg);
-}
-
-body.app-vendor-docs-generator .vd-group-body {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-4);
-  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr) var(--vd-output-width);
 }
 
 body.app-vendor-docs-generator .vd-field-label {
@@ -134,15 +70,50 @@ body.app-vendor-docs-generator .vd-field-label {
   font-weight: 600;
 }
 
-/* The rail's toggles sit above full-width selects, so they match that width
-   and split it evenly rather than hugging their labels at the left edge. */
+body.app-vendor-docs-generator h2.section-kicker {
+  margin: 0;
+}
 
-body.app-vendor-docs-generator .vd-rail .segmented.is-fused {
+/*
+ * One control height, one skin per kind of choice. Dropdowns, buttons, and the
+ * segmented tracks all share --vd-control-height, and the track gets a tinted
+ * trough so the active segment reads as a raised pill rather than as a label
+ * that happens to be darker. Segments split their track evenly, so a column of
+ * them shares both edges.
+ */
+
+body.app-vendor-docs-generator .vd-workbench .select-input,
+body.app-vendor-docs-generator .vd-workbench .btn {
+  min-height: var(--vd-control-height);
+}
+
+body.app-vendor-docs-generator .vd-workbench .select-input {
+  font-size: var(--font-size-control);
+}
+
+body.app-vendor-docs-generator .vd-workbench .segmented.is-fused {
   flex-shrink: 1;
 }
 
-body.app-vendor-docs-generator .vd-rail .segmented button {
+body.app-vendor-docs-generator .vd-workbench .segmented.is-fused button {
+  min-height: var(--vd-segment-height);
+  padding: 0 var(--space-2);
   flex: 1;
+}
+
+body.app-vendor-docs-generator .vd-workbench .segmented.is-fused button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* The container is already faded, so its disabled buttons do not fade twice. */
+
+body.app-vendor-docs-generator .segmented.is-disabled {
+  opacity: 0.45;
+}
+
+body.app-vendor-docs-generator .vd-workbench .segmented.is-disabled button:disabled {
+  opacity: 1;
 }
 
 body.app-vendor-docs-generator .vd-block-btn {
@@ -166,154 +137,105 @@ body.app-vendor-docs-generator .btn-primary:focus-visible {
   color: var(--color-bg);
 }
 
-body.app-vendor-docs-generator .vd-button-row {
+/*
+ * Secondary actions that sit beside a heading or a caption (Preview scan, Full
+ * size, Download JSON only) are the same outline button with its border and
+ * height taken down, so they stay findable without competing with the one
+ * primary button in the footer.
+ */
+
+body.app-vendor-docs-generator .vd-workbench .btn.vd-quiet-btn {
+  min-height: var(--space-6);
+  padding: 0 var(--space-2);
+  border-color: transparent;
+  color: var(--color-blue-text);
+  font-size: var(--font-size-sm);
+}
+
+body.app-vendor-docs-generator .vd-workbench .btn.vd-quiet-btn:hover,
+body.app-vendor-docs-generator .vd-workbench .btn.vd-quiet-btn:focus-visible {
+  border-color: var(--color-border-medium);
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────────── */
+
+body.app-vendor-docs-generator .vd-toolbar {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: var(--space-3) var(--space-4);
+  gap: var(--space-3) var(--space-5);
+}
+
+body.app-vendor-docs-generator .vd-tool.is-vendor {
+  flex: 0 1 260px;
+  min-width: 200px;
+}
+
+body.app-vendor-docs-generator .vd-tool.is-seed {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
   gap: var(--space-2);
 }
 
-body.app-vendor-docs-generator .vd-button-row .btn {
-  flex: 1;
+body.app-vendor-docs-generator .vd-tool.is-seed .chip {
+  min-height: var(--vd-control-height);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-control);
+  font-variant-numeric: tabular-nums;
 }
 
-body.app-vendor-docs-generator .vd-check {
+body.app-vendor-docs-generator .vd-vendor-pick {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: var(--font-size-control);
 }
 
-body.app-vendor-docs-generator .vd-check input {
-  accent-color: var(--color-blue);
-  cursor: pointer;
-}
-
-body.app-vendor-docs-generator .vd-check.is-disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-body.app-vendor-docs-generator .vd-estimate {
-  margin-bottom: 0;
-  text-align: center;
+body.app-vendor-docs-generator .vd-vendor-pick .select-input {
+  min-width: 0;
+  flex: 1;
 }
 
 /*
- * The scan knobs are folded away by default. Nine sliders is the right amount
- * of control and the wrong amount of rail: the presets are the common case, and
- * the rail should stay as calm as it was before they existed.
- *
- * This is a disclosure inside a disclosure now that the group itself collapses.
- * Promoting the knobs would flatten that, but it would also make Scan quality
- * the tallest group by some way and hand back most of what the accordion won,
- * so the nesting stays. The two read differently on purpose: a group header is
- * an uppercase label with a chevron, this is running text with a triangle.
+ * The swatch previews the vendor's brand colour, which is why it reads the same
+ * --vd-accent the page does. It is set through CSSOM from draw(), because an
+ * inline style attribute would be dropped by the self-only CSP.
  */
 
-body.app-vendor-docs-generator .vd-advanced summary {
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: var(--font-size-control);
-  letter-spacing: var(--tracking-tight);
+body.app-vendor-docs-generator .vd-swatch {
+  width: var(--space-4);
+  height: var(--space-4);
+  flex: none;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: var(--vd-accent, var(--color-blue));
 }
 
-body.app-vendor-docs-generator .vd-advanced summary:hover {
-  color: var(--color-text);
+/*
+ * The type control is six pills while they fit and a dropdown when they would
+ * not. Both stay in the DOM and agree through app.js; this is only which one
+ * shows.
+ */
+
+body.app-vendor-docs-generator .vd-type-pills button {
+  flex: 0 0 auto;
+  padding: 0 var(--space-3);
 }
 
-body.app-vendor-docs-generator .vd-knobs {
-  display: flex;
-  flex-direction: column;
-  padding-top: var(--space-3);
-  gap: var(--space-3);
-}
-
-body.app-vendor-docs-generator .segmented.is-disabled {
-  opacity: 0.45;
-}
-
-body.app-vendor-docs-generator .vd-progress .meter-fill {
-  width: 0%;
-}
-
-body.app-vendor-docs-generator .vd-batch-status {
-  margin-top: 0;
-  text-align: center;
+body.app-vendor-docs-generator .vd-type-select {
+  display: none;
 }
 
 /* ── Stage ────────────────────────────────────────────────────────── */
 
-/*
- * The stage pins, so the page stays in view while the controls scroll past it.
- * That is the point: reading a rail that is taller than the window should not
- * mean losing sight of the document the controls are describing.
- *
- * It pins unconditionally rather than behind a media query. The stage's height
- * comes from the viewport, not from content (32px of chips, a 12px gap, and a
- * `100vh - 200px` frame is `100vh - 156px`), and both ends of the frame's clamp
- * stay inside the window too, so there is no size at which pinning it strands
- * its own bottom. The rail could never say the same, which is why the old
- * `min-height: 940px` guard on the rail was a no-op for its whole life: the
- * rail was the taller column, so it had no room to travel.
- *
- * Known rough edge, accepted rather than hidden. A sticky item can only travel
- * as far as its own grid area, and the stage's area is the row, so its travel
- * is however much taller the rail is. With one group open the rail is shorter
- * and it never pins, which costs nothing because everything already fits. With
- * exactly two it has 93px of travel, so it holds briefly and then releases
- * mid-scroll. From three groups up it pins for the whole way down. Only the
- * two-group case reads oddly, and the alternatives are worse: pinning the rail
- * instead just mirrors it onto the taller column, and shrinking the frame to
- * buy travel would shrink the preview for everybody.
- */
-
 body.app-vendor-docs-generator .vd-stage {
-  position: sticky;
-  top: var(--space-4);
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: var(--space-3);
-}
-
-body.app-vendor-docs-generator .vd-stage-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-body.app-vendor-docs-generator .vd-stage-chips {
-  display: flex;
   gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-body.app-vendor-docs-generator .vd-stage-chips .is-mono {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-body.app-vendor-docs-generator .vd-stage-tools {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/*
- * Chips and buttons ship different heights (a chip hugs its text, .btn carries
- * a 2.75rem tap target). Side by side on one row that reads as a mistake, so
- * everything in the stage head is pinned to one height and one radius.
- */
-
-body.app-vendor-docs-generator .vd-stage-head .chip,
-body.app-vendor-docs-generator .vd-stage-head .btn {
-  min-height: var(--vd-stage-control-height);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
 }
 
 /*
@@ -349,6 +271,273 @@ body.app-vendor-docs-generator .vd-paper-scale {
 body.app-vendor-docs-generator .vd-paper-scale .vd-paper {
   transform: scale(var(--vd-zoom, 1));
   transform-origin: top left;
+}
+
+/* The caption is the only thing on the stage besides the page: what it shows. */
+
+body.app-vendor-docs-generator .vd-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  gap: var(--space-3);
+}
+
+body.app-vendor-docs-generator .vd-caption-text {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+}
+
+body.app-vendor-docs-generator .vd-caption-text > span + span::before {
+  margin-right: var(--space-2);
+  content: "\00b7";
+}
+
+body.app-vendor-docs-generator .vd-caption-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+/* ── Output panel ─────────────────────────────────────────────────── */
+
+/*
+ * One card, one left edge. The scope switch is pinned to the top and the
+ * export button to the bottom, and only the choices between them scroll, so
+ * the two things that decide what a click does are always in view. The panel
+ * pins beside the page while the window scrolls, and is capped to the window
+ * so a batch with the fine-tune knobs open scrolls inside it instead of
+ * pushing the footer off screen.
+ */
+
+body.app-vendor-docs-generator .vd-output {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  max-height: calc(100vh - var(--space-8));
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body.app-vendor-docs-generator .vd-output-head,
+body.app-vendor-docs-generator .vd-output-foot {
+  padding: var(--space-3) var(--space-4);
+}
+
+body.app-vendor-docs-generator .vd-output-head {
+  border-bottom: 1px solid var(--color-border);
+}
+
+body.app-vendor-docs-generator .vd-output-foot {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border);
+  gap: var(--space-2);
+}
+
+body.app-vendor-docs-generator .vd-output-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+body.app-vendor-docs-generator .vd-section {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  gap: var(--space-2);
+}
+
+body.app-vendor-docs-generator .vd-section:last-child {
+  border-bottom: 0;
+}
+
+body.app-vendor-docs-generator .vd-section[hidden] {
+  display: none;
+}
+
+body.app-vendor-docs-generator .vd-section-head {
+  display: flex;
+  min-height: var(--space-6);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+body.app-vendor-docs-generator .vd-section .control-field-note {
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* The two batch rows are separate questions, so they sit a step further apart. */
+
+body.app-vendor-docs-generator .vd-batch-options {
+  gap: var(--space-3);
+}
+
+/* Row labels read the same in every section: muted, medium weight, under an uppercase header. */
+
+body.app-vendor-docs-generator .vd-batch-options .control-field-head label,
+body.app-vendor-docs-generator .vd-batch-options .vd-field-label {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+body.app-vendor-docs-generator .vd-output .control-field-head {
+  margin-bottom: var(--space-2);
+}
+
+body.app-vendor-docs-generator .vd-output .control-field-head output {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-control);
+}
+
+body.app-vendor-docs-generator .vd-inline-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-1);
+  gap: var(--space-3);
+}
+
+body.app-vendor-docs-generator .vd-inline-field[hidden] {
+  display: none;
+}
+
+body.app-vendor-docs-generator .vd-inline-field .vd-field-label {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+body.app-vendor-docs-generator .vd-inline-field .segmented {
+  min-width: 0;
+  flex: 0 1 200px;
+}
+
+body.app-vendor-docs-generator .vd-check {
+  display: flex;
+  align-items: center;
+  margin-top: var(--space-1);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-control);
+  gap: var(--space-2);
+}
+
+body.app-vendor-docs-generator .vd-check[hidden] {
+  display: none;
+}
+
+body.app-vendor-docs-generator .vd-check input {
+  accent-color: var(--color-blue);
+  cursor: pointer;
+}
+
+/*
+ * The scan knobs are folded away by default. Nine sliders is the right amount
+ * of control and the wrong amount of panel: the presets are the common case, so
+ * the five tiles and their note stay the whole story until someone asks for
+ * more. Two columns keep the nine rows to five.
+ */
+
+body.app-vendor-docs-generator .vd-disclosure summary {
+  display: flex;
+  min-height: var(--space-6);
+  align-items: center;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-control);
+  gap: var(--space-2);
+  list-style: none;
+}
+
+/* Firefox honours list-style; WebKit needs its own pseudo-element hidden. */
+
+body.app-vendor-docs-generator .vd-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A chevron drawn from two borders, so it inherits the label's colour and
+   needs no asset under the self-only CSP. */
+
+body.app-vendor-docs-generator .vd-disclosure summary::after {
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentcolor;
+  border-bottom: 1.5px solid currentcolor;
+  content: "";
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 150ms ease;
+}
+
+body.app-vendor-docs-generator .vd-disclosure[open] > summary::after {
+  transform: translateY(1px) rotate(225deg);
+}
+
+body.app-vendor-docs-generator .vd-disclosure summary:hover {
+  color: var(--color-text);
+}
+
+body.app-vendor-docs-generator .vd-disclosure summary:focus-visible {
+  border-radius: var(--radius-xs);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+body.app-vendor-docs-generator .vd-knobs {
+  display: grid;
+  padding-top: var(--space-3);
+  gap: var(--space-3) var(--space-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.app-vendor-docs-generator .vd-knobs .control-field-head {
+  margin-bottom: 0;
+}
+
+body.app-vendor-docs-generator .vd-knobs .control-field-head label {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+body.app-vendor-docs-generator .vd-knobs .control-field-head output {
+  font-size: var(--font-size-sm);
+}
+
+/* Footer: the estimate, the run, and the one primary button. */
+
+body.app-vendor-docs-generator .vd-estimate,
+body.app-vendor-docs-generator .vd-status {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+body.app-vendor-docs-generator .vd-status[hidden],
+body.app-vendor-docs-generator .vd-progress[hidden] {
+  display: none;
+}
+
+body.app-vendor-docs-generator .vd-progress {
+  height: var(--space-2);
+}
+
+body.app-vendor-docs-generator .vd-progress .meter-fill {
+  width: 0%;
+}
+
+body.app-vendor-docs-generator .vd-output-foot .btn-primary {
+  min-height: 2.75rem;
 }
 
 /* ── Full-size overlay ────────────────────────────────────────────── */
@@ -955,32 +1144,211 @@ body.app-vendor-docs-generator .vd-doc-foot {
   text-align: center;
 }
 
-/* ── Trailing explainer section ───────────────────────────────────── */
+/* ── Below the workbench ──────────────────────────────────────────── */
 
 body.app-vendor-docs-generator .vd-about {
-  margin-top: var(--space-8);
+  display: flex;
+  margin-top: var(--space-6);
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
-body.app-vendor-docs-generator .vd-about-grid {
-  margin-bottom: var(--space-4);
+body.app-vendor-docs-generator .vd-about .section-kicker {
+  margin: var(--space-2) 0 0;
+}
+
+body.app-vendor-docs-generator .vd-facts {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+body.app-vendor-docs-generator .vd-facts .chip {
+  min-height: var(--space-6);
+  padding: 0 var(--space-3);
+  font-weight: 400;
+}
+
+body.app-vendor-docs-generator .vd-facts .chip strong {
+  font-variant-numeric: tabular-nums;
+}
+
+body.app-vendor-docs-generator .vd-more-body {
+  display: flex;
+  padding-top: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+body.app-vendor-docs-generator .vd-fact-list {
+  display: grid;
+  margin: 0;
+  gap: var(--space-3) var(--space-5);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+body.app-vendor-docs-generator .vd-fact-list dt {
+  font-size: var(--font-size-control);
+  font-weight: 600;
+}
+
+body.app-vendor-docs-generator .vd-fact-list dd {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
 }
 
 /* ── Responsive ───────────────────────────────────────────────────── */
 
-@media (max-width: 900px) {
-  body.app-vendor-docs-generator .vd-workbench {
+/*
+ * Below about 1000px the three columns no longer fit, so the studio stacks in
+ * the order the work happens: toolbar, page, output. The output panel stops
+ * pinning, since there is no column for it to pin beside, and its choices stop
+ * scrolling on their own and join the page.
+ */
+
+@media (max-width: 1000px) {
+  body.app-vendor-docs-generator .vd-body {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  body.app-vendor-docs-generator .vd-rail {
+  body.app-vendor-docs-generator .vd-output {
     position: static;
     max-height: none;
+    overflow: visible;
+  }
+
+  body.app-vendor-docs-generator .vd-output-body {
     overflow-y: visible;
+  }
+
+  body.app-vendor-docs-generator .vd-tool.is-seed {
+    margin-left: 0;
+  }
+}
+
+/* Six pills no longer fit a phone-width toolbar: offer the dropdown instead. */
+
+@media (max-width: 700px) {
+  body.app-vendor-docs-generator .page-shell,
+  body.app-vendor-docs-generator .app-header-inner {
+    width: min(100% - 1.25rem, 1232px);
+  }
+
+  body.app-vendor-docs-generator .vd-toolbar .segmented.vd-type-pills {
+    display: none;
+  }
+
+  body.app-vendor-docs-generator .vd-toolbar .vd-type-select {
+    display: block;
+  }
+
+  body.app-vendor-docs-generator .vd-tool.is-vendor,
+  body.app-vendor-docs-generator .vd-tool.is-type {
+    flex: 1 1 100%;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   body.app-vendor-docs-generator .vd-stamp {
+    transform: none;
+  }
+}
+
+/* ── Scan preset icons and control feel ───────────────────────────── */
+
+/*
+ * Each scan preset button carries a tiny page drawn in CSS: a white sheet, an
+ * accent header bar, and ruled lines. The preset's own filter and transform
+ * are applied to that sheet, so the icon previews the wear (grey cast, copier
+ * contrast, a tilted fax, a keystoned phone photo) before it is chosen. Pure
+ * CSS keyed on data-preset, so no markup or script change and no asset under
+ * the self-only CSP.
+ */
+
+body.app-vendor-docs-generator #vdDegradePreset button {
+  display: flex;
+  min-height: 64px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+}
+
+body.app-vendor-docs-generator #vdDegradePreset button::before {
+  width: 20px;
+  height: 26px;
+  flex: none;
+  border-radius: 2px;
+  background:
+    linear-gradient(var(--color-blue), var(--color-blue)) 3px 3px / 14px 3px no-repeat,
+    repeating-linear-gradient(var(--color-document-faint) 0 1px, transparent 1px 3px) 3px 9px / 14px 13px no-repeat,
+    var(--color-document-paper);
+  box-shadow: 0 1px 3px var(--color-page-shadow), 0 0 0 1px var(--color-border);
+  content: "";
+  transition: transform var(--transition-fast) ease;
+}
+
+body.app-vendor-docs-generator #vdDegradePreset [data-preset="light_scan"]::before {
+  filter: grayscale(0.5) contrast(0.9);
+}
+
+body.app-vendor-docs-generator #vdDegradePreset [data-preset="copier"]::before {
+  filter: grayscale(1) contrast(1.6);
+}
+
+body.app-vendor-docs-generator #vdDegradePreset [data-preset="fax"]::before {
+  filter: grayscale(1) contrast(3) blur(0.3px);
+  transform: rotate(-4deg);
+}
+
+body.app-vendor-docs-generator #vdDegradePreset [data-preset="phone"]::before {
+  filter: sepia(0.4) brightness(0.9) blur(0.3px);
+  transform: perspective(60px) rotateX(10deg) rotate(-6deg);
+}
+
+body.app-vendor-docs-generator #vdDegradePreset button:hover::before {
+  transform: translateY(-1px);
+}
+
+body.app-vendor-docs-generator #vdDegradePreset [data-preset="fax"]:hover::before {
+  transform: rotate(-4deg) translateY(-1px);
+}
+
+body.app-vendor-docs-generator #vdDegradePreset [data-preset="phone"]:hover::before {
+  transform: perspective(60px) rotateX(10deg) rotate(-6deg) translateY(-1px);
+}
+
+/*
+ * Buttons lift on hover and press on :active, the same feel the shared
+ * .is-inset choices have. Only transform animates on .btn, so fills flip with
+ * the theme instead of fading through a low-contrast midpoint.
+ */
+
+body.app-vendor-docs-generator .vd-workbench .btn {
+  transition: transform var(--transition-fast) ease;
+}
+
+body.app-vendor-docs-generator .vd-workbench .btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+body.app-vendor-docs-generator .vd-workbench .btn:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.app-vendor-docs-generator .vd-workbench .btn,
+  body.app-vendor-docs-generator #vdDegradePreset button::before {
+    transition: none;
+  }
+
+  body.app-vendor-docs-generator .vd-workbench .btn:not(:disabled):hover,
+  body.app-vendor-docs-generator .vd-workbench .btn:not(:disabled):active {
     transform: none;
   }
 }

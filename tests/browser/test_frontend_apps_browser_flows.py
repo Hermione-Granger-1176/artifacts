@@ -34,6 +34,33 @@ def test_loan_amortization_flow_covers_theme_and_schedule(app_browser: AppBrowse
         session.goto("/apps/loan-amortization/")
         page.wait_for_function("window.__ARTIFACT_READY__ === true")
 
+        for canvas_id in (
+            "balanceChart",
+            "compChart",
+            "savingsChart",
+            "cumulChart",
+            "periodChart",
+        ):
+            expect(page.locator(f"#{canvas_id}")).to_be_visible()
+        expect(page.locator("#metrics .loan-hero-value")).to_contain_text("$")
+        expect(page.locator("#metrics .stat")).to_have_count(4)
+
+        expect(page.locator(".loan-inputs")).to_have_css("position", "sticky")
+        inputs_box = page.locator(".loan-inputs").bounding_box()
+        results_box = page.locator(".loan-results").bounding_box()
+        assert inputs_box is not None
+        assert results_box is not None
+        assert inputs_box["x"] + inputs_box["width"] <= results_box["x"]
+        assert abs(inputs_box["y"] - results_box["y"]) < 1
+
+        expect(page.locator("#biweeklyMode")).to_be_hidden()
+        page.locator("#selFreq").select_option("biweekly")
+        expect(page.locator("#biweeklyMode")).to_be_visible()
+        page.locator("#selFreq").select_option("monthly")
+        expect(page.locator("#biweeklyMode")).to_be_hidden()
+
+        expect(page.locator(".extra-empty")).to_be_visible()
+
         initial_metrics = page.locator("#metrics").text_content() or ""
         page.locator("#slPrincipal").evaluate(
             """(element) => {
@@ -51,6 +78,11 @@ def test_loan_amortization_flow_covers_theme_and_schedule(app_browser: AppBrowse
 
         page.locator("#btnAdd").click()
         expect(page.locator(".extra-item")).to_have_count(1)
+        expect(page.locator(".extra-empty")).to_be_hidden()
+        expect(page.locator(".extra-summary")).to_contain_text("Pays $500 every month")
+        page.locator('.extra-item [data-field="amount"]').fill("1000")
+        expect(page.locator(".extra-summary")).to_contain_text("Pays $1,000 every month")
+        expect(page.locator("#metrics .chip")).to_contain_text("Saves")
 
         page.locator("#selFreq").select_option("weekly")
         expect(page.locator("#metrics")).to_contain_text("Weekly EMI")
@@ -63,6 +95,23 @@ def test_loan_amortization_flow_covers_theme_and_schedule(app_browser: AppBrowse
         expect(page.locator("#scroll-top")).to_have_attribute("aria-hidden", "false")
 
 
+def _box(page, selector: str) -> dict[str, float]:
+    box = page.locator(selector).first.bounding_box()
+    assert box is not None, f"{selector} has no layout box"
+    return box
+
+
+def _assert_shared_edges(page, selectors: list[str]) -> None:
+    """Every selector must start and end on the same x edges as the first one."""
+    reference = _box(page, selectors[0])
+    for selector in selectors[1:]:
+        box = _box(page, selector)
+        assert abs(box["x"] - reference["x"]) <= 1, f"{selector} left edge drifts"
+        assert abs((box["x"] + box["width"]) - (reference["x"] + reference["width"])) <= 1, (
+            f"{selector} right edge drifts"
+        )
+
+
 @app_scope_skipif("tokenizer-explorer")
 def test_tokenizer_explorer_flow_covers_sampling_and_theme(app_browser: AppBrowserHarness) -> None:
     """Test tokenizer explorer flow covers sampling and theme."""
@@ -70,6 +119,7 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(app_browser: AppBrows
         app_browser.playwright,
         app_browser.server_url,
         name="app-flow-tokenizer",
+        viewport=(1280, 900),
         bypass_csp=True,
         browser=app_browser.browser,
     ) as session:
@@ -78,14 +128,64 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(app_browser: AppBrows
         session.goto("/apps/tokenizer-explorer/")
         page.wait_for_function("window.__ARTIFACT_READY__ === true")
 
+        # Two top-aligned columns; below the workbench the sections reuse the outer edges.
+        main_box = _box(page, ".tk-main")
+        settings_box = _box(page, ".tk-settings")
+        assert main_box["x"] + main_box["width"] <= settings_box["x"]
+        assert abs(main_box["y"] - settings_box["y"]) <= 1
+        assert 280 <= settings_box["width"] <= 320
+        tokens_box = _box(page, ".tokenization-card")
+        assert abs(tokens_box["x"] - main_box["x"]) <= 1
+        assert (
+            abs(
+                (tokens_box["x"] + tokens_box["width"])
+                - (settings_box["x"] + settings_box["width"])
+            )
+            <= 1
+        )
+
+        # One left and right edge inside each card.
+        _assert_shared_edges(
+            page,
+            [".tk-card-head", ".tk-prompt", ".tk-next", ".tk-actions"],
+        )
+        _assert_shared_edges(
+            page,
+            [
+                ".tk-settings .tk-card-head",
+                "#scenario-select",
+                "#temp-slider",
+                "#topp-slider",
+                "#sampling-presets",
+                ".tk-key",
+                ".tk-disclosure",
+            ],
+        )
+        control_heights = {
+            round(_box(page, selector)["height"])
+            for selector in ("#scenario-select", "#sampling-presets", "#pick-token")
+        }
+        assert len(control_heights) == 1, control_heights
+
+        # The completion blank rides inline at the end of the prompt line.
+        last_chip = _box(page, ".tk-prompt .prompt-chip >> nth=-1")
+        blank = _box(page, "#sentence-completion")
+        assert abs(last_chip["y"] - blank["y"]) <= 2
+        assert blank["x"] >= last_chip["x"] + last_chip["width"]
+
+        # Candidate rows: one per token, with the cut shown by label and strike-through.
+        expect(page.locator("#candidate-list .tk-row:not(.tk-list-head)")).to_have_count(8)
+        expect(page.locator("#candidate-list .tk-cut-label:visible")).to_have_count(1)
+        expect(page.locator("#candidate-list .is-cut .tk-draw").first).to_have_text("cut")
+
         initial_sentence = page.locator("#sentence-prefix").text_content() or ""
-        page.locator("#tabs button").nth(2).click()
+        page.locator("#scenario-select").select_option(index=2)
         page.wait_for_function(
             "previous => document.querySelector('#sentence-prefix').textContent !== previous",
             arg=initial_sentence,
         )
+        expect(page.locator("#scenario-select option:checked")).to_have_text("Code")
 
-        expect(page.locator("#probability-chart")).to_be_visible()
         initial_temp_value = page.locator("#temp-val").text_content() or ""
         page.locator("#temp-slider").evaluate(
             """(element) => {
@@ -98,7 +198,8 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(app_browser: AppBrows
             arg=initial_temp_value,
         )
 
-        initial_pill_count = page.locator("#token-pills .pill").count()
+        initial_cut_count = page.locator("#candidate-list .is-cut").count()
+        initial_topp_note = page.locator("#topp-note").text_content() or ""
         page.locator("#topp-slider").evaluate(
             """(element) => {
                     element.value = '20';
@@ -106,22 +207,49 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(app_browser: AppBrows
                 }"""
         )
         page.wait_for_timeout(100)
-        assert page.locator("#token-pills .pill").count() != initial_pill_count
+        assert page.locator("#candidate-list .is-cut").count() != initial_cut_count
+        assert page.locator("#topp-note").text_content() != initial_topp_note
+
+        page.locator("#sampling-presets button").nth(2).click()
+        expect(page.locator("#sampling-presets button").nth(2)).to_have_class(
+            re.compile(r"\bactive\b")
+        )
+        expect(page.locator("#temp-val")).to_have_text("1.2")
+        expect(page.locator("#topp-val")).to_have_text("0.95")
 
         page.locator("#pick-token").click()
         expect(page.locator("#sentence-completion")).not_to_have_text("")
-        expect(page.locator("#token-pills .pill.winner")).to_be_visible()
+        expect(page.locator("#candidate-list .is-picked")).to_have_count(1)
 
         page.locator("#sample-hundred").click()
         expect(page.locator("#sample-status")).to_contain_text("tally from 100 draws")
+        expect(page.locator("#candidate-list .tk-list-head .tk-seen")).to_be_visible()
+
+        # Screen readers get four columns, and a phone keeps the Seen tally readable.
+        table = page.get_by_role("table", name="Next-token candidates")
+        expect(table.get_by_role("columnheader")).to_have_count(4)
+        desktop_viewport = page.viewport_size
+        assert desktop_viewport is not None
+        page.set_viewport_size({"width": 390, "height": 844})
+        seen_header = table.get_by_role("columnheader", name="Seen")
+        expect(seen_header).to_have_count(1)
+        expect(seen_header).to_have_css("position", "absolute")
+        page.set_viewport_size(desktop_viewport)
+
         page.locator("#reset-samples").click()
         expect(page.locator("#sample-status")).to_contain_text("Run 100 draws")
+        expect(page.locator("#candidate-list .tk-list-head .tk-seen")).to_be_hidden()
+
+        page.locator(".tk-disclosure summary").click()
+        expect(page.locator(".tk-code")).to_be_visible()
+        _assert_shared_edges(page, [".tk-disclosure", ".tk-code"])
 
         page.locator("#whitespace-toggle").click()
         expect(page.locator("#whitespace-toggle")).to_have_attribute("aria-pressed", "true")
         expect(
             page.locator("#token-examples .token-chip").filter(has_text="·").first
         ).to_be_visible()
+        expect(page.locator(".tk-prompt .prompt-chip").filter(has_text="·").first).to_be_visible()
 
         page.locator(".card-trigger").first.click()
         expect(page.locator(".card").first).to_have_class(re.compile(r"\bopen\b"))
@@ -133,6 +261,15 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(app_browser: AppBrows
 
         page.locator("#theme-toggle").click()
         expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+
+        # Below 900px the settings stack above the main card.
+        page.set_viewport_size({"width": 800, "height": 900})
+        page.evaluate("window.scrollTo(0, 0)")
+        stacked_settings = _box(page, ".tk-settings")
+        stacked_main = _box(page, ".tk-main")
+        assert stacked_settings["y"] + stacked_settings["height"] <= stacked_main["y"] + 1
+        assert abs(stacked_settings["x"] - stacked_main["x"]) <= 1
+        assert abs(stacked_settings["width"] - stacked_main["width"]) <= 1
 
 
 @app_scope_skipif("prompt-caching")
@@ -188,6 +325,93 @@ def test_prompt_caching_flow_covers_calculator_attention_and_embeddings(
         expect(page.locator("#embSelB")).to_have_text("submarine")
 
 
+@app_scope_skipif("bond-price-vs-rate")
+def test_bond_price_vs_rate_flow_covers_rail_chapters_and_curve_apply(
+    app_browser: AppBrowserHarness,
+) -> None:
+    """Test bond price vs rate flow covers rail, chapters, and curve apply."""
+    with MonitoredPage(
+        app_browser.playwright,
+        app_browser.server_url,
+        name="app-flow-bond",
+        viewport=(1280, 800),
+        bypass_csp=True,
+        browser=app_browser.browser,
+    ) as session:
+        page = session.page
+        assert page is not None
+        session.goto("/apps/bond-price-vs-rate/")
+        page.wait_for_function("window.__ARTIFACT_READY__ === true")
+
+        # Two columns: the pinned rail holds the price, the curve, and all three
+        # sliders, and sits left of the story. The story is numbered chapters.
+        rail = page.locator(".br-rail")
+        expect(rail).to_have_css("position", "sticky")
+        rail_ids = (
+            "#priceValue",
+            "#regimeBadge",
+            "#priceRateChart",
+            "#slRate",
+            "#slCoupon",
+            "#slYears",
+        )
+        for control_id in rail_ids:
+            expect(rail.locator(control_id)).to_be_visible()
+        expect(page.locator(".br-chapter")).to_have_count(7)
+        expect(page.locator(".br-chapter-num")).to_have_text(["1", "2", "3", "4", "5", "6", "7"])
+        rail_box = rail.bounding_box()
+        story_box = page.locator("#brStory").bounding_box()
+        assert rail_box is not None
+        assert story_box is not None
+        assert rail_box["x"] + rail_box["width"] <= story_box["x"]
+        assert abs(rail_box["y"] - story_box["y"]) < 1
+
+        # The first chapter starts current and the rest are muted: their charts
+        # fade while body text keeps full contrast.
+        chapters = page.locator(".br-chapter")
+        expect(chapters.nth(0)).to_have_class(re.compile(r"\bis-current\b"))
+        expect(page.locator("#brStory")).to_have_class(re.compile(r"\bis-tracking\b"))
+        expect(page.locator("#yieldCurveChart").locator("..")).to_have_css("opacity", "0.55")
+
+        # Scrolling a later chapter into the reading band highlights it, and
+        # the rail stays inside the window the whole way down.
+        page.evaluate(
+            """() => {
+                const chapter = document.querySelectorAll('.br-chapter')[3];
+                window.scrollTo(0, chapter.getBoundingClientRect().top + window.scrollY - 220);
+            }"""
+        )
+        expect(chapters.nth(3)).to_have_class(re.compile(r"\bis-current\b"))
+        expect(page.locator("#yieldCurveChart").locator("..")).to_have_css("opacity", "1")
+        expect(page.locator("#sensitivityChart").locator("..")).to_have_css("opacity", "0.55")
+        expect(chapters.nth(0)).not_to_have_class(re.compile(r"\bis-current\b"))
+        pinned = rail.bounding_box()
+        assert pinned is not None
+        assert pinned["y"] >= 0, pinned
+        assert pinned["y"] + pinned["height"] <= 800, pinned
+
+        # The apply button moves the slider that lives in the rail.
+        page.locator("#btnCurveInverted").click()
+        expect(page.locator("#btnCurveInverted")).to_have_attribute("aria-pressed", "true")
+        slider_before = page.locator("#slRate").input_value()
+        page.locator("#btnApplyCurve").click()
+        expect(page.locator("#slRate")).not_to_have_value(slider_before)
+        applied_rate = float(page.locator("#slRate").input_value())
+        expect(page.locator("#rateValue")).to_have_text(f"{applied_rate:.1f}%")
+        expect(rail.locator("#rateValue")).to_be_in_viewport()
+
+        # Below 960px the rail stops pinning and stacks above the story.
+        page.set_viewport_size({"width": 800, "height": 900})
+        page.evaluate("window.scrollTo(0, 0)")
+        expect(rail).to_have_css("position", "static")
+        stacked_rail = rail.bounding_box()
+        first_chapter = chapters.nth(0).bounding_box()
+        assert stacked_rail is not None
+        assert first_chapter is not None
+        assert stacked_rail["y"] + stacked_rail["height"] <= first_chapter["y"]
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
 @app_scope_skipif("vendor-docs-generator")
 def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
     app_browser: AppBrowserHarness,
@@ -225,69 +449,105 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         assert fit["paperBottom"] <= fit["frameBottom"] + 1, "the whole page should be in view"
         expect(page.locator("#vdZoomLevel")).to_have_text(re.compile(r"^\d+%$"))
 
-        # The rail is an accordion because five open cards stacked to roughly
-        # twice the stage's height and left a dead column beside them. Only
-        # Document opens, and the guard that this stays fixed is the rail
-        # measuring no taller than the stage it sits next to.
-        expect(page.locator(".vd-rail > details")).to_have_count(5)
-        assert page.locator("#vdGroupDocument").get_attribute("open") is not None
-        assert page.locator("#vdGroupBatch").get_attribute("open") is None
-        expect(page.locator("#vdBatch")).to_be_hidden()
+        # The studio has one toolbar, one stage, and one Output panel. The
+        # vendor is a dropdown, the type is six pills, and exactly one primary
+        # button is on screen: the export button pinned to the panel's foot.
+        assert page.locator("#vdVendor").evaluate("el => el.tagName") == "SELECT"
+        expect(page.locator("#vdDocType button")).to_have_count(6)
+        expect(page.locator("#vdDegradePreset button")).to_have_count(5)
+        expect(page.locator(".vd-workbench .btn-primary:visible")).to_have_count(1)
+        expect(page.locator("#vdExport")).to_have_text("Download")
+        expect(page.locator("#vdBatchOptions")).to_be_hidden()
+        expect(page.locator("#vdBatchStop")).to_be_hidden()
+        expect(page.locator("#vdFormatJson")).to_be_hidden()
+        expect(page.locator("#vdPairLabel")).to_be_hidden()
 
-        rail_fit = page.evaluate(
-            """() => ({
-                rail: document.querySelector('.vd-rail').getBoundingClientRect().height,
-                stage: document.querySelector('.vd-stage').getBoundingClientRect().height
-            })"""
-        )
-        assert rail_fit["rail"] <= rail_fit["stage"], rail_fit
+        # The three label switches are one ladder, and it opens on JSON.
+        expect(page.locator('#vdLabels [data-labels="json"]')).to_have_class("active")
 
-        # The groups are not exclusive. Opening the batch controls must leave
-        # the scan preset readable, because the preset is what that batch runs
-        # under and hiding it would trade one usability problem for another.
-        page.locator("#vdGroupScan > summary").click()
-        page.locator("#vdGroupBatch > summary").click()
-        expect(page.locator("#vdDegradePreset")).to_be_visible()
-        expect(page.locator("#vdBatch")).to_be_visible()
-
-        # The rest of this flow drives controls in every group.
-        page.evaluate(
-            "() => document.querySelectorAll('.vd-rail > details')"
-            ".forEach(group => { group.open = true; })"
-        )
-
-        # With every group open the rail is far taller than the window, and the
-        # stage pins so the page stays in view while those controls scroll past
-        # it. Checked at several depths rather than one, because a sticky item
-        # can only travel as far as its own grid area and a single sample would
+        # The output panel is capped to the window, so the export button is
+        # always reachable, and it pins beside the page while the window scrolls.
+        # Checked at several depths rather than one, because a sticky item can
+        # only travel as far as its own grid area and a single sample would
         # pass just as well against an element that had already let go.
-        for depth in (300, 600, 900):
+        for depth in (150, 300):
             page.evaluate(f"window.scrollTo(0, {depth})")
             page.wait_for_timeout(150)
             pinned = page.evaluate(
                 """() => {
-                    const frame = document.querySelector('#vdPaperFrame').getBoundingClientRect();
-                    const rail = document.querySelector('.vd-rail').getBoundingClientRect();
+                    const output = document.querySelector('.vd-output').getBoundingClientRect();
+                    const button = document.querySelector('#vdExport').getBoundingClientRect();
                     return {
-                        top: frame.top,
-                        bottom: frame.bottom,
-                        viewport: window.innerHeight,
-                        railRunsOn: rail.bottom - frame.bottom
+                        outputTop: output.top,
+                        outputHeight: output.height,
+                        buttonBottom: button.bottom,
+                        viewport: window.innerHeight
                     };
                 }"""
             )
-            assert pinned["railRunsOn"] > 0, (depth, pinned)
-            assert pinned["top"] >= 0, (depth, pinned)
-            assert pinned["bottom"] <= pinned["viewport"], (depth, pinned)
+            assert pinned["outputHeight"] <= pinned["viewport"], (depth, pinned)
+            assert pinned["buttonBottom"] <= pinned["viewport"], (depth, pinned)
 
         page.evaluate("window.scrollTo(0, 0)")
         page.wait_for_timeout(150)
 
-        # Selection drives the preview and the chips.
+        # Batch mode reveals its rows and renames the one primary button; the
+        # panel stays inside the window even with the fine-tune knobs open.
+        page.locator('#vdMode [data-mode="batch"]').click()
+        expect(page.locator("#vdBatchOptions")).to_be_visible()
+        expect(page.locator("#vdFormatJson")).to_be_visible()
+        expect(page.locator("#vdExport")).to_have_text("Generate ZIP")
+        expect(page.locator(".vd-workbench .btn-primary:visible")).to_have_count(1)
+        page.locator("#vdDegradeCustom > summary").click()
+        expect(page.locator("#vdKnobs")).to_be_visible()
+        panel = page.evaluate(
+            """() => ({
+                output: document.querySelector('.vd-output').getBoundingClientRect().height,
+                viewport: window.innerHeight,
+                body: document.querySelector('.vd-output-body').scrollHeight,
+                bodyClient: document.querySelector('.vd-output-body').clientHeight
+            })"""
+        )
+        assert panel["output"] <= panel["viewport"], panel
+        page.locator("#vdDegradeCustom > summary").click()
+        page.locator('#vdMode [data-mode="page"]').click()
+        expect(page.locator("#vdBatchOptions")).to_be_hidden()
+
+        # Below about 1000px the studio stacks (toolbar, page, output), and below
+        # 700px the type pills give way to the dropdown.
+        page.set_viewport_size({"width": 900, "height": 900})
+        page.wait_for_timeout(150)
+        stacked = page.evaluate(
+            """() => ({
+                stageBottom: document.querySelector('.vd-stage').getBoundingClientRect().bottom,
+                outputTop: document.querySelector('.vd-output').getBoundingClientRect().top,
+                overflow: document.documentElement.scrollWidth
+                    - document.documentElement.clientWidth
+            })"""
+        )
+        assert stacked["outputTop"] >= stacked["stageBottom"] - 1, stacked
+        assert stacked["overflow"] <= 0, stacked
+        page.set_viewport_size({"width": 600, "height": 900})
+        page.wait_for_timeout(150)
+        expect(page.locator("#vdDocType")).to_be_hidden()
+        expect(page.locator("#vdDocTypeSelect")).to_be_visible()
+        page.locator("#vdDocTypeSelect").select_option("receipt")
+        expect(page.locator('#vdDocType [data-type="receipt"]')).to_have_class("active")
+        page.locator("#vdDocTypeSelect").select_option("invoice")
+        page.set_viewport_size({"width": 1400, "height": 900})
+        page.wait_for_timeout(150)
+        expect(page.locator("#vdDocType")).to_be_visible()
+
+        # Selection drives the preview and the caption, and the swatch next to
+        # the vendor dropdown carries that vendor's accent through CSSOM.
         page.locator("#vdVendor").select_option("ironwood")
-        page.locator("#vdDocType").select_option("statement")
-        expect(page.locator("#vdChipVendor")).to_have_text("Ironwood Construction Materials")
-        expect(page.locator("#vdChipType")).to_have_text("Statement of account")
+        page.locator('#vdDocType [data-type="statement"]').click()
+        expect(page.locator("#vdCaptionVendor")).to_have_text("Ironwood Construction Materials")
+        expect(page.locator("#vdCaptionType")).to_have_text("Statement of account")
+        assert (
+            page.locator("#vdVendorSwatch").evaluate("el => getComputedStyle(el).backgroundColor")
+            == "rgb(180, 83, 9)"
+        )
 
         # No ledger row may read as a negative balance, and no amount may print
         # its minus sign inside the currency symbol.
@@ -298,9 +558,9 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
 
         # The dense treatment is invoice-only.
         expect(page.locator("#vdLayout button").nth(1)).to_be_disabled()
-        page.locator("#vdDocType").select_option("invoice")
+        page.locator('#vdDocType [data-type="invoice"]').click()
         page.locator("#vdLayout button").nth(1).click()
-        expect(page.locator("#vdChipType")).to_have_text("Invoice (dense)")
+        expect(page.locator("#vdCaptionType")).to_have_text("Invoice (dense)")
         page.locator("#vdLayout button").nth(0).click()
 
         seed_before = page.locator("#vdChipSeed").text_content()
@@ -359,7 +619,7 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         def download_bytes(selector: str) -> bytes:
             return next(iter(download_all(selector).values()))
 
-        exported = download_all("#vdDownloadPdf", expected=2)
+        exported = download_all("#vdExport", expected=2)
         text_pdf = exported["pdf"]
         assert text_pdf.startswith(b"%PDF-"), text_pdf[:16]
         assert b"Ironwood" in text_pdf or b"FlateDecode" in text_pdf
@@ -375,18 +635,20 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         line_sum = sum(item["amount"]["value"] for item in sidecar["line_items"])
         assert round(line_sum, 2) == sidecar["fields"]["subtotal"]["value"]
 
-        page.locator("#vdPdfMode").select_option("image")
-        image_pdf = download_all("#vdDownloadPdf", expected=2)["pdf"]
+        page.locator('#vdPdfMode [data-pdf-mode="image"]').click()
+        image_pdf = download_all("#vdExport", expected=2)["pdf"]
         assert image_pdf.startswith(b"%PDF-")
         # A rasterised page carries an embedded image, so it is far heavier than
         # the same page as a text layer.
         assert len(image_pdf) > len(text_pdf)
 
-        png = download_all("#vdDownloadPng", expected=2)["png"]
+        page.locator('#vdFormat [data-format="png"]').click()
+        expect(page.locator("#vdPdfModeField")).to_be_hidden()
+        png = download_all("#vdExport", expected=2)["png"]
         assert png.startswith(b"\x89PNG\r\n\x1a\n"), png[:8]
 
         # With boxes on, the JSON button alone carries the geometry.
-        page.locator("#vdBoxes").check()
+        page.locator('#vdLabels [data-labels="fields"]').click()
         boxed = json.loads(download_bytes("#vdDownloadJson"))
         assert boxed["boxes_apply_to"] == ["png", "pdf_raster"]
         assert boxed["boxes"]["page"] == {"width": 794, "height": 1123, "unit": "normalised"}
@@ -396,14 +658,15 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         assert any(region["field"] == "grand_total" for region in regions)
         assert all("words" not in region for region in regions)
 
-        page.locator("#vdWordBoxes").check()
+        page.locator('#vdLabels [data-labels="words"]').click()
         worded = json.loads(download_bytes("#vdDownloadJson"))
         assert all("words" in region for region in worded["boxes"]["regions"])
-        page.locator("#vdBoxes").uncheck()
+        page.locator('#vdLabels [data-labels="json"]').click()
 
+        page.locator('#vdMode [data-mode="batch"]').click()
         page.locator("#vdBatchCount").fill("1")
-        page.locator("#vdBatchFormat").select_option("pdf")
-        zip_bytes = download_bytes("#vdBatch")
+        page.locator('#vdFormat [data-format="pdf"]').click()
+        zip_bytes = download_bytes("#vdExport")
         assert zip_bytes.startswith(b"PK"), zip_bytes[:4]
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as archive:
             # JSZip writes the folder entries too, so only the files are counted.
@@ -443,7 +706,7 @@ def test_vendor_docs_generator_batch_can_be_stopped_mid_run(
         session.goto("/apps/vendor-docs-generator/")
         page.wait_for_function("window.__ARTIFACT_READY__ === true")
 
-        page.locator("#vdGroupBatch > summary").click()
+        page.locator('#vdMode [data-mode="batch"]').click()
         expect(page.locator("#vdBatchStop")).to_be_hidden()
 
         # Text PDF across the whole cross product. jsPDF is synchronous, so this
@@ -451,9 +714,8 @@ def test_vendor_docs_generator_batch_can_be_stopped_mid_run(
         # run that used to hold the main thread from the first document to the
         # last. 900 documents take about 4.5 seconds, which is long enough that
         # a stop click has somewhere to land.
-        page.locator("#vdBatchFormat").select_option("pdf")
-        page.locator("#vdAllTypes").check()
-        page.locator("#vdAllVendors").check()
+        page.locator('#vdFormat [data-format="pdf"]').click()
+        page.locator('#vdInclude [data-include="all"]').click()
         page.locator("#vdBatchCount").fill("25")
         planned = 6 * 6 * 25
 
@@ -464,8 +726,17 @@ def test_vendor_docs_generator_batch_can_be_stopped_mid_run(
 
         page.on("download", remember)
 
-        page.locator("#vdBatch").click()
+        page.locator("#vdExport").click()
         expect(page.locator("#vdBatchStop")).to_be_visible()
+        # The run's controls live in the panel's pinned footer, inside the window.
+        expect(page.locator("#vdProgress")).to_be_visible()
+        footer = page.evaluate(
+            """() => ({
+                stop: document.querySelector('#vdBatchStop').getBoundingClientRect().bottom,
+                viewport: window.innerHeight
+            })"""
+        )
+        assert footer["stop"] <= footer["viewport"], footer
 
         # Wait for the run to be genuinely under way, then click. If the loop
         # never yielded, this click would sit in the queue until the whole batch
@@ -505,8 +776,8 @@ def test_vendor_docs_generator_batch_can_be_stopped_mid_run(
             assert f"Documents: {len(labels)} (run stopped early; {planned} were planned)" in readme
 
         # The workbench is usable again, not left in the busy state.
-        expect(page.locator("#vdBatch")).to_be_enabled()
-        expect(page.locator("#vdBatch")).to_have_text("Generate batch as ZIP")
+        expect(page.locator("#vdExport")).to_be_enabled()
+        expect(page.locator("#vdExport")).to_have_text("Generate ZIP")
         expect(page.locator("#vdProgress")).to_be_hidden()
 
 

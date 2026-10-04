@@ -114,7 +114,6 @@ def test_runtime_change_plan_handles_changed_and_shared_runtime_paths() -> None:
             "loan-amortization",
             "loan-tool",
             "prompt-caching",
-            "tokenizer-explorer",
         ],
         "runtime_changed": True,
         "browser_changed": True,

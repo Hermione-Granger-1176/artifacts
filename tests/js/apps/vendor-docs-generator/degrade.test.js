@@ -51,6 +51,8 @@ test('every preset resolves to a complete settings object', () => {
     assert.deepEqual(Object.keys(settings).sort(), keys, `${preset.id} settings shape`);
     assert.ok(Object.values(settings).every((value) => value !== undefined), `${preset.id} has a hole`);
     assert.equal(isClean(settings), preset.id === 'clean', `${preset.id} clean-ness`);
+    // The preset row shows the short name and keeps the full one as a tooltip.
+    assert.ok(preset.short.length > 0 && preset.short.length <= preset.label.length, `${preset.id} short label`);
   }
 
   assert.equal(findPreset('nope').id, 'clean', 'an unknown id falls back rather than throwing');

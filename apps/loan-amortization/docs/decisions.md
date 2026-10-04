@@ -29,6 +29,18 @@ The root gallery already uses this model. Reusing it keeps theme state consisten
 
 The bookmark-note surfaces stay bright in dark mode, so buttons, pills, and other note-tinted surfaces keep dark readable text. Separate emphasis tokens handle chart labels that sit directly on dark backgrounds.
 
+## Why two columns with all five charts kept
+
+Inputs sit in a sticky left column so every change is answered on the same screen, and the EMI is the single hero number. The five charts stay visible and stacked rather than folded into tabs, because each answers a different question and the user wants them all at a glance. They share one card style, legend placement (under the title), and frame height so the stack reads as one system.
+
+## Why extra payments show a summary line instead of a hover tip
+
+The compact rows live in a scrolling sticky column, where a hover tooltip would be clipped. The plain-language summary is now a visible one-line caption on each row, updated as the fields change, so nothing is hidden behind a hover.
+
+## Why the shell is widened app-locally
+
+Two columns do not fit the shared 1000px shell, so the loan page widens its own shell (and header, to keep one left edge) to 1200px. The shared tokens, colours, and components are unchanged.
+
 ## Deferred items
 
 - User-facing theme preference controls beyond the shared toggle

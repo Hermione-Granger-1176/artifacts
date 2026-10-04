@@ -57,8 +57,8 @@ APPS_DIRNAME = "apps"
 FONT_SIZE_PX_ALLOWLIST: dict[str, frozenset[str]] = {
     # .inf-cache-cell (hidden, color: transparent, cell label)
     "apps/prompt-caching/css/app.css": frozenset({"9px"}),
-    # .card-icon (fixed-size glyph) and .sentence-display (sample sentence copy)
-    "apps/tokenizer-explorer/css/app.css": frozenset({"15px", "17px"}),
+    # .card-icon (fixed-size glyph)
+    "apps/tokenizer-explorer/css/app.css": frozenset({"15px"}),
 }
 
 # Letter-spacing literals deliberately retained where no shared tracking token

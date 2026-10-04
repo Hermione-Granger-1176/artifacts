@@ -48,163 +48,187 @@
       <p class="page-lede">Model fixed-payment loans across multiple cadences, add recurring or one-time extra payments, and inspect charts plus repayment schedules without leaving the page.</p>
     </header>
 
-    <section class="page-section">
-      <div class="inputs-grid">
-        <div class="page-card input-card">
-          <label class="ic-label" for="inPrincipal">Loan amount</label>
-          <div class="ic-field">
-            <span class="prefix">$</span>
-            <input class="text-input" type="text" id="inPrincipal" value="50,000" placeholder="e.g. 50,000">
+    <div class="loan-layout">
+      <aside class="page-card loan-inputs" aria-label="Loan inputs">
+        <section class="loan-group" aria-labelledby="loanGroupTitle">
+          <h2 class="section-kicker" id="loanGroupTitle">Loan</h2>
+          <div class="control-field loan-field">
+            <div class="control-field-head">
+              <label for="inPrincipal">Loan amount</label>
+              <div class="loan-value">
+                <span class="loan-affix is-prefix" aria-hidden="true">$</span>
+                <input class="text-input has-prefix" type="text" id="inPrincipal" value="50,000" placeholder="e.g. 50,000">
+              </div>
+            </div>
+            <input class="range-input" type="range" id="slPrincipal" min="5000" max="500000" step="1000" value="50000" aria-label="Loan amount slider">
           </div>
-          <input class="range-input" type="range" id="slPrincipal" min="5000" max="500000" step="1000" value="50000" aria-label="Loan amount slider">
-        </div>
-        <div class="page-card input-card">
-          <label class="ic-label" for="inRate">Interest rate (p.a.)</label>
-          <div class="ic-field">
-            <input class="text-input" type="text" id="inRate" value="5.00" placeholder="e.g. 5.00">
-            <span class="suffix">%</span>
+          <div class="control-field loan-field">
+            <div class="control-field-head">
+              <label for="inRate">Interest rate (p.a.)</label>
+              <div class="loan-value">
+                <input class="text-input has-suffix" type="text" id="inRate" value="5.00" placeholder="e.g. 5.00">
+                <span class="loan-affix is-suffix" aria-hidden="true">%</span>
+              </div>
+            </div>
+            <input class="range-input" type="range" id="slRate" min="1" max="20" step="0.25" value="5" aria-label="Interest rate slider">
           </div>
-          <input class="range-input" type="range" id="slRate" min="1" max="20" step="0.25" value="5" aria-label="Interest rate slider">
-        </div>
-        <div class="page-card input-card">
-          <label class="ic-label" for="inTenure">Tenure</label>
-          <div class="ic-field">
-            <input class="text-input" type="text" id="inTenure" value="7" placeholder="e.g. 7">
-            <span class="suffix">years</span>
+          <div class="control-field loan-field">
+            <div class="control-field-head">
+              <label for="inTenure">Tenure</label>
+              <div class="loan-value">
+                <input class="text-input has-suffix is-wide" type="text" id="inTenure" value="7" placeholder="e.g. 7">
+                <span class="loan-affix is-suffix" aria-hidden="true">years</span>
+              </div>
+            </div>
+            <input class="range-input" type="range" id="slTenure" min="1" max="30" step="1" value="7" aria-label="Tenure slider">
           </div>
-          <input class="range-input" type="range" id="slTenure" min="1" max="30" step="1" value="7" aria-label="Tenure slider">
-        </div>
-        <div class="page-card input-card">
-          <label class="ic-label" for="selFreq">EMI frequency</label>
-          <select class="select-input" id="selFreq">
-            <option value="yearly">Yearly</option>
-            <option value="halfyearly">Half-yearly</option>
-            <option value="quarterly">Quarterly</option>
-            <option value="monthly" selected>Monthly</option>
-            <option value="biweekly">Bi-weekly</option>
-            <option value="weekly">Weekly</option>
-          </select>
+        </section>
+
+        <section class="loan-group" aria-label="Repayment frequency">
+          <div class="control-field loan-field">
+            <div class="control-field-head">
+              <label for="selFreq">EMI frequency</label>
+              <div class="loan-value">
+                <select class="select-input" id="selFreq">
+                  <option value="yearly">Yearly</option>
+                  <option value="halfyearly">Half-yearly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="monthly" selected>Monthly</option>
+                  <option value="biweekly">Bi-weekly</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+            </div>
+          </div>
           <div id="biweeklyMode" class="biweekly-mode" hidden>
             <div class="control-copy">Bi-weekly method</div>
-            <div class="type-toggle is-full">
+            <div class="type-toggle is-inset is-full">
               <button id="bwTrue" type="button" class="active" data-bw-mode="true">True</button>
               <button id="bwAccel" type="button" data-bw-mode="accelerated">Accelerated</button>
             </div>
             <div id="bwDesc" class="control-copy is-small">EMI recalculated for 26 periods per year</div>
           </div>
-        </div>
-      </div>
-    </section>
+        </section>
 
-    <section class="page-card extra-section page-section">
-      <div class="section-head">
-        <span class="section-title">Extra payments</span>
-        <button class="btn btn-add" id="btnAdd" type="button">+ Add</button>
-      </div>
-      <div id="extraList"></div>
-      <div class="helper-copy">Hover over the <button type="button" class="info-tip" data-tip="Each card summarizes its extra payment. Periods adapt to your chosen EMI frequency." aria-label="Each card summarizes its extra payment. Periods adapt to your chosen EMI frequency.">?</button> on each card for a plain-language summary.</div>
-    </section>
+        <section class="loan-group" aria-labelledby="extraGroupTitle">
+          <h2 class="section-kicker" id="extraGroupTitle">Extra payments</h2>
+          <div id="extraList" class="extra-list"></div>
+          <p class="extra-empty">No extra payments yet.</p>
+          <button class="btn btn-outline" id="btnAdd" type="button">+ Add extra payment</button>
+        </section>
+      </aside>
 
-    <section class="page-section">
-      <div class="stat-grid" id="metrics"></div>
-    </section>
+      <div class="loan-results">
+        <div id="metrics" class="loan-summary"></div>
 
-    <section class="page-section">
-      <div class="segmented" id="viewToggle" aria-label="View mode">
-        <button class="active" id="btnCharts" type="button" aria-pressed="true">Charts</button>
-        <button id="btnTable" type="button" aria-pressed="false">Schedule</button>
-      </div>
-
-      <div id="chartsWrap">
-        <div class="chart-card">
-          <h2>Balance over time</h2>
-          <div class="chart-legend">
-            <span><span class="dot is-note-blue"></span>Without extras</span>
-            <span><span class="dot is-note-green"></span>With extras</span>
+        <section class="loan-view" aria-label="Results">
+          <div class="segmented is-fused is-inset" id="viewToggle" aria-label="View mode">
+            <button class="active" id="btnCharts" type="button" aria-pressed="true"><svg class="loan-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 13.25h12"/><path d="M4 11V8"/><path d="M8 11V4"/><path d="M12 11V6.5"/></svg>Charts</button>
+            <button id="btnTable" type="button" aria-pressed="false"><svg class="loan-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 6.5h12"/><path d="M2 10h12"/><path d="M6.5 6.5V13"/></svg>Schedule</button>
           </div>
-          <div class="chart-frame is-tall"><canvas id="balanceChart"></canvas></div>
-        </div>
 
-        <div class="chart-row">
-          <div class="chart-card">
-            <h2>Scenario comparison</h2>
-            <div class="chart-legend">
-              <span><span class="dot is-blue"></span>Principal</span>
-              <span><span class="dot is-note-red"></span>Interest</span>
-              <span><span class="dot is-note-green"></span>Extras</span>
+          <div id="chartsWrap" class="loan-charts">
+            <div class="chart-card">
+              <div class="chart-card-head">
+                <h2>Balance over time</h2>
+                <div class="chart-legend">
+                  <span><span class="dot is-note-blue"></span>Without extras</span>
+                  <span><span class="dot is-note-green"></span>With extras</span>
+                </div>
+              </div>
+              <div class="chart-frame"><canvas id="balanceChart"></canvas></div>
             </div>
-            <div class="chart-frame is-medium"><canvas id="compChart"></canvas></div>
-          </div>
-          <div class="chart-card">
-            <h2>Interest saved</h2>
-            <div class="chart-legend">
-              <span><span class="dot is-note-red"></span>Interest paid</span>
-              <span><span class="dot is-note-green"></span>Interest saved</span>
+
+            <div class="chart-row">
+              <div class="chart-card">
+                <div class="chart-card-head">
+                  <h2>Scenario comparison</h2>
+                  <div class="chart-legend">
+                    <span><span class="dot is-blue"></span>Principal</span>
+                    <span><span class="dot is-note-red"></span>Interest</span>
+                    <span><span class="dot is-note-green"></span>Extras</span>
+                  </div>
+                </div>
+                <div class="chart-frame"><canvas id="compChart"></canvas></div>
+              </div>
+              <div class="chart-card">
+                <div class="chart-card-head">
+                  <h2>Interest saved</h2>
+                  <div class="chart-legend">
+                    <span><span class="dot is-note-red"></span>Interest paid</span>
+                    <span><span class="dot is-note-green"></span>Interest saved</span>
+                  </div>
+                </div>
+                <div class="chart-frame"><canvas id="savingsChart"></canvas></div>
+              </div>
             </div>
-            <div class="chart-frame is-medium"><canvas id="savingsChart"></canvas></div>
-          </div>
-        </div>
 
-        <div class="chart-card">
-          <h2>Cumulative payments</h2>
-          <div class="chart-legend">
-            <span><span class="dot is-blue"></span>Cumulative principal</span>
-            <span><span class="dot is-note-green"></span>Cumulative extras</span>
-            <span><span class="dot is-note-red"></span>Cumulative interest</span>
-            <span class="chart-legend-note">Dashed line = break-even</span>
-          </div>
-          <div class="chart-frame is-tall"><canvas id="cumulChart"></canvas></div>
-        </div>
+            <div class="chart-card">
+              <div class="chart-card-head">
+                <h2>Cumulative payments</h2>
+                <div class="chart-legend">
+                  <span><span class="dot is-blue"></span>Cumulative principal</span>
+                  <span><span class="dot is-note-green"></span>Cumulative extras</span>
+                  <span><span class="dot is-note-red"></span>Cumulative interest</span>
+                  <span class="chart-legend-note">Dashed line = break-even</span>
+                </div>
+              </div>
+              <div class="chart-frame"><canvas id="cumulChart"></canvas></div>
+            </div>
 
-        <div class="chart-card">
-          <h2>Per-period breakdown</h2>
-          <div class="chart-legend">
-            <span><span class="dot is-blue"></span>Principal</span>
-            <span><span class="dot is-note-green"></span>Extra payment</span>
-            <span><span class="dot is-note-red"></span>Interest</span>
+            <div class="chart-card">
+              <div class="chart-card-head">
+                <h2>Per-period breakdown</h2>
+                <div class="chart-legend">
+                  <span><span class="dot is-blue"></span>Principal</span>
+                  <span><span class="dot is-note-green"></span>Extra payment</span>
+                  <span><span class="dot is-note-red"></span>Interest</span>
+                </div>
+              </div>
+              <div class="chart-frame"><canvas id="periodChart"></canvas></div>
+            </div>
           </div>
-          <div class="chart-frame is-compact"><canvas id="periodChart"></canvas></div>
-        </div>
+
+          <div id="tableWrap" hidden>
+            <div class="segmented is-fused is-inset" id="tableToggle">
+              <button class="active" id="btnPeriod" type="button" aria-pressed="true"><svg class="loan-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 4.5h10"/><path d="M3 8h10"/><path d="M3 11.5h10"/></svg>Per period</button>
+              <button id="btnYearly" type="button" aria-pressed="false"><svg class="loan-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="3" width="12" height="10.5" rx="1.5"/><path d="M2 6.5h12"/><path d="M5.5 1.75v2.5"/><path d="M10.5 1.75v2.5"/></svg>Yearly summary</button>
+            </div>
+            <div id="tableSummary" class="table-summary"></div>
+            <div class="table-wrap" id="periodTableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>EMI</th>
+                    <th>Principal</th>
+                    <th>Interest</th>
+                    <th>Extra</th>
+                    <th>Balance</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+              </table>
+            </div>
+            <div class="table-wrap" id="yearlyTableWrap" hidden>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Year</th>
+                    <th>Opening bal.</th>
+                    <th>Principal paid</th>
+                    <th>Interest paid</th>
+                    <th>Extras paid</th>
+                    <th>Closing bal.</th>
+                  </tr>
+                </thead>
+                <tbody id="ybody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
       </div>
-
-      <div id="tableWrap" hidden>
-        <div class="segmented" id="tableToggle">
-          <button class="active" id="btnPeriod" type="button" aria-pressed="true">Per period</button>
-          <button id="btnYearly" type="button" aria-pressed="false">Yearly summary</button>
-        </div>
-        <div id="tableSummary" class="table-summary"></div>
-        <div class="table-wrap" id="periodTableWrap">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>EMI</th>
-                <th>Principal</th>
-                <th>Interest</th>
-                <th>Extra</th>
-                <th>Balance</th>
-              </tr>
-            </thead>
-            <tbody id="tbody"></tbody>
-          </table>
-        </div>
-        <div class="table-wrap" id="yearlyTableWrap" hidden>
-          <table>
-            <thead>
-              <tr>
-                <th>Year</th>
-                <th>Opening bal.</th>
-                <th>Principal paid</th>
-                <th>Interest paid</th>
-                <th>Extras paid</th>
-                <th>Closing bal.</th>
-              </tr>
-            </thead>
-            <tbody id="ybody"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+    </div>
   </main>
 
   <div data-app-shell="scroll-top"></div>

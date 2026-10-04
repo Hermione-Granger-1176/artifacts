@@ -47,169 +47,157 @@
     </header>
 
     <div class="vd-workbench">
-      <aside class="vd-rail" aria-label="Document controls">
-        <details class="page-card vd-group" id="vdGroupDocument" open>
-          <summary class="vd-group-head">Document</summary>
-          <div class="vd-group-body">
-            <div class="control-field">
-              <div class="control-field-head">
-                <label for="vdVendor">Vendor</label>
-              </div>
-              <select id="vdVendor" class="select-input"></select>
-            </div>
-
-            <div class="control-field">
-              <div class="control-field-head">
-                <label for="vdDocType">Document type</label>
-              </div>
-              <select id="vdDocType" class="select-input"></select>
-            </div>
-
-            <div class="control-field">
-              <div class="control-field-head">
-                <span id="vdLayoutLabel" class="vd-field-label">Invoice layout</span>
-              </div>
-              <div class="segmented is-fused" id="vdLayout" role="group" aria-labelledby="vdLayoutLabel">
-                <button type="button" class="active" data-style="clean">Clean</button>
-                <button type="button" data-style="dense">Dense</button>
-              </div>
-              <p class="control-field-note" id="vdLayoutNote">The dense layout only applies to invoices.</p>
-            </div>
-
-            <button type="button" class="btn btn-primary vd-block-btn" id="vdGenerate">Generate new document</button>
+      <div class="page-card vd-toolbar" role="group" aria-label="Document">
+        <div class="control-field vd-tool is-vendor">
+          <div class="control-field-head">
+            <label for="vdVendor">Vendor</label>
           </div>
-        </details>
-
-        <details class="page-card vd-group" id="vdGroupExport">
-          <summary class="vd-group-head">Export this page</summary>
-          <div class="vd-group-body">
-            <div class="control-field">
-              <div class="control-field-head">
-                <label for="vdPdfMode">PDF type</label>
-              </div>
-              <select id="vdPdfMode" class="select-input">
-                <option value="text">Text layer (searchable)</option>
-                <option value="image">Rasterised (scanned look)</option>
-              </select>
-            </div>
-
-            <div class="vd-button-row">
-              <button type="button" class="btn btn-outline" id="vdDownloadPdf">Download PDF</button>
-              <button type="button" class="btn btn-outline" id="vdDownloadPng">Download PNG</button>
-            </div>
-            <button type="button" class="btn btn-outline vd-block-btn" id="vdDownloadJson">Download ground truth JSON</button>
+          <div class="vd-vendor-pick">
+            <span class="vd-swatch" id="vdVendorSwatch" aria-hidden="true"></span>
+            <select id="vdVendor" class="select-input"></select>
           </div>
-        </details>
+        </div>
 
-        <details class="page-card vd-group" id="vdGroupTruth">
-          <summary class="vd-group-head">Ground truth</summary>
-          <div class="vd-group-body">
-            <label class="vd-check" for="vdGroundTruth">
-              <input type="checkbox" id="vdGroundTruth" checked>
-              <span>Label every export</span>
-            </label>
-            <label class="vd-check" for="vdBoxes">
-              <input type="checkbox" id="vdBoxes">
-              <span>Add field bounding boxes</span>
-            </label>
-            <label class="vd-check" for="vdWordBoxes" id="vdWordBoxesLabel">
-              <input type="checkbox" id="vdWordBoxes" disabled>
-              <span>Word-level boxes (slower)</span>
-            </label>
-
-            <p class="control-field-note" id="vdGroundTruthNote">Every page ships with a JSON sidecar naming what each printed value is.</p>
+        <div class="control-field vd-tool is-type">
+          <div class="control-field-head">
+            <span id="vdDocTypeLabel" class="vd-field-label">Document</span>
           </div>
-        </details>
+          <div class="segmented is-fused is-inset vd-type-pills" id="vdDocType" role="group" aria-labelledby="vdDocTypeLabel"></div>
+          <select id="vdDocTypeSelect" class="select-input vd-type-select" aria-labelledby="vdDocTypeLabel"></select>
+        </div>
 
-        <details class="page-card vd-group" id="vdGroupScan">
-          <summary class="vd-group-head">Scan quality</summary>
-          <div class="vd-group-body">
-            <div class="control-field">
-              <div class="control-field-head">
-                <label for="vdDegradePreset">Preset</label>
+        <div class="control-field vd-tool is-layout" id="vdLayoutField">
+          <div class="control-field-head">
+            <span id="vdLayoutLabel" class="vd-field-label">Invoice layout</span>
+          </div>
+          <div class="segmented is-fused is-inset" id="vdLayout" role="group" aria-labelledby="vdLayoutLabel" title="The dense layout only applies to invoices.">
+            <button type="button" class="active" data-style="clean">Clean</button>
+            <button type="button" data-style="dense">Dense</button>
+          </div>
+        </div>
+
+        <div class="vd-tool is-seed">
+          <span class="chip is-mono" id="vdChipSeed">seed</span>
+          <button type="button" class="btn btn-outline" id="vdGenerate">New document</button>
+        </div>
+      </div>
+
+      <div class="vd-body">
+        <section class="vd-stage" aria-label="Document preview">
+          <div class="vd-paper-frame" id="vdPaperFrame">
+            <div class="vd-paper-scale" id="vdPaperScale">
+              <article class="vd-paper" id="vdPaper" aria-live="polite" aria-label="Generated document"></article>
+            </div>
+          </div>
+
+          <div class="vd-caption">
+            <p class="vd-caption-text">
+              <span id="vdCaptionVendor">Vendor</span>
+              <span id="vdCaptionType">Document</span>
+              <span id="vdCaptionScan">Clean</span>
+            </p>
+            <div class="vd-caption-tools">
+              <span>Fit <span id="vdZoomLevel">100%</span></span>
+              <button type="button" class="btn btn-outline btn-sm vd-quiet-btn" id="vdFullOpen">Full size</button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="page-card vd-output" aria-label="Output">
+          <div class="vd-output-head">
+            <div class="segmented is-fused is-inset" id="vdMode" role="group" aria-label="Export scope">
+              <button type="button" class="active" data-mode="page">This page</button>
+              <button type="button" data-mode="batch">Batch</button>
+            </div>
+          </div>
+
+          <div class="vd-output-body">
+            <section class="vd-section vd-batch-options" id="vdBatchOptions" aria-labelledby="vdBatchLabel" hidden>
+              <h2 class="section-kicker" id="vdBatchLabel">Batch</h2>
+              <div class="control-field">
+                <div class="control-field-head">
+                  <label for="vdBatchCount">Copies per combination</label>
+                  <output id="vdBatchCountOut" for="vdBatchCount">10</output>
+                </div>
+                <input id="vdBatchCount" class="range-input" type="range" min="1" max="50" step="1" value="10">
               </div>
-              <select id="vdDegradePreset" class="select-input"></select>
+
+              <div class="control-field">
+                <div class="control-field-head">
+                  <span id="vdIncludeLabel" class="vd-field-label">Include</span>
+                </div>
+                <div class="segmented is-fused is-inset" id="vdInclude" role="group" aria-labelledby="vdIncludeLabel">
+                  <button type="button" class="active" data-include="combo">This combo</button>
+                  <button type="button" data-include="types">All types</button>
+                  <button type="button" data-include="vendors">All vendors</button>
+                  <button type="button" data-include="all">Everything</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="vd-section" aria-labelledby="vdScanLabel">
+              <div class="vd-section-head">
+                <h2 class="section-kicker" id="vdScanLabel">Scan quality</h2>
+                <button type="button" class="btn btn-outline btn-sm vd-quiet-btn" id="vdPreviewScan">Preview scan</button>
+              </div>
+              <div class="segmented is-fused is-inset" id="vdDegradePreset" role="group" aria-labelledby="vdScanLabel"></div>
               <p class="control-field-note" id="vdDegradeNote">The render as-is. No geometry, no grain, lossless PNG.</p>
-            </div>
 
-            <details class="vd-advanced" id="vdDegradeCustom">
-              <summary>Custom knobs</summary>
-              <div class="vd-knobs" id="vdKnobs"></div>
-            </details>
+              <details class="vd-disclosure" id="vdDegradeCustom">
+                <summary>Fine-tune</summary>
+                <div class="vd-knobs" id="vdKnobs"></div>
+              </details>
 
-            <label class="vd-check" for="vdPair" id="vdPairLabel">
-              <input type="checkbox" id="vdPair" disabled>
-              <span>Also export the clean original with PNG outputs</span>
-            </label>
+              <label class="vd-check" for="vdPair" id="vdPairLabel" hidden>
+                <input type="checkbox" id="vdPair">
+                <span>Also export the clean original with PNG outputs</span>
+              </label>
+            </section>
+
+            <section class="vd-section" aria-labelledby="vdLabelsLabel">
+              <div class="vd-section-head">
+                <h2 class="section-kicker" id="vdLabelsLabel">Labels</h2>
+                <button type="button" class="btn btn-outline btn-sm vd-quiet-btn" id="vdDownloadJson">Download JSON only</button>
+              </div>
+              <div class="segmented is-fused is-inset" id="vdLabels" role="group" aria-labelledby="vdLabelsLabel">
+                <button type="button" data-labels="none">None</button>
+                <button type="button" class="active" data-labels="json">JSON</button>
+                <button type="button" data-labels="fields">+ Fields</button>
+                <button type="button" data-labels="words">+ Words</button>
+              </div>
+              <p class="control-field-note" id="vdLabelsNote">Every page ships with a JSON sidecar naming what each printed value is.</p>
+            </section>
+
+            <section class="vd-section" aria-labelledby="vdFormatLabel">
+              <h2 class="section-kicker" id="vdFormatLabel">Format</h2>
+              <div class="segmented is-fused is-inset" id="vdFormat" role="group" aria-labelledby="vdFormatLabel">
+                <button type="button" class="active" data-format="pdf">PDF</button>
+                <button type="button" data-format="png">PNG</button>
+                <button type="button" data-format="both">Both</button>
+                <button type="button" data-format="json" id="vdFormatJson" hidden>JSON</button>
+              </div>
+
+              <div class="vd-inline-field" id="vdPdfModeField">
+                <span id="vdPdfModeLabel" class="vd-field-label">PDF type</span>
+                <div class="segmented is-fused is-inset" id="vdPdfMode" role="group" aria-labelledby="vdPdfModeLabel">
+                  <button type="button" class="active" data-pdf-mode="text" title="Searchable text layer">Text layer</button>
+                  <button type="button" data-pdf-mode="image" title="Scanned look, images only">Rasterised</button>
+                </div>
+              </div>
+            </section>
           </div>
-        </details>
 
-        <details class="page-card vd-group" id="vdGroupBatch">
-          <summary class="vd-group-head">Batch export</summary>
-          <div class="vd-group-body">
-            <div class="control-field">
-              <div class="control-field-head">
-                <label for="vdBatchCount">Per combination</label>
-                <output id="vdBatchCountOut" for="vdBatchCount">10</output>
-              </div>
-              <input id="vdBatchCount" class="range-input" type="range" min="1" max="50" step="1" value="10">
-              <div class="control-field-hints"><span>1</span><span>50</span></div>
-            </div>
-
-            <div class="control-field">
-              <div class="control-field-head">
-                <label for="vdBatchFormat">Format</label>
-              </div>
-              <select id="vdBatchFormat" class="select-input">
-                <option value="pdf">PDF</option>
-                <option value="png">PNG</option>
-                <option value="both">Both</option>
-                <option value="json">JSON only (fastest)</option>
-              </select>
-            </div>
-
-            <label class="vd-check" for="vdAllTypes">
-              <input type="checkbox" id="vdAllTypes">
-              <span>All 6 document types</span>
-            </label>
-            <label class="vd-check" for="vdAllVendors">
-              <input type="checkbox" id="vdAllVendors">
-              <span>All 6 vendors</span>
-            </label>
-
-            <p class="control-field-note vd-estimate" id="vdBatchEstimate">Calculating batch size...</p>
-
-            <button type="button" class="btn btn-primary vd-block-btn" id="vdBatch">Generate batch as ZIP</button>
-            <button type="button" class="btn btn-outline vd-block-btn" id="vdBatchStop" hidden>Stop and keep what is done</button>
-
+          <div class="vd-output-foot">
+            <p class="vd-estimate" id="vdEstimate">Calculating size...</p>
             <div class="meter vd-progress" id="vdProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Batch progress" hidden>
               <div class="meter-fill" id="vdProgressFill"></div>
             </div>
-            <p class="control-field-note vd-batch-status" id="vdBatchStatus" role="status">One ZIP, foldered as vendor / type.</p>
+            <p class="vd-status" id="vdBatchStatus" role="status" hidden></p>
+            <button type="button" class="btn btn-primary vd-block-btn" id="vdExport">Download</button>
+            <button type="button" class="btn btn-outline vd-block-btn" id="vdBatchStop" hidden>Stop and keep what is done</button>
           </div>
-        </details>
-      </aside>
-
-      <section class="vd-stage" aria-label="Document preview">
-        <div class="vd-stage-head">
-          <div class="vd-stage-chips">
-            <span class="chip" id="vdChipVendor">Vendor</span>
-            <span class="chip" id="vdChipType">Document</span>
-            <span class="chip is-mono" id="vdChipSeed">seed</span>
-          </div>
-          <div class="vd-stage-tools">
-            <span class="chip is-mono" id="vdZoomLevel">100%</span>
-            <button type="button" class="btn btn-outline btn-sm" id="vdPreviewScan">Preview scan</button>
-            <button type="button" class="btn btn-outline btn-sm" id="vdFullOpen">Full size</button>
-          </div>
-        </div>
-
-        <div class="vd-paper-frame" id="vdPaperFrame">
-          <div class="vd-paper-scale" id="vdPaperScale">
-            <article class="vd-paper" id="vdPaper" aria-live="polite" aria-label="Generated document"></article>
-          </div>
-        </div>
-      </section>
+        </aside>
+      </div>
     </div>
 
     <dialog class="vd-fullscreen" id="vdFullscreen" aria-label="Document at full size">
@@ -220,46 +208,53 @@
       <div class="vd-fullscreen-body" id="vdFullscreenBody"></div>
     </dialog>
 
-    <section class="page-section vd-about">
-      <div class="section-kicker">What you get per page</div>
-
-      <div class="stat-grid vd-about-grid">
-        <div class="stat">
-          <div class="stat-label">Labelled fields</div>
-          <div class="stat-value">35</div>
-          <div class="stat-sub">Every sidecar carries the same keys, with null where the page prints nothing</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Per-row labels</div>
-          <div class="stat-value">11</div>
-          <div class="stat-sub">Description, SKU, product code, quantity, unit, rate, amount, tax, and line total</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Combinations</div>
-          <div class="stat-value">42</div>
-          <div class="stat-sub">Six vendors by six document types, plus a dense treatment of the invoice</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Box detail</div>
-          <div class="stat-value">2</div>
-          <div class="stat-sub">Field regions, and optionally every word, in normalised page coordinates</div>
-        </div>
-        <div class="stat">
-          <div class="stat-label">Scan presets</div>
-          <div class="stat-value">5</div>
-          <div class="stat-sub">Clean through phone photo, seeded so a degraded page is reproducible</div>
-        </div>
-      </div>
-
+    <section class="page-section vd-about" aria-label="About this generator">
       <div class="app-callout is-amber">
         <div class="app-callout-title">Every name and number here is invented</div>
         <div class="app-callout-body">The vendors, buyers, addresses, phone numbers, and tax identifiers are fabricated for sample data and do not refer to real businesses. Documents are marked as samples and are not valid invoices, receipts, or tax records. Sales tax is applied at a flat 8.25% for illustration and is not a real jurisdiction's rate.</div>
       </div>
 
-      <div class="app-callout is-blue">
-        <div class="app-callout-title">How the randomisation works</div>
-        <div class="app-callout-body">Within a run, every random choice is driven by a single integer seed, while document dates are relative to the day of generation. Changing the vendor, type, or layout re-renders against the <em>same</em> seed so you can compare treatments side by side; <strong>Generate new document</strong> is what rolls a fresh seed. The seed appears on the preview and in every exported filename so each sample remains identifiable. Exact replay in code also needs the original reference date, which can be recovered from the sidecar's document date and the seed-derived date offsets. Scan degradation is driven from the same seed, so a given seed and preset reproduce the same wear, and the boxes follow the ink when the page is tilted.</div>
-      </div>
+      <div class="section-kicker">What you get per page</div>
+      <ul class="vd-facts">
+        <li class="chip"><strong>35</strong> labelled fields</li>
+        <li class="chip"><strong>11</strong> per-row labels</li>
+        <li class="chip"><strong>42</strong> combinations</li>
+        <li class="chip"><strong>2</strong> box detail levels</li>
+        <li class="chip"><strong>5</strong> scan presets</li>
+      </ul>
+
+      <details class="vd-disclosure vd-more" id="vdAboutMore">
+        <summary>How seeds work, and what each number means</summary>
+        <div class="vd-more-body">
+          <dl class="vd-fact-list">
+            <div>
+              <dt>Labelled fields</dt>
+              <dd>Every sidecar carries the same keys, with null where the page prints nothing.</dd>
+            </div>
+            <div>
+              <dt>Per-row labels</dt>
+              <dd>Description, SKU, product code, quantity, unit, rate, amount, tax, and line total.</dd>
+            </div>
+            <div>
+              <dt>Combinations</dt>
+              <dd>Six vendors by six document types, plus a dense treatment of the invoice.</dd>
+            </div>
+            <div>
+              <dt>Box detail levels</dt>
+              <dd>Field regions, and optionally every word, in normalised page coordinates.</dd>
+            </div>
+            <div>
+              <dt>Scan presets</dt>
+              <dd>Clean through phone photo, seeded so a degraded page is reproducible.</dd>
+            </div>
+          </dl>
+
+          <div class="app-callout is-blue">
+            <div class="app-callout-title">How the randomisation works</div>
+            <div class="app-callout-body">Within a run, every random choice is driven by a single integer seed, while document dates are relative to the day of generation. Changing the vendor, type, or layout re-renders against the <em>same</em> seed so you can compare treatments side by side; <strong>New document</strong> is what rolls a fresh seed. The seed appears in the toolbar and in every exported filename so each sample remains identifiable. Exact replay in code also needs the original reference date, which can be recovered from the sidecar's document date and the seed-derived date offsets. Scan degradation is driven from the same seed, so a given seed and preset reproduce the same wear, and the boxes follow the ink when the page is tilted.</div>
+          </div>
+        </div>
+      </details>
     </section>
 
     <div data-app-shell="scroll-top"></div>

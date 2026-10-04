@@ -24,37 +24,48 @@ Pixel boxes would be wrong the moment anything scaled: the preview applies a CSS
 
 A field printed in more than one place gets more than one region rather than a merged box. A two-line address occupies two boxes with a gap between them, and a box drawn around both would claim ink in the gap. The thin logo lockup is the same case: the vendor name is split across two spans, so it is two regions, because there is genuinely no single box on that page containing the whole name.
 
-### Ground truth is a card, not a disclosure
+### Labels are the headline, so they get a rung of their own
 
-The rail was already three cards and this adds a fourth, which the plan for this work suggested collapsing behind an "Advanced" disclosure to keep the default view calm. It is a plain card instead. Labelled output is the reason to use this app rather than any of the several existing invoice generators; hiding the controls for it would be hiding the headline.
+An earlier plan collapsed ground truth behind an "Advanced" disclosure to keep the default view calm. It never was one: labelled output is the reason to use this app rather than any of the several existing invoice generators, and hiding the controls for it would be hiding the headline. In the studio layout that decision survives as a section of its own in the Output panel, open by default, not as a fold.
 
-### The rail is an accordion, and the groups are not exclusive
+### The studio layout: toolbar, stage, Output panel
 
-Five open cards measure 1,572px against a stage that stops at 744px, because the preview frame is pinned to `clamp(380px, 100vh - 200px, 1123px)` and the grid uses `align-items: start`. The right half of the workbench was therefore blank from roughly the fold down, by about 800px. Collapsing each group to its header brings the rail to 629px, which is 115px inside the stage, so the dead column is gone rather than merely smaller.
+The old rail stacked five equal cards (Document, Export, Ground truth, Scan quality, Batch) with a different control type on nearly every row, two blue primary buttons, and one decision ("what do I get out?") split across three cards. It was collapsed into an accordion to stop it outgrowing the stage, which fixed the height and left the zig zag. The layout is now three regions that each answer one question.
 
-Four other layouts were drawn to scale before this one was picked. A tab bar absorbs further growth better, since a collapsed tab costs nothing while a collapsed header still costs 44px; a two-column rail in a wider band hides nothing but only halves the growth; putting the stage on top removes the dead column entirely and breaks the thing the tool is for, because changing the vendor would put the page being compared above the fold and the control below it.
+- **Toolbar, "what document?"** A vendor dropdown (with a swatch of the vendor's accent, set through CSSOM like the paper's own colours), the six type pills, the invoice layout toggle, the seed, and New document. The vendor is a dropdown on purpose: six brand dots read well but say nothing until hovered, and the dropdown reuses the shared select. The type pills use short names (`short` on `DOCUMENT_TYPES`) with the full name as a tooltip, and a second dropdown (`#vdDocTypeSelect`) takes over below 700px. Both stay in the DOM and agree through `setDocType`, so there is one state and two shapes.
+- **Stage, "what does it look like?"** The fitted page, a caption line, and quiet fit and full-size controls. Nothing else sits on it. Fit-width scaling, the full-size dialog, and the scan preview are unchanged.
+- **Output panel, "what do I get out?"** One card, with a This page / Batch switch pinned to the top and one primary button pinned to the bottom, so the two things that decide what a click does are always in view. Only the choices between them scroll. The panel is capped to the window and pins beside the page, which replaces the old pinned-stage arrangement: the panel is now the shorter column and the page never needs to follow it.
 
-The groups deliberately do not close each other. There is no `name` attribute and no handler doing it by hand, so the exclusivity that usually comes with an accordion is absent on purpose: this app exists to compare treatments, and not being able to see which scan preset a batch will run under while setting that batch up would trade one usability problem for another. The default state is what buys the height back, and opening everything is a choice that costs only what it used to cost by default.
+Below about 1000px the three regions stack as toolbar, page, output, and the panel stops pinning because there is no column left to pin beside. The app widens its own shell to 1232px (header included, so they keep one left edge) because three columns do not fit the shared 1000px.
 
-One consequence is that the rail's height is now a user choice, which no media query can read. That is what finally settled which element should pin.
+### One ladder for labels, one control for scope
 
-A second consequence is a disclosure inside a disclosure, since Custom knobs was already a `<details>`. Promoting the nine sliders into the group would flatten that and would also make Scan quality the tallest group by some way, handing back most of what the accordion won. The two read differently instead: a group header is an uppercase label with a chevron, the knobs are running text with a triangle.
+The Labels control is a single ladder, None / JSON / + Fields / + Words, standing for the three switches it replaced:
 
-### The stage pins, and the rail scrolls past it
+| Rung     | Ground truth | Field boxes | Word boxes |
+| -------- | ------------ | ----------- | ---------- |
+| None     | off          | off         | off        |
+| JSON     | on           | off         | off        |
+| + Fields | on           | on          | off        |
+| + Words  | on           | on          | on         |
 
-Open a few groups and the rail runs well past the window. Scrolling to reach a control should not cost sight of the document that control is describing, so the stage pins and the page stays put while the rail moves.
+Each rung includes the one below it, so "word boxes without field boxes" and "boxes without labels", which the checkboxes allowed to be set and then had to grey out, are not reachable at all. `LABEL_LEVELS` in `app.js` is the whole mapping, and `annotate`, the batch, and the estimate read their three booleans from it, so exports are byte-identical to what the same three switches produced.
 
-It pins unconditionally, with no media query. The stage's height comes from the viewport rather than from content, `100vh - 156px` once the chips and the gap are counted, and both ends of the frame's clamp stay inside the window, so there is no window size at which pinning it strands its own bottom. The rail could never say that, which is why the old `min-height: 940px` guard on the rail did nothing for its entire existence: a sticky item can only travel inside its own grid area, and the rail was always the taller column, so its area was exactly its own height.
+One old combination has no rung: ground truth off with boxes on, which meant "no sidecar beside page exports, but a JSON-only batch still carries boxes". A JSON batch is necessarily labelled, so choosing the JSON format lifts the ladder off None and disables that rung until another format is chosen. To get boxes in a JSON batch, pick + Fields.
 
-That same rule leaves one rough edge, which is accepted rather than hidden. The stage's travel is however much taller the rail is, so the behaviour is not uniform. With one group open the rail is the shorter column and the stage never pins, which costs nothing because the whole workbench already fits. With exactly two it has 93px of travel, so the page holds briefly and then releases mid-scroll. From three groups up it pins the whole way down.
+The two batch checkboxes (all types, all vendors) became one Include control (This combo / All types / All vendors / Everything), via `INCLUDE_SCOPES`. They were never independent questions about a checkbox so much as one question about how wide the batch is.
 
-Only the two-group case reads oddly, and both alternatives are worse. Pinning the rail instead just moves the same behaviour onto the taller column. Shrinking the frame to buy more travel would shrink the preview for everyone, including the readers who never open a second group.
+### One primary button, and what it does
 
-An earlier attempt to remove the mismatch entirely, by having the frame take its height from the row so both columns always ended level, is not in the code. It aligned the edges and broke the app: the frame grew past the window as soon as two groups were open, so the page it exists to show no longer fit on screen. Fitting the page is worth more than matching two edges.
+The page exports used to be three buttons (PDF, PNG, JSON) that each wrote the sidecar, so asking for both formats wrote it twice. There is now one Format control (PDF / PNG / Both, plus JSON in batch mode) and one primary button whose label follows the scope ("Download" or "Generate ZIP"). A page export writes the chosen formats and then one sidecar. The single-page "JSON only" action is kept, as a quiet button in the Labels header, because dropping it would remove a feature rather than regroup one; it only shows in page mode, where JSON is not a format.
 
-### A separate finding: the preview is bound by height, not width
+Pair mode appears only when it applies: a degraded scan and a format that includes a PNG. The PDF type (text layer or rasterised) shows only when the format includes a PDF. Everything the panel shows or says is computed from state in `syncOutput`, so a change from any control or from code lands it in the same place.
 
-Scaling A4 into a 700px-tall frame lands at 0.593 whatever the column is doing, so the sheet renders 471 x 666 inside 636px of available width and leaves 82px of grey on each side. None of the five layouts considered above changes that by a pixel, and widening the workbench would spend every new pixel on gutter. Making the page bigger on screen is a vertical problem (`--vd-frame-inset`, the length of the intro lede) and a separate decision from how the controls are grouped.
+### The stage no longer pins, and the frame sizes from the window
+
+With the output panel as the shorter, pinned column there is no reason for the stage to follow it. The frame is `clamp(380px, 100vh - 300px, 1123px)`, where 300px is the header, intro, toolbar, and caption it gives up. At 1400x900 that fits the page at about 50% and leaves the panel's footer just below the fold until the first scroll, which is accepted: shrinking the frame to win those last pixels would shrink the preview for everyone.
+
+The preview remains bound by height, not width. Making the page bigger on screen is a vertical problem (`--vd-frame-inset` and the length of the intro lede) and a separate decision from how the controls are grouped.
 
 ### Vendor brand colours stay literal
 
@@ -74,7 +85,7 @@ jspdf, jspdf-autotable, html2canvas, and jszip all ship their own `.d.ts`, and t
 
 ### The preview never scrolls; full size is a separate mode
 
-A4 at 96dpi is 794x1123, larger than the stage on any laptop next to a 310px control rail, so the preview has to scale. The first version fitted on width alone and let the rest scroll, which put a scrollbar inside a panel that was already inside the scrolling document, and at 100% it clipped the page mid-column. Both are now gone: the frame is a fixed viewport-relative box, the scale is the smaller of the width and height ratios, and the whole page is always visible. Reading the page at its true size is a distinct mode, a modal `<dialog>` that fills the window, rather than a scrollbar.
+A4 at 96dpi is 794x1123, larger than the stage on any laptop next to a control column, so the preview has to scale. The first version fitted on width alone and let the rest scroll, which put a scrollbar inside a panel that was already inside the scrolling document, and at 100% it clipped the page mid-column. Both are now gone: the frame is a fixed viewport-relative box, the scale is the smaller of the width and height ratios, and the whole page is always visible. Reading the page at its true size is a distinct mode, a modal `<dialog>` that fills the window, rather than a scrollbar.
 
 Because a transform does not change the layout box, the wrapper is sized to the *scaled* page and the page is scaled from its top-left inside it. Scaling the wrapper would leave a full 794x1123 box in the layout, which overflows the frame and breaks centring.
 
@@ -128,7 +139,7 @@ Degradation happens to the raster, and the boxes are measured off the DOM, so th
 
 ### Nine sliders, folded away
 
-The presets are the common case and the rail was already at four cards. The custom knobs live behind a `<details>`, and they are built in `app.js` from the `DEGRADE_KNOBS` table rather than written into `index.html`, so the list of exposed settings has one home and adding one is a single edit. Touching any knob switches the preset to "custom", because the sidecar would otherwise name a preset the page was not rendered under.
+The presets are the common case and the panel should stay calm. The custom knobs live behind a "Fine-tune" `<details>`, and they are built in `app.js` from the `DEGRADE_KNOBS` table rather than written into `index.html`, so the list of exposed settings has one home and adding one is a single edit. Touching any knob switches the preset to "custom", because the sidecar would otherwise name a preset the page was not rendered under.
 
 ### Stopping a batch keeps what it finished
 

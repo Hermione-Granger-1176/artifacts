@@ -91,7 +91,7 @@ The shared design system lives in `css/src/` and is bundled into `css/style.css`
 
 ### Shared components versus app-local CSS
 
-- Reach for the shared component families in `css/src/04-artifact-components.css` before writing app CSS: `.control-field` (with `-head`, `-hints`, `-note`), `.stat-grid` / `.stat` (modifiers `.is-center`, `.stat-label.is-caps`, `.stat-value.is-mono`), `.chip` (hue tones `.is-*`, `.is-mono`, solid `.is-solid-*`), `.segmented` (`.is-fused`, `.active`), `.meter` / `.meter-fill` (tone modifiers), `.app-callout` (hue tones), `.section-kicker`, plus the shared buttons, inputs, tables, code windows, and `.section-nav`
+- Reach for the shared component families in `css/src/04-artifact-components.css` before writing app CSS: `.control-field` (with `-head`, `-hints`, `-note`), `.stat-grid` / `.stat` (modifiers `.is-center`, `.stat-label.is-caps`, `.stat-value.is-mono`), `.chip` (hue tones `.is-*`, `.is-mono`, solid `.is-solid-*`), `.segmented` (`.is-fused`, the inset pill `.is-inset`, `.active`), `.meter` / `.meter-fill` (tone modifiers), `.app-callout` (hue tones), `.section-kicker`, plus the shared buttons, inputs, tables, code windows, and `.section-nav`
 - Keep `apps/<slug>/css/app.css` focused on app-specific dimensions, grids, visualisations, and component variants built on those tokens and families. It retains its `body.app-<slug>` scope
 - A change to a shared component or token is intentional shared work in `css/src/`, not an app-local edit
 
