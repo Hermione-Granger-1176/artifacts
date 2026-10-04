@@ -15,6 +15,7 @@ from scripts.lint.check_artifact_csp import (
     check_page,
     discover_artifact_pages,
     main,
+    policy_violations,
     run_check,
 )
 
@@ -77,6 +78,8 @@ def test_404_csp_hashes_allow_its_self_contained_style_and_script() -> None:
 
     assert "default-src 'self'" in policy
     assert "object-src 'none'" in policy
+    assert "base-uri 'self'" in policy
+    assert "form-action 'none'" in policy
     missing_hashes = [
         content_hash
         for tag_name in ("style", "script")
@@ -341,9 +344,14 @@ def test_check_page_flags_relaxed_required_directives(tmp_path: Path) -> None:
         "apps/demo/index.html: object-src must be restricted to 'none' (found: object-src 'self')"
     )
     assert expected in violations
-    for directive in ("base-uri", "form-action"):
-        prefix = f"apps/demo/index.html: {directive} must be restricted"
-        assert any(message.startswith(prefix) for message in violations)
+    assert (
+        "apps/demo/index.html: base-uri must be restricted to 'self' or 'none' (found: base-uri *)"
+        in violations
+    )
+    assert any(
+        message.startswith("apps/demo/index.html: form-action must be restricted to 'self' or")
+        for message in violations
+    )
 
 
 def test_check_page_flags_empty_default_src(tmp_path: Path) -> None:
@@ -511,3 +519,9 @@ def test_main_returns_one_when_violations(tmp_path: Path) -> None:
     _write_root_page(tmp_path)
     _write_page(tmp_path, "demo", _page(csp="default-src *"))
     assert main(["--root", str(tmp_path)]) == 1
+
+
+def test_policy_violations_checks_html_without_a_file() -> None:
+    """The scaffold checks page HTML directly, so it needs the policy half on its own."""
+    assert policy_violations(_page()) == []
+    assert policy_violations(_page(csp="default-src *"), "demo.html")[0].startswith("demo.html:")

@@ -96,8 +96,8 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `assets/social/share-preview.png`: social preview image referenced by deploy-time Open Graph and Twitter metadata
 - `config/gallery_metadata.json`: shared tool and tag display metadata used by generators to produce `js/gallery-config.js` and ordered README badges
 - `config/artifact_contract.json`: shared artifact id, URL, and thumbnail-path contract emitted into `js/gallery-config.js` and enforced by Python build validation
-- `config/security_audit.json`: source of truth for reviewed Python and npm vulnerability exceptions
-- `config/vendored_assets.json`: integrity manifest pinning the version, upstream URL, and SHA-256 of each vendored library, enforced by `make lint-vendored-assets`
+- `config/security_audit.json`: source of truth for reviewed Python, npm, and vendored-library vulnerability exceptions
+- `config/vendored_assets.json`: integrity manifest pinning the version, upstream URL, and SHA-256 of each vendored library, enforced by `make lint-vendored-assets` and audited against OSV by `make audit-vendored`
 - `docs/adr/*`: accepted cross-cutting decisions about the root publishing platform
 - `pyproject.toml`: Python dependency declarations, tool configuration, and workspace metadata
 - `uv.lock`: frozen Python dependency graph

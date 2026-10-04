@@ -507,18 +507,18 @@ The workflows depend on repository settings that are not enforceable from source
 
 `workspace.md` owns the repository ownership map. This section only explains why these configuration files matter to the system design.
 
-| Config file                     | Owns                                                                     |
-| ------------------------------- | ------------------------------------------------------------------------ |
-| `pyproject.toml`                | Python deps, pytest/coverage/ruff settings, site URL and metadata        |
-| `package.json`                  | Node deps, JS test/coverage config, npm script commands                  |
-| `config/artifact_contract.json` | Shared artifact id, URL, and thumbnail path validation contract          |
-| `config/eslint.config.js`       | ESLint file patterns, ignores, rules                                     |
-| `config/stylelint.config.js`    | Stylelint rules, ignoreFiles                                             |
-| `.yamllint.yml`                 | Yamllint rules, ignore patterns                                          |
-| `.editorconfig`                 | Editor formatting rules per file type                                    |
-| `config/gallery_metadata.json`  | Tag/tool display metadata for gallery config and README badges           |
-| `config/security_audit.json`    | Python and npm audit policy, including reviewed vulnerability exceptions |
-| `config/vendored_assets.json`   | Pinned version, upstream URL, and SHA-256 for each vendored library      |
+| Config file                     | Owns                                                              |
+| ------------------------------- | ----------------------------------------------------------------- |
+| `pyproject.toml`                | Python deps, pytest/coverage/ruff settings, site URL and metadata |
+| `package.json`                  | Node deps, JS test/coverage config, npm script commands           |
+| `config/artifact_contract.json` | Shared artifact id, URL, and thumbnail path validation contract   |
+| `config/eslint.config.js`       | ESLint file patterns, ignores, rules                              |
+| `config/stylelint.config.js`    | Stylelint rules, ignoreFiles                                      |
+| `.yamllint.yml`                 | Yamllint rules, ignore patterns                                   |
+| `.editorconfig`                 | Editor formatting rules per file type                             |
+| `config/gallery_metadata.json`  | Tag/tool display metadata for gallery config and README badges    |
+| `config/security_audit.json`    | Python, npm, and vendored audit policy, with reviewed exceptions  |
+| `config/vendored_assets.json`   | Pinned version, upstream URL, and SHA-256; input to the OSV audit |
 
 Each tool reads its own configuration, and the Makefile calls the tools. Keeping scope in one configuration file prevents conflicting file selection in workflow steps and scripts. See [ADR 0003](adr/0003-makefile-first-and-single-source-of-truth.md).
 

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 import scripts.build.scaffold_artifact as scaffold_artifact
+from scripts.lint.check_artifact_csp import policy_violations
 
 
 def _install_temp_roots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
@@ -663,3 +664,39 @@ def test_parse_args_rejects_unknown_flag() -> None:
     """Test the CLI parser rejects an unexpected trailing argument."""
     with pytest.raises(ValueError, match="Usage: make new name=<artifact-name>"):
         scaffold_artifact._parse_args(["budget-tracker", "--bogus", "value"])
+
+
+def test_the_placeholder_page_passes_the_artifact_csp_lint() -> None:
+    """The scaffold template and the CSP lint cannot drift apart unnoticed."""
+    assert policy_violations(scaffold_artifact._index_template("Demo", "demo")) == []
+
+
+def test_drop_in_with_its_own_weak_csp_is_reported(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A drop-in that keeps its own CSP gets a warning instead of a silent lint failure later."""
+    source = tmp_path / "page.html"
+    source.write_text(
+        "<!doctype html><html><head>"
+        '<meta http-equiv="Content-Security-Policy" content="default-src \'self\'">'
+        "</head><body></body></html>",
+        encoding="utf-8",
+    )
+
+    scaffold_artifact._resolve_index_html("Demo", "demo", str(source))
+
+    stderr = capsys.readouterr().err
+    assert "does not meet the artifact contract" in stderr
+    assert "index.html: Content-Security-Policy is missing a object-src directive" in stderr
+
+
+def test_drop_in_without_a_csp_gets_the_contract_and_no_csp_warning(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The injected CSP meets the lint, so a bare page produces no CSP warning."""
+    source = tmp_path / "page.html"
+    source.write_text("<!doctype html><html><head></head><body></body></html>", encoding="utf-8")
+
+    scaffold_artifact._resolve_index_html("Demo", "demo", str(source))
+
+    assert "Content-Security-Policy" not in capsys.readouterr().err

@@ -1,9 +1,10 @@
 // Ambient types for the export libraries the vendor-docs-generator app loads
 // from apps/vendor-docs-generator/js/vendor/ as classic UMD scripts.
 //
-// These are hand-written against the exact vendored versions (jspdf 4.2.1,
-// jspdf-autotable 5.0.8, html2canvas 1.4.1, jszip 3.10.1) and cover only the
-// surface the app actually calls. Declaring them here keeps the typecheck
+// These are hand-written against the vendored versions recorded in
+// config/vendored_assets.json (jspdf, jspdf-autotable, html2canvas, jszip) and
+// cover only the surface the app actually calls. Recheck them when that
+// manifest bumps a version. Declaring them here keeps the typecheck
 // honest without pulling four heavyweight packages into devDependencies purely
 // to read their bundled .d.ts files. If the app starts using more of an API,
 // widen the matching interface below rather than reaching for `any`.

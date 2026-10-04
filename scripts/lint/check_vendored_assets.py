@@ -8,7 +8,12 @@ go unnoticed. This checker reconciles the files on disk with
 
     - every vendored ``*.js`` file must be listed in the manifest;
     - every manifest entry must exist on disk; and
-    - every file's SHA-256 must match the recorded hash.
+    - every file's SHA-256 must match the recorded hash; and
+    - every entry's package must be a lower-case npm name, its version a semantic
+      version, and its upstream URL must contain ``<package>@<version>``. The
+      advisory audit sends the package and version to OSV, which matches names
+      case-sensitively and returns nothing for an unknown name or version, so a
+      typo would otherwise read as a clean result.
 
 When an upgrade is intentional, update the manifest ``version``, ``upstream``,
 and ``sha256`` for the affected entry so the new bundle is pinned explicitly.
@@ -34,6 +39,12 @@ VENDOR_GLOB = "apps/*/js/vendor/*.js"
 # Repo-relative vendor path shape: apps/<slug>/js/vendor/<file>.js with no
 # nested directories in the slug or file name (mirrors ``VENDOR_GLOB``).
 _VENDOR_PATH_PATTERN = re.compile(r"^apps/[^/]+/js/vendor/[^/]+\.js$")
+
+# A lower-case npm package name, optionally scoped.
+_PACKAGE_PATTERN = re.compile(r"(?:@[a-z0-9][a-z0-9._~-]*/)?[a-z0-9][a-z0-9._~-]*")
+
+# A three-part semantic version with an optional pre-release.
+_VERSION_PATTERN = re.compile(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?")
 
 # A SHA-256 digest is exactly 64 lower-case hexadecimal characters.
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -83,6 +94,25 @@ def _validate_asset_sha256(raw_sha256: str, entry_path: str) -> str:
     return normalized
 
 
+def _validate_asset_identity(package: str, version: str, upstream: str, entry_path: str) -> None:
+    """Raise ``ValueError`` unless the package, version, and upstream agree."""
+    if not _PACKAGE_PATTERN.fullmatch(package):
+        raise ValueError(
+            f"Vendored asset package must be a lower-case npm package name: "
+            f"{entry_path} ({package!r})"
+        )
+    if not _VERSION_PATTERN.fullmatch(version):
+        raise ValueError(
+            f"Vendored asset version must be a semantic version such as 1.2.3: "
+            f"{entry_path} ({version!r})"
+        )
+    if f"/{package}@{version}/" not in upstream:
+        raise ValueError(
+            f"Vendored asset upstream must contain /{package}@{version}/ so the file, "
+            f"the version, and the audited package agree: {entry_path} ({upstream!r})"
+        )
+
+
 def _load_manifest(
     manifest_file: Path = VENDORED_ASSETS_MANIFEST_FILE,
 ) -> tuple[VendoredAsset, ...]:
@@ -112,6 +142,9 @@ def _load_manifest(
                 "Vendored asset entries must include " + ", ".join(missing) + f": {entry_path}"
             )
 
+        _validate_asset_identity(
+            str(entry["package"]), str(entry["version"]), str(entry["upstream"]), entry_path
+        )
         asset = VendoredAsset(
             path=_validate_asset_path(str(entry["path"]), entry_path),
             package=str(entry["package"]),

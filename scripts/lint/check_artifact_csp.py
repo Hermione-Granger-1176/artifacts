@@ -7,7 +7,9 @@ page. This checker fails fast when an artifact:
 
     - is missing the Content-Security-Policy meta tag, or its policy does not
       restrict ``default-src`` and ``script-src`` to ``'self'`` or ``'none'``
-      sources, or omits ``object-src``, ``base-uri``, or ``form-action``; or
+      sources, omits ``object-src``, ``base-uri``, or ``form-action``, sets
+      ``object-src`` to anything but ``'none'``, or repeats a directive (browsers
+      ignore every copy after the first); or
     - references an external (scheme or protocol-relative) URL from a
       ``<script src>``, a stylesheet ``<link href>``, or a ``url()`` inside an
       inline ``<style>`` block. Inline ``data:`` URIs and ``#fragment``
@@ -254,6 +256,25 @@ def _directive_has_only_allowed_sources(
     return bool(sources) and all(source in allowed_sources for source in sources)
 
 
+def _directive_violation(
+    directives: dict[str, list[str]],
+    name: str,
+    allowed_sources: frozenset[str],
+    display_path: str,
+) -> str | None:
+    """Return the violation for one directive that must be stated and restricted."""
+    sources = directives.get(name)
+    if sources is None:
+        return f"{display_path}: Content-Security-Policy is missing a {name} directive"
+    if _directive_has_only_allowed_sources(sources, allowed_sources):
+        return None
+    allowed = " or ".join(sorted(allowed_sources, reverse=True))
+    return (
+        f"{display_path}: {name} must be restricted to {allowed} "
+        f"(found: {name} {' '.join(sources)})"
+    )
+
+
 def _csp_violations(
     html: str, display_path: str, *, allowed_img_sources: frozenset[str]
 ) -> list[str]:
@@ -277,17 +298,13 @@ def _csp_violations(
         for name in repeated
     )
 
-    default_src = directives.get("default-src")
-    if default_src is None:
-        violations.append(
-            f"{display_path}: Content-Security-Policy is missing a default-src directive"
-        )
-    elif not _directive_has_only_allowed_sources(default_src, _RESTRICTIVE_SOURCES):
-        violations.append(
-            f"{display_path}: default-src must be restricted to 'self' or 'none' "
-            f"(found: default-src {' '.join(default_src)})"
-        )
+    default_violation = _directive_violation(
+        directives, "default-src", _RESTRICTIVE_SOURCES, display_path
+    )
+    if default_violation is not None:
+        violations.append(default_violation)
 
+    default_src = directives.get("default-src")
     script_src = directives.get("script-src", default_src)
     if script_src is not None and not _directive_has_only_allowed_sources(
         script_src, _RESTRICTIVE_SOURCES
@@ -308,19 +325,20 @@ def _csp_violations(
         )
 
     for directive, allowed_sources in _REQUIRED_DIRECTIVES:
-        sources = directives.get(directive)
-        if sources is None:
-            violations.append(
-                f"{display_path}: Content-Security-Policy is missing a {directive} directive"
-            )
-        elif not _directive_has_only_allowed_sources(sources, allowed_sources):
-            allowed = " ".join(sorted(allowed_sources))
-            violations.append(
-                f"{display_path}: {directive} must be restricted to {allowed} "
-                f"(found: {directive} {' '.join(sources)})"
-            )
+        violation = _directive_violation(directives, directive, allowed_sources, display_path)
+        if violation is not None:
+            violations.append(violation)
 
     return violations
+
+
+def policy_violations(html: str, display_path: str = "index.html") -> list[str]:
+    """Return CSP policy violations for one artifact page's HTML.
+
+    This is the policy half of ``check_page`` for callers that hold the HTML and
+    not a file, such as the scaffold. It does not check external references.
+    """
+    return _csp_violations(html, display_path, allowed_img_sources=_APP_IMG_SOURCES)
 
 
 def _is_external_reference(reference: str) -> bool:

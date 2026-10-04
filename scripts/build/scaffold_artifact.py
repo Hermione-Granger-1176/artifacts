@@ -35,6 +35,7 @@ from scripts import REPO_ROOT
 from scripts.build.index_config import IndexConfig
 from scripts.build.prepare_site import APP_SHARE_IMAGE_PLACEHOLDER, APP_URL_PLACEHOLDER
 from scripts.lib.app_discovery import artifact_base_path
+from scripts.lint.check_artifact_csp import policy_violations
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -450,13 +451,29 @@ def _report_external_references(references: Iterable[str]) -> None:
         print(f"  - {reference}", file=sys.stderr)
 
 
+def _report_csp_violations(violations: Iterable[str]) -> None:
+    """Print an actionable warning about a Content-Security-Policy the lint rejects."""
+    violation_list = list(violations)
+    if not violation_list:
+        return
+    print(
+        "Warning: the provided HTML keeps its own Content-Security-Policy, and it does "
+        "not meet the artifact contract. The security lint will fail until you fix it:",
+        file=sys.stderr,
+    )
+    for violation in violation_list:
+        print(f"  - {violation}", file=sys.stderr)
+
+
 def _resolve_index_html(title: str, name: str, source_html: str | None) -> str:
     """Return the index.html body for either the placeholder or drop-in flow."""
     if source_html is None:
         return _index_template(title, name)
     provided = _read_source_html(source_html)
     _report_external_references(find_external_references(provided))
-    return apply_contract_to_source(provided)
+    page = apply_contract_to_source(provided)
+    _report_csp_violations(policy_violations(page))
+    return page
 
 
 def scaffold_artifact(name: str, *, source_html: str | None = None) -> Path:
