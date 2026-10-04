@@ -32,7 +32,7 @@
   <script src="js/app-theme.js"></script>
   <link rel="preload" href="assets/fonts/fredoka-one-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/caveat-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=68a1312eb664">
+  <link rel="stylesheet" href="css/style.css?v=61e39b831b56">
   <link rel="icon" href="assets/icons/favicon.ico" sizes="32x32">
   <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
@@ -107,15 +107,17 @@
     <div id="book-shell" class="book-shell">
       <div class="toolbar-ribbon">
         <section class="controls" aria-label="Gallery controls">
+          <span id="search-count" class="search-count" aria-hidden="true"></span>
           <div class="search-wrapper">
             <label for="search-input" class="visually-hidden">Search artifacts</label>
-            <input type="text" id="search-input" placeholder="Search artifacts...  ( / )" autocomplete="off">
-            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10.5 4.2c3.6-.3 6.4 2.4 6.3 5.9-.1 3.4-2.9 6-6.3 5.9-3.4-.1-6-2.8-5.9-6.1.1-3 2.6-5.5 5.9-5.7z"></path>
+              <path d="m15.2 15.4 4.6 4.4"></path>
             </svg>
+            <input type="text" id="search-input" placeholder="Find an artifact..." autocomplete="off">
             <button id="search-clear" class="search-clear hidden" type="button" aria-label="Clear search">&times;</button>
+            <kbd class="search-key" aria-hidden="true">/</kbd>
           </div>
 
           <div class="control-cluster">
@@ -137,29 +139,61 @@
         </section>
       </div>
 
-      <section id="book-sheet" class="book-sheet" aria-label="Artifact book pages">
-        <div class="book-spine" aria-hidden="true"></div>
-        <div id="book-cover" class="book-cover" aria-hidden="true">
-          <div class="book-cover-face">
-            <h2 class="book-cover-title">Artifacts</h2>
-            <p class="book-cover-sub">A Collection of Interactive Experiments</p>
-            <p class="book-cover-author">Aditya Kumar Darak</p>
-          </div>
-          <div class="book-cover-back"></div>
-        </div>
-        <div class="book-inner">
-          <section id="artifacts-grid" class="artifacts-grid" aria-label="Artifact results" aria-live="polite">
-            <noscript>
-              <p>JavaScript is required to browse the artifact gallery.</p>
-            </noscript>
-          </section>
+      <div class="book-stage">
+        <section id="book-sheet" class="book-sheet" aria-label="Artifact book pages" data-has-previous="false" data-has-next="false">
+          <div class="book-shadow" aria-hidden="true"></div>
+          <div class="book-case book-case-left" aria-hidden="true"></div>
+          <div class="book-case book-case-right" aria-hidden="true"></div>
+          <div class="book-tabs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <div class="book-inner">
+            <section id="artifacts-grid" class="artifacts-grid" aria-label="Artifact results" aria-live="polite">
+              <noscript>
+                <p>JavaScript is required to browse the artifact gallery.</p>
+              </noscript>
+            </section>
 
-          <div id="no-results" class="no-results hidden" role="status">
-            <p>No artifacts found matching your filters.</p>
-            <button id="no-results-reset" class="btn-reset-link" type="button">Clear search and filters</button>
+            <div id="no-results" class="no-results hidden" role="status">
+              <p>No artifacts found matching your filters.</p>
+              <button id="no-results-reset" class="btn-reset-link" type="button">Clear search and filters</button>
+            </div>
           </div>
-        </div>
-      </section>
+          <div class="book-cast book-cast-left" aria-hidden="true"></div>
+          <div class="book-cast book-cast-right" aria-hidden="true"></div>
+          <div class="book-spine" aria-hidden="true"></div>
+          <div class="book-peel book-peel-left" aria-hidden="true"></div>
+          <div class="book-peel book-peel-right" aria-hidden="true"></div>
+          <div id="book-cover" class="book-cover" aria-hidden="true">
+            <div class="book-cover-face">
+              <div class="book-cover-hinge"></div>
+              <i class="book-post book-post-1"></i>
+              <i class="book-post book-post-2"></i>
+              <i class="book-post book-post-3"></i>
+              <div class="book-collage">
+                <figure class="book-snap book-snap-1"><i class="book-tape"></i><span class="book-snap-art"></span></figure>
+                <figure class="book-snap book-snap-2"><i class="book-tape"></i><span class="book-snap-art"></span></figure>
+                <figure class="book-snap book-snap-3"><i class="book-tape"></i><span class="book-snap-art"></span></figure>
+                <figure class="book-snap book-snap-4"><i class="book-tape"></i><span class="book-snap-art"></span></figure>
+              </div>
+              <i class="book-doodle book-doodle-stars"></i>
+              <i class="book-doodle book-doodle-sparkles"></i>
+              <i class="book-doodle book-doodle-arrow"></i>
+              <i class="book-doodle book-doodle-spiral"></i>
+              <i class="book-doodle book-doodle-squiggle"></i>
+              <span class="book-scribble">open me!</span>
+              <div class="book-cover-label">
+                <i class="book-tape book-tape-1"></i>
+                <i class="book-tape book-tape-2"></i>
+                <h2 class="book-cover-title">Artifacts</h2>
+                <p class="book-cover-sub">A Collection of Interactive Experiments</p>
+                <p class="book-cover-author">Aditya Kumar Darak</p>
+              </div>
+              <div class="book-ribbon"><span class="book-bow"><i></i></span></div>
+            </div>
+            <div class="book-cover-back"><div class="book-endpaper"></div></div>
+            <div class="book-cover-shade"></div>
+          </div>
+        </section>
+      </div>
     </div>
 
     <nav id="pagination" class="pagination" aria-label="Pagination"></nav>
