@@ -1078,6 +1078,18 @@ test('releasing past the threshold completes the turn and then renders the page'
   assert.ok(!harness.sheet.classList.contains('is-turning'));
 });
 
+test('a page requested during a drag keeps its selection when the drag completes', async () => {
+  const harness = createHarness({ open: true });
+  dragFromRight(harness);
+  harness.sheet.dispatch('pointermove', pointer(CENTER_X));
+  void harness.scene.turnPage(4);
+  harness.sheet.dispatch('pointerup', pointer(CENTER_X));
+  await harness.advance(3000);
+
+  assert.deepEqual(harness.model.selects, [4], 'the drag does not select its own, older page');
+  assert.deepEqual(harness.model.commits, [2, 4], 'the drag lands, then the queued page');
+});
+
 test('releasing short of the threshold springs back without changing the page', async () => {
   const harness = createHarness({ open: true });
   dragFromRight(harness);

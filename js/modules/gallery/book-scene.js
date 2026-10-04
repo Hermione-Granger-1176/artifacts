@@ -704,7 +704,11 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       try {
         if (complete) {
           turn.selected = true;
-          pages.select(turn.target);
+          // A request made during the drag already selected a newer page; the
+          // queue lands on it next, so this drag must not select over it.
+          if (pendingTarget === null) {
+            pages.select(turn.target);
+          }
           await tween(turn, progress, 1, 420 * (1 - progress) + 120, easeOut, (value) => setLeafProgress(leafParts, value));
           if (!turn.aborted) {
             pages.commit(turn.target);
