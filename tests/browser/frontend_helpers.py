@@ -616,9 +616,20 @@ def assert_no_blocking_axe_violations(
 def contrast_ratio(
     page, selector: str, *, background_selector: str | None = None
 ) -> dict[str, object]:
-    """Contrast ratio."""
+    """Contrast ratio of the settled colors, after any running CSS transition ends."""
     return page.evaluate(
-        r"""({ selector, backgroundSelector }) => {
+        r"""async ({ selector, backgroundSelector }) => {
+            // A control clicked just before this check may still be easing between
+            // colors. Measure the colors it settles on, not a frame mid-transition.
+            const transitions = document
+                .getAnimations()
+                .filter((animation) => animation instanceof CSSTransition)
+                .map((animation) => animation.finished.catch(() => undefined));
+            await Promise.race([
+                Promise.all(transitions),
+                new Promise((resolve) => setTimeout(resolve, 2000)),
+            ]);
+
             function parseColor(value) {
                 if (!value || value === 'transparent') {
                     return [0, 0, 0, 0];

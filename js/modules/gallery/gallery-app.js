@@ -40,6 +40,7 @@ const ACTIVATION_KEYS = new Set(['Enter', ' ']);
  * @typedef {Window & { ARTIFACTS_DATA?: ArtifactRecord[] }} GalleryWindow
  * @typedef {{
  *   dataset?: string,
+ *   step?: string,
  *   type: 'page' | 'desk-note' | 'mobile-filter',
  *   value: string
  * }} FocusTargetDescriptor
@@ -146,6 +147,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   const grid = requireElement(documentObj, 'artifacts-grid');
   const searchInput = /** @type {HTMLInputElement} */ (requireElement(documentObj, 'search-input'));
   const searchClear = /** @type {HTMLButtonElement} */ (requireElement(documentObj, 'search-clear'));
+  const searchCount = requireElement(documentObj, 'search-count');
   const sortToggle = requireElement(documentObj, 'sort-toggle');
   const filterReset = requireElement(documentObj, 'filter-reset');
   const themeToggle = requireElement(documentObj, 'theme-toggle');
@@ -168,7 +170,6 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   const prefersReducedMotionQuery = windowObj.matchMedia('(prefers-reduced-motion: reduce)');
   const motion = createMotionHelper(prefersReducedMotionQuery, windowObj);
-  const bookScene = createBookScene({ documentObj, windowObj, motion });
   const galleryConfig = getGalleryConfig(windowObj);
   const rawArtifacts = Array.isArray(galleryWindow.ARTIFACTS_DATA) ? galleryWindow.ARTIFACTS_DATA : [];
   const allArtifacts = hydrateArtifacts(rawArtifacts);
@@ -280,8 +281,25 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   /** @type {number | undefined} */
   let debounceTimer;
   let suppressPush = false;
+  /** Gallery page whose cards are in the live grid (it trails currentPage while a turn is running). */
+  let shownPage = DEFAULT_GALLERY_STATE.page;
+  let pageCount = 1;
   /** @type {FocusTarget} */
   let pendingFocusTarget = null;
+
+  const bookScene = createBookScene({
+    documentObj,
+    windowObj,
+    motion,
+    onError: (error) => appRuntime.reportError(error, 'page turn'),
+    pages: {
+      getShownPage: () => shownPage,
+      getPageCount: () => pageCount,
+      buildFaces: buildPageFaces,
+      select: selectPage,
+      commit: (page) => renderContent({ page })
+    }
+  });
   /** @param {string} surface */
   const focusTargetType = (surface) => (surface === 'mobile' ? 'mobile-filter' : 'desk-note');
   /** @type {Record<string, (value: string, surface?: string) => FocusTargetDescriptor | null>} */
@@ -399,7 +417,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
   });
 
-  registerThumbnailFallback(grid);
+  // A turning leaf, its ghost page, and the cover's inside page sit outside the
+  // grid, so catch broken thumbnails on the whole sheet when the book is there.
+  registerThumbnailFallback(documentObj.getElementById('book-sheet') ?? grid);
 
   grid.addEventListener('click', (event) => {
     const target = /** @type {Element | null} */ (event.target);
@@ -426,26 +446,29 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     overlay.toggle(/** @type {string} */ (card.dataset.id), card, artifactById);
   });
 
-  paginationContainer.addEventListener('click', async (event) => {
+  paginationContainer.addEventListener('click', (event) => {
     const target = /** @type {Element | null} */ (event.target);
     const button = /** @type {HTMLButtonElement | null} */ (target?.closest('[data-page]') || null);
     if (!button || button.disabled) {
       return;
     }
 
-    const page = Number.parseInt(button.dataset.page || '', 10);
+    // Previous and Next are relative to the latest requested page, so presses made
+    // while a turn is still running keep stepping instead of repeating the same page.
+    const step = Number.parseInt(button.dataset.pageStep || '', 10);
+    const requested = Number.isNaN(step) ? Number.parseInt(button.dataset.page || '', 10) : currentPage + step;
+    const page = Math.min(requested, pageCount);
     if (!page || page === currentPage) {
       return;
     }
 
-    const direction = page > currentPage ? 'next' : 'previous';
-    currentPage = page;
-    pendingFocusTarget = { type: 'page', value: String(page) };
+    pendingFocusTarget = {
+      type: 'page',
+      value: String(page),
+      step: Number.isNaN(step) ? undefined : String(step)
+    };
     overlay.close({ restoreFocus: false, immediate: true });
-    pushState();
-    await bookScene.turnPage(() => {
-      renderContent();
-    }, { direction });
+    void bookScene.turnPage(page);
   });
 
   documentObj.addEventListener('keydown', (event) => {
@@ -644,6 +667,20 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     sortToggle.setAttribute('aria-pressed', String(isOldest));
   }
 
+  /**
+   * Write the match count beside the search note while a search is active.
+   * Screen readers get the same news from the gallery status region.
+   * @param {number} totalItems - Artifacts matching the search and filters.
+   */
+  function updateSearchCount(totalItems) {
+    if (currentQuery === '') {
+      searchCount.textContent = '';
+      return;
+    }
+
+    searchCount.textContent = totalItems === 0 ? 'nothing yet' : `${totalItems} found`;
+  }
+
   function updateFilterResetVisibility() {
     const hasActiveFilters = currentQuery !== '' || currentTools.length > 0 || currentTags.length > 0;
     filterReset.classList.toggle('hidden', !hasActiveFilters);
@@ -689,7 +726,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     const selectorName = (descriptor.dataset || '').replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
     const targetResolvers = {
       page: () => /** @type {HTMLElement | null} */ (
-        paginationContainer.querySelector(`[data-page="${CSS.escape(descriptor.value)}"]`)
+        (descriptor.step
+          && paginationContainer.querySelector(`[data-page-step="${CSS.escape(descriptor.step)}"]:not(:disabled)`))
+        || paginationContainer.querySelector(`[data-page="${CSS.escape(descriptor.value)}"]`)
       ),
       'desk-note': () => /** @type {HTMLElement | null} */ (
         filterNotesContainer.querySelector(`[data-${selectorName}="${CSS.escape(descriptor.value)}"]`)
@@ -710,27 +749,75 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
   }
 
-  function renderContent() {
-    const filtered = filterAndSortArtifacts(allArtifacts, {
+  /** @returns {ArtifactRecord[]} Artifacts matching the current search, filters, and sort. */
+  function getFilteredArtifacts() {
+    return filterAndSortArtifacts(allArtifacts, {
       currentQuery,
       currentSort,
       currentTags,
       currentTools
     });
+  }
+
+  /**
+   * Record a page request: the logical page, the URL, and the pagination row move
+   * at once, while the book catches up visually.
+   * @param {number} page - Requested gallery page.
+   */
+  function selectPage(page) {
+    currentPage = page;
+    pushState();
+    renderPagination(paginationContainer, currentPage, pageCount);
+    restorePendingFocus();
+  }
+
+  /**
+   * Build the two page slices of a gallery page as detached elements, for the
+   * leaf of a page turn.
+   * @param {number} page - Gallery page to build.
+   * @returns {{ left: HTMLElement | null, right: HTMLElement | null }} Detached page slices.
+   */
+  function buildPageFaces(page) {
+    const startIndex = (page - 1) * ITEMS_PER_PAGE;
+    const scratch = documentObj.createElement('div');
+    scratch.innerHTML = buildGridHtml(getFilteredArtifacts().slice(startIndex, startIndex + ITEMS_PER_PAGE), null, page);
+    applyDynamicStyles(scratch);
+    scratch.querySelectorAll('img').forEach((image) => image.setAttribute('loading', 'eager'));
+    return {
+      left: /** @type {HTMLElement | null} */ (scratch.querySelector('.artifact-page-left')),
+      right: /** @type {HTMLElement | null} */ (scratch.querySelector('.artifact-page-right'))
+    };
+  }
+
+  /**
+   * Render the live book. Without a page it renders the current state and drops
+   * any page turn in flight; with a page it renders that page as a turn lands.
+   * @param {{ page?: number }} [options={}] - Page to show when a turn lands.
+   */
+  function renderContent({ page } = {}) {
+    if (page === undefined) {
+      bookScene.cancelTurn();
+    }
+
+    const filtered = getFilteredArtifacts();
 
     updateFilterResetVisibility();
 
     const totalItems = filtered.length;
+    updateSearchCount(totalItems);
     const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+    pageCount = totalPages;
     currentPage = Math.max(1, Math.min(currentPage, totalPages));
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    shownPage = Math.max(1, Math.min(page ?? currentPage, totalPages));
+    const startIndex = (shownPage - 1) * ITEMS_PER_PAGE;
     const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
     const pageItems = filtered.slice(startIndex, endIndex);
 
     if (totalItems === 0) {
       grid.innerHTML = '';
       noResults.classList.remove('hidden');
-      paginationContainer.innerHTML = '';
+      renderPagination(paginationContainer, 1, 0);
+      bookScene.setPosition({ page: 1, totalPages: 1 });
       overlay.updateExpandedCardState();
       restorePendingFocus();
       galleryStatus.textContent = 'No artifacts match the current search and filters.';
@@ -738,13 +825,14 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
 
     noResults.classList.add('hidden');
-    grid.innerHTML = buildGridHtml(pageItems, overlay.getExpandedId());
+    grid.innerHTML = buildGridHtml(pageItems, overlay.getExpandedId(), shownPage);
     applyDynamicStyles(grid);
     overlay.updateExpandedCardState();
     renderPagination(paginationContainer, currentPage, totalPages);
+    bookScene.setPosition({ page: shownPage, totalPages });
     restorePendingFocus();
     const artifactLabel = totalItems === 1 ? 'artifact' : 'artifacts';
-    const pageLabel = totalPages === 1 ? 'single page' : `page ${currentPage} of ${totalPages}`;
+    const pageLabel = totalPages === 1 ? 'single page' : `page ${shownPage} of ${totalPages}`;
     galleryStatus.textContent = `Showing ${totalItems} ${artifactLabel}; ${pageLabel}.`;
   }
 }

@@ -6,9 +6,33 @@
   .toolbar-ribbon {
     width: min(calc(100% - 2rem), 980px);
   }
+}
 
-  .artifacts-grid {
-    gap: 1.5rem 2.5rem;
+/* Laptop and desktop: the book scales with the screen height, so captions scale with the book width. */
+@media (min-width: 901px) {
+  .card-name {
+    font-size: clamp(1.15rem, 2.6cqi, 1.7rem);
+  }
+}
+
+/* Short laptop screens: tighten the chrome above and below the book so the book gets the height. */
+@media (min-width: 901px) and (max-height: 900px) {
+  :root {
+    --book-chrome-y: 236px;
+    --desk-note-size: 88px;
+    --desk-note-offset-top: 3.5rem;
+  }
+
+  .header-content {
+    padding-block: 0.4rem 0.5rem;
+  }
+
+  .toolbar-ribbon {
+    margin-bottom: 0.5rem;
+  }
+
+  .pagination {
+    margin-top: 0.9rem;
   }
 }
 
@@ -37,27 +61,17 @@
 
   .book-shell {
     grid-column: 1;
+    width: min(100%, 1060px);
   }
 
   .pagination {
     grid-column: 1;
   }
 
-  .book-cover {
-    inset: 0;
-  }
-
   .book-sheet {
     --book-sheet-min-height: var(--book-sheet-min-height-tablet);
-  }
 
-  .book-inner {
-    padding-top: 2rem;
-    border-radius: 8px;
-  }
-
-  .artifacts-grid {
-    --gallery-page-padding-top: 1.5rem;
+    height: var(--book-sheet-min-height);
   }
 
   .desk-notes-left,
@@ -73,22 +87,6 @@
     pointer-events: auto;
   }
 
-  .book-spine {
-    width: 4px;
-  }
-
-  .artifacts-grid {
-    gap: 1.25rem 1.9rem;
-  }
-
-  .artifact-page-left {
-    box-shadow: none;
-  }
-
-  .artifact-page-right {
-    box-shadow: none;
-  }
-
   .detail-panel {
     width: min(100%, 720px);
   }
@@ -99,25 +97,77 @@
     padding-inline: 0.75rem;
   }
 
+  /* The search note takes the full width; the match count and sort note share the row below. */
   :where(body:not(.artifact-app)) .controls {
-    flex-direction: column;
-    align-items: stretch;
+    flex-wrap: wrap;
   }
 
-  .book-cover-face {
-    padding: 1.6rem;
+  .search-wrapper {
+    order: -1;
+    flex: 1 1 100%;
+    min-width: 0;
   }
 
-  .book-inner {
-    padding: 1.35rem;
+  .search-count {
+    flex: 1 1 auto;
+    text-align: left;
   }
 
-  .book-inner::before,
-  .book-inner::after,
+  .control-cluster {
+    flex: none;
+  }
+
+  .book-stage {
+    perspective: none;
+  }
+
+  /* Mobile is one column: no spread, no 3D. The cover is a flat card that fades away. */
+  .book-shell:not(.is-open) .book-sheet {
+    max-height: 34rem;
+    overflow: hidden;
+    transform: none;
+  }
+
+  /* Phones turn pages by button only, so the sheet keeps every native gesture. */
+  .book-sheet {
+    height: auto;
+    touch-action: auto;
+    --book-sheet-min-height: 0;
+  }
+
+  .book-shadow,
+  .book-case,
+  .book-tabs,
   .book-spine,
+  .book-cast,
+  .book-peel,
+  .book-inner::after,
   .desk-notes-left,
   .desk-notes-right {
     display: none;
+  }
+
+  .book-cover {
+    left: 0;
+    width: 100%;
+  }
+
+  .book-cover-face {
+    border-radius: 10px;
+  }
+
+  .book-inner {
+    position: relative;
+    inset: auto;
+    padding: 1.35rem 1.35rem 1.35rem calc(var(--paper-margin-x) + 0.75rem);
+    border-radius: 6px;
+    box-shadow: var(--shadow-md);
+  }
+
+  .book-inner::before {
+    width: 100%;
+    border-radius: 6px;
+    box-shadow: none;
   }
 
   .mobile-filter-stack {
@@ -128,22 +178,28 @@
     padding: 0.8rem 0.85rem;
   }
 
-  .book-sheet {
-    height: auto;
-    --book-sheet-min-height: 0;
-  }
-
   .artifacts-grid {
+    position: relative;
+    inset: auto;
     grid-template-columns: 1fr;
+    grid-template-rows: none;
     gap: 1.15rem;
   }
 
   .artifact-page-slice {
     gap: 1.15rem;
     grid-template-rows: auto;
+  }
+
+  .artifact-page-left,
+  .artifact-page-right {
     padding: 0;
-    background: transparent;
-    border-radius: 0;
+  }
+
+  .artifact-page-slice::after,
+  .artifact-page-slice.is-empty::before,
+  .page-number {
+    display: none;
   }
 
   .artifact-card {
@@ -151,9 +207,16 @@
     min-height: 0;
   }
 
-  .artifact-page-left,
-  .artifact-page-right {
-    box-shadow: none;
+  .card-thumbnail-placeholder {
+    min-height: 9rem;
+  }
+
+  .no-results {
+    position: relative;
+    top: auto;
+    left: auto;
+    margin: 0 auto;
+    transform: rotate(-1deg);
   }
 
   .card-name {

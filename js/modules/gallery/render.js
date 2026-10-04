@@ -18,6 +18,8 @@ const FILTER_NOTE_COLORS = [
   'var(--color-note-5)',
   'var(--color-note-6)'
 ];
+const ATTACHMENT_STYLES = ['tape-pair', 'tape-center', 'corners', 'clip', 'tape-diagonal'];
+const TAPE_COLOR_COUNT = 6;
 const BASE_ROTATIONS = ['-1.4deg', '0.6deg', '-0.4deg', '1.2deg', '-0.9deg', '1.5deg', '0.3deg', '-1.1deg', '0.8deg', '-0.5deg', '1.3deg', '-0.7deg'];
 const HOVER_ROTATIONS = ['-0.35deg', '0.2deg', '-0.12deg', '0.4deg', '-0.25deg', '0.45deg', '0.1deg', '-0.3deg', '0.25deg', '-0.15deg', '0.36deg', '-0.2deg'];
 
@@ -28,6 +30,34 @@ const HOVER_ROTATIONS = ['-0.35deg', '0.2deg', '-0.12deg', '0.4deg', '-0.25deg',
  */
 function getCardColor(index) {
   return CARD_COLORS[index % CARD_COLORS.length];
+}
+
+/**
+ * Hash a string to a stable unsigned 32-bit integer (FNV-1a).
+ * @param {string} value - Text to hash.
+ * @returns {number} Deterministic hash.
+ */
+function hashString(value) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+/**
+ * Pick the scrapbook attachment style and tape colour for a card from its id,
+ * so a given artifact always looks attached the same way.
+ * @param {string} id - Artifact id.
+ * @returns {{ attach: string, tape: number }} Attachment style name and 1-based tape colour.
+ */
+function getAttachmentData(id) {
+  const hash = hashString(id);
+  return {
+    attach: ATTACHMENT_STYLES[hash % ATTACHMENT_STYLES.length],
+    tape: (Math.floor(hash / ATTACHMENT_STYLES.length) % TAPE_COLOR_COUNT) + 1
+  };
 }
 
 /**
@@ -360,8 +390,9 @@ function createCard(item, isExpanded, index) {
     : '<div class="card-thumbnail-placeholder"></div>';
 
   const rotation = getRotationData(index);
+  const attachment = getAttachmentData(item.id);
   return `
-    <button class="artifact-card ${isExpanded ? 'expanded' : ''}" data-id="${escapeHtml(item.id)}" data-card-color="${escapeHtml(cardColor)}" data-note-rotate="${escapeHtml(rotation.noteRotate)}" data-note-hover-rotate="${escapeHtml(rotation.noteHoverRotate)}" type="button"
+    <button class="artifact-card ${isExpanded ? 'expanded' : ''}" data-id="${escapeHtml(item.id)}" data-card-color="${escapeHtml(cardColor)}" data-attach="${attachment.attach}" data-tape="${attachment.tape}" data-note-rotate="${escapeHtml(rotation.noteRotate)}" data-note-hover-rotate="${escapeHtml(rotation.noteHoverRotate)}" type="button"
       aria-label="View details for ${escapeHtml(item.name)}" aria-expanded="${isExpanded}" aria-haspopup="dialog">
       <div class="card-note">
         <div class="card-thumbnail-area">
@@ -377,26 +408,36 @@ function createCard(item, isExpanded, index) {
 
 /**
  * Build the combined HTML for all artifact cards on the current page.
+ * Cards alternate between the left and right page of the spread, and each page
+ * carries its own page number.
  * @param {Array<{
  *   id: string,
  *   name: string,
  *   thumbnail?: string|null
  * }>} items - Artifacts visible on the current page.
  * @param {string|null} expandedId - Artifact ID currently expanded in the overlay.
+ * @param {number} [pageNumber=1] - Gallery page being rendered; page numbers are two per spread.
  * @returns {string} Book page HTML for the current artifact grid.
  */
-export function buildGridHtml(items, expandedId) {
+export function buildGridHtml(items, expandedId, pageNumber = 1) {
   const cards = items.map((item, index) => createCard(item, expandedId === item.id, index));
   const leftCards = cards.filter((_, index) => index % 2 === 0);
   const rightCards = cards.filter((_, index) => index % 2 !== 0);
+  const leftNumber = (pageNumber - 1) * 2 + 1;
 
-  return `
-    <section class="artifact-page-slice artifact-page-left" aria-label="Left book page">
-      ${leftCards.join('')}
-    </section>
-    <section class="artifact-page-slice artifact-page-right" aria-label="Right book page">
-      ${rightCards.join('')}
-    </section>
+  /**
+   * @param {'left'|'right'} side - Page side.
+   * @param {string[]} sideCards - Card HTML for this side.
+   * @param {number} number - Printed page number.
+   * @returns {string} One page slice.
+   */
+  const buildPage = (side, sideCards, number) => `
+    <section class="artifact-page-slice artifact-page-${side}${sideCards.length === 0 ? ' is-empty' : ''}" aria-label="${side === 'left' ? 'Left' : 'Right'} book page">
+      ${sideCards.join('')}
+      <span class="page-number" aria-hidden="true">${number}</span>
+    </section>`;
+
+  return `${buildPage('left', leftCards, leftNumber)}${buildPage('right', rightCards, leftNumber + 1)}
   `;
 }
 
@@ -432,6 +473,8 @@ export function applyDynamicStyles(container) {
 
 /**
  * Render pagination controls into the given container element.
+ * Previous and Next carry `data-page-step` so they stay relative to the latest
+ * requested page, even when several are pressed while a page turn is running.
  * @param {HTMLElement} container - Pagination container.
  * @param {number} currentPage - Active page number.
  * @param {number} totalPages - Total available pages.
@@ -440,6 +483,12 @@ export function applyDynamicStyles(container) {
 export function renderPagination(container, currentPage, totalPages) {
   if (totalPages <= 1) {
     container.innerHTML = '';
+    delete container.dataset.renderKey;
+    return;
+  }
+
+  const renderKey = `${currentPage}/${totalPages}`;
+  if (container.dataset.renderKey === renderKey) {
     return;
   }
 
@@ -459,9 +508,10 @@ export function renderPagination(container, currentPage, totalPages) {
 
   let html = '';
   html += `<button class="page-btn page-btn-nav" data-page="1" type="button" ${onFirst ? 'disabled' : ''} aria-label="First page"><span class="page-btn-paper"></span>${ICONS.chevronFirst}</button>`;
-  html += `<button class="page-btn page-btn-nav" data-page="${currentPage - 1}" type="button" ${onFirst ? 'disabled' : ''} aria-label="Previous page"><span class="page-btn-paper"></span>${ICONS.chevronLeft}</button>`;
+  html += `<button class="page-btn page-btn-nav" data-page="${currentPage - 1}" data-page-step="-1" type="button" ${onFirst ? 'disabled' : ''} aria-label="Previous page"><span class="page-btn-paper"></span>${ICONS.chevronLeft}<span class="page-btn-label">Prev</span></button>`;
   html += pageButtons;
-  html += `<button class="page-btn page-btn-nav" data-page="${currentPage + 1}" type="button" ${onLast ? 'disabled' : ''} aria-label="Next page"><span class="page-btn-paper"></span>${ICONS.chevronRight}</button>`;
+  html += `<button class="page-btn page-btn-nav" data-page="${currentPage + 1}" data-page-step="1" type="button" ${onLast ? 'disabled' : ''} aria-label="Next page"><span class="page-btn-paper"></span><span class="page-btn-label">Next</span>${ICONS.chevronRight}</button>`;
   html += `<button class="page-btn page-btn-nav" data-page="${totalPages}" type="button" ${onLast ? 'disabled' : ''} aria-label="Last page"><span class="page-btn-paper"></span>${ICONS.chevronLast}</button>`;
   container.innerHTML = html;
+  container.dataset.renderKey = renderKey;
 }
