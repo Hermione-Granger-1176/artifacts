@@ -25,6 +25,19 @@ def _assert_root_contrast(page) -> None:
     )
     assert_minimum_contrast(page, ".book-cover-sub", minimum_ratio=3.0)
     assert_minimum_contrast(page, ".book-cover-author", minimum_ratio=4.5)
+    # Pencil-written text must hold WCAG AA on the paper, card mats, and paper tags.
+    assert_minimum_contrast(
+        page, ".card-name", minimum_ratio=4.5, background_selector=".artifact-card .card-note"
+    )
+    assert_minimum_contrast(
+        page, ".page-number", minimum_ratio=4.5, background_selector=".book-endpaper"
+    )
+    assert_minimum_contrast(
+        page,
+        ".page-btn-nav .page-btn-label",
+        minimum_ratio=4.5,
+        background_selector=".page-btn-nav .page-btn-paper",
+    )
 
 
 def test_root_page_has_no_blocking_axe_violations_in_light_theme(
@@ -160,3 +173,35 @@ def test_404_page_has_no_blocking_axe_violations_and_good_contrast(
         results = run_axe(page)
         assert_no_blocking_axe_violations(results)
         assert_minimum_contrast(page, "#home-link", minimum_ratio=4.5)
+
+
+def test_book_has_no_blocking_axe_violations_after_the_full_motion_open_and_turn(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The scrapbook book stays accessible in both themes once the intro and a turn have run."""
+    deploy_root = build_smoke_site(tmp_path, monkeypatch)
+
+    with (
+        StaticServer(deploy_root) as server,
+        sync_playwright() as playwright,
+        MonitoredPage(playwright, server.url, name="a11y-root-motion", bypass_csp=True) as session,
+    ):
+        page = session.page
+        assert page is not None
+        session.goto("/")
+        expect(page.locator("#book-shell")).to_have_attribute(
+            "data-scene-intro", "open", timeout=12000
+        )
+
+        page.get_by_role("button", name="Next page").click()
+        expect(page.locator(".book-leaf")).to_have_count(0, timeout=5000)
+        expect(page.locator("#pagination .page-btn.active")).to_have_text("2")
+
+        include = [".header", ".container", ".footer", "#runtime-error", "#detail-overlay"]
+        assert_no_blocking_axe_violations(run_axe(page, include=include, exclude=[".book-cover"]))
+        _assert_root_contrast(page)
+
+        page.locator("#theme-toggle").click()
+        expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+        assert_no_blocking_axe_violations(run_axe(page, include=include, exclude=[".book-cover"]))
+        _assert_root_contrast(page)

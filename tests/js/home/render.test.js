@@ -59,15 +59,48 @@ test('buildGridHtml marks the expanded card and lazy-loads thumbnails', () => {
 });
 
 test('renderPagination clears single-page output and renders ellipsis for long ranges', () => {
-  const container = { innerHTML: 'stale' };
+  const container = { innerHTML: 'stale', dataset: { renderKey: '1/2' } };
   renderPagination(container, 1, 1);
   assert.equal(container.innerHTML, '');
+  assert.equal(container.dataset.renderKey, undefined);
 
   renderPagination(container, 5, 10);
   assert.match(container.innerHTML, /aria-label="First page"/);
   assert.match(container.innerHTML, /page-ellipsis/);
   assert.match(container.innerHTML, /aria-current="page"/);
   assert.match(container.innerHTML, /aria-label="Last page"/);
+});
+
+test('renderPagination gives Previous and Next relative steps and labels', () => {
+  const container = { innerHTML: '', dataset: {} };
+  renderPagination(container, 3, 5);
+
+  assert.match(container.innerHTML, /data-page="2" data-page-step="-1"[^>]*aria-label="Previous page"/);
+  assert.match(container.innerHTML, /data-page="4" data-page-step="1"[^>]*aria-label="Next page"/);
+  assert.match(container.innerHTML, /page-btn-label">Prev</);
+  assert.match(container.innerHTML, /page-btn-label">Next</);
+  assert.doesNotMatch(container.innerHTML, /data-page="1" data-page-step/);
+});
+
+test('renderPagination disables nav buttons at the ends', () => {
+  const container = { innerHTML: '', dataset: {} };
+  renderPagination(container, 1, 3);
+  assert.match(container.innerHTML, /data-page="0" data-page-step="-1" type="button" disabled/);
+
+  renderPagination(container, 3, 3);
+  assert.match(container.innerHTML, /data-page="4" data-page-step="1" type="button" disabled/);
+});
+
+test('renderPagination skips the DOM write when the page and total are unchanged', () => {
+  const container = { innerHTML: '', dataset: {} };
+  renderPagination(container, 2, 4);
+  container.innerHTML = 'marker';
+  renderPagination(container, 2, 4);
+  assert.equal(container.innerHTML, 'marker');
+
+  renderPagination(container, 3, 4);
+  assert.notEqual(container.innerHTML, 'marker');
+  assert.equal(container.dataset.renderKey, '3/4');
 });
 
 test('buildFilterNotes marks All as active when no filters are selected', () => {
@@ -277,4 +310,51 @@ test('applyDynamicStyles skips rotate when data-rotate is absent', () => {
 
   assert.equal(props['--chip-color'], 'red');
   assert.equal(props['--rotate'], undefined);
+});
+
+test('buildGridHtml deals cards onto left and right pages with printed page numbers', () => {
+  const items = ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id.toUpperCase(), thumbnail: null }));
+  const html = buildGridHtml(items, null, 3);
+
+  const left = html.slice(html.indexOf('artifact-page-left'), html.indexOf('artifact-page-right'));
+  const right = html.slice(html.indexOf('artifact-page-right'));
+  assert.match(left, /data-id="a"[^]*data-id="c"/);
+  assert.doesNotMatch(left, /data-id="b"/);
+  assert.match(right, /data-id="b"[^]*data-id="d"/);
+  assert.match(left, /<span class="page-number" aria-hidden="true">5<\/span>/);
+  assert.match(right, /<span class="page-number" aria-hidden="true">6<\/span>/);
+  assert.doesNotMatch(html, /is-empty/);
+});
+
+test('buildGridHtml numbers pages from one by default and marks an empty page', () => {
+  const html = buildGridHtml([{ id: 'only', name: 'Only', thumbnail: null }], null);
+
+  assert.match(html, /artifact-page-left"[^>]*aria-label="Left book page"/);
+  assert.match(html, /artifact-page-right is-empty"[^>]*aria-label="Right book page"/);
+  assert.match(html, /page-number" aria-hidden="true">1</);
+  assert.match(html, /page-number" aria-hidden="true">2</);
+});
+
+test('buildGridHtml picks a stable attachment style and tape colour from the card id', () => {
+  const item = { id: 'loan-amortization', name: 'Loan', thumbnail: null };
+  const first = buildGridHtml([item], null);
+  const again = buildGridHtml([item, { id: 'other', name: 'Other', thumbnail: null }], null, 2);
+
+  const attachOf = (html, id) => html.match(new RegExp(`data-id="${id}"[^>]*data-attach="([a-z-]+)" data-tape="(\\d)"`));
+  const a = attachOf(first, 'loan-amortization');
+  const b = attachOf(again, 'loan-amortization');
+  assert.ok(a);
+  assert.deepEqual(a.slice(1), b.slice(1));
+  assert.ok(['tape-pair', 'tape-center', 'corners', 'clip', 'tape-diagonal'].includes(a[1]));
+  assert.ok(Number(a[2]) >= 1 && Number(a[2]) <= 6);
+});
+
+test('buildGridHtml spreads attachment styles across ids', () => {
+  const items = Array.from({ length: 40 }, (_, index) => ({ id: `artifact-${index}`, name: `A${index}`, thumbnail: null }));
+  const html = buildGridHtml(items, null);
+  const styles = new Set([...html.matchAll(/data-attach="([a-z-]+)"/g)].map((match) => match[1]));
+  const tapes = new Set([...html.matchAll(/data-tape="(\d)"/g)].map((match) => match[1]));
+
+  assert.equal(styles.size, 5);
+  assert.equal(tapes.size, 6);
 });

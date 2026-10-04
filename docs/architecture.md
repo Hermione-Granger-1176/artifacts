@@ -39,7 +39,7 @@ The deployed site is static HTML with a generated data layer.
 3. `js/data.js` defines `window.ARTIFACTS_DATA`
 4. `js/app.js` validates bootstrap data and calls `initializeGalleryApp`
 5. `js/modules/gallery/gallery-app.js` restores URL-synced search, filters, sort, and manages theme, overlays, keyboard shortcuts, cards, and pagination
-6. `js/modules/gallery/book-scene.js` runs the book cover intro and 3D page-turn animations
+6. `js/modules/gallery/book-scene.js` runs the scrapbook cover intro and the page turns, including turning a page by dragging it
 7. Clicking a card lazily loads `detail-overlay.js` via dynamic `import()` and opens the detail panel; subsequent clicks use the cached module
 
 The gallery never inspects artifact HTML directly. It depends entirely on generated metadata.

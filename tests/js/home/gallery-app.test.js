@@ -221,6 +221,10 @@ class FakeGrid extends FakeElement {
     this.cards = [];
   }
 
+  get innerHTML() {
+    return this._innerHTML;
+  }
+
   set innerHTML(value) {
     this._innerHTML = value;
     this.cards = [...value.matchAll(/<button class="([^"]*artifact-card[^"]*)" data-id="([^"]+)"[^>]*aria-expanded="([^"]+)"/g)].map(([, classNames, id, expanded]) => {
@@ -237,7 +241,7 @@ class FakeGrid extends FakeElement {
       const match = selector.match(/data-id="([^"]+)"/);
       return this.cards.find((card) => card.dataset.id === match?.[1]) || null;
     }
-    return null;
+    return this.slices?.[selector] || null;
   }
 
   querySelectorAll(selector) {
@@ -245,6 +249,48 @@ class FakeGrid extends FakeElement {
       return this.cards;
     }
     return [];
+  }
+}
+
+async function settleMicrotasks() {
+  for (let index = 0; index < 12; index += 1) {
+    await Promise.resolve();
+  }
+}
+
+/** Element with just enough tree behaviour for the book scene's leaf and ghost. */
+class FakeBookElement extends FakeElement {
+  constructor(options = {}) {
+    super(options);
+    this.children = [];
+    this.slices = {};
+  }
+
+  appendChild(child) {
+    child.parentElement = this;
+    this.children.push(child);
+    return child;
+  }
+
+  remove() {
+    if (this.parentElement) {
+      this.parentElement.children = this.parentElement.children.filter((child) => child !== this);
+      this.parentElement = null;
+    }
+  }
+
+  cloneNode() {
+    return new FakeBookElement({ classes: [...this.classList.values] });
+  }
+
+  removeEventListener() {}
+
+  set className(value) {
+    this.classList = new FakeClassList(String(value).split(/\s+/).filter(Boolean));
+  }
+
+  querySelector(selector) {
+    return this.slices[selector] || null;
   }
 }
 
@@ -287,8 +333,13 @@ function createButton(id) {
 function createRuntimeStub(initialTheme = 'dark') {
   const storage = new Map([['theme', initialTheme]]);
   const writes = [];
+  const reportedErrors = [];
   return {
     writes,
+    reportedErrors,
+    reportError(error, context) {
+      reportedErrors.push({ context, error });
+    },
     readStorage(key, fallbackValue = null) {
       return storage.has(key) ? storage.get(key) : fallbackValue;
     },
@@ -316,7 +367,7 @@ function createArtifacts(count = 13) {
   });
 }
 
-function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, search = '' } = {}) {
+function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, search = '', withBook = false } = {}) {
   const documentListeners = new Map();
   const windowListeners = new Map();
   const timers = new Map();
@@ -472,6 +523,7 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
   const searchInput = registerElement(new FakeElement({ id: 'search-input', tagName: 'INPUT' }));
   const searchClear = registerElement(createButton('search-clear'));
   searchClear.classList.add('hidden');
+  const searchCount = registerElement(new FakeElement({ id: 'search-count' }));
   const sortToggle = registerElement(createButton('sort-toggle'));
   const filterReset = registerElement(createButton('filter-reset'));
   filterReset.classList.add('hidden');
@@ -495,6 +547,7 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
     [grid, container],
     [searchInput, container],
     [searchClear, container],
+    [searchCount, container],
     [sortToggle, container],
     [filterReset, container],
     [themeToggle, header],
@@ -509,6 +562,57 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
   ].forEach(([child, parent]) => {
     child.parentElement = parent;
   });
+
+  let book = null;
+  if (withBook) {
+    const shell = registerElement(new FakeBookElement({ id: 'book-shell' }));
+    shell.dataset.sceneIntro = 'open';
+    const sheet = registerElement(new FakeBookElement({ id: 'book-sheet' }));
+    sheet.removeEventListener = () => {};
+    grid.slices = {
+      '.artifact-page-left': new FakeBookElement({ classes: ['artifact-page-left'] }),
+      '.artifact-page-right': new FakeBookElement({ classes: ['artifact-page-right'] })
+    };
+    const frames = [];
+    windowObj.requestAnimationFrame = (callback) => {
+      frames.push(callback);
+      return frames.length;
+    };
+    windowObj.cancelAnimationFrame = () => {};
+    windowObj.innerWidth = 1280;
+    documentObj.createElement = () => {
+      const element = new FakeBookElement();
+      element.slices = {
+        '.artifact-page-left': new FakeBookElement({ classes: ['artifact-page-left'] }),
+        '.artifact-page-right': new FakeBookElement({ classes: ['artifact-page-right'] })
+      };
+      Object.defineProperty(element, 'innerHTML', {
+        set(value) {
+          this.html = value;
+        },
+        get() {
+          return this.html;
+        }
+      });
+      element.querySelectorAll = () => [];
+      return element;
+    };
+    let now = 0;
+    book = {
+      sheet,
+      shell,
+      /** Run animation frames until the book has no leaf on the sheet. */
+      async runFrames(steps = 80) {
+        await settleMicrotasks();
+        for (let index = 0; index < steps; index += 1) {
+          now += 16;
+          const pending = frames.splice(0);
+          pending.forEach((callback) => callback(now));
+          await settleMicrotasks();
+        }
+      }
+    };
+  }
 
   const outsideTarget = new FakeElement({ classes: ['outside'] });
   outsideTarget.ownerDocument = documentObj;
@@ -536,10 +640,12 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
       pagination,
       scrollTop,
       searchClear,
+      searchCount,
       searchInput,
       sortToggle,
       themeToggle
     },
+    book,
     historyCalls,
     outsideTarget,
     runTimers,
@@ -701,9 +807,11 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
   assert.equal(harness.windowObj.location.search, '?q=artifact+13');
   assert.equal(harness.elements.grid.cards.length, 1);
   assert.equal(harness.elements.searchClear.classList.contains('hidden'), false);
+  assert.equal(harness.elements.searchCount.textContent, '1 found');
 
   harness.elements.searchClear.dispatch('click');
   assert.equal(harness.windowObj.location.search, '');
+  assert.equal(harness.elements.searchCount.textContent, '', 'the count clears with the search');
   assert.equal(harness.documentObj.activeElement, harness.elements.searchInput);
 
   const toolTab = new FakeElement({ tagName: 'BUTTON', classes: ['desk-note'] });
@@ -727,6 +835,7 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
   assert.equal(harness.elements.grid.cards.length, 0);
   assert.equal(harness.elements.noResults.classList.contains('hidden'), false);
   assert.equal(harness.elements.galleryStatus.textContent, 'No artifacts match the current search and filters.');
+  assert.equal(harness.elements.searchCount.textContent, 'nothing yet');
 
   harness.elements.noResultsReset.dispatch('click');
   assert.equal(harness.windowObj.location.search, '?sort=oldest');
@@ -881,4 +990,215 @@ test('initializeGalleryApp desk notes toggle tool and tag filters', () => {
   nonTab.parentElement = harness.elements.bookmarkTabs;
   harness.elements.bookmarkTabs.dispatch('click', { target: nonTab });
   assert.equal(harness.windowObj.location.search, prevSearch);
+});
+
+function createPageButton(harness, { page, step }) {
+  const button = new FakeElement({ tagName: 'BUTTON' });
+  button.dataset.page = String(page);
+  if (step !== undefined) {
+    button.dataset.pageStep = String(step);
+  }
+  button.focus = function focus() {
+    harness.documentObj.activeElement = this;
+  };
+  return button;
+}
+
+test('pagination Previous and Next step from the latest requested page', () => {
+  const harness = createGalleryHarness();
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+
+  const next = createPageButton(harness, { page: 2, step: 1 });
+  harness.elements.pagination.dispatch('click', { target: next });
+  harness.elements.pagination.dispatch('click', { target: next });
+  harness.elements.pagination.dispatch('click', { target: next });
+  assert.equal(harness.windowObj.location.search, '?page=4', 'repeated presses keep stepping');
+  assert.equal(harness.elements.galleryStatus.textContent, 'Showing 13 artifacts; page 4 of 4.');
+
+  harness.elements.pagination.dispatch('click', { target: next });
+  assert.equal(harness.windowObj.location.search, '?page=4', 'Next on the last page is ignored');
+
+  const previous = createPageButton(harness, { page: 3, step: -1 });
+  harness.elements.pagination.dispatch('click', { target: previous });
+  assert.equal(harness.windowObj.location.search, '?page=3');
+});
+
+test('pagination keeps focus on the Next button while stepping', () => {
+  const harness = createGalleryHarness();
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+
+  const nextButton = createPageButton(harness, { page: 2, step: 1 });
+  const pageButton = createPageButton(harness, { page: 2 });
+  let stepEnabled = true;
+  harness.elements.pagination.querySelector = (selector) => {
+    if (selector.startsWith('[data-page-step="1"]')) {
+      return stepEnabled ? nextButton : null;
+    }
+    if (selector === '[data-page="2"]') {
+      return pageButton;
+    }
+    return null;
+  };
+
+  harness.elements.pagination.dispatch('click', { target: nextButton });
+  assert.equal(harness.documentObj.activeElement, nextButton);
+
+  stepEnabled = false;
+  harness.elements.pagination.dispatch('click', { target: createPageButton(harness, { page: 1, step: -1 }) });
+  harness.elements.pagination.dispatch('click', { target: nextButton });
+  assert.equal(harness.documentObj.activeElement, pageButton, 'falls back to the page button when Next is disabled');
+});
+
+test('pagination ignores disabled buttons, the current page, and non-page targets', () => {
+  const harness = createGalleryHarness();
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+
+  const disabled = createPageButton(harness, { page: 2 });
+  disabled.disabled = true;
+  harness.elements.pagination.dispatch('click', { target: disabled });
+  harness.elements.pagination.dispatch('click', { target: createPageButton(harness, { page: 1 }) });
+  harness.elements.pagination.dispatch('click', { target: new FakeElement({ tagName: 'DIV' }) });
+  assert.equal(harness.historyCalls.length, 0);
+});
+
+test('page turns keep the live book untouched until the leaf lands and then render the page', async () => {
+  const harness = createGalleryHarness({ withBook: true });
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+  const { book, elements } = harness;
+  const pageOneHtml = elements.grid.innerHTML;
+  assert.match(elements.galleryStatus.textContent, /page 1 of 4/);
+  assert.equal(book.sheet.dataset.hasPrevious, 'false');
+  assert.equal(book.sheet.dataset.hasNext, 'true');
+
+  elements.pagination.dispatch('click', { target: createPageButton(harness, { page: 3 }) });
+  await settleMicrotasks();
+  assert.equal(harness.windowObj.location.search, '?page=3', 'URL and pagination move at once');
+  assert.equal(elements.grid.innerHTML, pageOneHtml, 'the pages under the leaf are untouched');
+  assert.equal(book.sheet.children.length, 2, 'a ghost page and one leaf');
+
+  await book.runFrames();
+  assert.notEqual(elements.grid.innerHTML, pageOneHtml);
+  assert.match(elements.grid.innerHTML, /page-number" aria-hidden="true">5</);
+  assert.equal(book.sheet.children.length, 0, 'no leaf or ghost remains');
+  assert.equal(elements.galleryStatus.textContent, 'Showing 13 artifacts; page 3 of 4.');
+  assert.equal(book.sheet.dataset.hasNext, 'true');
+});
+
+test('rapid Next presses during a turn coalesce and end on the right page', async () => {
+  const harness = createGalleryHarness({ withBook: true });
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+  const { book, elements } = harness;
+  const next = createPageButton(harness, { page: 2, step: 1 });
+
+  elements.pagination.dispatch('click', { target: next });
+  await settleMicrotasks();
+  await book.runFrames(5);
+  elements.pagination.dispatch('click', { target: next });
+  elements.pagination.dispatch('click', { target: next });
+  assert.equal(harness.windowObj.location.search, '?page=4');
+
+  await book.runFrames(200);
+  assert.equal(elements.galleryStatus.textContent, 'Showing 13 artifacts; page 4 of 4.');
+  assert.match(elements.grid.innerHTML, /page-number" aria-hidden="true">7</);
+  assert.equal(book.sheet.children.length, 0);
+  assert.equal(harness.runtime.reportedErrors.length, 0);
+});
+
+test('search, filter, and sort changes during a page turn render the new results and drop the leaf', async () => {
+  const harness = createGalleryHarness({ withBook: true });
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+  const { book, elements } = harness;
+
+  elements.pagination.dispatch('click', { target: createPageButton(harness, { page: 3 }) });
+  await settleMicrotasks();
+  assert.equal(book.sheet.children.length, 2);
+
+  elements.sortToggle.dispatch('click');
+  assert.equal(book.sheet.children.length, 0, 'the leaf is dropped');
+  assert.equal(harness.windowObj.location.search, '?sort=oldest');
+  assert.match(elements.galleryStatus.textContent, /page 1 of 4/);
+
+  await book.runFrames(200);
+  assert.match(elements.galleryStatus.textContent, /page 1 of 4/, 'a dropped turn never lands later');
+  assert.equal(elements.grid.cards.length, 4);
+});
+
+test('the browser back button during a page turn renders the URL state', async () => {
+  const harness = createGalleryHarness({ withBook: true });
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+  const { book, elements } = harness;
+
+  elements.pagination.dispatch('click', { target: createPageButton(harness, { page: 2 }) });
+  await settleMicrotasks();
+  assert.equal(book.sheet.children.length, 2);
+  harness.windowObj.location.search = '';
+  harness.windowObj.dispatch('popstate');
+  assert.equal(book.sheet.children.length, 0);
+  assert.match(elements.galleryStatus.textContent, /page 1 of 4/);
+});
+
+test('an error while a page turn lands is reported to the runtime', async () => {
+  const harness = createGalleryHarness({ withBook: true });
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+  const { book, elements } = harness;
+
+  elements.pagination.dispatch('click', { target: createPageButton(harness, { page: 2 }) });
+  await settleMicrotasks();
+  Object.defineProperty(elements.galleryStatus, 'textContent', {
+    set() {
+      throw new Error('status failed');
+    },
+    get() {
+      return '';
+    }
+  });
+  await book.runFrames(200);
+  assert.equal(book.sheet.children.length, 0);
+  assert.equal(harness.runtime.reportedErrors.length, 1);
+  assert.equal(harness.runtime.reportedErrors[0].context, 'page turn');
+});
+
+test('page turns on an empty result set do not build a leaf', async () => {
+  const harness = createGalleryHarness({ withBook: true, search: '?q=missing+artifact' });
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+
+  assert.equal(harness.elements.grid.cards.length, 0);
+  assert.equal(harness.elements.pagination.innerHTML, '');
+  assert.equal(harness.book.sheet.dataset.hasNext, 'false');
 });

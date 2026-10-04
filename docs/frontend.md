@@ -28,7 +28,7 @@ Gallery modules (under `js/modules/gallery/`):
 - `js/modules/gallery/icons.js`: shared inline SVG icon markup
 - `js/modules/gallery/inert.js`: background element inert/interactive toggling for overlay accessibility
 - `js/modules/gallery/motion.js`: reduced-motion-aware scroll and animation helpers
-- `js/modules/gallery/book-scene.js`: book cover intro animation and 3D page-turn motion
+- `js/modules/gallery/book-scene.js`: scrapbook cover intro, page turns (by button or by dragging a page), and the queue for page requests
 - `js/modules/gallery/render.js`: HTML generation and DOM sync helpers for cards, detail content, desk-note filters, and pagination
 - `js/modules/gallery/gallery-url.js`: URL state sync for gallery search, filters, and sort
 
@@ -46,6 +46,20 @@ Shared modules (under `js/modules/`):
 
 The root filter UI is rendered as desk notes by `buildFilterNotes()` in `js/modules/gallery/render.js` and toggled in `js/modules/gallery/gallery-app.js`.
 
+The search is a wide sticky note above the book, with the sort and reset buttons as small notes beside it. While a search is active, `#search-count` shows how many artifacts match, and `#gallery-status` announces the same result to screen readers. The visible sort label ("newest" or "oldest") comes from `.sort-toggle::after`, and the button's accessible name ("Sort by newest first") contains that label. Press `/` to focus the search.
+
+### The scrapbook book
+
+The artifact pages sit in a post-bound scrapbook. The closed book is centered and shows a charcoal card-stock cover with a ribbon tie, binding posts, index tabs, a taped title note, doodles, and placeholder snapshots. The cover colors are the `--color-album-*` tokens in `css/src/01-tokens.css`, and the doodle and snapshot images live in `assets/scrapbook/`. Every paper surface uses the same ruled paper: the endpaper inside the cover, both pages, and both faces of a turning leaf. The rules therefore never shift when a leaf lands. Each card is a print held by tape, a paper clip, or photo corners, with a pencil-style Caveat caption. `getAttachmentData()` in `render.js` picks the attachment from the artifact id, so an artifact always looks the same.
+
+On load, `startIntro()` slides the ribbon off and starts swinging the cover before the ribbon has finished. The cover turns a full 180 degrees around the spine while the book slides from centered-closed to centered-open. The left half of the book stays hidden until the cover lands on it. The inside of the cover carries a copy of the first left page with its cards attached, the same way a turning leaf carries its back page. When the cover lands, the live left page replaces the copy, and nothing fades or moves.
+
+A page turn is one leaf with two faces, hinged at the spine. The front face shows the page being turned, and the back face shows the page it becomes. The page underneath already shows the destination, so no content changes during the turn. The leaf box matches the settled page box exactly. To turn a page by hand, drag from a page's outer edge or bottom corner. The leaf follows the pointer. If you release it past `DRAG_COMPLETE_THRESHOLD` (45% of the turn), the turn completes. Otherwise the leaf springs back.
+
+Requests from the Prev and Next buttons and the page numbers go through one queue. The queue always turns straight to the latest requested page, so fast clicks end on the right page and no click is lost. A filter, search, sort, or history change calls `renderContent()`, which cancels any turn in progress before it renders. Every animation path removes its inline styles and temporary leaf when it finishes, is cancelled, or fails. Reduced motion and the mobile layout (700px wide and below) use short cross-fades instead of 3D motion.
+
+On screens wider than 900px, the open book fits the viewport height. `.book-shell` gives the book the height left after the header, search, and pagination, set by `--book-chrome-y`. That height stays between `--book-fit-min-height` (460px) and `--book-sheet-min-height` (800px). The book width shrinks with the height by `--book-spread-ratio`, so the pages keep their shape. On screens 900px tall or less, the header, search, and pagination spacing is tighter and the desk notes are smaller. Card captions scale with the book width. Tablet and mobile layouts keep their fixed sizes.
+
 Interaction-heavy modules prefer guard clauses and small lookup maps when that keeps event routing linear and testable.
 
 Invalid generated bootstrap data fails startup before the gallery initializes, which routes through the runtime error banner and global error reporting.
@@ -62,7 +76,7 @@ Invalid generated bootstrap data fails startup before the gallery initializes, w
 - `tests/js/workflows/`: Node tests for the `deploy-site` and `verified-commit` GitHub composite-action modules
 - `tests/browser/test_frontend_smoke.py`: browser smoke coverage for gallery load, invalid bootstrap data, search, desk-note filters, pagination, detail overlay, and `404.html`
 - `tests/browser/test_frontend_accessibility.py`: Playwright + axe coverage for root light/dark themes, overlay state, no-results state, and `404.html`, plus explicit contrast assertions
-- `tests/browser/test_frontend_browser_flows.py`: keyboard-only, mobile, reduced-motion, theme persistence, and larger-catalog browser interaction coverage
+- `tests/browser/test_frontend_browser_flows.py`: keyboard-only, mobile, reduced-motion, theme persistence, larger-catalog, and book-scene coverage (centered open book, leaf geometry, rapid turns, completed and sprung-back drags, laptop fit)
 - `tests/browser/test_frontend_apps_smoke.py`: real app smoke coverage for mature app folders that opt into the shared app system
 - `tests/browser/test_frontend_apps_accessibility.py`: Playwright + axe coverage for mature app shared-shell accessibility and contrast
 - `tests/browser/test_frontend_apps_browser_flows.py`: mature app browser-flow coverage for app-specific interactions and theme behavior; each flow test skips when its app slug is outside `ARTIFACTS_BROWSER_APP_SLUGS`

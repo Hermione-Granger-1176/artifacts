@@ -192,67 +192,116 @@ button {
 :where(body:not(.artifact-app)) .controls {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.55rem 0.85rem;
-  border: 1px solid var(--color-border-solid);
-  border-radius: 14px;
-  background: var(--color-bg-secondary);
-  box-shadow: var(--shadow-sm);
+  justify-content: center;
+  gap: 0.9rem;
 }
 
+/* Search is a wide sticky note, the same paper as the filter notes beside the book. */
 .search-wrapper {
   position: relative;
-  flex: 1 1 320px;
+  flex: 0 1 34rem;
   min-width: 240px;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 4rem;
+  padding: 0.35rem 0.9rem 0.35rem 1rem;
+  border-radius: 2px;
+  background: var(--color-note-1);
+  color: var(--color-note-text);
+  box-shadow:
+    2px 4px 8px rgba(0, 0, 0, 0.12),
+    inset 0 0 22px rgba(0, 0, 0, 0.05);
+  transform: rotate(-1deg);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-#search-input {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  height: 2rem;
-  padding: 0.2rem 3rem 0.2rem 2.8rem;
-  border: 1px solid var(--color-border-solid);
-  border-radius: var(--radius-pill);
-  background: var(--color-bg-card);
-  color: var(--text-primary);
-  font-size: 1.05rem;
-}
-
-#search-input::placeholder {
-  color: var(--text-secondary);
-  opacity: 0.8;
-}
-
-.search-icon,
-.search-clear {
+/* A strip of tape holds the note to the desk. */
+.search-wrapper::before {
+  content: '';
   position: absolute;
-  top: 50%;
-  z-index: 2;
-  transform: translateY(-50%);
+  top: -8px;
+  left: 50%;
+  width: 90px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transform: translateX(-50%) rotate(-2deg);
+  pointer-events: none;
+}
+
+.search-wrapper:focus-within {
+  transform: rotate(0deg) scale(1.02);
 }
 
 .search-icon {
-  left: 0.9rem;
-  color: var(--text-secondary);
+  flex: none;
+}
+
+#search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 2.6rem;
+  padding: 0.3rem 0.1rem 0;
+  border: none;
+  border-bottom: 2px dashed color-mix(in srgb, var(--color-note-text) 40%, transparent);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-note-text);
+  font-size: 1.6rem;
+}
+
+#search-input:focus-visible {
+  outline: none;
+  border-bottom-style: solid;
+}
+
+#search-input::placeholder {
+  color: color-mix(in srgb, var(--color-note-text) 72%, transparent);
+  opacity: 1;
 }
 
 .search-clear {
-  right: 0.6rem;
-  width: 2.5rem;
-  height: 2.5rem;
+  flex: none;
+  width: 2.2rem;
+  height: 2.2rem;
   border: none;
   border-radius: var(--radius-pill);
-  background: rgba(0, 0, 0, 0.08);
-  color: var(--text-secondary);
-  font-size: 1.2rem;
+  background: transparent;
+  color: var(--color-note-text);
+  font-size: 1.7rem;
+  font-weight: 700;
   line-height: 1;
 }
 
 .search-clear:hover {
-  background: color-mix(in srgb, var(--accent) 18%, var(--color-bg-card));
-  color: var(--accent);
+  background: color-mix(in srgb, var(--color-note-text) 12%, transparent);
+}
+
+/* The "/" shortcut, drawn as a small keycap. */
+.search-key {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 1.5px solid color-mix(in srgb, var(--color-note-text) 60%, transparent);
+  border-bottom-width: 3px;
+  border-radius: 5px;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--color-note-text) 80%, transparent);
+  transform: rotate(-4deg);
+}
+
+/* How many artifacts match, in pencil. Sized to balance the sort note on the other side. */
+.search-count {
+  flex: 0 0 5.5rem;
+  font-size: 1.35rem;
+  font-weight: 500;
+  color: var(--color-pencil-soft);
+  text-align: right;
 }
 
 .control-cluster,
@@ -263,8 +312,58 @@ button {
   flex-wrap: wrap;
 }
 
+.control-cluster {
+  flex: 0 0 auto;
+  min-width: 5.5rem;
+}
+
+.filter-section {
+  flex-wrap: nowrap;
+}
+
+/* Sort and reset are small sticky notes beside the search note. */
 .sort-toggle,
-.filter-reset,
+.filter-reset {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 3.4rem;
+  padding: 0.3rem 0.75rem;
+  border: none;
+  border-radius: 2px;
+  color: var(--color-note-text);
+  font-size: 1.25rem;
+  font-weight: 700;
+  box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sort-toggle {
+  background: var(--color-note-3);
+  transform: rotate(3deg);
+}
+
+/* The visible label matches the start of the accessible name ("Sort by newest first"). */
+.sort-toggle::after {
+  content: 'newest';
+}
+
+.sort-toggle.is-oldest::after {
+  content: 'oldest';
+}
+
+.filter-reset {
+  background: var(--color-note-2);
+  transform: rotate(-3deg);
+}
+
+.sort-toggle:hover,
+.filter-reset:hover {
+  transform: rotate(0deg) translateY(-2px);
+}
+
 .btn-reset-link {
   position: relative;
   display: inline-flex;
@@ -280,16 +379,14 @@ button {
   box-shadow: var(--shadow-sm);
 }
 
-.sort-toggle:hover,
-.filter-reset:hover,
 .btn-reset-link:hover,
 .page-btn:hover,
 .detail-close:hover {
   transform: translateY(-2px);
 }
 
-.btn-reset-link {
-  color: var(--text-primary);
+.sort-toggle-icon {
+  transition: transform 0.25s ease;
 }
 
 .sort-toggle.is-oldest .sort-toggle-icon {
@@ -310,144 +407,141 @@ button {
 }
 
 .book-shell {
+  /* Fit the open book to the screen height, and shrink its width with it so the pages keep their shape. */
+  --book-fit-height: clamp(
+    var(--book-fit-min-height),
+    calc(100svh - var(--book-chrome-y)),
+    var(--book-sheet-min-height)
+  );
+
   position: relative;
   grid-column: 2;
   grid-row: 1;
-  width: min(100%, 1060px);
+  container-type: inline-size;
+  width: min(100%, 1060px, calc(var(--book-fit-height) * var(--book-spread-ratio)));
   justify-self: center;
   margin-top: 0.4rem;
-  perspective: 1400px;
 }
 
-.book-cover {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  right: 0;
-  bottom: 0;
-  z-index: 4;
-  pointer-events: none;
-  transform-origin: left center;
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-}
-
-.book-cover-face,
-.book-cover-back {
-  position: absolute;
-  inset: 0;
-  border-radius: 0 var(--radius-book) var(--radius-book) 0;
-  backface-visibility: hidden;
-}
-
-.book-cover-face {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  padding: clamp(2rem, 5vw, 4rem);
-  background: var(--color-accent-strong);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-left: none;
-  box-shadow: 4px 4px 20px rgba(0, 0, 0, 0.1);
-  z-index: 2;
-}
-
-.book-cover-back {
-  background: var(--color-page-paper);
-  border: 1px solid var(--color-border-solid);
-  transform: rotateY(180deg);
-  z-index: 1;
-  border-radius: var(--radius-book) 0 0 var(--radius-book);
-  box-shadow: inset 4px 0 10px rgba(0, 0, 0, 0.05);
-}
-
-.book-cover-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(3rem, 6vw, 5rem);
-  line-height: 1;
-  letter-spacing: 0.04em;
-  color: var(--color-text-on-accent);
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.book-cover-author {
-  margin: 1.5rem 0 0;
-  font-family: var(--font-body);
-  font-size: 1.25rem;
-  color: var(--color-text-on-accent);
-  letter-spacing: 0.03em;
-}
-
-.book-cover-sub {
-  margin: 0;
-  font-family: var(--font-body);
-  font-size: 1.5rem;
-  color: var(--color-text-on-accent);
-  letter-spacing: 0.02em;
-}
-
-.book-shell.is-opening .book-cover,
-.book-shell:not(.is-open) .book-cover {
-  visibility: visible;
-}
-
-.book-shell.is-open .book-cover {
-  visibility: hidden;
-}
-
-.book-shell:not(.is-open) .book-sheet {
-  clip-path: inset(0 0 0 50%);
-}
-
-.book-shell:not(.is-open) .artifact-page-left {
-  opacity: 0;
-}
-
-.book-shell.is-open .book-sheet {
-  clip-path: inset(0 0 0 0);
-}
-
-.book-shell.is-open .artifact-page-left {
-  opacity: 1;
-}
-
-.book-sheet.is-turning {
-  pointer-events: none;
+/* The stage owns the perspective; the album and its leaf share one 3D context. Never put filter, opacity, or overflow on the stage, sheet, or leaf during a turn: it flattens the 3D context and shows the mirrored back face. */
+.book-stage {
+  position: relative;
+  perspective: 2600px;
+  perspective-origin: 50% 40%;
 }
 
 .book-sheet {
+  --rim: var(--album-rim);
+  --book-grain:
+    radial-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1.2px) 0 0 / 5px 5px,
+    radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1.2px) 2px 3px / 7px 7px;
+  --page-edge: color-mix(in srgb, var(--color-page-paper) 86%, black);
+  --stack-left-n: 0;
+  --stack-right-n: 0;
+
   position: relative;
   width: 100%;
-  height: var(--book-sheet-min-height);
-  min-height: var(--book-sheet-min-height);
-  border-radius: var(--radius-book);
-  background: transparent;
-  box-shadow:
-    1px 1px 0 var(--color-page-paper),
-    2px 2px 0 rgba(0, 0, 0, 0.06),
-    3px 3px 0 var(--color-page-paper),
-    4px 4px 0 rgba(0, 0, 0, 0.06),
-    5px 5px 0 var(--color-page-paper),
-    6px 6px 0 rgba(0, 0, 0, 0.06),
-    7px 7px 0 var(--color-page-paper),
-    8px 8px 0 rgba(0, 0, 0, 0.06),
-    9px 9px 0 var(--color-page-paper),
-    10px 10px 0 rgba(0, 0, 0, 0.04),
-    10px 10px 16px var(--color-page-shadow);
+  height: min(var(--book-fit-height), calc(100cqi / var(--book-spread-ratio)));
+  transform-style: preserve-3d;
 }
 
+/* Closed: the right half (the cover) sits centred in the stage. */
+.book-shell:not(.is-open) .book-sheet {
+  transform: translateX(-25%);
+}
+
+.book-sheet.is-turning .artifact-card {
+  pointer-events: none;
+}
+
+.book-shadow {
+  position: absolute;
+  inset: 8px -6px -14px;
+  z-index: -3;
+  border-radius: 14px;
+  background: rgba(40, 25, 10, 0.28);
+  filter: blur(18px);
+  pointer-events: none;
+}
+
+[data-theme="dark"] .book-shadow {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.book-shell:not(.is-open) .book-shadow {
+  left: 50%;
+}
+
+/* Boards: the case shows as a rim around the open spread. */
+.book-case {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  background: var(--color-album-cover-ink);
+  pointer-events: none;
+}
+
+.book-case::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--book-grain);
+}
+
+.book-case-left {
+  left: 0;
+  border-radius: 10px 3px 3px 10px;
+}
+
+.book-case-right {
+  right: 0;
+  border-radius: 3px 10px 10px 3px;
+}
+
+/* The page block edge and index tabs poke out of the fore-edge. */
+.book-tabs {
+  position: absolute;
+  top: 84px;
+  right: -16px;
+  z-index: -1;
+  display: grid;
+  gap: 12px;
+  pointer-events: none;
+  transition: opacity var(--transition-fast) ease;
+}
+
+.book-tabs i {
+  display: block;
+  width: 30px;
+  height: 46px;
+  border-radius: 0 4px 4px 0;
+  background: var(--color-note-2);
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.book-tabs i:nth-child(2) {
+  background: var(--color-note-4);
+}
+
+.book-tabs i:nth-child(3) {
+  background: var(--color-note-3);
+}
+
+.book-tabs i:nth-child(4) {
+  background: var(--color-note-1);
+}
+
+.book-shell.is-open .book-sheet[data-has-next="false"] .book-tabs {
+  opacity: 0;
+}
+
+/* Pages: both halves sit flush in one box, the exact box the turning leaf uses. */
 .book-inner {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  padding: var(--gallery-page-padding-block) 2.1rem var(--gallery-page-padding-block);
-  border-radius: var(--radius-book);
-  background: var(--color-bg-secondary);
-  border: 2px solid rgba(0, 0, 0, 0.1);
+  position: absolute;
+  inset: var(--rim);
+  z-index: 1;
 }
 
 .book-inner::before,
@@ -456,34 +550,599 @@ button {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: calc(50% - 16px);
+  width: 50%;
   pointer-events: none;
 }
 
 .book-inner::before {
   left: 0;
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.03), transparent 18%);
+  border-radius: 4px 1px 1px 4px;
+  box-shadow:
+    calc(min(var(--stack-left-n), 1) * -1.5px) calc(min(var(--stack-left-n), 1) * 0.6px) 0 calc(min(var(--stack-left-n), 1) * -0.3px) var(--page-edge),
+    calc(min(var(--stack-left-n), 2) * -1.5px) calc(min(var(--stack-left-n), 2) * 0.6px) 0 calc(min(var(--stack-left-n), 2) * -0.3px) var(--color-page-paper),
+    calc(min(var(--stack-left-n), 3) * -1.5px) calc(min(var(--stack-left-n), 3) * 0.6px) 0 calc(min(var(--stack-left-n), 3) * -0.3px) var(--page-edge),
+    calc(min(var(--stack-left-n), 4) * -1.5px) calc(min(var(--stack-left-n), 4) * 0.6px) 0 calc(min(var(--stack-left-n), 4) * -0.3px) var(--color-page-paper),
+    calc(min(var(--stack-left-n), 5) * -1.5px) calc(min(var(--stack-left-n), 5) * 0.6px) 0 calc(min(var(--stack-left-n), 5) * -0.3px) var(--page-edge),
+    calc(min(var(--stack-left-n), 6) * -1.5px) calc(min(var(--stack-left-n), 6) * 0.6px) 0 calc(min(var(--stack-left-n), 6) * -0.3px) var(--color-page-paper);
 }
 
 .book-inner::after {
   right: 0;
-  background: linear-gradient(270deg, rgba(0, 0, 0, 0.03), transparent 18%);
+  border-radius: 1px 4px 4px 1px;
+  box-shadow:
+    calc(min(var(--stack-right-n), 1) * 1.5px) calc(min(var(--stack-right-n), 1) * 0.6px) 0 calc(min(var(--stack-right-n), 1) * -0.3px) var(--page-edge),
+    calc(min(var(--stack-right-n), 2) * 1.5px) calc(min(var(--stack-right-n), 2) * 0.6px) 0 calc(min(var(--stack-right-n), 2) * -0.3px) var(--color-page-paper),
+    calc(min(var(--stack-right-n), 3) * 1.5px) calc(min(var(--stack-right-n), 3) * 0.6px) 0 calc(min(var(--stack-right-n), 3) * -0.3px) var(--page-edge),
+    calc(min(var(--stack-right-n), 4) * 1.5px) calc(min(var(--stack-right-n), 4) * 0.6px) 0 calc(min(var(--stack-right-n), 4) * -0.3px) var(--color-page-paper),
+    calc(min(var(--stack-right-n), 5) * 1.5px) calc(min(var(--stack-right-n), 5) * 0.6px) 0 calc(min(var(--stack-right-n), 5) * -0.3px) var(--page-edge),
+    calc(min(var(--stack-right-n), 6) * 1.5px) calc(min(var(--stack-right-n), 6) * 0.6px) 0 calc(min(var(--stack-right-n), 6) * -0.3px) var(--color-page-paper);
+}
+
+/* One ruled paper for every surface in the book. All of these share the same top edge, so the rules line up and never shift when a leaf lands. */
+.book-inner::before,
+.book-inner::after,
+.book-endpaper,
+.book-leaf-face,
+.book-ghost {
+  background: var(--paper-ruled), var(--color-page-paper);
+}
+
+/* Left half hidden until the cover lands on it; the landed cover shows the same page. */
+.book-shell:not(.is-open) :is(
+  .book-case-left,
+  .book-cast-left,
+  .book-peel-left,
+  .book-spine
+) {
+  visibility: hidden;
+}
+
+.book-shell:not(.is-open) .artifacts-grid > .artifact-page-left {
+  opacity: 0;
+}
+
+.book-shell:not(.is-open) .book-inner::before {
+  visibility: hidden;
 }
 
 .book-spine {
   position: absolute;
-  top: 1rem;
-  bottom: 1rem;
+  top: calc(var(--rim) - 6px);
+  bottom: calc(var(--rim) - 6px);
   left: 50%;
-  z-index: 5;
-  width: 6px;
+  z-index: 4;
+  width: 5px;
   transform: translateX(-50%);
-  pointer-events: none;
-  background: linear-gradient(90deg,
-    rgba(0, 0, 0, 0.06) 0%,
-    rgba(0, 0, 0, 0.14) 50%,
-    rgba(0, 0, 0, 0.06) 100%);
   border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--color-album-cover-ink),
+    color-mix(in srgb, var(--color-album-cover-ink) 70%, black),
+    var(--color-album-cover-ink)
+  );
+  pointer-events: none;
+}
+
+/* Cast shadows on the pages under and landing beneath a turning leaf. */
+.book-cast {
+  position: absolute;
+  top: var(--rim);
+  bottom: var(--rim);
+  z-index: 3;
+  width: calc(50% - var(--rim));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.book-cast-left {
+  left: var(--rim);
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.12) 35%, transparent 70%);
+}
+
+.book-cast-right {
+  right: var(--rim);
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.12) 35%, transparent 70%);
+}
+
+/* Corner peel: the hover affordance that the page turns. */
+.book-peel {
+  position: absolute;
+  bottom: var(--rim);
+  z-index: 5;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  transition: width 0.2s ease, height 0.2s ease;
+}
+
+.book-peel-right {
+  right: var(--rim);
+  border-top-left-radius: 6px;
+  background: linear-gradient(315deg, transparent 50%, color-mix(in srgb, var(--color-page-paper) 86%, black) 50%);
+  filter: drop-shadow(-2px -2px 3px rgba(0, 0, 0, 0.2));
+}
+
+.book-peel-left {
+  left: var(--rim);
+  border-top-right-radius: 6px;
+  background: linear-gradient(45deg, transparent 50%, color-mix(in srgb, var(--color-page-paper) 86%, black) 50%);
+  filter: drop-shadow(2px -2px 3px rgba(0, 0, 0, 0.2));
+}
+
+.book-sheet:hover .book-peel {
+  width: 30px;
+  height: 30px;
+}
+
+.book-sheet .book-peel:hover {
+  width: 44px;
+  height: 44px;
+}
+
+.book-sheet[data-has-previous="false"] .book-peel-left,
+.book-sheet[data-has-next="false"] .book-peel-right {
+  display: none;
+}
+
+.book-shell:not(.is-open) .book-peel,
+.book-sheet.is-turning .book-peel {
+  visibility: hidden;
+}
+
+/* The turning leaf: one sheet, two faces, hinged at the spine. It matches the settled right page box exactly. */
+.book-leaf {
+  position: absolute;
+  top: var(--rim);
+  bottom: var(--rim);
+  left: 50%;
+  z-index: 6;
+  width: calc(50% - var(--rim));
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.book-leaf-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+
+.book-leaf-front {
+  border-radius: 1px 4px 4px 1px;
+}
+
+.book-leaf-back {
+  border-radius: 4px 1px 1px 4px;
+  transform: rotateY(180deg);
+}
+
+.book-leaf-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.book-leaf-front .book-leaf-shade {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.08) 30%, rgba(255, 255, 255, 0.1) 70%, rgba(0, 0, 0, 0.12));
+}
+
+.book-leaf-back .book-leaf-shade {
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.08) 30%, rgba(255, 255, 255, 0.1) 70%, rgba(0, 0, 0, 0.12));
+}
+
+/* The page that waits under the lifting leaf. */
+.book-ghost {
+  position: absolute;
+  top: var(--rim);
+  bottom: var(--rim);
+  z-index: 2;
+  width: calc(50% - var(--rim));
+  pointer-events: none;
+}
+
+.book-ghost-left {
+  left: var(--rim);
+  border-radius: 4px 1px 1px 4px;
+}
+
+.book-ghost-right {
+  right: var(--rim);
+  border-radius: 1px 4px 4px 1px;
+}
+
+.book-leaf-face > .artifact-page-slice,
+.book-ghost > .artifact-page-slice,
+.book-endpaper > .artifact-page-slice {
+  position: absolute;
+  inset: 0;
+}
+
+/* Scrapbook cover: card stock, scored hinge, binding posts, sticky-note label. */
+.book-cover {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  z-index: 8;
+  width: 50%;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.book-shell.is-open .book-cover {
+  visibility: hidden;
+}
+
+.book-cover-face,
+.book-cover-back {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+}
+
+.book-cover-face {
+  container-type: size;
+  border-radius: 3px 10px 10px 3px;
+  background: var(--book-grain), var(--color-album-cover);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+    inset -10px 0 24px rgba(0, 0, 0, 0.18),
+    inset 0 0 60px rgba(0, 0, 0, 0.12);
+}
+
+.book-cover-back {
+  border-radius: 10px 3px 3px 10px;
+  background: var(--book-grain), var(--color-album-cover-ink);
+  transform: rotateY(180deg);
+}
+
+.book-endpaper {
+  position: absolute;
+  inset: var(--rim) 0 var(--rim) var(--rim);
+  border-radius: 4px 1px 1px 4px;
+}
+
+.book-cover-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  opacity: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.35), transparent 60%);
+  pointer-events: none;
+}
+
+.book-cover-hinge {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 9cqw;
+  border-right: 2px solid rgba(0, 0, 0, 0.2);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+.book-post {
+  position: absolute;
+  left: 2.9cqw;
+  width: 3.4cqw;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgb(240, 232, 214), rgb(160, 140, 108) 60%, rgb(110, 94, 70));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.book-post::after {
+  content: '';
+  position: absolute;
+  top: 48%;
+  right: 22%;
+  left: 22%;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  transform: rotate(-30deg);
+}
+
+.book-post-1 {
+  top: 11%;
+}
+
+.book-post-2 {
+  top: calc(50% - 1.7cqw);
+}
+
+.book-post-3 {
+  bottom: 11%;
+}
+
+/* A small taped collage of placeholder photos sits at the top of the cover. */
+.book-collage {
+  position: absolute;
+  top: 5%;
+  left: 13cqw;
+  width: 80cqw;
+  height: 34cqw;
+}
+
+.book-snap {
+  position: absolute;
+  margin: 0;
+  padding: 1.2cqw 1.2cqw 4.4cqw;
+  background: var(--color-album-print);
+  box-shadow: 1px 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+.book-snap-art {
+  display: block;
+  aspect-ratio: 4 / 3;
+  background: var(--snap) center / cover no-repeat;
+}
+
+.book-snap-1 {
+  --snap: url('../assets/scrapbook/snap-hills.svg');
+
+  top: 6cqw;
+  left: 0;
+  width: 26cqw;
+  transform: rotate(-7deg);
+}
+
+.book-snap-2 {
+  --snap: url('../assets/scrapbook/snap-chart.svg');
+
+  top: 0;
+  left: 20cqw;
+  width: 29cqw;
+  transform: rotate(4deg);
+}
+
+.book-snap-3 {
+  --snap: url('../assets/scrapbook/snap-star.svg');
+
+  top: 5cqw;
+  left: 44cqw;
+  width: 25cqw;
+  transform: rotate(-4deg);
+}
+
+.book-snap-4 {
+  --snap: url('../assets/scrapbook/snap-squiggle.svg');
+
+  top: 10cqw;
+  left: 58cqw;
+  width: 22cqw;
+  transform: rotate(8deg);
+}
+
+.book-tape {
+  position: absolute;
+  z-index: 2;
+  width: 9cqw;
+  height: 3cqw;
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0 4px, transparent 4px 8px),
+    color-mix(in srgb, var(--color-note-1) 80%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+}
+
+.book-snap .book-tape {
+  top: -1.4cqw;
+  left: calc(50% - 4.5cqw);
+  transform: rotate(-5deg);
+}
+
+.book-snap-2 .book-tape {
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0 4px, transparent 4px 8px),
+    color-mix(in srgb, var(--color-note-3) 80%, transparent);
+}
+
+.book-snap-3 .book-tape {
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0 4px, transparent 4px 8px),
+    color-mix(in srgb, var(--color-note-4) 80%, transparent);
+}
+
+.book-snap-4 .book-tape {
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0 4px, transparent 4px 8px),
+    color-mix(in srgb, var(--color-note-6) 80%, transparent);
+}
+
+/* Chalky doodles, drawn as masks so they take the chalk token colour. */
+.book-doodle {
+  position: absolute;
+  background: var(--color-album-chalk);
+  opacity: 0.82;
+  -webkit-mask: var(--doodle) center / contain no-repeat;
+  mask: var(--doodle) center / contain no-repeat;
+}
+
+.book-doodle-stars {
+  --doodle: url('../assets/scrapbook/doodle-stars.svg');
+
+  top: 28%;
+  left: 12cqw;
+  width: 19cqw;
+  aspect-ratio: 120 / 100;
+  transform: rotate(-6deg);
+}
+
+.book-doodle-sparkles {
+  --doodle: url('../assets/scrapbook/doodle-sparkles.svg');
+
+  top: 29%;
+  right: 7cqw;
+  width: 20cqw;
+  aspect-ratio: 120 / 80;
+  transform: rotate(5deg);
+}
+
+.book-doodle-arrow {
+  --doodle: url('../assets/scrapbook/doodle-arrow.svg');
+
+  top: 71%;
+  left: 14cqw;
+  width: 27cqw;
+  aspect-ratio: 140 / 80;
+}
+
+.book-doodle-spiral {
+  --doodle: url('../assets/scrapbook/doodle-spiral.svg');
+
+  right: 9cqw;
+  bottom: 7%;
+  width: 15cqw;
+  aspect-ratio: 1;
+  transform: rotate(12deg);
+}
+
+.book-doodle-squiggle {
+  --doodle: url('../assets/scrapbook/doodle-squiggle.svg');
+
+  bottom: 13%;
+  left: 40cqw;
+  width: 34cqw;
+  aspect-ratio: 200 / 24;
+  transform: rotate(-3deg);
+}
+
+.book-scribble {
+  position: absolute;
+  top: 82%;
+  left: 12cqw;
+  font-family: var(--font-body);
+  font-size: 7cqw;
+  line-height: 1;
+  color: var(--color-album-chalk);
+  opacity: 0.85;
+  transform: rotate(-6deg);
+}
+
+/* Sticky-note title label, written in pencil. */
+.book-cover-label {
+  position: absolute;
+  top: 41%;
+  left: 13cqw;
+  width: 62cqw;
+  padding: 6cqw 4cqw 4.4cqw;
+  text-align: center;
+  background: var(--color-note-1);
+  box-shadow: 3px 6px 12px rgba(0, 0, 0, 0.3);
+  transform: rotate(-2.5deg);
+}
+
+.book-cover-label .book-tape-1 {
+  top: -2cqw;
+  left: -4cqw;
+  width: 15cqw;
+  transform: rotate(-28deg);
+}
+
+.book-cover-label .book-tape-2 {
+  top: -2cqw;
+  right: -4cqw;
+  width: 15cqw;
+  transform: rotate(24deg);
+}
+
+.book-cover-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 12cqw;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--color-note-text);
+}
+
+.book-cover-sub,
+.book-cover-author {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 500;
+  line-height: 1.05;
+  color: var(--color-pencil-on-note);
+}
+
+.book-cover-sub {
+  margin-top: 1.4cqw;
+  font-size: 5.6cqw;
+}
+
+.book-cover-author {
+  margin-top: 2.4cqw;
+  font-size: 5cqw;
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .book-cover-sub,
+  .book-cover-author {
+    background:
+      radial-gradient(rgba(255, 255, 255, 0.3) 0.6px, transparent 0.9px) 0 0 / 3px 3px,
+      linear-gradient(var(--color-pencil-on-note), var(--color-pencil-on-note));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+/* Ribbon tie with a bow; it slides off before the cover opens. */
+.book-ribbon {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 79cqw;
+  z-index: 3;
+  width: 4.4cqw;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.1), transparent 30%, rgba(255, 255, 255, 0.18) 50%, transparent 70%, rgba(0, 0, 0, 0.1)),
+    var(--color-album-ribbon);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+}
+
+.book-bow {
+  position: absolute;
+  top: calc(50% - 5.7cqw);
+  left: -5.3cqw;
+  width: 14.7cqw;
+  height: 11.3cqw;
+}
+
+.book-bow::before,
+.book-bow::after {
+  content: '';
+  position: absolute;
+  top: 1.5cqw;
+  width: 7.2cqw;
+  height: 6.4cqw;
+  border: 1.7cqw solid var(--color-album-ribbon);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+.book-bow::before {
+  left: -1.1cqw;
+  transform: rotate(-20deg);
+}
+
+.book-bow::after {
+  right: -1.1cqw;
+  transform: rotate(20deg);
+}
+
+.book-bow i {
+  position: absolute;
+  top: 3.4cqw;
+  left: 5.6cqw;
+  z-index: 2;
+  width: 3.4cqw;
+  height: 3.4cqw;
+  border-radius: 4px;
+  background: var(--color-album-ribbon);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .desk-notes {
@@ -498,7 +1157,7 @@ button {
 
 .desk-notes-left {
   grid-column: 1;
-  grid-row: 1;
+  grid-row: 1 / span 2;
   display: grid;
   grid-template-columns: repeat(2, var(--desk-note-size));
   gap: var(--desk-note-gap);
@@ -511,7 +1170,7 @@ button {
 
 .desk-notes-right {
   grid-column: 3;
-  grid-row: 1;
+  grid-row: 1 / span 2;
   display: grid;
   grid-template-columns: repeat(2, var(--desk-note-size));
   gap: var(--desk-note-gap);
@@ -633,77 +1292,82 @@ button {
 }
 
 .artifacts-grid {
-
-  --page-height: var(--book-sheet-min-height);
-  --page-pad-top: var(--gallery-page-padding-top);
-  --page-pad-bottom: var(--gallery-page-padding-bottom);
-  --slice-pad: var(--gallery-slice-padding);
-  --card-gap: var(--gallery-card-gap);
-  --book-border: 4px;
-  --card-size: calc(
-    (var(--page-height) - var(--book-border) - var(--page-pad-top) - var(--page-pad-bottom)
-      - var(--slice-pad) * 2 - var(--card-gap)) / 2
-  );
-
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 2;
   display: grid;
-  flex: 1 1 auto;
-  min-height: 0;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0 3.2rem;
-  align-items: start;
-  align-content: start;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
 }
 
 .artifact-page-slice {
-  min-width: 0;
-  display: grid;
-  gap: var(--card-gap);
-  grid-template-rows: repeat(2, var(--card-size));
-  align-content: start;
-  transform-style: preserve-3d;
-  padding: var(--slice-pad);
-  background: var(--color-page-paper);
-  border-radius: var(--radius-note);
-  backface-visibility: hidden;
-}
-
-.artifact-page-left {
-  box-shadow:
-    0 1px 4px rgba(0, 0, 0, 0.04),
-    inset -3px 0 6px -3px rgba(0, 0, 0, 0.04);
-}
-
-.artifact-page-right {
-  box-shadow:
-    0 1px 4px rgba(0, 0, 0, 0.04),
-    inset 3px 0 6px -3px rgba(0, 0, 0, 0.04);
-}
-
-.book-sheet.is-turning .artifact-page-left {
-  box-shadow: inset -4px 0 8px -3px rgba(0, 0, 0, 0.08);
-}
-
-.book-sheet.is-turning .artifact-page-right {
-  box-shadow: inset 4px 0 8px -3px rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="dark"] .artifact-page-left {
-  box-shadow:
-    0 1px 4px rgba(0, 0, 0, 0.15),
-    inset -3px 0 6px -3px rgba(0, 0, 0, 0.12);
-}
-
-[data-theme="dark"] .artifact-page-right {
-  box-shadow:
-    0 1px 4px rgba(0, 0, 0, 0.15),
-    inset 3px 0 6px -3px rgba(0, 0, 0, 0.12);
-}
-
-.artifact-card {
   position: relative;
-  height: var(--card-size);
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  gap: var(--gallery-card-gap);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+/* Both pages are the same ruled sheet, so the cards on each sit right of its red margin line. */
+.artifact-page-left,
+.artifact-page-right {
+  padding: 1.2rem 1.4rem 2.4rem calc(var(--paper-margin-x) + 1rem);
+}
+
+/* Gutter shading is baked into each page so a turning leaf carries its own. */
+.artifact-page-slice::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.artifact-page-left::after {
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.04) 5%, transparent 14%);
+}
+
+.artifact-page-right::after {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.04) 5%, transparent 14%);
+}
+
+.artifact-page-slice.is-empty::before {
+  content: 'Space for the next artifact';
+  grid-row: 1 / -1;
+  align-self: center;
+  justify-self: center;
+  font-size: 1.6rem;
+  font-weight: 500;
+  color: var(--color-pencil-soft);
+  transform: rotate(-2deg);
+}
+
+.page-number {
+  position: absolute;
+  bottom: 0.45rem;
+  font-size: 1.15rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--color-pencil-soft);
+}
+
+.artifact-page-left .page-number {
+  left: 3.2rem;
+}
+
+.artifact-page-right .page-number {
+  right: 3.2rem;
+}
+
+/* Cards are scrapbook photo prints attached to the page. */
+.artifact-card {
+  --tape: var(--color-note-1);
+  --attach-corner: var(--color-album-cover);
+
+  position: relative;
+  height: 100%;
+  min-height: 0;
   border: none;
   padding: 0;
   background: transparent;
@@ -714,6 +1378,30 @@ button {
   isolation: isolate;
 }
 
+[data-theme="dark"] .artifact-card {
+  --attach-corner: var(--color-album-ribbon);
+}
+
+.artifact-card[data-tape="2"] {
+  --tape: var(--color-note-2);
+}
+
+.artifact-card[data-tape="3"] {
+  --tape: var(--color-note-3);
+}
+
+.artifact-card[data-tape="4"] {
+  --tape: var(--color-note-4);
+}
+
+.artifact-card[data-tape="5"] {
+  --tape: var(--color-note-5);
+}
+
+.artifact-card[data-tape="6"] {
+  --tape: var(--color-note-6);
+}
+
 .artifact-card:hover,
 .artifact-card:focus-visible,
 .artifact-card.expanded {
@@ -721,13 +1409,82 @@ button {
   z-index: 2;
 }
 
+/* Attachment styles: washi tape, photo corners, or a paper clip, chosen per card. */
+.artifact-card::before,
+.artifact-card::after {
+  content: '';
+  position: absolute;
+  z-index: 3;
+  display: none;
+  pointer-events: none;
+}
+
+.artifact-card[data-attach="tape-pair"]::before,
+.artifact-card[data-attach="tape-pair"]::after,
+.artifact-card[data-attach="tape-center"]::before,
+.artifact-card[data-attach="tape-diagonal"]::before {
+  display: block;
+  width: 76px;
+  height: 22px;
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0 4px, transparent 4px 8px),
+    color-mix(in srgb, var(--tape) 84%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+}
+
+.artifact-card[data-attach="tape-pair"]::before {
+  top: -9px;
+  left: -18px;
+  transform: rotate(-32deg);
+}
+
+.artifact-card[data-attach="tape-pair"]::after {
+  top: -9px;
+  right: -18px;
+  transform: rotate(32deg);
+}
+
+.artifact-card[data-attach="tape-center"]::before {
+  top: -11px;
+  left: calc(50% - 38px);
+  transform: rotate(-2deg);
+}
+
+.artifact-card[data-attach="tape-diagonal"]::before {
+  top: -4px;
+  left: -26px;
+  transform: rotate(-38deg);
+}
+
+.artifact-card[data-attach="corners"]::before {
+  display: block;
+  inset: -4px;
+  background:
+    linear-gradient(135deg, var(--attach-corner) 0 50%, transparent 50%) top left / 26px 26px no-repeat,
+    linear-gradient(225deg, var(--attach-corner) 0 50%, transparent 50%) top right / 26px 26px no-repeat,
+    linear-gradient(315deg, var(--attach-corner) 0 50%, transparent 50%) bottom right / 26px 26px no-repeat,
+    linear-gradient(45deg, var(--attach-corner) 0 50%, transparent 50%) bottom left / 26px 26px no-repeat;
+}
+
+.artifact-card[data-attach="clip"]::before {
+  display: block;
+  top: -16px;
+  right: 14%;
+  width: 18px;
+  height: 46px;
+  background: var(--color-pencil-soft);
+  -webkit-mask: url('../assets/scrapbook/paperclip.svg') center / contain no-repeat;
+  mask: url('../assets/scrapbook/paperclip.svg') center / contain no-repeat;
+}
+
 .card-note {
   position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
-  border-radius: var(--radius-note);
-  box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.08);
+  padding: 0.62rem 0.62rem 0;
+  border-radius: 3px;
+  box-shadow: 1px 2px 5px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   background: var(--card-bg-color, var(--color-bg-card));
 }
@@ -735,7 +1492,7 @@ button {
 .artifact-card:hover .card-note,
 .artifact-card:focus-visible .card-note,
 .artifact-card.expanded .card-note {
-  box-shadow: 4px 8px 20px rgba(0, 0, 0, 0.12);
+  box-shadow: 3px 8px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
 }
 
 .card-thumbnail-area {
@@ -745,7 +1502,6 @@ button {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 0.75rem 0.75rem 0;
 }
 
 .card-photo-frame,
@@ -754,11 +1510,11 @@ button {
   width: 100%;
   flex: 1 1 auto;
   min-height: 0;
-  border-radius: var(--radius-note);
+  border: 5px solid var(--color-album-print);
+  border-radius: 2px;
   overflow: hidden;
   background: var(--color-surface-contrast);
-  border: 1px solid var(--color-border-solid);
-  box-shadow: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 [data-theme="dark"] .card-photo-frame,
@@ -770,6 +1526,7 @@ button {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: top;
 }
 
 .card-thumbnail-placeholder::before {
@@ -789,42 +1546,44 @@ button {
   align-items: center;
   justify-content: center;
   margin-top: auto;
-  padding: 0.9rem 0.95rem 1.25rem;
+  padding: 0.45rem 0.5rem 0.7rem;
   text-align: center;
 }
 
+/* Pencil-written caption. */
 .card-name {
   margin: 0;
   width: 100%;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1.05;
-  font-size: 1.8rem;
+  font-size: 1.7rem;
   font-family: var(--font-body);
-  color: var(--color-text-primary);
+  color: var(--color-pencil);
   text-align: center;
-}
-
-[data-theme="dark"] .card-name {
-  color: var(--color-detail-dark-title);
 }
 
 .no-results {
-  position: relative;
+  position: absolute;
+  top: 50%;
+  left: 50%;
   z-index: 3;
-  margin: 2rem auto 0;
-  width: min(100%, 620px);
+  width: min(calc(100% - 2rem), 460px);
   padding: 1.5rem;
   text-align: center;
-  border-radius: 22px;
-  border: 1px dashed var(--border-solid);
-  background: var(--color-bg-card);
+  border-radius: 4px;
+  border: 2px dashed var(--color-pencil-soft);
+  background: var(--color-page-paper);
+  transform: translate(-50%, -50%) rotate(-1deg);
 }
 
 .no-results p {
   margin: 0 0 0.8rem;
-  font-size: 1.35rem;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--color-pencil);
 }
 
+/* Pagination: paper tags under the book. */
 .pagination {
   position: relative;
   z-index: 2;
@@ -833,9 +1592,8 @@ button {
   justify-content: center;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.55rem;
-  margin-top: 1.5rem;
-  padding-top: 1.45rem;
+  gap: 0.6rem;
+  margin-top: 1.9rem;
   padding-bottom: 0.5rem;
 }
 
@@ -850,21 +1608,35 @@ button {
 }
 
 .page-btn {
+  gap: 0.3rem;
+  padding: 0 0.7rem;
   border: none;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--color-pencil);
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+
+.page-ellipsis {
+  color: var(--color-pencil-soft);
 }
 
 .page-btn-paper {
   position: absolute;
   inset: 0;
-  border-radius: var(--radius-pill);
+  border-radius: 3px;
   border: 1px solid var(--border-solid);
-  background: var(--color-bg-card);
-  box-shadow: var(--shadow-sm);
+  background: var(--color-page-paper);
+  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.16);
+  transform: rotate(-1.2deg);
+}
+
+.page-btn:nth-child(even) .page-btn-paper {
+  transform: rotate(1deg);
 }
 
 .page-btn-number,
+.page-btn-label,
 .page-btn svg,
 .page-ellipsis-dots {
   position: relative;
@@ -872,16 +1644,25 @@ button {
 }
 
 .page-btn.active .page-btn-paper {
-  background: var(--color-accent-strong);
-  border-color: var(--color-accent-strong-hover);
+  background: var(--color-album-cover);
+  border-color: var(--color-album-cover-ink);
+  transform: rotate(0deg);
+}
+
+[data-theme="dark"] .page-btn.active .page-btn-paper {
+  border-color: var(--color-album-ribbon);
 }
 
 .page-btn.active {
-  color: var(--color-text-on-accent);
+  color: var(--color-album-chalk);
 }
 
 .page-btn:hover {
-  color: var(--color-accent);
+  color: var(--accent-ring);
+}
+
+.page-btn.active:hover {
+  color: var(--color-album-chalk);
 }
 
 .page-btn:disabled {
@@ -1126,7 +1907,7 @@ button {
   color: inherit;
 }
 
-#search-input:focus-visible,
+.search-wrapper:has(#search-input:focus-visible),
 .sort-toggle:focus-visible,
 .filter-reset:focus-visible,
 .search-clear:focus-visible,

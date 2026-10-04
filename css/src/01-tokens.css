@@ -78,6 +78,10 @@
   --transition-fast: 0.2s;
   --book-sheet-min-height: 800px;
   --book-sheet-min-height-tablet: 820px;
+  /* Laptop fit: the book takes the screen height left after the header, search, and pagination. */
+  --book-chrome-y: 290px;
+  --book-fit-min-height: 460px;
+  --book-spread-ratio: 1.325;
   --gallery-page-padding-block: 1.2rem;
   --gallery-page-padding-top: var(--gallery-page-padding-block);
   --gallery-page-padding-bottom: var(--gallery-page-padding-block);
@@ -86,7 +90,37 @@
   --desk-note-size: 100px;
   --desk-note-gap: 0.6rem;
   --desk-note-offset-top: 6rem;
-
+  --album-rim: 14px;
+  /* Scrapbook album: the cover keeps one physical colour in both themes. */
+  --color-album-cover: rgb(56, 50, 45);
+  --color-album-cover-ink: rgb(39, 35, 31);
+  --color-album-ribbon: rgb(214, 170, 72);
+  --color-album-chalk: rgb(240, 236, 226);
+  --color-album-print: rgb(250, 248, 242);
+  /* Graphite pencil: the paper tone follows the theme, the note tone stays dark for fixed-colour sticky notes. */
+  --color-pencil: rgb(72, 68, 63);
+  --color-pencil-soft: rgb(104, 98, 90);
+  --color-pencil-on-note: rgb(72, 68, 63);
+  /* One ruled notebook paper, shared by the endpaper, every page, and both faces of a turning leaf. */
+  --paper-rule-gap: 32px;
+  --paper-margin-x: 30px;
+  --paper-rule-color: rgba(96, 148, 204, 0.3);
+  --paper-margin-color: rgba(214, 106, 106, 0.38);
+  --paper-ruled:
+    linear-gradient(
+      90deg,
+      transparent calc(var(--paper-margin-x) - 1px),
+      var(--paper-margin-color) calc(var(--paper-margin-x) - 1px),
+      var(--paper-margin-color) var(--paper-margin-x),
+      transparent var(--paper-margin-x)
+    ),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent calc(var(--paper-rule-gap) - 1px),
+      var(--paper-rule-color) calc(var(--paper-rule-gap) - 1px),
+      var(--paper-rule-color) var(--paper-rule-gap)
+    );
 
   --text-primary: var(--color-text-primary);
   --text-secondary: var(--color-text-secondary);
@@ -130,6 +164,11 @@
   --color-detail-dark-surface: rgb(46, 40, 32);
   --color-detail-dark-title: rgb(240, 232, 216);
   --color-detail-dark-body: rgb(219, 198, 165);
+  --color-album-cover-ink: rgb(28, 25, 22);
+  --color-pencil: rgb(222, 215, 205);
+  --color-pencil-soft: rgb(190, 181, 168);
+  --paper-rule-color: rgba(236, 228, 214, 0.1);
+  --paper-margin-color: rgba(232, 150, 140, 0.2);
 
   --text-primary: var(--color-text-primary);
   --text-secondary: var(--color-text-secondary);
