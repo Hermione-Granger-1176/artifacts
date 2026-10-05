@@ -8,11 +8,13 @@ import fnmatch
 import sys
 from dataclasses import dataclass
 from functools import cache
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
-from scripts.lint import contains_symlink as _contains_symlink
-from scripts.lint import iter_lint_paths
+from scripts.lint import iter_lint_paths, resolve_requested_paths
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 EDITORCONFIG_FILE = REPO_ROOT / ".editorconfig"
 BINARY_SUFFIXES = {
@@ -246,45 +248,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Optional repository-relative file paths to check",
     )
     return parser.parse_args(argv)
-
-
-def resolve_requested_paths(raw_paths: list[str], root: Path) -> tuple[list[Path], list[str]]:
-    """Resolve safe repository-relative file paths and return validation errors."""
-    resolved_paths: list[Path] = []
-    errors: list[str] = []
-
-    for raw in raw_paths:
-        relative = Path(raw)
-        if relative.is_absolute() or ".." in relative.parts:
-            errors.append(f"{raw}: path must stay within the repository")
-            continue
-
-        candidate = root / relative
-        if _contains_symlink(candidate, root):
-            errors.append(f"{raw}: symbolic links are not supported")
-            continue
-
-        try:
-            resolved = candidate.resolve(strict=True)
-        except FileNotFoundError:
-            errors.append(f"{raw}: path does not exist")
-            continue
-        except OSError:
-            errors.append(f"{raw}: path could not be accessed")
-            continue
-
-        try:
-            resolved.relative_to(root.resolve())
-        except ValueError:
-            errors.append(f"{raw}: path resolves outside the repository")
-            continue
-
-        if not resolved.is_file():
-            errors.append(f"{raw}: path does not exist or is not a file")
-            continue
-        resolved_paths.append(resolved)
-
-    return resolved_paths, errors
 
 
 def print_failures(messages: list[str]) -> None:

@@ -25,9 +25,9 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
+from scripts import REPO_ROOT
 from scripts.ci.security_audit_policy import (
     PYTHON_EXCEPTIONS_KEY,
-    REPO_ROOT,
     VulnerabilityExceptionEntry,
     load_security_audit_exceptions,
 )
@@ -36,6 +36,7 @@ from scripts.ci.security_audit_policy import (
 # virtualenv form so CI uses the managed pip-audit installation.
 DEFAULT_PIP_AUDIT_COMMAND = "pip-audit"
 MAX_SUBPROCESS_ERROR_DETAIL_LENGTH = 500
+PIP_AUDIT_TIMEOUT_SECONDS = 120
 
 
 @dataclass(frozen=True)
@@ -221,11 +222,12 @@ def _run_pip_audit(
             capture_output=True,
             check=False,
             text=True,
-            timeout=120,
+            timeout=PIP_AUDIT_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(
-            f"pip-audit timed out after 120 seconds for {_relative_path(requirements_file)}"
+            f"pip-audit timed out after {PIP_AUDIT_TIMEOUT_SECONDS} seconds for "
+            f"{_relative_path(requirements_file)}"
         ) from exc
     except FileNotFoundError as exc:
         missing_executable = exc.filename or command_parts[0]

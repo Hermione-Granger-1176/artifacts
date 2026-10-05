@@ -54,24 +54,16 @@ export function bpeTokenize(text) {
     }
 
     let i = 0;
-    let first = true;
     const lower = core.toLowerCase();
     while (i < core.length) {
-      let matched = false;
-      for (const piece of SUB_PIECES) {
-        if (i + piece.length <= core.length && lower.slice(i, i + piece.length) === piece) {
-          tokens.push((first ? space : "") + core.slice(i, i + piece.length));
-          i += piece.length;
-          matched = true;
-          first = false;
-          break;
-        }
-      }
-      if (!matched) {
-        tokens.push((first ? space : "") + core[i]);
-        i += 1;
-        first = false;
-      }
+      // Longest matching subword piece (SUB_PIECES is sorted longest first),
+      // falling back to a single character.
+      const piece = SUB_PIECES.find(
+        (candidate) => i + candidate.length <= core.length && lower.slice(i, i + candidate.length) === candidate
+      );
+      const length = piece ? piece.length : 1;
+      tokens.push((i === 0 ? space : "") + core.slice(i, i + length));
+      i += length;
     }
   }
 

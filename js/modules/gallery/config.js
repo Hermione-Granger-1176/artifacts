@@ -244,14 +244,14 @@ function validateArtifactContract(value, path) {
  */
 function assertSafeRelativePath(value, path) {
   const decodedValue = decodeUriComponentSafely(value);
-  assertShape(!value.includes('://'), `${path} must be a repo-relative path`);
-  assertShape(!decodedValue.includes('://'), `${path} must be a repo-relative path`);
-  assertShape(!value.startsWith('/'), `${path} must not start with '/'`);
-  assertShape(!decodedValue.startsWith('/'), `${path} must not start with '/'`);
-  assertShape(!/^data:/i.test(value), `${path} must not use a data URL`);
-  assertShape(!/^data:/i.test(decodedValue), `${path} must not use a data URL`);
-  assertShape(!/^javascript:/i.test(value), `${path} must not use a javascript URL`);
-  assertShape(!/^javascript:/i.test(decodedValue), `${path} must not use a javascript URL`);
+  const candidates = [value, decodedValue];
+  assertShape(candidates.every((candidate) => !candidate.includes('://')), `${path} must be a repo-relative path`);
+  assertShape(candidates.every((candidate) => !candidate.startsWith('/')), `${path} must not start with '/'`);
+  assertShape(candidates.every((candidate) => !/^data:/i.test(candidate)), `${path} must not use a data URL`);
+  assertShape(
+    candidates.every((candidate) => !/^javascript:/i.test(candidate)),
+    `${path} must not use a javascript URL`
+  );
   assertShape(!decodedValue.includes('..'), `${path} must not contain path traversal segments`);
 }
 

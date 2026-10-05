@@ -199,6 +199,8 @@ function drawHeader(cursor, model) {
   const title = model.title.toUpperCase();
   const hasMark = MONOGRAM_STYLES.has(vendor.logoStyle);
   const nameX = MARGIN + (hasMark ? MONOGRAM_SIZE + 12 : 0);
+  // The detail lines drop below the monogram tile when there is one.
+  const detailOffset = hasMark ? 14 : 0;
 
   doc.setFillColor(...accent);
   doc.rect(0, 0, width, HEADER_BAR_HEIGHT, "F");
@@ -244,10 +246,10 @@ function drawHeader(cursor, model) {
   doc.setFont(family, "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(...GREY);
-  doc.text(vendor.tagline, MARGIN, 60 + (hasMark ? 14 : 0));
-  doc.text(doc.splitTextToSize(vendor.addr, 260), MARGIN, 74 + (hasMark ? 14 : 0));
-  doc.text(`${vendor.phone}  |  ${vendor.email}`, MARGIN, 96 + (hasMark ? 14 : 0));
-  doc.text(vendor.taxId, MARGIN, 108 + (hasMark ? 14 : 0));
+  doc.text(vendor.tagline, MARGIN, 60 + detailOffset);
+  doc.text(doc.splitTextToSize(vendor.addr, 260), MARGIN, 74 + detailOffset);
+  doc.text(`${vendor.phone}  |  ${vendor.email}`, MARGIN, 96 + detailOffset);
+  doc.text(vendor.taxId, MARGIN, 108 + detailOffset);
 
   doc.setFont(family, "bold");
   doc.setFontSize(titleSize);
@@ -457,7 +459,7 @@ function drawBlock(cursor, block) {
 
     case "totals":
       cursor.ensureSpace(70);
-      cursor.doc.autoTable({
+      cursor.table({
         startY: cursor.y + 6,
         margin: { left: width - MARGIN - 230 },
         tableWidth: 230,
@@ -472,7 +474,6 @@ function drawBlock(cursor, block) {
           }
         }
       });
-      cursor.y = cursor.doc.lastAutoTable.finalY;
       return;
 
     case "words":
@@ -508,7 +509,7 @@ function drawBlock(cursor, block) {
 
     case "banner":
       cursor.ensureSpace(40);
-      cursor.doc.autoTable({
+      cursor.table({
         startY: cursor.y + 8,
         margin: { left: width - MARGIN - 230 },
         tableWidth: 230,
@@ -521,7 +522,6 @@ function drawBlock(cursor, block) {
         bodyStyles: { fillColor: accent, textColor: 255 },
         columnStyles: { 1: { halign: "right" } }
       });
-      cursor.y = cursor.doc.lastAutoTable.finalY;
       return;
 
     case "signatures": {

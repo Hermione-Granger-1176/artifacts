@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import scripts.lint
 import scripts.lint.check_doc_commands as check_doc_commands
 import scripts.lint.check_make_targets as check_make_targets
 import scripts.lint.make_targets as make_targets
@@ -1091,7 +1092,7 @@ def test_resolve_doc_paths_rejects_a_target_that_resolves_outside(
     outside = tmp_path / "outside.md"
     write_text(outside, "# Outside\n")
     (root / "linked.md").symlink_to(outside)
-    monkeypatch.setattr(check_doc_commands, "_contains_symlink", lambda _path, _root: False)
+    monkeypatch.setattr(scripts.lint, "contains_symlink", lambda _path, _root: False)
 
     resolved, errors = check_doc_commands.resolve_requested_paths(["linked.md"], root)
 

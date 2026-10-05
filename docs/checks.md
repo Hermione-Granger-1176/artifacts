@@ -20,6 +20,7 @@ The formatting and lint targets check these rules:
 - `make lint-vendored-assets` reconciles vendored bundles under `apps/*/js/vendor/` with the integrity manifest in `config/vendored_assets.json`, failing on unlisted files, missing files, or SHA-256 mismatches. Each entry must also name a lower-case npm package, a semantic version, and an `upstream` URL that contains `<package>@<version>`, because the advisory audit sends the package and version to OSV, which matches names case-sensitively and returns nothing for an unknown name or version.
 - `make check-overrides` reports whether npm `overrides` entries are still needed when that package field exists.
 - `make format-check` verifies ruff formatting, Markdown table alignment, and Prettier-managed metadata, config, workflows, and tooling scripts without writing files.
+
 ## Types, tests, and unused code
 
 These targets check source types, test results, coverage, and unused code:

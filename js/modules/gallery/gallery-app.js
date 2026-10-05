@@ -51,7 +51,6 @@ const ACTIVATION_KEYS = new Set(['Enter', ' ']);
  *   updateExpandedCardState: () => void,
  *   trapFocus: (event: KeyboardEvent) => boolean,
  *   close: (opts?: { restoreFocus?: boolean, immediate?: boolean }) => void,
- *   open: (id: string, triggerCard: HTMLElement | null, items: Map<string, ArtifactRecord>) => Promise<void>,
  *   toggle: (id: string, triggerCard: HTMLElement | null, items: Map<string, ArtifactRecord>) => Promise<void>
  * }} OverlayController
  */
@@ -240,17 +239,6 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     close: (opts) => {
       overlayActionToken += 1;
       overlayInstance?.close(opts);
-    },
-    async open(id, triggerCard, items) {
-      const token = ++overlayActionToken;
-      try {
-        const inst = await ensureOverlay();
-        if (token === overlayActionToken) {
-          inst.open(id, triggerCard, items);
-        }
-      } catch (error) {
-        appRuntime.reportError(error, 'overlay open');
-      }
     },
     async toggle(id, triggerCard, items) {
       const token = ++overlayActionToken;

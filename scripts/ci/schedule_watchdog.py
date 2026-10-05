@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 import yaml
 
+from scripts import REPO_ROOT
 from scripts.lib import gh_api
 
 if TYPE_CHECKING:
@@ -26,7 +27,7 @@ EXIT_PROBLEMS_FOUND = 1
 EXIT_CHECK_FAILED = 2
 GITHUB_OUTPUT_ENV = "GITHUB_OUTPUT"
 CHECKED_OUTPUT = "checked"
-WORKFLOW_ROOT = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+WORKFLOW_ROOT = REPO_ROOT / ".github" / "workflows"
 
 
 def scheduled_workflow_files(workflow_root: Path = WORKFLOW_ROOT) -> tuple[str, ...]:

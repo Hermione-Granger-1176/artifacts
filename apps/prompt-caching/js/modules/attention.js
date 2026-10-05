@@ -145,7 +145,6 @@ function initStepper() {
   }
 
   let maskOn = true;
-  let current = 0;
 
   // Each step renders inside a shared window-style frame (same look as the
   // pseudocode cards); `frame` points at the current title and body elements.
@@ -377,7 +376,6 @@ function initStepper() {
 
   /** @param {number} i - Step index to render. */
   function renderStep(i) {
-    current = i;
     clear(stepper);
     steps.forEach((step, j) => {
       const dotBtn = /** @type {HTMLButtonElement} */ (makeEl("button", `pc-step-dot${j === i ? " active" : j < i ? " done" : ""}`, String(j + 1)));

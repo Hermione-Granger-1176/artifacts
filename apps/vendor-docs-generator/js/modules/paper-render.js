@@ -79,6 +79,20 @@ function appendLines(doc, parent, lines, className, fields) {
 }
 
 /**
+ * Append a party: its name, then one element per address or contact line.
+ * @param {Document} doc - Owning document.
+ * @param {HTMLElement} parent - Element to append into.
+ * @param {string[]} lines - The name followed by the remaining lines.
+ * @param {(string | null)[]} fields - Ground-truth field per line, including the name.
+ * @returns {void}
+ */
+function appendParty(doc, parent, lines, fields) {
+  const [name, ...rest] = lines;
+  parent.appendChild(tag(make(doc, "div", "vd-party-name", name), fields[0], name));
+  appendLines(doc, parent, rest, "vd-party-line", fields);
+}
+
+/**
  * Build a two-column key/value table.
  * @param {Document} doc - Owning document.
  * @param {import("./document-model.js").LabelledValue[]} pairs - Label/value/field triples.
@@ -161,10 +175,7 @@ function renderBlock(doc, block) {
       const wrapper = make(doc, "div", "vd-parties");
       const party = make(doc, "div", "vd-party");
       party.appendChild(make(doc, "div", "vd-party-label", block.label));
-      const [name, ...rest] = block.lines;
-      const fields = block.lineFields ?? [];
-      party.appendChild(tag(make(doc, "div", "vd-party-name", name), fields[0], name));
-      appendLines(doc, party, rest, "vd-party-line", fields);
+      appendParty(doc, party, block.lines, block.lineFields ?? []);
       wrapper.appendChild(party);
       wrapper.appendChild(keyValueTable(doc, block.meta, "vd-meta"));
       return wrapper;
@@ -197,10 +208,7 @@ function renderBlock(doc, block) {
 
       block.columns.forEach((lines, columnIndex) => {
         const cell = make(doc, "td", "vd-partypair-cell");
-        const fields = block.columnFields?.[columnIndex] ?? [];
-        const [name, ...rest] = lines;
-        cell.appendChild(tag(make(doc, "div", "vd-party-name", name), fields[0], name));
-        appendLines(doc, cell, rest, "vd-party-line", fields);
+        appendParty(doc, cell, lines, block.columnFields?.[columnIndex] ?? []);
         bodyRow.appendChild(cell);
       });
 

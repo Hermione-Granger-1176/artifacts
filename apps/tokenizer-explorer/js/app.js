@@ -120,21 +120,23 @@ function handleDistributionChange() {
   render();
 }
 
-function clearSamplingFeedback() {
-  selectedTokenIndex = null;
-  sampleCounts = null;
+function clearPickedTokenTimer() {
   if (pickedTokenTimer !== null) {
     clearTimeout(pickedTokenTimer);
     pickedTokenTimer = null;
   }
 }
 
+function clearSamplingFeedback() {
+  selectedTokenIndex = null;
+  sampleCounts = null;
+  clearPickedTokenTimer();
+}
+
 function pickNextToken() {
   const state = currentSamplingState();
   selectedTokenIndex = drawToken(state.topTokens).idx;
-  if (pickedTokenTimer !== null) {
-    clearTimeout(pickedTokenTimer);
-  }
+  clearPickedTokenTimer();
   pickedTokenTimer = setTimeout(() => {
     selectedTokenIndex = null;
     pickedTokenTimer = null;
@@ -145,12 +147,8 @@ function pickNextToken() {
 
 function sampleOneHundredTimes() {
   const state = currentSamplingState();
-  selectedTokenIndex = null;
+  clearSamplingFeedback();
   sampleCounts = tallyDraws(state.topTokens, 100);
-  if (pickedTokenTimer !== null) {
-    clearTimeout(pickedTokenTimer);
-    pickedTokenTimer = null;
-  }
   render();
 }
 

@@ -5,10 +5,12 @@ Reads markdown files, finds table blocks (consecutive lines containing pipes),
 and pads each cell so that pipe characters are vertically aligned.
 
 Usage:
-    python scripts/lint/align_tables.py [FILE ...]
+    make align-tables [paths="README.md docs/example.md"]
+    make align-tables-check [paths="README.md docs/example.md"]
 
-When called with no arguments, processes all .md files in the repository.
-Pass one or more file paths to process only those files.
+With no paths, processes all .md files in the repository. Pass paths to process
+only those files. The check target writes nothing and exits 1 when any table
+needs alignment.
 """
 
 from __future__ import annotations

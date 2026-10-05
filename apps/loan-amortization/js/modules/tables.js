@@ -95,7 +95,7 @@ export function renderYearlyTable(
     let yearlyPrincipal = 0;
     let yearlyInterest = 0;
     let yearlyExtra = 0;
-    let openingBalance = start === 0 ? principal : rows[start - 1].balance;
+    const openingBalance = start === 0 ? principal : rows[start - 1].balance;
     let closingBalance = openingBalance;
 
     for (const row of rows.slice(start, end)) {

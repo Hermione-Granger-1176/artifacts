@@ -37,6 +37,9 @@ export const DEFAULT_LCOV_PATH = ".artifacts/js-coverage.lcov";
 // test:coverage, so the floors never see files the aggregate gate excludes.
 const COVERAGE_EXCLUDES = ["node_modules/**", "tests/**"];
 
+/** Summary counter records and the block field each one fills. */
+const SUMMARY_COUNTERS = { "LF:": "lf", "LH:": "lh", "BRF:": "brf", "BRH:": "brh" };
+
 /**
  * Split raw lcov text into per-record blocks (one per `SF:`/`end_of_record`
  * pair). Branch rows are grouped per line and kept in report order because
@@ -80,16 +83,14 @@ function splitLcovBlocks(text) {
       const rows = current.branchRows.get(lineNo) ?? [];
       rows.push(value);
       current.branchRows.set(lineNo, rows);
-    } else if (line.startsWith("LF:")) {
-      current.summary.lf = Number(line.slice(3)) || 0;
-    } else if (line.startsWith("LH:")) {
-      current.summary.lh = Number(line.slice(3)) || 0;
-    } else if (line.startsWith("BRF:")) {
-      current.summary.brf = Number(line.slice(4)) || 0;
-    } else if (line.startsWith("BRH:")) {
-      current.summary.brh = Number(line.slice(4)) || 0;
     } else if (line === "end_of_record") {
       current = null;
+    } else {
+      const separator = line.indexOf(":");
+      const counter = SUMMARY_COUNTERS[line.slice(0, separator + 1)];
+      if (counter) {
+        current.summary[counter] = Number(line.slice(separator + 1)) || 0;
+      }
     }
   }
 

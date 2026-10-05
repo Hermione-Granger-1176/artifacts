@@ -320,20 +320,14 @@ function initSimilarity() {
       tag.setAttribute("role", "button");
       tag.setAttribute("aria-label", `Compare ${a} and ${b}`);
       tag.tabIndex = 0;
-      tag.addEventListener("click", () => {
+      const comparePair = () => {
         selA = a;
         selB = b;
         selecting = "a";
         refresh();
-      });
-      tag.addEventListener("keydown", (event) => {
-        activateOnKeyboard(event, () => {
-          selA = a;
-          selB = b;
-          selecting = "a";
-          refresh();
-        });
-      });
+      };
+      tag.addEventListener("click", comparePair);
+      tag.addEventListener("keydown", (event) => activateOnKeyboard(event, comparePair));
       suggestions.appendChild(tag);
     }
   }

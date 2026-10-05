@@ -128,7 +128,7 @@ function applyCurveRate() {
  * @returns {number} Percent price change.
  */
 function shockPct(bond, years) {
-  const atRate = bondPrice({ ...bond, years, annualYieldPct: bond.annualYieldPct });
+  const atRate = bondPrice({ ...bond, years });
   const atShock = bondPrice({ ...bond, years, annualYieldPct: bond.annualYieldPct + RATE_SHOCK });
   return (atShock / atRate - 1) * 100;
 }

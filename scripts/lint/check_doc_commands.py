@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from scripts import REPO_ROOT
-from scripts.lint import contains_symlink as _contains_symlink
+from scripts.lint import resolve_requested_paths as _resolve_repo_paths
 from scripts.lint.make_targets import (
     INLINE_CODE_PATTERN,
     extract_markdown_code_snippets,
@@ -331,45 +331,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def resolve_requested_paths(raw_paths: list[str], root: Path) -> tuple[list[Path], list[str]]:
     """Resolve safe repository-relative Markdown paths and return validation errors."""
-    resolved_paths: list[Path] = []
-    errors: list[str] = []
-    resolved_root = root.resolve()
-
-    for raw in raw_paths:
-        relative = Path(raw)
-        if relative.is_absolute() or ".." in relative.parts:
-            errors.append(f"{raw}: path must stay within the repository")
-            continue
-        if relative.suffix.lower() != ".md":
-            errors.append(f"{raw}: path must be a Markdown file")
-            continue
-
-        candidate = root / relative
-        if _contains_symlink(candidate, root):
-            errors.append(f"{raw}: symbolic links are not supported")
-            continue
-
-        try:
-            resolved = candidate.resolve(strict=True)
-        except FileNotFoundError:
-            errors.append(f"{raw}: path does not exist")
-            continue
-        except OSError:
-            errors.append(f"{raw}: path could not be accessed")
-            continue
-
-        try:
-            resolved.relative_to(resolved_root)
-        except ValueError:
-            errors.append(f"{raw}: path resolves outside the repository")
-            continue
-
-        if not resolved.is_file():
-            errors.append(f"{raw}: path does not exist or is not a file")
-            continue
-        resolved_paths.append(resolved)
-
-    return resolved_paths, errors
+    return _resolve_repo_paths(
+        raw_paths,
+        root,
+        accepts=lambda relative: relative.suffix.lower() == ".md",
+        rejection="path must be a Markdown file",
+    )
 
 
 def print_failures(messages: list[str]) -> None:

@@ -56,10 +56,9 @@ def discover_source_files(root: Path) -> list[Path]:
         if not abs_dir.is_dir():
             continue
         for pattern in ("*.js", "*.mjs"):
-            for path in sorted(abs_dir.rglob(pattern)):
-                if _should_skip_path(path):
-                    continue
-                source_files.append(path)
+            source_files.extend(
+                path for path in sorted(abs_dir.rglob(pattern)) if not _should_skip_path(path)
+            )
     return source_files
 
 

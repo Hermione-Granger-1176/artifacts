@@ -1,8 +1,8 @@
 import { getPageNumbers } from './catalog.js';
 import { escapeHtml } from '../html-escape.js';
+import { ICONS } from './icons.js';
 
 export { escapeHtml };
-import { ICONS } from './icons.js';
 
 const CARD_COLORS = [
   'var(--card-color-1)', 'var(--card-color-2)', 'var(--card-color-3)',
@@ -182,100 +182,102 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
   const hasActiveTools = activeTools.length > 0;
   const hasActiveTags = activeTags.length > 0;
 
-  const leftNotes = [
+  /**
+   * Build one desk column: an "All" note, then one note per value. Each value
+   * also claims its color in the shared label color map.
+   * @param {{
+   *   noteValue: string,
+   *   values: string[],
+   *   activeValues: string[],
+   *   datasetName: string,
+   *   colorFor: (index: number) => string,
+   *   labelFor: (value: string) => string
+   * }} group - Filter group to render.
+   * @returns {string[]} Desk note button HTML.
+   */
+  const buildDeskNotes = ({ noteValue, values, activeValues, datasetName, colorFor, labelFor }) => [
     createFilterControlButton({
-      active: !hasActiveTools,
+      active: activeValues.length === 0,
       className: 'desk-note',
       color: shuffled[0],
       datasetName: 'data-filter-note',
-      datasetValue: 'all-tools',
+      datasetValue: noteValue,
       label: 'All',
       rotate: (rand() * 6 - 3).toFixed(1),
       surface: 'desk'
     }),
-    ...tools.map((tool, index) => {
-      const color = toolColor(index);
-      labelColorMap.set(tool, color);
+    ...values.map((value, index) => {
+      const color = colorFor(index);
+      labelColorMap.set(value, color);
       return createFilterControlButton({
-        active: activeTools.includes(tool),
+        active: activeValues.includes(value),
         className: 'desk-note',
         color,
-        datasetName: 'data-filter-tool',
-        datasetValue: tool,
-        label: toolLabel(tool),
+        datasetName,
+        datasetValue: value,
+        label: labelFor(value),
         rotate: (rand() * 8 - 4).toFixed(1),
         surface: 'desk'
       });
     })
   ];
 
-  const rightNotes = [
+  /**
+   * Build one mobile chip row: an "All" chip, then one chip per value.
+   * @param {{
+   *   noteValue: string,
+   *   allLabel: string,
+   *   values: string[],
+   *   activeValues: string[],
+   *   datasetName: string,
+   *   colorFor: (index: number) => string,
+   *   labelFor: (value: string) => string
+   * }} group - Filter group to render.
+   * @returns {string[]} Mobile chip button HTML.
+   */
+  const buildMobileChips = ({ noteValue, allLabel, values, activeValues, datasetName, colorFor, labelFor }) => [
     createFilterControlButton({
-      active: !hasActiveTags,
-      className: 'desk-note',
+      active: activeValues.length === 0,
+      className: 'mobile-filter-chip',
       color: shuffled[0],
       datasetName: 'data-filter-note',
-      datasetValue: 'all-tags',
-      label: 'All',
-      rotate: (rand() * 6 - 3).toFixed(1),
-      surface: 'desk'
+      datasetValue: noteValue,
+      label: allLabel,
+      surface: 'mobile'
     }),
-    ...tags.map((tag, index) => {
-      const color = tagColor(index);
-      labelColorMap.set(tag, color);
-      return createFilterControlButton({
-        active: activeTags.includes(tag),
-        className: 'desk-note',
-        color,
-        datasetName: 'data-filter-tag',
-        datasetValue: tag,
-        label: tagLabel(tag),
-        rotate: (rand() * 8 - 4).toFixed(1),
-        surface: 'desk'
-      });
-    })
+    ...values.map((value, index) => createFilterControlButton({
+      active: activeValues.includes(value),
+      className: 'mobile-filter-chip',
+      color: colorFor(index),
+      datasetName,
+      datasetValue: value,
+      label: labelFor(value),
+      surface: 'mobile'
+    }))
   ];
 
-  const mobileTools = [
-    createFilterControlButton({
-      active: !hasActiveTools,
-      className: 'mobile-filter-chip',
-      color: shuffled[0],
-      datasetName: 'data-filter-note',
-      datasetValue: 'all-tools',
-      label: 'All tools',
-      surface: 'mobile'
-    }),
-    ...tools.map((tool, index) => createFilterControlButton({
-      active: activeTools.includes(tool),
-      className: 'mobile-filter-chip',
-      color: toolColor(index),
-      datasetName: 'data-filter-tool',
-      datasetValue: tool,
-      label: toolLabel(tool),
-      surface: 'mobile'
-    }))
-  ];
-  const mobileTags = [
-    createFilterControlButton({
-      active: !hasActiveTags,
-      className: 'mobile-filter-chip',
-      color: shuffled[0],
-      datasetName: 'data-filter-note',
-      datasetValue: 'all-tags',
-      label: 'All tags',
-      surface: 'mobile'
-    }),
-    ...tags.map((tag, index) => createFilterControlButton({
-      active: activeTags.includes(tag),
-      className: 'mobile-filter-chip',
-      color: tagColor(index),
-      datasetName: 'data-filter-tag',
-      datasetValue: tag,
-      label: tagLabel(tag),
-      surface: 'mobile'
-    }))
-  ];
+  const toolGroup = {
+    noteValue: 'all-tools',
+    values: tools,
+    activeValues: activeTools,
+    datasetName: 'data-filter-tool',
+    colorFor: toolColor,
+    labelFor: toolLabel
+  };
+  const tagGroup = {
+    noteValue: 'all-tags',
+    values: tags,
+    activeValues: activeTags,
+    datasetName: 'data-filter-tag',
+    colorFor: tagColor,
+    labelFor: tagLabel
+  };
+
+  // Desk notes draw from the rotation PRNG in order, so tools render before tags.
+  const leftNotes = buildDeskNotes(toolGroup);
+  const rightNotes = buildDeskNotes(tagGroup);
+  const mobileTools = buildMobileChips({ ...toolGroup, allLabel: 'All tools' });
+  const mobileTags = buildMobileChips({ ...tagGroup, allLabel: 'All tags' });
 
   return `
     <div class="desk-notes-left">${leftNotes.join('')}</div>

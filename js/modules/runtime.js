@@ -192,10 +192,7 @@ async function copyRuntimeDiagnostics(state, windowObj, documentObj) {
  *   readStorage: (key: string, fallbackValue?: string|null) => string|null,
  *   reportError: (error: *, context: string, options?: { fatal?: boolean }) => void,
  *   setupGlobalErrorHandlers: () => void,
- *   state: {
- *     ready: boolean,
- *     lastError: ({ context: string, message: string, fatal: boolean, timestamp: string, summary: string }|null)
- *   },
+ *   state: RuntimeState,
  *   writeStorage: (key: string, value: string) => boolean
  * }} Runtime API.
  */

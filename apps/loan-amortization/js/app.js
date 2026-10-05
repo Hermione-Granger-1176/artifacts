@@ -123,6 +123,11 @@ function getFrequency() {
   return elements.selFreq.value;
 }
 
+/** @returns {string} Lower-case period noun for the selected cadence, such as "month". */
+function getPeriodLabel() {
+  return getFrequencyParams(getFrequency()).label.toLowerCase();
+}
+
 /** @param {string} mode - Biweekly mode flag. */
 function setBiweeklyMode(mode) {
   bwMode = mode;
@@ -138,7 +143,7 @@ function renderExtrasSection() {
   renderExtras({
     container: elements.extraList,
     extras,
-    periodLabel: getFrequencyParams(getFrequency()).label.toLowerCase()
+    periodLabel: getPeriodLabel()
   });
 }
 
@@ -195,10 +200,7 @@ function handleExtraListInput(event) {
     input.closest(".extra-item")?.querySelector(".extra-summary") ?? null
   );
   if (extra && summaryNode) {
-    summaryNode.textContent = summarizeExtra(
-      extra,
-      getFrequencyParams(getFrequency()).label.toLowerCase()
-    );
+    summaryNode.textContent = summarizeExtra(extra, getPeriodLabel());
   }
 
   recalc();

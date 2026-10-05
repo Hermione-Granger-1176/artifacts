@@ -51,7 +51,8 @@ RECIPE_PREFIX_PATTERN = re.compile(r"^[@\-+]+")
 # value is prose cannot be added with ``$(if $(COMMENT),--comment "$$COMMENT")``,
 # since a Make conditional expands the value and would run ``$(shell ...)`` inside
 # it. Testing in the recipe's shell is the only safe way to append the flag, so
-# the branch is mandatory rather than lazy. See docs/development.md.
+# the branch is mandatory rather than lazy. See the Free text section of the
+# Makefile.
 CONTROL_FLOW_ALLOWLIST = frozenset(
     {
         "coverage-js",  # optionally tee the JavaScript coverage report
