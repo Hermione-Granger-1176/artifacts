@@ -383,6 +383,19 @@ function fitTransform(m, width, height) {
 }
 
 /**
+ * The matrices that scale normalised page coordinates up to pixels and back.
+ * @param {number} width - Page or bitmap width.
+ * @param {number} height - Page or bitmap height.
+ * @returns {{ inverse: Matrix3, scale: Matrix3 }} Pixels-to-normalised and normalised-to-pixels.
+ */
+function pageScaling(width, height) {
+  return {
+    inverse: /** @type {Matrix3} */ ([[1 / (width || 1), 0, 0], [0, 1 / (height || 1), 0], [0, 0, 1]]),
+    scale: /** @type {Matrix3} */ ([[width, 0, 0], [0, height, 0], [0, 0, 1]])
+  };
+}
+
+/**
  * Re-express a pixel-space transform in 0..1 page coordinates.
  *
  * The boxes are normalised, so the matrix that moves them has to be too.
@@ -393,8 +406,7 @@ function fitTransform(m, width, height) {
  * @returns {Matrix3} The same transform over normalised coordinates.
  */
 function toNormalised(m, width, height) {
-  const scale = /** @type {Matrix3} */ ([[width, 0, 0], [0, height, 0], [0, 0, 1]]);
-  const inverse = /** @type {Matrix3} */ ([[1 / (width || 1), 0, 0], [0, 1 / (height || 1), 0], [0, 0, 1]]);
+  const { inverse, scale } = pageScaling(width, height);
   return /** @type {Matrix3} */ (
     multiply(inverse, multiply(m, scale)).map((row) => row.map(round8))
   );
@@ -413,8 +425,7 @@ function toNormalised(m, width, height) {
  * @returns {Matrix3} The same transform in pixels.
  */
 export function toPixelMatrix(m, width, height) {
-  const scale = /** @type {Matrix3} */ ([[width, 0, 0], [0, height, 0], [0, 0, 1]]);
-  const inverse = /** @type {Matrix3} */ ([[1 / (width || 1), 0, 0], [0, 1 / (height || 1), 0], [0, 0, 1]]);
+  const { inverse, scale } = pageScaling(width, height);
   return multiply(scale, multiply(m, inverse));
 }
 
@@ -543,7 +554,8 @@ function drawGeometry(ctx, source, transformPx) {
     ctx.setTransform(a, b, c, d, leftTopX - c * top, leftTopY - d * top);
     // One pixel of overlap, so neighbouring strips meet without a hairline of
     // background showing through where the rounding falls badly.
-    ctx.drawImage(source, 0, top, width, Math.min(strip + 1, height - top), 0, top, width, Math.min(strip + 1, height - top));
+    const rows = Math.min(strip + 1, height - top);
+    ctx.drawImage(source, 0, top, width, rows, 0, top, width, rows);
   }
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);

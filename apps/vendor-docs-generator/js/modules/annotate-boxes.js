@@ -255,7 +255,7 @@ function warpBox([x, y, width, height], matrix) {
  *
  * Called with whatever geometry the degradation pass applied, so the labels
  * describe the image that was actually written rather than the clean render it
- * started from. This is the join between phases 2 and 3: skew, rotation, and
+ * started from. This is the join between degradation and annotation: skew, rotation, and
  * keystone move the ink, and without this the boxes would keep pointing at
  * where the ink used to be.
  * @param {BoxAnnotations | null} boxes - Boxes measured on the clean page.

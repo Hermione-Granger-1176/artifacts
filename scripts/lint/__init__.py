@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
 # Directories the lint walkers never descend into. Every ignored directory in
 # .gitignore that can be named by a single path component belongs here: an
@@ -74,3 +74,56 @@ def iter_lint_paths(root: Path) -> Iterator[Path]:
             path = current_path / file_name
             if path.is_file() and not path.is_symlink():
                 yield path
+
+
+def resolve_requested_paths(
+    raw_paths: list[str],
+    root: Path,
+    *,
+    accepts: Callable[[Path], bool] | None = None,
+    rejection: str = "",
+) -> tuple[list[Path], list[str]]:
+    """Resolve safe repository-relative file paths and return validation errors.
+
+    ``accepts`` filters each relative path before it touches the filesystem;
+    a refused path is reported as ``"<raw>: <rejection>"``.
+    """
+    resolved_paths: list[Path] = []
+    errors: list[str] = []
+    resolved_root = root.resolve()
+
+    for raw in raw_paths:
+        relative = Path(raw)
+        if relative.is_absolute() or ".." in relative.parts:
+            errors.append(f"{raw}: path must stay within the repository")
+            continue
+        if accepts is not None and not accepts(relative):
+            errors.append(f"{raw}: {rejection}")
+            continue
+
+        candidate = root / relative
+        if contains_symlink(candidate, root):
+            errors.append(f"{raw}: symbolic links are not supported")
+            continue
+
+        try:
+            resolved = candidate.resolve(strict=True)
+        except FileNotFoundError:
+            errors.append(f"{raw}: path does not exist")
+            continue
+        except OSError:
+            errors.append(f"{raw}: path could not be accessed")
+            continue
+
+        try:
+            resolved.relative_to(resolved_root)
+        except ValueError:
+            errors.append(f"{raw}: path resolves outside the repository")
+            continue
+
+        if not resolved.is_file():
+            errors.append(f"{raw}: path does not exist or is not a file")
+            continue
+        resolved_paths.append(resolved)
+
+    return resolved_paths, errors

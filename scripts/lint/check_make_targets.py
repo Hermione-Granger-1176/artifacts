@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
-from scripts.lint import contains_symlink as _contains_symlink
+from scripts.lint import resolve_requested_paths as _resolve_repo_paths
 from scripts.lint.make_targets import (
     MAKEFILE_PATH,
     extract_path_make_references,
@@ -21,51 +21,18 @@ from scripts.lint.make_targets import (
     snippet_extractor,
 )
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 
 def resolve_requested_paths(raw_paths: list[str], root: Path) -> tuple[list[Path], list[str]]:
     """Resolve safe repository-relative scannable paths and return validation errors."""
-    resolved_paths: list[Path] = []
-    errors: list[str] = []
-    resolved_root = root.resolve()
-
-    for raw in raw_paths:
-        relative = Path(raw)
-        if relative.is_absolute() or ".." in relative.parts:
-            errors.append(f"{raw}: path must stay within the repository")
-            continue
-        if snippet_extractor(relative) is None:
-            errors.append(
-                f"{raw}: path must be Markdown, YAML under .github, "
-                "or non-test Python or JavaScript"
-            )
-            continue
-
-        candidate = root / relative
-        if _contains_symlink(candidate, root):
-            errors.append(f"{raw}: symbolic links are not supported")
-            continue
-
-        try:
-            resolved = candidate.resolve(strict=True)
-        except FileNotFoundError:
-            errors.append(f"{raw}: path does not exist")
-            continue
-        except OSError:
-            errors.append(f"{raw}: path could not be accessed")
-            continue
-
-        try:
-            resolved.relative_to(resolved_root)
-        except ValueError:
-            errors.append(f"{raw}: path resolves outside the repository")
-            continue
-
-        if not resolved.is_file():
-            errors.append(f"{raw}: path does not exist or is not a file")
-            continue
-        resolved_paths.append(resolved)
-
-    return resolved_paths, errors
+    return _resolve_repo_paths(
+        raw_paths,
+        root,
+        accepts=lambda relative: snippet_extractor(relative) is not None,
+        rejection="path must be Markdown, YAML under .github, or non-test Python or JavaScript",
+    )
 
 
 def check_file(path: Path, known_targets: set[str], root: Path) -> list[str]:

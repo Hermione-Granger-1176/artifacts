@@ -97,6 +97,7 @@ Invalid generated bootstrap data stops startup before gallery initialization. Th
 - `tests/js/apps/loan-amortization/`: app-specific entry, DOM, and module coverage for the loan amortization app
 - `tests/js/apps/prompt-caching/`: app-specific entry, DOM, and module coverage for the prompt caching app
 - `tests/js/apps/tokenizer-explorer/`: app-specific entry and module coverage for the tokenizer explorer app
+- `tests/js/apps/vendor-docs-generator/`: app-specific entry, document-model, annotation, degradation, rendering, and exporter coverage for the vendor docs generator app
 - `tests/js/tooling/`: Node tests for JavaScript-based lint and maintenance tooling
 - `tests/js/workflows/`: Node tests for the `deploy-site` and `verified-commit` GitHub composite-action modules
 - `tests/browser/test_frontend_smoke.py`: browser smoke coverage for gallery load, invalid bootstrap data, search, desk-note filters, pagination, detail overlay, and `404.html`

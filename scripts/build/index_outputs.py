@@ -224,7 +224,7 @@ def build_badge(
     default_badge_fn: Callable[[str], BadgeConfig],
 ) -> str:
     """Build one README badge image tag."""
-    badge = config.get(key, default_badge_fn(key))
+    badge = config[key] if key in config else default_badge_fn(key)
     src = f"https://img.shields.io/badge/{badge['label']}-{badge['color']}?style=flat-square"
     if badge["logo"]:
         src += f"&logo={badge['logo']}"

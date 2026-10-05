@@ -6,12 +6,14 @@ Python instead of inline shell.
 
 Most subcommands are GitHub Actions entry points; workflow steps and local runs
 invoke this CLI through the Make targets below, so prefer those targets over
-calling this module directly. The exceptions are the thumbnail plan and
-validation subcommands (thumbnail-plan, invalidate-thumbnails,
-validate-thumbnail-artifact), which update.yml invokes directly because their
-arguments come straight from the GitHub event context.
+calling this module directly. The exceptions run before the workspace is set
+up or take their arguments straight from the GitHub event context, so
+workflows invoke them directly: app-token-policy (the ci-setup action),
+lock-refresh-workflow-run and validate-lock-artifact (commit-python-locks.yml),
+and validate-thumbnail-artifact (update.yml).
 
 Examples:
+    make ci-thumbnail-plan event_name=push base_sha=SHA head_sha=SHA
     PLAN_JSON='{"browser_scope": "none", ...}' make ci-plan-outputs
     make ci-coverage-summary report=js-coverage.txt
     make ci-finalize-pages-dir root=.pages-publish
@@ -20,7 +22,6 @@ Examples:
     TITLE='Alert title' make ci-alert-issue \
         run_url=https://github.com/owner/repo/actions/runs/1 \
         state=open < detail.md
-    make refresh-action-shas
 """
 
 from __future__ import annotations
@@ -726,16 +727,16 @@ def _handle_audit_previews(args: argparse.Namespace) -> int:
 
 def _alert_detail(args: argparse.Namespace) -> str:
     """Read optional alert detail from a file or standard input."""
-    parts: list[str] = []
-    if args.detail_file:
-        content = (
-            sys.stdin.read()
-            if args.detail_file == "-"
-            else Path(args.detail_file).read_text(encoding="utf-8")
-        ).strip()
-        if content:
-            parts.append(f"Current failure output:\n\n```text\n{content}\n```")
-    return "\n\n".join(parts)
+    if not args.detail_file:
+        return ""
+    content = (
+        sys.stdin.read()
+        if args.detail_file == "-"
+        else Path(args.detail_file).read_text(encoding="utf-8")
+    ).strip()
+    if not content:
+        return ""
+    return f"Current failure output:\n\n```text\n{content}\n```"
 
 
 def _handle_sync_alert_issue(args: argparse.Namespace) -> int:

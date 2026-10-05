@@ -248,6 +248,16 @@ initializeMatureApp({
       return INCLUDE_SCOPES[state.include];
     }
 
+    /** @returns {boolean} Whether the chosen format writes a PDF. */
+    function writesPdf() {
+      return state.format === "pdf" || state.format === "both";
+    }
+
+    /** @returns {boolean} Whether the chosen format writes a PNG. */
+    function writesPng() {
+      return state.format === "png" || state.format === "both";
+    }
+
     /**
      * Every setting the current preset and knob positions add up to.
      * @returns {import("./modules/degrade.js").DegradeSettings} Resolved settings.
@@ -617,8 +627,7 @@ initializeMatureApp({
         return "Exports are pages only. No labels are written.";
       }
 
-      const writesPdf = state.format === "pdf" || state.format === "both";
-      if (boxes && writesPdf && state.pdfMode === "text") {
+      if (boxes && writesPdf() && state.pdfMode === "text") {
         return "Boxes are measured on the rendered page, so they match the PNG and the rasterised PDF, not the text-layer PDF.";
       }
 
@@ -637,10 +646,9 @@ initializeMatureApp({
      * @returns {string} For example `PDF + PNG + JSON`.
      */
     function pageFileList(degraded) {
-      const wantsPng = state.format === "png" || state.format === "both";
       return [
-        (state.format === "pdf" || state.format === "both") && "PDF",
-        wantsPng && (pairToggle.checked && degraded ? "PNG + clean PNG" : "PNG"),
+        writesPdf() && "PDF",
+        writesPng() && (pairToggle.checked && degraded ? "PNG + clean PNG" : "PNG"),
         labelFlags().truth && "JSON"
       ]
         .filter(Boolean)
@@ -685,10 +693,10 @@ initializeMatureApp({
       downloadJsonButton.hidden = batch;
       // None is the first rung, and the one a JSON batch cannot stand on.
       labelsSegment.buttons[0].disabled = state.format === "json";
-      pdfModeField.hidden = state.format !== "pdf" && state.format !== "both";
+      pdfModeField.hidden = !writesPdf();
       // Pair mode writes the clean original beside a degraded PNG, so it means
       // nothing for a clean page or an export with no PNG in it.
-      pairLabel.hidden = !degraded || (state.format !== "png" && state.format !== "both");
+      pairLabel.hidden = !degraded || !writesPng();
       labelsNote.textContent = labelsNoteText();
 
       const perCombination = Number(batchCount.value);
@@ -781,11 +789,11 @@ initializeMatureApp({
      */
     function exportPage() {
       return atActualSize(async () => {
-        if (state.format === "pdf" || state.format === "both") {
+        if (writesPdf()) {
           await downloadPdf(currentModel, state.pdfMode, paper, exportDeps, degradationFor(currentModel));
         }
 
-        if (state.format === "png" || state.format === "both") {
+        if (writesPng()) {
           await downloadImage(currentModel, paper, exportDeps, {
             pair: pairToggle.checked,
             plan: degradationFor(currentModel)

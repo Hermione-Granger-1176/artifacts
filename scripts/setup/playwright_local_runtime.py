@@ -361,7 +361,7 @@ def playwright_cli(paths: RuntimePaths) -> Path:
 def playwright_version(paths: RuntimePaths) -> str:
     """Read the installed Playwright version from the virtual environment's metadata.
 
-    The distribution directory name is the resolved version pip installed, so the
+    The distribution directory name is the resolved version uv installed, so the
     manifest keys on what the environment actually runs rather than on a declared
     range. Reading the directory name keeps this dependency-free and fast enough
     to re-check before every wrapped command.

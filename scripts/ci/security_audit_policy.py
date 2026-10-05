@@ -5,9 +5,13 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import date
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+from scripts import REPO_ROOT
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
 SECURITY_AUDIT_CONFIG_FILE = REPO_ROOT / "config" / "security_audit.json"
 
 NPM_EXCEPTIONS_KEY = "npm_vulnerability_exceptions"

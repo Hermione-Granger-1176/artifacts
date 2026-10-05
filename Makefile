@@ -545,7 +545,7 @@ help-json: ## Emit groups and commands as JSON
 
 # ─── Git @git ─────────────────────────────────────────────────────────────────
 
-.PHONY: git branch branch-current branch-prune rebase-main rebase-continue sync-branch stage stage-all commit push push-force log log-file diff diff-staged
+.PHONY: git branch branch-current branch-prune worktree worktree-remove rebase-main rebase-continue sync-branch stage stage-all commit push push-force log log-file diff diff-staged
 
 git: ## Git commands (make git)
 	@$(MAKE) --no-print-directory help-git
@@ -565,6 +565,19 @@ branch-prune: export PRUNE_PAGES_BRANCH := $(PAGES_BRANCH)
 branch-prune: export PRUNE_CONFIRM := $(confirm)
 branch-prune: ## Prune local branches whose content is already in main (make branch-prune [confirm=1])
 	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.prune_branches
+
+# Worktrees default to .worktrees/<branch>, which git and every lint walker
+# already ignore. Slashes are flattened so a branch like fix/x stays one directory.
+WORKTREE_PATH = $(if $(path),$(path),.worktrees/$(subst /,-,$(name)))
+
+worktree: ## Create a branch off origin/main, or origin/base, in a new worktree (make worktree name=X [base=branch] [path=DIR])
+	$(call need,name,make worktree name=my-feature [base=other-branch] [path=../dir])
+	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && \
+	git worktree add --no-track -b "$(name)" "$(WORKTREE_PATH)" "origin/$(if $(base),$(base),$(MAIN_BRANCH))"
+
+worktree-remove: ## Remove a clean worktree created by make worktree; the branch is kept (make worktree-remove name=X [path=DIR])
+	$(call need,name,make worktree-remove name=my-feature [path=../dir])
+	git worktree remove "$(WORKTREE_PATH)"
 
 rebase-main: ## Rebase the current branch onto origin/main (make rebase-main [base=branch])
 	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && git rebase "origin/$(if $(base),$(base),$(MAIN_BRANCH))"

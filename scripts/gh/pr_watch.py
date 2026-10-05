@@ -17,9 +17,6 @@ if TYPE_CHECKING:
 _COPILOT_LOGIN = "copilot-pull-request-reviewer"
 _PENDING_STATES = {"EXPECTED", "PENDING"}
 _SUCCESSFUL_CHECK_OUTCOMES = {"NEUTRAL", "SKIPPED", "SUCCESS"}
-# The latest artifacts PR exposed 31 status entries, including the conditional
-# jobs reported as skipped. Keep that completeness floor project-specific while
-# allowing callers to override it when the workflow surface changes.
 # A floor on how many checks must exist before a rollup can settle, not a
 # prediction of the total. It used to be a fixed count matching a full CI run,
 # which meant any PR whose plan skipped work produced fewer checks than the

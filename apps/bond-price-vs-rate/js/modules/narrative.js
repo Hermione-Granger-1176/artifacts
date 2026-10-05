@@ -315,8 +315,6 @@ export function rippleExplainText({ regime }) {
  * Build one labelled comparison row (label, proportional bar, value) as a DOM
  * node. The bar uses the shared .meter / .meter-fill component; `fillTone` is an
  * optional meter tone modifier (e.g. "is-amber") or "" for the default blue.
- */
-/**
  * @param {string} label - Row label.
  * @param {number} widthPct - Meter fill width percentage.
  * @param {string} fillTone - Optional meter tone modifier.

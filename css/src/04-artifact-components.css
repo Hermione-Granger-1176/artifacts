@@ -25,19 +25,6 @@ body.artifact-app .btn {
 
 }
 
-body.artifact-app .btn-add {
-  background: var(--note-blue);
-  color: var(--color-blue-text);
-
-}
-
-body.artifact-app .btn-add:hover,
-body.artifact-app .btn-add:focus-visible {
-  background: rgb(130, 180, 218);
-  outline: none;
-
-}
-
 /* The emphasis blue holds 4.5:1 under the label in both themes; the base blue only reaches 3.6:1 against white. */
 body.artifact-app .btn-primary {
   background: var(--color-blue-emphasis);
@@ -81,16 +68,13 @@ body.artifact-app .btn:disabled {
 /* Reusable artifact app controls and feedback. */
 
 /*
- * Segmented control: .segmented is the canonical skin. The legacy toggle
- * skins are grouped into the same rule sets so they render exactly as before
- * while sharing one source of truth. Per-skin differences stay as small
- * overrides on the old class names. .is-fused is the joined, shared-border
- * look that .type-toggle uses.
+ * Segmented control: .segmented is the canonical skin. .type-toggle is grouped
+ * into the same rule sets so it renders exactly as before while sharing one
+ * source of truth. .is-fused is the joined, shared-border look that
+ * .type-toggle uses.
  */
 
-body.artifact-app .segmented,
-body.artifact-app .toggle-wrap,
-body.artifact-app .sub-toggle {
+body.artifact-app .segmented {
   display: flex;
   gap: var(--space-2);
 
@@ -108,8 +92,6 @@ body.artifact-app .type-toggle {
 }
 
 body.artifact-app .segmented button,
-body.artifact-app .toggle-btn,
-body.artifact-app .sub-toggle button,
 body.artifact-app .type-toggle button {
   background: transparent;
   color: var(--color-text-secondary);
@@ -118,20 +100,11 @@ body.artifact-app .type-toggle button {
 
 }
 
-body.artifact-app .segmented button,
-body.artifact-app .toggle-btn {
+body.artifact-app .segmented button {
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   padding: 6px 14px;
   font-size: var(--font-size-control);
-
-}
-
-body.artifact-app .sub-toggle button {
-  border: 1px solid var(--color-border-medium);
-  border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-3);
-  font-size: var(--font-size-sm);
 
 }
 
@@ -146,8 +119,6 @@ body.artifact-app .type-toggle button {
 }
 
 body.artifact-app .segmented button.active,
-body.artifact-app .toggle-btn.active,
-body.artifact-app .sub-toggle button.active,
 body.artifact-app .type-toggle button.active {
   background: var(--color-surface);
   color: var(--color-text);
@@ -273,8 +244,6 @@ body.artifact-app .period-input:focus {
 
 body.artifact-app .btn:focus-visible,
 body.artifact-app .segmented button:focus-visible,
-body.artifact-app .toggle-btn:focus-visible,
-body.artifact-app .sub-toggle button:focus-visible,
 body.artifact-app .type-toggle button:focus-visible,
 body.artifact-app .text-input:focus-visible,
 body.artifact-app .select-input:focus-visible,

@@ -140,7 +140,6 @@ body.app-prompt-caching .pc-note.is-center {
 body.app-prompt-caching .pc-hl-accent,
 body.app-prompt-caching .pc-hl-warm,
 body.app-prompt-caching .pc-hl-teal,
-body.app-prompt-caching .pc-hl-indigo,
 body.app-prompt-caching .pc-hl-rose {
   font-weight: 600;
 
@@ -153,9 +152,6 @@ body.app-prompt-caching .pc-hl-warm { color: var(--pc-warm);
 }
 
 body.app-prompt-caching .pc-hl-teal { color: var(--pc-teal);
-}
-
-body.app-prompt-caching .pc-hl-indigo { color: var(--pc-indigo);
 }
 
 body.app-prompt-caching .pc-hl-rose { color: var(--pc-rose);
@@ -381,13 +377,7 @@ body.app-prompt-caching .pc-row {
 body.app-prompt-caching .pc-row.is-spread { justify-content: space-between;
 }
 
-body.app-prompt-caching .pc-fill { flex: 1; min-width: 0;
-}
-
 body.app-prompt-caching .pc-push { margin-left: auto;
-}
-
-body.app-prompt-caching .pc-center { text-align: center;
 }
 
 body.app-prompt-caching .pc-scroll-x { overflow-x: auto;

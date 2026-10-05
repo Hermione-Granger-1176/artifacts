@@ -10,10 +10,10 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from scripts.ci.app_shards import browser_app_slugs
 from scripts.lib.app_discovery import (
     SHARED_APP_BROWSER_TEST_PATHS,
     artifact_base_path,
-    discover_app_slugs,
     shared_app_runtime_paths,
 )
 from scripts.lib.artifact_contract import artifact_id_pattern
@@ -34,14 +34,9 @@ def _validated_slugs(values: list[str], message: str) -> list[str]:
     return sorted(set(values))
 
 
-def _reject_symlinked_file(path: Path, *, label: str) -> None:
-    """Reject a symlink before reading or writing a single file."""
-    reject_path_symlinks(path, label=label)
-
-
 def _read_json_object(path: Path, *, label: str) -> dict[str, object]:
     """Read a required JSON object after validating its path."""
-    _reject_symlinked_file(path, label=label)
+    reject_path_symlinks(path, label=label)
     if not path.is_file():
         raise ValueError(f"{label} is missing: {path}")
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -73,7 +68,7 @@ def read_ledger(path: Path) -> dict[str, str]:
 
 def _write_ledger(path: Path, hashes: dict[str, str]) -> None:
     """Write a deterministic ledger without following a symlinked output path."""
-    _reject_symlinked_file(path, label="Verification ledger output")
+    reject_path_symlinks(path, label="Verification ledger output")
     _validated_slugs(list(hashes), "Verification ledger hashes must use valid artifact slugs")
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"hashes": dict(sorted(hashes.items())), "version": LEDGER_VERSION}
@@ -123,7 +118,7 @@ def _shared_input_paths(repo_root: Path) -> list[str]:
     return sorted(
         {
             *runtime_paths,
-            *(sorted(SHARED_APP_BROWSER_TEST_PATHS)),
+            *SHARED_APP_BROWSER_TEST_PATHS,
             *(path.as_posix() for path in LOCKFILE_PATHS),
         }
     )
@@ -178,11 +173,7 @@ def _browser_slugs(plan: dict[str, object], apps_root: Path) -> list[str]:
     scope = plan.get("browser_scope")
     if scope not in {"all", "changed", "none"}:
         raise ValueError("Impact plan browser_scope must be all, changed, or none")
-    all_browser_slugs = [
-        slug
-        for slug in discover_app_slugs(apps_root)
-        if (apps_root / slug / "js" / "app.js").is_file()
-    ]
+    all_browser_slugs = browser_app_slugs(apps_root)
     if scope == "all":
         return all_browser_slugs
     if scope == "changed":
@@ -232,7 +223,7 @@ def update_ledger(
 ) -> dict[str, str]:
     """Merge hashes for the plan's main-verified browser apps into the ledger."""
     reject_path_symlinks(repo_root, label="Repository root")
-    _reject_symlinked_file(ledger_path, label="Verification ledger")
+    reject_path_symlinks(ledger_path, label="Verification ledger")
     ledger = read_ledger(ledger_path) if ledger_path.is_file() else {}
     verified_slugs = _string_list(plan, "verified_browser_slugs")
     current_hashes = hash_inputs_fn(verified_slugs, repo_root=repo_root.resolve())
@@ -259,7 +250,7 @@ def _parser() -> argparse.ArgumentParser:
 
 def _write_plan(path: Path, plan: dict[str, object]) -> None:
     """Write a plan output after rejecting a symlinked output path."""
-    _reject_symlinked_file(path, label="Impact plan output")
+    reject_path_symlinks(path, label="Impact plan output")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(plan, sort_keys=True), encoding="utf-8")
 

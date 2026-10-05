@@ -219,7 +219,7 @@ def load_ruleset_detail(
     """Fetch one ruleset detail payload when the summary response is incomplete."""
     if not isinstance(ruleset, dict):
         raise RuntimeError("Rulesets response contains a non-object entry")
-    if isinstance(ruleset, dict) and isinstance(ruleset.get("conditions"), dict):
+    if isinstance(ruleset.get("conditions"), dict):
         return ruleset
 
     ruleset_value = ruleset_id(ruleset)

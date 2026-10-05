@@ -395,6 +395,17 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
   }
 
   /**
+   * Remove a turn's leaf or fade styling and release the book if it still holds it.
+   * @param {Turn} turn - Turn that just ended.
+   */
+  function finishTurn(turn) {
+    turn.cleanup();
+    if (active === turn) {
+      active = null;
+    }
+  }
+
+  /**
    * Finish everything in flight at once: no animation, but the book ends on the
    * latest requested page with no leaf or inline style left behind.
    */
@@ -428,10 +439,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
         pages.commit(target);
       }
     } finally {
-      turn.cleanup();
-      if (active === turn) {
-        active = null;
-      }
+      finishTurn(turn);
     }
   }
 
@@ -485,10 +493,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       pages.commit(target);
       await tween(turn, 0, 1, fadeIn, linear, setOpacity);
     } finally {
-      turn.cleanup();
-      if (active === turn) {
-        active = null;
-      }
+      finishTurn(turn);
     }
   }
 
@@ -764,10 +769,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       } catch (error) {
         reportError(error);
       } finally {
-        turn.cleanup();
-        if (active === turn) {
-          active = null;
-        }
+        finishTurn(turn);
         void kick();
       }
     }

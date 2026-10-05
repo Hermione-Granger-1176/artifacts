@@ -381,13 +381,13 @@ export async function runBatch({
   renderPreview,
   shouldStop = () => false
 }) {
-  // Merged rather than defaulted, so a caller that names only some of the
-  // README fields does not end up printing "undefined" into the archive.
   const JsZip = deps.getJsZip();
   const zip = new JsZip();
   const wantsPng = format === "png" || format === "both";
   const wantsPdf = format === "pdf" || format === "both";
   const wantsCanvas = wantsPng || (wantsPdf && pdfMode === "image");
+  // Merged rather than defaulted, so a caller that names only some of the
+  // README fields does not end up printing "undefined" into the archive.
   const dataset = {
     boxes: false,
     degradation: "clean",

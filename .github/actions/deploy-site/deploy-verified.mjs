@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { createApiClients, isRefAlreadyExistsError } from "../verified-commit/verified-commit.mjs";
+import {
+  CREATE_COMMIT_MUTATION,
+  createApiClients,
+  isCliEntrypoint,
+  isRefAlreadyExistsError,
+} from "../verified-commit/verified-commit.mjs";
 
 /**
  * Compute the Git blob SHA for a buffer (matches how Git hashes blobs).
@@ -217,15 +222,7 @@ async function fetchBranchState(clients, branch, consoleObj) {
  * @returns {Promise<{ oid: string, url: string }>} Created commit metadata.
  */
 async function createVerifiedCommit(clients, branch, headSha, headline, fileChanges) {
-  const mutation = `
-    mutation ($input: CreateCommitOnBranchInput!) {
-      createCommitOnBranch(input: $input) {
-        commit { oid url }
-      }
-    }
-  `;
-
-  const data = await clients.graphql(mutation, {
+  const data = await clients.graphql(CREATE_COMMIT_MUTATION, {
     input: {
       branch: {
         repositoryNameWithOwner: `${clients.owner}/${clients.repo}`,
@@ -366,7 +363,7 @@ export function writeGitHubOutputs(
   );
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isCliEntrypoint(import.meta.url)) {
   runVerifiedDeploy().catch((error) => {
     console.error(error);
     process.exit(1);

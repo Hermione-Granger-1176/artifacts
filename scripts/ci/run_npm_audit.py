@@ -41,6 +41,7 @@ _GHSA_PATTERN = re.compile(r"GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}", re.IGNOR
 # defensively.
 SEVERITY_ORDER = ("info", "low", "moderate", "high", "critical")
 DEFAULT_AUDIT_LEVEL = SEVERITY_ORDER[0]
+NPM_AUDIT_TIMEOUT_SECONDS = 120
 
 
 def _is_gated(severity: str, audit_level: str) -> bool:
@@ -191,10 +192,12 @@ def _run_npm_audit(npm_command: str = "npm") -> tuple[NpmVulnerabilityFinding, .
             capture_output=True,
             check=False,
             text=True,
-            timeout=120,
+            timeout=NPM_AUDIT_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired as exc:
-        raise RuntimeError("npm audit timed out after 120 seconds") from exc
+        raise RuntimeError(
+            f"npm audit timed out after {NPM_AUDIT_TIMEOUT_SECONDS} seconds"
+        ) from exc
     except FileNotFoundError as exc:
         raise RuntimeError(
             f"npm executable not found: {npm_command}. Install Node.js to run the audit."
