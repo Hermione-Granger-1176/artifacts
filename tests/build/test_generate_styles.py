@@ -110,6 +110,48 @@ def test_build_stylesheet_concatenates_partials_with_one_final_newline(
     )
 
 
+def test_build_stylesheet_accepts_theme_files_that_differ_only_in_values(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Theme files may differ in comments, selectors, and values, but not in token lines."""
+    source_dir, _ = configure_paths(tmp_path, monkeypatch)
+    write_text(source_dir / "01-theme-light.css", "/* day */\n:root {\n  --ink: black;\n}\n")
+    write_text(source_dir / "01-theme-dark.css", "/* night */\n.dark {\n  --ink: white;\n}\n")
+
+    assert "--ink: white;" in generate_styles.build_stylesheet()
+
+
+@pytest.mark.parametrize(
+    ("dark_css", "message"),
+    (
+        (":root {\n  --paper: white;\n}\n", r"Line 2 has --ink in 01-theme-light.css but --paper"),
+        (":root {\n\n  --ink: white;\n}\n", r"Line 2 has --ink in .* but no token in"),
+        (":root {\n  --ink: white;\n}\n  --paper: white;\n", r"Line 4 has end of file in"),
+    ),
+)
+def test_build_stylesheet_rejects_theme_files_with_different_token_lines(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, dark_css: str, message: str
+) -> None:
+    """A token renamed, moved, or added in one theme file fails the build."""
+    source_dir, _ = configure_paths(tmp_path, monkeypatch)
+    write_text(source_dir / "01-theme-light.css", ":root {\n  --ink: black;\n}\n")
+    write_text(source_dir / "01-theme-dark.css", dark_css)
+
+    with pytest.raises(ValueError, match=message):
+        generate_styles.build_stylesheet()
+
+
+def test_build_stylesheet_rejects_light_theme_without_dark_twin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A light theme file needs a dark file with the same prefix."""
+    source_dir, _ = configure_paths(tmp_path, monkeypatch)
+    write_text(source_dir / "01-theme-light.css", ":root {\n  --ink: black;\n}\n")
+
+    with pytest.raises(ValueError, match=r"01-theme-light.css has no matching 01-theme-dark.css"):
+        generate_styles.build_stylesheet()
+
+
 def test_output_header_describes_discovered_source_boundaries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

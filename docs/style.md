@@ -75,7 +75,7 @@ The shared design system lives in `css/src/` and is bundled into `css/style.css`
 
 ### Token families and scopes
 
-- Every color that changes with the theme lives in `css/src/01-theme-light.css` and `css/src/01-theme-dark.css`. The two files list the same tokens on the same lines, so a diff between them shows only the values. Add a themed token to both files at the same line.
+- Every color that changes with the theme lives in `css/src/01-theme-light.css` and `css/src/01-theme-dark.css`. The two files list the same tokens on the same lines, so a diff between them shows only the values. Add a themed token to both files at the same line. `make styles` fails when a line declares different tokens in the two files.
 - `css/src/01-tokens.css` holds everything that stays the same in both themes: fonts, the bookmark-note palette, card colors, the printed-document palette, radii, and gallery layout variables.
 - Gallery tokens sit on `:root` and cascade into apps. The dark file uses `:root[data-theme="dark"]` and `html[data-theme="dark"] body.artifact-app`, which outrank the light selectors, so file order does not matter.
 - Artifact-app tokens live under `body.artifact-app`:

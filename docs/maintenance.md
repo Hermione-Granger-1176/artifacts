@@ -70,3 +70,4 @@ When a contract changes, update the corresponding record:
 - [ADR 0004](adr/0004-per-artifact-app-stylesheets.md), for app-local stylesheets or CSS ownership.
 - [ADR 0005](adr/0005-ci-scaling-architecture-and-roadmap.md), for impact planning, shards, verification ledgers, or CI caches. Update its roadmap as work lands.
 - [ADR 0006](adr/0006-shared-design-tokens-and-component-system.md), for shared tokens, components, frontend helpers, or app CSS token checks.
+- [ADR 0007](adr/0007-line-matched-theme-files.md), for themed colors or the light and dark theme files.

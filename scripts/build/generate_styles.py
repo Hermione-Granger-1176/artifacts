@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import sys
+from itertools import zip_longest
 from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
@@ -19,6 +20,9 @@ if TYPE_CHECKING:
 SOURCE_DIR = REPO_ROOT / "css" / "src"
 OUTPUT_FILE = REPO_ROOT / "css" / "style.css"
 SOURCE_FILENAME_PATTERN = re.compile(r"\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*\.css")
+LIGHT_THEME_SUFFIX = "-theme-light.css"
+DARK_THEME_SUFFIX = "-theme-dark.css"
+THEME_TOKEN_PATTERN = re.compile(r"\s*(--[a-z0-9-]+)\s*:")
 
 
 def source_files() -> tuple[Path, ...]:
@@ -51,6 +55,34 @@ def source_files() -> tuple[Path, ...]:
     return candidates
 
 
+def theme_tokens_by_line(path: Path) -> list[str]:
+    """Return the custom property declared on each line, or an empty string for other lines."""
+    return [
+        match.group(1) if (match := THEME_TOKEN_PATTERN.match(line)) else ""
+        for line in path.read_text(encoding="utf-8").splitlines()
+    ]
+
+
+def check_theme_parity(sources: tuple[Path, ...]) -> None:
+    """Require each light theme partial to declare its dark twin's tokens on the same lines."""
+    for light in sources:
+        if not light.name.endswith(LIGHT_THEME_SUFFIX):
+            continue
+        dark = light.with_name(light.name.removesuffix(LIGHT_THEME_SUFFIX) + DARK_THEME_SUFFIX)
+        if dark not in sources:
+            raise ValueError(f"{light.name} has no matching {dark.name}")
+        line_pairs = zip_longest(
+            theme_tokens_by_line(light), theme_tokens_by_line(dark), fillvalue="end of file"
+        )
+        for line_number, (light_token, dark_token) in enumerate(line_pairs, start=1):
+            if light_token != dark_token:
+                raise ValueError(
+                    f"Line {line_number} has {light_token or 'no token'} in {light.name} "
+                    f"but {dark_token or 'no token'} in {dark.name}. "
+                    "Theme files must declare the same tokens on the same lines."
+                )
+
+
 def output_header(sources: tuple[Path, ...] | None = None) -> str:
     """Return the generated stylesheet header for the current source list."""
     resolved_sources = sources if sources is not None else source_files()
@@ -69,6 +101,7 @@ def output_header(sources: tuple[Path, ...] | None = None) -> str:
 def build_stylesheet() -> str:
     """Return the deterministic public stylesheet content."""
     sources = source_files()
+    check_theme_parity(sources)
     return (
         output_header(sources)
         + "\n\n".join(source_file.read_text(encoding="utf-8").strip() for source_file in sources)

@@ -530,3 +530,4 @@ Each tool reads its own configuration, and the Makefile calls the tools. Keeping
 - [ADR 0004](adr/0004-per-artifact-app-stylesheets.md): Split artifact-specific CSS into app-local stylesheets
 - [ADR 0005](adr/0005-ci-scaling-architecture-and-roadmap.md): CI scaling architecture, rejected alternatives, and optimization roadmap
 - [ADR 0006](adr/0006-shared-design-tokens-and-component-system.md): Shared design tokens and component system
+- [ADR 0007](adr/0007-line-matched-theme-files.md): Keep themed colors in line-matched light and dark files
