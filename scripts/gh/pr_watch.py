@@ -41,11 +41,15 @@ _COMMENT_COUNT_PATTERN = re.compile(
     re.IGNORECASE,
 )
 # Copilot's v2 overview drops that sentence. A clean review has a "**Findings:** None"
-# line, and a review with findings has an "Open (N)" section that lists every finding
-# still open, including ones from earlier rounds.
+# line, and a review with findings has an "Open (N)" section. That section links each
+# finding still open, including ones from earlier rounds, to its thread as
+# "(#discussion_r<id>)", which is also the anchor that ends the thread's URL.
 _V2_OVERVIEW_MARKER = "<!-- ccr-overview-v2 -->"
 _V2_CLEAN_PATTERN = re.compile(r"^\*\*Findings:\*\* None\s*$", re.MULTILINE)
-_V2_OPEN_PATTERN = re.compile(r"<summary><strong>Open \((\d+)\)</strong></summary>")
+_V2_OPEN_PATTERN = re.compile(
+    r"<summary><strong>Open \((\d+)\)</strong></summary>(.*?)</details>", re.DOTALL
+)
+_DISCUSSION_LINK_PATTERN = re.compile(r"\(#(discussion_r\d+)\)")
 
 
 @dataclass(frozen=True)
@@ -59,9 +63,14 @@ class CopilotReview:
     state: str = ""
 
     @property
-    def counts_open_findings(self) -> bool:
-        """Return whether the comment count covers every open finding, not only new ones."""
+    def is_v2_overview(self) -> bool:
+        """Return whether the review uses Copilot's v2 overview format."""
         return _V2_OVERVIEW_MARKER in self.body
+
+    @property
+    def open_discussions(self) -> frozenset[str]:
+        """Return the thread anchors linked from a v2 overview's "Open (N)" section."""
+        return frozenset(_open_discussion_links(self.body))
 
     @property
     def is_explicitly_clean(self) -> bool:
@@ -74,7 +83,7 @@ class CopilotReview:
         "generated 0 comments" deliberately does not count, so unexpected
         wording fails closed.
         """
-        if self.counts_open_findings:
+        if self.is_v2_overview:
             return (
                 _V2_CLEAN_PATTERN.search(self.body) is not None
                 and _V2_OPEN_PATTERN.search(self.body) is None
@@ -118,13 +127,22 @@ def _parse_timestamp(value: str, context: str) -> datetime:
     return parsed
 
 
+def _open_discussion_links(body: str) -> list[str]:
+    """Return the thread anchors linked from a v2 "Open (N)" section, in order."""
+    open_match = _V2_OPEN_PATTERN.search(body)
+    return [] if open_match is None else _DISCUSSION_LINK_PATTERN.findall(open_match.group(2))
+
+
 def _generated_comment_count(body: str) -> int | None:
     """Return the comment count from a Copilot overview, when recognized."""
     if _V2_OVERVIEW_MARKER in body:
         open_match = _V2_OPEN_PATTERN.search(body)
-        if open_match is not None:
-            return int(open_match.group(1))
-        return 0 if _V2_CLEAN_PATTERN.search(body) is not None else None
+        if open_match is None:
+            return 0 if _V2_CLEAN_PATTERN.search(body) is not None else None
+        # Each open finding must link its thread, or the watcher cannot tell when
+        # every thread has arrived, so a count without matching links fails closed.
+        count = int(open_match.group(1))
+        return count if len(set(_open_discussion_links(body))) == count else None
     match = _COMMENT_COUNT_PATTERN.search(body)
     if match is None:
         return None
@@ -417,28 +435,20 @@ def watch_pr(
         )
         if ready_for_threads:
             all_threads = pr_review.list_threads(pr, include_resolved=True, run_fn=run_fn)
-            review_count = (
-                status.fresh_review.generated_comment_count
-                if status.fresh_review is not None
-                else 0
-            )
-            # A v2 count includes findings still open from earlier rounds, so older
-            # open threads count toward it. Counting only fresh threads would wait
-            # forever whenever an earlier finding is still open.
-            counts_open = (
-                status.fresh_review is not None and status.fresh_review.counts_open_findings
-            )
-            counted_thread_count = sum(
-                thread.thread_id not in baseline.thread_ids
-                or (counts_open and thread.state == "open")
-                for thread in all_threads
-            )
-            waiting_for_threads = review_count is not None and review_count > counted_thread_count
+            review = status.fresh_review
+            if review is not None and review.is_v2_overview:
+                # A v2 overview links the threads it lists, so wait for exactly those.
+                # Their state, author, and age do not matter.
+                anchors = {thread.url.rpartition("#")[2] for thread in all_threads}
+                waiting_for_threads = not review.open_discussions <= anchors
+            else:
+                review_count = review.generated_comment_count if review is not None else 0
+                fresh_thread_count = sum(
+                    thread.thread_id not in baseline.thread_ids for thread in all_threads
+                )
+                waiting_for_threads = review_count is not None and review_count > fresh_thread_count
             if not waiting_for_threads:
-                if (
-                    status.fresh_review is not None
-                    and status.fresh_review.generated_comment_count is None
-                ):
+                if review is not None and review.generated_comment_count is None:
                     raise GhError(
                         "The fresh Copilot review overview could not be classified; "
                         "inspect `make pr-review-comments` before merging."

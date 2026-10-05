@@ -43,6 +43,14 @@ The new parity invariant lacks automated enforcement.
 <details open>
 <summary><strong>Open (2)</strong></summary>
 
+- [Enforce token parity](#discussion_r101) · New
+- [Update the ADR](#discussion_r102)
+</details>
+
+<details>
+<summary><strong>Resolved since last review (1)</strong></summary>
+
+- [Earlier finding](#discussion_r99)
 </details>
 """
 
@@ -106,6 +114,7 @@ def _poll_runner(*, reviews: object, rollup: object) -> FakeGh:
         (_V2_CLEAN_BODY, 0),
         (_V2_COMMENT_BODY, 2),
         (_V2_CLEAN_BODY.replace("**Findings:** None", "**Findings:** Some"), None),
+        (_V2_COMMENT_BODY.replace("- [Update the ADR](#discussion_r102)\n", ""), None),
     ],
 )
 def test_generated_comment_count_classifies_overviews(body: str, expected: int | None) -> None:
@@ -211,7 +220,7 @@ def test_v2_overview_is_clean_only_with_no_findings_and_no_open_section(
         pr_watch._generated_comment_count(body),
     )
 
-    assert review.counts_open_findings
+    assert review.is_v2_overview
     assert review.is_explicitly_clean is clean
 
 
@@ -859,22 +868,69 @@ def test_watch_pr_counts_only_threads_newer_than_the_request_baseline(
     assert "open review threads: 3" in report
 
 
-def test_watch_pr_counts_older_open_threads_toward_a_v2_overview(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A v2 "Open (N)" count includes findings still open from an earlier round."""
-    old_thread = pr_review.ReviewThread("PRRT_old", "open", "old.py", 1, "copilot", "old", "url")
-    new_thread = pr_review.ReviewThread("PRRT_new", "open", "new.py", 2, "copilot", "new", "url")
-    review = pr_watch.CopilotReview(
+def _thread(
+    thread_id: str, anchor: str, *, state: str = "open", author: str = ""
+) -> pr_review.ReviewThread:
+    """Build one review thread whose URL ends in the given discussion anchor."""
+    return pr_review.ReviewThread(
+        thread_id,
+        state,
+        "file.py",
+        1,
+        author or "copilot-pull-request-reviewer",
+        "body",
+        f"https://github.com/o/r/pull/12#{anchor}",
+    )
+
+
+def _v2_review() -> pr_watch.CopilotReview:
+    """Build a fresh v2 review that links discussion_r101 and discussion_r102."""
+    return pr_watch.CopilotReview(
         "new",
         datetime(2026, 7, 26, 12, tzinfo=UTC),
         _V2_COMMENT_BODY,
         pr_watch._generated_comment_count(_V2_COMMENT_BODY),
     )
+
+
+def test_v2_overview_lists_only_its_open_discussions() -> None:
+    """Links in the resolved section are not threads the review waits for."""
+    assert _v2_review().open_discussions == {"discussion_r101", "discussion_r102"}
+
+
+def test_watch_pr_waits_for_every_thread_a_v2_overview_links(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An unrelated human thread cannot stand in for a linked Copilot thread."""
+    human = _thread("PRRT_human", "discussion_r50", author="a-reviewer")
+    carried_over = _thread("PRRT_old", "discussion_r102")
+    new = _thread("PRRT_new", "discussion_r101")
+    _, sleeps = _watch_stubs(
+        monkeypatch,
+        [_status(settled=True, review=_v2_review())],
+        thread_batches=[[human, carried_over], [human, carried_over, new]],
+    )
+
+    report = pr_watch.watch_pr(
+        12, interval=1, max_polls=3, request_copilot=True, sleep_fn=sleeps.append
+    )
+
+    # First sleep confirms rollup stability, second waits for discussion_r101.
+    assert sleeps == [1, 1]
+    assert "generated 2 comment(s)" in report
+    assert "open review threads: 3" in report
+
+
+def test_watch_pr_accepts_a_linked_thread_resolved_before_the_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A linked thread still matches after it is resolved, whatever the baseline holds."""
+    resolved = _thread("PRRT_old", "discussion_r102", state="resolved")
+    new = _thread("PRRT_new", "discussion_r101")
     _watch_stubs(
         monkeypatch,
-        [_status(settled=True, review=review)],
-        thread_batches=[[old_thread, new_thread]],
+        [_status(settled=True, review=_v2_review())],
+        thread_batches=[[resolved, new]],
     )
     monkeypatch.setattr(
         pr_watch,
@@ -887,8 +943,7 @@ def test_watch_pr_counts_older_open_threads_toward_a_v2_overview(
     report = pr_watch.watch_pr(12, interval=0, max_polls=2, request_copilot=True)
 
     assert "settled after 2 poll(s)" in report
-    assert "generated 2 comment(s)" in report
-    assert "open review threads: 2" in report
+    assert "open review threads: 1" in report
 
 
 def test_watch_pr_clean_review_with_older_open_thread_is_not_merge_ready(
