@@ -141,14 +141,18 @@ def test_build_stylesheet_rejects_theme_files_with_different_token_lines(
         generate_styles.build_stylesheet()
 
 
-def test_build_stylesheet_rejects_light_theme_without_dark_twin(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("present", "missing"),
+    (("01-theme-light.css", "01-theme-dark.css"), ("01-theme-dark.css", "01-theme-light.css")),
+)
+def test_build_stylesheet_rejects_theme_file_without_its_twin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, present: str, missing: str
 ) -> None:
-    """A light theme file needs a dark file with the same prefix."""
+    """Each theme file needs a twin with the same prefix, in both directions."""
     source_dir, _ = configure_paths(tmp_path, monkeypatch)
-    write_text(source_dir / "01-theme-light.css", ":root {\n  --ink: black;\n}\n")
+    write_text(source_dir / present, ":root {\n  --ink: black;\n}\n")
 
-    with pytest.raises(ValueError, match=r"01-theme-light.css has no matching 01-theme-dark.css"):
+    with pytest.raises(ValueError, match=rf"{present} has no matching {missing}"):
         generate_styles.build_stylesheet()
 
 
