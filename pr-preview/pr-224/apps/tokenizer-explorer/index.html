@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Interactive explainer for tokenization, LLM next-token probabilities, temperature scaling, top-p sampling, and empirical draws.">
+  <link rel="canonical" href="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/">
+  <meta property="og:title" content="Tokenizer: Temperature &amp; Top P Explorer | Artifacts">
+  <meta property="og:description" content="Interactive explainer for tokenization, LLM next-token probabilities, temperature scaling, top-p sampling, and empirical draws.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/">
+  <meta property="og:site_name" content="Artifacts">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=310fc2c467ab">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=310fc2c467ab">
+  <meta property="og:image:alt" content="Preview card for the Tokenizer: Temperature & Top P Explorer app.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Tokenizer: Temperature &amp; Top P Explorer | Artifacts">
+  <meta name="twitter:description" content="Interactive explainer for tokenization, LLM next-token probabilities, temperature scaling, top-p sampling, and empirical draws.">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=310fc2c467ab">
+  <meta name="twitter:image:alt" content="Preview card for the Tokenizer: Temperature & Top P Explorer app.">
+  <meta name="theme-color" content="rgb(248, 248, 246)">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <title>Tokenizer: Temperature &amp; Top P Explorer | Artifacts</title>
+  <script src="../../js/app-theme.js?v=b235ce6712fd"></script>
+  <link rel="icon" href="../../assets/icons/favicon.ico" sizes="32x32">
+  <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
+  <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
+  <link rel="stylesheet" href="../../css/style.css?v=da719565c476">
+  <link rel="stylesheet" href="./css/app.css?v=384473f3b359">
+  <link rel="modulepreload" href="../../js/modules/app-shell.js">
+  <link rel="modulepreload" href="../../js/modules/runtime.js">
+  <link rel="modulepreload" href="../../js/modules/app-runtime.js">
+  <link rel="modulepreload" href="../../js/modules/element-cache.js">
+  <link rel="modulepreload" href="../../js/modules/section-nav.js">
+  <link rel="modulepreload" href="js/modules/accordion.js">
+  <link rel="modulepreload" href="js/modules/render.js">
+  <link rel="modulepreload" href="js/modules/candidates.js">
+  <link rel="modulepreload" href="../../js/modules/formatting.js">
+  <link rel="modulepreload" href="js/modules/token-examples.js">
+  <link rel="modulepreload" href="js/modules/sampling.js">
+  <link rel="modulepreload" href="js/modules/scenarios.js">
+</head>
+<body class="artifact-app app-tokenizer-explorer">
+  <div data-app-shell="header"></div>
+
+  <div data-section-nav></div>
+
+  <main class="page-shell">
+    <div data-app-shell="runtime-error"></div>
+
+    <header class="page-intro">
+      <h1 class="page-title">Tokenizer: Temperature &amp; Top P</h1>
+      <p class="page-lede">Text becomes tokens, the model scores possible continuations, temperature and top-p reshape the odds, then sampling rolls the dice.</p>
+    </header>
+
+    <section class="tk-sampler" aria-labelledby="sampling-heading">
+      <div class="tk-section-head" id="sec-sampling" data-nav-label="Sampling">
+        <p class="section-kicker">Sampling explorer</p>
+        <h2 id="sampling-heading">Score a next token, then choose one</h2>
+      </div>
+
+      <div class="tk-workbench">
+        <section class="page-card tk-card tk-main" aria-label="Prompt and next-token odds">
+          <div class="tk-card-head">
+            <span class="section-kicker" id="scenario-type"></span>
+            <button class="btn btn-outline btn-sm whitespace-toggle" id="whitespace-toggle" type="button" aria-pressed="false">Show whitespace</button>
+          </div>
+
+          <div class="tk-prompt">
+            <span class="tk-prompt-tokens" id="sentence-prefix"></span>
+            <span class="blank" id="sentence-completion" aria-live="polite"></span>
+          </div>
+
+          <div class="tk-next" id="sec-distribution" data-nav-label="Distribution" aria-labelledby="next-token-heading" role="group">
+            <div class="tk-next-head">
+              <h3 id="next-token-heading">Next token</h3>
+              <div class="tk-legend" aria-label="Bar legend">
+                <span><i class="tk-swatch is-odds" aria-hidden="true"></i>After temperature</span>
+                <span><i class="tk-swatch is-cut" aria-hidden="true"></i>Cut by top P</span>
+                <span><i class="tk-swatch is-seen" aria-hidden="true"></i>Observed, after Sample 100x</span>
+              </div>
+            </div>
+            <p class="tk-copy">The model is choosing the next token. Bars show the odds after temperature. Tokens below the top P cut cannot be drawn, and Draw renormalizes the survivors.</p>
+            <ul class="tk-candidates" id="candidate-list" role="table" aria-label="Next-token candidates"></ul>
+            <p class="tk-insight" id="insight-box"></p>
+          </div>
+
+          <div class="tk-actions">
+            <button class="btn btn-primary" id="pick-token" type="button">
+              <svg class="tk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1" fill="currentColor" stroke="none"/></svg>
+              Pick next token
+            </button>
+            <button class="btn btn-outline" id="sample-hundred" type="button">
+              <svg class="tk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+              Sample 100x
+            </button>
+            <button class="btn btn-ghost" id="reset-samples" type="button" title="Clear the pick and the 100-draw tally">Reset</button>
+            <p class="tk-status" id="sample-status" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section class="page-card tk-card tk-settings" aria-labelledby="settings-heading">
+          <div class="tk-card-head">
+            <h3 class="section-kicker" id="settings-heading">Settings</h3>
+          </div>
+
+          <div class="control-field">
+            <div class="control-field-head">
+              <label for="scenario-select">Scenario</label>
+            </div>
+            <select class="select-input" id="scenario-select"></select>
+          </div>
+
+          <div class="control-field">
+            <div class="control-field-head">
+              <label for="temp-slider">
+                <svg class="tk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
+                Temperature
+              </label>
+              <output id="temp-val" for="temp-slider">1.0</output>
+            </div>
+            <input class="range-input" type="range" min="0" max="30" value="10" id="temp-slider" step="1" aria-describedby="temp-hints temp-note">
+            <div class="control-field-hints" id="temp-hints"><span>Greedy (0)</span><span>Wild (3.0)</span></div>
+            <p class="control-field-note" id="temp-note">A middle setting balances coherence and surprise.</p>
+          </div>
+
+          <div class="control-field">
+            <div class="control-field-head">
+              <label for="topp-slider">
+                <svg class="tk-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3Z"/></svg>
+                Top P
+              </label>
+              <output id="topp-val" for="topp-slider">0.70</output>
+            </div>
+            <input class="range-input" type="range" min="1" max="100" value="70" id="topp-slider" step="1" aria-describedby="topp-hints topp-note">
+            <div class="control-field-hints" id="topp-hints"><span>P=0.01 (tight)</span><span>P=1.0 (all)</span></div>
+            <p class="control-field-note" id="topp-note"></p>
+          </div>
+
+          <div class="control-field">
+            <span class="tk-field-label" id="presets-label">Presets</span>
+            <div class="segmented is-fused is-inset" id="sampling-presets" role="group" aria-labelledby="presets-label">
+              <button class="sampling-preset" type="button" data-temperature="0.2" data-topp="0.9">Precise</button>
+              <button class="sampling-preset" type="button" data-temperature="0.7" data-topp="0.9">Chat</button>
+              <button class="sampling-preset" type="button" data-temperature="1.2" data-topp="0.95">Creative</button>
+            </div>
+          </div>
+
+          <div class="app-callout is-blue tk-key">
+            <p class="app-callout-title">Order matters</p>
+            <p class="app-callout-body">Temperature reshapes the scores first. Top P then cuts the pool, keeping the smallest set of tokens whose odds add up to P.</p>
+          </div>
+
+          <details class="tk-disclosure">
+            <summary>Show the code</summary>
+            <div class="code-window tk-code">
+              <div class="code-window-head">
+                <span class="code-dots" aria-hidden="true"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></span>
+                <span class="code-window-title">The whole sampling step</span>
+              </div>
+              <pre><span class="syn-cm"># one raw score per candidate</span>
+scores = <span class="syn-fn">model</span>(prompt)
+<span class="syn-cm"># step 1: temperature reshapes</span>
+probs = <span class="syn-fn">softmax</span>(
+  scores / <span class="syn-const">temperature</span>)
+<span class="syn-cm"># step 2: top-p cuts</span>
+pool = <span class="syn-fn">keep_until</span>(
+  probs, total >= <span class="syn-const">top_p</span>)
+<span class="syn-cm"># roll the dice</span>
+<span class="syn-kw">return</span> <span class="syn-fn">sample</span>(<span class="syn-fn">renormalize</span>(pool))</pre>
+            </div>
+          </details>
+        </section>
+      </div>
+    </section>
+
+    <section class="page-card tk-section tokenization-card" id="sec-tokens" data-nav-label="Tokens" aria-labelledby="tokenization-heading">
+      <div class="tk-section-head">
+        <p class="section-kicker">Before the model predicts</p>
+        <h2 id="tokenization-heading">How text becomes tokens</h2>
+      </div>
+      <p class="section-copy">Illustrative examples of how BPE tokenizers typically split text. Real vocabularies vary, especially across languages and emoji. The Show whitespace toggle in the sampler marks leading spaces here too.</p>
+      <div class="token-example-list" id="token-examples"></div>
+    </section>
+
+    <section class="concepts" id="concepts" data-nav-label="Concepts">
+      <div class="concepts-heading">
+        <p class="section-kicker">Go deeper</p>
+        <h2>Concepts explained</h2>
+      </div>
+
+      <div class="page-card card" id="card-token">
+        <button class="card-trigger" type="button" aria-expanded="false">
+          <div class="card-left">
+            <div class="card-icon blue">T</div>
+            <div>
+              <div class="card-title">What is a token?</div>
+              <div class="card-tagline">The model's unit of language</div>
+            </div>
+          </div>
+          <span class="card-arrow">&#9660;</span>
+        </button>
+        <div class="card-body">
+          <p>A token is a chunk of text, somewhere between a character and a word. "unhappiness" might be split into "un", "happiness". "cat" stays as one token. Spaces and punctuation are tokens too.</p>
+          <p>The model never sees letters. It sees a stream of token IDs, each one a number pointing to an entry in its vocabulary. Every response is the model picking the next token one step at a time.</p>
+          <span class="tip">Rule of thumb: 1 token ≈ 0.75 words in English</span>
+        </div>
+      </div>
+
+      <div class="page-card card" id="card-temp">
+        <button class="card-trigger" type="button" aria-expanded="false">
+          <div class="card-left">
+            <div class="card-icon amber">~</div>
+            <div>
+              <div class="card-title">Temperature</div>
+              <div class="card-tagline">How confident or reckless the model is</div>
+            </div>
+          </div>
+          <span class="card-arrow">&#9660;</span>
+        </button>
+        <div class="card-body">
+          <p>Before sampling, the model assigns a raw score to every possible next token. Temperature divides those scores before converting them into probabilities.</p>
+          <p>Low temperature sharpens the distribution so the top token dominates. High temperature flattens it and gives strange or creative options a better chance.</p>
+          <span class="tip">Code and facts: 0.2 to 0.5. Creative writing: 0.8 to 1.2.</span>
+        </div>
+      </div>
+
+      <div class="page-card card" id="card-topp">
+        <button class="card-trigger" type="button" aria-expanded="false">
+          <div class="card-left">
+            <div class="card-icon purple">P</div>
+            <div>
+              <div class="card-title">Top P (nucleus sampling)</div>
+              <div class="card-tagline">A probability budget for the candidate pool</div>
+            </div>
+          </div>
+          <span class="card-arrow">&#9660;</span>
+        </button>
+        <div class="card-body">
+          <p>Top P sets a cumulative probability threshold. The model ranks tokens by probability and keeps adding them until the running total reaches P. Everything below the cutoff is excluded.</p>
+          <p>When the model is confident, the nucleus stays small. When it is uncertain, more tokens survive the cutoff naturally.</p>
+          <span class="tip">0.7 to 0.95 is the usual production sweet spot.</span>
+        </div>
+      </div>
+
+      <div class="page-card card" id="card-behavior">
+        <button class="card-trigger" type="button" aria-expanded="false">
+          <div class="card-left">
+            <div class="card-icon red">?</div>
+            <div>
+              <div class="card-title">Why tokens explain weird LLM behavior</div>
+              <div class="card-tagline">The model works with chunks, not individual letters</div>
+            </div>
+          </div>
+          <span class="card-arrow">&#9660;</span>
+        </button>
+        <div class="card-body">
+          <p>Counting the letters in "strawberry" can fail because a model sees token chunks, not a sequence of individual letters. The letters are present in the text, but they are not always the units the model is processing.</p>
+          <p>Arithmetic with long numbers is difficult for a related reason. Digits can split into uneven pieces, so the model must reason across chunks rather than line up one digit at a time.</p>
+          <p>Costs and context windows are measured in tokens too. A compact sentence in English may consume fewer tokens than the same idea written with uncommon text, long numbers, or some non-English scripts.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div data-app-shell="scroll-top"></div>
+
+  <script type="module" src="./js/app.js?v=d09e82c3893a"></script>
+</body>
+</html>
