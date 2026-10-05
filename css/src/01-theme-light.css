@@ -1,0 +1,87 @@
+/*
+ * Light theme colours. 01-theme-dark.css has the same tokens on the same lines,
+ * so the two files differ only in their values. Colours that do not change with
+ * the theme live in 01-tokens.css.
+ */
+
+/* Gallery colours, inherited by the apps. */
+:root {
+  --color-bg-primary: rgb(245, 239, 230);
+  --color-bg-secondary: rgb(237, 229, 216);
+  --color-bg-card: rgb(254, 252, 248);
+  --color-text-primary: rgb(45, 32, 23);
+  --color-text-secondary: rgb(107, 92, 77);
+  --color-accent: rgb(212, 114, 92);
+  --color-accent-hover: rgb(192, 96, 74);
+  --color-accent-ring: rgb(143, 47, 31);
+  --color-accent-ghost: rgba(212, 114, 92, 0.1);
+  --color-page-paper: rgb(254, 252, 248);
+  --color-page-shadow: rgba(0, 0, 0, 0.08);
+  --color-border: rgba(45, 32, 23, 0.1);
+  --color-border-solid: rgb(212, 207, 200);
+  --color-detail-title: var(--color-text-primary);
+  --color-detail-body: var(--color-text-secondary);
+  --color-album-cover: rgb(56, 50, 45);
+  --color-album-cover-ink: rgb(39, 35, 31);
+  --color-attach-corner: var(--color-album-cover);
+  --color-page-btn-active-border: var(--color-album-cover-ink);
+  --color-search-count: var(--color-pencil-soft);
+  --color-chip-text: var(--color-note-text);
+  --color-chip-active-text: var(--color-text-primary);
+  --chip-active-mix: 62%;
+  --desk-light: none;
+  --book-shadow-inset: 8px -6px -14px;
+  --book-shadow-color: rgba(40, 25, 10, 0.28);
+  --book-shadow-blur: 18px;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* Artifact app colours. */
+body.artifact-app {
+  --note-yellow: var(--color-note-1);
+  --note-red: var(--color-note-2);
+  --note-blue: var(--color-note-3);
+  --note-green: var(--color-note-4);
+  --note-amber: var(--color-note-5);
+  --note-purple: var(--color-note-6);
+  --color-blue: rgb(55, 138, 221);
+  --color-green: rgb(29, 158, 117);
+  --color-red: rgb(226, 75, 74);
+  --color-amber: rgb(217, 119, 6);
+  --color-purple: rgb(108, 92, 231);
+  --color-blue-text: rgb(12, 76, 132);
+  --color-green-text: rgb(8, 96, 74);
+  --color-red-text: rgb(163, 45, 45);
+  --color-amber-text: rgb(133, 79, 11);
+  --color-purple-text: rgb(83, 74, 183);
+  --color-blue-emphasis: var(--color-blue-text);
+  --color-green-emphasis: var(--color-green-text);
+  --color-red-emphasis: var(--color-red-text);
+  --color-amber-emphasis: var(--color-amber-text);
+  --color-purple-emphasis: var(--color-purple-text);
+  --color-bg: rgb(248, 248, 246);
+  --color-surface: rgb(255, 255, 255);
+  --color-surface-alt: rgb(240, 240, 238);
+  --color-surface-dim: rgb(249, 249, 247);
+  --color-highlight-row: rgba(160, 200, 232, 0.15);
+  --color-text: rgb(26, 26, 26);
+  --color-text-secondary: rgb(102, 102, 102);
+  --color-text-tertiary: rgb(107, 107, 107);
+  --color-text-heading: rgb(68, 68, 68);
+  --color-text-on-accent: rgb(255, 255, 255);
+  --color-border: rgba(0, 0, 0, 0.1);
+  --color-border-medium: rgba(0, 0, 0, 0.15);
+  --color-border-strong: rgba(0, 0, 0, 0.2);
+  --color-border-subtle: rgba(0, 0, 0, 0.06);
+  --color-tip-bg: rgb(232, 232, 230);
+  --color-tooltip-bg: rgb(51, 51, 51);
+  --color-tooltip-text: rgb(255, 255, 255);
+  --chart-tick: rgb(136, 136, 136);
+  --chart-grid: rgba(0, 0, 0, 0.06);
+  --chart-annotation-border: rgb(136, 136, 136);
+  --chart-annotation-bg: rgba(0, 0, 0, 0.65);
+  --chart-annotation-text: rgb(255, 255, 255);
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.06);
+}

@@ -526,7 +526,6 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
   const searchCount = registerElement(new FakeElement({ id: 'search-count' }));
   const sortToggle = registerElement(createButton('sort-toggle'));
   const filterReset = registerElement(createButton('filter-reset'));
-  filterReset.classList.add('hidden');
   const themeToggle = registerElement(createButton('theme-toggle'));
   const noResults = registerElement(new FakeElement({ id: 'no-results' }));
   noResults.classList.add('hidden');
@@ -822,7 +821,7 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
   harness.elements.bookmarkTabs._queryResults.set('[data-filter-tool="claude"]', toolTab);
   harness.elements.bookmarkTabs.dispatch('click', { target: toolTab });
   assert.match(harness.windowObj.location.search, /tool=claude/);
-  assert.equal(harness.elements.filterReset.classList.contains('hidden'), false);
+  assert.equal(harness.elements.filterReset.classList.contains('is-active'), true);
 
   harness.elements.sortToggle.dispatch('click');
   assert.match(harness.windowObj.location.search, /sort=oldest/);
@@ -937,7 +936,7 @@ test('initializeGalleryApp desk notes toggle tool and tag filters', () => {
   const claudeTab = createDeskNote({ filterTool: 'claude' });
   harness.elements.bookmarkTabs.dispatch('click', { target: claudeTab });
   assert.match(harness.windowObj.location.search, /tool=claude/);
-  assert.equal(harness.elements.filterReset.classList.contains('hidden'), false);
+  assert.equal(harness.elements.filterReset.classList.contains('is-active'), true);
 
   const chatgptTab = createDeskNote({ filterTool: 'chatgpt' });
   harness.elements.bookmarkTabs.dispatch('click', { target: chatgptTab });
@@ -965,7 +964,7 @@ test('initializeGalleryApp desk notes toggle tool and tag filters', () => {
   const allTagsTab = createDeskNote({ filterNote: 'all-tags' });
   harness.elements.bookmarkTabs.dispatch('click', { target: allTagsTab });
   assert.doesNotMatch(harness.windowObj.location.search, /tag=/);
-  assert.equal(harness.elements.filterReset.classList.contains('hidden'), true);
+  assert.equal(harness.elements.filterReset.classList.contains('is-active'), false);
 
   const pageTwoButton = new FakeElement({ tagName: 'BUTTON' });
   pageTwoButton.dataset.page = '2';

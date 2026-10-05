@@ -683,7 +683,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   function updateFilterResetVisibility() {
     const hasActiveFilters = currentQuery !== '' || currentTools.length > 0 || currentTags.length > 0;
-    filterReset.classList.toggle('hidden', !hasActiveFilters);
+    filterReset.classList.toggle('is-active', hasActiveFilters);
   }
 
   /**

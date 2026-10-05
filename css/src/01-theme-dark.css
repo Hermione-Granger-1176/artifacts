@@ -1,0 +1,87 @@
+/*
+ * Dark theme colours. 01-theme-light.css has the same tokens on the same lines,
+ * so the two files differ only in their values. The desk turns graphite, and the
+ * scrapbook keeps its daytime paper, card colours, and pencil.
+ */
+
+/* The theme attribute outranks the light :root, so file order does not matter. */
+:root[data-theme="dark"] {
+  --color-bg-primary: rgb(21, 21, 21);
+  --color-bg-secondary: rgb(31, 31, 31);
+  --color-bg-card: rgb(41, 41, 41);
+  --color-text-primary: rgb(244, 239, 231);
+  --color-text-secondary: rgb(180, 175, 167);
+  --color-accent: rgb(236, 138, 112);
+  --color-accent-hover: rgb(239, 156, 133);
+  --color-accent-ring: rgb(247, 208, 198);
+  --color-accent-ghost: rgba(236, 138, 112, 0.14);
+  --color-page-paper: rgb(241, 234, 223);
+  --color-page-shadow: rgba(0, 0, 0, 0.45);
+  --color-border: rgba(244, 239, 231, 0.1);
+  --color-border-solid: rgb(62, 62, 62);
+  --color-detail-title: rgb(45, 32, 23);
+  --color-detail-body: rgb(90, 76, 63);
+  --color-album-cover: rgb(90, 82, 75);
+  --color-album-cover-ink: rgb(66, 59, 53);
+  --color-attach-corner: var(--color-album-ribbon);
+  --color-page-btn-active-border: var(--color-album-ribbon);
+  --color-search-count: var(--color-text-secondary);
+  --color-chip-text: var(--color-text-primary);
+  --color-chip-active-text: var(--color-note-text);
+  --chip-active-mix: 88%;
+  --desk-light: radial-gradient(ellipse 55% 50% at 50% 46%, rgba(255, 214, 160, 0.08), transparent 70%), radial-gradient(ellipse 70% 78% at 50% 52%, rgb(55, 53, 51) 0%, rgb(34, 33, 32) 42%, rgb(11, 11, 11) 100%);
+  --book-shadow-inset: 14px 6px -10px;
+  --book-shadow-color: rgba(0, 0, 0, 0.42);
+  --book-shadow-blur: 28px;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.36);
+  --shadow-lg: 0 10px 36px rgba(0, 0, 0, 0.48);
+}
+
+/* The same for the app scope. */
+html[data-theme="dark"] body.artifact-app {
+  --note-yellow: rgb(78, 75, 60);
+  --note-red: rgb(75, 59, 59);
+  --note-blue: rgb(59, 68, 75);
+  --note-green: rgb(57, 71, 65);
+  --note-amber: rgb(75, 68, 59);
+  --note-purple: rgb(71, 57, 71);
+  --color-blue: rgb(90, 162, 234);
+  --color-green: rgb(52, 185, 138);
+  --color-red: rgb(242, 112, 110);
+  --color-amber: rgb(240, 160, 64);
+  --color-purple: rgb(157, 143, 242);
+  --color-blue-text: var(--color-blue-emphasis);
+  --color-green-text: var(--color-green-emphasis);
+  --color-red-text: var(--color-red-emphasis);
+  --color-amber-text: var(--color-amber-emphasis);
+  --color-purple-text: var(--color-purple-emphasis);
+  --color-blue-emphasis: var(--color-note-3);
+  --color-green-emphasis: var(--color-note-4);
+  --color-red-emphasis: var(--color-note-2);
+  --color-amber-emphasis: var(--color-note-5);
+  --color-purple-emphasis: var(--color-note-6);
+  --color-bg: var(--color-bg-primary);
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-alt: var(--color-bg-card);
+  --color-surface-dim: rgb(26, 26, 26);
+  --color-highlight-row: rgba(160, 200, 232, 0.22);
+  --color-text: var(--color-text-primary);
+  --color-text-secondary: rgb(180, 175, 167);
+  --color-text-tertiary: rgb(153, 148, 141);
+  --color-text-heading: rgb(228, 223, 215);
+  --color-text-on-accent: var(--color-bg);
+  --color-border: rgba(244, 239, 231, 0.1);
+  --color-border-medium: rgba(244, 239, 231, 0.15);
+  --color-border-strong: rgba(244, 239, 231, 0.22);
+  --color-border-subtle: rgba(244, 239, 231, 0.06);
+  --color-tip-bg: var(--color-surface-alt);
+  --color-tooltip-bg: var(--color-text);
+  --color-tooltip-text: var(--color-bg);
+  --chart-tick: var(--color-text-secondary);
+  --chart-grid: rgba(244, 239, 231, 0.08);
+  --chart-annotation-border: var(--chart-tick);
+  --chart-annotation-bg: rgba(244, 239, 231, 0.92);
+  --chart-annotation-text: var(--color-bg);
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.3);
+}

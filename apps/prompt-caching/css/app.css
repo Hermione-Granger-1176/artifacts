@@ -42,14 +42,6 @@ body.app-prompt-caching {
   --pc-measure: 1000px;
 }
 
-[data-theme="dark"] body.app-prompt-caching {
-  --pc-accent: var(--color-amber);
-  --pc-warm: var(--color-blue);
-  --pc-teal: var(--color-green);
-  --pc-indigo: var(--color-purple);
-  --pc-rose: var(--color-red);
-}
-
 /* renderSectionNav injects the sticky nav into this slot; display: contents keeps
  * its containing block at the body so it still sticks to the viewport top. */
 body.app-prompt-caching [data-section-nav] {
@@ -423,17 +415,6 @@ body.app-prompt-caching .pc-meta .is-plain { color: var(--color-text-secondary);
 }
 
 body.app-prompt-caching .code-window-title { color: var(--color-text-secondary);
-}
-
-body.app-prompt-caching .btn-primary,
-body.app-prompt-caching .btn-primary:hover,
-body.app-prompt-caching .btn-primary:focus-visible {
-  background: var(--color-blue-emphasis);
-  color: var(--color-text-on-accent);
-}
-
-[data-theme="dark"] body.app-prompt-caching .btn-primary {
-  color: var(--color-bg);
 }
 
 body.app-prompt-caching .syn-cm { color: var(--color-text-secondary);
@@ -828,20 +809,11 @@ body.app-prompt-caching .pc-step-dot {
 
 }
 
-/* Active/done ride the warm accent (a content step marker). The dark override
- * mirrors the shared solid-chip pairing so the label stays legible on the
- * bright hue. */
+/* Active/done ride the warm accent (a content step marker). */
 body.app-prompt-caching .pc-step-dot.active {
   border-color: var(--pc-accent);
   background: var(--pc-accent);
   color: var(--color-text-on-accent);
-
-}
-
-[data-theme="dark"] body.app-prompt-caching .pc-step-dot.active {
-  border-color: var(--color-amber-emphasis);
-  background: var(--color-amber-emphasis);
-  color: var(--color-bg);
 
 }
 
@@ -1194,18 +1166,11 @@ body.app-prompt-caching .inf-cache-cell {
 
 }
 
-/* Cache-bar cells mirror the shared solid-chip light/dark pairing so the "K,V"
- * label stays legible on the bright hues in dark mode. */
+/* Cache-bar cells pair a solid hue with the theme's on-accent text, like the shared solid chips. */
 body.app-prompt-caching .inf-cache-cell.filled { background: var(--color-amber); color: var(--color-text-on-accent);
 }
 
 body.app-prompt-caching .inf-cache-cell.new { background: var(--color-blue); color: var(--color-text-on-accent);
-}
-
-[data-theme="dark"] body.app-prompt-caching .inf-cache-cell.filled { background: var(--color-amber-emphasis); color: var(--color-bg);
-}
-
-[data-theme="dark"] body.app-prompt-caching .inf-cache-cell.new { background: var(--color-blue-emphasis); color: var(--color-bg);
 }
 
 body.app-prompt-caching .inf-cache-cell.empty { background: var(--color-surface-alt); border: 1px solid var(--color-border);
@@ -1268,8 +1233,7 @@ body.app-prompt-caching .chv-blocks {
 
 }
 
-/* Request blocks mirror the shared solid-chip light/dark pairing so the token
- * labels stay legible on the bright teal/rose fills in dark mode. */
+/* Request blocks pair a solid hue with the theme's on-accent text, like the shared solid chips. */
 body.app-prompt-caching .chv-block {
   height: 28px;
   border-radius: 4px;
@@ -1291,11 +1255,6 @@ body.app-prompt-caching .chv-block.cached { background: var(--pc-teal);
 body.app-prompt-caching .chv-block.miss { background: var(--pc-rose);
 }
 
-[data-theme="dark"] body.app-prompt-caching .chv-block.cached { background: var(--color-green-emphasis); color: var(--color-bg);
-}
-
-[data-theme="dark"] body.app-prompt-caching .chv-block.miss { background: var(--color-red-emphasis); color: var(--color-bg);
-}
 
 body.app-prompt-caching .chv-block.waiting {
   background: var(--color-surface-alt);

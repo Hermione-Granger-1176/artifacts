@@ -130,7 +130,7 @@ CI manages `gh-pages`. Do not edit it manually. Deployments use GitHub App token
 - Use kebab-case artifact directory names and `index.html` entry points.
 - Load `css/style.css` in the gallery. In mature apps, load `../../css/style.css` before `./css/app.css`.
 - Reuse `js/app-theme.js`, `js/modules/app-shell.js`, and the shared `formatting.js`, `segmented.js`, `section-nav.js`, and `chart-theme.js` modules.
-- Use the tokens in `css/src/01-tokens.css` and components in `css/src/04-artifact-components.css` before adding app-local CSS. Shared families include `.control-field`, `.stat`, `.chip`, `.segmented`, `.meter`, `.app-callout`, `.section-kicker`, and `.section-nav`.
+- Use the tokens in `css/src/01-tokens.css` and the themed colors in `css/src/01-theme-light.css` and `css/src/01-theme-dark.css`, plus the components in `css/src/04-artifact-components.css` before adding app-local CSS. Shared families include `.control-field`, `.stat`, `.chip`, `.segmented`, `.meter`, `.app-callout`, `.section-kicker`, and `.section-nav`.
 - Keep app behavior in `apps/<slug>/js/app.js` and app-local modules. Keep app-specific layout in `apps/<slug>/css/app.css`.
 - Use the shared bookmark-note palette. Derive app CSS colors from tokens through `var()` or `color-mix()`. Raw color values belong in the shared token definitions. `make lint-app-css-tokens` also checks radius, font-size, and letter-spacing values. [Style guide](docs/style.md) documents allowed values and exceptions.
 - Keep Markdown paragraphs on one line. Use sentence case headings and direct instructions. Do not use em dashes or en dashes.

@@ -90,7 +90,8 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `js/modules/formatting.js`, `js/modules/segmented.js`, `js/modules/section-nav.js`, `js/modules/chart-theme.js`: shared artifact-app helpers for number formatting, segmented toggles, section-progress nav, and theme-aware Chart.js palettes
 - `js/app-theme.js`, `js/modules/app-shell.js`: shared mature-app theme and interaction system
 - `assets/fonts/*`: self-hosted Latin web font subsets for gallery display fonts
-- `css/src/01-tokens.css`: `@font-face` declarations for self-hosted Caveat and Fredoka One, plus shared gallery and app tokens
+- `css/src/01-tokens.css`: `@font-face` declarations for self-hosted Caveat and Fredoka One, plus the gallery and app tokens that stay the same in both themes
+- `css/src/01-theme-light.css`, `css/src/01-theme-dark.css`: every themed color, with the same tokens on the same lines in both files
 - `css/style.css`: generated public bundle loaded by the gallery and mature apps. Rebuild it with `make styles`; do not edit it directly
 - `assets/icons/*`: logo, favicon, apple touch icon, PWA manifest, and raster icons
 - `assets/social/share-preview.png`: social preview image referenced by deploy-time Open Graph and Twitter metadata
