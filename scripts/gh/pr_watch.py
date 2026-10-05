@@ -40,20 +40,30 @@ _COMMENT_COUNT_PATTERN = re.compile(
     r"\bgenerated (?:(no(?: new)?)|(\d+)) comments?\b",
     re.IGNORECASE,
 )
-# Copilot's v2 overview drops that sentence. It opens with a verdict heading such as
-# "### 🟢 Approval recommended" or "### 🔵 Needs a closer look". "**Findings:** None"
-# alone is not clean: a "Needs a closer look" review can still describe a finding in
-# its "Previously missed" section without opening a thread. A review with findings
-# has an "Open (N)" section. That section links each
-# finding still open, including ones from earlier rounds, to its thread as
-# "(#discussion_r<id>)", which is also the anchor that ends the thread's URL.
+# Copilot's v2 overview drops that sentence. Under "## Copilot review overview" it
+# has a verdict heading such as "### 🟢 Approval recommended", a "**Findings:**" line,
+# and collapsible sections headed "<Label> (N)".
+#
+# A review with findings has an "Open (N)" section that links each finding still open,
+# including ones from earlier rounds, to its thread as "(#discussion_r<id>)". That
+# anchor also ends the thread's URL.
+#
+# "**Findings:** None" alone is not clean. A review can describe a finding in a
+# "Previously missed (N)" section without opening a thread, so a clean review needs
+# the approval verdict and no counted section other than the resolved list.
 _V2_OVERVIEW_MARKER = "<!-- ccr-overview-v2 -->"
 _V2_APPROVAL_VERDICT = "Approval recommended"
-_V2_VERDICT_PATTERN = re.compile(r"^### (?:\W+\s)?(.+?)\s*$", re.MULTILINE)
+_V2_CLEAN_SECTIONS = frozenset({"Resolved since last review"})
+_V2_VERDICT_PATTERN = re.compile(
+    r"^## Copilot review overview\s*\n\s*^### (?:\W+\s)?(.+?)\s*$", re.MULTILINE
+)
 _V2_CLEAN_PATTERN = re.compile(r"^\*\*Findings:\*\* None\s*$", re.MULTILINE)
+_V2_COUNTED_SECTION_PATTERN = re.compile(r"<summary><strong>(.+?) \(\d+\)</strong></summary>")
 _V2_OPEN_HEADING_PATTERN = re.compile(r"<summary><strong>Open \((\d+)\)</strong></summary>")
+# Open items are plain list lines, so the section must close before any other
+# <details> opens. Otherwise an unclosed section would borrow a later block's close.
 _V2_OPEN_SECTION_PATTERN = re.compile(
-    _V2_OPEN_HEADING_PATTERN.pattern + r"(.*?)</details>", re.DOTALL
+    _V2_OPEN_HEADING_PATTERN.pattern + r"((?:(?!<details).)*?)</details>", re.DOTALL
 )
 _DISCUSSION_LINK_PATTERN = re.compile(r"\(#(discussion_r\d+)\)")
 
@@ -90,16 +100,18 @@ class CopilotReview:
 
         Copilot review state is not evidence of a clean review. The review
         wording must say "generated no comments" on a first review or
-        "generated no new comments" on a re-review. A v2 overview must recommend
-        approval, have a "**Findings:** None" line, and have no "Open (N)" section. A numeric
+        "generated no new comments" on a re-review. A v2 overview must
+        recommend approval, have a "**Findings:** None" line, and have no
+        counted section other than "Resolved since last review". A numeric
         "generated 0 comments" deliberately does not count, so unexpected
         wording fails closed.
         """
         if self.is_v2_overview:
+            sections = set(_V2_COUNTED_SECTION_PATTERN.findall(self.body))
             return (
                 self.verdict == _V2_APPROVAL_VERDICT
                 and _V2_CLEAN_PATTERN.search(self.body) is not None
-                and _V2_OPEN_HEADING_PATTERN.search(self.body) is None
+                and sections <= _V2_CLEAN_SECTIONS
             )
         match = _COMMENT_COUNT_PATTERN.search(self.body)
         return match is not None and match.group(1) is not None
@@ -473,7 +485,8 @@ def watch_pr(
                 if review is not None and review.generated_comment_count is None:
                     raise GhError(
                         "The fresh Copilot review overview could not be classified; "
-                        "inspect `make pr-review-comments` before merging."
+                        "read it with `make pr-comments` and inspect "
+                        "`make pr-review-comments` before merging."
                     )
                 threads = [thread for thread in all_threads if thread.state == "open"]
                 return _watch_report(

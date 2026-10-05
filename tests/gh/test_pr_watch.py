@@ -79,6 +79,12 @@ Unclassifiable v2 reviews can exhaust the polling budget.
 _V2_UNCLOSED_OPEN_BODY = (
     _V2_CLEAN_BODY + _V2_COMMENT_BODY.split("<details open>")[1].split("</details>")[0]
 )
+# An unclosed "Open (2)" section followed by a closed "Previously missed" block.
+_V2_OPEN_THEN_NESTED_BODY = (
+    _V2_COMMENT_BODY.split("</details>")[0]
+    + "<details>"
+    + _V2_CLOSER_LOOK_BODY.split("<details>", 1)[1]
+)
 
 
 def _review(
@@ -142,6 +148,7 @@ def _poll_runner(*, reviews: object, rollup: object) -> FakeGh:
         (_V2_CLEAN_BODY.replace("**Findings:** None", "**Findings:** Some"), None),
         (_V2_COMMENT_BODY.replace("- [Update the ADR](#discussion_r102)\n", ""), None),
         (_V2_CLOSER_LOOK_BODY, 0),
+        (_V2_OPEN_THEN_NESTED_BODY, None),
         (_V2_UNCLOSED_OPEN_BODY, None),
     ],
 )
@@ -235,10 +242,11 @@ def test_copilot_review_requires_exact_clean_wording() -> None:
         (_V2_COMMENT_BODY, "Changes recommended"),
         (_V2_CLOSER_LOOK_BODY, "Needs a closer look"),
         ("<!-- ccr-overview-v2 -->\n**Findings:** None\n", ""),
+        ("<!-- ccr-overview-v2 -->\n**Findings:** None\n\n### Approval recommended\n", ""),
     ],
 )
 def test_v2_overview_verdict_drops_the_emoji(body: str, verdict: str) -> None:
-    """The verdict heading is read without its emoji, and is empty when missing."""
+    """The verdict is the heading under the overview title, without its emoji."""
     review = pr_watch.CopilotReview("v2", datetime(2026, 7, 26, 12, tzinfo=UTC), body, 0)
 
     assert review.verdict == verdict
@@ -274,6 +282,8 @@ def test_review_summary_points_a_v2_review_without_approval_at_the_overview(
         (_V2_COMMENT_BODY, False),
         (_V2_COMMENT_BODY + "**Findings:** None\n", False),
         (_V2_CLOSER_LOOK_BODY, False),
+        (_V2_CLEAN_BODY + _V2_CLOSER_LOOK_BODY.split("**Findings:** None")[1], False),
+        (_V2_CLEAN_BODY.replace("Resolved since last review", "Needs a decision"), False),
         (_V2_UNCLOSED_OPEN_BODY, False),
         ("<!-- ccr-overview-v2 -->\ngenerated no comments", False),
     ],
@@ -1126,7 +1136,9 @@ def test_watch_pr_rejects_unrecognized_fresh_overview(
 
     # The remedy must name the review-thread target, since `make pr-comments`
     # shows conversation comments and never surfaces review threads.
-    with pytest.raises(GhError, match=r"could not be classified.*make pr-review-comments"):
+    with pytest.raises(
+        GhError, match=r"could not be classified.*make pr-comments.*make pr-review-comments"
+    ):
         pr_watch.watch_pr(12, interval=0, max_polls=2)
 
 
