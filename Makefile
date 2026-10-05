@@ -545,10 +545,15 @@ help-json: ## Emit groups and commands as JSON
 
 # ─── Git @git ─────────────────────────────────────────────────────────────────
 
-.PHONY: git branch branch-current branch-prune worktree worktree-remove rebase-main rebase-continue sync-branch stage stage-all commit push push-force log log-file diff diff-staged
+.PHONY: git branches branch branch-current branch-prune worktree worktree-remove rebase-main rebase-continue sync-branch stage stage-all commit push push-force log log-file diff diff-staged
 
 git: ## Git commands (make git)
 	@$(MAKE) --no-print-directory help-git
+
+branches: ## List local and remote branches and worktrees
+	git branch -a -vv
+	@echo
+	git worktree list
 
 branch: ## Create and switch to a new branch off main, or off base for a stacked branch (make branch name=X [base=branch])
 	$(call need,name,make branch name=my-feature [base=other-branch])

@@ -83,6 +83,7 @@ The commands with less obvious argument patterns are:
 | Create an issue branch  | `make issue-develop issue=N`                      |
 | Create a stacked branch | `make branch name=my-feature base=current-branch` |
 | Create a worktree       | `make worktree name=my-feature [base=branch]`     |
+| Remove a worktree       | `make worktree-remove name=my-feature`            |
 | Commit staged work      | `make commit < message.txt`                       |
 
 Supply multiline messages on stdin through a heredoc or file redirect. Do not pass prose as Make arguments. For short fields, use environment variables such as `TITLE='...'`, `SEARCH='...'`, or `COMMENT='...'` with the relevant target.
