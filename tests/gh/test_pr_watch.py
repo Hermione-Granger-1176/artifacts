@@ -13,6 +13,78 @@ from tests.gh.gh_test_support import FakeGh, completed_process, has
 _CLEAN_BODY = "Copilot reviewed 8 files and generated no new comments."
 _COMMENT_BODY = "Copilot reviewed 8 files and generated 2 comments."
 _SUBMITTED_AT = "2026-07-26T12:00:00Z"
+# Trimmed from the v2 overviews Copilot posted on PR #224.
+_V2_CLEAN_BODY = """<!-- ccr-overview-v2 -->
+
+## Copilot review overview
+
+### 🟢 Approval recommended
+
+The theme architecture is consistent and complete.
+
+**Review effort:** Balanced \x20
+**Findings:** None
+
+<details>
+<summary><strong>Resolved since last review (1)</strong></summary>
+
+</details>
+"""
+_V2_COMMENT_BODY = """<!-- ccr-overview-v2 -->
+
+## Copilot review overview
+
+### 🟡 Changes recommended
+
+The new parity invariant lacks automated enforcement.
+
+**Review effort:** Balanced \x20
+
+<details open>
+<summary><strong>Open (2)</strong></summary>
+
+- [Enforce token parity](#discussion_r101) · New
+- [Update the ADR](#discussion_r102)
+</details>
+
+<details>
+<summary><strong>Resolved since last review (1)</strong></summary>
+
+- [Earlier finding](#discussion_r99)
+</details>
+"""
+# Trimmed from round 3 on PR #225: no findings, but a finding Copilot did not open a thread for.
+_V2_CLOSER_LOOK_BODY = """<!-- ccr-overview-v2 -->
+
+## Copilot review overview
+
+### 🔵 Needs a closer look
+
+Unclassifiable v2 reviews can exhaust the polling budget.
+
+**Review effort:** Balanced \x20
+**Findings:** None
+
+<details>
+<summary><strong>Previously missed (1)</strong></summary>
+
+<details>
+<summary>Avoid waiting on unclassified overview</summary>
+
+`scripts/gh/pr_watch.py:446`
+</details>
+</details>
+"""
+# "**Findings:** None" followed by an "Open (2)" section that never closes.
+_V2_UNCLOSED_OPEN_BODY = (
+    _V2_CLEAN_BODY + _V2_COMMENT_BODY.split("<details open>")[1].split("</details>")[0]
+)
+# An unclosed "Open (2)" section followed by a closed "Previously missed" block.
+_V2_OPEN_THEN_NESTED_BODY = (
+    _V2_COMMENT_BODY.split("</details>")[0]
+    + "<details>"
+    + _V2_CLOSER_LOOK_BODY.split("<details>", 1)[1]
+)
 
 
 def _review(
@@ -71,6 +143,13 @@ def _poll_runner(*, reviews: object, rollup: object) -> FakeGh:
         (_COMMENT_BODY, 2),
         ("generated 1 comment", 1),
         ("unrecognized overview", None),
+        (_V2_CLEAN_BODY, 0),
+        (_V2_COMMENT_BODY, 2),
+        (_V2_CLEAN_BODY.replace("**Findings:** None", "**Findings:** Some"), None),
+        (_V2_COMMENT_BODY.replace("- [Update the ADR](#discussion_r102)\n", ""), None),
+        (_V2_CLOSER_LOOK_BODY, 0),
+        (_V2_OPEN_THEN_NESTED_BODY, None),
+        (_V2_UNCLOSED_OPEN_BODY, None),
     ],
 )
 def test_generated_comment_count_classifies_overviews(body: str, expected: int | None) -> None:
@@ -154,6 +233,74 @@ def test_copilot_review_requires_exact_clean_wording() -> None:
     assert first_pass.is_explicitly_clean
     assert re_review.is_explicitly_clean
     assert not numeric.is_explicitly_clean
+
+
+@pytest.mark.parametrize(
+    ("body", "verdict"),
+    [
+        (_V2_CLEAN_BODY, "Approval recommended"),
+        (_V2_COMMENT_BODY, "Changes recommended"),
+        (_V2_CLOSER_LOOK_BODY, "Needs a closer look"),
+        ("<!-- ccr-overview-v2 -->\n**Findings:** None\n", ""),
+        ("<!-- ccr-overview-v2 -->\n**Findings:** None\n\n### Approval recommended\n", ""),
+    ],
+)
+def test_v2_overview_verdict_drops_the_emoji(body: str, verdict: str) -> None:
+    """The verdict is the heading under the overview title, without its emoji."""
+    review = pr_watch.CopilotReview("v2", datetime(2026, 7, 26, 12, tzinfo=UTC), body, 0)
+
+    assert review.verdict == verdict
+
+
+@pytest.mark.parametrize(
+    ("body", "summary"),
+    [
+        (_V2_CLOSER_LOOK_BODY, "needs a closer look with no open threads"),
+        ("<!-- ccr-overview-v2 -->\n**Findings:** None\n", "no verdict with no open threads"),
+    ],
+)
+def test_review_summary_points_a_v2_review_without_approval_at_the_overview(
+    body: str, summary: str
+) -> None:
+    """A v2 review with no threads but no approval names its verdict instead of passing."""
+    review = pr_watch.CopilotReview(
+        "v2",
+        datetime(2026, 7, 26, 12, tzinfo=UTC),
+        body,
+        pr_watch._generated_comment_count(body),
+    )
+
+    assert pr_watch._review_summary(review, requested=True) == (
+        f"{summary}; read the overview with `make pr-comments`"
+    )
+
+
+@pytest.mark.parametrize(
+    ("body", "clean"),
+    [
+        (_V2_CLEAN_BODY, True),
+        (_V2_COMMENT_BODY, False),
+        (_V2_COMMENT_BODY + "**Findings:** None\n", False),
+        (_V2_CLOSER_LOOK_BODY, False),
+        (_V2_CLEAN_BODY + _V2_CLOSER_LOOK_BODY.split("**Findings:** None")[1], False),
+        (_V2_CLEAN_BODY.replace("Resolved since last review", "Needs a decision"), False),
+        (_V2_UNCLOSED_OPEN_BODY, False),
+        ("<!-- ccr-overview-v2 -->\ngenerated no comments", False),
+    ],
+)
+def test_v2_overview_is_clean_only_with_no_findings_and_no_open_section(
+    body: str, clean: bool
+) -> None:
+    """A v2 overview needs "**Findings:** None" and no "Open (N)" section to count as clean."""
+    review = pr_watch.CopilotReview(
+        "v2",
+        datetime(2026, 7, 26, 12, tzinfo=UTC),
+        body,
+        pr_watch._generated_comment_count(body),
+    )
+
+    assert review.is_v2_overview
+    assert review.is_explicitly_clean is clean
 
 
 @pytest.mark.parametrize(
@@ -800,6 +947,119 @@ def test_watch_pr_counts_only_threads_newer_than_the_request_baseline(
     assert "open review threads: 3" in report
 
 
+def _thread(
+    thread_id: str, anchor: str, *, state: str = "open", author: str = ""
+) -> pr_review.ReviewThread:
+    """Build one review thread whose URL ends in the given discussion anchor."""
+    return pr_review.ReviewThread(
+        thread_id,
+        state,
+        "file.py",
+        1,
+        author or "copilot-pull-request-reviewer",
+        "body",
+        f"https://github.com/o/r/pull/12#{anchor}",
+    )
+
+
+def _v2_review() -> pr_watch.CopilotReview:
+    """Build a fresh v2 review that links discussion_r101 and discussion_r102."""
+    return pr_watch.CopilotReview(
+        "new",
+        datetime(2026, 7, 26, 12, tzinfo=UTC),
+        _V2_COMMENT_BODY,
+        pr_watch._generated_comment_count(_V2_COMMENT_BODY),
+    )
+
+
+def test_v2_overview_lists_only_its_open_discussions() -> None:
+    """Links in the resolved section are not threads the review waits for."""
+    assert _v2_review().open_discussions == {"discussion_r101", "discussion_r102"}
+
+
+def test_watch_pr_waits_for_every_thread_a_v2_overview_links(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An unrelated human thread cannot stand in for a linked Copilot thread."""
+    human = _thread("PRRT_human", "discussion_r50", author="a-reviewer")
+    carried_over = _thread("PRRT_old", "discussion_r102")
+    new = _thread("PRRT_new", "discussion_r101")
+    _, sleeps = _watch_stubs(
+        monkeypatch,
+        [_status(settled=True, review=_v2_review())],
+        thread_batches=[[human, carried_over], [human, carried_over, new]],
+    )
+
+    report = pr_watch.watch_pr(
+        12, interval=1, max_polls=3, request_copilot=True, sleep_fn=sleeps.append
+    )
+
+    # First sleep confirms rollup stability, second waits for discussion_r101.
+    assert sleeps == [1, 1]
+    assert "generated 2 comment(s)" in report
+    assert "open review threads: 3" in report
+
+
+def test_watch_pr_accepts_a_linked_thread_resolved_before_the_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A linked thread still matches after it is resolved, whatever the baseline holds."""
+    resolved = _thread("PRRT_old", "discussion_r102", state="resolved")
+    new = _thread("PRRT_new", "discussion_r101")
+    _watch_stubs(
+        monkeypatch,
+        [_status(settled=True, review=_v2_review())],
+        thread_batches=[[resolved, new]],
+    )
+    monkeypatch.setattr(
+        pr_watch,
+        "watch_baseline",
+        lambda *_args, **_kwargs: pr_watch.WatchBaseline(
+            frozenset({"old-review"}), frozenset({"PRRT_old"})
+        ),
+    )
+
+    report = pr_watch.watch_pr(12, interval=0, max_polls=2, request_copilot=True)
+
+    assert "settled after 2 poll(s)" in report
+    assert "open review threads: 1" in report
+
+
+def test_watch_pr_v2_review_without_approval_is_not_merge_ready(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A "Needs a closer look" review with no threads still blocks merge."""
+    review = pr_watch.CopilotReview(
+        "new",
+        datetime(2026, 7, 26, 12, tzinfo=UTC),
+        _V2_CLOSER_LOOK_BODY,
+        pr_watch._generated_comment_count(_V2_CLOSER_LOOK_BODY),
+    )
+    _watch_stubs(monkeypatch, [_status(settled=True, review=review)])
+
+    report = pr_watch.watch_pr(12, interval=0, max_polls=2)
+
+    assert "latest Copilot review: needs a closer look with no open threads" in report
+    assert "merge ready: no" in report
+
+
+def test_watch_pr_rejects_an_unclassified_v2_review_without_waiting_for_its_links(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A link that never gets a thread cannot turn a classification error into a timeout."""
+    body = _V2_COMMENT_BODY.replace("- [Update the ADR](#discussion_r102)\n", "")
+    review = pr_watch.CopilotReview(
+        "new",
+        datetime(2026, 7, 26, 12, tzinfo=UTC),
+        body,
+        pr_watch._generated_comment_count(body),
+    )
+    _watch_stubs(monkeypatch, [_status(settled=True, review=review)])
+
+    with pytest.raises(GhError, match="could not be classified"):
+        pr_watch.watch_pr(12, interval=0, max_polls=3)
+
+
 def test_watch_pr_clean_review_with_older_open_thread_is_not_merge_ready(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -876,7 +1136,9 @@ def test_watch_pr_rejects_unrecognized_fresh_overview(
 
     # The remedy must name the review-thread target, since `make pr-comments`
     # shows conversation comments and never surfaces review threads.
-    with pytest.raises(GhError, match=r"could not be classified.*make pr-review-comments"):
+    with pytest.raises(
+        GhError, match=r"could not be classified.*make pr-comments.*make pr-review-comments"
+    ):
         pr_watch.watch_pr(12, interval=0, max_polls=2)
 
 
