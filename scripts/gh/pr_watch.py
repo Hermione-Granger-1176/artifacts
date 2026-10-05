@@ -40,11 +40,16 @@ _COMMENT_COUNT_PATTERN = re.compile(
     r"\bgenerated (?:(no(?: new)?)|(\d+)) comments?\b",
     re.IGNORECASE,
 )
-# Copilot's v2 overview drops that sentence. A clean review has a "**Findings:** None"
-# line, and a review with findings has an "Open (N)" section. That section links each
+# Copilot's v2 overview drops that sentence. It opens with a verdict heading such as
+# "### 🟢 Approval recommended" or "### 🔵 Needs a closer look". "**Findings:** None"
+# alone is not clean: a "Needs a closer look" review can still describe a finding in
+# its "Previously missed" section without opening a thread. A review with findings
+# has an "Open (N)" section. That section links each
 # finding still open, including ones from earlier rounds, to its thread as
 # "(#discussion_r<id>)", which is also the anchor that ends the thread's URL.
 _V2_OVERVIEW_MARKER = "<!-- ccr-overview-v2 -->"
+_V2_APPROVAL_VERDICT = "Approval recommended"
+_V2_VERDICT_PATTERN = re.compile(r"^### (?:\W+\s)?(.+?)\s*$", re.MULTILINE)
 _V2_CLEAN_PATTERN = re.compile(r"^\*\*Findings:\*\* None\s*$", re.MULTILINE)
 _V2_OPEN_HEADING_PATTERN = re.compile(r"<summary><strong>Open \((\d+)\)</strong></summary>")
 _V2_OPEN_SECTION_PATTERN = re.compile(
@@ -69,6 +74,12 @@ class CopilotReview:
         return _V2_OVERVIEW_MARKER in self.body
 
     @property
+    def verdict(self) -> str:
+        """Return a v2 overview's verdict heading without its emoji, or an empty string."""
+        match = _V2_VERDICT_PATTERN.search(self.body)
+        return "" if match is None else match.group(1)
+
+    @property
     def open_discussions(self) -> frozenset[str]:
         """Return the thread anchors linked from a v2 overview's "Open (N)" section."""
         return frozenset(_open_discussion_links(self.body))
@@ -79,14 +90,15 @@ class CopilotReview:
 
         Copilot review state is not evidence of a clean review. The review
         wording must say "generated no comments" on a first review or
-        "generated no new comments" on a re-review. A v2 overview must have a
-        "**Findings:** None" line and no "Open (N)" section. A numeric
+        "generated no new comments" on a re-review. A v2 overview must recommend
+        approval, have a "**Findings:** None" line, and have no "Open (N)" section. A numeric
         "generated 0 comments" deliberately does not count, so unexpected
         wording fails closed.
         """
         if self.is_v2_overview:
             return (
-                _V2_CLEAN_PATTERN.search(self.body) is not None
+                self.verdict == _V2_APPROVAL_VERDICT
+                and _V2_CLEAN_PATTERN.search(self.body) is not None
                 and _V2_OPEN_HEADING_PATTERN.search(self.body) is None
             )
         match = _COMMENT_COUNT_PATTERN.search(self.body)
@@ -338,6 +350,9 @@ def _review_summary(review: CopilotReview | None, *, requested: bool) -> str:
         return "unrecognized Copilot overview"
     if review.is_explicitly_clean:
         return "generated no comments"
+    if review.is_v2_overview and review.generated_comment_count == 0:
+        verdict = (review.verdict or "no verdict").lower()
+        return f"{verdict} with no open threads; read the overview with `make pr-comments`"
     return f"generated {review.generated_comment_count} comment(s)"
 
 
@@ -439,7 +454,11 @@ def watch_pr(
         if ready_for_threads:
             all_threads = pr_review.list_threads(pr, include_resolved=True, run_fn=run_fn)
             review = status.fresh_review
-            if review is not None and review.is_v2_overview:
+            if (
+                review is not None
+                and review.is_v2_overview
+                and review.generated_comment_count is not None
+            ):
                 # A v2 overview links the threads it lists, so wait for exactly those.
                 # Their state, author, and age do not matter.
                 anchors = {thread.url.rpartition("#")[2] for thread in all_threads}

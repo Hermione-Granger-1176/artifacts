@@ -53,6 +53,28 @@ The new parity invariant lacks automated enforcement.
 - [Earlier finding](#discussion_r99)
 </details>
 """
+# Trimmed from round 3 on PR #225: no findings, but a finding Copilot did not open a thread for.
+_V2_CLOSER_LOOK_BODY = """<!-- ccr-overview-v2 -->
+
+## Copilot review overview
+
+### 🔵 Needs a closer look
+
+Unclassifiable v2 reviews can exhaust the polling budget.
+
+**Review effort:** Balanced \x20
+**Findings:** None
+
+<details>
+<summary><strong>Previously missed (1)</strong></summary>
+
+<details>
+<summary>Avoid waiting on unclassified overview</summary>
+
+`scripts/gh/pr_watch.py:446`
+</details>
+</details>
+"""
 # "**Findings:** None" followed by an "Open (2)" section that never closes.
 _V2_UNCLOSED_OPEN_BODY = (
     _V2_CLEAN_BODY + _V2_COMMENT_BODY.split("<details open>")[1].split("</details>")[0]
@@ -119,6 +141,7 @@ def _poll_runner(*, reviews: object, rollup: object) -> FakeGh:
         (_V2_COMMENT_BODY, 2),
         (_V2_CLEAN_BODY.replace("**Findings:** None", "**Findings:** Some"), None),
         (_V2_COMMENT_BODY.replace("- [Update the ADR](#discussion_r102)\n", ""), None),
+        (_V2_CLOSER_LOOK_BODY, 0),
         (_V2_UNCLOSED_OPEN_BODY, None),
     ],
 )
@@ -206,11 +229,51 @@ def test_copilot_review_requires_exact_clean_wording() -> None:
 
 
 @pytest.mark.parametrize(
+    ("body", "verdict"),
+    [
+        (_V2_CLEAN_BODY, "Approval recommended"),
+        (_V2_COMMENT_BODY, "Changes recommended"),
+        (_V2_CLOSER_LOOK_BODY, "Needs a closer look"),
+        ("<!-- ccr-overview-v2 -->\n**Findings:** None\n", ""),
+    ],
+)
+def test_v2_overview_verdict_drops_the_emoji(body: str, verdict: str) -> None:
+    """The verdict heading is read without its emoji, and is empty when missing."""
+    review = pr_watch.CopilotReview("v2", datetime(2026, 7, 26, 12, tzinfo=UTC), body, 0)
+
+    assert review.verdict == verdict
+
+
+@pytest.mark.parametrize(
+    ("body", "summary"),
+    [
+        (_V2_CLOSER_LOOK_BODY, "needs a closer look with no open threads"),
+        ("<!-- ccr-overview-v2 -->\n**Findings:** None\n", "no verdict with no open threads"),
+    ],
+)
+def test_review_summary_points_a_v2_review_without_approval_at_the_overview(
+    body: str, summary: str
+) -> None:
+    """A v2 review with no threads but no approval names its verdict instead of passing."""
+    review = pr_watch.CopilotReview(
+        "v2",
+        datetime(2026, 7, 26, 12, tzinfo=UTC),
+        body,
+        pr_watch._generated_comment_count(body),
+    )
+
+    assert pr_watch._review_summary(review, requested=True) == (
+        f"{summary}; read the overview with `make pr-comments`"
+    )
+
+
+@pytest.mark.parametrize(
     ("body", "clean"),
     [
         (_V2_CLEAN_BODY, True),
         (_V2_COMMENT_BODY, False),
         (_V2_COMMENT_BODY + "**Findings:** None\n", False),
+        (_V2_CLOSER_LOOK_BODY, False),
         (_V2_UNCLOSED_OPEN_BODY, False),
         ("<!-- ccr-overview-v2 -->\ngenerated no comments", False),
     ],
@@ -950,6 +1013,41 @@ def test_watch_pr_accepts_a_linked_thread_resolved_before_the_fetch(
 
     assert "settled after 2 poll(s)" in report
     assert "open review threads: 1" in report
+
+
+def test_watch_pr_v2_review_without_approval_is_not_merge_ready(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A "Needs a closer look" review with no threads still blocks merge."""
+    review = pr_watch.CopilotReview(
+        "new",
+        datetime(2026, 7, 26, 12, tzinfo=UTC),
+        _V2_CLOSER_LOOK_BODY,
+        pr_watch._generated_comment_count(_V2_CLOSER_LOOK_BODY),
+    )
+    _watch_stubs(monkeypatch, [_status(settled=True, review=review)])
+
+    report = pr_watch.watch_pr(12, interval=0, max_polls=2)
+
+    assert "latest Copilot review: needs a closer look with no open threads" in report
+    assert "merge ready: no" in report
+
+
+def test_watch_pr_rejects_an_unclassified_v2_review_without_waiting_for_its_links(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A link that never gets a thread cannot turn a classification error into a timeout."""
+    body = _V2_COMMENT_BODY.replace("- [Update the ADR](#discussion_r102)\n", "")
+    review = pr_watch.CopilotReview(
+        "new",
+        datetime(2026, 7, 26, 12, tzinfo=UTC),
+        body,
+        pr_watch._generated_comment_count(body),
+    )
+    _watch_stubs(monkeypatch, [_status(settled=True, review=review)])
+
+    with pytest.raises(GhError, match="could not be classified"):
+        pr_watch.watch_pr(12, interval=0, max_polls=3)
 
 
 def test_watch_pr_clean_review_with_older_open_thread_is_not_merge_ready(
