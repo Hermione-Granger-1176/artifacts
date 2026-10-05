@@ -13,6 +13,38 @@ from tests.gh.gh_test_support import FakeGh, completed_process, has
 _CLEAN_BODY = "Copilot reviewed 8 files and generated no new comments."
 _COMMENT_BODY = "Copilot reviewed 8 files and generated 2 comments."
 _SUBMITTED_AT = "2026-07-26T12:00:00Z"
+# Trimmed from the v2 overviews Copilot posted on PR #224.
+_V2_CLEAN_BODY = """<!-- ccr-overview-v2 -->
+
+## Copilot review overview
+
+### 🟢 Approval recommended
+
+The theme architecture is consistent and complete.
+
+**Review effort:** Balanced \x20
+**Findings:** None
+
+<details>
+<summary><strong>Resolved since last review (1)</strong></summary>
+
+</details>
+"""
+_V2_COMMENT_BODY = """<!-- ccr-overview-v2 -->
+
+## Copilot review overview
+
+### 🟡 Changes recommended
+
+The new parity invariant lacks automated enforcement.
+
+**Review effort:** Balanced \x20
+
+<details open>
+<summary><strong>Open (2)</strong></summary>
+
+</details>
+"""
 
 
 def _review(
@@ -71,6 +103,9 @@ def _poll_runner(*, reviews: object, rollup: object) -> FakeGh:
         (_COMMENT_BODY, 2),
         ("generated 1 comment", 1),
         ("unrecognized overview", None),
+        (_V2_CLEAN_BODY, 0),
+        (_V2_COMMENT_BODY, 2),
+        (_V2_CLEAN_BODY.replace("**Findings:** None", "**Findings:** Some"), None),
     ],
 )
 def test_generated_comment_count_classifies_overviews(body: str, expected: int | None) -> None:
@@ -154,6 +189,30 @@ def test_copilot_review_requires_exact_clean_wording() -> None:
     assert first_pass.is_explicitly_clean
     assert re_review.is_explicitly_clean
     assert not numeric.is_explicitly_clean
+
+
+@pytest.mark.parametrize(
+    ("body", "clean"),
+    [
+        (_V2_CLEAN_BODY, True),
+        (_V2_COMMENT_BODY, False),
+        (_V2_COMMENT_BODY + "**Findings:** None\n", False),
+        ("<!-- ccr-overview-v2 -->\ngenerated no comments", False),
+    ],
+)
+def test_v2_overview_is_clean_only_with_no_findings_and_no_open_section(
+    body: str, clean: bool
+) -> None:
+    """A v2 overview needs "**Findings:** None" and no "Open (N)" section to count as clean."""
+    review = pr_watch.CopilotReview(
+        "v2",
+        datetime(2026, 7, 26, 12, tzinfo=UTC),
+        body,
+        pr_watch._generated_comment_count(body),
+    )
+
+    assert review.counts_open_findings
+    assert review.is_explicitly_clean is clean
 
 
 @pytest.mark.parametrize(
@@ -798,6 +857,38 @@ def test_watch_pr_counts_only_threads_newer_than_the_request_baseline(
     # First sleep confirms rollup stability, second waits for the later thread.
     assert sleeps == [1, 1]
     assert "open review threads: 3" in report
+
+
+def test_watch_pr_counts_older_open_threads_toward_a_v2_overview(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A v2 "Open (N)" count includes findings still open from an earlier round."""
+    old_thread = pr_review.ReviewThread("PRRT_old", "open", "old.py", 1, "copilot", "old", "url")
+    new_thread = pr_review.ReviewThread("PRRT_new", "open", "new.py", 2, "copilot", "new", "url")
+    review = pr_watch.CopilotReview(
+        "new",
+        datetime(2026, 7, 26, 12, tzinfo=UTC),
+        _V2_COMMENT_BODY,
+        pr_watch._generated_comment_count(_V2_COMMENT_BODY),
+    )
+    _watch_stubs(
+        monkeypatch,
+        [_status(settled=True, review=review)],
+        thread_batches=[[old_thread, new_thread]],
+    )
+    monkeypatch.setattr(
+        pr_watch,
+        "watch_baseline",
+        lambda *_args, **_kwargs: pr_watch.WatchBaseline(
+            frozenset({"old-review"}), frozenset({"PRRT_old"})
+        ),
+    )
+
+    report = pr_watch.watch_pr(12, interval=0, max_polls=2, request_copilot=True)
+
+    assert "settled after 2 poll(s)" in report
+    assert "generated 2 comment(s)" in report
+    assert "open review threads: 2" in report
 
 
 def test_watch_pr_clean_review_with_older_open_thread_is_not_merge_ready(

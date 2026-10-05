@@ -40,6 +40,12 @@ _COMMENT_COUNT_PATTERN = re.compile(
     r"\bgenerated (?:(no(?: new)?)|(\d+)) comments?\b",
     re.IGNORECASE,
 )
+# Copilot's v2 overview drops that sentence. A clean review has a "**Findings:** None"
+# line, and a review with findings has an "Open (N)" section that lists every finding
+# still open, including ones from earlier rounds.
+_V2_OVERVIEW_MARKER = "<!-- ccr-overview-v2 -->"
+_V2_CLEAN_PATTERN = re.compile(r"^\*\*Findings:\*\* None\s*$", re.MULTILINE)
+_V2_OPEN_PATTERN = re.compile(r"<summary><strong>Open \((\d+)\)</strong></summary>")
 
 
 @dataclass(frozen=True)
@@ -53,15 +59,26 @@ class CopilotReview:
     state: str = ""
 
     @property
+    def counts_open_findings(self) -> bool:
+        """Return whether the comment count covers every open finding, not only new ones."""
+        return _V2_OVERVIEW_MARKER in self.body
+
+    @property
     def is_explicitly_clean(self) -> bool:
         """Return whether the review reports nothing to address.
 
         Copilot review state is not evidence of a clean review. The review
         wording must say "generated no comments" on a first review or
-        "generated no new comments" on a re-review. A numeric "generated 0
-        comments" deliberately does not count, so unexpected wording fails
-        closed.
+        "generated no new comments" on a re-review. A v2 overview must have a
+        "**Findings:** None" line and no "Open (N)" section. A numeric
+        "generated 0 comments" deliberately does not count, so unexpected
+        wording fails closed.
         """
+        if self.counts_open_findings:
+            return (
+                _V2_CLEAN_PATTERN.search(self.body) is not None
+                and _V2_OPEN_PATTERN.search(self.body) is None
+            )
         match = _COMMENT_COUNT_PATTERN.search(self.body)
         return match is not None and match.group(1) is not None
 
@@ -103,6 +120,11 @@ def _parse_timestamp(value: str, context: str) -> datetime:
 
 def _generated_comment_count(body: str) -> int | None:
     """Return the comment count from a Copilot overview, when recognized."""
+    if _V2_OVERVIEW_MARKER in body:
+        open_match = _V2_OPEN_PATTERN.search(body)
+        if open_match is not None:
+            return int(open_match.group(1))
+        return 0 if _V2_CLEAN_PATTERN.search(body) is not None else None
     match = _COMMENT_COUNT_PATTERN.search(body)
     if match is None:
         return None
@@ -400,10 +422,18 @@ def watch_pr(
                 if status.fresh_review is not None
                 else 0
             )
-            fresh_thread_count = sum(
-                thread.thread_id not in baseline.thread_ids for thread in all_threads
+            # A v2 count includes findings still open from earlier rounds, so older
+            # open threads count toward it. Counting only fresh threads would wait
+            # forever whenever an earlier finding is still open.
+            counts_open = (
+                status.fresh_review is not None and status.fresh_review.counts_open_findings
             )
-            waiting_for_threads = review_count is not None and review_count > fresh_thread_count
+            counted_thread_count = sum(
+                thread.thread_id not in baseline.thread_ids
+                or (counts_open and thread.state == "open")
+                for thread in all_threads
+            )
+            waiting_for_threads = review_count is not None and review_count > counted_thread_count
             if not waiting_for_threads:
                 if (
                     status.fresh_review is not None
