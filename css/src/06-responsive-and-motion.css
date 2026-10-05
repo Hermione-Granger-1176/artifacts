@@ -79,6 +79,13 @@
     display: none;
   }
 
+  /* Tablets have no spare width beside the row, so the reset note keeps a reserved slot in it. */
+  .filter-reset {
+    position: relative;
+    top: auto;
+    left: auto;
+  }
+
   .mobile-filter-stack {
     grid-column: 1;
     display: grid;
@@ -115,6 +122,13 @@
 
   .control-cluster {
     flex: none;
+  }
+
+  /* Phones: the reset note hangs left of the sort note, over the free end of the count line. */
+  .filter-reset {
+    position: absolute;
+    top: 0;
+    right: calc(100% + 0.75rem);
   }
 
   .book-stage {

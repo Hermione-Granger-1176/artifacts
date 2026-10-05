@@ -526,10 +526,8 @@ def test_mobile_book_turns_with_a_fade_and_leaves_no_inline_state(
         assert page.evaluate("window.__leafAdds") == 0
 
 
-def test_dark_theme_keeps_the_cover_colour_and_the_same_ruled_paper(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """The cover is one physical colour in both themes; paper rules stay consistent."""
+def test_dark_theme_lifts_the_cover_and_keeps_the_ruled_paper(tmp_path: Path, monkeypatch) -> None:
+    """At night the leather lightens so the book stands off the desk, and the ruled paper stays."""
     deploy_root = build_smoke_site(tmp_path, monkeypatch)
 
     with (
@@ -550,15 +548,14 @@ def test_dark_theme_keeps_the_cover_colour_and_the_same_ruled_paper(
             getComputedStyle(document.documentElement)
                 .getPropertyValue('--paper-rule-color')
                 .trim()"""
-        light_cover = page.evaluate(cover_color)
         light_rule = page.evaluate(rule_color)
-        assert light_cover == "rgb(56, 50, 45)"
+        assert page.evaluate(cover_color) == "rgb(56, 50, 45)"
 
         page.locator("#theme-toggle").click()
         expect(page.locator("html")).to_have_attribute("data-theme", "dark")
-        assert page.evaluate(cover_color) == light_cover
-        dark_rule = page.evaluate(rule_color)
-        assert dark_rule != light_rule
+        # The cover transitions its colour, so wait for it to settle.
+        expect(page.locator(".book-cover-face")).to_have_css("background-color", "rgb(90, 82, 75)")
+        assert page.evaluate(rule_color) == light_rule
         papers = page.evaluate(
             """() => [
                 getComputedStyle(document.querySelector('.book-endpaper')).backgroundImage,
@@ -703,3 +700,52 @@ def test_search_note_shows_a_match_count_and_a_labelled_sort_note(
                 page.click("#sort-toggle")
                 expect(page.locator("#sort-toggle")).to_have_attribute("aria-pressed", "true")
                 assert page.evaluate(sort_label) == '"oldest"', label
+
+
+def test_toolbar_notes_hold_still_when_filters_and_sort_change(tmp_path: Path, monkeypatch) -> None:
+    """Showing the reset note or flipping the sort order never moves the search or sort notes."""
+    deploy_root = build_smoke_site(tmp_path, monkeypatch)
+    # Layout boxes without the notes' tilt and hover transforms, which are decoration.
+    layout = """() => ['.search-wrapper', '#sort-toggle'].map((selector) => {
+        let element = document.querySelector(selector);
+        const box = [element.offsetWidth, element.offsetHeight];
+        for (; element; element = element.offsetParent) {
+            box.push(element.offsetLeft, element.offsetTop);
+        }
+        return box;
+    })"""
+    reset_shown = """() => {
+        const style = getComputedStyle(document.querySelector('#filter-reset'));
+        return style.visibility === 'visible';
+    }"""
+
+    with StaticServer(deploy_root) as server, sync_playwright() as playwright:
+        for width, height in ((1366, 768), (820, 1000), (390, 844)):
+            with MonitoredPage(
+                playwright, server.url, name="browser-toolbar-still", viewport=(width, height)
+            ) as session:
+                page = session.page
+                assert page is not None
+                session.goto("/")
+                _wait_for_open_book(page)
+                label = f"{width}x{height}"
+                before = page.evaluate(layout)
+                assert page.evaluate(reset_shown) is False, label
+
+                page.fill("#search-input", "Artifact 1")
+                expect(page.locator("#search-count")).to_have_text("4 found")
+                assert page.evaluate(reset_shown) is True, label
+                assert page.evaluate(layout) == before, label
+
+                page.click("#sort-toggle")
+                expect(page.locator("#sort-toggle")).to_have_attribute("aria-pressed", "true")
+                assert page.evaluate(layout) == before, label
+
+                page.click("#filter-reset")
+                expect(page.locator("#search-input")).to_have_value("")
+                expect(page.locator("#filter-reset")).to_be_hidden()
+                assert page.evaluate(layout) == before, label
+
+                reset_box = _box(page, "#filter-reset")
+                assert reset_box["x"] >= 0, label
+                assert reset_box["x"] + reset_box["width"] <= width, label

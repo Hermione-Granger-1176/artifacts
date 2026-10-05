@@ -62,7 +62,7 @@ Run `make lint`, `make typecheck-web`, `make dead-code-js`, `make coverage-js`, 
   - CSS custom properties for theming and shared geometry (for example `--color-bg-primary`, `--text-primary`, `--accent`, `--book-sheet-min-height`, `--gallery-*`, `--desk-note-*`, and the shared app-shell tokens)
   - Mature apps use the bookmark-note palette as the shared source of truth for light and dark themes
   - Authored colors use `rgb()` and `rgba()` values instead of hex literals; in app stylesheets they must additionally be token-derived (see the color rule below)
-  - Keep shared rules in the matching ordered source partial: `01-tokens.css`, `02-gallery.css`, `03-artifact-shell.css`, `04-artifact-components.css`, `05-accessibility-and-utilities.css`, or `06-responsive-and-motion.css`
+  - Keep shared rules in the matching ordered source partial: `01-tokens.css`, `01-theme-light.css`, `01-theme-dark.css`, `02-gallery.css`, `03-artifact-shell.css`, `04-artifact-components.css`, `05-accessibility-and-utilities.css`, or `06-responsive-and-motion.css`
   - Use descriptive section headers in long stylesheets. Group app rules by the visualisation or page region they support
   - `prefers-reduced-motion` respected for transitions and animations
   - Desktop-first responsive breakpoints
@@ -75,19 +75,22 @@ The shared design system lives in `css/src/` and is bundled into `css/style.css`
 
 ### Token families and scopes
 
-- Gallery tokens live in `:root` (with a `[data-theme="dark"]` override) in `css/src/01-tokens.css`: backgrounds, text, accent, borders, the bookmark-note palette, card colors, `--radius-*`, shadows, and gallery layout variables. They apply to the gallery and cascade into apps.
-- Artifact-app tokens live under `body.artifact-app` (with a `[data-theme="dark"] body.artifact-app` override) in the same partial:
+- Every color that changes with the theme lives in `css/src/01-theme-light.css` and `css/src/01-theme-dark.css`. The two files list the same tokens on the same lines, so a diff between them shows only the values. Add a themed token to both files at the same line.
+- `css/src/01-tokens.css` holds everything that stays the same in both themes: fonts, the bookmark-note palette, card colors, the printed-document palette, radii, and gallery layout variables.
+- Gallery tokens sit on `:root` and cascade into apps. The dark file uses `:root[data-theme="dark"]` and `html[data-theme="dark"] body.artifact-app`, which outrank the light selectors, so file order does not matter.
+- Artifact-app tokens live under `body.artifact-app`:
   - Hue tokens `--color-{blue,green,red,amber,purple}`, each with a matching `-text` and `-emphasis` variant
   - Note pastels `--note-{yellow,red,blue,green,amber,purple}`
   - Surface, border, text, chart, and tooltip tokens plus `--color-text-on-accent`
   - A type scale (`--font-size-{2xs,xs,sm,control,md,base,lg}`) and the label tracking token `--tracking-label`
   - A spacing scale (`--space-1` through `--space-6`, plus `--space-8`), radii (`--radius-{xs,sm,md,pill}`), and `--shadow-card`
-- In the dark artifact scope every `--color-*-text` remaps to its `--color-*-emphasis` value and the note pastels get dark remaps, so rules that reference the tokens follow the theme automatically.
+- In the dark artifact scope every `--color-*-text` remaps to its `--color-*-emphasis` value, the note pastels get dark remaps, and `--color-text-on-accent` turns dark because the dark hues are brighter. Rules that reference the tokens follow the theme without a `[data-theme="dark"]` override.
+- Component and app stylesheets do not write `[data-theme="dark"]` color rules. When a component needs a different color at night, add a themed token to both theme files instead.
 
 ### Color rule
 
 - Shared token definitions use `rgb()`, `rgba()`, or other tokens, never hex literals. In `apps/<slug>/css/*.css`, colors derive from `var()` or a `color-mix()` over tokens. Raw color values belong in the shared `css/src/` definitions. `transparent` and `currentcolor` remain allowed
-- Prefer a token over a raw color whenever one fits, so a theme change stays a single-file edit in `css/src/01-tokens.css`
+- Prefer a token over a raw color whenever one fits, so a theme change stays an edit to the two theme files
 
 ### Shared components versus app-local CSS
 

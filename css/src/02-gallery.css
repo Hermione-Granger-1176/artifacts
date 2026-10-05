@@ -15,7 +15,9 @@ body {
   min-height: 100vh;
   color: var(--text-primary);
   font-family: var(--font-body);
-  background: var(--color-bg-primary);
+  /* The desk light is flat by day and lit behind the book at night. It stays put while the page scrolls. */
+  background: var(--desk-light), var(--color-bg-primary);
+  background-attachment: fixed;
   overflow-x: hidden;
 }
 
@@ -88,7 +90,6 @@ button {
   position: relative;
   z-index: 1;
   padding: 0.5rem clamp(1rem, 2vw, 1.6rem) 0.15rem;
-  background: var(--color-bg-primary);
 }
 
 .header-content {
@@ -300,7 +301,7 @@ button {
   flex: 0 0 5.5rem;
   font-size: 1.35rem;
   font-weight: 500;
-  color: var(--color-pencil-soft);
+  color: var(--color-search-count);
   text-align: right;
 }
 
@@ -318,6 +319,7 @@ button {
 }
 
 .filter-section {
+  position: relative;
   flex-wrap: nowrap;
 }
 
@@ -341,12 +343,32 @@ button {
 }
 
 .sort-toggle {
+  display: inline-grid;
+  grid-template-columns: auto auto;
   background: var(--color-note-3);
   transform: rotate(3deg);
 }
 
-/* The visible label matches the start of the accessible name ("Sort by newest first"). */
+/*
+ * The visible label matches the start of the accessible name ("Sort by newest first").
+ * The other word sits invisibly in the same grid cell, so the note keeps the wider
+ * word's width and nothing beside it moves when the order flips.
+ */
+.sort-toggle::before,
 .sort-toggle::after {
+  grid-area: 1 / 2;
+}
+
+.sort-toggle::before {
+  content: 'oldest';
+  visibility: hidden;
+}
+
+.sort-toggle::after {
+  content: 'newest';
+}
+
+.sort-toggle.is-oldest::before {
   content: 'newest';
 }
 
@@ -354,9 +376,32 @@ button {
   content: 'oldest';
 }
 
+/*
+ * The reset note hangs beside the sort note outside the row's flow, so showing it
+ * never resizes the search note. It only fades in while a filter is active.
+ */
 .filter-reset {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 0.75rem);
   background: var(--color-note-2);
   transform: rotate(-3deg);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.15s ease,
+    visibility 0s linear 0.15s;
+}
+
+.filter-reset.is-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.15s ease;
 }
 
 .sort-toggle:hover,
@@ -386,6 +431,7 @@ button {
 }
 
 .sort-toggle-icon {
+  grid-area: 1 / 1;
   transition: transform 0.25s ease;
 }
 
@@ -459,16 +505,12 @@ button {
 
 .book-shadow {
   position: absolute;
-  inset: 8px -6px -14px;
+  inset: var(--book-shadow-inset);
   z-index: -3;
   border-radius: 14px;
-  background: rgba(40, 25, 10, 0.28);
-  filter: blur(18px);
+  background: var(--book-shadow-color);
+  filter: blur(var(--book-shadow-blur));
   pointer-events: none;
-}
-
-[data-theme="dark"] .book-shadow {
-  background: rgba(0, 0, 0, 0.6);
 }
 
 .book-shell:not(.is-open) .book-shadow {
@@ -1284,14 +1326,14 @@ button {
   border: 1px solid color-mix(in srgb, var(--chip-color) 38%, var(--color-border-solid));
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--chip-color) 18%, var(--color-bg-card));
-  color: var(--color-note-text);
+  color: var(--color-chip-text);
   box-shadow: var(--shadow-sm);
 }
 
 .mobile-filter-chip.is-active {
   border-color: color-mix(in srgb, var(--chip-color) 75%, var(--color-text-primary));
-  background: color-mix(in srgb, var(--chip-color) 62%, var(--color-bg-card));
-  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--chip-color) var(--chip-active-mix), var(--color-bg-card));
+  color: var(--color-chip-active-text);
 }
 
 .artifacts-grid {
@@ -1366,7 +1408,7 @@ button {
 /* Cards are scrapbook photo prints attached to the page. */
 .artifact-card {
   --tape: var(--color-note-1);
-  --attach-corner: var(--color-album-cover);
+  --attach-corner: var(--color-attach-corner);
 
   position: relative;
   height: 100%;
@@ -1379,10 +1421,6 @@ button {
   transform-origin: center top;
   transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1), filter var(--transition-fast) ease;
   isolation: isolate;
-}
-
-[data-theme="dark"] .artifact-card {
-  --attach-corner: var(--color-album-ribbon);
 }
 
 .artifact-card[data-tape="2"] {
@@ -1520,11 +1558,6 @@ button {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-[data-theme="dark"] .card-photo-frame,
-[data-theme="dark"] .card-thumbnail-placeholder {
-  background: rgba(248, 243, 234, 0.9);
-}
-
 .card-thumbnail {
   width: 100%;
   height: 100%;
@@ -1648,12 +1681,8 @@ button {
 
 .page-btn.active .page-btn-paper {
   background: var(--color-album-cover);
-  border-color: var(--color-album-cover-ink);
+  border-color: var(--color-page-btn-active-border);
   transform: rotate(0deg);
-}
-
-[data-theme="dark"] .page-btn.active .page-btn-paper {
-  border-color: var(--color-album-ribbon);
 }
 
 .page-btn.active {
@@ -1723,10 +1752,6 @@ button {
   transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
 }
 
-[data-theme="dark"] .detail-panel {
-  background: var(--detail-accent, var(--color-detail-dark-surface));
-}
-
 .detail-overlay.open .detail-panel {
   transform: translate(0, 0) scale(1);
   opacity: 1;
@@ -1739,11 +1764,6 @@ button {
   overflow: hidden;
   border-bottom: 1px solid var(--color-border-solid);
   background: rgba(0, 0, 0, 0.02);
-}
-
-[data-theme="dark"] .detail-media-wrap {
-  border-bottom-color: rgba(255, 255, 255, 0.06);
-  background: rgba(0, 0, 0, 0.15);
 }
 
 .detail-media {
@@ -1778,26 +1798,18 @@ button {
   font-weight: 700;
   font-size: clamp(2rem, 4vw, 2.8rem);
   line-height: 1.1;
-  color: var(--color-text-primary);
-}
-
-[data-theme="dark"] .detail-title {
-  color: var(--color-detail-dark-title);
+  color: var(--color-detail-title);
 }
 
 .detail-description {
   margin: 0.5rem 0 0;
   font-size: 1.35rem;
   line-height: 1.3;
-  color: var(--color-text-secondary);
+  color: var(--color-detail-body);
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-}
-
-[data-theme="dark"] .detail-description {
-  color: var(--color-detail-dark-body);
 }
 
 .detail-meta {
@@ -1831,13 +1843,6 @@ button {
   background: var(--capsule-bg, var(--color-capsule-default));
   color: var(--color-capsule-text);
   border: 1.5px solid rgba(0, 0, 0, 0.08);
-}
-
-[data-theme="dark"] .detail-meta-tags-item,
-[data-theme="dark"] .detail-meta-tools-item {
-  background: color-mix(in srgb, var(--capsule-bg, var(--color-capsule-default)) 40%, var(--color-page-paper) 60%);
-  color: var(--color-detail-dark-title);
-  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .detail-open-link {
@@ -1895,10 +1900,6 @@ button {
   padding: 0 1rem 2.2rem;
   text-align: center;
   color: var(--color-text-secondary);
-}
-
-[data-theme="dark"] .footer {
-  color: rgba(232, 221, 208, 0.72);
 }
 
 .footer p {

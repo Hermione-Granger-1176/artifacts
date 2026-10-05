@@ -10,7 +10,7 @@
 
 ## Shared app system
 
-- `css/src/01-tokens.css` owns the shared bookmark-note palette and light and dark themes, including the `body.artifact-app` design tokens (hue colors with `-text` and `-emphasis` variants, note pastels, the type and spacing scales, radii, and `--shadow-card`). The remaining ordered `css/src/` partials own root gallery styling, app shell styling, reusable components, utilities, and responsive behavior
+- `css/src/01-theme-light.css` and `css/src/01-theme-dark.css` own every themed color, line for line. In dark mode the desk turns graphite and the scrapbook keeps its daytime paper, card colors, and pencil. `css/src/01-tokens.css` owns the theme-independent tokens: the bookmark-note palette, fonts, and the `body.artifact-app` design tokens (hue colors with `-text` and `-emphasis` variants, note pastels, the type and spacing scales, radii, and `--shadow-card`). The remaining ordered `css/src/` partials own root gallery styling, app shell styling, reusable components, utilities, and responsive behavior
 - `css/src/04-artifact-components.css` is the shared artifact component layer: reusable `body.artifact-app` families such as `.control-field`, `.stat-grid` / `.stat`, `.chip`, `.segmented`, `.meter`, `.app-callout`, `.section-kicker`, buttons, inputs, tables, code windows, and `.section-nav`. Apps compose these rather than restating them
 - `apps/<slug>/css/app.css` owns app-specific dimensions, grids, visualizations, and component variants, while reusable colors, controls, surfaces, and callouts stay in the shared stylesheet. It keeps the `body.app-<slug>` selector scope
 - `js/app-theme.js` applies the saved mature-app theme before CSS loads

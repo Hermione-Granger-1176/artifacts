@@ -121,23 +121,6 @@ body.app-vendor-docs-generator .vd-block-btn {
 }
 
 /*
- * The shared .btn-primary blue only reaches 3.6:1 against white, which is
- * short of 4.5:1 for the button label. Deepen it, and flip the label to the
- * page colour in dark, where the emphasis token is a pale blue.
- */
-
-body.app-vendor-docs-generator .btn-primary,
-body.app-vendor-docs-generator .btn-primary:hover,
-body.app-vendor-docs-generator .btn-primary:focus-visible {
-  background: var(--color-blue-emphasis);
-  color: var(--color-text-on-accent);
-}
-
-[data-theme="dark"] body.app-vendor-docs-generator .btn-primary {
-  color: var(--color-bg);
-}
-
-/*
  * Secondary actions that sit beside a heading or a caption (Preview scan, Full
  * size, Download JSON only) are the same outline button with its border and
  * height taken down, so they stay findable without competing with the one
@@ -724,7 +707,7 @@ body.app-vendor-docs-generator .vd-logo.is-block .vd-logo-mark {
   justify-content: center;
   border-radius: var(--radius-xs);
   background: var(--vd-accent, var(--color-blue));
-  color: var(--color-text-on-accent);
+  color: var(--color-document-on-accent);
   font-size: 1.25rem;
   font-weight: 800;
 }
@@ -925,7 +908,7 @@ body.app-vendor-docs-generator .vd-partypair-head {
   padding: 7px 9px;
   border: 1px solid var(--color-document-rule-strong);
   background: var(--vd-accent, var(--color-blue));
-  color: var(--color-text-on-accent);
+  color: var(--color-document-on-accent);
   font-size: inherit;
   font-weight: 700;
   text-align: left;
@@ -965,7 +948,7 @@ body.app-vendor-docs-generator .vd-items td {
 
 body.app-vendor-docs-generator .vd-items thead th {
   border-bottom: 0;
-  color: var(--color-text-on-accent);
+  color: var(--color-document-on-accent);
   font-weight: 700;
 }
 
@@ -1037,12 +1020,12 @@ body.app-vendor-docs-generator .vd-totals-value {
 
 body.app-vendor-docs-generator .vd-totals .is-emphasis {
   background: var(--vd-accent, var(--color-blue));
-  color: var(--color-text-on-accent);
+  color: var(--color-document-on-accent);
 }
 
 body.app-vendor-docs-generator .vd-totals .is-emphasis .vd-totals-label {
   padding: 9px 12px;
-  color: var(--color-text-on-accent);
+  color: var(--color-document-on-accent);
   font-weight: 700;
 }
 
@@ -1108,7 +1091,7 @@ body.app-vendor-docs-generator .vd-banner {
   padding: 11px 22px;
   border-radius: var(--radius-sm);
   background: var(--vd-accent, var(--color-blue));
-  color: var(--color-text-on-accent);
+  color: var(--color-document-on-accent);
   font-size: 0.875rem;
   font-weight: 700;
 }

@@ -598,23 +598,6 @@ body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button {
   flex: 1;
 }
 
-/*
- * The shared .btn-primary blue only reaches 3.6:1 against white, which is
- * short of 4.5:1 for the button label. Deepen it, and flip the label to the
- * page colour in dark, where the emphasis token is a pale blue.
- */
-
-body.app-tokenizer-explorer .btn-primary,
-body.app-tokenizer-explorer .btn-primary:hover,
-body.app-tokenizer-explorer .btn-primary:focus-visible {
-  background: var(--color-blue-emphasis);
-  color: var(--color-text-on-accent);
-}
-
-[data-theme="dark"] body.app-tokenizer-explorer .btn-primary {
-  color: var(--color-bg);
-}
-
 /* Reset is the quietest action: no border, just a tint on hover. */
 
 body.app-tokenizer-explorer .btn-ghost {
