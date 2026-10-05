@@ -46,8 +46,9 @@ _COMMENT_COUNT_PATTERN = re.compile(
 # "(#discussion_r<id>)", which is also the anchor that ends the thread's URL.
 _V2_OVERVIEW_MARKER = "<!-- ccr-overview-v2 -->"
 _V2_CLEAN_PATTERN = re.compile(r"^\*\*Findings:\*\* None\s*$", re.MULTILINE)
-_V2_OPEN_PATTERN = re.compile(
-    r"<summary><strong>Open \((\d+)\)</strong></summary>(.*?)</details>", re.DOTALL
+_V2_OPEN_HEADING_PATTERN = re.compile(r"<summary><strong>Open \((\d+)\)</strong></summary>")
+_V2_OPEN_SECTION_PATTERN = re.compile(
+    _V2_OPEN_HEADING_PATTERN.pattern + r"(.*?)</details>", re.DOTALL
 )
 _DISCUSSION_LINK_PATTERN = re.compile(r"\(#(discussion_r\d+)\)")
 
@@ -86,7 +87,7 @@ class CopilotReview:
         if self.is_v2_overview:
             return (
                 _V2_CLEAN_PATTERN.search(self.body) is not None
-                and _V2_OPEN_PATTERN.search(self.body) is None
+                and _V2_OPEN_HEADING_PATTERN.search(self.body) is None
             )
         match = _COMMENT_COUNT_PATTERN.search(self.body)
         return match is not None and match.group(1) is not None
@@ -129,20 +130,22 @@ def _parse_timestamp(value: str, context: str) -> datetime:
 
 def _open_discussion_links(body: str) -> list[str]:
     """Return the thread anchors linked from a v2 "Open (N)" section, in order."""
-    open_match = _V2_OPEN_PATTERN.search(body)
-    return [] if open_match is None else _DISCUSSION_LINK_PATTERN.findall(open_match.group(2))
+    section = _V2_OPEN_SECTION_PATTERN.search(body)
+    return [] if section is None else _DISCUSSION_LINK_PATTERN.findall(section.group(2))
 
 
 def _generated_comment_count(body: str) -> int | None:
     """Return the comment count from a Copilot overview, when recognized."""
     if _V2_OVERVIEW_MARKER in body:
-        open_match = _V2_OPEN_PATTERN.search(body)
-        if open_match is None:
+        heading = _V2_OPEN_HEADING_PATTERN.search(body)
+        if heading is None:
             return 0 if _V2_CLEAN_PATTERN.search(body) is not None else None
         # Each open finding must link its thread, or the watcher cannot tell when
-        # every thread has arrived, so a count without matching links fails closed.
-        count = int(open_match.group(1))
-        return count if len(set(_open_discussion_links(body))) == count else None
+        # every thread has arrived. A count without matching links, or a section
+        # that never closes, fails closed.
+        count = int(heading.group(1))
+        complete = _V2_OPEN_SECTION_PATTERN.search(body) is not None
+        return count if complete and len(set(_open_discussion_links(body))) == count else None
     match = _COMMENT_COUNT_PATTERN.search(body)
     if match is None:
         return None

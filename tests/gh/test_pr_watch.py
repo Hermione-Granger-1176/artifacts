@@ -53,6 +53,10 @@ The new parity invariant lacks automated enforcement.
 - [Earlier finding](#discussion_r99)
 </details>
 """
+# "**Findings:** None" followed by an "Open (2)" section that never closes.
+_V2_UNCLOSED_OPEN_BODY = (
+    _V2_CLEAN_BODY + _V2_COMMENT_BODY.split("<details open>")[1].split("</details>")[0]
+)
 
 
 def _review(
@@ -115,6 +119,7 @@ def _poll_runner(*, reviews: object, rollup: object) -> FakeGh:
         (_V2_COMMENT_BODY, 2),
         (_V2_CLEAN_BODY.replace("**Findings:** None", "**Findings:** Some"), None),
         (_V2_COMMENT_BODY.replace("- [Update the ADR](#discussion_r102)\n", ""), None),
+        (_V2_UNCLOSED_OPEN_BODY, None),
     ],
 )
 def test_generated_comment_count_classifies_overviews(body: str, expected: int | None) -> None:
@@ -206,6 +211,7 @@ def test_copilot_review_requires_exact_clean_wording() -> None:
         (_V2_CLEAN_BODY, True),
         (_V2_COMMENT_BODY, False),
         (_V2_COMMENT_BODY + "**Findings:** None\n", False),
+        (_V2_UNCLOSED_OPEN_BODY, False),
         ("<!-- ccr-overview-v2 -->\ngenerated no comments", False),
     ],
 )
