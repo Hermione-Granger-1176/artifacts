@@ -150,7 +150,7 @@ jobs:
           PLAN_JSON="$plan" make ci-plan-outputs >> "$GITHUB_OUTPUT"
 
       - name: Upload app impact plan
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ci-plan-${{ github.run_id }}
           path: .artifacts/ci-plan/plan.json
@@ -299,7 +299,7 @@ jobs:
 
       - name: Upload root browser failure artifacts
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: root-browser-artifacts-${{ github.run_id }}
           path: .artifacts/browser-ci/root
@@ -335,7 +335,7 @@ jobs:
           ref: ${{ env.BUILD_REF }}
 
       - name: Download app impact plan
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ci-plan-${{ github.run_id }}
           path: .artifacts/ci-plan
@@ -373,7 +373,7 @@ jobs:
 
       - name: Upload app browser failure artifacts
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: app-browser-artifacts-${{ github.run_id }}-${{ matrix.shard }}
           path: .artifacts/browser-ci
@@ -391,7 +391,7 @@ jobs:
           output=.artifacts/shard-result
 
       - name: Upload shard thumbnail result
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: app-shard-${{ github.run_id }}-${{ matrix.shard }}
           path: .artifacts/shard-result
@@ -427,14 +427,14 @@ jobs:
           ref: ${{ env.BUILD_REF }}
 
       - name: Download app impact plan
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ci-plan-${{ github.run_id }}
           path: .artifacts/ci-plan
 
       - name: Download shard thumbnail results
         if: needs.plan.outputs.shard-count != '0'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: app-shard-${{ github.run_id }}-*
           path: .artifacts/shard-results
@@ -483,7 +483,7 @@ jobs:
           echo "artifact-name=thumbnail-persist-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
 
       - name: Upload assembled site artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: site-${{ github.run_id }}
           path: _site
@@ -492,7 +492,7 @@ jobs:
 
       - name: Upload thumbnail persistence artifact
         if: steps.thumbnail-artifact.outputs.changed == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.thumbnail-artifact.outputs.artifact-name }}
           path: .artifacts/thumbnail-persist
@@ -561,7 +561,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download app impact plan
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ci-plan-${{ github.run_id }}
           path: .artifacts/ci-plan
@@ -688,7 +688,7 @@ jobs:
           install-deps: "true"
 
       - name: Download verified site artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: site-${{ github.run_id }}
           path: _site
@@ -935,7 +935,7 @@ jobs:
 
       - name: Upload live browser failure artifacts
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: live-browser-artifacts-${{ github.run_id }}
           path: .artifacts/browser-live
@@ -992,7 +992,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Download thumbnail persistence artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ needs.assemble-site.outputs.thumbnail-artifact-name }}
           path: .artifacts/thumbnail-persist
