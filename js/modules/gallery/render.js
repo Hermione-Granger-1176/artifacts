@@ -510,7 +510,7 @@ export function renderPagination(container, currentPage, totalPages) {
 
   let html = '';
   html += `<button class="page-btn page-btn-nav" data-page="1" type="button" ${onFirst ? 'disabled' : ''} aria-label="First page"><span class="page-btn-paper"></span>${ICONS.chevronFirst}</button>`;
-  html += `<button class="page-btn page-btn-nav" data-page="${currentPage - 1}" data-page-step="-1" type="button" ${onFirst ? 'disabled' : ''} aria-label="Previous page"><span class="page-btn-paper"></span>${ICONS.chevronLeft}<span class="page-btn-label">Prev</span></button>`;
+  html += `<button class="page-btn page-btn-nav" data-page="${currentPage - 1}" data-page-step="-1" type="button" ${onFirst ? 'disabled' : ''} aria-label="Prev page"><span class="page-btn-paper"></span>${ICONS.chevronLeft}<span class="page-btn-label">Prev</span></button>`;
   html += pageButtons;
   html += `<button class="page-btn page-btn-nav" data-page="${currentPage + 1}" data-page-step="1" type="button" ${onLast ? 'disabled' : ''} aria-label="Next page"><span class="page-btn-paper"></span><span class="page-btn-label">Next</span>${ICONS.chevronRight}</button>`;
   html += `<button class="page-btn page-btn-nav" data-page="${totalPages}" type="button" ${onLast ? 'disabled' : ''} aria-label="Last page"><span class="page-btn-paper"></span>${ICONS.chevronLast}</button>`;

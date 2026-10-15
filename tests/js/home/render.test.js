@@ -75,7 +75,7 @@ test('renderPagination gives Previous and Next relative steps and labels', () =>
   const container = { innerHTML: '', dataset: {} };
   renderPagination(container, 3, 5);
 
-  assert.match(container.innerHTML, /data-page="2" data-page-step="-1"[^>]*aria-label="Previous page"/);
+  assert.match(container.innerHTML, /data-page="2" data-page-step="-1"[^>]*aria-label="Prev page"/);
   assert.match(container.innerHTML, /data-page="4" data-page-step="1"[^>]*aria-label="Next page"/);
   assert.match(container.innerHTML, /page-btn-label">Prev</);
   assert.match(container.innerHTML, /page-btn-label">Next</);
