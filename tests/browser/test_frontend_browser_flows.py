@@ -307,7 +307,7 @@ def test_next_and_previous_turn_one_leaf_that_matches_the_page_box(
         for was, now in zip(before, after, strict=True):
             assert abs(was["x"] - now["x"]) < 0.6 and abs(was["width"] - now["width"]) < 0.6
 
-        page.get_by_role("button", name="Previous page").click()
+        page.get_by_role("button", name="Prev page").click()
         expect(page.locator(".book-leaf")).to_have_count(0, timeout=5000)
         expect(page.locator("#pagination .page-btn.active")).to_have_text("1")
         _assert_clean_book(page)
@@ -380,7 +380,7 @@ def test_rapid_next_clicks_and_page_jumps_never_drop_input(tmp_path: Path, monke
         _assert_clean_book(page)
 
         page.get_by_role("button", name="Next page").click()
-        page.get_by_role("button", name="Previous page").click()
+        page.get_by_role("button", name="Prev page").click()
         expect(page.locator(".book-leaf")).to_have_count(0, timeout=8000)
         expect(page.locator("#pagination .page-btn.active")).to_have_text("1")
         expect(page.locator("#gallery-status")).to_contain_text("page 1 of 4")
