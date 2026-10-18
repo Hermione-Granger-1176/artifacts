@@ -445,7 +445,10 @@ def add_reviewers(users: str, pr: int | None = None, *, run_fn: RunFunction | No
     def reviewers_with_rest() -> int:
         slug, number = _target(pr, run_fn=run_fn)
         # gh names a team as org/slug. REST takes the team slug separately.
-        names = split_list(users)
+        names = [
+            pr_rest.COPILOT_REST_REVIEWER if name == pr_rest.COPILOT_REVIEWER else name
+            for name in split_list(users)
+        ]
         gh_runner.rest(
             f"repos/{slug}/pulls/{number}/requested_reviewers",
             method="POST",

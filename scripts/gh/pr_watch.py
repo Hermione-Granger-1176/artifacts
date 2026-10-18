@@ -39,32 +39,41 @@ _COMMENT_COUNT_PATTERN = re.compile(
     r"\bgenerated (?:(no(?: new)?)|(\d+)) comments?\b",
     re.IGNORECASE,
 )
-# Copilot's v2 overview drops that sentence. Under "## Copilot review overview" it
-# has a verdict heading such as "### 🟢 Approval recommended", a "**Findings:**" line,
-# and collapsible sections headed "<Label> (N)".
+# Copilot's v2 overview drops that sentence. It has a verdict heading such as
+# "### 🟢 Approval recommended" and collapsible counted sections. Two layouts exist:
 #
-# A review with findings has an "Open (N)" section that links each finding still open,
-# including ones from earlier rounds, to its thread as "(#discussion_r<id>)". That
-# anchor also ends the thread's URL.
+# - The first puts the verdict under "## Copilot review overview", has a
+#   "**Findings:**" line, and heads sections "<Label> (N)", such as "Open (2)".
+# - The second puts the verdict right after the marker and heads sections
+#   "N <label>", such as "2 open issues" or "1 resolved since last review".
+#
+# A review with findings has an open section that links each finding still open,
+# including ones from earlier rounds, to its thread. The link is "(#discussion_r<id>)"
+# or the full thread URL, which ends in that anchor.
 #
 # "**Findings:** None" alone is not clean. A review can describe a finding in a
-# "Previously missed (N)" section without opening a thread, so a clean review needs
+# "previously missed" section without opening a thread, so a clean review needs
 # the approval verdict and no counted section other than the resolved list.
 _V2_OVERVIEW_MARKER = "<!-- ccr-overview-v2 -->"
+_V2_TITLE = "## Copilot review overview"
 _V2_APPROVAL_VERDICT = "Approval recommended"
-_V2_CLEAN_SECTIONS = frozenset({"Resolved since last review"})
+_V2_OPEN_LABEL = "open"
+_V2_CLEAN_SECTIONS = frozenset({"resolved since last review"})
 _V2_VERDICT_PATTERN = re.compile(
-    r"^## Copilot review overview\s*\n\s*^### (?:\W+\s)?(.+?)\s*$", re.MULTILINE
+    re.escape(_V2_OVERVIEW_MARKER)
+    + r"\s*(?:^"
+    + re.escape(_V2_TITLE)
+    + r"\s*)?^### (?:\W+\s)?(.+?)\s*$",
+    re.MULTILINE,
 )
 _V2_CLEAN_PATTERN = re.compile(r"^\*\*Findings:\*\* None\s*$", re.MULTILINE)
-_V2_COUNTED_SECTION_PATTERN = re.compile(r"<summary><strong>(.+?) \(\d+\)</strong></summary>")
-_V2_OPEN_HEADING_PATTERN = re.compile(r"<summary><strong>Open \((\d+)\)</strong></summary>")
+_V2_SECTION_PATTERN = re.compile(
+    r"<summary><strong>(?:([^<]+?) \((\d+)\)|(\d+) ([^<]+?))</strong></summary>"
+)
 # Open items are plain list lines, so the section must close before any other
 # <details> opens. Otherwise an unclosed section would borrow a later block's close.
-_V2_OPEN_SECTION_PATTERN = re.compile(
-    _V2_OPEN_HEADING_PATTERN.pattern + r"((?:(?!<details).)*?)</details>", re.DOTALL
-)
-_DISCUSSION_LINK_PATTERN = re.compile(r"\(#(discussion_r\d+)\)")
+_V2_SECTION_BODY_PATTERN = re.compile(r"((?:(?!<details).)*?)</details>", re.DOTALL)
+_DISCUSSION_LINK_PATTERN = re.compile(r"\((?:https://[^\s()#]*)?#(discussion_r\d+)\)")
 
 
 @dataclass(frozen=True)
@@ -90,7 +99,7 @@ class CopilotReview:
 
     @property
     def open_discussions(self) -> frozenset[str]:
-        """Return the thread anchors linked from a v2 overview's "Open (N)" section."""
+        """Return the thread anchors linked from a v2 overview's open section."""
         return frozenset(_open_discussion_links(self.body))
 
     @property
@@ -100,17 +109,17 @@ class CopilotReview:
         Copilot review state is not evidence of a clean review. The review
         wording must say "generated no comments" on a first review or
         "generated no new comments" on a re-review. A v2 overview must
-        recommend approval, have a "**Findings:** None" line, and have no
-        counted section other than "Resolved since last review". A numeric
+        recommend approval, list no findings, and have no counted section
+        other than the resolved list. A numeric
         "generated 0 comments" deliberately does not count, so unexpected
         wording fails closed.
         """
         if self.is_v2_overview:
-            sections = set(_V2_COUNTED_SECTION_PATTERN.findall(self.body))
+            labels = {label for label, _count, _end in _v2_sections(self.body)}
             return (
                 self.verdict == _V2_APPROVAL_VERDICT
-                and _V2_CLEAN_PATTERN.search(self.body) is not None
-                and sections <= _V2_CLEAN_SECTIONS
+                and _v2_lists_no_findings(self.body)
+                and labels <= _V2_CLEAN_SECTIONS
             )
         match = _COMMENT_COUNT_PATTERN.search(self.body)
         return match is not None and match.group(1) is not None
@@ -151,23 +160,65 @@ def _parse_timestamp(value: str, context: str) -> datetime:
     return parsed
 
 
+def _v2_sections(body: str) -> list[tuple[str, int, int]]:
+    """Return each counted v2 section as its label, count, and heading end.
+
+    Labels are lowercased without a trailing "issue" or "issues", so both layouts
+    name a section the same way: "Open (2)" and "2 open issues" are both "open".
+    """
+    sections = []
+    for match in _V2_SECTION_PATTERN.finditer(body):
+        if match.group(1) is not None:
+            label, count = match.group(1), match.group(2)
+        else:
+            label, count = match.group(4), match.group(3)
+        label = label.strip().lower().removesuffix(" issues").removesuffix(" issue")
+        sections.append((label, int(count), match.end()))
+    return sections
+
+
+def _v2_open_section(body: str) -> tuple[int, str | None] | None:
+    """Return the open section's count and its text, or None without one.
+
+    The text is None when the section never closes.
+    """
+    for label, count, end in _v2_sections(body):
+        if label == _V2_OPEN_LABEL:
+            content = _V2_SECTION_BODY_PATTERN.match(body, end)
+            return count, None if content is None else content.group(1)
+    return None
+
+
+def _v2_lists_no_findings(body: str) -> bool:
+    """Return whether a v2 overview without an open section may count as having none.
+
+    The first layout must say "**Findings:** None". The second has no such line,
+    so its verdict heading must be present instead.
+    """
+    if _V2_CLEAN_PATTERN.search(body) is not None:
+        return True
+    return _V2_TITLE not in body and _V2_VERDICT_PATTERN.search(body) is not None
+
+
 def _open_discussion_links(body: str) -> list[str]:
-    """Return the thread anchors linked from a v2 "Open (N)" section, in order."""
-    section = _V2_OPEN_SECTION_PATTERN.search(body)
-    return [] if section is None else _DISCUSSION_LINK_PATTERN.findall(section.group(2))
+    """Return the thread anchors linked from a v2 open section, in order."""
+    section = _v2_open_section(body)
+    if section is None or section[1] is None:
+        return []
+    return _DISCUSSION_LINK_PATTERN.findall(section[1])
 
 
 def _generated_comment_count(body: str) -> int | None:
     """Return the comment count from a Copilot overview, when recognized."""
     if _V2_OVERVIEW_MARKER in body:
-        heading = _V2_OPEN_HEADING_PATTERN.search(body)
-        if heading is None:
-            return 0 if _V2_CLEAN_PATTERN.search(body) is not None else None
+        section = _v2_open_section(body)
+        if section is None:
+            return 0 if _v2_lists_no_findings(body) else None
         # Each open finding must link its thread, or the watcher cannot tell when
         # every thread has arrived. A count without matching links, or a section
         # that never closes, fails closed.
-        count = int(heading.group(1))
-        complete = _V2_OPEN_SECTION_PATTERN.search(body) is not None
+        count, content = section
+        complete = content is not None
         return count if complete and len(set(_open_discussion_links(body))) == count else None
     match = _COMMENT_COUNT_PATTERN.search(body)
     if match is None:
@@ -364,7 +415,19 @@ def _review_summary(review: CopilotReview | None, *, requested: bool) -> str:
     if review.is_v2_overview and review.generated_comment_count == 0:
         verdict = (review.verdict or "no verdict").lower()
         return f"{verdict} with no open threads; read the overview with `make pr-comments`"
-    return f"generated {review.generated_comment_count} comment(s)"
+    summary = f"generated {review.generated_comment_count} comment(s)"
+    if review.is_v2_overview:
+        # A previously missed finding is listed in the overview without a thread.
+        unthreaded = sum(
+            count
+            for label, count, _end in _v2_sections(review.body)
+            if label != _V2_OPEN_LABEL and label not in _V2_CLEAN_SECTIONS
+        )
+        if unthreaded:
+            summary += (
+                f" and {unthreaded} without a thread; read the overview with `make pr-comments`"
+            )
+    return summary
 
 
 def _watch_report(

@@ -210,8 +210,10 @@ def test_resolve_numeric_thread_uses_the_rest_thread_route_with_retries(
 
     def runner(cmd: list[str], **_kwargs: object) -> Any:
         """Serve the repo lookup, and fail the first resolve transiently."""
-        if cmd[0] == "git":
+        if cmd[:2] == ["git", "remote"]:
             return completed_process(0, "https://github.com/o/r.git\n")
+        if cmd[0] == "git":
+            return completed_process(1)
         if cmd[:2] == ["gh", "repo"]:
             return graphql_blocked()
         resolve_calls.append(cmd)

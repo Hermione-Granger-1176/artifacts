@@ -61,6 +61,9 @@ class FakeGh:
                 if isinstance(response, Exception):
                     raise response
                 return response
+        if command[:3] == ["git", "config", "--get-regexp"]:
+            # No gh repo set-default unless a test routes one.
+            return completed_process(1)
         raise AssertionError(f"unexpected command: {command}")
 
 

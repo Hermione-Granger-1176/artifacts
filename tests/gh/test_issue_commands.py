@@ -287,7 +287,7 @@ def test_develop_fallback_refuses_when_gh_repo_is_not_origin(
     monkeypatch.setenv("GH_REPO", "org/project")
     runner = FakeGh(sandbox_routes("alice/project"))
 
-    with pytest.raises(GhError, match="GH_REPO selects org/project, but origin is alice/project"):
+    with pytest.raises(GhError, match="selected repository is org/project, but origin is alice"):
         issue_commands.develop_issue(5, base="dev", run_fn=runner)
 
     assert not any("fetch" in call or "checkout" in call for call in runner.calls)

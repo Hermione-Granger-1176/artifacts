@@ -17,6 +17,11 @@ from .gh_runner import GhError, RunFunction
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+# gh accepts ``@copilot`` as a reviewer. The REST reviewer-request route has no
+# such alias, so it takes the bot's login instead.
+COPILOT_REVIEWER = "@copilot"
+COPILOT_REST_REVIEWER = "copilot-pull-request-reviewer[bot]"
+
 
 def _mapping(value: Any, message: str) -> dict[str, Any]:
     """Return ``value`` as a mapping, raising ``GhError`` with ``message`` otherwise."""

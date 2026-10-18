@@ -486,10 +486,10 @@ def gh_or_rest(
 def resolve_repo(*, run_fn: RunFunction | None = None) -> str:
     """Return the ``owner/name`` slug for the current repository.
 
-    Tries the GitHub-aware ``gh repo view`` first, then falls back to parsing
-    the ``origin`` git remote (which also covers the rate-limited case and a
-    blocked GraphQL endpoint, which ``gh repo view`` needs). A ``GH_REPO``
-    override wins over both, as it does for ``gh`` itself.
+    Tries the GitHub-aware ``gh repo view`` first. Without it (rate-limited,
+    or GraphQL blocked, which ``gh repo view`` needs), it reads the default
+    that ``gh repo set-default`` stored, then the ``origin`` git remote. A
+    ``GH_REPO`` override wins over all of them, as it does for ``gh`` itself.
     """
     override = os.environ.get("GH_REPO", "").strip()
     if override:
@@ -504,11 +504,37 @@ def resolve_repo(*, run_fn: RunFunction | None = None) -> str:
             owner_name = ""
 
     if not owner_name:
-        owner_name = _repo_from_remote(run_fn=run_fn)
+        owner_name = _repo_from_gh_default(run_fn=run_fn) or _repo_from_remote(run_fn=run_fn)
 
     if not _is_owner_name(owner_name):
         raise GhError("Could not resolve owner/name; set a GitHub remote or run inside a repo.")
     return owner_name
+
+
+def _repo_from_gh_default(*, run_fn: RunFunction | None = None) -> str:
+    """Return the repository ``gh repo set-default`` chose, or ``""`` when none is set.
+
+    gh marks the chosen remote with ``remote.<name>.gh-resolved``. The value is
+    ``base`` for that remote's own repository, or an ``owner/name`` in older gh
+    versions. A default that cannot be read raises rather than falling back to
+    ``origin``, which may be a fork with unrelated PR and issue numbers.
+    """
+    try:
+        output = run_git(["config", "--get-regexp", r"^remote\..+\.gh-resolved$"], run_fn=run_fn)
+    except GhError:
+        return ""
+    if not output.strip():
+        return ""
+    key, _, value = output.splitlines()[0].partition(" ")
+    remote = key.removeprefix("remote.").removesuffix(".gh-resolved")
+    value = value.strip()
+    slug = _repo_from_remote(remote=remote, run_fn=run_fn) if value == "base" else value
+    if not _is_owner_name(slug):
+        raise GhError(
+            f"Could not read gh's default repository from remote {remote!r}. "
+            "Run gh repo set-default again, or set GH_REPO."
+        )
+    return slug
 
 
 def checkout_repo(slug: str, *, run_fn: RunFunction | None = None) -> str:
@@ -539,8 +565,8 @@ def require_checkout_repo(slug: str, action: str, *, run_fn: RunFunction | None 
         )
     if not same_repo(local, slug):
         raise GhError(
-            f"Cannot {action}: GH_REPO selects {slug}, but origin is {local}. "
-            "Run it without GH_REPO, or from a checkout of that repository."
+            f"Cannot {action}: the selected repository is {slug}, but origin is {local}. "
+            "Unset GH_REPO or gh repo set-default, or run it from a checkout of that repository."
         )
 
 
@@ -555,8 +581,8 @@ def _repo_from_override(value: str) -> str:
     return slug
 
 
-def _repo_from_remote(*, run_fn: RunFunction | None = None) -> str:
-    """Extract ``owner/name`` from the ``origin`` remote URL.
+def _repo_from_remote(*, remote: str = "origin", run_fn: RunFunction | None = None) -> str:
+    """Extract ``owner/name`` from a git remote's URL, ``origin`` by default.
 
     Handles both SSH (``git@github.com:octo/Hello.git``,
     ``ssh://git@github.com:22/octo/Hello.git``) and HTTPS forms. ``owner/name``
@@ -564,7 +590,7 @@ def _repo_from_remote(*, run_fn: RunFunction | None = None) -> str:
     host port is skipped.
     """
     try:
-        url = run_git(["remote", "get-url", "origin"], run_fn=run_fn)
+        url = run_git(["remote", "get-url", remote], run_fn=run_fn)
     except GhError:
         return ""
     remote_path = _github_remote_path(url)

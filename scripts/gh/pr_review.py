@@ -678,12 +678,6 @@ def pr_summary(pr: int | None = None, *, run_fn: RunFunction | None = None) -> s
 # later pushes, so re-requesting it is part of the review-feedback loop. Use the
 # ``@copilot`` shorthand: the literal ``copilot-pull-request-reviewer[bot]`` login
 # does not resolve through the gh API.
-_COPILOT_REVIEWER = "@copilot"
-# The REST reviewer-request route has no ``@copilot`` shorthand, so it takes the
-# bot's login. This spelling is unverified against a live repository.
-_COPILOT_REST_REVIEWER = "copilot-pull-request-reviewer[bot]"
-
-
 def request_copilot_review(pr: int | None = None, *, run_fn: RunFunction | None = None) -> None:
     """Request a GitHub Copilot code review on the pull request.
 
@@ -695,7 +689,7 @@ def request_copilot_review(pr: int | None = None, *, run_fn: RunFunction | None 
 
     def request_with_gh() -> None:
         gh_runner.run_gh(
-            ["pr", "edit", str(pr), "--add-reviewer", _COPILOT_REVIEWER],
+            ["pr", "edit", str(pr), "--add-reviewer", pr_rest.COPILOT_REVIEWER],
             run_fn=run_fn,
             retries=0,
         )
@@ -705,7 +699,7 @@ def request_copilot_review(pr: int | None = None, *, run_fn: RunFunction | None 
         gh_runner.rest(
             f"repos/{slug}/pulls/{pr}/requested_reviewers",
             method="POST",
-            fields={"reviewers": [_COPILOT_REST_REVIEWER]},
+            fields={"reviewers": [pr_rest.COPILOT_REST_REVIEWER]},
             run_fn=run_fn,
         )
 

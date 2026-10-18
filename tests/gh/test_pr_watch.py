@@ -82,6 +82,62 @@ Unclassifiable v2 reviews can exhaust the polling budget.
 </details>
 </details>
 """
+_PICTURE = '<picture><img alt="High severity"></picture>'
+_PR_URL = "https://github.com/o/r/pull/7"
+# Trimmed from round 5 on PR #235: the verdict follows the marker, sections are
+# headed "N <label>", and open findings link full thread URLs.
+_V2_COUNTED_COMMENT_BODY = f"""<!-- ccr-overview-v2 -->
+
+### 🟡 Changes recommended
+
+Repository identity handling can redirect destructive commands.
+
+<details open>
+<summary><strong>2 open issues</strong></summary>
+
+- {_PICTURE} [PR number cache reused]({_PR_URL}#discussion_r101) · New
+- {_PICTURE} [Comparisons are case-sensitive]({_PR_URL}#discussion_r102) · New
+</details>
+
+<details>
+<summary><strong>1 previously missed issue</strong></summary>
+
+In code that hasn't changed since last review
+
+<details>
+<summary>{_PICTURE} Branch lookup errors are misreported</summary>
+
+`scripts/gh/pr_commands.py:179`
+</details>
+</details>
+
+<details>
+<summary><strong>1 resolved since last review</strong></summary>
+
+- {_PICTURE} [Earlier finding]({_PR_URL}#discussion_r99)
+</details>
+
+<sub>Review effort: Balanced</sub>
+"""
+# The same layout with approval and only the resolved list.
+_V2_COUNTED_CLEAN_BODY = f"""<!-- ccr-overview-v2 -->
+
+### 🟢 Approval recommended
+
+The fallback is complete.
+
+<details>
+<summary><strong>1 resolved since last review</strong></summary>
+
+- {_PICTURE} [Earlier finding]({_PR_URL}#discussion_r99)
+</details>
+"""
+# No open section, but a previously missed finding without a thread.
+_V2_COUNTED_MISSED_BODY = (
+    _V2_COUNTED_COMMENT_BODY.split("<details open>")[0]
+    + "<details>"
+    + _V2_COUNTED_COMMENT_BODY.split("</details>\n\n<details>", 1)[1]
+)
 # "**Findings:** None" followed by an "Open (2)" section that never closes.
 _V2_UNCLOSED_OPEN_BODY = (
     _V2_CLEAN_BODY + _V2_COMMENT_BODY.split("<details open>")[1].split("</details>")[0]
@@ -157,11 +213,39 @@ def _poll_runner(*, reviews: object, rollup: object) -> FakeGh:
         (_V2_CLOSER_LOOK_BODY, 0),
         (_V2_OPEN_THEN_NESTED_BODY, None),
         (_V2_UNCLOSED_OPEN_BODY, None),
+        (_V2_COUNTED_COMMENT_BODY, 2),
+        (_V2_COUNTED_CLEAN_BODY, 0),
+        (_V2_COUNTED_MISSED_BODY, 0),
+        (_V2_COUNTED_COMMENT_BODY.replace("2 open issues", "1 open issue"), None),
+        (_V2_COUNTED_CLEAN_BODY.replace("### 🟢 Approval recommended", ""), None),
     ],
 )
 def test_generated_comment_count_classifies_overviews(body: str, expected: int | None) -> None:
     """Recognize clean and actionable Copilot overview forms."""
     assert pr_watch._generated_comment_count(body) == expected
+
+
+@pytest.mark.parametrize(
+    ("body", "summary"),
+    [
+        (
+            _V2_COUNTED_COMMENT_BODY,
+            "generated 2 comment(s) and 1 without a thread; "
+            "read the overview with `make pr-comments`",
+        ),
+        (_V2_COMMENT_BODY, "generated 2 comment(s)"),
+    ],
+)
+def test_review_summary_counts_v2_findings_without_threads(body: str, summary: str) -> None:
+    """Previously missed findings have no thread, so the summary points at the overview."""
+    review = pr_watch.CopilotReview(
+        "v2",
+        datetime(2026, 7, 26, 12, tzinfo=UTC),
+        body,
+        pr_watch._generated_comment_count(body),
+    )
+
+    assert pr_watch._review_summary(review, requested=True) == summary
 
 
 def test_review_summary_distinguishes_absent_from_unrequested_reviews() -> None:
@@ -248,6 +332,8 @@ def test_copilot_review_requires_exact_clean_wording() -> None:
         (_V2_CLEAN_BODY, "Approval recommended"),
         (_V2_COMMENT_BODY, "Changes recommended"),
         (_V2_CLOSER_LOOK_BODY, "Needs a closer look"),
+        (_V2_COUNTED_COMMENT_BODY, "Changes recommended"),
+        (_V2_COUNTED_CLEAN_BODY, "Approval recommended"),
         ("<!-- ccr-overview-v2 -->\n**Findings:** None\n", ""),
         ("<!-- ccr-overview-v2 -->\n**Findings:** None\n\n### Approval recommended\n", ""),
     ],
@@ -263,6 +349,7 @@ def test_v2_overview_verdict_drops_the_emoji(body: str, verdict: str) -> None:
     ("body", "summary"),
     [
         (_V2_CLOSER_LOOK_BODY, "needs a closer look with no open threads"),
+        (_V2_COUNTED_MISSED_BODY, "changes recommended with no open threads"),
         ("<!-- ccr-overview-v2 -->\n**Findings:** None\n", "no verdict with no open threads"),
     ],
 )
@@ -293,6 +380,9 @@ def test_review_summary_points_a_v2_review_without_approval_at_the_overview(
         (_V2_CLEAN_BODY.replace("Resolved since last review", "Needs a decision"), False),
         (_V2_UNCLOSED_OPEN_BODY, False),
         ("<!-- ccr-overview-v2 -->\ngenerated no comments", False),
+        (_V2_COUNTED_CLEAN_BODY, True),
+        (_V2_COUNTED_COMMENT_BODY, False),
+        (_V2_COUNTED_MISSED_BODY, False),
     ],
 )
 def test_v2_overview_is_clean_only_with_no_findings_and_no_open_section(

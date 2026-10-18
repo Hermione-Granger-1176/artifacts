@@ -430,8 +430,10 @@ def test_watch_fallback_polls_until_pending_checks_finish(
         """Serve a different check set on each poll."""
         if cmd[:2] in (["gh", "repo"], ["gh", "pr"]):
             return graphql_blocked()
-        if cmd[0] == "git":
+        if cmd[:2] == ["git", "remote"]:
             return completed_process(0, "https://github.com/o/r.git\n")
+        if cmd[0] == "git":
+            return completed_process(1)
         if cmd[4] == "repos/o/r/pulls/7":
             return json_response(PULL)
         if cmd[4].endswith("check-runs"):
@@ -506,7 +508,7 @@ def test_checkout_fallback_refuses_when_gh_repo_is_not_origin(
     monkeypatch.setenv("GH_REPO", "org/project")
     runner = FakeGh(sandbox_routes("alice/project"))
 
-    with pytest.raises(GhError, match="Cannot check out PR #7: GH_REPO selects org/project"):
+    with pytest.raises(GhError, match="Cannot check out PR #7: the selected repository is org/"):
         pr_commands.checkout_pr(7, run_fn=runner)
 
     assert not any("fetch" in call for call in runner.calls)
@@ -831,6 +833,26 @@ def test_reviewers_fallback_sends_teams_as_team_reviewers() -> None:
     pr_commands.add_reviewers("a,o/core", 7, run_fn=runner)
 
     assert "reviewers[]=o/core" not in runner.calls[-1]
+
+
+def test_reviewers_fallback_translates_the_copilot_alias() -> None:
+    """The @copilot alias from gh becomes the bot login, beside users and teams."""
+    runner = _sandbox(
+        (
+            rest(
+                "POST",
+                "repos/o/r/pulls/7/requested_reviewers",
+                "reviewers[]=copilot-pull-request-reviewer[bot]",
+                "reviewers[]=alice",
+                "team_reviewers[]=core",
+            ),
+            json_response({}),
+        )
+    )
+
+    pr_commands.add_reviewers("@copilot,alice,o/core", 7, run_fn=runner)
+
+    assert "reviewers[]=@copilot" not in runner.calls[-1]
 
 
 def test_labels_fallback_posts_a_label_list(capsys: pytest.CaptureFixture[str]) -> None:

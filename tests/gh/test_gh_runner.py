@@ -996,3 +996,58 @@ def test_require_checkout_repo_accepts_a_slug_that_differs_only_in_case() -> Non
     runner = FakeGh([(has("remote"), completed_process(0, "git@github.com:octo/hello.git\n"))])
 
     gh_runner.require_checkout_repo("octo/Hello", "check out PR #1", run_fn=runner)
+
+
+def _default_runner(
+    config: str, upstream_url: str = "https://github.com/org/project.git"
+) -> FakeGh:
+    """Build a runner with a blocked ``gh repo view``, a fork origin, and gh's default config."""
+    return FakeGh(
+        [
+            (has("repo", "view"), graphql_blocked()),
+            (has("config", "--get-regexp"), completed_process(0, config)),
+            (has("get-url", "upstream"), completed_process(0, upstream_url)),
+            (
+                has("get-url", "origin"),
+                completed_process(0, "https://github.com/alice/project.git"),
+            ),
+        ]
+    )
+
+
+@pytest.mark.parametrize(
+    "config",
+    ["remote.upstream.gh-resolved base\n", "remote.origin.gh-resolved org/project\n"],
+)
+def test_resolve_repo_honors_gh_set_default(config: str) -> None:
+    """Without GraphQL, gh's stored default wins over a fork origin."""
+    assert gh_runner.resolve_repo(run_fn=_default_runner(config)) == "org/project"
+
+
+def test_resolve_repo_prefers_gh_repo_over_the_gh_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GH_REPO still wins over the default gh stored."""
+    monkeypatch.setenv("GH_REPO", "octo/Other")
+    runner = _default_runner("remote.upstream.gh-resolved base\n")
+
+    assert gh_runner.resolve_repo(run_fn=runner) == "octo/Other"
+    assert runner.calls == []
+
+
+@pytest.mark.parametrize(
+    ("config", "upstream_url"),
+    [
+        ("remote.upstream.gh-resolved base\n", "https://gitlab.com/org/project.git"),
+        ("remote.origin.gh-resolved not-a-slug\n", "https://github.com/org/project.git"),
+    ],
+)
+def test_resolve_repo_refuses_an_unreadable_gh_default(config: str, upstream_url: str) -> None:
+    """A default gh stored but this helper cannot read fails instead of using origin."""
+    with pytest.raises(GhError, match="Could not read gh's default repository from remote"):
+        gh_runner.resolve_repo(run_fn=_default_runner(config, upstream_url))
+
+
+def test_resolve_repo_uses_origin_when_the_gh_default_is_empty() -> None:
+    """An empty ``--get-regexp`` result counts as no default."""
+    assert gh_runner.resolve_repo(run_fn=_default_runner("")) == "alice/project"
