@@ -29,6 +29,7 @@ The `make pr-*` and `make issue-*` targets try GraphQL first. If the environment
 - A `PRRT_` or `PRRC_` node id needs GraphQL. The target fails and names the numeric id to use instead.
 - List, view, and checks output is tab-separated and close to the `gh` output, not identical.
 - `make pr-merge` and `make pr-close` delete the remote branch but leave your local checkout alone.
+- `make pr-merge` refuses a PR that GitHub does not report as mergeable, because the REST merge has no admin switch and would otherwise bypass branch protection for an administrator. Use `make pr-merge-admin` to merge past protection on purpose.
 - `make issue-develop` creates and checks out the branch but cannot link it to the issue.
 - `make issue-list` with `SEARCH` needs the `search/issues` endpoint, which cloud sessions block. The other filters work.
 

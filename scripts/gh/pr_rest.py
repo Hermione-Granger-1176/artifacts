@@ -67,19 +67,25 @@ def _run_id(entry: dict[str, Any]) -> int:
     return run_id if isinstance(run_id, int) else 0
 
 
-def _latest_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Keep only the newest check run of each name.
+def _suite_id(entry: dict[str, Any]) -> object:
+    """Return the id of the check suite a check run belongs to, or ``None``."""
+    suite = entry.get("check_suite")
+    return suite.get("id") if isinstance(suite, dict) else None
 
-    A commit gathers one run per workflow event and re-run, so a name can repeat.
-    ``gh`` shows each check once, and an older failed run must not outweigh the
-    re-run that replaced it.
+
+def _latest_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep only the newest check run of each name within each check suite.
+
+    A workflow re-run adds a run to the same suite, and an older failed run must
+    not outweigh the re-run that replaced it. Separate suites (another workflow,
+    event, or App) can reuse a name, so each keeps its own entry.
     """
-    latest: dict[str, dict[str, Any]] = {}
+    latest: dict[tuple[object, str], dict[str, Any]] = {}
     for run in runs:
-        name = str(run.get("name") or "")
-        kept = latest.get(name)
+        key = (_suite_id(run), str(run.get("name") or ""))
+        kept = latest.get(key)
         if kept is None or _run_id(run) > _run_id(kept):
-            latest[name] = run
+            latest[key] = run
     return list(latest.values())
 
 
@@ -98,8 +104,8 @@ def status_check_rollup(
 ) -> list[dict[str, Any]]:
     """Return the check runs and commit statuses on ``sha`` as a ``statusCheckRollup`` list.
 
-    Only the newest run of each check name is kept. The combined status
-    ``state`` is ignored on purpose: it reads ``pending`` for a commit with no
+    Only the newest run of each check name in each check suite is kept. The
+    combined status ``state`` is ignored on purpose: it reads ``pending`` for a commit with no
     statuses at all, which would hold every settled rollup open.
     """
     runs = gh_runner.rest_pages(

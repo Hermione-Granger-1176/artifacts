@@ -566,7 +566,38 @@ def test_rest_command_vector_for_a_mutation_is_not_retried() -> None:
     with pytest.raises(GhError):
         gh_runner.rest("repos/o/n/issues", method="POST", fields={"title": "T"}, run_fn=runner)
 
-    assert runner.calls == [["gh", "api", "--method", "POST", "repos/o/n/issues", "-f", "title=T"]]
+    assert runner.calls == [
+        ["gh", "api", "--method", "POST", "repos/o/n/issues", "--input", "-", "title=T"]
+    ]
+
+
+def test_rest_sends_mutation_fields_as_a_json_body_on_stdin() -> None:
+    """A mutation body travels on stdin, so its size never hits the argument limit."""
+    seen: dict[str, object] = {}
+
+    def runner(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        seen["cmd"] = cmd
+        seen["input"] = kwargs.get("input")
+        return completed_process(0, "{}")
+
+    body = "\u4e2d" * 50_000
+    gh_runner.rest(
+        "repos/o/n/issues/1/comments",
+        method="POST",
+        fields={"body": body, "draft": True, "labels": ["a"]},
+        run_fn=runner,
+    )
+
+    assert seen["cmd"][2:] == ["--method", "POST", "repos/o/n/issues/1/comments", "--input", "-"]
+    assert json.loads(str(seen["input"])) == {"body": body, "draft": True, "labels": ["a"]}
+
+
+def test_rest_sends_a_field_free_mutation_without_a_body() -> None:
+    """A mutation with no fields, such as a DELETE, reads nothing from stdin."""
+    runner = FakeGh([(rest("DELETE", "repos/o/n/git/refs/heads/x"), completed_process(0))])
+
+    assert gh_runner.rest("repos/o/n/git/refs/heads/x", method="DELETE", run_fn=runner) is None
+    assert runner.calls == [["gh", "api", "--method", "DELETE", "repos/o/n/git/refs/heads/x"]]
 
 
 def test_rest_parses_json_and_treats_an_empty_body_as_none() -> None:

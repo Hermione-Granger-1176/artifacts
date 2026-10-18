@@ -30,6 +30,7 @@ PULL = {
     "body": "Body text",
     "head": {"ref": "feature", "sha": "abc", "repo": {"full_name": "o/r"}},
     "base": {"repo": {"default_branch": "main"}},
+    "mergeable_state": "clean",
 }
 
 
@@ -183,6 +184,27 @@ def test_create_fallback_summarizes_several_commits(capsys: pytest.CaptureFixtur
     pr_commands.create_pr(base="dev", run_fn=runner)
 
     assert capsys.readouterr().out.strip() == "https://example/pull/9"
+
+
+@pytest.mark.parametrize(
+    ("log", "expected_body"),
+    [
+        ("Fix thing\x1f", ""),
+        ("Fix thing", ""),
+        ("One\x1fbody\x1e\nTwo", "- One\n- Two"),
+    ],
+)
+def test_create_fallback_accepts_a_subject_only_final_commit(log: str, expected_body: str) -> None:
+    """run_git strips trailing separators, so a last commit without a body still parses."""
+    runner = _sandbox(
+        (has("rev-parse"), completed_process(0, "feature\n")),
+        (has("log"), completed_process(0, log)),
+        (rest("POST", "repos/o/r/pulls"), json_response({"html_url": "https://example/pull/9"})),
+    )
+
+    assert pr_commands.create_pr(base="dev", run_fn=runner) == 0
+
+    assert f"body={expected_body}" in runner.calls[-1]
 
 
 def test_create_fallback_rejects_a_branch_with_no_commits() -> None:
@@ -471,9 +493,9 @@ def test_view_fallback_omits_an_empty_body(capsys: pytest.CaptureFixture[str]) -
 def test_merge_fallback_squashes_and_deletes_the_branch(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The merge uses the squash method and then deletes the same-repository branch."""
+    """An admin merge squashes past a blocked PR and then deletes the same-repository branch."""
     runner = _sandbox(
-        _pull_route(),
+        _pull_route({**PULL, "mergeable_state": "blocked"}),
         (rest("PUT", "repos/o/r/pulls/7/merge", "merge_method=squash"), json_response({})),
         (rest("DELETE", "repos/o/r/git/refs/heads/feature"), completed_process(0, "")),
     )
@@ -520,6 +542,31 @@ def test_merge_fallback_only_warns_when_the_branch_delete_fails(
     assert pr_commands.merge_pr(7, run_fn=runner) == 0
 
     assert "Could not delete branch feature" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("state", ["blocked", "unknown", "dirty", None])
+def test_merge_fallback_refuses_a_pr_branch_protection_blocks(state: str | None) -> None:
+    """Without admin, a blocked or not yet computed merge state never reaches the merge call."""
+    runner = _sandbox(_pull_route({**PULL, "mergeable_state": state}))
+
+    with pytest.raises(GhError, match=f"not ready to merge \\(mergeable_state: {state}\\)"):
+        pr_commands.merge_pr(7, run_fn=runner)
+
+    assert not any("PUT" in call for call in runner.calls)
+
+
+def test_merge_fallback_encodes_the_branch_it_deletes() -> None:
+    """A branch name with URL syntax stays in the ref path instead of becoming a fragment."""
+    head = {"ref": "fix/a#1", "sha": "abc", "repo": {"full_name": "o/r"}}
+    runner = _sandbox(
+        _pull_route({**PULL, "head": head}),
+        (rest("PUT", "repos/o/r/pulls/7/merge"), json_response({})),
+        (rest("DELETE", "repos/o/r/git/refs/heads/fix/a%231"), completed_process(0, "")),
+    )
+
+    assert pr_commands.merge_pr(7, run_fn=runner) == 0
+
+    assert runner.calls[-1][4] == "repos/o/r/git/refs/heads/fix/a%231"
 
 
 def test_merge_fallback_surfaces_a_rejected_merge() -> None:

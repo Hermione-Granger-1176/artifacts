@@ -15,6 +15,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote
 
 from . import gh_runner, pr_rest
 from .gh_runner import GhError, RunFunction, as_object, split_list
@@ -28,6 +29,9 @@ _LIST_LIMIT = 30
 # hour so a check that never finishes cannot hold a terminal forever.
 CHECKS_INTERVAL_SECONDS = 10.0
 CHECKS_MAX_POLLS = 360
+# REST ``mergeable_state`` values that mean branch protection allows a merge.
+# ``unstable`` has failing checks that are not required.
+_MERGEABLE_STATES = frozenset({"clean", "unstable", "has_hooks"})
 # ``gh pr checks`` exits 8 while any check is still running.
 _PENDING_EXIT_CODE = 8
 _DIFF_ACCEPT = "Accept: application/vnd.github.diff"
@@ -167,15 +171,18 @@ def _filled_text(base: str, branch: str, *, run_fn: RunFunction | None = None) -
     log = gh_runner.run_git(
         ["log", "--reverse", "--format=%s%x1f%b%x1e", f"origin/{base}..HEAD"], run_fn=run_fn
     )
+    # run_git strips the output, which drops the separators after a final
+    # subject-only commit, so a record without one has an empty body.
     commits = [
-        record.strip("\n").split("\x1f", 1) for record in log.split("\x1e") if record.strip()
+        record.strip("\n").partition("\x1f") for record in log.split("\x1e") if record.strip()
     ]
     if not commits:
         raise GhError(f"No commits on {branch} ahead of {base} to fill a pull request from.")
     if len(commits) == 1:
-        return commits[0][0], commits[0][1].strip()
+        subject, _sep, body = commits[0]
+        return subject, body.strip()
     title = branch.replace("-", " ").replace("_", " ").strip().capitalize()
-    return title, "\n".join(f"- {subject}" for subject, _body in commits)
+    return title, "\n".join(f"- {subject}" for subject, _sep, _body in commits)
 
 
 def list_prs(*, run_fn: RunFunction | None = None) -> int:
@@ -331,7 +338,9 @@ def _delete_head_branch(slug: str, pull: dict[str, Any], *, run_fn: RunFunction 
     ):
         return
     try:
-        gh_runner.rest(f"repos/{slug}/git/refs/heads/{branch}", method="DELETE", run_fn=run_fn)
+        gh_runner.rest(
+            f"repos/{slug}/git/refs/heads/{quote(branch, safe='/')}", method="DELETE", run_fn=run_fn
+        )
     except GhError as exc:
         print(f"Could not delete branch {branch}: {exc}", file=sys.stderr)
 
@@ -341,14 +350,21 @@ def merge_pr(
 ) -> int:
     """Squash-merge a PR and delete its branch (``gh pr merge --squash --delete-branch``).
 
-    The REST fallback has no separate admin switch: an administrator's token
-    merges past branch protection the same way, so ``admin`` only changes the
-    ``gh`` arguments.
+    The REST merge endpoint has no admin switch: a token allowed to bypass
+    branch protection always bypasses it. So without ``admin`` the fallback
+    first requires GitHub to report the PR as mergeable under its rules, and
+    refuses when that state is blocked or not yet computed.
     """
 
     def merge_with_rest() -> int:
         slug, number = _target(pr, run_fn=run_fn)
         pull = pr_rest.pull_request(slug, number, run_fn=run_fn)
+        state = pull.get("mergeable_state")
+        if not admin and state not in _MERGEABLE_STATES:
+            raise GhError(
+                f"PR #{number} is not ready to merge (mergeable_state: {state}). "
+                "Wait for its required checks and reviews, or use make pr-merge-admin."
+            )
         gh_runner.rest(
             f"repos/{slug}/pulls/{number}/merge",
             method="PUT",

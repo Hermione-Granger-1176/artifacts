@@ -45,9 +45,16 @@ class FakeGh:
         self.routes = routes
         self.calls: list[list[str]] = []
 
-    def __call__(self, cmd: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
-        """Return the response whose predicate matches, or fail the test."""
+    def __call__(self, cmd: Sequence[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        """Return the response whose predicate matches, or fail the test.
+
+        A ``gh api --input -`` call carries its fields as a JSON body on standard
+        input. The fake appends them to the command as ``key=value`` arguments,
+        so routes and assertions match a body field the same way as a query field.
+        """
         command = list(cmd)
+        if "--input" in command and isinstance(kwargs.get("input"), str):
+            command += body_arguments(json.loads(str(kwargs["input"])))
         self.calls.append(command)
         for predicate, response in self.routes:
             if predicate(command):
@@ -55,6 +62,18 @@ class FakeGh:
                     raise response
                 return response
         raise AssertionError(f"unexpected command: {command}")
+
+
+def body_arguments(body: dict[str, Any]) -> list[str]:
+    """Return a JSON request body as ``key=value`` arguments, with ``key[]=item`` for lists."""
+    arguments: list[str] = []
+    for key, value in body.items():
+        items = value if isinstance(value, list) else [value]
+        suffix = "[]" if isinstance(value, list) else ""
+        for item in items:
+            text = str(item).lower() if isinstance(item, bool) else str(item)
+            arguments.append(f"{key}{suffix}={text}")
+    return arguments
 
 
 def rest(method: str, endpoint: str, *needles: str) -> Callable[[list[str]], bool]:

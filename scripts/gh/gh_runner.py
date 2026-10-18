@@ -346,7 +346,10 @@ def rest_text(
         endpoint: The path below ``api.github.com``, such as ``repos/o/n/pulls``.
         method: The HTTP method. ``fields`` become the query string for ``GET``
             and the JSON body for every other method.
-        fields: Request parameters (see :func:`_field_args` for the typing rules).
+        fields: Request parameters. ``GET`` sends them as query arguments (see
+            :func:`_field_args` for the typing rules). Other methods send them
+            as a JSON body on standard input, so a long comment or PR body
+            never meets the operating system's per-argument size limit.
         headers: Extra ``Name: value`` request headers, such as an ``Accept`` type.
         run_fn: Optional injected subprocess runner.
         timeout: Per-attempt timeout in seconds.
@@ -355,13 +358,18 @@ def rest_text(
             never applies a write twice.
     """
     args = ["api", "--method", method, endpoint]
-    for key, value in (fields or {}).items():
-        args += _field_args(key, value)
+    stdin_text = None
+    if method == "GET":
+        for key, value in (fields or {}).items():
+            args += _field_args(key, value)
+    elif fields:
+        args += ["--input", "-"]
+        stdin_text = json.dumps(dict(fields))
     for header in headers:
         args += ["-H", header]
     if retries is None:
         retries = DEFAULT_RETRIES if method == "GET" else 0
-    return run_gh(args, run_fn=run_fn, timeout=timeout, retries=retries)
+    return run_gh(args, run_fn=run_fn, timeout=timeout, retries=retries, stdin_text=stdin_text)
 
 
 def rest(

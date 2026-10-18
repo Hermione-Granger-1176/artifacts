@@ -117,6 +117,23 @@ def test_status_check_rollup_keeps_the_newest_run_of_each_name() -> None:
     ]
 
 
+def test_status_check_rollup_keeps_same_named_checks_from_separate_suites() -> None:
+    """A passing check in one suite never hides a failing check of the same name in another."""
+    runs = [
+        {"id": 5, "name": "lint", "check_suite": {"id": 20}, "conclusion": "success"},
+        {"id": 4, "name": "lint", "check_suite": {"id": 10}, "conclusion": "failure"},
+        {"id": 3, "name": "lint", "check_suite": {"id": 10}, "conclusion": "success"},
+    ]
+    runner = _rollup_runner(runs, {"statuses": []})
+
+    rollup = pr_rest.status_check_rollup("o/r", "abc123", run_fn=runner)
+
+    assert [(entry["name"], entry["conclusion"]) for entry in rollup] == [
+        ("lint", "SUCCESS"),
+        ("lint", "FAILURE"),
+    ]
+
+
 def test_status_check_rollup_ignores_the_combined_pending_state() -> None:
     """A commit with no statuses adds nothing, although the combined state reads pending."""
     runner = _rollup_runner([], {"state": "pending", "statuses": []})
