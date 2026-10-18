@@ -413,6 +413,19 @@ def test_create_fallback_posts_labels_and_assignees(capsys: pytest.CaptureFixtur
     assert capsys.readouterr().out.strip() == "https://example/issues/9"
 
 
+def test_create_fallback_splits_and_resolves_several_assignees() -> None:
+    """A comma-separated assignee value becomes separate logins, with @me resolved."""
+    runner = _sandbox(
+        (rest("GET", "user"), json_response({"login": "me-login"})),
+        (
+            rest("POST", "repos/o/r/issues", "assignees[]=me-login", "assignees[]=bob"),
+            json_response({}),
+        ),
+    )
+
+    issue_commands.create_issue("T", "Body", assignee="@me, bob", run_fn=runner)
+
+
 def test_create_fallback_without_labels_or_assignee() -> None:
     """Only the title and body are sent when nothing else was asked for."""
     runner = _sandbox((rest("POST", "repos/o/r/issues", "title=T"), json_response({})))

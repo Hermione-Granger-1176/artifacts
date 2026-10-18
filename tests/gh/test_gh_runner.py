@@ -728,6 +728,7 @@ def _branch_runner(pulls: object) -> FakeGh:
             (has("repo", "view"), graphql_blocked()),
             (has("remote"), completed_process(0, "git@github.com:octo/Hello.git\n")),
             (has("rev-parse"), completed_process(0, "feature\n")),
+            (has("config", "--get"), completed_process(1)),
             (
                 rest("GET", "repos/octo/Hello/pulls", "head=octo:feature", "state=all"),
                 json_response(pulls),
@@ -765,6 +766,7 @@ def test_current_pr_number_fallback_qualifies_a_fork_branch_with_its_owner(
             (has("pr", "view"), graphql_blocked()),
             (has("remote"), completed_process(0, "git@github.com:alice/project.git\n")),
             (has("rev-parse"), completed_process(0, "feature\n")),
+            (has("config", "--get"), completed_process(1)),
             (
                 rest("GET", "repos/org/project/pulls", "head=alice:feature"),
                 json_response([{"number": 5, "state": "open"}]),
@@ -773,6 +775,31 @@ def test_current_pr_number_fallback_qualifies_a_fork_branch_with_its_owner(
     )
 
     assert gh_runner.current_pr_number(run_fn=runner) == 5
+
+
+def test_current_pr_number_fallback_uses_the_pr_a_checkout_recorded() -> None:
+    """A fork PR checked out through REST is found by its recorded number, not a head lookup."""
+    runner = FakeGh(
+        [
+            (has("pr", "view"), graphql_blocked()),
+            (has("rev-parse"), completed_process(0, "alice/feature\n")),
+            (
+                has("config", "--get", "branch.alice/feature.gh-pr-number"),
+                completed_process(0, "12\n"),
+            ),
+        ]
+    )
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 12
+    assert not any("pulls" in " ".join(call) for call in runner.calls)
+
+
+def test_current_pr_number_fallback_ignores_a_malformed_recorded_number() -> None:
+    """A recorded value that is not a number falls back to the head lookup."""
+    runner = _branch_runner([{"number": 42}])
+    runner.routes.insert(0, (has("config", "--get"), completed_process(0, "x\n")))
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 42
 
 
 def test_current_pr_number_fallback_reports_no_open_pr() -> None:

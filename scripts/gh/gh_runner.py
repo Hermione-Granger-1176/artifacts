@@ -82,6 +82,10 @@ class _GraphqlState:
 
 _GRAPHQL_STATE = _GraphqlState()
 
+# Git config key, under branch.<name>, where a REST checkout records the PR it
+# fetched. A fork PR's branch is not in origin, so a head lookup cannot find it.
+PR_NUMBER_CONFIG = "gh-pr-number"
+
 
 def graphql_unavailable() -> bool:
     """Return whether this process has seen GraphQL refused (so REST should be used)."""
@@ -604,14 +608,26 @@ def _current_pr_number_gh(*, run_fn: RunFunction | None = None) -> int:
         raise GhError("Could not read PR number from gh output.") from exc
 
 
+def _recorded_pr_number(branch: str, *, run_fn: RunFunction | None) -> int | None:
+    """Return the PR number a REST checkout recorded for ``branch``, if any."""
+    try:
+        value = run_git(["config", "--get", f"branch.{branch}.{PR_NUMBER_CONFIG}"], run_fn=run_fn)
+    except GhError:
+        return None
+    return int(value) if value.isdigit() else None
+
+
 def _current_pr_number_rest(*, run_fn: RunFunction | None = None) -> int:
     """Find the PR whose head is the current branch through the REST API.
 
     Like ``gh pr view``, an open PR wins. Otherwise the newest closed or merged
     one counts, so a branch merged through the fallback still finds its PR.
     """
-    slug = resolve_repo(run_fn=run_fn)
     branch = current_branch(run_fn=run_fn)
+    recorded = _recorded_pr_number(branch, run_fn=run_fn)
+    if recorded is not None:
+        return recorded
+    slug = resolve_repo(run_fn=run_fn)
     # The branch lives in origin, which is a fork when GH_REPO names upstream.
     owner = checkout_repo(slug, run_fn=run_fn).split("/")[0]
     pulls = rest(

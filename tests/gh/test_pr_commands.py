@@ -168,12 +168,18 @@ def test_create_with_a_title_pipes_the_body_to_gh() -> None:
 # --- REST fallback --------------------------------------------------------------------------
 
 
+def _compare(endpoint: str, *messages: str) -> Route:
+    """Route serving a compare response whose commits carry ``messages``, oldest first."""
+    commits = [{"commit": {"message": message}} for message in messages]
+    return (rest("GET", endpoint), json_response({"commits": commits}))
+
+
 def test_create_fallback_fills_from_a_single_commit() -> None:
     """One commit supplies the title and body, like gh pr create --fill."""
     runner = _create_sandbox(
         (rest("GET", "repos/o/r"), json_response({"default_branch": "main"})),
         (has("rev-parse"), completed_process(0, "feature\n")),
-        (has("log"), completed_process(0, "Fix thing\x1fLonger body\n\x1e\n")),
+        _compare("repos/o/r/compare/main...feature", "Fix thing\n\nLonger body\n"),
         (
             rest("POST", "repos/o/r/pulls", "title=Fix thing", "head=feature", "base=main"),
             json_response({"html_url": "https://example/pull/9"}),
@@ -182,15 +188,15 @@ def test_create_fallback_fills_from_a_single_commit() -> None:
 
     assert pr_commands.create_pr(run_fn=runner) == 0
 
-    assert ["git", "log", "--reverse", "--format=%s%x1f%b%x1e", "origin/main..HEAD"] in runner.calls
     assert "body=Longer body" in runner.calls[-1]
+    assert not any("log" in call for call in runner.calls)
 
 
 def test_create_fallback_summarizes_several_commits(capsys: pytest.CaptureFixture[str]) -> None:
     """Several commits give the branch name as title and the subjects as a list."""
     runner = _create_sandbox(
         (has("rev-parse"), completed_process(0, "fix-the_thing\n")),
-        (has("log"), completed_process(0, "One\x1f\x1e\nTwo\x1fbody\x1e\n")),
+        _compare("repos/o/r/compare/dev...fix-the_thing", "One", "Two\n\nbody"),
         (
             rest("POST", "repos/o/r/pulls", "title=Fix the thing", "body=- One\n- Two", "base=dev"),
             json_response({"html_url": "https://example/pull/9"}),
@@ -202,32 +208,36 @@ def test_create_fallback_summarizes_several_commits(capsys: pytest.CaptureFixtur
     assert capsys.readouterr().out.strip() == "https://example/pull/9"
 
 
-@pytest.mark.parametrize(
-    ("log", "expected_body"),
-    [
-        ("Fix thing\x1f", ""),
-        ("Fix thing", ""),
-        ("One\x1fbody\x1e\nTwo", "- One\n- Two"),
-    ],
-)
-def test_create_fallback_accepts_a_subject_only_final_commit(log: str, expected_body: str) -> None:
-    """run_git strips trailing separators, so a last commit without a body still parses."""
-    runner = _create_sandbox(
-        (has("rev-parse"), completed_process(0, "feature\n")),
-        (has("log"), completed_process(0, log)),
-        (rest("POST", "repos/o/r/pulls"), json_response({"html_url": "https://example/pull/9"})),
+def test_create_fallback_compares_a_fork_head_against_the_selected_base(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With GH_REPO on upstream, the text comes from upstream's base and the fork's branch."""
+    monkeypatch.setenv("GH_REPO", "org/project")
+    runner = FakeGh(
+        [
+            *sandbox_routes("alice/project"),
+            (_pushed, completed_process(0, "abc\n")),
+            (has("rev-parse"), completed_process(0, "fix#1\n")),
+            (
+                rest("GET", "repos/alice/project/branches/fix%231"),
+                json_response({"commit": {"sha": "abc"}}),
+            ),
+            _compare("repos/org/project/compare/main...alice:fix%231", "Subject only"),
+            (
+                rest("POST", "repos/org/project/pulls", "title=Subject only", "body="),
+                json_response({"html_url": "https://example/pull/9"}),
+            ),
+        ]
     )
 
-    assert pr_commands.create_pr(base="dev", run_fn=runner) == 0
-
-    assert f"body={expected_body}" in runner.calls[-1]
+    assert pr_commands.create_pr(base="main", run_fn=runner) == 0
 
 
 def test_create_fallback_rejects_a_branch_with_no_commits() -> None:
     """Nothing ahead of the base cannot be filled."""
     runner = _create_sandbox(
         (has("rev-parse"), completed_process(0, "feature\n")),
-        (has("log"), completed_process(0, "")),
+        (rest("GET", "repos/o/r/compare/dev...feature"), json_response({"commits": []})),
     )
 
     with pytest.raises(GhError, match="No commits on feature ahead of dev"):
@@ -252,6 +262,19 @@ def test_create_fallback_requires_the_pushed_head(
 
     assert any(call[4:5] == ["repos/o/r/branches/fix%231"] for call in runner.calls)
     assert not any("POST" in call for call in runner.calls)
+
+
+def test_create_fallback_keeps_the_real_error_of_a_failed_branch_lookup() -> None:
+    """Only a 404 means unpushed. A permission error surfaces as itself."""
+    runner = _create_sandbox(
+        (has("rev-parse"), completed_process(0, "feature\n")),
+        remote=completed_process(1, "", "Resource not accessible by integration (HTTP 403)"),
+    )
+
+    with pytest.raises(GhError, match="was refused") as caught:
+        pr_commands.create_pr(title="T", base="dev", run_fn=runner)
+
+    assert "make push" not in str(caught.value)
 
 
 def test_create_fallback_with_a_title_uses_the_given_text(
@@ -477,6 +500,23 @@ def test_create_fallback_checks_a_fork_branch_and_qualifies_its_head(
     assert pr_commands.create_pr(title="T", base="main", run_fn=runner) == 0
 
 
+def test_checkout_fallback_prefixes_a_fork_branch_and_records_its_pr() -> None:
+    """A fork's main checks out as alice/main, so local main is never fast-forwarded."""
+    head = {"ref": "main", "sha": "abc", "repo": {"full_name": "alice/r"}}
+    runner = _sandbox(
+        _pull_route({**PULL, "head": head}),
+        (has("--verify"), completed_process(1, "", "")),
+        (has("fetch"), completed_process(0)),
+        (has("checkout"), completed_process(0)),
+    )
+
+    assert pr_commands.checkout_pr(7, run_fn=runner) == 0
+
+    assert ["git", "fetch", "origin", "pull/7/head:alice/main"] in runner.calls
+    assert ["git", "checkout", "main"] not in runner.calls
+    assert runner.calls[-1] == ["git", "config", "branch.alice/main.gh-pr-number", "7"]
+
+
 def test_checkout_fallback_creates_a_new_local_branch() -> None:
     """A branch that does not exist locally is fetched from the PR ref and checked out."""
     runner = _sandbox(
@@ -489,7 +529,8 @@ def test_checkout_fallback_creates_a_new_local_branch() -> None:
     assert pr_commands.checkout_pr(7, run_fn=runner) == 0
 
     assert ["git", "fetch", "origin", "pull/7/head:feature"] in runner.calls
-    assert runner.calls[-1] == ["git", "checkout", "feature"]
+    assert runner.calls[-2] == ["git", "checkout", "feature"]
+    assert runner.calls[-1] == ["git", "config", "branch.feature.gh-pr-number", "7"]
 
 
 def test_checkout_fallback_fast_forwards_an_existing_branch() -> None:
@@ -505,7 +546,7 @@ def test_checkout_fallback_fast_forwards_an_existing_branch() -> None:
     pr_commands.checkout_pr(7, run_fn=runner)
 
     assert ["git", "fetch", "origin", "pull/7/head"] in runner.calls
-    assert runner.calls[-1] == ["git", "merge", "--ff-only", "FETCH_HEAD"]
+    assert runner.calls[-2] == ["git", "merge", "--ff-only", "FETCH_HEAD"]
 
 
 def test_checkout_fallback_requires_a_head_branch() -> None:
@@ -671,6 +712,25 @@ def test_reviewers_fallback_posts_a_reviewer_list(capsys: pytest.CaptureFixture[
     assert pr_commands.add_reviewers("a, b", 7, run_fn=runner) == 0
 
     assert "Requested review on PR #7 from a, b" in capsys.readouterr().out
+
+
+def test_reviewers_fallback_sends_teams_as_team_reviewers() -> None:
+    """An org/team entry becomes a team slug, separate from user logins."""
+    runner = _sandbox(
+        (
+            rest(
+                "POST",
+                "repos/o/r/pulls/7/requested_reviewers",
+                "reviewers[]=a",
+                "team_reviewers[]=core",
+            ),
+            json_response({}),
+        )
+    )
+
+    pr_commands.add_reviewers("a,o/core", 7, run_fn=runner)
+
+    assert "reviewers[]=o/core" not in runner.calls[-1]
 
 
 def test_labels_fallback_posts_a_label_list(capsys: pytest.CaptureFixture[str]) -> None:

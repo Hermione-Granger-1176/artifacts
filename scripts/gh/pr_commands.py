@@ -148,7 +148,9 @@ def create_pr(
         _require_pushed(source, branch, run_fn=run_fn)
         head = branch if source == slug else f"{source.split('/')[0]}:{branch}"
         pr_title, pr_body = (
-            (title, body) if title is not None else _filled_text(target, branch, run_fn=run_fn)
+            (title, body)
+            if title is not None
+            else _filled_text(slug, target, head, branch, run_fn=run_fn)
         )
         pull = gh_runner.rest(
             f"repos/{slug}/pulls",
@@ -176,33 +178,42 @@ def _require_pushed(slug: str, branch: str, *, run_fn: RunFunction | None) -> No
             gh_runner.rest(f"repos/{slug}/branches/{quote(branch, safe='')}", run_fn=run_fn)
         )
     except GhError as exc:
+        # Only a 404 means the branch is missing. Rate limits and permission
+        # errors keep their own message.
+        if "HTTP 404" not in str(exc):
+            raise
         raise GhError(f"Branch {branch} is not on GitHub. Run make push first.") from exc
     if as_object(remote.get("commit")).get("sha") != local:
         raise GhError(f"GitHub's {branch} does not match your local HEAD. Run make push first.")
 
 
-def _filled_text(base: str, branch: str, *, run_fn: RunFunction | None = None) -> tuple[str, str]:
-    """Return a PR title and body drawn from the commits on ``branch`` ahead of ``base``.
+def _filled_text(
+    slug: str, base: str, head: str, branch: str, *, run_fn: RunFunction | None = None
+) -> tuple[str, str]:
+    """Return a PR title and body drawn from the commits ``head`` adds to ``base``.
 
     Mirrors ``gh pr create --fill``: one commit supplies its own subject and
     body, several commits give the branch name as the title and their subjects
-    as a list.
+    as a list. GitHub's compare API reads the commits, so the result never
+    depends on a local tracking ref that is missing, stale, or from a fork.
     """
-    log = gh_runner.run_git(
-        ["log", "--reverse", "--format=%s%x1f%b%x1e", f"origin/{base}..HEAD"], run_fn=run_fn
+    compare = as_object(
+        gh_runner.rest(
+            f"repos/{slug}/compare/{quote(base, safe='')}...{quote(head, safe=':')}",
+            run_fn=run_fn,
+        )
     )
-    # run_git strips the output, which drops the separators after a final
-    # subject-only commit, so a record without one has an empty body.
     commits = [
-        record.strip("\n").partition("\x1f") for record in log.split("\x1e") if record.strip()
+        str(as_object(as_object(entry).get("commit")).get("message") or "").partition("\n")
+        for entry in compare.get("commits") or []
     ]
     if not commits:
         raise GhError(f"No commits on {branch} ahead of {base} to fill a pull request from.")
     if len(commits) == 1:
         subject, _sep, body = commits[0]
-        return subject, body.strip()
+        return subject.strip(), body.strip()
     title = branch.replace("-", " ").replace("_", " ").strip().capitalize()
-    return title, "\n".join(f"- {subject}" for subject, _sep, _body in commits)
+    return title, "\n".join(f"- {subject.strip()}" for subject, _sep, _body in commits)
 
 
 def list_prs(*, run_fn: RunFunction | None = None) -> int:
@@ -297,9 +308,15 @@ def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
         slug = gh_runner.resolve_repo(run_fn=run_fn)
         gh_runner.require_checkout_repo(slug, f"check out PR #{pr}", run_fn=run_fn)
         pull = pr_rest.pull_request(slug, pr, run_fn=run_fn)
-        branch = as_object(pull.get("head")).get("ref")
+        head = as_object(pull.get("head"))
+        branch = head.get("ref")
         if not isinstance(branch, str) or not branch:
             raise GhError(f"PR #{pr} has no head branch to check out.")
+        head_repo = str(as_object(head.get("repo")).get("full_name") or "")
+        if head_repo != slug:
+            # A fork's branch can share a local name such as main, so it gets
+            # the fork owner as a prefix instead of updating that branch.
+            branch = f"{head_repo.split('/')[0] or 'fork'}/{branch}"
         try:
             gh_runner.run_git(
                 ["rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"], run_fn=run_fn
@@ -311,6 +328,9 @@ def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
             gh_runner.run_git(["fetch", "origin", f"pull/{pr}/head"], run_fn=run_fn)
             gh_runner.run_git(["checkout", branch], run_fn=run_fn)
             gh_runner.run_git(["merge", "--ff-only", "FETCH_HEAD"], run_fn=run_fn)
+        gh_runner.run_git(
+            ["config", f"branch.{branch}.{gh_runner.PR_NUMBER_CONFIG}", str(pr)], run_fn=run_fn
+        )
         print(f"Checked out {branch} for PR #{pr}")
         return 0
 
@@ -408,10 +428,15 @@ def add_reviewers(users: str, pr: int | None = None, *, run_fn: RunFunction | No
 
     def reviewers_with_rest() -> int:
         slug, number = _target(pr, run_fn=run_fn)
+        # gh names a team as org/slug. REST takes the team slug separately.
+        names = split_list(users)
         gh_runner.rest(
             f"repos/{slug}/pulls/{number}/requested_reviewers",
             method="POST",
-            fields={"reviewers": split_list(users)},
+            fields={
+                "reviewers": [name for name in names if "/" not in name],
+                "team_reviewers": [name.split("/", 1)[1] for name in names if "/" in name],
+            },
             run_fn=run_fn,
         )
         print(f"Requested review on PR #{number} from {users}")

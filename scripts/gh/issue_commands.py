@@ -189,7 +189,7 @@ def create_issue(
         if labels:
             fields["labels"] = split_list(labels)
         if assignee:
-            fields["assignees"] = [_login(assignee, run_fn=run_fn)]
+            fields["assignees"] = [_login(name, run_fn=run_fn) for name in split_list(assignee)]
         created = gh_runner.rest(
             f"repos/{slug}/issues", method="POST", fields=fields, run_fn=run_fn
         )

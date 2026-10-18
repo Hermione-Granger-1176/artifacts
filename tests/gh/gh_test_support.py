@@ -102,6 +102,9 @@ def sandbox_routes(slug: str = "o/r") -> list[tuple[Callable[[list[str]], bool],
             graphql_blocked(),
         ),
         (has("remote"), completed_process(0, f"https://github.com/{slug}.git\n")),
+        # No branch has a PR recorded by an earlier REST checkout.
+        (has("config", "--get"), completed_process(1)),
+        (has("config"), completed_process(0)),
     ]
 
 
