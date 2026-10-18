@@ -120,6 +120,25 @@ export function isNotFoundError(error) {
 }
 
 /**
+ * @param {{ owner: string, repo: string }} clients - API clients.
+ * @returns {string} Base URL of the repository's Git database REST API.
+ */
+function gitApiBase(clients) {
+  return `https://api.github.com/repos/${clients.owner}/${clients.repo}/git`;
+}
+
+/**
+ * Read a branch's HEAD commit SHA.
+ * @param {{ fetchJson: (url: string, options?: RequestInit) => Promise<object|null>, owner: string, repo: string }} clients - API clients.
+ * @param {string} branch - Branch name.
+ * @returns {Promise<string>} HEAD commit SHA.
+ */
+async function fetchBranchHeadSha(clients, branch) {
+  const ref = await clients.fetchJson(`${gitApiBase(clients)}/ref/heads/${branch}`);
+  return ref.object.sha;
+}
+
+/**
  * Bootstrap a missing Pages branch with an initial parentless commit.
  * Creates an empty `.nojekyll` blob, a tree containing it, a parentless
  * commit, and the branch ref, then returns the new HEAD SHA so the normal
@@ -131,30 +150,25 @@ export function isNotFoundError(error) {
  * @returns {Promise<string>} The new branch HEAD commit SHA.
  */
 async function bootstrapBranch(clients, branch, consoleObj) {
-  const gitBase = `https://api.github.com/repos/${clients.owner}/${clients.repo}/git`;
+  const gitBase = gitApiBase(clients);
+  const postJson = (endpoint, payload) =>
+    clients.fetchJson(`${gitBase}/${endpoint}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
 
-  const blob = await clients.fetchJson(`${gitBase}/blobs`, {
-    method: "POST",
-    body: JSON.stringify({ content: "", encoding: "utf-8" }),
+  const blob = await postJson("blobs", { content: "", encoding: "utf-8" });
+  const tree = await postJson("trees", {
+    tree: [{ path: ".nojekyll", mode: "100644", type: "blob", sha: blob.sha }],
   });
-
-  const tree = await clients.fetchJson(`${gitBase}/trees`, {
-    method: "POST",
-    body: JSON.stringify({
-      tree: [{ path: ".nojekyll", mode: "100644", type: "blob", sha: blob.sha }],
-    }),
-  });
-
-  const commit = await clients.fetchJson(`${gitBase}/commits`, {
-    method: "POST",
-    body: JSON.stringify({ message: `Bootstrap ${branch}`, tree: tree.sha, parents: [] }),
+  const commit = await postJson("commits", {
+    message: `Bootstrap ${branch}`,
+    tree: tree.sha,
+    parents: [],
   });
 
   try {
-    await clients.fetchJson(`${gitBase}/refs`, {
-      method: "POST",
-      body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commit.sha }),
-    });
+    await postJson("refs", { ref: `refs/heads/${branch}`, sha: commit.sha });
   } catch (error) {
     // Two runs can both see the missing branch and race to create it. The
     // loser gets a 422 "Reference already exists"; recover by adopting the
@@ -162,13 +176,32 @@ async function bootstrapBranch(clients, branch, consoleObj) {
     if (!isRefAlreadyExistsError(error)) {
       throw error;
     }
-    const ref = await clients.fetchJson(`${gitBase}/ref/heads/${branch}`);
-    consoleObj.log(`Branch ${branch} was bootstrapped concurrently, using ${ref.object.sha}`);
-    return ref.object.sha;
+    const winnerSha = await fetchBranchHeadSha(clients, branch);
+    consoleObj.log(`Branch ${branch} was bootstrapped concurrently, using ${winnerSha}`);
+    return winnerSha;
   }
 
   consoleObj.log(`Bootstrapped ${branch} branch at ${commit.sha}`);
   return commit.sha;
+}
+
+/**
+ * Resolve a branch's HEAD SHA, bootstrapping the branch when its ref is missing (404).
+ * @param {{ fetchJson: (url: string, options?: RequestInit) => Promise<object|null>, owner: string, repo: string }} clients - API clients.
+ * @param {string} branch - Branch name.
+ * @param {Console} consoleObj - Logger.
+ * @returns {Promise<string>} HEAD commit SHA.
+ */
+async function resolveHeadSha(clients, branch, consoleObj) {
+  try {
+    return await fetchBranchHeadSha(clients, branch);
+  } catch (error) {
+    if (!isNotFoundError(error)) {
+      throw error;
+    }
+    consoleObj.log(`Branch ${branch} not found, bootstrapping`);
+    return bootstrapBranch(clients, branch, consoleObj);
+  }
 }
 
 /**
@@ -180,30 +213,15 @@ async function bootstrapBranch(clients, branch, consoleObj) {
  * @returns {Promise<{ headSha: string, remoteFiles: Map<string, string> }>}
  */
 async function fetchBranchState(clients, branch, consoleObj) {
-  let headSha;
-  try {
-    const ref = await clients.fetchJson(
-      `https://api.github.com/repos/${clients.owner}/${clients.repo}/git/ref/heads/${branch}`,
-    );
-    headSha = ref.object.sha;
-  } catch (error) {
-    if (!isNotFoundError(error)) {
-      throw error;
-    }
-    consoleObj.log(`Branch ${branch} not found, bootstrapping`);
-    headSha = await bootstrapBranch(clients, branch, consoleObj);
-  }
+  const gitBase = gitApiBase(clients);
+  const headSha = await resolveHeadSha(clients, branch, consoleObj);
   consoleObj.log(`Current ${branch} HEAD: ${headSha}`);
 
   // Fetch commit to get tree SHA (the trees API needs a tree SHA, not a commit SHA).
-  const commit = await clients.fetchJson(
-    `https://api.github.com/repos/${clients.owner}/${clients.repo}/git/commits/${headSha}`,
-  );
+  const commit = await clients.fetchJson(`${gitBase}/commits/${headSha}`);
   const treeSha = commit.tree.sha;
 
-  const tree = await clients.fetchJson(
-    `https://api.github.com/repos/${clients.owner}/${clients.repo}/git/trees/${treeSha}?recursive=1`,
-  );
+  const tree = await clients.fetchJson(`${gitBase}/trees/${treeSha}?recursive=1`);
   const remoteFiles = new Map(
     tree.tree.filter((item) => item.type === "blob").map((item) => [item.path, item.sha]),
   );
@@ -235,6 +253,45 @@ async function createVerifiedCommit(clients, branch, headSha, headline, fileChan
   });
 
   return data.createCommitOnBranch.commit;
+}
+
+/** Matches the GraphQL error raised when the branch HEAD moved after it was read. */
+const BRANCH_MOVED_PATTERN = /expectedHeadOid|expected branch to point/i;
+
+/**
+ * Choose the file changes for the selected deploy mode: removal of a
+ * subdirectory, or additions and deletions against a local directory.
+ * @param {Map<string, string>} remoteFiles - Current remote files (path to blob SHA).
+ * @param {{
+ *   previewRoot: string,
+ *   deployDir: string,
+ *   deploySubdir: string,
+ *   removeSubdir: string,
+ *   walkDirImpl: (dir: string) => string[],
+ *   readFileSyncImpl: typeof fs.readFileSync,
+ *   consoleObj: Console
+ * }} plan - Mode settings and injectable helpers.
+ * @returns {{ additions: { path: string, contents: string }[], deletions: { path: string }[] }}
+ *   GraphQL file payloads.
+ */
+function planFileChanges(
+  remoteFiles,
+  { previewRoot, deployDir, deploySubdir, removeSubdir, walkDirImpl, readFileSyncImpl, consoleObj },
+) {
+  if (removeSubdir) {
+    consoleObj.log(`Removing subdirectory: ${removeSubdir}`);
+    return computeRemoval(remoteFiles, removeSubdir);
+  }
+  if (!deployDir) {
+    throw new Error(`DEPLOY_DIR is required for ${deploySubdir ? "preview" : "full"} deploys`);
+  }
+
+  const localFiles = walkDirImpl(deployDir);
+  const suffix = deploySubdir ? ` → ${deploySubdir}/` : "";
+  consoleObj.log(`Local deploy: ${localFiles.length} files${suffix}`);
+  return computeChanges(localFiles, remoteFiles, previewRoot, deployDir, deploySubdir, {
+    readFileSync: readFileSyncImpl,
+  });
 }
 
 /**
@@ -281,33 +338,28 @@ export async function runVerifiedDeploy({
 
   const clients = createApiClients({ owner, repo, token, fetchDependencies });
   const maxAttempts = 3;
+  const finish = (result) => {
+    writeGitHubOutputs(result, env, appendFileSyncImpl);
+    return result;
+  };
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const { headSha, remoteFiles } = await fetchBranchState(clients, pagesBranch, consoleObj);
 
-    let fileChanges;
-
-    if (removeSubdir) {
-      consoleObj.log(`Removing subdirectory: ${removeSubdir}`);
-      fileChanges = computeRemoval(remoteFiles, removeSubdir);
-    } else if (!deployDir) {
-      throw new Error(`DEPLOY_DIR is required for ${deploySubdir ? "preview" : "full"} deploys`);
-    } else {
-      const localFiles = walkDirImpl(deployDir);
-      const suffix = deploySubdir ? ` → ${deploySubdir}/` : "";
-      consoleObj.log(`Local deploy: ${localFiles.length} files${suffix}`);
-      fileChanges = computeChanges(localFiles, remoteFiles, previewRoot, deployDir, deploySubdir, {
-        readFileSync: readFileSyncImpl,
-      });
-    }
-
+    const fileChanges = planFileChanges(remoteFiles, {
+      previewRoot,
+      deployDir,
+      deploySubdir,
+      removeSubdir,
+      walkDirImpl,
+      readFileSyncImpl,
+      consoleObj,
+    });
     const { additions, deletions } = fileChanges;
 
     if (additions.length === 0 && deletions.length === 0) {
       consoleObj.log("No changes to deploy");
-      const result = { deployed: false, commitUrl: "", commitSha: headSha };
-      writeGitHubOutputs(result, env, appendFileSyncImpl);
-      return result;
+      return finish({ deployed: false, commitUrl: "", commitSha: headSha });
     }
 
     consoleObj.log(`Deploying: ${additions.length} additions, ${deletions.length} deletions`);
@@ -321,12 +373,10 @@ export async function runVerifiedDeploy({
         fileChanges,
       );
       consoleObj.log(`Created verified deploy commit: ${commit.url}`);
-      const result = { deployed: true, commitUrl: commit.url, commitSha: commit.oid };
-      writeGitHubOutputs(result, env, appendFileSyncImpl);
-      return result;
+      return finish({ deployed: true, commitUrl: commit.url, commitSha: commit.oid });
     } catch (error) {
       const message = String(error.message || error);
-      if (attempt < maxAttempts && /expectedHeadOid|expected branch to point/i.test(message)) {
+      if (attempt < maxAttempts && BRANCH_MOVED_PATTERN.test(message)) {
         consoleObj.log(`Branch moved (attempt ${attempt}/${maxAttempts}), refetching and retrying`);
         continue;
       }

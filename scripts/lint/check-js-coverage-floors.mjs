@@ -98,42 +98,46 @@ function splitLcovBlocks(text) {
 }
 
 /**
- * Merge one file's SF blocks into a single coverage record.
- *
- * Lines are keyed by line number (stable across processes), so `DA` records
- * union cleanly with max hits. Branches need care: V8 emits a `BRDA` row only
- * for a branch arm whose execution count differs from its enclosing function,
- * and its block ids are process-local. So arms are keyed by (line, position
- * within that line), and an arm also counts as covered when any block executed
- * the line (`DA` > 0) without reporting branch rows for it, which is how V8
- * reports a fully taken branch.
- * @param {ReturnType<typeof splitLcovBlocks>} blocks - All SF blocks for one file.
- * @returns {{ file: string, linesFound: number, linesHit: number, branchesFound: number, branchesHit: number }}
- *   Merged coverage record.
+ * Pick each counter pair's best block from summary-only reports, independently
+ * for lines and branches, so one block's weak branch numbers cannot ride in on
+ * its strong line numbers.
+ * @param {string} file - Source file path shared by the blocks.
+ * @param {ReturnType<typeof splitLcovBlocks>} blocks - All SF blocks for the file.
+ * @returns {ReturnType<typeof mergeFileBlocks>} Merged coverage record.
  */
-function mergeFileBlocks(blocks) {
-  const { file } = blocks[0];
-  const detailBlocks = blocks.filter((block) => block.lines.size > 0 || block.branchRows.size > 0);
+function mergeSummaryBlocks(file, blocks) {
+  const bestLines = blocks.reduce((left, right) =>
+    right.summary.lh > left.summary.lh ? right : left,
+  );
+  const bestBranches = blocks.reduce((left, right) =>
+    right.summary.brh > left.summary.brh ? right : left,
+  );
+  return {
+    file,
+    linesFound: bestLines.summary.lf,
+    linesHit: bestLines.summary.lh,
+    branchesFound: bestBranches.summary.brf,
+    branchesHit: bestBranches.summary.brh,
+  };
+}
 
-  if (detailBlocks.length === 0) {
-    // Summary-only reports: take the best block per counter pair, independently
-    // for lines and branches, so one block's weak branch numbers cannot ride in
-    // on its strong line numbers.
-    const bestLines = blocks.reduce((left, right) =>
-      right.summary.lh > left.summary.lh ? right : left,
-    );
-    const bestBranches = blocks.reduce((left, right) =>
-      right.summary.brh > left.summary.brh ? right : left,
-    );
-    return {
-      file,
-      linesFound: bestLines.summary.lf,
-      linesHit: bestLines.summary.lh,
-      branchesFound: bestBranches.summary.brf,
-      branchesHit: bestBranches.summary.brh,
-    };
-  }
+/**
+ * Read the line number out of a `${lineNo}:${position}` branch key.
+ * @param {string} key - Branch key built by mergeDetailBlocks.
+ * @returns {string} The line number part.
+ */
+function lineOfBranchKey(key) {
+  return key.slice(0, key.indexOf(":"));
+}
 
+/**
+ * Merge blocks that carry `DA` or `BRDA` detail (see mergeFileBlocks for the
+ * line and branch semantics).
+ * @param {string} file - Source file path shared by the blocks.
+ * @param {ReturnType<typeof splitLcovBlocks>} detailBlocks - Blocks with line or branch rows.
+ * @returns {ReturnType<typeof mergeFileBlocks>} Merged coverage record.
+ */
+function mergeDetailBlocks(file, detailBlocks) {
   const mergedLines = new Map();
   const mergedBranches = new Map();
   const fullyCoveredLines = new Set();
@@ -151,7 +155,7 @@ function mergeFileBlocks(blocks) {
   }
 
   for (const key of mergedBranches.keys()) {
-    const lineNo = key.slice(0, key.indexOf(":"));
+    const lineNo = lineOfBranchKey(key);
     const covered = detailBlocks.some(
       (block) => (block.lines.get(lineNo) ?? 0) > 0 && !block.branchRows.has(lineNo),
     );
@@ -162,8 +166,7 @@ function mergeFileBlocks(blocks) {
 
   let branchesHit = 0;
   for (const [key, taken] of mergedBranches) {
-    const lineNo = key.slice(0, key.indexOf(":"));
-    if (taken > 0 || fullyCoveredLines.has(lineNo)) {
+    if (taken > 0 || fullyCoveredLines.has(lineOfBranchKey(key))) {
       branchesHit += 1;
     }
   }
@@ -175,6 +178,29 @@ function mergeFileBlocks(blocks) {
     branchesFound: mergedBranches.size,
     branchesHit,
   };
+}
+
+/**
+ * Merge one file's SF blocks into a single coverage record.
+ *
+ * Lines are keyed by line number (stable across processes), so `DA` records
+ * union cleanly with max hits. Branches need care: V8 emits a `BRDA` row only
+ * for a branch arm whose execution count differs from its enclosing function,
+ * and its block ids are process-local. So arms are keyed by (line, position
+ * within that line), and an arm also counts as covered when any block executed
+ * the line (`DA` > 0) without reporting branch rows for it, which is how V8
+ * reports a fully taken branch.
+ * @param {ReturnType<typeof splitLcovBlocks>} blocks - All SF blocks for one file.
+ * @returns {{ file: string, linesFound: number, linesHit: number, branchesFound: number, branchesHit: number }}
+ *   Merged coverage record.
+ */
+function mergeFileBlocks(blocks) {
+  const { file } = blocks[0];
+  const detailBlocks = blocks.filter((block) => block.lines.size > 0 || block.branchRows.size > 0);
+
+  return detailBlocks.length === 0
+    ? mergeSummaryBlocks(file, blocks)
+    : mergeDetailBlocks(file, detailBlocks);
 }
 
 /**
@@ -234,6 +260,16 @@ export function isExcludedPath(relPath) {
 }
 
 /**
+ * Compute a coverage percentage, treating nothing measurable as fully covered.
+ * @param {number} hit - Covered count.
+ * @param {number} found - Measurable count.
+ * @returns {number} Percentage from 0 to 100.
+ */
+function percentCovered(hit, found) {
+  return found > 0 ? (hit / found) * 100 : 100;
+}
+
+/**
  * Evaluate parsed lcov records against per-file coverage floors.
  * Files with zero measurable lines or branches count as fully covered for
  * that dimension (there is nothing to miss).
@@ -262,9 +298,8 @@ export function evaluateCoverageFloors(
       continue;
     }
 
-    const linePct = record.linesFound > 0 ? (record.linesHit / record.linesFound) * 100 : 100;
-    const branchPct =
-      record.branchesFound > 0 ? (record.branchesHit / record.branchesFound) * 100 : 100;
+    const linePct = percentCovered(record.linesHit, record.linesFound);
+    const branchPct = percentCovered(record.branchesHit, record.branchesFound);
 
     checked += 1;
 
@@ -298,6 +333,52 @@ export function formatReport(outcome, { lineFloor, branchFloor }) {
 }
 
 /**
+ * Run the suite under coverage and return its lcov report, or null when the
+ * run fails. The temp report is removed in every case.
+ * @param {{
+ *   execFileSyncImpl: typeof execFileSync,
+ *   readFileSyncImpl: typeof readFileSync,
+ *   rmSyncImpl: typeof rmSync,
+ *   consoleObj: Console,
+ *   rootDir: string
+ * }} deps - Exec, fs, console, and repo root.
+ * @returns {string | null} Raw lcov text, or null after a failed test run.
+ */
+function collectFallbackLcov({
+  execFileSyncImpl,
+  readFileSyncImpl,
+  rmSyncImpl,
+  consoleObj,
+  rootDir,
+}) {
+  const dest = join(tmpdir(), `js-coverage-floors-${process.pid}.lcov`);
+  // The finally block guarantees the temp report never leaks, whether the
+  // suite run fails, the read throws, or everything succeeds.
+  try {
+    try {
+      execFileSyncImpl(
+        "node",
+        [
+          "--experimental-test-coverage",
+          ...COVERAGE_EXCLUDES.map((pattern) => `--test-coverage-exclude=${pattern}`),
+          "--test-reporter=lcov",
+          `--test-reporter-destination=${dest}`,
+          "--test",
+          "tests/js/**/*.test.js",
+        ],
+        { cwd: rootDir, stdio: ["ignore", "ignore", "inherit"] },
+      );
+    } catch {
+      consoleObj.error("JS test run failed; cannot evaluate per-file coverage floors.");
+      return null;
+    }
+    return readFileSyncImpl(dest, "utf-8");
+  } finally {
+    rmSyncImpl(dest, { force: true });
+  }
+}
+
+/**
  * Enforce per-file floors from the aggregate run's lcov report, or rerun the
  * suite with coverage (using the same excludes) when the report is absent.
  * @param {{
@@ -319,38 +400,14 @@ export function runCoverageFloors({
   rootDir = ROOT_DIR,
 } = {}) {
   const sharedReport = join(rootDir, DEFAULT_LCOV_PATH);
-  let lcov;
 
-  if (existsSyncImpl(sharedReport)) {
-    // The aggregate coverage gate already produced the report; consume it
-    // instead of running the whole suite under coverage a second time.
-    lcov = readFileSyncImpl(sharedReport, "utf-8");
-  } else {
-    const dest = join(tmpdir(), `js-coverage-floors-${process.pid}.lcov`);
-    // The finally block guarantees the temp report never leaks, whether the
-    // suite run fails, the read throws, or everything succeeds.
-    try {
-      try {
-        execFileSyncImpl(
-          "node",
-          [
-            "--experimental-test-coverage",
-            ...COVERAGE_EXCLUDES.map((pattern) => `--test-coverage-exclude=${pattern}`),
-            "--test-reporter=lcov",
-            `--test-reporter-destination=${dest}`,
-            "--test",
-            "tests/js/**/*.test.js",
-          ],
-          { cwd: rootDir, stdio: ["ignore", "ignore", "inherit"] },
-        );
-      } catch {
-        consoleObj.error("JS test run failed; cannot evaluate per-file coverage floors.");
-        return 1;
-      }
-      lcov = readFileSyncImpl(dest, "utf-8");
-    } finally {
-      rmSyncImpl(dest, { force: true });
-    }
+  // When the aggregate coverage gate already produced the report, consume it
+  // instead of running the whole suite under coverage a second time.
+  const lcov = existsSyncImpl(sharedReport)
+    ? readFileSyncImpl(sharedReport, "utf-8")
+    : collectFallbackLcov({ execFileSyncImpl, readFileSyncImpl, rmSyncImpl, consoleObj, rootDir });
+  if (lcov === null) {
+    return 1;
   }
 
   const outcome = evaluateCoverageFloors(parseLcov(lcov), {
