@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 from pathlib import Path
@@ -1182,17 +1183,17 @@ def test_main_reply_reads_body_file(
     """The reply command accepts body text from a file."""
     body_file = tmp_path / "reply.md"
     body_file.write_text("Fixed with detail", encoding="utf-8")
-    replies: list[tuple[str, str]] = []
+    replies: list[tuple[str, str, int | None]] = []
     monkeypatch.setattr(
         pr_review,
         "reply_to_thread",
-        lambda thread, body: replies.append((thread, body)),
+        lambda thread, body, pr=None: replies.append((thread, body, pr)),
     )
 
     exit_code = cli.main(["reply", "--thread", "PRRT_x", "--body-file", str(body_file)])
 
     assert exit_code == 0
-    assert replies == [("PRRT_x", "Fixed with detail")]
+    assert replies == [("PRRT_x", "Fixed with detail", None)]
     assert "Replied to PRRT_x" in capsys.readouterr().out
 
 
@@ -1206,13 +1207,15 @@ def test_main_resolve_invokes_helper(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """The resolve command resolves by thread id and confirms."""
-    resolved: list[str] = []
-    monkeypatch.setattr(pr_review, "resolve_thread", resolved.append)
+    resolved: list[tuple[str, int | None]] = []
+    monkeypatch.setattr(
+        pr_review, "resolve_thread", lambda thread, pr=None: resolved.append((thread, pr))
+    )
 
-    exit_code = cli.main(["resolve", "--thread", "PRRT_x"])
+    exit_code = cli.main(["resolve", "--thread", "PRRT_x", "--pr", "7"])
 
     assert exit_code == 0
-    assert resolved == ["PRRT_x"]
+    assert resolved == [("PRRT_x", 7)]
     assert "Resolved PRRT_x" in capsys.readouterr().out
 
 
@@ -1220,17 +1223,17 @@ def test_main_address_invokes_helper(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """The address command replies and resolves through the helper."""
-    addressed: list[tuple[str, str]] = []
+    addressed: list[tuple[str, str, int | None]] = []
     monkeypatch.setattr(
         pr_review,
         "address_thread",
-        lambda thread, body: addressed.append((thread, body)),
+        lambda thread, body, pr=None: addressed.append((thread, body, pr)),
     )
 
     exit_code = cli.main(["address", "--thread", "PRRT_x", "--body", "Fixed now"])
 
     assert exit_code == 0
-    assert addressed == [("PRRT_x", "Fixed now")]
+    assert addressed == [("PRRT_x", "Fixed now", None)]
     assert "Replied to and resolved PRRT_x" in capsys.readouterr().out
 
 
@@ -1433,8 +1436,23 @@ def test_edit_pr_title_only_omits_body_argument() -> None:
 def test_edit_pr_forwards_body_file_to_gh() -> None:
     """edit_pr passes a body file straight to gh so gh reads it (no oversized arg)."""
     seen: dict[str, list[list[str]]] = {}
-    pr_review.edit_pr(7, body_file="-", run_fn=_copilot_runner(seen))
-    assert seen["cmds"][-1] == ["gh", "pr", "edit", "7", "--body-file", "-"]
+    pr_review.edit_pr(7, body_file="notes.md", run_fn=_copilot_runner(seen))
+    assert seen["cmds"][-1] == ["gh", "pr", "edit", "7", "--body-file", "notes.md"]
+
+
+def test_edit_pr_pipes_stdin_body_to_gh(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A ``-`` body file is read once and piped to gh, so the REST fallback can reuse it."""
+    monkeypatch.setattr("sys.stdin", io.StringIO("piped body"))
+    inputs: list[object] = []
+
+    def runner(_cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        """Record the piped input."""
+        inputs.append(kwargs.get("input"))
+        return completed_process(0, "")
+
+    pr_review.edit_pr(7, body_file="-", run_fn=runner)
+
+    assert inputs == ["piped body"]
 
 
 def test_edit_pr_prefers_body_file_over_inline_body() -> None:

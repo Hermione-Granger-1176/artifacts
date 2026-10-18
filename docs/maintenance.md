@@ -71,3 +71,4 @@ When a contract changes, update the corresponding record:
 - [ADR 0005](adr/0005-ci-scaling-architecture-and-roadmap.md), for impact planning, shards, verification ledgers, or CI caches. Update its roadmap as work lands.
 - [ADR 0006](adr/0006-shared-design-tokens-and-component-system.md), for shared tokens, components, frontend helpers, or app CSS token checks.
 - [ADR 0007](adr/0007-line-matched-theme-files.md), for themed colors or the light and dark theme files.
+- [ADR 0008](adr/0008-graphql-first-rest-fallback.md), for the `scripts/gh/` helpers or their REST fallback.

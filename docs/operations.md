@@ -22,6 +22,16 @@ Run `make issue-summary issue=N` for state, labels, assignees, milestone, and re
 
 Supply issue bodies on stdin. `make issue-edit` also accepts a title through `TITLE='...'`. For short close or reopen comments, set `COMMENT='...'`.
 
+The `make pr-*` and `make issue-*` targets try GraphQL first. If the environment refuses GraphQL, as Claude Code cloud sessions do, the targets switch to the REST API for the rest of the run. [ADR 0008](adr/0008-graphql-first-rest-fallback.md) explains the design. In REST mode, these differences apply:
+
+- Review threads have no node id. `make pr-review-comments` prints each thread as `thread=<id>`, where the id is the number of the thread's first comment. Pass that number to `make pr-reply`, `make pr-resolve`, or `make pr-address`, and add `pr_num=N` when the PR is not on the current branch.
+- `make pr-comments-list` prints numeric comment ids. Pass one to `make pr-comment-delete comment_id=<id>`.
+- A `PRRT_` or `PRRC_` node id needs GraphQL. The target fails and names the numeric id to use instead.
+- List, view, and checks output is tab-separated and close to the `gh` output, not identical.
+- `make pr-merge` and `make pr-close` delete the remote branch but leave your local checkout alone.
+- `make issue-develop` creates and checks out the branch but cannot link it to the issue.
+- `make issue-list` with `SEARCH` needs the `search/issues` endpoint, which cloud sessions block. The other filters work.
+
 PR review watching observes the Copilot review automatically started when a pull request is created and waits for settled checks. It does not request a second review by default. Use `make pr-watch request=1` after pushing a correction when a fresh review is required, or use `make pr-watch checks_only=1` when only CI should be observed. The separate `make pr-copilot-review` target remains available for an explicit standalone request.
 
 Local Python dependency setup uses uv. Ensure `uv` is on PATH before running setup, install, lock, or security targets. Use native Playwright host detection. Do not set `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE`: the pinned Playwright supports current hosts natively, and forcing a platform key can leave the browser revision cache holding a build from the wrong platform archive. On a Debian or Ubuntu host that lacks the shared libraries the browsers need, use the no-sudo local runtime described in [Browser setup without sudo](#browser-setup-without-sudo).

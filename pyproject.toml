@@ -93,7 +93,8 @@ min_confidence = 60
 # TypedDict fields are read through string keys, so vulture only sees the
 # declarations: ThumbnailStats (attempted/generated/skipped), BadgeConfig
 # (alt/logo/logo_color), ArtifactItem (id), and ArtifactContract
-# (artifactIdPattern/artifactBasePath/thumbnailFile).
+# (artifactIdPattern/artifactBasePath/thumbnailFile). pytest runs the autouse
+# GraphQL-verdict reset fixture in tests/gh/conftest.py without any caller.
 ignore_names = [
   "attempted",
   "generated",
@@ -105,5 +106,6 @@ ignore_names = [
   "artifactIdPattern",
   "artifactBasePath",
   "thumbnailFile",
+  "_fresh_graphql_verdict",
 ]
 sort_by_size = true

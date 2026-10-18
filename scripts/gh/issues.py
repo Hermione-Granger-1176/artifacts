@@ -4,7 +4,8 @@ Backs ``make issue-summary``: one screen with an issue's state, author, labels,
 assignees, milestone, and its most recent comments, so triaging an issue does
 not need several ``gh issue view`` passes. Every parse helper is defensive so a
 malformed field surfaces as a clear ``GhError`` instead of an opaque
-``TypeError``.
+``TypeError``. When GraphQL is blocked, the REST issue and its comments are
+reshaped into the same JSON so the parsing below is shared.
 """
 
 from __future__ import annotations
@@ -96,10 +97,38 @@ def _recent_comments(comments: list[Any]) -> list[str]:
     return rendered
 
 
+def _rest_issue(issue: int, *, run_fn: RunFunction | None = None) -> dict[str, Any]:
+    """Return the REST issue and its comments in the ``gh issue view --json`` shape."""
+    slug = gh_runner.resolve_repo(run_fn=run_fn)
+    raw = _require_mapping(
+        gh_runner.rest(f"repos/{slug}/issues/{issue}", run_fn=run_fn),
+        f"Unexpected issue response shape for issue {issue}.",
+    )
+    comments = gh_runner.rest_pages(f"repos/{slug}/issues/{issue}/comments", run_fn=run_fn)
+    return {
+        "number": raw.get("number"),
+        "title": raw.get("title"),
+        "state": str(raw.get("state") or "").upper(),
+        "url": raw.get("html_url"),
+        "author": raw.get("user"),
+        "labels": raw.get("labels"),
+        "assignees": raw.get("assignees"),
+        "milestone": raw.get("milestone"),
+        "comments": [
+            {"author": comment.get("user"), "body": comment.get("body")} for comment in comments
+        ],
+    }
+
+
 def issue_summary(issue: int, *, run_fn: RunFunction | None = None) -> str:
     """Return a one-screen overview of ``issue``: meta, labels, assignees, comments."""
     meta = _require_mapping(
-        gh_runner.gh_json(["issue", "view", str(issue), "--json", _ISSUE_FIELDS], run_fn=run_fn),
+        gh_runner.with_rest_fallback(
+            lambda: gh_runner.gh_json(
+                ["issue", "view", str(issue), "--json", _ISSUE_FIELDS], run_fn=run_fn
+            ),
+            lambda: _rest_issue(issue, run_fn=run_fn),
+        ),
         f"Unexpected issue view response shape for issue {issue}.",
     )
     number = _required_number(meta.get("number"))

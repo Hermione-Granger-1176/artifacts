@@ -4,6 +4,8 @@ import json
 import re
 from pathlib import Path
 
+from scripts.gh import cli
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MAKEFILE_TEXT = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
 
@@ -50,6 +52,57 @@ def test_free_text_transport_avoids_make_argument_expansion() -> None:
     assert "--detail-file -" in target_recipe("ci-alert-issue")
     assert "--body-file -" in target_recipe("pr-create")
     assert "$(GH) comment" in target_recipe("pr-comment")
+
+
+GH_TARGET_COMMANDS = {
+    "pr-create": "pr-create",
+    "pr-list": "pr-list",
+    "pr-status": "pr-status",
+    "pr-checks": "pr-checks",
+    "pr-diff": "pr-diff",
+    "pr-checkout": "pr-checkout",
+    "pr-comments": "pr-comments",
+    "pr-merge": "pr-merge",
+    "pr-merge-admin": "pr-merge",
+    "pr-reviewers": "pr-reviewers",
+    "pr-label": "pr-label",
+    "pr-close": "pr-close",
+    "issue-list": "issue-list",
+    "issue-view": "issue-view",
+    "issue-create": "issue-create",
+    "issue-comment": "issue-comment",
+    "issue-edit": "issue-edit",
+    "issue-label": "issue-label",
+    "issue-unlabel": "issue-unlabel",
+    "issue-assign": "issue-assign",
+    "issue-unassign": "issue-unassign",
+    "issue-close": "issue-close",
+    "issue-reopen": "issue-reopen",
+    "issue-develop": "issue-develop",
+}
+
+
+def test_pr_and_issue_targets_use_the_tested_gh_helpers() -> None:
+    """GitHub targets go through scripts.gh so GraphQL-blocked sandboxes can fall back to REST."""
+    for target, command in GH_TARGET_COMMANDS.items():
+        assert f"$(GH) {command}" in target_recipe(target), target
+
+    assert not re.search(r"^\t[^#\n]*\bgh (?:pr|issue)\b", MAKEFILE_TEXT, re.MULTILINE)
+    assert "$(GH) current-pr" in MAKEFILE_TEXT
+
+
+def test_gh_helper_commands_in_the_makefile_exist() -> None:
+    """Every ``$(GH) <command>`` named in the Makefile is a registered helper subcommand."""
+    used = set(re.findall(r"\$\(GH\) ([a-z][a-z-]*)", MAKEFILE_TEXT))
+
+    assert used
+    assert used <= set(cli.COMMAND_HANDLERS)
+
+
+def test_thread_targets_accept_a_pr_number_for_numeric_ids() -> None:
+    """Numeric thread ids need the PR, so reply, resolve, and address forward pr_num."""
+    for target in ("pr-reply", "pr-resolve", "pr-address"):
+        assert '$(if $(pr_num),--pr "$(pr_num)")' in target_recipe(target), target
 
 
 def test_optional_prose_targets_do_not_read_a_terminal() -> None:
