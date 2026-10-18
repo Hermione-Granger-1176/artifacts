@@ -45,9 +45,13 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
+from scripts.lint import add_root_argument, report_violations, root_from_args
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # Directory (relative to the workspace root) that holds artifact directories.
 APPS_DIRNAME = "apps"
@@ -66,7 +70,7 @@ FONT_SIZE_PX_ALLOWLIST: dict[str, frozenset[str]] = {
 # scoped to the one stylesheet that owns each literal.
 LETTER_SPACING_ALLOWLIST: dict[str, frozenset[str]] = {
     # .pc h1 / .pc h2 heading tightening and .pc-section-num label tracking
-    "apps/prompt-caching/css/app.css": frozenset({"-0.02em", "-0.01em", "0.16em"}),
+    "apps/prompt-caching/css/app.css": frozenset({"-0.01em", "0.16em"}),
     # hero heading tightening
     "apps/tokenizer-explorer/css/app.css": frozenset({"-0.01em"}),
 }
@@ -566,28 +570,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Check app stylesheets stay on the shared design-token system."
     )
-    parser.add_argument(
-        "--root",
-        default=None,
-        help="Repository root (defaults to auto-detected REPO_ROOT)",
-    )
+    add_root_argument(parser)
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI entry point and return a shell exit code."""
     args = parse_args(argv)
-    workspace_root = Path(args.root) if args.root else REPO_ROOT
+    workspace_root = root_from_args(args)
     violations = run_check(workspace_root)
 
-    if not violations:
-        print("App CSS token check passed")
-        return 0
-
-    print(f"App CSS token check failed: {len(violations)} violation(s)")
-    for violation in violations:
-        print(f"  {violation}")
-    return 1
+    return report_violations("App CSS token", violations)
 
 
 if __name__ == "__main__":  # pragma: no cover

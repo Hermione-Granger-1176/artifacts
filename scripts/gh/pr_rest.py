@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from . import gh_runner
-from .gh_runner import GhError, RunFunction
+from .gh_runner import GhError, RunFunction, require_mapping
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -23,16 +23,9 @@ COPILOT_REVIEWER = "@copilot"
 COPILOT_REST_REVIEWER = "copilot-pull-request-reviewer[bot]"
 
 
-def _mapping(value: Any, message: str) -> dict[str, Any]:
-    """Return ``value`` as a mapping, raising ``GhError`` with ``message`` otherwise."""
-    if not isinstance(value, dict):
-        raise GhError(message)
-    return value
-
-
 def pull_request(slug: str, pr: int, *, run_fn: RunFunction | None = None) -> dict[str, Any]:
     """Return the REST pull-request object for ``pr``."""
-    return _mapping(
+    return require_mapping(
         gh_runner.rest(f"repos/{slug}/pulls/{pr}", run_fn=run_fn),
         f"Unexpected pull request response shape for PR {pr}.",
     )
@@ -96,7 +89,7 @@ def _latest_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _status_context(status: Any) -> dict[str, Any]:
     """Convert a REST commit status into a ``statusCheckRollup`` status-context entry."""
-    entry = _mapping(status, "Unexpected commit status shape in status response.")
+    entry = require_mapping(status, "Unexpected commit status shape in status response.")
     return {
         "context": entry.get("context"),
         "state": str(entry.get("state") or "").upper(),

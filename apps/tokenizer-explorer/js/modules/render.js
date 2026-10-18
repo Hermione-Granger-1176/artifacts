@@ -10,6 +10,20 @@ import {
 const CHIP_TONES = ["is-blue", "is-green", "is-amber", "is-purple", "is-red"];
 
 /**
+ * @param {string} token - Raw token text.
+ * @param {string} className - Chip classes, including its tone.
+ * @param {boolean} showWhitespace - Whether to draw whitespace as visible glyphs.
+ * @returns {HTMLElement} Token chip whose title keeps the raw token.
+ */
+function createTokenChip(token, className, showWhitespace) {
+  const chip = document.createElement("span");
+  chip.className = className;
+  chip.title = token;
+  chip.textContent = formatTokenForDisplay(token, showWhitespace);
+  return chip;
+}
+
+/**
  * @param {{ word: string }} winner - Highest-probability token.
  * @param {number} temperature - Sampling temperature.
  * @returns {string} Explanatory copy.
@@ -82,13 +96,9 @@ export function renderScenarioOptions(select, scenarios, activeIndex) {
 export function renderScenario(elements, scenario, chosenWord = null, showWhitespace = false) {
   elements.scenarioType.textContent = scenario.type;
   elements.sentencePrefix.replaceChildren(
-    ...splitPromptTokens(scenario.prefix).map((token, index) => {
-      const chip = document.createElement("span");
-      chip.className = `chip is-mono token-chip prompt-chip ${CHIP_TONES[index % CHIP_TONES.length]}`;
-      chip.title = token;
-      chip.textContent = formatTokenForDisplay(token, showWhitespace);
-      return chip;
-    })
+    ...splitPromptTokens(scenario.prefix).map((token, index) =>
+      createTokenChip(token, `chip is-mono token-chip prompt-chip ${CHIP_TONES[index % CHIP_TONES.length]}`, showWhitespace)
+    )
   );
   if (elements.sentenceCompletion) {
     elements.sentenceCompletion.textContent = chosenWord ?? "";
@@ -127,12 +137,8 @@ export function renderTokenExamples(container, showWhitespace) {
     const chips = document.createElement("div");
     chips.className = "token-chips";
     example.tokens.forEach((token, tokenIndex) => {
-      const chip = document.createElement("span");
       const tone = CHIP_TONES[(exampleIndex + tokenIndex) % CHIP_TONES.length];
-      chip.className = `chip is-mono token-chip ${tone}`;
-      chip.title = token;
-      chip.textContent = formatTokenForDisplay(token, showWhitespace);
-      chips.appendChild(chip);
+      chips.appendChild(createTokenChip(token, `chip is-mono token-chip ${tone}`, showWhitespace));
     });
 
     row.append(header, description, chips);

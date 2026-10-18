@@ -155,9 +155,7 @@
   .book-spine,
   .book-cast,
   .book-peel,
-  .book-inner::after,
-  .desk-notes-left,
-  .desk-notes-right {
+  .book-inner::after {
     display: none;
   }
 

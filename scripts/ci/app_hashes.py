@@ -17,7 +17,7 @@ from scripts.lib.app_discovery import (
     shared_app_runtime_paths,
 )
 from scripts.lib.artifact_contract import artifact_id_pattern
-from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
+from scripts.lib.path_validation import reject_path_symlinks, reject_symlinked_tree
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -110,6 +110,14 @@ def git_blob_hashes(
     return sorted(_parse_ls_files(result.stdout))
 
 
+def _records_digest(records: list[tuple[str, str]]) -> str:
+    """Return the SHA-256 digest over ordered ``(filename, blob hash)`` records."""
+    digest = hashlib.sha256()
+    for filename, blob_hash in records:
+        digest.update(f"{filename}\0{blob_hash}\n".encode())
+    return digest.hexdigest()
+
+
 def _shared_input_paths(repo_root: Path) -> list[str]:
     """Return common runtime, test-harness, and lockfile inputs for every app hash."""
     runtime_paths = [
@@ -134,9 +142,7 @@ def app_input_hashes(
     reject_path_symlinks(repo_root, label="Repository root")
     root = repo_root.resolve()
     apps_root = root / artifact_base_path()
-    reject_path_symlinks(apps_root, label="App root")
-    if apps_root.exists():
-        reject_symlinks(apps_root)
+    reject_symlinked_tree(apps_root, label="App root")
     selected_slugs = _validated_slugs(slugs, "App inputs must use valid artifact slugs")
     if not selected_slugs:
         return {}
@@ -151,10 +157,7 @@ def app_input_hashes(
         records = git_blob_hashes(
             [f"{artifact_base_path()}/{slug}"], repo_root=root, run_git_fn=run_git_fn
         )
-        digest = hashlib.sha256()
-        for filename, blob_hash in [*common_records, *records]:
-            digest.update(f"{filename}\0{blob_hash}\n".encode())
-        hashes[slug] = digest.hexdigest()
+        hashes[slug] = _records_digest([*common_records, *records])
     return hashes
 
 

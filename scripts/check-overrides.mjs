@@ -25,6 +25,38 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT_DIR = resolve(scriptDir, "..");
 const DEFAULT_PKG_PATH = join(DEFAULT_ROOT_DIR, "package.json");
 
+const INSTALL_COMMAND = "npm install --package-lock-only --ignore-scripts";
+
+/** Probe phases in run order, each with the npm command that exercises it. */
+const PROBE_PHASES = [
+  ["install", INSTALL_COMMAND],
+  ["audit", "npm audit --audit-level=high"],
+];
+
+/**
+ * Delete the named overrides from a package object in place, dropping the
+ * `overrides` key itself once none remain.
+ * @param {{ overrides: Record<string, unknown> }} pkg - Package object to mutate.
+ * @param {string[]} names - Override names to delete.
+ */
+function removeOverrides(pkg, names) {
+  for (const name of names) {
+    delete pkg.overrides[name];
+  }
+  if (Object.keys(pkg.overrides).length === 0) {
+    delete pkg.overrides;
+  }
+}
+
+/**
+ * Serialize a package object the way package.json is written on disk.
+ * @param {object} pkg - Package object.
+ * @returns {string} Two-space JSON with a trailing newline.
+ */
+function serializePackage(pkg) {
+  return `${JSON.stringify(pkg, null, 2)}\n`;
+}
+
 /**
  * Build the default npm-probing tester that installs and audits a package.json
  * with selected overrides removed. Kept separate so the decision logic can be
@@ -40,36 +72,53 @@ const DEFAULT_PKG_PATH = join(DEFAULT_ROOT_DIR, "package.json");
 export function makeTestWithout({ pkg, execSyncImpl, writeFileSyncImpl }) {
   return (overridesToRemove) => {
     const tmp = mkdtempSync(join(tmpdir(), "override-check-"));
-    const cleanup = () => rmSync(tmp, { recursive: true, force: true });
     const run = (cmd) => execSyncImpl(cmd, { cwd: tmp, stdio: "pipe", timeout: 120_000 });
 
     try {
       const testPkg = structuredClone(pkg);
-      for (const name of overridesToRemove) {
-        delete testPkg.overrides[name];
-      }
-      if (Object.keys(testPkg.overrides).length === 0) {
-        delete testPkg.overrides;
-      }
-      writeFileSyncImpl(join(tmp, "package.json"), `${JSON.stringify(testPkg, null, 2)}\n`);
+      removeOverrides(testPkg, overridesToRemove);
+      writeFileSyncImpl(join(tmp, "package.json"), serializePackage(testPkg));
 
-      try {
-        run("npm install --package-lock-only --ignore-scripts");
-      } catch (err) {
-        return { ok: false, phase: "install", err };
-      }
-
-      try {
-        run("npm audit --audit-level=high");
-      } catch (err) {
-        return { ok: false, phase: "audit", err };
+      for (const [phase, command] of PROBE_PHASES) {
+        try {
+          run(command);
+        } catch (err) {
+          return { ok: false, phase, err };
+        }
       }
 
       return { ok: true };
     } finally {
-      cleanup();
+      rmSync(tmp, { recursive: true, force: true });
     }
   };
+}
+
+/**
+ * Test each override on its own and sort the names by whether the install and
+ * audit still pass without that override. Logs one line per override.
+ * @param {string[]} names - Override names to probe.
+ * @param {(overridesToRemove: string[]) => { ok: boolean, phase?: string }} testWithout - Probe.
+ * @param {Console} consoleObj - Logger.
+ * @returns {{ removable: string[], needed: string[] }} Names that can go and names that must stay.
+ */
+function classifyOverrides(names, testWithout, consoleObj) {
+  const removable = [];
+  const needed = [];
+
+  for (const name of names) {
+    const result = testWithout([name]);
+    if (result.ok) {
+      consoleObj.log(`  ${name}: no longer needed`);
+      removable.push(name);
+    } else {
+      const reason = result.phase === "install" ? "peer dependency conflict" : "audit failure";
+      consoleObj.log(`  ${name}: still needed (${reason})`);
+      needed.push(name);
+    }
+  }
+
+  return { removable, needed };
 }
 
 /**
@@ -117,13 +166,14 @@ export function runOverrideCheck({
   }
   consoleObj.log("\nTesting whether they are still needed...\n");
 
-  const writeLockfile = () => {
+  const applyFix = (namesToRemove, summary) => {
+    removeOverrides(pkg, namesToRemove);
+    writeFileSyncImpl(pkgPath, serializePackage(pkg));
+    consoleObj.log(`\n${summary}`);
     consoleObj.log("Updating lockfile...");
-    execSyncImpl("npm install --package-lock-only --ignore-scripts", {
-      cwd: rootDir,
-      stdio: "inherit",
-    });
+    execSyncImpl(INSTALL_COMMAND, { cwd: rootDir, stdio: "inherit" });
     consoleObj.log("Done.");
+    return 0;
   };
 
   const allResult = testWithout(names);
@@ -134,11 +184,7 @@ export function runOverrideCheck({
     consoleObj.log("\nAll overrides are stale and can be removed.");
 
     if (fix) {
-      delete pkg.overrides;
-      writeFileSyncImpl(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
-      consoleObj.log("\nRemoved all overrides from package.json.");
-      writeLockfile();
-      return 0;
+      return applyFix(names, "Removed all overrides from package.json.");
     }
 
     consoleObj.log("Run with --fix to remove them automatically.");
@@ -147,20 +193,7 @@ export function runOverrideCheck({
 
   consoleObj.log("Cannot remove all overrides at once. Testing individually...\n");
 
-  const removable = [];
-  const needed = [];
-
-  for (const name of names) {
-    const result = testWithout([name]);
-    if (result.ok) {
-      consoleObj.log(`  ${name}: no longer needed`);
-      removable.push(name);
-    } else {
-      const reason = result.phase === "install" ? "peer dependency conflict" : "audit failure";
-      consoleObj.log(`  ${name}: still needed (${reason})`);
-      needed.push(name);
-    }
-  }
+  const { removable, needed } = classifyOverrides(names, testWithout, consoleObj);
 
   consoleObj.log("");
 
@@ -173,16 +206,7 @@ export function runOverrideCheck({
   consoleObj.log(`${needed.length} override(s) still needed: ${needed.join(", ")}`);
 
   if (fix) {
-    for (const name of removable) {
-      delete pkg.overrides[name];
-    }
-    if (Object.keys(pkg.overrides).length === 0) {
-      delete pkg.overrides;
-    }
-    writeFileSyncImpl(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
-    consoleObj.log(`\nRemoved ${removable.length} override(s) from package.json.`);
-    writeLockfile();
-    return 0;
+    return applyFix(removable, `Removed ${removable.length} override(s) from package.json.`);
   }
 
   consoleObj.log("\nRun with --fix to remove them automatically.");

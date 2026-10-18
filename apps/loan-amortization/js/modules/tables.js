@@ -1,3 +1,5 @@
+import { summarizeScheduleRows } from "./schedule-summary.js";
+
 /**
  * @typedef {{
  *   totalEmi: string,
@@ -73,7 +75,7 @@ export function renderPeriodTable(tbody, rows, formatCurrency) {
  * Render yearly rollups derived from the full amortization row set.
  *
  * @param {HTMLElement} tbody
- * @param {Array<{ balance: number, extra: number, interest: number, principal: number }>} rows
+ * @param {import('./amortization.js').ScheduleRow[]} rows
  * @param {number} principal
  * @param {number} periodsPerYear
  * @param {(value: number) => string} formatCurrency
@@ -91,19 +93,14 @@ export function renderYearlyTable(
 
   for (let year = 1; year <= totalYears; year += 1) {
     const start = (year - 1) * periodsPerYear;
-    const end = Math.min(year * periodsPerYear, rows.length);
-    let yearlyPrincipal = 0;
-    let yearlyInterest = 0;
-    let yearlyExtra = 0;
+    const yearRows = rows.slice(start, year * periodsPerYear);
     const openingBalance = start === 0 ? principal : rows[start - 1].balance;
-    let closingBalance = openingBalance;
-
-    for (const row of rows.slice(start, end)) {
-      yearlyPrincipal += row.principal;
-      yearlyInterest += row.interest;
-      yearlyExtra += row.extra;
-      closingBalance = row.balance;
-    }
+    const closingBalance = yearRows[yearRows.length - 1].balance;
+    const {
+      totalPrincipal: yearlyPrincipal,
+      totalInterest: yearlyInterest,
+      totalExtras: yearlyExtra
+    } = summarizeScheduleRows(yearRows);
 
     const tr = document.createElement("tr");
     tr.className = "year-row";

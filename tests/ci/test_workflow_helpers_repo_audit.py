@@ -6,6 +6,7 @@ import pytest
 
 import scripts.ci.repo_audit as repo_audit
 import scripts.ci.workflow_helpers as workflow_helpers
+from scripts.lib.github_output import report_checked
 
 
 def test_collect_named_items_rejects_non_lists_and_non_dict_entries() -> None:
@@ -1002,7 +1003,7 @@ def test_report_checked_is_a_noop_without_github_output(
     """Local command use does not require a GitHub Actions output file."""
     monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
 
-    workflow_helpers._report_checked("checked", True)
+    report_checked("checked", True)
 
 
 @pytest.mark.parametrize(

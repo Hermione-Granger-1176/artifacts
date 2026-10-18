@@ -46,6 +46,40 @@ def _labels_of(issue: dict[str, Any]) -> list[str]:
     return [str(as_object(label).get("name") or "") for label in labels] if labels else []
 
 
+def _flag(name: str, value: str | None) -> list[str]:
+    """Return ``[name, value]`` for a set option, or nothing when it is empty."""
+    return [name, value] if value else []
+
+
+def _print_issue_rows(slug: str, issues: list[dict[str, Any]]) -> None:
+    """Print issues as tab-separated rows the way ``gh issue list`` does."""
+    if not issues:
+        print(f"No issues match your search in {slug}", file=sys.stderr)
+    for issue in issues:
+        labels_text = ", ".join(_labels_of(issue))
+        state_text = str(issue.get("state") or "").upper()
+        print(f"{issue.get('number')}\t{state_text}\t{issue.get('title')}\t{labels_text}")
+
+
+def _list_filters(
+    state: str | None,
+    labels: str | None,
+    assignee: str | None,
+    author: str | None,
+    *,
+    run_fn: RunFunction | None,
+) -> dict[str, object]:
+    """Return the REST query fields for the ``list_issues`` filters."""
+    fields: dict[str, object] = {"state": state or "open"}
+    if labels:
+        fields["labels"] = ",".join(split_list(labels))
+    if assignee:
+        fields["assignee"] = _login(assignee, run_fn=run_fn)
+    if author:
+        fields["creator"] = _login(author, run_fn=run_fn)
+    return fields
+
+
 def list_issues(
     *,
     state: str | None = None,
@@ -62,19 +96,16 @@ def list_issues(
     directly. With it, the fallback sends the filters and the search text
     through the REST search endpoint, which some sandboxes do not expose.
     """
-    args = ["issue", "list"]
-    if state:
-        args += ["--state", state]
-    if labels:
-        args += ["--label", labels]
-    for assignee in assignees or []:
-        args += ["--assignee", assignee]
-    if author:
-        args += ["--author", author]
-    if limit is not None:
-        args += ["--limit", str(limit)]
-    if search:
-        args += ["--search", search]
+    args = [
+        "issue",
+        "list",
+        *_flag("--state", state),
+        *_flag("--label", labels),
+        *(part for assignee in assignees or [] for part in ("--assignee", assignee)),
+        *_flag("--author", author),
+        *_flag("--limit", None if limit is None else str(limit)),
+        *_flag("--search", search),
+    ]
 
     # gh's --assignee is a single-value flag, so a repeated one keeps the last value.
     last_assignee = assignees[-1] if assignees else None
@@ -95,26 +126,14 @@ def list_issues(
                 run_fn=run_fn,
             )
         else:
-            fields: dict[str, object] = {"state": state or "open"}
-            if labels:
-                fields["labels"] = ",".join(split_list(labels))
-            if last_assignee:
-                fields["assignee"] = _login(last_assignee, run_fn=run_fn)
-            if author:
-                fields["creator"] = _login(author, run_fn=run_fn)
             issues = gh_runner.rest_pages(
                 f"repos/{slug}/issues",
-                fields=fields,
+                fields=_list_filters(state, labels, last_assignee, author, run_fn=run_fn),
                 limit=count,
                 accept=lambda item: "pull_request" not in item,
                 run_fn=run_fn,
             )
-        if not issues:
-            print(f"No issues match your search in {slug}", file=sys.stderr)
-        for issue in issues:
-            labels_text = ", ".join(_labels_of(issue))
-            state_text = str(issue.get("state") or "").upper()
-            print(f"{issue.get('number')}\t{state_text}\t{issue.get('title')}\t{labels_text}")
+        _print_issue_rows(slug, issues)
         return 0
 
     return gh_runner.gh_or_rest(args, list_with_rest, run_fn=run_fn)
@@ -157,9 +176,7 @@ def view_issue(issue: int, *, run_fn: RunFunction | None = None) -> int:
         print(raw.get("html_url"))
         if raw.get("body"):
             print(f"\n{raw['body']}")
-        for comment in gh_runner.rest_pages(f"{path}/comments", run_fn=run_fn):
-            author = as_object(comment.get("user")).get("login", "unknown")
-            print(f"\n--\ncomment by @{author}\n{comment.get('body') or ''}")
+        gh_runner.print_rest_comments(gh_runner.rest_pages(f"{path}/comments", run_fn=run_fn))
         return 0
 
     return gh_runner.gh_or_rest(

@@ -190,6 +190,15 @@ def load_makefile_targets(path: Path | None = None) -> set[str]:
     return parse_makefile_targets(makefile_path.read_text(encoding="utf-8"))
 
 
+def _inline_code_snippets(line: str, line_number: int) -> list[CodeSnippet]:
+    """Return the non-blank backticked spans on one line, with their start columns."""
+    return [
+        CodeSnippet(line_number=line_number, text=match.group(1), column_start=match.start())
+        for match in INLINE_CODE_PATTERN.finditer(line)
+        if match.group(1).strip()
+    ]
+
+
 def extract_markdown_code_snippets(text: str) -> list[CodeSnippet]:
     """Extract inline-code and fenced-code snippets from Markdown text."""
     snippets: list[CodeSnippet] = []
@@ -205,16 +214,7 @@ def extract_markdown_code_snippets(text: str) -> list[CodeSnippet]:
                 snippets.append(CodeSnippet(line_number=line_number, text=snippet))
             continue
 
-        for match in INLINE_CODE_PATTERN.finditer(line):
-            snippet = match.group(1)
-            if snippet.strip():
-                snippets.append(
-                    CodeSnippet(
-                        line_number=line_number,
-                        text=snippet,
-                        column_start=match.start(),
-                    )
-                )
+        snippets.extend(_inline_code_snippets(line, line_number))
     return snippets
 
 
@@ -228,16 +228,7 @@ def extract_source_code_snippets(text: str) -> list[CodeSnippet]:
     """
     snippets: list[CodeSnippet] = []
     for line_number, line in enumerate(text.splitlines(), start=1):
-        for match in INLINE_CODE_PATTERN.finditer(line):
-            snippet = match.group(1)
-            if snippet.strip():
-                snippets.append(
-                    CodeSnippet(
-                        line_number=line_number,
-                        text=snippet,
-                        column_start=match.start(),
-                    )
-                )
+        snippets.extend(_inline_code_snippets(line, line_number))
     return snippets
 
 

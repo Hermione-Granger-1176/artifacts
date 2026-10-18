@@ -154,6 +154,37 @@ function initStepper() {
     /** @type {unknown} */ ({ title: null, body: null })
   );
 
+  /**
+   * @typedef {{ id: string, label: string, rows: number[][] }} MatrixSpec
+   */
+
+  /**
+   * Draw `a × b = out` into the step frame and make each output cell show the
+   * dot product behind it.
+   * @param {MatrixSpec} a - Left operand.
+   * @param {MatrixSpec} b - Right operand.
+   * @param {MatrixSpec} out - Product.
+   * @returns {void}
+   */
+  function renderMatrixProduct(a, b, out) {
+    const row = makeEl("div", "pc-attn-matrices");
+    row.append(
+      buildMatrix(a.id, a.label, a.rows.map(fmtRow), false),
+      opNode("×"),
+      buildMatrix(b.id, b.label, b.rows.map(fmtRow), false),
+      opNode("="),
+      buildMatrix(out.id, out.label, out.rows.map(fmtRow), true)
+    );
+    frame.body.appendChild(row);
+    defaultHint(dot);
+    bindClickable(visual, out.id, (r, c) => {
+      showMatrixProduct(visual, dot,
+        { aId: a.id, bId: b.id, outId: out.id },
+        { r, c },
+        { a: a.rows, b: b.rows, result: out.rows });
+    });
+  }
+
   const steps = [
     {
       title: "1. Compute Q and K",
@@ -210,15 +241,11 @@ function initStepper() {
           controls.appendChild(scrambleBtn);
           frame.body.appendChild(controls);
 
-          const row = makeEl("div", "pc-attn-matrices");
-          row.append(
-            buildMatrix("emb1", "embeddings", ATTN_DATA.emb.map(fmtRow), false),
-            opNode("×"),
-            buildMatrix("W1", scrambled ? "random W" : `W${mode}`, live.W.map(fmtRow), false),
-            opNode("="),
-            buildMatrix("out1", scrambled ? `${mode} (garbage)` : mode, live.out.map(fmtRow), true)
+          renderMatrixProduct(
+            { id: "emb1", label: "embeddings", rows: ATTN_DATA.emb },
+            { id: "W1", label: scrambled ? "random W" : `W${mode}`, rows: live.W },
+            { id: "out1", label: scrambled ? `${mode} (garbage)` : mode, rows: live.out }
           );
-          frame.body.appendChild(row);
 
           if (scrambled) {
             frame.body.appendChild(makeEl(
@@ -227,14 +254,6 @@ function initStepper() {
               `Random weights produce a meaningless ${mode}. Training nudges the weights until the outputs become useful. This scramble stays in this step: steps 2 to 5 keep using the trained weights, and picking W${mode} above restores them here too.`
             ));
           }
-
-          defaultHint(dot);
-          bindClickable(visual, "out1", (r, c) => {
-            showMatrixProduct(visual, dot,
-              { aId: "emb1", bId: "W1", outId: "out1" },
-              { r, c },
-              { a: ATTN_DATA.emb, b: live.W, result: live.out });
-          });
         }
 
         draw();
@@ -245,22 +264,11 @@ function initStepper() {
       desc: "Multiply Q by the transpose of K. The result is a score for every pair of tokens. Click any score cell to see the exact dot product that produced it.",
       head: "scores = Q × Kᵀ",
       render() {
-        const row = makeEl("div", "pc-attn-matrices");
-        row.append(
-          buildMatrix("Q2", "Q", ATTN_DATA.Q.map(fmtRow), false),
-          opNode("×"),
-          buildMatrix("Kt2", "Kᵀ", ATTN_DATA.Kt.map(fmtRow), false),
-          opNode("="),
-          buildMatrix("scores2", "scores", ATTN_DATA.scores.map(fmtRow), true)
+        renderMatrixProduct(
+          { id: "Q2", label: "Q", rows: ATTN_DATA.Q },
+          { id: "Kt2", label: "Kᵀ", rows: ATTN_DATA.Kt },
+          { id: "scores2", label: "scores", rows: ATTN_DATA.scores }
         );
-        frame.body.appendChild(row);
-        defaultHint(dot);
-        bindClickable(visual, "scores2", (r, c) => {
-          showMatrixProduct(visual, dot,
-            { aId: "Q2", bId: "Kt2", outId: "scores2" },
-            { r, c },
-            { a: ATTN_DATA.Q, b: ATTN_DATA.Kt, result: ATTN_DATA.scores });
-        });
       }
     },
     {
@@ -354,22 +362,11 @@ function initStepper() {
       desc: "Multiply the attention weights by V. Click any output cell to see the weighted sum of V values that produced it.",
       head: "output = weights × V",
       render() {
-        const row = makeEl("div", "pc-attn-matrices");
-        row.append(
-          buildMatrix("wt5", "weights", ATTN_DATA.weights.map(fmtRow), false),
-          opNode("×"),
-          buildMatrix("V5", "V", ATTN_DATA.V.map(fmtRow), false),
-          opNode("="),
-          buildMatrix("out5", "output", ATTN_DATA.output.map(fmtRow), true)
+        renderMatrixProduct(
+          { id: "wt5", label: "weights", rows: ATTN_DATA.weights },
+          { id: "V5", label: "V", rows: ATTN_DATA.V },
+          { id: "out5", label: "output", rows: ATTN_DATA.output }
         );
-        frame.body.appendChild(row);
-        defaultHint(dot);
-        bindClickable(visual, "out5", (r, c) => {
-          showMatrixProduct(visual, dot,
-            { aId: "wt5", bId: "V5", outId: "out5" },
-            { r, c },
-            { a: ATTN_DATA.weights, b: ATTN_DATA.V, result: ATTN_DATA.output });
-        });
       }
     }
   ];

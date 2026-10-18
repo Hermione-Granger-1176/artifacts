@@ -115,6 +115,66 @@ function keyValueTable(doc, pairs, className) {
 }
 
 /**
+ * Build a table head or foot holding a single row.
+ * @param {Document} doc - Owning document.
+ * @param {"thead" | "tfoot"} sectionTag - Section element.
+ * @param {"th" | "td"} cellTag - Cell element.
+ * @param {Array<[className: string, text: string]>} cells - Class and text per cell.
+ * @returns {HTMLElement} The section.
+ */
+function singleRowSection(doc, sectionTag, cellTag, cells) {
+  const section = make(doc, sectionTag);
+  const row = make(doc, "tr");
+
+  for (const [className, text] of cells) {
+    row.appendChild(make(doc, cellTag, className, text));
+  }
+
+  section.appendChild(row);
+  return section;
+}
+
+/**
+ * Render a line-item or ledger table, tagging each cell with its row-scoped field.
+ * @param {Document} doc - Owning document.
+ * @param {import("./document-model.js").TableBlock} block - Table block.
+ * @returns {HTMLElement} The table.
+ */
+function renderTableBlock(doc, block) {
+  const table = make(doc, "table", block.dense ? "vd-items is-dense" : "vd-items");
+  /** @param {number} index - Column index. @returns {string} Alignment class for that column. */
+  const alignClass = (index) => `is-${block.columns[index]?.align ?? "left"}`;
+
+  table.appendChild(
+    singleRowSection(doc, "thead", "th", block.columns.map((column) => [`is-${column.align}`, column.label]))
+  );
+
+  const body = make(doc, "tbody");
+
+  block.rows.forEach((row, rowIndex) => {
+    const tableRow = make(doc, "tr");
+    row.forEach((cell, index) => {
+      const column = block.fields?.[index];
+      // Row-scoped fields are addressed the way a consumer indexes them:
+      // `line_items.2.amount` points at exactly one cell on exactly one page.
+      const field = block.rowScope && column ? `${block.rowScope}.${rowIndex}.${column}` : null;
+      tableRow.appendChild(tag(make(doc, "td", alignClass(index), cell), field, cell));
+    });
+    body.appendChild(tableRow);
+  });
+
+  table.appendChild(body);
+
+  if (block.footer) {
+    table.appendChild(
+      singleRowSection(doc, "tfoot", "td", block.footer.map((cell, index) => [alignClass(index), cell]))
+    );
+  }
+
+  return table;
+}
+
+/**
  * Build the vendor logo lockup for a vendor's chosen treatment.
  * @param {Document} doc - Owning document.
  * @param {Vendor} vendor - Vendor whose logo to draw.
@@ -193,15 +253,9 @@ function renderBlock(doc, block) {
 
     case "partypair": {
       const table = make(doc, "table", "vd-partypair");
-      const head = make(doc, "thead");
-      const headRow = make(doc, "tr");
-
-      for (const heading of block.headings) {
-        headRow.appendChild(make(doc, "th", "vd-partypair-head", heading));
-      }
-
-      head.appendChild(headRow);
-      table.appendChild(head);
+      table.appendChild(
+        singleRowSection(doc, "thead", "th", block.headings.map((heading) => ["vd-partypair-head", heading]))
+      );
 
       const body = make(doc, "tbody");
       const bodyRow = make(doc, "tr");
@@ -217,48 +271,8 @@ function renderBlock(doc, block) {
       return table;
     }
 
-    case "table": {
-      const table = make(doc, "table", block.dense ? "vd-items is-dense" : "vd-items");
-      const head = make(doc, "thead");
-      const headRow = make(doc, "tr");
-
-      for (const column of block.columns) {
-        headRow.appendChild(make(doc, "th", `is-${column.align}`, column.label));
-      }
-
-      head.appendChild(headRow);
-      table.appendChild(head);
-
-      const body = make(doc, "tbody");
-
-      block.rows.forEach((row, rowIndex) => {
-        const tableRow = make(doc, "tr");
-        row.forEach((cell, index) => {
-          const align = block.columns[index]?.align ?? "left";
-          const column = block.fields?.[index];
-          // Row-scoped fields are addressed the way a consumer indexes them:
-          // `line_items.2.amount` points at exactly one cell on exactly one page.
-          const field = block.rowScope && column ? `${block.rowScope}.${rowIndex}.${column}` : null;
-          tableRow.appendChild(tag(make(doc, "td", `is-${align}`, cell), field, cell));
-        });
-        body.appendChild(tableRow);
-      });
-
-      table.appendChild(body);
-
-      if (block.footer) {
-        const foot = make(doc, "tfoot");
-        const footRow = make(doc, "tr");
-        block.footer.forEach((cell, index) => {
-          const align = block.columns[index]?.align ?? "left";
-          footRow.appendChild(make(doc, "td", `is-${align}`, cell));
-        });
-        foot.appendChild(footRow);
-        table.appendChild(foot);
-      }
-
-      return table;
-    }
+    case "table":
+      return renderTableBlock(doc, block);
 
     case "totals": {
       const wrapper = make(doc, "div", "vd-totals-row");

@@ -12,6 +12,7 @@ import json
 import sys
 from dataclasses import asdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from . import (
     ci_status,
@@ -24,6 +25,10 @@ from . import (
     pr_watch,
 )
 from .gh_runner import GhError
+
+if TYPE_CHECKING:
+    # The private type argparse returns from add_subparsers.
+    type _Subparsers = argparse._SubParsersAction[argparse.ArgumentParser]
 
 
 def _add_body_options(parser: argparse.ArgumentParser, *, required: bool = True) -> None:
@@ -55,20 +60,37 @@ def _add_thread_options(parser: argparse.ArgumentParser) -> None:
     _add_pr_option(parser)
 
 
+def _add_json_option(parser: argparse.ArgumentParser) -> None:
+    """Add the ``--json`` flag for machine-readable output."""
+    parser.add_argument(
+        "--json", action="store_true", dest="as_json", help="Emit machine-readable JSON"
+    )
+
+
 def _add_issue_option(parser: argparse.ArgumentParser) -> None:
     """Add the required ``--issue`` number option."""
     parser.add_argument("--issue", type=int, required=True, help="Issue number")
 
 
+def _read_text_option(path: str, option: str) -> str:
+    """Return the text of the file an option names (``-`` reads stdin)."""
+    if path == "-":
+        return sys.stdin.read()
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise GhError(f"Could not read {option} {path}: {exc}") from exc
+
+
+def _has_body(args: argparse.Namespace) -> bool:
+    """Return whether ``--body`` or ``--body-file`` was given."""
+    return args.body is not None or args.body_file is not None
+
+
 def _body_text(args: argparse.Namespace) -> str:
     """Return the body text from ``--body`` or ``--body-file`` (``-`` reads stdin)."""
     if args.body_file is not None:
-        if args.body_file == "-":
-            return sys.stdin.read()
-        try:
-            return Path(args.body_file).read_text(encoding="utf-8")
-        except OSError as exc:
-            raise GhError(f"Could not read --body-file {args.body_file}: {exc}") from exc
+        return _read_text_option(args.body_file, "--body-file")
     return str(args.body)
 
 
@@ -77,18 +99,23 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="gh-helper", description="GitHub pull-request and CI helper commands"
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+    _add_review_and_ci_commands(subparsers)
+    _add_pr_commands(subparsers)
+    _add_issue_commands(subparsers)
+    return parser
 
+
+def _add_review_and_ci_commands(subparsers: _Subparsers) -> None:
+    """Add the review-thread, PR overview, watch, CI, and commit-message commands."""
     list_parser = subparsers.add_parser("list", help="List pull-request review threads")
-    list_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
+    _add_pr_option(list_parser)
     list_parser.add_argument(
         "--all",
         action="store_true",
         dest="include_resolved",
         help="Include resolved threads",
     )
-    list_parser.add_argument(
-        "--json", action="store_true", dest="as_json", help="Emit machine-readable JSON"
-    )
+    _add_json_option(list_parser)
 
     reply_parser = subparsers.add_parser("reply", help="Reply to a review thread by id")
     _add_thread_options(reply_parser)
@@ -106,10 +133,8 @@ def _build_parser() -> argparse.ArgumentParser:
     list_comments_parser = subparsers.add_parser(
         "list-comments", help="List individual review comments with node ids"
     )
-    list_comments_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
-    list_comments_parser.add_argument(
-        "--json", action="store_true", dest="as_json", help="Emit machine-readable JSON"
-    )
+    _add_pr_option(list_comments_parser)
+    _add_json_option(list_comments_parser)
 
     delete_comment_parser = subparsers.add_parser(
         "delete-comment", help="Delete a review comment by its node id"
@@ -119,25 +144,25 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     comment_parser = subparsers.add_parser("comment", help="Add a PR-level comment")
-    comment_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
+    _add_pr_option(comment_parser)
     _add_body_options(comment_parser)
 
     edit_pr_parser = subparsers.add_parser("edit-pr", help="Edit a PR title and/or body")
-    edit_pr_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
+    _add_pr_option(edit_pr_parser)
     edit_pr_parser.add_argument("--title", help="New PR title")
     _add_body_options(edit_pr_parser, required=False)
 
     summary_parser = subparsers.add_parser("summary", help="One-screen PR overview")
-    summary_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
+    _add_pr_option(summary_parser)
 
     issue_summary_parser = subparsers.add_parser("issue-summary", help="One-screen issue overview")
-    issue_summary_parser.add_argument("--issue", type=int, required=True, help="Issue number")
+    _add_issue_option(issue_summary_parser)
 
     watch_parser = subparsers.add_parser(
         "watch",
         help="Observe the latest Copilot review and successful checks",
     )
-    watch_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
+    _add_pr_option(watch_parser)
     watch_parser.add_argument(
         "--interval",
         type=float,
@@ -179,7 +204,7 @@ def _build_parser() -> argparse.ArgumentParser:
     copilot_parser = subparsers.add_parser(
         "copilot-review", help="Request a Copilot code review on the PR"
     )
-    copilot_parser.add_argument("--pr", type=int, help="PR number (default: current branch)")
+    _add_pr_option(copilot_parser)
 
     check_commit_parser = subparsers.add_parser(
         "check-commit-message",
@@ -193,6 +218,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("current-pr", help="Print the current branch's PR number")
 
+
+def _add_pr_commands(subparsers: _Subparsers) -> None:
+    """Add the pull-request lifecycle commands."""
     pr_create_parser = subparsers.add_parser("pr-create", help="Open a pull request")
     pr_create_parser.add_argument("--base", help="Base branch (default: the repository default)")
     pr_create_parser.add_argument(
@@ -253,6 +281,9 @@ def _build_parser() -> argparse.ArgumentParser:
     pr_close_parser = subparsers.add_parser("pr-close", help="Close a PR and delete its branch")
     _add_pr_option(pr_close_parser)
 
+
+def _add_issue_commands(subparsers: _Subparsers) -> None:
+    """Add the issue commands."""
     issue_list_parser = subparsers.add_parser("issue-list", help="List issues")
     issue_list_parser.add_argument("--state", help="open, closed, or all")
     issue_list_parser.add_argument("--label", help="Comma-separated labels")
@@ -315,8 +346,6 @@ def _build_parser() -> argparse.ArgumentParser:
         "--base", help="Base branch (default: the repository default)"
     )
     issue_develop_parser.add_argument("--name", help="Branch name (default: from the issue)")
-
-    return parser
 
 
 def _handle_list(args: argparse.Namespace) -> int:
@@ -434,13 +463,7 @@ def _handle_copilot_review(args: argparse.Namespace) -> int:
 
 def _handle_check_commit_message(args: argparse.Namespace) -> int:
     """Validate a commit message and reject leaked shell fragments."""
-    if args.message_file == "-":
-        message = sys.stdin.read()
-    else:
-        try:
-            message = Path(args.message_file).read_text(encoding="utf-8")
-        except OSError as exc:
-            raise GhError(f"Could not read --message-file {args.message_file}: {exc}") from exc
+    message = _read_text_option(args.message_file, "--message-file")
     try:
         commit_message.validate_commit_message(message)
     except ValueError as exc:
@@ -457,10 +480,10 @@ def _handle_current_pr(_args: argparse.Namespace) -> int:
 def _handle_pr_create(args: argparse.Namespace) -> int:
     """Open a pull request, with commit-filled text unless a title is given."""
     if args.title is None:
-        if args.body is not None or args.body_file is not None:
+        if _has_body(args):
             raise GhError("A PR body needs a --title; without one the text is filled from commits.")
         return pr_commands.create_pr(base=args.base)
-    body = _body_text(args) if args.body is not None or args.body_file is not None else ""
+    body = _body_text(args) if _has_body(args) else ""
     return pr_commands.create_pr(title=args.title, base=args.base, body=body)
 
 
@@ -545,9 +568,8 @@ def _handle_issue_comment(args: argparse.Namespace) -> int:
 
 def _handle_issue_edit(args: argparse.Namespace) -> int:
     """Edit an issue's title and/or body."""
-    has_body = args.body is not None or args.body_file is not None
     return issue_commands.edit_issue(
-        args.issue, title=args.title, body=_body_text(args) if has_body else None
+        args.issue, title=args.title, body=_body_text(args) if _has_body(args) else None
     )
 
 

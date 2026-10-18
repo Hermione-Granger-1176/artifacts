@@ -11,7 +11,13 @@ from functools import cache
 from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
-from scripts.lint import iter_lint_paths, resolve_requested_paths
+from scripts.lint import (
+    add_paths_argument,
+    iter_lint_paths,
+    print_failures,
+    requested_or_default_paths,
+    resolve_requested_paths,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -178,16 +184,8 @@ def _leading_whitespace(line: str) -> str:
     return line[: len(line) - len(line.lstrip(" \t"))]
 
 
-def check_file(path: Path, relative_path: str, settings: dict[str, str]) -> list[str]:
-    """Return all supported EditorConfig violations for one file."""
-    try:
-        text = _decode_text_file(path)
-    except UnicodeDecodeError as exc:
-        return [f"{relative_path}: not valid UTF-8 text ({exc.reason})"]
-
-    if text is None:
-        return []
-
+def _file_violations(text: str, relative_path: str, settings: dict[str, str]) -> list[str]:
+    """Return line-ending and final-newline violations for one decoded file."""
     violations: list[str] = []
     if settings.get("end_of_line") == "lf" and "\r" in text:
         violations.append(f"{relative_path}: expected LF line endings")
@@ -199,12 +197,16 @@ def check_file(path: Path, relative_path: str, settings: dict[str, str]) -> list
             violations.append(f"{relative_path}: missing final newline")
         case "false" if has_final_newline:
             violations.append(f"{relative_path}: unexpected final newline")
+    return violations
 
-    lines = text.splitlines()
+
+def _line_violations(text: str, relative_path: str, settings: dict[str, str]) -> list[str]:
+    """Return trailing-whitespace and indentation violations for each line."""
+    violations: list[str] = []
     trim_trailing_whitespace = settings.get("trim_trailing_whitespace") == "true"
     indent_style = settings.get("indent_style")
 
-    for line_number, line in enumerate(lines, start=1):
+    for line_number, line in enumerate(text.splitlines(), start=1):
         if trim_trailing_whitespace and line.rstrip(" \t") != line:
             violations.append(f"{relative_path}:{line_number}: trailing whitespace")
 
@@ -217,8 +219,23 @@ def check_file(path: Path, relative_path: str, settings: dict[str, str]) -> list
                 violations.append(f"{relative_path}:{line_number}: tab used for indentation")
             case "tab" if leading and not leading.startswith("\t"):
                 violations.append(f"{relative_path}:{line_number}: spaces used for indentation")
-
     return violations
+
+
+def check_file(path: Path, relative_path: str, settings: dict[str, str]) -> list[str]:
+    """Return all supported EditorConfig violations for one file."""
+    try:
+        text = _decode_text_file(path)
+    except UnicodeDecodeError as exc:
+        return [f"{relative_path}: not valid UTF-8 text ({exc.reason})"]
+
+    if text is None:
+        return []
+
+    return [
+        *_file_violations(text, relative_path, settings),
+        *_line_violations(text, relative_path, settings),
+    ]
 
 
 def run_check(paths: list[Path] | None = None, root: Path | None = None) -> list[str]:
@@ -237,24 +254,16 @@ def run_check(paths: list[Path] | None = None, root: Path | None = None) -> list
     return violations
 
 
+FAILURE_HEADER = "EditorConfig check failed:"
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments for the editorconfig checker."""
     parser = argparse.ArgumentParser(
         description="Check covered repository files against supported .editorconfig rules."
     )
-    parser.add_argument(
-        "paths",
-        nargs="*",
-        help="Optional repository-relative file paths to check",
-    )
+    add_paths_argument(parser, "Optional repository-relative file paths to check")
     return parser.parse_args(argv)
-
-
-def print_failures(messages: list[str]) -> None:
-    """Print EditorConfig failures with consistent CI-friendly context."""
-    print("EditorConfig check failed:")
-    for message in messages:
-        print(f"  {message}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -263,13 +272,15 @@ def main(argv: list[str] | None = None) -> int:
     workspace_root = REPO_ROOT
     sections = load_editorconfig(workspace_root / ".editorconfig")
 
-    if not args.paths:
-        candidate_paths = iter_workspace_files(workspace_root)
-    else:
-        candidate_paths, path_errors = resolve_requested_paths(args.paths, workspace_root)
-        if path_errors:
-            print_failures(path_errors)
-            return 1
+    candidate_paths = requested_or_default_paths(
+        args.paths,
+        workspace_root,
+        default_paths=iter_workspace_files,
+        resolve=resolve_requested_paths,
+        failure_header=FAILURE_HEADER,
+    )
+    if candidate_paths is None:
+        return 1
 
     checked_paths = [
         path
@@ -282,7 +293,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"EditorConfig check passed for {len(checked_paths)} file(s)")
         return 0
 
-    print_failures(violations)
+    print_failures(FAILURE_HEADER, violations)
     return 1
 
 

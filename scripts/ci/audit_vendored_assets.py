@@ -33,6 +33,8 @@ from scripts.ci.security_audit_policy import (
     VENDORED_EXCEPTIONS_KEY,
     VulnerabilityExceptionEntry,
     load_security_audit_exceptions,
+    report_audit_outcome,
+    unused_exception_errors,
 )
 from scripts.lint.check_vendored_assets import VendoredAsset, _load_manifest
 
@@ -410,11 +412,7 @@ def audit_findings(
         else:
             ignored.append((finding, exception))
 
-    errors.extend(
-        f"Unused vendored vulnerability exception: {exception.package} {exception.vulnerability_id}"
-        for exception in exceptions
-        if exception.key not in matched_keys
-    )
+    errors.extend(unused_exception_errors(exceptions, matched_keys, "vendored"))
     return tuple(ignored), tuple(errors)
 
 
@@ -444,22 +442,17 @@ def main(argv: list[str] | None = None) -> int:
 
     ignored, errors = audit_findings(today=date.today(), exceptions=exceptions, findings=findings)
 
-    if ignored:
-        print("Reviewed vendored vulnerability exceptions:")
-        for finding, exception in ignored:
-            label = f"{finding.package} {finding.version} {finding.advisory_id}"
-            print(f"- {label} (review by {exception.review_by.isoformat()})")
-            print(f"  reason: {exception.reason}")
-
-    if errors:
-        print("Vendored dependency audit failed:")
-        for error in errors:
-            print(f"- {error}")
-        return 1
-
     checked = len({(asset.package, asset.version) for asset in assets})
-    print(f"Vendored dependency audit passed. Package versions checked: {checked}.")
-    return 0
+    return report_audit_outcome(
+        ecosystem="vendored",
+        audit_name="Vendored dependency audit",
+        ignored=[
+            (f"{finding.package} {finding.version} {finding.advisory_id}", exception)
+            for finding, exception in ignored
+        ],
+        errors=errors,
+        pass_message=f"Vendored dependency audit passed. Package versions checked: {checked}.",
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -31,12 +31,11 @@ function initCacheAnimation() {
    * @param {string[]} vectors - Stable vectors generated for this animation run.
    */
   function renderCacheRows(target, vectors) {
+    clear(target);
     if (step < 0) {
-      clear(target);
       target.appendChild(makeEl("span", "pc-empty", "Empty, press Play"));
       return;
     }
-    clear(target);
     for (let i = 0; i <= step; i += 1) {
       const row = makeEl("div", `cache-row${i === step ? " is-new" : ""}`);
       row.appendChild(makeEl("span", "tok-name", CACHE_TOKENS[i]));
@@ -78,10 +77,15 @@ function initCacheAnimation() {
     }
   }
 
-  function play() {
+  function stopTimer() {
     if (timer) {
       clearInterval(timer);
+      timer = null;
     }
+  }
+
+  function play() {
+    stopTimer();
     step = -1;
     keyVectors = CACHE_TOKENS.map(randomVec);
     valueVectors = CACHE_TOKENS.map(randomVec);
@@ -91,18 +95,14 @@ function initCacheAnimation() {
       step += 1;
       renderState();
       if (step >= CACHE_TOKENS.length - 1) {
-        clearInterval(/** @type {number} */ (timer));
-        timer = null;
+        stopTimer();
         playBtn.disabled = false;
       }
     }, STEP_INTERVAL_MS);
   }
 
   function reset() {
-    if (timer) {
-      clearInterval(timer);
-      timer = null;
-    }
+    stopTimer();
     step = -1;
     playBtn.disabled = false;
     renderState();

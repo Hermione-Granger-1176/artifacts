@@ -151,6 +151,58 @@ function applyAxes(scales, palette, periodLabel, formatDollarTick, options = {})
 }
 
 /**
+ * @param {import("chart.js").TooltipItem<"line" | "bar">} context - Tooltip item.
+ * @returns {string} "Series: $1,234" tooltip label.
+ */
+function dollarTooltipLabel(context) {
+  return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
+}
+
+/**
+ * Options shared by the line and bar charts: responsive, no legend, dollar tooltips.
+ * @param {object} scales - Axis skeletons that applyAxes fills in later.
+ * @param {object} [plugins={}] - Extra plugin options.
+ * @returns {object} Chart options.
+ */
+function dollarChartOptions(scales, plugins = {}) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      ...plugins,
+      tooltip: { callbacks: { label: dollarTooltipLabel } }
+    },
+    scales
+  };
+}
+
+/**
+ * A filled, point-free line series; colors are set on each sync.
+ * @param {string} label - Series label.
+ * @param {number} borderWidth - Line width.
+ * @param {object} [extra={}] - Extra dataset options.
+ * @returns {object} Dataset config.
+ */
+function areaDataset(label, borderWidth, extra = {}) {
+  return { label, data: [], fill: true, pointRadius: 0, borderWidth, tension: 0.3, ...extra };
+}
+
+/**
+ * Point one dataset at new data and colors.
+ * @param {import("chart.js").ChartDataset} dataset - Dataset to update.
+ * @param {number[]} data - Values.
+ * @param {string} borderColor - Line color.
+ * @param {string} backgroundColor - Fill color.
+ * @returns {void}
+ */
+function paintDataset(dataset, data, borderColor, backgroundColor) {
+  dataset.data = data;
+  dataset.borderColor = borderColor;
+  dataset.backgroundColor = backgroundColor;
+}
+
+/**
  * @param {HTMLCanvasElement} canvas - Target canvas element.
  * @returns {ChartInstance} The created chart.
  */
@@ -160,44 +212,14 @@ function createBalanceChart(canvas) {
     data: {
       labels: [],
       datasets: [
-        {
-          label: "Without extras",
-          data: [],
-          fill: true,
-          pointRadius: 0,
-          borderWidth: 2,
-          tension: 0.3,
-          borderDash: [6, 3]
-        },
-        {
-          label: "With extras",
-          data: [],
-          fill: true,
-          pointRadius: 0,
-          borderWidth: 2.5,
-          tension: 0.3
-        }
+        areaDataset("Without extras", 2, { borderDash: [6, 3] }),
+        areaDataset("With extras", 2.5)
       ]
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
-            label(context) {
-              return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
-            }
-          }
-        }
-      },
-      scales: {
-        x: { title: {}, ticks: {}, grid: {} },
-        y: { title: {}, ticks: {}, grid: {} }
-      }
-    }
+    options: dollarChartOptions({
+      x: { title: {}, ticks: {}, grid: {} },
+      y: { title: {}, ticks: {}, grid: {} }
+    })
   });
 }
 
@@ -210,12 +232,9 @@ function createBalanceChart(canvas) {
 function syncBalanceChart(chart, state, formatDollarTick) {
   const { base, extra, maxPeriods, lineLabels, palette, periodLabel } = state;
   chart.data.labels = lineLabels;
-  chart.data.datasets[0].data = pad(base.balances, maxPeriods);
-  chart.data.datasets[0].borderColor = palette.blue;
-  chart.data.datasets[0].backgroundColor = palette.blueA(0.08);
-  chart.data.datasets[1].data = pad(extra.balances, maxPeriods);
-  chart.data.datasets[1].borderColor = palette.green;
-  chart.data.datasets[1].backgroundColor = palette.greenA(0.08);
+  const [withoutExtras, withExtras] = chart.data.datasets;
+  paintDataset(withoutExtras, pad(base.balances, maxPeriods), palette.blue, palette.blueA(0.08));
+  paintDataset(withExtras, pad(extra.balances, maxPeriods), palette.green, palette.greenA(0.08));
   applyAxes(chart.options.scales, palette, periodLabel, formatDollarTick, {
     yTitle: "Balance"
   });
@@ -237,25 +256,10 @@ function createComparisonChart(canvas) {
         { label: "Extras", data: [] }
       ]
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            /** @param {import("chart.js").TooltipItem<"bar">} context - Tooltip item. */
-            label(context) {
-              return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
-            }
-          }
-        }
-      },
-      scales: {
-        x: { ticks: {}, grid: {} },
-        y: { ticks: {}, grid: {} }
-      }
-    }
+    options: dollarChartOptions({
+      x: { ticks: {}, grid: {} },
+      y: { ticks: {}, grid: {} }
+    })
   });
 }
 
@@ -423,52 +427,18 @@ function createCumulativeChart(canvas) {
     data: {
       labels: [],
       datasets: [
-        {
-          label: "Cumulative principal",
-          data: [],
-          fill: true,
-          pointRadius: 0,
-          borderWidth: 2,
-          tension: 0.3
-        },
-        {
-          label: "Cumulative extras",
-          data: [],
-          fill: true,
-          pointRadius: 0,
-          borderWidth: 2,
-          tension: 0.3
-        },
-        {
-          label: "Cumulative interest",
-          data: [],
-          fill: true,
-          pointRadius: 0,
-          borderWidth: 2,
-          tension: 0.3
-        }
+        areaDataset("Cumulative principal", 2),
+        areaDataset("Cumulative extras", 2),
+        areaDataset("Cumulative interest", 2)
       ]
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        annotation: { annotations: {} },
-        tooltip: {
-          callbacks: {
-            /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
-            label(context) {
-              return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
-            }
-          }
-        }
-      },
-      scales: {
+    options: dollarChartOptions(
+      {
         x: { title: {}, ticks: {}, grid: {} },
         y: { ticks: {}, grid: {} }
-      }
-    }
+      },
+      { annotation: { annotations: {} } }
+    )
   });
 }
 
@@ -481,15 +451,10 @@ function createCumulativeChart(canvas) {
 function syncCumulativeChart(chart, state, formatDollarTick) {
   const { extra, palette, periodLabel } = state;
   chart.data.labels = extra.rows.map((row) => row.period);
-  chart.data.datasets[0].data = extra.cumulativePrincipal;
-  chart.data.datasets[0].borderColor = palette.blue;
-  chart.data.datasets[0].backgroundColor = palette.blueA(0.1);
-  chart.data.datasets[1].data = extra.cumulativeExtra;
-  chart.data.datasets[1].borderColor = palette.green;
-  chart.data.datasets[1].backgroundColor = palette.greenA(0.1);
-  chart.data.datasets[2].data = extra.cumulativeInterest;
-  chart.data.datasets[2].borderColor = palette.red;
-  chart.data.datasets[2].backgroundColor = palette.redA(0.1);
+  const [principalSeries, extraSeries, interestSeries] = chart.data.datasets;
+  paintDataset(principalSeries, extra.cumulativePrincipal, palette.blue, palette.blueA(0.1));
+  paintDataset(extraSeries, extra.cumulativeExtra, palette.green, palette.greenA(0.1));
+  paintDataset(interestSeries, extra.cumulativeInterest, palette.red, palette.redA(0.1));
   /** @type {Record<string, unknown>} */ (chart.options.plugins).annotation = state.annotation;
   applyAxes(chart.options.scales, palette, periodLabel, formatDollarTick);
   chart.update();
@@ -505,54 +470,15 @@ function createPeriodChart(canvas) {
     data: {
       labels: [],
       datasets: [
-        {
-          label: "Principal",
-          data: [],
-          fill: true,
-          pointRadius: 0,
-          borderWidth: 1.5,
-          tension: 0.3,
-          order: 3
-        },
-        {
-          label: "Extra payment",
-          data: [],
-          fill: true,
-          pointRadius: 0,
-          borderWidth: 1.5,
-          tension: 0.3,
-          order: 2
-        },
-        {
-          label: "Interest",
-          data: [],
-          fill: true,
-          pointRadius: 0,
-          borderWidth: 1.5,
-          tension: 0.3,
-          order: 1
-        }
+        areaDataset("Principal", 1.5, { order: 3 }),
+        areaDataset("Extra payment", 1.5, { order: 2 }),
+        areaDataset("Interest", 1.5, { order: 1 })
       ]
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
-            label(context) {
-              return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
-            }
-          }
-        }
-      },
-      scales: {
-        x: { title: {}, ticks: {}, grid: {} },
-        y: { ticks: {}, grid: {} }
-      }
-    }
+    options: dollarChartOptions({
+      x: { title: {}, ticks: {}, grid: {} },
+      y: { ticks: {}, grid: {} }
+    })
   });
 }
 
@@ -565,15 +491,10 @@ function createPeriodChart(canvas) {
 function syncPeriodChart(chart, state, formatDollarTick) {
   const { extra, palette, periodLabel } = state;
   chart.data.labels = extra.rows.map((row) => row.period);
-  chart.data.datasets[0].data = extra.principalParts;
-  chart.data.datasets[0].borderColor = palette.blue;
-  chart.data.datasets[0].backgroundColor = palette.blueA(0.4);
-  chart.data.datasets[1].data = extra.extraParts;
-  chart.data.datasets[1].borderColor = palette.green;
-  chart.data.datasets[1].backgroundColor = palette.greenA(0.4);
-  chart.data.datasets[2].data = extra.interestParts;
-  chart.data.datasets[2].borderColor = palette.red;
-  chart.data.datasets[2].backgroundColor = palette.redA(0.45);
+  const [principalSeries, extraSeries, interestSeries] = chart.data.datasets;
+  paintDataset(principalSeries, extra.principalParts, palette.blue, palette.blueA(0.4));
+  paintDataset(extraSeries, extra.extraParts, palette.green, palette.greenA(0.4));
+  paintDataset(interestSeries, extra.interestParts, palette.red, palette.redA(0.45));
   applyAxes(chart.options.scales, palette, periodLabel, formatDollarTick, {
     stackedY: true
   });

@@ -88,6 +88,21 @@ export function updateBiweeklyMode(elements, frequency, bwMode) {
 }
 
 /**
+ * Show one of two panels and mark its toggle button active.
+ *
+ * @param {[HTMLElement, HTMLElement]} panels - First and second panel.
+ * @param {[HTMLElement, HTMLElement]} buttons - Toggle buttons in the same order.
+ * @param {boolean} showFirst - Whether the first panel is the visible one.
+ * @returns {void}
+ */
+function showFirstPanel([firstPanel, secondPanel], [firstButton, secondButton], showFirst) {
+  firstPanel.hidden = !showFirst;
+  secondPanel.hidden = showFirst;
+  firstButton.classList.toggle("active", showFirst);
+  secondButton.classList.toggle("active", !showFirst);
+}
+
+/**
  * Switch between chart and table views.
  *
  * @param {Record<string, HTMLElement>} elements
@@ -95,11 +110,11 @@ export function updateBiweeklyMode(elements, frequency, bwMode) {
  * @returns {void}
  */
 export function setViewMode(elements, mode) {
-  const showCharts = mode === "charts";
-  elements.chartsWrap.hidden = !showCharts;
-  elements.tableWrap.hidden = showCharts;
-  elements.btnCharts.classList.toggle("active", showCharts);
-  elements.btnTable.classList.toggle("active", !showCharts);
+  showFirstPanel(
+    [elements.chartsWrap, elements.tableWrap],
+    [elements.btnCharts, elements.btnTable],
+    mode === "charts"
+  );
 }
 
 /**
@@ -110,11 +125,11 @@ export function setViewMode(elements, mode) {
  * @returns {void}
  */
 export function setTableMode(elements, mode) {
-  const showPeriod = mode === "period";
-  elements.periodTableWrap.hidden = !showPeriod;
-  elements.yearlyTableWrap.hidden = showPeriod;
-  elements.btnPeriod.classList.toggle("active", showPeriod);
-  elements.btnYearly.classList.toggle("active", !showPeriod);
+  showFirstPanel(
+    [elements.periodTableWrap, elements.yearlyTableWrap],
+    [elements.btnPeriod, elements.btnYearly],
+    mode === "period"
+  );
 }
 
 /**

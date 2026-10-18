@@ -180,6 +180,53 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
   }
 
   /**
+   * Keep a decorative copy of page content away from assistive tech and focus.
+   * @param {HTMLElement} element - Decorative element.
+   */
+  function hideDecorative(element) {
+    element.setAttribute('aria-hidden', 'true');
+    element.inert = true;
+  }
+
+  /**
+   * Create a turn record whose cleanup runs once: it stops the tween, then
+   * removes whatever the turn added to the page.
+   * @param {{ target: number, mobile: boolean, selected: boolean, release: () => void }} options - Turn target, layout, selection state, and the turn-specific teardown.
+   * @returns {Turn} The turn record.
+   */
+  function createTurn({ target, mobile, selected, release }) {
+    /** @type {Turn} */
+    const turn = {
+      target,
+      mobile,
+      selected,
+      aborted: false,
+      done: false,
+      frameId: null,
+      cancelTween: () => undefined,
+      cleanup: () => {
+        if (turn.done) {
+          return;
+        }
+
+        turn.done = true;
+        turn.cancelTween();
+        release();
+      }
+    };
+    return turn;
+  }
+
+  /**
+   * The newest page the page model has been told about but the book may not
+   * show yet: a queued request, else the selected turn in flight.
+   * @returns {number | null} That page, or null when nothing is in flight.
+   */
+  function latestSelectedTarget() {
+    return pendingTarget ?? (active && active.selected ? active.target : null);
+  }
+
+  /**
    * Return the elements a page turn needs, or null when the book cannot animate
    * (not yet open, intro still running, or markup missing).
    * @returns {TurnParts | null} Turn elements.
@@ -309,10 +356,8 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     leaf.appendChild(frontFace);
     leaf.appendChild(backFace);
     ghost.appendChild(under);
-    for (const element of [leaf, ghost]) {
-      element.setAttribute('aria-hidden', 'true');
-      element.inert = true;
-    }
+    hideDecorative(leaf);
+    hideDecorative(ghost);
 
     const leafParts = {
       leaf,
@@ -329,22 +374,11 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     sheet.classList.add('is-turning');
     setLeafProgress(leafParts, 0);
 
-    /** @type {LeafTurn} */
-    const turn = {
+    const turn = createTurn({
       target,
       mobile: false,
       selected,
-      aborted: false,
-      done: false,
-      frameId: null,
-      cancelTween: () => undefined,
-      cleanup: () => {
-        if (turn.done) {
-          return;
-        }
-
-        turn.done = true;
-        turn.cancelTween();
+      release: () => {
         leaf.remove();
         ghost.remove();
         for (const cast of [leafParts.castLeft, leafParts.castRight]) {
@@ -353,11 +387,10 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
           }
         }
         sheet.classList.remove('is-turning');
-      },
-      leaf: leafParts
-    };
+      }
+    });
 
-    return turn;
+    return Object.assign(turn, { leaf: leafParts });
   }
 
   /**
@@ -376,8 +409,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     }
 
     const inside = /** @type {HTMLElement} */ (liveLeft.cloneNode(true));
-    inside.setAttribute('aria-hidden', 'true');
-    inside.inert = true;
+    hideDecorative(inside);
     endpaper.appendChild(inside);
     state.insidePage = inside;
   }
@@ -410,7 +442,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
    * latest requested page with no leaf or inline style left behind.
    */
   function settle() {
-    const finalTarget = pendingTarget ?? (active && active.selected ? active.target : null);
+    const finalTarget = latestSelectedTarget();
     pendingTarget = null;
     abortActive();
     if (finalTarget !== null && finalTarget !== pages.getShownPage()) {
@@ -456,26 +488,15 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     const fadeOut = mobile ? MOBILE_FADE_MS : REDUCED_FADE_OUT_MS;
     const fadeIn = mobile ? MOBILE_FADE_MS : REDUCED_FADE_IN_MS;
 
-    /** @type {Turn} */
-    const turn = {
+    const turn = createTurn({
       target,
       mobile,
       selected: true,
-      aborted: false,
-      done: false,
-      frameId: null,
-      cancelTween: () => undefined,
-      cleanup: () => {
-        if (turn.done) {
-          return;
-        }
-
-        turn.done = true;
-        turn.cancelTween();
+      release: () => {
         surface.style.opacity = '';
         sheet.classList.remove('is-turning');
       }
-    };
+    });
 
     /** @param {number} value - Surface opacity. */
     const setOpacity = (value) => {
@@ -643,7 +664,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       return;
     }
 
-    const latest = pendingTarget ?? (active && active.selected ? active.target : pages.getShownPage());
+    const latest = latestSelectedTarget() ?? pages.getShownPage();
     const target = zone.side === 'right' ? latest + 1 : latest - 1;
     if (target < 1 || target > pages.getPageCount()) {
       return;

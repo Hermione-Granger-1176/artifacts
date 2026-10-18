@@ -30,6 +30,27 @@ export function splitPathspec(input) {
 }
 
 /**
+ * Decide which paths one `git diff --name-status` line deletes and adds.
+ * @param {string} line - One tab-separated diff line.
+ * @param {(filePath: string) => boolean} canReadPayload - Whether a path's content is readable.
+ * @returns {{ deleted?: string, added?: string }} Paths to delete and add; empty when the line is skipped.
+ */
+function classifyDiffLine(line, canReadPayload) {
+  const [status = "", path1, path2] = line.split("\t");
+
+  switch (status.charAt(0)) {
+    case "R":
+      return path1 && path2 && canReadPayload(path2) ? { deleted: path1, added: path2 } : {};
+    case "C":
+      return path2 && canReadPayload(path2) ? { added: path2 } : {};
+    case "D":
+      return path1 ? { deleted: path1 } : {};
+    default:
+      return path1 && canReadPayload(path1) ? { added: path1 } : {};
+  }
+}
+
+/**
  * Parse `git diff --name-status` output into additions and deletions for the GraphQL API.
  * @param {string} diffOutput - Raw output from `git diff --name-status`.
  * @param {{
@@ -45,46 +66,22 @@ export function parseDiffOutput(diffOutput, { existsSync, readFileSync, readStag
   const deletions = [];
   const readFileForPayload = readStagedFileSync || readFileSync;
   const canReadPayload = (filePath) => (readStagedFileSync ? true : existsSync(filePath));
-  const createAddition = (filePath) => ({
-    path: filePath,
-    contents: readFileForPayload(filePath).toString("base64"),
-  });
+  const trimmedOutput = diffOutput.trim();
 
-  if (!diffOutput.trim()) {
+  if (!trimmedOutput) {
     return { additions, deletions };
   }
 
-  for (const line of diffOutput.trim().split("\n")) {
-    const [status = "", path1, path2] = line.split("\t");
-    const code = status.charAt(0);
-
-    switch (code) {
-      case "R":
-        if (path1 && path2 && canReadPayload(path2)) {
-          deletions.push({ path: path1 });
-          additions.push(createAddition(path2));
-        }
-        continue;
-
-      case "C":
-        if (path2 && canReadPayload(path2)) {
-          additions.push(createAddition(path2));
-        }
-        continue;
-
-      case "D":
-        if (!path1) {
-          continue;
-        }
-        deletions.push({ path: path1 });
-        continue;
-
-      default:
-        if (!path1 || !canReadPayload(path1)) {
-          continue;
-        }
-
-        additions.push(createAddition(path1));
+  for (const line of trimmedOutput.split("\n")) {
+    const { deleted, added } = classifyDiffLine(line, canReadPayload);
+    if (deleted) {
+      deletions.push({ path: deleted });
+    }
+    if (added) {
+      additions.push({
+        path: added,
+        contents: readFileForPayload(added).toString("base64"),
+      });
     }
   }
 
@@ -258,9 +255,7 @@ export function createApiClients({ owner, repo, token, fetchDependencies }) {
     );
 
   return {
-    async fetchJson(url, options = {}) {
-      return fetchWithHeaders(url, options);
-    },
+    fetchJson: fetchWithHeaders,
 
     async graphql(query, variables) {
       const response = await fetchWithHeaders("https://api.github.com/graphql", {
@@ -278,6 +273,125 @@ export function createApiClients({ owner, repo, token, fetchDependencies }) {
     owner,
     repo,
   };
+}
+
+/**
+ * Create a verified commit on a branch via the GraphQL API.
+ * @param {{ graphql: (query: string, variables: object) => Promise<object>, owner: string, repo: string }} clients - API clients.
+ * @param {{
+ *   branchName: string,
+ *   headSha: string,
+ *   headline: string,
+ *   fileChanges: { additions: object[], deletions: object[] }
+ * }} commit - Target branch, expected HEAD OID, message headline, and file payloads.
+ * @returns {Promise<{ oid: string, url: string }>} Created commit metadata.
+ */
+async function createCommitOnBranch(clients, { branchName, headSha, headline, fileChanges }) {
+  const data = await clients.graphql(CREATE_COMMIT_MUTATION, {
+    input: {
+      branch: {
+        repositoryNameWithOwner: `${clients.owner}/${clients.repo}`,
+        branchName,
+      },
+      expectedHeadOid: headSha,
+      message: { headline },
+      fileChanges,
+    },
+  });
+
+  return data.createCommitOnBranch.commit;
+}
+
+/**
+ * Create the fallback branch at `sha`, or force-reset it there when it exists.
+ *
+ * The race guard handles another run creating the branch between the
+ * existence check and the POST. Only "Reference already exists" 422s are
+ * recovered; all other errors propagate.
+ * @param {{ fetchJson: (url: string, options?: RequestInit) => Promise<object | null>, owner: string, repo: string }} clients - API clients.
+ * @param {string} fallbackBranch - Fallback branch name.
+ * @param {string} sha - Commit the branch must point at.
+ * @returns {Promise<void>}
+ */
+async function resetFallbackBranch(clients, fallbackBranch, sha) {
+  const fullRef = `refs/heads/${fallbackBranch}`;
+  const refsUrl = `https://api.github.com/repos/${clients.owner}/${clients.repo}/git/refs`;
+
+  const matchingRefs = await clients.fetchJson(
+    `https://api.github.com/repos/${clients.owner}/${clients.repo}/git/matching-refs/heads/${fallbackBranch}`,
+  );
+  const branchExists = matchingRefs.some((ref) => ref.ref === fullRef);
+
+  const needsReset =
+    branchExists ||
+    (await clients
+      .fetchJson(refsUrl, {
+        method: "POST",
+        body: JSON.stringify({ ref: fullRef, sha }),
+      })
+      .then(
+        () => false,
+        (error) => {
+          if (!isRefAlreadyExistsError(error)) {
+            throw error;
+          }
+          return true;
+        },
+      ));
+
+  if (needsReset) {
+    await clients.fetchJson(`${refsUrl}/heads/${fallbackBranch}`, {
+      method: "PATCH",
+      body: JSON.stringify({ sha, force: true }),
+    });
+  }
+}
+
+/**
+ * Reuse or reopen the fallback branch's pull request, or open a new one.
+ * @param {{ fetchJson: (url: string, options?: RequestInit) => Promise<object | null>, owner: string, repo: string }} clients - API clients.
+ * @param {{ fallbackBranch: string, baseBranch: string, title: string, body: string, consoleObj: Console }} pull - Branch names, PR text, and logger.
+ * @returns {Promise<string>} HTML URL of the pull request.
+ */
+async function openFallbackPullRequest(
+  clients,
+  { fallbackBranch, baseBranch, title, body, consoleObj },
+) {
+  const { owner, repo } = clients;
+  const pullsApiUrl = `https://api.github.com/repos/${owner}/${repo}/pulls`;
+
+  const pullsUrl = new URL(pullsApiUrl);
+  pullsUrl.search = new URLSearchParams({
+    state: "all",
+    head: `${owner}:${fallbackBranch}`,
+  }).toString();
+  const reusablePull = selectReusablePull(await clients.fetchJson(pullsUrl.toString()));
+
+  if (reusablePull) {
+    if (reusablePull.state !== "open") {
+      await clients.fetchJson(`${pullsApiUrl}/${reusablePull.number}`, {
+        method: "PATCH",
+        body: JSON.stringify({ state: "open" }),
+      });
+      consoleObj.log(`Reopened closed fallback PR: ${reusablePull.html_url}`);
+    } else {
+      consoleObj.log(`Updated existing PR: ${reusablePull.html_url}`);
+    }
+    return reusablePull.html_url;
+  }
+
+  const pullRequest = await clients.fetchJson(pullsApiUrl, {
+    method: "POST",
+    body: JSON.stringify({
+      title,
+      body,
+      head: fallbackBranch,
+      base: baseBranch,
+    }),
+  });
+
+  consoleObj.log(`Created PR: ${pullRequest.html_url}`);
+  return pullRequest.html_url;
 }
 
 /**
@@ -352,30 +466,21 @@ export async function runVerifiedCommit({
 
   const clients = createApiClients({ owner, repo, token, fetchDependencies });
 
-  const createCommit = async (branchName, headSha, headline) => {
-    const data = await clients.graphql(CREATE_COMMIT_MUTATION, {
-      input: {
-        branch: {
-          repositoryNameWithOwner: `${owner}/${repo}`,
-          branchName,
-        },
-        expectedHeadOid: headSha,
-        message: { headline },
-        fileChanges: { additions, deletions },
-      },
-    });
-
-    return data.createCommitOnBranch.commit;
-  };
-
   const validModes = new Set(["direct", "force-pr", "direct-or-pr"]);
   if (!validModes.has(commitMode)) {
     throw new Error(`Unsupported commit mode: ${commitMode}`);
   }
 
+  const fileChanges = { additions, deletions };
+
   if (commitMode !== "force-pr") {
     try {
-      const commit = await createCommit(baseBranch, expectedHeadSha, commitHeadline);
+      const commit = await createCommitOnBranch(clients, {
+        branchName: baseBranch,
+        headSha: expectedHeadSha,
+        headline: commitHeadline,
+        fileChanges,
+      });
       consoleObj.log(`Created verified commit: ${commit.url}`);
       setOutput("result-url", commit.url);
       return { changed: true, resultUrl: commit.url };
@@ -390,86 +495,25 @@ export async function runVerifiedCommit({
   }
 
   const fallbackBranch = createBranchName(fallbackBranchPrefix, now);
-  const fullRef = `refs/heads/${fallbackBranch}`;
-  const refsUrl = `https://api.github.com/repos/${owner}/${repo}/git/refs`;
+  await resetFallbackBranch(clients, fallbackBranch, expectedHeadSha);
 
-  const matchingRefs = await clients.fetchJson(
-    `https://api.github.com/repos/${owner}/${repo}/git/matching-refs/heads/${fallbackBranch}`,
-  );
-  const branchExists = matchingRefs.some((ref) => ref.ref === fullRef);
-
-  // Create or force-reset the fallback branch to the current base.
-  // The race guard handles another run creating the branch between our
-  // existence check and the POST. Only "Reference already exists" 422s
-  // are recovered; all other errors propagate.
-  const needsReset =
-    branchExists ||
-    (await clients
-      .fetchJson(refsUrl, {
-        method: "POST",
-        body: JSON.stringify({ ref: fullRef, sha: expectedHeadSha }),
-      })
-      .then(
-        () => false,
-        (error) => {
-          if (!isRefAlreadyExistsError(error)) {
-            throw error;
-          }
-          return true;
-        },
-      ));
-
-  if (needsReset) {
-    await clients.fetchJson(`${refsUrl}/heads/${fallbackBranch}`, {
-      method: "PATCH",
-      body: JSON.stringify({ sha: expectedHeadSha, force: true }),
-    });
-  }
-
-  const fallbackCommit = await createCommit(
-    fallbackBranch,
-    expectedHeadSha,
-    commitHeadline.replace(" [skip ci]", ""),
-  );
+  const fallbackCommit = await createCommitOnBranch(clients, {
+    branchName: fallbackBranch,
+    headSha: expectedHeadSha,
+    headline: commitHeadline.replace(" [skip ci]", ""),
+    fileChanges,
+  });
   consoleObj.log(`Created verified fallback commit: ${fallbackCommit.url}`);
 
-  const pullsUrl = new URL(`https://api.github.com/repos/${owner}/${repo}/pulls`);
-  pullsUrl.search = new URLSearchParams({
-    state: "all",
-    head: `${owner}:${fallbackBranch}`,
-  }).toString();
-  const reusablePull = selectReusablePull(await clients.fetchJson(pullsUrl.toString()));
-
-  if (reusablePull) {
-    if (reusablePull.state !== "open") {
-      await clients.fetchJson(
-        `https://api.github.com/repos/${owner}/${repo}/pulls/${reusablePull.number}`,
-        { method: "PATCH", body: JSON.stringify({ state: "open" }) },
-      );
-      consoleObj.log(`Reopened closed fallback PR: ${reusablePull.html_url}`);
-    } else {
-      consoleObj.log(`Updated existing PR: ${reusablePull.html_url}`);
-    }
-    setOutput("result-url", reusablePull.html_url);
-    return { changed: true, resultUrl: reusablePull.html_url };
-  }
-
-  const pullRequest = await clients.fetchJson(
-    `https://api.github.com/repos/${owner}/${repo}/pulls`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        title: prTitle,
-        body: prBody,
-        head: fallbackBranch,
-        base: baseBranch,
-      }),
-    },
-  );
-
-  consoleObj.log(`Created PR: ${pullRequest.html_url}`);
-  setOutput("result-url", pullRequest.html_url);
-  return { changed: true, resultUrl: pullRequest.html_url };
+  const pullRequestUrl = await openFallbackPullRequest(clients, {
+    fallbackBranch,
+    baseBranch,
+    title: prTitle,
+    body: prBody,
+    consoleObj,
+  });
+  setOutput("result-url", pullRequestUrl);
+  return { changed: true, resultUrl: pullRequestUrl };
 }
 
 if (isCliEntrypoint(import.meta.url)) {

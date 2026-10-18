@@ -365,10 +365,6 @@ body.app-tokenizer-explorer .tk-cut-label {
   grid-column: 1 / -1;
 }
 
-body.app-tokenizer-explorer .tk-cut-label[hidden] {
-  display: none;
-}
-
 body.app-tokenizer-explorer .tk-cut-label::before,
 body.app-tokenizer-explorer .tk-cut-label::after {
   flex: 1;

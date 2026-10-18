@@ -436,33 +436,33 @@ def _read_source_html(source_html: str) -> str:
     return source_path.read_text(encoding="utf-8")
 
 
+def _print_warning(summary: str, items: Iterable[str]) -> None:
+    """Print a warning to standard error, then one bullet per item, or nothing without items."""
+    item_list = list(items)
+    if not item_list:
+        return
+    print(summary, file=sys.stderr)
+    for item in item_list:
+        print(f"  - {item}", file=sys.stderr)
+
+
 def _report_external_references(references: Iterable[str]) -> None:
     """Print an actionable warning about off-origin references."""
-    reference_list = list(references)
-    if not reference_list:
-        return
-    print(
+    _print_warning(
         "Warning: the provided HTML references off-origin resources. The "
         "self-only Content-Security-Policy will block them and the security "
         "lint will fail. Vendor them under js/vendor/ or remove them:",
-        file=sys.stderr,
+        references,
     )
-    for reference in reference_list:
-        print(f"  - {reference}", file=sys.stderr)
 
 
 def _report_csp_violations(violations: Iterable[str]) -> None:
     """Print an actionable warning about a Content-Security-Policy the lint rejects."""
-    violation_list = list(violations)
-    if not violation_list:
-        return
-    print(
+    _print_warning(
         "Warning: the provided HTML keeps its own Content-Security-Policy, and it does "
         "not meet the artifact contract. The security lint will fail until you fix it:",
-        file=sys.stderr,
+        violations,
     )
-    for violation in violation_list:
-        print(f"  - {violation}", file=sys.stderr)
 
 
 def _resolve_index_html(title: str, name: str, source_html: str | None) -> str:
@@ -474,6 +474,33 @@ def _resolve_index_html(title: str, name: str, source_html: str | None) -> str:
     page = apply_contract_to_source(provided)
     _report_csp_violations(policy_violations(page))
     return page
+
+
+def _scaffold_files(
+    artifact_dir: Path,
+    tests_dir: Path,
+    *,
+    name: str,
+    title: str,
+    index_html: str,
+    drop_in: bool,
+) -> dict[Path, str]:
+    """Return every file a new artifact starts with, mapped to its contents."""
+    docs_dir = artifact_dir / "docs"
+    return {
+        artifact_dir / INDEX_FILE: index_html,
+        artifact_dir / "css" / "app.css": _app_css_template(title),
+        artifact_dir / "js" / "app.js": _app_js_template(),
+        tests_dir / "app.test.js": _app_test_template(name, title),
+        artifact_dir / "README.md": _readme_template(title, drop_in=drop_in),
+        docs_dir / "architecture.md": _doc_template(title, "Architecture"),
+        docs_dir / "verification.md": _doc_template(title, "Verification"),
+        docs_dir / "decisions.md": _doc_template(title, "Decisions"),
+        artifact_dir / NAME_FILE: title + "\n",
+        artifact_dir / DESCRIPTION_FILE: "\n",
+        artifact_dir / TAGS_FILE: "\n",
+        artifact_dir / TOOLS_FILE: "\n",
+    }
 
 
 def scaffold_artifact(name: str, *, source_html: str | None = None) -> Path:
@@ -503,29 +530,17 @@ def scaffold_artifact(name: str, *, source_html: str | None = None) -> Path:
     artifact_dir.mkdir()
     tests_dir = TESTS_JS_APPS_DIR / name
     tests_dir.mkdir(parents=True, exist_ok=True)
-    (artifact_dir / "css").mkdir()
-    (artifact_dir / "js").mkdir()
-    (artifact_dir / "docs").mkdir()
-    (artifact_dir / INDEX_FILE).write_text(index_html, encoding="utf-8")
-    (artifact_dir / "css" / "app.css").write_text(_app_css_template(title), encoding="utf-8")
-    (artifact_dir / "js" / "app.js").write_text(_app_js_template(), encoding="utf-8")
-    (tests_dir / "app.test.js").write_text(_app_test_template(name, title), encoding="utf-8")
-    (artifact_dir / "README.md").write_text(
-        _readme_template(title, drop_in=source_html is not None), encoding="utf-8"
+    files = _scaffold_files(
+        artifact_dir,
+        tests_dir,
+        name=name,
+        title=title,
+        index_html=index_html,
+        drop_in=source_html is not None,
     )
-    (artifact_dir / "docs" / "architecture.md").write_text(
-        _doc_template(title, "Architecture"), encoding="utf-8"
-    )
-    (artifact_dir / "docs" / "verification.md").write_text(
-        _doc_template(title, "Verification"), encoding="utf-8"
-    )
-    (artifact_dir / "docs" / "decisions.md").write_text(
-        _doc_template(title, "Decisions"), encoding="utf-8"
-    )
-    (artifact_dir / NAME_FILE).write_text(title + "\n", encoding="utf-8")
-    (artifact_dir / DESCRIPTION_FILE).write_text("\n", encoding="utf-8")
-    (artifact_dir / TAGS_FILE).write_text("\n", encoding="utf-8")
-    (artifact_dir / TOOLS_FILE).write_text("\n", encoding="utf-8")
+    for path, text in files.items():
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(text, encoding="utf-8")
     return artifact_dir
 
 

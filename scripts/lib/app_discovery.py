@@ -166,37 +166,52 @@ def shared_module_consumers(repo_root: Path = Path()) -> dict[str, set[str]]:
     if modules_root.exists():
         reject_symlinks(modules_root)
 
-    modules: dict[str, set[str]] = {}
-    for path in shared_app_runtime_paths(root):
-        if not path.is_file():
-            continue
-        relative_path = path.relative_to(root).as_posix()
-        if not relative_path.startswith(SHARED_APP_MODULES_PREFIX):
-            continue
-        modules[relative_path] = set()
-
+    modules: dict[str, set[str]] = {
+        relative_path: set() for relative_path in _shared_module_paths(root)
+    }
     for slug in discover_app_slugs(apps_root):
-        app_dir = apps_root / slug
-        app_js_root = (app_dir / "js").resolve()
-        pending = _script_sources(app_dir / "index.html", root)
-        visited: set[Path] = set()
-        while pending:
-            js_path = pending.pop()
-            if js_path in visited or not js_path.is_file():
-                continue
-            relative = _repo_relative_path(js_path, root)
-            if relative is None:
-                continue
-            visited.add(js_path)
+        for relative in _static_import_closure(apps_root / slug, root, modules_root):
             if relative in modules:
                 modules[relative].add(slug)
 
-            in_app_js = js_path.is_relative_to(app_js_root)
-            in_shared_modules = js_path.is_relative_to(modules_root)
-            if in_app_js or in_shared_modules:
-                pending.extend(_module_imports(js_path, root))
-
     return modules
+
+
+def _shared_module_paths(root: Path) -> list[str]:
+    """Return repository-relative paths of the shared app modules that exist."""
+    return [
+        relative_path
+        for path in shared_app_runtime_paths(root)
+        if path.is_file()
+        and (relative_path := path.relative_to(root).as_posix()).startswith(
+            SHARED_APP_MODULES_PREFIX
+        )
+    ]
+
+
+def _static_import_closure(app_dir: Path, root: Path, modules_root: Path) -> set[str]:
+    """Return every script one app loads, following static imports.
+
+    The walk starts from the app's script tags and follows imports only through
+    app-local and shared modules.
+    """
+    app_js_root = (app_dir / "js").resolve()
+    pending = _script_sources(app_dir / "index.html", root)
+    visited: set[Path] = set()
+    reached: set[str] = set()
+    while pending:
+        js_path = pending.pop()
+        if js_path in visited or not js_path.is_file():
+            continue
+        relative = _repo_relative_path(js_path, root)
+        if relative is None:
+            continue
+        visited.add(js_path)
+        reached.add(relative)
+
+        if js_path.is_relative_to(app_js_root) or js_path.is_relative_to(modules_root):
+            pending.extend(_module_imports(js_path, root))
+    return reached
 
 
 def artifact_uses_shared_app_runtime(artifact_dir: Path) -> bool:
@@ -266,6 +281,35 @@ def full_impact_plan() -> dict[str, object]:
     }
 
 
+def _shared_module_impact(changed_modules: set[str], repo_root: Path) -> tuple[set[str], bool]:
+    """Return the apps that import the changed shared modules, and whether to expand to all.
+
+    A dependency graph that cannot be built, or a module no app imports, expands
+    to every app rather than risk skipping a consumer.
+    """
+    try:
+        consumers_by_path = shared_module_consumers(repo_root)
+    except (OSError, ValueError):
+        # A partial dependency graph could skip a consumer. Expand instead.
+        return set(), True
+
+    slugs: set[str] = set()
+    for module_path in changed_modules:
+        consumers = consumers_by_path.get(module_path, set())
+        if not consumers:
+            # Unknown or unused modules are intentionally fail-open.
+            return slugs, True
+        slugs.update(consumers)
+    return slugs, False
+
+
+def _impact_scope(*, all_apps: bool, changed_slugs: set[str]) -> str:
+    """Return ``all``, ``changed``, or ``none`` for one impact axis."""
+    if all_apps:
+        return "all"
+    return "changed" if changed_slugs else "none"
+
+
 def runtime_change_plan(changed_files: list[str], *, repo_root: Path = Path()) -> dict[str, object]:
     """Classify changed files into independent browser and thumbnail impact axes."""
     changed_slugs: set[str] = set()
@@ -291,31 +335,16 @@ def runtime_change_plan(changed_files: list[str], *, repo_root: Path = Path()) -
             changed_slugs.add(slug)
 
     if changed_shared_modules and not shared_runtime_changed:
-        try:
-            shared_module_consumers_by_path = shared_module_consumers(repo_root)
-        except (OSError, ValueError):
-            # A partial dependency graph could skip a consumer. Expand instead.
-            shared_runtime_changed = True
-        else:
-            for module_path in changed_shared_modules:
-                consumers = shared_module_consumers_by_path.get(module_path, set())
-                if not consumers:
-                    # Unknown or unused modules are intentionally fail-open.
-                    shared_runtime_changed = True
-                    break
-                changed_slugs.update(consumers)
+        consumer_slugs, shared_runtime_changed = _shared_module_impact(
+            changed_shared_modules, repo_root
+        )
+        changed_slugs.update(consumer_slugs)
 
-    thumbnail_scope = "none"
-    if shared_runtime_changed:
-        thumbnail_scope = "all"
-    elif changed_slugs:
-        thumbnail_scope = "changed"
-
-    browser_scope = "none"
-    if shared_runtime_changed or shared_browser_test_changed:
-        browser_scope = "all"
-    elif changed_slugs:
-        browser_scope = "changed"
+    thumbnail_scope = _impact_scope(all_apps=shared_runtime_changed, changed_slugs=changed_slugs)
+    browser_scope = _impact_scope(
+        all_apps=shared_runtime_changed or shared_browser_test_changed,
+        changed_slugs=changed_slugs,
+    )
 
     runtime_changed = shared_runtime_changed or bool(changed_slugs) or bool(changed_shared_modules)
 

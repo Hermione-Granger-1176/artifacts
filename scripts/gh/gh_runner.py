@@ -116,6 +116,34 @@ def _sleep(seconds: float) -> None:
     time.sleep(seconds)
 
 
+def _launch_error(cmd: list[str], exc: OSError) -> GhError:
+    """Build the error for a command that could not be started."""
+    if isinstance(exc, FileNotFoundError):
+        return GhError(f"Command not found: {cmd[0]} (is it installed?)")
+    return GhError(f"Failed to run {_label(cmd)}: {exc}")
+
+
+def _raise_for_final_failure(cmd: list[str], detail: str, kind: gh_policy.GhFailureKind) -> None:
+    """Raise the dedicated error for a failure that no retry can fix.
+
+    GraphQL being blocked, a rate limit, and a forbidden response each have their
+    own error. Any other kind (transient or fatal) returns so the caller can retry
+    or fail with the generic message.
+    """
+    if kind == "graphql_unavailable":
+        raise _graphql_refused(cmd, detail)
+    if kind == "rate_limit":
+        raise GhRateLimitError(
+            f"GitHub rate limit hit running {_label(cmd)}: {detail}\n"
+            "Wait for the limit window to reset before retrying."
+        )
+    if kind == "forbidden":
+        raise GhError(
+            f"{_label(cmd)} was refused: {detail}\n"
+            "The token is missing a permission or scope this call needs."
+        )
+
+
 def _run(
     cmd: list[str],
     *,
@@ -155,10 +183,8 @@ def _run(
                 attempt += 1
                 continue
             raise GhError(f"{_label(cmd)} timed out after {timeout}s") from exc
-        except FileNotFoundError as exc:
-            raise GhError(f"Command not found: {cmd[0]} (is it installed?)") from exc
         except OSError as exc:
-            raise GhError(f"Failed to run {_label(cmd)}: {exc}") from exc
+            raise _launch_error(cmd, exc) from exc
 
         if result.returncode == 0:
             return result
@@ -168,18 +194,7 @@ def _run(
         detail = (result.stderr or result.stdout or "").strip()
         reported = detail or f"no output (exit code {result.returncode})"
         kind = gh_policy.classify_gh_failure(detail)
-        if kind == "graphql_unavailable":
-            raise _graphql_refused(cmd, detail)
-        if kind == "rate_limit":
-            raise GhRateLimitError(
-                f"GitHub rate limit hit running {_label(cmd)}: {detail}\n"
-                "Wait for the limit window to reset before retrying."
-            )
-        if kind == "forbidden":
-            raise GhError(
-                f"{_label(cmd)} was refused: {detail}\n"
-                "The token is missing a permission or scope this call needs."
-            )
+        _raise_for_final_failure(cmd, detail, kind)
         if kind == "transient" and attempt < retries:
             _sleep(gh_policy.retry_backoff_seconds(attempt))
             attempt += 1
@@ -225,10 +240,8 @@ def run_gh_passthrough(
     command = ["gh", *args]
     try:
         result = runner(command, **options)
-    except FileNotFoundError as exc:
-        raise GhError("Command not found: gh (is it installed?)") from exc
     except OSError as exc:
-        raise GhError(f"Failed to run {_label(command)}: {exc}") from exc
+        raise _launch_error(command, exc) from exc
 
     stderr = result.stderr or ""
     if result.returncode != 0 and gh_policy.classify_gh_failure(stderr) == "graphql_unavailable":
@@ -438,6 +451,20 @@ def as_object(value: object) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def print_rest_comments(comments: Sequence[dict[str, Any]]) -> None:
+    """Print REST issue comments as ``comment by @login`` blocks, oldest first as given."""
+    for comment in comments:
+        author = as_object(comment.get("user")).get("login", "unknown")
+        print(f"\n--\ncomment by @{author}\n{comment.get('body') or ''}")
+
+
+def require_mapping(value: Any, message: str) -> dict[str, Any]:
+    """Return ``value`` as a mapping, raising ``GhError`` with ``message`` otherwise."""
+    if not isinstance(value, dict):
+        raise GhError(message)
+    return value
+
+
 def split_list(value: str) -> list[str]:
     """Split a comma-separated option into its non-empty, trimmed items."""
     return [item.strip() for item in value.split(",") if item.strip()]
@@ -618,6 +645,17 @@ def _is_owner_name(value: str) -> bool:
     """Return whether ``value`` looks like an ``owner/name`` slug."""
     parts = value.split("/")
     return len(parts) == 2 and all(parts)
+
+
+def resolve_pr_number(pr: int | None, *, run_fn: RunFunction | None = None) -> int:
+    """Return ``pr``, or the current branch's PR number when none was given."""
+    return pr if pr is not None else current_pr_number(run_fn=run_fn)
+
+
+def resolve_repo_and_pr(pr: int | None, *, run_fn: RunFunction | None = None) -> tuple[str, int]:
+    """Return the ``(owner/name, pr)`` pair a REST call acts on."""
+    slug = resolve_repo(run_fn=run_fn)
+    return slug, resolve_pr_number(pr, run_fn=run_fn)
 
 
 def current_pr_number(*, run_fn: RunFunction | None = None) -> int:

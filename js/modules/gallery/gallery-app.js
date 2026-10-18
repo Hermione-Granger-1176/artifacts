@@ -17,6 +17,7 @@ import {
   applyDynamicStyles,
   buildFilterNotes,
   buildGridHtml,
+  formatFilterSummary,
   registerThumbnailFallback,
   renderPagination
 } from './render.js';
@@ -410,13 +411,10 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   registerThumbnailFallback(documentObj.getElementById('book-sheet') ?? grid);
 
   grid.addEventListener('click', (event) => {
-    const target = /** @type {Element | null} */ (event.target);
-    const card = /** @type {HTMLElement | null} */ (target?.closest('.artifact-card') || null);
-    if (!card) {
-      return;
+    const card = findEventCard(event);
+    if (card) {
+      toggleCardDetail(card);
     }
-
-    overlay.toggle(/** @type {string} */ (card.dataset.id), card, artifactById);
   });
 
   grid.addEventListener('keydown', (event) => {
@@ -424,14 +422,13 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return;
     }
 
-    const target = /** @type {Element | null} */ (event.target);
-    const card = /** @type {HTMLElement | null} */ (target?.closest('.artifact-card') || null);
+    const card = findEventCard(event);
     if (!card) {
       return;
     }
 
     event.preventDefault();
-    overlay.toggle(/** @type {string} */ (card.dataset.id), card, artifactById);
+    toggleCardDetail(card);
   });
 
   paginationContainer.addEventListener('click', (event) => {
@@ -517,6 +514,20 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   scrollTopBtn.addEventListener('click', () => {
     motion.scrollToTop();
   });
+
+  /**
+   * @param {Event} event - Event raised inside the grid.
+   * @returns {HTMLElement | null} The artifact card containing the event target.
+   */
+  function findEventCard(event) {
+    const target = /** @type {Element | null} */ (event.target);
+    return /** @type {HTMLElement | null} */ (target?.closest('.artifact-card') || null);
+  }
+
+  /** @param {HTMLElement} card - Artifact card whose detail overlay to open or close. */
+  function toggleCardDetail(card) {
+    overlay.toggle(/** @type {string} */ (card.dataset.id), card, artifactById);
+  }
 
   /**
    * @param {string} theme - Requested theme name.
@@ -624,15 +635,20 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     setPressed('[data-filter-note="all-tools"]', () => currentTools.length === 0);
     setPressed('[data-filter-note="all-tags"]', () => currentTags.length === 0);
 
-    const toolsSummary = filterNotesContainer.querySelector('[data-filter-summary="tools"]');
-    if (toolsSummary) {
-      toolsSummary.textContent = currentTools.length > 0 ? `${currentTools.length} active` : 'All tools';
-    }
+    /**
+     * @param {string} kind - Summary group: tools or tags.
+     * @param {number} activeCount - Selected values in the group.
+     * @param {string} allLabel - Summary when nothing is selected.
+     */
+    const setSummary = (kind, activeCount, allLabel) => {
+      const summary = filterNotesContainer.querySelector(`[data-filter-summary="${kind}"]`);
+      if (summary) {
+        summary.textContent = formatFilterSummary(activeCount, allLabel);
+      }
+    };
 
-    const tagsSummary = filterNotesContainer.querySelector('[data-filter-summary="tags"]');
-    if (tagsSummary) {
-      tagsSummary.textContent = currentTags.length > 0 ? `${currentTags.length} active` : 'All tags';
-    }
+    setSummary('tools', currentTools.length, 'All tools');
+    setSummary('tags', currentTags.length, 'All tags');
   }
 
   function updateSearchClearVisibility() {
@@ -760,15 +776,24 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   /**
+   * @param {ArtifactRecord[]} items - Filtered artifacts.
+   * @param {number} page - Gallery page.
+   * @returns {ArtifactRecord[]} Artifacts shown on that page.
+   */
+  function getPageItems(items, page) {
+    const startIndex = (page - 1) * ITEMS_PER_PAGE;
+    return items.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }
+
+  /**
    * Build the two page slices of a gallery page as detached elements, for the
    * leaf of a page turn.
    * @param {number} page - Gallery page to build.
    * @returns {{ left: HTMLElement | null, right: HTMLElement | null }} Detached page slices.
    */
   function buildPageFaces(page) {
-    const startIndex = (page - 1) * ITEMS_PER_PAGE;
     const scratch = documentObj.createElement('div');
-    scratch.innerHTML = buildGridHtml(getFilteredArtifacts().slice(startIndex, startIndex + ITEMS_PER_PAGE), null, page);
+    scratch.innerHTML = buildGridHtml(getPageItems(getFilteredArtifacts(), page), null, page);
     applyDynamicStyles(scratch);
     scratch.querySelectorAll('img').forEach((image) => image.setAttribute('loading', 'eager'));
     return {
@@ -797,9 +822,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     pageCount = totalPages;
     currentPage = Math.max(1, Math.min(currentPage, totalPages));
     shownPage = Math.max(1, Math.min(page ?? currentPage, totalPages));
-    const startIndex = (shownPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
-    const pageItems = filtered.slice(startIndex, endIndex);
+    const pageItems = getPageItems(filtered, shownPage);
 
     if (totalItems === 0) {
       grid.innerHTML = '';

@@ -177,19 +177,16 @@ body.app-bond-price-vs-rate .br-chapter-num {
   font-size: var(--font-size-control);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  transition:
+    background var(--transition-fast) ease,
+    color var(--transition-fast) ease,
+    border-color var(--transition-fast) ease;
 }
 
 body.app-bond-price-vs-rate .br-chapter.is-current .br-chapter-num {
   border-color: transparent;
   background: var(--color-text);
   color: var(--color-bg);
-}
-
-body.app-bond-price-vs-rate .br-chapter-num {
-  transition:
-    background var(--transition-fast) ease,
-    color var(--transition-fast) ease,
-    border-color var(--transition-fast) ease;
 }
 
 /*

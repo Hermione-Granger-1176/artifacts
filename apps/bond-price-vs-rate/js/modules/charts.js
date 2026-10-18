@@ -72,16 +72,18 @@ function applyAxes(scales, palette, { xTitle, yTitle, xType = "category", format
 }
 
 /**
+ * Create a line chart of one curve plus a single marker for the reader's bond.
  * @param {HTMLCanvasElement} canvas - Target canvas element.
+ * @param {{ curveLabel: string, markerLabel: string, formatValue: (value: number) => string }} labels - Series labels and the tooltip value formatter.
  * @returns {ChartInstance} The created chart.
  */
-function createPriceRateChart(canvas) {
+function createMarkedSeriesChart(canvas, { curveLabel, markerLabel, formatValue }) {
   return new (chartGlobal().Chart)(canvas, {
     type: "line",
     data: {
       datasets: [
         {
-          label: "Price",
+          label: curveLabel,
           data: [],
           fill: true,
           pointRadius: 0,
@@ -90,7 +92,7 @@ function createPriceRateChart(canvas) {
           order: 2
         },
         {
-          label: "Your bond",
+          label: markerLabel,
           data: [],
           showLine: false,
           pointRadius: 6,
@@ -110,7 +112,7 @@ function createPriceRateChart(canvas) {
           callbacks: {
             /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
             label(context) {
-              return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
+              return `${context.dataset.label}: ${formatValue(context.parsed.y ?? 0)}`;
             }
           }
         }
@@ -120,6 +122,38 @@ function createPriceRateChart(canvas) {
         y: { title: {}, ticks: {}, grid: {} }
       }
     }
+  });
+}
+
+/**
+ * Point a marked-series chart at new data and colors, then redraw it.
+ * @param {ChartInstance} chart - Chart to update.
+ * @param {MarkedSeries} series - Curve points and the marker point.
+ * @param {Palette} palette - Active color palette.
+ * @param {{ lineColor: string, fillColor: string, xTitle: string, yTitle: string, formatY: (value: number) => string }} style - Curve colors and axis setup.
+ * @returns {void}
+ */
+function syncMarkedSeriesChart(chart, series, palette, { lineColor, fillColor, xTitle, yTitle, formatY }) {
+  chart.data.datasets[0].data = series.curve;
+  chart.data.datasets[0].borderColor = lineColor;
+  chart.data.datasets[0].backgroundColor = fillColor;
+  chart.data.datasets[1].data = [series.current];
+  chart.data.datasets[1].backgroundColor = palette.green;
+  chart.data.datasets[1].borderColor = palette.surface;
+
+  applyAxes(chart.options.scales, palette, { xTitle, yTitle, xType: "linear", formatY });
+  chart.update();
+}
+
+/**
+ * @param {HTMLCanvasElement} canvas - Target canvas element.
+ * @returns {ChartInstance} The created chart.
+ */
+function createPriceRateChart(canvas) {
+  return createMarkedSeriesChart(canvas, {
+    curveLabel: "Price",
+    markerLabel: "Your bond",
+    formatValue: (value) => `$${value.toLocaleString()}`
   });
 }
 
@@ -130,21 +164,14 @@ function createPriceRateChart(canvas) {
  * @returns {void}
  */
 function syncPriceRateChart(chart, state, formatDollarTick) {
-  const { palette, priceRate } = state;
-  chart.data.datasets[0].data = priceRate.curve;
-  chart.data.datasets[0].borderColor = palette.blue;
-  chart.data.datasets[0].backgroundColor = palette.blueA(0.08);
-  chart.data.datasets[1].data = [priceRate.current];
-  chart.data.datasets[1].backgroundColor = palette.green;
-  chart.data.datasets[1].borderColor = palette.surface;
-
-  applyAxes(chart.options.scales, palette, {
+  const { palette } = state;
+  syncMarkedSeriesChart(chart, state.priceRate, palette, {
+    lineColor: palette.blue,
+    fillColor: palette.blueA(0.08),
     xTitle: "Market interest rate (%)",
     yTitle: "Price",
-    xType: "linear",
     formatY: formatDollarTick
   });
-  chart.update();
 }
 
 /**
@@ -152,50 +179,10 @@ function syncPriceRateChart(chart, state, formatDollarTick) {
  * @returns {ChartInstance} The created chart.
  */
 function createYieldCurveChart(canvas) {
-  return new (chartGlobal().Chart)(canvas, {
-    type: "line",
-    data: {
-      datasets: [
-        {
-          label: "Curve yield",
-          data: [],
-          fill: true,
-          pointRadius: 0,
-          borderWidth: 2.5,
-          tension: 0.25,
-          order: 2
-        },
-        {
-          label: "Your maturity",
-          data: [],
-          showLine: false,
-          pointRadius: 6,
-          pointHoverRadius: 7,
-          pointBorderWidth: 2,
-          order: 1
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      parsing: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
-            label(context) {
-              return `${context.dataset.label}: ${(context.parsed.y ?? 0).toFixed(2)}%`;
-            }
-          }
-        }
-      },
-      scales: {
-        x: { type: "linear", title: {}, ticks: {}, grid: {} },
-        y: { title: {}, ticks: {}, grid: {} }
-      }
-    }
+  return createMarkedSeriesChart(canvas, {
+    curveLabel: "Curve yield",
+    markerLabel: "Your maturity",
+    formatValue: (value) => `${value.toFixed(2)}%`
   });
 }
 
@@ -205,21 +192,14 @@ function createYieldCurveChart(canvas) {
  * @returns {void}
  */
 function syncYieldCurveChart(chart, state) {
-  const { palette, yieldCurve } = state;
-  chart.data.datasets[0].data = yieldCurve.curve;
-  chart.data.datasets[0].borderColor = palette.amber;
-  chart.data.datasets[0].backgroundColor = palette.amberA(0.08);
-  chart.data.datasets[1].data = [yieldCurve.current];
-  chart.data.datasets[1].backgroundColor = palette.green;
-  chart.data.datasets[1].borderColor = palette.surface;
-
-  applyAxes(chart.options.scales, palette, {
+  const { palette } = state;
+  syncMarkedSeriesChart(chart, state.yieldCurve, palette, {
+    lineColor: palette.amber,
+    fillColor: palette.amberA(0.08),
     xTitle: "Years to maturity",
     yTitle: "Yield (%)",
-    xType: "linear",
     formatY: formatPercentTick
   });
-  chart.update();
 }
 
 /**

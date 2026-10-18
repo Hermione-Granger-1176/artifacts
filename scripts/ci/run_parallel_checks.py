@@ -25,6 +25,11 @@ class CheckResult:
 DEFAULT_TIMEOUT = 600
 
 
+def _failed_check(name: str, start: float, output: str) -> CheckResult:
+    """Build the result for a check that did not run to completion."""
+    return CheckResult(name=name, passed=False, elapsed=time.monotonic() - start, output=output)
+
+
 def run_check(
     name: str, *, timeout: int = DEFAULT_TIMEOUT, run_fn: RunFunction | None = None
 ) -> CheckResult:
@@ -35,19 +40,9 @@ def run_check(
             ["make", name], capture_output=True, text=True, timeout=timeout
         )
     except subprocess.TimeoutExpired:
-        return CheckResult(
-            name=name,
-            passed=False,
-            elapsed=time.monotonic() - start,
-            output=f"Timed out after {timeout}s",
-        )
+        return _failed_check(name, start, f"Timed out after {timeout}s")
     except (OSError, ValueError) as exc:
-        return CheckResult(
-            name=name,
-            passed=False,
-            elapsed=time.monotonic() - start,
-            output=f"Failed to run: {exc}",
-        )
+        return _failed_check(name, start, f"Failed to run: {exc}")
     elapsed = time.monotonic() - start
     output = (result.stdout + result.stderr).rstrip("\n")
     return CheckResult(
@@ -89,31 +84,37 @@ def format_results(results: tuple[CheckResult, ...]) -> str:
     return "\n".join([*summary, "", *logs, *error])
 
 
+USAGE = "Usage: run_parallel_checks.py [--timeout N] target1 target2 ..."
+
+
+def _pop_timeout(args: list[str]) -> tuple[int, list[str]]:
+    """Split a ``--timeout N`` option off ``args``, raising ``ValueError`` with the problem."""
+    if "--timeout" not in args:
+        return DEFAULT_TIMEOUT, args
+    idx = args.index("--timeout")
+    if idx + 1 >= len(args):
+        raise ValueError("Error: --timeout requires an integer value.")
+    try:
+        timeout = int(args[idx + 1])
+    except ValueError:
+        raise ValueError(f"Error: invalid timeout value: {args[idx + 1]!r}.") from None
+    if timeout < 1:
+        raise ValueError(f"Error: timeout must be positive, got {timeout}.")
+    return timeout, args[:idx] + args[idx + 2 :]
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point: run provided Make targets in parallel."""
     args = argv if argv is not None else sys.argv[1:]
-    timeout = DEFAULT_TIMEOUT
-    usage = "Usage: run_parallel_checks.py [--timeout N] target1 target2 ..."
-    if "--timeout" in args:
-        idx = args.index("--timeout")
-        if idx + 1 >= len(args):
-            print("Error: --timeout requires an integer value.")
-            print(usage)
-            return 1
-        try:
-            timeout = int(args[idx + 1])
-        except ValueError:
-            print(f"Error: invalid timeout value: {args[idx + 1]!r}.")
-            print(usage)
-            return 1
-        if timeout < 1:
-            print(f"Error: timeout must be positive, got {timeout}.")
-            print(usage)
-            return 1
-        args = args[:idx] + args[idx + 2 :]
+    try:
+        timeout, args = _pop_timeout(args)
+    except ValueError as exc:
+        print(exc)
+        print(USAGE)
+        return 1
 
     if not args:
-        print(usage)
+        print(USAGE)
         return 1
 
     results = run_checks(args, timeout=timeout)

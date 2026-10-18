@@ -34,6 +34,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts.build import thumbnail_plan as _thumbnail_plan
 from scripts.ci import app_shards as _app_shards
@@ -42,7 +43,11 @@ from scripts.ci import issue_alerts as _issue_alerts
 from scripts.ci import repo_audit as _repo_audit
 from scripts.lib import app_discovery as _app_discovery
 from scripts.lib import gh_api as _gh_api
+from scripts.lib.github_output import report_checked
 from scripts.lib.path_validation import reject_symlinks
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 LOCK_ARTIFACT_FILES = {
     "pr-number": Path(".artifacts/pr-number.txt"),
@@ -118,6 +123,11 @@ def _expected_lock_refresh_metadata(
     return expected
 
 
+def _is_positive_int(value: object) -> bool:
+    """Return whether a JSON value is a positive integer (booleans excluded)."""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 1
+
+
 def lock_refresh_workflow_run_context(event_path: Path, *, repository: str) -> dict[str, str]:
     """Return validated Dependabot lock-refresh details from a workflow-run event."""
     event = json.loads(event_path.read_text(encoding="utf-8"))
@@ -150,14 +160,7 @@ def lock_refresh_workflow_run_context(event_path: Path, *, repository: str) -> d
         raise ValueError("Lock refresh workflow run pull request has an invalid shape")
     pr_number = pull_request.get("number")
     run_id = workflow_run.get("id")
-    if (
-        not isinstance(pr_number, int)
-        or isinstance(pr_number, bool)
-        or pr_number < 1
-        or not isinstance(run_id, int)
-        or isinstance(run_id, bool)
-        or run_id < 1
-    ):
+    if not _is_positive_int(pr_number) or not _is_positive_int(run_id):
         raise ValueError("Lock refresh workflow run has an invalid numeric identifier")
 
     expected = _expected_lock_refresh_metadata(
@@ -318,16 +321,6 @@ def thumbnail_plan(
     return _app_shards.add_shards(plan, apps_root=apps_root)
 
 
-def _report_checked(output_name: str, reached_verdict: bool) -> None:
-    """Record whether a CI audit reached a trustworthy verdict."""
-    output_file = os.environ.get("GITHUB_OUTPUT")
-    if not output_file:
-        return
-    value = "true" if reached_verdict else "false"
-    with Path(output_file).open("a", encoding="utf-8") as handle:
-        handle.write(f"{output_name}={value}\n")
-
-
 def audit_repo_settings(
     *,
     repo: str,
@@ -473,6 +466,16 @@ def sync_alert_issue(
     )
 
 
+def _add_change_event_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the event and commit-range arguments the thumbnail commands read changes from."""
+    parser.add_argument("--event-name", required=True)
+    parser.add_argument("--repo", required=True)
+    parser.add_argument("--pr-number", default="")
+    parser.add_argument("--commit-sha", default="")
+    parser.add_argument("--base-sha", default="")
+    parser.add_argument("--head-sha", default="")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Workflow helper commands")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -508,23 +511,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "invalidate-thumbnails",
         help="Delete stale thumbnails for apps with runtime or shared shell changes",
     )
-    thumb_parser.add_argument("--event-name", required=True)
-    thumb_parser.add_argument("--repo", required=True)
-    thumb_parser.add_argument("--pr-number", default="")
-    thumb_parser.add_argument("--commit-sha", default="")
-    thumb_parser.add_argument("--base-sha", default="")
-    thumb_parser.add_argument("--head-sha", default="")
+    _add_change_event_arguments(thumb_parser)
 
     thumbnail_plan_parser = subparsers.add_parser(
         "thumbnail-plan",
         help="Plan thumbnail generation and persistence for changed files",
     )
-    thumbnail_plan_parser.add_argument("--event-name", required=True)
-    thumbnail_plan_parser.add_argument("--repo", required=True)
-    thumbnail_plan_parser.add_argument("--pr-number", default="")
-    thumbnail_plan_parser.add_argument("--commit-sha", default="")
-    thumbnail_plan_parser.add_argument("--base-sha", default="")
-    thumbnail_plan_parser.add_argument("--head-sha", default="")
+    _add_change_event_arguments(thumbnail_plan_parser)
     thumbnail_plan_parser.add_argument("--head-repo-fork", default="false")
     thumbnail_plan_parser.add_argument("--pr-author", default="")
     thumbnail_plan_parser.add_argument("--actor", default="")
@@ -690,36 +683,45 @@ def _handle_finalize_pages_dir(args: argparse.Namespace) -> int:
     return 0
 
 
+def _audit_with_checked_output[T](output_name: str, audit: Callable[[], T]) -> T:
+    """Run ``audit`` and record whether it reached a trustworthy verdict.
+
+    A ``ValueError`` is a verdict (drift was found) and still counts as checked.
+    A ``RuntimeError`` means the audit could not read its data, so it does not.
+    Both propagate.
+    """
+    try:
+        result = audit()
+    except ValueError:
+        report_checked(output_name, True)
+        raise
+    except RuntimeError:
+        report_checked(output_name, False)
+        raise
+    report_checked(output_name, True)
+    return result
+
+
 def _handle_audit_repo_settings(args: argparse.Namespace) -> int:
     """Audit repository settings and print a JSON summary when they match expectations."""
-    try:
-        summary = audit_repo_settings(
+    summary = _audit_with_checked_output(
+        "settings_checked",
+        lambda: audit_repo_settings(
             repo=args.repo,
             default_branch=args.default_branch,
             pages_branch=args.pages_branch,
-        )
-    except ValueError:
-        _report_checked("settings_checked", True)
-        raise
-    except RuntimeError:
-        _report_checked("settings_checked", False)
-        raise
-    _report_checked("settings_checked", True)
+        ),
+    )
     print(json.dumps(summary, sort_keys=True))
     return 0
 
 
 def _handle_audit_previews(args: argparse.Namespace) -> int:
     """Audit PR preview directories and print the live previews as JSON."""
-    try:
-        previews = audit_previews(repo=args.repo, pages_branch=args.pages_branch)
-    except ValueError:
-        _report_checked("previews_checked", True)
-        raise
-    except RuntimeError:
-        _report_checked("previews_checked", False)
-        raise
-    _report_checked("previews_checked", True)
+    previews = _audit_with_checked_output(
+        "previews_checked",
+        lambda: audit_previews(repo=args.repo, pages_branch=args.pages_branch),
+    )
     # Sorted so the output does not depend on Git trees API response ordering.
     print(json.dumps({"open-previews": sorted(previews)}, sort_keys=True))
     return 0

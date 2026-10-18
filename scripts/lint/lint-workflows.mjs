@@ -35,6 +35,36 @@ export async function listWorkflowFiles(repoRoot = REPO_ROOT, readdirImpl = read
 }
 
 /**
+ * Format one actionlint result as a `file:line:column: message [kind]` line.
+ * @param {{ file: string, line: number, column: number, message: string, kind: string }} result - Actionlint result.
+ * @returns {string} Report line ending in a newline.
+ */
+function formatResult(result) {
+  return `${result.file}:${result.line}:${result.column}: ${result.message} [${result.kind}]\n`;
+}
+
+/**
+ * Lint one workflow file with a fresh actionlint instance.
+ *
+ * The actionlint WebAssembly module accumulates linear memory across calls on
+ * one instance and eventually panics with "RuntimeError: unreachable" on a
+ * large workflow such as update.yml. A per-file instance keeps each lint
+ * within its own heap.
+ * @param {string} relativePath - Repo-relative workflow path.
+ * @param {{
+ *   createLinterImpl: typeof createLinter,
+ *   readFileImpl: typeof readFile,
+ *   repoRoot: string
+ * }} deps - Linter factory, file reader, and repository root.
+ * @returns {Promise<{ message: string }[]>} Results worth reporting.
+ */
+async function lintWorkflowFile(relativePath, { createLinterImpl, readFileImpl, repoRoot }) {
+  const lint = await createLinterImpl();
+  const content = await readFileImpl(path.join(repoRoot, relativePath), "utf-8");
+  return filterActionableResults(lint(content, relativePath));
+}
+
+/**
  * Lint every workflow file with actionlint and report actionable results.
  * @param {{
  *   createLinterImpl?: typeof createLinter,
@@ -58,26 +88,15 @@ export async function runWorkflowLint({
   let hasErrors = false;
 
   for (const relativePath of workflowFiles) {
-    // Create a fresh linter per file. The actionlint WebAssembly module
-    // accumulates linear memory across calls on one instance and eventually
-    // panics with "RuntimeError: unreachable" on a large workflow such as
-    // update.yml. A per-file instance keeps each lint within its own heap.
-    const lint = await createLinterImpl();
-    const filePath = path.join(repoRoot, relativePath);
-    const content = await readFileImpl(filePath, "utf-8");
-    const results = lint(content, relativePath);
-    const actionableResults = filterActionableResults(results);
+    const actionableResults = await lintWorkflowFile(relativePath, {
+      createLinterImpl,
+      readFileImpl,
+      repoRoot,
+    });
 
     if (actionableResults.length > 0) {
       hasErrors = true;
-      stderr.write(
-        actionableResults
-          .map(
-            (result) =>
-              `${result.file}:${result.line}:${result.column}: ${result.message} [${result.kind}]\n`,
-          )
-          .join(""),
-      );
+      stderr.write(actionableResults.map(formatResult).join(""));
     }
   }
 

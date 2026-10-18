@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import scripts.ci.app_hashes as app_hashes
+import scripts.lib.path_validation as path_validation
 
 
 def write_json(path: Path, payload: object) -> None:
@@ -209,7 +210,7 @@ def test_hash_helpers_reject_invalid_plans_and_symlinked_parents(
     make_app(tmp_path, "alpha")
     app_dir = tmp_path / "apps" / "linked-app"
     app_dir.symlink_to(tmp_path / "apps" / "alpha", target_is_directory=True)
-    monkeypatch.setattr(app_hashes, "reject_symlinks", lambda _path: None)
+    monkeypatch.setattr(path_validation, "reject_symlinks", lambda _path: None)
     with pytest.raises(ValueError, match="App input directory"):
         app_hashes.app_input_hashes(["linked-app"], repo_root=tmp_path, run_git_fn=git_records)
 

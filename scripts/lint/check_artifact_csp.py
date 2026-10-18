@@ -26,9 +26,13 @@ import argparse
 import re
 import sys
 from html.parser import HTMLParser
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
+from scripts.lint import add_root_argument, report_violations, root_from_args
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # Directory (relative to the workspace root) that holds artifact pages.
 APPS_DIRNAME = "apps"
@@ -275,6 +279,31 @@ def _directive_violation(
     )
 
 
+def _script_src_violation(directives: dict[str, list[str]], display_path: str) -> str | None:
+    """Return the violation for a ``script-src`` (or inherited ``default-src``) that is open."""
+    script_src = directives.get("script-src", directives.get("default-src"))
+    if script_src is None or _directive_has_only_allowed_sources(script_src, _RESTRICTIVE_SOURCES):
+        return None
+    return (
+        f"{display_path}: script-src must be restricted to 'self' or 'none' "
+        f"(found: script-src {' '.join(script_src)})"
+    )
+
+
+def _img_src_violation(
+    directives: dict[str, list[str]], display_path: str, allowed_img_sources: frozenset[str]
+) -> str | None:
+    """Return the violation for an ``img-src`` that names an unapproved image source."""
+    img_src = directives.get("img-src")
+    if img_src is None or _directive_has_only_allowed_sources(img_src, allowed_img_sources):
+        return None
+    allowed = " ".join(sorted(allowed_img_sources))
+    return (
+        f"{display_path}: img-src must use only approved image sources "
+        f"({allowed}; found: img-src {' '.join(img_src)})"
+    )
+
+
 def _csp_violations(
     html: str, display_path: str, *, allowed_img_sources: frozenset[str]
 ) -> list[str]:
@@ -298,37 +327,16 @@ def _csp_violations(
         for name in repeated
     )
 
-    default_violation = _directive_violation(
-        directives, "default-src", _RESTRICTIVE_SOURCES, display_path
+    checks = (
+        _directive_violation(directives, "default-src", _RESTRICTIVE_SOURCES, display_path),
+        _script_src_violation(directives, display_path),
+        _img_src_violation(directives, display_path, allowed_img_sources),
+        *(
+            _directive_violation(directives, directive, allowed_sources, display_path)
+            for directive, allowed_sources in _REQUIRED_DIRECTIVES
+        ),
     )
-    if default_violation is not None:
-        violations.append(default_violation)
-
-    default_src = directives.get("default-src")
-    script_src = directives.get("script-src", default_src)
-    if script_src is not None and not _directive_has_only_allowed_sources(
-        script_src, _RESTRICTIVE_SOURCES
-    ):
-        violations.append(
-            f"{display_path}: script-src must be restricted to 'self' or 'none' "
-            f"(found: script-src {' '.join(script_src)})"
-        )
-
-    img_src = directives.get("img-src")
-    if img_src is not None and not _directive_has_only_allowed_sources(
-        img_src, allowed_img_sources
-    ):
-        allowed = " ".join(sorted(allowed_img_sources))
-        violations.append(
-            f"{display_path}: img-src must use only approved image sources "
-            f"({allowed}; found: img-src {' '.join(img_src)})"
-        )
-
-    for directive, allowed_sources in _REQUIRED_DIRECTIVES:
-        violation = _directive_violation(directives, directive, allowed_sources, display_path)
-        if violation is not None:
-            violations.append(violation)
-
+    violations.extend(violation for violation in checks if violation is not None)
     return violations
 
 
@@ -455,28 +463,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "Check root and artifact pages ship a strict CSP and no external scripts or styles."
         )
     )
-    parser.add_argument(
-        "--root",
-        default=None,
-        help="Repository root (defaults to auto-detected REPO_ROOT)",
-    )
+    add_root_argument(parser)
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI entry point and return a shell exit code."""
     args = parse_args(argv)
-    workspace_root = Path(args.root) if args.root else REPO_ROOT
+    workspace_root = root_from_args(args)
     violations = run_check(workspace_root)
 
-    if not violations:
-        print("Artifact CSP check passed")
-        return 0
-
-    print(f"Artifact CSP check failed: {len(violations)} violation(s)")
-    for violation in violations:
-        print(f"  {violation}")
-    return 1
+    return report_violations("Artifact CSP", violations)
 
 
 if __name__ == "__main__":  # pragma: no cover

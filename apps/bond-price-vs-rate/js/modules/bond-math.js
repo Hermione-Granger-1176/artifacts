@@ -64,13 +64,12 @@ function discountCashFlows(cashFlows, annualYieldPct, frequency) {
   });
 }
 
-/** @param {PricedBond} bond - Bond terms plus its market yield. */
-function discountBond({ faceValue, couponRatePct, years, annualYieldPct, frequency }) {
-  return discountCashFlows(
-    buildCashFlows({ faceValue, couponRatePct, years, frequency }),
-    annualYieldPct,
-    frequency
-  );
+/**
+ * @param {DiscountedCashFlow[]} rows - Discounted schedule.
+ * @returns {number} Sum of the present values, which is the bond price.
+ */
+function sumPresentValues(rows) {
+  return rows.reduce((sum, row) => sum + row.presentValue, 0);
 }
 
 /**
@@ -80,7 +79,7 @@ function discountBond({ faceValue, couponRatePct, years, annualYieldPct, frequen
  * @returns {number} Bond price.
  */
 export function bondPrice(bond) {
-  return discountBond(bond).reduce((sum, row) => sum + row.presentValue, 0);
+  return sumPresentValues(bondSchedule(bond));
 }
 
 /**
@@ -93,8 +92,12 @@ export function bondPrice(bond) {
  * @param {PricedBond} bond - Bond terms plus its market yield.
  * @returns {DiscountedCashFlow[]} The discounted schedule.
  */
-export function bondSchedule(bond) {
-  return discountBond(bond);
+export function bondSchedule({ faceValue, couponRatePct, years, annualYieldPct, frequency }) {
+  return discountCashFlows(
+    buildCashFlows({ faceValue, couponRatePct, years, frequency }),
+    annualYieldPct,
+    frequency
+  );
 }
 
 /**
@@ -127,9 +130,9 @@ export function bondSchedule(bond) {
  * @returns {BondAnalytics} The analytics bundle.
  */
 export function bondAnalytics(bond) {
-  const rows = discountBond(bond);
+  const rows = bondSchedule(bond);
   const periodYield = bond.annualYieldPct / 100 / bond.frequency;
-  const price = rows.reduce((sum, row) => sum + row.presentValue, 0);
+  const price = sumPresentValues(rows);
 
   const pvFace = bond.faceValue / Math.pow(1 + periodYield, rows.length);
   const macaulayYears =

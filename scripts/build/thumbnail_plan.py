@@ -99,6 +99,11 @@ def associated_pr_kind_for_commit(
     return "none"
 
 
+def _non_blank_lines(output: str) -> list[str]:
+    """Return the stripped, non-empty lines of command output."""
+    return [line for raw_line in output.splitlines() if (line := raw_line.strip())]
+
+
 def list_changed_files(
     *,
     base_sha: str,
@@ -120,7 +125,7 @@ def list_changed_files(
         capture_output=True,
         text=True,
     )
-    return [line for raw_line in result.stdout.splitlines() if (line := raw_line.strip())]
+    return _non_blank_lines(result.stdout)
 
 
 def list_commit_files(
@@ -138,7 +143,7 @@ def list_commit_files(
         jq_expr=".files[].filename",
         description=f"listing changed files for commit {repo}@{commit_sha}",
     )
-    return [line for raw_line in stdout.splitlines() if (line := raw_line.strip())]
+    return _non_blank_lines(stdout)
 
 
 def _all_thumbnail_files(files: list[str]) -> bool:
@@ -211,6 +216,74 @@ def thumbnail_persist_decision(
     return decide()
 
 
+def _runtime_plan_or_full(
+    *,
+    force_full: bool,
+    base_sha: str,
+    head_sha: str,
+    list_changed_files_fn: Callable[..., list[str]],
+    runtime_change_plan_fn: Callable[..., dict[str, object]],
+) -> tuple[dict[str, object], bool]:
+    """Return the change plan and whether a diff was available.
+
+    A requested full run, or a diff that cannot be read, falls back to the plan
+    that treats every app as changed.
+    """
+    if force_full:
+        return full_impact_plan(), False
+    try:
+        changed_files = list_changed_files_fn(base_sha=base_sha, head_sha=head_sha)
+        return runtime_change_plan_fn(changed_files), True
+    except (OSError, RuntimeError, subprocess.SubprocessError):
+        return full_impact_plan(), False
+
+
+def _is_thumbnail_only_commit(
+    *,
+    actor: str,
+    app_bot_login: str,
+    repo: str,
+    commit_sha: str,
+    associated_pr_kind: str,
+    list_commit_files_fn: Callable[..., list[str]],
+) -> bool:
+    """Detect automated thumbnail-only commits that need no verification.
+
+    For PRs: the actor must be the trusted app bot and the commit must contain
+    only thumbnail files. For main pushes: the PR provenance must be a
+    thumbnail-followup and the merge commit must contain only thumbnail files.
+    Any detection failure defaults to False (full run).
+    """
+    if is_automated_thumbnail_commit(
+        actor=actor,
+        app_bot_login=app_bot_login,
+        repo=repo,
+        commit_sha=commit_sha,
+        list_commit_files_fn=list_commit_files_fn,
+    ):
+        return True
+    if associated_pr_kind != "thumbnail-followup":
+        return False
+    try:
+        commit_files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
+    except Exception:
+        commit_files = []
+    return _all_thumbnail_files(commit_files)
+
+
+def _thumbnail_scope_and_slugs(
+    runtime_scope: str, affected_slugs: list[str]
+) -> tuple[str, list[str]]:
+    """Return the thumbnail scope and the slugs to list for it.
+
+    A full runtime scope regenerates every app, so it lists no slugs. Otherwise
+    the scope is the affected slugs, or ``none`` when no app is affected.
+    """
+    if runtime_scope == "all":
+        return "all", []
+    return ("changed" if affected_slugs else "none"), affected_slugs
+
+
 def thumbnail_plan(
     *,
     event_name: str,
@@ -234,15 +307,13 @@ def thumbnail_plan(
     """Return the strict thumbnail automation plan for one workflow event."""
     del pr_number
     apps_root = apps_root or Path(artifact_base_path())
-    comparison_available = not force_full
-    try:
-        if force_full:
-            raise RuntimeError("Full verification was requested")
-        changed_files = list_changed_files_fn(base_sha=base_sha, head_sha=head_sha)
-        runtime_plan = runtime_change_plan_fn(changed_files)
-    except (OSError, RuntimeError, subprocess.SubprocessError):
-        comparison_available = False
-        runtime_plan = full_impact_plan()
+    runtime_plan, comparison_available = _runtime_plan_or_full(
+        force_full=force_full,
+        base_sha=base_sha,
+        head_sha=head_sha,
+        list_changed_files_fn=list_changed_files_fn,
+        runtime_change_plan_fn=runtime_change_plan_fn,
+    )
     changed_slugs = cast("list[str]", runtime_plan["changed_slugs"])
     runtime_changed = cast("bool", runtime_plan["runtime_changed"])
     shared_runtime_changed = cast("bool", runtime_plan["shared_runtime_changed"])
@@ -261,24 +332,17 @@ def thumbnail_plan(
         associated_pr_kind=associated_pr_kind,
     )
 
-    # Detect automated thumbnail-only commits that need no verification.
-    # For PRs: the actor must be the trusted app bot and the commit must
-    # contain only thumbnail files. For main pushes: the PR provenance
-    # must be a thumbnail-followup and the merge commit must contain only
-    # thumbnail files. Any detection failure defaults to False (full run).
-    skip_verification = not force_full and is_automated_thumbnail_commit(
+    thumbnail_scope, thumbnail_slugs = _thumbnail_scope_and_slugs(
+        cast("str", runtime_plan["thumbnail_scope"]), affected_slugs
+    )
+    skip_verification = not force_full and _is_thumbnail_only_commit(
         actor=actor,
         app_bot_login=app_bot_login,
         repo=repo,
         commit_sha=commit_sha,
+        associated_pr_kind=associated_pr_kind,
         list_commit_files_fn=list_commit_files_fn,
     )
-    if not force_full and not skip_verification and associated_pr_kind == "thumbnail-followup":
-        try:
-            commit_files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
-        except Exception:
-            commit_files = []
-        skip_verification = _all_thumbnail_files(commit_files)
 
     return {
         "app_scope": cast("str", runtime_plan["app_scope"]),
@@ -292,10 +356,8 @@ def thumbnail_plan(
         "shared_browser_test_changed": cast("bool", runtime_plan["shared_browser_test_changed"]),
         "comparison_available": comparison_available,
         "skip_verification": skip_verification,
-        "thumbnail_scope": "all"
-        if runtime_plan["thumbnail_scope"] == "all"
-        else ("changed" if affected_slugs else "none"),
-        "thumbnail_slugs": [] if runtime_plan["thumbnail_scope"] == "all" else affected_slugs,
+        "thumbnail_scope": thumbnail_scope,
+        "thumbnail_slugs": thumbnail_slugs,
     }
 
 
@@ -384,11 +446,13 @@ def invalidate_thumbnails(
 ) -> list[str]:
     """Delete thumbnails for apps whose runtime or shared site assets changed."""
     del event_name, repo, pr_number, commit_sha
-    try:
-        changed_files = list_changed_files_fn(base_sha=base_sha, head_sha=head_sha)
-        plan = runtime_change_plan_fn(changed_files)
-    except (OSError, RuntimeError, subprocess.SubprocessError):
-        plan = full_impact_plan()
+    plan, _comparison_available = _runtime_plan_or_full(
+        force_full=False,
+        base_sha=base_sha,
+        head_sha=head_sha,
+        list_changed_files_fn=list_changed_files_fn,
+        runtime_change_plan_fn=runtime_change_plan_fn,
+    )
     invalidated = []
     targets = thumbnail_targets(
         thumbnail_scope=cast("str", plan["thumbnail_scope"]),

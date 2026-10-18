@@ -12,6 +12,7 @@ import { initializeMatureApp } from "../../../js/modules/app-runtime.js";
 import { initAppShell, renderAppShell } from "../../../js/modules/app-shell.js";
 import { bindEvents } from "./modules/interactions.js";
 import { formatCurrency, formatDollarTick, formatPercent } from "../../../js/modules/formatting.js";
+import { createFrameScheduler } from "../../../js/modules/frame-scheduler.js";
 import { renderNarrative } from "./modules/narrative.js";
 import {
   cacheElements,
@@ -32,8 +33,9 @@ const RATE_SHOCK = 1;
 
 let elements = /** @type {Record<string, any>} */ ({});
 let charts = /** @type {Record<string, any>} */ ({});
-let pendingRecalcFrame = /** @type {number | null} */ (null);
 let selectedCurveKey = /** @type {keyof typeof YIELD_CURVES} */ ("normal");
+
+const scheduleRecalc = createFrameScheduler(() => recalc());
 
 renderAppShell();
 
@@ -152,16 +154,6 @@ function buildSensitivity(bond) {
   };
 }
 
-function scheduleRecalc() {
-  if (pendingRecalcFrame !== null) {
-    return;
-  }
-
-  pendingRecalcFrame = window.requestAnimationFrame(() => {
-    pendingRecalcFrame = null;
-    recalc();
-  });
-}
 
 function recalc() {
   const bond = readBond();

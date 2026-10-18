@@ -6,8 +6,11 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts import REPO_ROOT
+
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    import argparse
+    from collections.abc import Callable, Iterable, Iterator
 
 # Directories the lint walkers never descend into. Every ignored directory in
 # .gitignore that can be named by a single path component belongs here: an
@@ -45,6 +48,91 @@ SKIP_DIRECTORIES = frozenset(
         "vendor",
     }
 )
+
+
+def add_root_argument(parser: argparse.ArgumentParser) -> None:
+    """Add the ``--root`` option that points a checker at another checkout."""
+    parser.add_argument(
+        "--root",
+        default=None,
+        help="Repository root (defaults to auto-detected REPO_ROOT)",
+    )
+
+
+def root_from_args(args: argparse.Namespace) -> Path:
+    """Return the ``--root`` checkout, or the auto-detected repository root when omitted."""
+    return Path(args.root) if args.root else REPO_ROOT
+
+
+def add_paths_argument(parser: argparse.ArgumentParser, help_text: str) -> None:
+    """Add the optional positional repository-relative paths a checker limits itself to."""
+    parser.add_argument("paths", nargs="*", help=help_text)
+
+
+def print_failures(header: str, messages: Iterable[str]) -> None:
+    """Print a failure header, then one indented line per message."""
+    print(header)
+    for message in messages:
+        print(f"  {message}")
+
+
+def report_violations(check_name: str, violations: list[str]) -> int:
+    """Print a checker's pass or fail summary and return its exit code."""
+    if not violations:
+        print(f"{check_name} check passed")
+        return 0
+
+    print_failures(f"{check_name} check failed: {len(violations)} violation(s)", violations)
+    return 1
+
+
+def check_each_path(
+    candidate_paths: Iterable[Path],
+    root: Path,
+    resolve: Callable[[list[str], Path], tuple[list[Path], list[str]]],
+    check: Callable[[Path], list[str]],
+) -> list[str]:
+    """Re-validate each candidate path with ``resolve``, then collect ``check`` violations.
+
+    A path outside ``root`` or one ``resolve`` refuses is reported instead of checked.
+    """
+    violations: list[str] = []
+    for path in candidate_paths:
+        try:
+            relative_path = path.relative_to(root).as_posix()
+        except ValueError:
+            violations.append(f"{path}: path must stay within the repository")
+            continue
+
+        safe_paths, path_errors = resolve([relative_path], root)
+        if path_errors:
+            violations.extend(path_errors)
+            continue
+        violations.extend(check(safe_paths[0]))
+    return violations
+
+
+def requested_or_default_paths(
+    raw_paths: list[str],
+    root: Path,
+    *,
+    default_paths: Callable[[Path], list[Path]],
+    resolve: Callable[[list[str], Path], tuple[list[Path], list[str]]],
+    failure_header: str,
+) -> list[Path] | None:
+    """Return the paths a checker covers, or ``None`` after printing refused requests.
+
+    With no requested paths the checker's own ``default_paths`` apply. Otherwise
+    ``resolve`` validates the request, and any error is printed under
+    ``failure_header``.
+    """
+    if not raw_paths:
+        return default_paths(root)
+    paths, path_errors = resolve(raw_paths, root)
+    if path_errors:
+        print_failures(failure_header, path_errors)
+        return None
+    return paths
 
 
 def contains_symlink(path: Path, root: Path) -> bool:

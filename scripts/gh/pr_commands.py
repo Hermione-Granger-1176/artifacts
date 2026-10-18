@@ -52,12 +52,6 @@ def _pr_command(base: list[str], pr: int | None) -> list[str]:
     return [*base, str(pr)] if pr is not None else base
 
 
-def _target(pr: int | None, *, run_fn: RunFunction | None) -> tuple[str, int]:
-    """Return the ``(owner/name, pr)`` pair a REST fallback acts on."""
-    slug = gh_runner.resolve_repo(run_fn=run_fn)
-    return slug, pr if pr is not None else gh_runner.current_pr_number(run_fn=run_fn)
-
-
 def _bucket(entry: dict[str, Any]) -> str:
     """Classify a ``statusCheckRollup`` entry as pass, fail, pending, skipping, or cancel."""
     if "status" in entry:
@@ -240,7 +234,7 @@ def pr_checks_status(pr: int | None = None, *, run_fn: RunFunction | None = None
     """Show a PR's CI checks once (``gh pr checks``)."""
 
     def status_with_rest() -> int:
-        slug, number = _target(pr, run_fn=run_fn)
+        slug, number = gh_runner.resolve_repo_and_pr(pr, run_fn=run_fn)
         rows = _current_rows(slug, number, run_fn=run_fn)
         if not rows:
             print(f"no checks reported on PR #{number}", file=sys.stderr)
@@ -268,7 +262,7 @@ def watch_pr_checks(
 
     def watch_with_rest() -> int:
         sleeper = sleep_fn or time.sleep
-        slug, number = _target(pr, run_fn=run_fn)
+        slug, number = gh_runner.resolve_repo_and_pr(pr, run_fn=run_fn)
         for poll in range(1, max_polls + 1):
             rows = _current_rows(slug, number, run_fn=run_fn)
             code = _exit_code(rows)
@@ -292,7 +286,7 @@ def show_diff(pr: int | None = None, *, run_fn: RunFunction | None = None) -> in
     """Print a PR's diff (``gh pr diff``)."""
 
     def diff_with_rest() -> int:
-        slug, number = _target(pr, run_fn=run_fn)
+        slug, number = gh_runner.resolve_repo_and_pr(pr, run_fn=run_fn)
         diff = gh_runner.rest_text(
             f"repos/{slug}/pulls/{number}", headers=[_DIFF_ACCEPT], run_fn=run_fn
         )
@@ -300,6 +294,42 @@ def show_diff(pr: int | None = None, *, run_fn: RunFunction | None = None) -> in
         return 0
 
     return gh_runner.gh_or_rest(_pr_command(["pr", "diff"], pr), diff_with_rest, run_fn=run_fn)
+
+
+def _fetch_pr_into_branch(pr: int, branch: str, *, run_fn: RunFunction | None) -> None:
+    """Fetch a PR's head into ``branch`` and check it out, fast-forwarding an existing one."""
+    try:
+        gh_runner.run_git(
+            ["rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"], run_fn=run_fn
+        )
+    except GhError:
+        gh_runner.run_git(["fetch", "origin", f"pull/{pr}/head:{branch}"], run_fn=run_fn)
+        gh_runner.run_git(["checkout", branch], run_fn=run_fn)
+    else:
+        gh_runner.run_git(["fetch", "origin", f"pull/{pr}/head"], run_fn=run_fn)
+        gh_runner.run_git(["checkout", branch], run_fn=run_fn)
+        gh_runner.run_git(["merge", "--ff-only", "FETCH_HEAD"], run_fn=run_fn)
+
+
+def _pr_upstream(
+    pull: dict[str, Any],
+    pr: int,
+    head_ref: str,
+    head_info: dict[str, Any],
+    *,
+    is_fork: bool,
+) -> tuple[str, str]:
+    """Return the remote and merge ref a checked-out PR branch should track.
+
+    A fork branch tracks the fork itself when maintainers may push to it, and
+    the read-only pull ref otherwise.
+    """
+    if not is_fork:
+        return "origin", f"refs/heads/{head_ref}"
+    clone_url = head_info.get("clone_url")
+    if pull.get("maintainer_can_modify") and isinstance(clone_url, str) and clone_url:
+        return clone_url, f"refs/heads/{head_ref}"
+    return "origin", f"refs/pull/{pr}/head"
 
 
 def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
@@ -316,21 +346,12 @@ def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
         head_ref = branch
         head_info = as_object(head.get("repo"))
         head_repo = str(head_info.get("full_name") or "")
-        if not gh_runner.same_repo(head_repo, slug):
+        is_fork = not gh_runner.same_repo(head_repo, slug)
+        if is_fork:
             # A fork's branch can share a local name such as main, so it gets
             # the fork owner as a prefix instead of updating that branch.
             branch = f"{head_repo.split('/')[0] or 'fork'}/{branch}"
-        try:
-            gh_runner.run_git(
-                ["rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"], run_fn=run_fn
-            )
-        except GhError:
-            gh_runner.run_git(["fetch", "origin", f"pull/{pr}/head:{branch}"], run_fn=run_fn)
-            gh_runner.run_git(["checkout", branch], run_fn=run_fn)
-        else:
-            gh_runner.run_git(["fetch", "origin", f"pull/{pr}/head"], run_fn=run_fn)
-            gh_runner.run_git(["checkout", branch], run_fn=run_fn)
-            gh_runner.run_git(["merge", "--ff-only", "FETCH_HEAD"], run_fn=run_fn)
+        _fetch_pr_into_branch(pr, branch, run_fn=run_fn)
         gh_runner.run_git(
             ["config", f"branch.{branch}.{gh_runner.PR_NUMBER_CONFIG}", str(pr)], run_fn=run_fn
         )
@@ -338,13 +359,7 @@ def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
             ["config", f"branch.{branch}.{gh_runner.PR_REPO_CONFIG}", slug], run_fn=run_fn
         )
         # Track the PR's branch like gh pr checkout, so git pull works afterwards.
-        remote, merge = "origin", f"refs/heads/{head_ref}"
-        if not gh_runner.same_repo(head_repo, slug):
-            clone_url = head_info.get("clone_url")
-            if pull.get("maintainer_can_modify") and isinstance(clone_url, str) and clone_url:
-                remote = clone_url
-            else:
-                merge = f"refs/pull/{pr}/head"
+        remote, merge = _pr_upstream(pull, pr, head_ref, head_info, is_fork=is_fork)
         gh_runner.run_git(["config", f"branch.{branch}.remote", remote], run_fn=run_fn)
         gh_runner.run_git(["config", f"branch.{branch}.merge", merge], run_fn=run_fn)
         print(f"Checked out {branch} for PR #{pr}")
@@ -357,18 +372,16 @@ def view_comments(pr: int | None = None, *, run_fn: RunFunction | None = None) -
     """Show a PR with its comments and review summaries (``gh pr view --comments``)."""
 
     def view_with_rest() -> int:
-        slug, number = _target(pr, run_fn=run_fn)
+        slug, number = gh_runner.resolve_repo_and_pr(pr, run_fn=run_fn)
         pull = pr_rest.pull_request(slug, number, run_fn=run_fn)
         print(f"{pull.get('title')} #{number}")
         print(f"state: {pr_rest.pull_state(pull)}")
         print(pull.get("html_url"))
         if pull.get("body"):
             print(f"\n{pull['body']}")
-        for comment in gh_runner.rest_pages(
-            f"repos/{slug}/issues/{number}/comments", run_fn=run_fn
-        ):
-            author = as_object(comment.get("user")).get("login", "unknown")
-            print(f"\n--\ncomment by @{author}\n{comment.get('body') or ''}")
+        gh_runner.print_rest_comments(
+            gh_runner.rest_pages(f"repos/{slug}/issues/{number}/comments", run_fn=run_fn)
+        )
         for review in pr_rest.reviews(slug, number, run_fn=run_fn):
             if review["body"]:
                 author = (review["author"] or {}).get("login", "unknown")
@@ -414,7 +427,7 @@ def merge_pr(
     """
 
     def merge_with_rest() -> int:
-        slug, number = _target(pr, run_fn=run_fn)
+        slug, number = gh_runner.resolve_repo_and_pr(pr, run_fn=run_fn)
         pull = pr_rest.pull_request(slug, number, run_fn=run_fn)
         state = pull.get("mergeable_state")
         if not admin and state not in _MERGEABLE_STATES:
@@ -443,7 +456,7 @@ def add_reviewers(users: str, pr: int | None = None, *, run_fn: RunFunction | No
     """Request reviews from a comma-separated list of ``users`` (``gh pr edit --add-reviewer``)."""
 
     def reviewers_with_rest() -> int:
-        slug, number = _target(pr, run_fn=run_fn)
+        slug, number = gh_runner.resolve_repo_and_pr(pr, run_fn=run_fn)
         # gh names a team as org/slug. REST takes the team slug separately.
         names = [
             pr_rest.COPILOT_REST_REVIEWER if name == pr_rest.COPILOT_REVIEWER else name
@@ -472,7 +485,7 @@ def add_labels(labels: str, pr: int | None = None, *, run_fn: RunFunction | None
     """Add a comma-separated list of ``labels`` to a PR (``gh pr edit --add-label``)."""
 
     def labels_with_rest() -> int:
-        slug, number = _target(pr, run_fn=run_fn)
+        slug, number = gh_runner.resolve_repo_and_pr(pr, run_fn=run_fn)
         gh_runner.rest(
             f"repos/{slug}/issues/{number}/labels",
             method="POST",
@@ -491,7 +504,7 @@ def close_pr(pr: int | None = None, *, run_fn: RunFunction | None = None) -> int
     """Close a PR and delete its branch (``gh pr close --delete-branch``)."""
 
     def close_with_rest() -> int:
-        slug, number = _target(pr, run_fn=run_fn)
+        slug, number = gh_runner.resolve_repo_and_pr(pr, run_fn=run_fn)
         pull = pr_rest.pull_request(slug, number, run_fn=run_fn)
         gh_runner.rest(
             f"repos/{slug}/pulls/{number}",

@@ -106,16 +106,21 @@ def registry_digest(image: str, *, timeout: float = 15) -> str:
     return digest
 
 
+def _write_if_changed(path: Path, text: str, new_text: str) -> bool:
+    """Write ``new_text`` over ``text`` in ``path`` and report whether the file changed."""
+    if new_text == text:
+        return False
+    path.write_text(new_text, encoding="utf-8")
+    return True
+
+
 def replace_one(path: Path, pattern: re.Pattern[str], replacement: str, *, label: str) -> bool:
     """Replace one required pin and report whether the file changed."""
     text = path.read_text(encoding="utf-8")
     new_text, count = pattern.subn(replacement, text)
     if count != 1:
         raise ValueError(f"Expected exactly one {label} in {path}, found {count}")
-    if new_text == text:
-        return False
-    path.write_text(new_text, encoding="utf-8")
-    return True
+    return _write_if_changed(path, text, new_text)
 
 
 def replace_all(path: Path, pattern: re.Pattern[str], replacement: str, *, label: str) -> bool:
@@ -124,16 +129,18 @@ def replace_all(path: Path, pattern: re.Pattern[str], replacement: str, *, label
     new_text, count = pattern.subn(replacement, text)
     if count < 1:
         raise ValueError(f"Expected at least one {label} in {path}, found {count}")
-    if new_text == text:
-        return False
-    path.write_text(new_text, encoding="utf-8")
-    return True
+    return _write_if_changed(path, text, new_text)
+
+
+def _require_semver(version: str) -> None:
+    """Raise ``ValueError`` unless ``version`` is an exact Playwright semantic version."""
+    if SEMVER_PATTERN.fullmatch(version) is None:
+        raise ValueError(f"Invalid Playwright semantic version: {version}")
 
 
 def upgrade_project_dependency(path: Path, version: str) -> bool:
     """Update the exact pyproject Playwright requirement without touching the lock."""
-    if SEMVER_PATTERN.fullmatch(version) is None:
-        raise ValueError(f"Invalid Playwright semantic version: {version}")
+    _require_semver(version)
     return replace_one(
         path,
         PLAYWRIGHT_REQUIREMENT_PATTERN,
@@ -146,8 +153,7 @@ def refresh_workflow_images(
     *, version: str, digest: str, paths: Sequence[Path] = PLAYWRIGHT_WORKFLOW_PATHS
 ) -> list[Path]:
     """Update one pinned Playwright image in every browser workflow."""
-    if SEMVER_PATTERN.fullmatch(version) is None:
-        raise ValueError(f"Invalid Playwright semantic version: {version}")
+    _require_semver(version)
     if DIGEST_PATTERN.fullmatch(digest) is None:
         raise ValueError(f"Invalid Playwright image digest: {digest}")
     replacement = f"{PLAYWRIGHT_IMAGE_PREFIX}v{version}-noble@{digest}"

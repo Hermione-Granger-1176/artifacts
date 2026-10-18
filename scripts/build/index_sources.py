@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, TypedDict
 from scripts.lib.artifact_contract import ArtifactContract, read_artifact_contract_file
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from scripts.build.index_config import IndexConfig
@@ -121,6 +122,29 @@ def validate_relative_repo_path(value: str, *, field_name: str) -> None:
         raise ValueError(f"{field_name} must not contain path traversal segments")
 
 
+def _validate_contract_path(
+    value: str,
+    *,
+    expected: str,
+    label: str,
+    rule: str,
+    matches_shape: Callable[[str], bool],
+) -> None:
+    """Validate one artifact path field against the id-derived value the contract expects.
+
+    A value with the right shape but another artifact's id is reported separately
+    from one that breaks the shape rule.
+    """
+    validate_relative_repo_path(value, field_name=f"Artifact {label}")
+    if value == expected:
+        return
+    if matches_shape(value):
+        raise ValueError(
+            f"Artifact {label} must use the same artifact id as the directory name: {value}"
+        )
+    raise ValueError(f"Artifact {label} must match {rule}: {value}")
+
+
 def validate_artifact_item(
     item: ArtifactItem,
     *,
@@ -130,40 +154,25 @@ def validate_artifact_item(
     if not is_kebab_case(item["id"], compiled_artifact_id_pattern=config.compiled_id_pattern):
         raise ValueError(f"Artifact id must use kebab-case: {item['id']}")
 
-    validate_relative_repo_path(item["url"], field_name="Artifact url")
-    expected_url = artifact_url(config.contract, item["id"])
-    if item["url"] != expected_url:
-        if matches_artifact_url_shape(
-            item["url"],
-            contract=config.contract,
-            compiled_artifact_id_pattern=config.compiled_id_pattern,
-        ):
-            raise ValueError(
-                f"Artifact url must use the same artifact id as the directory name: {item['url']}"
-            )
-        raise ValueError(
-            f"Artifact url must match {artifact_url_rule(config.contract)}: {item['url']}"
-        )
+    _validate_contract_path(
+        item["url"],
+        expected=artifact_url(config.contract, item["id"]),
+        label="url",
+        rule=artifact_url_rule(config.contract),
+        matches_shape=config.matches_artifact_url_shape,
+    )
 
     thumbnail = item.get("thumbnail")
     if thumbnail is None:
         return
 
-    validate_relative_repo_path(thumbnail, field_name="Artifact thumbnail")
-    expected_thumbnail = artifact_thumbnail_path(config.contract, item["id"])
-    if thumbnail != expected_thumbnail:
-        if matches_artifact_thumbnail_shape(
-            thumbnail,
-            contract=config.contract,
-            compiled_artifact_id_pattern=config.compiled_id_pattern,
-        ):
-            raise ValueError(
-                "Artifact thumbnail must use the same artifact id as the directory "
-                f"name: {thumbnail}"
-            )
-        raise ValueError(
-            f"Artifact thumbnail must match {artifact_thumbnail_rule(config.contract)}: {thumbnail}"
-        )
+    _validate_contract_path(
+        thumbnail,
+        expected=artifact_thumbnail_path(config.contract, item["id"]),
+        label="thumbnail",
+        rule=artifact_thumbnail_rule(config.contract),
+        matches_shape=config.matches_artifact_thumbnail_shape,
+    )
 
 
 def artifact_issues(

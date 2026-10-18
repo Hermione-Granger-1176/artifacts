@@ -8,7 +8,6 @@ body.artifact-app .table-wrap {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-
 }
 
 body.artifact-app .btn {
@@ -22,7 +21,6 @@ body.artifact-app .btn {
   padding: 6px 14px;
   font-size: var(--font-size-control);
   font-weight: 500;
-
 }
 
 /* The emphasis blue holds 4.5:1 under the label in both themes; the base blue only reaches 3.6:1 against white. */
@@ -30,20 +28,17 @@ body.artifact-app .btn-primary {
   background: var(--color-blue-emphasis);
   color: var(--color-text-on-accent);
   font-weight: 600;
-
 }
 
 body.artifact-app .btn-primary:hover,
 body.artifact-app .btn-primary:focus-visible {
   outline: none;
-
 }
 
 body.artifact-app .btn-outline {
   border: 1px solid var(--color-border-medium);
   background: transparent;
   color: var(--color-text-secondary);
-
 }
 
 body.artifact-app .btn-outline:hover,
@@ -51,18 +46,15 @@ body.artifact-app .btn-outline:focus-visible {
   border-color: var(--color-border-strong);
   color: var(--color-text);
   outline: none;
-
 }
 
 body.artifact-app .btn-sm {
   padding: 0.375rem 0.85rem;
-
 }
 
 body.artifact-app .btn:disabled {
   opacity: 0.55;
   cursor: default;
-
 }
 
 /* Reusable artifact app controls and feedback. */
@@ -77,7 +69,6 @@ body.artifact-app .btn:disabled {
 body.artifact-app .segmented {
   display: flex;
   gap: var(--space-2);
-
 }
 
 body.artifact-app .segmented.is-fused,
@@ -88,7 +79,6 @@ body.artifact-app .type-toggle {
   overflow: hidden;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
-
 }
 
 body.artifact-app .segmented button,
@@ -97,7 +87,6 @@ body.artifact-app .type-toggle button {
   color: var(--color-text-secondary);
   cursor: pointer;
   min-height: 2.75rem;
-
 }
 
 body.artifact-app .segmented button {
@@ -105,7 +94,6 @@ body.artifact-app .segmented button {
   border-radius: var(--radius-sm);
   padding: 6px 14px;
   font-size: var(--font-size-control);
-
 }
 
 body.artifact-app .segmented.is-fused button,
@@ -115,7 +103,6 @@ body.artifact-app .type-toggle button {
   padding: 5px 10px;
   font-size: var(--font-size-sm);
   white-space: nowrap;
-
 }
 
 body.artifact-app .segmented button.active,
@@ -123,7 +110,6 @@ body.artifact-app .type-toggle button.active {
   background: var(--color-surface);
   color: var(--color-text);
   font-weight: 500;
-
 }
 
 /*
@@ -137,7 +123,6 @@ body.artifact-app .segmented.is-inset,
 body.artifact-app .type-toggle.is-inset {
   padding: var(--space-1);
   background: var(--color-surface-alt);
-
 }
 
 body.artifact-app .segmented.is-inset button,
@@ -147,41 +132,34 @@ body.artifact-app .type-toggle.is-inset button {
     background var(--transition-fast) ease,
     color var(--transition-fast) ease,
     transform var(--transition-fast) ease;
-
 }
 
 body.artifact-app .segmented.is-inset button.active,
 body.artifact-app .type-toggle.is-inset button.active {
   box-shadow: 0 1px 2px var(--color-page-shadow);
-
 }
 
 body.artifact-app .segmented.is-inset button:not(.active, :disabled):hover,
 body.artifact-app .type-toggle.is-inset button:not(.active, :disabled):hover {
   background: var(--color-surface-dim);
   color: var(--color-text);
-
 }
 
 body.artifact-app .segmented.is-inset button:not(:disabled):active,
 body.artifact-app .type-toggle.is-inset button:not(:disabled):active {
   transform: scale(0.97);
-
 }
 
 @media (prefers-reduced-motion: reduce) {
   body.artifact-app .segmented.is-inset button,
   body.artifact-app .type-toggle.is-inset button {
     transition: none;
-
   }
 
   body.artifact-app .segmented.is-inset button:not(:disabled):active,
   body.artifact-app .type-toggle.is-inset button:not(:disabled):active {
     transform: none;
-
   }
-
 }
 
 body.artifact-app .text-input,
@@ -194,21 +172,18 @@ body.artifact-app .period-input {
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
-
 }
 
 body.artifact-app .text-input,
 body.artifact-app .amount-input,
 body.artifact-app .period-input {
   text-align: right;
-
 }
 
 body.artifact-app .text-input {
   padding: var(--space-2) 10px;
   font-size: var(--font-size-base);
   font-weight: 500;
-
 }
 
 body.artifact-app .select-input {
@@ -216,21 +191,18 @@ body.artifact-app .select-input {
   font-size: var(--font-size-md);
   font-weight: 500;
   cursor: pointer;
-
 }
 
 body.artifact-app .amount-input {
   width: 110px;
   padding: 6px 10px;
   font-size: var(--font-size-md);
-
 }
 
 body.artifact-app .period-input {
   width: 55px;
   padding: 6px var(--space-2);
   font-size: var(--font-size-md);
-
 }
 
 body.artifact-app .text-input:focus,
@@ -239,7 +211,6 @@ body.artifact-app .amount-input:focus,
 body.artifact-app .period-input:focus {
   border-color: var(--color-blue);
   outline: none;
-
 }
 
 body.artifact-app .btn:focus-visible,
@@ -252,13 +223,11 @@ body.artifact-app .period-input:focus-visible,
 body.artifact-app .range-input:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
-
 }
 
 body.artifact-app .range-input {
   width: 100%;
   accent-color: var(--color-blue);
-
 }
 
 /* Reusable artifact app control fields (slider rows). */
@@ -266,7 +235,6 @@ body.artifact-app .range-input {
 body.artifact-app .control-field {
   display: flex;
   flex-direction: column;
-
 }
 
 body.artifact-app .control-field-head {
@@ -275,20 +243,17 @@ body.artifact-app .control-field-head {
   justify-content: space-between;
   gap: var(--space-2);
   margin-bottom: var(--space-1);
-
 }
 
 body.artifact-app .control-field-head label {
   font-size: var(--font-size-control);
   font-weight: 600;
-
 }
 
 body.artifact-app .control-field-head output {
   font-size: var(--font-size-lg);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-
 }
 
 body.artifact-app .control-field-hints {
@@ -297,14 +262,12 @@ body.artifact-app .control-field-hints {
   margin-top: var(--space-1);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
-
 }
 
 body.artifact-app .control-field-note {
   margin-top: var(--space-2);
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
-
 }
 
 body.artifact-app .info-tip {
@@ -321,7 +284,6 @@ body.artifact-app .info-tip {
   cursor: help;
   font-size: var(--font-size-2xs);
   font-weight: 600;
-
 }
 
 body.artifact-app .info-tip:hover::after,
@@ -332,7 +294,6 @@ body.artifact-app .info-tip:focus-visible::before {
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
-
 }
 
 body.artifact-app .info-tip:hover::after,
@@ -346,7 +307,6 @@ body.artifact-app .info-tip:focus-visible::after {
   font-size: var(--font-size-xs);
   font-weight: 400;
   white-space: nowrap;
-
 }
 
 body.artifact-app .info-tip:hover::before,
@@ -355,13 +315,11 @@ body.artifact-app .info-tip:focus-visible::before {
   bottom: 110%;
   border: 5px solid transparent;
   border-top-color: var(--color-tooltip-bg);
-
 }
 
 body.artifact-app .info-tip:focus-visible {
   outline: 1px solid var(--color-blue);
   outline-offset: 2px;
-
 }
 
 body.artifact-app .app-callout {
@@ -370,21 +328,18 @@ body.artifact-app .app-callout {
   border: 1px solid var(--color-border);
   border-left-width: 3px;
   border-radius: var(--radius-md);
-
 }
 
 body.artifact-app .app-callout-title {
   margin-bottom: 0.35rem;
   font-size: var(--font-size-md);
   font-weight: 700;
-
 }
 
 body.artifact-app .app-callout-body {
   color: var(--color-text-secondary);
   font-size: var(--font-size-md);
   line-height: 1.75;
-
 }
 
 /* Callout hue tones: tinted background, colored left rule, colored title. */
@@ -392,56 +347,46 @@ body.artifact-app .app-callout-body {
 body.artifact-app .app-callout.is-blue {
   border-left-color: var(--color-blue);
   background: color-mix(in srgb, var(--color-blue) 10%, transparent);
-
 }
 
 body.artifact-app .app-callout.is-blue .app-callout-title {
   color: var(--color-blue-emphasis);
-
 }
 
 body.artifact-app .app-callout.is-green {
   border-left-color: var(--color-green);
   background: color-mix(in srgb, var(--color-green) 10%, transparent);
-
 }
 
 body.artifact-app .app-callout.is-green .app-callout-title {
   color: var(--color-green-emphasis);
-
 }
 
 body.artifact-app .app-callout.is-amber {
   border-left-color: var(--color-amber);
   background: color-mix(in srgb, var(--color-amber) 10%, transparent);
-
 }
 
 body.artifact-app .app-callout.is-amber .app-callout-title {
   color: var(--color-amber-emphasis);
-
 }
 
 body.artifact-app .app-callout.is-purple {
   border-left-color: var(--color-purple);
   background: color-mix(in srgb, var(--color-purple) 10%, transparent);
-
 }
 
 body.artifact-app .app-callout.is-purple .app-callout-title {
   color: var(--color-purple-emphasis);
-
 }
 
 body.artifact-app .app-callout.is-red {
   border-left-color: var(--color-red);
   background: color-mix(in srgb, var(--color-red) 10%, transparent);
-
 }
 
 body.artifact-app .app-callout.is-red .app-callout-title {
   color: var(--color-red-emphasis);
-
 }
 
 /* Reusable artifact app chips (badges and pills). */
@@ -457,85 +402,72 @@ body.artifact-app .chip {
   color: var(--color-text);
   font-size: var(--font-size-sm);
   font-weight: 600;
-
 }
 
 body.artifact-app .chip.is-yellow {
   border: 1px solid var(--color-amber);
   background: var(--note-yellow);
   color: var(--color-text);
-
 }
 
 body.artifact-app .chip.is-red {
   border: 1px solid var(--color-red);
   background: var(--note-red);
   color: var(--color-text);
-
 }
 
 body.artifact-app .chip.is-blue {
   border: 1px solid var(--color-blue);
   background: var(--note-blue);
   color: var(--color-text);
-
 }
 
 body.artifact-app .chip.is-green {
   border: 1px solid var(--color-green);
   background: var(--note-green);
   color: var(--color-text);
-
 }
 
 body.artifact-app .chip.is-amber {
   border: 1px solid var(--color-amber);
   background: var(--note-amber);
   color: var(--color-text);
-
 }
 
 body.artifact-app .chip.is-purple {
   border: 1px solid var(--color-purple);
   background: var(--note-purple);
   color: var(--color-text);
-
 }
 
 body.artifact-app .chip.is-mono {
   font-family: var(--font-mono);
   font-weight: 500;
-
 }
 
 body.artifact-app .chip.is-solid-blue {
   background: var(--color-blue);
   color: var(--color-text-on-accent);
-
 }
 
 body.artifact-app .chip.is-solid-green {
   background: var(--color-green);
   color: var(--color-text-on-accent);
-
 }
 
 body.artifact-app .chip.is-solid-red {
   background: var(--color-red);
   color: var(--color-text-on-accent);
-
 }
 
 body.artifact-app .chip.is-solid-amber {
   background: var(--color-amber);
   color: var(--color-text-on-accent);
-
 }
 
 body.artifact-app .chip.is-solid-purple {
   background: var(--color-purple);
   color: var(--color-text-on-accent);
-
 }
 
 /* Reusable artifact app data displays. */
@@ -549,7 +481,6 @@ body.artifact-app .section-kicker {
   font-weight: 600;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
-
 }
 
 /* Stat tiles: labeled metric cards in an auto-fit grid. */
@@ -558,7 +489,6 @@ body.artifact-app .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--space-3);
-
 }
 
 body.artifact-app .stat {
@@ -567,21 +497,18 @@ body.artifact-app .stat {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-
 }
 
 body.artifact-app .stat .info-tip {
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
-
 }
 
 body.artifact-app .stat-label {
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: 600;
-
 }
 
 body.artifact-app .stat-value {
@@ -589,29 +516,24 @@ body.artifact-app .stat-value {
   font-size: 1.5rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-
 }
 
 body.artifact-app .stat-sub {
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
-
 }
 
 body.artifact-app .stat.is-center {
   text-align: center;
-
 }
 
 body.artifact-app .stat-label.is-caps {
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
-
 }
 
 body.artifact-app .stat-value.is-mono {
   font-family: var(--font-mono);
-
 }
 
 /* Meter: thin progress bar with a tone-colored fill. */
@@ -621,39 +543,32 @@ body.artifact-app .meter {
   overflow: hidden;
   border-radius: var(--radius-pill);
   background: var(--color-surface-alt);
-
 }
 
 body.artifact-app .meter-fill {
   height: 100%;
   background: var(--color-blue);
   transition: width var(--transition-fast) ease;
-
 }
 
 body.artifact-app .meter-fill.is-green {
   background: var(--color-green);
-
 }
 
 body.artifact-app .meter-fill.is-amber {
   background: var(--color-amber);
-
 }
 
 body.artifact-app .meter-fill.is-red {
   background: var(--color-red);
-
 }
 
 body.artifact-app .meter-fill.is-purple {
   background: var(--color-purple);
-
 }
 
 body.artifact-app .chart-card {
   padding: 1.25rem;
-
 }
 
 body.artifact-app .chart-card h2 {
@@ -661,14 +576,12 @@ body.artifact-app .chart-card h2 {
   color: var(--color-text-heading);
   font-size: var(--font-size-md);
   font-weight: 600;
-
 }
 
 /* Canvas wrapper for Chart.js; apps set the height per frame variant. */
 body.artifact-app .chart-frame {
   position: relative;
   width: 100%;
-
 }
 
 body.artifact-app .chart-legend {
@@ -678,20 +591,17 @@ body.artifact-app .chart-legend {
   margin-bottom: var(--space-2);
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
-
 }
 
 body.artifact-app .chart-legend span {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-
 }
 
 body.artifact-app .chart-legend-note {
   color: var(--color-text-tertiary);
   font-style: italic;
-
 }
 
 body.artifact-app .dot {
@@ -699,20 +609,17 @@ body.artifact-app .dot {
   height: 10px;
   border-radius: 2px;
   flex-shrink: 0;
-
 }
 
 body.artifact-app .table-wrap {
   max-height: 420px;
   overflow-y: auto;
-
 }
 
 body.artifact-app table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--font-size-control);
-
 }
 
 body.artifact-app thead {
@@ -720,14 +627,12 @@ body.artifact-app thead {
   top: 0;
   z-index: 1;
   background: var(--color-surface-alt);
-
 }
 
 body.artifact-app th,
 body.artifact-app td {
   padding: var(--space-2) 10px;
   text-align: right;
-
 }
 
 body.artifact-app th {
@@ -735,18 +640,15 @@ body.artifact-app th {
   border-bottom: 1px solid var(--color-border);
   font-size: var(--font-size-sm);
   font-weight: 500;
-
 }
 
 body.artifact-app td {
   border-bottom: 1px solid var(--color-border-subtle);
-
 }
 
 body.artifact-app th:first-child,
 body.artifact-app td:first-child {
   text-align: center;
-
 }
 
 /* Mac-style code windows with traffic-light dots and syntax tint classes. */

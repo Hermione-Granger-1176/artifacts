@@ -39,6 +39,30 @@ const DOWNLOAD_CLEANUP_MS = 1500;
 const YIELD_INTERVAL_MS = 50;
 
 /**
+ * @param {BatchFormat} format - Selected output format.
+ * @returns {boolean} Whether the format writes a PDF.
+ */
+export function formatWritesPdf(format) {
+  return format === "pdf" || format === "both";
+}
+
+/**
+ * @param {BatchFormat} format - Selected output format.
+ * @returns {boolean} Whether the format writes a PNG (or its JPEG scan).
+ */
+export function formatWritesPng(format) {
+  return format === "png" || format === "both";
+}
+
+/**
+ * @param {string} dataUrl - Base64 data URL.
+ * @returns {string} The base64 payload after the comma, as JSZip expects it.
+ */
+function base64Payload(dataUrl) {
+  return dataUrl.split(",")[1];
+}
+
+/**
  * Hand a blob or data URL to the browser as a download.
  *
  * The anchor is attached to the document before clicking and revoked on a
@@ -295,7 +319,7 @@ export function estimateBatchBytes({
   let perDocument = 0;
   const imageBytes = lossy ? BYTES_PER_DOCUMENT.jpg : degraded ? BYTES_PER_DOCUMENT.pngNoisy : BYTES_PER_DOCUMENT.png;
 
-  if (format === "png" || format === "both") {
+  if (formatWritesPng(format)) {
     perDocument += imageBytes;
 
     if (degraded && pair) {
@@ -303,7 +327,7 @@ export function estimateBatchBytes({
     }
   }
 
-  if (format === "pdf" || format === "both") {
+  if (formatWritesPdf(format)) {
     perDocument += pdfMode === "image" ? BYTES_PER_DOCUMENT.pdfImage : BYTES_PER_DOCUMENT.pdfText;
   }
 
@@ -383,8 +407,8 @@ export async function runBatch({
 }) {
   const JsZip = deps.getJsZip();
   const zip = new JsZip();
-  const wantsPng = format === "png" || format === "both";
-  const wantsPdf = format === "pdf" || format === "both";
+  const wantsPng = formatWritesPng(format);
+  const wantsPdf = formatWritesPdf(format);
   const wantsCanvas = wantsPng || (wantsPdf && pdfMode === "image");
   // Merged rather than defaulted, so a caller that names only some of the
   // README fields does not end up printing "undefined" into the archive.
@@ -421,12 +445,12 @@ export async function runBatch({
       const raster = await renderRaster(paper, deps, degradation);
 
       if (wantsPng) {
-        zip.file(`${base}.${raster.extension}`, raster.dataUrl.split(",")[1], { base64: true });
+        zip.file(`${base}.${raster.extension}`, base64Payload(raster.dataUrl), { base64: true });
 
         if (pair && degradation) {
           // The whole point of pair mode: one seed, two images, differing only
           // in scan quality, so accuracy can be plotted against it.
-          zip.file(`${base}.clean.png`, raster.clean.toDataURL("image/png").split(",")[1], { base64: true });
+          zip.file(`${base}.clean.png`, base64Payload(raster.clean.toDataURL("image/png")), { base64: true });
           wrotePair = true;
         }
       }

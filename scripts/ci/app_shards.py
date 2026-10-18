@@ -11,7 +11,11 @@ from typing import cast
 
 from scripts.lib.app_discovery import artifact_base_path, discover_app_slugs, thumbnail_file
 from scripts.lib.artifact_contract import artifact_id_pattern
-from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
+from scripts.lib.path_validation import (
+    reject_path_symlinks,
+    reject_symlinked_tree,
+    reject_symlinks,
+)
 
 SHARD_SIZE = 20
 MAX_SHARD_COUNT = 128
@@ -208,12 +212,9 @@ def package_shard_result(
     """Package a shard manifest and its generated thumbnails for transfer."""
     manifest = read_shard_manifest(manifest_path)
     root = apps_root or Path(artifact_base_path())
-    reject_path_symlinks(root, label="Shard thumbnail root")
-    if root.exists():
-        reject_symlinks(root)
-    reject_path_symlinks(output_root, label="Shard result output")
+    reject_symlinked_tree(root, label="Shard thumbnail root")
+    reject_symlinked_tree(output_root, label="Shard result output")
     if output_root.exists():
-        reject_symlinks(output_root)
         shutil.rmtree(output_root)
     output_root.mkdir(parents=True)
     (output_root / SHARD_MANIFEST_FILE).write_text(
@@ -236,9 +237,7 @@ def merge_shard_results(results_root: Path, *, apps_root: Path | None = None) ->
         return []
     reject_symlinks(results_root)
     destination_root = apps_root or Path(artifact_base_path())
-    reject_path_symlinks(destination_root, label="Shard thumbnail destination root")
-    if destination_root.exists():
-        reject_symlinks(destination_root)
+    reject_symlinked_tree(destination_root, label="Shard thumbnail destination root")
     # download-artifact extracts a single matched artifact directly into the
     # download path, while multiple matches land in per-artifact directories.
     # A top-level manifest marks the flattened single-shard layout.
