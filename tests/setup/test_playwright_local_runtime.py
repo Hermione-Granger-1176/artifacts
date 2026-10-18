@@ -442,7 +442,9 @@ def test_checked_run_reports_failures_with_bounded_output() -> None:
 # ─── Download, extraction, and validation ────────────────────────────────────
 
 
-def test_is_within_returns_a_verdict_for_unresolvable_paths(tmp_path: Path) -> None:
+def test_is_within_returns_a_verdict_for_unresolvable_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Hostile filesystem entries get a verdict instead of an escaping exception.
 
     The containment guard validates untrusted extracted trees, so it has to answer
@@ -465,13 +467,21 @@ def test_is_within_returns_a_verdict_for_unresolvable_paths(tmp_path: Path) -> N
 
     assert runtime.is_within(dangling, tmp_path) is False
 
+    # An unreadable directory makes lstat raise PermissionError. Permission bits
+    # do not stop root, so the denial is simulated rather than set with chmod,
+    # which keeps the check meaningful for every user that runs the suite.
     blocked = tmp_path / "blocked"
     (blocked / "inner").mkdir(parents=True)
-    blocked.chmod(0o000)
-    try:
+    real_lstat = Path.lstat
+
+    def denying_lstat(self: Path) -> os.stat_result:
+        if self == blocked / "inner":
+            raise PermissionError(errno.EACCES, "Permission denied", str(self))
+        return real_lstat(self)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", denying_lstat)
         assert runtime.is_within(blocked / "inner", tmp_path) is False
-    finally:
-        blocked.chmod(0o700)
 
     assert runtime.is_within(tmp_path / "escape", Path(tmp_path.anchor) / "nowhere") is False
 
