@@ -143,6 +143,8 @@ def create_pr(
     def create_with_rest() -> int:
         slug = gh_runner.resolve_repo(run_fn=run_fn)
         branch = gh_runner.current_branch(run_fn=run_fn)
+        if branch == "HEAD":
+            raise GhError("HEAD is detached. Check out a branch before creating a pull request.")
         target = base or gh_runner.default_branch(slug, run_fn=run_fn)
         source = gh_runner.checkout_repo(slug, run_fn=run_fn)
         _require_pushed(source, branch, run_fn=run_fn)

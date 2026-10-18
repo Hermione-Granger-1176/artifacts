@@ -296,6 +296,7 @@ def _rest_threads(
     has no node id here, so its first comment's numeric id stands in for one.
     """
     slug = f"{owner}/{name}"
+    # This route ignores per_page and page and returns every thread at once.
     raw_threads = gh_runner.rest(f"repos/{slug}/pulls/{pr}/ccr/review_threads", run_fn=run_fn)
     if not isinstance(raw_threads, list):
         raise GhError("Unexpected review threads shape in REST response.")

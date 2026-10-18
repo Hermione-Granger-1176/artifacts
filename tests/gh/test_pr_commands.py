@@ -264,6 +264,14 @@ def test_create_fallback_requires_the_pushed_head(
     assert not any("POST" in call for call in runner.calls)
 
 
+def test_create_fallback_refuses_a_detached_head() -> None:
+    """A detached HEAD has no branch to open a PR from, so no push advice is given."""
+    runner = _create_sandbox((has("rev-parse"), completed_process(0, "HEAD\n")))
+
+    with pytest.raises(GhError, match="HEAD is detached"):
+        pr_commands.create_pr(title="T", base="dev", run_fn=runner)
+
+
 def test_create_fallback_keeps_the_real_error_of_a_failed_branch_lookup() -> None:
     """Only a 404 means unpushed. A permission error surfaces as itself."""
     runner = _create_sandbox(
