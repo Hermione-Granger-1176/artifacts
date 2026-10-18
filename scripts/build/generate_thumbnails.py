@@ -325,15 +325,14 @@ async def _process_artifact(
                     await page.close()
 
 
+def _empty_stats(total: int) -> ThumbnailStats:
+    """Return stats for ``total`` artifacts before any has been processed."""
+    return {"total": total, "attempted": 0, "generated": 0, "skipped": 0, "failed": 0}
+
+
 async def _run_generation(artifacts: list[Path], async_playwright_cm: Any) -> ThumbnailStats:
     """Run concurrent thumbnail generation and return aggregated stats."""
-    stats: ThumbnailStats = {
-        "total": len(artifacts),
-        "attempted": 0,
-        "generated": 0,
-        "skipped": 0,
-        "failed": 0,
-    }
+    stats = _empty_stats(len(artifacts))
 
     async with async_playwright_cm() as playwright:
         browser = await playwright.chromium.launch()
@@ -375,13 +374,7 @@ def generate_thumbnails() -> ThumbnailStats:
     artifacts = find_artifacts()
     if not artifacts:
         logger.info("No artifacts found")
-        stats: ThumbnailStats = {
-            "total": 0,
-            "attempted": 0,
-            "generated": 0,
-            "skipped": 0,
-            "failed": 0,
-        }
+        stats = _empty_stats(0)
         _write_manifest([], stats)
         return stats
 

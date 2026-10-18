@@ -428,8 +428,15 @@ def normalize_shell_lines(output: str) -> list[str]:
     return lines
 
 
-def parse_dependency_seeds(output: str) -> tuple[str, ...]:
-    """Extract safe package names from Playwright's dependency dry-run report."""
+def _validated_package_name(name: str) -> str:
+    """Return a package name from the dry-run report, rejecting anything unsafe."""
+    if PACKAGE_NAME_RE.fullmatch(name) is None:
+        raise fail("invalid package name in Playwright's dependency dry-run output")
+    return name
+
+
+def _apt_install_packages(output: str) -> list[str]:
+    """Return the packages named by ``apt-get install`` commands in the report."""
     packages: list[str] = []
     for line in normalize_shell_lines(output):
         if "apt-get" not in line:
@@ -444,15 +451,14 @@ def parse_dependency_seeds(output: str) -> tuple[str, ...]:
             tokens = tokens[1:]
         if len(tokens) < 3 or tokens[0] != "apt-get" or tokens[1] != "install":
             continue
-        for token in tokens[2:]:
-            if token.startswith("-"):
-                continue
-            if PACKAGE_NAME_RE.fullmatch(token) is None:
-                raise fail("invalid package name in Playwright's dependency dry-run output")
-            packages.append(token)
-    if packages:
-        return tuple(sorted(set(packages)))
+        packages.extend(
+            _validated_package_name(token) for token in tokens[2:] if not token.startswith("-")
+        )
+    return packages
 
+
+def _missing_dependency_listing(output: str) -> list[str]:
+    """Return the packages in a "missing dependencies" listing, checked against its count."""
     lines = output.splitlines()
     header_match = next(
         (
@@ -464,19 +470,26 @@ def parse_dependency_seeds(output: str) -> tuple[str, ...]:
     )
     if header_match is None:
         if any(line.strip() == "All system dependencies are installed." for line in lines):
-            return ()
+            return []
         raise fail("Playwright dependency dry run did not provide package seeds")
     header_index, header = header_match
-    expected_count = int(header.group(1))
+    packages: list[str] = []
     for line in lines[header_index + 1 :]:
         if not line.startswith((" ", "\t")):
             break
-        package = line.strip()
-        if PACKAGE_NAME_RE.fullmatch(package) is None:
-            raise fail("invalid package name in Playwright's dependency dry-run output")
-        packages.append(package)
-    if len(packages) != expected_count:
+        packages.append(_validated_package_name(line.strip()))
+    if len(packages) != int(header.group(1)):
         raise fail("Playwright dependency dry run reported an incomplete package list")
+    return packages
+
+
+def parse_dependency_seeds(output: str) -> tuple[str, ...]:
+    """Extract safe package names from Playwright's dependency dry-run report.
+
+    The report either prints the ``apt-get install`` command it would run or,
+    when it cannot, lists the missing packages under a counted header.
+    """
+    packages = _apt_install_packages(output) or _missing_dependency_listing(output)
     return tuple(sorted(set(packages)))
 
 

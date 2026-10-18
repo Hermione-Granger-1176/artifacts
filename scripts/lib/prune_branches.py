@@ -163,26 +163,38 @@ def main(
     contained, unique = classify(base, branches, tree, runner=runner)
 
     if unique:
-        print(f"Branches holding content not in {base} (kept, review before deleting):")
-        for branch in unique:
-            print(f"  {branch}")
+        _print_branches(
+            f"Branches holding content not in {base} (kept, review before deleting):", unique
+        )
 
     if not contained:
         print(f"No local branches are fully contained in {base}.")
         return 0
 
-    print(f"Branches fully contained in {base} (safe to prune):")
-    for branch in contained:
-        print(f"  {branch}")
+    _print_branches(f"Branches fully contained in {base} (safe to prune):", contained)
 
     if env.get("PRUNE_CONFIRM") != "1":
         print("Dry run only. Re-run with confirm=1 to delete them.")
         return 0
 
-    # Deletion is the destructive step, so a refusal stops the run rather than
-    # continuing down the list. git explains itself on stderr, which the caller
-    # needs to see to know whether anything was actually removed.
-    for branch in contained:
+    return _delete_branches(contained, runner=runner)
+
+
+def _print_branches(header: str, branches: Sequence[str]) -> None:
+    """Print a heading, then one indented branch name per line."""
+    print(header)
+    for branch in branches:
+        print(f"  {branch}")
+
+
+def _delete_branches(branches: Sequence[str], *, runner: GitRunner) -> int:
+    """Delete each branch, stopping at the first refusal, and return the exit code.
+
+    Deletion is the destructive step, so a refusal stops the run rather than
+    continuing down the list. git explains itself on stderr, which the caller
+    needs to see to know whether anything was actually removed.
+    """
+    for branch in branches:
         result = runner(["branch", "-D", branch])
         if result.returncode != 0:
             detail = (result.stderr or result.stdout).strip() or "git reported no detail"

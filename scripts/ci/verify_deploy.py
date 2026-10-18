@@ -110,6 +110,23 @@ def _validate_metadata_payload(payload: object, expected_commit_sha: str) -> Non
         )
 
 
+def _verify_once(
+    page_url: str,
+    metadata_url: str,
+    *,
+    expected_substring: str,
+    expected_commit_sha: str,
+    timeout_seconds: float,
+) -> None:
+    """Fetch the page and its deploy metadata once, raising on any mismatch."""
+    status_code, body = _fetch_text(page_url, timeout_seconds)
+    _validate_deploy_response(status_code, body, expected_substring)
+    metadata_status, payload = _fetch_json(metadata_url, timeout_seconds)
+    if metadata_status != 200:
+        raise RuntimeError(f"deploy metadata returned HTTP {metadata_status}")
+    _validate_metadata_payload(payload, expected_commit_sha)
+
+
 def verify_deploy(
     url: str,
     expected_substring: str,
@@ -140,13 +157,13 @@ def verify_deploy(
             _build_metadata_url(url, normalized_metadata_path), attempt
         )
         try:
-            status_code, body = _fetch_text(cache_busted_url, timeout_seconds)
-            _validate_deploy_response(status_code, body, expected_substring)
-            metadata_status, payload = _fetch_json(metadata_url, timeout_seconds)
-            if metadata_status != 200:
-                raise RuntimeError(f"deploy metadata returned HTTP {metadata_status}")
-            _validate_metadata_payload(payload, expected_commit_sha)
-
+            _verify_once(
+                cache_busted_url,
+                metadata_url,
+                expected_substring=expected_substring,
+                expected_commit_sha=expected_commit_sha,
+                timeout_seconds=timeout_seconds,
+            )
             logger.info("Verified published deployment at %s", url)
             return
         except (RuntimeError, urllib.error.URLError) as exc:

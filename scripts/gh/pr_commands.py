@@ -302,6 +302,42 @@ def show_diff(pr: int | None = None, *, run_fn: RunFunction | None = None) -> in
     return gh_runner.gh_or_rest(_pr_command(["pr", "diff"], pr), diff_with_rest, run_fn=run_fn)
 
 
+def _fetch_pr_into_branch(pr: int, branch: str, *, run_fn: RunFunction | None) -> None:
+    """Fetch a PR's head into ``branch`` and check it out, fast-forwarding an existing one."""
+    try:
+        gh_runner.run_git(
+            ["rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"], run_fn=run_fn
+        )
+    except GhError:
+        gh_runner.run_git(["fetch", "origin", f"pull/{pr}/head:{branch}"], run_fn=run_fn)
+        gh_runner.run_git(["checkout", branch], run_fn=run_fn)
+    else:
+        gh_runner.run_git(["fetch", "origin", f"pull/{pr}/head"], run_fn=run_fn)
+        gh_runner.run_git(["checkout", branch], run_fn=run_fn)
+        gh_runner.run_git(["merge", "--ff-only", "FETCH_HEAD"], run_fn=run_fn)
+
+
+def _pr_upstream(
+    pull: dict[str, Any],
+    pr: int,
+    head_ref: str,
+    head_info: dict[str, Any],
+    *,
+    is_fork: bool,
+) -> tuple[str, str]:
+    """Return the remote and merge ref a checked-out PR branch should track.
+
+    A fork branch tracks the fork itself when maintainers may push to it, and
+    the read-only pull ref otherwise.
+    """
+    if not is_fork:
+        return "origin", f"refs/heads/{head_ref}"
+    clone_url = head_info.get("clone_url")
+    if pull.get("maintainer_can_modify") and isinstance(clone_url, str) and clone_url:
+        return clone_url, f"refs/heads/{head_ref}"
+    return "origin", f"refs/pull/{pr}/head"
+
+
 def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
     """Check out a PR's branch locally (``gh pr checkout``)."""
 
@@ -316,21 +352,12 @@ def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
         head_ref = branch
         head_info = as_object(head.get("repo"))
         head_repo = str(head_info.get("full_name") or "")
-        if not gh_runner.same_repo(head_repo, slug):
+        is_fork = not gh_runner.same_repo(head_repo, slug)
+        if is_fork:
             # A fork's branch can share a local name such as main, so it gets
             # the fork owner as a prefix instead of updating that branch.
             branch = f"{head_repo.split('/')[0] or 'fork'}/{branch}"
-        try:
-            gh_runner.run_git(
-                ["rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"], run_fn=run_fn
-            )
-        except GhError:
-            gh_runner.run_git(["fetch", "origin", f"pull/{pr}/head:{branch}"], run_fn=run_fn)
-            gh_runner.run_git(["checkout", branch], run_fn=run_fn)
-        else:
-            gh_runner.run_git(["fetch", "origin", f"pull/{pr}/head"], run_fn=run_fn)
-            gh_runner.run_git(["checkout", branch], run_fn=run_fn)
-            gh_runner.run_git(["merge", "--ff-only", "FETCH_HEAD"], run_fn=run_fn)
+        _fetch_pr_into_branch(pr, branch, run_fn=run_fn)
         gh_runner.run_git(
             ["config", f"branch.{branch}.{gh_runner.PR_NUMBER_CONFIG}", str(pr)], run_fn=run_fn
         )
@@ -338,13 +365,7 @@ def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
             ["config", f"branch.{branch}.{gh_runner.PR_REPO_CONFIG}", slug], run_fn=run_fn
         )
         # Track the PR's branch like gh pr checkout, so git pull works afterwards.
-        remote, merge = "origin", f"refs/heads/{head_ref}"
-        if not gh_runner.same_repo(head_repo, slug):
-            clone_url = head_info.get("clone_url")
-            if pull.get("maintainer_can_modify") and isinstance(clone_url, str) and clone_url:
-                remote = clone_url
-            else:
-                merge = f"refs/pull/{pr}/head"
+        remote, merge = _pr_upstream(pull, pr, head_ref, head_info, is_fork=is_fork)
         gh_runner.run_git(["config", f"branch.{branch}.remote", remote], run_fn=run_fn)
         gh_runner.run_git(["config", f"branch.{branch}.merge", merge], run_fn=run_fn)
         print(f"Checked out {branch} for PR #{pr}")

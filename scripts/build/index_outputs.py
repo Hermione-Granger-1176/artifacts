@@ -247,6 +247,11 @@ def build_badges_block(
     return "&nbsp;\n".join(build_badge_fn(item, config) for item in sorted_items)
 
 
+def _badges_block(config: IndexConfig, values: set[str], entries: Sequence[MetadataEntry]) -> str:
+    """Build one README badge block in the metadata group's display order."""
+    return config.build_badges_block(values, display_order(entries), badge_config_map(entries))
+
+
 def update_readme(
     *,
     items: Sequence[Mapping[str, object]],
@@ -271,22 +276,10 @@ def update_readme(
     readme = replace_inline_marker(readme, "TOTAL_BADGE", total_badge)
     readme = replace_inline_marker(readme, "TOTAL_COUNT", str(total_count))
     readme = replace_block_marker(
-        readme,
-        "TAG_BADGES",
-        config.build_badges_block(
-            all_tags,
-            display_order(gallery_metadata["tags"]),
-            badge_config_map(gallery_metadata["tags"]),
-        ),
+        readme, "TAG_BADGES", _badges_block(config, all_tags, gallery_metadata["tags"])
     )
     readme = replace_block_marker(
-        readme,
-        "TOOL_BADGES",
-        config.build_badges_block(
-            all_tools,
-            display_order(gallery_metadata["tools"]),
-            badge_config_map(gallery_metadata["tools"]),
-        ),
+        readme, "TOOL_BADGES", _badges_block(config, all_tools, gallery_metadata["tools"])
     )
     config.readme_file.write_text(readme, encoding="utf-8")
     config.logger.info("Successfully updated %s", config.readme_file)

@@ -118,6 +118,11 @@ def _expected_lock_refresh_metadata(
     return expected
 
 
+def _is_positive_int(value: object) -> bool:
+    """Return whether a JSON value is a positive integer (booleans excluded)."""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 1
+
+
 def lock_refresh_workflow_run_context(event_path: Path, *, repository: str) -> dict[str, str]:
     """Return validated Dependabot lock-refresh details from a workflow-run event."""
     event = json.loads(event_path.read_text(encoding="utf-8"))
@@ -150,14 +155,7 @@ def lock_refresh_workflow_run_context(event_path: Path, *, repository: str) -> d
         raise ValueError("Lock refresh workflow run pull request has an invalid shape")
     pr_number = pull_request.get("number")
     run_id = workflow_run.get("id")
-    if (
-        not isinstance(pr_number, int)
-        or isinstance(pr_number, bool)
-        or pr_number < 1
-        or not isinstance(run_id, int)
-        or isinstance(run_id, bool)
-        or run_id < 1
-    ):
+    if not _is_positive_int(pr_number) or not _is_positive_int(run_id):
         raise ValueError("Lock refresh workflow run has an invalid numeric identifier")
 
     expected = _expected_lock_refresh_metadata(

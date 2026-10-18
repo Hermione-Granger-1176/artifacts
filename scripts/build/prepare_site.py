@@ -34,6 +34,7 @@ from scripts.lib.path_validation import reject_path_symlinks, reject_symlinks
 from scripts.lib.project_config import load_artifacts_setting, load_site_url
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
     from scripts.lib.artifact_contract import ArtifactContract
@@ -240,26 +241,32 @@ def _patch_index_html() -> None:
     _write_text(index_path, content)
 
 
-def _patch_app_asset_references() -> None:
-    """Apply cache-busting query strings to app asset references."""
+def _deployed_app_pages() -> Iterator[tuple[Path, Path]]:
+    """Yield each deployed app directory with its ``index.html``."""
     apps_dir = DEPLOY_DIR / _artifact_base_path()
     if not apps_dir.exists():
         return
 
+    for app_dir in apps_dir.iterdir():
+        index_path = app_dir / "index.html"
+        if app_dir.is_dir() and index_path.exists():
+            yield app_dir, index_path
+
+
+def _cache_busted_url(url: str, content_path: Path) -> str:
+    """Return ``url`` with a ``?v=`` query naming the content hash of ``content_path``."""
+    return f"{url}?v={_content_hash(content_path)}"
+
+
+def _patch_app_asset_references() -> None:
+    """Apply cache-busting query strings to app asset references."""
     shared_asset_paths = {
         'href="../../css/style.css"': DEPLOY_DIR / "css/style.css",
         'src="../../js/app-theme.js"': DEPLOY_DIR / "js/app-theme.js",
     }
     shared_hashes: dict[str, str] = {}
 
-    for app_dir in apps_dir.iterdir():
-        if not app_dir.is_dir():
-            continue
-
-        index_path = app_dir / "index.html"
-        if not index_path.exists():
-            continue
-
+    for app_dir, index_path in _deployed_app_pages():
         content = _read_text(index_path)
         applicable: dict[str, str] = {}
         for old, shared_path in shared_asset_paths.items():
@@ -285,8 +292,8 @@ def _patch_social_metadata(site_url: str) -> None:
     """Inject canonical URLs and a cache-busted social preview image."""
     index_path = DEPLOY_DIR / "index.html"
     content = _read_text(index_path)
-    share_image_url = (
-        f"{urljoin(site_url, SHARE_IMAGE_PATH)}?v={_content_hash(DEPLOY_DIR / SHARE_IMAGE_PATH)}"
+    share_image_url = _cache_busted_url(
+        urljoin(site_url, SHARE_IMAGE_PATH), DEPLOY_DIR / SHARE_IMAGE_PATH
     )
     content = _replace_exact(content, SITE_URL_PLACEHOLDER, site_url)
     content = _replace_exact(content, SHARE_IMAGE_PLACEHOLDER, share_image_url)
@@ -302,18 +309,7 @@ def _read_optional_text(path: Path, fallback: str = "") -> str:
 
 def _patch_app_social_metadata(site_url: str) -> None:
     """Inject canonical URLs and per-app thumbnail URLs where placeholders exist."""
-    apps_dir = DEPLOY_DIR / _artifact_base_path()
-    if not apps_dir.exists():
-        return
-
-    for app_dir in apps_dir.iterdir():
-        if not app_dir.is_dir():
-            continue
-
-        index_path = app_dir / "index.html"
-        if not index_path.exists():
-            continue
-
+    for app_dir, index_path in _deployed_app_pages():
         content = _read_text(index_path)
         if not any(
             placeholder in content
@@ -335,8 +331,9 @@ def _patch_app_social_metadata(site_url: str) -> None:
         app_url = urljoin(site_url, artifact_url(_artifact_contract(), app_dir.name))
         thumbnail_url = ""
         if APP_SHARE_IMAGE_PLACEHOLDER in content:
-            thumbnail_hash = _content_hash(app_dir / thumbnail_file())
-            thumbnail_url = f"{urljoin(app_url, thumbnail_file())}?v={thumbnail_hash}"
+            thumbnail_url = _cache_busted_url(
+                urljoin(app_url, thumbnail_file()), app_dir / thumbnail_file()
+            )
 
         candidates = {
             APP_URL_PLACEHOLDER: app_url,

@@ -476,6 +476,33 @@ def _resolve_index_html(title: str, name: str, source_html: str | None) -> str:
     return page
 
 
+def _scaffold_files(
+    artifact_dir: Path,
+    tests_dir: Path,
+    *,
+    name: str,
+    title: str,
+    index_html: str,
+    drop_in: bool,
+) -> dict[Path, str]:
+    """Return every file a new artifact starts with, mapped to its contents."""
+    docs_dir = artifact_dir / "docs"
+    return {
+        artifact_dir / INDEX_FILE: index_html,
+        artifact_dir / "css" / "app.css": _app_css_template(title),
+        artifact_dir / "js" / "app.js": _app_js_template(),
+        tests_dir / "app.test.js": _app_test_template(name, title),
+        artifact_dir / "README.md": _readme_template(title, drop_in=drop_in),
+        docs_dir / "architecture.md": _doc_template(title, "Architecture"),
+        docs_dir / "verification.md": _doc_template(title, "Verification"),
+        docs_dir / "decisions.md": _doc_template(title, "Decisions"),
+        artifact_dir / NAME_FILE: title + "\n",
+        artifact_dir / DESCRIPTION_FILE: "\n",
+        artifact_dir / TAGS_FILE: "\n",
+        artifact_dir / TOOLS_FILE: "\n",
+    }
+
+
 def scaffold_artifact(name: str, *, source_html: str | None = None) -> Path:
     """Create a new artifact scaffold and return the artifact directory path.
 
@@ -503,29 +530,17 @@ def scaffold_artifact(name: str, *, source_html: str | None = None) -> Path:
     artifact_dir.mkdir()
     tests_dir = TESTS_JS_APPS_DIR / name
     tests_dir.mkdir(parents=True, exist_ok=True)
-    (artifact_dir / "css").mkdir()
-    (artifact_dir / "js").mkdir()
-    (artifact_dir / "docs").mkdir()
-    (artifact_dir / INDEX_FILE).write_text(index_html, encoding="utf-8")
-    (artifact_dir / "css" / "app.css").write_text(_app_css_template(title), encoding="utf-8")
-    (artifact_dir / "js" / "app.js").write_text(_app_js_template(), encoding="utf-8")
-    (tests_dir / "app.test.js").write_text(_app_test_template(name, title), encoding="utf-8")
-    (artifact_dir / "README.md").write_text(
-        _readme_template(title, drop_in=source_html is not None), encoding="utf-8"
+    files = _scaffold_files(
+        artifact_dir,
+        tests_dir,
+        name=name,
+        title=title,
+        index_html=index_html,
+        drop_in=source_html is not None,
     )
-    (artifact_dir / "docs" / "architecture.md").write_text(
-        _doc_template(title, "Architecture"), encoding="utf-8"
-    )
-    (artifact_dir / "docs" / "verification.md").write_text(
-        _doc_template(title, "Verification"), encoding="utf-8"
-    )
-    (artifact_dir / "docs" / "decisions.md").write_text(
-        _doc_template(title, "Decisions"), encoding="utf-8"
-    )
-    (artifact_dir / NAME_FILE).write_text(title + "\n", encoding="utf-8")
-    (artifact_dir / DESCRIPTION_FILE).write_text("\n", encoding="utf-8")
-    (artifact_dir / TAGS_FILE).write_text("\n", encoding="utf-8")
-    (artifact_dir / TOOLS_FILE).write_text("\n", encoding="utf-8")
+    for path, text in files.items():
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(text, encoding="utf-8")
     return artifact_dir
 
 
