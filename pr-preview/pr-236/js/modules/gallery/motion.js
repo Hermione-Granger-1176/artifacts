@@ -1,0 +1,1 @@
+export function createMotionHelper(r,t){function o(){return r.matches}function e(){return o()?"auto":"smooth"}function n(){t.scrollTo({top:0,behavior:e()})}return{prefersReducedMotion:o,getScrollBehavior:e,scrollToTop:n}}
