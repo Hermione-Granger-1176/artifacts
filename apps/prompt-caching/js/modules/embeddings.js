@@ -318,7 +318,7 @@ function initSimilarity() {
     for (const [a, b] of EMB_PAIRS) {
       const tag = makeEl("span", "chip is-mono emb-tag", `${a} / ${b}`);
       tag.setAttribute("role", "button");
-      tag.setAttribute("aria-label", `Compare ${a} and ${b}`);
+      tag.setAttribute("aria-label", `Compare ${a} / ${b}`);
       tag.tabIndex = 0;
       const comparePair = () => {
         selA = a;

@@ -316,7 +316,7 @@ def test_prompt_caching_flow_covers_calculator_attention_and_embeddings(
         )
 
         initial_similarity = page.locator("#embSimilarity").text_content() or ""
-        page.get_by_role("button", name="Compare happy and submarine").click()
+        page.get_by_role("button", name="Compare happy / submarine").click()
         page.wait_for_function(
             "previous => document.querySelector('#embSimilarity').textContent !== previous",
             arg=initial_similarity,
