@@ -70,7 +70,7 @@ FONT_SIZE_PX_ALLOWLIST: dict[str, frozenset[str]] = {
 # scoped to the one stylesheet that owns each literal.
 LETTER_SPACING_ALLOWLIST: dict[str, frozenset[str]] = {
     # .pc h1 / .pc h2 heading tightening and .pc-section-num label tracking
-    "apps/prompt-caching/css/app.css": frozenset({"-0.02em", "-0.01em", "0.16em"}),
+    "apps/prompt-caching/css/app.css": frozenset({"-0.01em", "0.16em"}),
     # hero heading tightening
     "apps/tokenizer-explorer/css/app.css": frozenset({"-0.01em"}),
 }

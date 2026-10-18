@@ -442,8 +442,6 @@ button {
 }
 
 .header {
-  position: relative;
-  z-index: 1;
   padding: 0.5rem clamp(1rem, 2vw, 1.6rem) 0.15rem;
 }
 
@@ -780,8 +778,7 @@ button {
 }
 
 .btn-reset-link:hover,
-.page-btn:hover,
-.detail-close:hover {
+.page-btn:hover {
   transform: translateY(-2px);
 }
 
@@ -1318,13 +1315,15 @@ button {
 }
 
 .book-tape {
+  --tape: var(--color-note-1);
+
   position: absolute;
   z-index: 2;
   width: 9cqw;
   height: 3cqw;
   background:
     repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0 4px, transparent 4px 8px),
-    color-mix(in srgb, var(--color-note-1) 80%, transparent);
+    color-mix(in srgb, var(--tape) 80%, transparent);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
 }
 
@@ -1335,21 +1334,15 @@ button {
 }
 
 .book-snap-2 .book-tape {
-  background:
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0 4px, transparent 4px 8px),
-    color-mix(in srgb, var(--color-note-3) 80%, transparent);
+  --tape: var(--color-note-3);
 }
 
 .book-snap-3 .book-tape {
-  background:
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0 4px, transparent 4px 8px),
-    color-mix(in srgb, var(--color-note-4) 80%, transparent);
+  --tape: var(--color-note-4);
 }
 
 .book-snap-4 .book-tape {
-  background:
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0 4px, transparent 4px 8px),
-    color-mix(in srgb, var(--color-note-6) 80%, transparent);
+  --tape: var(--color-note-6);
 }
 
 /* Chalky doodles, drawn as masks so they take the chalk token colour. */
@@ -1555,30 +1548,27 @@ button {
   display: none;
 }
 
-.desk-notes-left {
-  grid-column: 1;
+.desk-notes-left,
+.desk-notes-right {
   grid-row: 1 / span 2;
   display: grid;
   grid-template-columns: repeat(2, var(--desk-note-size));
   gap: var(--desk-note-gap);
   align-content: start;
   align-self: start;
+  padding-top: var(--desk-note-offset-top);
+}
+
+.desk-notes-left {
+  grid-column: 1;
   justify-items: end;
   justify-self: end;
-  padding-top: var(--desk-note-offset-top);
 }
 
 .desk-notes-right {
   grid-column: 3;
-  grid-row: 1 / span 2;
-  display: grid;
-  grid-template-columns: repeat(2, var(--desk-note-size));
-  gap: var(--desk-note-gap);
-  align-content: start;
-  align-self: start;
   justify-items: start;
   justify-self: start;
-  padding-top: var(--desk-note-offset-top);
 }
 
 .desk-note {
@@ -1920,7 +1910,8 @@ button {
   object-position: top;
 }
 
-.card-thumbnail-placeholder::before {
+.card-thumbnail-placeholder::before,
+.detail-media-placeholder::before {
   content: '\2699';
   position: absolute;
   left: 50%;
@@ -2134,12 +2125,6 @@ button {
 }
 
 .detail-media-placeholder::before {
-  content: '\2699';
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  color: rgba(45, 31, 14, 0.3);
   font-size: 2.5rem;
 }
 
@@ -2188,16 +2173,12 @@ button {
   min-height: 1.8rem;
   padding: 0.2rem 0.75rem;
   border-radius: var(--radius-pill);
-  font-family: var(--font-body);
-  font-size: 1.15rem;
-  font-weight: 600;
-}
-
-.detail-meta-tags-item,
-.detail-meta-tools-item {
   background: var(--capsule-bg, var(--color-capsule-default));
   color: var(--color-capsule-text);
   border: 1.5px solid rgba(0, 0, 0, 0.08);
+  font-family: var(--font-body);
+  font-size: 1.15rem;
+  font-weight: 600;
 }
 
 .detail-open-link {
@@ -2294,7 +2275,6 @@ body.artifact-app * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-
 }
 
 body.artifact-app {
@@ -2302,7 +2282,6 @@ body.artifact-app {
   font-family: var(--font-body);
   color: var(--color-text);
   background: var(--color-bg);
-
 }
 
 body.artifact-app button,
@@ -2310,28 +2289,23 @@ body.artifact-app input,
 body.artifact-app select,
 body.artifact-app textarea {
   font: inherit;
-
 }
 
 body.artifact-app a {
   color: inherit;
-
 }
 
 body.artifact-app [hidden] {
   display: none !important;
-
 }
 
 body.artifact-app [data-app-shell="header"] {
   min-height: calc(72px + 1px);
-
 }
 
 body.artifact-app [data-app-shell="header"]:empty {
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg);
-
 }
 
 @media (max-width: 480px) {
@@ -2343,14 +2317,12 @@ body.artifact-app [data-app-shell="header"]:empty {
 body.artifact-app .app-header {
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg);
-
 }
 
 body.artifact-app .app-header-inner,
 body.artifact-app .page-shell {
   width: min(100% - 2rem, 1000px);
   margin: 0 auto;
-
 }
 
 body.artifact-app .app-header-inner {
@@ -2359,14 +2331,12 @@ body.artifact-app .app-header-inner {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-
 }
 
 body.artifact-app .app-nav {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-
 }
 
 body.artifact-app .brand-link {
@@ -2374,21 +2344,18 @@ body.artifact-app .brand-link {
   align-items: center;
   gap: 0.6rem;
   text-decoration: none;
-
 }
 
 body.artifact-app .brand-link:hover,
 body.artifact-app .brand-link:focus-visible {
   color: var(--color-amber);
   outline: none;
-
 }
 
 body.artifact-app .brand-mark {
   width: 28px;
   height: 28px;
   flex-shrink: 0;
-
 }
 
 body.artifact-app .brand-name {
@@ -2396,7 +2363,6 @@ body.artifact-app .brand-name {
   font-family: var(--font-heading);
   font-size: 1rem;
   font-weight: 600;
-
 }
 
 body.artifact-app .icon-button {
@@ -2416,7 +2382,6 @@ body.artifact-app .icon-button {
     border-color var(--transition-fast) ease,
     background var(--transition-fast) ease,
     color var(--transition-fast) ease;
-
 }
 
 body.artifact-app .icon-button:hover,
@@ -2424,52 +2389,43 @@ body.artifact-app .icon-button:focus-visible {
   transform: translateY(-1px);
   border-color: var(--color-blue);
   outline: none;
-
 }
 
 body.artifact-app .icon-button svg {
   width: 22px;
   height: 22px;
-
 }
 
 body.artifact-app .icon-moon {
   display: none;
-
 }
 
 [data-theme="dark"] body.artifact-app .icon-sun {
   display: none;
-
 }
 
 [data-theme="dark"] body.artifact-app .icon-moon {
   display: block;
-
 }
 
 body.artifact-app .page-shell {
   padding: 1.5rem 0 4rem;
-
 }
 
 body.artifact-app .page-intro {
   margin-bottom: 1.5rem;
-
 }
 
 body.artifact-app .page-title {
   margin-bottom: 0.4rem;
   font-size: clamp(1.8rem, 3vw, 2.2rem);
   font-weight: 600;
-  letter-spacing: -0.02em;
-
+  letter-spacing: var(--tracking-tight);
 }
 
 body.artifact-app .page-lede {
   color: var(--color-text-secondary);
   line-height: 1.6;
-
 }
 
 /* Shared stylesheet source: reusable artifact-app components. */
@@ -2482,7 +2438,6 @@ body.artifact-app .table-wrap {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-
 }
 
 body.artifact-app .btn {
@@ -2496,7 +2451,6 @@ body.artifact-app .btn {
   padding: 6px 14px;
   font-size: var(--font-size-control);
   font-weight: 500;
-
 }
 
 /* The emphasis blue holds 4.5:1 under the label in both themes; the base blue only reaches 3.6:1 against white. */
@@ -2504,20 +2458,17 @@ body.artifact-app .btn-primary {
   background: var(--color-blue-emphasis);
   color: var(--color-text-on-accent);
   font-weight: 600;
-
 }
 
 body.artifact-app .btn-primary:hover,
 body.artifact-app .btn-primary:focus-visible {
   outline: none;
-
 }
 
 body.artifact-app .btn-outline {
   border: 1px solid var(--color-border-medium);
   background: transparent;
   color: var(--color-text-secondary);
-
 }
 
 body.artifact-app .btn-outline:hover,
@@ -2525,18 +2476,15 @@ body.artifact-app .btn-outline:focus-visible {
   border-color: var(--color-border-strong);
   color: var(--color-text);
   outline: none;
-
 }
 
 body.artifact-app .btn-sm {
   padding: 0.375rem 0.85rem;
-
 }
 
 body.artifact-app .btn:disabled {
   opacity: 0.55;
   cursor: default;
-
 }
 
 /* Reusable artifact app controls and feedback. */
@@ -2551,7 +2499,6 @@ body.artifact-app .btn:disabled {
 body.artifact-app .segmented {
   display: flex;
   gap: var(--space-2);
-
 }
 
 body.artifact-app .segmented.is-fused,
@@ -2562,7 +2509,6 @@ body.artifact-app .type-toggle {
   overflow: hidden;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
-
 }
 
 body.artifact-app .segmented button,
@@ -2571,7 +2517,6 @@ body.artifact-app .type-toggle button {
   color: var(--color-text-secondary);
   cursor: pointer;
   min-height: 2.75rem;
-
 }
 
 body.artifact-app .segmented button {
@@ -2579,7 +2524,6 @@ body.artifact-app .segmented button {
   border-radius: var(--radius-sm);
   padding: 6px 14px;
   font-size: var(--font-size-control);
-
 }
 
 body.artifact-app .segmented.is-fused button,
@@ -2589,7 +2533,6 @@ body.artifact-app .type-toggle button {
   padding: 5px 10px;
   font-size: var(--font-size-sm);
   white-space: nowrap;
-
 }
 
 body.artifact-app .segmented button.active,
@@ -2597,7 +2540,6 @@ body.artifact-app .type-toggle button.active {
   background: var(--color-surface);
   color: var(--color-text);
   font-weight: 500;
-
 }
 
 /*
@@ -2611,7 +2553,6 @@ body.artifact-app .segmented.is-inset,
 body.artifact-app .type-toggle.is-inset {
   padding: var(--space-1);
   background: var(--color-surface-alt);
-
 }
 
 body.artifact-app .segmented.is-inset button,
@@ -2621,41 +2562,34 @@ body.artifact-app .type-toggle.is-inset button {
     background var(--transition-fast) ease,
     color var(--transition-fast) ease,
     transform var(--transition-fast) ease;
-
 }
 
 body.artifact-app .segmented.is-inset button.active,
 body.artifact-app .type-toggle.is-inset button.active {
   box-shadow: 0 1px 2px var(--color-page-shadow);
-
 }
 
 body.artifact-app .segmented.is-inset button:not(.active, :disabled):hover,
 body.artifact-app .type-toggle.is-inset button:not(.active, :disabled):hover {
   background: var(--color-surface-dim);
   color: var(--color-text);
-
 }
 
 body.artifact-app .segmented.is-inset button:not(:disabled):active,
 body.artifact-app .type-toggle.is-inset button:not(:disabled):active {
   transform: scale(0.97);
-
 }
 
 @media (prefers-reduced-motion: reduce) {
   body.artifact-app .segmented.is-inset button,
   body.artifact-app .type-toggle.is-inset button {
     transition: none;
-
   }
 
   body.artifact-app .segmented.is-inset button:not(:disabled):active,
   body.artifact-app .type-toggle.is-inset button:not(:disabled):active {
     transform: none;
-
   }
-
 }
 
 body.artifact-app .text-input,
@@ -2668,21 +2602,18 @@ body.artifact-app .period-input {
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
-
 }
 
 body.artifact-app .text-input,
 body.artifact-app .amount-input,
 body.artifact-app .period-input {
   text-align: right;
-
 }
 
 body.artifact-app .text-input {
   padding: var(--space-2) 10px;
   font-size: var(--font-size-base);
   font-weight: 500;
-
 }
 
 body.artifact-app .select-input {
@@ -2690,21 +2621,18 @@ body.artifact-app .select-input {
   font-size: var(--font-size-md);
   font-weight: 500;
   cursor: pointer;
-
 }
 
 body.artifact-app .amount-input {
   width: 110px;
   padding: 6px 10px;
   font-size: var(--font-size-md);
-
 }
 
 body.artifact-app .period-input {
   width: 55px;
   padding: 6px var(--space-2);
   font-size: var(--font-size-md);
-
 }
 
 body.artifact-app .text-input:focus,
@@ -2713,7 +2641,6 @@ body.artifact-app .amount-input:focus,
 body.artifact-app .period-input:focus {
   border-color: var(--color-blue);
   outline: none;
-
 }
 
 body.artifact-app .btn:focus-visible,
@@ -2726,13 +2653,11 @@ body.artifact-app .period-input:focus-visible,
 body.artifact-app .range-input:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
-
 }
 
 body.artifact-app .range-input {
   width: 100%;
   accent-color: var(--color-blue);
-
 }
 
 /* Reusable artifact app control fields (slider rows). */
@@ -2740,7 +2665,6 @@ body.artifact-app .range-input {
 body.artifact-app .control-field {
   display: flex;
   flex-direction: column;
-
 }
 
 body.artifact-app .control-field-head {
@@ -2749,20 +2673,17 @@ body.artifact-app .control-field-head {
   justify-content: space-between;
   gap: var(--space-2);
   margin-bottom: var(--space-1);
-
 }
 
 body.artifact-app .control-field-head label {
   font-size: var(--font-size-control);
   font-weight: 600;
-
 }
 
 body.artifact-app .control-field-head output {
   font-size: var(--font-size-lg);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-
 }
 
 body.artifact-app .control-field-hints {
@@ -2771,14 +2692,12 @@ body.artifact-app .control-field-hints {
   margin-top: var(--space-1);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
-
 }
 
 body.artifact-app .control-field-note {
   margin-top: var(--space-2);
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
-
 }
 
 body.artifact-app .info-tip {
@@ -2795,7 +2714,6 @@ body.artifact-app .info-tip {
   cursor: help;
   font-size: var(--font-size-2xs);
   font-weight: 600;
-
 }
 
 body.artifact-app .info-tip:hover::after,
@@ -2806,7 +2724,6 @@ body.artifact-app .info-tip:focus-visible::before {
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
-
 }
 
 body.artifact-app .info-tip:hover::after,
@@ -2820,7 +2737,6 @@ body.artifact-app .info-tip:focus-visible::after {
   font-size: var(--font-size-xs);
   font-weight: 400;
   white-space: nowrap;
-
 }
 
 body.artifact-app .info-tip:hover::before,
@@ -2829,13 +2745,11 @@ body.artifact-app .info-tip:focus-visible::before {
   bottom: 110%;
   border: 5px solid transparent;
   border-top-color: var(--color-tooltip-bg);
-
 }
 
 body.artifact-app .info-tip:focus-visible {
   outline: 1px solid var(--color-blue);
   outline-offset: 2px;
-
 }
 
 body.artifact-app .app-callout {
@@ -2844,21 +2758,18 @@ body.artifact-app .app-callout {
   border: 1px solid var(--color-border);
   border-left-width: 3px;
   border-radius: var(--radius-md);
-
 }
 
 body.artifact-app .app-callout-title {
   margin-bottom: 0.35rem;
   font-size: var(--font-size-md);
   font-weight: 700;
-
 }
 
 body.artifact-app .app-callout-body {
   color: var(--color-text-secondary);
   font-size: var(--font-size-md);
   line-height: 1.75;
-
 }
 
 /* Callout hue tones: tinted background, colored left rule, colored title. */
@@ -2866,56 +2777,46 @@ body.artifact-app .app-callout-body {
 body.artifact-app .app-callout.is-blue {
   border-left-color: var(--color-blue);
   background: color-mix(in srgb, var(--color-blue) 10%, transparent);
-
 }
 
 body.artifact-app .app-callout.is-blue .app-callout-title {
   color: var(--color-blue-emphasis);
-
 }
 
 body.artifact-app .app-callout.is-green {
   border-left-color: var(--color-green);
   background: color-mix(in srgb, var(--color-green) 10%, transparent);
-
 }
 
 body.artifact-app .app-callout.is-green .app-callout-title {
   color: var(--color-green-emphasis);
-
 }
 
 body.artifact-app .app-callout.is-amber {
   border-left-color: var(--color-amber);
   background: color-mix(in srgb, var(--color-amber) 10%, transparent);
-
 }
 
 body.artifact-app .app-callout.is-amber .app-callout-title {
   color: var(--color-amber-emphasis);
-
 }
 
 body.artifact-app .app-callout.is-purple {
   border-left-color: var(--color-purple);
   background: color-mix(in srgb, var(--color-purple) 10%, transparent);
-
 }
 
 body.artifact-app .app-callout.is-purple .app-callout-title {
   color: var(--color-purple-emphasis);
-
 }
 
 body.artifact-app .app-callout.is-red {
   border-left-color: var(--color-red);
   background: color-mix(in srgb, var(--color-red) 10%, transparent);
-
 }
 
 body.artifact-app .app-callout.is-red .app-callout-title {
   color: var(--color-red-emphasis);
-
 }
 
 /* Reusable artifact app chips (badges and pills). */
@@ -2931,85 +2832,72 @@ body.artifact-app .chip {
   color: var(--color-text);
   font-size: var(--font-size-sm);
   font-weight: 600;
-
 }
 
 body.artifact-app .chip.is-yellow {
   border: 1px solid var(--color-amber);
   background: var(--note-yellow);
   color: var(--color-text);
-
 }
 
 body.artifact-app .chip.is-red {
   border: 1px solid var(--color-red);
   background: var(--note-red);
   color: var(--color-text);
-
 }
 
 body.artifact-app .chip.is-blue {
   border: 1px solid var(--color-blue);
   background: var(--note-blue);
   color: var(--color-text);
-
 }
 
 body.artifact-app .chip.is-green {
   border: 1px solid var(--color-green);
   background: var(--note-green);
   color: var(--color-text);
-
 }
 
 body.artifact-app .chip.is-amber {
   border: 1px solid var(--color-amber);
   background: var(--note-amber);
   color: var(--color-text);
-
 }
 
 body.artifact-app .chip.is-purple {
   border: 1px solid var(--color-purple);
   background: var(--note-purple);
   color: var(--color-text);
-
 }
 
 body.artifact-app .chip.is-mono {
   font-family: var(--font-mono);
   font-weight: 500;
-
 }
 
 body.artifact-app .chip.is-solid-blue {
   background: var(--color-blue);
   color: var(--color-text-on-accent);
-
 }
 
 body.artifact-app .chip.is-solid-green {
   background: var(--color-green);
   color: var(--color-text-on-accent);
-
 }
 
 body.artifact-app .chip.is-solid-red {
   background: var(--color-red);
   color: var(--color-text-on-accent);
-
 }
 
 body.artifact-app .chip.is-solid-amber {
   background: var(--color-amber);
   color: var(--color-text-on-accent);
-
 }
 
 body.artifact-app .chip.is-solid-purple {
   background: var(--color-purple);
   color: var(--color-text-on-accent);
-
 }
 
 /* Reusable artifact app data displays. */
@@ -3023,7 +2911,6 @@ body.artifact-app .section-kicker {
   font-weight: 600;
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
-
 }
 
 /* Stat tiles: labeled metric cards in an auto-fit grid. */
@@ -3032,7 +2919,6 @@ body.artifact-app .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--space-3);
-
 }
 
 body.artifact-app .stat {
@@ -3041,21 +2927,18 @@ body.artifact-app .stat {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-
 }
 
 body.artifact-app .stat .info-tip {
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
-
 }
 
 body.artifact-app .stat-label {
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: 600;
-
 }
 
 body.artifact-app .stat-value {
@@ -3063,29 +2946,24 @@ body.artifact-app .stat-value {
   font-size: 1.5rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-
 }
 
 body.artifact-app .stat-sub {
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
-
 }
 
 body.artifact-app .stat.is-center {
   text-align: center;
-
 }
 
 body.artifact-app .stat-label.is-caps {
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
-
 }
 
 body.artifact-app .stat-value.is-mono {
   font-family: var(--font-mono);
-
 }
 
 /* Meter: thin progress bar with a tone-colored fill. */
@@ -3095,39 +2973,32 @@ body.artifact-app .meter {
   overflow: hidden;
   border-radius: var(--radius-pill);
   background: var(--color-surface-alt);
-
 }
 
 body.artifact-app .meter-fill {
   height: 100%;
   background: var(--color-blue);
   transition: width var(--transition-fast) ease;
-
 }
 
 body.artifact-app .meter-fill.is-green {
   background: var(--color-green);
-
 }
 
 body.artifact-app .meter-fill.is-amber {
   background: var(--color-amber);
-
 }
 
 body.artifact-app .meter-fill.is-red {
   background: var(--color-red);
-
 }
 
 body.artifact-app .meter-fill.is-purple {
   background: var(--color-purple);
-
 }
 
 body.artifact-app .chart-card {
   padding: 1.25rem;
-
 }
 
 body.artifact-app .chart-card h2 {
@@ -3135,14 +3006,12 @@ body.artifact-app .chart-card h2 {
   color: var(--color-text-heading);
   font-size: var(--font-size-md);
   font-weight: 600;
-
 }
 
 /* Canvas wrapper for Chart.js; apps set the height per frame variant. */
 body.artifact-app .chart-frame {
   position: relative;
   width: 100%;
-
 }
 
 body.artifact-app .chart-legend {
@@ -3152,20 +3021,17 @@ body.artifact-app .chart-legend {
   margin-bottom: var(--space-2);
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
-
 }
 
 body.artifact-app .chart-legend span {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-
 }
 
 body.artifact-app .chart-legend-note {
   color: var(--color-text-tertiary);
   font-style: italic;
-
 }
 
 body.artifact-app .dot {
@@ -3173,20 +3039,17 @@ body.artifact-app .dot {
   height: 10px;
   border-radius: 2px;
   flex-shrink: 0;
-
 }
 
 body.artifact-app .table-wrap {
   max-height: 420px;
   overflow-y: auto;
-
 }
 
 body.artifact-app table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--font-size-control);
-
 }
 
 body.artifact-app thead {
@@ -3194,14 +3057,12 @@ body.artifact-app thead {
   top: 0;
   z-index: 1;
   background: var(--color-surface-alt);
-
 }
 
 body.artifact-app th,
 body.artifact-app td {
   padding: var(--space-2) 10px;
   text-align: right;
-
 }
 
 body.artifact-app th {
@@ -3209,18 +3070,15 @@ body.artifact-app th {
   border-bottom: 1px solid var(--color-border);
   font-size: var(--font-size-sm);
   font-weight: 500;
-
 }
 
 body.artifact-app td {
   border-bottom: 1px solid var(--color-border-subtle);
-
 }
 
 body.artifact-app th:first-child,
 body.artifact-app td:first-child {
   text-align: center;
-
 }
 
 /* Mac-style code windows with traffic-light dots and syntax tint classes. */
@@ -3541,24 +3399,20 @@ body.artifact-app .runtime-error {
   border-radius: var(--radius-md);
   background: rgba(226, 75, 74, 0.12);
   color: var(--color-text);
-
 }
 
 body.artifact-app .runtime-error p {
   margin: 0;
   line-height: 1.5;
-
 }
 
 body.artifact-app .runtime-error-details {
   margin-top: 0.75rem;
-
 }
 
 body.artifact-app .runtime-error-details summary {
   cursor: pointer;
   font-size: var(--font-size-control);
-
 }
 
 body.artifact-app .runtime-error-output {
@@ -3572,7 +3426,6 @@ body.artifact-app .runtime-error-output {
   font-size: var(--font-size-control);
   line-height: 1.5;
   white-space: pre-wrap;
-
 }
 
 body.artifact-app .runtime-error-copy {
@@ -3584,7 +3437,6 @@ body.artifact-app .runtime-error-copy {
   color: var(--color-text);
   cursor: pointer;
   font-size: var(--font-size-control);
-
 }
 
 body.artifact-app .visually-hidden {
@@ -3597,7 +3449,6 @@ body.artifact-app .visually-hidden {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-
 }
 
 body.artifact-app .scroll-top {
@@ -3624,34 +3475,28 @@ body.artifact-app .scroll-top {
     border-color var(--transition-fast) ease,
     background var(--transition-fast) ease,
     color var(--transition-fast) ease;
-
 }
 
 body.artifact-app .scroll-top svg {
   width: 22px;
   height: 22px;
-
 }
 
 body.artifact-app .scroll-top.is-visible {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
-
 }
 
-body.artifact-app .scroll-top:hover {
-  transform: translateY(-1px);
-  border-color: var(--color-blue);
-
-}
-
+body.artifact-app .scroll-top:hover,
 body.artifact-app .scroll-top:focus-visible {
   transform: translateY(-1px);
   border-color: var(--color-blue);
+}
+
+body.artifact-app .scroll-top:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
-
 }
 
 /* Shared stylesheet source: shared responsive and motion rules. */
@@ -3811,9 +3656,7 @@ body.artifact-app .scroll-top:focus-visible {
   .book-spine,
   .book-cast,
   .book-peel,
-  .book-inner::after,
-  .desk-notes-left,
-  .desk-notes-right {
+  .book-inner::after {
     display: none;
   }
 

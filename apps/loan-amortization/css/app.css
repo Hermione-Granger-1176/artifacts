@@ -14,12 +14,6 @@ body.app-loan-amortization {
   --loan-chart-height: 260px;
 }
 
-/* An author display rule beats the [hidden] attribute, so restate it. */
-
-body.app-loan-amortization [hidden] {
-  display: none;
-}
-
 /*
  * Two columns need more than the shared 1000px shell, so this app widens its
  * own. The header widens with it so the two keep one left edge. The shared
@@ -58,7 +52,9 @@ body.app-loan-amortization .loan-inputs {
   overflow-y: auto;
 }
 
-body.app-loan-amortization .loan-group {
+body.app-loan-amortization .loan-group,
+body.app-loan-amortization .loan-view,
+body.app-loan-amortization .loan-charts {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -151,7 +147,6 @@ body.app-loan-amortization .type-toggle.is-full {
   width: 100%;
 }
 
-
 body.app-loan-amortization .type-toggle button[data-bw-mode] {
   flex: 1;
   text-align: center;
@@ -215,6 +210,10 @@ body.app-loan-amortization .btn-remove {
   color: var(--color-red-text);
   cursor: pointer;
   font-size: var(--font-size-lg);
+  transition:
+    background var(--transition-fast) ease,
+    color var(--transition-fast) ease,
+    transform var(--transition-fast) ease;
 }
 
 body.app-loan-amortization .btn-remove:hover {
@@ -349,18 +348,6 @@ body.app-loan-amortization .loan-hero .info-tip.is-start:focus-visible::after {
 
 /* Charts and schedule. */
 
-body.app-loan-amortization .loan-view {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-body.app-loan-amortization .loan-charts {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
 body.app-loan-amortization .chart-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
@@ -452,13 +439,6 @@ body.app-loan-amortization .type-toggle button {
 
 body.app-loan-amortization .loan-icon {
   flex: none;
-}
-
-body.app-loan-amortization .btn-remove {
-  transition:
-    background var(--transition-fast) ease,
-    color var(--transition-fast) ease,
-    transform var(--transition-fast) ease;
 }
 
 /* Only the press moves; the fill must flip with the theme, not fade. */

@@ -51,20 +51,17 @@ body.app-prompt-caching [data-section-nav] {
 body.app-prompt-caching .pc.page-shell {
   width: min(100% - 2rem, var(--pc-measure));
   padding-top: 0;
-
 }
 
 body.app-prompt-caching .pc-section {
   padding: 3.5rem 0 2.5rem;
   border-bottom: 1px solid var(--color-border);
   scroll-margin-top: 5rem;
-
 }
 
 body.app-prompt-caching .pc-section:last-of-type {
   border-bottom: none;
   padding-bottom: 5rem;
-
 }
 
 /* Guide typography and inline emphasis. */
@@ -73,9 +70,8 @@ body.app-prompt-caching .pc h1 {
   font-size: clamp(2rem, 5vw, 3.25rem);
   font-weight: 700;
   line-height: 1.1;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--tracking-tight);
   margin-bottom: var(--space-4);
-
 }
 
 body.app-prompt-caching .pc h2 {
@@ -83,31 +79,26 @@ body.app-prompt-caching .pc h2 {
   font-weight: 600;
   letter-spacing: -0.01em;
   margin-bottom: 0.65rem;
-
 }
 
 body.app-prompt-caching .pc h3 {
   font-size: 1rem;
   font-weight: 700;
   margin: 1.75rem 0 0.6rem;
-
 }
 
 body.app-prompt-caching .pc p {
   color: var(--color-text-secondary);
   line-height: 1.75;
   margin-bottom: 0.9rem;
-
 }
 
 body.app-prompt-caching .pc p strong {
   color: var(--color-text);
-
 }
 
 body.app-prompt-caching .pc-lede {
   font-size: 1.1rem;
-
 }
 
 body.app-prompt-caching .pc-section-num {
@@ -118,23 +109,19 @@ body.app-prompt-caching .pc-section-num {
   font-weight: 600;
   margin-bottom: 0.4rem;
   font-family: var(--font-mono);
-
 }
 
 body.app-prompt-caching .pc-note {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-
 }
 
 body.app-prompt-caching .pc-note.is-italic {
   font-style: italic;
-
 }
 
 body.app-prompt-caching .pc-note.is-center {
   text-align: center;
-
 }
 
 body.app-prompt-caching .pc-hl-accent,
@@ -142,19 +129,22 @@ body.app-prompt-caching .pc-hl-warm,
 body.app-prompt-caching .pc-hl-teal,
 body.app-prompt-caching .pc-hl-rose {
   font-weight: 600;
-
 }
 
-body.app-prompt-caching .pc-hl-accent { color: var(--pc-accent);
+body.app-prompt-caching .pc-hl-accent {
+  color: var(--pc-accent);
 }
 
-body.app-prompt-caching .pc-hl-warm { color: var(--pc-warm);
+body.app-prompt-caching .pc-hl-warm {
+  color: var(--pc-warm);
 }
 
-body.app-prompt-caching .pc-hl-teal { color: var(--pc-teal);
+body.app-prompt-caching .pc-hl-teal {
+  color: var(--pc-teal);
 }
 
-body.app-prompt-caching .pc-hl-rose { color: var(--pc-rose);
+body.app-prompt-caching .pc-hl-rose {
+  color: var(--pc-rose);
 }
 
 /* 2. Code examples, local card variants, and callout variants. */
@@ -183,7 +173,6 @@ body.app-prompt-caching .pc pre {
   margin: 0.9rem 0;
   white-space: pre-wrap;
   word-break: break-word;
-
 }
 
 body.app-prompt-caching .pc code {
@@ -193,61 +182,59 @@ body.app-prompt-caching .pc code {
   padding: 2px 6px;
   border-radius: var(--radius-xs);
   color: var(--pc-accent);
-
 }
 
 body.app-prompt-caching .pc pre code {
   background: none;
   padding: 0;
   color: inherit;
-
 }
 
 body.app-prompt-caching .pc-card {
   padding: var(--space-5);
   margin: var(--space-4) 0;
   box-shadow: var(--shadow-card);
-
 }
 
 body.app-prompt-caching .pc-card.is-accent {
   background: var(--pc-accent-bg);
   border-color: var(--pc-accent-border);
-
 }
 
 body.app-prompt-caching .pc-card.is-warm {
   background: var(--pc-warm-bg);
   border-color: var(--pc-warm-border);
-
 }
 
 body.app-prompt-caching .pc-card.is-teal {
   background: var(--pc-teal-bg);
   border-color: var(--pc-teal-border);
-
 }
 
 body.app-prompt-caching .pc-card.is-indigo {
   background: var(--pc-indigo-bg);
   border-color: var(--pc-indigo-border);
-
 }
 
 body.app-prompt-caching .pc-card.is-rose {
   background: var(--pc-rose-bg);
   border-color: var(--pc-rose-border);
-
 }
 
-body.app-prompt-caching .pc-card-label {
+body.app-prompt-caching .pc-card-label,
+body.app-prompt-caching .pc-smx-bars-head,
+body.app-prompt-caching .pc-pane-label,
+body.app-prompt-caching .pc-calc-label,
+body.app-prompt-caching .pc-calc-bar-name {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   color: var(--color-text-secondary);
+}
+
+body.app-prompt-caching .pc-card-label {
   margin-bottom: var(--space-3);
   font-weight: 600;
-
 }
 
 body.app-prompt-caching .pc-card-head {
@@ -256,12 +243,10 @@ body.app-prompt-caching .pc-card-head {
   align-items: center;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
-
 }
 
 body.app-prompt-caching .pc-card-head .pc-card-label {
   margin: 0;
-
 }
 
 /* Intro pricing tiles ride the shared .stat; only the display-size value and the
@@ -270,48 +255,69 @@ body.app-prompt-caching .pc-stat .stat-value {
   font-size: 2rem;
   font-weight: 700;
   color: var(--color-text-secondary);
-
 }
 
 body.app-prompt-caching .pc-stat.is-accent .stat-value,
-body.app-prompt-caching .pc-stat.is-accent .stat-label { color: var(--pc-accent);
+body.app-prompt-caching .pc-stat.is-accent .stat-label {
+  color: var(--pc-accent);
 }
 
 body.app-prompt-caching .pc-stat.is-warm .stat-value,
-body.app-prompt-caching .pc-stat.is-warm .stat-label { color: var(--pc-warm);
+body.app-prompt-caching .pc-stat.is-warm .stat-label {
+  color: var(--pc-warm);
 }
 
 /* Local callout tone variants keep the warm editorial palette. */
 
-body.app-prompt-caching .pc-callout.is-accent { background: var(--pc-accent-bg); border-left-color: var(--pc-accent);
+body.app-prompt-caching .pc-callout.is-accent {
+  background: var(--pc-accent-bg);
+  border-left-color: var(--pc-accent);
 }
 
-body.app-prompt-caching .pc-callout.is-accent .app-callout-title { color: var(--pc-accent);
+body.app-prompt-caching .pc-callout.is-accent .app-callout-title {
+  color: var(--pc-accent);
 }
 
-body.app-prompt-caching .pc-callout.is-warm { background: var(--pc-warm-bg); border-left-color: var(--pc-warm);
+body.app-prompt-caching .pc-callout.is-warm {
+  background: var(--pc-warm-bg);
+  border-left-color: var(--pc-warm);
 }
 
-body.app-prompt-caching .pc-callout.is-warm .app-callout-title { color: var(--pc-warm);
+body.app-prompt-caching .pc-callout.is-warm .app-callout-title {
+  color: var(--pc-warm);
 }
 
-body.app-prompt-caching .pc-callout.is-teal { background: var(--pc-teal-bg); border-left-color: var(--pc-teal);
+body.app-prompt-caching .pc-callout.is-teal {
+  background: var(--pc-teal-bg);
+  border-left-color: var(--pc-teal);
 }
 
-body.app-prompt-caching .pc-callout.is-teal .app-callout-title { color: var(--pc-teal);
+body.app-prompt-caching .pc-callout.is-teal .app-callout-title {
+  color: var(--pc-teal);
 }
 
-body.app-prompt-caching .pc-callout.is-indigo { background: var(--pc-indigo-bg); border-left-color: var(--pc-indigo);
+body.app-prompt-caching .pc-callout.is-indigo {
+  background: var(--pc-indigo-bg);
+  border-left-color: var(--pc-indigo);
 }
 
-body.app-prompt-caching .pc-callout.is-indigo .app-callout-title { color: var(--pc-indigo);
+body.app-prompt-caching .pc-callout.is-indigo .app-callout-title {
+  color: var(--pc-indigo);
+}
+
+body.app-prompt-caching .pc-callout.is-rose {
+  background: var(--pc-rose-bg);
+  border-left-color: var(--pc-rose);
+}
+
+body.app-prompt-caching .pc-callout.is-rose .app-callout-title {
+  color: var(--pc-rose);
 }
 
 body.app-prompt-caching .pc-callout-insight {
   display: flex;
   align-items: flex-start;
   gap: 0.9rem;
-
 }
 
 body.app-prompt-caching .pc-callout-glyph {
@@ -319,13 +325,6 @@ body.app-prompt-caching .pc-callout-glyph {
   line-height: 1;
   margin-top: 0.15rem;
   flex-shrink: 0;
-
-}
-
-body.app-prompt-caching .pc-callout.is-rose { background: var(--pc-rose-bg); border-left-color: var(--pc-rose);
-}
-
-body.app-prompt-caching .pc-callout.is-rose .app-callout-title { color: var(--pc-rose);
 }
 
 /* The code textarea rides the shared .text-input; the mono font and left-aligned,
@@ -334,36 +333,33 @@ body.app-prompt-caching .pc-callout.is-rose .app-callout-title { color: var(--pc
 body.app-prompt-caching .pc-input {
   font-family: var(--font-mono);
   text-align: left;
-
 }
 
 body.app-prompt-caching textarea.pc-input {
   resize: vertical;
-
 }
 
 body.app-prompt-caching .pc-input::placeholder {
   color: var(--color-text-secondary);
-
 }
 
 body.app-prompt-caching .pc-grid-2,
 body.app-prompt-caching .pc-grid-3 {
   display: grid;
   gap: var(--space-3);
-
 }
 
-body.app-prompt-caching .pc-grid-2 { grid-template-columns: repeat(2, 1fr);
+body.app-prompt-caching .pc-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
 }
 
-body.app-prompt-caching .pc-grid-3 { grid-template-columns: repeat(3, 1fr);
+body.app-prompt-caching .pc-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 body.app-prompt-caching .pc-grid-2 > .pc-card,
 body.app-prompt-caching .pc-grid-3 > .pc-card {
   margin: 0;
-
 }
 
 body.app-prompt-caching .pc-row {
@@ -371,22 +367,26 @@ body.app-prompt-caching .pc-row {
   gap: var(--space-2);
   align-items: center;
   flex-wrap: wrap;
-
 }
 
-body.app-prompt-caching .pc-row.is-spread { justify-content: space-between;
+body.app-prompt-caching .pc-row.is-spread {
+  justify-content: space-between;
 }
 
-body.app-prompt-caching .pc-push { margin-left: auto;
+body.app-prompt-caching .pc-push {
+  margin-left: auto;
 }
 
-body.app-prompt-caching .pc-scroll-x { overflow-x: auto;
+body.app-prompt-caching .pc-scroll-x {
+  overflow-x: auto;
 }
 
-body.app-prompt-caching .pc-mt { margin-top: var(--space-3);
+body.app-prompt-caching .pc-mt {
+  margin-top: var(--space-3);
 }
 
-body.app-prompt-caching .pc-mb { margin-bottom: var(--space-4);
+body.app-prompt-caching .pc-mb {
+  margin-bottom: var(--space-4);
 }
 
 body.app-prompt-caching .pc-meta {
@@ -395,19 +395,22 @@ body.app-prompt-caching .pc-meta {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-
 }
 
-body.app-prompt-caching .pc-meta strong { color: var(--pc-accent);
+body.app-prompt-caching .pc-meta strong {
+  color: var(--pc-accent);
 }
 
-body.app-prompt-caching .pc-meta .is-plain { color: var(--color-text-secondary);
+body.app-prompt-caching .pc-meta .is-plain {
+  color: var(--color-text-secondary);
 }
 
-body.app-prompt-caching .code-window-title { color: var(--color-text-secondary);
+body.app-prompt-caching .code-window-title {
+  color: var(--color-text-secondary);
 }
 
-body.app-prompt-caching .syn-cm { color: var(--color-text-secondary);
+body.app-prompt-caching .syn-cm {
+  color: var(--color-text-secondary);
 }
 
 /* 3. Progress navigation, learning pipeline, and tokenisation. */
@@ -418,18 +421,15 @@ body.app-prompt-caching .pc-pipeline {
   overflow-x: auto;
   padding: var(--space-3) 0;
   margin: var(--space-4) 0;
-
 }
 
 /* Auto margins center the chain without clipping it when the row overflows. */
 body.app-prompt-caching .pc-pipeline > :first-child {
   margin-left: auto;
-
 }
 
 body.app-prompt-caching .pc-pipeline > :last-child {
   margin-right: auto;
-
 }
 
 /* The pipeline is a content visualisation of the model stages, not a control
@@ -446,34 +446,46 @@ body.app-prompt-caching .pc-pipeline-node {
   flex-shrink: 0;
   background: var(--color-surface-alt);
   color: var(--color-text-secondary);
-
 }
 
 body.app-prompt-caching .pc-pipeline-node:hover {
   filter: brightness(0.97);
   transform: translateY(-1px);
-
 }
 
 body.app-prompt-caching .pc-pipeline-node:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
-
 }
 
-body.app-prompt-caching .pc-pipeline-node.is-accent { background: var(--pc-accent-bg); color: var(--pc-accent); border-color: var(--pc-accent-border);
+body.app-prompt-caching .pc-pipeline-node.is-accent {
+  background: var(--pc-accent-bg);
+  color: var(--pc-accent);
+  border-color: var(--pc-accent-border);
 }
 
-body.app-prompt-caching .pc-pipeline-node.is-warm { background: var(--pc-warm-bg); color: var(--pc-warm); border-color: var(--pc-warm-border);
+body.app-prompt-caching .pc-pipeline-node.is-warm {
+  background: var(--pc-warm-bg);
+  color: var(--pc-warm);
+  border-color: var(--pc-warm-border);
 }
 
-body.app-prompt-caching .pc-pipeline-node.is-teal { background: var(--pc-teal-bg); color: var(--pc-teal); border-color: var(--pc-teal-border);
+body.app-prompt-caching .pc-pipeline-node.is-teal {
+  background: var(--pc-teal-bg);
+  color: var(--pc-teal);
+  border-color: var(--pc-teal-border);
 }
 
-body.app-prompt-caching .pc-pipeline-node.is-indigo { background: var(--pc-indigo-bg); color: var(--pc-indigo); border-color: var(--pc-indigo-border);
+body.app-prompt-caching .pc-pipeline-node.is-indigo {
+  background: var(--pc-indigo-bg);
+  color: var(--pc-indigo);
+  border-color: var(--pc-indigo-border);
 }
 
-body.app-prompt-caching .pc-pipeline-node.is-rose { background: var(--pc-rose-bg); color: var(--pc-rose); border-color: var(--pc-rose-border);
+body.app-prompt-caching .pc-pipeline-node.is-rose {
+  background: var(--pc-rose-bg);
+  color: var(--pc-rose);
+  border-color: var(--pc-rose-border);
 }
 
 body.app-prompt-caching .pc-pipeline-arrow {
@@ -481,7 +493,6 @@ body.app-prompt-caching .pc-pipeline-arrow {
   font-size: 1rem;
   padding: 0 var(--space-1);
   flex-shrink: 0;
-
 }
 
 body.app-prompt-caching .pc-token-output {
@@ -489,7 +500,6 @@ body.app-prompt-caching .pc-token-output {
   line-height: 2.2;
   font-size: var(--font-size-base);
   min-height: 40px;
-
 }
 
 body.app-prompt-caching .pc-tok {
@@ -497,10 +507,10 @@ body.app-prompt-caching .pc-tok {
   border-radius: 3px;
   transition: opacity 0.15s;
   white-space: pre;
-
 }
 
-body.app-prompt-caching .pc-tok:hover { opacity: 0.75;
+body.app-prompt-caching .pc-tok:hover {
+  opacity: 0.75;
 }
 
 body.app-prompt-caching .pc-tokid {
@@ -510,65 +520,78 @@ body.app-prompt-caching .pc-tokid {
   border-radius: var(--radius-xs);
   margin: 1px;
   display: inline-block;
-
 }
 
 /* Token-highlight tints are data-viz coloring cycled across the token stream. */
-body.app-prompt-caching .pc-c0 { background: color-mix(in srgb, var(--color-amber) 18%, transparent);
+body.app-prompt-caching .pc-c0 {
+  background: color-mix(in srgb, var(--color-amber) 18%, transparent);
 }
 
-body.app-prompt-caching .pc-c1 { background: color-mix(in srgb, var(--color-green) 18%, transparent);
+body.app-prompt-caching .pc-c1 {
+  background: color-mix(in srgb, var(--color-green) 18%, transparent);
 }
 
-body.app-prompt-caching .pc-c2 { background: color-mix(in srgb, var(--color-blue) 18%, transparent);
+body.app-prompt-caching .pc-c2 {
+  background: color-mix(in srgb, var(--color-blue) 18%, transparent);
 }
 
-body.app-prompt-caching .pc-c3 { background: color-mix(in srgb, var(--color-purple) 18%, transparent);
+body.app-prompt-caching .pc-c3 {
+  background: color-mix(in srgb, var(--color-purple) 18%, transparent);
 }
 
-body.app-prompt-caching .pc-c4 { background: color-mix(in srgb, var(--color-red) 18%, transparent);
+body.app-prompt-caching .pc-c4 {
+  background: color-mix(in srgb, var(--color-red) 18%, transparent);
 }
 
-body.app-prompt-caching .pc-c5 { background: color-mix(in srgb, var(--color-amber) 12%, transparent);
+body.app-prompt-caching .pc-c5 {
+  background: color-mix(in srgb, var(--color-amber) 12%, transparent);
 }
 
-body.app-prompt-caching .pc-c6 { background: color-mix(in srgb, var(--color-purple) 12%, transparent);
+body.app-prompt-caching .pc-c6 {
+  background: color-mix(in srgb, var(--color-purple) 12%, transparent);
 }
 
-body.app-prompt-caching .pc-c7 { background: color-mix(in srgb, var(--color-green) 12%, transparent);
+body.app-prompt-caching .pc-c7 {
+  background: color-mix(in srgb, var(--color-green) 12%, transparent);
 }
 
-body.app-prompt-caching .pc-c8 { background: color-mix(in srgb, var(--color-amber) 22%, transparent);
+body.app-prompt-caching .pc-c8 {
+  background: color-mix(in srgb, var(--color-amber) 22%, transparent);
 }
 
-body.app-prompt-caching .pc-c9 { background: color-mix(in srgb, var(--color-blue) 12%, transparent);
+body.app-prompt-caching .pc-c9 {
+  background: color-mix(in srgb, var(--color-blue) 12%, transparent);
 }
 
 body.app-prompt-caching .pc-tokid.pc-c0,
 body.app-prompt-caching .pc-tokid.pc-c5,
-body.app-prompt-caching .pc-tokid.pc-c8 { color: var(--color-amber);
+body.app-prompt-caching .pc-tokid.pc-c8 {
+  color: var(--color-amber);
 }
 
 body.app-prompt-caching .pc-tokid.pc-c1,
-body.app-prompt-caching .pc-tokid.pc-c7 { color: var(--color-green);
+body.app-prompt-caching .pc-tokid.pc-c7 {
+  color: var(--color-green);
 }
 
 body.app-prompt-caching .pc-tokid.pc-c2,
-body.app-prompt-caching .pc-tokid.pc-c9 { color: var(--color-blue);
+body.app-prompt-caching .pc-tokid.pc-c9 {
+  color: var(--color-blue);
 }
 
 body.app-prompt-caching .pc-tokid.pc-c3,
-body.app-prompt-caching .pc-tokid.pc-c6 { color: var(--color-purple);
+body.app-prompt-caching .pc-tokid.pc-c6 {
+  color: var(--color-purple);
 }
 
-body.app-prompt-caching .pc-tokid.pc-c4 { color: var(--color-red);
+body.app-prompt-caching .pc-tokid.pc-c4 {
+  color: var(--color-red);
 }
 
 /* 4. Attention and softmax visualisations. */
 
 body.app-prompt-caching .pc-step-visual {
   margin-top: var(--space-4);
-
 }
 
 body.app-prompt-caching .pc-attn-body {
@@ -576,7 +599,6 @@ body.app-prompt-caching .pc-attn-body {
   flex-direction: column;
   gap: 0.9rem;
   padding: var(--space-4) 1.1rem;
-
 }
 
 body.app-prompt-caching .pc-matrix {
@@ -584,7 +606,6 @@ body.app-prompt-caching .pc-matrix {
   vertical-align: middle;
   margin: 2px 6px;
   flex-shrink: 0;
-
 }
 
 body.app-prompt-caching .pc-matrix-label {
@@ -593,10 +614,10 @@ body.app-prompt-caching .pc-matrix-label {
   color: var(--color-text);
   text-align: center;
   margin-bottom: 6px;
-
 }
 
-body.app-prompt-caching .pc-matrix-label .pc-dim { color: var(--color-text-secondary);
+body.app-prompt-caching .pc-matrix-label .pc-dim {
+  color: var(--color-text-secondary);
 }
 
 body.app-prompt-caching .pc-matrix-grid {
@@ -606,7 +627,6 @@ body.app-prompt-caching .pc-matrix-grid {
   border-radius: var(--radius-sm);
   padding: 5px;
   background: var(--color-surface);
-
 }
 
 body.app-prompt-caching .pc-matrix-cell {
@@ -620,27 +640,28 @@ body.app-prompt-caching .pc-matrix-cell {
   color: var(--color-text-secondary);
   min-width: 60px;
   height: 42px;
-
 }
 
-body.app-prompt-caching .pc-matrix-cell.clickable { cursor: pointer;
+body.app-prompt-caching .pc-matrix-cell.clickable {
+  cursor: pointer;
 }
 
-body.app-prompt-caching .pc-matrix-cell.clickable:hover { background: var(--pc-accent-bg);
+body.app-prompt-caching .pc-matrix-cell.clickable:hover {
+  background: var(--pc-accent-bg);
+}
+
+body.app-prompt-caching .pc-matrix-cell.hl-row,
+body.app-prompt-caching .pc-matrix-cell.hl-col {
+  color: var(--color-text);
+  font-weight: 600;
 }
 
 body.app-prompt-caching .pc-matrix-cell.hl-row {
   background: var(--pc-teal-bg);
-  color: var(--color-text);
-  font-weight: 600;
-
 }
 
 body.app-prompt-caching .pc-matrix-cell.hl-col {
   background: var(--pc-accent-bg);
-  color: var(--color-text);
-  font-weight: 600;
-
 }
 
 body.app-prompt-caching .pc-matrix-cell.hl-result {
@@ -648,7 +669,6 @@ body.app-prompt-caching .pc-matrix-cell.hl-result {
   color: var(--color-text);
   font-weight: 700;
   box-shadow: inset 0 0 0 2px var(--pc-accent);
-
 }
 
 body.app-prompt-caching .pc-op {
@@ -656,13 +676,11 @@ body.app-prompt-caching .pc-op {
   color: var(--color-text-secondary);
   padding: 0 12px;
   flex-shrink: 0;
-
 }
 
 body.app-prompt-caching .pc-op.is-text {
   font-size: var(--font-size-sm);
   white-space: nowrap;
-
 }
 
 body.app-prompt-caching .pc-attn-controls {
@@ -670,7 +688,6 @@ body.app-prompt-caching .pc-attn-controls {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
-
 }
 
 body.app-prompt-caching .pc-attn-matrices {
@@ -678,27 +695,26 @@ body.app-prompt-caching .pc-attn-matrices {
   align-items: center;
   overflow-x: auto;
   padding: 0.35rem 0;
-
 }
 
 /* Auto margins center the equation without clipping it when the row overflows. */
-body.app-prompt-caching .pc-attn-matrices > :first-child { margin-left: auto;
+body.app-prompt-caching .pc-attn-matrices > :first-child {
+  margin-left: auto;
 }
 
-body.app-prompt-caching .pc-attn-matrices > :last-child { margin-right: auto;
+body.app-prompt-caching .pc-attn-matrices > :last-child {
+  margin-right: auto;
 }
 
 body.app-prompt-caching .pc-attn-status {
   font-size: var(--font-size-sm);
   font-family: var(--font-mono);
   color: var(--pc-warm);
-
 }
 
 body.app-prompt-caching .pc-attn-center {
   align-self: center;
   text-align: center;
-
 }
 
 body.app-prompt-caching .pc-dotcalc {
@@ -710,36 +726,42 @@ body.app-prompt-caching .pc-dotcalc {
   font-size: var(--font-size-control);
   line-height: 2;
   color: var(--color-text-secondary);
-
 }
 
 body.app-prompt-caching .pc-dotcalc-hint {
   margin-bottom: 0.4rem;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-
 }
 
-body.app-prompt-caching .op-mult { color: var(--pc-accent); font-weight: 600;
+body.app-prompt-caching .op-mult {
+  color: var(--pc-accent);
+  font-weight: 600;
 }
 
-body.app-prompt-caching .op-plus { color: var(--color-text-secondary);
+body.app-prompt-caching .op-plus {
+  color: var(--color-text-secondary);
 }
 
-body.app-prompt-caching .op-result { color: var(--pc-accent); font-weight: 700; font-size: var(--font-size-base);
+body.app-prompt-caching .op-result {
+  color: var(--pc-accent);
+  font-weight: 700;
+  font-size: var(--font-size-base);
 }
 
-body.app-prompt-caching .op-row { color: var(--pc-teal);
+body.app-prompt-caching .op-row {
+  color: var(--pc-teal);
 }
 
-body.app-prompt-caching .op-col { color: var(--pc-warm);
+body.app-prompt-caching .op-col {
+  color: var(--pc-warm);
 }
 
-body.app-prompt-caching .pc-hint {
+body.app-prompt-caching .pc-hint,
+body.app-prompt-caching .pc-empty {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   font-style: italic;
-
 }
 
 body.app-prompt-caching .pc-mask-toggle {
@@ -750,7 +772,6 @@ body.app-prompt-caching .pc-mask-toggle {
   font-size: var(--font-size-control);
   color: var(--color-text-secondary);
   cursor: pointer;
-
 }
 
 body.app-prompt-caching .pc-mask-toggle input {
@@ -758,19 +779,19 @@ body.app-prompt-caching .pc-mask-toggle input {
   width: 16px;
   height: 16px;
   cursor: pointer;
-
 }
 
 body.app-prompt-caching .pc-mask-msg {
   font-size: var(--font-size-sm);
   font-family: var(--font-mono);
-
 }
 
-body.app-prompt-caching .pc-mask-msg.is-rose { color: var(--pc-rose);
+body.app-prompt-caching .pc-mask-msg.is-rose {
+  color: var(--pc-rose);
 }
 
-body.app-prompt-caching .pc-mask-msg.is-warm { color: var(--pc-warm);
+body.app-prompt-caching .pc-mask-msg.is-warm {
+  color: var(--pc-warm);
 }
 
 body.app-prompt-caching .pc-stepper {
@@ -778,7 +799,6 @@ body.app-prompt-caching .pc-stepper {
   gap: 0.4rem;
   margin-bottom: var(--space-4);
   flex-wrap: wrap;
-
 }
 
 body.app-prompt-caching .pc-step-dot {
@@ -796,7 +816,6 @@ body.app-prompt-caching .pc-step-dot {
   color: var(--color-text-secondary);
   font-family: var(--font-body);
   transition: all 0.2s;
-
 }
 
 /* Active/done ride the warm accent (a content step marker). */
@@ -804,19 +823,16 @@ body.app-prompt-caching .pc-step-dot.active {
   border-color: var(--pc-accent);
   background: var(--pc-accent);
   color: var(--color-text-on-accent);
-
 }
 
 body.app-prompt-caching .pc-step-dot.done {
   border-color: var(--pc-accent);
   color: var(--pc-accent);
-
 }
 
 body.app-prompt-caching .pc-step-dot:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
-
 }
 
 body.app-prompt-caching .pc-step-title {
@@ -824,20 +840,17 @@ body.app-prompt-caching .pc-step-title {
   font-weight: 700;
   color: var(--color-text);
   margin-bottom: var(--space-2);
-
 }
 
 body.app-prompt-caching .pc-step-desc {
   font-size: var(--font-size-md);
   color: var(--color-text-secondary);
   line-height: 1.8;
-
 }
 
 body.app-prompt-caching .pc-attn-grid {
   border-collapse: collapse;
   margin: 0 auto;
-
 }
 
 body.app-prompt-caching .pc-attn-grid td {
@@ -850,7 +863,6 @@ body.app-prompt-caching .pc-attn-grid td {
   transition: all 0.15s;
   cursor: pointer;
   border: 0;
-
 }
 
 body.app-prompt-caching .pc-attn-grid .row-label {
@@ -859,14 +871,12 @@ body.app-prompt-caching .pc-attn-grid .row-label {
   text-align: right;
   padding-right: 0.6rem;
   width: auto;
-
 }
 
 body.app-prompt-caching .pc-attn-grid .col-label {
   color: var(--pc-teal);
   font-weight: 600;
   padding-bottom: 0.4rem;
-
 }
 
 body.app-prompt-caching .pc-caption {
@@ -874,7 +884,6 @@ body.app-prompt-caching .pc-caption {
   font-size: var(--font-size-control);
   color: var(--color-text-secondary);
   text-align: center;
-
 }
 
 body.app-prompt-caching .pc-smx-row {
@@ -882,18 +891,12 @@ body.app-prompt-caching .pc-smx-row {
   align-items: center;
   gap: 0.6rem;
   margin: 0.35rem 0;
-
 }
 
 body.app-prompt-caching .pc-smx-bars-head {
   display: flex;
   gap: 0.6rem;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
   margin-bottom: var(--space-2);
-
 }
 
 body.app-prompt-caching .pc-smx-grid {
@@ -902,22 +905,15 @@ body.app-prompt-caching .pc-smx-grid {
   gap: 1.4rem;
   align-items: center;
   margin-top: 0.4rem;
-
 }
 
 body.app-prompt-caching .pc-pane-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
   margin-bottom: var(--space-2);
-
 }
 
 body.app-prompt-caching .pc-smx-divider {
   border-left: 1px solid var(--color-border);
   padding-left: 1.4rem;
-
 }
 
 body.app-prompt-caching .smx-label {
@@ -926,7 +922,6 @@ body.app-prompt-caching .smx-label {
   color: var(--color-text-secondary);
   min-width: 36px;
   text-align: right;
-
 }
 
 body.app-prompt-caching .smx-val {
@@ -935,7 +930,6 @@ body.app-prompt-caching .smx-val {
   min-width: 44px;
   text-align: right;
   font-weight: 600;
-
 }
 
 body.app-prompt-caching .smx-weight {
@@ -943,16 +937,18 @@ body.app-prompt-caching .smx-weight {
   font-size: var(--font-size-control);
   min-width: 50px;
   text-align: right;
-
 }
 
-body.app-prompt-caching .pc-smx-row.is-result .smx-label { color: var(--color-text);
+body.app-prompt-caching .pc-smx-row.is-result .smx-label {
+  color: var(--color-text);
 }
 
-body.app-prompt-caching .pc-smx-row.is-result .smx-val { color: var(--pc-teal);
+body.app-prompt-caching .pc-smx-row.is-result .smx-val {
+  color: var(--pc-teal);
 }
 
-body.app-prompt-caching .pc-smx-row.is-result .smx-weight { color: var(--pc-accent);
+body.app-prompt-caching .pc-smx-row.is-result .smx-weight {
+  color: var(--pc-accent);
 }
 
 body.app-prompt-caching .smx-bar-wrap {
@@ -962,7 +958,6 @@ body.app-prompt-caching .smx-bar-wrap {
   background: var(--color-surface-alt);
   border-radius: 3px;
   overflow: hidden;
-
 }
 
 body.app-prompt-caching .smx-bar {
@@ -970,7 +965,6 @@ body.app-prompt-caching .smx-bar {
   background: var(--pc-accent);
   border-radius: 3px;
   transition: width 0.15s;
-
 }
 
 body.app-prompt-caching .pc-smx-formula {
@@ -978,22 +972,30 @@ body.app-prompt-caching .pc-smx-formula {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
-
 }
 
-body.app-prompt-caching .pc-smx-formula strong { color: var(--pc-accent);
+body.app-prompt-caching .pc-smx-formula strong {
+  color: var(--pc-accent);
 }
 
-body.app-prompt-caching .pc-smx-head-token { min-width: 36px;
+body.app-prompt-caching .pc-smx-head-token {
+  min-width: 36px;
 }
 
-body.app-prompt-caching .pc-smx-head-score { min-width: 44px; text-align: right;
+body.app-prompt-caching .pc-smx-head-score {
+  min-width: 44px;
+  text-align: right;
 }
 
-body.app-prompt-caching .pc-smx-head-weight { min-width: 50px; text-align: right;
+body.app-prompt-caching .pc-smx-head-weight {
+  min-width: 50px;
+  text-align: right;
 }
 
-body.app-prompt-caching .pc-smx-head-dist { flex: 1; max-width: 200px; text-align: center;
+body.app-prompt-caching .pc-smx-head-dist {
+  flex: 1;
+  max-width: 200px;
+  text-align: center;
 }
 
 /* 5. KV cache and request simulations. */
@@ -1003,7 +1005,6 @@ body.app-prompt-caching .pc-cache-tokens {
   flex-wrap: wrap;
   gap: 0.4rem;
   margin-bottom: var(--space-4);
-
 }
 
 /* Cache token chips ride the shared .chip family; the cached (amber) and new
@@ -1013,7 +1014,6 @@ body.app-prompt-caching .pc-cache-chip {
   padding: 0.45rem 0.9rem;
   color: var(--color-text-secondary);
   transition: all 0.35s;
-
 }
 
 body.app-prompt-caching .pc-cache-pane {
@@ -1021,7 +1021,6 @@ body.app-prompt-caching .pc-cache-pane {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
-
 }
 
 body.app-prompt-caching .pc-cache-pane-label {
@@ -1029,20 +1028,14 @@ body.app-prompt-caching .pc-cache-pane-label {
   font-size: var(--font-size-sm);
   font-weight: 600;
   margin-bottom: var(--space-2);
-
 }
 
-body.app-prompt-caching .pc-cache-pane-label.is-teal { color: var(--pc-teal);
+body.app-prompt-caching .pc-cache-pane-label.is-teal {
+  color: var(--pc-teal);
 }
 
-body.app-prompt-caching .pc-cache-pane-label.is-warm { color: var(--pc-warm);
-}
-
-body.app-prompt-caching .pc-empty {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  font-style: italic;
-
+body.app-prompt-caching .pc-cache-pane-label.is-warm {
+  color: var(--pc-warm);
 }
 
 body.app-prompt-caching .cache-row {
@@ -1056,16 +1049,19 @@ body.app-prompt-caching .cache-row {
   font-size: var(--font-size-sm);
   transition: all 0.35s;
   background: var(--pc-accent-bg);
-
 }
 
-body.app-prompt-caching .cache-row.is-new { background: var(--pc-warm-bg);
+body.app-prompt-caching .cache-row.is-new {
+  background: var(--pc-warm-bg);
 }
 
-body.app-prompt-caching .cache-row .tok-name { color: var(--color-text-secondary); min-width: 60px;
+body.app-prompt-caching .cache-row .tok-name {
+  color: var(--color-text-secondary);
+  min-width: 60px;
 }
 
-body.app-prompt-caching .cache-row .tok-vals { color: var(--color-text-secondary);
+body.app-prompt-caching .cache-row .tok-vals {
+  color: var(--color-text-secondary);
 }
 
 body.app-prompt-caching .pc-narration {
@@ -1073,21 +1069,18 @@ body.app-prompt-caching .pc-narration {
   font-size: var(--font-size-control);
   color: var(--color-text-secondary);
   line-height: 1.7;
-
 }
 
 /* The compare pills ride the shared .chip tones; only the roomier sizing stays. */
 body.app-prompt-caching .pc-pill {
   padding: 0.4rem 0.9rem;
   font-size: var(--font-size-control);
-
 }
 
 /* The inference prompt selector rides the shared .segmented skin; only the wrap
  * stays scoped. */
 body.app-prompt-caching .pc-inf-prompts {
   flex-wrap: wrap;
-
 }
 
 body.app-prompt-caching .pc-inf-tokens {
@@ -1101,7 +1094,6 @@ body.app-prompt-caching .pc-inf-tokens {
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-sm);
   margin-bottom: var(--space-3);
-
 }
 
 body.app-prompt-caching .pc-inf-tokens:empty::before {
@@ -1109,7 +1101,6 @@ body.app-prompt-caching .pc-inf-tokens:empty::before {
   align-self: center;
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
-
 }
 
 /* Streamed tokens ride the shared .chip family (base chip for prompt tokens,
@@ -1118,7 +1109,6 @@ body.app-prompt-caching .pc-inf-tokens:empty::before {
 body.app-prompt-caching .inf-tok {
   padding: 0.3rem 0.65rem;
   transition: all 0.3s;
-
 }
 
 body.app-prompt-caching .pc-inf-status {
@@ -1126,7 +1116,6 @@ body.app-prompt-caching .pc-inf-status {
   color: var(--color-text-secondary);
   margin-top: var(--space-2);
   font-family: var(--font-mono);
-
 }
 
 body.app-prompt-caching .pc-inf-cache-bar {
@@ -1134,13 +1123,11 @@ body.app-prompt-caching .pc-inf-cache-bar {
   gap: 2px;
   margin-top: 0.6rem;
   height: 22px;
-
 }
 
 body.app-prompt-caching .pc-inf-cache-bar:empty {
   height: 0;
   margin-top: 0;
-
 }
 
 body.app-prompt-caching .inf-cache-cell {
@@ -1153,17 +1140,22 @@ body.app-prompt-caching .inf-cache-cell {
   justify-content: center;
   font-family: var(--font-mono);
   color: transparent;
-
 }
 
 /* Cache-bar cells pair a solid hue with the theme's on-accent text, like the shared solid chips. */
-body.app-prompt-caching .inf-cache-cell.filled { background: var(--color-amber); color: var(--color-text-on-accent);
+body.app-prompt-caching .inf-cache-cell.filled {
+  background: var(--color-amber);
+  color: var(--color-text-on-accent);
 }
 
-body.app-prompt-caching .inf-cache-cell.new { background: var(--color-blue); color: var(--color-text-on-accent);
+body.app-prompt-caching .inf-cache-cell.new {
+  background: var(--color-blue);
+  color: var(--color-text-on-accent);
 }
 
-body.app-prompt-caching .inf-cache-cell.empty { background: var(--color-surface-alt); border: 1px solid var(--color-border);
+body.app-prompt-caching .inf-cache-cell.empty {
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
 }
 
 body.app-prompt-caching .pc-chv-reqs {
@@ -1171,7 +1163,6 @@ body.app-prompt-caching .pc-chv-reqs {
   flex-direction: column;
   gap: var(--space-2);
   margin: var(--space-2) 0;
-
 }
 
 body.app-prompt-caching .chv-evicted {
@@ -1183,14 +1174,12 @@ body.app-prompt-caching .chv-evicted {
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-xs);
   text-align: center;
-
 }
 
 body.app-prompt-caching .chv-req {
   border-radius: var(--radius-sm);
   overflow: hidden;
   border: 1px solid var(--color-border);
-
 }
 
 body.app-prompt-caching .chv-req-header {
@@ -1200,19 +1189,24 @@ body.app-prompt-caching .chv-req-header {
   padding: var(--space-2) var(--space-3);
   background: var(--color-surface-alt);
   font-size: var(--font-size-sm);
-
 }
 
-body.app-prompt-caching .chv-req-label { font-weight: 600; color: var(--color-text);
+body.app-prompt-caching .chv-req-label {
+  font-weight: 600;
+  color: var(--color-text);
 }
 
-body.app-prompt-caching .chv-req-status { font-family: var(--font-mono); font-size: var(--font-size-xs);
+body.app-prompt-caching .chv-req-status {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
 }
 
-body.app-prompt-caching .chv-req-status.is-hit { color: var(--pc-teal);
+body.app-prompt-caching .chv-req-status.is-hit {
+  color: var(--pc-teal);
 }
 
-body.app-prompt-caching .chv-req-status.is-miss { color: var(--pc-rose);
+body.app-prompt-caching .chv-req-status.is-miss {
+  color: var(--pc-rose);
 }
 
 body.app-prompt-caching .chv-blocks {
@@ -1220,7 +1214,6 @@ body.app-prompt-caching .chv-blocks {
   gap: 2px;
   padding: 0.4rem var(--space-3);
   flex-wrap: wrap;
-
 }
 
 /* Request blocks pair a solid hue with the theme's on-accent text, like the shared solid chips. */
@@ -1236,21 +1229,20 @@ body.app-prompt-caching .chv-block {
   transition: all 0.3s;
   flex: 1;
   min-width: 32px;
-
 }
 
-body.app-prompt-caching .chv-block.cached { background: var(--pc-teal);
+body.app-prompt-caching .chv-block.cached {
+  background: var(--pc-teal);
 }
 
-body.app-prompt-caching .chv-block.miss { background: var(--pc-rose);
+body.app-prompt-caching .chv-block.miss {
+  background: var(--pc-rose);
 }
-
 
 body.app-prompt-caching .chv-block.waiting {
   background: var(--color-surface-alt);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
-
 }
 
 body.app-prompt-caching .chv-row-label {
@@ -1259,20 +1251,20 @@ body.app-prompt-caching .chv-row-label {
   letter-spacing: var(--tracking-label);
   padding: var(--space-1) var(--space-3) 0;
   font-weight: 600;
-
 }
 
-body.app-prompt-caching .chv-row-label.sys { color: var(--pc-teal);
+body.app-prompt-caching .chv-row-label.sys {
+  color: var(--pc-teal);
 }
 
-body.app-prompt-caching .chv-row-label.usr { color: var(--pc-rose);
+body.app-prompt-caching .chv-row-label.usr {
+  color: var(--pc-rose);
 }
 
 body.app-prompt-caching .chv-divider {
   height: 1px;
   background: var(--color-border);
   margin: 2px var(--space-3);
-
 }
 
 body.app-prompt-caching .chv-legend {
@@ -1281,7 +1273,6 @@ body.app-prompt-caching .chv-legend {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   margin-top: var(--space-2);
-
 }
 
 body.app-prompt-caching .chv-legend-dot {
@@ -1291,13 +1282,14 @@ body.app-prompt-caching .chv-legend-dot {
   display: inline-block;
   vertical-align: middle;
   margin-right: 4px;
-
 }
 
-body.app-prompt-caching .chv-legend-dot.is-teal { background: var(--pc-teal);
+body.app-prompt-caching .chv-legend-dot.is-teal {
+  background: var(--pc-teal);
 }
 
-body.app-prompt-caching .chv-legend-dot.is-rose { background: var(--pc-rose);
+body.app-prompt-caching .chv-legend-dot.is-rose {
+  background: var(--pc-rose);
 }
 
 /* The provider comparison table rides the shared table styling inside
@@ -1305,7 +1297,8 @@ body.app-prompt-caching .chv-legend-dot.is-rose { background: var(--pc-rose);
  * fixed aspect column, row hover) stays scoped, since the shared table is
  * tuned for right-aligned numeric data. Vertical rhythm lives on the wrap
  * so the card hugs the table with no inner gap. */
-body.app-prompt-caching .table-wrap { margin: var(--space-4) 0;
+body.app-prompt-caching .table-wrap {
+  margin: var(--space-4) 0;
 }
 
 body.app-prompt-caching .pc-cmp th {
@@ -1315,14 +1308,12 @@ body.app-prompt-caching .pc-cmp th {
   letter-spacing: var(--tracking-label);
   font-size: var(--font-size-xs);
   font-weight: 600;
-
 }
 
 body.app-prompt-caching .pc-cmp th:first-child,
 body.app-prompt-caching .pc-cmp td:first-child {
   width: 132px;
   text-align: left;
-
 }
 
 body.app-prompt-caching .pc-cmp td {
@@ -1331,50 +1322,45 @@ body.app-prompt-caching .pc-cmp td {
   color: var(--color-text-secondary);
   vertical-align: top;
   text-align: left;
-
 }
 
 body.app-prompt-caching .pc-cmp tbody tr {
   transition: background var(--transition-fast) ease;
-
 }
 
 body.app-prompt-caching .pc-cmp tbody tr:hover {
   background: var(--color-highlight-row);
-
 }
 
-body.app-prompt-caching .pc-cmp tr:last-child td { border-bottom: none;
+body.app-prompt-caching .pc-cmp tr:last-child td {
+  border-bottom: none;
 }
 
-body.app-prompt-caching .pc-cmp td strong { color: var(--color-text);
+body.app-prompt-caching .pc-cmp td strong {
+  color: var(--color-text);
 }
 
 /* 6. Savings calculator. */
 
 body.app-prompt-caching .pc-calc-field {
   margin-bottom: var(--space-5);
-
 }
 
 body.app-prompt-caching .pc-calc-field-head {
   display: flex;
   justify-content: space-between;
   margin-bottom: 0.4rem;
-
 }
 
 body.app-prompt-caching .pc-calc-field-head label {
   font-size: var(--font-size-control);
   color: var(--color-text-secondary);
-
 }
 
 body.app-prompt-caching .pc-calc-field-head output {
   font-family: var(--font-mono);
   font-size: var(--font-size-control);
   color: var(--pc-accent);
-
 }
 
 body.app-prompt-caching .pc-calc-grid {
@@ -1383,13 +1369,11 @@ body.app-prompt-caching .pc-calc-grid {
   gap: 1.6rem;
   align-items: center;
   margin-top: 0.4rem;
-
 }
 
 body.app-prompt-caching .pc-calc-presets {
   display: inline-flex;
   margin-bottom: 1.1rem;
-
 }
 
 body.app-prompt-caching .pc-calc-hero {
@@ -1398,19 +1382,16 @@ body.app-prompt-caching .pc-calc-hero {
   background: var(--color-surface-alt);
   text-align: center;
   padding: var(--space-4) var(--space-4) 0.85rem;
-
 }
 
 body.app-prompt-caching .pc-calc-hero-sub {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-
 }
 
 body.app-prompt-caching .pc-calc-bars {
   margin-top: var(--space-4);
-
 }
 
 body.app-prompt-caching .pc-calc-bar-row {
@@ -1418,17 +1399,11 @@ body.app-prompt-caching .pc-calc-bar-row {
   align-items: center;
   gap: 0.6rem;
   margin-top: 0.6rem;
-
 }
 
 body.app-prompt-caching .pc-calc-bar-name {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
   min-width: 78px;
   text-align: right;
-
 }
 
 body.app-prompt-caching .pc-calc-bar-track {
@@ -1437,20 +1412,20 @@ body.app-prompt-caching .pc-calc-bar-track {
   background: var(--color-surface-alt);
   border-radius: 4px;
   overflow: hidden;
-
 }
 
 body.app-prompt-caching .pc-calc-bar {
   height: 100%;
   border-radius: 4px;
   transition: width 0.25s;
-
 }
 
-body.app-prompt-caching .pc-calc-bar.is-rose { background: var(--pc-rose);
+body.app-prompt-caching .pc-calc-bar.is-rose {
+  background: var(--pc-rose);
 }
 
-body.app-prompt-caching .pc-calc-bar.is-teal { background: var(--pc-teal);
+body.app-prompt-caching .pc-calc-bar.is-teal {
+  background: var(--pc-teal);
 }
 
 body.app-prompt-caching .pc-calc-bar-val {
@@ -1458,41 +1433,34 @@ body.app-prompt-caching .pc-calc-bar-val {
   font-size: var(--font-size-control);
   font-weight: 600;
   min-width: 84px;
-
 }
 
-body.app-prompt-caching .pc-calc-bar-val.is-rose { color: var(--pc-rose);
+body.app-prompt-caching .pc-calc-bar-val.is-rose {
+  color: var(--pc-rose);
 }
 
-body.app-prompt-caching .pc-calc-bar-val.is-teal { color: var(--pc-teal);
+body.app-prompt-caching .pc-calc-bar-val.is-teal {
+  color: var(--pc-teal);
 }
 
 /* The workload stat pair rides the shared .stat-grid/.stat; the dashed border,
  * compact padding, and smaller value type are the scoped variant. */
 body.app-prompt-caching .pc-calc-stats {
   margin-top: var(--space-4);
-
 }
 
 body.app-prompt-caching .pc-calc-stat {
   border-style: dashed;
   padding: 0.55rem var(--space-3);
-
 }
 
 body.app-prompt-caching .pc-calc-stat .stat-value {
   font-size: var(--font-size-base);
   font-weight: 700;
-
 }
 
 body.app-prompt-caching .pc-calc-label {
   text-align: center;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
-
 }
 
 body.app-prompt-caching .pc-calc-display {
@@ -1501,10 +1469,10 @@ body.app-prompt-caching .pc-calc-display {
   font-family: var(--font-mono);
   text-align: center;
   padding: 0.35rem 0 0.2rem;
-
 }
 
-body.app-prompt-caching .pc-calc-display.is-accent { color: var(--pc-accent);
+body.app-prompt-caching .pc-calc-display.is-accent {
+  color: var(--pc-accent);
 }
 
 /* Embedding explorer. */
@@ -1514,7 +1482,6 @@ body.app-prompt-caching .pc-calc-display.is-accent { color: var(--pc-accent);
 body.app-prompt-caching .emb-sel {
   min-width: 60px;
   justify-content: center;
-
 }
 
 /* The category selector rides the shared .segmented skin; the dashed top rule
@@ -1524,7 +1491,6 @@ body.app-prompt-caching .pc-emb-cats {
   margin: var(--space-5) 0 0.85rem;
   padding-top: var(--space-5);
   border-top: 1px dashed var(--color-border);
-
 }
 
 body.app-prompt-caching .pc-emb-cloud {
@@ -1533,7 +1499,6 @@ body.app-prompt-caching .pc-emb-cloud {
   gap: 6px;
   min-height: 32px;
   margin-bottom: 1.1rem;
-
 }
 
 /* The word cloud is a content selection surface tied to the canvas markers, so
@@ -1552,14 +1517,12 @@ body.app-prompt-caching .emb-word {
   font-family: var(--font-mono);
   transition: all 0.15s;
   user-select: none;
-
 }
 
 body.app-prompt-caching .emb-word:hover {
   border-color: var(--pc-accent);
   color: var(--pc-accent);
   background: var(--pc-accent-bg);
-
 }
 
 body.app-prompt-caching .emb-word.sel-a {
@@ -1567,7 +1530,6 @@ body.app-prompt-caching .emb-word.sel-a {
   border-color: var(--pc-accent);
   color: var(--pc-accent);
   font-weight: 600;
-
 }
 
 body.app-prompt-caching .emb-word.sel-b {
@@ -1575,13 +1537,11 @@ body.app-prompt-caching .emb-word.sel-b {
   border-color: var(--pc-teal);
   color: var(--pc-teal);
   font-weight: 600;
-
 }
 
 body.app-prompt-caching .emb-word:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
-
 }
 
 body.app-prompt-caching .pc-emb-result {
@@ -1589,7 +1549,6 @@ body.app-prompt-caching .pc-emb-result {
   gap: 0.9rem;
   align-items: stretch;
   margin-top: 0.9rem;
-
 }
 
 body.app-prompt-caching .pc-emb-canvas-wrap {
@@ -1599,20 +1558,17 @@ body.app-prompt-caching .pc-emb-canvas-wrap {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   overflow: hidden;
-
 }
 
 body.app-prompt-caching .pc-canvas.is-rotatable {
   cursor: grab;
   touch-action: none;
-
 }
 
 body.app-prompt-caching .pc-canvas {
   display: block;
   width: 100%;
   height: auto;
-
 }
 
 /* The similarity/distance/verdict tiles ride the shared .stat-grid/.stat; the
@@ -1620,20 +1576,20 @@ body.app-prompt-caching .pc-canvas {
 body.app-prompt-caching .pc-emb-metric-value {
   font-size: 1.25rem;
   font-weight: 700;
-
 }
 
-body.app-prompt-caching .pc-emb-metric-value.is-accent { color: var(--pc-accent);
+body.app-prompt-caching .pc-emb-metric-value.is-accent {
+  color: var(--pc-accent);
 }
 
-body.app-prompt-caching .pc-emb-metric-value.is-teal { color: var(--pc-teal);
+body.app-prompt-caching .pc-emb-metric-value.is-teal {
+  color: var(--pc-teal);
 }
 
 body.app-prompt-caching .pc-emb-verdict {
   font-size: var(--font-size-md);
   font-weight: 700;
   color: var(--color-text);
-
 }
 
 body.app-prompt-caching .pc-emb-tags {
@@ -1641,7 +1597,6 @@ body.app-prompt-caching .pc-emb-tags {
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-4);
-
 }
 
 /* The quick-pick pair tags ride the shared .chip base; the smaller type and the
@@ -1650,19 +1605,16 @@ body.app-prompt-caching .emb-tag {
   min-height: 1.75rem;
   font-size: var(--font-size-xs);
   cursor: pointer;
-
 }
 
 body.app-prompt-caching .emb-tag:hover {
   border-color: var(--color-blue);
   color: var(--color-blue-text);
-
 }
 
 body.app-prompt-caching .emb-tag:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
-
 }
 
 /* 7. Guide recap, resources, and footer. */
@@ -1671,13 +1623,11 @@ body.app-prompt-caching .pc-timeline {
   display: flex;
   flex-direction: column;
   margin: var(--space-6) 0;
-
 }
 
 body.app-prompt-caching .pc-timeline-row {
   display: flex;
   gap: var(--space-4);
-
 }
 
 body.app-prompt-caching .pc-timeline-rail {
@@ -1685,7 +1635,6 @@ body.app-prompt-caching .pc-timeline-rail {
   flex-direction: column;
   align-items: center;
   min-width: 40px;
-
 }
 
 body.app-prompt-caching .pc-timeline-dot {
@@ -1702,7 +1651,6 @@ body.app-prompt-caching .pc-timeline-dot {
   border: 2px solid var(--pc-accent);
   color: var(--pc-accent);
   background: var(--pc-accent-bg);
-
 }
 
 body.app-prompt-caching .pc-timeline-line {
@@ -1710,17 +1658,14 @@ body.app-prompt-caching .pc-timeline-line {
   flex-grow: 1;
   background: var(--color-border);
   min-height: 20px;
-
 }
 
 body.app-prompt-caching .pc-timeline-body {
   padding-bottom: 1.1rem;
-
 }
 
 body.app-prompt-caching .pc-timeline-row:last-child .pc-timeline-body {
   padding-bottom: 0;
-
 }
 
 body.app-prompt-caching .pc-timeline-title {
@@ -1728,98 +1673,108 @@ body.app-prompt-caching .pc-timeline-title {
   font-weight: 700;
   color: var(--pc-accent);
   margin-bottom: var(--space-1);
-
 }
 
 body.app-prompt-caching .pc-timeline-desc {
   font-size: var(--font-size-md);
   color: var(--color-text-secondary);
   line-height: 1.7;
-
 }
 
-body.app-prompt-caching .pc-timeline-row.is-accent .pc-timeline-dot { border-color: var(--pc-accent); color: var(--pc-accent); background: var(--pc-accent-bg);
+body.app-prompt-caching .pc-timeline-row.is-warm .pc-timeline-dot {
+  border-color: var(--pc-warm);
+  color: var(--pc-warm);
+  background: var(--pc-warm-bg);
 }
 
-body.app-prompt-caching .pc-timeline-row.is-accent .pc-timeline-title { color: var(--pc-accent);
+body.app-prompt-caching .pc-timeline-row.is-warm .pc-timeline-title {
+  color: var(--pc-warm);
 }
 
-body.app-prompt-caching .pc-timeline-row.is-warm .pc-timeline-dot { border-color: var(--pc-warm); color: var(--pc-warm); background: var(--pc-warm-bg);
+body.app-prompt-caching .pc-timeline-row.is-teal .pc-timeline-dot {
+  border-color: var(--pc-teal);
+  color: var(--pc-teal);
+  background: var(--pc-teal-bg);
 }
 
-body.app-prompt-caching .pc-timeline-row.is-warm .pc-timeline-title { color: var(--pc-warm);
+body.app-prompt-caching .pc-timeline-row.is-teal .pc-timeline-title {
+  color: var(--pc-teal);
 }
 
-body.app-prompt-caching .pc-timeline-row.is-teal .pc-timeline-dot { border-color: var(--pc-teal); color: var(--pc-teal); background: var(--pc-teal-bg);
+body.app-prompt-caching .pc-timeline-row.is-indigo .pc-timeline-dot {
+  border-color: var(--pc-indigo);
+  color: var(--pc-indigo);
+  background: var(--pc-indigo-bg);
 }
 
-body.app-prompt-caching .pc-timeline-row.is-teal .pc-timeline-title { color: var(--pc-teal);
+body.app-prompt-caching .pc-timeline-row.is-indigo .pc-timeline-title {
+  color: var(--pc-indigo);
 }
 
-body.app-prompt-caching .pc-timeline-row.is-indigo .pc-timeline-dot { border-color: var(--pc-indigo); color: var(--pc-indigo); background: var(--pc-indigo-bg);
+body.app-prompt-caching .pc-timeline-row.is-rose .pc-timeline-dot {
+  border-color: var(--pc-rose);
+  color: var(--pc-rose);
+  background: var(--pc-rose-bg);
 }
 
-body.app-prompt-caching .pc-timeline-row.is-indigo .pc-timeline-title { color: var(--pc-indigo);
-}
-
-body.app-prompt-caching .pc-timeline-row.is-rose .pc-timeline-dot { border-color: var(--pc-rose); color: var(--pc-rose); background: var(--pc-rose-bg);
-}
-
-body.app-prompt-caching .pc-timeline-row.is-rose .pc-timeline-title { color: var(--pc-rose);
+body.app-prompt-caching .pc-timeline-row.is-rose .pc-timeline-title {
+  color: var(--pc-rose);
 }
 
 body.app-prompt-caching .pc-qkv {
   text-align: center;
   border-left: 3px solid var(--color-border);
-
 }
 
-body.app-prompt-caching .pc-qkv.is-teal { border-left-color: var(--pc-teal);
+body.app-prompt-caching .pc-qkv.is-teal {
+  border-left-color: var(--pc-teal);
 }
 
-body.app-prompt-caching .pc-qkv.is-warm { border-left-color: var(--pc-warm);
+body.app-prompt-caching .pc-qkv.is-warm {
+  border-left-color: var(--pc-warm);
 }
 
-body.app-prompt-caching .pc-qkv.is-accent { border-left-color: var(--pc-accent);
+body.app-prompt-caching .pc-qkv.is-accent {
+  border-left-color: var(--pc-accent);
 }
 
 body.app-prompt-caching .pc-qkv-glyph {
   font-size: 1.4rem;
   font-weight: 700;
   margin-bottom: var(--space-1);
-
 }
 
-body.app-prompt-caching .pc-qkv.is-teal .pc-qkv-glyph { color: var(--pc-teal);
+body.app-prompt-caching .pc-qkv.is-teal .pc-qkv-glyph {
+  color: var(--pc-teal);
 }
 
-body.app-prompt-caching .pc-qkv.is-warm .pc-qkv-glyph { color: var(--pc-warm);
+body.app-prompt-caching .pc-qkv.is-warm .pc-qkv-glyph {
+  color: var(--pc-warm);
 }
 
-body.app-prompt-caching .pc-qkv.is-accent .pc-qkv-glyph { color: var(--pc-accent);
+body.app-prompt-caching .pc-qkv.is-accent .pc-qkv-glyph {
+  color: var(--pc-accent);
 }
 
 body.app-prompt-caching .pc-qkv-role {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   margin-top: 0.4rem;
-
 }
 
 body.app-prompt-caching .pc-reading {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-
 }
 
 body.app-prompt-caching .pc-reading-item {
   font-size: var(--font-size-md);
   color: var(--color-text-secondary);
-
 }
 
-body.app-prompt-caching .pc-reading-item strong { color: var(--color-text);
+body.app-prompt-caching .pc-reading-item strong {
+  color: var(--color-text);
 }
 
 body.app-prompt-caching .pc-footer {
@@ -1828,18 +1783,15 @@ body.app-prompt-caching .pc-footer {
   color: var(--color-text-secondary);
   font-size: var(--font-size-control);
   border-top: 1px solid var(--color-border);
-
 }
 
 body.app-prompt-caching .pc-footer a {
   color: var(--pc-accent);
   text-decoration: none;
-
 }
 
 body.app-prompt-caching .pc-footer a:hover {
   text-decoration: underline;
-
 }
 
 /* 8. Responsive overrides. */
@@ -1868,12 +1820,9 @@ body.app-prompt-caching .pc-footer a:hover {
   body.app-prompt-caching .pc-grid-2,
   body.app-prompt-caching .pc-grid-3 {
     grid-template-columns: 1fr;
-
   }
 
   body.app-prompt-caching .pc-emb-result {
     flex-direction: column;
-
   }
-
 }

@@ -344,10 +344,6 @@ body.app-vendor-docs-generator .vd-section:last-child {
   border-bottom: 0;
 }
 
-body.app-vendor-docs-generator .vd-section[hidden] {
-  display: none;
-}
-
 body.app-vendor-docs-generator .vd-section-head {
   display: flex;
   min-height: var(--space-6);
@@ -392,10 +388,6 @@ body.app-vendor-docs-generator .vd-inline-field {
   gap: var(--space-3);
 }
 
-body.app-vendor-docs-generator .vd-inline-field[hidden] {
-  display: none;
-}
-
 body.app-vendor-docs-generator .vd-inline-field .vd-field-label {
   color: var(--color-text-secondary);
   font-weight: 500;
@@ -414,10 +406,6 @@ body.app-vendor-docs-generator .vd-check {
   cursor: pointer;
   font-size: var(--font-size-control);
   gap: var(--space-2);
-}
-
-body.app-vendor-docs-generator .vd-check[hidden] {
-  display: none;
 }
 
 body.app-vendor-docs-generator .vd-check input {
@@ -504,11 +492,6 @@ body.app-vendor-docs-generator .vd-status {
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   text-align: center;
-}
-
-body.app-vendor-docs-generator .vd-status[hidden],
-body.app-vendor-docs-generator .vd-progress[hidden] {
-  display: none;
 }
 
 body.app-vendor-docs-generator .vd-progress {
@@ -699,12 +682,16 @@ body.app-vendor-docs-generator .vd-logo-name {
   line-height: 1.05;
 }
 
-body.app-vendor-docs-generator .vd-logo.is-block .vd-logo-mark {
+body.app-vendor-docs-generator .vd-logo.is-block .vd-logo-mark,
+body.app-vendor-docs-generator .vd-logo.is-stamp .vd-logo-mark {
   display: inline-flex;
-  width: 46px;
-  height: 46px;
   align-items: center;
   justify-content: center;
+}
+
+body.app-vendor-docs-generator .vd-logo.is-block .vd-logo-mark {
+  width: 46px;
+  height: 46px;
   border-radius: var(--radius-xs);
   background: var(--vd-accent, var(--color-blue));
   color: var(--color-document-on-accent);
@@ -717,11 +704,8 @@ body.app-vendor-docs-generator .vd-logo.is-stamp {
 }
 
 body.app-vendor-docs-generator .vd-logo.is-stamp .vd-logo-mark {
-  display: inline-flex;
   width: 50px;
   height: 50px;
-  align-items: center;
-  justify-content: center;
   border: 3px solid var(--vd-accent, var(--color-blue));
   color: var(--vd-accent, var(--color-blue));
   font-size: 1.15rem;
@@ -733,7 +717,8 @@ body.app-vendor-docs-generator .vd-logo.is-stamp .vd-logo-name {
   font-weight: 700;
 }
 
-body.app-vendor-docs-generator .vd-logo.is-leaf {
+body.app-vendor-docs-generator .vd-logo.is-leaf,
+body.app-vendor-docs-generator .vd-logo.is-thin {
   flex-direction: column;
   gap: 2px;
 }
@@ -772,8 +757,6 @@ body.app-vendor-docs-generator .vd-logo.is-stripe .vd-logo-name {
 }
 
 body.app-vendor-docs-generator .vd-logo.is-thin {
-  flex-direction: column;
-  gap: 2px;
   text-align: center;
 }
 
@@ -880,21 +863,19 @@ body.app-vendor-docs-generator .vd-kv {
   font-size: 0.65rem;
 }
 
-body.app-vendor-docs-generator .vd-kv .vd-kv-key {
-  width: 42%;
-  padding: 4px 9px;
-  border: 1px solid var(--color-document-rule-strong);
-  background: var(--color-document-fill);
-  color: var(--color-document-ink);
-  font-size: inherit;
-  font-weight: 600;
-  text-align: left;
-}
-
+body.app-vendor-docs-generator .vd-kv .vd-kv-key,
 body.app-vendor-docs-generator .vd-kv .vd-kv-value {
   padding: 4px 9px;
   border: 1px solid var(--color-document-rule-strong);
   text-align: left;
+}
+
+body.app-vendor-docs-generator .vd-kv .vd-kv-key {
+  width: 42%;
+  background: var(--color-document-fill);
+  color: var(--color-document-ink);
+  font-size: inherit;
+  font-weight: 600;
 }
 
 body.app-vendor-docs-generator .vd-partypair {
@@ -903,10 +884,14 @@ body.app-vendor-docs-generator .vd-partypair {
   font-size: 0.66rem;
 }
 
-body.app-vendor-docs-generator .vd-partypair-head {
-  width: 50%;
+body.app-vendor-docs-generator .vd-partypair-head,
+body.app-vendor-docs-generator .vd-partypair-cell {
   padding: 7px 9px;
   border: 1px solid var(--color-document-rule-strong);
+}
+
+body.app-vendor-docs-generator .vd-partypair-head {
+  width: 50%;
   background: var(--vd-accent, var(--color-blue));
   color: var(--color-document-on-accent);
   font-size: inherit;
@@ -915,8 +900,6 @@ body.app-vendor-docs-generator .vd-partypair-head {
 }
 
 body.app-vendor-docs-generator .vd-partypair-cell {
-  padding: 7px 9px;
-  border: 1px solid var(--color-document-rule-strong);
   vertical-align: top;
 }
 
@@ -1002,20 +985,21 @@ body.app-vendor-docs-generator .vd-totals {
   font-size: 0.78rem;
 }
 
-body.app-vendor-docs-generator .vd-totals-label {
-  padding: 5px 12px;
-  border: 0;
-  color: var(--color-document-muted);
-  font-size: inherit;
-  font-weight: 400;
-  text-align: right;
-}
-
+body.app-vendor-docs-generator .vd-totals-label,
 body.app-vendor-docs-generator .vd-totals-value {
   padding: 5px 12px;
   border: 0;
-  font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+body.app-vendor-docs-generator .vd-totals-label {
+  color: var(--color-document-muted);
+  font-size: inherit;
+  font-weight: 400;
+}
+
+body.app-vendor-docs-generator .vd-totals-value {
+  font-variant-numeric: tabular-nums;
 }
 
 body.app-vendor-docs-generator .vd-totals .is-emphasis {
@@ -1053,11 +1037,15 @@ body.app-vendor-docs-generator .vd-note.is-accent {
   border-left: 3px solid var(--vd-accent, var(--color-blue));
 }
 
-body.app-vendor-docs-generator .vd-doc-callout {
-  padding: 13px 16px;
+body.app-vendor-docs-generator .vd-doc-callout,
+body.app-vendor-docs-generator .vd-doc-chip {
   border-radius: var(--radius-sm);
   background: var(--vd-accent-soft, var(--color-surface-alt));
   font-size: 0.75rem;
+}
+
+body.app-vendor-docs-generator .vd-doc-callout {
+  padding: 13px 16px;
   line-height: 1.55;
 }
 
@@ -1071,9 +1059,6 @@ body.app-vendor-docs-generator .vd-doc-chip {
   display: inline-flex;
   gap: var(--space-2);
   padding: 10px 16px;
-  border-radius: var(--radius-sm);
-  background: var(--vd-accent-soft, var(--color-surface-alt));
-  font-size: 0.75rem;
 }
 
 body.app-vendor-docs-generator .vd-doc-chip-label {
@@ -1235,12 +1220,6 @@ body.app-vendor-docs-generator .vd-fact-list dd {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  body.app-vendor-docs-generator .vd-stamp {
-    transform: none;
-  }
-}
-
 /* ── Scan preset icons and control feel ───────────────────────────── */
 
 /*
@@ -1325,6 +1304,10 @@ body.app-vendor-docs-generator .vd-workbench .btn:not(:disabled):active {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  body.app-vendor-docs-generator .vd-stamp {
+    transform: none;
+  }
+
   body.app-vendor-docs-generator .vd-workbench .btn,
   body.app-vendor-docs-generator #vdDegradePreset button::before {
     transition: none;
