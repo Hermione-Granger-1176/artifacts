@@ -190,6 +190,15 @@ export function verdictForSimilarity(sim) {
 }
 
 /**
+ * @param {number[]} a - First vector.
+ * @param {number[]} b - Second vector of the same length.
+ * @returns {number} Dot product.
+ */
+function dot(a, b) {
+  return a.reduce((sum, value, i) => sum + value * b[i], 0);
+}
+
+/**
  * Project every word vector onto two axes chosen to best separate words A and B:
  * axis 1 is the A→B direction, axis 2 is the highest-variance orthogonal axis.
  * @param {number[]} vecA
@@ -202,7 +211,7 @@ export function project2D(vecA, vecB, vecs) {
   const dims = vecA.length;
 
   const diff = vecA.map((value, i) => vecB[i] - value);
-  const diffMag = Math.sqrt(diff.reduce((sum, value) => sum + value * value, 0)) || 1;
+  const diffMag = Math.sqrt(dot(diff, diff)) || 1;
   const ax1 = diff.map((value) => value / diffMag);
 
   const ax2 = new Array(dims).fill(0);
@@ -222,18 +231,18 @@ export function project2D(vecA, vecB, vecs) {
   }
   ax2[bestDim] = 1;
 
-  const dot12 = ax1.reduce((sum, value, i) => sum + value * ax2[i], 0);
+  const dot12 = dot(ax1, ax2);
   for (let i = 0; i < dims; i += 1) {
     ax2[i] -= dot12 * ax1[i];
   }
-  const mag2 = Math.sqrt(ax2.reduce((sum, value) => sum + value * value, 0)) || 1;
+  const mag2 = Math.sqrt(dot(ax2, ax2)) || 1;
   for (let i = 0; i < dims; i += 1) {
     ax2[i] /= mag2;
   }
 
   return words.map((word) => ({
     word,
-    x: vecs[word].reduce((sum, value, i) => sum + value * ax1[i], 0),
-    y: vecs[word].reduce((sum, value, i) => sum + value * ax2[i], 0)
+    x: dot(vecs[word], ax1),
+    y: dot(vecs[word], ax2)
   }));
 }

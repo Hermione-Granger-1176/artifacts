@@ -69,11 +69,24 @@ export function initInference() {
     }
   }
 
-  function reset() {
+  function stopTimer() {
     if (timer) {
       clearInterval(timer);
       timer = null;
     }
+  }
+
+  /** Recolor the token generated last step from "current" to settled amber. */
+  function settleCurrentToken() {
+    const current = tokensWrap.querySelector(".inf-tok.current");
+    if (current) {
+      current.classList.remove("current", "is-solid-amber");
+      current.classList.add("is-amber");
+    }
+  }
+
+  function reset() {
+    stopTimer();
     step = 0;
     promptTokens = [];
     genTokens = [];
@@ -98,24 +111,15 @@ export function initInference() {
 
     timer = setInterval(() => {
       if (step >= genTokens.length) {
-        clearInterval(/** @type {number} */ (timer));
-        timer = null;
+        stopTimer();
         const total = promptTokens.length + genTokens.length;
         status.textContent = `Done. ${total} total tokens. KV cache has ${total} rows.`;
         goBtn.disabled = false;
-        const last = tokensWrap.querySelector(".inf-tok.current");
-        if (last) {
-          last.classList.remove("current", "is-solid-amber");
-          last.classList.add("is-amber");
-        }
+        settleCurrentToken();
         return;
       }
 
-      const prev = tokensWrap.querySelector(".inf-tok.current");
-      if (prev) {
-        prev.classList.remove("current", "is-solid-amber");
-        prev.classList.add("is-amber");
-      }
+      settleCurrentToken();
       tokensWrap.appendChild(makeEl("span", "chip is-mono inf-tok is-solid-amber current", genTokens[step]));
 
       step += 1;

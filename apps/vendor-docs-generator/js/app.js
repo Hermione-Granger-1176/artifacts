@@ -33,6 +33,8 @@ import {
   downloadPdf,
   estimateBatchBytes,
   formatBytes,
+  formatWritesPdf,
+  formatWritesPng,
   planBatch,
   runBatch,
   triggerDownload
@@ -176,6 +178,21 @@ function fillSegment(container, attribute, items) {
   }
 }
 
+/**
+ * Append one option per entry to a select.
+ * @param {HTMLSelectElement} select - Select to fill.
+ * @param {Array<[string, string]>} entries - Option value and label pairs.
+ * @returns {void}
+ */
+function fillSelect(select, entries) {
+  for (const [value, label] of entries) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  }
+}
+
 initializeMatureApp({
   run: ({ runtime }) => {
     initAppShell();
@@ -250,12 +267,12 @@ initializeMatureApp({
 
     /** @returns {boolean} Whether the chosen format writes a PDF. */
     function writesPdf() {
-      return state.format === "pdf" || state.format === "both";
+      return formatWritesPdf(state.format);
     }
 
     /** @returns {boolean} Whether the chosen format writes a PNG. */
     function writesPng() {
-      return state.format === "png" || state.format === "both";
+      return formatWritesPng(state.format);
     }
 
     /**
@@ -328,21 +345,10 @@ initializeMatureApp({
       });
     }
 
-    for (const vendor of VENDORS) {
-      const option = document.createElement("option");
-      option.value = vendor.id;
-      option.textContent = vendor.name;
-      vendorSelect.appendChild(option);
-    }
-
+    fillSelect(vendorSelect, VENDORS.map((vendor) => [vendor.id, vendor.name]));
     // The type pills and this dropdown are one control in two shapes: the CSS
     // shows the pills while they fit and the dropdown when they would not.
-    for (const type of DOCUMENT_TYPES) {
-      const option = document.createElement("option");
-      option.value = type.id;
-      option.textContent = type.label;
-      typeSelect.appendChild(option);
-    }
+    fillSelect(typeSelect, DOCUMENT_TYPES.map((type) => [type.id, type.label]));
 
     vendorSelect.value = state.vendorId;
     typeSelect.value = state.docTypeId;

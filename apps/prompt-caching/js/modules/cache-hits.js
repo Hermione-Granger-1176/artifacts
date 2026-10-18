@@ -23,16 +23,20 @@ export function initCacheHits() {
   let ttlTimer = /** @type {number | null} */ (null);
   let ttlSec = 0;
 
-  function resetTTL() {
-    ttlSec = TTL_SECONDS;
+  function stopTTL() {
     if (ttlTimer) {
       clearInterval(ttlTimer);
+      ttlTimer = null;
     }
+  }
+
+  function resetTTL() {
+    ttlSec = TTL_SECONDS;
+    stopTTL();
     ttlTimer = setInterval(() => {
       ttlSec -= 1;
       if (ttlSec <= 0) {
-        clearInterval(/** @type {number} */ (ttlTimer));
-        ttlTimer = null;
+        stopTTL();
         cachedPrefixTokens = 0;
       }
       ttlLabel.textContent = formatTTL(ttlSec);
@@ -57,6 +61,18 @@ export function initCacheHits() {
       blocks[i].classList.add(hitClass);
       i += 1;
     }, BLOCK_DELAY_MS);
+  }
+
+  /**
+   * @param {string[]} tokens - Token labels for one prompt segment.
+   * @returns {HTMLElement} A row of waiting blocks, one per token.
+   */
+  function buildBlocks(tokens) {
+    const wrap = makeEl("div", "chv-blocks");
+    for (const tok of tokens) {
+      wrap.appendChild(makeEl("div", "chv-block waiting", tok));
+    }
+    return wrap;
   }
 
   function send() {
@@ -86,18 +102,12 @@ export function initCacheHits() {
       "chv-row-label sys",
       `System prompt ${sysHit ? "(cache hit, reused)" : "(cache miss, computed)"}`
     ));
-    const sysBlocksWrap = makeEl("div", "chv-blocks");
-    for (const tok of CHV_SYSTEM) {
-      sysBlocksWrap.appendChild(makeEl("div", "chv-block waiting", tok));
-    }
+    const sysBlocksWrap = buildBlocks(CHV_SYSTEM);
     reqDiv.appendChild(sysBlocksWrap);
 
     reqDiv.appendChild(makeEl("div", "chv-divider"));
     reqDiv.appendChild(makeEl("div", "chv-row-label usr", "User query (always computed, different each time)"));
-    const usrBlocksWrap = makeEl("div", "chv-blocks");
-    for (const tok of query) {
-      usrBlocksWrap.appendChild(makeEl("div", "chv-block waiting", tok));
-    }
+    const usrBlocksWrap = buildBlocks(query);
     reqDiv.appendChild(usrBlocksWrap);
 
     reqs.appendChild(reqDiv);
@@ -129,10 +139,7 @@ export function initCacheHits() {
   function clearCache() {
     cachedPrefixTokens = 0;
     reqCount = 0;
-    if (ttlTimer) {
-      clearInterval(ttlTimer);
-      ttlTimer = null;
-    }
+    stopTTL();
     ttlLabel.textContent = formatTTL(TTL_SECONDS);
     clear(reqs);
     reqs.appendChild(makeEl("div", "pc-empty", 'No requests yet. Click "Send request" to begin.'));

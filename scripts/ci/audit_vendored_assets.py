@@ -33,6 +33,7 @@ from scripts.ci.security_audit_policy import (
     VENDORED_EXCEPTIONS_KEY,
     VulnerabilityExceptionEntry,
     load_security_audit_exceptions,
+    unused_exception_errors,
 )
 from scripts.lint.check_vendored_assets import VendoredAsset, _load_manifest
 
@@ -410,11 +411,7 @@ def audit_findings(
         else:
             ignored.append((finding, exception))
 
-    errors.extend(
-        f"Unused vendored vulnerability exception: {exception.package} {exception.vulnerability_id}"
-        for exception in exceptions
-        if exception.key not in matched_keys
-    )
+    errors.extend(unused_exception_errors(exceptions, matched_keys, "vendored"))
     return tuple(ignored), tuple(errors)
 
 

@@ -45,6 +45,7 @@ The shared modules under `js/modules/` are:
 - `js/modules/segmented.js`: `initSegmented()` wiring for segmented toggles, keeping the lone `.active` button and `aria-pressed` state in sync and calling back with the newly active button
 - `js/modules/section-nav.js`: sticky section-progress nav (`initSectionNav()`, `renderSectionNav()`, `scrollToSection()`) with numbered nodes, a progress fill, and a position-aware scroll spy (an IntersectionObserver tracks which sections are on screen; scroll and resize listeners pick the active one by scanline position, pinning the deepest visible section at the page bottom), styled by the shared `.section-nav` component rules. Sections are discovered from elements carrying an id plus a `data-nav-label` attribute, in document order; `initSectionNav()` also accepts an explicit `{ id, label }` list for callers that need one
 - `js/modules/chart-theme.js`: theme-aware Chart.js helpers (`chartGlobal()` vendor global access, `cssValue()` / `cssAlpha()` custom property reads, `isDark()`, and `createPaletteCache()` per-theme palette caching) used by the chart-based apps
+- `js/modules/frame-scheduler.js`: `createFrameScheduler()`, which coalesces repeated requests (such as slider input) into one callback on the next animation frame
 
 The root filter UI is rendered as desk notes by `buildFilterNotes()` in `js/modules/gallery/render.js` and toggled in `js/modules/gallery/gallery-app.js`.
 

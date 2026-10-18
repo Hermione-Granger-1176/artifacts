@@ -12,6 +12,7 @@ import {
   updateExtraField
 } from "./modules/extras.js";
 import { formatCurrency, formatDollarTick, parseNumber } from "../../../js/modules/formatting.js";
+import { createFrameScheduler } from "../../../js/modules/frame-scheduler.js";
 import { renderMetrics } from "./modules/metrics.js";
 import {
   getBiweeklyEmiOverride,
@@ -57,7 +58,8 @@ let extras = [];
 let nextExtraId = 0;
 let charts = {};
 let bwMode = "true";
-let pendingRecalcFrame = /** @type {number | null} */ (null);
+
+const scheduleRecalc = createFrameScheduler(() => recalc());
 
 renderAppShell();
 
@@ -147,6 +149,15 @@ function renderExtrasSection() {
   });
 }
 
+/**
+ * @param {HTMLElement} control - Control inside an extra-payment row.
+ * @returns {number} The row's extra id, or NaN outside a row.
+ */
+function getExtraId(control) {
+  const extraRow = /** @type {HTMLElement | null} */ (control.closest("[data-extra-id]"));
+  return Number(extraRow?.dataset.extraId);
+}
+
 /** @param {Event} event - Delegated click event. */
 function handleExtraListClick(event) {
   const target = /** @type {HTMLElement | null} */ (event.target);
@@ -155,8 +166,7 @@ function handleExtraListClick(event) {
     return;
   }
 
-  const extraRow = /** @type {HTMLElement | null} */ (button.closest("[data-extra-id]"));
-  const extraId = Number(extraRow?.dataset.extraId);
+  const extraId = getExtraId(button);
   if (Number.isNaN(extraId)) {
     return;
   }
@@ -188,8 +198,7 @@ function handleExtraListInput(event) {
     return;
   }
 
-  const extraRow = /** @type {HTMLElement | null} */ (input.closest("[data-extra-id]"));
-  const extraId = Number(extraRow?.dataset.extraId);
+  const extraId = getExtraId(input);
   if (Number.isNaN(extraId)) {
     return;
   }
@@ -206,16 +215,6 @@ function handleExtraListInput(event) {
   recalc();
 }
 
-function scheduleRecalc() {
-  if (pendingRecalcFrame !== null) {
-    return;
-  }
-
-  pendingRecalcFrame = window.requestAnimationFrame(() => {
-    pendingRecalcFrame = null;
-    recalc();
-  });
-}
 
 function recalc() {
   const principal = +elements.slPrincipal.value;

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from scripts import REPO_ROOT
 from scripts.lint import SKIP_DIRECTORIES as _BASE_SKIP_DIRECTORIES
+from scripts.lint import add_root_argument, print_failures
 
 # Directories containing JS source files that must have test coverage.
 SOURCE_DIRS = (
@@ -130,11 +131,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Check that every JS/MJS source file is imported by at least one test."
     )
-    parser.add_argument(
-        "--root",
-        default=None,
-        help="Repository root (defaults to auto-detected REPO_ROOT)",
-    )
+    add_root_argument(parser)
     return parser.parse_args(argv)
 
 
@@ -152,9 +149,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"JS test coverage check passed: {covered}/{total} source files covered")
         return 0
 
-    print(f"JS test coverage check failed: {total - covered} file(s) missing test imports")
-    for violation in violations:
-        print(f"  {violation}")
+    print_failures(
+        f"JS test coverage check failed: {total - covered} file(s) missing test imports",
+        violations,
+    )
     return 1
 
 

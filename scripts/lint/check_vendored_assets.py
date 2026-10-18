@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from scripts import REPO_ROOT
+from scripts.lint import add_root_argument, report_violations
 
 VENDORED_ASSETS_MANIFEST_FILE = REPO_ROOT / "config" / "vendored_assets.json"
 
@@ -234,11 +235,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Verify vendored libraries against config/vendored_assets.json."
     )
-    parser.add_argument(
-        "--root",
-        default=None,
-        help="Repository root (defaults to auto-detected REPO_ROOT)",
-    )
+    add_root_argument(parser)
     return parser.parse_args(argv)
 
 
@@ -253,14 +250,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Vendored assets check failed: {exc}")
         return 1
 
-    if not violations:
-        print("Vendored assets check passed")
-        return 0
-
-    print(f"Vendored assets check failed: {len(violations)} violation(s)")
-    for violation in violations:
-        print(f"  {violation}")
-    return 1
+    return report_violations("Vendored assets", violations)
 
 
 if __name__ == "__main__":  # pragma: no cover

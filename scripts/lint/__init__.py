@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    import argparse
+    from collections.abc import Callable, Iterable, Iterator
 
 # Directories the lint walkers never descend into. Every ignored directory in
 # .gitignore that can be named by a single path component belongs here: an
@@ -45,6 +46,58 @@ SKIP_DIRECTORIES = frozenset(
         "vendor",
     }
 )
+
+
+def add_root_argument(parser: argparse.ArgumentParser) -> None:
+    """Add the ``--root`` option that points a checker at another checkout."""
+    parser.add_argument(
+        "--root",
+        default=None,
+        help="Repository root (defaults to auto-detected REPO_ROOT)",
+    )
+
+
+def print_failures(header: str, messages: Iterable[str]) -> None:
+    """Print a failure header, then one indented line per message."""
+    print(header)
+    for message in messages:
+        print(f"  {message}")
+
+
+def report_violations(check_name: str, violations: list[str]) -> int:
+    """Print a checker's pass or fail summary and return its exit code."""
+    if not violations:
+        print(f"{check_name} check passed")
+        return 0
+
+    print_failures(f"{check_name} check failed: {len(violations)} violation(s)", violations)
+    return 1
+
+
+def check_each_path(
+    candidate_paths: Iterable[Path],
+    root: Path,
+    resolve: Callable[[list[str], Path], tuple[list[Path], list[str]]],
+    check: Callable[[Path], list[str]],
+) -> list[str]:
+    """Re-validate each candidate path with ``resolve``, then collect ``check`` violations.
+
+    A path outside ``root`` or one ``resolve`` refuses is reported instead of checked.
+    """
+    violations: list[str] = []
+    for path in candidate_paths:
+        try:
+            relative_path = path.relative_to(root).as_posix()
+        except ValueError:
+            violations.append(f"{path}: path must stay within the repository")
+            continue
+
+        safe_paths, path_errors = resolve([relative_path], root)
+        if path_errors:
+            violations.extend(path_errors)
+            continue
+        violations.extend(check(safe_paths[0]))
+    return violations
 
 
 def contains_symlink(path: Path, root: Path) -> bool:

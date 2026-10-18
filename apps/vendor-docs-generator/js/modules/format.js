@@ -121,9 +121,7 @@ export function padNumber(value, length = 5) {
  * @returns {string} Date as `Mon DD, YYYY`.
  */
 export function formatDate(date) {
-  const month = MONTH_ABBREVIATIONS[date.getMonth()];
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${month} ${day}, ${date.getFullYear()}`;
+  return `${MONTH_ABBREVIATIONS[date.getMonth()]} ${padNumber(date.getDate(), 2)}, ${date.getFullYear()}`;
 }
 
 /**
@@ -138,9 +136,7 @@ export function formatDate(date) {
  * @returns {string} Date as `YYYY-MM-DD`.
  */
 export function isoDate(date) {
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
+  return `${date.getFullYear()}-${padNumber(date.getMonth() + 1, 2)}-${padNumber(date.getDate(), 2)}`;
 }
 
 /**

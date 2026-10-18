@@ -146,6 +146,19 @@ class PdfCursor {
   }
 
   /**
+   * Set the font weight, size, and text colour for the text drawn next.
+   * @param {string} weight - Font weight, such as "bold".
+   * @param {number} size - Font size in points.
+   * @param {[number, number, number]} color - Text colour.
+   * @returns {void}
+   */
+  textStyle(weight, size, color) {
+    this.doc.setFont(this.family, weight);
+    this.doc.setFontSize(size);
+    this.doc.setTextColor(...color);
+  }
+
+  /**
    * Start a new page when the next block would not fit on this one.
    * @param {number} needed - Vertical space the next block wants.
    * @returns {void}
@@ -174,9 +187,7 @@ class PdfCursor {
    * @returns {void}
    */
   paragraph(text, size = 8.5) {
-    this.doc.setFont(this.family, "normal");
-    this.doc.setFontSize(size);
-    this.doc.setTextColor(...GREY);
+    this.textStyle("normal", size, GREY);
 
     for (const line of this.doc.splitTextToSize(text, this.width - 2 * MARGIN)) {
       this.y += size + 3.5;
@@ -211,9 +222,7 @@ function drawHeader(cursor, model) {
     // the page on screen.
     doc.setFillColor(...accent);
     doc.rect(MARGIN, 30, MONOGRAM_SIZE, MONOGRAM_SIZE, "F");
-    doc.setFont(family, "bold");
-    doc.setFontSize(15);
-    doc.setTextColor(255, 255, 255);
+    cursor.textStyle("bold", 15, [255, 255, 255]);
     doc.text(initialsOf(vendor.name), MARGIN + MONOGRAM_SIZE / 2, 30 + MONOGRAM_SIZE / 2 + 5, {
       align: "center"
     });
@@ -238,28 +247,20 @@ function drawHeader(cursor, model) {
     MIN_TITLE_SIZE
   );
 
-  doc.setFont(family, "bold");
-  doc.setFontSize(17);
-  doc.setTextColor(...ink);
+  cursor.textStyle("bold", 17, ink);
   doc.text(vendor.name, nameX, 46);
 
-  doc.setFont(family, "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(...GREY);
+  cursor.textStyle("normal", 8.5, GREY);
   doc.text(vendor.tagline, MARGIN, 60 + detailOffset);
   doc.text(doc.splitTextToSize(vendor.addr, 260), MARGIN, 74 + detailOffset);
   doc.text(`${vendor.phone}  |  ${vendor.email}`, MARGIN, 96 + detailOffset);
   doc.text(vendor.taxId, MARGIN, 108 + detailOffset);
 
-  doc.setFont(family, "bold");
-  doc.setFontSize(titleSize);
-  doc.setTextColor(...accent);
+  cursor.textStyle("bold", titleSize, accent);
   doc.text(title, width - MARGIN, 50, { align: "right" });
 
   if (model.subtitle) {
-    doc.setFont(family, "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(...GREY);
+    cursor.textStyle("normal", 8, GREY);
     doc.text(model.subtitle, width - MARGIN, 62, { align: "right" });
   }
 }
@@ -271,9 +272,7 @@ function drawHeader(cursor, model) {
  * @returns {void}
  */
 function drawFooter(cursor, model) {
-  cursor.doc.setFont(cursor.family, "normal");
-  cursor.doc.setFontSize(7.5);
-  cursor.doc.setTextColor(165, 165, 165);
+  cursor.textStyle("normal", 7.5, [165, 165, 165]);
 
   // Wrapped, not centred blindly. Ironwood's name and tagline push this string
   // 6pt past the text column, and an unwrapped centred line bleeds into both
@@ -297,9 +296,7 @@ function drawParties(cursor, block) {
   const { doc, width, family } = cursor;
   const top = cursor.y;
 
-  doc.setFont(family, "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
+  cursor.textStyle("normal", 8, [150, 150, 150]);
   doc.text(block.label.toUpperCase(), MARGIN, top);
 
   let left = top + 13;
@@ -364,9 +361,7 @@ function drawBlock(cursor, block) {
 
   switch (block.kind) {
     case "stamp":
-      doc.setFont(family, "bold");
-      doc.setFontSize(14);
-      doc.setTextColor(...accent);
+      cursor.textStyle("bold", 14, accent);
       doc.text(block.text, width / 2, cursor.y + 6, { align: "center" });
       cursor.y += 26;
       return;
@@ -529,9 +524,7 @@ function drawBlock(cursor, block) {
       cursor.y += 42;
       doc.setDrawColor(150, 150, 150);
       doc.setLineWidth(0.5);
-      doc.setFont(family, "normal");
-      doc.setFontSize(9);
-      doc.setTextColor(...MUTED);
+      cursor.textStyle("normal", 9, MUTED);
 
       block.labels.forEach((label, index) => {
         const left = index === 0 ? MARGIN : width - MARGIN - 170;
@@ -546,9 +539,7 @@ function drawBlock(cursor, block) {
     case "signoff":
     default:
       cursor.y += 14;
-      doc.setFont(family, "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(...INK);
+      cursor.textStyle("bold", 10, INK);
       doc.text(block.text, width - MARGIN, cursor.y, { align: "right" });
   }
 }

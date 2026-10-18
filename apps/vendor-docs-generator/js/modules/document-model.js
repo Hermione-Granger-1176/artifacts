@@ -535,15 +535,42 @@ function totalsBlock(totals, shipping = null) {
  */
 
 /**
+ * Draw a document's lines from the vendor's catalogue. Each document type uses
+ * its own seed multiplier, so a quotation and a challan of one seed list
+ * different goods.
+ * @param {BuildContext} context - Shared document context.
+ * @param {number} seedMultiplier - Per-type multiplier applied to the seed.
+ * @param {number} maxCount - Most lines the document may carry (at least 3).
+ * @returns {LineItem[]} Line items.
+ */
+function vendorItems(context, seedMultiplier, maxCount) {
+  return buildItems(
+    context.vendor.id,
+    context.seed * seedMultiplier + vendorSalt(context.vendor.id),
+    pickCount(context.seed, 3, maxCount)
+  );
+}
+
+/**
  * @param {BuildContext} context - Shared document context.
  * @returns {LineItem[]} Lines shared by an invoice, its receipt, and its adjustment notes.
  */
 function invoiceItems(context) {
-  return buildItems(
-    context.vendor.id,
-    context.seed * 3 + vendorSalt(context.vendor.id),
-    pickCount(context.seed, 3, 5)
-  );
+  return vendorItems(context, 3, 5);
+}
+
+/**
+ * The invoice a seed bills: its lines, their totals, the shipping charge, and
+ * the totals with shipping added to the grand total. The clean invoice, the
+ * dense invoice, and the receipt all print these same numbers.
+ * @param {BuildContext} context - Shared document context.
+ * @returns {{ items: LineItem[], totals: Totals, shipping: number, billedTotals: Totals }} Billed amounts.
+ */
+function billInvoice(context) {
+  const items = invoiceItems(context);
+  const totals = computeTotals(items);
+  const shipping = shippingCharge(items, context.seed);
+  return { items, totals, shipping, billedTotals: { ...totals, grand: roundCents(totals.grand + shipping) } };
 }
 
 /**
@@ -551,10 +578,7 @@ function invoiceItems(context) {
  * @returns {BuiltDocument} Clean commercial invoice.
  */
 function buildInvoice(context) {
-  const items = invoiceItems(context);
-  const totals = computeTotals(items);
-  const shipping = shippingCharge(items, context.seed);
-  const billedTotals = { ...totals, grand: roundCents(totals.grand + shipping) };
+  const { items, shipping, billedTotals } = billInvoice(context);
   const due = addDays(context.baseDate, 30);
   const documentNumber = `INV-${context.number}`;
 
@@ -600,19 +624,16 @@ function buildInvoice(context) {
  */
 function buildDenseInvoice(context) {
   const { vendor, buyer, seed, baseDate, number, random } = context;
-  // Deliberately the same draw as `buildInvoice`. The two layouts are two
-  // treatments of one invoice, which is what the layout toggle promises, and it
-  // is the only way the grand totals can be expected to agree.
-  const items = invoiceItems(context);
+  // Deliberately the same lines and amounts as `buildInvoice`. The two layouts
+  // are two treatments of one invoice, which is what the layout toggle
+  // promises, so one seed cannot print two different grand totals depending on
+  // which layout is showing.
+  const { items, totals, shipping, billedTotals } = billInvoice(context);
+  const { grand } = billedTotals;
   const orderNumber = `ORD-${padNumber(Math.floor(random() * 8_999_999_999) + 1_000_000_000, 10)}`;
   const reference = `${vendor.id}-${padNumber(Math.floor(random() * 899_999_999_999) + 100_000_000_000, 12)}-1`;
 
-  // The same helpers the clean invoice uses, so one seed cannot print two
-  // different grand totals depending on which layout is showing.
-  const totals = computeTotals(items);
   const lineTaxes = computeLineTaxes(items);
-  const shipping = shippingCharge(items, seed);
-  const grand = roundCents(totals.grand + shipping);
   const documentNumber = `INV-${number}`;
   const dueDate = addDays(baseDate, 30);
   const orderDate = addDays(baseDate, -6);
@@ -771,7 +792,7 @@ function buildDenseInvoice(context) {
       // The printed grand total includes shipping, which is not a line item, so
       // the sidecar's `grand_total` has to include it too or the JSON and the
       // page disagree about the one number a payer cares about.
-      totals: { ...totals, grand },
+      totals: billedTotals,
       vendorCompanyReg: vendor.companyReg
     }
   };
@@ -784,10 +805,7 @@ function buildDenseInvoice(context) {
 function buildReceipt(context) {
   // A receipt settles the invoice produced by the same seed, so it must repeat
   // that invoice's lines and amount rather than merely borrowing its number.
-  const items = invoiceItems(context);
-  const totals = computeTotals(items);
-  const shipping = shippingCharge(items, context.seed);
-  const paidTotals = { ...totals, grand: roundCents(totals.grand + shipping) };
+  const { items, totals, shipping, billedTotals: paidTotals } = billInvoice(context);
   const documentNumber = `RCP-${context.number}`;
   const againstInvoice = `INV-${context.number}`;
   const paymentMethod = pickFrom(PAYMENT_METHODS, context.seed);
@@ -858,7 +876,7 @@ function buildReceipt(context) {
  * @returns {BuiltDocument} Quotation, explicitly marked as not a tax invoice.
  */
 function buildQuotation(context) {
-  const items = buildItems(context.vendor.id, context.seed * 7 + vendorSalt(context.vendor.id), pickCount(context.seed, 3, 6));
+  const items = vendorItems(context, 7, 6);
   const totals = computeTotals(items);
   const documentNumber = `QTE-${context.number}`;
   const validUntil = addDays(context.baseDate, 14);
@@ -895,7 +913,7 @@ function buildQuotation(context) {
  * @returns {BuiltDocument} Delivery challan with no prices.
  */
 function buildChallan(context) {
-  const items = buildItems(context.vendor.id, context.seed * 11 + vendorSalt(context.vendor.id), pickCount(context.seed, 3, 6));
+  const items = vendorItems(context, 11, 6);
   const totalQty = items.reduce((sum, item) => sum + item.qty, 0);
   const poNumber = `PO-${padNumber(Math.floor(createSeededRandom(context.seed + 41)() * 8_999_999) + 1_000_000, 7)}`;
   const documentNumber = `DC-${context.number}`;

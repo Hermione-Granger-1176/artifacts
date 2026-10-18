@@ -11,7 +11,7 @@ from functools import cache
 from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
-from scripts.lint import iter_lint_paths, resolve_requested_paths
+from scripts.lint import iter_lint_paths, print_failures, resolve_requested_paths
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -237,6 +237,9 @@ def run_check(paths: list[Path] | None = None, root: Path | None = None) -> list
     return violations
 
 
+FAILURE_HEADER = "EditorConfig check failed:"
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse CLI arguments for the editorconfig checker."""
     parser = argparse.ArgumentParser(
@@ -250,13 +253,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def print_failures(messages: list[str]) -> None:
-    """Print EditorConfig failures with consistent CI-friendly context."""
-    print("EditorConfig check failed:")
-    for message in messages:
-        print(f"  {message}")
-
-
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI entry point and return a shell exit code."""
     args = parse_args(argv)
@@ -268,7 +264,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         candidate_paths, path_errors = resolve_requested_paths(args.paths, workspace_root)
         if path_errors:
-            print_failures(path_errors)
+            print_failures(FAILURE_HEADER, path_errors)
             return 1
 
     checked_paths = [
@@ -282,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"EditorConfig check passed for {len(checked_paths)} file(s)")
         return 0
 
-    print_failures(violations)
+    print_failures(FAILURE_HEADER, violations)
     return 1
 
 

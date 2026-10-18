@@ -62,6 +62,22 @@ function buildSavingsChip({ savings, periodsSaved, periodsPerYear }, formatCurre
 }
 
 /**
+ * Build one KPI card. Value and sub-line are trusted markup.
+ *
+ * @param {{ tip: string, label: string, value: string, sub: string }} card
+ * @returns {string}
+ */
+function statCard({ tip, label, value, sub }) {
+  return `
+      <div class="stat">
+        ${metricTip(tip)}
+        <div class="stat-label">${label}</div>
+        <div class="stat-value">${value}</div>
+        <div class="stat-sub">${sub}</div>
+      </div>`;
+}
+
+/**
  * Build the hero EMI and KPI markup for the current amortization state.
  *
  * @param {LoanMetrics} metrics
@@ -72,6 +88,7 @@ export function buildMetricsMarkup(
   { base, extra, savings, periodsSaved, totalPaid, costRatio, label, periodsPerYear },
   formatCurrency
 ) {
+  const period = label.toLowerCase();
   const heroSub =
     extra.totalExtra > 0
       ? `Plus ${formatCurrency(extra.totalExtra)} in extra payments over the loan`
@@ -82,7 +99,7 @@ export function buildMetricsMarkup(
       <div class="loan-hero-main">
         <div class="loan-hero-label">
           <span>${label}ly EMI</span>
-          ${metricTip(`Fixed payment amount each ${label.toLowerCase()}, excluding extra payments`, "is-start")}
+          ${metricTip(`Fixed payment amount each ${period}, excluding extra payments`, "is-start")}
         </div>
         <div class="loan-hero-value">${formatCurrency(base.emi)}</div>
         <div class="loan-hero-sub">${heroSub}</div>
@@ -90,30 +107,30 @@ export function buildMetricsMarkup(
       ${buildSavingsChip({ savings, periodsSaved, periodsPerYear }, formatCurrency)}
     </div>
     <div class="stat-grid loan-kpis">
-      <div class="stat">
-        ${metricTip("Interest without extras vs with extras applied")}
-        <div class="stat-label">Total interest</div>
-        <div class="stat-value">${formatCurrency(extra.totalInterest)}</div>
-        <div class="stat-sub">Without extras: ${formatCurrency(base.totalInterest)}</div>
-      </div>
-      <div class="stat">
-        ${metricTip(`Number of ${label.toLowerCase()}s until the loan is fully paid off`)}
-        <div class="stat-label">Payoff in</div>
-        <div class="stat-value">${extra.periods} ${label.toLowerCase()}s</div>
-        <div class="stat-sub">${periodsSaved > 0 ? `${periodsSaved} earlier than without extras` : "Until the loan is repaid"}</div>
-      </div>
-      <div class="stat">
-        ${metricTip("Principal plus total interest. The real cost of your loan.")}
-        <div class="stat-label">Total paid</div>
-        <div class="stat-value">${formatCurrency(totalPaid)}</div>
-        <div class="stat-sub">Interest is ${((costRatio - 1) * 100).toFixed(1)}% of loan</div>
-      </div>
-      <div class="stat">
-        ${metricTip(`The first ${label.toLowerCase()} when cumulative principal paid from EMI and extras meets or exceeds cumulative interest`)}
-        <div class="stat-label">Break-even</div>
-        <div class="stat-value">${extra.breakEven ? `${label} ${extra.breakEven}` : "N/A"}</div>
-        <div class="stat-sub">Principal (EMI + extras) &gt;= interest</div>
-      </div>
+      ${statCard({
+        tip: "Interest without extras vs with extras applied",
+        label: "Total interest",
+        value: formatCurrency(extra.totalInterest),
+        sub: `Without extras: ${formatCurrency(base.totalInterest)}`
+      })}
+      ${statCard({
+        tip: `Number of ${period}s until the loan is fully paid off`,
+        label: "Payoff in",
+        value: `${extra.periods} ${period}s`,
+        sub: periodsSaved > 0 ? `${periodsSaved} earlier than without extras` : "Until the loan is repaid"
+      })}
+      ${statCard({
+        tip: "Principal plus total interest. The real cost of your loan.",
+        label: "Total paid",
+        value: formatCurrency(totalPaid),
+        sub: `Interest is ${((costRatio - 1) * 100).toFixed(1)}% of loan`
+      })}
+      ${statCard({
+        tip: `The first ${period} when cumulative principal paid from EMI and extras meets or exceeds cumulative interest`,
+        label: "Break-even",
+        value: extra.breakEven ? `${label} ${extra.breakEven}` : "N/A",
+        sub: "Principal (EMI + extras) &gt;= interest"
+      })}
     </div>
   `;
 }

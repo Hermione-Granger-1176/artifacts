@@ -30,6 +30,7 @@ from scripts.ci.security_audit_policy import (
     PYTHON_EXCEPTIONS_KEY,
     VulnerabilityExceptionEntry,
     load_security_audit_exceptions,
+    unused_exception_errors,
 )
 
 # Default pip-audit invocation. The Makefile overrides this with the repository
@@ -341,12 +342,7 @@ def _audit_python_dependencies(
 
         ignored.append((finding, matching_exception))
 
-    for exception in exceptions:
-        if exception.key not in matched_exception_keys:
-            errors.append(
-                "Unused Python vulnerability exception: "
-                f"{exception.package} {exception.vulnerability_id}"
-            )
+    errors.extend(unused_exception_errors(exceptions, matched_exception_keys, "Python"))
 
     return tuple(ignored), tuple(errors)
 

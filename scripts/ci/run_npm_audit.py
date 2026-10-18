@@ -32,6 +32,7 @@ from scripts.ci.security_audit_policy import (
     NPM_EXCEPTIONS_KEY,
     VulnerabilityExceptionEntry,
     load_security_audit_exceptions,
+    unused_exception_errors,
 )
 
 _GHSA_PATTERN = re.compile(r"GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}", re.IGNORECASE)
@@ -297,12 +298,7 @@ def _audit_npm_dependencies(
 
         ignored.append((finding, matching_exception))
 
-    for exception in exceptions:
-        if exception.key not in matched_exception_keys:
-            errors.append(
-                "Unused npm vulnerability exception: "
-                f"{exception.package} {exception.vulnerability_id}"
-            )
+    errors.extend(unused_exception_errors(exceptions, matched_exception_keys, "npm"))
 
     return tuple(ignored), tuple(errors)
 

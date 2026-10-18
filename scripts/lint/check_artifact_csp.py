@@ -29,6 +29,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from scripts import REPO_ROOT
+from scripts.lint import add_root_argument, report_violations
 
 # Directory (relative to the workspace root) that holds artifact pages.
 APPS_DIRNAME = "apps"
@@ -455,11 +456,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "Check root and artifact pages ship a strict CSP and no external scripts or styles."
         )
     )
-    parser.add_argument(
-        "--root",
-        default=None,
-        help="Repository root (defaults to auto-detected REPO_ROOT)",
-    )
+    add_root_argument(parser)
     return parser.parse_args(argv)
 
 
@@ -469,14 +466,7 @@ def main(argv: list[str] | None = None) -> int:
     workspace_root = Path(args.root) if args.root else REPO_ROOT
     violations = run_check(workspace_root)
 
-    if not violations:
-        print("Artifact CSP check passed")
-        return 0
-
-    print(f"Artifact CSP check failed: {len(violations)} violation(s)")
-    for violation in violations:
-        print(f"  {violation}")
-    return 1
+    return report_violations("Artifact CSP", violations)
 
 
 if __name__ == "__main__":  # pragma: no cover

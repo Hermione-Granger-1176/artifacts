@@ -150,7 +150,31 @@ function buildSnippetList(items, className, emptyValue = '') {
     </div>
   `;
 }
+/**
+ * Return the summary shown beside a mobile filter heading.
+ * @param {number} activeCount - Number of selected values in the group.
+ * @param {string} allLabel - Summary when nothing is selected.
+ * @returns {string} Summary text.
+ */
+export function formatFilterSummary(activeCount, allLabel) {
+  return activeCount > 0 ? `${activeCount} active` : allLabel;
+}
 
+/**
+ * Build one mobile filter group: a heading with its summary, then the chip row.
+ * @param {{ kind: string, heading: string, ariaLabel: string, allLabel: string, activeCount: number, chips: string[] }} group - Group content.
+ * @returns {string} Mobile filter group HTML.
+ */
+function buildMobileFilterGroup({ kind, heading, ariaLabel, allLabel, activeCount, chips }) {
+  return `
+      <section class="mobile-filter-group" aria-label="${ariaLabel}">
+        <div class="mobile-filter-head">
+          <span class="mobile-filter-heading">${heading}</span>
+          <span class="mobile-filter-summary" data-filter-summary="${kind}">${formatFilterSummary(activeCount, allLabel)}</span>
+        </div>
+        <div class="mobile-filter-chip-row">${chips.join('')}</div>
+      </section>`;
+}
 
 /**
  * Build HTML for scattered filter notes resting on the desk.
@@ -178,9 +202,6 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
   const tagColorOffset = tools.length + 1;
   /** @param {number} index */
   const tagColor = (index) => shuffled[(tagColorOffset + index) % shuffled.length];
-
-  const hasActiveTools = activeTools.length > 0;
-  const hasActiveTags = activeTags.length > 0;
 
   /**
    * Build one desk column: an "All" note, then one note per value. Each value
@@ -282,21 +303,11 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
   return `
     <div class="desk-notes-left">${leftNotes.join('')}</div>
     <div class="desk-notes-right">${rightNotes.join('')}</div>
-    <div class="mobile-filter-stack">
-      <section class="mobile-filter-group" aria-label="Tool filters">
-        <div class="mobile-filter-head">
-          <span class="mobile-filter-heading">Tools</span>
-          <span class="mobile-filter-summary" data-filter-summary="tools">${hasActiveTools ? `${activeTools.length} active` : 'All tools'}</span>
-        </div>
-        <div class="mobile-filter-chip-row">${mobileTools.join('')}</div>
-      </section>
-      <section class="mobile-filter-group" aria-label="Tag filters">
-        <div class="mobile-filter-head">
-          <span class="mobile-filter-heading">Tags</span>
-          <span class="mobile-filter-summary" data-filter-summary="tags">${hasActiveTags ? `${activeTags.length} active` : 'All tags'}</span>
-        </div>
-        <div class="mobile-filter-chip-row">${mobileTags.join('')}</div>
-      </section>
+    <div class="mobile-filter-stack">${buildMobileFilterGroup({
+      kind: 'tools', heading: 'Tools', ariaLabel: 'Tool filters', allLabel: 'All tools', activeCount: activeTools.length, chips: mobileTools
+    })}${buildMobileFilterGroup({
+      kind: 'tags', heading: 'Tags', ariaLabel: 'Tag filters', allLabel: 'All tags', activeCount: activeTags.length, chips: mobileTags
+    })}
     </div>
   `;
 }
@@ -474,6 +485,16 @@ export function applyDynamicStyles(container) {
 }
 
 /**
+ * Build one First, Prev, Next, or Last pagination button.
+ * @param {{ page: number, step?: number, disabled: boolean, label: string, content: string }} options - Target page, optional relative step, and contents.
+ * @returns {string} Navigation button HTML.
+ */
+function buildNavButton({ page, step, disabled, label, content }) {
+  const stepAttr = step === undefined ? '' : ` data-page-step="${step}"`;
+  return `<button class="page-btn page-btn-nav" data-page="${page}"${stepAttr} type="button" ${disabled ? 'disabled' : ''} aria-label="${label}"><span class="page-btn-paper"></span>${content}</button>`;
+}
+
+/**
  * Render pagination controls into the given container element.
  * Previous and Next carry `data-page-step` so they stay relative to the latest
  * requested page, even when several are pressed while a page turn is running.
@@ -508,12 +529,18 @@ export function renderPagination(container, currentPage, totalPages) {
     return `<button class="page-btn ${activeClass}" data-page="${page}" type="button" ${ariaCurrent} aria-label="Page ${page}"><span class="page-btn-paper"></span><span class="page-btn-number">${page}</span></button>`;
   }).join('');
 
-  let html = '';
-  html += `<button class="page-btn page-btn-nav" data-page="1" type="button" ${onFirst ? 'disabled' : ''} aria-label="First page"><span class="page-btn-paper"></span>${ICONS.chevronFirst}</button>`;
-  html += `<button class="page-btn page-btn-nav" data-page="${currentPage - 1}" data-page-step="-1" type="button" ${onFirst ? 'disabled' : ''} aria-label="Prev page"><span class="page-btn-paper"></span>${ICONS.chevronLeft}<span class="page-btn-label">Prev</span></button>`;
-  html += pageButtons;
-  html += `<button class="page-btn page-btn-nav" data-page="${currentPage + 1}" data-page-step="1" type="button" ${onLast ? 'disabled' : ''} aria-label="Next page"><span class="page-btn-paper"></span><span class="page-btn-label">Next</span>${ICONS.chevronRight}</button>`;
-  html += `<button class="page-btn page-btn-nav" data-page="${totalPages}" type="button" ${onLast ? 'disabled' : ''} aria-label="Last page"><span class="page-btn-paper"></span>${ICONS.chevronLast}</button>`;
-  container.innerHTML = html;
+  container.innerHTML = [
+    buildNavButton({ page: 1, disabled: onFirst, label: 'First page', content: ICONS.chevronFirst }),
+    buildNavButton({
+      page: currentPage - 1, step: -1, disabled: onFirst, label: 'Prev page',
+      content: `${ICONS.chevronLeft}<span class="page-btn-label">Prev</span>`
+    }),
+    pageButtons,
+    buildNavButton({
+      page: currentPage + 1, step: 1, disabled: onLast, label: 'Next page',
+      content: `<span class="page-btn-label">Next</span>${ICONS.chevronRight}`
+    }),
+    buildNavButton({ page: totalPages, disabled: onLast, label: 'Last page', content: ICONS.chevronLast })
+  ].join('');
   container.dataset.renderKey = renderKey;
 }

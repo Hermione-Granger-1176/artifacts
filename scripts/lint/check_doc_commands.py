@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from scripts import REPO_ROOT
+from scripts.lint import check_each_path, print_failures
 from scripts.lint import resolve_requested_paths as _resolve_repo_paths
 from scripts.lint.make_targets import (
     INLINE_CODE_PATTERN,
@@ -300,20 +301,15 @@ def run_check(paths: list[Path] | None = None, root: Path | None = None) -> list
     workspace_root = root or REPO_ROOT
     known_targets = load_makefile_targets(workspace_root / "Makefile")
     candidate_paths = paths if paths is not None else iter_default_paths(workspace_root)
-    violations: list[str] = []
-    for path in candidate_paths:
-        try:
-            relative_path = path.relative_to(workspace_root).as_posix()
-        except ValueError:
-            violations.append(f"{path}: path must stay within the repository")
-            continue
+    return check_each_path(
+        candidate_paths,
+        workspace_root,
+        resolve_requested_paths,
+        lambda path: check_file(path, known_targets, root=workspace_root),
+    )
 
-        safe_paths, path_errors = resolve_requested_paths([relative_path], workspace_root)
-        if path_errors:
-            violations.extend(path_errors)
-            continue
-        violations.extend(check_file(safe_paths[0], known_targets, root=workspace_root))
-    return violations
+
+FAILURE_HEADER = "Command lint failed:"
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -339,13 +335,6 @@ def resolve_requested_paths(raw_paths: list[str], root: Path) -> tuple[list[Path
     )
 
 
-def print_failures(messages: list[str]) -> None:
-    """Print command-lint failures with consistent CI-friendly context."""
-    print("Command lint failed:")
-    for message in messages:
-        print(f"  {message}")
-
-
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI entry point and return a shell exit code."""
     args = parse_args(argv)
@@ -356,7 +345,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         candidate_paths, path_errors = resolve_requested_paths(args.paths, workspace_root)
         if path_errors:
-            print_failures(path_errors)
+            print_failures(FAILURE_HEADER, path_errors)
             return 1
 
     violations = run_check(paths=candidate_paths, root=workspace_root)
@@ -364,7 +353,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Command lint passed for {len(candidate_paths)} file(s)")
         return 0
 
-    print_failures(violations)
+    print_failures(FAILURE_HEADER, violations)
     return 1
 
 

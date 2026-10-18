@@ -78,8 +78,8 @@ function bindEvents() {
   elements.scenarioSelect.addEventListener("change", () => {
     selectScenario(Number.parseInt(elements.scenarioSelect.value, 10));
   });
-  elements.tempSlider.addEventListener("input", handleDistributionChange);
-  elements.toppSlider.addEventListener("input", handleDistributionChange);
+  elements.tempSlider.addEventListener("input", resetSamples);
+  elements.toppSlider.addEventListener("input", resetSamples);
   elements.samplingPresets.addEventListener("click", (/** @type {MouseEvent} */ event) => {
     const target = /** @type {Element | null} */ (event.target);
     const preset = target?.closest(".sampling-preset");
@@ -94,7 +94,7 @@ function bindEvents() {
     }
     elements.tempSlider.value = String(Number(temperature) * 10);
     elements.toppSlider.value = String(Number(topP) * 100);
-    handleDistributionChange();
+    resetSamples();
   });
   elements.pickToken.addEventListener("click", pickNextToken);
   elements.sampleHundred.addEventListener("click", sampleOneHundredTimes);
@@ -111,13 +111,7 @@ function bindEvents() {
 /** @param {number} index - Scenario index to select. */
 function selectScenario(index) {
   activeIndex = index;
-  clearSamplingFeedback();
-  render();
-}
-
-function handleDistributionChange() {
-  clearSamplingFeedback();
-  render();
+  resetSamples();
 }
 
 function clearPickedTokenTimer() {
@@ -152,6 +146,7 @@ function sampleOneHundredTimes() {
   render();
 }
 
+/** Drop the picked token and the tally, which no longer match a changed distribution, and redraw. */
 function resetSamples() {
   clearSamplingFeedback();
   render();

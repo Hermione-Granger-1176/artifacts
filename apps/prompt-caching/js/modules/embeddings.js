@@ -74,6 +74,42 @@ function activateOnKeyboard(event, action) {
   action();
 }
 
+/**
+ * Make a non-button element act as a focusable button for mouse and keyboard.
+ * @param {HTMLElement} element - Element to wire.
+ * @param {string} label - Accessible name.
+ * @param {() => void} action - Action to run on activation.
+ * @returns {void}
+ */
+function makeActivatable(element, label, action) {
+  element.setAttribute("role", "button");
+  element.setAttribute("aria-label", label);
+  element.tabIndex = 0;
+  element.addEventListener("click", action);
+  element.addEventListener("keydown", (event) => activateOnKeyboard(event, action));
+}
+
+/**
+ * Draw a canvas label with an outline so it stays readable over dots and lines.
+ * @param {CanvasRenderingContext2D} ctx - Canvas context.
+ * @param {string} text - Label text.
+ * @param {number} x - Center x.
+ * @param {number} y - Baseline y.
+ * @param {string} fontSpec - Font size/weight spec.
+ * @param {string} color - Text color.
+ * @param {string} outline - Outline color.
+ * @returns {void}
+ */
+function drawOutlinedLabel(ctx, text, x, y, fontSpec, color, outline) {
+  ctx.font = bodyFont(fontSpec);
+  ctx.textAlign = "center";
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 3;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+}
+
 function initDimensions() {
   const canvas = /** @type {HTMLCanvasElement} */ (byId("dimCanvas"));
   const caption = byId("dimCaption");
@@ -294,11 +330,7 @@ function initSimilarity() {
     for (const word of words) {
       const span = makeEl("span", "emb-word", word);
       span.dataset.word = word;
-      span.setAttribute("role", "button");
-      span.setAttribute("aria-label", `Select word ${word}`);
-      span.tabIndex = 0;
-      span.addEventListener("click", () => clickWord(word));
-      span.addEventListener("keydown", (event) => activateOnKeyboard(event, () => clickWord(word)));
+      makeActivatable(span, `Select word ${word}`, () => clickWord(word));
       cloud.appendChild(span);
       wordEls.set(word, span);
     }
@@ -317,17 +349,12 @@ function initSimilarity() {
   if (suggestions) {
     for (const [a, b] of EMB_PAIRS) {
       const tag = makeEl("span", "chip is-mono emb-tag", `${a} / ${b}`);
-      tag.setAttribute("role", "button");
-      tag.setAttribute("aria-label", `Compare ${a} / ${b}`);
-      tag.tabIndex = 0;
-      const comparePair = () => {
+      makeActivatable(tag, `Compare ${a} / ${b}`, () => {
         selA = a;
         selB = b;
         selecting = "a";
         refresh();
-      };
-      tag.addEventListener("click", comparePair);
-      tag.addEventListener("keydown", (event) => activateOnKeyboard(event, comparePair));
+      });
       suggestions.appendChild(tag);
     }
   }
@@ -447,13 +474,7 @@ function initSimilarity() {
       ctx.arc(hov.sx, hov.sy, 6, 0, Math.PI * 2);
       ctx.fillStyle = labelColor;
       ctx.fill();
-      ctx.font = bodyFont("600 11px");
-      ctx.textAlign = "center";
-      ctx.strokeStyle = surface;
-      ctx.lineWidth = 3;
-      ctx.strokeText(hov.word, hov.sx, hov.sy - 12);
-      ctx.fillStyle = labelColor;
-      ctx.fillText(hov.word, hov.sx, hov.sy - 12);
+      drawOutlinedLabel(ctx, hov.word, hov.sx, hov.sy - 12, "600 11px", labelColor, surface);
     }
 
     drawMarker(ctx, sA, selA, colorA, surface);
@@ -542,11 +563,5 @@ function drawMarker(ctx, screen, word, color, stroke) {
   ctx.strokeStyle = stroke;
   ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.font = bodyFont("700 13px");
-  ctx.textAlign = "center";
-  ctx.strokeStyle = stroke;
-  ctx.lineWidth = 3;
-  ctx.strokeText(word, screen.sx, screen.sy - 16);
-  ctx.fillStyle = color;
-  ctx.fillText(word, screen.sx, screen.sy - 16);
+  drawOutlinedLabel(ctx, word, screen.sx, screen.sy - 16, "700 13px", color, stroke);
 }

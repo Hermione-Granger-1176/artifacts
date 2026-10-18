@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from scripts import REPO_ROOT
 
 if TYPE_CHECKING:
+    from collections.abc import Collection
     from pathlib import Path
 
 SECURITY_AUDIT_CONFIG_FILE = REPO_ROOT / "config" / "security_audit.json"
@@ -166,3 +167,21 @@ def load_security_audit_exceptions(
         exceptions.append(exception)
 
     return tuple(exceptions)
+
+
+def unused_exception_errors(
+    exceptions: tuple[VulnerabilityExceptionEntry, ...],
+    matched_keys: Collection[tuple[str, str]],
+    ecosystem: str,
+) -> list[str]:
+    """Report each reviewed exception that no current finding matched.
+
+    An exception outliving its advisory would silently cover a future one with
+    the same id, so every audit fails on it.
+    """
+    return [
+        f"Unused {ecosystem} vulnerability exception: "
+        f"{exception.package} {exception.vulnerability_id}"
+        for exception in exceptions
+        if exception.key not in matched_keys
+    ]
