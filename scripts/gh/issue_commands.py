@@ -76,6 +76,9 @@ def list_issues(
     if search:
         args += ["--search", search]
 
+    # gh's --assignee is a single-value flag, so a repeated one keeps the last value.
+    last_assignee = assignees[-1] if assignees else None
+
     def list_with_rest() -> int:
         slug = gh_runner.resolve_repo(run_fn=run_fn)
         count = limit if limit is not None else _LIST_LIMIT
@@ -84,7 +87,7 @@ def list_issues(
                 "search/issues",
                 items_key="items",
                 fields={
-                    "q": _search_query(slug, state, labels, assignees, author, search),
+                    "q": _search_query(slug, state, labels, last_assignee, author, search),
                     "sort": "created",
                     "order": "desc",
                 },
@@ -95,8 +98,8 @@ def list_issues(
             fields: dict[str, object] = {"state": state or "open"}
             if labels:
                 fields["labels"] = ",".join(split_list(labels))
-            if assignees:
-                fields["assignee"] = _login(assignees[0], run_fn=run_fn)
+            if last_assignee:
+                fields["assignee"] = _login(last_assignee, run_fn=run_fn)
             if author:
                 fields["creator"] = _login(author, run_fn=run_fn)
             issues = gh_runner.rest_pages(
@@ -121,7 +124,7 @@ def _search_query(
     slug: str,
     state: str | None,
     labels: str | None,
-    assignees: list[str] | None,
+    assignee: str | None,
     author: str | None,
     search: str,
 ) -> str:
@@ -130,7 +133,8 @@ def _search_query(
     if (state or "open") != "all":
         terms.append(f"is:{state or 'open'}")
     terms += [f'label:"{label}"' for label in split_list(labels or "")]
-    terms += [f"assignee:{assignee}" for assignee in assignees or []]
+    if assignee:
+        terms.append(f"assignee:{assignee}")
     if author:
         terms.append(f"author:{author}")
     terms.append(search)
@@ -389,6 +393,7 @@ def develop_issue(
 
     def develop_with_rest() -> int:
         slug = gh_runner.resolve_repo(run_fn=run_fn)
+        gh_runner.require_checkout_repo(slug, f"develop issue #{issue}", run_fn=run_fn)
         target = base or gh_runner.default_branch(slug, run_fn=run_fn)
         branch = name or _branch_name(issue, slug, run_fn=run_fn)
         gh_runner.run_git(["fetch", "origin", target], run_fn=run_fn)

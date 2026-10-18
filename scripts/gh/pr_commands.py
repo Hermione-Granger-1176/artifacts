@@ -144,14 +144,16 @@ def create_pr(
         slug = gh_runner.resolve_repo(run_fn=run_fn)
         branch = gh_runner.current_branch(run_fn=run_fn)
         target = base or gh_runner.default_branch(slug, run_fn=run_fn)
-        _require_pushed(slug, branch, run_fn=run_fn)
+        source = gh_runner.checkout_repo(slug, run_fn=run_fn)
+        _require_pushed(source, branch, run_fn=run_fn)
+        head = branch if source == slug else f"{source.split('/')[0]}:{branch}"
         pr_title, pr_body = (
             (title, body) if title is not None else _filled_text(target, branch, run_fn=run_fn)
         )
         pull = gh_runner.rest(
             f"repos/{slug}/pulls",
             method="POST",
-            fields={"title": pr_title, "head": branch, "base": target, "body": pr_body},
+            fields={"title": pr_title, "head": head, "base": target, "body": pr_body},
             run_fn=run_fn,
         )
         print(pull.get("html_url") if isinstance(pull, dict) else "Created pull request")
@@ -293,6 +295,7 @@ def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
 
     def checkout_with_rest() -> int:
         slug = gh_runner.resolve_repo(run_fn=run_fn)
+        gh_runner.require_checkout_repo(slug, f"check out PR #{pr}", run_fn=run_fn)
         pull = pr_rest.pull_request(slug, pr, run_fn=run_fn)
         branch = as_object(pull.get("head")).get("ref")
         if not isinstance(branch, str) or not branch:

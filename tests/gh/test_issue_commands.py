@@ -269,6 +269,30 @@ def test_list_fallback_resolves_me_and_honors_state_and_limit() -> None:
     issue_commands.list_issues(state="closed", assignees=["@me"], limit=2, run_fn=runner)
 
 
+def test_list_fallback_keeps_the_last_assignee_like_gh() -> None:
+    """A repeated assignee filter keeps the last value, as gh's single-value flag does."""
+    runner = _sandbox(
+        (rest("GET", "repos/o/r/issues", "assignee=b", "per_page=1"), json_response([])),
+    )
+
+    issue_commands.list_issues(assignees=["a", "b"], limit=1, run_fn=runner)
+
+    assert not any("assignee=a" in call for call in runner.calls)
+
+
+def test_develop_fallback_refuses_when_gh_repo_is_not_origin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The base branch would come from origin, so another GH_REPO stops before any git change."""
+    monkeypatch.setenv("GH_REPO", "org/project")
+    runner = FakeGh(sandbox_routes("alice/project"))
+
+    with pytest.raises(GhError, match="GH_REPO selects org/project, but origin is alice/project"):
+        issue_commands.develop_issue(5, base="dev", run_fn=runner)
+
+    assert not any("fetch" in call or "checkout" in call for call in runner.calls)
+
+
 def test_list_fallback_reports_an_empty_result(capsys: pytest.CaptureFixture[str]) -> None:
     """No matches are reported on standard error."""
     runner = _sandbox((rest("GET", "repos/o/r/issues"), json_response([])))

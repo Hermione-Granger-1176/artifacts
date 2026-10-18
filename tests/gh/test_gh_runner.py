@@ -755,6 +755,26 @@ def test_current_pr_number_fallback_prefers_an_open_pr_then_the_newest_closed_on
     )
 
 
+def test_current_pr_number_fallback_qualifies_a_fork_branch_with_its_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With GH_REPO on upstream, the branch lookup names origin's owner as the head owner."""
+    monkeypatch.setenv("GH_REPO", "org/project")
+    runner = FakeGh(
+        [
+            (has("pr", "view"), graphql_blocked()),
+            (has("remote"), completed_process(0, "git@github.com:alice/project.git\n")),
+            (has("rev-parse"), completed_process(0, "feature\n")),
+            (
+                rest("GET", "repos/org/project/pulls", "head=alice:feature"),
+                json_response([{"number": 5, "state": "open"}]),
+            ),
+        ]
+    )
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 5
+
+
 def test_current_pr_number_fallback_reports_no_open_pr() -> None:
     """No open PR for the branch gives the same friendly error as the gh path."""
     with pytest.raises(GhError, match="No pull request found"):

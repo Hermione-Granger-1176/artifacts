@@ -440,6 +440,43 @@ def test_diff_fallback_requests_the_diff_media_type(capsys: pytest.CaptureFixtur
     assert capsys.readouterr().out == "diff --git a/x b/x\n"
 
 
+def test_checkout_fallback_refuses_when_gh_repo_is_not_origin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PR numbers are per repository, so origin's pull/<n>/head would be a different PR."""
+    monkeypatch.setenv("GH_REPO", "org/project")
+    runner = FakeGh(sandbox_routes("alice/project"))
+
+    with pytest.raises(GhError, match="Cannot check out PR #7: GH_REPO selects org/project"):
+        pr_commands.checkout_pr(7, run_fn=runner)
+
+    assert not any("fetch" in call for call in runner.calls)
+
+
+def test_create_fallback_checks_a_fork_branch_and_qualifies_its_head(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With GH_REPO on upstream, the push check reads the fork and the head names its owner."""
+    monkeypatch.setenv("GH_REPO", "org/project")
+    runner = FakeGh(
+        [
+            *sandbox_routes("alice/project"),
+            (_pushed, completed_process(0, "abc\n")),
+            (has("rev-parse"), completed_process(0, "feature\n")),
+            (
+                rest("GET", "repos/alice/project/branches/feature"),
+                json_response({"commit": {"sha": "abc"}}),
+            ),
+            (
+                rest("POST", "repos/org/project/pulls", "head=alice:feature", "base=main"),
+                json_response({"html_url": "https://example/pull/9"}),
+            ),
+        ]
+    )
+
+    assert pr_commands.create_pr(title="T", base="main", run_fn=runner) == 0
+
+
 def test_checkout_fallback_creates_a_new_local_branch() -> None:
     """A branch that does not exist locally is fetched from the PR ref and checked out."""
     runner = _sandbox(

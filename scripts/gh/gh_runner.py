@@ -506,6 +506,29 @@ def resolve_repo(*, run_fn: RunFunction | None = None) -> str:
     return owner_name
 
 
+def checkout_repo(slug: str, *, run_fn: RunFunction | None = None) -> str:
+    """Return the repository ``origin`` points at, or ``slug`` when it names none.
+
+    The two differ when ``GH_REPO`` selects an upstream repository from a fork's
+    checkout. Branches are pushed to, and fetched from, ``origin``.
+    """
+    return _repo_from_remote(run_fn=run_fn) or slug
+
+
+def require_checkout_repo(slug: str, action: str, *, run_fn: RunFunction | None = None) -> None:
+    """Refuse an ``action`` that fetches from ``origin`` when ``origin`` is not ``slug``.
+
+    PR and issue numbers belong to one repository, so fetching ``pull/<n>/head``
+    or a base branch from a different one would use unrelated commits.
+    """
+    local = checkout_repo(slug, run_fn=run_fn)
+    if local != slug:
+        raise GhError(
+            f"Cannot {action}: GH_REPO selects {slug}, but origin is {local}. "
+            "Run it without GH_REPO, or from a checkout of that repository."
+        )
+
+
 def _repo_from_override(value: str) -> str:
     """Return the slug named by ``GH_REPO`` (``owner/name`` or ``github.com/owner/name``)."""
     parts = value.removeprefix("https://").removesuffix("/").split("/")
@@ -589,9 +612,11 @@ def _current_pr_number_rest(*, run_fn: RunFunction | None = None) -> int:
     """
     slug = resolve_repo(run_fn=run_fn)
     branch = current_branch(run_fn=run_fn)
+    # The branch lives in origin, which is a fork when GH_REPO names upstream.
+    owner = checkout_repo(slug, run_fn=run_fn).split("/")[0]
     pulls = rest(
         f"repos/{slug}/pulls",
-        fields={"head": f"{slug.split('/')[0]}:{branch}", "state": "all"},
+        fields={"head": f"{owner}:{branch}", "state": "all"},
         run_fn=run_fn,
     )
     if not isinstance(pulls, list) or not pulls:
