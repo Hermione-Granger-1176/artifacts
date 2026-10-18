@@ -777,21 +777,63 @@ def test_current_pr_number_fallback_qualifies_a_fork_branch_with_its_owner(
     assert gh_runner.current_pr_number(run_fn=runner) == 5
 
 
-def test_current_pr_number_fallback_uses_the_pr_a_checkout_recorded() -> None:
-    """A fork PR checked out through REST is found by its recorded number, not a head lookup."""
-    runner = FakeGh(
+def _recorded_runner(number: str, repo: str | None) -> FakeGh:
+    """Build a runner whose branch has a recorded PR number and, optionally, repository."""
+    return FakeGh(
         [
             (has("pr", "view"), graphql_blocked()),
+            (has("remote"), completed_process(0, "git@github.com:alice/project.git\n")),
             (has("rev-parse"), completed_process(0, "alice/feature\n")),
             (
                 has("config", "--get", "branch.alice/feature.gh-pr-number"),
-                completed_process(0, "12\n"),
+                completed_process(0, f"{number}\n"),
+            ),
+            (
+                has("config", "--get", "branch.alice/feature.gh-pr-repo"),
+                completed_process(0, f"{repo}\n") if repo else completed_process(1),
+            ),
+            (
+                rest("GET", "repos/alice/project/pulls", "head=alice:alice/feature"),
+                json_response([{"number": 99, "state": "open"}]),
             ),
         ]
     )
 
+
+def test_current_pr_number_fallback_uses_the_pr_a_checkout_recorded() -> None:
+    """A fork PR checked out through REST is found by its recorded number, not a head lookup."""
+    runner = _recorded_runner("12", "alice/project")
+
     assert gh_runner.current_pr_number(run_fn=runner) == 12
     assert not any("pulls" in " ".join(call) for call in runner.calls)
+
+
+def test_current_pr_number_fallback_compares_the_recorded_repo_case_insensitively() -> None:
+    """A recorded repository with different capitalization still matches."""
+    runner = _recorded_runner("12", "Alice/Project")
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 12
+
+
+def test_current_pr_number_fallback_ignores_a_number_recorded_for_another_repo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A different GH_REPO means the recorded number belongs to another repository."""
+    monkeypatch.setenv("GH_REPO", "org/other")
+    runner = _recorded_runner("12", "alice/project")
+    runner.routes.append(
+        (
+            rest("GET", "repos/org/other/pulls", "head=alice:alice/feature"),
+            json_response([{"number": 31, "state": "open"}]),
+        )
+    )
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 31
+
+
+def test_current_pr_number_fallback_ignores_a_number_recorded_without_a_repo() -> None:
+    """A number with no recorded repository cannot be trusted and is looked up instead."""
+    assert gh_runner.current_pr_number(run_fn=_recorded_runner("12", None)) == 99
 
 
 def test_current_pr_number_fallback_ignores_a_malformed_recorded_number() -> None:
@@ -837,3 +879,16 @@ def test_resolve_repo_falls_back_when_repo_view_is_not_an_object() -> None:
     )
 
     assert gh_runner.resolve_repo(run_fn=runner) == "octo/Hello"
+
+
+def test_same_repo_ignores_case() -> None:
+    """GitHub treats owner/name slugs as case-insensitive."""
+    assert gh_runner.same_repo("octo/hello", "octo/Hello")
+    assert not gh_runner.same_repo("octo/hello", "octo/other")
+
+
+def test_require_checkout_repo_accepts_a_slug_that_differs_only_in_case() -> None:
+    """Origin naming octo/hello satisfies a GH_REPO of octo/Hello."""
+    runner = FakeGh([(has("remote"), completed_process(0, "git@github.com:octo/hello.git\n"))])
+
+    gh_runner.require_checkout_repo("octo/Hello", "check out PR #1", run_fn=runner)

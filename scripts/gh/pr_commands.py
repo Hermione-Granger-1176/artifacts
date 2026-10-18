@@ -148,7 +148,7 @@ def create_pr(
         target = base or gh_runner.default_branch(slug, run_fn=run_fn)
         source = gh_runner.checkout_repo(slug, run_fn=run_fn)
         _require_pushed(source, branch, run_fn=run_fn)
-        head = branch if source == slug else f"{source.split('/')[0]}:{branch}"
+        head = branch if gh_runner.same_repo(source, slug) else f"{source.split('/')[0]}:{branch}"
         pr_title, pr_body = (
             (title, body)
             if title is not None
@@ -315,7 +315,7 @@ def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
         if not isinstance(branch, str) or not branch:
             raise GhError(f"PR #{pr} has no head branch to check out.")
         head_repo = str(as_object(head.get("repo")).get("full_name") or "")
-        if head_repo != slug:
+        if not gh_runner.same_repo(head_repo, slug):
             # A fork's branch can share a local name such as main, so it gets
             # the fork owner as a prefix instead of updating that branch.
             branch = f"{head_repo.split('/')[0] or 'fork'}/{branch}"
@@ -332,6 +332,9 @@ def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
             gh_runner.run_git(["merge", "--ff-only", "FETCH_HEAD"], run_fn=run_fn)
         gh_runner.run_git(
             ["config", f"branch.{branch}.{gh_runner.PR_NUMBER_CONFIG}", str(pr)], run_fn=run_fn
+        )
+        gh_runner.run_git(
+            ["config", f"branch.{branch}.{gh_runner.PR_REPO_CONFIG}", slug], run_fn=run_fn
         )
         print(f"Checked out {branch} for PR #{pr}")
         return 0
@@ -376,7 +379,7 @@ def _delete_head_branch(slug: str, pull: dict[str, Any], *, run_fn: RunFunction 
     default_branch = as_object(as_object(pull.get("base")).get("repo")).get("default_branch")
     if (
         not branch
-        or as_object(head.get("repo")).get("full_name") != slug
+        or not gh_runner.same_repo(str(as_object(head.get("repo")).get("full_name") or ""), slug)
         or branch == default_branch
     ):
         return

@@ -522,7 +522,8 @@ def test_checkout_fallback_prefixes_a_fork_branch_and_records_its_pr() -> None:
 
     assert ["git", "fetch", "origin", "pull/7/head:alice/main"] in runner.calls
     assert ["git", "checkout", "main"] not in runner.calls
-    assert runner.calls[-1] == ["git", "config", "branch.alice/main.gh-pr-number", "7"]
+    assert runner.calls[-2] == ["git", "config", "branch.alice/main.gh-pr-number", "7"]
+    assert runner.calls[-1] == ["git", "config", "branch.alice/main.gh-pr-repo", "o/r"]
 
 
 def test_checkout_fallback_creates_a_new_local_branch() -> None:
@@ -537,8 +538,9 @@ def test_checkout_fallback_creates_a_new_local_branch() -> None:
     assert pr_commands.checkout_pr(7, run_fn=runner) == 0
 
     assert ["git", "fetch", "origin", "pull/7/head:feature"] in runner.calls
-    assert runner.calls[-2] == ["git", "checkout", "feature"]
-    assert runner.calls[-1] == ["git", "config", "branch.feature.gh-pr-number", "7"]
+    assert runner.calls[-3] == ["git", "checkout", "feature"]
+    assert runner.calls[-2] == ["git", "config", "branch.feature.gh-pr-number", "7"]
+    assert runner.calls[-1] == ["git", "config", "branch.feature.gh-pr-repo", "o/r"]
 
 
 def test_checkout_fallback_fast_forwards_an_existing_branch() -> None:
@@ -554,7 +556,7 @@ def test_checkout_fallback_fast_forwards_an_existing_branch() -> None:
     pr_commands.checkout_pr(7, run_fn=runner)
 
     assert ["git", "fetch", "origin", "pull/7/head"] in runner.calls
-    assert runner.calls[-2] == ["git", "merge", "--ff-only", "FETCH_HEAD"]
+    assert runner.calls[-3] == ["git", "merge", "--ff-only", "FETCH_HEAD"]
 
 
 def test_checkout_fallback_requires_a_head_branch() -> None:
@@ -789,3 +791,74 @@ def test_fallback_errors_are_not_retried_against_graphql() -> None:
 
     assert sum(call[:2] == ["gh", "pr"] for call in runner.calls) == 1
     assert gh_runner.graphql_unavailable()
+
+
+def test_checkout_fallback_treats_slugs_with_different_case_as_one_repository(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GH_REPO capitalized differently from the PR head repo keeps the plain branch name."""
+    monkeypatch.setenv("GH_REPO", "O/R")
+    runner = _sandbox(
+        (rest("GET", "repos/O/R/pulls/7"), json_response(PULL)),
+        (has("--verify"), completed_process(1, "", "")),
+        (has("fetch"), completed_process(0)),
+        (has("checkout"), completed_process(0)),
+    )
+
+    assert pr_commands.checkout_pr(7, run_fn=runner) == 0
+
+    assert ["git", "fetch", "origin", "pull/7/head:feature"] in runner.calls
+    assert runner.calls[-1] == ["git", "config", "branch.feature.gh-pr-repo", "O/R"]
+
+
+def test_merge_fallback_deletes_a_branch_whose_repo_differs_only_in_case(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The head repository name is compared case-insensitively before deleting its branch."""
+    monkeypatch.setenv("GH_REPO", "O/R")
+    runner = _sandbox(
+        (rest("GET", "repos/O/R/pulls/7"), json_response(PULL)),
+        (rest("PUT", "repos/O/R/pulls/7/merge"), json_response({})),
+        (rest("DELETE", "repos/O/R/git/refs/heads/feature"), completed_process(0, "")),
+    )
+
+    assert pr_commands.merge_pr(7, run_fn=runner) == 0
+
+    assert runner.calls[-1][4] == "repos/O/R/git/refs/heads/feature"
+
+
+def test_merge_fallback_keeps_a_branch_whose_head_repo_is_missing() -> None:
+    """A PR with no head repository (deleted fork) never deletes anything."""
+    head = {"ref": "feature", "sha": "abc", "repo": None}
+    runner = _sandbox(
+        _pull_route({**PULL, "head": head}),
+        (rest("PUT", "repos/o/r/pulls/7/merge"), json_response({})),
+    )
+
+    assert pr_commands.merge_pr(7, run_fn=runner) == 0
+
+    assert not any("DELETE" in call for call in runner.calls)
+
+
+def test_create_fallback_uses_the_bare_branch_when_origin_differs_only_in_case(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Origin and GH_REPO naming one repository with different case need no owner prefix."""
+    monkeypatch.setenv("GH_REPO", "Alice/Project")
+    runner = FakeGh(
+        [
+            *sandbox_routes("alice/project"),
+            (_pushed, completed_process(0, "abc\n")),
+            (has("rev-parse"), completed_process(0, "feature\n")),
+            (
+                rest("GET", "repos/alice/project/branches/feature"),
+                json_response({"commit": {"sha": "abc"}}),
+            ),
+            (
+                rest("POST", "repos/Alice/Project/pulls", "head=feature", "base=main"),
+                json_response({"html_url": "https://example/pull/9"}),
+            ),
+        ]
+    )
+
+    assert pr_commands.create_pr(title="T", base="main", run_fn=runner) == 0

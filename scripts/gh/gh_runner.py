@@ -85,6 +85,7 @@ _GRAPHQL_STATE = _GraphqlState()
 # Git config key, under branch.<name>, where a REST checkout records the PR it
 # fetched. A fork PR's branch is not in origin, so a head lookup cannot find it.
 PR_NUMBER_CONFIG = "gh-pr-number"
+PR_REPO_CONFIG = "gh-pr-repo"
 
 
 def graphql_unavailable() -> bool:
@@ -519,6 +520,11 @@ def checkout_repo(slug: str, *, run_fn: RunFunction | None = None) -> str:
     return _repo_from_remote(run_fn=run_fn) or slug
 
 
+def same_repo(a: str, b: str) -> bool:
+    """Return whether two ``owner/name`` slugs name one repository (case-insensitive)."""
+    return a.casefold() == b.casefold()
+
+
 def require_checkout_repo(slug: str, action: str, *, run_fn: RunFunction | None = None) -> None:
     """Refuse an ``action`` that fetches from ``origin`` when ``origin`` is not ``slug``.
 
@@ -526,7 +532,7 @@ def require_checkout_repo(slug: str, action: str, *, run_fn: RunFunction | None 
     or a base branch from a different one would use unrelated commits.
     """
     local = checkout_repo(slug, run_fn=run_fn)
-    if local != slug:
+    if not same_repo(local, slug):
         raise GhError(
             f"Cannot {action}: GH_REPO selects {slug}, but origin is {local}. "
             "Run it without GH_REPO, or from a checkout of that repository."
@@ -608,13 +614,21 @@ def _current_pr_number_gh(*, run_fn: RunFunction | None = None) -> int:
         raise GhError("Could not read PR number from gh output.") from exc
 
 
-def _recorded_pr_number(branch: str, *, run_fn: RunFunction | None) -> int | None:
-    """Return the PR number a REST checkout recorded for ``branch``, if any."""
+def _git_config_value(key: str, *, run_fn: RunFunction | None) -> str | None:
+    """Return a git config value, or None when it is not set."""
     try:
-        value = run_git(["config", "--get", f"branch.{branch}.{PR_NUMBER_CONFIG}"], run_fn=run_fn)
+        return run_git(["config", "--get", key], run_fn=run_fn)
     except GhError:
         return None
-    return int(value) if value.isdigit() else None
+
+
+def _recorded_pr_number(branch: str, slug: str, *, run_fn: RunFunction | None) -> int | None:
+    """Return the PR number a REST checkout recorded for ``branch`` in ``slug``, if any."""
+    value = _git_config_value(f"branch.{branch}.{PR_NUMBER_CONFIG}", run_fn=run_fn)
+    repo = _git_config_value(f"branch.{branch}.{PR_REPO_CONFIG}", run_fn=run_fn)
+    if value is None or repo is None or not value.isdigit() or not same_repo(repo, slug):
+        return None
+    return int(value)
 
 
 def _current_pr_number_rest(*, run_fn: RunFunction | None = None) -> int:
@@ -624,10 +638,10 @@ def _current_pr_number_rest(*, run_fn: RunFunction | None = None) -> int:
     one counts, so a branch merged through the fallback still finds its PR.
     """
     branch = current_branch(run_fn=run_fn)
-    recorded = _recorded_pr_number(branch, run_fn=run_fn)
+    slug = resolve_repo(run_fn=run_fn)
+    recorded = _recorded_pr_number(branch, slug, run_fn=run_fn)
     if recorded is not None:
         return recorded
-    slug = resolve_repo(run_fn=run_fn)
     # The branch lives in origin, which is a fork when GH_REPO names upstream.
     owner = checkout_repo(slug, run_fn=run_fn).split("/")[0]
     pulls = rest(
