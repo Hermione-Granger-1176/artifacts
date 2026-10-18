@@ -531,7 +531,12 @@ def require_checkout_repo(slug: str, action: str, *, run_fn: RunFunction | None 
     PR and issue numbers belong to one repository, so fetching ``pull/<n>/head``
     or a base branch from a different one would use unrelated commits.
     """
-    local = checkout_repo(slug, run_fn=run_fn)
+    local = _repo_from_remote(run_fn=run_fn)
+    if not local:
+        raise GhError(
+            f"Cannot {action}: origin is not a GitHub repository, "
+            f"so it cannot hold {slug}'s PRs and branches."
+        )
     if not same_repo(local, slug):
         raise GhError(
             f"Cannot {action}: GH_REPO selects {slug}, but origin is {local}. "
@@ -635,27 +640,38 @@ def _current_pr_number_rest(*, run_fn: RunFunction | None = None) -> int:
     """Find the PR whose head is the current branch through the REST API.
 
     Like ``gh pr view``, an open PR wins. Otherwise the newest closed or merged
-    one counts, so a branch merged through the fallback still finds its PR.
+    one counts, so a branch merged through the fallback still finds its PR. A
+    recorded PR that is no longer open yields to a newer open PR on its head.
     """
     branch = current_branch(run_fn=run_fn)
     slug = resolve_repo(run_fn=run_fn)
     recorded = _recorded_pr_number(branch, slug, run_fn=run_fn)
-    if recorded is not None:
-        return recorded
     # The branch lives in origin, which is a fork when GH_REPO names upstream.
     owner = checkout_repo(slug, run_fn=run_fn).split("/")[0]
-    pulls = rest(
-        f"repos/{slug}/pulls",
-        fields={"head": f"{owner}:{branch}", "state": "all"},
-        run_fn=run_fn,
-    )
-    if not isinstance(pulls, list) or not pulls:
-        raise GhError("No pull request found for the current branch.")
-    open_pulls = [pull for pull in pulls if isinstance(pull, dict) and pull.get("state") == "open"]
-    try:
-        return int((open_pulls or pulls)[0]["number"])
-    except (KeyError, TypeError, ValueError) as exc:
-        raise GhError("Could not read PR number from the pull request list.") from exc
+    head_branch = branch
+    if recorded is not None:
+        pull = as_object(rest(f"repos/{slug}/pulls/{recorded}", run_fn=run_fn))
+        if pull.get("state") == "open":
+            return recorded
+        # A fork checkout's local branch is prefixed, so use the PR's own head.
+        head = as_object(pull.get("head"))
+        head_owner = as_object(as_object(head.get("repo")).get("owner")).get("login")
+        owner = str(head_owner or str(head.get("label") or "").partition(":")[0] or owner)
+        head_branch = str(head.get("ref") or branch)
+    for state in ("open", "closed"):
+        pulls = rest(
+            f"repos/{slug}/pulls",
+            fields={"head": f"{owner}:{head_branch}", "state": state},
+            run_fn=run_fn,
+        )
+        if isinstance(pulls, list) and pulls:
+            try:
+                return int(pulls[0]["number"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise GhError("Could not read PR number from the pull request list.") from exc
+    if recorded is not None:
+        return recorded
+    raise GhError("No pull request found for the current branch.")
 
 
 def current_branch(*, run_fn: RunFunction | None = None) -> str:

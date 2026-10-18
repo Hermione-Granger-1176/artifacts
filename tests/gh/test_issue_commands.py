@@ -293,6 +293,20 @@ def test_develop_fallback_refuses_when_gh_repo_is_not_origin(
     assert not any("fetch" in call or "checkout" in call for call in runner.calls)
 
 
+def test_develop_fallback_refuses_a_non_github_origin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An origin that is not on GitHub cannot supply the base branch, so nothing is fetched."""
+    monkeypatch.setenv("GH_REPO", "o/r")
+    runner = FakeGh(
+        [(has("remote"), completed_process(0, "https://gitlab.com/o/r.git\n")), *sandbox_routes()]
+    )
+
+    with pytest.raises(GhError, match="origin is not a GitHub repository"):
+        issue_commands.develop_issue(5, base="dev", run_fn=runner)
+
+    git_changes = (["git", "fetch"], ["git", "checkout"])
+    assert not any(call[:2] in git_changes for call in runner.calls)
+
+
 def test_list_fallback_reports_an_empty_result(capsys: pytest.CaptureFixture[str]) -> None:
     """No matches are reported on standard error."""
     runner = _sandbox((rest("GET", "repos/o/r/issues"), json_response([])))

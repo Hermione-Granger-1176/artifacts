@@ -199,15 +199,14 @@ def _filled_text(
     as a list. GitHub's compare API reads the commits, so the result never
     depends on a local tracking ref that is missing, stale, or from a fork.
     """
-    compare = as_object(
-        gh_runner.rest(
-            f"repos/{slug}/compare/{quote(base, safe='')}...{quote(head, safe=':')}",
-            run_fn=run_fn,
-        )
+    entries = gh_runner.rest_pages(
+        f"repos/{slug}/compare/{quote(base, safe='')}...{quote(head, safe=':')}",
+        items_key="commits",
+        run_fn=run_fn,
     )
     commits = [
-        str(as_object(as_object(entry).get("commit")).get("message") or "").partition("\n")
-        for entry in compare.get("commits") or []
+        str(as_object(entry.get("commit")).get("message") or "").partition("\n")
+        for entry in entries
     ]
     if not commits:
         raise GhError(f"No commits on {branch} ahead of {base} to fill a pull request from.")
@@ -314,7 +313,9 @@ def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
         branch = head.get("ref")
         if not isinstance(branch, str) or not branch:
             raise GhError(f"PR #{pr} has no head branch to check out.")
-        head_repo = str(as_object(head.get("repo")).get("full_name") or "")
+        head_ref = branch
+        head_info = as_object(head.get("repo"))
+        head_repo = str(head_info.get("full_name") or "")
         if not gh_runner.same_repo(head_repo, slug):
             # A fork's branch can share a local name such as main, so it gets
             # the fork owner as a prefix instead of updating that branch.
@@ -336,6 +337,16 @@ def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
         gh_runner.run_git(
             ["config", f"branch.{branch}.{gh_runner.PR_REPO_CONFIG}", slug], run_fn=run_fn
         )
+        # Track the PR's branch like gh pr checkout, so git pull works afterwards.
+        remote, merge = "origin", f"refs/heads/{head_ref}"
+        if not gh_runner.same_repo(head_repo, slug):
+            clone_url = head_info.get("clone_url")
+            if pull.get("maintainer_can_modify") and isinstance(clone_url, str) and clone_url:
+                remote = clone_url
+            else:
+                merge = f"refs/pull/{pr}/head"
+        gh_runner.run_git(["config", f"branch.{branch}.remote", remote], run_fn=run_fn)
+        gh_runner.run_git(["config", f"branch.{branch}.merge", merge], run_fn=run_fn)
         print(f"Checked out {branch} for PR #{pr}")
         return 0
 

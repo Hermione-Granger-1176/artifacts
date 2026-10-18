@@ -233,6 +233,34 @@ def test_create_fallback_compares_a_fork_head_against_the_selected_base(
     assert pr_commands.create_pr(base="main", run_fn=runner) == 0
 
 
+def test_create_fallback_reads_commits_across_compare_pages() -> None:
+    """A branch with more commits than one page still lists all of them."""
+
+    def page(number: int, count: int) -> Route:
+        """Route serving one compare page of ``count`` commits."""
+        commits = [{"commit": {"message": f"c{number}-{i}"}} for i in range(count)]
+        return (
+            rest("GET", "repos/o/r/compare/dev...feature", f"page={number}"),
+            json_response({"commits": commits}),
+        )
+
+    runner = _create_sandbox(
+        (has("rev-parse"), completed_process(0, "feature\n")),
+        page(1, 100),
+        page(2, 1),
+        (
+            rest("POST", "repos/o/r/pulls", "title=Feature"),
+            json_response({"html_url": "https://example/pull/9"}),
+        ),
+    )
+
+    pr_commands.create_pr(base="dev", run_fn=runner)
+
+    body = next(arg for arg in runner.calls[-1] if arg.startswith("body="))
+    assert "- c1-99" in body
+    assert "- c2-0" in body
+
+
 def test_create_fallback_rejects_a_branch_with_no_commits() -> None:
     """Nothing ahead of the base cannot be filled."""
     runner = _create_sandbox(
@@ -484,6 +512,20 @@ def test_checkout_fallback_refuses_when_gh_repo_is_not_origin(
     assert not any("fetch" in call for call in runner.calls)
 
 
+def test_checkout_fallback_refuses_a_non_github_origin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An origin that is not on GitHub holds no PRs, so GH_REPO cannot be fetched from it."""
+    monkeypatch.setenv("GH_REPO", "o/r")
+    runner = FakeGh(
+        [(has("remote"), completed_process(0, "https://gitlab.com/o/r.git\n")), *sandbox_routes()]
+    )
+
+    with pytest.raises(GhError, match="Cannot check out PR #7: origin is not a GitHub repository"):
+        pr_commands.checkout_pr(7, run_fn=runner)
+
+    git_changes = (["git", "fetch"], ["git", "checkout"])
+    assert not any(call[:2] in git_changes for call in runner.calls)
+
+
 def test_create_fallback_checks_a_fork_branch_and_qualifies_its_head(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -522,8 +564,54 @@ def test_checkout_fallback_prefixes_a_fork_branch_and_records_its_pr() -> None:
 
     assert ["git", "fetch", "origin", "pull/7/head:alice/main"] in runner.calls
     assert ["git", "checkout", "main"] not in runner.calls
-    assert runner.calls[-2] == ["git", "config", "branch.alice/main.gh-pr-number", "7"]
-    assert runner.calls[-1] == ["git", "config", "branch.alice/main.gh-pr-repo", "o/r"]
+    assert ["git", "config", "branch.alice/main.gh-pr-number", "7"] in runner.calls
+    assert runner.calls[-3] == ["git", "config", "branch.alice/main.gh-pr-repo", "o/r"]
+
+
+def _fork_checkout(head_repo: dict[str, object] | None, **pull: object) -> FakeGh:
+    """Check out PR 7 from a fork branch ``main`` and return the runner."""
+    head = {"ref": "main", "sha": "abc", "repo": head_repo}
+    runner = _sandbox(
+        _pull_route({**PULL, "head": head, **pull}),
+        (has("--verify"), completed_process(1, "", "")),
+        (has("fetch"), completed_process(0)),
+        (has("checkout"), completed_process(0)),
+    )
+    assert pr_commands.checkout_pr(7, run_fn=runner) == 0
+    return runner
+
+
+_FORK = {"full_name": "alice/r", "clone_url": "https://github.com/alice/r.git"}
+
+
+def test_checkout_fallback_tracks_an_editable_fork_branch_on_the_fork() -> None:
+    """With edit access, the local branch tracks the real branch on the fork's clone URL."""
+    runner = _fork_checkout(_FORK, maintainer_can_modify=True)
+
+    assert runner.calls[-2:] == [
+        ["git", "config", "branch.alice/main.remote", "https://github.com/alice/r.git"],
+        ["git", "config", "branch.alice/main.merge", "refs/heads/main"],
+    ]
+
+
+def test_checkout_fallback_tracks_a_read_only_fork_pr_through_the_pull_ref() -> None:
+    """Without edit access, the branch tracks the PR ref on origin."""
+    runner = _fork_checkout(_FORK, maintainer_can_modify=False)
+
+    assert runner.calls[-2:] == [
+        ["git", "config", "branch.alice/main.remote", "origin"],
+        ["git", "config", "branch.alice/main.merge", "refs/pull/7/head"],
+    ]
+
+
+def test_checkout_fallback_tracks_a_deleted_fork_through_the_pull_ref() -> None:
+    """A PR whose head repository is gone has no clone URL, so it uses the PR ref."""
+    runner = _fork_checkout(None, maintainer_can_modify=True)
+
+    assert runner.calls[-2:] == [
+        ["git", "config", "branch.fork/main.remote", "origin"],
+        ["git", "config", "branch.fork/main.merge", "refs/pull/7/head"],
+    ]
 
 
 def test_checkout_fallback_creates_a_new_local_branch() -> None:
@@ -538,9 +626,11 @@ def test_checkout_fallback_creates_a_new_local_branch() -> None:
     assert pr_commands.checkout_pr(7, run_fn=runner) == 0
 
     assert ["git", "fetch", "origin", "pull/7/head:feature"] in runner.calls
-    assert runner.calls[-3] == ["git", "checkout", "feature"]
-    assert runner.calls[-2] == ["git", "config", "branch.feature.gh-pr-number", "7"]
-    assert runner.calls[-1] == ["git", "config", "branch.feature.gh-pr-repo", "o/r"]
+    assert ["git", "checkout", "feature"] in runner.calls
+    assert runner.calls[-4] == ["git", "config", "branch.feature.gh-pr-number", "7"]
+    assert runner.calls[-3] == ["git", "config", "branch.feature.gh-pr-repo", "o/r"]
+    assert runner.calls[-2] == ["git", "config", "branch.feature.remote", "origin"]
+    assert runner.calls[-1] == ["git", "config", "branch.feature.merge", "refs/heads/feature"]
 
 
 def test_checkout_fallback_fast_forwards_an_existing_branch() -> None:
@@ -556,7 +646,7 @@ def test_checkout_fallback_fast_forwards_an_existing_branch() -> None:
     pr_commands.checkout_pr(7, run_fn=runner)
 
     assert ["git", "fetch", "origin", "pull/7/head"] in runner.calls
-    assert runner.calls[-3] == ["git", "merge", "--ff-only", "FETCH_HEAD"]
+    assert ["git", "merge", "--ff-only", "FETCH_HEAD"] in runner.calls
 
 
 def test_checkout_fallback_requires_a_head_branch() -> None:
@@ -808,7 +898,7 @@ def test_checkout_fallback_treats_slugs_with_different_case_as_one_repository(
     assert pr_commands.checkout_pr(7, run_fn=runner) == 0
 
     assert ["git", "fetch", "origin", "pull/7/head:feature"] in runner.calls
-    assert runner.calls[-1] == ["git", "config", "branch.feature.gh-pr-repo", "O/R"]
+    assert ["git", "config", "branch.feature.gh-pr-repo", "O/R"] in runner.calls
 
 
 def test_merge_fallback_deletes_a_branch_whose_repo_differs_only_in_case(

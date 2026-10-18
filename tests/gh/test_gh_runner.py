@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -19,7 +19,9 @@ from tests.gh.gh_test_support import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
+
+Route = tuple["Callable[[list[str]], bool]", Any]
 
 REAL_SLEEP = gh_runner._sleep
 
@@ -720,7 +722,7 @@ def test_resolve_repo_rejects_an_unsupported_gh_repo(
         gh_runner.resolve_repo(run_fn=FakeGh([]))
 
 
-def _branch_runner(pulls: object) -> FakeGh:
+def _branch_runner(open_pulls: object, closed_pulls: object = ()) -> FakeGh:
     """Build a runner for a blocked ``gh pr view`` on branch ``feature`` of ``octo/Hello``."""
     return FakeGh(
         [
@@ -730,8 +732,12 @@ def _branch_runner(pulls: object) -> FakeGh:
             (has("rev-parse"), completed_process(0, "feature\n")),
             (has("config", "--get"), completed_process(1)),
             (
-                rest("GET", "repos/octo/Hello/pulls", "head=octo:feature", "state=all"),
-                json_response(pulls),
+                rest("GET", "repos/octo/Hello/pulls", "head=octo:feature", "state=open"),
+                json_response(open_pulls),
+            ),
+            (
+                rest("GET", "repos/octo/Hello/pulls", "head=octo:feature", "state=closed"),
+                json_response(closed_pulls),
             ),
         ]
     )
@@ -743,17 +749,18 @@ def test_current_pr_number_falls_back_to_the_branch_lookup() -> None:
 
 
 def test_current_pr_number_fallback_prefers_an_open_pr_then_the_newest_closed_one() -> None:
-    """An open PR wins over newer closed ones, and a merged branch still finds its PR."""
+    """An open PR wins, and a merged branch still finds its newest closed PR."""
     closed = [{"number": 9, "state": "closed"}, {"number": 8, "state": "closed"}]
 
-    assert gh_runner.current_pr_number(run_fn=_branch_runner(closed)) == 9
-    gh_runner.reset_graphql_availability()
-    assert (
-        gh_runner.current_pr_number(
-            run_fn=_branch_runner([*closed, {"number": 7, "state": "open"}, "not an object"])
-        )
-        == 7
-    )
+    assert gh_runner.current_pr_number(run_fn=_branch_runner([], closed)) == 9
+
+
+def test_current_pr_number_fallback_open_query_wins_over_closed_pulls() -> None:
+    """The open query is answered first, so a closed PR is never even requested."""
+    runner = _branch_runner([{"number": 7, "state": "open"}], [{"number": 9}])
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 7
+    assert not any("state=closed" in call for call in runner.calls)
 
 
 def test_current_pr_number_fallback_qualifies_a_fork_branch_with_its_owner(
@@ -768,7 +775,7 @@ def test_current_pr_number_fallback_qualifies_a_fork_branch_with_its_owner(
             (has("rev-parse"), completed_process(0, "feature\n")),
             (has("config", "--get"), completed_process(1)),
             (
-                rest("GET", "repos/org/project/pulls", "head=alice:feature"),
+                rest("GET", "repos/org/project/pulls", "head=alice:feature", "state=open"),
                 json_response([{"number": 5, "state": "open"}]),
             ),
         ]
@@ -793,7 +800,11 @@ def _recorded_runner(number: str, repo: str | None) -> FakeGh:
                 completed_process(0, f"{repo}\n") if repo else completed_process(1),
             ),
             (
-                rest("GET", "repos/alice/project/pulls", "head=alice:alice/feature"),
+                rest("GET", "repos/alice/project/pulls/12"),
+                json_response({"number": 12, "state": "open"}),
+            ),
+            (
+                rest("GET", "repos/alice/project/pulls", "head=alice:alice/feature", "state=open"),
                 json_response([{"number": 99, "state": "open"}]),
             ),
         ]
@@ -805,7 +816,92 @@ def test_current_pr_number_fallback_uses_the_pr_a_checkout_recorded() -> None:
     runner = _recorded_runner("12", "alice/project")
 
     assert gh_runner.current_pr_number(run_fn=runner) == 12
-    assert not any("pulls" in " ".join(call) for call in runner.calls)
+    assert not any("head=alice:alice/feature" in call for call in runner.calls)
+
+
+def _closed_recorded_runner(*routes: Route) -> FakeGh:
+    """Build a runner whose recorded PR 12 on ``alice/project`` is closed (a fork PR from bob)."""
+    return FakeGh(
+        [
+            (has("pr", "view"), graphql_blocked()),
+            (has("remote"), completed_process(0, "git@github.com:alice/project.git\n")),
+            (has("rev-parse"), completed_process(0, "bob/feature\n")),
+            (
+                has("config", "--get", "branch.bob/feature.gh-pr-number"),
+                completed_process(0, "12\n"),
+            ),
+            (
+                has("config", "--get", "branch.bob/feature.gh-pr-repo"),
+                completed_process(0, "alice/project\n"),
+            ),
+            (
+                rest("GET", "repos/alice/project/pulls/12"),
+                json_response(
+                    {
+                        "number": 12,
+                        "state": "closed",
+                        "head": {"ref": "feature", "label": "bob:feature", "repo": None},
+                    }
+                ),
+            ),
+            *routes,
+        ]
+    )
+
+
+def test_current_pr_number_fallback_replaces_a_closed_recorded_pr_with_an_open_one() -> None:
+    """A reused branch finds its new PR, looked up by the recorded PR's own head."""
+    runner = _closed_recorded_runner(
+        (
+            rest("GET", "repos/alice/project/pulls", "head=bob:feature", "state=open"),
+            json_response([{"number": 20}]),
+        )
+    )
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 20
+
+
+def test_current_pr_number_fallback_reads_the_head_owner_from_the_recorded_repo() -> None:
+    """The head repository's owner login is preferred over the label."""
+    runner = FakeGh(
+        [
+            (has("pr", "view"), graphql_blocked()),
+            (has("remote"), completed_process(0, "git@github.com:alice/project.git\n")),
+            (has("rev-parse"), completed_process(0, "carol/feature\n")),
+            (
+                has("config", "--get", "branch.carol/feature.gh-pr-number"),
+                completed_process(0, "12\n"),
+            ),
+            (
+                has("config", "--get", "branch.carol/feature.gh-pr-repo"),
+                completed_process(0, "alice/project\n"),
+            ),
+            (
+                rest("GET", "repos/alice/project/pulls/12"),
+                json_response(
+                    {
+                        "state": "closed",
+                        "head": {"ref": "feature", "repo": {"owner": {"login": "carol"}}},
+                    }
+                ),
+            ),
+            (
+                rest("GET", "repos/alice/project/pulls", "head=carol:feature", "state=open"),
+                json_response([{"number": 21}]),
+            ),
+        ]
+    )
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 21
+
+
+def test_current_pr_number_fallback_keeps_a_closed_recorded_pr_without_another() -> None:
+    """Like gh pr view, a closed recorded PR still counts when nothing newer exists."""
+    runner = _closed_recorded_runner(
+        (rest("GET", "repos/alice/project/pulls"), json_response([])),
+    )
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 12
 
 
 def test_current_pr_number_fallback_compares_the_recorded_repo_case_insensitively() -> None:
@@ -823,7 +919,7 @@ def test_current_pr_number_fallback_ignores_a_number_recorded_for_another_repo(
     runner = _recorded_runner("12", "alice/project")
     runner.routes.append(
         (
-            rest("GET", "repos/org/other/pulls", "head=alice:alice/feature"),
+            rest("GET", "repos/org/other/pulls", "head=alice:alice/feature", "state=open"),
             json_response([{"number": 31, "state": "open"}]),
         )
     )
@@ -885,6 +981,14 @@ def test_same_repo_ignores_case() -> None:
     """GitHub treats owner/name slugs as case-insensitive."""
     assert gh_runner.same_repo("octo/hello", "octo/Hello")
     assert not gh_runner.same_repo("octo/hello", "octo/other")
+
+
+def test_require_checkout_repo_refuses_an_unidentifiable_origin() -> None:
+    """A non-GitHub origin cannot hold the selected repository's PRs and branches."""
+    runner = FakeGh([(has("remote"), completed_process(0, "https://gitlab.com/o/r.git\n"))])
+
+    with pytest.raises(GhError, match="Cannot check out PR #1: origin is not a GitHub repository"):
+        gh_runner.require_checkout_repo("o/r", "check out PR #1", run_fn=runner)
 
 
 def test_require_checkout_repo_accepts_a_slug_that_differs_only_in_case() -> None:
