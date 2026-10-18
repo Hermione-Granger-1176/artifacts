@@ -1,61 +1,54 @@
-import{getPageNumbers as I}from"./catalog.js";import{escapeHtml as r}from"../html-escape.js";import{ICONS as h}from"./icons.js";export{r as escapeHtml};const M=["var(--card-color-1)","var(--card-color-2)","var(--card-color-3)","var(--card-color-4)","var(--card-color-5)","var(--card-color-6)","var(--card-color-7)","var(--card-color-8)","var(--card-color-9)","var(--card-color-10)","var(--card-color-11)","var(--card-color-12)"],B=["var(--color-note-1)","var(--color-note-2)","var(--color-note-3)","var(--color-note-4)","var(--color-note-5)","var(--color-note-6)"],T=["tape-pair","tape-center","corners","clip","tape-diagonal"],G=6,k=["-1.4deg","0.6deg","-0.4deg","1.2deg","-0.9deg","1.5deg","0.3deg","-1.1deg","0.8deg","-0.5deg","1.3deg","-0.7deg"],K=["-0.35deg","0.2deg","-0.12deg","0.4deg","-0.25deg","0.45deg","0.1deg","-0.3deg","0.25deg","-0.15deg","0.36deg","-0.2deg"];function P(t){return M[t%M.length]}function q(t){let a=2166136261;for(let e=0;e<t.length;e+=1)a^=t.charCodeAt(e),a=Math.imul(a,16777619);return a>>>0}function z(t){const a=q(t);return{attach:T[a%T.length],tape:Math.floor(a/T.length)%G+1}}function U(t){const a=t%k.length;return{noteRotate:k[a],noteHoverRotate:K[a]}}const E=new Map;let u=null;function Y(){if(!u){u=[...B];for(let t=u.length-1;t>0;t-=1){const a=Math.floor(Math.random()*(t+1));[u[t],u[a]]=[u[a],u[t]]}}return u}function y({active:t=!1,className:a,color:e,datasetName:o,datasetValue:n,label:i,rotate:c=null,surface:p}){const l=c!==null?` data-rotate="${c}"`:"";return`<button class="${a}${t?" is-active":""}" data-filter-surface="${p}" ${o}="${r(n)}" data-chip-color="${r(e)}"${l} type="button" aria-controls="artifacts-grid" aria-pressed="${t}">${r(i)}</button>`}function J(t){return E.get(t)||"var(--color-capsule-default)"}function _(t,a,e=""){return!Array.isArray(t)||t.length===0?e:`
+import{getPageNumbers as I}from"./catalog.js";import{escapeHtml as n}from"../html-escape.js";import{ICONS as b}from"./icons.js";export{n as escapeHtml};const M=["var(--card-color-1)","var(--card-color-2)","var(--card-color-3)","var(--card-color-4)","var(--card-color-5)","var(--card-color-6)","var(--card-color-7)","var(--card-color-8)","var(--card-color-9)","var(--card-color-10)","var(--card-color-11)","var(--card-color-12)"],B=["var(--color-note-1)","var(--color-note-2)","var(--color-note-3)","var(--color-note-4)","var(--color-note-5)","var(--color-note-6)"],T=["tape-pair","tape-center","corners","clip","tape-diagonal"],G=6,k=["-1.4deg","0.6deg","-0.4deg","1.2deg","-0.9deg","1.5deg","0.3deg","-1.1deg","0.8deg","-0.5deg","1.3deg","-0.7deg"],K=["-0.35deg","0.2deg","-0.12deg","0.4deg","-0.25deg","0.45deg","0.1deg","-0.3deg","0.25deg","-0.15deg","0.36deg","-0.2deg"];function P(t){return M[t%M.length]}function q(t){let a=2166136261;for(let e=0;e<t.length;e+=1)a^=t.charCodeAt(e),a=Math.imul(a,16777619);return a>>>0}function z(t){const a=q(t);return{attach:T[a%T.length],tape:Math.floor(a/T.length)%G+1}}function U(t){const a=t%k.length;return{noteRotate:k[a],noteHoverRotate:K[a]}}const E=new Map;let u=null;function Y(){if(!u){u=[...B];for(let t=u.length-1;t>0;t-=1){const a=Math.floor(Math.random()*(t+1));[u[t],u[a]]=[u[a],u[t]]}}return u}function y({active:t=!1,className:a,color:e,datasetName:o,datasetValue:r,label:s,rotate:c=null,surface:p}){const l=c!==null?` data-rotate="${c}"`:"";return`<button class="${a}${t?" is-active":""}" data-filter-surface="${p}" ${o}="${n(r)}" data-chip-color="${n(e)}"${l} type="button" aria-controls="artifacts-grid" aria-pressed="${t}">${n(s)}</button>`}function J(t){return E.get(t)||"var(--color-capsule-default)"}function _(t,a,e=""){return!Array.isArray(t)||t.length===0?e:`
     <div class="${a}">
-      ${t.slice(0,3).map(o=>`<span class="${a}-item" data-capsule-bg="${r(J(o))}">${r(o)}</span>`).join("")}
+      ${t.slice(0,3).map(o=>`<span class="${a}-item" data-capsule-bg="${n(J(o))}">${n(o)}</span>`).join("")}
     </div>
-  `}export function buildFilterNotes({tools:t,tags:a,activeTools:e,activeTags:o,toolLabel:n,tagLabel:i}){let c=1;const p=()=>{const d=Math.sin(c++)*1e4;return d-Math.floor(d)},l=Y(),s=d=>l[(d+1)%l.length],b=t.length+1,x=d=>l[(b+d)%l.length],L=e.length>0,H=o.length>0,O=({noteValue:d,values:C,activeValues:v,datasetName:m,colorFor:N,labelFor:A})=>[y({active:v.length===0,className:"desk-note",color:l[0],datasetName:"data-filter-note",datasetValue:d,label:"All",rotate:(p()*6-3).toFixed(1),surface:"desk"}),...C.map((g,f)=>{const $=N(f);return E.set(g,$),y({active:v.includes(g),className:"desk-note",color:$,datasetName:m,datasetValue:g,label:A(g),rotate:(p()*8-4).toFixed(1),surface:"desk"})})],R=({noteValue:d,allLabel:C,values:v,activeValues:m,datasetName:N,colorFor:A,labelFor:g})=>[y({active:m.length===0,className:"mobile-filter-chip",color:l[0],datasetName:"data-filter-note",datasetValue:d,label:C,surface:"mobile"}),...v.map((f,$)=>y({active:m.includes(f),className:"mobile-filter-chip",color:A($),datasetName:N,datasetValue:f,label:g(f),surface:"mobile"}))],S={noteValue:"all-tools",values:t,activeValues:e,datasetName:"data-filter-tool",colorFor:s,labelFor:n},F={noteValue:"all-tags",values:a,activeValues:o,datasetName:"data-filter-tag",colorFor:x,labelFor:i},w=O(S),V=O(F),j=R({...S,allLabel:"All tools"}),D=R({...F,allLabel:"All tags"});return`
+  `}export function formatFilterSummary(t,a){return t>0?`${t} active`:a}function H({kind:t,heading:a,ariaLabel:e,allLabel:o,activeCount:r,chips:s}){return`
+      <section class="mobile-filter-group" aria-label="${e}">
+        <div class="mobile-filter-head">
+          <span class="mobile-filter-heading">${a}</span>
+          <span class="mobile-filter-summary" data-filter-summary="${t}">${formatFilterSummary(r,o)}</span>
+        </div>
+        <div class="mobile-filter-chip-row">${s.join("")}</div>
+      </section>`}export function buildFilterNotes({tools:t,tags:a,activeTools:e,activeTags:o,toolLabel:r,tagLabel:s}){let c=1;const p=()=>{const d=Math.sin(c++)*1e4;return d-Math.floor(d)},l=Y(),i=d=>l[(d+1)%l.length],f=t.length+1,x=d=>l[(f+d)%l.length],O=({noteValue:d,values:N,activeValues:v,datasetName:$,colorFor:A,labelFor:L})=>[y({active:v.length===0,className:"desk-note",color:l[0],datasetName:"data-filter-note",datasetValue:d,label:"All",rotate:(p()*6-3).toFixed(1),surface:"desk"}),...N.map((g,h)=>{const m=A(h);return E.set(g,m),y({active:v.includes(g),className:"desk-note",color:m,datasetName:$,datasetValue:g,label:L(g),rotate:(p()*8-4).toFixed(1),surface:"desk"})})],R=({noteValue:d,allLabel:N,values:v,activeValues:$,datasetName:A,colorFor:L,labelFor:g})=>[y({active:$.length===0,className:"mobile-filter-chip",color:l[0],datasetName:"data-filter-note",datasetValue:d,label:N,surface:"mobile"}),...v.map((h,m)=>y({active:$.includes(h),className:"mobile-filter-chip",color:L(m),datasetName:A,datasetValue:h,label:g(h),surface:"mobile"}))],F={noteValue:"all-tools",values:t,activeValues:e,datasetName:"data-filter-tool",colorFor:i,labelFor:r},S={noteValue:"all-tags",values:a,activeValues:o,datasetName:"data-filter-tag",colorFor:x,labelFor:s},w=O(F),V=O(S),j=R({...F,allLabel:"All tools"}),D=R({...S,allLabel:"All tags"});return`
     <div class="desk-notes-left">${w.join("")}</div>
     <div class="desk-notes-right">${V.join("")}</div>
-    <div class="mobile-filter-stack">
-      <section class="mobile-filter-group" aria-label="Tool filters">
-        <div class="mobile-filter-head">
-          <span class="mobile-filter-heading">Tools</span>
-          <span class="mobile-filter-summary" data-filter-summary="tools">${L?`${e.length} active`:"All tools"}</span>
-        </div>
-        <div class="mobile-filter-chip-row">${j.join("")}</div>
-      </section>
-      <section class="mobile-filter-group" aria-label="Tag filters">
-        <div class="mobile-filter-head">
-          <span class="mobile-filter-heading">Tags</span>
-          <span class="mobile-filter-summary" data-filter-summary="tags">${H?`${o.length} active`:"All tags"}</span>
-        </div>
-        <div class="mobile-filter-chip-row">${D.join("")}</div>
-      </section>
+    <div class="mobile-filter-stack">${H({kind:"tools",heading:"Tools",ariaLabel:"Tool filters",allLabel:"All tools",activeCount:e.length,chips:j})}${H({kind:"tags",heading:"Tags",ariaLabel:"Tag filters",allLabel:"All tags",activeCount:o.length,chips:D})}
     </div>
-  `}export function createDetailContent(t){const a=t.thumbnail?`<img class="detail-media" src="${r(t.thumbnail)}" alt="${r(t.name)} preview">`:'<div class="detail-media-placeholder"></div>',e=t.description||"Open the artifact to explore the interactive experience.",o=_(t.tags,"detail-meta-tags"),n=_(t.tools,"detail-meta-tools");return`
+  `}export function createDetailContent(t){const a=t.thumbnail?`<img class="detail-media" src="${n(t.thumbnail)}" alt="${n(t.name)} preview">`:'<div class="detail-media-placeholder"></div>',e=t.description||"Open the artifact to explore the interactive experience.",o=_(t.tags,"detail-meta-tags"),r=_(t.tools,"detail-meta-tools");return`
     <button class="detail-close" type="button" data-close-detail aria-label="Close details">
-      ${h.close}
+      ${b.close}
     </button>
     <div class="detail-media-wrap">
       ${a}
     </div>
     <div class="detail-content">
-      <h2 id="detail-title" class="detail-title">${r(t.name)}</h2>
-      <p id="detail-description" class="detail-description">${r(e)}</p>
-      ${o||n?`<div class="detail-meta">${o}${n}</div>`:""}
-      <a class="detail-open-link" href="${r(t.url)}" target="_blank" rel="noopener noreferrer"
+      <h2 id="detail-title" class="detail-title">${n(t.name)}</h2>
+      <p id="detail-description" class="detail-description">${n(e)}</p>
+      ${o||r?`<div class="detail-meta">${o}${r}</div>`:""}
+      <a class="detail-open-link" href="${n(t.url)}" target="_blank" rel="noopener noreferrer"
         aria-label="Open artifact in a new tab">
-        Open artifact <span class="visually-hidden">(opens in a new tab)</span> ${h.open}
+        Open artifact <span class="visually-hidden">(opens in a new tab)</span> ${b.open}
       </a>
     </div>
-  `}export function handleThumbnailError(t){const a=t.target;if(!a||a.tagName!=="IMG"||!a.classList.contains("card-thumbnail"))return;const e=a.closest(".card-photo-frame"),o=e?.parentNode;if(!e||!o)return;const n=e.ownerDocument.createElement("div");n.className="card-thumbnail-placeholder",o.replaceChild(n,e)}export function registerThumbnailFallback(t){t.addEventListener("error",handleThumbnailError,!0)}function Q(t,a,e){const o=P(e),n=t.thumbnail?`
+  `}export function handleThumbnailError(t){const a=t.target;if(!a||a.tagName!=="IMG"||!a.classList.contains("card-thumbnail"))return;const e=a.closest(".card-photo-frame"),o=e?.parentNode;if(!e||!o)return;const r=e.ownerDocument.createElement("div");r.className="card-thumbnail-placeholder",o.replaceChild(r,e)}export function registerThumbnailFallback(t){t.addEventListener("error",handleThumbnailError,!0)}function Q(t,a,e){const o=P(e),r=t.thumbnail?`
       <div class="card-photo-frame">
-        <img class="card-thumbnail" src="${r(t.thumbnail)}" alt="${r(t.name)}" loading="lazy">
+        <img class="card-thumbnail" src="${n(t.thumbnail)}" alt="${n(t.name)}" loading="lazy">
       </div>
-    `:'<div class="card-thumbnail-placeholder"></div>',i=U(e),c=z(t.id);return`
-    <button class="artifact-card ${a?"expanded":""}" data-id="${r(t.id)}" data-card-color="${r(o)}" data-attach="${c.attach}" data-tape="${c.tape}" data-note-rotate="${r(i.noteRotate)}" data-note-hover-rotate="${r(i.noteHoverRotate)}" type="button"
-      aria-label="View details for ${r(t.name)}" aria-expanded="${a}" aria-haspopup="dialog">
+    `:'<div class="card-thumbnail-placeholder"></div>',s=U(e),c=z(t.id);return`
+    <button class="artifact-card ${a?"expanded":""}" data-id="${n(t.id)}" data-card-color="${n(o)}" data-attach="${c.attach}" data-tape="${c.tape}" data-note-rotate="${n(s.noteRotate)}" data-note-hover-rotate="${n(s.noteHoverRotate)}" type="button"
+      aria-label="View details for ${n(t.name)}" aria-expanded="${a}" aria-haspopup="dialog">
       <div class="card-note">
         <div class="card-thumbnail-area">
-          ${n}
+          ${r}
         </div>
         <div class="card-overlay card-note-body">
-          <div class="card-name">${r(t.name)}</div>
+          <div class="card-name">${n(t.name)}</div>
         </div>
       </div>
     </button>
-  `}export function buildGridHtml(t,a,e=1){const o=t.map((l,s)=>Q(l,a===l.id,s)),n=o.filter((l,s)=>s%2===0),i=o.filter((l,s)=>s%2!==0),c=(e-1)*2+1,p=(l,s,b)=>`
-    <section class="artifact-page-slice artifact-page-${l}${s.length===0?" is-empty":""}" aria-label="${l==="left"?"Left":"Right"} book page">
-      ${s.join("")}
-      <span class="page-number" aria-hidden="true">${b}</span>
-    </section>`;return`${p("left",n,c)}${p("right",i,c+1)}
-  `}export function applyDynamicStyles(t){t.querySelectorAll("[data-chip-color]").forEach(a=>{const e=a,o=e.dataset.chipColor||"";e.style.setProperty("--chip-color",o),e.style.setProperty("--note-color",o),e.dataset.rotate&&e.style.setProperty("--rotate",`${e.dataset.rotate}deg`)}),t.querySelectorAll("[data-capsule-bg]").forEach(a=>{const e=a;e.style.setProperty("--capsule-bg",e.dataset.capsuleBg||"")}),t.querySelectorAll("[data-card-color]").forEach(a=>{const e=a;e.style.setProperty("--card-bg-color",e.dataset.cardColor||""),e.style.setProperty("--note-rotate",e.dataset.noteRotate||""),e.style.setProperty("--note-hover-rotate",e.dataset.noteHoverRotate||"")})}export function renderPagination(t,a,e){if(e<=1){t.innerHTML="",delete t.dataset.renderKey;return}const o=`${a}/${e}`;if(t.dataset.renderKey===o)return;const n=I(a,e),i=a===1,c=a===e,p=n.map(s=>{if(s==="...")return'<span class="page-ellipsis" aria-hidden="true"><span class="page-ellipsis-dots">&hellip;</span></span>';const b=s===a;return`<button class="page-btn ${b?"active":""}" data-page="${s}" type="button" ${b?'aria-current="page"':""} aria-label="Page ${s}"><span class="page-btn-paper"></span><span class="page-btn-number">${s}</span></button>`}).join("");let l="";l+=`<button class="page-btn page-btn-nav" data-page="1" type="button" ${i?"disabled":""} aria-label="First page"><span class="page-btn-paper"></span>${h.chevronFirst}</button>`,l+=`<button class="page-btn page-btn-nav" data-page="${a-1}" data-page-step="-1" type="button" ${i?"disabled":""} aria-label="Prev page"><span class="page-btn-paper"></span>${h.chevronLeft}<span class="page-btn-label">Prev</span></button>`,l+=p,l+=`<button class="page-btn page-btn-nav" data-page="${a+1}" data-page-step="1" type="button" ${c?"disabled":""} aria-label="Next page"><span class="page-btn-paper"></span><span class="page-btn-label">Next</span>${h.chevronRight}</button>`,l+=`<button class="page-btn page-btn-nav" data-page="${e}" type="button" ${c?"disabled":""} aria-label="Last page"><span class="page-btn-paper"></span>${h.chevronLast}</button>`,t.innerHTML=l,t.dataset.renderKey=o}
+  `}export function buildGridHtml(t,a,e=1){const o=t.map((l,i)=>Q(l,a===l.id,i)),r=o.filter((l,i)=>i%2===0),s=o.filter((l,i)=>i%2!==0),c=(e-1)*2+1,p=(l,i,f)=>`
+    <section class="artifact-page-slice artifact-page-${l}${i.length===0?" is-empty":""}" aria-label="${l==="left"?"Left":"Right"} book page">
+      ${i.join("")}
+      <span class="page-number" aria-hidden="true">${f}</span>
+    </section>`;return`${p("left",r,c)}${p("right",s,c+1)}
+  `}export function applyDynamicStyles(t){t.querySelectorAll("[data-chip-color]").forEach(a=>{const e=a,o=e.dataset.chipColor||"";e.style.setProperty("--chip-color",o),e.style.setProperty("--note-color",o),e.dataset.rotate&&e.style.setProperty("--rotate",`${e.dataset.rotate}deg`)}),t.querySelectorAll("[data-capsule-bg]").forEach(a=>{const e=a;e.style.setProperty("--capsule-bg",e.dataset.capsuleBg||"")}),t.querySelectorAll("[data-card-color]").forEach(a=>{const e=a;e.style.setProperty("--card-bg-color",e.dataset.cardColor||""),e.style.setProperty("--note-rotate",e.dataset.noteRotate||""),e.style.setProperty("--note-hover-rotate",e.dataset.noteHoverRotate||"")})}function C({page:t,step:a,disabled:e,label:o,content:r}){const s=a===void 0?"":` data-page-step="${a}"`;return`<button class="page-btn page-btn-nav" data-page="${t}"${s} type="button" ${e?"disabled":""} aria-label="${o}"><span class="page-btn-paper"></span>${r}</button>`}export function renderPagination(t,a,e){if(e<=1){t.innerHTML="",delete t.dataset.renderKey;return}const o=`${a}/${e}`;if(t.dataset.renderKey===o)return;const r=I(a,e),s=a===1,c=a===e,p=r.map(l=>{if(l==="...")return'<span class="page-ellipsis" aria-hidden="true"><span class="page-ellipsis-dots">&hellip;</span></span>';const i=l===a;return`<button class="page-btn ${i?"active":""}" data-page="${l}" type="button" ${i?'aria-current="page"':""} aria-label="Page ${l}"><span class="page-btn-paper"></span><span class="page-btn-number">${l}</span></button>`}).join("");t.innerHTML=[C({page:1,disabled:s,label:"First page",content:b.chevronFirst}),C({page:a-1,step:-1,disabled:s,label:"Prev page",content:`${b.chevronLeft}<span class="page-btn-label">Prev</span>`}),p,C({page:a+1,step:1,disabled:c,label:"Next page",content:`<span class="page-btn-label">Next</span>${b.chevronRight}`}),C({page:e,disabled:c,label:"Last page",content:b.chevronLast})].join(""),t.dataset.renderKey=o}
