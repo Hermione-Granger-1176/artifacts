@@ -256,6 +256,208 @@ def enabled_security_features(repository: dict[str, object]) -> set[str]:
     return enabled
 
 
+def _require_object(value: object, message: str) -> dict[str, object]:
+    """Return a GitHub API response as a JSON object, raising ``message`` otherwise."""
+    require_response_type(value, dict, message)
+    return cast("dict[str, object]", value)
+
+
+def _optional_nonempty_string(value: object, message: str) -> None:
+    """Raise ``message`` when a present value is not a non-empty string."""
+    if value is not None and (not isinstance(value, str) or not value):
+        raise RuntimeError(message)
+
+
+def _check_default_branch(
+    repository: dict[str, object], default_branch: str, issues: list[str]
+) -> str:
+    """Record drift in the default branch and return the actual one."""
+    actual_default_branch = repository.get("default_branch")
+    if not isinstance(actual_default_branch, str) or not actual_default_branch:
+        raise RuntimeError("Repository metadata must include a string default_branch")
+    if actual_default_branch != default_branch:
+        issues.append(f"default branch is {actual_default_branch!r} instead of {default_branch!r}")
+    return actual_default_branch
+
+
+def _check_pages(
+    pages: dict[str, object], pages_branch: str, issues: list[str]
+) -> dict[str, object]:
+    """Record Pages build and source drift and return the Pages summary fields."""
+    raw_pages_source = pages.get("source")
+    if raw_pages_source is not None and not isinstance(raw_pages_source, dict):
+        raise RuntimeError("Pages source must be a JSON object when present")
+    pages_source = raw_pages_source if isinstance(raw_pages_source, dict) else {}
+    pages_source_branch = pages_source.get("branch")
+    pages_source_path = pages_source.get("path")
+    _optional_nonempty_string(
+        pages_source_branch, "Pages source branch must be a non-empty string when present"
+    )
+    _optional_nonempty_string(
+        pages_source_path, "Pages source path must be a non-empty string when present"
+    )
+    pages_build_type = pages.get("build_type")
+    if not isinstance(pages_build_type, str) or not pages_build_type:
+        raise RuntimeError("Pages settings must include a string build_type")
+    pages_https_enforced = pages.get("https_enforced")
+    if not isinstance(pages_https_enforced, bool):
+        raise RuntimeError("Pages settings must include a boolean https_enforced value")
+    if pages_build_type == "legacy":
+        if pages_source_branch is None:
+            raise RuntimeError("Legacy Pages settings must include a source branch")
+        if pages_source_path is None:
+            raise RuntimeError("Legacy Pages settings must include a source path")
+        if pages_source_branch != pages_branch:
+            issues.append(
+                f"Pages source branch is {pages_source_branch!r} instead of {pages_branch!r}"
+            )
+        if pages_source_path != "/":
+            issues.append(f"Pages source path is {pages_source_path!r} instead of '/'")
+    if pages_build_type != EXPECTED_PAGES_BUILD_TYPE:
+        issues.append(
+            f"Pages build type is {pages_build_type!r} instead of {EXPECTED_PAGES_BUILD_TYPE!r}"
+        )
+    if pages_https_enforced is not True:
+        issues.append("Pages HTTPS is not enforced")
+
+    return {
+        "pages-branch": pages_source_branch,
+        "pages-build-type": pages_build_type,
+        "pages-https-enforced": pages_https_enforced,
+        "pages-path": pages_source_path or "/",
+    }
+
+
+def _check_actions(
+    actions_permissions: dict[str, object],
+    selected_actions: dict[str, object],
+    issues: list[str],
+) -> dict[str, object]:
+    """Record Actions policy drift and return the Actions summary fields."""
+    if actions_permissions.get("enabled") is not True:
+        issues.append("GitHub Actions are not enabled")
+    actions_allowed = actions_permissions.get("allowed_actions")
+    if actions_allowed != EXPECTED_ACTIONS_ALLOWED:
+        issues.append(
+            f"Actions allowed policy is {actions_allowed!r} instead of {EXPECTED_ACTIONS_ALLOWED!r}"
+        )
+    actions_sha_pinning = actions_permissions.get("sha_pinning_required")
+    if actions_sha_pinning is not EXPECTED_ACTIONS_SHA_PINNING:
+        issues.append("Actions are not required to use full-length commit SHAs")
+
+    if selected_actions.get("github_owned_allowed") is not EXPECTED_GITHUB_OWNED_ACTIONS:
+        issues.append("GitHub-owned Actions are not allowed")
+    if selected_actions.get("verified_allowed") is not EXPECTED_VERIFIED_ACTIONS:
+        issues.append("Verified Marketplace Actions are allowed")
+    allowed_action_patterns = extract_allowed_action_patterns(selected_actions)
+    _append_set_drift(
+        issues,
+        actual=allowed_action_patterns,
+        expected=EXPECTED_ACTION_PATTERNS,
+        label="allowed Actions patterns",
+    )
+
+    return {
+        "actions-allowed": actions_allowed,
+        "actions-selected-patterns": sorted(allowed_action_patterns),
+        "actions-sha-pinning-required": actions_sha_pinning,
+    }
+
+
+def _check_pages_environment(
+    pages_environment: dict[str, object],
+    pages_deployment_policies: dict[str, object],
+    issues: list[str],
+) -> list[str]:
+    """Record Pages environment drift and return its sorted deployment policies."""
+    environment_policy = pages_environment.get("deployment_branch_policy")
+    if not isinstance(environment_policy, dict):
+        raise RuntimeError(
+            f"{PAGES_ENVIRONMENT_NAME} environment deployment policy must be a JSON object"
+        )
+    if environment_policy.get("custom_branch_policies") is not True:
+        issues.append(f"{PAGES_ENVIRONMENT_NAME} does not use selected deployment policies")
+    if environment_policy.get("protected_branches") is not False:
+        issues.append(f"{PAGES_ENVIRONMENT_NAME} allows protected-branch-only deployment policy")
+    deployment_policies = extract_deployment_branch_policies(pages_deployment_policies)
+    _append_set_drift(
+        issues,
+        actual=deployment_policies,
+        expected=EXPECTED_PAGES_DEPLOYMENT_POLICIES,
+        label=f"{PAGES_ENVIRONMENT_NAME} deployment policies",
+    )
+    return sorted(deployment_policies)
+
+
+def _check_branch_protection(
+    protection: dict[str, object], default_branch: str, issues: list[str]
+) -> list[str]:
+    """Record default-branch protection drift and return its sorted required checks."""
+    required_checks = extract_required_checks(protection)
+    branch_label = f"{default_branch} branch protection"
+
+    missing_checks = EXPECTED_REQUIRED_CHECKS - required_checks
+    if missing_checks:
+        issues.append(
+            f"{branch_label} is missing required checks: " + ", ".join(sorted(missing_checks))
+        )
+
+    review_settings = protection.get("required_pull_request_reviews")
+    if review_settings is None:
+        issues.append(f"{branch_label} does not require at least 1 approving review")
+    elif not isinstance(review_settings, dict):
+        raise RuntimeError("Branch protection review settings must be a JSON object")
+    else:
+        approvals = review_settings.get("required_approving_review_count", 0)
+        if not isinstance(approvals, int) or isinstance(approvals, bool):
+            raise RuntimeError("Branch protection approval count must be an integer")
+        if approvals < 1:
+            issues.append(f"{branch_label} does not require at least 1 approving review")
+
+    for key, message in (
+        ("required_signatures", f"{branch_label} does not require signed commits"),
+        ("required_linear_history", f"{branch_label} does not require linear history"),
+        (
+            "required_conversation_resolution",
+            f"{branch_label} does not require conversation resolution",
+        ),
+    ):
+        setting = protection.get(key)
+        if not isinstance(setting, dict) or setting.get("enabled") is not True:
+            issues.append(message)
+
+    return sorted(required_checks)
+
+
+def _check_pages_ruleset(
+    detailed_rulesets: list[object], pages_branch: str, issues: list[str]
+) -> list[str]:
+    """Record a missing or incomplete Pages-branch ruleset and return its sorted rule types."""
+    pages_ruleset = next(
+        (ruleset for ruleset in detailed_rulesets if ruleset_targets_branch(ruleset, pages_branch)),
+        None,
+    )
+    if pages_ruleset is None:
+        issues.append(f"no branch ruleset explicitly targets {pages_branch!r}")
+        return []
+
+    pages_rule_types = extract_ruleset_rule_types(pages_ruleset)
+    missing_pages_rules = EXPECTED_PAGES_RULESET_RULES - pages_rule_types
+    if missing_pages_rules:
+        issues.append(
+            f"{pages_branch!r} ruleset is missing rules: " + ", ".join(sorted(missing_pages_rules))
+        )
+    return sorted(pages_rule_types)
+
+
+def _append_set_drift(
+    issues: list[str], *, actual: set[str], expected: set[str], label: str
+) -> None:
+    """Append issues for both missing and unexpected items."""
+    append_missing_items(issues, actual=actual, expected=expected, label=label)
+    append_unexpected_items(issues, actual=actual, expected=expected, label=label)
+
+
 def audit_repo_settings(
     *,
     repo: str,
@@ -315,139 +517,40 @@ def audit_repo_settings(
         required_permission="administration: read",
     )
 
-    require_response_type(repository, dict, "Repository metadata must be a JSON object")
-    require_response_type(pages, dict, "Pages settings must be a JSON object")
-    require_response_type(actions_permissions, dict, "Actions permissions must be a JSON object")
-    require_response_type(selected_actions, dict, "Selected Actions settings must be a JSON object")
-    require_response_type(
-        pages_environment, dict, f"{PAGES_ENVIRONMENT_NAME} environment must be a JSON object"
+    repository = _require_object(repository, "Repository metadata must be a JSON object")
+    pages = _require_object(pages, "Pages settings must be a JSON object")
+    actions_permissions = _require_object(
+        actions_permissions, "Actions permissions must be a JSON object"
     )
-    require_response_type(protection, dict, "Branch protection settings must be a JSON object")
-    require_response_type(variables, dict, "Actions variables response must be a JSON object")
-    require_response_type(secrets, dict, "Actions secrets response must be a JSON object")
+    selected_actions = _require_object(
+        selected_actions, "Selected Actions settings must be a JSON object"
+    )
+    pages_environment = _require_object(
+        pages_environment, f"{PAGES_ENVIRONMENT_NAME} environment must be a JSON object"
+    )
+    protection = _require_object(protection, "Branch protection settings must be a JSON object")
+    variables = _require_object(variables, "Actions variables response must be a JSON object")
+    secrets = _require_object(secrets, "Actions secrets response must be a JSON object")
     require_response_type(rulesets, list, "Rulesets response must be a JSON array")
-    require_response_type(
+    rulesets = cast("list[object]", rulesets)
+    pages_deployment_policies = _require_object(
         pages_deployment_policies,
-        dict,
         f"{PAGES_ENVIRONMENT_NAME} deployment policies must be a JSON object",
     )
-
-    repository = cast("dict[str, object]", repository)
-    pages = cast("dict[str, object]", pages)
-    actions_permissions = cast("dict[str, object]", actions_permissions)
-    selected_actions = cast("dict[str, object]", selected_actions)
-    pages_environment = cast("dict[str, object]", pages_environment)
-    protection = cast("dict[str, object]", protection)
-    variables = cast("dict[str, object]", variables)
-    secrets = cast("dict[str, object]", secrets)
-    rulesets = cast("list[object]", rulesets)
-    pages_deployment_policies = cast("dict[str, object]", pages_deployment_policies)
     detailed_rulesets = [
         load_ruleset_detail(repo, ruleset, run_gh_api_json_fn=run_gh_api_json_fn)
         for ruleset in rulesets
     ]
 
-    issues = []
-    actual_default_branch = repository.get("default_branch")
-    if not isinstance(actual_default_branch, str) or not actual_default_branch:
-        raise RuntimeError("Repository metadata must include a string default_branch")
-    if actual_default_branch != default_branch:
-        issues.append(f"default branch is {actual_default_branch!r} instead of {default_branch!r}")
-
-    raw_pages_source = pages.get("source")
-    if raw_pages_source is not None and not isinstance(raw_pages_source, dict):
-        raise RuntimeError("Pages source must be a JSON object when present")
-    pages_source = raw_pages_source if isinstance(raw_pages_source, dict) else {}
-    pages_source_branch = pages_source.get("branch")
-    pages_source_path = pages_source.get("path")
-    if pages_source_branch is not None and (
-        not isinstance(pages_source_branch, str) or not pages_source_branch
-    ):
-        raise RuntimeError("Pages source branch must be a non-empty string when present")
-    if pages_source_path is not None and (
-        not isinstance(pages_source_path, str) or not pages_source_path
-    ):
-        raise RuntimeError("Pages source path must be a non-empty string when present")
-    pages_build_type = pages.get("build_type")
-    if not isinstance(pages_build_type, str) or not pages_build_type:
-        raise RuntimeError("Pages settings must include a string build_type")
-    pages_https_enforced = pages.get("https_enforced")
-    if not isinstance(pages_https_enforced, bool):
-        raise RuntimeError("Pages settings must include a boolean https_enforced value")
-    if pages_build_type == "legacy":
-        if pages_source_branch is None:
-            raise RuntimeError("Legacy Pages settings must include a source branch")
-        if pages_source_path is None:
-            raise RuntimeError("Legacy Pages settings must include a source path")
-        if pages_source_branch != pages_branch:
-            issues.append(
-                f"Pages source branch is {pages_source_branch!r} instead of {pages_branch!r}"
-            )
-        if pages_source_path != "/":
-            issues.append(f"Pages source path is {pages_source_path!r} instead of '/'")
-    if pages_build_type != EXPECTED_PAGES_BUILD_TYPE:
-        issues.append(
-            f"Pages build type is {pages_build_type!r} instead of {EXPECTED_PAGES_BUILD_TYPE!r}"
-        )
-    if pages_https_enforced is not True:
-        issues.append("Pages HTTPS is not enforced")
-
-    pages_source_path = pages_source_path or "/"
-
-    actions_enabled = actions_permissions.get("enabled")
-    if actions_enabled is not True:
-        issues.append("GitHub Actions are not enabled")
-    actions_allowed = actions_permissions.get("allowed_actions")
-    if actions_allowed != EXPECTED_ACTIONS_ALLOWED:
-        issues.append(
-            f"Actions allowed policy is {actions_allowed!r} instead of {EXPECTED_ACTIONS_ALLOWED!r}"
-        )
-    actions_sha_pinning = actions_permissions.get("sha_pinning_required")
-    if actions_sha_pinning is not EXPECTED_ACTIONS_SHA_PINNING:
-        issues.append("Actions are not required to use full-length commit SHAs")
-
-    github_owned_allowed = selected_actions.get("github_owned_allowed")
-    if github_owned_allowed is not EXPECTED_GITHUB_OWNED_ACTIONS:
-        issues.append("GitHub-owned Actions are not allowed")
-    verified_allowed = selected_actions.get("verified_allowed")
-    if verified_allowed is not EXPECTED_VERIFIED_ACTIONS:
-        issues.append("Verified Marketplace Actions are allowed")
-    allowed_action_patterns = extract_allowed_action_patterns(selected_actions)
-    append_missing_items(
-        issues,
-        actual=allowed_action_patterns,
-        expected=EXPECTED_ACTION_PATTERNS,
-        label="allowed Actions patterns",
-    )
-    append_unexpected_items(
-        issues,
-        actual=allowed_action_patterns,
-        expected=EXPECTED_ACTION_PATTERNS,
-        label="allowed Actions patterns",
-    )
-
-    environment_policy = pages_environment.get("deployment_branch_policy")
-    if not isinstance(environment_policy, dict):
-        raise RuntimeError(
-            f"{PAGES_ENVIRONMENT_NAME} environment deployment policy must be a JSON object"
-        )
-    if environment_policy.get("custom_branch_policies") is not True:
-        issues.append(f"{PAGES_ENVIRONMENT_NAME} does not use selected deployment policies")
-    if environment_policy.get("protected_branches") is not False:
-        issues.append(f"{PAGES_ENVIRONMENT_NAME} allows protected-branch-only deployment policy")
-    deployment_policies = extract_deployment_branch_policies(pages_deployment_policies)
-    append_missing_items(
-        issues,
-        actual=deployment_policies,
-        expected=EXPECTED_PAGES_DEPLOYMENT_POLICIES,
-        label=f"{PAGES_ENVIRONMENT_NAME} deployment policies",
-    )
-    append_unexpected_items(
-        issues,
-        actual=deployment_policies,
-        expected=EXPECTED_PAGES_DEPLOYMENT_POLICIES,
-        label=f"{PAGES_ENVIRONMENT_NAME} deployment policies",
-    )
+    issues: list[str] = []
+    summary: dict[str, object] = {
+        "default-branch": _check_default_branch(repository, default_branch, issues),
+        **_check_pages(pages, pages_branch, issues),
+        **_check_actions(actions_permissions, selected_actions, issues),
+        "github-pages-deployment-policies": _check_pages_environment(
+            pages_environment, pages_deployment_policies, issues
+        ),
+    }
 
     security_features = enabled_security_features(repository)
     append_missing_items(
@@ -456,87 +559,26 @@ def audit_repo_settings(
         expected=EXPECTED_SECURITY_ANALYSIS,
         label="security and analysis features",
     )
+    summary["security-features"] = sorted(security_features)
+    summary["required-checks"] = _check_branch_protection(protection, default_branch, issues)
 
-    required_checks = extract_required_checks(protection)
-    branch_label = f"{default_branch} branch protection"
-
-    missing_checks = EXPECTED_REQUIRED_CHECKS - required_checks
-    if missing_checks:
-        issues.append(
-            f"{branch_label} is missing required checks: " + ", ".join(sorted(missing_checks))
-        )
-
-    review_settings = protection.get("required_pull_request_reviews")
-    if review_settings is None:
-        issues.append(f"{branch_label} does not require at least 1 approving review")
-    elif not isinstance(review_settings, dict):
-        raise RuntimeError("Branch protection review settings must be a JSON object")
-    else:
-        approvals = review_settings.get("required_approving_review_count", 0)
-        if not isinstance(approvals, int) or isinstance(approvals, bool):
-            raise RuntimeError("Branch protection approval count must be an integer")
-        if approvals < 1:
-            issues.append(f"{branch_label} does not require at least 1 approving review")
-
-    for key, message in (
-        ("required_signatures", f"{branch_label} does not require signed commits"),
-        ("required_linear_history", f"{branch_label} does not require linear history"),
-        (
-            "required_conversation_resolution",
-            f"{branch_label} does not require conversation resolution",
-        ),
-    ):
-        setting = protection.get(key)
-        if not isinstance(setting, dict) or setting.get("enabled") is not True:
-            issues.append(message)
-
-    variable_names = collect_named_items(variables, "variables")
     append_missing_items(
         issues,
-        actual=variable_names,
+        actual=collect_named_items(variables, "variables"),
         expected=EXPECTED_REPOSITORY_VARIABLES,
         label="repository variables",
     )
-
-    secret_names = collect_named_items(secrets, "secrets")
     append_missing_items(
         issues,
-        actual=secret_names,
+        actual=collect_named_items(secrets, "secrets"),
         expected=EXPECTED_REPOSITORY_SECRETS,
         label="repository secrets",
     )
 
-    pages_ruleset = next(
-        (ruleset for ruleset in detailed_rulesets if ruleset_targets_branch(ruleset, pages_branch)),
-        None,
-    )
-    if pages_ruleset is None:
-        issues.append(f"no branch ruleset explicitly targets {pages_branch!r}")
-    else:
-        pages_rule_types = extract_ruleset_rule_types(pages_ruleset)
-        missing_pages_rules = EXPECTED_PAGES_RULESET_RULES - pages_rule_types
-        if missing_pages_rules:
-            issues.append(
-                f"{pages_branch!r} ruleset is missing rules: "
-                + ", ".join(sorted(missing_pages_rules))
-            )
+    pages_rule_types = _check_pages_ruleset(detailed_rulesets, pages_branch, issues)
 
     if issues:
         issue_list = "\n- ".join(issues)
         raise ValueError(f"Repository settings audit failed:\n- {issue_list}")
 
-    return {
-        "default-branch": actual_default_branch,
-        "actions-allowed": actions_allowed,
-        "actions-selected-patterns": sorted(allowed_action_patterns),
-        "actions-sha-pinning-required": actions_sha_pinning,
-        "gh-pages-rules": sorted(extract_ruleset_rule_types(pages_ruleset)),
-        "github-pages-deployment-policies": sorted(deployment_policies),
-        "pages-branch": pages_source_branch,
-        "pages-build-type": pages_build_type,
-        "pages-https-enforced": pages_https_enforced,
-        "pages-path": pages_source_path,
-        "required-checks": sorted(required_checks),
-        "security-features": sorted(security_features),
-        "gh-pages-ruleset": True,
-    }
+    return {**summary, "gh-pages-rules": pages_rule_types, "gh-pages-ruleset": True}

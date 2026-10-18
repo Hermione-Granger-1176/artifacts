@@ -316,29 +316,9 @@ def _check_status(
             raise GhError("Unexpected check entry shape in PR view response.")
         validated.append(entry)
         identities.add(_check_identity(entry, ordinal))
-        if "status" in entry:
-            status = entry.get("status")
-            if not isinstance(status, str):
-                raise GhError("A check run is missing a string status.")
-            if status != "COMPLETED":
-                settled = False
-                successful = False
-                continue
-            conclusion = entry.get("conclusion")
-            if not isinstance(conclusion, str):
-                raise GhError("A completed check run is missing a string conclusion.")
-            if conclusion not in _SUCCESSFUL_CHECK_OUTCOMES:
-                successful = False
-            continue
-
-        state = entry.get("state")
-        if not isinstance(state, str):
-            raise GhError("A status context is missing a string state.")
-        if state in _PENDING_STATES:
-            settled = False
-            successful = False
-        elif state != "SUCCESS":
-            successful = False
+        entry_settled, entry_successful = _check_entry_outcome(entry)
+        settled = settled and entry_settled
+        successful = successful and entry_successful
 
     return (
         settled,
@@ -347,6 +327,31 @@ def _check_status(
         pr_review.rollup_summary(validated),
         frozenset(identities),
     )
+
+
+def _check_entry_outcome(entry: dict[str, Any]) -> tuple[bool, bool]:
+    """Return whether one rollup entry has finished, and whether it passed.
+
+    Check runs report ``status`` and ``conclusion``; status contexts report
+    ``state``. An unfinished entry is never successful.
+    """
+    if "status" in entry:
+        status = entry.get("status")
+        if not isinstance(status, str):
+            raise GhError("A check run is missing a string status.")
+        if status != "COMPLETED":
+            return False, False
+        conclusion = entry.get("conclusion")
+        if not isinstance(conclusion, str):
+            raise GhError("A completed check run is missing a string conclusion.")
+        return True, conclusion in _SUCCESSFUL_CHECK_OUTCOMES
+
+    state = entry.get("state")
+    if not isinstance(state, str):
+        raise GhError("A status context is missing a string state.")
+    if state in _PENDING_STATES:
+        return False, False
+    return True, state == "SUCCESS"
 
 
 def _check_identity(entry: dict[str, Any], ordinal: int) -> str:
@@ -458,6 +463,23 @@ def _watch_report(
     )
 
 
+def _waiting_for_review_threads(
+    review: CopilotReview | None,
+    all_threads: list[pr_review.ReviewThread],
+    baseline_thread_ids: frozenset[str],
+) -> bool:
+    """Return whether threads the fresh review created have not all appeared yet."""
+    if review is not None and review.is_v2_overview and review.generated_comment_count is not None:
+        # A v2 overview links the threads it lists, so wait for exactly those.
+        # Their state, author, and age do not matter.
+        anchors = {thread.url.rpartition("#")[2] for thread in all_threads}
+        return not review.open_discussions <= anchors
+
+    review_count = review.generated_comment_count if review is not None else 0
+    fresh_thread_count = sum(thread.thread_id not in baseline_thread_ids for thread in all_threads)
+    return review_count is not None and review_count > fresh_thread_count
+
+
 def watch_pr(
     pr: int | None = None,
     *,
@@ -520,30 +542,11 @@ def watch_pr(
         else:
             rollup_stable = False
             previous_check_ids = None
-        ready_for_threads = (
-            status.checks_settled
-            and rollup_stable
-            and (checks_only or status.fresh_review is not None)
-        )
-        if ready_for_threads:
+        review_ready = checks_only or status.fresh_review is not None
+        if status.checks_settled and rollup_stable and review_ready:
             all_threads = pr_review.list_threads(pr, include_resolved=True, run_fn=run_fn)
             review = status.fresh_review
-            if (
-                review is not None
-                and review.is_v2_overview
-                and review.generated_comment_count is not None
-            ):
-                # A v2 overview links the threads it lists, so wait for exactly those.
-                # Their state, author, and age do not matter.
-                anchors = {thread.url.rpartition("#")[2] for thread in all_threads}
-                waiting_for_threads = not review.open_discussions <= anchors
-            else:
-                review_count = review.generated_comment_count if review is not None else 0
-                fresh_thread_count = sum(
-                    thread.thread_id not in baseline.thread_ids for thread in all_threads
-                )
-                waiting_for_threads = review_count is not None and review_count > fresh_thread_count
-            if not waiting_for_threads:
+            if not _waiting_for_review_threads(review, all_threads, baseline.thread_ids):
                 if review is not None and review.generated_comment_count is None:
                     raise GhError(
                         "The fresh Copilot review overview could not be classified; "
@@ -565,11 +568,7 @@ def watch_pr(
             # delay instead, so a finished PR settles in seconds rather than one
             # poll cycle, while still giving a late-registering check a chance to
             # appear before success is declared.
-            confirming = (
-                status.checks_settled
-                and not rollup_stable
-                and (checks_only or status.fresh_review is not None)
-            )
+            confirming = status.checks_settled and not rollup_stable and review_ready
             sleeper(min(interval, CONFIRM_DELAY_SECONDS) if confirming else interval)
 
     raise GhError(

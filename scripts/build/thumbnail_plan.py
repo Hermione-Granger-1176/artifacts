@@ -211,6 +211,61 @@ def thumbnail_persist_decision(
     return decide()
 
 
+def _runtime_plan_or_full(
+    *,
+    force_full: bool,
+    base_sha: str,
+    head_sha: str,
+    list_changed_files_fn: Callable[..., list[str]],
+    runtime_change_plan_fn: Callable[..., dict[str, object]],
+) -> tuple[dict[str, object], bool]:
+    """Return the change plan and whether a diff was available.
+
+    A requested full run, or a diff that cannot be read, falls back to the plan
+    that treats every app as changed.
+    """
+    if force_full:
+        return full_impact_plan(), False
+    try:
+        changed_files = list_changed_files_fn(base_sha=base_sha, head_sha=head_sha)
+        return runtime_change_plan_fn(changed_files), True
+    except (OSError, RuntimeError, subprocess.SubprocessError):
+        return full_impact_plan(), False
+
+
+def _is_thumbnail_only_commit(
+    *,
+    actor: str,
+    app_bot_login: str,
+    repo: str,
+    commit_sha: str,
+    associated_pr_kind: str,
+    list_commit_files_fn: Callable[..., list[str]],
+) -> bool:
+    """Detect automated thumbnail-only commits that need no verification.
+
+    For PRs: the actor must be the trusted app bot and the commit must contain
+    only thumbnail files. For main pushes: the PR provenance must be a
+    thumbnail-followup and the merge commit must contain only thumbnail files.
+    Any detection failure defaults to False (full run).
+    """
+    if is_automated_thumbnail_commit(
+        actor=actor,
+        app_bot_login=app_bot_login,
+        repo=repo,
+        commit_sha=commit_sha,
+        list_commit_files_fn=list_commit_files_fn,
+    ):
+        return True
+    if associated_pr_kind != "thumbnail-followup":
+        return False
+    try:
+        commit_files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
+    except Exception:
+        commit_files = []
+    return _all_thumbnail_files(commit_files)
+
+
 def thumbnail_plan(
     *,
     event_name: str,
@@ -234,15 +289,13 @@ def thumbnail_plan(
     """Return the strict thumbnail automation plan for one workflow event."""
     del pr_number
     apps_root = apps_root or Path(artifact_base_path())
-    comparison_available = not force_full
-    try:
-        if force_full:
-            raise RuntimeError("Full verification was requested")
-        changed_files = list_changed_files_fn(base_sha=base_sha, head_sha=head_sha)
-        runtime_plan = runtime_change_plan_fn(changed_files)
-    except (OSError, RuntimeError, subprocess.SubprocessError):
-        comparison_available = False
-        runtime_plan = full_impact_plan()
+    runtime_plan, comparison_available = _runtime_plan_or_full(
+        force_full=force_full,
+        base_sha=base_sha,
+        head_sha=head_sha,
+        list_changed_files_fn=list_changed_files_fn,
+        runtime_change_plan_fn=runtime_change_plan_fn,
+    )
     changed_slugs = cast("list[str]", runtime_plan["changed_slugs"])
     runtime_changed = cast("bool", runtime_plan["runtime_changed"])
     shared_runtime_changed = cast("bool", runtime_plan["shared_runtime_changed"])
@@ -261,24 +314,14 @@ def thumbnail_plan(
         associated_pr_kind=associated_pr_kind,
     )
 
-    # Detect automated thumbnail-only commits that need no verification.
-    # For PRs: the actor must be the trusted app bot and the commit must
-    # contain only thumbnail files. For main pushes: the PR provenance
-    # must be a thumbnail-followup and the merge commit must contain only
-    # thumbnail files. Any detection failure defaults to False (full run).
-    skip_verification = not force_full and is_automated_thumbnail_commit(
+    skip_verification = not force_full and _is_thumbnail_only_commit(
         actor=actor,
         app_bot_login=app_bot_login,
         repo=repo,
         commit_sha=commit_sha,
+        associated_pr_kind=associated_pr_kind,
         list_commit_files_fn=list_commit_files_fn,
     )
-    if not force_full and not skip_verification and associated_pr_kind == "thumbnail-followup":
-        try:
-            commit_files = list_commit_files_fn(repo=repo, commit_sha=commit_sha)
-        except Exception:
-            commit_files = []
-        skip_verification = _all_thumbnail_files(commit_files)
 
     return {
         "app_scope": cast("str", runtime_plan["app_scope"]),

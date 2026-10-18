@@ -473,6 +473,16 @@ def sync_alert_issue(
     )
 
 
+def _add_change_event_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the event and commit-range arguments the thumbnail commands read changes from."""
+    parser.add_argument("--event-name", required=True)
+    parser.add_argument("--repo", required=True)
+    parser.add_argument("--pr-number", default="")
+    parser.add_argument("--commit-sha", default="")
+    parser.add_argument("--base-sha", default="")
+    parser.add_argument("--head-sha", default="")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Workflow helper commands")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -508,23 +518,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "invalidate-thumbnails",
         help="Delete stale thumbnails for apps with runtime or shared shell changes",
     )
-    thumb_parser.add_argument("--event-name", required=True)
-    thumb_parser.add_argument("--repo", required=True)
-    thumb_parser.add_argument("--pr-number", default="")
-    thumb_parser.add_argument("--commit-sha", default="")
-    thumb_parser.add_argument("--base-sha", default="")
-    thumb_parser.add_argument("--head-sha", default="")
+    _add_change_event_arguments(thumb_parser)
 
     thumbnail_plan_parser = subparsers.add_parser(
         "thumbnail-plan",
         help="Plan thumbnail generation and persistence for changed files",
     )
-    thumbnail_plan_parser.add_argument("--event-name", required=True)
-    thumbnail_plan_parser.add_argument("--repo", required=True)
-    thumbnail_plan_parser.add_argument("--pr-number", default="")
-    thumbnail_plan_parser.add_argument("--commit-sha", default="")
-    thumbnail_plan_parser.add_argument("--base-sha", default="")
-    thumbnail_plan_parser.add_argument("--head-sha", default="")
+    _add_change_event_arguments(thumbnail_plan_parser)
     thumbnail_plan_parser.add_argument("--head-repo-fork", default="false")
     thumbnail_plan_parser.add_argument("--pr-author", default="")
     thumbnail_plan_parser.add_argument("--actor", default="")

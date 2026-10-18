@@ -86,6 +86,17 @@ def _venv_python_path(venv_python: str, root: Path) -> Path:
     return candidate if candidate.is_absolute() else root / candidate
 
 
+def _write_output(
+    out: TextIO, result: subprocess.CompletedProcess[str] | None, unavailable: str
+) -> None:
+    """Copy a command's stdout and stderr to ``out``, or say it could not be launched."""
+    if result is None:
+        print(unavailable, file=out)
+        return
+    out.write(result.stdout)
+    out.write(result.stderr)
+
+
 def write_status(
     out: TextIO,
     *,
@@ -106,11 +117,7 @@ def write_status(
     # --- Git ---
     emit("=== Git ===")
     git = _succeeds(["git", "status", "-sb"], cwd=root, run_fn=run)
-    if git is None:
-        emit("UNAVAILABLE: git could not be launched")
-    else:
-        out.write(git.stdout)
-        out.write(git.stderr)
+    _write_output(out, git, "UNAVAILABLE: git could not be launched")
     emit()
 
     # --- Venv ---
@@ -150,11 +157,7 @@ def write_status(
         # Old shell ran ``$(GH) summary || true``: any failure, including a
         # launch failure, is swallowed and the target still succeeds. The
         # launch failure remains visible so the report is actionable.
-        if summary is None:
-            emit(f"UNAVAILABLE: {venv_python} could not be launched")
-        else:
-            out.write(summary.stdout)
-            out.write(summary.stderr)
+        _write_output(out, summary, f"UNAVAILABLE: {venv_python} could not be launched")
     else:
         emit("SKIPPED: venv missing, run make setup")
 
