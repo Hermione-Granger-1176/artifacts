@@ -22,6 +22,13 @@ from scripts.lib import gh_policy
         ("HTTP 501: Not Implemented", "fatal"),
         ("HTTP 429: Too Many Requests", "rate_limit"),
         ("429 Too Many Requests", "rate_limit"),
+        (
+            "HTTP 403: GitHub GraphQL is not available from Claude Code sessions; "
+            "use the REST API (https://api.github.com/graphql)",
+            "graphql_unavailable",
+        ),
+        # An ordinary 403 is not a blocked GraphQL endpoint and must not switch paths.
+        ("HTTP 403: Forbidden", "fatal"),
     ],
 )
 def test_classify_gh_failure_covers_each_shared_outcome(message: str, expected: str) -> None:

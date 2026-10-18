@@ -3,7 +3,8 @@
 Both the workflow helpers and the interactive GitHub CLI wrappers invoke
 ``gh``. Keeping their retry decisions here makes rate-limit handling
 consistent: rate limits always fail fast, transient infrastructure failures
-can retry, and all other errors are final.
+can retry, and all other errors are final. A blocked GraphQL endpoint is its
+own kind, so the interactive wrappers can switch to REST instead of retrying.
 """
 
 from __future__ import annotations
@@ -13,12 +14,15 @@ import re
 from collections.abc import Callable
 from typing import Literal
 
-type GhFailureKind = Literal["rate_limit", "transient", "forbidden", "fatal"]
+type GhFailureKind = Literal["graphql_unavailable", "rate_limit", "transient", "forbidden", "fatal"]
 type RandomFunction = Callable[[], float]
 
-# Rules are checked in order. A rate-limit message can also mention HTTP 403,
-# so it must win before the permission-specific rule.
+# Rules are checked in order. A blocked GraphQL endpoint answers with an HTTP 403
+# whose text names the REST routes to use instead, so it is matched on that text
+# before any rule that reads the status code. A rate-limit message can also
+# mention HTTP 403, so it must win before the permission-specific rule.
 GH_FAILURE_CLASSIFIERS: tuple[tuple[GhFailureKind, re.Pattern[str]], ...] = (
+    ("graphql_unavailable", re.compile(r"GraphQL is not available", re.IGNORECASE)),
     (
         "rate_limit",
         re.compile(
@@ -63,7 +67,10 @@ RETRY_BACKOFF_JITTER_SECONDS = 0.5
 
 
 def classify_gh_failure(message: str) -> GhFailureKind:
-    """Classify a GitHub CLI failure as rate-limited, transient, forbidden, or fatal."""
+    """Classify a GitHub CLI failure.
+
+    The kinds are GraphQL-unavailable, rate-limited, transient, forbidden, or fatal.
+    """
     for kind, pattern in GH_FAILURE_CLASSIFIERS:
         if pattern.search(message):
             return kind

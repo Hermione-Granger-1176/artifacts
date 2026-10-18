@@ -11,6 +11,6 @@ For a first review of the repository, the documents follow this order:
 5. [Quality checks](checks.md): reference for check targets, scope, and configuration
 6. [`maintenance.md`](maintenance.md): reference for long-term stability contracts and periodic upkeep
 7. [`style.md`](style.md): reference for editor configuration and language conventions
-8. [`adr/`](adr/): reference for accepted architecture decision records (numbered `0001` through `0006`)
+8. [`adr/`](adr/): reference for accepted architecture decision records (numbered `0001` through `0008`)
 
 Each concern has one owning document. Other documents link to that source instead of repeating its policy.

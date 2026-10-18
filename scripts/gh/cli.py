@@ -13,7 +13,16 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from . import ci_status, commit_message, issues, pr_review, pr_watch
+from . import (
+    ci_status,
+    commit_message,
+    gh_runner,
+    issue_commands,
+    issues,
+    pr_commands,
+    pr_review,
+    pr_watch,
+)
 from .gh_runner import GhError
 
 
@@ -24,6 +33,31 @@ def _add_body_options(parser: argparse.ArgumentParser, *, required: bool = True)
     body_group.add_argument(
         "--body-file", help="Path to a file containing the body text (- reads stdin)"
     )
+
+
+def _add_pr_option(parser: argparse.ArgumentParser, *, required: bool = False) -> None:
+    """Add the shared ``--pr`` option (the current branch's PR when omitted)."""
+    parser.add_argument(
+        "--pr",
+        type=int,
+        required=required,
+        help="PR number" if required else "PR number (default: current branch)",
+    )
+
+
+def _add_thread_options(parser: argparse.ArgumentParser) -> None:
+    """Add the thread id and PR options shared by the reply, resolve, and address commands."""
+    parser.add_argument(
+        "--thread",
+        required=True,
+        help="Thread id (PRRT_..., or the numeric id printed when GraphQL is unavailable)",
+    )
+    _add_pr_option(parser)
+
+
+def _add_issue_option(parser: argparse.ArgumentParser) -> None:
+    """Add the required ``--issue`` number option."""
+    parser.add_argument("--issue", type=int, required=True, help="Issue number")
 
 
 def _body_text(args: argparse.Namespace) -> str:
@@ -57,16 +91,16 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     reply_parser = subparsers.add_parser("reply", help="Reply to a review thread by id")
-    reply_parser.add_argument("--thread", required=True, help="Thread id (PRRT_...)")
+    _add_thread_options(reply_parser)
     _add_body_options(reply_parser)
 
     resolve_parser = subparsers.add_parser("resolve", help="Resolve a review thread by id")
-    resolve_parser.add_argument("--thread", required=True, help="Thread id (PRRT_...)")
+    _add_thread_options(resolve_parser)
 
     address_parser = subparsers.add_parser(
         "address", help="Reply to and resolve a review thread in one step"
     )
-    address_parser.add_argument("--thread", required=True, help="Thread id (PRRT_...)")
+    _add_thread_options(address_parser)
     _add_body_options(address_parser)
 
     list_comments_parser = subparsers.add_parser(
@@ -81,7 +115,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "delete-comment", help="Delete a review comment by its node id"
     )
     delete_comment_parser.add_argument(
-        "--comment", required=True, help="Comment node id (PRRC_...)"
+        "--comment", required=True, help="Comment node id (PRRC_...) or numeric id"
     )
 
     comment_parser = subparsers.add_parser("comment", help="Add a PR-level comment")
@@ -157,6 +191,131 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to the commit message (- reads stdin)",
     )
 
+    subparsers.add_parser("current-pr", help="Print the current branch's PR number")
+
+    pr_create_parser = subparsers.add_parser("pr-create", help="Open a pull request")
+    pr_create_parser.add_argument("--base", help="Base branch (default: the repository default)")
+    pr_create_parser.add_argument(
+        "--title",
+        help="PR title; the body is then read from --body-file (default: fill from commits)",
+    )
+    _add_body_options(pr_create_parser, required=False)
+
+    subparsers.add_parser("pr-list", help="List open pull requests")
+
+    pr_status_parser = subparsers.add_parser("pr-status", help="Show a PR's CI checks")
+    _add_pr_option(pr_status_parser)
+
+    pr_checks_parser = subparsers.add_parser(
+        "pr-checks", help="Watch a PR's CI checks until they finish or one fails"
+    )
+    _add_pr_option(pr_checks_parser)
+    pr_checks_parser.add_argument(
+        "--interval",
+        type=float,
+        default=pr_commands.CHECKS_INTERVAL_SECONDS,
+        help="Poll interval in seconds (REST fallback)",
+    )
+    pr_checks_parser.add_argument(
+        "--max-polls",
+        type=int,
+        default=pr_commands.CHECKS_MAX_POLLS,
+        help="Maximum poll count (REST fallback)",
+    )
+
+    pr_diff_parser = subparsers.add_parser("pr-diff", help="Show a PR's diff")
+    _add_pr_option(pr_diff_parser)
+
+    pr_checkout_parser = subparsers.add_parser("pr-checkout", help="Check out a PR's branch")
+    _add_pr_option(pr_checkout_parser, required=True)
+
+    pr_comments_parser = subparsers.add_parser(
+        "pr-comments", help="Show a PR with its comments and review summaries"
+    )
+    _add_pr_option(pr_comments_parser)
+
+    pr_merge_parser = subparsers.add_parser(
+        "pr-merge", help="Squash-merge a PR and delete its branch"
+    )
+    _add_pr_option(pr_merge_parser)
+    pr_merge_parser.add_argument(
+        "--admin", action="store_true", help="Merge past branch protection with admin rights"
+    )
+
+    pr_reviewers_parser = subparsers.add_parser("pr-reviewers", help="Request PR reviewers")
+    _add_pr_option(pr_reviewers_parser)
+    pr_reviewers_parser.add_argument("--users", required=True, help="Comma-separated reviewers")
+
+    pr_label_parser = subparsers.add_parser("pr-label", help="Add labels to a PR")
+    _add_pr_option(pr_label_parser)
+    pr_label_parser.add_argument("--labels", required=True, help="Comma-separated labels")
+
+    pr_close_parser = subparsers.add_parser("pr-close", help="Close a PR and delete its branch")
+    _add_pr_option(pr_close_parser)
+
+    issue_list_parser = subparsers.add_parser("issue-list", help="List issues")
+    issue_list_parser.add_argument("--state", help="open, closed, or all")
+    issue_list_parser.add_argument("--label", help="Comma-separated labels")
+    issue_list_parser.add_argument(
+        "--assignee", action="append", help="Assignee login or @me (repeatable)"
+    )
+    issue_list_parser.add_argument("--author", help="Author login")
+    issue_list_parser.add_argument("--limit", type=int, help="Maximum issues to list")
+    issue_list_parser.add_argument("--search", help="Free-text search query")
+
+    issue_view_parser = subparsers.add_parser("issue-view", help="Show an issue with its comments")
+    _add_issue_option(issue_view_parser)
+
+    issue_create_parser = subparsers.add_parser("issue-create", help="Open an issue")
+    issue_create_parser.add_argument("--title", required=True, help="Issue title")
+    issue_create_parser.add_argument("--labels", help="Comma-separated labels")
+    issue_create_parser.add_argument("--assignee", help="Assignee login or @me")
+    _add_body_options(issue_create_parser)
+
+    issue_comment_parser = subparsers.add_parser("issue-comment", help="Comment on an issue")
+    _add_issue_option(issue_comment_parser)
+    _add_body_options(issue_comment_parser)
+
+    issue_edit_parser = subparsers.add_parser("issue-edit", help="Edit an issue title and/or body")
+    _add_issue_option(issue_edit_parser)
+    issue_edit_parser.add_argument("--title", help="New issue title")
+    _add_body_options(issue_edit_parser, required=False)
+
+    for command, summary in (
+        ("issue-label", "Add labels to an issue"),
+        ("issue-unlabel", "Remove labels from an issue"),
+    ):
+        label_parser = subparsers.add_parser(command, help=summary)
+        _add_issue_option(label_parser)
+        label_parser.add_argument("--labels", required=True, help="Comma-separated labels")
+
+    for command, summary in (
+        ("issue-assign", "Assign users to an issue"),
+        ("issue-unassign", "Remove assignees from an issue"),
+    ):
+        assign_parser = subparsers.add_parser(command, help=summary)
+        _add_issue_option(assign_parser)
+        assign_parser.add_argument("--users", help="Comma-separated logins")
+        assign_parser.add_argument("--mine", action="store_true", help="Use the authenticated user")
+
+    issue_close_parser = subparsers.add_parser("issue-close", help="Close an issue")
+    _add_issue_option(issue_close_parser)
+    issue_close_parser.add_argument("--reason", help="completed or 'not planned'")
+    issue_close_parser.add_argument("--comment", help="Comment to post when closing")
+
+    issue_reopen_parser = subparsers.add_parser("issue-reopen", help="Reopen an issue")
+    _add_issue_option(issue_reopen_parser)
+    issue_reopen_parser.add_argument("--comment", help="Comment to post when reopening")
+
+    issue_develop_parser = subparsers.add_parser(
+        "issue-develop", help="Create and check out a branch for an issue"
+    )
+    _add_issue_option(issue_develop_parser)
+    issue_develop_parser.add_argument(
+        "--base", help="Base branch (default: the repository default)"
+    )
+    issue_develop_parser.add_argument("--name", help="Branch name (default: from the issue)")
+
     return parser
 
 
@@ -172,21 +331,21 @@ def _handle_list(args: argparse.Namespace) -> int:
 
 def _handle_reply(args: argparse.Namespace) -> int:
     """Reply to a single review thread."""
-    pr_review.reply_to_thread(args.thread, _body_text(args))
+    pr_review.reply_to_thread(args.thread, _body_text(args), pr=args.pr)
     print(f"Replied to {args.thread}")
     return 0
 
 
 def _handle_resolve(args: argparse.Namespace) -> int:
     """Resolve a single review thread."""
-    pr_review.resolve_thread(args.thread)
+    pr_review.resolve_thread(args.thread, pr=args.pr)
     print(f"Resolved {args.thread}")
     return 0
 
 
 def _handle_address(args: argparse.Namespace) -> int:
     """Reply to and resolve a single review thread."""
-    pr_review.address_thread(args.thread, _body_text(args))
+    pr_review.address_thread(args.thread, _body_text(args), pr=args.pr)
     print(f"Replied to and resolved {args.thread}")
     return 0
 
@@ -289,6 +448,144 @@ def _handle_check_commit_message(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_current_pr(_args: argparse.Namespace) -> int:
+    """Print the current branch's PR number."""
+    print(gh_runner.current_pr_number())
+    return 0
+
+
+def _handle_pr_create(args: argparse.Namespace) -> int:
+    """Open a pull request, with commit-filled text unless a title is given."""
+    if args.title is None:
+        if args.body is not None or args.body_file is not None:
+            raise GhError("A PR body needs a --title; without one the text is filled from commits.")
+        return pr_commands.create_pr(base=args.base)
+    body = _body_text(args) if args.body is not None or args.body_file is not None else ""
+    return pr_commands.create_pr(title=args.title, base=args.base, body=body)
+
+
+def _handle_pr_list(_args: argparse.Namespace) -> int:
+    """List open pull requests."""
+    return pr_commands.list_prs()
+
+
+def _handle_pr_status(args: argparse.Namespace) -> int:
+    """Show a PR's CI checks."""
+    return pr_commands.pr_checks_status(args.pr)
+
+
+def _handle_pr_checks(args: argparse.Namespace) -> int:
+    """Watch a PR's CI checks."""
+    return pr_commands.watch_pr_checks(args.pr, interval=args.interval, max_polls=args.max_polls)
+
+
+def _handle_pr_diff(args: argparse.Namespace) -> int:
+    """Show a PR's diff."""
+    return pr_commands.show_diff(args.pr)
+
+
+def _handle_pr_checkout(args: argparse.Namespace) -> int:
+    """Check out a PR's branch."""
+    return pr_commands.checkout_pr(args.pr)
+
+
+def _handle_pr_comments(args: argparse.Namespace) -> int:
+    """Show a PR with its comments."""
+    return pr_commands.view_comments(args.pr)
+
+
+def _handle_pr_merge(args: argparse.Namespace) -> int:
+    """Squash-merge a PR."""
+    return pr_commands.merge_pr(args.pr, admin=args.admin)
+
+
+def _handle_pr_reviewers(args: argparse.Namespace) -> int:
+    """Request PR reviewers."""
+    return pr_commands.add_reviewers(args.users, args.pr)
+
+
+def _handle_pr_label(args: argparse.Namespace) -> int:
+    """Add labels to a PR."""
+    return pr_commands.add_labels(args.labels, args.pr)
+
+
+def _handle_pr_close(args: argparse.Namespace) -> int:
+    """Close a PR."""
+    return pr_commands.close_pr(args.pr)
+
+
+def _handle_issue_list(args: argparse.Namespace) -> int:
+    """List issues."""
+    return issue_commands.list_issues(
+        state=args.state,
+        labels=args.label,
+        assignees=args.assignee,
+        author=args.author,
+        limit=args.limit,
+        search=args.search,
+    )
+
+
+def _handle_issue_view(args: argparse.Namespace) -> int:
+    """Show an issue with its comments."""
+    return issue_commands.view_issue(args.issue)
+
+
+def _handle_issue_create(args: argparse.Namespace) -> int:
+    """Open an issue."""
+    return issue_commands.create_issue(
+        args.title, _body_text(args), labels=args.labels, assignee=args.assignee
+    )
+
+
+def _handle_issue_comment(args: argparse.Namespace) -> int:
+    """Comment on an issue."""
+    return issue_commands.comment_issue(args.issue, _body_text(args))
+
+
+def _handle_issue_edit(args: argparse.Namespace) -> int:
+    """Edit an issue's title and/or body."""
+    has_body = args.body is not None or args.body_file is not None
+    return issue_commands.edit_issue(
+        args.issue, title=args.title, body=_body_text(args) if has_body else None
+    )
+
+
+def _handle_issue_label(args: argparse.Namespace) -> int:
+    """Add labels to an issue."""
+    return issue_commands.label_issue(args.issue, args.labels)
+
+
+def _handle_issue_unlabel(args: argparse.Namespace) -> int:
+    """Remove labels from an issue."""
+    return issue_commands.label_issue(args.issue, args.labels, remove=True)
+
+
+def _handle_issue_assign(args: argparse.Namespace) -> int:
+    """Assign users to an issue."""
+    return issue_commands.assign_issue(args.issue, users=args.users, mine=args.mine)
+
+
+def _handle_issue_unassign(args: argparse.Namespace) -> int:
+    """Remove assignees from an issue."""
+    return issue_commands.assign_issue(args.issue, users=args.users, mine=args.mine, remove=True)
+
+
+def _handle_issue_close(args: argparse.Namespace) -> int:
+    """Close an issue."""
+    return issue_commands.close_issue(args.issue, reason=args.reason, comment=args.comment)
+
+
+def _handle_issue_reopen(args: argparse.Namespace) -> int:
+    """Reopen an issue."""
+    return issue_commands.reopen_issue(args.issue, comment=args.comment)
+
+
+def _handle_issue_develop(args: argparse.Namespace) -> int:
+    """Create and check out a branch for an issue."""
+    return issue_commands.develop_issue(args.issue, base=args.base, name=args.name)
+
+
 COMMAND_HANDLERS = {
     "list": _handle_list,
     "reply": _handle_reply,
@@ -305,6 +602,30 @@ COMMAND_HANDLERS = {
     "latest-run-id": _handle_latest_run_id,
     "copilot-review": _handle_copilot_review,
     "check-commit-message": _handle_check_commit_message,
+    "current-pr": _handle_current_pr,
+    "pr-create": _handle_pr_create,
+    "pr-list": _handle_pr_list,
+    "pr-status": _handle_pr_status,
+    "pr-checks": _handle_pr_checks,
+    "pr-diff": _handle_pr_diff,
+    "pr-checkout": _handle_pr_checkout,
+    "pr-comments": _handle_pr_comments,
+    "pr-merge": _handle_pr_merge,
+    "pr-reviewers": _handle_pr_reviewers,
+    "pr-label": _handle_pr_label,
+    "pr-close": _handle_pr_close,
+    "issue-list": _handle_issue_list,
+    "issue-view": _handle_issue_view,
+    "issue-create": _handle_issue_create,
+    "issue-comment": _handle_issue_comment,
+    "issue-edit": _handle_issue_edit,
+    "issue-label": _handle_issue_label,
+    "issue-unlabel": _handle_issue_unlabel,
+    "issue-assign": _handle_issue_assign,
+    "issue-unassign": _handle_issue_unassign,
+    "issue-close": _handle_issue_close,
+    "issue-reopen": _handle_issue_reopen,
+    "issue-develop": _handle_issue_develop,
 }
 
 

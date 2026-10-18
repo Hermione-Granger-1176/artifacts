@@ -6,7 +6,14 @@ import pytest
 
 from scripts.gh import issues
 from scripts.gh.gh_runner import GhError
-from tests.gh.gh_test_support import FakeGh, completed_process, has
+from tests.gh.gh_test_support import (
+    FakeGh,
+    completed_process,
+    has,
+    json_response,
+    rest,
+    sandbox_routes,
+)
 
 
 def _issue_runner(payload: object) -> FakeGh:
@@ -152,3 +159,48 @@ def test_recent_comments_rejects_non_mapping_comment() -> None:
     """A non-mapping comment entry is malformed."""
     with pytest.raises(GhError):
         issues._recent_comments(["not a dict"])
+
+
+def test_issue_summary_falls_back_to_rest_in_the_same_shape() -> None:
+    """A blocked ``gh issue view`` is rebuilt from the REST issue and its comments."""
+    runner = FakeGh(
+        [
+            *sandbox_routes(),
+            (
+                rest("GET", "repos/o/r/issues/5"),
+                json_response(
+                    {
+                        "number": 5,
+                        "title": "Broken thing",
+                        "state": "closed",
+                        "html_url": "https://example/issues/5",
+                        "user": {"login": "octocat"},
+                        "labels": [{"name": "bug"}],
+                        "assignees": [{"login": "dev1"}],
+                        "milestone": {"title": "v1"},
+                    }
+                ),
+            ),
+            (
+                rest("GET", "repos/o/r/issues/5/comments"),
+                json_response([{"user": {"login": "a"}, "body": "first\nline"}]),
+            ),
+        ]
+    )
+
+    text = issues.issue_summary(5, run_fn=runner)
+
+    assert "Issue #5 [CLOSED] Broken thing" in text
+    assert "author: @octocat" in text
+    assert "labels: bug" in text
+    assert "assignees: @dev1" in text
+    assert "milestone: v1" in text
+    assert "@a: first" in text
+
+
+def test_issue_summary_fallback_rejects_a_non_object_issue() -> None:
+    """A list where the REST issue should be is a shape error."""
+    runner = FakeGh([*sandbox_routes(), (rest("GET", "repos/o/r/issues/5"), json_response([]))])
+
+    with pytest.raises(GhError, match="Unexpected issue response shape for issue 5"):
+        issues.issue_summary(5, run_fn=runner)

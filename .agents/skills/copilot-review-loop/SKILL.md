@@ -45,6 +45,8 @@ Reply to and resolve every addressed open thread:
 make pr-address thread=PRRT_... < notes.md
 ```
 
+Pass the id exactly as `make pr-review-comments` prints it. If the environment blocks GraphQL, the listing prints a numeric id instead of `PRRT_...`, and `make pr-address` accepts that number. Add `pr_num=N` when the PR is not on the current branch.
+
 State what you verified, what changed or why no change was needed, and the validation result. A pushed fix does not replace the reply and resolution.
 
 Confirm that no addressed thread remains open:
