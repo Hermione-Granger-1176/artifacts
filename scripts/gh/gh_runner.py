@@ -27,6 +27,7 @@ the shared ``gh api`` client those fallbacks use.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -482,8 +483,12 @@ def resolve_repo(*, run_fn: RunFunction | None = None) -> str:
 
     Tries the GitHub-aware ``gh repo view`` first, then falls back to parsing
     the ``origin`` git remote (which also covers the rate-limited case and a
-    blocked GraphQL endpoint, which ``gh repo view`` needs).
+    blocked GraphQL endpoint, which ``gh repo view`` needs). A ``GH_REPO``
+    override wins over both, as it does for ``gh`` itself.
     """
+    override = os.environ.get("GH_REPO", "").strip()
+    if override:
+        return _repo_from_override(override)
     owner_name = ""
     if not graphql_unavailable():
         try:
@@ -499,6 +504,17 @@ def resolve_repo(*, run_fn: RunFunction | None = None) -> str:
     if not _is_owner_name(owner_name):
         raise GhError("Could not resolve owner/name; set a GitHub remote or run inside a repo.")
     return owner_name
+
+
+def _repo_from_override(value: str) -> str:
+    """Return the slug named by ``GH_REPO`` (``owner/name`` or ``github.com/owner/name``)."""
+    parts = value.removeprefix("https://").removesuffix("/").split("/")
+    if len(parts) == 3 and parts[0] == "github.com":
+        parts = parts[1:]
+    slug = "/".join(parts)
+    if not _is_owner_name(slug):
+        raise GhError(f"GH_REPO={value} is not an owner/name on github.com.")
+    return slug
 
 
 def _repo_from_remote(*, run_fn: RunFunction | None = None) -> str:
@@ -566,18 +582,23 @@ def _current_pr_number_gh(*, run_fn: RunFunction | None = None) -> int:
 
 
 def _current_pr_number_rest(*, run_fn: RunFunction | None = None) -> int:
-    """Find the open PR whose head is the current branch through the REST API."""
+    """Find the PR whose head is the current branch through the REST API.
+
+    Like ``gh pr view``, an open PR wins. Otherwise the newest closed or merged
+    one counts, so a branch merged through the fallback still finds its PR.
+    """
     slug = resolve_repo(run_fn=run_fn)
     branch = current_branch(run_fn=run_fn)
     pulls = rest(
         f"repos/{slug}/pulls",
-        fields={"head": f"{slug.split('/')[0]}:{branch}", "state": "open"},
+        fields={"head": f"{slug.split('/')[0]}:{branch}", "state": "all"},
         run_fn=run_fn,
     )
     if not isinstance(pulls, list) or not pulls:
         raise GhError("No pull request found for the current branch.")
+    open_pulls = [pull for pull in pulls if isinstance(pull, dict) and pull.get("state") == "open"]
     try:
-        return int(pulls[0]["number"])
+        return int((open_pulls or pulls)[0]["number"])
     except (KeyError, TypeError, ValueError) as exc:
         raise GhError("Could not read PR number from the pull request list.") from exc
 

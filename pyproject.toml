@@ -107,5 +107,6 @@ ignore_names = [
   "artifactBasePath",
   "thumbnailFile",
   "_fresh_graphql_verdict",
+  "_no_repo_override",
 ]
 sort_by_size = true

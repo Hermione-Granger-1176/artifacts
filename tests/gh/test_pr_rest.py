@@ -7,7 +7,7 @@ import pytest
 
 from scripts.gh import pr_rest
 from scripts.gh.gh_runner import GhError
-from tests.gh.gh_test_support import FakeGh, json_response, rest, sandbox_routes
+from tests.gh.gh_test_support import FakeGh, has, json_response, rest, sandbox_routes
 
 PULL = {
     "number": 7,
@@ -134,6 +134,24 @@ def test_status_check_rollup_keeps_same_named_checks_from_separate_suites() -> N
     ]
 
 
+def test_status_check_rollup_reads_every_page_of_statuses() -> None:
+    """A failing status on the second page still reaches the rollup."""
+    first = [{"context": f"ok-{index}", "state": "success"} for index in range(100)]
+    runner = _runner(
+        (rest("GET", "repos/o/r/commits/abc123/check-runs"), json_response({"check_runs": []})),
+        (has("repos/o/r/commits/abc123/status", "page=1"), json_response({"statuses": first})),
+        (
+            has("repos/o/r/commits/abc123/status", "page=2"),
+            json_response({"statuses": [{"context": "deploy", "state": "failure"}]}),
+        ),
+    )
+
+    rollup = pr_rest.status_check_rollup("o/r", "abc123", run_fn=runner)
+
+    assert len(rollup) == 101
+    assert rollup[-1] == {"context": "deploy", "state": "FAILURE", "targetUrl": ""}
+
+
 def test_status_check_rollup_ignores_the_combined_pending_state() -> None:
     """A commit with no statuses adds nothing, although the combined state reads pending."""
     runner = _rollup_runner([], {"state": "pending", "statuses": []})
@@ -143,7 +161,7 @@ def test_status_check_rollup_ignores_the_combined_pending_state() -> None:
 
 @pytest.mark.parametrize(
     "statuses",
-    [[], {"state": "pending"}, {"statuses": ["not an object"]}],
+    ["not an object", {"state": "pending"}, {"statuses": ["not an object"]}],
 )
 def test_status_check_rollup_rejects_malformed_statuses(statuses: object) -> None:
     """A combined-status response of the wrong shape is a GhError."""

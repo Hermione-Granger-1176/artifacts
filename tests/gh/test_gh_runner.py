@@ -697,6 +697,29 @@ def test_resolve_repo_skips_gh_repo_view_once_graphql_is_blocked() -> None:
     assert sum("repo" in call and "view" in call for call in runner.calls) == 1
 
 
+@pytest.mark.parametrize(
+    "value", ["octo/Other", "github.com/octo/Other", "https://github.com/octo/Other/"]
+)
+def test_resolve_repo_honors_gh_repo(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    """GH_REPO picks the repository before gh or the git remote is asked."""
+    monkeypatch.setenv("GH_REPO", value)
+    runner = FakeGh([])
+
+    assert gh_runner.resolve_repo(run_fn=runner) == "octo/Other"
+    assert runner.calls == []
+
+
+@pytest.mark.parametrize("value", ["ghe.example.com/octo/Other", "octo", "a/b/c/d"])
+def test_resolve_repo_rejects_an_unsupported_gh_repo(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    """A GH_REPO this helper cannot address fails instead of falling back to the remote."""
+    monkeypatch.setenv("GH_REPO", value)
+
+    with pytest.raises(GhError, match=r"is not an owner/name on github\.com"):
+        gh_runner.resolve_repo(run_fn=FakeGh([]))
+
+
 def _branch_runner(pulls: object) -> FakeGh:
     """Build a runner for a blocked ``gh pr view`` on branch ``feature`` of ``octo/Hello``."""
     return FakeGh(
@@ -705,7 +728,10 @@ def _branch_runner(pulls: object) -> FakeGh:
             (has("repo", "view"), graphql_blocked()),
             (has("remote"), completed_process(0, "git@github.com:octo/Hello.git\n")),
             (has("rev-parse"), completed_process(0, "feature\n")),
-            (rest("GET", "repos/octo/Hello/pulls", "head=octo:feature"), json_response(pulls)),
+            (
+                rest("GET", "repos/octo/Hello/pulls", "head=octo:feature", "state=all"),
+                json_response(pulls),
+            ),
         ]
     )
 
@@ -713,6 +739,20 @@ def _branch_runner(pulls: object) -> FakeGh:
 def test_current_pr_number_falls_back_to_the_branch_lookup() -> None:
     """A blocked gh pr view is replaced by a pulls lookup on the current branch."""
     assert gh_runner.current_pr_number(run_fn=_branch_runner([{"number": 42}])) == 42
+
+
+def test_current_pr_number_fallback_prefers_an_open_pr_then_the_newest_closed_one() -> None:
+    """An open PR wins over newer closed ones, and a merged branch still finds its PR."""
+    closed = [{"number": 9, "state": "closed"}, {"number": 8, "state": "closed"}]
+
+    assert gh_runner.current_pr_number(run_fn=_branch_runner(closed)) == 9
+    gh_runner.reset_graphql_availability()
+    assert (
+        gh_runner.current_pr_number(
+            run_fn=_branch_runner([*closed, {"number": 7, "state": "open"}, "not an object"])
+        )
+        == 7
+    )
 
 
 def test_current_pr_number_fallback_reports_no_open_pr() -> None:

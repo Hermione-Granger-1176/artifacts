@@ -487,6 +487,19 @@ def test_assign_fallback_posts_assignees_including_me() -> None:
     issue_commands.assign_issue(5, users="a,b", mine=True, run_fn=runner)
 
 
+@pytest.mark.parametrize(("remove", "method"), [(False, "POST"), (True, "DELETE")])
+def test_assign_fallback_resolves_me_inside_the_user_list(remove: bool, method: str) -> None:
+    """users=@me names the authenticated login for both assignment and removal."""
+    runner = _sandbox(
+        (rest("GET", "user"), json_response({"login": "me-login"})),
+        (rest(method, "repos/o/r/issues/5/assignees", "assignees[]=me-login"), json_response({})),
+    )
+
+    issue_commands.assign_issue(5, users="@me,a", remove=remove, run_fn=runner)
+
+    assert "assignees[]=@me" not in runner.calls[-1]
+
+
 def test_unassign_fallback_deletes_assignees() -> None:
     """Removing assignees uses DELETE with the assignees array."""
     runner = _sandbox(
@@ -548,7 +561,7 @@ def test_develop_fallback_creates_an_unlinked_branch(capsys: pytest.CaptureFixtu
         "-b",
         "5-broken-the-thing",
         "--no-track",
-        "origin/main",
+        "FETCH_HEAD",
     ]
     assert "not linked to issue #5" in capsys.readouterr().err
 
@@ -559,7 +572,7 @@ def test_develop_fallback_honors_base_and_name() -> None:
 
     issue_commands.develop_issue(5, base="dev", name="my-branch", run_fn=runner)
 
-    assert runner.calls[-1][-3:] == ["my-branch", "--no-track", "origin/dev"]
+    assert runner.calls[-1][-3:] == ["my-branch", "--no-track", "FETCH_HEAD"]
 
 
 def test_develop_fallback_names_a_branch_after_an_untitled_issue() -> None:

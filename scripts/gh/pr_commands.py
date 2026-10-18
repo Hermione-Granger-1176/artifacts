@@ -144,6 +144,7 @@ def create_pr(
         slug = gh_runner.resolve_repo(run_fn=run_fn)
         branch = gh_runner.current_branch(run_fn=run_fn)
         target = base or gh_runner.default_branch(slug, run_fn=run_fn)
+        _require_pushed(slug, branch, run_fn=run_fn)
         pr_title, pr_body = (
             (title, body) if title is not None else _filled_text(target, branch, run_fn=run_fn)
         )
@@ -159,6 +160,23 @@ def create_pr(
     return gh_runner.gh_or_rest(
         args, create_with_rest, run_fn=run_fn, stdin_text=body if title is not None else None
     )
+
+
+def _require_pushed(slug: str, branch: str, *, run_fn: RunFunction | None) -> None:
+    """Fail unless GitHub's copy of ``branch`` points at the local ``HEAD``.
+
+    ``gh pr create`` offers to push the branch first. The REST fallback does
+    not push, so it refuses rather than open a PR that is missing commits.
+    """
+    local = gh_runner.run_git(["rev-parse", "HEAD"], run_fn=run_fn)
+    try:
+        remote = as_object(
+            gh_runner.rest(f"repos/{slug}/branches/{quote(branch, safe='')}", run_fn=run_fn)
+        )
+    except GhError as exc:
+        raise GhError(f"Branch {branch} is not on GitHub. Run make push first.") from exc
+    if as_object(remote.get("commit")).get("sha") != local:
+        raise GhError(f"GitHub's {branch} does not match your local HEAD. Run make push first.")
 
 
 def _filled_text(base: str, branch: str, *, run_fn: RunFunction | None = None) -> tuple[str, str]:
@@ -368,7 +386,8 @@ def merge_pr(
         gh_runner.rest(
             f"repos/{slug}/pulls/{number}/merge",
             method="PUT",
-            fields={"merge_method": "squash"},
+            # GitHub rejects the merge if the head moved after the state check.
+            fields={"merge_method": "squash", "sha": pr_rest.head_sha(pull)},
             run_fn=run_fn,
         )
         print(f"Squashed and merged pull request #{number}")

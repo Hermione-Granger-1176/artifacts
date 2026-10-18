@@ -111,15 +111,9 @@ def status_check_rollup(
     runs = gh_runner.rest_pages(
         f"repos/{slug}/commits/{sha}/check-runs", items_key="check_runs", run_fn=run_fn
     )
-    combined = _mapping(
-        gh_runner.rest(
-            f"repos/{slug}/commits/{sha}/status", fields={"per_page": 100}, run_fn=run_fn
-        ),
-        "Unexpected combined status response shape.",
+    statuses = gh_runner.rest_pages(
+        f"repos/{slug}/commits/{sha}/status", items_key="statuses", run_fn=run_fn
     )
-    statuses = combined.get("statuses")
-    if not isinstance(statuses, list):
-        raise GhError("Unexpected combined status response shape.")
     return [_check_run(run) for run in _latest_runs(runs)] + [
         _status_context(status) for status in statuses
     ]

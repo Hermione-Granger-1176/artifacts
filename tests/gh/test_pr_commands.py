@@ -52,6 +52,22 @@ def _sandbox(*routes: Route) -> FakeGh:
     return FakeGh([*sandbox_routes(), *routes])
 
 
+def _pushed(cmd: list[str]) -> bool:
+    """Match the ``git rev-parse HEAD`` call that reads the local head commit."""
+    return cmd[-2:] == ["rev-parse", "HEAD"]
+
+
+def _branch_lookup(cmd: list[str]) -> bool:
+    """Match the REST read of a branch on GitHub."""
+    return cmd[:4] == ["gh", "api", "--method", "GET"] and cmd[4].startswith("repos/o/r/branches/")
+
+
+def _create_sandbox(*routes: Route, remote: Any = None) -> FakeGh:
+    """Build a sandbox runner where the branch on GitHub matches local HEAD ``abc``."""
+    branch = json_response({"commit": {"sha": "abc"}}) if remote is None else remote
+    return _sandbox((_pushed, completed_process(0, "abc\n")), (_branch_lookup, branch), *routes)
+
+
 def _pr_routes() -> list[Route]:
     """Routes that resolve the current branch ``feature`` to open PR 7."""
     return [
@@ -154,7 +170,7 @@ def test_create_with_a_title_pipes_the_body_to_gh() -> None:
 
 def test_create_fallback_fills_from_a_single_commit() -> None:
     """One commit supplies the title and body, like gh pr create --fill."""
-    runner = _sandbox(
+    runner = _create_sandbox(
         (rest("GET", "repos/o/r"), json_response({"default_branch": "main"})),
         (has("rev-parse"), completed_process(0, "feature\n")),
         (has("log"), completed_process(0, "Fix thing\x1fLonger body\n\x1e\n")),
@@ -172,7 +188,7 @@ def test_create_fallback_fills_from_a_single_commit() -> None:
 
 def test_create_fallback_summarizes_several_commits(capsys: pytest.CaptureFixture[str]) -> None:
     """Several commits give the branch name as title and the subjects as a list."""
-    runner = _sandbox(
+    runner = _create_sandbox(
         (has("rev-parse"), completed_process(0, "fix-the_thing\n")),
         (has("log"), completed_process(0, "One\x1f\x1e\nTwo\x1fbody\x1e\n")),
         (
@@ -196,7 +212,7 @@ def test_create_fallback_summarizes_several_commits(capsys: pytest.CaptureFixtur
 )
 def test_create_fallback_accepts_a_subject_only_final_commit(log: str, expected_body: str) -> None:
     """run_git strips trailing separators, so a last commit without a body still parses."""
-    runner = _sandbox(
+    runner = _create_sandbox(
         (has("rev-parse"), completed_process(0, "feature\n")),
         (has("log"), completed_process(0, log)),
         (rest("POST", "repos/o/r/pulls"), json_response({"html_url": "https://example/pull/9"})),
@@ -209,7 +225,7 @@ def test_create_fallback_accepts_a_subject_only_final_commit(log: str, expected_
 
 def test_create_fallback_rejects_a_branch_with_no_commits() -> None:
     """Nothing ahead of the base cannot be filled."""
-    runner = _sandbox(
+    runner = _create_sandbox(
         (has("rev-parse"), completed_process(0, "feature\n")),
         (has("log"), completed_process(0, "")),
     )
@@ -218,11 +234,31 @@ def test_create_fallback_rejects_a_branch_with_no_commits() -> None:
         pr_commands.create_pr(base="dev", run_fn=runner)
 
 
+@pytest.mark.parametrize(
+    ("remote", "message"),
+    [
+        (completed_process(1, "", "Branch not found (HTTP 404)"), "is not on GitHub"),
+        (json_response({"commit": {"sha": "old"}}), "does not match your local HEAD"),
+    ],
+)
+def test_create_fallback_requires_the_pushed_head(
+    remote: subprocess.CompletedProcess[str], message: str
+) -> None:
+    """An unpushed or outdated branch on GitHub stops the PR before it opens."""
+    runner = _create_sandbox((has("rev-parse"), completed_process(0, "fix#1\n")), remote=remote)
+
+    with pytest.raises(GhError, match=message):
+        pr_commands.create_pr(title="T", base="dev", run_fn=runner)
+
+    assert any(call[4:5] == ["repos/o/r/branches/fix%231"] for call in runner.calls)
+    assert not any("POST" in call for call in runner.calls)
+
+
 def test_create_fallback_with_a_title_uses_the_given_text(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """An explicit title and body are sent as given, and a non-object reply is tolerated."""
-    runner = _sandbox(
+    runner = _create_sandbox(
         (has("rev-parse"), completed_process(0, "feature\n")),
         (rest("POST", "repos/o/r/pulls", "title=T", "body=B", "base=dev"), json_response([])),
     )
@@ -496,7 +532,10 @@ def test_merge_fallback_squashes_and_deletes_the_branch(
     """An admin merge squashes past a blocked PR and then deletes the same-repository branch."""
     runner = _sandbox(
         _pull_route({**PULL, "mergeable_state": "blocked"}),
-        (rest("PUT", "repos/o/r/pulls/7/merge", "merge_method=squash"), json_response({})),
+        (
+            rest("PUT", "repos/o/r/pulls/7/merge", "merge_method=squash", "sha=abc"),
+            json_response({}),
+        ),
         (rest("DELETE", "repos/o/r/git/refs/heads/feature"), completed_process(0, "")),
     )
 
@@ -509,9 +548,9 @@ def test_merge_fallback_squashes_and_deletes_the_branch(
 @pytest.mark.parametrize(
     "head",
     [
-        {"ref": "feature", "repo": {"full_name": "fork/r"}},
-        {"ref": "main", "repo": {"full_name": "o/r"}},
-        {"repo": {"full_name": "o/r"}},
+        {"ref": "feature", "sha": "abc", "repo": {"full_name": "fork/r"}},
+        {"ref": "main", "sha": "abc", "repo": {"full_name": "o/r"}},
+        {"sha": "abc", "repo": {"full_name": "o/r"}},
     ],
 )
 def test_merge_fallback_keeps_forked_default_and_unnamed_branches(head: dict[str, Any]) -> None:

@@ -23,3 +23,9 @@ def _fresh_graphql_verdict() -> Iterator[None]:
     gh_runner.reset_graphql_availability()
     yield
     gh_runner.reset_graphql_availability()
+
+
+@pytest.fixture(autouse=True)
+def _no_repo_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep a ``GH_REPO`` set in the developer's shell from redirecting test calls."""
+    monkeypatch.delenv("GH_REPO", raising=False)

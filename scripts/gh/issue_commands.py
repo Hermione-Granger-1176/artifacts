@@ -298,7 +298,8 @@ def assign_issue(
         args += [flag, users]
 
     def assign_with_rest() -> int:
-        names = ([_login("@me", run_fn=run_fn)] if mine else []) + split_list(users or "")
+        requested = (["@me"] if mine else []) + split_list(users or "")
+        names = [_login(name, run_fn=run_fn) for name in requested]
         gh_runner.rest(
             f"{_rest_issue_path(issue, run_fn=run_fn)}/assignees",
             method="DELETE" if remove else "POST",
@@ -391,9 +392,8 @@ def develop_issue(
         target = base or gh_runner.default_branch(slug, run_fn=run_fn)
         branch = name or _branch_name(issue, slug, run_fn=run_fn)
         gh_runner.run_git(["fetch", "origin", target], run_fn=run_fn)
-        gh_runner.run_git(
-            ["checkout", "-b", branch, "--no-track", f"origin/{target}"], run_fn=run_fn
-        )
+        # FETCH_HEAD exists even in a clone whose refspec has no origin/<target>.
+        gh_runner.run_git(["checkout", "-b", branch, "--no-track", "FETCH_HEAD"], run_fn=run_fn)
         print(
             f"Created and checked out {branch} from {target}. GitHub GraphQL is unavailable, "
             f"so the branch is not linked to issue #{issue}.",
