@@ -24,9 +24,8 @@ THEME_SUFFIXES = ("-theme-light.css", "-theme-dark.css")
 THEME_TOKEN_PATTERN = re.compile(r"\s*(--[a-z0-9-]+)\s*:")
 
 
-def source_files() -> tuple[Path, ...]:
-    """Return the ordered shared stylesheet source files."""
-    candidates = tuple(sorted(SOURCE_DIR.glob("*.css")))
+def _reject_invalid_entries(candidates: tuple[Path, ...]) -> None:
+    """Raise ``ValueError`` for a source that is a symlink or not a regular file."""
     invalid_entries = [
         source_file.name
         for source_file in candidates
@@ -38,6 +37,10 @@ def source_files() -> tuple[Path, ...]:
             f"Invalid stylesheet source entry(s): {names}. "
             "Sources must be regular files and cannot be symlinks."
         )
+
+
+def _reject_invalid_names(candidates: tuple[Path, ...]) -> None:
+    """Raise ``ValueError`` for a source whose name is not two digits then kebab-case."""
     invalid_names = [
         source_file.name
         for source_file in candidates
@@ -49,6 +52,13 @@ def source_files() -> tuple[Path, ...]:
             f"Invalid stylesheet source filename(s): {names}. "
             "Expected two-digit, kebab-case names such as 01-tokens.css."
         )
+
+
+def source_files() -> tuple[Path, ...]:
+    """Return the ordered shared stylesheet source files."""
+    candidates = tuple(sorted(SOURCE_DIR.glob("*.css")))
+    _reject_invalid_entries(candidates)
+    _reject_invalid_names(candidates)
     if not candidates:
         raise ValueError(f"No stylesheet source partials found in {SOURCE_DIR}")
     return candidates
@@ -60,6 +70,20 @@ def theme_tokens_by_line(path: Path) -> list[str]:
         match.group(1) if (match := THEME_TOKEN_PATTERN.match(line)) else ""
         for line in path.read_text(encoding="utf-8").splitlines()
     ]
+
+
+def _check_token_parity(light: Path, dark: Path) -> None:
+    """Raise ``ValueError`` at the first line where the light and dark tokens differ."""
+    line_pairs = zip_longest(
+        theme_tokens_by_line(light), theme_tokens_by_line(dark), fillvalue="end of file"
+    )
+    for line_number, (light_token, dark_token) in enumerate(line_pairs, start=1):
+        if light_token != dark_token:
+            raise ValueError(
+                f"Line {line_number} has {light_token or 'no token'} in {light.name} "
+                f"but {dark_token or 'no token'} in {dark.name}. "
+                "Theme files must declare the same tokens on the same lines."
+            )
 
 
 def check_theme_parity(sources: tuple[Path, ...]) -> None:
@@ -75,16 +99,7 @@ def check_theme_parity(sources: tuple[Path, ...]) -> None:
             raise ValueError(f"{source.name} has no matching {twin.name}")
         if source == dark:
             continue
-        line_pairs = zip_longest(
-            theme_tokens_by_line(light), theme_tokens_by_line(dark), fillvalue="end of file"
-        )
-        for line_number, (light_token, dark_token) in enumerate(line_pairs, start=1):
-            if light_token != dark_token:
-                raise ValueError(
-                    f"Line {line_number} has {light_token or 'no token'} in {light.name} "
-                    f"but {dark_token or 'no token'} in {dark.name}. "
-                    "Theme files must declare the same tokens on the same lines."
-                )
+        _check_token_parity(light, dark)
 
 
 def output_header(sources: tuple[Path, ...] | None = None) -> str:

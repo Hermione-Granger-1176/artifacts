@@ -127,16 +127,7 @@ def write_status(
 
     # --- Node and lock currency ---
     emit("=== Node ===")
-    node_ok = (root / "node_modules").is_dir()
-    emit("OK: node_modules exists" if node_ok else "MISSING: run make setup")
-    uv_check = _succeeds([uv, "lock", "--check"], cwd=root, run_fn=run)
-    emit("OK: uv.lock is current" if _ok(uv_check) else "STALE: run make lock")
-    npm_check = _succeeds(
-        [npm, "install", "--package-lock-only", "--ignore-scripts", "--dry-run"],
-        cwd=root,
-        run_fn=run,
-    )
-    emit("OK: package-lock.json is current" if _ok(npm_check) else "STALE: run make lock-node")
+    _write_node_section(emit, root=root, uv=uv, npm=npm, run=run)
     emit()
 
     # --- Generated files ---
@@ -148,18 +139,39 @@ def write_status(
     # --- Pull request ---
     emit("=== Pull request ===")
     if venv_ok:
-        summary = _succeeds(
-            [venv_python, "-m", "scripts.gh.cli", "summary"],
-            cwd=root,
-            run_fn=run,
-            env=_child_env(root),
-        )
-        # Old shell ran ``$(GH) summary || true``: any failure, including a
-        # launch failure, is swallowed and the target still succeeds. The
-        # launch failure remains visible so the report is actionable.
-        _write_output(out, summary, f"UNAVAILABLE: {venv_python} could not be launched")
+        _write_pull_request_summary(out, root=root, venv_python=venv_python, run=run)
     else:
         emit("SKIPPED: venv missing, run make setup")
+
+
+def _write_node_section(
+    emit: Callable[[str], None], *, root: Path, uv: str, npm: str, run: Runner
+) -> None:
+    """Write node_modules presence and whether each lock file is current."""
+    node_ok = (root / "node_modules").is_dir()
+    emit("OK: node_modules exists" if node_ok else "MISSING: run make setup")
+    uv_check = _succeeds([uv, "lock", "--check"], cwd=root, run_fn=run)
+    emit("OK: uv.lock is current" if _ok(uv_check) else "STALE: run make lock")
+    npm_check = _succeeds(
+        [npm, "install", "--package-lock-only", "--ignore-scripts", "--dry-run"],
+        cwd=root,
+        run_fn=run,
+    )
+    emit("OK: package-lock.json is current" if _ok(npm_check) else "STALE: run make lock-node")
+
+
+def _write_pull_request_summary(out: TextIO, *, root: Path, venv_python: str, run: Runner) -> None:
+    """Write the ``scripts.gh.cli summary`` output, or say it could not be launched."""
+    summary = _succeeds(
+        [venv_python, "-m", "scripts.gh.cli", "summary"],
+        cwd=root,
+        run_fn=run,
+        env=_child_env(root),
+    )
+    # Old shell ran ``$(GH) summary || true``: any failure, including a
+    # launch failure, is swallowed and the target still succeeds. The
+    # launch failure remains visible so the report is actionable.
+    _write_output(out, summary, f"UNAVAILABLE: {venv_python} could not be launched")
 
 
 def _write_generated_files(

@@ -99,6 +99,11 @@ def associated_pr_kind_for_commit(
     return "none"
 
 
+def _non_blank_lines(output: str) -> list[str]:
+    """Return the stripped, non-empty lines of command output."""
+    return [line for raw_line in output.splitlines() if (line := raw_line.strip())]
+
+
 def list_changed_files(
     *,
     base_sha: str,
@@ -120,7 +125,7 @@ def list_changed_files(
         capture_output=True,
         text=True,
     )
-    return [line for raw_line in result.stdout.splitlines() if (line := raw_line.strip())]
+    return _non_blank_lines(result.stdout)
 
 
 def list_commit_files(
@@ -138,7 +143,7 @@ def list_commit_files(
         jq_expr=".files[].filename",
         description=f"listing changed files for commit {repo}@{commit_sha}",
     )
-    return [line for raw_line in stdout.splitlines() if (line := raw_line.strip())]
+    return _non_blank_lines(stdout)
 
 
 def _all_thumbnail_files(files: list[str]) -> bool:
@@ -266,6 +271,19 @@ def _is_thumbnail_only_commit(
     return _all_thumbnail_files(commit_files)
 
 
+def _thumbnail_scope_and_slugs(
+    runtime_scope: str, affected_slugs: list[str]
+) -> tuple[str, list[str]]:
+    """Return the thumbnail scope and the slugs to list for it.
+
+    A full runtime scope regenerates every app, so it lists no slugs. Otherwise
+    the scope is the affected slugs, or ``none`` when no app is affected.
+    """
+    if runtime_scope == "all":
+        return "all", []
+    return ("changed" if affected_slugs else "none"), affected_slugs
+
+
 def thumbnail_plan(
     *,
     event_name: str,
@@ -314,6 +332,9 @@ def thumbnail_plan(
         associated_pr_kind=associated_pr_kind,
     )
 
+    thumbnail_scope, thumbnail_slugs = _thumbnail_scope_and_slugs(
+        cast("str", runtime_plan["thumbnail_scope"]), affected_slugs
+    )
     skip_verification = not force_full and _is_thumbnail_only_commit(
         actor=actor,
         app_bot_login=app_bot_login,
@@ -335,10 +356,8 @@ def thumbnail_plan(
         "shared_browser_test_changed": cast("bool", runtime_plan["shared_browser_test_changed"]),
         "comparison_available": comparison_available,
         "skip_verification": skip_verification,
-        "thumbnail_scope": "all"
-        if runtime_plan["thumbnail_scope"] == "all"
-        else ("changed" if affected_slugs else "none"),
-        "thumbnail_slugs": [] if runtime_plan["thumbnail_scope"] == "all" else affected_slugs,
+        "thumbnail_scope": thumbnail_scope,
+        "thumbnail_slugs": thumbnail_slugs,
     }
 
 
@@ -427,11 +446,13 @@ def invalidate_thumbnails(
 ) -> list[str]:
     """Delete thumbnails for apps whose runtime or shared site assets changed."""
     del event_name, repo, pr_number, commit_sha
-    try:
-        changed_files = list_changed_files_fn(base_sha=base_sha, head_sha=head_sha)
-        plan = runtime_change_plan_fn(changed_files)
-    except (OSError, RuntimeError, subprocess.SubprocessError):
-        plan = full_impact_plan()
+    plan, _comparison_available = _runtime_plan_or_full(
+        force_full=False,
+        base_sha=base_sha,
+        head_sha=head_sha,
+        list_changed_files_fn=list_changed_files_fn,
+        runtime_change_plan_fn=runtime_change_plan_fn,
+    )
     invalidated = []
     targets = thumbnail_targets(
         thumbnail_scope=cast("str", plan["thumbnail_scope"]),

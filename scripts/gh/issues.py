@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 from . import gh_runner
-from .gh_runner import GhError, RunFunction
+from .gh_runner import GhError, RunFunction, require_mapping
 
 # Fields requested from ``gh issue view --json``. Kept in one constant so the
 # request and the parse helpers below stay in sync.
@@ -21,13 +21,6 @@ _ISSUE_FIELDS = "number,title,state,url,author,labels,assignees,milestone,commen
 
 # How many of the most recent comments to echo in the summary.
 _RECENT_COMMENTS = 3
-
-
-def _require_mapping(value: Any, message: str) -> dict[str, Any]:
-    """Return ``value`` as a mapping, raising ``GhError`` with ``message`` otherwise."""
-    if not isinstance(value, dict):
-        raise GhError(message)
-    return value
 
 
 def _required_number(value: Any) -> int:
@@ -51,7 +44,7 @@ def _login(value: Any) -> str:
     """
     if value is None:
         return "unknown"
-    mapping = _require_mapping(value, "Unexpected author shape in issue view response.")
+    mapping = require_mapping(value, "Unexpected author shape in issue view response.")
     return str(mapping.get("login") or "unknown")
 
 
@@ -63,7 +56,7 @@ def _names(value: Any, key: str, message: str) -> list[str]:
         raise GhError(message)
     names: list[str] = []
     for item in value:
-        text = _require_mapping(item, message).get(key)
+        text = require_mapping(item, message).get(key)
         if text:
             names.append(str(text))
     return names
@@ -73,7 +66,7 @@ def _milestone_title(value: Any) -> str:
     """Return the milestone title, or ``none`` when the issue has no milestone."""
     if value is None:
         return "none"
-    mapping = _require_mapping(value, "Unexpected milestone shape in issue view response.")
+    mapping = require_mapping(value, "Unexpected milestone shape in issue view response.")
     return str(mapping.get("title") or "none")
 
 
@@ -90,7 +83,7 @@ def _recent_comments(comments: list[Any]) -> list[str]:
     """Render the last few comments as ``@author: first-line`` strings."""
     rendered: list[str] = []
     for comment in comments[-_RECENT_COMMENTS:]:
-        mapping = _require_mapping(comment, "Unexpected comment shape in issue view response.")
+        mapping = require_mapping(comment, "Unexpected comment shape in issue view response.")
         body = str(mapping.get("body") or "")
         first_line = body.splitlines()[0] if body else ""
         rendered.append(f"  @{_login(mapping.get('author'))}: {first_line}")
@@ -100,7 +93,7 @@ def _recent_comments(comments: list[Any]) -> list[str]:
 def _rest_issue(issue: int, *, run_fn: RunFunction | None = None) -> dict[str, Any]:
     """Return the REST issue and its comments in the ``gh issue view --json`` shape."""
     slug = gh_runner.resolve_repo(run_fn=run_fn)
-    raw = _require_mapping(
+    raw = require_mapping(
         gh_runner.rest(f"repos/{slug}/issues/{issue}", run_fn=run_fn),
         f"Unexpected issue response shape for issue {issue}.",
     )
@@ -122,7 +115,7 @@ def _rest_issue(issue: int, *, run_fn: RunFunction | None = None) -> dict[str, A
 
 def issue_summary(issue: int, *, run_fn: RunFunction | None = None) -> str:
     """Return a one-screen overview of ``issue``: meta, labels, assignees, comments."""
-    meta = _require_mapping(
+    meta = require_mapping(
         gh_runner.with_rest_fallback(
             lambda: gh_runner.gh_json(
                 ["issue", "view", str(issue), "--json", _ISSUE_FIELDS], run_fn=run_fn

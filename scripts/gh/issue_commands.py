@@ -61,6 +61,25 @@ def _print_issue_rows(slug: str, issues: list[dict[str, Any]]) -> None:
         print(f"{issue.get('number')}\t{state_text}\t{issue.get('title')}\t{labels_text}")
 
 
+def _list_filters(
+    state: str | None,
+    labels: str | None,
+    assignee: str | None,
+    author: str | None,
+    *,
+    run_fn: RunFunction | None,
+) -> dict[str, object]:
+    """Return the REST query fields for the ``list_issues`` filters."""
+    fields: dict[str, object] = {"state": state or "open"}
+    if labels:
+        fields["labels"] = ",".join(split_list(labels))
+    if assignee:
+        fields["assignee"] = _login(assignee, run_fn=run_fn)
+    if author:
+        fields["creator"] = _login(author, run_fn=run_fn)
+    return fields
+
+
 def list_issues(
     *,
     state: str | None = None,
@@ -107,16 +126,9 @@ def list_issues(
                 run_fn=run_fn,
             )
         else:
-            fields: dict[str, object] = {"state": state or "open"}
-            if labels:
-                fields["labels"] = ",".join(split_list(labels))
-            if last_assignee:
-                fields["assignee"] = _login(last_assignee, run_fn=run_fn)
-            if author:
-                fields["creator"] = _login(author, run_fn=run_fn)
             issues = gh_runner.rest_pages(
                 f"repos/{slug}/issues",
-                fields=fields,
+                fields=_list_filters(state, labels, last_assignee, author, run_fn=run_fn),
                 limit=count,
                 accept=lambda item: "pull_request" not in item,
                 run_fn=run_fn,
@@ -164,9 +176,7 @@ def view_issue(issue: int, *, run_fn: RunFunction | None = None) -> int:
         print(raw.get("html_url"))
         if raw.get("body"):
             print(f"\n{raw['body']}")
-        for comment in gh_runner.rest_pages(f"{path}/comments", run_fn=run_fn):
-            author = as_object(comment.get("user")).get("login", "unknown")
-            print(f"\n--\ncomment by @{author}\n{comment.get('body') or ''}")
+        gh_runner.print_rest_comments(gh_runner.rest_pages(f"{path}/comments", run_fn=run_fn))
         return 0
 
     return gh_runner.gh_or_rest(

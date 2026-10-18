@@ -13,6 +13,17 @@ def reject_path_symlinks(path: Path, *, label: str = "Path") -> None:
             raise ValueError(f"{label} must not be a symlinked path: {candidate}")
 
 
+def reject_symlinked_tree(path: Path, *, label: str) -> None:
+    """Raise ``ValueError`` when *path* has a symlinked parent or holds any symlink.
+
+    A path that does not exist yet passes the tree walk, so it can name an
+    output directory the caller is about to create.
+    """
+    reject_path_symlinks(path, label=label)
+    if path.exists():
+        reject_symlinks(path)
+
+
 def reject_symlinks(root: Path) -> None:
     """Raise ``ValueError`` if any symlink exists under *root*.
 

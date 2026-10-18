@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from scripts import REPO_ROOT
-from scripts.lint import add_root_argument, report_violations
+from scripts.lint import add_root_argument, report_violations, root_from_args
 
 VENDORED_ASSETS_MANIFEST_FILE = REPO_ROOT / "config" / "vendored_assets.json"
 
@@ -119,6 +119,30 @@ def _validate_asset_identity(package: str, version: str, upstream: str, entry_pa
         )
 
 
+def _parse_asset(entry: object, entry_path: str) -> VendoredAsset:
+    """Validate one manifest entry and return it as a ``VendoredAsset``."""
+    if not isinstance(entry, dict):
+        raise ValueError(f"Vendored asset entries must be objects: {entry_path}")
+
+    required_fields = ("path", "package", "version", "upstream", "sha256")
+    missing = [field for field in required_fields if not entry.get(field)]
+    if missing:
+        raise ValueError(
+            "Vendored asset entries must include " + ", ".join(missing) + f": {entry_path}"
+        )
+
+    _validate_asset_identity(
+        str(entry["package"]), str(entry["version"]), str(entry["upstream"]), entry_path
+    )
+    return VendoredAsset(
+        path=_validate_asset_path(str(entry["path"]), entry_path),
+        package=str(entry["package"]),
+        version=str(entry["version"]),
+        upstream=str(entry["upstream"]),
+        sha256=_validate_asset_sha256(str(entry["sha256"]), entry_path),
+    )
+
+
 def _load_manifest(
     manifest_file: Path = VENDORED_ASSETS_MANIFEST_FILE,
 ) -> tuple[VendoredAsset, ...]:
@@ -136,28 +160,9 @@ def _load_manifest(
 
     assets: list[VendoredAsset] = []
     seen_paths: set[str] = set()
-    required_fields = ("path", "package", "version", "upstream", "sha256")
     for index, entry in enumerate(entries):
         entry_path = f"assets[{index}]"
-        if not isinstance(entry, dict):
-            raise ValueError(f"Vendored asset entries must be objects: {entry_path}")
-
-        missing = [field for field in required_fields if not entry.get(field)]
-        if missing:
-            raise ValueError(
-                "Vendored asset entries must include " + ", ".join(missing) + f": {entry_path}"
-            )
-
-        _validate_asset_identity(
-            str(entry["package"]), str(entry["version"]), str(entry["upstream"]), entry_path
-        )
-        asset = VendoredAsset(
-            path=_validate_asset_path(str(entry["path"]), entry_path),
-            package=str(entry["package"]),
-            version=str(entry["version"]),
-            upstream=str(entry["upstream"]),
-            sha256=_validate_asset_sha256(str(entry["sha256"]), entry_path),
-        )
+        asset = _parse_asset(entry, entry_path)
         if asset.path in seen_paths:
             raise ValueError(f"Vendored asset entries must not duplicate a path: {entry_path}")
         seen_paths.add(asset.path)
@@ -176,47 +181,53 @@ def discover_vendor_files(root: Path) -> list[str]:
     return sorted(match.relative_to(root).as_posix() for match in root.glob(VENDOR_GLOB))
 
 
+def _unlisted_file_violations(root: Path, assets: tuple[VendoredAsset, ...]) -> list[str]:
+    """Return a violation for each vendored file on disk that the manifest omits."""
+    manifest_paths = {asset.path for asset in assets}
+    return [
+        f"{disk_path}: vendored file is not listed in config/vendored_assets.json. {_UPDATE_HINT}"
+        for disk_path in discover_vendor_files(root)
+        if disk_path not in manifest_paths
+    ]
+
+
+def _asset_violation(root: Path, resolved_root: Path, asset: VendoredAsset) -> str | None:
+    """Return the violation for one manifest entry, or ``None`` when its file matches."""
+    file_path = root / asset.path
+    # A symlinked file or parent directory could point the hash at content
+    # outside the repository, so the entry must resolve to exactly the
+    # manifest path under the resolved root before it is read. This mirrors
+    # the reject_symlinks guard prepare_site.py applies to its payload tree.
+    if file_path.resolve() != resolved_root / asset.path:
+        return (
+            f"{asset.path}: path must resolve to a regular file under the repository "
+            f"root with no symlinked components "
+            f"({asset.package} {asset.version} from {asset.upstream})"
+        )
+    if not file_path.is_file():
+        return (
+            f"{asset.path}: manifest entry has no file on disk "
+            f"({asset.package} {asset.version} from {asset.upstream})"
+        )
+
+    actual = _sha256(file_path)
+    if actual != asset.sha256:
+        return (
+            f"{asset.path}: sha256 mismatch for {asset.package} {asset.version} "
+            f"(manifest {asset.sha256}, actual {actual}, upstream {asset.upstream}). "
+            f"{_UPDATE_HINT}"
+        )
+    return None
+
+
 def check_assets(root: Path, assets: tuple[VendoredAsset, ...]) -> list[str]:
     """Return integrity violations between the manifest and the files on disk."""
-    violations: list[str] = []
-    manifest_paths = {asset.path for asset in assets}
     resolved_root = root.resolve()
-
-    for disk_path in discover_vendor_files(root):
-        if disk_path not in manifest_paths:
-            violations.append(
-                f"{disk_path}: vendored file is not listed in config/vendored_assets.json. "
-                f"{_UPDATE_HINT}"
-            )
-
+    violations = _unlisted_file_violations(root, assets)
     for asset in assets:
-        file_path = root / asset.path
-        # A symlinked file or parent directory could point the hash at content
-        # outside the repository, so the entry must resolve to exactly the
-        # manifest path under the resolved root before it is read. This mirrors
-        # the reject_symlinks guard prepare_site.py applies to its payload tree.
-        if file_path.resolve() != resolved_root / asset.path:
-            violations.append(
-                f"{asset.path}: path must resolve to a regular file under the repository "
-                f"root with no symlinked components "
-                f"({asset.package} {asset.version} from {asset.upstream})"
-            )
-            continue
-        if not file_path.is_file():
-            violations.append(
-                f"{asset.path}: manifest entry has no file on disk "
-                f"({asset.package} {asset.version} from {asset.upstream})"
-            )
-            continue
-
-        actual = _sha256(file_path)
-        if actual != asset.sha256:
-            violations.append(
-                f"{asset.path}: sha256 mismatch for {asset.package} {asset.version} "
-                f"(manifest {asset.sha256}, actual {actual}, upstream {asset.upstream}). "
-                f"{_UPDATE_HINT}"
-            )
-
+        violation = _asset_violation(root, resolved_root, asset)
+        if violation is not None:
+            violations.append(violation)
     return violations
 
 
@@ -242,7 +253,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI entry point and return a shell exit code."""
     args = parse_args(argv)
-    workspace_root = Path(args.root) if args.root else REPO_ROOT
+    workspace_root = root_from_args(args)
 
     try:
         violations = run_check(workspace_root)

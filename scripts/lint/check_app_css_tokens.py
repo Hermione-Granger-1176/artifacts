@@ -45,10 +45,13 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
-from scripts.lint import add_root_argument, report_violations
+from scripts.lint import add_root_argument, report_violations, root_from_args
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # Directory (relative to the workspace root) that holds artifact directories.
 APPS_DIRNAME = "apps"
@@ -574,7 +577,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI entry point and return a shell exit code."""
     args = parse_args(argv)
-    workspace_root = Path(args.root) if args.root else REPO_ROOT
+    workspace_root = root_from_args(args)
     violations = run_check(workspace_root)
 
     return report_violations("App CSS token", violations)

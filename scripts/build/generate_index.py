@@ -90,6 +90,15 @@ def _scan_artifacts(config: IndexConfig) -> list[ArtifactItem]:
     return items
 
 
+def _reject_duplicate_ids(items: list[ArtifactItem]) -> None:
+    """Raise ``ValueError`` when two scanned artifacts share an id."""
+    seen: set[str] = set()
+    for item in items:
+        if item["id"] in seen:
+            raise ValueError(f"Duplicate artifact ID: '{item['id']}'")
+        seen.add(item["id"])
+
+
 # -- Public API ----------------------------------------------------------------
 
 
@@ -131,11 +140,7 @@ def generate(config: IndexConfig | None = None) -> None:
     if not items:
         config.logger.warning("No artifacts found")
 
-    seen: set[str] = set()
-    for item in items:
-        if item["id"] in seen:
-            raise ValueError(f"Duplicate artifact ID: '{item['id']}'")
-        seen.add(item["id"])
+    _reject_duplicate_ids(items)
 
     config.js_output_file.parent.mkdir(exist_ok=True)
     gallery_metadata = config.read_gallery_metadata()

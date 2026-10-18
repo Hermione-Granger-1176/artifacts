@@ -382,15 +382,15 @@ def playwright_version(paths: RuntimePaths) -> str:
     return version
 
 
-def checked_run(
+def run_captured(
     command: Sequence[str],
     *,
     cwd: Path | None = None,
     env: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Run one fixed argv command and provide its bounded diagnostic on failure."""
+    """Run one fixed argv command, merging stderr into stdout, and never check its status."""
     try:
-        completed = subprocess.run(
+        return subprocess.run(
             list(command),
             cwd=cwd,
             env=dict(env) if env is not None else None,
@@ -401,6 +401,16 @@ def checked_run(
         )
     except OSError as error:
         raise fail(f"cannot run {command[0]}: {error}") from error
+
+
+def checked_run(
+    command: Sequence[str],
+    *,
+    cwd: Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run one fixed argv command and provide its bounded diagnostic on failure."""
+    completed = run_captured(command, cwd=cwd, env=env)
     if completed.returncode != 0:
         output = completed.stdout.strip()
         if len(output) > 4000:
@@ -496,17 +506,7 @@ def parse_dependency_seeds(output: str) -> tuple[str, ...]:
 def dependency_seeds(paths: RuntimePaths, engines: Sequence[str]) -> tuple[str, ...]:
     """Ask Playwright for dependency seeds without running its printed command."""
     command = [str(playwright_cli(paths)), "install-deps", "--dry-run", *engines]
-    try:
-        completed = subprocess.run(
-            command,
-            cwd=paths.repo_root,
-            check=False,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-    except OSError as error:
-        raise fail(f"cannot run {command[0]}: {error}") from error
+    completed = run_captured(command, cwd=paths.repo_root)
     if completed.returncode not in {0, 1}:
         output = completed.stdout.strip()
         detail = f": {output[-2000:]}" if output else ""
@@ -630,40 +630,49 @@ def download_and_extract(packages: Sequence[PackageVersion], stage: Path) -> Pat
     return extracted_root
 
 
+def _reject_escaping_entry(entry: Path, extracted_root: Path) -> None:
+    """Raise unless an extracted entry, and any symlink target it holds, stays in the root."""
+    # Containment applies to where a symlink sits, never to what it points
+    # at. Resolving through the link here would conflate a dangling link
+    # with an escaping one. The target gets its own lexical containment
+    # check below, which keeps valid APT documentation links usable even
+    # when their sibling package is already present on the host.
+    location = entry.parent if entry.is_symlink() else entry
+    if not is_within(location, extracted_root):
+        raise fail(
+            "extracted package path escaped the private runtime root: "
+            f"{entry.relative_to(extracted_root)}"
+        )
+    if entry.is_symlink():
+        target = entry.readlink()
+        if target.is_absolute() or not is_within(entry.parent / target, extracted_root):
+            raise fail(
+                "extracted package contains a symlink that escapes the private runtime "
+                f"root: {entry.relative_to(extracted_root)} -> {target}"
+            )
+
+
+def _is_host_runtime_overlay(entry: Path, extracted_root: Path) -> bool:
+    """Return whether an entry is a host loader or libc inside a library directory."""
+    relative = entry.relative_to(extracted_root)
+    in_library_tree = relative.parts[0] in {"lib", "lib64"} or relative.parts[:2] in {
+        ("usr", "lib"),
+        ("usr", "lib64"),
+    }
+    is_host_runtime = entry.name.startswith("ld-linux") or (
+        re.fullmatch(r"libc\.so(?:\.\d+)*", entry.name) is not None
+    )
+    return in_library_tree and is_host_runtime
+
+
 def validate_extracted_root(extracted_root: Path) -> None:
     """Reject symlink escapes and extracted host loader or libc replacements."""
     require_regular_directory(extracted_root, "extracted Playwright runtime root")
     if not extracted_root.exists():
         raise fail("package extraction did not create a runtime root")
     for entry in extracted_root.rglob("*"):
-        # Containment applies to where a symlink sits, never to what it points
-        # at. Resolving through the link here would conflate a dangling link
-        # with an escaping one. The target gets its own lexical containment
-        # check below, which keeps valid APT documentation links usable even
-        # when their sibling package is already present on the host.
-        location = entry.parent if entry.is_symlink() else entry
-        if not is_within(location, extracted_root):
-            raise fail(
-                "extracted package path escaped the private runtime root: "
-                f"{entry.relative_to(extracted_root)}"
-            )
-        if entry.is_symlink():
-            target = entry.readlink()
-            if target.is_absolute() or not is_within(entry.parent / target, extracted_root):
-                raise fail(
-                    "extracted package contains a symlink that escapes the private runtime "
-                    f"root: {entry.relative_to(extracted_root)} -> {target}"
-                )
-        name = entry.name
-        relative = entry.relative_to(extracted_root)
-        in_library_tree = relative.parts[0] in {"lib", "lib64"} or relative.parts[:2] in {
-            ("usr", "lib"),
-            ("usr", "lib64"),
-        }
-        is_host_runtime = name.startswith("ld-linux") or (
-            re.fullmatch(r"libc\.so(?:\.\d+)*", name) is not None
-        )
-        if in_library_tree and is_host_runtime:
+        _reject_escaping_entry(entry, extracted_root)
+        if _is_host_runtime_overlay(entry, extracted_root):
             raise fail("refusing an extracted host loader or libc overlay")
 
 
@@ -680,6 +689,22 @@ def regular_file(path: Path) -> bool:
         return stat.S_ISREG(path.lstat().st_mode)
     except OSError:
         return False
+
+
+def _parse_manifest_packages(packages: list[object]) -> tuple[PackageVersion, ...] | None:
+    """Return the manifest's packages, or ``None`` when any entry is malformed or unsafe."""
+    parsed_packages: list[PackageVersion] = []
+    for package in packages:
+        if (
+            not isinstance(package, dict)
+            or not isinstance(package.get("name"), str)
+            or not isinstance(package.get("version"), str)
+            or PACKAGE_NAME_RE.fullmatch(package["name"]) is None
+            or PACKAGE_VERSION_RE.fullmatch(package["version"]) is None
+        ):
+            return None
+        parsed_packages.append(PackageVersion(name=package["name"], version=package["version"]))
+    return tuple(parsed_packages)
 
 
 def load_manifest(path: Path) -> CacheManifest | None:
@@ -707,17 +732,9 @@ def load_manifest(path: Path) -> CacheManifest | None:
         or not isinstance(packages, list)
     ):
         return None
-    parsed_packages: list[PackageVersion] = []
-    for package in packages:
-        if (
-            not isinstance(package, dict)
-            or not isinstance(package.get("name"), str)
-            or not isinstance(package.get("version"), str)
-            or PACKAGE_NAME_RE.fullmatch(package["name"]) is None
-            or PACKAGE_VERSION_RE.fullmatch(package["version"]) is None
-        ):
-            return None
-        parsed_packages.append(PackageVersion(name=package["name"], version=package["version"]))
+    parsed_packages = _parse_manifest_packages(packages)
+    if parsed_packages is None:
+        return None
     return CacheManifest(
         schema=MANIFEST_SCHEMA,
         host=HostPlatform(
@@ -727,7 +744,7 @@ def load_manifest(path: Path) -> CacheManifest | None:
         ),
         playwright_version=version,
         engines=tuple(engines),
-        packages=tuple(parsed_packages),
+        packages=parsed_packages,
     )
 
 
@@ -853,6 +870,22 @@ def prepare_locked(paths: RuntimePaths, engines: Sequence[str]) -> None:
         shutil.rmtree(stage, ignore_errors=True)
 
 
+def _is_loader_directory_path(parts: tuple[str, ...]) -> bool:
+    """Return whether a relative path has the shape of a dynamic-library directory."""
+    return (bool(parts) and parts[0] in {"lib", "lib64"} and len(parts) <= 2) or (
+        len(parts) >= 2 and parts[:2] in {("usr", "lib"), ("usr", "lib64")} and len(parts) <= 3
+    )
+
+
+def _holds_shared_library(directory: Path) -> bool:
+    """Return whether a directory directly contains a ``lib*.so*`` file."""
+    return any(
+        child.name.startswith("lib") and ".so" in child.name
+        for child in directory.iterdir()
+        if child.is_file()
+    )
+
+
 def discovered_directories(root: Path) -> dict[str, list[Path]]:
     """Discover only extracted locations relevant to dynamic libraries and browser data."""
     found: dict[str, list[Path]] = {
@@ -878,21 +911,11 @@ def discovered_directories(root: Path) -> dict[str, list[Path]]:
             found["gstreamer"].append(directory)
         if relative.parts[-2:] == ("glib-2.0", "schemas"):
             found["schemas"].append(directory)
-        parts = relative.parts
-        is_loader_directory = (
-            bool(parts) and parts[0] in {"lib", "lib64"} and len(parts) <= 2
-        ) or (
-            len(parts) >= 2 and parts[:2] in {("usr", "lib"), ("usr", "lib64")} and len(parts) <= 3
-        )
         # Decide on the path shape before reading the directory. Only a handful of
         # directories in an extracted tree are loader directories (7 of 331 in a
         # 193-package cache), and this runs on every wrapped browser invocation, so
         # the short circuit skips the iterdir syscalls for the other 98%.
-        if is_loader_directory and any(
-            child.name.startswith("lib") and ".so" in child.name
-            for child in directory.iterdir()
-            if child.is_file()
-        ):
+        if _is_loader_directory_path(relative.parts) and _holds_shared_library(directory):
             found["libraries"].append(directory)
     return found
 
@@ -997,29 +1020,34 @@ def patch_webkit_launchers(paths: RuntimePaths) -> None:
         if content.count(WEBKIT_LAUNCHER_LD_LINE) != 1:
             raise fail(f"unexpected shared WebKit launcher format: {launcher}")
         updated = content.replace(WEBKIT_LAUNCHER_LD_LINE, WEBKIT_LAUNCHER_LOCAL_LD_LINE)
-        try:
-            descriptor, temporary_name = tempfile.mkstemp(
-                prefix=".MiniBrowser.",
-                dir=launcher.parent,
-            )
-        except OSError as error:
-            raise fail(f"cannot patch the shared WebKit launcher {launcher}: {error}") from error
-        temporary = Path(temporary_name)
-        try:
-            with os.fdopen(descriptor, "w", encoding="utf-8") as temporary_file:
-                temporary_file.write(updated)
-                temporary_file.flush()
-                os.fsync(temporary_file.fileno())
-            temporary.chmod(stat.S_IMODE(launcher.stat().st_mode))
-            temporary.replace(launcher)
-        except OSError as error:
-            raise fail(f"cannot patch the shared WebKit launcher {launcher}: {error}") from error
-        finally:
-            # Never let cleanup replace the real diagnostic: on the success path the
-            # rename already consumed this name, and on the failure path the caller
-            # needs the write error, not a second one from tidying up after it.
-            with suppress(OSError):
-                temporary.unlink(missing_ok=True)
+        _replace_launcher(launcher, updated)
+
+
+def _replace_launcher(launcher: Path, updated: str) -> None:
+    """Atomically replace a shared WebKit launcher with ``updated``, keeping its mode."""
+    try:
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=".MiniBrowser.",
+            dir=launcher.parent,
+        )
+    except OSError as error:
+        raise fail(f"cannot patch the shared WebKit launcher {launcher}: {error}") from error
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as temporary_file:
+            temporary_file.write(updated)
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        temporary.chmod(stat.S_IMODE(launcher.stat().st_mode))
+        temporary.replace(launcher)
+    except OSError as error:
+        raise fail(f"cannot patch the shared WebKit launcher {launcher}: {error}") from error
+    finally:
+        # Never let cleanup replace the real diagnostic: on the success path the
+        # rename already consumed this name, and on the failure path the caller
+        # needs the write error, not a second one from tidying up after it.
+        with suppress(OSError):
+            temporary.unlink(missing_ok=True)
 
 
 def require_ready(paths: RuntimePaths) -> tuple[str, ...]:

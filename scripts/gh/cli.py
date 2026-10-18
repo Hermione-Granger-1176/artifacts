@@ -72,15 +72,25 @@ def _add_issue_option(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--issue", type=int, required=True, help="Issue number")
 
 
+def _read_text_option(path: str, option: str) -> str:
+    """Return the text of the file an option names (``-`` reads stdin)."""
+    if path == "-":
+        return sys.stdin.read()
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise GhError(f"Could not read {option} {path}: {exc}") from exc
+
+
+def _has_body(args: argparse.Namespace) -> bool:
+    """Return whether ``--body`` or ``--body-file`` was given."""
+    return args.body is not None or args.body_file is not None
+
+
 def _body_text(args: argparse.Namespace) -> str:
     """Return the body text from ``--body`` or ``--body-file`` (``-`` reads stdin)."""
     if args.body_file is not None:
-        if args.body_file == "-":
-            return sys.stdin.read()
-        try:
-            return Path(args.body_file).read_text(encoding="utf-8")
-        except OSError as exc:
-            raise GhError(f"Could not read --body-file {args.body_file}: {exc}") from exc
+        return _read_text_option(args.body_file, "--body-file")
     return str(args.body)
 
 
@@ -453,13 +463,7 @@ def _handle_copilot_review(args: argparse.Namespace) -> int:
 
 def _handle_check_commit_message(args: argparse.Namespace) -> int:
     """Validate a commit message and reject leaked shell fragments."""
-    if args.message_file == "-":
-        message = sys.stdin.read()
-    else:
-        try:
-            message = Path(args.message_file).read_text(encoding="utf-8")
-        except OSError as exc:
-            raise GhError(f"Could not read --message-file {args.message_file}: {exc}") from exc
+    message = _read_text_option(args.message_file, "--message-file")
     try:
         commit_message.validate_commit_message(message)
     except ValueError as exc:
@@ -476,10 +480,10 @@ def _handle_current_pr(_args: argparse.Namespace) -> int:
 def _handle_pr_create(args: argparse.Namespace) -> int:
     """Open a pull request, with commit-filled text unless a title is given."""
     if args.title is None:
-        if args.body is not None or args.body_file is not None:
+        if _has_body(args):
             raise GhError("A PR body needs a --title; without one the text is filled from commits.")
         return pr_commands.create_pr(base=args.base)
-    body = _body_text(args) if args.body is not None or args.body_file is not None else ""
+    body = _body_text(args) if _has_body(args) else ""
     return pr_commands.create_pr(title=args.title, base=args.base, body=body)
 
 
@@ -564,9 +568,8 @@ def _handle_issue_comment(args: argparse.Namespace) -> int:
 
 def _handle_issue_edit(args: argparse.Namespace) -> int:
     """Edit an issue's title and/or body."""
-    has_body = args.body is not None or args.body_file is not None
     return issue_commands.edit_issue(
-        args.issue, title=args.title, body=_body_text(args) if has_body else None
+        args.issue, title=args.title, body=_body_text(args) if _has_body(args) else None
     )
 
 

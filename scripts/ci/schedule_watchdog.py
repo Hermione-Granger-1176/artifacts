@@ -9,23 +9,21 @@ own their result alerts. Delayed or missing runs do not imply a disabled workflo
 from __future__ import annotations
 
 import argparse
-import os
 import sys
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import yaml
 
 from scripts import REPO_ROOT
-from scripts.lib import gh_api
+from scripts.lib import gh_api, github_output
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping
+    from pathlib import Path
 
 EXIT_HEALTHY = 0
 EXIT_PROBLEMS_FOUND = 1
 EXIT_CHECK_FAILED = 2
-GITHUB_OUTPUT_ENV = "GITHUB_OUTPUT"
 CHECKED_OUTPUT = "checked"
 WORKFLOW_ROOT = REPO_ROOT / ".github" / "workflows"
 
@@ -89,12 +87,7 @@ def check_scheduled_workflows(
 
 def report_checked(reached_verdict: bool, *, env: Mapping[str, str] | None = None) -> None:
     """Keep API failures distinct from disabled-workflow verdicts behind Make."""
-    path = (os.environ if env is None else env).get(GITHUB_OUTPUT_ENV)
-    if not path:
-        return
-    value = "true" if reached_verdict else "false"
-    with Path(path).open("a", encoding="utf-8") as handle:
-        handle.write(f"{CHECKED_OUTPUT}={value}\n")
+    github_output.report_checked(CHECKED_OUTPUT, reached_verdict, env=env)
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:

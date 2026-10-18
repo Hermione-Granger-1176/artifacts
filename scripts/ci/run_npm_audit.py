@@ -32,6 +32,7 @@ from scripts.ci.security_audit_policy import (
     NPM_EXCEPTIONS_KEY,
     VulnerabilityExceptionEntry,
     load_security_audit_exceptions,
+    report_audit_outcome,
     unused_exception_errors,
 )
 
@@ -338,25 +339,16 @@ def main(argv: list[str] | None = None) -> int:
         audit_level=args.audit_level,
     )
 
-    if ignored:
-        print("Reviewed npm vulnerability exceptions:")
-        for finding, exception in ignored:
-            print(
-                "- "
-                f"{finding.package} {finding.severity} "
-                f"{finding.advisory_id} "
-                f"(review by {exception.review_by.isoformat()})"
-            )
-            print(f"  reason: {exception.reason}")
-
-    if errors:
-        print("npm dependency audit failed:")
-        for error in errors:
-            print(f"- {error}")
-        return 1
-
-    print("npm dependency audit passed.")
-    return 0
+    return report_audit_outcome(
+        ecosystem="npm",
+        audit_name="npm dependency audit",
+        ignored=[
+            (f"{finding.package} {finding.severity} {finding.advisory_id}", exception)
+            for finding, exception in ignored
+        ],
+        errors=errors,
+        pass_message="npm dependency audit passed.",
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -338,7 +338,7 @@ def list_threads(
     Falls back to the REST thread route when GraphQL is unavailable.
     """
     owner, name = _owner_name(run_fn=run_fn)
-    pr = pr if pr is not None else gh_runner.current_pr_number(run_fn=run_fn)
+    pr = gh_runner.resolve_pr_number(pr, run_fn=run_fn)
 
     threads = gh_runner.with_rest_fallback(
         lambda: _graphql_threads(owner, name, pr, run_fn=run_fn),
@@ -348,12 +348,6 @@ def list_threads(
     if include_resolved:
         return threads
     return [thread for thread in threads if thread.state == "open"]
-
-
-def _rest_target(pr: int | None, *, run_fn: RunFunction | None) -> tuple[str, int]:
-    """Return the ``(owner/name, pr)`` a numeric-id REST call needs."""
-    slug = gh_runner.resolve_repo(run_fn=run_fn)
-    return slug, pr if pr is not None else gh_runner.current_pr_number(run_fn=run_fn)
 
 
 def _graphql_only(action: str, call: Callable[[], object]) -> None:
@@ -378,7 +372,7 @@ def reply_to_thread(
     omitted).
     """
     if _is_rest_id(thread_id):
-        slug, pr = _rest_target(pr, run_fn=run_fn)
+        slug, pr = gh_runner.resolve_repo_and_pr(pr, run_fn=run_fn)
         gh_runner.rest(
             f"repos/{slug}/pulls/{pr}/comments/{thread_id}/replies",
             method="POST",
@@ -406,7 +400,7 @@ def resolve_thread(
     REST thread route on ``pr`` (the current branch's PR when omitted).
     """
     if _is_rest_id(thread_id):
-        slug, pr = _rest_target(pr, run_fn=run_fn)
+        slug, pr = gh_runner.resolve_repo_and_pr(pr, run_fn=run_fn)
         gh_runner.rest(
             f"repos/{slug}/pulls/{pr}/ccr/comments/{thread_id}/resolve",
             method="POST",
@@ -575,7 +569,7 @@ def list_comments(
     the numeric REST ids that ``delete_review_comment`` also accepts.
     """
     owner, name = _owner_name(run_fn=run_fn)
-    pr = pr if pr is not None else gh_runner.current_pr_number(run_fn=run_fn)
+    pr = gh_runner.resolve_pr_number(pr, run_fn=run_fn)
     return gh_runner.with_rest_fallback(
         lambda: _graphql_comments(owner, name, pr, run_fn=run_fn),
         lambda: _rest_comments(owner, name, pr, run_fn=run_fn),
@@ -605,7 +599,7 @@ def delete_review_comment(comment_id: str, *, run_fn: RunFunction | None = None)
 
 def comment_on_pr(pr: int | None, body: str, *, run_fn: RunFunction | None = None) -> None:
     """Post a PR-level comment on the current branch's PR or the given PR."""
-    pr = pr if pr is not None else gh_runner.current_pr_number(run_fn=run_fn)
+    pr = gh_runner.resolve_pr_number(pr, run_fn=run_fn)
 
     def post_with_gh() -> None:
         gh_runner.run_gh(["pr", "comment", str(pr), "--body", body], run_fn=run_fn, retries=0)
@@ -622,14 +616,20 @@ def comment_on_pr(pr: int | None, body: str, *, run_fn: RunFunction | None = Non
     gh_runner.with_rest_fallback(post_with_gh, post_with_rest)
 
 
+def _first_line(body: str) -> str:
+    """Return the first line of a comment body, or an empty string for an empty body."""
+    return body.splitlines()[0] if body else ""
+
+
 def format_comments(comments: list[ReviewComment]) -> str:
     """Render review comments as greppable one-line-per-comment text."""
     if not comments:
         return "No review comments."
     blocks: list[str] = []
     for comment in comments:
-        first_line = comment.body.splitlines()[0] if comment.body else ""
-        blocks.append(f"comment={comment.comment_id}  @{comment.author}: {first_line}")
+        blocks.append(
+            f"comment={comment.comment_id}  @{comment.author}: {_first_line(comment.body)}"
+        )
     return "\n".join(blocks)
 
 
@@ -642,17 +642,16 @@ def format_threads(threads: list[ReviewThread]) -> str:
         location = thread.path or "(no path)"
         if thread.line is not None:
             location = f"{location}:{thread.line}"
-        first_line = thread.body.splitlines()[0] if thread.body else ""
         blocks.append(
             f"thread={thread.thread_id}  state={thread.state}  path={location}\n"
-            f"  @{thread.author}: {first_line}"
+            f"  @{thread.author}: {_first_line(thread.body)}"
         )
     return "\n".join(blocks)
 
 
 def pr_summary(pr: int | None = None, *, run_fn: RunFunction | None = None) -> str:
     """Return a one-screen overview: PR meta, CI rollup, and open threads."""
-    pr = pr if pr is not None else gh_runner.current_pr_number(run_fn=run_fn)
+    pr = gh_runner.resolve_pr_number(pr, run_fn=run_fn)
     meta = gh_runner.with_rest_fallback(
         lambda: gh_runner.gh_json(
             ["pr", "view", str(pr), "--json", _SUMMARY_FIELDS], run_fn=run_fn
@@ -685,7 +684,7 @@ def request_copilot_review(pr: int | None = None, *, run_fn: RunFunction | None 
     automatically re-review new pushes. Raises ``GhError`` if the request fails
     (for example, if Copilot code review is not enabled for the repository).
     """
-    pr = pr if pr is not None else gh_runner.current_pr_number(run_fn=run_fn)
+    pr = gh_runner.resolve_pr_number(pr, run_fn=run_fn)
 
     def request_with_gh() -> None:
         gh_runner.run_gh(
@@ -752,7 +751,7 @@ def edit_pr(
         args += ["--body", body]
 
     def edit_with_rest() -> None:
-        number = pr if pr is not None else gh_runner.current_pr_number(run_fn=run_fn)
+        number = gh_runner.resolve_pr_number(pr, run_fn=run_fn)
         slug = gh_runner.resolve_repo(run_fn=run_fn)
         fields: dict[str, object] = {}
         if title is not None:

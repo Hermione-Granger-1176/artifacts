@@ -373,6 +373,22 @@ def _check_identity(entry: dict[str, Any], ordinal: int) -> str:
     return f"index:{ordinal}"
 
 
+def _latest_fresh_review(
+    reviews: tuple[CopilotReview, ...], *, baseline_ids: frozenset[str]
+) -> CopilotReview | None:
+    """Return the newest review absent from the baseline, or ``None`` when there is none.
+
+    Reviews submitted at the same instant resolve to the one listed last.
+    """
+    fresh_reviews = tuple(review for review in reviews if review.review_id not in baseline_ids)
+    newest = max(
+        enumerate(fresh_reviews),
+        key=lambda item: (item[1].submitted_at, item[0]),
+        default=None,
+    )
+    return None if newest is None else newest[1]
+
+
 def poll_once(
     pr: int,
     baseline_ids: frozenset[str],
@@ -388,17 +404,7 @@ def poll_once(
         expected_checks=expected_checks,
     )
     reviews = _copilot_reviews(payload.get("reviews"))
-    fresh_reviews = tuple(review for review in reviews if review.review_id not in baseline_ids)
-    fresh_review = (
-        max(
-            enumerate(fresh_reviews),
-            key=lambda item: (item[1].submitted_at, item[0]),
-        )[1]
-        if fresh_reviews
-        else None
-    )
-    if checks_only:
-        fresh_review = None
+    fresh_review = None if checks_only else _latest_fresh_review(reviews, baseline_ids=baseline_ids)
     return PollStatus(
         checks_settled=settled,
         checks_successful=successful,
@@ -506,7 +512,7 @@ def watch_pr(
     if expected_checks < 1:
         raise GhError("expected_checks must be at least 1.")
 
-    pr = pr if pr is not None else gh_runner.current_pr_number(run_fn=run_fn)
+    pr = gh_runner.resolve_pr_number(pr, run_fn=run_fn)
     baseline = WatchBaseline(frozenset(), frozenset())
     if request_copilot and not checks_only:
         baseline = watch_baseline(pr, run_fn=run_fn)

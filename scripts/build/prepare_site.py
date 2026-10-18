@@ -120,30 +120,36 @@ def _read_git_output(*args: str) -> str:
     ).strip()
 
 
+def _env_or_git_output(env_var: str, *git_args: str) -> str:
+    """Return the environment override when it is set, else the output of one git command."""
+    env_value = os.environ.get(env_var)
+    if env_value:
+        return env_value
+
+    return _read_git_output(*git_args)
+
+
 def _resolve_version() -> str:
     """Return the deploy version from the environment or current Git SHA."""
-    env_version = os.environ.get(DEPLOY_VERSION_ENV_VAR)
-    if env_version:
-        return env_version
-
-    return _read_git_output("rev-parse", "--short", "HEAD")
+    return _env_or_git_output(DEPLOY_VERSION_ENV_VAR, "rev-parse", "--short", "HEAD")
 
 
 def _resolve_commit_sha() -> str:
     """Return the deploy commit SHA from the environment or current Git HEAD."""
-    env_commit_sha = os.environ.get(DEPLOY_COMMIT_SHA_ENV_VAR)
-    if env_commit_sha:
-        return env_commit_sha
+    return _env_or_git_output(DEPLOY_COMMIT_SHA_ENV_VAR, "rev-parse", "HEAD")
 
-    return _read_git_output("rev-parse", "HEAD")
+
+def _remove_tree(path: Path) -> None:
+    """Delete a directory tree only after refusing a symlinked path or entry."""
+    reject_path_symlinks(path, label="Removal target")
+    reject_symlinks(path)
+    shutil.rmtree(path)
 
 
 def _copy_deploy_items() -> None:
     """Copy the static site inputs into the clean deploy directory."""
     if DEPLOY_DIR.exists() or DEPLOY_DIR.is_symlink():
-        reject_path_symlinks(DEPLOY_DIR, label="Removal target")
-        reject_symlinks(DEPLOY_DIR)
-        shutil.rmtree(DEPLOY_DIR)
+        _remove_tree(DEPLOY_DIR)
 
     DEPLOY_DIR.mkdir(parents=True)
 
@@ -177,9 +183,7 @@ def _remove_build_only_sources() -> None:
     """Remove stylesheet sources that are compiled into the public bundle."""
     source_dir = DEPLOY_DIR / "css" / "src"
     if source_dir.is_dir():
-        reject_path_symlinks(source_dir, label="Removal target")
-        reject_symlinks(source_dir)
-        shutil.rmtree(source_dir)
+        _remove_tree(source_dir)
 
 
 def _copy_deploy_item(source: Path, target: Path) -> None:
@@ -345,18 +349,20 @@ def _patch_app_social_metadata(site_url: str) -> None:
         _write_text(index_path, _replace_exact_many(content, replacements))
 
 
+def _replace_in_file(path: Path, replacements: dict[str, str]) -> None:
+    """Apply exact replacements to one deployed file, failing on the first missing one."""
+    _write_text(path, _replace_exact_many(_read_text(path), replacements))
+
+
 def _patch_404_html(site_path: str) -> None:
     """Inject the configured site path into the 404 fallback page."""
-    error_path = DEPLOY_DIR / "404.html"
-    content = _read_text(error_path)
-    content = _replace_exact_many(
-        content,
+    _replace_in_file(
+        DEPLOY_DIR / "404.html",
         {
             'data-site-path="/"': f'data-site-path="{site_path}"',
             'href="/"': f'href="{site_path}"',
         },
     )
-    _write_text(error_path, content)
 
 
 def _patch_manifest(site_path: str) -> None:
@@ -364,12 +370,7 @@ def _patch_manifest(site_path: str) -> None:
     manifest_path = DEPLOY_DIR / "assets" / "icons" / "manifest.webmanifest"
     if not manifest_path.exists():
         return
-    content = _read_text(manifest_path)
-    content = _replace_exact_many(
-        content,
-        {'"start_url": "../../"': f'"start_url": "{site_path}"'},
-    )
-    _write_text(manifest_path, content)
+    _replace_in_file(manifest_path, {'"start_url": "../../"': f'"start_url": "{site_path}"'})
 
 
 def _write_nojekyll() -> None:

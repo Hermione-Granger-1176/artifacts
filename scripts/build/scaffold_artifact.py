@@ -436,33 +436,33 @@ def _read_source_html(source_html: str) -> str:
     return source_path.read_text(encoding="utf-8")
 
 
+def _print_warning(summary: str, items: Iterable[str]) -> None:
+    """Print a warning to standard error, then one bullet per item, or nothing without items."""
+    item_list = list(items)
+    if not item_list:
+        return
+    print(summary, file=sys.stderr)
+    for item in item_list:
+        print(f"  - {item}", file=sys.stderr)
+
+
 def _report_external_references(references: Iterable[str]) -> None:
     """Print an actionable warning about off-origin references."""
-    reference_list = list(references)
-    if not reference_list:
-        return
-    print(
+    _print_warning(
         "Warning: the provided HTML references off-origin resources. The "
         "self-only Content-Security-Policy will block them and the security "
         "lint will fail. Vendor them under js/vendor/ or remove them:",
-        file=sys.stderr,
+        references,
     )
-    for reference in reference_list:
-        print(f"  - {reference}", file=sys.stderr)
 
 
 def _report_csp_violations(violations: Iterable[str]) -> None:
     """Print an actionable warning about a Content-Security-Policy the lint rejects."""
-    violation_list = list(violations)
-    if not violation_list:
-        return
-    print(
+    _print_warning(
         "Warning: the provided HTML keeps its own Content-Security-Policy, and it does "
         "not meet the artifact contract. The security lint will fail until you fix it:",
-        file=sys.stderr,
+        violations,
     )
-    for violation in violation_list:
-        print(f"  - {violation}", file=sys.stderr)
 
 
 def _resolve_index_html(title: str, name: str, source_html: str | None) -> str:

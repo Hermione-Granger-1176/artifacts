@@ -128,6 +128,62 @@ def _issue_url(issue_payload: dict[str, object]) -> str:
     return html_url.strip()
 
 
+def _create_alert_issue(
+    repo: str,
+    title: str,
+    fields: list[tuple[str, str]],
+    *,
+    run_gh_api_form_fn: Callable[..., str],
+) -> str:
+    """Open a new alert issue and return its URL."""
+    created_url = run_gh_api_form_fn(
+        f"repos/{repo}/issues",
+        method="POST",
+        fields=fields,
+        description=f"creating alert issue {title} for {repo}",
+        jq_expr=".html_url",
+        required_permission="issues: write",
+    )
+    if not created_url.strip():
+        raise RuntimeError(f"Creating alert issue {title!r} returned no URL")
+    return created_url.strip()
+
+
+def _close_alert_issue(
+    repo: str,
+    title: str,
+    issue_number: int,
+    *,
+    run_gh_api_form_fn: Callable[..., str],
+) -> None:
+    """Close an existing alert issue."""
+    run_gh_api_form_fn(
+        f"repos/{repo}/issues/{issue_number}",
+        method="PATCH",
+        fields=[("state", "closed")],
+        description=f"closing alert issue {title} for {repo}",
+        required_permission="issues: write",
+    )
+
+
+def _comment_on_alert_issue(
+    repo: str,
+    title: str,
+    issue_number: int,
+    body: str,
+    *,
+    run_gh_api_form_fn: Callable[..., str],
+) -> None:
+    """Add the current alert body as a comment on an existing alert issue."""
+    run_gh_api_form_fn(
+        f"repos/{repo}/issues/{issue_number}/comments",
+        method="POST",
+        fields=[("body", body)],
+        description=f"commenting on alert issue {title} for {repo}",
+        required_permission="issues: write",
+    )
+
+
 def sync_alert_issue(
     *,
     repo: str,
@@ -144,45 +200,22 @@ def sync_alert_issue(
     normalized_labels = _validate_labels(labels)
     matches = issue_payloads_by_title_fn(repo, title, labels=list(normalized_labels))
     primary = matches[0] if matches else None
-    fields = [
-        ("title", title),
-        ("body", body),
-        *(("labels[]", label) for label in normalized_labels),
-    ]
 
     if primary is None:
         if not should_exist:
             return ""
-
-        created_url = run_gh_api_form_fn(
-            f"repos/{repo}/issues",
-            method="POST",
-            fields=fields,
-            description=f"creating alert issue {title} for {repo}",
-            jq_expr=".html_url",
-            required_permission="issues: write",
-        )
-        if not created_url.strip():
-            raise RuntimeError(f"Creating alert issue {title!r} returned no URL")
-        return created_url.strip()
+        fields = [
+            ("title", title),
+            ("body", body),
+            *(("labels[]", label) for label in normalized_labels),
+        ]
+        return _create_alert_issue(repo, title, fields, run_gh_api_form_fn=run_gh_api_form_fn)
 
     issue_number = _issue_number(primary)
     if not should_exist:
-        run_gh_api_form_fn(
-            f"repos/{repo}/issues/{issue_number}",
-            method="PATCH",
-            fields=[("state", "closed")],
-            description=f"closing alert issue {title} for {repo}",
-            required_permission="issues: write",
-        )
+        _close_alert_issue(repo, title, issue_number, run_gh_api_form_fn=run_gh_api_form_fn)
         return ""
 
     html_url = _issue_url(primary)
-    run_gh_api_form_fn(
-        f"repos/{repo}/issues/{issue_number}/comments",
-        method="POST",
-        fields=[("body", body)],
-        description=f"commenting on alert issue {title} for {repo}",
-        required_permission="issues: write",
-    )
+    _comment_on_alert_issue(repo, title, issue_number, body, run_gh_api_form_fn=run_gh_api_form_fn)
     return html_url

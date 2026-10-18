@@ -89,6 +89,12 @@ def process_file(path: Path) -> bool:
     return True
 
 
+def needs_alignment(path: Path) -> bool:
+    """Return True if aligning the tables in a markdown file would change it."""
+    text = path.read_text(encoding="utf-8")
+    return align_document(text) != text
+
+
 def align_document(text: str) -> str:
     """Return Markdown text with every table aligned without writing a file."""
     lines = text.split("\n")
@@ -142,8 +148,7 @@ def main() -> None:
         if not path.exists():
             print(f"Skipping {path} (not found)")
             continue
-        original = path.read_text(encoding="utf-8") if check_only else ""
-        changed = align_document(original) != original if check_only else process_file(path)
+        changed = needs_alignment(path) if check_only else process_file(path)
         if changed:
             changed_count += 1
             print(

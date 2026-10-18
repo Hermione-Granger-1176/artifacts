@@ -10,7 +10,7 @@ from pathlib import Path
 
 from scripts import REPO_ROOT
 from scripts.lint import SKIP_DIRECTORIES as _BASE_SKIP_DIRECTORIES
-from scripts.lint import add_root_argument, print_failures
+from scripts.lint import add_root_argument, print_failures, root_from_args
 
 # Directories containing JS source files that must have test coverage.
 SOURCE_DIRS = (
@@ -138,7 +138,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI entry point and return a shell exit code."""
     args = parse_args(argv)
-    workspace_root = Path(args.root) if args.root else REPO_ROOT
+    workspace_root = root_from_args(args)
 
     coverage = build_coverage_map(workspace_root)
     violations = coverage_violations(coverage, workspace_root)

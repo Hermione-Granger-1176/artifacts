@@ -11,7 +11,12 @@ import sys
 from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
-from scripts.lint import check_each_path, print_failures
+from scripts.lint import (
+    add_paths_argument,
+    check_each_path,
+    print_failures,
+    requested_or_default_paths,
+)
 from scripts.lint import resolve_requested_paths as _resolve_repo_paths
 from scripts.lint.make_targets import (
     MAKEFILE_PATH,
@@ -87,11 +92,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Check make <target> references against the Makefile."
     )
-    parser.add_argument(
-        "paths",
-        nargs="*",
-        help="Optional repository-relative files to check",
-    )
+    add_paths_argument(parser, "Optional repository-relative files to check")
     return parser.parse_args(argv)
 
 
@@ -100,13 +101,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     workspace_root = REPO_ROOT
 
-    if not args.paths:
-        candidate_paths = iter_reference_files(workspace_root)
-    else:
-        candidate_paths, path_errors = resolve_requested_paths(args.paths, workspace_root)
-        if path_errors:
-            print_failures(FAILURE_HEADER, path_errors)
-            return 1
+    candidate_paths = requested_or_default_paths(
+        args.paths,
+        workspace_root,
+        default_paths=iter_reference_files,
+        resolve=resolve_requested_paths,
+        failure_header=FAILURE_HEADER,
+    )
+    if candidate_paths is None:
+        return 1
 
     violations = run_check(paths=candidate_paths, root=workspace_root)
     violations.extend(run_control_flow_check(workspace_root / "Makefile"))

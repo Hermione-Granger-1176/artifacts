@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts import REPO_ROOT
+
 if TYPE_CHECKING:
     import argparse
     from collections.abc import Callable, Iterable, Iterator
@@ -57,6 +59,16 @@ def add_root_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def root_from_args(args: argparse.Namespace) -> Path:
+    """Return the ``--root`` checkout, or the auto-detected repository root when omitted."""
+    return Path(args.root) if args.root else REPO_ROOT
+
+
+def add_paths_argument(parser: argparse.ArgumentParser, help_text: str) -> None:
+    """Add the optional positional repository-relative paths a checker limits itself to."""
+    parser.add_argument("paths", nargs="*", help=help_text)
+
+
 def print_failures(header: str, messages: Iterable[str]) -> None:
     """Print a failure header, then one indented line per message."""
     print(header)
@@ -98,6 +110,29 @@ def check_each_path(
             continue
         violations.extend(check(safe_paths[0]))
     return violations
+
+
+def requested_or_default_paths(
+    raw_paths: list[str],
+    root: Path,
+    *,
+    default_paths: Callable[[Path], list[Path]],
+    resolve: Callable[[list[str], Path], tuple[list[Path], list[str]]],
+    failure_header: str,
+) -> list[Path] | None:
+    """Return the paths a checker covers, or ``None`` after printing refused requests.
+
+    With no requested paths the checker's own ``default_paths`` apply. Otherwise
+    ``resolve`` validates the request, and any error is printed under
+    ``failure_header``.
+    """
+    if not raw_paths:
+        return default_paths(root)
+    paths, path_errors = resolve(raw_paths, root)
+    if path_errors:
+        print_failures(failure_header, path_errors)
+        return None
+    return paths
 
 
 def contains_symlink(path: Path, root: Path) -> bool:

@@ -88,6 +88,11 @@ def badge_config_map(entries: Sequence[MetadataEntry]) -> dict[str, BadgeConfig]
     }
 
 
+def _label_map(entries: Sequence[MetadataEntry]) -> dict[str, dict[str, str]]:
+    """Map each entry id to its display label for the browser config."""
+    return {str(entry["id"]): {"label": str(entry["label"])} for entry in entries}
+
+
 def frontend_config(
     metadata: GalleryMetadata, *, artifact_contract: ArtifactContract
 ) -> dict[str, object]:
@@ -96,8 +101,8 @@ def frontend_config(
         "artifactContract": dict(artifact_contract),
         "toolDisplayOrder": display_order(metadata["tools"]),
         "tagDisplayOrder": display_order(metadata["tags"]),
-        "tools": {str(entry["id"]): {"label": str(entry["label"])} for entry in metadata["tools"]},
-        "tags": {str(entry["id"]): {"label": str(entry["label"])} for entry in metadata["tags"]},
+        "tools": _label_map(metadata["tools"]),
+        "tags": _label_map(metadata["tags"]),
     }
 
 
@@ -155,19 +160,38 @@ def fallback_badge_color(key: str, *, palette: Sequence[str]) -> str:
     return palette[color_index]
 
 
+def _replace_marker_pair(
+    content: str,
+    pattern: re.Pattern[str],
+    *,
+    kind: str,
+    marker: str,
+    value: str,
+    padding: str,
+) -> str:
+    """Replace the text between the one marker pair ``pattern`` matches.
+
+    ``padding`` goes on both sides of ``value``. A marker pair that occurs zero
+    or several times raises ``ValueError`` naming ``kind``.
+    """
+    matches = pattern.findall(content)
+    if len(matches) != 1:
+        raise ValueError(f"Expected exactly one {kind} for {marker}, found {len(matches)}")
+    return pattern.sub(
+        lambda match: f"{match.group(1)}{padding}{value}{padding}{match.group(3)}",
+        content,
+        count=1,
+    )
+
+
 def replace_inline_marker(content: str, marker: str, value: str) -> str:
     """Replace a single inline README auto marker with a value."""
     pattern = re.compile(
         rf"(<!-- AUTO:{re.escape(marker)} -->)(.*?)(<!-- /AUTO:{re.escape(marker)} -->)",
         flags=re.DOTALL,
     )
-    matches = pattern.findall(content)
-    if len(matches) != 1:
-        raise ValueError(f"Expected exactly one marker pair for {marker}, found {len(matches)}")
-    return pattern.sub(
-        lambda match: f"{match.group(1)}{value}{match.group(3)}",
-        content,
-        count=1,
+    return _replace_marker_pair(
+        content, pattern, kind="marker pair", marker=marker, value=value, padding=""
     )
 
 
@@ -177,15 +201,8 @@ def replace_block_marker(content: str, marker: str, value: str) -> str:
         rf"(<!-- AUTO:{re.escape(marker)}_START -->)(.*?)(<!-- AUTO:{re.escape(marker)}_END -->)",
         flags=re.DOTALL,
     )
-    matches = pattern.findall(content)
-    if len(matches) != 1:
-        raise ValueError(
-            f"Expected exactly one block marker pair for {marker}, found {len(matches)}"
-        )
-    return pattern.sub(
-        lambda match: f"{match.group(1)}\n{value}\n{match.group(3)}",
-        content,
-        count=1,
+    return _replace_marker_pair(
+        content, pattern, kind="block marker pair", marker=marker, value=value, padding="\n"
     )
 
 

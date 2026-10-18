@@ -10,7 +10,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from scripts import REPO_ROOT
-from scripts.lint import check_each_path, print_failures
+from scripts.lint import (
+    add_paths_argument,
+    check_each_path,
+    print_failures,
+    requested_or_default_paths,
+)
 from scripts.lint import resolve_requested_paths as _resolve_repo_paths
 from scripts.lint.make_targets import (
     INLINE_CODE_PATTERN,
@@ -212,6 +217,30 @@ def iter_default_paths(root: Path | None = None) -> list[Path]:
     ]
 
 
+def _segment_targets(segment: str, known_targets: set[str]) -> list[str]:
+    """Return the Make targets replacing one command segment.
+
+    Rules that must match the whole segment win over partial matches.
+    """
+    full_matches: list[str] = []
+    partial_matches: list[str] = []
+    for rule in COMMAND_RULES:
+        if rule.target not in known_targets:
+            continue
+
+        matched = (
+            rule.pattern.fullmatch(segment)
+            if rule.requires_full_snippet_match
+            else rule.pattern.search(segment)
+        )
+        if not matched:
+            continue
+
+        matches = full_matches if rule.requires_full_snippet_match else partial_matches
+        matches.append(rule.target)
+    return full_matches or partial_matches
+
+
 def find_replacement_targets(snippet: str, known_targets: set[str]) -> list[str]:
     """Return all matching Make targets for a direct command snippet."""
     seen: set[str] = set()
@@ -221,24 +250,7 @@ def find_replacement_targets(snippet: str, known_targets: set[str]) -> list[str]
         if not segment:
             continue
 
-        full_matches: list[str] = []
-        partial_matches: list[str] = []
-        for rule in COMMAND_RULES:
-            if rule.target not in known_targets:
-                continue
-
-            matched = (
-                rule.pattern.fullmatch(segment)
-                if rule.requires_full_snippet_match
-                else rule.pattern.search(segment)
-            )
-            if not matched:
-                continue
-
-            matches = full_matches if rule.requires_full_snippet_match else partial_matches
-            matches.append(rule.target)
-
-        for target in full_matches or partial_matches:
+        for target in _segment_targets(segment, known_targets):
             if target in seen:
                 continue
             seen.add(target)
@@ -317,11 +329,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Check contributor-facing docs for direct commands with Make equivalents."
     )
-    parser.add_argument(
-        "paths",
-        nargs="*",
-        help="Optional repository-relative markdown files to check",
-    )
+    add_paths_argument(parser, "Optional repository-relative markdown files to check")
     return parser.parse_args(argv)
 
 
@@ -340,13 +348,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     workspace_root = REPO_ROOT
 
-    if not args.paths:
-        candidate_paths = iter_default_paths(workspace_root)
-    else:
-        candidate_paths, path_errors = resolve_requested_paths(args.paths, workspace_root)
-        if path_errors:
-            print_failures(FAILURE_HEADER, path_errors)
-            return 1
+    candidate_paths = requested_or_default_paths(
+        args.paths,
+        workspace_root,
+        default_paths=iter_default_paths,
+        resolve=resolve_requested_paths,
+        failure_header=FAILURE_HEADER,
+    )
+    if candidate_paths is None:
+        return 1
 
     violations = run_check(paths=candidate_paths, root=workspace_root)
     if not violations:

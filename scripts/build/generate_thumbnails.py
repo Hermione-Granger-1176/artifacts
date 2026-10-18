@@ -145,21 +145,25 @@ def find_artifacts() -> list[Path]:
     return [artifact for artifact in artifacts if artifact.name in configured_slugs]
 
 
+def _slugs_from_shard_manifest(manifest_path: Path) -> set[str]:
+    """Return the thumbnail slugs a shard manifest lists."""
+    reject_path_symlinks(manifest_path, label="Thumbnail shard manifest")
+    if not manifest_path.is_file():
+        raise ValueError(f"Thumbnail shard manifest is missing: {manifest_path}")
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Thumbnail shard manifest must be a JSON object")
+    slugs = payload.get("thumbnail_slugs")
+    if not isinstance(slugs, list) or not all(isinstance(slug, str) for slug in slugs):
+        raise ValueError("Thumbnail shard manifest must contain thumbnail_slugs strings")
+    return set(cast("list[str]", slugs))
+
+
 def _configured_thumbnail_slugs() -> set[str] | None:
     """Return an explicit thumbnail scope, or None when the full site is requested."""
     shard_manifest = os.environ.get(THUMBNAIL_SHARD_MANIFEST_ENV_VAR, "").strip()
     if shard_manifest:
-        manifest_path = Path(shard_manifest)
-        reject_path_symlinks(manifest_path, label="Thumbnail shard manifest")
-        if not manifest_path.is_file():
-            raise ValueError(f"Thumbnail shard manifest is missing: {manifest_path}")
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if not isinstance(payload, dict):
-            raise ValueError("Thumbnail shard manifest must be a JSON object")
-        slugs = payload.get("thumbnail_slugs")
-        if not isinstance(slugs, list) or not all(isinstance(slug, str) for slug in slugs):
-            raise ValueError("Thumbnail shard manifest must contain thumbnail_slugs strings")
-        return set(cast("list[str]", slugs))
+        return _slugs_from_shard_manifest(Path(shard_manifest))
 
     configured = {
         slug.strip()
@@ -330,6 +334,26 @@ def _empty_stats(total: int) -> ThumbnailStats:
     return {"total": total, "attempted": 0, "generated": 0, "skipped": 0, "failed": 0}
 
 
+def _tally_results(stats: ThumbnailStats, results: list[ThumbnailStatus | BaseException]) -> None:
+    """Add each artifact's outcome to ``stats``, counting an escaped exception as failed."""
+    for result in results:
+        status: ThumbnailStatus = (
+            "failed" if isinstance(result, Exception) else cast("ThumbnailStatus", result)
+        )
+        stats[status] += 1
+        if status != "skipped":
+            stats["attempted"] += 1
+
+
+def _raise_on_failures(stats: ThumbnailStats) -> None:
+    """Raise ``RuntimeError`` when every attempt failed, or any did in strict mode."""
+    if stats["attempted"] > 0 and stats["failed"] == stats["attempted"]:
+        raise RuntimeError("Thumbnail generation failed for every attempted artifact")
+
+    if stats["failed"] > 0 and _strict_thumbnail_failures_enabled():
+        raise RuntimeError("Thumbnail generation failed for one or more attempted artifacts")
+
+
 async def _run_generation(artifacts: list[Path], async_playwright_cm: Any) -> ThumbnailStats:
     """Run concurrent thumbnail generation and return aggregated stats."""
     stats = _empty_stats(len(artifacts))
@@ -346,26 +370,14 @@ async def _run_generation(artifacts: list[Path], async_playwright_cm: Any) -> Th
                 ],
                 return_exceptions=True,
             )
-
-            for result in results:
-                status: ThumbnailStatus = (
-                    "failed" if isinstance(result, Exception) else cast("ThumbnailStatus", result)
-                )
-                stats[status] += 1
-                if status != "skipped":
-                    stats["attempted"] += 1
+            _tally_results(stats, results)
         finally:
             await browser.close()
 
     logger.info("Done generating thumbnails")
     logger.info(_summarize(stats))
 
-    if stats["attempted"] > 0 and stats["failed"] == stats["attempted"]:
-        raise RuntimeError("Thumbnail generation failed for every attempted artifact")
-
-    if stats["failed"] > 0 and _strict_thumbnail_failures_enabled():
-        raise RuntimeError("Thumbnail generation failed for one or more attempted artifacts")
-
+    _raise_on_failures(stats)
     return stats
 
 
