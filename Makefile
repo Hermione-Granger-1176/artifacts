@@ -432,10 +432,14 @@ fix: fmt check-local ## Auto-fix formatting, then run the full non-browser local
 
 # ─── Utilities @util ──────────────────────────────────────────────────────────
 
-.PHONY: lock lock-node lock-node-update refresh-ci-pins fix-deps align-tables align-tables-check status clean help help-json
+.PHONY: lock lock-update lock-node lock-node-update refresh-ci-pins fix-deps align-tables align-tables-check status clean help help-json
 
 lock: ## Refresh uv.lock after Python dependency changes
 	$(UV) lock
+
+lock-update: ## Upgrade selected Python packages in uv.lock (packages="package ...")
+	$(call need,packages,make lock-update packages="package ...")
+	$(UV) lock $(foreach pkg,$(packages),--upgrade-package "$(pkg)")
 
 lock-node: ## Refresh package-lock.json after Node dependency changes
 	$(NPM) install --package-lock-only
