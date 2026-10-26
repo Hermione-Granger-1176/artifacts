@@ -23,11 +23,20 @@ import {
 } from './render.js';
 
 const ITEMS_PER_PAGE = 4;
+/** The notepad shows one artifact per page. */
+const NOTEPAD_ITEMS_PER_PAGE = 1;
 const SCROLL_TOP_THRESHOLD = 300;
 const DETAIL_CLOSE_DELAY = 360;
 const ACTIVATION_KEYS = new Set(['Enter', ' ']);
-/** Below this width the desk notes are hidden and the filter dropdowns take their place. */
-const FILTER_DROPDOWN_QUERY = '(max-width: 900px)';
+/**
+ * Phones and tablets held upright get the notepad: one artifact per page, turned by swipes, with the
+ * filter dropdowns in place of the desk notes. Keep it equal to the notepad breakpoint in the book scene and CSS.
+ */
+const NOTEPAD_QUERY = '(max-width: 900px)';
+/** How far a finger must travel up or down the notepad before the swipe turns the page. */
+const SWIPE_MIN_PX = 40;
+/** Space left above the book when a page turn scrolls it back into view. */
+const BOOK_SCROLL_MARGIN = 12;
 
 /**
  * @typedef {{
@@ -188,6 +197,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   ].filter(Boolean));
 
   const prefersReducedMotionQuery = windowObj.matchMedia('(prefers-reduced-motion: reduce)');
+  const notepadQuery = windowObj.matchMedia(NOTEPAD_QUERY);
   const motion = createMotionHelper(prefersReducedMotionQuery, windowObj);
   const galleryConfig = getGalleryConfig(windowObj);
   const rawArtifacts = Array.isArray(galleryWindow.ARTIFACTS_DATA) ? galleryWindow.ARTIFACTS_DATA : [];
@@ -300,6 +310,11 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   // Markup the grid shows, so a render that would write the same cards (a keystroke that keeps
   // the same matches) leaves the cards, their hover states, and their thumbnails alone.
   let renderedGridHtml = '';
+  let pageSize = getPageSize();
+  /** @type {{ x: number, y: number } | null} */
+  let swipeStart = null;
+  // A swipe that turned the page ends on a card, so the click it may leave behind must not open it.
+  let swipeTurned = false;
 
   const bookScene = createBookScene({
     documentObj,
@@ -390,15 +405,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       toggle?.setAttribute('aria-expanded', 'false');
     });
   });
-  // Widening past the dropdown layout brings the desk notes back, so an open panel has nothing left to cover.
-  const dropdownQuery = windowObj.matchMedia(FILTER_DROPDOWN_QUERY);
-  dropdownQuery.addEventListener?.('change', () => {
-    if (!dropdownQuery.matches) {
-      filterDropdowns.querySelectorAll('.filter-panel').forEach((panel) => {
-        /** @type {HTMLDialogElement} */ (panel).close();
-      });
-    }
-  });
+  notepadQuery.addEventListener?.('change', onLayoutChange);
 
   /**
    * One handler serves the desk notes and the dropdowns: open or close a panel, or toggle a filter.
@@ -525,6 +532,11 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   registerThumbnailFallback(documentObj.getElementById('book-sheet') ?? grid);
 
   grid.addEventListener('click', (event) => {
+    if (swipeTurned) {
+      swipeTurned = false;
+      return;
+    }
+
     const card = findEventCard(event);
     if (card) {
       toggleCardDetail(card);
@@ -561,14 +573,49 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return;
     }
 
-    pendingFocusTarget = {
+    goToPage(page, {
       type: 'page',
       value: String(page),
       step: Number.isNaN(step) ? undefined : String(step)
-    };
-    overlay.close({ restoreFocus: false, immediate: true });
-    void bookScene.turnPage(page);
+    });
   });
+
+  const bookSheet = documentObj.getElementById('book-sheet');
+  if (bookSheet) {
+    bookSheet.addEventListener('pointerdown', (event) => {
+      swipeTurned = false;
+      swipeStart = notepadQuery.matches && event.isPrimary ? { x: event.clientX, y: event.clientY } : null;
+    });
+    bookSheet.addEventListener('pointerup', (event) => {
+      const start = swipeStart;
+      swipeStart = null;
+      if (!start) {
+        return;
+      }
+
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      if (Math.abs(dy) < SWIPE_MIN_PX || Math.abs(dy) <= Math.abs(dx)) {
+        return;
+      }
+
+      // Like a calendar: pushing the page up flips it over the binding to the next one.
+      const page = currentPage + (dy < 0 ? 1 : -1);
+      if (page >= 1 && page <= pageCount) {
+        swipeTurned = true;
+        goToPage(page);
+      }
+    });
+    bookSheet.addEventListener('pointercancel', () => {
+      swipeStart = null;
+    });
+    // A mouse drag that starts on the photo or the open link would become a native drag and cancel the swipe.
+    bookSheet.addEventListener('dragstart', (event) => {
+      if (notepadQuery.matches) {
+        event.preventDefault();
+      }
+    });
+  }
 
   documentObj.addEventListener('keydown', (event) => {
     switch (event.key) {
@@ -628,6 +675,56 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   scrollTopBtn.addEventListener('click', () => {
     motion.scrollToTop();
   });
+
+  /**
+   * Turn to a page, then put focus on the control the reader used once it lands.
+   * @param {number} page - Page to show.
+   * @param {FocusTarget} [focusTarget=null] - Control to focus after the render.
+   */
+  function goToPage(page, focusTarget = null) {
+    pendingFocusTarget = focusTarget;
+    overlay.close({ restoreFocus: false, immediate: true });
+    void bookScene.turnPage(page);
+    scrollBookIntoView();
+  }
+
+  /** @returns {number} Artifacts per page in the current layout. */
+  function getPageSize() {
+    return notepadQuery.matches ? NOTEPAD_ITEMS_PER_PAGE : ITEMS_PER_PAGE;
+  }
+
+  /**
+   * Switching between the book and the notepad changes how many artifacts a page holds, so the
+   * reader moves to the page that holds the first artifact they were looking at. Leaving the
+   * notepad brings the desk notes back, so an open filter panel has nothing left to cover.
+   */
+  function onLayoutChange() {
+    if (!notepadQuery.matches) {
+      filterDropdowns.querySelectorAll('.filter-panel').forEach((panel) => {
+        /** @type {HTMLDialogElement} */ (panel).close();
+      });
+    }
+
+    const nextSize = getPageSize();
+    if (nextSize === pageSize) {
+      return;
+    }
+
+    currentPage = Math.floor(((currentPage - 1) * pageSize) / nextSize) + 1;
+    pageSize = nextSize;
+    renderContent();
+  }
+
+  /**
+   * Bring the book's top edge back on screen when a page turn starts below it, so the
+   * pagination row under a tall phone page never leaves the reader at the new page's end.
+   */
+  function scrollBookIntoView() {
+    const bookTop = documentObj.getElementById('book-shell')?.getBoundingClientRect().top ?? 0;
+    if (bookTop < 0) {
+      windowObj.scrollTo({ top: windowObj.scrollY + bookTop - BOOK_SCROLL_MARGIN, behavior: motion.getScrollBehavior() });
+    }
+  }
 
   /**
    * @param {Event} event - Event raised inside the grid.
@@ -963,8 +1060,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
    * @returns {ArtifactRecord[]} Artifacts shown on that page.
    */
   function getPageItems(items, page) {
-    const startIndex = (page - 1) * ITEMS_PER_PAGE;
-    return items.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    const startIndex = (page - 1) * pageSize;
+    return items.slice(startIndex, startIndex + pageSize);
   }
 
   /**
@@ -1000,7 +1097,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
     const totalItems = filtered.length;
     updateSearchCount(totalItems);
-    const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
     pageCount = totalPages;
     currentPage = Math.max(1, Math.min(currentPage, totalPages));
     shownPage = Math.max(1, Math.min(page ?? currentPage, totalPages));

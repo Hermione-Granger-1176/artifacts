@@ -91,6 +91,9 @@ function getShuffledFilterColors() {
   return shuffledColors;
 }
 
+/** Labels longer than this many characters overflow a desk note at its regular size. */
+const LONG_LABEL_LENGTH = 10;
+
 /**
  * Build an HTML string for a single filter chip button.
  * @param {{
@@ -118,9 +121,11 @@ function createFilterControlButton({
   surface
 }) {
   const rotateAttr = rotate !== null ? ` data-rotate="${rotate}"` : '';
+  // Desk notes are a fixed square, so a long word gets a smaller hand to stay on the paper.
+  const longAttr = label.length > LONG_LABEL_LENGTH ? ' data-long' : '';
   const countHtml = count === undefined ? '' : `<span class="filter-option-count" aria-hidden="true">${count}</span>`;
 
-  return `<button class="${className}${active ? ' is-active' : ''}" data-filter-surface="${surface}" ${datasetName}="${escapeHtml(datasetValue)}" data-chip-color="${escapeHtml(color)}"${rotateAttr} type="button" aria-controls="artifacts-grid" aria-pressed="${active}"><span class="filter-option-label">${escapeHtml(label)}</span>${countHtml}</button>`;
+  return `<button class="${className}${active ? ' is-active' : ''}" data-filter-surface="${surface}" ${datasetName}="${escapeHtml(datasetValue)}" data-chip-color="${escapeHtml(color)}"${rotateAttr}${longAttr} type="button" aria-controls="artifacts-grid" aria-pressed="${active}"><span class="filter-option-label">${escapeHtml(label)}</span>${countHtml}</button>`;
 }
 
 /**
@@ -303,6 +308,8 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
   const leftNotes = buildDeskNotes(toolGroup);
   const rightNotes = buildDeskNotes(tagGroup);
 
+  // Phones and tablets have no desk beside the book, so the same chips live in a sheet
+  // that the filters note opens. It is a modal dialog: the page behind it is inert.
   return `
     <div class="desk-notes-left">${leftNotes.join('')}</div>
     <div class="desk-notes-right">${rightNotes.join('')}</div>
@@ -383,8 +390,10 @@ export function registerThumbnailFallback(grid) {
 }
 
 /**
- * Build the HTML for a single artifact card in the grid.
- * @param {{ id: string, name: string, thumbnail?: string | null }} item - Artifact record.
+ * Build the HTML for a single artifact card in the grid. The notes after the card are
+ * what the phone notepad writes under its one artifact: the description and a link
+ * straight to it. The two-page book hides them and keeps them in the detail overlay.
+ * @param {{ id: string, name: string, description?: string | null, url?: string, thumbnail?: string | null }} item - Artifact record.
  * @param {boolean} isExpanded - Whether the card is expanded.
  * @param {number} index - Card position.
  * @returns {string} The card HTML.
@@ -413,6 +422,10 @@ function createCard(item, isExpanded, index) {
         </div>
       </div>
     </button>
+    <div class="card-notes">
+      ${item.description ? `<p class="card-notes-text">${escapeHtml(item.description)}</p>` : ''}
+      ${item.url ? `<a class="card-notes-open" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">Open artifact <span class="visually-hidden">${escapeHtml(item.name)} (opens in a new tab)</span>${ICONS.open}</a>` : ''}
+    </div>
   `;
 }
 
@@ -423,6 +436,8 @@ function createCard(item, isExpanded, index) {
  * @param {Array<{
  *   id: string,
  *   name: string,
+ *   description?: string|null,
+ *   url?: string,
  *   thumbnail?: string|null
  * }>} items - Artifacts visible on the current page.
  * @param {string|null} expandedId - Artifact ID currently expanded in the overlay.
@@ -533,6 +548,8 @@ export function renderPagination(container, currentPage, totalPages) {
       page: currentPage - 1, step: -1, disabled: onFirst, label: 'Prev page',
       content: `${ICONS.chevronLeft}<span class="page-btn-label">Prev</span>`
     }),
+    // The notepad shows this in place of the page tags. The status region announces the same position.
+    `<span class="page-counter" aria-hidden="true">${currentPage} / ${pageTotal}</span>`,
     pageButtons.join(''),
     buildNavButton({
       page: currentPage + 1, step: 1, disabled: onLast, label: 'Next page',

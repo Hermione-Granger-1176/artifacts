@@ -451,10 +451,18 @@ function addFakeDropdown(container, registerElement, { kind, dataset, values }) 
   return { toggle, summary, panel, list, options, searchBox, clear };
 }
 
-function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, search = '', withBook = false, withDropdowns = false } = {}) {
+function createGalleryHarness({
+  initialTheme = 'dark',
+  reducedMotion = false,
+  search = '',
+  withBook = false,
+  withDropdowns = false,
+  withSheet = false,
+  notepad = false
+} = {}) {
   const documentListeners = new Map();
   const mediaListeners = [];
-  let dropdownLayout = false;
+  let notepadLayout = notepad;
   const windowListeners = new Map();
   const timers = new Map();
   const historyCalls = [];
@@ -544,7 +552,7 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
       const isMotionQuery = query.includes('reduced-motion');
       return {
         get matches() {
-          return isMotionQuery ? reducedMotion : dropdownLayout;
+          return isMotionQuery ? reducedMotion : notepadLayout;
         },
         addEventListener(_type, handler) {
           if (!isMotionQuery) {
@@ -678,6 +686,10 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
   });
 
   let book = null;
+  if (withSheet && !withBook) {
+    // A bare sheet takes swipes; with no book shell the scene renders each page at once.
+    book = { sheet: registerElement(new FakeElement({ id: 'book-sheet' })) };
+  }
   if (withBook) {
     const shell = registerElement(new FakeBookElement({ id: 'book-shell' }));
     shell.dataset.sceneIntro = 'open';
@@ -767,9 +779,9 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
     runtime: createRuntimeStub(initialTheme),
     scrollCalls,
     dropdowns,
-    /** Cross the dropdown layout's width breakpoint, firing its change listeners. */
-    setDropdownLayout(matches) {
-      dropdownLayout = matches;
+    /** Cross the notepad breakpoint, where the dropdowns replace the desk notes, firing its change listeners. */
+    setNotepadLayout(matches) {
+      notepadLayout = matches;
       mediaListeners.forEach((handler) => handler());
     },
     windowObj
@@ -1563,9 +1575,9 @@ test('widening past the dropdown layout closes an open panel', () => {
   const { toggle, panel } = harness.dropdowns.tags;
 
   filterDropdowns.dispatch('click', { target: toggle });
-  harness.setDropdownLayout(true);
+  harness.setNotepadLayout(true);
   assert.equal(panel.open, true);
-  harness.setDropdownLayout(false);
+  harness.setNotepadLayout(false);
   assert.equal(panel.open, false);
 });
 
@@ -1576,5 +1588,92 @@ test('a dropdown button whose panel is missing does nothing', () => {
   orphan.parentElement = harness.elements.filterDropdowns;
   assert.doesNotThrow(() => harness.elements.filterDropdowns.dispatch('click', { target: orphan }));
   assert.equal(orphan.getAttribute('aria-expanded'), null);
+
+test('a page turn scrolls the book back into view only when its top is above the screen', () => {
+  const harness = createGalleryHarness();
+  initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
+  let bookTop = 40;
+  const bookShell = new FakeElement({ id: 'book-shell' });
+  bookShell.getBoundingClientRect = () => ({ top: bookTop });
+  const getElementById = harness.documentObj.getElementById;
+  harness.documentObj.getElementById = (id) => (id === 'book-shell' ? bookShell : getElementById(id));
+  harness.windowObj.scrollY = 900;
+
+  harness.elements.pagination.dispatch('click', { target: createPageButton(harness, { page: 2 }) });
+  assert.deepEqual(harness.scrollCalls, []);
+
+  bookTop = -600;
+  harness.elements.pagination.dispatch('click', { target: createPageButton(harness, { page: 1 }) });
+  assert.deepEqual(harness.scrollCalls, [{ top: 288, behavior: 'smooth' }]);
+});
+
+test('the notepad shows one artifact per page and keeps the reader in place across a layout switch', () => {
+  const harness = createGalleryHarness({ notepad: true, search: '?page=5' });
+  initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
+  assert.equal(harness.elements.grid.cards.length, 1);
+  assert.match(harness.elements.galleryStatus.textContent, /page 5 of 13/);
+
+  harness.setNotepadLayout(false);
+  assert.equal(harness.elements.grid.cards.length, 4);
+  assert.match(harness.elements.galleryStatus.textContent, /page 2 of 4/, 'the fifth artifact sits on book page 2');
+
+  harness.setNotepadLayout(false);
+  assert.match(harness.elements.galleryStatus.textContent, /page 2 of 4/, 'a change that keeps the layout leaves the page alone');
+
+  harness.setNotepadLayout(true);
+  assert.equal(harness.elements.grid.cards.length, 1);
+  assert.match(harness.elements.galleryStatus.textContent, /page 5 of 13/);
+});
+
+test('notepad swipes turn the page up for next and down for previous', async () => {
+  const harness = createGalleryHarness({ notepad: true, withSheet: true });
+  initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
+  const { sheet } = harness.book;
+  /** @param {number} dx @param {number} dy @param {object} [down] */
+  const swipe = (dx, dy, down = {}) => {
+    sheet.dispatch('pointerdown', { isPrimary: true, clientX: 100, clientY: 500, ...down });
+    sheet.dispatch('pointerup', { clientX: 100 + dx, clientY: 500 + dy });
+  };
+  const status = () => harness.elements.galleryStatus.textContent;
+
+  swipe(0, -120);
+  assert.match(status(), /page 2 of 13/);
+  swipe(0, -120);
+  assert.match(status(), /page 3 of 13/);
+  swipe(0, 120);
+  assert.match(status(), /page 2 of 13/);
+
+  swipe(0, -20);
+  swipe(200, -60);
+  swipe(0, -120, { isPrimary: false });
+  assert.match(status(), /page 2 of 13/, 'short, sideways, and second-finger moves do not turn');
+
+  sheet.dispatch('pointerdown', { isPrimary: true, clientX: 100, clientY: 500 });
+  sheet.dispatch('pointercancel');
+  sheet.dispatch('pointerup', { clientX: 100, clientY: 300 });
+  assert.match(status(), /page 2 of 13/, 'a cancelled pointer does not turn');
+
+  swipe(0, 120);
+  swipe(0, 120);
+  assert.match(status(), /page 1 of 13/, 'there is no page before the first');
+
+  swipe(0, -120);
+  const card = harness.elements.grid.cards[0];
+  harness.elements.grid.dispatch('click', { target: card });
+  await settleMicrotasks();
+  assert.equal(harness.elements.detailOverlay.classList.contains('visible'), false, 'the click a swipe leaves behind does not open the card');
+
+  harness.setNotepadLayout(false);
+  swipe(0, -120);
+  assert.match(status(), /page 1 of 4/, 'the book takes no swipes');
+});
+
+test('the notepad blocks native drags so a mouse swipe on the photo or link still turns', () => {
+  const harness = createGalleryHarness({ notepad: true, withSheet: true });
+  initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
+  assert.equal(harness.book.sheet.dispatch('dragstart').defaultPrevented, true);
+  harness.setNotepadLayout(false);
+  assert.equal(harness.book.sheet.dispatch('dragstart').defaultPrevented, false);
+});
 });
 

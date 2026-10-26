@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
@@ -79,19 +80,32 @@ def test_mobile_viewport_flow_keeps_gallery_usable(tmp_path: Path, monkeypatch) 
         page.keyboard.press("Escape")
         expect(page.locator("#filter-panel-tools")).not_to_be_visible()
         expect(tools).to_be_focused()
-        expect(page.locator(".artifact-card")).to_have_count(4)
 
-        page.get_by_role("button", name="Page 2").click()
-        expect(page.locator(".artifact-card")).to_have_count(4)
+        # The notepad shows one artifact per page, with its notes and an open link.
+        expect(page.locator(".artifact-card")).to_have_count(1)
+        expect(page.locator(".card-notes-open")).to_be_visible()
+        expect(page.locator(".page-counter")).to_have_text(re.compile(r"^1 / \d+$"))
+        expect(page.get_by_role("button", name="Page 2")).to_be_hidden()
 
+        page.get_by_role("button", name="Next page").click()
+        expect(page.locator(".page-counter")).to_have_text(re.compile(r"^2 / \d+$"))
+        expect(page.locator(".artifact-card")).to_have_count(1)
+
+        # Pushing the page up flips to the next one; pulling it down brings the last one back.
+        sheet = _box(page, "#book-sheet")
+        x = sheet["x"] + sheet["width"] / 2
+        for start, end, expected in ((0.8, 0.4, "3"), (0.4, 0.8, "2")):
+            page.mouse.move(x, sheet["y"] + sheet["height"] * start)
+            page.mouse.down()
+            page.mouse.move(x, sheet["y"] + sheet["height"] * end, steps=8)
+            page.mouse.up()
+            expect(page.locator(".page-counter")).to_have_text(re.compile(rf"^{expected} / \d+$"))
+
+        page.wait_for_timeout(800)
         page.locator(".artifact-card").first.click()
         expect(page.locator("#detail-title")).to_be_visible()
         page.locator(".detail-close").click()
         page.wait_for_timeout(450)
-
-        page.evaluate("window.scrollTo(0, 900)")
-        page.wait_for_timeout(100)
-        expect(page.locator("#scroll-top")).to_have_attribute("aria-hidden", "false")
 
 
 def test_reduced_motion_flow_persists_theme_and_closes_overlay_immediately(
@@ -459,8 +473,11 @@ def test_dragging_a_page_edge_scrubs_the_leaf_then_completes_or_springs_back(
         expect(page.locator("#detail-overlay")).to_have_class("detail-overlay visible open")
         page.keyboard.press("Escape")
 
-        # Phones turn by button only, so the sheet hands every gesture back.
+        # The upright notepad turns on vertical swipes, so it keeps only sideways pans and zoom.
+        # On its side the page scrolls, so the sheet hands every gesture back.
         page.set_viewport_size({"width": 390, "height": 844})
+        expect(page.locator("#book-sheet")).to_have_css("touch-action", "pan-x pinch-zoom")
+        page.set_viewport_size({"width": 844, "height": 390})
         expect(page.locator("#book-sheet")).to_have_css("touch-action", "auto")
 
 
@@ -506,10 +523,10 @@ def test_reduced_motion_book_cross_fades_without_a_leaf(tmp_path: Path, monkeypa
         assert page.evaluate("window.__rotations") == []
 
 
-def test_mobile_book_turns_with_a_fade_and_leaves_no_inline_state(
+def test_notepad_flips_its_page_up_over_the_binding_and_leaves_no_inline_state(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """The single-column mobile book opens and turns without a leaf."""
+    """The phone notepad opens its cover and flips each page up, without the book's leaf."""
     deploy_root = build_smoke_site(tmp_path, monkeypatch)
 
     with (
@@ -525,15 +542,29 @@ def test_mobile_book_turns_with_a_fade_and_leaves_no_inline_state(
         _wait_for_open_book(page)
         _assert_clean_book(page)
         expect(page.locator("#book-cover")).to_be_hidden()
-        expect(page.locator(".artifact-card")).to_have_count(4)
+        expect(page.locator(".artifact-card")).to_have_count(1)
         expect(page.locator(".book-peel").first).to_be_hidden()
 
         page.evaluate(LEAF_OBSERVER)
+        page.evaluate("""() => {
+            window.__notepadLeaves = 0;
+            new MutationObserver((records) => {
+                for (const record of records) {
+                    for (const node of record.addedNodes) {
+                        if (node.classList && node.classList.contains('notepad-leaf')) {
+                            window.__notepadLeaves += 1;
+                        }
+                    }
+                }
+            }).observe(document.getElementById('book-sheet'), { childList: true, subtree: true });
+        }""")
         page.get_by_role("button", name="Next page").click()
-        expect(page.locator("#pagination .page-btn.active")).to_have_text("2")
-        expect(page.locator("#gallery-status")).to_contain_text("page 2 of 4", timeout=3000)
-        page.wait_for_timeout(500)
+        expect(page.locator(".page-counter")).to_have_text(re.compile(r"^2 / \d+$"))
+        expect(page.locator("#gallery-status")).to_contain_text("page 2 of", timeout=3000)
+        page.wait_for_timeout(900)
         _assert_clean_book(page)
+        expect(page.locator(".notepad-leaf")).to_have_count(0)
+        assert page.evaluate("window.__notepadLeaves") == 1
         assert page.evaluate("window.__leafAdds") == 0
 
 
@@ -597,11 +628,12 @@ def test_resize_across_the_mobile_breakpoint_mid_turn_leaves_no_leaf_or_inline_s
         expect(page.locator(".book-leaf")).to_have_count(1)
         page.set_viewport_size({"width": 500, "height": 900})
         expect(page.locator(".book-leaf")).to_have_count(0)
-        expect(page.locator("#gallery-status")).to_contain_text("page 2 of 4")
+        # Book page 2 starts with the fifth artifact, which is notepad page 5.
+        expect(page.locator("#gallery-status")).to_contain_text("page 5 of")
         _assert_clean_book(page)
         page.wait_for_timeout(900)
         _assert_clean_book(page)
-        expect(page.locator("#pagination .page-btn.active")).to_have_text("2")
+        expect(page.locator(".page-counter")).to_have_text(re.compile(r"^5 / \d+$"))
 
 
 def test_search_during_a_page_turn_renders_the_new_results(tmp_path: Path, monkeypatch) -> None:
@@ -684,7 +716,8 @@ def test_search_note_shows_a_match_count_and_a_labelled_sort_note(
         getComputedStyle(document.querySelector('#sort-toggle'), '::after').content"""
 
     with StaticServer(deploy_root) as server, sync_playwright() as playwright:
-        for width, height in ((1366, 768), (390, 844)):
+        # The notepad (900px and narrower) has no count or sort note; its sheet carries the order.
+        for width, height in ((1366, 768), (1024, 768)):
             with MonitoredPage(
                 playwright, server.url, name="browser-search-note", viewport=(width, height)
             ) as session:
@@ -694,7 +727,7 @@ def test_search_note_shows_a_match_count_and_a_labelled_sort_note(
                 _wait_for_open_book(page)
                 label = f"{width}x{height}"
 
-                # The note stays one row tall, including the stacked phone layout.
+                # The note stays one row tall.
                 assert _box(page, ".search-wrapper")["height"] < 90, label
                 expect(page.locator("#search-count")).to_have_text("")
 

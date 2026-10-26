@@ -10,12 +10,36 @@ const LEAF_TURN_MS = 680;
 const REDUCED_FADE_OUT_MS = 120;
 const REDUCED_FADE_IN_MS = 160;
 const MOBILE_FADE_MS = 200;
-const MOBILE_BREAKPOINT = 700;
+// At or below this width the book is a one-page notepad bound at the top (NOTEPAD_QUERY in gallery-app.js).
+const MOBILE_BREAKPOINT = 900;
+const FLIP_TURN_MS = 620;
+const COVER_FLIP_MS = 900;
+// A notepad page turns like a desk calendar sheet: its bottom edge lifts toward the reader
+// (a positive rotateX), it stands straight out at 90 degrees, then swings up over the binding
+// showing its back, and drops behind the pad as it nears 180 degrees.
+const FLIP_ANGLE_DEG = 180;
+// Past this much of the swing the sheet is falling behind the pad, so it fades away.
+const FLIP_FADE_FROM = 0.8;
 const EDGE_ZONE_PX = 36;
 const CORNER_ZONE_PX = 72;
 const TAP_SLOP_PX = 5;
 const DRAG_COMPLETE_THRESHOLD = 0.45;
 const COVER_EASING = 'cubic-bezier(0.45, 0, 0.25, 1)';
+// The book's ribbon runs down the cover, so it lifts, then slides off to the right.
+/** @type {Keyframe[]} */
+const RIBBON_OFF_KEYFRAMES = [
+  { transform: 'none', opacity: 1 },
+  { transform: 'translateY(-14px) rotate(-4deg)', opacity: 1, offset: 0.35 },
+  { transform: 'translate(160px, 40px) rotate(14deg)', opacity: 0 }
+];
+const RIBBON_OFF_OPTIONS = { duration: RIBBON_OFF_MS, easing: 'cubic-bezier(0.5, 0, 0.3, 1)' };
+// The notepad's band runs across the cover, so it lifts, then slides down off the bottom edge.
+/** @type {Keyframe[]} */
+const NOTEPAD_RIBBON_OFF_KEYFRAMES = [
+  { transform: 'none', opacity: 1 },
+  { transform: 'translateY(-10px) rotate(-1.5deg)', opacity: 1, offset: 0.35 },
+  { transform: 'translateY(90px) rotate(3deg)', opacity: 0 }
+];
 // Where the shadow's mask edge ends up (see .book-shadow in 02-gallery.css).
 const SHADOW_EDGE_OPEN = '-12%';
 
@@ -478,7 +502,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
   }
 
   /**
-   * Cross-fade the pages. Used for reduced motion and the mobile single column.
+   * Cross-fade the pages. Used for reduced motion.
    * @param {TurnParts} parts - Turn elements.
    * @param {number} target - Target page.
    * @returns {Promise<void>} Resolves when the fade has finished or been stopped.
@@ -521,6 +545,83 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
   }
 
   /**
+   * Flip a notepad page over its binding, like a desk calendar. Going forward, a copy of the
+   * shown page lifts toward the reader, swings up over the binding, and drops behind the pad,
+   * uncovering the next page already in place underneath. Going back, the earlier page comes
+   * back over the binding the same way in reverse, lands on the shown one, and takes its place.
+   * @param {TurnParts} parts - Turn elements.
+   * @param {number} from - Page currently shown.
+   * @param {number} target - Target page.
+   * @returns {Promise<void>} Resolves when the flip has finished or been stopped.
+   */
+  async function playFlipTurn(parts, from, target) {
+    const { sheet, grid } = parts;
+    const host = /** @type {HTMLElement} */ (sheet.querySelector('.book-inner') || grid);
+    const next = target > from;
+    const page = next
+      ? /** @type {HTMLElement | null} */ (grid.querySelector('.artifact-page-left')?.cloneNode(true) ?? null)
+      : pages.buildFaces(target).left;
+    // The leaf is a two-faced sheet: the page on its front, and the plain back of the paper,
+    // which shows once the sheet has swung past upright.
+    const leaf = createDiv('notepad-leaf');
+    const front = createDiv('notepad-leaf-face notepad-leaf-front');
+    const back = createDiv('notepad-leaf-face notepad-leaf-back');
+    const shade = createDiv('notepad-leaf-shade');
+    if (page) {
+      front.appendChild(page);
+    }
+    front.appendChild(shade);
+    leaf.appendChild(front);
+    leaf.appendChild(back);
+    hideDecorative(leaf);
+
+    const turn = createTurn({
+      target,
+      mobile: true,
+      selected: true,
+      release: () => {
+        leaf.remove();
+        sheet.classList.remove('is-turning');
+      }
+    });
+
+    /** @param {number} lift - 0 with the page hanging flat on the pad, 1 once it has gone over the binding. */
+    const setLift = (lift) => {
+      const angle = lift * FLIP_ANGLE_DEG;
+      leaf.style.transform = `rotateX(${angle.toFixed(2)}deg)`;
+      // Past upright the reader sees the back of the sheet. The faces swap here rather than by
+      // backface-visibility, which cannot see a turn that belongs to their parent.
+      const pastUpright = angle > 90;
+      front.style.visibility = pastUpright ? 'hidden' : '';
+      back.style.visibility = pastUpright ? '' : 'hidden';
+      // The page face darkens as it turns away from the light toward upright.
+      shade.style.opacity = String(Math.min(1, lift * 2) * 0.35);
+      leaf.style.opacity = String(Math.min(1, (1 - lift) / (1 - FLIP_FADE_FROM)));
+    };
+
+    active = turn;
+    sheet.classList.add('is-turning');
+    try {
+      if (next) {
+        pages.commit(target);
+        setLift(0);
+        host.appendChild(leaf);
+        await tween(turn, 0, 1, FLIP_TURN_MS, easeInOut, setLift);
+        return;
+      }
+
+      setLift(1);
+      host.appendChild(leaf);
+      await tween(turn, 1, 0, FLIP_TURN_MS, easeInOut, setLift);
+      if (!turn.aborted) {
+        pages.commit(target);
+      }
+    } finally {
+      finishTurn(turn);
+    }
+  }
+
+  /**
    * Run queued page requests one transition at a time, always jumping straight
    * to the latest requested page so rapid input coalesces and is never dropped.
    * @returns {Promise<void>} Resolves when the queue is empty.
@@ -539,8 +640,10 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
           const parts = getTurnParts();
           if (!parts) {
             pages.commit(target);
-          } else if (prefersReducedMotion() || isMobile()) {
+          } else if (prefersReducedMotion()) {
             await playFadeTurn(parts, target);
+          } else if (isMobile()) {
+            await playFlipTurn(parts, from, target);
           } else {
             await playLeafTurn(parts, from, target);
           }
@@ -836,7 +939,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
   }
 
   /**
-   * Cross-fade from the closed book to the open one (reduced motion and mobile).
+   * Cross-fade from the closed book to the open one (reduced motion).
    * @param {IntroState} state - Intro bookkeeping.
    * @param {HTMLElement} shell - Book shell element.
    * @param {HTMLElement} sheet - Book sheet element.
@@ -850,6 +953,53 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
     openShell(shell);
     await playIntro(state, sheet, [{ opacity: 0 }, { opacity: 1 }], { duration: CROSSFADE_IN_MS, easing: 'ease' });
+  }
+
+  /**
+   * Slide the ribbon off, then flip the notepad's cover up over its binding, onto page one
+   * already hanging underneath.
+   * @param {IntroState} state - Intro bookkeeping.
+   * @param {HTMLElement} shell - Book shell element.
+   * @param {HTMLElement} cover - Cover element.
+   * @returns {Promise<void>} Resolves when the notepad is open.
+   */
+  async function playFlipIntro(state, shell, cover) {
+    await delay(INTRO_DELAY_MS);
+    if (state.aborted) {
+      return;
+    }
+
+    const ribbon = playIntro(state, cover.querySelector('.book-ribbon'), NOTEPAD_RIBBON_OFF_KEYFRAMES, RIBBON_OFF_OPTIONS);
+    ribbon.catch(() => undefined);
+    await delay(RIBBON_OFF_MS * RIBBON_LEAD);
+    if (state.aborted) {
+      return;
+    }
+
+    // The cover turns at an even rate across its keyframes, so it is upright halfway through
+    // them, where its outside gives way to its inside.
+    const options = { duration: COVER_FLIP_MS, easing: COVER_EASING };
+    const upright = 90 / FLIP_ANGLE_DEG;
+    /** @param {string} before - Visibility until upright. @param {string} after - Visibility after it. */
+    const swap = (before, after) => [
+      { visibility: before },
+      { visibility: before, offset: upright },
+      { visibility: after, offset: upright },
+      { visibility: after }
+    ];
+    await Promise.all([
+      ribbon,
+      playIntro(state, cover, [
+        { transform: 'rotateX(0deg)', opacity: 1 },
+        { transform: `rotateX(${FLIP_ANGLE_DEG * FLIP_FADE_FROM}deg)`, opacity: 1, offset: FLIP_FADE_FROM },
+        { transform: `rotateX(${FLIP_ANGLE_DEG}deg)`, opacity: 0 }
+      ], options),
+      playIntro(state, cover.querySelector('.book-cover-face'), swap('visible', 'hidden'), options),
+      playIntro(state, cover.querySelector('.book-cover-back'), swap('hidden', 'visible'), options)
+    ]);
+    if (!state.aborted) {
+      openShell(shell);
+    }
   }
 
   /**
@@ -884,11 +1034,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       companions.push(run);
     };
 
-    alongside(cover.querySelector('.book-ribbon'), [
-      { transform: 'none', opacity: 1 },
-      { transform: 'translateY(-14px) rotate(-4deg)', opacity: 1, offset: 0.35 },
-      { transform: 'translate(160px, 40px) rotate(14deg)', opacity: 0 }
-    ], { duration: RIBBON_OFF_MS, easing: 'cubic-bezier(0.5, 0, 0.3, 1)' });
+    alongside(cover.querySelector('.book-ribbon'), RIBBON_OFF_KEYFRAMES, RIBBON_OFF_OPTIONS);
     await delay(RIBBON_OFF_MS * RIBBON_LEAD);
     if (state.aborted) {
       return;
@@ -945,7 +1091,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
   /**
    * Open the book. Runs once: the cover ribbon slides off, the cover swings open,
-   * and the left page settles. Reduced motion and mobile cross-fade instead.
+   * and the left page settles. The notepad flips its cover up; reduced motion cross-fades.
    * Always ends in the open state, even if an animation fails or is aborted.
    * @param {HTMLElement} shell - Book shell element.
    * @returns {Promise<void>} Resolves when the book is open.
@@ -971,8 +1117,10 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
         return;
       }
 
-      if (prefersReducedMotion() || state.mobile) {
+      if (prefersReducedMotion()) {
         await playCrossfadeIntro(state, shell, sheet);
+      } else if (state.mobile) {
+        await playFlipIntro(state, shell, cover);
       } else {
         await playSwingIntro(state, shell, sheet, cover, grid);
       }

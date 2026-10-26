@@ -36,42 +36,51 @@
   }
 }
 
+/*
+ * Phones and tablets held upright: the two-page book becomes a notepad bound at the top. It shows
+ * one artifact per page and flips its pages up over the binding, like a desk calendar. The notepad
+ * fills the screen below the search, so the page itself barely scrolls.
+ */
 @media (max-width: 900px) {
+  :root {
+    --notepad-width: 40rem;
+    --notepad-binding: 30px;
+    /* Header, the two toolbar rows, the pager, and their gaps: the screen height the notepad leaves for them. */
+    --notepad-chrome-y: 18.25rem;
+  }
+
+  .header {
+    padding-inline: 0.75rem;
+  }
+
   .header-content {
-    flex-direction: column;
-    align-items: stretch;
+    gap: 0.75rem;
+    padding: 0.5rem 0.25rem 0.6rem;
   }
 
   .logo-link {
-    justify-content: center;
+    min-width: 0;
+    gap: 0.6rem;
   }
 
-  .toolbar-ribbon {
-    position: relative;
-    inset: auto;
-    width: min(100%, 34rem);
-    transform: none;
-    margin-bottom: 1rem;
+  .logo-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .logo {
+    font-size: 1.6rem;
+  }
+
+  .logo-sub {
+    font-size: 0.95rem;
   }
 
   .book-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     column-gap: 0;
-  }
-
-  .book-shell {
-    grid-column: 1;
-    width: min(100%, 1060px);
-  }
-
-  .pagination {
-    grid-column: 1;
-  }
-
-  .book-sheet {
-    --book-sheet-min-height: var(--book-sheet-min-height-tablet);
-
-    height: var(--book-sheet-min-height);
+    padding-inline: 0.75rem;
+    padding-bottom: 1rem;
   }
 
   .desk-notes-left,
@@ -80,19 +89,26 @@
   }
 
   /*
-   * Phones and tablets: the search note takes its own centred row, and the filter dropdowns and the
-   * sort note share a centred row under it. Each dropdown panel clears its own group and the search
-   * clears itself, so the reset note stays on the desk layout.
+   * The toolbar is centred: the search note on its own row, then the filter dropdowns and the sort
+   * note on a row under it. Each dropdown panel clears its own group and the search clears itself,
+   * so the reset note stays on the desk layout.
    */
+  .toolbar-ribbon {
+    width: min(100%, var(--notepad-width));
+    margin-bottom: 0.9rem;
+  }
+
   :where(body:not(.artifact-app)) .controls {
     flex-wrap: wrap;
     justify-content: center;
+    gap: 0.6rem;
   }
 
   .search-wrapper {
     order: -1;
     flex: 1 1 100%;
     min-width: 0;
+    min-height: 3.25rem;
   }
 
   .filter-dropdowns {
@@ -112,7 +128,256 @@
   }
 
   .search-count:empty,
+  .search-key,
   .filter-reset {
+    display: none;
+  }
+
+  .book-shell {
+    grid-column: 1;
+    width: min(100%, var(--notepad-width));
+    margin-top: 0;
+  }
+
+  .book-stage {
+    perspective: none;
+  }
+
+  /*
+   * The notepad is drawn flat, so the cover and a turning page always paint over the page under
+   * them, even while they tip away from the reader. Each still gets depth from its parent's
+   * perspective, seen from the binding.
+   */
+  .book-sheet,
+  .book-inner {
+    perspective: 1600px;
+    perspective-origin: 50% 0;
+  }
+
+  .book-sheet {
+    height: clamp(23rem, calc(100svh - var(--notepad-chrome-y)), 50rem);
+    transform-style: flat;
+
+    /* Swipes up and down turn the pages, so only sideways pans and zoom stay with the browser. */
+    touch-action: pan-x pinch-zoom;
+  }
+
+  /* The closed notepad hangs page one under its cover, so the cover flips up onto a page that is already there. */
+  .book-shell:not(.is-open) .book-sheet {
+    transform: none;
+  }
+
+  .book-shell:not(.is-open) .book-spine,
+  .book-shell:not(.is-open) .book-inner::before {
+    visibility: visible;
+  }
+
+  .book-shell:not(.is-open) .artifacts-grid > .artifact-page-left {
+    opacity: 1;
+  }
+
+  .book-shadow,
+  .book-case,
+  .book-tabs,
+  .book-cast,
+  .book-peel,
+  .book-inner::after,
+  .artifact-page-right,
+  .artifact-page-slice::after,
+  .artifact-page-slice.is-empty::before,
+  .page-number {
+    display: none;
+  }
+
+  /* The binding: a dark strip with a row of wire coils that every page and the cover hang from. */
+  .book-spine {
+    inset: 0 0 auto;
+    z-index: 12;
+    width: auto;
+    height: var(--notepad-binding);
+    border-radius: 8px 8px 0 0;
+    background:
+      radial-gradient(ellipse 3px 12px at 50% 62%, var(--color-notepad-coil) 88%, transparent 100%) 50% 0 / 20px 100% repeat-x,
+      var(--book-grain),
+      var(--color-album-cover);
+    box-shadow: 0 3px 4px -2px rgba(0, 0, 0, 0.35);
+    transform: none;
+  }
+
+  .book-cover-hinge,
+  .book-post {
+    display: none;
+  }
+
+  /*
+   * A top-bound notepad is held shut by a band across its lower cover, like an elastic closure,
+   * so the ribbon runs side to side and slides down off the bottom edge before the cover flips up.
+   */
+  .book-ribbon {
+    inset: 84cqh 0 auto;
+    width: auto;
+    height: 4.4cqw;
+    background:
+      linear-gradient(180deg, rgba(0, 0, 0, 0.1), transparent 30%, rgba(255, 255, 255, 0.18) 50%, transparent 70%, rgba(0, 0, 0, 0.1)),
+      var(--color-album-ribbon);
+  }
+
+  .book-bow {
+    top: calc(50% - 5.65cqw);
+    left: calc(50% - 7.35cqw);
+  }
+
+  /* The page hangs under the binding. Its bottom edge shows one sliver per page still to come. */
+  .book-inner {
+    inset: var(--notepad-binding) 0 0;
+    border-radius: 0 0 8px 8px;
+    box-shadow:
+      0 calc(min(var(--stack-right-n), 2) * 2px - 2px) 0 -1px var(--page-edge),
+      0 calc(min(var(--stack-right-n), 3) * 4px - 4px) 0 -2px var(--color-page-paper),
+      0 calc(min(var(--stack-right-n), 3) * 4px - 4px + 1px) 0 -2px var(--page-edge),
+      var(--shadow-md);
+  }
+
+  .book-inner::before {
+    width: 100%;
+    border-radius: 0 0 8px 8px;
+    box-shadow: none;
+  }
+
+  .artifacts-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* One artifact per page: its photo on top, then its notes written on the ruled lines. */
+  .artifact-page-left {
+    grid-template-rows: auto minmax(0, 1fr);
+    align-content: start;
+    gap: 0.4rem;
+    padding: 1.1rem 1.1rem 0.8rem calc(var(--paper-margin-x) + 0.9rem);
+  }
+
+  .artifact-card {
+    height: auto;
+    justify-self: center;
+    width: min(100%, 30rem);
+  }
+
+  .card-note {
+    height: auto;
+  }
+
+  .card-photo-frame,
+  .card-thumbnail-placeholder {
+    flex: none;
+    aspect-ratio: var(--card-thumb-ratio);
+  }
+
+  .card-name {
+    font-size: 1.75rem;
+  }
+
+  .card-notes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-height: 0;
+    padding-top: 0.2rem;
+    overflow: hidden;
+  }
+
+  .no-results {
+    top: 1.25rem;
+    transform: translateX(-50%) rotate(-1deg);
+  }
+
+  /* The pager is the previous and next arrows around the page count. */
+  .pagination {
+    grid-column: 1;
+    margin-top: 0.9rem;
+  }
+
+  .page-btn:not(.page-btn-nav),
+  .page-ellipsis,
+  .page-btn-nav:first-child,
+  .page-btn-nav:last-child {
+    display: none;
+  }
+
+  .page-counter {
+    display: inline-block;
+  }
+
+  /*
+   * A turning page: a two-faced copy of one page that swings on the binding's edge while the live
+   * page waits underneath. Its front is the page; its back is the plain back of the paper.
+   */
+  .notepad-leaf {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    transform-origin: top center;
+    pointer-events: none;
+  }
+
+  /* The scene shows one face at a time and swaps them when the sheet passes upright. */
+  .notepad-leaf-face {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+  }
+
+  .notepad-leaf-front {
+    background: var(--paper-ruled), var(--color-page-paper);
+  }
+
+  .notepad-leaf-back {
+    border-radius: 8px 8px 0 0;
+    background:
+      linear-gradient(to top, rgba(0, 0, 0, 0.12), transparent 40%),
+      color-mix(in srgb, var(--color-page-paper) 92%, var(--color-pencil-soft));
+    transform: rotateX(180deg);
+  }
+
+  .notepad-leaf-front > .artifact-page-slice {
+    height: 100%;
+  }
+
+  .notepad-leaf-shade {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.4));
+    opacity: 0;
+  }
+
+  /* The cover hangs from the binding too, so it flips up on load like the pages do. */
+  .book-cover {
+    inset: 0;
+    width: auto;
+    transform-origin: top center;
+  }
+
+  .book-cover-face {
+    border-radius: 8px;
+  }
+
+  /*
+   * The cover turns over the binding like the pages, so its inside faces the reader once it is
+   * past upright. The intro swaps the two faces there; they do not rely on backface-visibility.
+   */
+  .book-cover-face,
+  .book-cover-back {
+    backface-visibility: visible;
+  }
+
+  .book-cover-back {
+    visibility: hidden;
+    border-radius: 8px;
+    transform: rotateX(180deg);
+  }
+
+  .book-endpaper {
     display: none;
   }
 
@@ -121,144 +386,30 @@
   }
 }
 
-@media (max-width: 700px) {
-  .book-layout {
-    padding-inline: 0.75rem;
+/* Phones on their side: the notepad page sets its photo beside its notes, and the page scrolls normally. */
+@media (max-width: 900px) and (orientation: landscape) and (max-height: 560px) {
+  :root {
+    --notepad-width: 52rem;
   }
 
-  .book-stage {
-    perspective: none;
-  }
-
-  /* Mobile is one column: no spread, no 3D. The cover is a flat card that fades away. */
-  .book-shell:not(.is-open) .book-sheet {
-    transform: none;
-  }
-
-  /*
-   * The sheet reserves one full page of cards from the first paint, so the intro, a filter
-   * with fewer matches, or a sort never changes the page height. The closed cover keeps its
-   * own shorter height and the reserved page stays hidden beneath and after it.
-   */
-  .book-shell:not(.is-open) .book-cover {
-    bottom: auto;
-    height: 34rem;
-  }
-
-  .book-shell:not(.is-open) .book-inner {
-    visibility: hidden;
-  }
-
-  /* Phones turn pages by button only, so the sheet keeps every native gesture. */
   .book-sheet {
-    /* A card is its thumbnail at the shared ratio, plus the note's padding, the frame border, and two caption lines. */
-    --phone-gap: 1.15rem;
-    --phone-page-pad: 1.35rem;
-    --phone-page-pad-left: calc(var(--paper-margin-x) + 0.75rem);
-    --phone-caption-lines: 2;
-    --phone-caption-height: calc(1.15rem + var(--phone-caption-lines) * 1.05 * 1.8rem);
-    --phone-card-width: calc(100cqi - var(--phone-page-pad-left) - var(--phone-page-pad));
-    --phone-card-height: calc(
-      (var(--phone-card-width) - 1.24rem - 10px) / var(--card-thumb-ratio) + 10px + 0.62rem + var(--phone-caption-height)
-    );
-    --phone-page-height: calc(
-      var(--gallery-page-cards) * var(--phone-card-height) + (var(--gallery-page-cards) - 1) * var(--phone-gap) + var(--phone-page-pad) * 2
-    );
-    --book-sheet-min-height: 0;
-
-    height: auto;
+    height: max(17rem, calc(100svh - 1.5rem));
     touch-action: auto;
   }
 
-  .book-shadow,
-  .book-case,
-  .book-tabs,
-  .book-spine,
-  .book-cast,
-  .book-peel,
-  .book-inner::after {
-    display: none;
-  }
-
-  .book-cover {
-    left: 0;
-    width: 100%;
-  }
-
-  .book-cover-face {
-    border-radius: 10px;
-  }
-
-  .book-inner {
-    position: relative;
-    inset: auto;
-    min-height: var(--phone-page-height);
-    padding: var(--phone-page-pad) var(--phone-page-pad) var(--phone-page-pad) var(--phone-page-pad-left);
-    border-radius: 6px;
-    box-shadow: var(--shadow-md);
-  }
-
-  .book-inner::before {
-    width: 100%;
-    border-radius: 6px;
-    box-shadow: none;
-  }
-
-  .artifacts-grid {
-    position: relative;
-    inset: auto;
-    grid-template-columns: 1fr;
-    grid-template-rows: none;
-    gap: var(--phone-gap);
-  }
-
-  .artifact-page-slice {
-    gap: var(--phone-gap);
-    grid-template-rows: auto;
-  }
-
-  .artifact-page-left,
-  .artifact-page-right {
-    padding: 0;
-  }
-
-  .artifact-page-slice::after,
-  .artifact-page-slice.is-empty::before,
-  .page-number {
-    display: none;
+  .artifact-page-left {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: start;
+    gap: 1.1rem;
   }
 
   .artifact-card {
-    height: auto;
-    min-height: 0;
+    width: 100%;
   }
+}
 
-  .card-note {
-    min-height: var(--phone-card-height);
-  }
-
-  .card-thumbnail {
-    aspect-ratio: var(--card-thumb-ratio);
-  }
-
-  .card-note-body {
-    min-height: var(--phone-caption-height);
-  }
-
-  .card-thumbnail-placeholder {
-    min-height: 9rem;
-  }
-
-  /* The page keeps its height with no cards, so the note sits at the top of the paper instead of the middle. */
-  .no-results {
-    top: var(--phone-page-pad);
-    transform: translateX(-50%) rotate(-1deg);
-  }
-
-  .card-name {
-    font-size: 1.8rem;
-  }
-
+@media (max-width: 700px) {
   .detail-description {
     font-size: 1.2rem;
   }
@@ -270,6 +421,41 @@
 
   .detail-content {
     padding: 1rem 0 0;
+  }
+}
+
+/*
+ * Short landscape screens (phones on their side): the detail card sets its picture beside the
+ * text and scrolls the text, so the open button is never cut off below the screen.
+ */
+@media (orientation: landscape) and (max-height: 560px) {
+  .detail-overlay {
+    padding: 0.75rem;
+  }
+
+  .detail-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    width: min(100%, 860px);
+    max-height: calc(100svh - 1.5rem);
+  }
+
+  .detail-media-wrap {
+    max-height: none;
+    border-bottom: none;
+    border-right: 1px solid var(--color-border-solid);
+  }
+
+  .detail-media {
+    height: 100%;
+    max-height: none;
+    object-fit: cover;
+    object-position: top;
+  }
+
+  .detail-content {
+    overflow-y: auto;
+    padding: 1.1rem 1.4rem 1.25rem;
   }
 }
 

@@ -77,15 +77,24 @@ Dragging an outer edge or bottom corner moves the leaf with the pointer. Releasi
 
 Search, filter, sort, and history changes call `renderContent()`, which cancels an active turn before rendering. Completed, canceled, and failed animations remove temporary leaves and inline styles. The fallback listener on `#book-sheet` replaces broken thumbnails on turning leaves with the grid's placeholder.
 
-Reduced-motion mode and layouts at 700px or narrower use short cross-fades instead of 3D turns.
+Reduced-motion mode uses short cross-fades instead of 3D turns.
 
 ### Viewport fit
 
 Above 900px wide, the open book fits the viewport height. `--book-chrome-y` reserves space for the header, search, and pagination. Book height stays between `--book-fit-min-height` (460px) and `--book-sheet-min-height` (800px).
 
-`--book-spread-ratio` scales width with height to preserve page proportions. At viewport heights of 900px or less, header and control spacing shrink and desk notes become smaller. Captions scale with book width. Tablet and mobile layouts retain fixed sizes.
+`--book-spread-ratio` scales width with height to preserve page proportions. At viewport heights of 900px or less, header and control spacing shrink and desk notes become smaller. Captions scale with book width. A page turn that starts with the book's top above the screen scrolls it back into view.
 
-At 700px or narrower the paper reserves one full page of cards from the first paint, so filters, sorting, and the intro never change the page height. `--phone-page-height` in `css/src/06-responsive-and-motion.css` derives it from `--gallery-page-cards` (keep it equal to `ITEMS_PER_PAGE`), the card thumbnail ratio `--card-thumb-ratio`, and the book width.
+### Notepad (900px and narrower)
+
+Phones and tablets held upright get a one-page notepad bound at the top instead of the two-page book. The breakpoint lives in three places that must agree: `NOTEPAD_QUERY` in `gallery-app.js`, `MOBILE_BREAKPOINT` in `book-scene.js`, and the `max-width: 900px` notepad block in `css/src/06-responsive-and-motion.css`.
+
+- Each page holds one artifact (`NOTEPAD_ITEMS_PER_PAGE`): its photo, then the `.card-notes` under it, with the description written on the ruled lines and an open link. The book hides the notes and keeps them in the detail overlay. Crossing the breakpoint keeps the reader on the page that holds the first artifact they were looking at.
+- The notepad fills the screen height below the search (`--notepad-chrome-y`). `.book-spine` becomes the wire binding, and the bottom edge shows one sliver per page still to come, from `--stack-right-n`.
+- Pages flip like a desk calendar. `playFlipTurn()` swings a two-faced copy of a page on its top edge (a positive `rotateX` up to `FLIP_ANGLE_DEG`): forward, the old page's bottom edge lifts toward the reader, the sheet swings up over the binding showing its plain back, and it fades as it drops behind the pad (`FLIP_FADE_FROM`), uncovering the next page, which is already rendered underneath. Back plays the same path in reverse with the earlier page, which then takes the shown page's place. The faces swap when the sheet passes upright (90 degrees) by `visibility`, not `backface-visibility`, which cannot see a turn that belongs to the faces' parent. The sheet is drawn flat (`transform-style: flat`), so the cover and the leaf always paint over the page while `perspective` on the sheet and page still gives them depth.
+- The intro slides the cover band down off the bottom edge, like an elastic closure, then turns the cover up over the binding the same way, showing its inside past upright (`playFlipIntro()`).
+- A vertical swipe on the sheet turns the page: up for next, down for previous (`SWIPE_MIN_PX`). The sheet sets `touch-action: pan-x pinch-zoom` so those swipes reach the page. Phones on their side get the photo beside its notes and keep normal scrolling, so the arrows turn the page there.
+- The toolbar is the centred one from the filter dropdowns above, and the pager is the previous and next arrows around `.page-counter`.
 
 Interaction modules use guard clauses and lookup maps to separate event paths.
 
