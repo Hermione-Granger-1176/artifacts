@@ -12,6 +12,44 @@ import { WHOLE_TOKENS, SUB_PIECES } from "./data.js";
 const GPT_SPLIT_RE = /'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/gu;
 
 /**
+ * Chunk a digit run into groups of three; the leading space joins the first group.
+ * @param {string} digits - Digit-only text.
+ * @param {string} space - Leading space ("" or " ") carried by the run.
+ * @returns {string[]} Digit chunks.
+ */
+function chunkDigits(digits, space) {
+  const chunks = [];
+  for (let i = 0; i < digits.length; i += 3) {
+    chunks.push((i === 0 ? space : "") + digits.slice(i, i + 3));
+  }
+  return chunks;
+}
+
+/**
+ * Split an unknown word into its longest matching subword pieces, falling back
+ * to single characters. The leading space joins the first piece.
+ * @param {string} core - Word without its leading space.
+ * @param {string} space - Leading space ("" or " ") carried by the word.
+ * @returns {string[]} Subword pieces.
+ */
+function splitSubwords(core, space) {
+  const pieces = [];
+  const lower = core.toLowerCase();
+  let i = 0;
+  while (i < core.length) {
+    // Longest matching subword piece (SUB_PIECES is sorted longest first),
+    // falling back to a single character.
+    const piece = SUB_PIECES.find(
+      (candidate) => i + candidate.length <= core.length && lower.slice(i, i + candidate.length) === candidate
+    );
+    const length = piece ? piece.length : 1;
+    pieces.push((i === 0 ? space : "") + core.slice(i, i + length));
+    i += length;
+  }
+  return pieces;
+}
+
+/**
  * Greedy BPE-style tokenizer with GPT-2-style pre-tokenization: leading spaces
  * attach to the following token, contractions ('s, 'll, ...) become their own
  * tokens, digit runs chunk into groups of three, known whole words stay intact,
@@ -28,12 +66,7 @@ export function bpeTokenize(text) {
   const tokens = [];
 
   for (const part of text.match(GPT_SPLIT_RE) || []) {
-    if (/^\s+$/.test(part)) {
-      tokens.push(part);
-      continue;
-    }
-
-    if (/^ ?[^\s\p{L}\p{N}]/u.test(part)) {
+    if (/^\s+$/.test(part) || /^ ?[^\s\p{L}\p{N}]/u.test(part)) {
       tokens.push(part);
       continue;
     }
@@ -42,28 +75,11 @@ export function bpeTokenize(text) {
     const core = space ? part.slice(1) : part;
 
     if (/^\p{N}+$/u.test(core)) {
-      for (let i = 0; i < core.length; i += 3) {
-        tokens.push((i === 0 ? space : "") + core.slice(i, i + 3));
-      }
-      continue;
-    }
-
-    if (WHOLE_TOKENS.has(core) || WHOLE_TOKENS.has(core.toLowerCase())) {
+      tokens.push(...chunkDigits(core, space));
+    } else if (WHOLE_TOKENS.has(core) || WHOLE_TOKENS.has(core.toLowerCase())) {
       tokens.push(part);
-      continue;
-    }
-
-    let i = 0;
-    const lower = core.toLowerCase();
-    while (i < core.length) {
-      // Longest matching subword piece (SUB_PIECES is sorted longest first),
-      // falling back to a single character.
-      const piece = SUB_PIECES.find(
-        (candidate) => i + candidate.length <= core.length && lower.slice(i, i + candidate.length) === candidate
-      );
-      const length = piece ? piece.length : 1;
-      tokens.push((i === 0 ? space : "") + core.slice(i, i + length));
-      i += length;
+    } else {
+      tokens.push(...splitSubwords(core, space));
     }
   }
 
@@ -165,28 +181,23 @@ export function formatTTL(seconds) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+/** Similarity bands, highest first: a score above `above` earns the label and tone. */
+const SIMILARITY_VERDICTS = [
+  { above: 0.9, label: "Very similar", tone: "teal" },
+  { above: 0.7, label: "Similar", tone: "accent" },
+  { above: 0.4, label: "Somewhat related", tone: "warm" },
+  { above: 0.1, label: "Weakly related", tone: "secondary" },
+  { above: -0.2, label: "Unrelated", tone: "tertiary" }
+];
+
 /**
  * Human verdict + accent tone for a cosine similarity score.
  * @param {number} sim - Cosine similarity score.
  * @returns {{label:string, tone:string}}
  */
 export function verdictForSimilarity(sim) {
-  if (sim > 0.9) {
-    return { label: "Very similar", tone: "teal" };
-  }
-  if (sim > 0.7) {
-    return { label: "Similar", tone: "accent" };
-  }
-  if (sim > 0.4) {
-    return { label: "Somewhat related", tone: "warm" };
-  }
-  if (sim > 0.1) {
-    return { label: "Weakly related", tone: "secondary" };
-  }
-  if (sim > -0.2) {
-    return { label: "Unrelated", tone: "tertiary" };
-  }
-  return { label: "Opposites", tone: "rose" };
+  const band = SIMILARITY_VERDICTS.find(({ above }) => sim > above);
+  return band ? { label: band.label, tone: band.tone } : { label: "Opposites", tone: "rose" };
 }
 
 /**

@@ -199,6 +199,9 @@ const SAMPLE_FOOTNOTE = "Sample document generated for testing. Not a valid tax 
 /** Days of account activity a statement of account covers. */
 const PERIOD_DAYS = 91;
 
+/** Dated movements a statement ledger lists after its opening balance. */
+const LEDGER_MOVEMENTS = 6;
+
 /**
  * Rolling hash over a string, seeded and bounded by its caller.
  * @param {string} text - Text to hash.
@@ -619,6 +622,152 @@ function buildInvoice(context) {
 }
 
 /**
+ * The two-column key grid that opens a dense invoice.
+ * @param {{
+ *   baseDate: Date,
+ *   documentNumber: string,
+ *   dueDate: Date,
+ *   orderDate: Date,
+ *   orderNumber: string,
+ *   reference: string,
+ *   vendor: Vendor
+ * }} details - Values printed in the grid.
+ * @returns {KeyGridBlock} Seller details on the left, order and invoice details on the right.
+ */
+function denseKeyGrid({ baseDate, documentNumber, dueDate, orderDate, orderNumber, reference, vendor }) {
+  return {
+    kind: "keygrid",
+    columns: [
+      [
+        // Every buyer in the corpus is a business with an accounts-payable
+        // contact, and the seller carries a tax id. That is B2B.
+        ["Supply type", "B2B"],
+        ["Document type code", "Invoice"],
+        ["Seller legal name", `${vendor.name} Inc.`],
+        ["Seller address", vendor.addr, "vendor_address"],
+        ["Seller tax ID", vendor.taxId, "vendor_tax_id"],
+        ["Tax scheme", "US sales tax"],
+        ["Currency", "USD"],
+        ["Invoice type", "Regular"],
+        ["Payment terms", "Net 30", "payment_terms"]
+      ],
+      [
+        // A company registration belongs to the seller, not to the seed. It
+        // used to be derived from the seed alone, so all six vendors shared
+        // one registration number.
+        ["Company reg", vendor.companyReg, "vendor_company_reg"],
+        ["Order number", orderNumber, "order_number"],
+        ["Order date", formatDate(orderDate), "order_date"],
+        ["Support email", vendor.email, "vendor_email"],
+        ["Support phone", vendor.phone, "vendor_phone"],
+        ["Invoice number", documentNumber, "document_number"],
+        ["Invoice date", formatDate(baseDate), "document_date"],
+        ["Due date", formatDate(dueDate), "due_date"],
+        ["Reference", reference, "reference"]
+      ]
+    ]
+  };
+}
+
+/**
+ * The receiver and consignee columns of a dense invoice.
+ * @param {Buyer} buyer - Buyer printed in both columns.
+ * @returns {PartyPairBlock} Party pair with only the receiver column tagged.
+ */
+function densePartyPair(buyer) {
+  return {
+    kind: "partypair",
+    headings: ["Details of receiver (billed to)", "Details of consignee (shipped to)"],
+    columns: [
+      [buyer.name, ...buyer.lines, `Contact: ${buyer.contact}`],
+      [buyer.name, ...buyer.lines, `Tel: ${buyer.phone}`]
+    ],
+    // Only the receiver column is tagged. The consignee repeats the same
+    // party, and tagging both would put two regions with the same field on
+    // opposite sides of the page for one printed fact.
+    columnFields: [
+      ["buyer_name", ...buyer.lines.map(() => "buyer_address"), null],
+      [null, ...buyer.lines.map(() => null), null]
+    ]
+  };
+}
+
+/**
+ * The line-level table of a dense invoice, with SKU, product code, and per-line tax.
+ * @param {{
+ *   items: LineItem[],
+ *   lineTaxes: number[],
+ *   productCodes: string[],
+ *   skus: string[],
+ *   totals: Totals
+ * }} details - Lines, their per-line values, and the totals the footer sums.
+ * @returns {TableBlock} Dense item table.
+ */
+function denseItemsTable({ items, lineTaxes, productCodes, skus, totals }) {
+  const rows = items.map((item, index) => [
+    String(index + 1),
+    item.desc,
+    skus[index],
+    productCodes[index],
+    String(item.qty),
+    item.unit,
+    formatMoney(item.price),
+    formatMoney(item.amount),
+    formatRate(TAX_RATE),
+    formatMoney(lineTaxes[index]),
+    formatMoney(roundCents(item.amount + lineTaxes[index]))
+  ]);
+
+  return {
+    kind: "table",
+    dense: true,
+    columns: [
+      { label: "Sl", align: "center" },
+      { label: "Item description", align: "left" },
+      { label: "SKU", align: "center" },
+      { label: "Product code", align: "center" },
+      { label: "Qty", align: "center" },
+      { label: "UOM", align: "center" },
+      { label: "Rate", align: "right" },
+      { label: "Assessable", align: "right" },
+      { label: "Tax rate", align: "center" },
+      { label: "Tax amt", align: "right" },
+      { label: "Item total", align: "right" }
+    ],
+    fields: [
+      null,
+      "description",
+      "sku",
+      "product_code",
+      "quantity",
+      "unit",
+      "unit_price",
+      "amount",
+      "tax_rate",
+      "tax_amount",
+      "line_total"
+    ],
+    rowScope: "line_items",
+    rows,
+    // The table footer totals the line items. Shipping is not a line item, so
+    // it joins below and only the totals block carries the grand total.
+    footer: [
+      "Total",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      formatMoney(totals.subtotal),
+      "",
+      formatMoney(totals.tax),
+      formatMoney(totals.grand)
+    ]
+  };
+}
+
+/**
  * @param {BuildContext} context - Shared document context.
  * @returns {BuiltDocument} Dense line-level tax invoice.
  */
@@ -642,115 +791,10 @@ function buildDenseInvoice(context) {
   );
   const productCodes = items.map((item) => productCode(item.desc));
 
-  const rows = items.map((item, index) => [
-    String(index + 1),
-    item.desc,
-    skus[index],
-    productCodes[index],
-    String(item.qty),
-    item.unit,
-    formatMoney(item.price),
-    formatMoney(item.amount),
-    formatRate(TAX_RATE),
-    formatMoney(lineTaxes[index]),
-    formatMoney(roundCents(item.amount + lineTaxes[index]))
-  ]);
-
   const blocks = /** @type {DocumentBlock[]} */ ([
-    {
-      kind: "keygrid",
-      columns: [
-        [
-          // Every buyer in the corpus is a business with an accounts-payable
-          // contact, and the seller carries a tax id. That is B2B.
-          ["Supply type", "B2B"],
-          ["Document type code", "Invoice"],
-          ["Seller legal name", `${vendor.name} Inc.`],
-          ["Seller address", vendor.addr, "vendor_address"],
-          ["Seller tax ID", vendor.taxId, "vendor_tax_id"],
-          ["Tax scheme", "US sales tax"],
-          ["Currency", "USD"],
-          ["Invoice type", "Regular"],
-          ["Payment terms", "Net 30", "payment_terms"]
-        ],
-        [
-          // A company registration belongs to the seller, not to the seed. It
-          // used to be derived from the seed alone, so all six vendors shared
-          // one registration number.
-          ["Company reg", vendor.companyReg, "vendor_company_reg"],
-          ["Order number", orderNumber, "order_number"],
-          ["Order date", formatDate(orderDate), "order_date"],
-          ["Support email", vendor.email, "vendor_email"],
-          ["Support phone", vendor.phone, "vendor_phone"],
-          ["Invoice number", documentNumber, "document_number"],
-          ["Invoice date", formatDate(baseDate), "document_date"],
-          ["Due date", formatDate(dueDate), "due_date"],
-          ["Reference", reference, "reference"]
-        ]
-      ]
-    },
-    {
-      kind: "partypair",
-      headings: ["Details of receiver (billed to)", "Details of consignee (shipped to)"],
-      columns: [
-        [buyer.name, ...buyer.lines, `Contact: ${buyer.contact}`],
-        [buyer.name, ...buyer.lines, `Tel: ${buyer.phone}`]
-      ],
-      // Only the receiver column is tagged. The consignee repeats the same
-      // party, and tagging both would put two regions with the same field on
-      // opposite sides of the page for one printed fact.
-      columnFields: [
-        ["buyer_name", ...buyer.lines.map(() => "buyer_address"), null],
-        [null, ...buyer.lines.map(() => null), null]
-      ]
-    },
-    {
-      kind: "table",
-      dense: true,
-      columns: [
-        { label: "Sl", align: "center" },
-        { label: "Item description", align: "left" },
-        { label: "SKU", align: "center" },
-        { label: "Product code", align: "center" },
-        { label: "Qty", align: "center" },
-        { label: "UOM", align: "center" },
-        { label: "Rate", align: "right" },
-        { label: "Assessable", align: "right" },
-        { label: "Tax rate", align: "center" },
-        { label: "Tax amt", align: "right" },
-        { label: "Item total", align: "right" }
-      ],
-      fields: [
-        null,
-        "description",
-        "sku",
-        "product_code",
-        "quantity",
-        "unit",
-        "unit_price",
-        "amount",
-        "tax_rate",
-        "tax_amount",
-        "line_total"
-      ],
-      rowScope: "line_items",
-      rows,
-      // The table footer totals the line items. Shipping is not a line item, so
-      // it joins below and only the totals block carries the grand total.
-      footer: [
-        "Total",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        formatMoney(totals.subtotal),
-        "",
-        formatMoney(totals.tax),
-        formatMoney(totals.grand)
-      ]
-    },
+    denseKeyGrid({ baseDate, documentNumber, dueDate, orderDate, orderNumber, reference, vendor }),
+    densePartyPair(buyer),
+    denseItemsTable({ items, lineTaxes, productCodes, skus, totals }),
     {
       kind: "totals",
       rows: [
@@ -1045,26 +1089,25 @@ function buildAdjustmentNote(context) {
 }
 
 /**
+ * Draw the ledger a statement of account prints: an opening balance followed by
+ * `LEDGER_MOVEMENTS` dated movements.
+ *
+ * Every draw comes from one seeded stream in a fixed order, so the same seed
+ * and vendor always produce the same ledger.
  * @param {BuildContext} context - Shared document context.
- * @returns {BuiltDocument} Statement of account with a running ledger.
+ * @param {Date} periodStart - First day of the period, which carries the opening balance.
+ * @returns {{ balance: number, lastMovement: Date, transactions: LedgerEntry[] }} The rows, the closing balance, and the date of the final row.
  */
-function buildStatement(context) {
+function buildLedger(context, periodStart) {
   const salt = vendorSalt(context.vendor.id);
   const random = createSeededRandom(context.seed * 17 + salt);
-
-  // The ledger has to end on or before the day the statement was generated. It
-  // used to start at `new Date(year, seed % 6, 3)`, which had no relationship to
-  // the generated date at all: a statement generated in March would list
-  // transactions running through June, summarising activity that had not
-  // happened yet, and no statement could ever fall in the second half of a year.
-  const periodStart = addDays(context.baseDate, -PERIOD_DAYS);
 
   // Six movement dates drawn anywhere in the period and then sorted, rather than
   // accumulated from random gaps. Accumulating cannot fill the period without
   // sometimes running past its end, and clamping the overshoot piles rows onto
   // the last day. Drawing then sorting is monotonic and in-bounds by
   // construction, so the ledger always spans the period the heading claims.
-  const offsets = Array.from({ length: 6 }, () => 1 + Math.floor(random() * PERIOD_DAYS)).sort(
+  const offsets = Array.from({ length: LEDGER_MOVEMENTS }, () => 1 + Math.floor(random() * PERIOD_DAYS)).sort(
     (left, right) => left - right
   );
 
@@ -1085,7 +1128,7 @@ function buildStatement(context) {
     }
   ];
 
-  for (let index = 0; index < 6; index += 1) {
+  for (let index = 0; index < LEDGER_MOVEMENTS; index += 1) {
     const cursor = addDays(periodStart, offsets[index]);
     const amount = roundCents(60 + random() * 1800);
 
@@ -1108,7 +1151,21 @@ function buildStatement(context) {
     });
   }
 
-  const lastMovement = addDays(periodStart, offsets[offsets.length - 1]);
+  return { balance, lastMovement: addDays(periodStart, offsets[offsets.length - 1]), transactions };
+}
+
+/**
+ * @param {BuildContext} context - Shared document context.
+ * @returns {BuiltDocument} Statement of account with a running ledger.
+ */
+function buildStatement(context) {
+  // The ledger has to end on or before the day the statement was generated. It
+  // used to start at `new Date(year, seed % 6, 3)`, which had no relationship to
+  // the generated date at all: a statement generated in March would list
+  // transactions running through June, summarising activity that had not
+  // happened yet, and no statement could ever fall in the second half of a year.
+  const periodStart = addDays(context.baseDate, -PERIOD_DAYS);
+  const { balance, lastMovement, transactions } = buildLedger(context, periodStart);
   const documentNumber = `STM-${context.number}`;
 
   return {

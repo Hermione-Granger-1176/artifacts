@@ -182,7 +182,6 @@ function renderTableBlock(doc, block) {
  */
 export function buildLogo(doc, vendor) {
   const logo = make(doc, "div", `vd-logo is-${vendor.logoStyle}`);
-  const [firstWord, ...restWords] = vendor.name.split(" ");
 
   /**
    * @param {string} className - Class for the span.
@@ -191,30 +190,169 @@ export function buildLogo(doc, vendor) {
    */
   const namePart = (className, text) => tag(make(doc, "span", className, text), "vendor_name", text);
 
-  if (vendor.logoStyle === "block" || vendor.logoStyle === "stamp") {
-    logo.appendChild(make(doc, "span", "vd-logo-mark", initialsOf(vendor.name)));
-    logo.appendChild(namePart("vd-logo-name", vendor.name));
-    return logo;
+  switch (vendor.logoStyle) {
+    case "block":
+    case "stamp":
+      logo.appendChild(make(doc, "span", "vd-logo-mark", initialsOf(vendor.name)));
+      logo.appendChild(namePart("vd-logo-name", vendor.name));
+      break;
+
+    case "leaf":
+    case "mono":
+      logo.appendChild(make(doc, "span", "vd-logo-glyph", vendor.logoStyle === "leaf" ? "☘" : "☁"));
+      logo.appendChild(namePart("vd-logo-name", vendor.name));
+      break;
+
+    case "thin": {
+      // The thin lockup splits the name across two spans, so it produces two
+      // `vendor_name` regions rather than one. That is the truth of the layout:
+      // there is no single box on the page holding the whole name.
+      const [firstWord, ...restWords] = vendor.name.split(" ");
+      logo.appendChild(namePart("vd-logo-name", firstWord));
+      logo.appendChild(namePart("vd-logo-sub", restWords.join(" ")));
+      break;
+    }
+
+    default:
+      logo.appendChild(namePart("vd-logo-name", vendor.name));
   }
 
-  if (vendor.logoStyle === "leaf" || vendor.logoStyle === "mono") {
-    const glyph = vendor.logoStyle === "leaf" ? "☘" : "☁";
-    logo.appendChild(make(doc, "span", "vd-logo-glyph", glyph));
-    logo.appendChild(namePart("vd-logo-name", vendor.name));
-    return logo;
-  }
-
-  if (vendor.logoStyle === "thin") {
-    // The thin lockup splits the name across two spans, so it produces two
-    // `vendor_name` regions rather than one. That is the truth of the layout:
-    // there is no single box on the page holding the whole name.
-    logo.appendChild(namePart("vd-logo-name", firstWord));
-    logo.appendChild(namePart("vd-logo-sub", restWords.join(" ")));
-    return logo;
-  }
-
-  logo.appendChild(namePart("vd-logo-name", vendor.name));
   return logo;
+}
+
+/**
+ * @param {Document} doc - Owning document.
+ * @param {import("./document-model.js").StampBlock} block - Stamp block.
+ * @returns {HTMLElement} Row holding the stamp.
+ */
+function renderStamp(doc, block) {
+  const row = make(doc, "div", "vd-stamp-row");
+  row.appendChild(make(doc, "span", "vd-stamp", block.text));
+  return row;
+}
+
+/**
+ * @param {Document} doc - Owning document.
+ * @param {import("./document-model.js").PartiesBlock} block - Parties block.
+ * @returns {HTMLElement} The party and its metadata table.
+ */
+function renderParties(doc, block) {
+  const wrapper = make(doc, "div", "vd-parties");
+  const party = make(doc, "div", "vd-party");
+  party.appendChild(make(doc, "div", "vd-party-label", block.label));
+  appendParty(doc, party, block.lines, block.lineFields ?? []);
+  wrapper.appendChild(party);
+  wrapper.appendChild(keyValueTable(doc, block.meta, "vd-meta"));
+  return wrapper;
+}
+
+/**
+ * @param {Document} doc - Owning document.
+ * @param {import("./document-model.js").KeyGridBlock} block - Key grid block.
+ * @returns {HTMLElement} Grid of key/value tables.
+ */
+function renderKeyGrid(doc, block) {
+  const grid = make(doc, "div", "vd-keygrid");
+
+  for (const column of block.columns) {
+    grid.appendChild(keyValueTable(doc, column, "vd-kv"));
+  }
+
+  return grid;
+}
+
+/**
+ * @param {Document} doc - Owning document.
+ * @param {import("./document-model.js").PartyPairBlock} block - Party pair block.
+ * @returns {HTMLElement} Table with one party per column.
+ */
+function renderPartyPair(doc, block) {
+  const table = make(doc, "table", "vd-partypair");
+  table.appendChild(
+    singleRowSection(doc, "thead", "th", block.headings.map((heading) => ["vd-partypair-head", heading]))
+  );
+
+  const body = make(doc, "tbody");
+  const bodyRow = make(doc, "tr");
+
+  block.columns.forEach((lines, columnIndex) => {
+    const cell = make(doc, "td", "vd-partypair-cell");
+    appendParty(doc, cell, lines, block.columnFields?.[columnIndex] ?? []);
+    bodyRow.appendChild(cell);
+  });
+
+  body.appendChild(bodyRow);
+  table.appendChild(body);
+  return table;
+}
+
+/**
+ * @param {Document} doc - Owning document.
+ * @param {import("./document-model.js").TotalsBlock} block - Totals block.
+ * @returns {HTMLElement} Right-aligned totals table.
+ */
+function renderTotals(doc, block) {
+  const wrapper = make(doc, "div", "vd-totals-row");
+  const table = make(doc, "table", "vd-totals");
+  const body = make(doc, "tbody");
+
+  block.rows.forEach(([label, value, field], index) => {
+    const row = make(doc, "tr", index === block.emphasisIndex ? "is-emphasis" : undefined);
+    row.appendChild(make(doc, "th", "vd-totals-label", label));
+    row.appendChild(tag(make(doc, "td", "vd-totals-value", value), field, value));
+    body.appendChild(row);
+  });
+
+  table.appendChild(body);
+  wrapper.appendChild(table);
+  return wrapper;
+}
+
+/**
+ * @param {Document} doc - Owning document.
+ * @param {import("./document-model.js").ChipsBlock} block - Chips block.
+ * @returns {HTMLElement} Row of label/value chips.
+ */
+function renderChips(doc, block) {
+  const wrapper = make(doc, "div", "vd-doc-chips");
+
+  for (const [label, value, field] of block.items) {
+    const chip = make(doc, "span", "vd-doc-chip");
+    chip.appendChild(make(doc, "span", "vd-doc-chip-label", label));
+    chip.appendChild(tag(make(doc, "span", "vd-doc-chip-value", value), field, value));
+    wrapper.appendChild(chip);
+  }
+
+  return wrapper;
+}
+
+/**
+ * @param {Document} doc - Owning document.
+ * @param {import("./document-model.js").BannerBlock} block - Banner block.
+ * @returns {HTMLElement} Row holding the banner.
+ */
+function renderBanner(doc, block) {
+  const wrapper = make(doc, "div", "vd-banner-row");
+  const banner = make(doc, "div", "vd-banner");
+  banner.appendChild(make(doc, "span", "vd-banner-label", block.label));
+  banner.appendChild(tag(make(doc, "span", "vd-banner-value", block.value), block.field, block.value));
+  wrapper.appendChild(banner);
+  return wrapper;
+}
+
+/**
+ * @param {Document} doc - Owning document.
+ * @param {import("./document-model.js").SignaturesBlock} block - Signatures block.
+ * @returns {HTMLElement} Row of signature lines.
+ */
+function renderSignatures(doc, block) {
+  const wrapper = make(doc, "div", "vd-signatures");
+
+  for (const label of block.labels) {
+    wrapper.appendChild(make(doc, "div", "vd-signature", label));
+  }
+
+  return wrapper;
 }
 
 /**
@@ -225,71 +363,23 @@ export function buildLogo(doc, vendor) {
  */
 function renderBlock(doc, block) {
   switch (block.kind) {
-    case "stamp": {
-      const row = make(doc, "div", "vd-stamp-row");
-      row.appendChild(make(doc, "span", "vd-stamp", block.text));
-      return row;
-    }
+    case "stamp":
+      return renderStamp(doc, block);
 
-    case "parties": {
-      const wrapper = make(doc, "div", "vd-parties");
-      const party = make(doc, "div", "vd-party");
-      party.appendChild(make(doc, "div", "vd-party-label", block.label));
-      appendParty(doc, party, block.lines, block.lineFields ?? []);
-      wrapper.appendChild(party);
-      wrapper.appendChild(keyValueTable(doc, block.meta, "vd-meta"));
-      return wrapper;
-    }
+    case "parties":
+      return renderParties(doc, block);
 
-    case "keygrid": {
-      const grid = make(doc, "div", "vd-keygrid");
+    case "keygrid":
+      return renderKeyGrid(doc, block);
 
-      for (const column of block.columns) {
-        grid.appendChild(keyValueTable(doc, column, "vd-kv"));
-      }
-
-      return grid;
-    }
-
-    case "partypair": {
-      const table = make(doc, "table", "vd-partypair");
-      table.appendChild(
-        singleRowSection(doc, "thead", "th", block.headings.map((heading) => ["vd-partypair-head", heading]))
-      );
-
-      const body = make(doc, "tbody");
-      const bodyRow = make(doc, "tr");
-
-      block.columns.forEach((lines, columnIndex) => {
-        const cell = make(doc, "td", "vd-partypair-cell");
-        appendParty(doc, cell, lines, block.columnFields?.[columnIndex] ?? []);
-        bodyRow.appendChild(cell);
-      });
-
-      body.appendChild(bodyRow);
-      table.appendChild(body);
-      return table;
-    }
+    case "partypair":
+      return renderPartyPair(doc, block);
 
     case "table":
       return renderTableBlock(doc, block);
 
-    case "totals": {
-      const wrapper = make(doc, "div", "vd-totals-row");
-      const table = make(doc, "table", "vd-totals");
-      const body = make(doc, "tbody");
-
-      block.rows.forEach(([label, value, field], index) => {
-        const row = make(doc, "tr", index === block.emphasisIndex ? "is-emphasis" : undefined);
-        row.appendChild(make(doc, "th", "vd-totals-label", label));
-        row.appendChild(tag(make(doc, "td", "vd-totals-value", value), field, value));
-        body.appendChild(row);
-      });
-
-      table.appendChild(body);
-      wrapper.appendChild(table);
-      return wrapper;
-    }
+    case "totals":
+      return renderTotals(doc, block);
 
     case "words":
       return make(doc, "div", "vd-words", block.text);
@@ -300,39 +390,14 @@ function renderBlock(doc, block) {
     case "callout":
       return make(doc, "div", "vd-doc-callout", block.text);
 
-    case "chips": {
-      const wrapper = make(doc, "div", "vd-doc-chips");
+    case "chips":
+      return renderChips(doc, block);
 
-      for (const [label, value, field] of block.items) {
-        const chip = make(doc, "span", "vd-doc-chip");
-        chip.appendChild(make(doc, "span", "vd-doc-chip-label", label));
-        chip.appendChild(tag(make(doc, "span", "vd-doc-chip-value", value), field, value));
-        wrapper.appendChild(chip);
-      }
+    case "banner":
+      return renderBanner(doc, block);
 
-      return wrapper;
-    }
-
-    case "banner": {
-      const wrapper = make(doc, "div", "vd-banner-row");
-      const banner = make(doc, "div", "vd-banner");
-      banner.appendChild(make(doc, "span", "vd-banner-label", block.label));
-      banner.appendChild(
-        tag(make(doc, "span", "vd-banner-value", block.value), block.field, block.value)
-      );
-      wrapper.appendChild(banner);
-      return wrapper;
-    }
-
-    case "signatures": {
-      const wrapper = make(doc, "div", "vd-signatures");
-
-      for (const label of block.labels) {
-        wrapper.appendChild(make(doc, "div", "vd-signature", label));
-      }
-
-      return wrapper;
-    }
+    case "signatures":
+      return renderSignatures(doc, block);
 
     case "signoff":
     default:
@@ -357,20 +422,13 @@ export function applyVendorTheme(element, vendor) {
 }
 
 /**
- * Replace the paper's contents with a rendered document.
- * @param {HTMLElement} paper - The `.vd-paper` element.
+ * Build the letterhead and the document title row.
+ * @param {Document} doc - Owning document.
  * @param {DocumentModel} model - Document to render.
- * @param {Document} [doc=document] - Owning document, injectable for tests.
- * @returns {HTMLElement} The paper element, for chaining.
+ * @returns {HTMLElement} The `header` element.
  */
-export function renderPaper(paper, model, doc = document) {
+function renderHeader(doc, model) {
   const { vendor } = model;
-  applyVendorTheme(paper, vendor);
-  paper.replaceChildren();
-
-  const page = make(doc, "div", `vd-page is-${vendor.layout}${model.dense ? " is-dense" : ""}`);
-  page.appendChild(make(doc, "div", "vd-accent-bar"));
-
   const header = make(doc, "header", "vd-doc-head");
   const brand = make(doc, "div", "vd-brand");
   brand.appendChild(buildLogo(doc, vendor));
@@ -404,7 +462,24 @@ export function renderPaper(paper, model, doc = document) {
   }
 
   header.appendChild(titleWrap);
-  page.appendChild(header);
+  return header;
+}
+
+/**
+ * Replace the paper's contents with a rendered document.
+ * @param {HTMLElement} paper - The `.vd-paper` element.
+ * @param {DocumentModel} model - Document to render.
+ * @param {Document} [doc=document] - Owning document, injectable for tests.
+ * @returns {HTMLElement} The paper element, for chaining.
+ */
+export function renderPaper(paper, model, doc = document) {
+  const { vendor } = model;
+  applyVendorTheme(paper, vendor);
+  paper.replaceChildren();
+
+  const page = make(doc, "div", `vd-page is-${vendor.layout}${model.dense ? " is-dense" : ""}`);
+  page.appendChild(make(doc, "div", "vd-accent-bar"));
+  page.appendChild(renderHeader(doc, model));
 
   const body = make(doc, "div", "vd-doc-body");
 

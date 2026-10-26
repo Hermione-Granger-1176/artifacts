@@ -362,6 +362,45 @@ export function formatBytes(bytes) {
 }
 
 /**
+ * Capture the page once and write whichever raster-backed files the batch wants.
+ *
+ * The image and the PDF come from one capture, because a second render of the
+ * same page is the slowest step in the batch.
+ * @param {ArtifactsJsZipArchive} zip - Archive being filled.
+ * @param {string} base - Archive path of the document, without extension.
+ * @param {{
+ *   degradation: DegradePlan | null,
+ *   deps: ExportDeps,
+ *   pair: boolean,
+ *   paper: HTMLElement,
+ *   wantsImagePdf: boolean,
+ *   wantsPng: boolean
+ * }} options - What to capture and which files to write from it.
+ * @returns {Promise<boolean>} Whether the undegraded `.clean.png` was written beside the image.
+ */
+async function writeRasterFiles(zip, base, { degradation, deps, pair, paper, wantsImagePdf, wantsPng }) {
+  const raster = await renderRaster(paper, deps, degradation);
+  let wroteClean = false;
+
+  if (wantsPng) {
+    zip.file(`${base}.${raster.extension}`, base64Payload(raster.dataUrl), { base64: true });
+
+    if (pair && degradation) {
+      // The whole point of pair mode: one seed, two images, differing only
+      // in scan quality, so accuracy can be plotted against it.
+      zip.file(`${base}.clean.png`, base64Payload(raster.clean.toDataURL("image/png")), { base64: true });
+      wroteClean = true;
+    }
+  }
+
+  if (wantsImagePdf) {
+    zip.file(`${base}.pdf`, canvasToPdf(raster, deps).output("blob"));
+  }
+
+  return wroteClean;
+}
+
+/**
  * Generate a batch of documents and hand back a foldered ZIP.
  *
  * Text PDFs skip raster capture because jsPDF writes straight from the model.
@@ -442,21 +481,17 @@ export async function runBatch({
     if (wantsCanvas) {
       // Sequential on purpose: one shared paper element is reused for every
       // capture, so the renders cannot overlap.
-      const raster = await renderRaster(paper, deps, degradation);
+      const wroteClean = await writeRasterFiles(zip, base, {
+        degradation,
+        deps,
+        pair,
+        paper,
+        wantsImagePdf: wantsPdf && pdfMode === "image",
+        wantsPng
+      });
 
-      if (wantsPng) {
-        zip.file(`${base}.${raster.extension}`, base64Payload(raster.dataUrl), { base64: true });
-
-        if (pair && degradation) {
-          // The whole point of pair mode: one seed, two images, differing only
-          // in scan quality, so accuracy can be plotted against it.
-          zip.file(`${base}.clean.png`, base64Payload(raster.clean.toDataURL("image/png")), { base64: true });
-          wrotePair = true;
-        }
-      }
-
-      if (wantsPdf && pdfMode === "image") {
-        zip.file(`${base}.pdf`, canvasToPdf(raster, deps).output("blob"));
+      if (wroteClean) {
+        wrotePair = true;
       }
     }
 

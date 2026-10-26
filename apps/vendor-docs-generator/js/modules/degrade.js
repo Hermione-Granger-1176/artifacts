@@ -292,6 +292,36 @@ function jitter(nominal, random) {
 }
 
 /**
+ * Compose rotation, skew, and keystone into one pixel-space transform that
+ * keeps the page inside its own frame.
+ * @param {AppliedSettings} applied - Settings carrying the jittered rotation and skew.
+ * @param {number} width - Page width.
+ * @param {number} height - Page height.
+ * @returns {Matrix3} The transform, in the page's own pixels.
+ */
+function pagePixelTransform(applied, width, height) {
+  const centreX = width / 2;
+  const centreY = height / 2;
+  const radians = (applied.rotation * Math.PI) / 180;
+  const shearRadians = (applied.skew * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  // Keystone as a real projective map rather than a horizontal squeeze: tilting
+  // a page away from the lens narrows the far edge *and* foreshortens it, and a
+  // model trained on a squeeze alone would not have seen the second half.
+  const gradient = centreY ? applied.keystone / centreY : 0;
+  const base = multiply(
+    /** @type {Matrix3} */ ([[1, 0, 0], [0, 1, 0], [0, -gradient, 1]]),
+    multiply(
+      /** @type {Matrix3} */ ([[cos, -sin, 0], [sin, cos, 0], [0, 0, 1]]),
+      /** @type {Matrix3} */ ([[1, Math.tan(shearRadians), 0], [0, 1, 0], [0, 0, 1]])
+    )
+  );
+  const centred = about(base, centreX, centreY);
+  return multiply(fitTransform(centred, width, height), centred);
+}
+
+/**
  * Work out the geometry and the seeded choices for one degraded page.
  *
  * Pure: no canvas, no DOM. The JSON-only batch path calls this and nothing else,
@@ -324,26 +354,7 @@ export function planDegradation({ height, preset = "custom", seed, settings, wid
     lightCenter: [round4(lightCenter[0]), round4(lightCenter[1])]
   });
 
-  const centreX = width / 2;
-  const centreY = height / 2;
-  const radians = (applied.rotation * Math.PI) / 180;
-  const shearRadians = (applied.skew * Math.PI) / 180;
-  const cos = Math.cos(radians);
-  const sin = Math.sin(radians);
-  // Keystone as a real projective map rather than a horizontal squeeze: tilting
-  // a page away from the lens narrows the far edge *and* foreshortens it, and a
-  // model trained on a squeeze alone would not have seen the second half.
-  const gradient = centreY ? settings.keystone / centreY : 0;
-  const base = multiply(
-    /** @type {Matrix3} */ ([[1, 0, 0], [0, 1, 0], [0, -gradient, 1]]),
-    multiply(
-      /** @type {Matrix3} */ ([[cos, -sin, 0], [sin, cos, 0], [0, 0, 1]]),
-      /** @type {Matrix3} */ ([[1, Math.tan(shearRadians), 0], [0, 1, 0], [0, 0, 1]])
-    )
-  );
-  const centred = about(base, centreX, centreY);
-  const fit = fitTransform(centred, width, height);
-  const transformPx = multiply(fit, centred);
+  const transformPx = pagePixelTransform(applied, width, height);
 
   return {
     applied,
@@ -562,7 +573,103 @@ function drawGeometry(ctx, source, transformPx) {
 }
 
 /**
+ * Scatter specks of dust across the page.
+ * @param {CanvasRenderingContext2D} ctx - Destination context.
+ * @param {number} count - How many specks to draw.
+ * @param {number} width - Canvas width.
+ * @param {number} height - Canvas height.
+ * @param {() => number} random - Seeded stream.
+ * @returns {void}
+ */
+function drawDust(ctx, count, width, height, random) {
+  for (let index = 0; index < count; index += 1) {
+    const radius = 0.6 + random() * 2.4;
+    ctx.fillStyle = `rgba(30, 30, 30, ${0.15 + random() * 0.45})`;
+    ctx.beginPath();
+    ctx.arc(random() * width, random() * height, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/**
+ * Draw a faint horizontal crease, as left by a fax or a folded letter.
+ * @param {CanvasRenderingContext2D} ctx - Destination context.
+ * @param {number} width - Canvas width.
+ * @param {number} height - Canvas height.
+ * @param {() => number} random - Seeded stream.
+ * @returns {void}
+ */
+function drawFold(ctx, width, height, random) {
+  const y = height * (0.32 + random() * 0.36);
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.16)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, y);
+  ctx.lineTo(width, y + (random() - 0.5) * 6);
+  ctx.stroke();
+}
+
+/**
+ * Punch three binder holes down the left margin.
+ * @param {CanvasRenderingContext2D} ctx - Destination context.
+ * @param {number} width - Canvas width.
+ * @param {number} height - Canvas height.
+ * @returns {void}
+ */
+function drawPunchHoles(ctx, width, height) {
+  const x = width * 0.035;
+  for (const fraction of [0.28, 0.5, 0.72]) {
+    ctx.fillStyle = "rgba(24, 24, 24, 0.82)";
+    ctx.beginPath();
+    ctx.arc(x, height * fraction, width * 0.011, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/**
+ * Draw a staple in the top-left corner.
+ * @param {CanvasRenderingContext2D} ctx - Destination context.
+ * @param {number} width - Canvas width.
+ * @param {number} height - Canvas height.
+ * @returns {void}
+ */
+function drawStaple(ctx, width, height) {
+  ctx.strokeStyle = "rgba(40, 40, 40, 0.55)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(width * 0.05, height * 0.045);
+  ctx.lineTo(width * 0.085, height * 0.028);
+  ctx.stroke();
+}
+
+/**
+ * Draw a faint coffee-cup ring in the lower right of the page.
+ * @param {CanvasRenderingContext2D} ctx - Destination context.
+ * @param {number} width - Canvas width.
+ * @param {number} height - Canvas height.
+ * @param {() => number} random - Seeded stream.
+ * @returns {void}
+ */
+function drawCoffeeRing(ctx, width, height, random) {
+  const cx = width * (0.55 + random() * 0.3);
+  const cy = height * (0.55 + random() * 0.3);
+  const radius = width * (0.07 + random() * 0.05);
+  ctx.strokeStyle = "rgba(120, 82, 40, 0.22)";
+  ctx.lineWidth = width * 0.008;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(120, 82, 40, 0.06)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/**
  * Paint the physical marks a page picks up before it reaches a scanner.
+ *
+ * The marks are drawn in a fixed order, because the dust, the fold, and the
+ * coffee ring each draw from the same seeded stream.
  * @param {CanvasRenderingContext2D} ctx - Destination context.
  * @param {AppliedSettings} applied - Resolved settings.
  * @param {number} width - Canvas width.
@@ -573,56 +680,22 @@ function drawGeometry(ctx, source, transformPx) {
 function drawArtifacts(ctx, applied, width, height, random) {
   ctx.save();
 
-  for (let index = 0; index < applied.dust; index += 1) {
-    const radius = 0.6 + random() * 2.4;
-    ctx.fillStyle = `rgba(30, 30, 30, ${0.15 + random() * 0.45})`;
-    ctx.beginPath();
-    ctx.arc(random() * width, random() * height, radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  drawDust(ctx, applied.dust, width, height, random);
 
   if (applied.fold) {
-    const y = height * (0.32 + random() * 0.36);
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.16)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y + (random() - 0.5) * 6);
-    ctx.stroke();
+    drawFold(ctx, width, height, random);
   }
 
   if (applied.punch) {
-    const x = width * 0.035;
-    for (const fraction of [0.28, 0.5, 0.72]) {
-      ctx.fillStyle = "rgba(24, 24, 24, 0.82)";
-      ctx.beginPath();
-      ctx.arc(x, height * fraction, width * 0.011, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    drawPunchHoles(ctx, width, height);
   }
 
   if (applied.staple) {
-    ctx.strokeStyle = "rgba(40, 40, 40, 0.55)";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(width * 0.05, height * 0.045);
-    ctx.lineTo(width * 0.085, height * 0.028);
-    ctx.stroke();
+    drawStaple(ctx, width, height);
   }
 
   if (applied.coffee) {
-    const cx = width * (0.55 + random() * 0.3);
-    const cy = height * (0.55 + random() * 0.3);
-    const radius = width * (0.07 + random() * 0.05);
-    ctx.strokeStyle = "rgba(120, 82, 40, 0.22)";
-    ctx.lineWidth = width * 0.008;
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = "rgba(120, 82, 40, 0.06)";
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fill();
+    drawCoffeeRing(ctx, width, height, random);
   }
 
   ctx.restore();

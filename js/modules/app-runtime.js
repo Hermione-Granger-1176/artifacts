@@ -23,8 +23,7 @@ export function initializeMatureApp({
   run,
   windowObj = window
 }) {
-  const runApp = /** @type {(args: { runtime: ReturnType<typeof createRuntime> }) => void} */ (run);
-  if (typeof runApp !== "function") {
+  if (typeof run !== "function") {
     throw new Error("initializeMatureApp requires a run function");
   }
 
@@ -40,7 +39,7 @@ export function initializeMatureApp({
     }
 
     try {
-      runApp({ runtime });
+      run({ runtime });
       runtimeWindow.__ARTIFACT_READY__ = true;
       runtime.markReady();
     } catch (error) {

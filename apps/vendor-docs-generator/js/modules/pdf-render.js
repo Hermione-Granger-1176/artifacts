@@ -351,124 +351,270 @@ function drawParties(cursor, block) {
 }
 
 /**
+ * Draw the centred status stamp, such as PAID.
+ * @param {PdfCursor} cursor - Active cursor.
+ * @param {import("./document-model.js").StampBlock} block - Block to draw.
+ * @returns {void}
+ */
+function drawStamp(cursor, block) {
+  cursor.textStyle("bold", 14, cursor.accent);
+  cursor.doc.text(block.text, cursor.width / 2, cursor.y + 6, { align: "center" });
+  cursor.y += 26;
+}
+
+/**
+ * Draw the two side-by-side key/value tables of a `keygrid` block.
+ * @param {PdfCursor} cursor - Active cursor.
+ * @param {import("./document-model.js").KeyGridBlock} block - Block to draw.
+ * @returns {void}
+ */
+function drawKeyGrid(cursor, block) {
+  const { doc, width, family } = cursor;
+  const half = (width - 2 * MARGIN - 8) / 2;
+  const startY = cursor.y;
+  let lowest = cursor.y;
+
+  block.columns.forEach((column, index) => {
+    doc.autoTable({
+      startY,
+      margin: { left: MARGIN + index * (half + 8) },
+      tableWidth: half,
+      body: column.map(([label, value]) => [label, value]),
+      styles: {
+        font: family,
+        fontSize: 7.5,
+        cellPadding: 3,
+        lineColor: LINE,
+        lineWidth: 0.4
+      },
+      columnStyles: {
+        0: { fillColor: [244, 244, 244], fontStyle: "bold", cellWidth: half * 0.42 }
+      }
+    });
+    lowest = Math.max(lowest, doc.lastAutoTable.finalY);
+  });
+
+  cursor.y = lowest + 8;
+}
+
+/**
+ * Draw the receiver and consignee table of a `partypair` block.
+ * @param {PdfCursor} cursor - Active cursor.
+ * @param {import("./document-model.js").PartyPairBlock} block - Block to draw.
+ * @returns {void}
+ */
+function drawPartyPair(cursor, block) {
+  cursor.table({
+    head: [[...block.headings]],
+    body: [block.columns.map((lines) => lines.join("\n"))],
+    headStyles: { fillColor: cursor.accent, textColor: 255, fontSize: 8.5 },
+    bodyStyles: { fontSize: 8, cellPadding: 5 },
+    styles: { font: cursor.family, lineColor: LINE, lineWidth: 0.4 }
+  });
+  cursor.y += 8;
+}
+
+/**
+ * Draw a line-item or ledger table, with an emphasised footer row when present.
+ * @param {PdfCursor} cursor - Active cursor.
+ * @param {import("./document-model.js").TableBlock} block - Block to draw.
+ * @returns {void}
+ */
+function drawTable(cursor, block) {
+  const { accent, accentSoft, family } = cursor;
+  /** @type {Record<number, NonNullable<ArtifactsAutoTableOptions["styles"]>>} */
+  const columnStyles = {};
+
+  block.columns.forEach((column, index) => {
+    columnStyles[index] = column.width
+      ? { halign: column.align, cellWidth: column.width }
+      : { halign: column.align };
+  });
+
+  const body = block.footer ? [...block.rows, block.footer] : block.rows;
+  const footerIndex = block.rows.length;
+
+  cursor.ensureSpace(60);
+  cursor.table({
+    head: [block.columns.map((column) => column.label)],
+    body,
+    columnStyles,
+    headStyles: {
+      fillColor: accent,
+      textColor: 255,
+      fontSize: block.dense ? 7 : 8.5,
+      fontStyle: "bold"
+    },
+    bodyStyles: { fontSize: block.dense ? 7 : 8.5, textColor: [40, 40, 40] },
+    alternateRowStyles: { fillColor: [247, 247, 250] },
+    styles: {
+      font: family,
+      cellPadding: block.dense ? 3 : 4,
+      lineColor: LINE,
+      lineWidth: 0.4
+    },
+    didParseCell: (data) => {
+      if (block.footer && data.section === "body" && data.row.index === footerIndex) {
+        data.cell.styles.fillColor = accentSoft;
+        data.cell.styles.fontStyle = "bold";
+      }
+    }
+  });
+}
+
+/**
+ * Draw the right-aligned totals table with its emphasised row.
+ * @param {PdfCursor} cursor - Active cursor.
+ * @param {import("./document-model.js").TotalsBlock} block - Block to draw.
+ * @returns {void}
+ */
+function drawTotals(cursor, block) {
+  const { accent, family, width } = cursor;
+
+  cursor.ensureSpace(70);
+  cursor.table({
+    startY: cursor.y + 6,
+    margin: { left: width - MARGIN - 230 },
+    tableWidth: 230,
+    body: block.rows.map(([label, value]) => [label, value]),
+    styles: { font: family, fontSize: 9, cellPadding: 4, lineColor: LINE, lineWidth: 0.4 },
+    columnStyles: { 0: { halign: "right", textColor: MUTED }, 1: { halign: "right" } },
+    didParseCell: (data) => {
+      if (data.row.index === block.emphasisIndex) {
+        data.cell.styles.fillColor = accent;
+        data.cell.styles.textColor = 255;
+        data.cell.styles.fontStyle = "bold";
+      }
+    }
+  });
+}
+
+/**
+ * Draw the shaded callout box.
+ * @param {PdfCursor} cursor - Active cursor.
+ * @param {import("./document-model.js").CalloutBlock} block - Block to draw.
+ * @returns {void}
+ */
+function drawCallout(cursor, block) {
+  cursor.ensureSpace(40);
+  cursor.table({
+    startY: cursor.y + 8,
+    body: [[block.text]],
+    // `theme: "plain"` is load-bearing. Under the default striped theme,
+    // `alternateRowStyles.fillColor` resolves to 245 on row index 0 and
+    // outranks both `styles` and `bodyStyles`, so these single-row tables
+    // painted flat grey no matter which of those the fill was declared in.
+    // Measured, not assumed: didParseCell reports 245 for styles and for
+    // bodyStyles, and the accent only for the plain and grid themes.
+    theme: "plain",
+    styles: { font: cursor.family, fontSize: 8.5, cellPadding: 8, lineColor: LINE, lineWidth: 0.4 },
+    bodyStyles: { fillColor: cursor.accentSoft, textColor: INK }
+  });
+}
+
+/**
+ * Draw the single-line summary chips of a `chips` block.
+ * @param {PdfCursor} cursor - Active cursor.
+ * @param {import("./document-model.js").ChipsBlock} block - Block to draw.
+ * @returns {void}
+ */
+function drawChips(cursor, block) {
+  cursor.paragraph(
+    block.items.map(([label, value]) => `${label}: ${value}`).join("     "),
+    9
+  );
+  cursor.y += 6;
+}
+
+/**
+ * Draw the accent-filled banner that carries a statement's balance due.
+ * @param {PdfCursor} cursor - Active cursor.
+ * @param {import("./document-model.js").BannerBlock} block - Block to draw.
+ * @returns {void}
+ */
+function drawBanner(cursor, block) {
+  cursor.ensureSpace(40);
+  cursor.table({
+    startY: cursor.y + 8,
+    margin: { left: cursor.width - MARGIN - 230 },
+    tableWidth: 230,
+    body: [[block.label, block.value]],
+    // See the callout above: without the plain theme this prints white text
+    // on rgb(245, 245, 245), which made the balance due, the one number a
+    // statement of account exists to communicate, invisible in every PDF.
+    theme: "plain",
+    styles: { font: cursor.family, fontSize: 11, cellPadding: 7, fontStyle: "bold" },
+    bodyStyles: { fillColor: cursor.accent, textColor: 255 },
+    columnStyles: { 1: { halign: "right" } }
+  });
+}
+
+/**
+ * Draw the signature rules and their captions.
+ * @param {PdfCursor} cursor - Active cursor.
+ * @param {import("./document-model.js").SignaturesBlock} block - Block to draw.
+ * @returns {void}
+ */
+function drawSignatures(cursor, block) {
+  const { doc, width } = cursor;
+
+  cursor.ensureSpace(60);
+  cursor.y += 42;
+  doc.setDrawColor(150, 150, 150);
+  doc.setLineWidth(0.5);
+  cursor.textStyle("normal", 9, MUTED);
+
+  block.labels.forEach((label, index) => {
+    const left = index === 0 ? MARGIN : width - MARGIN - 170;
+    doc.rect(left, cursor.y, 170, 0.5, "F");
+    doc.text(label, left, cursor.y + 12);
+  });
+
+  cursor.y += 20;
+}
+
+/**
+ * Draw the right-aligned "for <vendor>" line above the signatures.
+ * @param {PdfCursor} cursor - Active cursor.
+ * @param {import("./document-model.js").SignoffBlock} block - Block to draw.
+ * @returns {void}
+ */
+function drawSignoff(cursor, block) {
+  cursor.y += 14;
+  cursor.textStyle("bold", 10, INK);
+  cursor.doc.text(block.text, cursor.width - MARGIN, cursor.y, { align: "right" });
+}
+
+/**
  * Render one block into the PDF.
  * @param {PdfCursor} cursor - Active cursor.
  * @param {DocumentBlock} block - Block to render.
  * @returns {void}
  */
 function drawBlock(cursor, block) {
-  const { doc, width, accent, accentSoft, family } = cursor;
-
   switch (block.kind) {
     case "stamp":
-      cursor.textStyle("bold", 14, accent);
-      doc.text(block.text, width / 2, cursor.y + 6, { align: "center" });
-      cursor.y += 26;
+      drawStamp(cursor, block);
       return;
 
     case "parties":
       drawParties(cursor, block);
       return;
 
-    case "keygrid": {
-      const half = (width - 2 * MARGIN - 8) / 2;
-      const startY = cursor.y;
-      let lowest = cursor.y;
-
-      block.columns.forEach((column, index) => {
-        doc.autoTable({
-          startY,
-          margin: { left: MARGIN + index * (half + 8) },
-          tableWidth: half,
-          body: column.map(([label, value]) => [label, value]),
-          styles: {
-            font: family,
-            fontSize: 7.5,
-            cellPadding: 3,
-            lineColor: LINE,
-            lineWidth: 0.4
-          },
-          columnStyles: {
-            0: { fillColor: [244, 244, 244], fontStyle: "bold", cellWidth: half * 0.42 }
-          }
-        });
-        lowest = Math.max(lowest, doc.lastAutoTable.finalY);
-      });
-
-      cursor.y = lowest + 8;
+    case "keygrid":
+      drawKeyGrid(cursor, block);
       return;
-    }
 
     case "partypair":
-      cursor.table({
-        head: [[...block.headings]],
-        body: [block.columns.map((lines) => lines.join("\n"))],
-        headStyles: { fillColor: accent, textColor: 255, fontSize: 8.5 },
-        bodyStyles: { fontSize: 8, cellPadding: 5 },
-        styles: { font: family, lineColor: LINE, lineWidth: 0.4 }
-      });
-      cursor.y += 8;
+      drawPartyPair(cursor, block);
       return;
 
-    case "table": {
-      /** @type {Record<number, NonNullable<ArtifactsAutoTableOptions["styles"]>>} */
-      const columnStyles = {};
-
-      block.columns.forEach((column, index) => {
-        columnStyles[index] = column.width
-          ? { halign: column.align, cellWidth: column.width }
-          : { halign: column.align };
-      });
-
-      const body = block.footer ? [...block.rows, block.footer] : block.rows;
-      const footerIndex = block.rows.length;
-
-      cursor.ensureSpace(60);
-      cursor.table({
-        head: [block.columns.map((column) => column.label)],
-        body,
-        columnStyles,
-        headStyles: {
-          fillColor: accent,
-          textColor: 255,
-          fontSize: block.dense ? 7 : 8.5,
-          fontStyle: "bold"
-        },
-        bodyStyles: { fontSize: block.dense ? 7 : 8.5, textColor: [40, 40, 40] },
-        alternateRowStyles: { fillColor: [247, 247, 250] },
-        styles: {
-          font: family,
-          cellPadding: block.dense ? 3 : 4,
-          lineColor: LINE,
-          lineWidth: 0.4
-        },
-        didParseCell: (data) => {
-          if (block.footer && data.section === "body" && data.row.index === footerIndex) {
-            data.cell.styles.fillColor = accentSoft;
-            data.cell.styles.fontStyle = "bold";
-          }
-        }
-      });
+    case "table":
+      drawTable(cursor, block);
       return;
-    }
 
     case "totals":
-      cursor.ensureSpace(70);
-      cursor.table({
-        startY: cursor.y + 6,
-        margin: { left: width - MARGIN - 230 },
-        tableWidth: 230,
-        body: block.rows.map(([label, value]) => [label, value]),
-        styles: { font: family, fontSize: 9, cellPadding: 4, lineColor: LINE, lineWidth: 0.4 },
-        columnStyles: { 0: { halign: "right", textColor: MUTED }, 1: { halign: "right" } },
-        didParseCell: (data) => {
-          if (data.row.index === block.emphasisIndex) {
-            data.cell.styles.fillColor = accent;
-            data.cell.styles.textColor = 255;
-            data.cell.styles.fontStyle = "bold";
-          }
-        }
-      });
+      drawTotals(cursor, block);
       return;
 
     case "words":
@@ -478,69 +624,24 @@ function drawBlock(cursor, block) {
       return;
 
     case "callout":
-      cursor.ensureSpace(40);
-      cursor.table({
-        startY: cursor.y + 8,
-        body: [[block.text]],
-        // `theme: "plain"` is load-bearing. Under the default striped theme,
-        // `alternateRowStyles.fillColor` resolves to 245 on row index 0 and
-        // outranks both `styles` and `bodyStyles`, so these single-row tables
-        // painted flat grey no matter which of those the fill was declared in.
-        // Measured, not assumed: didParseCell reports 245 for styles and for
-        // bodyStyles, and the accent only for the plain and grid themes.
-        theme: "plain",
-        styles: { font: family, fontSize: 8.5, cellPadding: 8, lineColor: LINE, lineWidth: 0.4 },
-        bodyStyles: { fillColor: accentSoft, textColor: INK }
-      });
+      drawCallout(cursor, block);
       return;
 
     case "chips":
-      cursor.paragraph(
-        block.items.map(([label, value]) => `${label}: ${value}`).join("     "),
-        9
-      );
-      cursor.y += 6;
+      drawChips(cursor, block);
       return;
 
     case "banner":
-      cursor.ensureSpace(40);
-      cursor.table({
-        startY: cursor.y + 8,
-        margin: { left: width - MARGIN - 230 },
-        tableWidth: 230,
-        body: [[block.label, block.value]],
-        // See the callout above: without the plain theme this prints white text
-        // on rgb(245, 245, 245), which made the balance due, the one number a
-        // statement of account exists to communicate, invisible in every PDF.
-        theme: "plain",
-        styles: { font: family, fontSize: 11, cellPadding: 7, fontStyle: "bold" },
-        bodyStyles: { fillColor: accent, textColor: 255 },
-        columnStyles: { 1: { halign: "right" } }
-      });
+      drawBanner(cursor, block);
       return;
 
-    case "signatures": {
-      cursor.ensureSpace(60);
-      cursor.y += 42;
-      doc.setDrawColor(150, 150, 150);
-      doc.setLineWidth(0.5);
-      cursor.textStyle("normal", 9, MUTED);
-
-      block.labels.forEach((label, index) => {
-        const left = index === 0 ? MARGIN : width - MARGIN - 170;
-        doc.rect(left, cursor.y, 170, 0.5, "F");
-        doc.text(label, left, cursor.y + 12);
-      });
-
-      cursor.y += 20;
+    case "signatures":
+      drawSignatures(cursor, block);
       return;
-    }
 
     case "signoff":
     default:
-      cursor.y += 14;
-      cursor.textStyle("bold", 10, INK);
-      doc.text(block.text, width - MARGIN, cursor.y, { align: "right" });
+      drawSignoff(cursor, block);
   }
 }
 

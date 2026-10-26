@@ -31,6 +31,9 @@
  * }} ScheduleResult
  */
 
+/** Hard stop for the schedule loop, so a payment that never covers interest cannot run forever. */
+const MAX_SCHEDULE_PERIODS = 2000;
+
 /**
  * Calculate the equated monthly installment (EMI).
  * @param {number} principal - Loan principal amount.
@@ -102,7 +105,6 @@ export function runSchedule(
   let balance = principal;
   let totalInterest = 0;
   let totalExtra = 0;
-  let period = 0;
   let rollingPrincipal = 0;
   let rollingInterest = 0;
   let rollingExtra = 0;
@@ -113,8 +115,7 @@ export function runSchedule(
   const cumulativeExtra = [];
   const rows = [];
 
-  for (let nextPeriod = 1; balance > 0.01 && nextPeriod <= 2000; nextPeriod += 1) {
-    period = nextPeriod;
+  for (let period = 1; balance > 0.01 && period <= MAX_SCHEDULE_PERIODS; period += 1) {
     const interestPart = balance * ratePerPeriod;
     let principalPart = emi - interestPart;
     let extraAmount = withExtras ? getExtraForPeriod(period, extras) : 0;
@@ -162,7 +163,7 @@ export function runSchedule(
 
   return {
     emi,
-    periods: period,
+    periods: rows.length,
     totalInterest,
     totalExtra,
     balances,

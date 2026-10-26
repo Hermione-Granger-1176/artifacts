@@ -10,7 +10,7 @@
  * current active state, then again on every click, so `.active` stays the
  * source of truth and the ARIA state follows it for free.
  * @param {HTMLElement} container - Element wrapping the toggle buttons.
- * @param {Function} onSelect - Called with the newly active button element.
+ * @param {(button: HTMLButtonElement) => void} onSelect - Called with the newly active button element.
  * @returns {HTMLButtonElement[]} The buttons found inside the container.
  */
 export function initSegmented(container, onSelect) {
