@@ -135,6 +135,53 @@ function defaultHint(dot) {
   dot.appendChild(makeEl("div", "pc-hint", "Click any cell in the output matrix to see how it was calculated."));
 }
 
+/**
+ * Keep a card's reserved height current. Measuring renders every state once,
+ * which is real work, and the card sits far down the page, so the first
+ * measurement waits until the card comes within two screens of the viewport,
+ * where its height can still change without anyone seeing it. Line wraps depend
+ * on the width, so it measures again when the width changes (a phone rotating,
+ * a window resize) and once the web fonts have settled.
+ * @param {HTMLElement} card - Card whose height is reserved.
+ * @param {() => void} reserve - Measures every state and sets the reservation.
+ * @returns {void}
+ */
+function keepReserved(card, reserve) {
+  let measured = false;
+  let reservedWidth = 0;
+  function measureOnce() {
+    measured = true;
+    reservedWidth = card.clientWidth;
+    reserve();
+  }
+  if (typeof IntersectionObserver === "function") {
+    const nearView = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        nearView.disconnect();
+        measureOnce();
+      }
+    }, { rootMargin: "200% 0px" });
+    nearView.observe(card);
+  } else {
+    measureOnce();
+  }
+
+  const remeasure = createFrameScheduler(() => {
+    if (measured && card.clientWidth !== reservedWidth) {
+      reservedWidth = card.clientWidth;
+      reserve();
+    }
+  });
+  window.addEventListener("resize", remeasure);
+  if (document.fonts && document.fonts.status !== "loaded") {
+    document.fonts.ready.then(() => {
+      if (measured) {
+        reserve();
+      }
+    });
+  }
+}
+
 function initStepper() {
   const card = byId("attnStepCard");
   const stepper = byId("attnStepper");
@@ -445,45 +492,7 @@ function initStepper() {
   }
 
   renderStep(0);
-
-  // Measuring renders every state once, which is real work, and the card sits
-  // far down the page. So it waits until the card comes within two screens of
-  // the viewport, where its height can still change without anyone seeing it.
-  let measured = false;
-  let reservedWidth = 0;
-  function measureOnce() {
-    measured = true;
-    reservedWidth = card.clientWidth;
-    reserveTallestStep();
-  }
-  if (typeof IntersectionObserver === "function") {
-    const nearView = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        nearView.disconnect();
-        measureOnce();
-      }
-    }, { rootMargin: "200% 0px" });
-    nearView.observe(card);
-  } else {
-    measureOnce();
-  }
-
-  // Line wraps depend on the width, so measure again when it changes (a phone
-  // rotating, a window resize) and once the web fonts have settled.
-  const remeasure = createFrameScheduler(() => {
-    if (measured && card.clientWidth !== reservedWidth) {
-      reservedWidth = card.clientWidth;
-      reserveTallestStep();
-    }
-  });
-  window.addEventListener("resize", remeasure);
-  if (document.fonts && document.fonts.status !== "loaded") {
-    document.fonts.ready.then(() => {
-      if (measured) {
-        reserveTallestStep();
-      }
-    });
-  }
+  keepReserved(card, reserveTallestStep);
 }
 
 /**

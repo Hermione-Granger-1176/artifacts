@@ -1,5 +1,6 @@
 import { createFrameScheduler } from "./frame-scheduler.js";
 import { writeStorage } from "./runtime.js";
+import { createThemeSwitchGuard } from "./theme-switching.js";
 
 /**
  * @typedef {{
@@ -170,26 +171,9 @@ export function initAppShell({
     themeToggle.setAttribute("title", `Switch to ${nextTheme} theme`);
   }
 
-  // Bumped on every theme change so only the latest change lifts the class.
-  let themeSwitchId = 0;
-
-  /**
-   * Turn CSS transitions off while the theme changes, so every themed color
-   * flips together instead of fading at its own speed. The shared
-   * .theme-switching rule lifts again two frames later, once the new colors
-   * have painted.
-   */
-  function suspendTransitions() {
-    const switchId = ++themeSwitchId;
-    html.classList.add("theme-switching");
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        if (switchId === themeSwitchId) {
-          html.classList.remove("theme-switching");
-        }
-      });
-    });
-  }
+  // Turn CSS transitions off while the theme changes, so every themed color
+  // flips together instead of fading at its own speed.
+  const suspendTransitions = createThemeSwitchGuard(html, window);
 
   /** @param {string} theme - Requested theme name. */
   function applyTheme(theme) {

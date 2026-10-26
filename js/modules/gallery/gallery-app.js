@@ -12,6 +12,7 @@ import {
 import { ICONS } from './icons.js';
 import { setBackgroundContentInert } from './inert.js';
 import { createMotionHelper } from './motion.js';
+import { createThemeSwitchGuard } from '../theme-switching.js';
 import { createBookScene } from './book-scene.js';
 import {
   applyDynamicStyles,
@@ -170,6 +171,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   const prefersReducedMotionQuery = windowObj.matchMedia('(prefers-reduced-motion: reduce)');
   const motion = createMotionHelper(prefersReducedMotionQuery, windowObj);
+  const suspendThemeTransitions = createThemeSwitchGuard(htmlElement, windowObj);
   const galleryConfig = getGalleryConfig(windowObj);
   const rawArtifacts = Array.isArray(galleryWindow.ARTIFACTS_DATA) ? galleryWindow.ARTIFACTS_DATA : [];
   const allArtifacts = hydrateArtifacts(rawArtifacts);
@@ -275,7 +277,6 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   let pageCount = 1;
   /** @type {FocusTarget} */
   let pendingFocusTarget = null;
-  let themeSwitchToken = 0;
   /** @type {{ key: string, items: ArtifactRecord[] } | null} */
   let filteredCache = null;
   // Markup the grid shows, so a render that would write the same cards (a keystroke that keeps
@@ -572,17 +573,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return;
     }
 
-    themeSwitchToken += 1;
-    const token = themeSwitchToken;
-    htmlElement.classList.add('theme-switching');
+    suspendThemeTransitions();
     htmlElement.setAttribute('data-theme', theme);
-    windowObj.requestAnimationFrame(() => {
-      windowObj.requestAnimationFrame(() => {
-        if (token === themeSwitchToken) {
-          htmlElement.classList.remove('theme-switching');
-        }
-      });
-    });
   }
 
   function renderFilterNotes() {

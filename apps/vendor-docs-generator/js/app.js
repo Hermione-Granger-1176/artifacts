@@ -702,8 +702,25 @@ initializeMatureApp({
       const batch = state.mode === "batch";
       const settings = currentSettings();
       const degraded = !isClean(settings);
-      const { boxes, truth, words } = labelFlags();
 
+      applyOutputRules(batch);
+      syncOutputControls(batch);
+      syncApplicability(degraded);
+      labelsNote.textContent = labelsNoteText();
+      estimate.textContent = describeEstimate(batch, settings, degraded);
+
+      // A run in flight owns the button's label, and restores it when it ends.
+      if (!exportButton.disabled) {
+        exportButton.textContent = batch ? "Generate ZIP" : "Download";
+      }
+    }
+
+    /**
+     * Settle the choices that other choices rule out, before anything reads them.
+     * @param {boolean} batch - Whether the batch scope is selected.
+     * @returns {void}
+     */
+    function applyOutputRules(batch) {
       // JSON is only a batch format. Leaving batch with it selected falls back
       // to PDF rather than leaving page mode on a format it cannot write.
       if (!batch && state.format === "json") {
@@ -714,7 +731,14 @@ initializeMatureApp({
       if (state.format === "json" && state.labels === "none") {
         state.labels = "json";
       }
+    }
 
+    /**
+     * Point every segmented control at the state, and show the rows the scope has.
+     * @param {boolean} batch - Whether the batch scope is selected.
+     * @returns {void}
+     */
+    function syncOutputControls(batch) {
       modeSegment.set(state.mode);
       includeSegment.set(state.include);
       labelsSegment.set(state.labels);
@@ -727,8 +751,15 @@ initializeMatureApp({
       syncStopButton();
       // None is the first rung, and the one a JSON batch cannot stand on.
       labelsSegment.buttons[0].disabled = state.format === "json";
-      // The PDF type and the pair option are dimmed rather than hidden when they
-      // do not apply, so the rows under them stay where they were.
+    }
+
+    /**
+     * Dim the PDF type and the pair option when they do not apply, rather than
+     * hiding them, so the rows under them stay where they were.
+     * @param {boolean} degraded - Whether the scan settings change the page.
+     * @returns {void}
+     */
+    function syncApplicability(degraded) {
       const pdfApplies = writesPdf();
       pdfModeToggle.classList.toggle("is-disabled", !pdfApplies);
       setTitle(pdfModeField, pdfApplies ? "" : "The PDF type only applies when the format includes a PDF.");
@@ -743,14 +774,18 @@ initializeMatureApp({
       pairLabel.classList.toggle("is-disabled", !pairApplies);
       pairToggle.disabled = !pairApplies;
       setTitle(pairLabel, pairApplies ? "" : "Pairing needs a scan preset and a PNG in the format.");
-      labelsNote.textContent = labelsNoteText();
+    }
 
-      const perCombination = Number(batchCount.value);
-      const count = batch
-        ? perCombination *
-          (includeScope().vendors ? VENDORS.length : 1) *
-          (includeScope().types ? DOCUMENT_TYPES.length : 1)
-        : 1;
+    /**
+     * Say what the export will write and roughly how large it is.
+     * @param {boolean} batch - Whether the batch scope is selected.
+     * @param {import("./modules/degrade.js").DegradeSettings} settings - Resolved scan settings.
+     * @param {boolean} degraded - Whether the scan settings change the page.
+     * @returns {string} The estimate line.
+     */
+    function describeEstimate(batch, settings, degraded) {
+      const { boxes, truth, words } = labelFlags();
+      const count = batch ? batchDocumentCount() : 1;
       const bytes = estimateBatchBytes({
         boxes,
         count,
@@ -763,14 +798,15 @@ initializeMatureApp({
         words
       });
 
-      estimate.textContent = batch
+      return batch
         ? `${count} documents, roughly ${formatBytes(bytes)}.`
         : `${pageFileList(degraded)}, roughly ${formatBytes(bytes)}.`;
+    }
 
-      // A run in flight owns the button's label, and restores it when it ends.
-      if (!exportButton.disabled) {
-        exportButton.textContent = batch ? "Generate ZIP" : "Download";
-      }
+    /** @returns {number} Documents the batch will write: the count per combination across its scope. */
+    function batchDocumentCount() {
+      const scope = includeScope();
+      return Number(batchCount.value) * (scope.vendors ? VENDORS.length : 1) * (scope.types ? DOCUMENT_TYPES.length : 1);
     }
 
     /**
@@ -909,6 +945,48 @@ initializeMatureApp({
     });
 
     /**
+     * The documents the panel's scope asks for: every vendor, every type, or the
+     * shown one, times the count per combination.
+     * @returns {ReturnType<typeof planBatch>} The batch plan.
+     */
+    function planCurrentBatch() {
+      const scope = includeScope();
+      return planBatch({
+        vendorIds: scope.vendors ? VENDORS.map((vendor) => vendor.id) : [state.vendorId],
+        docTypeIds: scope.types ? DOCUMENT_TYPES.map((type) => type.id) : [state.docTypeId],
+        perCombination: Number(batchCount.value)
+      });
+    }
+
+    /**
+     * Offer a finished or stopped run's archive, and report how it went.
+     * @param {{ blob: Blob, count: number, stopped: boolean }} result - What the run wrote.
+     * @param {number} planned - Documents the run set out to write.
+     * @param {number} startedAt - When the run started, in epoch milliseconds.
+     * @returns {void}
+     */
+    function deliverBatch({ blob, count, stopped }, planned, startedAt) {
+      const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+
+      // Stopping before the first document finished leaves an archive holding
+      // nothing but a README describing an empty run, which is a worse thing
+      // to hand someone than no file at all.
+      if (count === 0) {
+        setStatus("Stopped before the first document. Nothing downloaded.");
+        return;
+      }
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      const suffix = stopped ? "docs_partial" : "docs";
+      triggerDownload(blob, `vendor_docs_${stamp}_${count}${suffix}.zip`);
+      setStatus(
+        stopped
+          ? `Stopped. ${count} of ${planned} documents in ${seconds}s.`
+          : `Done. ${count} documents in ${seconds}s.`
+      );
+    }
+
+    /**
      * Run the batch the panel describes and hand over the ZIP.
      * @returns {Promise<void>} Resolves once the archive has been offered for download.
      */
@@ -918,12 +996,7 @@ initializeMatureApp({
       batchRunning = true;
       syncStopButton();
 
-      const scope = includeScope();
-      const plan = planBatch({
-        vendorIds: scope.vendors ? VENDORS.map((vendor) => vendor.id) : [state.vendorId],
-        docTypeIds: scope.types ? DOCUMENT_TYPES.map((type) => type.id) : [state.docTypeId],
-        perCombination: Number(batchCount.value)
-      });
+      const plan = planCurrentBatch();
 
       setProgress(0);
       setStatus(`Generating ${plan.length} documents...`);
@@ -959,23 +1032,7 @@ initializeMatureApp({
           })
         );
 
-        const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
-
-        // Stopping before the first document finished leaves an archive holding
-        // nothing but a README describing an empty run, which is a worse thing
-        // to hand someone than no file at all.
-        if (count === 0) {
-          setStatus("Stopped before the first document. Nothing downloaded.");
-        } else {
-          const stamp = new Date().toISOString().slice(0, 10);
-          const suffix = stopped ? "docs_partial" : "docs";
-          triggerDownload(blob, `vendor_docs_${stamp}_${count}${suffix}.zip`);
-          setStatus(
-            stopped
-              ? `Stopped. ${count} of ${plan.length} documents in ${seconds}s.`
-              : `Done. ${count} documents in ${seconds}s.`
-          );
-        }
+        deliverBatch({ blob, count, stopped }, plan.length, startedAt);
       } finally {
         batchRunning = false;
         syncStopButton();

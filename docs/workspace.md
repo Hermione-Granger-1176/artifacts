@@ -44,7 +44,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |  |- app-theme.js           Shared mature-app theme bootstrap
 |  |- data.js                Generated artifact metadata
 |  |- gallery-config.js      Generated display config
-|  |- modules/               Shared JS modules (runtime, element-cache, app-runtime, app-shell, html-escape, formatting, segmented, section-nav, chart-theme, frame-scheduler)
+|  |- modules/               Shared JS modules (runtime, element-cache, app-runtime, app-shell, html-escape, formatting, segmented, section-nav, chart-theme, frame-scheduler, dom-sync, offscreen-draws, meter, theme-switching)
 |  |  |- gallery/            Gallery-specific JS modules (gallery-app, catalog, config, render, etc.)
 |- scripts/
 |  |- build/                 Index generation (with index_config, index_sources, index_outputs), thumbnail planning, thumbnails, site assembly, scaffolding
@@ -88,6 +88,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 - `index.html`, `css/style.css`, `css/src/`, `js/app.js`, `js/modules/gallery/*`: root gallery UI, shared app styling, and reusable app components
 - `js/modules/runtime.js`, `js/modules/element-cache.js`, `js/modules/html-escape.js`: shared JS utilities
 - `js/modules/formatting.js`, `js/modules/segmented.js`, `js/modules/section-nav.js`, `js/modules/chart-theme.js`, `js/modules/frame-scheduler.js`: shared artifact-app helpers for number formatting, segmented toggles, section-progress nav, theme-aware Chart.js palettes, and once-per-frame recalculation
+- `js/modules/dom-sync.js`, `js/modules/offscreen-draws.js`, `js/modules/meter.js`, `js/modules/theme-switching.js`: shared helpers for in-place DOM writes, off-screen chart redraws, meter fills, and transition-free theme swaps
 - `js/app-theme.js`, `js/modules/app-shell.js`: shared mature-app theme and interaction system
 - `assets/fonts/*`: self-hosted Latin web font subsets for gallery display fonts
 - `css/src/01-tokens.css`: `@font-face` declarations for self-hosted Caveat and Fredoka One, plus the gallery and app tokens that stay the same in both themes
