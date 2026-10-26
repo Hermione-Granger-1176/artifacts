@@ -149,6 +149,10 @@ class FakeElement {
     switch (selector) {
       case '[data-close-detail]':
         return this.hasAttribute('data-close-detail');
+      case '[data-close-filter-panel]':
+        return this.hasAttribute('data-close-filter-panel');
+      case '[data-filter-panel-search]':
+        return this.hasAttribute('data-filter-panel-search');
       case '[data-page]':
         return Object.hasOwn(this.dataset, 'page');
       default:
@@ -367,8 +371,90 @@ function createArtifacts(count = 13) {
   });
 }
 
-function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, search = '', withBook = false } = {}) {
+/** Native dialog stand-in: showModal and close flip `open`, and close fires the close event. */
+class FakeDialog extends FakeElement {
+  constructor(id) {
+    super({ id, tagName: 'DIALOG', classes: ['filter-panel'] });
+    this.open = false;
+  }
+
+  showModal() {
+    this.open = true;
+  }
+
+  close() {
+    if (this.open) {
+      this.open = false;
+      this.dispatch('close');
+    }
+  }
+}
+
+/** Children list whose appendChild moves an existing child to the end, like the DOM. */
+class FakeList extends FakeElement {
+  constructor() {
+    super({ classes: ['filter-panel-options'] });
+    this.children = [];
+  }
+
+  appendChild(child) {
+    this.children = [...this.children.filter((entry) => entry !== child), child];
+    child.parentElement = this;
+    return child;
+  }
+}
+
+/**
+ * Build one fake filter dropdown: its button, summary, panel, option list, and search box,
+ * wired so the container's selector lookups find them.
+ * @param {FakeElement} container - The #filter-dropdowns container.
+ * @param {(element: FakeElement) => FakeElement} registerElement - Harness registration.
+ * @param {{ kind: string, dataset: string, values: string[] }} group - Group shape.
+ */
+function addFakeDropdown(container, registerElement, { kind, dataset, values }) {
+  const panelId = `filter-panel-${kind}`;
+  const toggle = new FakeElement({ tagName: 'BUTTON', classes: ['filter-dropdown-toggle'] });
+  toggle.setAttribute('aria-controls', panelId);
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.dataset.filterOpen = kind;
+  toggle.parentElement = container;
+  const summary = new FakeElement({ tagName: 'SPAN' });
+  const panel = registerElement(new FakeDialog(panelId));
+  panel.parentElement = container;
+  const list = new FakeList();
+  list.parentElement = panel;
+  const options = values.map((value) => {
+    const option = new FakeElement({ tagName: 'BUTTON', classes: ['filter-option'] });
+    option.dataset[dataset] = value;
+    option.dataset.filterSurface = 'mobile';
+    option.textContent = value.toUpperCase();
+    option.setAttribute('aria-pressed', 'false');
+    list.appendChild(option);
+    return option;
+  });
+  const searchBox = new FakeElement({ tagName: 'INPUT' });
+  searchBox.setAttribute('data-filter-panel-search', '');
+  searchBox.parentElement = panel;
+  const clear = new FakeElement({ tagName: 'BUTTON', classes: ['filter-panel-clear'] });
+  clear.dataset.filterNote = `all-${kind}`;
+  clear.dataset.filterSurface = 'mobile';
+  clear.parentElement = panel;
+  clear.ownerDocument = container.ownerDocument;
+  panel.querySelector = (selector) => ({ '.filter-panel-options': list, '[data-filter-panel-search]': searchBox })[selector] || null;
+  panel.querySelectorAll = (selector) => (selector === '.filter-option' ? list.children : []);
+  container._queryResults.set(`[aria-controls="${panelId}"]`, toggle);
+  container._queryResults.set(`[data-filter-open="${kind}"]`, toggle);
+  container._queryResults.set(`[data-filter-summary="${kind}"]`, summary);
+  container._queryResults.set(`[data-filter-surface="mobile"][data-filter-note="all-${kind}"]`, clear);
+  container._panels.push(panel);
+  container._options.push(...options);
+  return { toggle, summary, panel, list, options, searchBox, clear };
+}
+
+function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, search = '', withBook = false, withDropdowns = false } = {}) {
   const documentListeners = new Map();
+  const mediaListeners = [];
+  let dropdownLayout = false;
   const windowListeners = new Map();
   const timers = new Map();
   const historyCalls = [];
@@ -454,8 +540,18 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
       pathname: '/gallery/',
       search
     },
-    matchMedia() {
-      return { matches: reducedMotion };
+    matchMedia(query = '') {
+      const isMotionQuery = query.includes('reduced-motion');
+      return {
+        get matches() {
+          return isMotionQuery ? reducedMotion : dropdownLayout;
+        },
+        addEventListener(_type, handler) {
+          if (!isMotionQuery) {
+            mediaListeners.push(handler);
+          }
+        }
+      };
     },
     requestAnimationFrame(callback) {
       callback();
@@ -541,6 +637,25 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
   const galleryStatus = registerElement(new FakeElement({ id: 'gallery-status' }));
   bookmarkTabs.querySelector = (selector) => bookmarkTabs._queryResults?.get(selector) || null;
   bookmarkTabs._queryResults = new Map();
+  const filterDropdowns = registerElement(new FakeElement({ id: 'filter-dropdowns' }));
+  filterDropdowns._queryResults = new Map();
+  filterDropdowns._panels = [];
+  filterDropdowns._options = [];
+  filterDropdowns.querySelector = (selector) => filterDropdowns._queryResults.get(selector) || null;
+  filterDropdowns.querySelectorAll = (selector) => {
+    if (selector === '.filter-panel') {
+      return filterDropdowns._panels;
+    }
+    const match = selector.match(/^\[data-(filter-tag|filter-tool)\]$/);
+    const key = match && (match[1] === 'filter-tag' ? 'filterTag' : 'filterTool');
+    return key ? filterDropdowns._options.filter((option) => option.dataset[key] !== undefined) : [];
+  };
+  const dropdowns = withDropdowns
+    ? {
+      tags: addFakeDropdown(filterDropdowns, registerElement, { kind: 'tags', dataset: 'filterTag', values: ['finance', 'calculator'] }),
+      tools: addFakeDropdown(filterDropdowns, registerElement, { kind: 'tools', dataset: 'filterTool', values: ['claude', 'chatgpt'] })
+    }
+    : null;
 
   [
     [grid, container],
@@ -630,6 +745,7 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
       bookmarkTabs,
       detailOverlay,
       detailPanel,
+      filterDropdowns,
       filterReset,
       galleryStatus,
       grid,
@@ -650,6 +766,12 @@ function createGalleryHarness({ initialTheme = 'dark', reducedMotion = false, se
     runTimers,
     runtime: createRuntimeStub(initialTheme),
     scrollCalls,
+    dropdowns,
+    /** Cross the dropdown layout's width breakpoint, firing its change listeners. */
+    setDropdownLayout(matches) {
+      dropdownLayout = matches;
+      mediaListeners.forEach((handler) => handler());
+    },
     windowObj
   };
 }
@@ -1319,14 +1441,15 @@ test('the filter summaries are only rewritten when their text changes', () => {
   const writes = [];
   const summaries = new Map();
   const notes = harness.elements.bookmarkTabs;
+  const dropdowns = harness.elements.filterDropdowns;
   notes.querySelectorAll = () => [];
-  notes.querySelector = (selector) => {
+  dropdowns.querySelector = (selector) => {
     const kind = selector.match(/data-filter-summary="(\w+)"/)?.[1];
     if (!kind) {
       return null;
     }
     if (!summaries.has(kind)) {
-      let text = kind === 'tools' ? 'All tools' : 'All tags';
+      let text = '';
       summaries.set(kind, {
         get textContent() {
           return text;
@@ -1350,5 +1473,108 @@ test('the filter summaries are only rewritten when their text changes', () => {
   note.dataset.filterTool = 'claude';
   note.parentElement = notes;
   notes.dispatch('click', { target: note });
-  assert.deepEqual(writes, ['tools:1 active'], 'only the changed summary is written');
+  assert.deepEqual(writes, ['tools:1'], 'only the changed summary is written');
 });
+
+test('a dropdown button opens its panel with picked options first, and the panel closes from its buttons and backdrop', () => {
+  const harness = createGalleryHarness({ withDropdowns: true, search: '?tag=calculator' });
+  initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
+  const { filterDropdowns } = harness.elements;
+  const { toggle, panel, list, options } = harness.dropdowns.tags;
+
+  assert.deepEqual(list.children, options, 'options start in their display order');
+  filterDropdowns.dispatch('click', { target: toggle });
+  assert.equal(panel.open, true);
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  assert.deepEqual(list.children.map((option) => option.dataset.filterTag), ['calculator', 'finance'], 'the picked tag moves to the top as the panel opens');
+
+  filterDropdowns.dispatch('click', { target: toggle });
+  assert.equal(panel.open, true, 'a second press leaves the open panel alone');
+
+  const done = new FakeElement({ tagName: 'BUTTON' });
+  done.setAttribute('data-close-filter-panel', '');
+  done.parentElement = panel;
+  filterDropdowns.dispatch('click', { target: done });
+  assert.equal(panel.open, false);
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+
+  filterDropdowns.dispatch('click', { target: toggle });
+  filterDropdowns.dispatch('click', { target: options[0] });
+  assert.equal(panel.open, true, 'ticking an option keeps the panel open');
+  filterDropdowns.dispatch('click', { target: panel });
+  assert.equal(panel.open, false, 'a tap on the backdrop closes it');
+
+  const outside = new FakeElement({ tagName: 'DIV' });
+  outside.parentElement = filterDropdowns;
+  assert.doesNotThrow(() => filterDropdowns.dispatch('click', { target: outside }));
+});
+
+test('dropdown options filter the gallery live and their buttons count the picks', () => {
+  const harness = createGalleryHarness({ withDropdowns: true });
+  initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
+  const { filterDropdowns } = harness.elements;
+  const { tags, tools } = harness.dropdowns;
+
+  assert.equal(tags.summary.textContent, '');
+  assert.equal(tags.toggle.getAttribute('aria-label'), 'Tags');
+  filterDropdowns.dispatch('click', { target: tags.options[0] });
+  filterDropdowns.dispatch('click', { target: tools.options[0] });
+  assert.match(harness.windowObj.location.search, /tag=finance/);
+  assert.match(harness.windowObj.location.search, /tool=claude/);
+  assert.equal(tags.summary.textContent, '1');
+  assert.equal(tags.toggle.getAttribute('aria-label'), 'Tags, 1 selected');
+  assert.equal(tags.options[0].getAttribute('aria-pressed'), 'true');
+  assert.equal(tags.options[0].classList.contains('is-active'), true);
+
+  filterDropdowns.dispatch('click', { target: tags.clear });
+  assert.doesNotMatch(harness.windowObj.location.search, /tag=/);
+  assert.match(harness.windowObj.location.search, /tool=claude/, 'clear only resets its own group');
+  assert.equal(tags.summary.textContent, '');
+  assert.equal(harness.documentObj.activeElement, tags.clear);
+});
+
+test('a long panel search shows only the options that match and resets when the panel reopens', () => {
+  const harness = createGalleryHarness({ withDropdowns: true });
+  initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
+  const { filterDropdowns } = harness.elements;
+  const { toggle, panel, options, searchBox } = harness.dropdowns.tags;
+
+  filterDropdowns.dispatch('click', { target: toggle });
+  searchBox.value = ' FIN ';
+  filterDropdowns.dispatch('input', { target: searchBox });
+  assert.deepEqual(options.map((option) => option.hidden), [false, true]);
+
+  const stray = new FakeElement({ tagName: 'INPUT' });
+  filterDropdowns.dispatch('input', { target: stray });
+  const loose = new FakeElement({ tagName: 'INPUT' });
+  loose.setAttribute('data-filter-panel-search', '');
+  assert.doesNotThrow(() => filterDropdowns.dispatch('input', { target: loose }), 'a search box outside a panel is ignored');
+
+  panel.close();
+  filterDropdowns.dispatch('click', { target: toggle });
+  assert.equal(searchBox.value, '');
+  assert.deepEqual(options.map((option) => option.hidden), [false, false]);
+});
+
+test('widening past the dropdown layout closes an open panel', () => {
+  const harness = createGalleryHarness({ withDropdowns: true });
+  initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
+  const { filterDropdowns } = harness.elements;
+  const { toggle, panel } = harness.dropdowns.tags;
+
+  filterDropdowns.dispatch('click', { target: toggle });
+  harness.setDropdownLayout(true);
+  assert.equal(panel.open, true);
+  harness.setDropdownLayout(false);
+  assert.equal(panel.open, false);
+});
+
+test('a dropdown button whose panel is missing does nothing', () => {
+  const harness = createGalleryHarness({ withDropdowns: true });
+  initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
+  const orphan = new FakeElement({ tagName: 'BUTTON', classes: ['filter-dropdown-toggle'] });
+  orphan.parentElement = harness.elements.filterDropdowns;
+  assert.doesNotThrow(() => harness.elements.filterDropdowns.dispatch('click', { target: orphan }));
+  assert.equal(orphan.getAttribute('aria-expanded'), null);
+});
+

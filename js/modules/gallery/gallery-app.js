@@ -15,9 +15,9 @@ import { createMotionHelper } from './motion.js';
 import { createBookScene } from './book-scene.js';
 import {
   applyDynamicStyles,
+  buildFilterDropdowns,
   buildFilterNotes,
   buildGridHtml,
-  formatFilterSummary,
   registerThumbnailFallback,
   renderPagination
 } from './render.js';
@@ -26,6 +26,8 @@ const ITEMS_PER_PAGE = 4;
 const SCROLL_TOP_THRESHOLD = 300;
 const DETAIL_CLOSE_DELAY = 360;
 const ACTIVATION_KEYS = new Set(['Enter', ' ']);
+/** Below this width the desk notes are hidden and the filter dropdowns take their place. */
+const FILTER_DROPDOWN_QUERY = '(max-width: 900px)';
 
 /**
  * @typedef {{
@@ -80,6 +82,22 @@ function toggleSelection(selection, value) {
   return selection.includes(value)
     ? selection.filter((entry) => entry !== value)
     : [...selection, value];
+}
+
+/**
+ * Count how many artifacts carry each value of one list field, such as tags.
+ * @param {Array<Record<string, *>>} items - Artifact records.
+ * @param {'tags' | 'tools'} field - List field to count.
+ * @returns {Map<string, number>} Artifacts per value.
+ */
+function countValues(items, field) {
+  const counts = new Map();
+  for (const item of items) {
+    for (const value of item[field]) {
+      counts.set(value, (counts.get(value) || 0) + 1);
+    }
+  }
+  return counts;
 }
 
 /**
@@ -158,6 +176,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   const detailOverlayEl = requireElement(documentObj, 'detail-overlay');
   const detailPanel = requireElement(documentObj, 'detail-panel');
   const filterNotesContainer = requireElement(documentObj, 'filter-notes');
+  const filterDropdowns = requireElement(documentObj, 'filter-dropdowns');
   const galleryStatus = requireElement(documentObj, 'gallery-status');
   const htmlElement = documentObj.documentElement;
 
@@ -362,10 +381,45 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     applyStateChange({ focusTarget: searchInput });
   });
 
-  filterNotesContainer.addEventListener('click', (event) => {
+  filterNotesContainer.addEventListener('click', onFilterClick);
+  filterDropdowns.addEventListener('click', onFilterClick);
+  filterDropdowns.addEventListener('input', onFilterPanelSearch);
+  filterDropdowns.querySelectorAll('.filter-panel').forEach((panel) => {
+    panel.addEventListener('close', () => {
+      const toggle = filterDropdowns.querySelector(`[aria-controls="${panel.id}"]`);
+      toggle?.setAttribute('aria-expanded', 'false');
+    });
+  });
+  // Widening past the dropdown layout brings the desk notes back, so an open panel has nothing left to cover.
+  const dropdownQuery = windowObj.matchMedia(FILTER_DROPDOWN_QUERY);
+  dropdownQuery.addEventListener?.('change', () => {
+    if (!dropdownQuery.matches) {
+      filterDropdowns.querySelectorAll('.filter-panel').forEach((panel) => {
+        /** @type {HTMLDialogElement} */ (panel).close();
+      });
+    }
+  });
+
+  /**
+   * One handler serves the desk notes and the dropdowns: open or close a panel, or toggle a filter.
+   * @param {Event} event - Click inside either filter surface.
+   */
+  function onFilterClick(event) {
     const target = /** @type {Element | null} */ (event.target);
+    const opener = /** @type {HTMLElement | null} */ (target?.closest('.filter-dropdown-toggle') || null);
+    if (opener) {
+      openFilterPanel(opener);
+      return;
+    }
+
+    // A tap on the backdrop lands on the dialog itself; everything inside the panel sits in its body.
+    if (target?.closest('[data-close-filter-panel]') || target?.matches?.('.filter-panel')) {
+      /** @type {HTMLDialogElement | null} */ (target?.closest('.filter-panel') ?? null)?.close();
+      return;
+    }
+
     const tab = /** @type {HTMLElement | null} */ (
-      target?.closest('.desk-note') || target?.closest('.mobile-filter-chip') || null
+      target?.closest('.desk-note') || target?.closest('.filter-option') || target?.closest('.filter-panel-clear') || null
     );
     if (!tab) {
       return;
@@ -394,7 +448,61 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
     currentPage = 1;
     applyStateChange({ focusTarget });
-  });
+  }
+
+  /**
+   * Open one dropdown's panel. Picked options move to the top as it opens, never while the
+   * reader is ticking boxes, and the panel's search starts empty.
+   * @param {HTMLElement} opener - The dropdown button.
+   */
+  function openFilterPanel(opener) {
+    const panel = /** @type {HTMLDialogElement | null} */ (
+      documentObj.getElementById(opener.getAttribute('aria-controls') || '')
+    );
+    if (!panel || panel.open) {
+      return;
+    }
+
+    const list = panel.querySelector('.filter-panel-options');
+    if (list) {
+      const options = /** @type {HTMLElement[]} */ ([...list.children]);
+      const picked = options.filter((option) => option.getAttribute('aria-pressed') === 'true');
+      [...picked, ...options.filter((option) => !picked.includes(option))].forEach((option) => list.appendChild(option));
+    }
+    const search = /** @type {HTMLInputElement | null} */ (panel.querySelector('[data-filter-panel-search]'));
+    if (search) {
+      search.value = '';
+      filterPanelOptions(panel, '');
+    }
+
+    panel.showModal();
+    opener.setAttribute('aria-expanded', 'true');
+  }
+
+  /** @param {Event} event - Typing in a panel's search box. */
+  function onFilterPanelSearch(event) {
+    const input = /** @type {HTMLInputElement} */ (event.target);
+    if (!input.matches?.('[data-filter-panel-search]')) {
+      return;
+    }
+
+    const panel = input.closest('.filter-panel');
+    if (panel) {
+      filterPanelOptions(/** @type {HTMLElement} */ (panel), input.value.trim().toLowerCase());
+    }
+  }
+
+  /**
+   * Show only the panel options whose label contains the query.
+   * @param {HTMLElement} panel - Filter panel.
+   * @param {string} query - Lowercase search text.
+   */
+  function filterPanelOptions(panel, query) {
+    panel.querySelectorAll('.filter-option').forEach((element) => {
+      const option = /** @type {HTMLElement} */ (element);
+      option.hidden = query !== '' && !(option.textContent || '').toLowerCase().includes(query);
+    });
+  }
 
   sortToggle.addEventListener('click', () => {
     currentSort = currentSort === 'newest' ? 'oldest' : 'newest';
@@ -595,6 +703,33 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       tagLabel: (value) => getTagLabel(galleryConfig, value)
     });
     applyDynamicStyles(filterNotesContainer);
+
+    // The dropdowns reuse the colors the desk notes just assigned, so they render second.
+    const toolCounts = countValues(allArtifacts, 'tools');
+    const tagCounts = countValues(allArtifacts, 'tags');
+    filterDropdowns.innerHTML = buildFilterDropdowns([
+      {
+        kind: 'tags',
+        heading: 'Tags',
+        noteValue: 'all-tags',
+        values: allTags,
+        activeValues: currentTags,
+        datasetName: 'data-filter-tag',
+        labelFor: (value) => getTagLabel(galleryConfig, value),
+        countFor: (value) => tagCounts.get(value) || 0
+      },
+      {
+        kind: 'tools',
+        heading: 'Tools',
+        noteValue: 'all-tools',
+        values: allTools,
+        activeValues: currentTools,
+        datasetName: 'data-filter-tool',
+        labelFor: (value) => getToolLabel(galleryConfig, value),
+        countFor: (value) => toolCounts.get(value) || 0
+      }
+    ]);
+    applyDynamicStyles(filterDropdowns);
     updateFilterNotesState();
   }
 
@@ -652,7 +787,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
      * @param {(button: HTMLElement) => boolean} isActive - Pressed-state test.
      */
     const setPressed = (selector, isActive) => {
-      filterNotesContainer.querySelectorAll(selector).forEach((element) => {
+      [...filterNotesContainer.querySelectorAll(selector), ...filterDropdowns.querySelectorAll(selector)].forEach((element) => {
         const button = /** @type {HTMLElement} */ (element);
         const active = isActive(button);
         button.classList.toggle('is-active', active);
@@ -666,20 +801,23 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     setPressed('[data-filter-note="all-tags"]', () => currentTags.length === 0);
 
     /**
-     * @param {string} kind - Summary group: tools or tags.
+     * Each dropdown button counts its picks and says so in its name.
+     * @param {string} kind - Dropdown group: tools or tags.
+     * @param {string} heading - The group's name.
      * @param {number} activeCount - Selected values in the group.
-     * @param {string} allLabel - Summary when nothing is selected.
      */
-    const setSummary = (kind, activeCount, allLabel) => {
-      const summary = filterNotesContainer.querySelector(`[data-filter-summary="${kind}"]`);
-      const text = formatFilterSummary(activeCount, allLabel);
+    const setSummary = (kind, heading, activeCount) => {
+      const summary = filterDropdowns.querySelector(`[data-filter-summary="${kind}"]`);
+      const text = activeCount > 0 ? String(activeCount) : '';
       if (summary && summary.textContent !== text) {
         summary.textContent = text;
       }
+      filterDropdowns.querySelector(`[data-filter-open="${kind}"]`)
+        ?.setAttribute('aria-label', activeCount > 0 ? `${heading}, ${activeCount} selected` : heading);
     };
 
-    setSummary('tools', currentTools.length, 'All tools');
-    setSummary('tags', currentTags.length, 'All tags');
+    setSummary('tools', 'Tools', currentTools.length);
+    setSummary('tags', 'Tags', currentTags.length);
   }
 
   function updateSearchClearVisibility() {
@@ -769,7 +907,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
         filterNotesContainer.querySelector(`[data-${selectorName}="${CSS.escape(descriptor.value)}"]`)
       ),
       'mobile-filter': () => /** @type {HTMLElement | null} */ (
-        filterNotesContainer.querySelector(`[data-filter-surface="mobile"][data-${selectorName}="${CSS.escape(descriptor.value)}"]`)
+        filterDropdowns.querySelector(`[data-filter-surface="mobile"][data-${selectorName}="${CSS.escape(descriptor.value)}"]`)
       )
     };
 

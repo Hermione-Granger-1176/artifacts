@@ -66,8 +66,19 @@ def test_mobile_viewport_flow_keeps_gallery_usable(tmp_path: Path, monkeypatch) 
 
         expect(page.locator(".desk-notes-left")).not_to_be_visible()
         expect(page.locator(".desk-notes-right")).not_to_be_visible()
-        expect(page.locator(".mobile-filter-stack")).to_be_visible()
-        page.locator('.mobile-filter-chip[data-filter-tool="chatgpt"]').click()
+        # Phones filter through the Tags and Tools dropdowns: a button that opens a checklist panel.
+        tools = page.locator('[data-filter-open="tools"]')
+        expect(tools).to_be_visible()
+        expect(tools).to_have_attribute("aria-label", "Tools")
+        tools.click()
+        expect(page.locator("#filter-panel-tools")).to_be_visible()
+        expect(tools).to_have_attribute("aria-expanded", "true")
+        page.locator('#filter-panel-tools [data-filter-tool="chatgpt"]').click()
+        expect(tools).to_have_attribute("aria-label", "Tools, 1 selected")
+        expect(page.locator("#filter-reset")).to_be_hidden()
+        page.keyboard.press("Escape")
+        expect(page.locator("#filter-panel-tools")).not_to_be_visible()
+        expect(tools).to_be_focused()
         expect(page.locator(".artifact-card")).to_have_count(4)
 
         page.get_by_role("button", name="Page 2").click()
@@ -720,7 +731,9 @@ def test_toolbar_notes_hold_still_when_filters_and_sort_change(tmp_path: Path, m
     }"""
 
     with StaticServer(deploy_root) as server, sync_playwright() as playwright:
-        for width, height in ((1366, 768), (820, 1000), (390, 844)):
+        # Phones and tablets have no reset note: each dropdown clears its group,
+        # and the search clears itself.
+        for width, height in ((1366, 768), (1024, 768)):
             with MonitoredPage(
                 playwright, server.url, name="browser-toolbar-still", viewport=(width, height)
             ) as session:

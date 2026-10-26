@@ -100,9 +100,10 @@ function getShuffledFilterColors() {
  *   datasetName: string,
  *   datasetValue: string,
  *   label: string,
+ *   count?: number,
  *   rotate?: string | null,
  *   surface: string
- * }} options - Filter control options.
+ * }} options - Filter control options. A count follows the label as a quiet number.
  * @returns {string} Filter chip button HTML.
  */
 function createFilterControlButton({
@@ -112,12 +113,14 @@ function createFilterControlButton({
   datasetName,
   datasetValue,
   label,
+  count,
   rotate = null,
   surface
 }) {
   const rotateAttr = rotate !== null ? ` data-rotate="${rotate}"` : '';
+  const countHtml = count === undefined ? '' : `<span class="filter-option-count" aria-hidden="true">${count}</span>`;
 
-  return `<button class="${className}${active ? ' is-active' : ''}" data-filter-surface="${surface}" ${datasetName}="${escapeHtml(datasetValue)}" data-chip-color="${escapeHtml(color)}"${rotateAttr} type="button" aria-controls="artifacts-grid" aria-pressed="${active}">${escapeHtml(label)}</button>`;
+  return `<button class="${className}${active ? ' is-active' : ''}" data-filter-surface="${surface}" ${datasetName}="${escapeHtml(datasetValue)}" data-chip-color="${escapeHtml(color)}"${rotateAttr} type="button" aria-controls="artifacts-grid" aria-pressed="${active}"><span class="filter-option-label">${escapeHtml(label)}</span>${countHtml}</button>`;
 }
 
 /**
@@ -150,30 +153,66 @@ function buildSnippetList(items, className, emptyValue = '') {
     </div>
   `;
 }
-/**
- * Return the summary shown beside a mobile filter heading.
- * @param {number} activeCount - Number of selected values in the group.
- * @param {string} allLabel - Summary when nothing is selected.
- * @returns {string} Summary text.
- */
-export function formatFilterSummary(activeCount, allLabel) {
-  return activeCount > 0 ? `${activeCount} active` : allLabel;
-}
+/** A dropdown with more options than this gets a search box above its list. */
+const FILTER_SEARCH_FROM = 8;
 
 /**
- * Build one mobile filter group: a heading with its summary, then the chip row.
- * @param {{ kind: string, heading: string, ariaLabel: string, allLabel: string, activeCount: number, chips: string[] }} group - Group content.
- * @returns {string} Mobile filter group HTML.
+ * Build the multi-select filter dropdowns phones and tablets show in place of the desk notes.
+ * Each group is a button that names the group and counts its picks, and a checklist panel
+ * it opens. The options reuse the desk notes' filter buttons and colors, so a click on either
+ * runs the same filter handler. A new group is one more entry in the list.
+ * @param {Array<{
+ *   kind: string,
+ *   heading: string,
+ *   noteValue: string,
+ *   values: string[],
+ *   activeValues: string[],
+ *   datasetName: string,
+ *   labelFor: (value: string) => string,
+ *   countFor: (value: string) => number
+ * }>} groups - Filter groups, in the order their buttons appear.
+ * @returns {string} Dropdown buttons and their panels.
  */
-function buildMobileFilterGroup({ kind, heading, ariaLabel, allLabel, activeCount, chips }) {
-  return `
-      <section class="mobile-filter-group" aria-label="${ariaLabel}">
-        <div class="mobile-filter-head">
-          <span class="mobile-filter-heading">${heading}</span>
-          <span class="mobile-filter-summary" data-filter-summary="${kind}">${formatFilterSummary(activeCount, allLabel)}</span>
+export function buildFilterDropdowns(groups) {
+  return groups.map(({ kind, heading, noteValue, values, activeValues, datasetName, labelFor, countFor }) => {
+    const panelId = `filter-panel-${kind}`;
+    const lower = heading.toLowerCase();
+    const options = values.map((value) => createFilterControlButton({
+      active: activeValues.includes(value),
+      className: 'filter-option',
+      color: getLabelColor(value),
+      datasetName,
+      datasetValue: value,
+      label: labelFor(value),
+      count: countFor(value),
+      surface: 'mobile'
+    }));
+    const search = values.length > FILTER_SEARCH_FROM
+      ? `<input class="filter-panel-search" type="search" placeholder="Find ${lower}..." aria-label="Find ${lower}" autocomplete="off" data-filter-panel-search>`
+      : '';
+    return `
+    <div class="filter-dropdown">
+      <button class="filter-dropdown-toggle" type="button" data-filter-open="${kind}" aria-haspopup="dialog" aria-controls="${panelId}" aria-expanded="false" aria-label="${heading}">
+        <span class="filter-dropdown-label" aria-hidden="true">${heading}</span>
+        <span class="filter-dropdown-count" data-filter-summary="${kind}" aria-hidden="true">${activeValues.length || ''}</span>
+        ${ICONS.chevronDown}
+      </button>
+      <dialog id="${panelId}" class="filter-panel" aria-labelledby="${panelId}-title">
+        <div class="filter-panel-body">
+          <div class="filter-panel-head">
+            <h2 id="${panelId}-title" class="filter-panel-title">${heading}</h2>
+            <button class="btn-icon filter-panel-close" type="button" data-close-filter-panel aria-label="Close ${lower}">${ICONS.close}</button>
+          </div>
+          ${search}
+          <div class="filter-panel-options" role="group" aria-label="${heading}">${options.join('')}</div>
+          <div class="filter-panel-foot">
+            <button class="btn-reset-link filter-panel-clear" type="button" data-filter-note="${noteValue}" data-filter-surface="mobile" aria-controls="artifacts-grid">Clear</button>
+            <button class="filter-panel-done" type="button" data-close-filter-panel>Done</button>
+          </div>
         </div>
-        <div class="mobile-filter-chip-row">${chips.join('')}</div>
-      </section>`;
+      </dialog>
+    </div>`;
+  }).join('');
 }
 
 /**
@@ -243,40 +282,6 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
     })
   ];
 
-  /**
-   * Build one mobile chip row: an "All" chip, then one chip per value.
-   * @param {{
-   *   noteValue: string,
-   *   allLabel: string,
-   *   values: string[],
-   *   activeValues: string[],
-   *   datasetName: string,
-   *   colorFor: (index: number) => string,
-   *   labelFor: (value: string) => string
-   * }} group - Filter group to render.
-   * @returns {string[]} Mobile chip button HTML.
-   */
-  const buildMobileChips = ({ noteValue, allLabel, values, activeValues, datasetName, colorFor, labelFor }) => [
-    createFilterControlButton({
-      active: activeValues.length === 0,
-      className: 'mobile-filter-chip',
-      color: shuffled[0],
-      datasetName: 'data-filter-note',
-      datasetValue: noteValue,
-      label: allLabel,
-      surface: 'mobile'
-    }),
-    ...values.map((value, index) => createFilterControlButton({
-      active: activeValues.includes(value),
-      className: 'mobile-filter-chip',
-      color: colorFor(index),
-      datasetName,
-      datasetValue: value,
-      label: labelFor(value),
-      surface: 'mobile'
-    }))
-  ];
-
   const toolGroup = {
     noteValue: 'all-tools',
     values: tools,
@@ -297,18 +302,10 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
   // Desk notes draw from the rotation PRNG in order, so tools render before tags.
   const leftNotes = buildDeskNotes(toolGroup);
   const rightNotes = buildDeskNotes(tagGroup);
-  const mobileTools = buildMobileChips({ ...toolGroup, allLabel: 'All tools' });
-  const mobileTags = buildMobileChips({ ...tagGroup, allLabel: 'All tags' });
 
   return `
     <div class="desk-notes-left">${leftNotes.join('')}</div>
     <div class="desk-notes-right">${rightNotes.join('')}</div>
-    <div class="mobile-filter-stack">${buildMobileFilterGroup({
-      kind: 'tools', heading: 'Tools', ariaLabel: 'Tool filters', allLabel: 'All tools', activeCount: activeTools.length, chips: mobileTools
-    })}${buildMobileFilterGroup({
-      kind: 'tags', heading: 'Tags', ariaLabel: 'Tag filters', allLabel: 'All tags', activeCount: activeTags.length, chips: mobileTags
-    })}
-    </div>
   `;
 }
 
