@@ -29,7 +29,7 @@ body.app-vendor-docs-generator {
    * buttons are 10px shorter than the track they sit in.
    */
   --vd-control-height: 2.5rem;
-  --vd-segment-height: calc(var(--vd-control-height) - 10px);
+  --vd-segment-height: max(calc(var(--vd-control-height) - 10px), var(--touch-target, 0px));
 
   /* Vertical room the preview frame gives up to the header, intro, toolbar and caption. */
   --vd-frame-inset: 300px;
@@ -128,7 +128,7 @@ body.app-vendor-docs-generator .vd-block-btn {
  */
 
 body.app-vendor-docs-generator .vd-workbench .btn.vd-quiet-btn {
-  min-height: var(--space-6);
+  min-height: max(var(--space-6), var(--touch-target, 0px));
   padding: 0 var(--space-2);
   border-color: transparent;
   color: var(--color-blue-text);

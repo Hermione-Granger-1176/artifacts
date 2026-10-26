@@ -23,7 +23,7 @@ body.app-bond-price-vs-rate {
    * are 10px shorter than the track they sit in.
    */
   --br-control-height: 2.5rem;
-  --br-segment-height: calc(var(--br-control-height) - 10px);
+  --br-segment-height: max(calc(var(--br-control-height) - 10px), var(--touch-target, 0px));
   --br-badge-size: 1.75rem;
 
   /* The cash-flow table holds this height for any maturity, so the page below never moves. */

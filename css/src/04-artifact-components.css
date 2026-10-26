@@ -285,6 +285,14 @@ body.artifact-app .info-tip {
   font-weight: 600;
 }
 
+/* Touch screens: the info marker grows to the smallest comfortable tap size. */
+@media (pointer: coarse) {
+  body.artifact-app .info-tip {
+    width: 24px;
+    height: 24px;
+  }
+}
+
 body.artifact-app .info-tip:hover::after,
 body.artifact-app .info-tip:hover::before,
 body.artifact-app .info-tip:focus-visible::after,
@@ -890,10 +898,12 @@ body.artifact-app .section-nav-node {
     transform 0.3s ease;
 }
 
-body.artifact-app .section-nav-node:hover {
-  border-color: var(--color-blue);
-  color: var(--color-blue);
-  transform: scale(1.15);
+@media (hover: hover) {
+  body.artifact-app .section-nav-node:hover {
+    border-color: var(--color-blue);
+    color: var(--color-blue);
+    transform: scale(1.15);
+  }
 }
 
 body.artifact-app .section-nav-node.done,
@@ -930,9 +940,36 @@ body.artifact-app .section-nav-tip {
   transition: opacity 0.2s;
 }
 
-body.artifact-app .section-nav-node:hover .section-nav-tip,
+/* The end tips hang inward from their node, so neither reaches past the screen edge. */
+body.artifact-app .section-nav-node:first-child .section-nav-tip {
+  left: 0;
+  transform: none;
+}
+
+body.artifact-app .section-nav-node:last-child .section-nav-tip {
+  right: 0;
+  left: auto;
+  transform: none;
+}
+
+/* A tap counts as hover on touch screens and would leave the tip stuck open, so only a real pointer shows it on hover. */
+@media (hover: hover) {
+  body.artifact-app .section-nav-node:hover .section-nav-tip {
+    opacity: 1;
+  }
+}
+
 body.artifact-app .section-nav-node:focus-visible .section-nav-tip {
   opacity: 1;
+}
+
+/* Touch screens: the small nodes keep their look and gain an invisible fingertip-sized target around them. */
+@media (pointer: coarse) {
+  body.artifact-app .section-nav-node::after {
+    content: '';
+    position: absolute;
+    inset: calc((var(--section-nav-node-size) - var(--touch-target)) / 2);
+  }
 }
 
 body.artifact-app .section-nav-label {

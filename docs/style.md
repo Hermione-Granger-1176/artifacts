@@ -97,6 +97,7 @@ The shared design system lives in `css/src/` and is bundled into `css/style.css`
 - Reach for the shared component families in `css/src/04-artifact-components.css` before writing app CSS: `.control-field` (with `-head`, `-hints`, `-note`), `.stat-grid` / `.stat` (modifiers `.is-center`, `.stat-label.is-caps`, `.stat-value.is-mono`), `.chip` (hue tones `.is-*`, `.is-mono`, solid `.is-solid-*`), `.segmented` (`.is-fused`, the inset pill `.is-inset`, `.active`), `.meter` / `.meter-fill` (tone modifiers), `.app-callout` (hue tones), `.section-kicker`, plus the shared buttons, inputs, tables, code windows, and `.section-nav`
 - Keep `apps/<slug>/css/app.css` focused on app-specific dimensions, grids, visualizations, and component variants built on those tokens and families. It retains its `body.app-<slug>` scope
 - A change to a shared component or token is intentional shared work in `css/src/`, not an app-local edit
+- A compact control height that sits below a fingertip wraps it in `max(<compact height>, var(--touch-target, 0px))`. `--touch-target` (2.75rem) is set only on coarse pointers in `css/src/01-tokens.css`, so mouse and trackpad screens keep the compact size. Hover-only effects go under `@media (hover: hover)`, because a tap counts as hover on touch screens and leaves them stuck on
 
 ### Token lint
 

@@ -18,7 +18,7 @@ body.app-tokenizer-explorer {
    * so its buttons are 10px shorter than the track they sit in.
    */
   --tk-control-height: 2.5rem;
-  --tk-segment-height: calc(var(--tk-control-height) - 10px);
+  --tk-segment-height: max(calc(var(--tk-control-height) - 10px), var(--touch-target, 0px));
   --tk-settings-width: 300px;
 }
 
