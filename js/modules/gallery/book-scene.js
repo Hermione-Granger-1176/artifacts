@@ -573,6 +573,27 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
   }
 
   /**
+   * Build a notepad leaf: a two-faced sheet with the page on its front, and the plain back of
+   * the paper, which shows once the sheet has swung past upright.
+   * @param {HTMLElement | null} page - Page to show on the front.
+   * @returns {{ leaf: HTMLElement, back: HTMLElement, shade: HTMLElement }} The leaf and the parts its turn animates.
+   */
+  function buildFlipLeaf(page) {
+    const leaf = createDiv('notepad-leaf');
+    const front = createDiv('notepad-leaf-face notepad-leaf-front');
+    const back = createDiv('notepad-leaf-face notepad-leaf-back');
+    const shade = createDiv('notepad-leaf-shade');
+    if (page) {
+      front.appendChild(page);
+    }
+    front.appendChild(shade);
+    leaf.appendChild(front);
+    leaf.appendChild(back);
+    hideDecorative(leaf);
+    return { leaf, back, shade };
+  }
+
+  /**
    * Flip a notepad page over its binding, like a desk calendar. Going forward, a copy of the
    * shown page lifts toward the reader, swings up over the binding, and drops behind the pad,
    * uncovering the next page already in place underneath. Going back, the earlier page comes
@@ -589,19 +610,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     const page = next
       ? /** @type {HTMLElement | null} */ (grid.querySelector('.artifact-page-left')?.cloneNode(true) ?? null)
       : pages.buildFaces(target).left;
-    // The leaf is a two-faced sheet: the page on its front, and the plain back of the paper,
-    // which shows once the sheet has swung past upright.
-    const leaf = createDiv('notepad-leaf');
-    const front = createDiv('notepad-leaf-face notepad-leaf-front');
-    const back = createDiv('notepad-leaf-face notepad-leaf-back');
-    const shade = createDiv('notepad-leaf-shade');
-    if (page) {
-      front.appendChild(page);
-    }
-    front.appendChild(shade);
-    leaf.appendChild(front);
-    leaf.appendChild(back);
-    hideDecorative(leaf);
+    const { leaf, back, shade } = buildFlipLeaf(page);
 
     const turn = createTurn({
       target,

@@ -105,6 +105,21 @@ function countValues(items, field) {
 }
 
 /**
+ * Which way a finger's travel turns the notepad. Like a calendar, pushing the page up flips it
+ * over the binding to the next one. Travel that is too short, or more sideways than up or down,
+ * turns nothing.
+ * @param {number} dx - Horizontal travel in pixels.
+ * @param {number} dy - Vertical travel in pixels, positive downwards.
+ * @returns {-1 | 0 | 1} Pages to move.
+ */
+function swipeStep(dx, dy) {
+  if (Math.abs(dy) < SWIPE_MIN_PX || Math.abs(dy) <= Math.abs(dx)) {
+    return 0;
+  }
+  return dy < 0 ? 1 : -1;
+}
+
+/**
  * Return whether one element behaves like a text-entry control.
  * @param {Element | null} element - Element to inspect.
  * @returns {boolean} Whether the element accepts text entry.
@@ -423,10 +438,17 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     const tab = /** @type {HTMLElement | null} */ (
       target?.closest('.desk-note') || target?.closest('.filter-option') || target?.closest('.filter-panel-clear') || null
     );
-    if (!tab) {
-      return;
+    if (tab) {
+      applyFilterTab(tab);
     }
+  }
 
+  /**
+   * Toggle the filter a desk note, dropdown option, or Clear button stands for, and re-render
+   * from the first page.
+   * @param {HTMLElement} tab - The filter control that was pressed.
+   */
+  function applyFilterTab(tab) {
     /** @type {Array<[string, string | undefined]>} */
     const filterDatasetEntries = [
       ['filterNote', tab.dataset.filterNote],
@@ -575,39 +597,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   const bookSheet = documentObj.getElementById('book-sheet');
   if (bookSheet) {
-    bookSheet.addEventListener('pointerdown', (event) => {
-      swipeTurned = false;
-      swipeStart = notepadQuery.matches && event.isPrimary ? { x: event.clientX, y: event.clientY } : null;
-    });
-    bookSheet.addEventListener('pointerup', (event) => {
-      const start = swipeStart;
-      swipeStart = null;
-      if (!start) {
-        return;
-      }
-
-      const dx = event.clientX - start.x;
-      const dy = event.clientY - start.y;
-      if (Math.abs(dy) < SWIPE_MIN_PX || Math.abs(dy) <= Math.abs(dx)) {
-        return;
-      }
-
-      // Like a calendar: pushing the page up flips it over the binding to the next one.
-      const page = currentPage + (dy < 0 ? 1 : -1);
-      if (page >= 1 && page <= pageCount) {
-        swipeTurned = true;
-        goToPage(page);
-      }
-    });
-    bookSheet.addEventListener('pointercancel', () => {
-      swipeStart = null;
-    });
-    // A mouse drag that starts on the photo or the open link would become a native drag and cancel the swipe.
-    bookSheet.addEventListener('dragstart', (event) => {
-      if (notepadQuery.matches) {
-        event.preventDefault();
-      }
-    });
+    bindNotepadSwipe(bookSheet);
   }
 
   documentObj.addEventListener('keydown', (event) => {
@@ -668,6 +658,41 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   scrollTopBtn.addEventListener('click', () => {
     motion.scrollToTop();
   });
+
+  /**
+   * Turn notepad pages with a vertical swipe on the sheet. A swipe that turned the page ends on
+   * a card, so it also swallows the click that follows.
+   * @param {HTMLElement} sheet - The book sheet.
+   */
+  function bindNotepadSwipe(sheet) {
+    sheet.addEventListener('pointerdown', (event) => {
+      swipeTurned = false;
+      swipeStart = notepadQuery.matches && event.isPrimary ? { x: event.clientX, y: event.clientY } : null;
+    });
+    sheet.addEventListener('pointerup', (event) => {
+      const start = swipeStart;
+      swipeStart = null;
+      if (!start) {
+        return;
+      }
+
+      const step = swipeStep(event.clientX - start.x, event.clientY - start.y);
+      const page = currentPage + step;
+      if (step !== 0 && page >= 1 && page <= pageCount) {
+        swipeTurned = true;
+        goToPage(page);
+      }
+    });
+    sheet.addEventListener('pointercancel', () => {
+      swipeStart = null;
+    });
+    // A mouse drag that starts on the photo or the open link would become a native drag and cancel the swipe.
+    sheet.addEventListener('dragstart', (event) => {
+      if (notepadQuery.matches) {
+        event.preventDefault();
+      }
+    });
+  }
 
   /**
    * Turn to a page, then put focus on the control the reader used once it lands.

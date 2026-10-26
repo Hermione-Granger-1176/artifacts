@@ -158,6 +158,7 @@ function buildSnippetList(items, className, emptyValue = '') {
     </div>
   `;
 }
+
 /** A dropdown with more options than this gets a search box above its list. */
 const FILTER_SEARCH_FROM = 8;
 
@@ -308,8 +309,6 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
   const leftNotes = buildDeskNotes(toolGroup);
   const rightNotes = buildDeskNotes(tagGroup);
 
-  // Phones and tablets have no desk beside the book, so the same chips live in a sheet
-  // that the filters note opens. It is a modal dialog: the page behind it is inert.
   return `
     <div class="desk-notes-left">${leftNotes.join('')}</div>
     <div class="desk-notes-right">${rightNotes.join('')}</div>
