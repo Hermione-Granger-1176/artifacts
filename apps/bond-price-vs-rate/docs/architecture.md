@@ -6,7 +6,7 @@ The page is two columns on the normal page scroll (there is no inner scroll box)
 
 - Header shell: back button, home logo, and theme toggle aligned with the gallery contract
 - Intro: app title and a one-line framing of the inverse price-rate relationship
-- Left rail (about 352px, `position: sticky`): the price caption, the large price, the premium/par/discount badge, the price-vs-rate curve marking the current bond, then the three sliders (market rate, coupon, years to maturity) each with its live value and at most one short helper line. If a short window cannot hold the rail whole, it scrolls inside itself rather than clipping the sliders. Below 960px it becomes static and stacks above the story
+- Left rail (about 352px, `position: sticky`): the price caption, the large price, the premium/par/discount badge, the price-vs-rate curve marking the current bond, then the three sliders (market rate, coupon, years to maturity) each with its live value and at most one short helper line. If a short window cannot hold the rail whole, it scrolls inside itself rather than clipping the sliders. Between 761px and 960px the rail narrows to 300px and stays pinned. Below 760px it becomes static and stacks above the story
 - Story column: seven numbered chapters, each a number badge beside a kicker, a heading, and the chapter content. At most one key-idea box (the shared blue `.app-callout`) appears per chapter
 
 ## Chapters

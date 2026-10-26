@@ -4,7 +4,7 @@
 
 All seven chapters use the same price and three inputs. The original top-of-page controls forced readers to scroll back to change a value. A sticky left column keeps the price, curve, and sliders visible beside the explanation.
 
-The story uses normal page scrolling so anchors and find-in-page work without a second scroll area. Below 960px, the controls stack above the chapters. In a short desktop window, the control column scrolls internally so every slider remains reachable.
+The story uses normal page scrolling so anchors and find-in-page work without a second scroll area. Tablets keep the controls pinned beside the chapters in a narrower rail, so a slider stays in reach while its chapter is read. Below 760px, the controls stack above the chapters. In a short desktop window, the control column scrolls internally so every slider remains reachable.
 
 IntersectionObserver marks the current chapter with a filled badge and a stronger heading and chart. Body text retains full opacity because fading it failed the 4.5:1 contrast check. Each chapter has at most one shared blue callout. Longer slider explanations belong in their chapters, leaving one short helper line per slider.
 

@@ -8,7 +8,7 @@ The calculator includes these views and controls:
 
 - Baseline payoff vs extra-payment scenario comparison
 - Yearly, half-yearly, quarterly, monthly, bi-weekly, and weekly cadences
-- Two-column calculator: a sticky input column (loan, frequency, extra payments) beside the results, which stack above each other below 900px
+- Two-column calculator: a sticky input column (loan, frequency, extra payments) beside the results, which stack above each other below 760px
 - The periodic payment (EMI) as the main result, with a savings chip and four supporting metrics
 - Five visual breakdowns stacked in one consistent chart-card style: balance, scenario comparison, interest savings, cumulative payments, and per-period payments
 - Per-period and yearly repayment tables

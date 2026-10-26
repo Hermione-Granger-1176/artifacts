@@ -4,7 +4,7 @@
 
 - Header shell: back button, home logo, and theme toggle aligned with the gallery contract
 - Intro: app title and concise explanation of the calculator
-- Layout: two columns inside a page shell widened app-locally to 1200px. The left input column is 300px wide and `position: sticky` (capped to the window height and scrolling internally if extras overflow it). Below 900px it stops being sticky and stacks above the results
+- Layout: two columns inside a page shell widened app-locally to 1200px. The left input column is 300px wide and `position: sticky` (capped to the window height and scrolling internally if extras overflow it). Below 760px it stops being sticky and stacks above the results
 - Input column, top to bottom:
   - Loan group: loan amount, interest rate, and tenure, each a shared `.control-field` row with the label left, the value field right, and the slider underneath
   - EMI frequency select, with the bi-weekly True/Accelerated toggle and its note beneath it only when bi-weekly is selected

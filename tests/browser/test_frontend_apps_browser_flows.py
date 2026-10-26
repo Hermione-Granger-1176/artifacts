@@ -407,8 +407,18 @@ def test_bond_price_vs_rate_flow_covers_rail_chapters_and_curve_apply(
         expect(page.locator("#rateValue")).to_have_text(f"{applied_rate:.1f}%")
         expect(rail.locator("#rateValue")).to_be_in_viewport()
 
-        # Below 960px the rail stops pinning and stacks above the story.
+        # Tablets keep the pinned rail beside the story; below 760px it stacks above the story.
         page.set_viewport_size({"width": 800, "height": 900})
+        page.evaluate("window.scrollTo(0, 0)")
+        expect(rail).to_have_css("position", "sticky")
+        side_rail = rail.bounding_box()
+        side_chapter = chapters.nth(0).bounding_box()
+        assert side_rail is not None
+        assert side_chapter is not None
+        assert side_rail["x"] + side_rail["width"] <= side_chapter["x"]
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+        page.set_viewport_size({"width": 700, "height": 900})
         page.evaluate("window.scrollTo(0, 0)")
         expect(rail).to_have_css("position", "static")
         stacked_rail = rail.bounding_box()

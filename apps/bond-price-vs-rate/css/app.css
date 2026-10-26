@@ -612,9 +612,15 @@ body.app-bond-price-vs-rate .br-story .btn:not(:disabled):active {
 
 /* ── Responsive layout ────────────────────────────────────────────── */
 
-/* Below 960px the rail stops pinning and stacks above the story. */
+/* Tablets keep the pinned rail beside the story with a narrower rail. Below 760px it stacks above the story. */
 
-@media (max-width: 960px) {
+@media (min-width: 761px) and (max-width: 960px) {
+  body.app-bond-price-vs-rate {
+    --br-rail-width: 300px;
+  }
+}
+
+@media (max-width: 760px) {
   body.app-bond-price-vs-rate .br-layout {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-6);
