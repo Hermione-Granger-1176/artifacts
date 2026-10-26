@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createBookScene } from '../../../js/modules/gallery/book-scene.js';
+import { NOTEPAD_QUERY, createBookScene } from '../../../js/modules/gallery/book-scene.js';
 
 class FakeClassList {
   constructor(owner) {
@@ -285,22 +285,27 @@ function createHarness({
     shell.dataset.sceneIntro = 'open';
   }
 
-  const windowListeners = new Map();
+  // The notepad query follows the fake width and reports a change only when a resize crosses it.
+  const notepadListeners = [];
+  const notepadQuery = {
+    get matches() {
+      return windowObj.innerWidth <= 900;
+    },
+    addEventListener(type, handler) {
+      notepadListeners.push(handler);
+    }
+  };
   const windowObj = {
     innerWidth,
-    matchMedia: () => ({ matches: reducedMotion }),
+    matchMedia: (query) => (query === NOTEPAD_QUERY ? notepadQuery : { matches: reducedMotion }),
     setTimeout: env.setTimeout,
     requestAnimationFrame: env.requestAnimationFrame,
     cancelAnimationFrame: env.cancelAnimationFrame,
-    addEventListener(type, handler) {
-      const handlers = windowListeners.get(type) || [];
-      handlers.push(handler);
-      windowListeners.set(type, handlers);
-    },
     resize(width) {
+      const before = notepadQuery.matches;
       windowObj.innerWidth = width;
-      for (const handler of windowListeners.get('resize') || []) {
-        handler({ type: 'resize' });
+      if (notepadQuery.matches !== before) {
+        notepadListeners.forEach((handler) => handler({ type: 'change', matches: notepadQuery.matches }));
       }
     }
   };
@@ -584,12 +589,13 @@ test('startIntro slides the band down and flips the notepad cover up on a mobile
   assert.equal(ribbon.animateCalls.length, 1);
   assert.match(ribbon.animateCalls[0].keyframes.at(-1).transform, /translateY\(\d+px\)/);
   assert.equal(harness.cover.animateCalls.length, 1);
-  assert.match(harness.cover.animateCalls[0].keyframes.at(-1).transform, /rotateX\(180deg\)/, 'the cover lifts toward the reader and over the binding');
-  const face = harness.cover.querySelector('.book-cover-face').animateCalls[0].keyframes;
-  const inside = harness.cover.querySelector('.book-cover-back').animateCalls[0].keyframes;
-  assert.deepEqual(face.map((frame) => frame.visibility), ['visible', 'visible', 'hidden', 'hidden']);
-  assert.deepEqual(inside.map((frame) => frame.visibility), ['hidden', 'hidden', 'visible', 'visible']);
-  assert.equal(face[1].offset, 0.5, 'the faces swap when the cover is upright');
+  const flip = harness.cover.animateCalls[0].keyframes;
+  assert.deepEqual(flip.map((frame) => frame.transform), ['rotateX(0deg)', 'rotateX(180deg)'], 'the cover lifts toward the reader and over the binding');
+  assert.ok(flip.every((frame) => !('opacity' in frame)), 'the cover keeps its faces in 3D, so it never fades as a whole');
+  assert.equal(harness.cover.querySelector('.book-cover-face').animateCalls.length, 0, 'backface-visibility hides the outside');
+  const inside = harness.cover.querySelector('.book-cover-back').animateCalls[0];
+  assert.deepEqual(inside.keyframes.map((frame) => frame.opacity), [1, 1, 0], 'the inside fades as it drops behind the pad');
+  assert.equal(inside.options.duration, harness.cover.animateCalls[0].options.duration);
   assert.equal(harness.sheet.animateCalls.length, 0, 'the notepad does not slide like the book');
   assert.ok(harness.shell.classList.contains('is-open'));
 });
@@ -935,18 +941,22 @@ test('a notepad turn forward shows the next page at once and flips a copy of the
   const [front, back] = leaf.children;
   assert.ok(front.classList.contains('notepad-leaf-front') && back.classList.contains('notepad-leaf-back'));
   assert.ok(front.querySelector('.artifact-page-left'), 'the front carries the old page');
-  assert.equal(front.style.visibility, '');
-  assert.equal(back.style.visibility, 'hidden', 'the back stays hidden while the page faces the reader');
   assert.equal(leaf.attributes['aria-hidden'], 'true');
   assert.equal(leaf.inert, true);
   assert.ok(harness.sheet.classList.contains('is-turning'));
 
-  await harness.advance(300);
-  assert.match(leaf.style.transform, /rotateX\(\d/, 'the page lifts toward the reader');
-  await harness.advance(100);
-  assert.equal(front.style.visibility, 'hidden', 'past upright the reader sees the back of the sheet');
-  assert.equal(back.style.visibility, '');
-  await harness.advance(500);
+  // Only transform and opacity animate, so the compositor runs the flip without the main thread.
+  const [flip] = leaf.animateCalls;
+  assert.deepEqual(flip.keyframes.map((frame) => frame.transform), ['rotateX(0deg)', 'rotateX(180deg)'], 'the page lifts toward the reader');
+  assert.equal(flip.options.direction, 'normal');
+  assert.equal(flip.options.fill, 'both');
+  assert.deepEqual(back.animateCalls[0].keyframes.map((frame) => frame.opacity), [1, 1, 0], 'the back fades as it drops behind the pad');
+  const shade = front.querySelector('.notepad-leaf-shade');
+  assert.deepEqual(shade.animateCalls[0].keyframes.map((frame) => frame.opacity), [0, 0.35, 0.35], 'the page darkens toward upright');
+  assert.equal(front.animateCalls.length, 0, 'backface-visibility hides the page past upright');
+  assert.equal(harness.env.frames.length, 0, 'no frame loop runs alongside the flip');
+
+  await harness.advance(700);
   await done;
   assert.equal(notepadLeafOf(harness.surface), undefined);
   assert.ok(!harness.sheet.classList.contains('is-turning'));
@@ -962,6 +972,7 @@ test('a notepad turn back brings the earlier page down over the shown one, then 
   assert.deepEqual(harness.model.builds, [2]);
   const leaf = notepadLeafOf(harness.surface);
   assert.ok(leaf.querySelector('.built-2'));
+  assert.equal(leaf.animateCalls[0].options.direction, 'reverse', 'the same flip, played backward over the binding');
 
   await harness.advance(500);
   await done;
@@ -996,7 +1007,9 @@ test('a notepad turn back that is cancelled mid-flip never shows the earlier pag
   harness.model.shown = 2;
   harness.scene.turnPage(1);
   await harness.advance(200);
+  const leaf = notepadLeafOf(harness.surface);
   harness.scene.cancelTurn();
+  assert.ok(leaf.animateCalls[0].animation.cancelled, 'the flip stops with the turn');
   await harness.advance(800);
   assert.deepEqual(harness.model.commits, []);
   assert.equal(notepadLeafOf(harness.surface), undefined);

@@ -12,7 +12,7 @@ import {
 import { ICONS } from './icons.js';
 import { setBackgroundContentInert } from './inert.js';
 import { createMotionHelper } from './motion.js';
-import { createBookScene } from './book-scene.js';
+import { NOTEPAD_QUERY, createBookScene } from './book-scene.js';
 import {
   applyDynamicStyles,
   buildFilterDropdowns,
@@ -28,11 +28,6 @@ const NOTEPAD_ITEMS_PER_PAGE = 1;
 const SCROLL_TOP_THRESHOLD = 300;
 const DETAIL_CLOSE_DELAY = 360;
 const ACTIVATION_KEYS = new Set(['Enter', ' ']);
-/**
- * Phones and tablets held upright get the notepad: one artifact per page, turned by swipes, with the
- * filter dropdowns in place of the desk notes. Keep it equal to the notepad breakpoint in the book scene and CSS.
- */
-const NOTEPAD_QUERY = '(max-width: 900px)';
 /** How far a finger must travel up or down the notepad before the swipe turns the page. */
 const SWIPE_MIN_PX = 40;
 /** Space left above the book when a page turn scrolls it back into view. */
@@ -472,9 +467,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
     const list = panel.querySelector('.filter-panel-options');
     if (list) {
-      const options = /** @type {HTMLElement[]} */ ([...list.children]);
-      const picked = options.filter((option) => option.getAttribute('aria-pressed') === 'true');
-      [...picked, ...options.filter((option) => !picked.includes(option))].forEach((option) => list.appendChild(option));
+      list.prepend(...list.querySelectorAll('[aria-pressed="true"]'));
     }
     const search = /** @type {HTMLInputElement | null} */ (panel.querySelector('[data-filter-panel-search]'));
     if (search) {
@@ -684,8 +677,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   function goToPage(page, focusTarget = null) {
     pendingFocusTarget = focusTarget;
     overlay.close({ restoreFocus: false, immediate: true });
-    void bookScene.turnPage(page);
+    // Measure before the turn writes the new pagination, so the read needs no fresh layout.
     scrollBookIntoView();
+    void bookScene.turnPage(page);
   }
 
   /** @returns {number} Artifacts per page in the current layout. */

@@ -4153,14 +4153,20 @@ body.artifact-app .scroll-top:focus-visible {
     inset: 0;
     z-index: 6;
     transform-origin: top center;
+    transform-style: preserve-3d;
     pointer-events: none;
   }
 
-  /* The scene shows one face at a time and swaps them when the sheet passes upright. */
+  /*
+   * Each face hides once it turns away from the reader, so the page gives way to the plain back
+   * as the sheet passes upright. The leaf keeps its faces in 3D for this, so it never takes an
+   * opacity of its own, which would flatten them; the back face fades instead.
+   */
   .notepad-leaf-face {
     position: absolute;
     inset: 0;
     overflow: hidden;
+    backface-visibility: hidden;
     border-radius: 0 0 8px 8px;
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
   }
@@ -4199,17 +4205,8 @@ body.artifact-app .scroll-top:focus-visible {
     border-radius: 8px;
   }
 
-  /*
-   * The cover turns over the binding like the pages, so its inside faces the reader once it is
-   * past upright. The intro swaps the two faces there; they do not rely on backface-visibility.
-   */
-  .book-cover-face,
+  /* The cover turns over the binding like the pages, so its inside faces the reader once it is past upright. */
   .book-cover-back {
-    backface-visibility: visible;
-  }
-
-  .book-cover-back {
-    visibility: hidden;
     border-radius: 8px;
     transform: rotateX(180deg);
   }

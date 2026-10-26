@@ -10,16 +10,27 @@ const LEAF_TURN_MS = 680;
 const REDUCED_FADE_OUT_MS = 120;
 const REDUCED_FADE_IN_MS = 160;
 const MOBILE_FADE_MS = 200;
-// At or below this width the book is a one-page notepad bound at the top (NOTEPAD_QUERY in gallery-app.js).
-const MOBILE_BREAKPOINT = 900;
+/**
+ * Phones and tablets held upright get a one-page notepad bound at the top. The gallery shares this
+ * query for its page size and filter dropdowns; keep it equal to the notepad block in 06-responsive-and-motion.css.
+ */
+export const NOTEPAD_QUERY = '(max-width: 900px)';
 const FLIP_TURN_MS = 620;
+const FLIP_TURN_EASING = 'cubic-bezier(0.65, 0, 0.35, 1)';
 const COVER_FLIP_MS = 900;
-// A notepad page turns like a desk calendar sheet: its bottom edge lifts toward the reader
-// (a positive rotateX), it stands straight out at 90 degrees, then swings up over the binding
-// showing its back, and drops behind the pad as it nears 180 degrees.
-const FLIP_ANGLE_DEG = 180;
-// Past this much of the swing the sheet is falling behind the pad, so it fades away.
-const FLIP_FADE_FROM = 0.8;
+// A notepad sheet turns like a desk calendar page: its bottom edge lifts toward the reader
+// (a positive rotateX), stands straight out at 90 degrees, then swings up over the binding and
+// drops behind the pad. The cover and every page share these keyframes, which only touch
+// transform and opacity so the compositor can run them. The sheet's faces hide by
+// backface-visibility, so its plain back shows past upright with no script involved.
+/** @type {Keyframe[]} */
+const FLIP_KEYFRAMES = [{ transform: 'rotateX(0deg)' }, { transform: 'rotateX(180deg)' }];
+// Past 80 percent of the swing the sheet is falling behind the pad, so its back fades away.
+/** @type {Keyframe[]} */
+const FLIP_BACK_FADE_KEYFRAMES = [{ opacity: 1 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }];
+// A page darkens as it turns from the light toward upright.
+/** @type {Keyframe[]} */
+const FLIP_SHADE_KEYFRAMES = [{ opacity: 0 }, { opacity: 0.35, offset: 0.5 }, { opacity: 0.35 }];
 const EDGE_ZONE_PX = 36;
 const CORNER_ZONE_PX = 72;
 const TAP_SLOP_PX = 5;
@@ -63,7 +74,6 @@ const SHADOW_EDGE_OPEN = '-12%';
  * }} LeafParts
  * @typedef {{
  *   target: number,
- *   mobile: boolean,
  *   selected: boolean,
  *   aborted: boolean,
  *   done: boolean,
@@ -76,7 +86,6 @@ const SHADOW_EDGE_OPEN = '-12%';
  * @typedef {{
  *   aborted: boolean,
  *   animations: Set<Animation>,
- *   mobile: boolean,
  *   insidePage?: HTMLElement
  * }} IntroState
  */
@@ -140,8 +149,6 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
   let introPromise = null;
   /** @type {(() => void) | null} */
   let abortIntro = null;
-  /** @type {boolean} */
-  let introMobile = false;
   /** @type {Turn | null} */
   let active = null;
   /** @type {Promise<void> | null} */
@@ -173,8 +180,10 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     return windowObj.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 
+  const notepadQuery = windowObj.matchMedia(NOTEPAD_QUERY);
+
   function isMobile() {
-    return windowObj.innerWidth <= MOBILE_BREAKPOINT;
+    return notepadQuery.matches;
   }
 
   /**
@@ -217,14 +226,13 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
   /**
    * Create a turn record whose cleanup runs once: it stops the tween, then
    * removes whatever the turn added to the page.
-   * @param {{ target: number, mobile: boolean, selected: boolean, release: () => void }} options - Turn target, layout, selection state, and the turn-specific teardown.
+   * @param {{ target: number, selected: boolean, release: () => void }} options - Turn target, selection state, and the turn-specific teardown.
    * @returns {Turn} The turn record.
    */
-  function createTurn({ target, mobile, selected, release }) {
+  function createTurn({ target, selected, release }) {
     /** @type {Turn} */
     const turn = {
       target,
-      mobile,
       selected,
       aborted: false,
       done: false,
@@ -402,7 +410,6 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
     const turn = createTurn({
       target,
-      mobile: false,
       selected,
       release: () => {
         leaf.remove();
@@ -516,7 +523,6 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
     const turn = createTurn({
       target,
-      mobile,
       selected: true,
       release: () => {
         surface.style.opacity = '';
@@ -541,6 +547,28 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       await tween(turn, 0, 1, fadeIn, linear, setOpacity);
     } finally {
       finishTurn(turn);
+    }
+  }
+
+  /**
+   * Run a turn's animations together. The turn's cancel hook stops them all, and a stopped
+   * set settles quietly so the turn can clean up.
+   * @param {Turn} turn - Owning turn.
+   * @param {Array<[Element, Keyframe[]]>} tracks - Each element with its keyframes.
+   * @param {KeyframeAnimationOptions} options - Shared timing.
+   * @returns {Promise<void>} Settles when every animation has finished or been stopped.
+   */
+  async function animateTurn(turn, tracks, options) {
+    /** @type {Animation[]} */
+    const animations = [];
+    turn.cancelTween = () => animations.forEach((animation) => animation.cancel());
+    for (const [element, keyframes] of tracks) {
+      animations.push(element.animate(keyframes, { fill: 'both', ...options }));
+    }
+    try {
+      await Promise.all(animations.map((animation) => animation.finished));
+    } catch {
+      // Stopped with the turn, which checks its aborted flag next.
     }
   }
 
@@ -577,7 +605,6 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
     const turn = createTurn({
       target,
-      mobile: true,
       selected: true,
       release: () => {
         leaf.remove();
@@ -585,35 +612,20 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       }
     });
 
-    /** @param {number} lift - 0 with the page hanging flat on the pad, 1 once it has gone over the binding. */
-    const setLift = (lift) => {
-      const angle = lift * FLIP_ANGLE_DEG;
-      leaf.style.transform = `rotateX(${angle.toFixed(2)}deg)`;
-      // Past upright the reader sees the back of the sheet. The faces swap here rather than by
-      // backface-visibility, which cannot see a turn that belongs to their parent.
-      const pastUpright = angle > 90;
-      front.style.visibility = pastUpright ? 'hidden' : '';
-      back.style.visibility = pastUpright ? '' : 'hidden';
-      // The page face darkens as it turns away from the light toward upright.
-      shade.style.opacity = String(Math.min(1, lift * 2) * 0.35);
-      leaf.style.opacity = String(Math.min(1, (1 - lift) / (1 - FLIP_FADE_FROM)));
-    };
-
     active = turn;
     sheet.classList.add('is-turning');
     try {
       if (next) {
         pages.commit(target);
-        setLift(0);
-        host.appendChild(leaf);
-        await tween(turn, 0, 1, FLIP_TURN_MS, easeInOut, setLift);
-        return;
       }
-
-      setLift(1);
       host.appendChild(leaf);
-      await tween(turn, 1, 0, FLIP_TURN_MS, easeInOut, setLift);
-      if (!turn.aborted) {
+      // Going back plays the same flip in reverse, so the earlier page starts over the binding.
+      await animateTurn(turn, [[leaf, FLIP_KEYFRAMES], [back, FLIP_BACK_FADE_KEYFRAMES], [shade, FLIP_SHADE_KEYFRAMES]], {
+        duration: FLIP_TURN_MS,
+        easing: FLIP_TURN_EASING,
+        direction: next ? 'normal' : 'reverse'
+      });
+      if (!next && !turn.aborted) {
         pages.commit(target);
       }
     } finally {
@@ -976,26 +988,12 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       return;
     }
 
-    // The cover turns at an even rate across its keyframes, so it is upright halfway through
-    // them, where its outside gives way to its inside.
+    // The cover turns over the binding exactly like a page, its inside fading as it drops behind the pad.
     const options = { duration: COVER_FLIP_MS, easing: COVER_EASING };
-    const upright = 90 / FLIP_ANGLE_DEG;
-    /** @param {string} before - Visibility until upright. @param {string} after - Visibility after it. */
-    const swap = (before, after) => [
-      { visibility: before },
-      { visibility: before, offset: upright },
-      { visibility: after, offset: upright },
-      { visibility: after }
-    ];
     await Promise.all([
       ribbon,
-      playIntro(state, cover, [
-        { transform: 'rotateX(0deg)', opacity: 1 },
-        { transform: `rotateX(${FLIP_ANGLE_DEG * FLIP_FADE_FROM}deg)`, opacity: 1, offset: FLIP_FADE_FROM },
-        { transform: `rotateX(${FLIP_ANGLE_DEG}deg)`, opacity: 0 }
-      ], options),
-      playIntro(state, cover.querySelector('.book-cover-face'), swap('visible', 'hidden'), options),
-      playIntro(state, cover.querySelector('.book-cover-back'), swap('hidden', 'visible'), options)
+      playIntro(state, cover, FLIP_KEYFRAMES, options),
+      playIntro(state, cover.querySelector('.book-cover-back'), FLIP_BACK_FADE_KEYFRAMES, options)
     ]);
     if (!state.aborted) {
       openShell(shell);
@@ -1101,9 +1099,8 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     const cover = getElementById('book-cover');
     const grid = getElementById('artifacts-grid');
     /** @type {IntroState} */
-    const state = { aborted: false, animations: new Set(), mobile: isMobile() };
+    const state = { aborted: false, animations: new Set() };
 
-    introMobile = state.mobile;
     abortIntro = () => {
       state.aborted = true;
       state.animations.forEach((animation) => animation.cancel());
@@ -1119,7 +1116,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
       if (prefersReducedMotion()) {
         await playCrossfadeIntro(state, shell, sheet);
-      } else if (state.mobile) {
+      } else if (isMobile()) {
         await playFlipIntro(state, shell, cover);
       } else {
         await playSwingIntro(state, shell, sheet, cover, grid);
@@ -1153,15 +1150,13 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     return introPromise;
   }
 
-  /** A resize across the mobile breakpoint ends whatever is animating in the old layout. */
-  function onResize() {
-    if (active && active.mobile !== isMobile()) {
+  /** Crossing the notepad breakpoint ends whatever is animating in the old layout. */
+  function onLayoutChange() {
+    if (active) {
       settle();
     }
 
-    if (abortIntro && introMobile !== isMobile()) {
-      abortIntro();
-    }
+    abortIntro?.();
   }
 
   const sheetElement = getElementById('book-sheet');
@@ -1169,7 +1164,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     sheetElement.addEventListener('pointerdown', onPointerDown);
   }
 
-  windowObj.addEventListener('resize', onResize);
+  notepadQuery.addEventListener?.('change', onLayoutChange);
 
   return {
     startIntro,
