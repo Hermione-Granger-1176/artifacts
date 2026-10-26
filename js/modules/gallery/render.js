@@ -153,6 +153,7 @@ function buildSnippetList(items, className, emptyValue = '') {
     </div>
   `;
 }
+
 /** A dropdown with more options than this gets a search box above its list. */
 const FILTER_SEARCH_FROM = 8;
 

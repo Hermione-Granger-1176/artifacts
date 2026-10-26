@@ -421,10 +421,17 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     const tab = /** @type {HTMLElement | null} */ (
       target?.closest('.desk-note') || target?.closest('.filter-option') || target?.closest('.filter-panel-clear') || null
     );
-    if (!tab) {
-      return;
+    if (tab) {
+      applyFilterTab(tab);
     }
+  }
 
+  /**
+   * Toggle the filter a desk note, dropdown option, or Clear button stands for, and re-render
+   * from the first page.
+   * @param {HTMLElement} tab - The filter control that was pressed.
+   */
+  function applyFilterTab(tab) {
     /** @type {Array<[string, string | undefined]>} */
     const filterDatasetEntries = [
       ['filterNote', tab.dataset.filterNote],
