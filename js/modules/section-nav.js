@@ -1,7 +1,8 @@
 /* Sticky section-progress nav: numbered nodes, a progress fill, and a scroll
- * spy. An IntersectionObserver tracks which sections are on screen and the
- * active one is chosen by position, so short headings and tall cards coexist.
- * Styled by the shared .section-nav rules. */
+ * spy. One scroll-progress number drives the active node, the label, and the
+ * fill, so they always agree. Styled by the shared .section-nav rules. */
+
+import { createFrameScheduler } from "./frame-scheduler.js";
 
 /**
  * @typedef {{ id: string, label: string }} NavSection
@@ -73,17 +74,67 @@ function discoverSections() {
 }
 
 /**
+ * Scroll offsets at which each section becomes the active one: when its top
+ * reaches the scanline. Sections the page cannot scroll that far split the
+ * last stretch of scrolling into equal shares, the final section included, so
+ * it becomes active before the bottom and stays active down to it.
+ * @param {number[]} tops - Section tops in document coordinates, in order.
+ * @param {number} scanline - Distance of the scanline below the viewport top.
+ * @param {number} end - Deepest scroll offset the page reaches.
+ * @returns {number[]} Non-decreasing offsets, one per section.
+ */
+export function sectionAnchors(tops, scanline, end) {
+  /** @type {number[]} */
+  const anchors = [];
+  for (const top of tops) {
+    anchors.push(Math.max(anchors.at(-1) ?? 0, top - scanline));
+  }
+  const firstUnreachable = Math.max(1, anchors.findIndex((anchor) => anchor >= end));
+  if (anchors.length > 1 && anchors[anchors.length - 1] >= end) {
+    const from = Math.min(anchors[firstUnreachable - 1], end);
+    const steps = anchors.length - firstUnreachable + 1;
+    for (let index = firstUnreachable; index < anchors.length; index += 1) {
+      anchors[index] = from + ((end - from) * (index - firstUnreachable + 1)) / steps;
+    }
+  }
+  return anchors;
+}
+
+/**
+ * Where a scroll offset sits between the section anchors, from 0 at the first
+ * section to `anchors.length - 1` at the last. The whole part is the active
+ * section and the fraction is how far the reader is towards the next one.
+ * @param {number[]} anchors - Offsets from sectionAnchors.
+ * @param {number} scrollY - Current scroll offset.
+ * @returns {number}
+ */
+export function scrollProgress(anchors, scrollY) {
+  for (let index = 1; index < anchors.length; index += 1) {
+    if (scrollY < anchors[index]) {
+      const start = anchors[index - 1];
+      return index - 1 + Math.max(0, scrollY - start) / (anchors[index] - start);
+    }
+  }
+  return Math.max(0, anchors.length - 1);
+}
+
+/**
  * Build one numbered node per section inside the nodes container and keep the
- * fill width, node states, and label in sync with the section in view.
+ * fill, node states, and label in sync with the reader's scroll position.
  * Anchor ids default to the kebab-case markup used by newer apps.
  *
+ * Section positions are measured only when the layout changes (load, resize,
+ * content growing or shrinking); a scroll frame just maps scrollY onto them,
+ * so scrolling never forces a layout.
+ *
  * @param {NavSection[]} [explicitSections] - Optional fixed list; when omitted,
- *   sections are discovered from elements carrying data-nav-label.
+ *   sections are discovered from elements carrying data-nav-label. Sections
+ *   missing from the page get no node.
  * @param {{ nodesId?: string, fillId?: string, labelId?: string }} [anchors]
  * @returns {void}
  */
 export function initSectionNav(explicitSections, anchors = {}) {
-  const sections = explicitSections ?? discoverSections();
+  const sections = (explicitSections ?? discoverSections()).filter((section) => document.getElementById(section.id));
   const { nodesId = "nav-nodes", fillId = "nav-fill", labelId = "nav-label" } = anchors;
   const nodesWrap = document.getElementById(nodesId);
   const fill = document.getElementById(fillId);
@@ -93,6 +144,7 @@ export function initSectionNav(explicitSections, anchors = {}) {
   }
   const fillEl = fill;
   const labelEl = label;
+  const targets = sections.map((section) => /** @type {HTMLElement} */ (document.getElementById(section.id)));
 
   const nodeButtons = sections.map((section, index) => {
     const node = document.createElement("button");
@@ -112,102 +164,53 @@ export function initSectionNav(explicitSections, anchors = {}) {
     return node;
   });
 
-  /** @param {number} activeIndex - Index of the currently active section. */
-  function updateNav(activeIndex) {
+  /** @type {number[]} */
+  let sectionOffsets = [];
+  let drawnIndex = -1;
+  let drawnScale = "";
+
+  // Read every section's top once per layout.
+  function measure() {
+    const scrollY = window.scrollY || 0;
+    const viewportHeight = window.innerHeight || 0;
+    const tops = targets.map((target) => target.getBoundingClientRect().top + scrollY);
+    const end = document.documentElement.scrollHeight - viewportHeight - 1;
+    sectionOffsets = sectionAnchors(tops, viewportHeight * 0.35, end);
+  }
+
+  // The fill spans node center to node center, so a progress of k / (n - 1)
+  // ends exactly on node k. Node classes and the label change only when the
+  // active section does.
+  function draw() {
+    const progress = scrollProgress(sectionOffsets, window.scrollY || 0);
+    const scale = `${sections.length > 1 ? progress / (sections.length - 1) : 0} 1`;
+    if (scale !== drawnScale) {
+      drawnScale = scale;
+      fillEl.style.scale = scale;
+    }
+    const activeIndex = Math.floor(progress);
+    if (activeIndex === drawnIndex) {
+      return;
+    }
+    drawnIndex = activeIndex;
     nodeButtons.forEach((node, index) => {
       node.classList.toggle("done", index < activeIndex);
       node.classList.toggle("active", index === activeIndex);
     });
-    const percent = sections.length > 1 ? (activeIndex / (sections.length - 1)) * 100 : 0;
-    fillEl.style.width = `${percent}%`;
     labelEl.textContent = sections[activeIndex].label;
   }
 
-  updateNav(0);
-
-  if (typeof IntersectionObserver !== "function") {
-    return;
-  }
-
-  /** @type {{ index: number, target: Element }[]} */
-  const observed = [];
-  /** @type {Map<Element, number>} */
-  const observedByTarget = new Map();
-  sections.forEach((section, index) => {
-    const target = document.getElementById(section.id);
-    if (target) {
-      observed.push({ index, target });
-      observedByTarget.set(target, index);
-    }
+  const scheduleDraw = createFrameScheduler(draw);
+  const scheduleMeasure = createFrameScheduler(() => {
+    measure();
+    draw();
   });
 
-  /** @type {Set<number>} */
-  const visible = new Set();
-
-  // Activate the last on-screen section whose top has passed a scanline near
-  // the top of the viewport, falling back to the first on-screen section. A
-  // single "last section to cross a visibility threshold wins" rule misses
-  // click-jumps to sections that are already partially visible (no threshold
-  // fires, so the nav never advances) and lets a short heading beat the tall
-  // card the reader is actually looking at. At the bottom of the page the
-  // scanline can no longer reach the final section's top, so the deepest
-  // on-screen section wins there instead.
-  function selectActive() {
-    if (visible.size === 0) {
-      return;
-    }
-    const viewportHeight = window.innerHeight || 0;
-    const scanline = viewportHeight * 0.35;
-    let candidate = -1;
-    let firstVisible = -1;
-    let lastVisible = -1;
-    for (const { index, target } of observed) {
-      if (!visible.has(index)) {
-        continue;
-      }
-      if (firstVisible === -1) {
-        firstVisible = index;
-      }
-      lastVisible = index;
-      if (target.getBoundingClientRect().top <= scanline) {
-        candidate = index;
-      }
-    }
-    const doc = document.documentElement;
-    const scrollable = doc ? doc.scrollHeight > viewportHeight + 2 : false;
-    const atBottom = doc && (window.scrollY || 0) + viewportHeight >= doc.scrollHeight - 2;
-    if (scrollable && atBottom) {
-      updateNav(lastVisible);
-      return;
-    }
-    updateNav(candidate === -1 ? firstVisible : candidate);
+  measure();
+  draw();
+  window.addEventListener("scroll", scheduleDraw, { passive: true });
+  window.addEventListener("resize", scheduleMeasure, { passive: true });
+  if (typeof ResizeObserver === "function") {
+    new ResizeObserver(scheduleMeasure).observe(document.body);
   }
-
-  const observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        const index = observedByTarget.get(entry.target);
-        if (index === undefined) {
-          continue;
-        }
-        if (entry.isIntersecting) {
-          visible.add(index);
-        } else {
-          visible.delete(index);
-        }
-      }
-      selectActive();
-    },
-    { threshold: 0 }
-  );
-
-  for (const { target } of observed) {
-    observer.observe(target);
-  }
-
-  // Scroll and resize re-run the position check because the observer only
-  // fires on enter/leave; the scanline can cross section tops between those
-  // events, and layout changes move them without any scrolling.
-  window.addEventListener("scroll", selectActive, { passive: true });
-  window.addEventListener("resize", selectActive, { passive: true });
 }

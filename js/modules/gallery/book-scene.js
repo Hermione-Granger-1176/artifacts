@@ -16,6 +16,8 @@ const CORNER_ZONE_PX = 72;
 const TAP_SLOP_PX = 5;
 const DRAG_COMPLETE_THRESHOLD = 0.45;
 const COVER_EASING = 'cubic-bezier(0.45, 0, 0.25, 1)';
+// Where the shadow's mask edge ends up (see .book-shadow in 02-gallery.css).
+const SHADOW_EDGE_OPEN = '-12%';
 
 /**
  * @typedef {{ left: HTMLElement | null, right: HTMLElement | null }} PageFaces
@@ -916,10 +918,11 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     ], options);
     alongside(sheet, [{ transform: 'translateX(-25%)' }, { transform: 'translateX(0)' }], options);
     // The shadow trails the cover's footprint, so it never shows past its edge.
+    // Its box stays put and only its mask edge moves, which costs no layout.
     alongside(sheet.querySelector('.book-shadow'), [
-      { left: '50%' },
-      { left: '50%', offset: 0.5 },
-      { left: '-6px' }
+      { '--shadow-edge': '50%' },
+      { '--shadow-edge': '50%', offset: 0.5 },
+      { '--shadow-edge': SHADOW_EDGE_OPEN }
     ], options);
     alongside(sheet.querySelector('.book-cast-right'), [
       { opacity: 0 },

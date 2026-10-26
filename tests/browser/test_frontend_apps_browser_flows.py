@@ -53,11 +53,16 @@ def test_loan_amortization_flow_covers_theme_and_schedule(app_browser: AppBrowse
         assert inputs_box["x"] + inputs_box["width"] <= results_box["x"]
         assert abs(inputs_box["y"] - results_box["y"]) < 1
 
-        expect(page.locator("#biweeklyMode")).to_be_hidden()
-        page.locator("#selFreq").select_option("biweekly")
+        # The method panel keeps its place for every cadence and is only disabled.
         expect(page.locator("#biweeklyMode")).to_be_visible()
+        expect(page.locator("#biweeklyMode")).to_have_class("biweekly-mode is-inactive")
+        expect(page.locator("#bwAccel")).to_be_disabled()
+        page.locator("#selFreq").select_option("biweekly")
+        expect(page.locator("#biweeklyMode")).to_have_class("biweekly-mode")
+        expect(page.locator("#bwAccel")).to_be_enabled()
         page.locator("#selFreq").select_option("monthly")
-        expect(page.locator("#biweeklyMode")).to_be_hidden()
+        expect(page.locator("#biweeklyMode")).to_have_class("biweekly-mode is-inactive")
+        expect(page.locator("#bwAccel")).to_be_disabled()
 
         expect(page.locator(".extra-empty")).to_be_visible()
 
@@ -168,7 +173,7 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(app_browser: AppBrows
         assert len(control_heights) == 1, control_heights
 
         # The completion blank rides inline at the end of the prompt line.
-        last_chip = _box(page, ".tk-prompt .prompt-chip >> nth=-1")
+        last_chip = _box(page, ".tk-prompt-live .prompt-chip >> nth=-1")
         blank = _box(page, "#sentence-completion")
         assert abs(last_chip["y"] - blank["y"]) <= 2
         assert blank["x"] >= last_chip["x"] + last_chip["width"]
@@ -249,7 +254,9 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(app_browser: AppBrows
         expect(
             page.locator("#token-examples .token-chip").filter(has_text="·").first
         ).to_be_visible()
-        expect(page.locator(".tk-prompt .prompt-chip").filter(has_text="·").first).to_be_visible()
+        expect(
+            page.locator(".tk-prompt-live .prompt-chip").filter(has_text="·").first
+        ).to_be_visible()
 
         page.locator(".card-trigger").first.click()
         expect(page.locator(".card").first).to_have_class(re.compile(r"\bopen\b"))
@@ -460,7 +467,9 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         expect(page.locator("#vdBatchOptions")).to_be_hidden()
         expect(page.locator("#vdBatchStop")).to_be_hidden()
         expect(page.locator("#vdFormatJson")).to_be_hidden()
-        expect(page.locator("#vdPairLabel")).to_be_hidden()
+        # The pair option keeps its row, dimmed, until a scan and a PNG give it a use.
+        expect(page.locator("#vdPairLabel")).to_be_visible()
+        expect(page.locator("#vdPair")).to_be_disabled()
 
         # The three label switches are one ladder, and it opens on JSON.
         expect(page.locator('#vdLabels [data-labels="json"]')).to_have_class("active")
@@ -470,7 +479,7 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         # Checked at several depths rather than one, because a sticky item can
         # only travel as far as its own grid area and a single sample would
         # pass just as well against an element that had already let go.
-        for depth in (150, 300):
+        for depth in (200, 300):
             page.evaluate(f"window.scrollTo(0, {depth})")
             page.wait_for_timeout(150)
             pinned = page.evaluate(
@@ -643,7 +652,8 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         assert len(image_pdf) > len(text_pdf)
 
         page.locator('#vdFormat [data-format="png"]').click()
-        expect(page.locator("#vdPdfModeField")).to_be_hidden()
+        # The PDF type stays in place but is dimmed: a PNG has none to choose.
+        expect(page.locator("#vdPdfMode button").first).to_be_disabled()
         png = download_all("#vdExport", expected=2)["png"]
         assert png.startswith(b"\x89PNG\r\n\x1a\n"), png[:8]
 

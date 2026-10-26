@@ -13,6 +13,7 @@ import {
 } from "./modules/extras.js";
 import { formatCurrency, formatDollarTick, parseNumber } from "../../../js/modules/formatting.js";
 import { createFrameScheduler } from "../../../js/modules/frame-scheduler.js";
+import { setText } from "../../../js/modules/dom-sync.js";
 import { renderMetrics } from "./modules/metrics.js";
 import {
   getBiweeklyEmiOverride,
@@ -58,6 +59,20 @@ let extras = [];
 let nextExtraId = 0;
 let charts = {};
 let bwMode = "true";
+/**
+ * The base schedule (no extras) depends only on the loan terms, so it is kept
+ * until they change. Typing in an extra-payment field reuses it.
+ * @type {{ key: string, base: ReturnType<typeof runSchedule> } | null}
+ */
+let baseSchedule = null;
+/**
+ * Inputs of the latest calculation, kept so a view that was hidden can be drawn
+ * when it is shown.
+ * @type {{ extra: ReturnType<typeof runSchedule>, base: ReturnType<typeof runSchedule>, principal: number, savings: number, label: string, periodsPerYear: number } | null}
+ */
+let latest = null;
+/** Table bodies behind the latest calculation. Only the visible table is redrawn. */
+const staleTables = { period: true, yearly: true };
 
 const scheduleRecalc = createFrameScheduler(() => recalc());
 
@@ -112,10 +127,11 @@ function bindLoanEvents() {
     onExtraListInput: handleExtraListInput,
     onViewModeChange: (mode) => {
       setViewMode(elements, mode);
-      recalc();
+      renderResults({ syncAll: true });
     },
     onTableModeChange: (mode) => {
       setTableMode(elements, mode);
+      renderResults();
     },
     parseNumber
   });
@@ -209,12 +225,11 @@ function handleExtraListInput(event) {
     input.closest(".extra-item")?.querySelector(".extra-summary") ?? null
   );
   if (extra && summaryNode) {
-    summaryNode.textContent = summarizeExtra(extra, getPeriodLabel());
+    setText(summaryNode, summarizeExtra(extra, getPeriodLabel()));
   }
 
-  recalc();
+  scheduleRecalc();
 }
-
 
 function recalc() {
   const principal = +elements.slPrincipal.value;
@@ -232,10 +247,17 @@ function recalc() {
     bwMode
   });
 
-  const base = runSchedule(principal, ratePerPeriod, totalPeriods, {
-    withExtras: false,
-    emiOverride
-  });
+  const baseKey = [principal, annualRate, years, selectedFrequency, bwMode].join("|");
+  if (baseSchedule?.key !== baseKey) {
+    baseSchedule = {
+      key: baseKey,
+      base: runSchedule(principal, ratePerPeriod, totalPeriods, {
+        withExtras: false,
+        emiOverride
+      })
+    };
+  }
+  const { base } = baseSchedule;
   const extra = runSchedule(principal, ratePerPeriod, totalPeriods, {
     withExtras: true,
     emiOverride,
@@ -262,6 +284,33 @@ function recalc() {
     formatCurrency
   );
 
+  latest = {
+    base,
+    extra,
+    principal,
+    savings,
+    label: frequency.label,
+    periodsPerYear: frequency.periodsPerYear
+  };
+  staleTables.period = true;
+  staleTables.yearly = true;
+  renderResults();
+}
+
+/**
+ * Draw the visible results view from the latest calculation: the charts, or
+ * the summary and only the visible table. The hidden view is redrawn when it
+ * is shown.
+ *
+ * @param {{ syncAll?: boolean }} [options] - `syncAll` also redraws charts that are off screen.
+ * @returns {void}
+ */
+function renderResults({ syncAll = false } = {}) {
+  if (!latest) {
+    return;
+  }
+
+  const { base, extra, principal, savings, label, periodsPerYear } = latest;
   if (!elements.chartsWrap.hidden) {
     charts = renderCharts({
       charts,
@@ -270,32 +319,34 @@ function recalc() {
       extra,
       principal,
       interestSaved: savings,
-      periodLabel: frequency.label,
+      periodLabel: label,
       formatCurrency,
-      formatDollarTick
+      formatDollarTick,
+      syncAll
     });
+    return;
   }
 
   const { totalEmi, totalPrincipal, totalInterest, totalExtras } = summarizeScheduleRows(
     extra.rows
   );
+  renderTableSummary(elements.tableSummary, {
+    totalEmi: formatCurrency(totalEmi),
+    totalPrincipal: formatCurrency(totalPrincipal),
+    totalInterest: formatCurrency(totalInterest),
+    totalExtras: totalExtras > 0 ? formatCurrency(totalExtras) : "-",
+    periods: String(extra.periods)
+  });
 
-  if (!elements.tableWrap.hidden) {
-    renderTableSummary(elements.tableSummary, {
-      totalEmi: formatCurrency(totalEmi),
-      totalPrincipal: formatCurrency(totalPrincipal),
-      totalInterest: formatCurrency(totalInterest),
-      totalExtras: totalExtras > 0 ? formatCurrency(totalExtras) : "-",
-      periods: String(extra.periods)
-    });
-
-    renderPeriodTable(elements.tbody, extra.rows, formatCurrency);
-    renderYearlyTable(
-      elements.ybody,
-      extra.rows,
-      principal,
-      frequency.periodsPerYear,
-      formatCurrency
-    );
+  const mode = elements.periodTableWrap.hidden ? "yearly" : "period";
+  if (!staleTables[mode]) {
+    return;
   }
+
+  if (mode === "period") {
+    renderPeriodTable(elements.tbody, extra.rows, formatCurrency);
+  } else {
+    renderYearlyTable(elements.ybody, extra.rows, principal, periodsPerYear, formatCurrency);
+  }
+  staleTables[mode] = false;
 }

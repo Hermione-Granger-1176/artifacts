@@ -11,6 +11,7 @@
 
 import { initializeMatureApp } from "../../../js/modules/app-runtime.js";
 import { initAppShell, renderAppShell } from "../../../js/modules/app-shell.js";
+import { setMeterValue } from "../../../js/modules/meter.js";
 import { initSegmented } from "../../../js/modules/segmented.js";
 
 import { collectBoxes, transformBoxes } from "./modules/annotate-boxes.js";
@@ -193,6 +194,20 @@ function fillSelect(select, entries) {
   }
 }
 
+/**
+ * Set an element's tooltip, or remove it when there is nothing to explain.
+ * @param {HTMLElement} element - Element to label.
+ * @param {string} text - Tooltip text, or an empty string to clear it.
+ * @returns {void}
+ */
+function setTitle(element, text) {
+  if (text) {
+    element.setAttribute("title", text);
+  } else {
+    element.removeAttribute("title");
+  }
+}
+
 initializeMatureApp({
   run: ({ runtime }) => {
     initAppShell();
@@ -206,6 +221,7 @@ initializeMatureApp({
     const formatJsonButton = buttonById("vdFormatJson");
     const downloadJsonButton = buttonById("vdDownloadJson");
     const pdfModeField = byId("vdPdfModeField");
+    const pdfModeToggle = byId("vdPdfMode");
     const labelsNote = byId("vdLabelsNote");
     const estimate = byId("vdEstimate");
     const degradeNote = byId("vdDegradeNote");
@@ -228,6 +244,7 @@ initializeMatureApp({
     const progressFill = byId("vdProgressFill");
     const batchStatus = byId("vdBatchStatus");
     const exportButton = buttonById("vdExport");
+    const batchStopButton = buttonById("vdBatchStop");
 
     const state = {
       docTypeId: DOCUMENT_TYPES[0].id,
@@ -248,6 +265,9 @@ initializeMatureApp({
 
     /** @type {ReturnType<typeof buildDocument>} */
     let currentModel;
+
+    /** Whether a batch is in flight, which is when the stop button is live. */
+    let batchRunning = false;
 
     /**
      * The three switches the Labels ladder stands for.
@@ -296,13 +316,13 @@ initializeMatureApp({
     }
 
     /**
-     * Set the status line, and hide it while it has nothing to say.
+     * Set the status line. An empty one keeps its row (see the footer rules in
+     * app.css), so a message arriving does not move the export button.
      * @param {string} text - Message, or an empty string to clear it.
      * @returns {void}
      */
     function setStatus(text) {
       batchStatus.textContent = text;
-      batchStatus.hidden = text === "";
     }
 
     /** @type {{ input: HTMLInputElement, key: string, output: HTMLElement, unit: string }[]} */
@@ -387,7 +407,7 @@ initializeMatureApp({
       state.format = /** @type {import("./modules/exporters.js").BatchFormat} */ (format);
       syncOutput();
     });
-    const pdfModeSegment = wireSegment(byId("vdPdfMode"), "data-pdf-mode", (pdfMode) => {
+    const pdfModeSegment = wireSegment(pdfModeToggle, "data-pdf-mode", (pdfMode) => {
       state.pdfMode = /** @type {import("./modules/exporters.js").PdfMode} */ (pdfMode);
       syncOutput();
     });
@@ -425,6 +445,9 @@ initializeMatureApp({
       }
     }
 
+    /** How many tasks are running with the zoom pinned to 1; see `atActualSize`. */
+    let pinnedAtActualSize = 0;
+
     /**
      * Scale the preview so the whole page fits the frame in both directions.
      *
@@ -435,7 +458,9 @@ initializeMatureApp({
      * @returns {void}
      */
     function syncFitScale() {
-      if (fullscreen.open) {
+      // The overlay owns the zoom while it is open, and so does an export, which
+      // needs the page at actual size however the frame resizes meanwhile.
+      if (fullscreen.open || pinnedAtActualSize > 0) {
         return;
       }
 
@@ -520,11 +545,13 @@ initializeMatureApp({
      * @returns {Promise<T>} Whatever the task resolves to.
      */
     async function atActualSize(task) {
+      pinnedAtActualSize += 1;
       paperScale.style.setProperty("--vd-zoom", "1");
 
       try {
         return await task();
       } finally {
+        pinnedAtActualSize -= 1;
         syncFitScale();
       }
     }
@@ -697,12 +724,25 @@ initializeMatureApp({
       batchOptions.hidden = !batch;
       formatJsonButton.hidden = !batch;
       downloadJsonButton.hidden = batch;
+      syncStopButton();
       // None is the first rung, and the one a JSON batch cannot stand on.
       labelsSegment.buttons[0].disabled = state.format === "json";
-      pdfModeField.hidden = !writesPdf();
+      // The PDF type and the pair option are dimmed rather than hidden when they
+      // do not apply, so the rows under them stay where they were.
+      const pdfApplies = writesPdf();
+      pdfModeToggle.classList.toggle("is-disabled", !pdfApplies);
+      setTitle(pdfModeField, pdfApplies ? "" : "The PDF type only applies when the format includes a PDF.");
+
+      for (const button of pdfModeSegment.buttons) {
+        button.disabled = !pdfApplies;
+      }
+
       // Pair mode writes the clean original beside a degraded PNG, so it means
       // nothing for a clean page or an export with no PNG in it.
-      pairLabel.hidden = !degraded || !writesPng();
+      const pairApplies = degraded && writesPng();
+      pairLabel.classList.toggle("is-disabled", !pairApplies);
+      pairToggle.disabled = !pairApplies;
+      setTitle(pairLabel, pairApplies ? "" : "Pairing needs a scan preset and a PNG in the format.");
       labelsNote.textContent = labelsNoteText();
 
       const perCombination = Number(batchCount.value);
@@ -734,17 +774,28 @@ initializeMatureApp({
     }
 
     /**
+     * Place the stop button: live during a run, an invisible placeholder while a
+     * batch is selected (so starting one does not move anything), and gone in
+     * page mode. A run keeps it even if the scope is switched back mid-run.
+     * @returns {void}
+     */
+    function syncStopButton() {
+      batchStopButton.hidden = state.mode !== "batch" && !batchRunning;
+      batchStopButton.classList.toggle("is-idle", !batchRunning);
+    }
+
+    /**
      * Move the batch progress meter.
      * @param {number} fraction - Completion between 0 and 1.
      * @returns {void}
      */
     function setProgress(fraction) {
       const percent = Math.round(Math.min(1, Math.max(0, fraction)) * 100);
-      progressFill.style.width = `${percent}%`;
+      setMeterValue(progressFill, percent / 100);
       progress.setAttribute("aria-valuenow", String(percent));
-      // An empty track is just a grey slab sitting above the button, so the
-      // meter only exists while there is progress to report.
-      progress.hidden = false;
+      // An empty track is just a grey slab above the button, so the meter
+      // stays invisible (but keeps its row) until there is progress to report.
+      progress.classList.remove("is-idle");
     }
 
     vendorSelect.addEventListener("change", () => {
@@ -761,7 +812,12 @@ initializeMatureApp({
     // Also fires for the Escape key, which is the dialog's own affordance.
     fullscreen.addEventListener("close", closeFullscreen);
 
-    window.addEventListener("resize", syncFitScale, { passive: true });
+    // The frame is what the page is fitted to, so it is what gets watched: a
+    // window resize, a rotated phone, and a panel that changes the layout around
+    // the frame all land here, where a window listener would see only the first.
+    // It also reports once on observe(), before the first paint, so the page is
+    // never shown at the wrong size.
+    new ResizeObserver(() => syncFitScale()).observe(paperFrame);
 
     buttonById("vdGenerate").addEventListener("click", () => {
       state.seed = rollSeed();
@@ -841,7 +897,6 @@ initializeMatureApp({
       );
     });
 
-    const batchStopButton = buttonById("vdBatchStop");
     // Read by `runBatch` between documents. A plain flag rather than an
     // AbortController because there is nothing to abort: the run is a loop, and
     // stopping it means finishing the archive early rather than discarding it.
@@ -860,7 +915,8 @@ initializeMatureApp({
     async function exportBatch() {
       stopRequested = false;
       batchStopButton.disabled = false;
-      batchStopButton.hidden = false;
+      batchRunning = true;
+      syncStopButton();
 
       const scope = includeScope();
       const plan = planBatch({
@@ -921,8 +977,9 @@ initializeMatureApp({
           );
         }
       } finally {
-        batchStopButton.hidden = true;
-        progress.hidden = true;
+        batchRunning = false;
+        syncStopButton();
+        progress.classList.add("is-idle");
         draw();
       }
     }

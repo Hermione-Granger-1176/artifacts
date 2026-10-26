@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { cleanupMocks } from '../../common/app-entry-test-support.js';
 
-import { choose, fire, flush, setupAppMocks } from './app-test-support.js';
+import { choose, cleanupAppMocks, fire, flush, setupAppMocks } from './app-test-support.js';
 
 /**
  * The names of everything a click hands to the browser as a download.
@@ -54,7 +54,24 @@ async function waitForBatch(button, maxTicks = 500) {
 // bootstrap and split its coverage across cache-busted URLs; driving the whole
 // workbench inside a single test keeps the run honest.
 test('the vendor-docs-generator studio boots and drives every control', async () => {
-  const { canvas, dialog, elementMap, layoutButtons, pdf, zip } = setupAppMocks();
+  const { canvas, dialog, elementMap, layoutButtons, pdf, resizeObservers, zip } = setupAppMocks();
+  const { vdPair, vdPairLabel, vdPdfMode } = elementMap;
+
+  /** @returns {boolean} Whether the PDF type control is live rather than dimmed. */
+  const pdfModeApplies = () => {
+    const dimmed = vdPdfMode.classList.contains('is-disabled');
+    assert.ok(
+      vdPdfMode.children.every((button) => button.disabled === dimmed),
+      'the buttons are disabled exactly when the control is dimmed'
+    );
+    return !dimmed;
+  };
+
+  /** @returns {boolean} Whether the pair option is live rather than dimmed. */
+  const pairApplies = () => {
+    assert.equal(vdPair.disabled, vdPairLabel.classList.contains('is-disabled'));
+    return !vdPair.disabled;
+  };
 
   try {
     await import(`../../../../apps/vendor-docs-generator/js/app.js?t=${Date.now()}`);
@@ -80,11 +97,15 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     assert.equal(elementMap.vdBatchOptions.hidden, true);
     assert.equal(elementMap.vdFormatJson.hidden, true, 'JSON is a batch-only format');
     assert.equal(elementMap.vdDownloadJson.hidden, false);
-    assert.equal(elementMap.vdPairLabel.hidden, true, 'nothing to pair a clean page with');
-    assert.equal(elementMap.vdPdfModeField.hidden, false);
+    assert.equal(pairApplies(), false, 'nothing to pair a clean page with');
+    assert.equal(pdfModeApplies(), true);
     assert.equal(elementMap.vdExport.textContent, 'Download');
     assert.match(elementMap.vdEstimate.textContent, /^PDF \+ JSON, roughly \d+ KB\.$/);
-    assert.equal(elementMap.vdBatchStatus.hidden, true, 'the status line has nothing to say yet');
+    assert.equal(elementMap.vdBatchStatus.textContent, '', 'the status line has nothing to say yet');
+    assert.equal(elementMap.vdBatchStatus.hidden, false, 'but it keeps its row');
+    assert.ok(elementMap.vdProgress.classList.contains('is-idle'), 'the meter holds its row, unseen');
+    assert.equal(elementMap.vdProgress.hidden, false);
+    assert.equal(elementMap.vdBatchStop.hidden, true, 'no stop button in page mode');
 
     // ── Vendor and type selection ─────────────────────────────────────
     elementMap.vdVendor.value = 'verde';
@@ -144,7 +165,9 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
 
     // Exporting from the overlay must not drag the page back to the frame.
     choose(elementMap.vdFormat, 'data-format', 'png');
-    assert.equal(elementMap.vdPdfModeField.hidden, true, 'a PNG has no PDF type to choose');
+    assert.equal(pdfModeApplies(), false, 'a PNG has no PDF type to choose');
+    assert.equal(elementMap.vdPdfModeField.hidden, false, 'but the row stays put');
+    assert.match(elementMap.vdPdfModeField.getAttribute('title'), /only applies when the format includes a PDF/);
     fire(elementMap.vdExport, 'click');
     await flush();
     assert.equal(canvas.captures.length, 1);
@@ -160,7 +183,8 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     fire(elementMap.vdVendor, 'change');
 
     choose(elementMap.vdFormat, 'data-format', 'pdf');
-    assert.equal(elementMap.vdPdfModeField.hidden, false);
+    assert.equal(pdfModeApplies(), true);
+    assert.equal(elementMap.vdPdfModeField.getAttribute('title'), null, 'nothing to explain once it applies');
     const pdfFiles = await downloadsDuring(() => fire(elementMap.vdExport, 'click'));
     assert.equal(pdf.documents.length, 1, 'the text path builds exactly one PDF');
     assert.match(pdf.documents[0].saved, /^apex_invoice_\d+\.pdf$/);
@@ -194,7 +218,6 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     fire(elementMap.vdExport, 'click');
     await flush();
     assert.match(elementMap.vdBatchStatus.textContent, /jsPDF did not load/);
-    assert.equal(elementMap.vdBatchStatus.hidden, false, 'an error is shown, not swallowed');
     assert.equal(elementMap.vdExport.disabled, false, 'the button must not stay stuck');
     assert.equal(elementMap.vdExport.textContent, 'Download');
     globalThis.window.jspdf = realJsPdf;
@@ -233,16 +256,19 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     assert.equal(elementMap.vdDownloadJson.hidden, true, 'the single-page JSON button steps aside');
     assert.equal(elementMap.vdExport.textContent, 'Generate ZIP');
     assert.equal(elementMap.vdBatchStatus.textContent, 'One ZIP, foldered as vendor / type.');
-    assert.equal(elementMap.vdBatchStatus.hidden, false);
+    // The stop button holds an invisible slot under the primary button, so a
+    // run starting does not move anything.
+    assert.equal(elementMap.vdBatchStop.hidden, false);
+    assert.ok(elementMap.vdBatchStop.classList.contains('is-idle'));
 
     elementMap.vdBatchCount.value = '25';
     fire(elementMap.vdBatchCount, 'input');
     assert.equal(elementMap.vdBatchCountOut.textContent, '25');
     assert.match(elementMap.vdEstimate.textContent, /^25 documents, roughly /);
 
-    // An idle meter is an empty grey track above the button, so it stays out
-    // of the layout until there is progress to report.
-    assert.equal(elementMap.vdProgress.hidden, true, 'the meter starts hidden');
+    // An idle meter is an empty grey track above the button, so it stays
+    // invisible (in its row) until there is progress to report.
+    assert.ok(elementMap.vdProgress.classList.contains('is-idle'), 'the meter starts idle');
 
     elementMap.vdBatchCount.value = '2';
     const replacePaperChildren = elementMap.vdPaper.replaceChildren.bind(elementMap.vdPaper);
@@ -277,12 +303,12 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     assert.equal(JSON.parse(manifest[0]).vendor_id, 'apex');
     assert.equal(JSON.parse(manifest[0]).boxes, null, 'boxes are off by default');
     assert.match(elementMap.vdBatchStatus.textContent, /^Done\. 2 documents in [\d.]+s\.$/);
-    assert.equal(elementMap.vdProgress.hidden, true, 'and goes away again when done');
-    assert.equal(elementMap.vdProgressFill.style.width, '100%');
+    assert.ok(elementMap.vdProgress.classList.contains('is-idle'), 'and goes idle again when done');
+    assert.equal(elementMap.vdProgressFill.style.scale, '1 1');
     assert.equal(elementMap.vdProgress.getAttribute('aria-valuenow'), '100');
     assert.equal(elementMap.vdExport.disabled, false);
     assert.equal(elementMap.vdExport.textContent, 'Generate ZIP');
-    assert.equal(elementMap.vdBatchStop.hidden, true, 'the stop button goes away with the run');
+    assert.ok(elementMap.vdBatchStop.classList.contains('is-idle'), 'the stop button goes idle with the run');
 
     // A failed archive still restores the idle controls and the selected page.
     const realJsZip = globalThis.window.JSZip;
@@ -291,8 +317,8 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     fire(elementMap.vdExport, 'click');
     await waitForBatch(elementMap.vdExport);
     assert.match(elementMap.vdBatchStatus.textContent, /JSZip did not load/);
-    assert.equal(elementMap.vdBatchStop.hidden, true);
-    assert.equal(elementMap.vdProgress.hidden, true);
+    assert.ok(elementMap.vdBatchStop.classList.contains('is-idle'));
+    assert.ok(elementMap.vdProgress.classList.contains('is-idle'));
     assert.equal(elementMap.vdExport.disabled, false);
     assert.equal(elementMap.vdChipSeed.textContent, previewBeforeFailedBatch);
     globalThis.window.JSZip = realJsZip;
@@ -304,7 +330,7 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     elementMap.vdPaper.replaceChildren = (...nodes) => {
       paperRenderCount += 1;
       // Click Stop the way a person would: mid-run, once pages are appearing.
-      if (!stoppedAt && !elementMap.vdBatchStop.hidden && paperRenderCount % 2 === 0) {
+      if (!stoppedAt && !elementMap.vdBatchStop.classList.contains('is-idle') && paperRenderCount % 2 === 0) {
         stoppedAt = paperRenderCount;
         // Touching the panel mid-run re-syncs it, but the run owns the label.
         choose(elementMap.vdLabels, 'data-labels', 'json');
@@ -314,10 +340,10 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
       replacePaperChildren(...nodes);
     };
     fire(elementMap.vdExport, 'click');
-    assert.equal(elementMap.vdBatchStop.hidden, false, 'the stop button appears with the run');
+    assert.equal(elementMap.vdBatchStop.classList.contains('is-idle'), false, 'the stop button goes live with the run');
     await waitForBatch(elementMap.vdExport);
 
-    assert.equal(elementMap.vdBatchStop.hidden, true);
+    assert.ok(elementMap.vdBatchStop.classList.contains('is-idle'));
     assert.match(elementMap.vdBatchStatus.textContent, /^Stopped\. \d+ of 4 documents in [\d.]+s\.$/);
     assert.equal(elementMap.vdExport.textContent, 'Generate ZIP');
     const partial = [...zip.archives[archivesBeforeStop].files.keys()]
@@ -363,7 +389,7 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     choose(elementMap.vdInclude, 'data-include', 'combo');
 
     assert.equal(elementMap.vdKnobs.children.length, 9, 'a slider per exposed setting');
-    assert.equal(elementMap.vdPairLabel.hidden, true, 'nothing to pair a clean page with');
+    assert.equal(pairApplies(), false, 'nothing to pair a clean page with');
     assert.match(elementMap.vdDegradeNote.textContent, /No geometry, no grain/);
 
     choose(elementMap.vdDegradePreset, 'data-preset', 'copier');
@@ -372,11 +398,14 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     assert.match(elementMap.vdDegradeNote.textContent, /dust on the platen/);
     assert.match(elementMap.vdEstimate.textContent, /documents, roughly/);
     // Pair mode is offered once there is a scan to pair and a PNG to put it in.
-    assert.equal(elementMap.vdPairLabel.hidden, true, 'a PDF-only run has no PNG to pair');
+    assert.equal(pairApplies(), false, 'a PDF-only run has no PNG to pair');
+    assert.equal(elementMap.vdPairLabel.hidden, false, 'but the option keeps its row');
+    assert.match(elementMap.vdPairLabel.getAttribute('title'), /needs a scan preset and a PNG/);
     choose(elementMap.vdFormat, 'data-format', 'both');
-    assert.equal(elementMap.vdPairLabel.hidden, false);
+    assert.equal(pairApplies(), true);
+    assert.equal(elementMap.vdPairLabel.getAttribute('title'), null);
     choose(elementMap.vdFormat, 'data-format', 'pdf');
-    assert.equal(elementMap.vdPairLabel.hidden, true);
+    assert.equal(pairApplies(), false);
 
     // Touching a knob is what makes a run custom, so the sidecar never claims a
     // preset the page was not rendered under.
@@ -404,10 +433,11 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
 
     // ── A lossy preset writes a JPEG, and pair mode writes both ───────
     choose(elementMap.vdMode, 'data-mode', 'page');
-    assert.equal(elementMap.vdBatchStatus.hidden, true, 'the batch hint leaves with batch mode');
+    assert.equal(elementMap.vdBatchStatus.textContent, '', 'the batch hint leaves with batch mode');
+    assert.equal(elementMap.vdBatchStop.hidden, true, 'and so does the stop button slot');
     choose(elementMap.vdDegradePreset, 'data-preset', 'fax');
     choose(elementMap.vdFormat, 'data-format', 'png');
-    assert.equal(elementMap.vdPairLabel.hidden, false);
+    assert.equal(pairApplies(), true);
     elementMap.vdPair.checked = true;
     fire(elementMap.vdPair, 'change');
     assert.match(elementMap.vdEstimate.textContent, /^PNG \+ clean PNG \+ JSON, roughly /);
@@ -455,7 +485,7 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     choose(elementMap.vdFormat, 'data-format', 'json');
     assert.equal(activeValue(elementMap.vdLabels, 'data-labels'), 'json');
     assert.equal(elementMap.vdLabels.children[0].disabled, true, 'None is not an option for JSON');
-    assert.equal(elementMap.vdPdfModeField.hidden, true, 'JSON has no PDF type either');
+    assert.equal(pdfModeApplies(), false, 'JSON has no PDF type either');
     choose(elementMap.vdLabels, 'data-labels', 'fields');
 
     const archivesBeforeBoxedJson = zip.archives.length;
@@ -499,7 +529,52 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     assert.equal(elementMap.vdLabels.children[0].disabled, false, 'None is available again');
     assert.equal(elementMap.vdBatchOptions.hidden, true);
     assert.equal(elementMap.vdExport.textContent, 'Download');
+
+    // ── The frame is watched, not the window ──────────────────────────
+    assert.equal(resizeObservers.length, 1, 'one observer refits the preview');
+    const [observer] = resizeObservers;
+    assert.equal(observer.target, elementMap.vdPaperFrame);
+    const zoom = () => Number(elementMap.vdPaperScale.style.getPropertyValue('--vd-zoom'));
+
+    // A frame 400 by 600 leaves 368 by 568 inside its padding: width is the
+    // tighter fit, and the readout follows.
+    elementMap.vdPaperFrame.clientWidth = 400;
+    elementMap.vdPaperFrame.clientHeight = 600;
+    observer.callback([]);
+    assert.ok(Math.abs(zoom() - 368 / 794) < 1e-9, `fit to width, got ${zoom()}`);
+    assert.equal(elementMap.vdZoomLevel.textContent, '46%');
+
+    // Height is the tighter fit in a short frame.
+    elementMap.vdPaperFrame.clientHeight = 400;
+    observer.callback([]);
+    assert.ok(Math.abs(zoom() - 368 / 1123) < 1e-9, `fit to height, got ${zoom()}`);
+    elementMap.vdPaperFrame.clientHeight = 600;
+    observer.callback([]);
+
+    // The overlay owns the zoom while it is open.
+    fire(elementMap.vdFullOpen, 'click');
+    observer.callback([]);
+    assert.equal(zoom(), 1, 'a resize does not shrink the page in the overlay');
+    fire(elementMap.vdFullClose, 'click');
+    assert.ok(Math.abs(zoom() - 368 / 794) < 1e-9, 'and closing it refits');
+
+    // An export owns it too: a resize mid-capture must not bake a scale into
+    // the raster, and the fit comes back once the export is done.
+    choose(elementMap.vdFormat, 'data-format', 'png');
+    const zoomsDuringCapture = [];
+    const realHtml2Canvas = globalThis.window.html2canvas;
+    globalThis.window.html2canvas = (...args) => {
+      observer.callback([]);
+      zoomsDuringCapture.push(zoom());
+      return realHtml2Canvas(...args);
+    };
+    fire(elementMap.vdExport, 'click');
+    await flush();
+    globalThis.window.html2canvas = realHtml2Canvas;
+    assert.deepEqual(zoomsDuringCapture, [1], 'the capture ran at actual size');
+    assert.ok(Math.abs(zoom() - 368 / 794) < 1e-9, 'the fit returns after the export');
   } finally {
+    cleanupAppMocks();
     cleanupMocks();
   }
 });

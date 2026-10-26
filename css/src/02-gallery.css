@@ -10,6 +10,11 @@ html {
   scroll-behavior: smooth;
 }
 
+/* The gallery keeps the scrollbar's space reserved, so opening an overlay (which hides the bar) never shifts the page sideways. */
+html:has(body:not(.artifact-app)) {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -159,7 +164,7 @@ button {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 40%, var(--color-border-solid));
   background: color-mix(in srgb, var(--accent) 10%, var(--color-bg-card));
-  transform: rotate(18deg) scale(1.08);
+  transform: translateY(-1px);
 }
 
 .btn-icon[aria-pressed="true"] {
@@ -230,7 +235,7 @@ button {
 }
 
 .search-wrapper:focus-within {
-  transform: rotate(0deg) scale(1.02);
+  transform: rotate(0deg);
 }
 
 .search-icon {
@@ -271,10 +276,22 @@ button {
   font-size: 1.7rem;
   font-weight: 700;
   line-height: 1;
+  transition:
+    opacity var(--transition-fast) ease,
+    visibility var(--transition-fast) ease,
+    background var(--transition-fast) ease;
 }
 
 .search-clear:hover {
   background: color-mix(in srgb, var(--color-note-text) 12%, transparent);
+}
+
+/* With an empty box the clear button fades out but keeps its slot, so the input does not resize on the first keystroke. Hidden visibility also takes it out of the tab order and the accessibility tree. */
+.search-clear.hidden {
+  display: inline-block !important;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* The "/" shortcut, drawn as a small keycap. */
@@ -301,6 +318,11 @@ button {
   font-weight: 500;
   color: var(--color-search-count);
   text-align: right;
+}
+
+/* An empty note still holds its line, so it does not grow from nothing on the first keystroke. */
+.search-count::before {
+  content: '\200b';
 }
 
 .control-cluster,
@@ -337,7 +359,7 @@ button {
   font-size: 1.25rem;
   font-weight: 700;
   box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.12);
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.2s ease;
 }
 
 .sort-toggle {
@@ -388,7 +410,7 @@ button {
   visibility: hidden;
   pointer-events: none;
   transition:
-    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 0.2s ease,
     opacity 0.15s ease,
     visibility 0s linear 0.15s;
 }
@@ -398,7 +420,7 @@ button {
   visibility: visible;
   pointer-events: auto;
   transition:
-    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 0.2s ease,
     opacity 0.15s ease;
 }
 
@@ -423,7 +445,7 @@ button {
 }
 
 .btn-reset-link:hover,
-.page-btn:hover {
+.page-btn:not(:disabled):hover {
   transform: translateY(-2px);
 }
 
@@ -500,18 +522,50 @@ button {
   pointer-events: none;
 }
 
+/*
+ * The shadow always has the open book's box, so the intro never resizes it.
+ * A soft-edged mask hides its left part while the book is closed and the intro
+ * slides that edge outwards (a registered property, so it only repaints). Percentages
+ * are of the mask image, which is centred on the box, so 50% is the book's spine and
+ * -12% is past the left edge for every ramp width.
+ * The mask image reaches past the box on every side, so the blur is not cut off.
+ */
+@property --shadow-edge {
+  syntax: '<length-percentage>';
+  inherits: false;
+  initial-value: 50%;
+}
+
 .book-shadow {
+  --shadow-reach: 80px;
+  --shadow-ramp: calc(var(--book-shadow-blur) * 1.6);
+  --shadow-mask: linear-gradient(
+    90deg,
+    transparent calc(var(--shadow-edge) - var(--shadow-ramp)),
+    #000 calc(var(--shadow-edge) + var(--shadow-ramp))
+  );
+
   position: absolute;
   inset: var(--book-shadow-inset);
   z-index: -3;
   border-radius: 14px;
   background: var(--book-shadow-color);
   filter: blur(var(--book-shadow-blur));
+  -webkit-mask-image: var(--shadow-mask);
+  mask-image: var(--shadow-mask);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: calc(var(--shadow-reach) * -1) calc(var(--shadow-reach) * -1);
+  mask-position: calc(var(--shadow-reach) * -1) calc(var(--shadow-reach) * -1);
+  -webkit-mask-size: calc(100% + var(--shadow-reach) * 2) calc(100% + var(--shadow-reach) * 2);
+  mask-size: calc(100% + var(--shadow-reach) * 2) calc(100% + var(--shadow-reach) * 2);
+  -webkit-mask-clip: no-clip;
+  mask-clip: no-clip;
   pointer-events: none;
 }
 
-.book-shell:not(.is-open) .book-shadow {
-  left: 50%;
+.book-shell.is-open .book-shadow {
+  --shadow-edge: -12%;
 }
 
 /* Boards: the case shows as a rim around the open spread. */
@@ -594,6 +648,12 @@ button {
   bottom: 0;
   width: 50%;
   pointer-events: none;
+}
+
+.book-inner::before,
+.book-inner::after {
+  /* The edge stacks grow and shrink as the page turns instead of snapping. */
+  transition: box-shadow 0.35s ease;
 }
 
 .book-inner::before {
@@ -694,7 +754,7 @@ button {
   width: 22px;
   height: 22px;
   cursor: pointer;
-  transition: width 0.2s ease, height 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
 .book-peel-right {
@@ -702,6 +762,7 @@ button {
   border-top-left-radius: 6px;
   background: linear-gradient(315deg, transparent 50%, color-mix(in srgb, var(--color-page-paper) 86%, black) 50%);
   filter: drop-shadow(-2px -2px 3px rgba(0, 0, 0, 0.2));
+  transform-origin: bottom right;
 }
 
 .book-peel-left {
@@ -709,16 +770,12 @@ button {
   border-top-right-radius: 6px;
   background: linear-gradient(45deg, transparent 50%, color-mix(in srgb, var(--color-page-paper) 86%, black) 50%);
   filter: drop-shadow(2px -2px 3px rgba(0, 0, 0, 0.2));
+  transform-origin: bottom left;
 }
 
-.book-sheet:hover .book-peel {
-  width: 30px;
-  height: 30px;
-}
-
+/* Only the hovered corner grows, from 22px to 44px, and it scales from the page corner. */
 .book-sheet .book-peel:hover {
-  width: 44px;
-  height: 44px;
+  transform: scale(2);
 }
 
 .book-sheet[data-has-previous="false"] .book-peel-left,
@@ -1235,7 +1292,7 @@ button {
     2px 4px 6px rgba(0, 0, 0, 0.1),
     inset 0 0 20px rgba(0, 0, 0, 0.05);
   transform: rotate(var(--rotate, 0deg));
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   pointer-events: auto;
   display: flex;
   align-items: center;
@@ -1259,7 +1316,7 @@ button {
 .desk-note:hover {
   z-index: 100;
   opacity: 1;
-  transform: rotate(calc(var(--rotate, 0deg) * 0.5)) scale(1.05) translateY(-4px);
+  transform: rotate(var(--rotate, 0deg)) translateY(-4px);
   box-shadow:
     4px 8px 12px rgba(0, 0, 0, 0.15),
     inset 0 0 20px rgba(0, 0, 0, 0.05);
@@ -1268,7 +1325,10 @@ button {
 .desk-note.is-active {
   opacity: 1;
   z-index: 50;
-  border: 2px solid var(--color-text-primary);
+
+  /* An outline takes no space, so the note and its label stay put when it turns active. */
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: -2px;
   box-shadow:
     4px 8px 12px rgba(0, 0, 0, 0.15),
     inset 0 0 20px rgba(0, 0, 0, 0.05);
@@ -1409,7 +1469,7 @@ button {
   color: inherit;
   transform: rotate(var(--note-rotate));
   transform-origin: center top;
-  transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1), filter var(--transition-fast) ease;
+  transition: transform 0.24s ease, filter var(--transition-fast) ease;
   isolation: isolate;
 }
 
@@ -1436,8 +1496,15 @@ button {
 .artifact-card:hover,
 .artifact-card:focus-visible,
 .artifact-card.expanded {
-  transform: translateY(-8px) rotate(var(--note-hover-rotate));
+  transform: translateY(-4px) rotate(var(--note-hover-rotate));
   z-index: 2;
+}
+
+/* The card behind the open overlay stays flat on the page. */
+.artifact-card.expanded,
+.artifact-card.expanded:hover,
+.artifact-card.expanded:focus-visible {
+  transform: rotate(var(--note-rotate));
 }
 
 /* Attachment styles: washi tape, photo corners, or a paper clip, chosen per card. */
@@ -1642,10 +1709,18 @@ button {
   color: var(--color-pencil);
   font-size: 1.4rem;
   font-weight: 500;
+  transition:
+    transform 0.15s ease,
+    color 0.15s ease;
 }
 
 .page-ellipsis {
   color: var(--color-pencil-soft);
+}
+
+/* Holds the width of a second page tag while only one page exists, so the row keeps its shape. */
+.page-slot-empty {
+  visibility: hidden;
 }
 
 .page-btn-paper {
@@ -1734,10 +1809,7 @@ button {
   border-radius: 18px;
   background: var(--detail-accent, var(--color-page-paper));
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
-  transform:
-    translate(var(--detail-from-x, 0), var(--detail-from-y, 28px))
-    scaleX(var(--detail-from-scale-x, 0.84))
-    scaleY(var(--detail-from-scale-y, 0.84));
+  transform: translate(var(--detail-from-x, 0), var(--detail-from-y, 28px)) scale(var(--detail-from-scale, 0.84));
   transform-origin: center center;
   opacity: 0;
   transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
@@ -1761,6 +1833,9 @@ button {
   width: 100%;
   max-height: 50vh;
   object-fit: contain;
+
+  /* The thumbnail's shape is known, so the panel is the right height before the image arrives. */
+  aspect-ratio: var(--card-thumb-ratio);
 }
 
 .detail-media-placeholder {

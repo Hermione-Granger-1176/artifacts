@@ -60,6 +60,15 @@ body.app-loan-amortization .loan-charts {
   gap: var(--space-4);
 }
 
+/*
+ * The charts and the schedule differ a lot in height. Holding the view area at
+ * one viewport keeps the page long enough that switching views never clamps
+ * the scroll position of the toggle being pressed.
+ */
+body.app-loan-amortization .loan-view {
+  min-height: 100vh;
+}
+
 body.app-loan-amortization .loan-group + .loan-group {
   padding-top: var(--space-5);
   border-top: 1px solid var(--color-border);
@@ -129,7 +138,23 @@ body.app-loan-amortization .loan-field .range-input {
   margin: 0;
 }
 
-/* Bi-weekly method appears under the frequency select only when selected. */
+/*
+ * The bi-weekly method stays under the frequency select for every cadence and
+ * dims while another cadence is selected, so the controls below never move.
+ */
+
+body.app-loan-amortization .biweekly-mode .type-toggle {
+  transition: opacity var(--transition-fast) ease;
+}
+
+/* Only the disabled buttons dim; the copy keeps its contrast. */
+body.app-loan-amortization .biweekly-mode.is-inactive .type-toggle {
+  opacity: 0.5;
+}
+
+body.app-loan-amortization .biweekly-mode button:disabled {
+  cursor: default;
+}
 
 body.app-loan-amortization .control-copy {
   margin-bottom: var(--space-2);
@@ -137,7 +162,9 @@ body.app-loan-amortization .control-copy {
   font-size: var(--font-size-xs);
 }
 
+/* The longest description wraps to two lines, so every state reserves two. */
 body.app-loan-amortization .control-copy.is-small {
+  min-height: 2lh;
   margin: var(--space-1) 0 0;
   color: var(--color-text-tertiary);
   font-size: var(--font-size-2xs);
@@ -231,10 +258,6 @@ body.app-loan-amortization .extra-fields {
   gap: var(--space-2);
 }
 
-body.app-loan-amortization .extra-fields.is-onetime {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 body.app-loan-amortization .extra-field {
   display: flex;
   min-width: 0;
@@ -253,7 +276,9 @@ body.app-loan-amortization .extra-field input {
   font-size: var(--font-size-md);
 }
 
+/* Recurring and one-time summaries differ in length; two lines keep the row height. */
 body.app-loan-amortization .extra-summary {
+  min-height: 2lh;
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
@@ -286,6 +311,38 @@ body.app-loan-amortization .loan-hero {
   gap: var(--space-3) var(--space-5);
 }
 
+/*
+ * The savings chip owns a slot from the first paint. It fades in and out and
+ * keeps its last text while hidden, so nothing around it moves. Below 700px
+ * the slot takes its own row, whatever the chip says.
+ */
+
+body.app-loan-amortization .loan-hero-aside {
+  display: flex;
+  justify-content: flex-end;
+}
+
+body.app-loan-amortization .loan-hero-aside .chip {
+  transition:
+    opacity var(--transition-fast) ease,
+    visibility 0s linear 0s;
+}
+
+body.app-loan-amortization .loan-hero-aside .chip.is-empty {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--transition-fast) ease,
+    visibility 0s linear var(--transition-fast);
+}
+
+@media (max-width: 700px) {
+  body.app-loan-amortization .loan-hero-aside {
+    flex: 1 0 100%;
+    justify-content: flex-start;
+  }
+}
+
 body.app-loan-amortization .loan-hero-label {
   display: flex;
   align-items: center;
@@ -316,6 +373,11 @@ body.app-loan-amortization .loan-kpis {
 
 body.app-loan-amortization .loan-kpis .stat-value {
   font-size: 1.25rem;
+}
+
+/* Sub-lines change length with the inputs; two lines keep the tile height. */
+body.app-loan-amortization .loan-kpis .stat-sub {
+  min-height: 2lh;
 }
 
 /*
@@ -397,9 +459,10 @@ body.app-loan-amortization #tableToggle {
   margin-bottom: var(--space-3);
 }
 
+/* Equal tracks keep each tile's width when a value changes length. */
 body.app-loan-amortization .table-summary {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
   gap: var(--space-3);
   padding: var(--space-3) 0;
 }

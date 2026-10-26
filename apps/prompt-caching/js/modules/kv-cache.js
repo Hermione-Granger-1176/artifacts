@@ -1,13 +1,35 @@
 /* KV cache fill animation plus the no-cache / with-cache computation compare. */
 
 import { CACHE_TOKENS, CACHE_COMPARE_TOKENS } from "./data.js";
-import { byId, makeEl, clear, initSegmented } from "./dom.js";
+import { byId, makeEl, clear, initSegmented, prefersReducedMotion, reserveSpace } from "./dom.js";
 
 const STEP_INTERVAL_MS = 900;
+const PLACEHOLDER_VECTOR = "[-0.00, -0.00, -0.00]";
 
 function randomVec() {
   const part = () => (Math.random() * 2 - 1).toFixed(2);
   return `[${part()}, ${part()}, ${part()}]`;
+}
+
+/**
+ * @param {number} step - Index of the token being cached; -1 before Play.
+ * @returns {Node[]} Narration for that step.
+ */
+function narrationFor(step) {
+  if (step < 0) {
+    return [document.createTextNode("Press Play to watch the cache build up one token at a time.")];
+  }
+  if (step < CACHE_TOKENS.length - 1) {
+    const plural = step === 1 ? "" : "s";
+    return [
+      document.createTextNode("Processing "),
+      makeEl("span", "pc-hl-warm", `"${CACHE_TOKENS[step]}"`),
+      document.createTextNode(`. Only this token's K and V rows were computed. The ${step} previous row${plural} came straight from cache.`)
+    ];
+  }
+  return [
+    makeEl("span", "pc-hl-teal", `Done. All ${CACHE_TOKENS.length} tokens are cached. If you send another request starting with the same prefix, all of this is reused. Zero recalculation.`)
+  ];
 }
 
 function initCacheAnimation() {
@@ -21,12 +43,22 @@ function initCacheAnimation() {
     return;
   }
 
+  // The narration reserves the room of its wordiest step, so the line count
+  // changing never moves the compare toggle below.
+  reserveSpace(narration, CACHE_TOKENS.map((_, i) => {
+    const ghost = makeEl("div", "pc-narration");
+    ghost.append(...narrationFor(i - 1));
+    return ghost;
+  }));
+
   let step = -1;
   let timer = /** @type {number | null} */ (null);
   let keyVectors = /** @type {string[]} */ ([]);
   let valueVectors = /** @type {string[]} */ ([]);
 
   /**
+   * Rows not cached yet stay in the layout as hidden placeholders, so the pane
+   * is already as tall as the full cache and filling it moves nothing.
    * @param {HTMLElement} target - Container to render rows into.
    * @param {string[]} vectors - Stable vectors generated for this animation run.
    */
@@ -34,14 +66,14 @@ function initCacheAnimation() {
     clear(target);
     if (step < 0) {
       target.appendChild(makeEl("span", "pc-empty", "Empty, press Play"));
-      return;
     }
-    for (let i = 0; i <= step; i += 1) {
-      const row = makeEl("div", `cache-row${i === step ? " is-new" : ""}`);
-      row.appendChild(makeEl("span", "tok-name", CACHE_TOKENS[i]));
-      row.appendChild(makeEl("span", "tok-vals", vectors[i]));
+    CACHE_TOKENS.forEach((tok, i) => {
+      const state = i > step ? " is-pending" : i === step ? " is-new" : "";
+      const row = makeEl("div", `cache-row${state}`);
+      row.appendChild(makeEl("span", "tok-name", tok));
+      row.appendChild(makeEl("span", "tok-vals", vectors[i] ?? PLACEHOLDER_VECTOR));
       target.appendChild(row);
-    }
+    });
   }
 
   function renderState() {
@@ -61,20 +93,7 @@ function initCacheAnimation() {
     renderCacheRows(kVis, keyVectors);
     renderCacheRows(vVis, valueVectors);
 
-    if (step < 0) {
-      narration.textContent = "Press Play to watch the cache build up one token at a time.";
-    } else if (step < CACHE_TOKENS.length - 1) {
-      const plural = step === 1 ? "" : "s";
-      narration.replaceChildren(
-        document.createTextNode("Processing "),
-        makeEl("span", "pc-hl-warm", `"${CACHE_TOKENS[step]}"`),
-        document.createTextNode(`. Only this token's K and V rows were computed. The ${step} previous row${plural} came straight from cache.`)
-      );
-    } else {
-      narration.replaceChildren(
-        makeEl("span", "pc-hl-teal", `Done. All ${CACHE_TOKENS.length} tokens are cached. If you send another request starting with the same prefix, all of this is reused. Zero recalculation.`)
-      );
-    }
+    narration.replaceChildren(...narrationFor(step));
   }
 
   function stopTimer() {
@@ -89,6 +108,13 @@ function initCacheAnimation() {
     step = -1;
     keyVectors = CACHE_TOKENS.map(randomVec);
     valueVectors = CACHE_TOKENS.map(randomVec);
+    if (prefersReducedMotion()) {
+      // No step-by-step fill under reduced motion: show the full cache at once.
+      step = CACHE_TOKENS.length - 1;
+      renderState();
+      playBtn.disabled = false;
+      return;
+    }
     renderState();
     playBtn.disabled = true;
     timer = setInterval(() => {

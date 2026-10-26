@@ -42,12 +42,6 @@ body.app-prompt-caching {
   --pc-measure: 1000px;
 }
 
-/* renderSectionNav injects the sticky nav into this slot; display: contents keeps
- * its containing block at the body so it still sticks to the viewport top. */
-body.app-prompt-caching [data-section-nav] {
-  display: contents;
-}
-
 body.app-prompt-caching .pc.page-shell {
   width: min(100% - 2rem, var(--pc-measure));
   padding-top: 0;
@@ -394,7 +388,30 @@ body.app-prompt-caching .pc-meta {
   gap: var(--space-4);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
+}
+
+/* A count keeps a minimum width (right aligned), so its label stays put while
+ * the number gains or loses a digit. */
+body.app-prompt-caching .pc-count {
+  display: inline-block;
+  min-width: 3ch;
+  text-align: right;
+}
+
+body.app-prompt-caching .pc-count.is-narrow {
+  min-width: 2ch;
+}
+
+body.app-prompt-caching .pc-count.is-wide {
+  min-width: 4ch;
+}
+
+/* "expired" is the longest value the countdown shows. */
+body.app-prompt-caching .pc-ttl {
+  display: inline-block;
+  min-width: 7ch;
 }
 
 body.app-prompt-caching .pc-meta strong {
@@ -441,7 +458,7 @@ body.app-prompt-caching .pc-pipeline-node {
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform 0.2s, filter 0.2s;
   border: 1px solid transparent;
   flex-shrink: 0;
   background: var(--color-surface-alt);
@@ -500,6 +517,10 @@ body.app-prompt-caching .pc-token-output {
   line-height: 2.2;
   font-size: var(--font-size-base);
   min-height: 40px;
+}
+
+body.app-prompt-caching .pc-token-layer.is-hidden {
+  visibility: hidden;
 }
 
 body.app-prompt-caching .pc-tok {
@@ -636,7 +657,7 @@ body.app-prompt-caching .pc-matrix-cell {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   border-radius: 5px;
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
   color: var(--color-text-secondary);
   min-width: 60px;
   height: 42px;
@@ -815,7 +836,7 @@ body.app-prompt-caching .pc-step-dot {
   background: transparent;
   color: var(--color-text-secondary);
   font-family: var(--font-body);
-  transition: all 0.2s;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
 }
 
 /* Active/done ride the warm accent (a content step marker). */
@@ -860,7 +881,7 @@ body.app-prompt-caching .pc-attn-grid td {
   font-family: var(--font-mono);
   font-size: var(--font-size-control);
   border-radius: 4px;
-  transition: all 0.15s;
+  transition: background-color 0.15s, color 0.15s;
   cursor: pointer;
   border: 0;
 }
@@ -964,7 +985,10 @@ body.app-prompt-caching .smx-bar {
   height: 100%;
   background: var(--pc-accent);
   border-radius: 3px;
-  transition: width 0.15s;
+  /* The width never changes: the script scales the bar from its left edge. */
+  width: 100%;
+  transform-origin: left center;
+  transition: transform 0.15s;
 }
 
 body.app-prompt-caching .pc-smx-formula {
@@ -1013,7 +1037,7 @@ body.app-prompt-caching .pc-cache-tokens {
 body.app-prompt-caching .pc-cache-chip {
   padding: 0.45rem 0.9rem;
   color: var(--color-text-secondary);
-  transition: all 0.35s;
+  transition: background-color 0.35s, border-color 0.35s, color 0.35s;
 }
 
 body.app-prompt-caching .pc-cache-pane {
@@ -1047,12 +1071,27 @@ body.app-prompt-caching .cache-row {
   margin: 3px 0;
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
-  transition: all 0.35s;
+  transition: background-color 0.35s;
   background: var(--pc-accent-bg);
 }
 
 body.app-prompt-caching .cache-row.is-new {
   background: var(--pc-warm-bg);
+}
+
+/* Rows not cached yet keep their place so the pane is full height from the start. */
+body.app-prompt-caching .cache-row.is-pending {
+  visibility: hidden;
+}
+
+body.app-prompt-caching .pc-cache-rows {
+  position: relative;
+}
+
+body.app-prompt-caching .pc-cache-rows > .pc-empty {
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 body.app-prompt-caching .cache-row .tok-name {
@@ -1093,6 +1132,9 @@ body.app-prompt-caching .pc-inf-tokens {
   padding: 0.6rem;
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-sm);
+}
+
+body.app-prompt-caching .pc-inf-stream {
   margin-bottom: var(--space-3);
 }
 
@@ -1108,7 +1150,22 @@ body.app-prompt-caching .pc-inf-tokens:empty::before {
  * padding and fill transition stay scoped. */
 body.app-prompt-caching .inf-tok {
   padding: 0.3rem 0.65rem;
-  transition: all 0.3s;
+  transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+}
+
+/* The status shares its row with the KV count: it takes the remaining width and
+ * wraps there, so the longest line never pushes the count onto its own row. */
+body.app-prompt-caching .pc-inf-status-row {
+  align-items: flex-start;
+}
+
+body.app-prompt-caching .pc-inf-status-row > .pc-meta {
+  margin-top: var(--space-2);
+}
+
+body.app-prompt-caching .pc-inf-status-host {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 body.app-prompt-caching .pc-inf-status {
@@ -1123,11 +1180,6 @@ body.app-prompt-caching .pc-inf-cache-bar {
   gap: 2px;
   margin-top: 0.6rem;
   height: 22px;
-}
-
-body.app-prompt-caching .pc-inf-cache-bar:empty {
-  height: 0;
-  margin-top: 0;
 }
 
 body.app-prompt-caching .inf-cache-cell {
@@ -1158,11 +1210,25 @@ body.app-prompt-caching .inf-cache-cell.empty {
   border: 1px solid var(--color-border);
 }
 
+/* The log has a fixed height and scrolls inside itself, so adding or evicting a
+ * request never changes the page height. */
 body.app-prompt-caching .pc-chv-reqs {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   margin: var(--space-2) 0;
+  height: 24rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+body.app-prompt-caching .pc-chv-reqs > * {
+  flex: none;
+}
+
+body.app-prompt-caching .pc-chv-reqs:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 }
 
 body.app-prompt-caching .chv-evicted {
@@ -1226,7 +1292,7 @@ body.app-prompt-caching .chv-block {
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   color: var(--color-text-on-accent);
-  transition: all 0.3s;
+  transition: background-color 0.3s, border-color 0.3s, color 0.3s;
   flex: 1;
   min-width: 32px;
 }
@@ -1417,7 +1483,10 @@ body.app-prompt-caching .pc-calc-bar-track {
 body.app-prompt-caching .pc-calc-bar {
   height: 100%;
   border-radius: 4px;
-  transition: width 0.25s;
+  /* The width never changes: the script scales the bar from its left edge. */
+  width: 100%;
+  transform-origin: left center;
+  transition: transform 0.25s;
 }
 
 body.app-prompt-caching .pc-calc-bar.is-rose {
@@ -1480,7 +1549,8 @@ body.app-prompt-caching .pc-calc-display.is-accent {
 /* The A/B selection badges ride the shared .chip tones (amber for A, green for B,
  * matching the canvas markers); only the min-width stays scoped. */
 body.app-prompt-caching .emb-sel {
-  min-width: 60px;
+  box-sizing: content-box;
+  min-width: calc(var(--emb-word-ch, 8) * 1ch);
   justify-content: center;
 }
 
@@ -1515,7 +1585,7 @@ body.app-prompt-caching .emb-word {
   color: var(--color-text-secondary);
   cursor: pointer;
   font-family: var(--font-mono);
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
   user-select: none;
 }
 
@@ -1528,15 +1598,15 @@ body.app-prompt-caching .emb-word:hover {
 body.app-prompt-caching .emb-word.sel-a {
   background: var(--pc-accent-bg);
   border-color: var(--pc-accent);
+  box-shadow: inset 0 0 0 1px var(--pc-accent);
   color: var(--pc-accent);
-  font-weight: 600;
 }
 
 body.app-prompt-caching .emb-word.sel-b {
   background: var(--pc-teal-bg);
   border-color: var(--pc-teal);
+  box-shadow: inset 0 0 0 1px var(--pc-teal);
   color: var(--pc-teal);
-  font-weight: 600;
 }
 
 body.app-prompt-caching .emb-word:focus-visible {

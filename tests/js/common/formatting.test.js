@@ -62,3 +62,12 @@ test('parseNumber returns 0 when nothing numeric remains', () => {
   assert.equal(parseNumber(''), 0);
   assert.equal(parseNumber('-'), 0);
 });
+
+test('formatCurrency matches toLocaleString for each digit count, cached or not', () => {
+  for (const digits of [0, 2, 0, 2]) {
+    for (const value of [0, 0.4, 0.5, 1.5, 999.5, 1234.56, 50000, 1234567.89, -0.4, -56.5, -1234.5]) {
+      const expected = Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+      assert.equal(formatCurrency(value, digits), `${value < 0 ? '-' : ''}$${expected}`, `${value} @ ${digits}`);
+    }
+  }
+});

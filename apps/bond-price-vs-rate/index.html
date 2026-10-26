@@ -49,7 +49,7 @@
         <div class="br-price-block">
           <span class="br-price-caption" id="priceCaption">This 10-year, 5% bond is now worth</span>
           <span class="br-price" id="priceValue">$1,000.00</span>
-          <span class="chip is-blue" id="regimeBadge">At par</span>
+          <span class="chip reserve is-blue" id="regimeBadge"><span class="br-variant" data-variant="premium">Premium</span><span class="br-variant is-active" data-variant="par">At par</span><span class="br-variant" data-variant="discount">Discount</span></span>
         </div>
 
         <div class="br-rail-curve">
@@ -104,7 +104,7 @@
               <span class="br-vs-item"><span class="section-kicker">Price</span><span class="br-arrow" id="priceArrow" aria-hidden="true">&mdash;</span></span>
             </div>
 
-            <div class="app-callout is-blue"><p class="app-callout-body" id="heroExplain"></p></div>
+            <div class="app-callout is-blue"><p class="app-callout-body reserve" id="heroExplain"><span class="br-variant" data-variant="premium"></span><span class="br-variant is-active" data-variant="par">The market rate matches this bond's 5.0% coupon, so it changes hands right at its $1,000 face value.</span><span class="br-variant" data-variant="discount"></span><span class="reserve-ghost" data-ghost="premium" aria-hidden="true">Rates slipped to 12.0%, below this bond's 12.0% coupon. Your 12.0% payments now beat the market, so buyers will pay $3,838.12, a premium over the $1,000 face value.</span><span class="reserve-ghost" data-ghost="par" aria-hidden="true">The market rate matches this bond's 12.0% coupon, so it changes hands right at its $1,000 face value.</span><span class="reserve-ghost" data-ghost="discount" aria-hidden="true">Rates rose to 12.0%, above this bond's 12.0% coupon. A new buyer can earn 12.0% on a fresh bond, so they will only pay $3,838.12 for your 12.0% bond, a discount to its $1,000 face value.</span></p></div>
             <p class="control-copy">Watch the marked point on the curve to the left: it slides up and left when rates fall, down and right when they rise. The face value ($1,000) never changes; only the price does.</p>
           </div>
         </section>
@@ -120,13 +120,13 @@
             <p>When this bond was issued it promised a fixed <strong>coupon</strong>: the same dollar payment every year until it matures. That promise never changes. So the only lever the market has to make an older bond compete with newly issued ones is its <em>price</em>. Raise the coupon in the controls on the left and watch how it changes whether buyers pay up or demand a discount.</p>
 
             <div class="page-card br-card">
-              <div class="br-compare" id="couponCompare"></div>
+              <div class="br-compare" id="couponCompare"><div class="br-compare-row"><span class="br-compare-label">This bond</span><div class="meter"><div class="meter-fill"></div></div><span class="br-compare-num">5.0%</span></div><div class="br-compare-row"><span class="br-compare-label">Market</span><div class="meter"><div class="meter-fill is-amber"></div></div><span class="br-compare-num">5.0%</span></div></div>
             </div>
 
             <div class="app-callout is-blue">
               <div class="app-callout-title">Premium, par, discount</div>
               <p class="app-callout-body">If your coupon beats today's market rate, buyers pay <em>more</em> than the $1,000 face value (a premium). If it lags, they only buy at a <em>discount</em>. If the two match, the bond trades right at par.</p>
-              <p class="app-callout-body" id="mechanismExplain"></p>
+              <p class="app-callout-body reserve" id="mechanismExplain"><span class="br-variant" data-variant="premium"></span><span class="br-variant is-active" data-variant="par">Your coupon (5.0%) equals the market (5.0%), so there is nothing to discount or pay up for.</span><span class="br-variant" data-variant="discount"></span><span class="reserve-ghost" data-ghost="premium" aria-hidden="true">Your coupon (12.0%) sits above the market (12.0%), so buyers bid the price up above face value.</span><span class="reserve-ghost" data-ghost="par" aria-hidden="true">Your coupon (12.0%) equals the market (12.0%), so there is nothing to discount or pay up for.</span><span class="reserve-ghost" data-ghost="discount" aria-hidden="true">Your coupon (12.0%) sits below the market (12.0%), so the price must fall until a new buyer's total return matches that 12.0%.</span></p>
             </div>
           </div>
         </section>
@@ -147,7 +147,7 @@
               <p class="control-copy">The same one-point rate rise, across different maturities. Your bond is highlighted.</p>
             </div>
 
-            <div class="app-callout is-blue"><p class="app-callout-body" id="sensitivityExplain"></p></div>
+            <div class="app-callout is-blue"><p class="app-callout-body reserve" id="sensitivityExplain"><span class="br-variant is-active" data-variant="text">At today's 5.0% rate, a one-point rise would shave about 7.4% off your 10-year bond, versus roughly 1.8% for a 2-year and 13.8% for a 30-year.</span><span class="reserve-ghost" data-ghost="text" aria-hidden="true">At today's 12.0% rate, a one-point rise would shave about 22.4% off your 30-year bond, versus roughly 22.4% for a 2-year and 22.4% for a 30-year.</span></p></div>
           </div>
         </section>
 
@@ -173,7 +173,7 @@
               <p class="control-copy">The marked point sits at your bond's maturity: the yield this curve says the market offers there.</p>
             </div>
 
-            <div class="app-callout is-blue"><p class="app-callout-body" id="curveExplain"></p></div>
+            <div class="app-callout is-blue"><p class="app-callout-body reserve" id="curveExplain"><span class="br-variant is-active" data-variant="normal">A normal curve slopes up: lenders demand extra yield to lock their money away longer, and the market expects steady conditions ahead. At your 10-year maturity this normal curve offers about 4.8%, versus the 5.0% market rate set on the left.</span><span class="br-variant" data-variant="flat"></span><span class="br-variant" data-variant="inverted"></span><span class="reserve-ghost" data-ghost="normal" aria-hidden="true">A normal curve slopes up: lenders demand extra yield to lock their money away longer, and the market expects steady conditions ahead. At your 30-year maturity this normal curve offers about 5.4%, versus the 12.0% market rate set on the left.</span><span class="reserve-ghost" data-ghost="flat" aria-hidden="true">A flat curve pays nothing extra for waiting. Curves usually flatten in transition, when the market is deciding whether rates go up or come down next. At your 30-year maturity this flat curve offers about 5.4%, versus the 12.0% market rate set on the left.</span><span class="reserve-ghost" data-ghost="inverted" aria-hidden="true">An inverted curve pays less on long bonds than short ones. The market is betting on rate cuts ahead, which is why inversion is finance's most famous recession warning. At your 30-year maturity this inverted curve offers about 5.4%, versus the 12.0% market rate set on the left.</span></p></div>
 
             <div class="br-curve-apply">
               <button class="btn btn-outline" id="btnApplyCurve" type="button"><svg class="br-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5h12M2 11h12"/><circle cx="10" cy="5" r="1.75"/><circle cx="6" cy="11" r="1.75"/></svg><span id="btnApplyCurveLabel">Set the market rate to this curve's rate</span></button>
@@ -237,7 +237,7 @@
               <p class="control-copy">Each payment is multiplied by its discount factor to land on today's value. The present values add up to the price shown on the left.</p>
             </div>
 
-            <div class="app-callout is-blue"><p class="app-callout-body" id="mathExplain"></p></div>
+            <div class="app-callout is-blue"><p class="app-callout-body reserve" id="mathExplain"><span class="br-variant is-active" data-variant="text">At a 5.0% market rate, each of the 10 $50 coupon payments is divided by (1 + r) raised to its year, so a payment shrinks more the further out it sits. The $1,000 face repayment in year 10 is worth $613.91 today, and adding every discounted coupon to that repayment gives the $1,000.00 price. Raise the rate and every discount factor gets smaller, which is exactly why a higher rate drags the price down.</span><span class="reserve-ghost" data-ghost="text" aria-hidden="true">At a 12.0% market rate, each of the 30 $120 coupon payments is divided by (1 + r) raised to its year, so a payment shrinks more the further out it sits. The $1,000 face repayment in year 30 is worth $990.10 today, and adding every discounted coupon to that repayment gives the $3,838.12 price. Raise the rate and every discount factor gets smaller, which is exactly why a higher rate drags the price down.</span></p></div>
           </div>
         </section>
 
@@ -276,11 +276,11 @@
 
             <div class="page-card br-card">
               <h3 class="br-card-title">Where today's price comes from</h3>
-              <div class="br-compare br-split" id="pvSplit"></div>
+              <div class="br-compare br-split" id="pvSplit"><div class="br-compare-row"><span class="br-compare-label">Coupons</span><div class="meter"><div class="meter-fill"></div></div><span class="br-compare-num">$386</span></div><div class="br-compare-row"><span class="br-compare-label">Face value</span><div class="meter"><div class="meter-fill is-amber"></div></div><span class="br-compare-num">$614</span></div></div>
               <p class="control-copy">The price is just the present value of the remaining coupons plus the present value of the $1,000 repayment at maturity.</p>
             </div>
 
-            <div class="app-callout is-blue"><p class="app-callout-body" id="analystExplain"></p></div>
+            <div class="app-callout is-blue"><p class="app-callout-body reserve" id="analystExplain"><span class="br-variant is-active" data-variant="text">Modified duration says a one-point rate rise should cost about 7.7%; the exact reprice is 7.4%. The shortfall is convexity (75.0) working in your favor: the price-rate curve flattens as rates climb, so losses undershoot the straight-line estimate. On a desk this bond would be quoted as roughly $0.77 of price move per basis point (its DV01) on every $1,000 of face value, and a buyer at today's price earns a 5.00% current yield on the 5.0% coupon.</span><span class="reserve-ghost" data-ghost="text" aria-hidden="true">Modified duration says a one-point rate rise should cost about 29.9%; the exact reprice is 22.4%. The shortfall is convexity (888.8) working in your favor: the price-rate curve flattens as rates climb, so losses undershoot the straight-line estimate. On a desk this bond would be quoted as roughly $7.77 of price move per basis point (its DV01) on every $1,000 of face value, and a buyer at today's price earns a 10.09% current yield on the 12.0% coupon.</span></p></div>
           </div>
         </section>
 
@@ -293,7 +293,7 @@
               <h2 id="chapterRippleTitle">Why one rate move touches the whole economy.</h2>
             </header>
 
-            <div class="app-callout is-blue"><p class="app-callout-body" id="rippleExplain"></p></div>
+            <div class="app-callout is-blue"><p class="app-callout-body reserve" id="rippleExplain"><span class="br-variant" data-variant="premium"></span><span class="br-variant is-active" data-variant="par">With the market rate level with this bond's coupon, older bonds hold their value, new bonds are issued at matching coupons, and borrowing costs across the economy sit right where the market expects.</span><span class="br-variant" data-variant="discount"></span><span class="reserve-ghost" data-ghost="premium" aria-hidden="true">With the market rate below this bond's coupon, older high-coupon bonds gain value, brand-new bonds are issued at these lower coupons, and the same drop in yields eases borrowing costs across mortgages, companies, and governments.</span><span class="reserve-ghost" data-ghost="par" aria-hidden="true">With the market rate level with this bond's coupon, older bonds hold their value, new bonds are issued at matching coupons, and borrowing costs across the economy sit right where the market expects.</span><span class="reserve-ghost" data-ghost="discount" aria-hidden="true">With the market rate above this bond's coupon, every older, lower-coupon bond loses value, brand-new bonds are issued at these higher, more attractive coupons, and the same climb in yields pushes up borrowing costs across mortgages, companies, and governments.</span></p></div>
 
             <div class="br-grid-3">
               <div class="page-card">

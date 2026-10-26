@@ -54,12 +54,15 @@
         <section class="page-card tk-card tk-main" aria-label="Prompt and next-token odds">
           <div class="tk-card-head">
             <span class="section-kicker" id="scenario-type"></span>
-            <button class="btn btn-outline btn-sm whitespace-toggle" id="whitespace-toggle" type="button" aria-pressed="false">Show whitespace</button>
+            <button class="btn btn-outline btn-sm whitespace-toggle" id="whitespace-toggle" type="button" aria-pressed="false"><span class="is-off">Show whitespace</span><span class="is-on">Hide whitespace</span></button>
           </div>
 
-          <div class="tk-prompt">
-            <span class="tk-prompt-tokens" id="sentence-prefix"></span>
-            <span class="blank" id="sentence-completion" aria-live="polite"></span>
+          <div class="tk-prompt reserve">
+            <div class="tk-prompt-live">
+              <span class="tk-prompt-tokens" id="sentence-prefix"></span>
+              <span class="blank" id="sentence-completion" aria-live="polite"></span>
+            </div>
+            <div class="tk-prompt-reserve reserve reserve-ghost" id="prompt-reserve" aria-hidden="true"></div>
           </div>
 
           <div class="tk-next" id="sec-distribution" data-nav-label="Distribution" aria-labelledby="next-token-heading" role="group">
@@ -73,7 +76,10 @@
             </div>
             <p class="tk-copy">The model is choosing the next token. Bars show the odds after temperature. Tokens below the top P cut cannot be drawn, and Draw renormalizes the survivors.</p>
             <ul class="tk-candidates" id="candidate-list" role="table" aria-label="Next-token candidates"></ul>
-            <p class="tk-insight" id="insight-box"></p>
+            <div class="reserve">
+              <p class="tk-insight" id="insight-box"></p>
+              <div class="reserve reserve-ghost" id="insight-reserve" aria-hidden="true"></div>
+            </div>
           </div>
 
           <div class="tk-actions">
@@ -86,7 +92,10 @@
               Sample 100x
             </button>
             <button class="btn btn-ghost" id="reset-samples" type="button" title="Clear the pick and the 100-draw tally">Reset</button>
-            <p class="tk-status" id="sample-status" aria-live="polite"></p>
+            <div class="reserve tk-status-slot">
+              <p class="tk-status" id="sample-status" aria-live="polite"></p>
+              <div class="reserve reserve-ghost" id="status-reserve" aria-hidden="true"></div>
+            </div>
           </div>
         </section>
 

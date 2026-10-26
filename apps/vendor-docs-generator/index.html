@@ -30,6 +30,7 @@
   <link rel="preload" href="./js/vendor/jspdf.umd.min.js" as="script">
   <link rel="stylesheet" href="../../css/style.css">
   <link rel="stylesheet" href="./css/app.css">
+  <script type="module" blocking="render" src="./js/app.js"></script>
   <script defer src="./js/vendor/jspdf.umd.min.js"></script>
   <script defer src="./js/vendor/jspdf.plugin.autotable.min.js"></script>
   <script defer src="./js/vendor/html2canvas.min.js"></script>
@@ -112,29 +113,6 @@
           </div>
 
           <div class="vd-output-body">
-            <section class="vd-section vd-batch-options" id="vdBatchOptions" aria-labelledby="vdBatchLabel" hidden>
-              <h2 class="section-kicker" id="vdBatchLabel">Batch</h2>
-              <div class="control-field">
-                <div class="control-field-head">
-                  <label for="vdBatchCount">Copies per combination</label>
-                  <output id="vdBatchCountOut" for="vdBatchCount">10</output>
-                </div>
-                <input id="vdBatchCount" class="range-input" type="range" min="1" max="50" step="1" value="10">
-              </div>
-
-              <div class="control-field">
-                <div class="control-field-head">
-                  <span id="vdIncludeLabel" class="vd-field-label">Include</span>
-                </div>
-                <div class="segmented is-fused is-inset" id="vdInclude" role="group" aria-labelledby="vdIncludeLabel">
-                  <button type="button" class="active" data-include="combo">This combo</button>
-                  <button type="button" data-include="types">All types</button>
-                  <button type="button" data-include="vendors">All vendors</button>
-                  <button type="button" data-include="all">Everything</button>
-                </div>
-              </div>
-            </section>
-
             <section class="vd-section" aria-labelledby="vdScanLabel">
               <div class="vd-section-head">
                 <h2 class="section-kicker" id="vdScanLabel">Scan quality</h2>
@@ -148,7 +126,7 @@
                 <div class="vd-knobs" id="vdKnobs"></div>
               </details>
 
-              <label class="vd-check" for="vdPair" id="vdPairLabel" hidden>
+              <label class="vd-check" for="vdPair" id="vdPairLabel">
                 <input type="checkbox" id="vdPair">
                 <span>Also export the clean original with PNG outputs</span>
               </label>
@@ -185,14 +163,37 @@
                 </div>
               </div>
             </section>
+
+            <section class="vd-section vd-batch-options" id="vdBatchOptions" aria-labelledby="vdBatchLabel" hidden>
+              <h2 class="section-kicker" id="vdBatchLabel">Batch</h2>
+              <div class="control-field">
+                <div class="control-field-head">
+                  <label for="vdBatchCount">Copies per combination</label>
+                  <output id="vdBatchCountOut" for="vdBatchCount">10</output>
+                </div>
+                <input id="vdBatchCount" class="range-input" type="range" min="1" max="50" step="1" value="10">
+              </div>
+
+              <div class="control-field">
+                <div class="control-field-head">
+                  <span id="vdIncludeLabel" class="vd-field-label">Include</span>
+                </div>
+                <div class="segmented is-fused is-inset" id="vdInclude" role="group" aria-labelledby="vdIncludeLabel">
+                  <button type="button" class="active" data-include="combo">This combo</button>
+                  <button type="button" data-include="types">All types</button>
+                  <button type="button" data-include="vendors">All vendors</button>
+                  <button type="button" data-include="all">Everything</button>
+                </div>
+              </div>
+            </section>
           </div>
 
           <div class="vd-output-foot">
             <p class="vd-estimate" id="vdEstimate">Calculating size...</p>
-            <div class="meter vd-progress" id="vdProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Batch progress" hidden>
+            <div class="meter vd-progress is-idle" id="vdProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Batch progress">
               <div class="meter-fill" id="vdProgressFill"></div>
             </div>
-            <p class="vd-status" id="vdBatchStatus" role="status" hidden></p>
+            <p class="vd-status" id="vdBatchStatus" role="status"></p>
             <button type="button" class="btn btn-primary vd-block-btn" id="vdExport">Download</button>
             <button type="button" class="btn btn-outline vd-block-btn" id="vdBatchStop" hidden>Stop and keep what is done</button>
           </div>
@@ -259,7 +260,5 @@
 
     <div data-app-shell="scroll-top"></div>
   </main>
-
-  <script type="module" src="./js/app.js"></script>
 </body>
 </html>

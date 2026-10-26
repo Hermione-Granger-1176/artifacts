@@ -5,6 +5,7 @@ import { ATTN_DATA, AGRID_WORDS, AGRID_WEIGHTS, SMX_TOKENS, SMX_INITIAL_SCORES }
 import { softmax } from "./math.js";
 import { byId, makeEl, clear } from "./dom.js";
 import { formatPercent } from "../../../../js/modules/formatting.js";
+import { createFrameScheduler } from "../../../../js/modules/frame-scheduler.js";
 
 /** @param {number | string} v - Value to format. @returns {string} Formatted value. */
 const fmt = (v) => (typeof v === "number" ? v.toFixed(2) : v);
@@ -135,16 +136,18 @@ function defaultHint(dot) {
 }
 
 function initStepper() {
+  const card = byId("attnStepCard");
   const stepper = byId("attnStepper");
   const titleEl = byId("attnStepTitle");
   const descEl = byId("attnStepDesc");
   const visual = byId("attnStepVisual");
   const dot = byId("dotProduct");
-  if (!stepper || !titleEl || !descEl || !visual || !dot) {
+  if (!card || !stepper || !titleEl || !descEl || !visual || !dot) {
     return;
   }
 
   let maskOn = true;
+  let current = 0;
 
   // Each step renders inside a shared window-style frame (same look as the
   // pseudocode cards); `frame` points at the current title and body elements.
@@ -235,7 +238,7 @@ function initStepper() {
             toggle.appendChild(btn);
           }
           controls.appendChild(toggle);
-          const scrambleBtn = /** @type {HTMLButtonElement} */ (makeEl("button", "btn btn-outline btn-sm", "Scramble weights"));
+          const scrambleBtn = /** @type {HTMLButtonElement} */ (makeEl("button", "btn btn-outline btn-sm pc-scramble", "Scramble weights"));
           scrambleBtn.type = "button";
           scrambleBtn.addEventListener("click", scramble);
           controls.appendChild(scrambleBtn);
@@ -373,6 +376,7 @@ function initStepper() {
 
   /** @param {number} i - Step index to render. */
   function renderStep(i) {
+    current = i;
     clear(stepper);
     steps.forEach((step, j) => {
       const dotBtn = /** @type {HTMLButtonElement} */ (makeEl("button", `pc-step-dot${j === i ? " active" : j < i ? " done" : ""}`, String(j + 1)));
@@ -396,7 +400,90 @@ function initStepper() {
     steps[i].render();
   }
 
+  /**
+   * Hold the card at the height of its tallest state at the current width, so
+   * stepping, scrambling, or opening a calculation never moves what follows.
+   * Every step is rendered once (also scrambled, unmasked, and with each
+   * calculation open) and measured; the layout reads happen in one task, so
+   * nothing is painted and the view returns to where it was.
+   */
+  function reserveTallestStep() {
+    const resumeStep = current;
+    const resumeMask = maskOn;
+    card.style.minHeight = "";
+    let tallest = 0;
+    const measure = () => {
+      tallest = Math.max(tallest, card.offsetHeight);
+    };
+    const measureEachCalculation = () => {
+      measure();
+      for (const cell of visual.querySelectorAll(".pc-matrix-cell.clickable")) {
+        /** @type {HTMLElement} */ (cell).click();
+        measure();
+      }
+    };
+
+    steps.forEach((_, i) => {
+      renderStep(i);
+      measureEachCalculation();
+      if (i === 0) {
+        /** @type {HTMLElement} */ (visual.querySelector(".pc-scramble")).click();
+        measureEachCalculation();
+      }
+      if (i === 2) {
+        maskOn = !resumeMask;
+        renderStep(i);
+        measure();
+      }
+    });
+
+    maskOn = resumeMask;
+    renderStep(resumeStep);
+    if (tallest > 0) {
+      card.style.minHeight = `${tallest}px`;
+    }
+  }
+
   renderStep(0);
+
+  // Measuring renders every state once, which is real work, and the card sits
+  // far down the page. So it waits until the card comes within two screens of
+  // the viewport, where its height can still change without anyone seeing it.
+  let measured = false;
+  let reservedWidth = 0;
+  function measureOnce() {
+    measured = true;
+    reservedWidth = card.clientWidth;
+    reserveTallestStep();
+  }
+  if (typeof IntersectionObserver === "function") {
+    const nearView = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        nearView.disconnect();
+        measureOnce();
+      }
+    }, { rootMargin: "200% 0px" });
+    nearView.observe(card);
+  } else {
+    measureOnce();
+  }
+
+  // Line wraps depend on the width, so measure again when it changes (a phone
+  // rotating, a window resize) and once the web fonts have settled.
+  const remeasure = createFrameScheduler(() => {
+    if (measured && card.clientWidth !== reservedWidth) {
+      reservedWidth = card.clientWidth;
+      reserveTallestStep();
+    }
+  });
+  window.addEventListener("resize", remeasure);
+  if (document.fonts && document.fonts.status !== "loaded") {
+    document.fonts.ready.then(() => {
+      if (measured) {
+        reserveTallestStep();
+      }
+    });
+  }
 }
 
 /**
@@ -512,14 +599,14 @@ function initSoftmax() {
 
     clear(barsWrap);
     SMX_TOKENS.forEach((tok, i) => {
-      const pct = (weights[i] * 100).toFixed(1);
+      const pct = Number((weights[i] * 100).toFixed(1));
       const row = makeEl("div", "pc-smx-row is-result");
       row.appendChild(makeEl("span", "smx-label", tok));
       row.appendChild(makeEl("span", "smx-val", scores[i].toFixed(2)));
       row.appendChild(makeEl("span", "smx-weight", formatPercent(weights[i] * 100)));
       const wrap = makeEl("div", "smx-bar-wrap");
       const bar = makeEl("div", "smx-bar");
-      bar.style.width = `${pct}%`;
+      bar.style.transform = `scaleX(${pct / 100})`;
       wrap.appendChild(bar);
       row.appendChild(wrap);
       barsWrap.appendChild(row);

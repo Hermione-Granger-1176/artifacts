@@ -171,6 +171,17 @@ body.app-vendor-docs-generator .vd-tool.is-seed .chip {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * A seed has four to six numerals, so "seed 123456" is the widest the chip
+ * gets. Holding that width (plus the chip's own padding) keeps New document,
+ * which sits beside it, under the pointer whatever the next seed turns out to be.
+ */
+
+body.app-vendor-docs-generator #vdChipSeed {
+  min-width: calc(11ch + 2 * var(--space-3) + 2px);
+  justify-content: center;
+}
+
 body.app-vendor-docs-generator .vd-vendor-pick {
   display: flex;
   align-items: center;
@@ -336,12 +347,17 @@ body.app-vendor-docs-generator .vd-section {
   display: flex;
   flex-direction: column;
   padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
   gap: var(--space-2);
 }
 
-body.app-vendor-docs-generator .vd-section:last-child {
-  border-bottom: 0;
+/*
+ * The rule sits above each section but the first rather than below each one
+ * but the last: the Batch section is the last child and comes and goes, and a
+ * rule under the section before it would be left doubled with the footer's.
+ */
+
+body.app-vendor-docs-generator .vd-section + .vd-section {
+  border-top: 1px solid var(--color-border);
 }
 
 body.app-vendor-docs-generator .vd-section-head {
@@ -378,6 +394,7 @@ body.app-vendor-docs-generator .vd-output .control-field-head {
 body.app-vendor-docs-generator .vd-output .control-field-head output {
   color: var(--color-text-secondary);
   font-size: var(--font-size-control);
+  font-variant-numeric: tabular-nums;
 }
 
 body.app-vendor-docs-generator .vd-inline-field {
@@ -411,6 +428,17 @@ body.app-vendor-docs-generator .vd-check {
 body.app-vendor-docs-generator .vd-check input {
   accent-color: var(--color-blue);
   cursor: pointer;
+}
+
+/* Pairing is dimmed rather than removed when it does not apply, so the rows below hold still. */
+
+body.app-vendor-docs-generator .vd-check.is-disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+body.app-vendor-docs-generator .vd-check.is-disabled input {
+  cursor: default;
 }
 
 /*
@@ -494,12 +522,32 @@ body.app-vendor-docs-generator .vd-status {
   text-align: center;
 }
 
+/*
+ * The estimate, the meter, and the status line each keep their row whether or
+ * not they have anything to say, and the stop button keeps its row while a
+ * batch is selected, so the export button stays where it was pressed. The
+ * meter and the stop button go invisible rather than absent while idle, which
+ * also takes them out of the tab order and the accessibility tree. The status
+ * line is simply empty.
+ */
+
+body.app-vendor-docs-generator .vd-estimate,
+body.app-vendor-docs-generator .vd-status {
+  min-height: 1lh;
+}
+
 body.app-vendor-docs-generator .vd-progress {
   height: var(--space-2);
 }
 
+body.app-vendor-docs-generator .vd-progress.is-idle,
+body.app-vendor-docs-generator #vdBatchStop.is-idle {
+  visibility: hidden;
+}
+
+/* The shared fill spans the track and is scaled by setMeterValue; it starts empty. */
 body.app-vendor-docs-generator .vd-progress .meter-fill {
-  width: 0%;
+  scale: 0 1;
 }
 
 body.app-vendor-docs-generator .vd-output-foot .btn-primary {
@@ -1217,6 +1265,34 @@ body.app-vendor-docs-generator .vd-fact-list dd {
   body.app-vendor-docs-generator .vd-tool.is-vendor,
   body.app-vendor-docs-generator .vd-tool.is-type {
     flex: 1 1 100%;
+  }
+}
+
+/*
+ * Beside the Fit tools there is room for about 200px of caption on a phone, so
+ * the vendor, the type, and the scan name wrap onto a second line (a scan
+ * preset or a knob is what adds that name). Down to about 570px the longest
+ * combination needs two lines, so two are held open and choosing a preset or
+ * dragging a knob does not move the controls below. The narrowest phones need
+ * three or four.
+ */
+
+@media (max-width: 600px) {
+  body.app-vendor-docs-generator .vd-caption-text {
+    min-height: 2lh;
+    align-content: flex-start;
+  }
+}
+
+@media (max-width: 380px) {
+  body.app-vendor-docs-generator .vd-caption-text {
+    min-height: 3lh;
+  }
+}
+
+@media (max-width: 340px) {
+  body.app-vendor-docs-generator .vd-caption-text {
+    min-height: 4lh;
   }
 }
 

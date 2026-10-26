@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -21,10 +22,11 @@ import {
 } from '../../../../js/modules/formatting.js';
 import { escapeAttribute } from '../../../../js/modules/html-escape.js';
 import {
-  buildMetricsMarkup,
+  buildMetricsView,
   formatPeriodsAsDuration,
   renderMetrics
 } from '../../../../apps/loan-amortization/js/modules/metrics.js';
+import { FakeNode, installFakeDom } from './fake-dom.js';
 import {
   getBiweeklyEmiOverride,
   getFrequencyParams,
@@ -178,8 +180,10 @@ test('summarizeScheduleRows totals EMI, principal, interest, and extras', () => 
   });
 });
 
-test('buildMetricsMarkup promotes the EMI to the hero and keeps the other metrics', () => {
-  const markup = buildMetricsMarkup(
+const fmt = (value) => `$${value}`;
+
+test('buildMetricsView promotes the EMI to the hero and keeps the other metrics', () => {
+  const view = buildMetricsView(
     {
       base: { emi: 300, totalInterest: 5000 },
       extra: { totalInterest: 4200, totalExtra: 6000, periods: 18, breakEven: 9 },
@@ -190,26 +194,27 @@ test('buildMetricsMarkup promotes the EMI to the hero and keeps the other metric
       label: 'Month',
       periodsPerYear: 12
     },
-    (value) => `$${value}`
+    fmt
   );
 
-  assert.match(markup, /class="loan-hero-value">\$300</);
-  assert.equal(markup.match(/Monthly EMI/g)?.length, 1);
-  assert.match(markup, /Plus \$6000 in extra payments over the loan/);
-  assert.match(markup, /Saves \$800 \u00b7 2m sooner/);
-  assert.match(markup, /Total interest/);
-  assert.match(markup, /Without extras: \$5000/);
-  assert.match(markup, /Payoff in/);
-  assert.match(markup, /2 earlier than without extras/);
-  assert.match(markup, /Total paid/);
-  assert.match(markup, /Break-even/);
-  assert.doesNotMatch(markup, /EMI \+ extras\) >=/);
-  assert.match(markup, /EMI \+ extras\) &gt;= interest/);
-  assert.match(markup, /class="info-tip is-start"/);
+  assert.equal(view.heroLabel, 'Monthly EMI');
+  assert.equal(view.heroValue, '$300');
+  assert.equal(view.heroSub, 'Plus $6000 in extra payments over the loan');
+  assert.equal(view.chip, 'Saves $800 \u00b7 2m sooner');
+  assert.equal(view.interestValue, '$4200');
+  assert.equal(view.interestSub, 'Without extras: $5000');
+  assert.equal(view.payoffValue, '18 months');
+  assert.equal(view.payoffSub, '2 earlier than without extras');
+  assert.equal(view.paidValue, '$54200');
+  assert.equal(view.paidSub, 'Interest is 8.4% of loan');
+  assert.equal(view.breakValue, 'Month 9');
+  assert.match(view.heroTip, /each month/);
+  assert.match(view.payoffTip, /Number of months/);
+  assert.match(view.breakTip, /first month/);
 });
 
-test('buildMetricsMarkup omits the savings chip and extras sub-line when there are no extras', () => {
-  const markup = buildMetricsMarkup(
+test('buildMetricsView leaves the chip and extras sub-line empty when there are no extras', () => {
+  const view = buildMetricsView(
     {
       base: { emi: 300, totalInterest: 5000 },
       extra: { totalInterest: 5000, totalExtra: 0, periods: 20, breakEven: null },
@@ -220,18 +225,17 @@ test('buildMetricsMarkup omits the savings chip and extras sub-line when there a
       label: 'Week',
       periodsPerYear: 52
     },
-    (value) => `$${value}`
+    fmt
   );
 
-  assert.doesNotMatch(markup, /chip/);
-  assert.doesNotMatch(markup, /extra payments over the loan/);
-  assert.match(markup, /Fixed payment, no extras/);
-  assert.match(markup, /Until the loan is repaid/);
-  assert.match(markup, /N\/A/);
-  assert.match(markup, /Weekly EMI/);
+  assert.equal(view.chip, '');
+  assert.equal(view.heroSub, 'Fixed payment, no extras');
+  assert.equal(view.payoffSub, 'Until the loan is repaid');
+  assert.equal(view.breakValue, 'N/A');
+  assert.equal(view.heroLabel, 'Weekly EMI');
 });
 
-test('buildMetricsMarkup chip shows only the part that applies', () => {
+test('buildMetricsView chip shows only the part that applies', () => {
   const base = {
     base: { emi: 300, totalInterest: 5000 },
     extra: { totalInterest: 4990, totalExtra: 100, periods: 20, breakEven: 3 },
@@ -240,13 +244,9 @@ test('buildMetricsMarkup chip shows only the part that applies', () => {
     label: 'Month',
     periodsPerYear: 12
   };
-  const formatter = (value) => `$${value}`;
 
-  const timeOnly = buildMetricsMarkup({ ...base, savings: 0.5, periodsSaved: 14 }, formatter);
-  assert.match(timeOnly, /<span class="chip is-green">1y 2m sooner<\/span>/);
-
-  const moneyOnly = buildMetricsMarkup({ ...base, savings: 10, periodsSaved: 0 }, formatter);
-  assert.match(moneyOnly, /<span class="chip is-green">Saves \$10<\/span>/);
+  assert.equal(buildMetricsView({ ...base, savings: 0.5, periodsSaved: 14 }, fmt).chip, '1y 2m sooner');
+  assert.equal(buildMetricsView({ ...base, savings: 10, periodsSaved: 0 }, fmt).chip, 'Saves $10');
 });
 
 test('formatPeriodsAsDuration converts periods to years and months', () => {
@@ -257,25 +257,92 @@ test('formatPeriodsAsDuration converts periods to years and months', () => {
   assert.equal(formatPeriodsAsDuration(1, 52), 'under 1m');
 });
 
-test('renderMetrics sets container innerHTML', () => {
-  const container = { innerHTML: '' };
-  renderMetrics(
-    container,
-    {
-      base: { emi: 500, totalInterest: 8000 },
-      extra: { totalInterest: 7000, totalExtra: 0, periods: 24, breakEven: 10 },
-      savings: 1000,
-      periodsSaved: 3,
-      totalPaid: 67000,
-      costRatio: 1.12,
-      label: 'Month',
-      periodsPerYear: 12
-    },
-    (value) => `$${value}`
-  );
+// The metrics block ships in index.html; the test builds one slot per
+// data-metric name found there, so the page and the module cannot drift apart.
+const pageMarkup = readFileSync(
+  new URL('../../../../apps/loan-amortization/index.html', import.meta.url),
+  'utf8'
+);
+const pageSlotNames = [...pageMarkup.matchAll(/data-metric="(\w+)"/g)].map((match) => match[1]);
 
-  assert.ok(container.innerHTML.length > 0);
-  assert.match(container.innerHTML, /Monthly EMI/);
+function makeMetricsContainer() {
+  const restore = installFakeDom();
+  const container = new FakeNode('div');
+  const slots = {};
+  for (const name of pageSlotNames) {
+    const slot = new FakeNode(name.endsWith('Tip') ? 'button' : 'div');
+    slot.setAttribute('data-metric', name);
+    slots[name] = slot;
+    container.append(slot);
+  }
+  return { container, slots, restore };
+}
+
+const sampleMetrics = {
+  base: { emi: 500, totalInterest: 8000 },
+  extra: { totalInterest: 7000, totalExtra: 900, periods: 24, breakEven: 10 },
+  savings: 1000,
+  periodsSaved: 3,
+  totalPaid: 67000,
+  costRatio: 1.12,
+  label: 'Month',
+  periodsPerYear: 12
+};
+
+test('page markup ships a slot for every metric the module writes', () => {
+  const view = buildMetricsView(sampleMetrics, fmt);
+  assert.deepEqual([...pageSlotNames].sort(), Object.keys(view).sort());
+});
+
+test('renderMetrics writes text, tips, and the chip into the shipped slots', () => {
+  const { container, slots, restore } = makeMetricsContainer();
+  try {
+    renderMetrics(container, sampleMetrics, fmt);
+
+    assert.equal(slots.heroValue.textContent, '$500');
+    assert.equal(slots.payoffValue.textContent, '24 months');
+    assert.equal(slots.heroTip.getAttribute('data-tip'), 'Fixed payment amount each month, excluding extra payments');
+    assert.equal(slots.heroTip.getAttribute('aria-label'), slots.heroTip.getAttribute('data-tip'));
+    assert.equal(slots.chip.textContent, 'Saves $1000 \u00b7 3m sooner');
+    assert.equal(slots.chip.classList.contains('is-empty'), false);
+    assert.equal(slots.chip.getAttribute('aria-hidden'), 'false');
+  } finally {
+    restore();
+  }
+});
+
+test('renderMetrics keeps nodes and the chip text when values change or the chip hides', () => {
+  const { container, slots, restore } = makeMetricsContainer();
+  try {
+    renderMetrics(container, sampleMetrics, fmt);
+    const heroValue = slots.heroValue;
+    const chipText = slots.chip.textContent;
+
+    renderMetrics(
+      container,
+      { ...sampleMetrics, base: { emi: 650, totalInterest: 8000 }, savings: 0, periodsSaved: 0 },
+      fmt
+    );
+
+    assert.equal(slots.heroValue, heroValue);
+    assert.equal(slots.heroValue.textContent, '$650');
+    // The chip keeps its last text so it holds its width while it fades out.
+    assert.equal(slots.chip.textContent, chipText);
+    assert.equal(slots.chip.classList.contains('is-empty'), true);
+    assert.equal(slots.chip.getAttribute('aria-hidden'), 'true');
+  } finally {
+    restore();
+  }
+});
+
+test('renderMetrics skips slots the markup does not provide', () => {
+  const restore = installFakeDom();
+  try {
+    const container = new FakeNode('div');
+    assert.doesNotThrow(() => renderMetrics(container, sampleMetrics, fmt));
+  } finally {
+    restore();
+  }
 });
 
 // --- extras.js ---
@@ -354,6 +421,10 @@ test('summarizeExtra describes a one-time payment', () => {
   assert.match(summary, /at Month 12/);
 });
 
+function extraRows(container) {
+  return container.children;
+}
+
 test('renderExtras builds recurring and one-time DOM elements', () => {
   const children = [];
   const container = {
@@ -405,5 +476,41 @@ test('renderExtras builds recurring and one-time DOM elements', () => {
     globalThis.document.createElement = origCreate;
   } else {
     delete globalThis.document;
+  }
+});
+
+
+test('renderExtras puts focus back on the control that was pressed', () => {
+  const saved = globalThis.document;
+  const focused = [];
+  const pressed = { dataset: { action: 'set-type', type: 'onetime' }, closest: () => ({ dataset: { extraId: '7' } }) };
+  const rebuilt = { focus() { focused.push(this); } };
+  const queries = [];
+  const container = {
+    innerHTML: '',
+    contains: (node) => node === pressed,
+    appendChild() {},
+    querySelector(selector) { queries.push(selector); return rebuilt; }
+  };
+  globalThis.document = {
+    activeElement: pressed,
+    createElement: () => ({ dataset: {}, innerHTML: '', setAttribute() {} })
+  };
+  try {
+    renderExtras({ container, extras: [{ id: 7, type: 'onetime', amount: 100, period: 2 }], periodLabel: 'Month' });
+    assert.deepEqual(queries, ['[data-extra-id="7"] [data-action="set-type"][data-type="onetime"]']);
+    assert.deepEqual(focused, [rebuilt]);
+
+    // A field keeps focus by its data-field; a control outside the rows is left alone.
+    pressed.dataset = { field: 'amount' };
+    queries.length = 0;
+    renderExtras({ container, extras: [], periodLabel: 'Month' });
+    assert.deepEqual(queries, ['[data-extra-id="7"] [data-field="amount"]']);
+    container.contains = () => false;
+    queries.length = 0;
+    renderExtras({ container, extras: [], periodLabel: 'Month' });
+    assert.deepEqual(queries, []);
+  } finally {
+    globalThis.document = saved;
   }
 });

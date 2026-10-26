@@ -4,7 +4,9 @@ import { cacheElements } from "../../../js/modules/element-cache.js";
 import { initSectionNav, renderSectionNav } from "../../../js/modules/section-nav.js";
 import { initAccordion } from "./modules/accordion.js";
 import {
+  renderCopyReserves,
   renderDistribution,
+  renderPromptReserve,
   renderScenario,
   renderScenarioOptions,
   renderTokenExamples
@@ -31,6 +33,7 @@ const ELEMENT_IDS = [
   "scenario-type",
   "sentence-prefix",
   "sentence-completion",
+  "prompt-reserve",
   "temp-slider",
   "temp-val",
   "temp-note",
@@ -44,6 +47,8 @@ const ELEMENT_IDS = [
   "sample-status",
   "candidate-list",
   "insight-box",
+  "insight-reserve",
+  "status-reserve",
   "token-examples",
   "whitespace-toggle",
   "concepts"
@@ -62,6 +67,8 @@ initializeMatureApp({
     bindEvents();
     renderScenarioOptions(elements.scenarioSelect, scenarios, activeIndex);
     renderTokenExamples(elements.tokenExamples, showWhitespace);
+    renderPromptReserve(elements.promptReserve, scenarios);
+    renderCopyReserves(elements, scenarios);
     render();
   }
 });
@@ -101,8 +108,8 @@ function bindEvents() {
   elements.resetSamples.addEventListener("click", resetSamples);
   elements.whitespaceToggle.addEventListener("click", () => {
     showWhitespace = !showWhitespace;
+    // Both labels are in the button and the stylesheet shows the one that applies.
     elements.whitespaceToggle.setAttribute("aria-pressed", String(showWhitespace));
-    elements.whitespaceToggle.textContent = showWhitespace ? "Hide whitespace" : "Show whitespace";
     renderTokenExamples(elements.tokenExamples, showWhitespace);
     render();
   });

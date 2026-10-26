@@ -1,15 +1,4 @@
-import { escapeAttribute } from "../../../../js/modules/html-escape.js";
-
-/**
- * @param {string} copy - Tooltip copy.
- * @param {string} [modifier] - Extra class for the tip (`is-start` anchors the tooltip to its left edge).
- * @returns {string} Info-tip button HTML.
- */
-function metricTip(copy, modifier = "") {
-  const escapedCopy = escapeAttribute(copy);
-  const className = modifier ? `info-tip ${modifier}` : "info-tip";
-  return `<button type="button" class="${className}" data-tip="${escapedCopy}" aria-label="${escapedCopy}">?</button>`;
-}
+import { setAttr, setText } from "../../../../js/modules/dom-sync.js";
 
 /**
  * @typedef {{
@@ -43,11 +32,11 @@ export function formatPeriodsAsDuration(periods, periodsPerYear) {
 }
 
 /**
- * Build the "saves $X · Ny Mm sooner" chip shown beside the hero EMI.
+ * Build the "saves $X, Ny Mm sooner" chip text shown beside the hero EMI.
  *
  * @param {Pick<LoanMetrics, "savings" | "periodsSaved" | "periodsPerYear">} metrics
  * @param {(value: number) => string} formatCurrency
- * @returns {string}
+ * @returns {string} Chip text, or an empty string when nothing is saved.
  */
 function buildSavingsChip({ savings, periodsSaved, periodsPerYear }, formatCurrency) {
   const parts = [];
@@ -58,91 +47,134 @@ function buildSavingsChip({ savings, periodsSaved, periodsPerYear }, formatCurre
     parts.push(`${formatPeriodsAsDuration(periodsSaved, periodsPerYear)} sooner`);
   }
 
-  return parts.length > 0 ? `<span class="chip is-green">${parts.join(" \u00b7 ")}</span>` : "";
+  return parts.join(" \u00b7 ");
 }
 
 /**
- * Build one KPI card. Value and sub-line are trusted markup.
+ * Text for every value slot in the metrics block, keyed by its `data-metric` name.
+ * Tip slots hold tooltip copy; the rest hold visible text.
  *
- * @param {{ tip: string, label: string, value: string, sub: string }} card
- * @returns {string}
+ * @typedef {{
+ *   heroLabel: string,
+ *   heroTip: string,
+ *   heroValue: string,
+ *   heroSub: string,
+ *   chip: string,
+ *   interestValue: string,
+ *   interestSub: string,
+ *   payoffTip: string,
+ *   payoffValue: string,
+ *   payoffSub: string,
+ *   paidValue: string,
+ *   paidSub: string,
+ *   breakTip: string,
+ *   breakValue: string
+ * }} MetricsView
  */
-function statCard({ tip, label, value, sub }) {
-  return `
-      <div class="stat">
-        ${metricTip(tip)}
-        <div class="stat-label">${label}</div>
-        <div class="stat-value">${value}</div>
-        <div class="stat-sub">${sub}</div>
-      </div>`;
-}
 
 /**
- * Build the hero EMI and KPI markup for the current amortization state.
+ * Derive the hero EMI and KPI text for the current amortization state.
  *
  * @param {LoanMetrics} metrics
  * @param {(value: number) => string} formatCurrency
- * @returns {string}
+ * @returns {MetricsView}
  */
-export function buildMetricsMarkup(
+export function buildMetricsView(
   { base, extra, savings, periodsSaved, totalPaid, costRatio, label, periodsPerYear },
   formatCurrency
 ) {
   const period = label.toLowerCase();
-  const heroSub =
-    extra.totalExtra > 0
-      ? `Plus ${formatCurrency(extra.totalExtra)} in extra payments over the loan`
-      : "Fixed payment, no extras";
 
-  return `
-    <div class="loan-hero">
-      <div class="loan-hero-main">
-        <div class="loan-hero-label">
-          <span>${label}ly EMI</span>
-          ${metricTip(`Fixed payment amount each ${period}, excluding extra payments`, "is-start")}
-        </div>
-        <div class="loan-hero-value">${formatCurrency(base.emi)}</div>
-        <div class="loan-hero-sub">${heroSub}</div>
-      </div>
-      ${buildSavingsChip({ savings, periodsSaved, periodsPerYear }, formatCurrency)}
-    </div>
-    <div class="stat-grid loan-kpis">
-      ${statCard({
-        tip: "Interest without extras vs with extras applied",
-        label: "Total interest",
-        value: formatCurrency(extra.totalInterest),
-        sub: `Without extras: ${formatCurrency(base.totalInterest)}`
-      })}
-      ${statCard({
-        tip: `Number of ${period}s until the loan is fully paid off`,
-        label: "Payoff in",
-        value: `${extra.periods} ${period}s`,
-        sub: periodsSaved > 0 ? `${periodsSaved} earlier than without extras` : "Until the loan is repaid"
-      })}
-      ${statCard({
-        tip: "Principal plus total interest. The real cost of your loan.",
-        label: "Total paid",
-        value: formatCurrency(totalPaid),
-        sub: `Interest is ${((costRatio - 1) * 100).toFixed(1)}% of loan`
-      })}
-      ${statCard({
-        tip: `The first ${period} when cumulative principal paid from EMI and extras meets or exceeds cumulative interest`,
-        label: "Break-even",
-        value: extra.breakEven ? `${label} ${extra.breakEven}` : "N/A",
-        sub: "Principal (EMI + extras) &gt;= interest"
-      })}
-    </div>
-  `;
+  return {
+    heroLabel: `${label}ly EMI`,
+    heroTip: `Fixed payment amount each ${period}, excluding extra payments`,
+    heroValue: formatCurrency(base.emi),
+    heroSub:
+      extra.totalExtra > 0
+        ? `Plus ${formatCurrency(extra.totalExtra)} in extra payments over the loan`
+        : "Fixed payment, no extras",
+    chip: buildSavingsChip({ savings, periodsSaved, periodsPerYear }, formatCurrency),
+    interestValue: formatCurrency(extra.totalInterest),
+    interestSub: `Without extras: ${formatCurrency(base.totalInterest)}`,
+    payoffTip: `Number of ${period}s until the loan is fully paid off`,
+    payoffValue: `${extra.periods} ${period}s`,
+    payoffSub:
+      periodsSaved > 0 ? `${periodsSaved} earlier than without extras` : "Until the loan is repaid",
+    paidValue: formatCurrency(totalPaid),
+    paidSub: `Interest is ${((costRatio - 1) * 100).toFixed(1)}% of loan`,
+    breakTip: `The first ${period} when cumulative principal paid from EMI and extras meets or exceeds cumulative interest`,
+    breakValue: extra.breakEven ? `${label} ${extra.breakEven}` : "N/A"
+  };
+}
+
+/** Slots whose value is tooltip copy: written to `data-tip` and `aria-label`. */
+const TIP_SLOTS = new Set(["heroTip", "payoffTip", "breakTip"]);
+
+/** @type {WeakMap<HTMLElement, Map<string, HTMLElement>>} */
+const slotCache = new WeakMap();
+
+/**
+ * Find the `data-metric` slots inside the metrics block once per container.
+ *
+ * @param {HTMLElement} container
+ * @returns {Map<string, HTMLElement>}
+ */
+function getSlots(container) {
+  let slots = slotCache.get(container);
+  if (!slots) {
+    slots = new Map();
+    for (const node of /** @type {HTMLElement[]} */ ([...container.querySelectorAll("[data-metric]")])) {
+      slots.set(node.dataset.metric ?? "", node);
+    }
+    slotCache.set(container, slots);
+  }
+  return slots;
 }
 
 /**
- * Render the metric card grid into the app shell.
+ * Write the metrics into the slots that ship in the page markup. Nodes are
+ * updated in place, so the tiles keep their size and an info tip keeps focus
+ * while values change. The savings chip keeps its slot and fades instead of
+ * leaving the layout.
  *
- * @param {HTMLElement} container
+ * @param {HTMLElement} container - The `#metrics` block holding `data-metric` slots.
  * @param {LoanMetrics} metrics
  * @param {(value: number) => string} formatCurrency
  * @returns {void}
  */
 export function renderMetrics(container, metrics, formatCurrency) {
-  container.innerHTML = buildMetricsMarkup(metrics, formatCurrency);
+  const slots = getSlots(container);
+  const view = buildMetricsView(metrics, formatCurrency);
+
+  for (const [name, text] of Object.entries(view)) {
+    const slot = slots.get(name);
+    if (!slot) {
+      continue;
+    }
+
+    if (TIP_SLOTS.has(name)) {
+      setAttr(slot, "data-tip", text);
+      setAttr(slot, "aria-label", text);
+    } else if (name === "chip") {
+      renderChip(slot, text);
+    } else {
+      setText(slot, text);
+    }
+  }
+}
+
+/**
+ * Show or hide the savings chip without changing its box. The last text stays
+ * while hidden, so the chip keeps its width as it fades.
+ *
+ * @param {HTMLElement} chip
+ * @param {string} text - Chip text, or an empty string to hide the chip.
+ * @returns {void}
+ */
+function renderChip(chip, text) {
+  if (text) {
+    setText(chip, text);
+  }
+  chip.classList.toggle("is-empty", !text);
+  setAttr(chip, "aria-hidden", text ? "false" : "true");
 }

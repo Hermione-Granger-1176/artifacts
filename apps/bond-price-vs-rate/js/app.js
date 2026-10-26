@@ -34,6 +34,8 @@ const RATE_SHOCK = 1;
 let elements = /** @type {Record<string, any>} */ ({});
 let charts = /** @type {Record<string, any>} */ ({});
 let selectedCurveKey = /** @type {keyof typeof YIELD_CURVES} */ ("normal");
+/** The inputs each chart was last drawn from, so a chart redraws only when its own inputs change. */
+let chartInputs = /** @type {Record<string, string>} */ ({});
 
 const scheduleRecalc = createFrameScheduler(() => recalc());
 
@@ -46,7 +48,7 @@ initializeMatureApp({
     initAppShell({
       onThemeChange: () => {
         refreshPalette();
-        recalc();
+        recalc({ redrawAll: true });
       }
     });
     bindEvents({
@@ -155,13 +157,62 @@ function buildSensitivity(bond) {
 }
 
 
-function recalc() {
+/**
+ * The inputs each chart depends on. The price curve and the sensitivity bars
+ * depend on all three sliders; the yield curve only on the selected shape and
+ * the maturity, so a rate or coupon drag leaves it alone.
+ * @param {ReturnType<typeof readBond>} bond - Current bond terms.
+ * @returns {Record<"priceRate" | "sensitivity" | "yieldCurve", string>} A comparable key per chart.
+ */
+function chartInputKeys(bond) {
+  const bondKey = `${bond.couponRatePct}|${bond.years}|${bond.annualYieldPct}`;
+  return {
+    priceRate: bondKey,
+    sensitivity: bondKey,
+    yieldCurve: `${selectedCurveKey}|${bond.years}`
+  };
+}
+
+/**
+ * Redraw the charts whose inputs changed since they were last drawn.
+ * @param {ReturnType<typeof readBond>} bond - Current bond terms.
+ * @param {ReturnType<typeof buildSensitivity>} sensitivity - Sensitivity bars for this bond.
+ * @param {boolean} redrawAll - Redraw every chart, as after a theme change.
+ */
+function renderChangedCharts(bond, sensitivity, redrawAll) {
+  const keys = chartInputKeys(bond);
+  const changed = (/** @type {keyof typeof keys} */ name) => redrawAll || keys[name] !== chartInputs[name];
+  const curveSwitched = chartInputs.yieldCurve?.split("|")[0] !== selectedCurveKey;
+
+  charts = renderCharts({
+    charts,
+    elements: getChartElements(elements),
+    priceRate: changed("priceRate") ? buildPriceRateSeries(bond) : undefined,
+    sensitivity: changed("sensitivity")
+      ? { labels: sensitivity.labels, values: sensitivity.values, currentIndex: sensitivity.currentIndex }
+      : undefined,
+    yieldCurve: changed("yieldCurve") ? buildYieldCurveSeries(bond) : undefined,
+    formatDollarTick,
+    animate: { yieldCurve: curveSwitched && !redrawAll }
+  });
+  chartInputs = keys;
+}
+
+/**
+ * Recompute every readout from the sliders and redraw what changed.
+ * @param {{ redrawAll?: boolean }} [options] - `redrawAll` redraws every chart whatever changed.
+ */
+function recalc({ redrawAll = false } = {}) {
   const bond = readBond();
   const price = bondPrice(bond);
   const regime = priceRegime(bond.couponRatePct, bond.annualYieldPct);
-  const priceRate = buildPriceRateSeries(bond);
   const sensitivity = buildSensitivity(bond);
-  const yieldCurve = buildYieldCurveSeries(bond);
+  const shapes = Object.fromEntries(
+    Object.entries(YIELD_CURVES).map(([key, shape]) => [
+      key,
+      { label: shape.label, atMaturityPct: curveYieldPct(shape, bond.years) }
+    ])
+  );
 
   const state = {
     bond,
@@ -174,25 +225,9 @@ function recalc() {
       shortPct: sensitivity.shortPct,
       longPct: sensitivity.longPct
     },
-    curve: {
-      key: selectedCurveKey,
-      label: YIELD_CURVES[selectedCurveKey].label,
-      atMaturityPct: yieldCurve.current.y
-    }
+    curve: { key: selectedCurveKey, ...shapes[selectedCurveKey], shapes }
   };
 
   renderNarrative(elements, state, { formatCurrency, formatPercent });
-
-  charts = renderCharts({
-    charts,
-    elements: getChartElements(elements),
-    priceRate,
-    sensitivity: {
-      labels: sensitivity.labels,
-      values: sensitivity.values,
-      currentIndex: sensitivity.currentIndex
-    },
-    yieldCurve,
-    formatDollarTick
-  });
+  renderChangedCharts(bond, sensitivity, redrawAll);
 }

@@ -75,8 +75,10 @@ export function initCalculator() {
     savingsOut.textContent = money(savings);
 
     pctOut.textContent = `${formatPercent((savings / without) * 100, 0)} cheaper, ${money(savings * 12)} per year`;
-    barWithout.style.width = "100%";
-    barWith.style.width = `${(withCache / without) * 100}%`;
+    // Bars scale from their left edge (transform, not width), so a slider drag
+    // animates on the compositor and never relayouts.
+    barWithout.style.transform = "scaleX(1)";
+    barWith.style.transform = `scaleX(${withCache / without})`;
 
     const tokensPerMonth = sysTokens * requests * 30;
     tokensOut.textContent = formatCompact(tokensPerMonth);

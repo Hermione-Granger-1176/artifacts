@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -20,8 +21,17 @@ import {
   renderPriceSplit,
   renderScheduleTable,
   rippleExplainText,
-  sensitivityExplainText
+  sensitivityExplainText,
+  sizingCopy
 } from '../../../../apps/bond-price-vs-rate/js/modules/narrative.js';
+import {
+  YIELD_CURVES,
+  bondAnalytics,
+  bondPrice,
+  bondSchedule,
+  curveYieldPct,
+  priceRegime
+} from '../../../../apps/bond-price-vs-rate/js/modules/bond-math.js';
 import { bindEvents } from '../../../../apps/bond-price-vs-rate/js/modules/interactions.js';
 import {
   CURVE_BUTTON_IDS,
@@ -45,6 +55,8 @@ function makeElement(overrides = {}) {
     children: [],
     innerHTML: '',
     style: {},
+    dataset: {},
+    parentNode: null,
     classList: {
       toggle(cls, force) {
         if (force !== undefined) {
@@ -57,8 +69,20 @@ function makeElement(overrides = {}) {
     },
     setAttribute(key, val) { attrs[key] = val; },
     getAttribute(key) { return attrs[key] ?? null; },
-    append(...nodes) { this.children.push(...nodes); },
-    appendChild(child) { this.children.push(child); return child; },
+    append(...nodes) {
+      for (const node of nodes) {
+        node.remove?.();
+        node.parentNode = this;
+        this.children.push(node);
+      }
+    },
+    appendChild(child) { this.append(child); return child; },
+    remove() {
+      if (this.parentNode) {
+        this.parentNode.children = this.parentNode.children.filter((child) => child !== this);
+        this.parentNode = null;
+      }
+    },
     addEventListener: () => {},
     ...overrides
   };
@@ -138,7 +162,16 @@ function narrativeState(overrides = {}) {
       convexity: 72.5693,
       dv01: 0.7011
     },
-    curve: { key: 'normal', label: 'Normal', atMaturityPct: 4.7837 },
+    curve: {
+      key: 'normal',
+      label: 'Normal',
+      atMaturityPct: 4.7837,
+      shapes: {
+        normal: { label: 'Normal', atMaturityPct: 4.7837 },
+        flat: { label: 'Flat', atMaturityPct: 4.5 },
+        inverted: { label: 'Inverted', atMaturityPct: 4.07 }
+      }
+    },
     ...overrides
   };
 }
@@ -206,7 +239,8 @@ test('renderScheduleTable renders a row per period plus a total matching the pri
 
     const first = tbody.children[0];
     assert.equal(first.children[0].textContent, '1');
-    assert.equal(first.children[1].textContent, '$50.00');
+    assert.equal(first.children[1].children[0].textContent, '$50.00');
+    assert.equal(first.children[1].children[1].textContent, '', 'only the final period carries the face note');
     assert.equal(first.children[2].textContent, (1 / 1.06).toFixed(4));
 
     // The final period merges the face into the payment and flags it.
@@ -215,7 +249,62 @@ test('renderScheduleTable renders a row per period plus a total matching the pri
     assert.match(final.children[1].children[1].textContent, /\$1,000 face/);
 
     const total = tbody.children[10];
+    assert.equal(total.className, 'br-schedule-total');
     assert.equal(total.children[1].textContent, '$926.40');
+  } finally {
+    restoreDocument(orig);
+  }
+});
+
+test('renderScheduleTable updates the cells in place and only changes rows when the years change', () => {
+  const orig = setupDocumentMock();
+  try {
+    const tbody = makeElement();
+    renderScheduleTable(tbody, narrativeState(), FORMATTERS);
+    const rows = [...tbody.children];
+    const total = rows[10];
+
+    // A new rate keeps every row and cell node, and rewrites their text.
+    renderScheduleTable(
+      tbody,
+      narrativeState({
+        bond: { faceValue: 1000, couponRatePct: 5, years: 10, annualYieldPct: 8 },
+        price: 798.7,
+        schedule: buildSchedule(5, 10, 8)
+      }),
+      FORMATTERS
+    );
+    assert.deepEqual([...tbody.children], rows, 'the same row nodes stay in place');
+    assert.equal(rows[0].children[2].textContent, (1 / 1.08).toFixed(4));
+    assert.equal(total.children[1].textContent, '$798.70');
+
+    // Fewer years remove the trailing rows; the old final row stops carrying the face note.
+    renderScheduleTable(
+      tbody,
+      narrativeState({
+        bond: { faceValue: 1000, couponRatePct: 5, years: 3, annualYieldPct: 6 },
+        schedule: buildSchedule(5, 3, 6)
+      }),
+      FORMATTERS
+    );
+    assert.equal(tbody.children.length, 4);
+    assert.equal(tbody.children[3], total, 'the total row stays last');
+    assert.equal(tbody.children[2].children[1].children[0].textContent, '$1,050.00');
+    assert.match(tbody.children[2].children[1].children[1].textContent, /face/);
+
+    // More years add rows before the total, and the face note moves to the new final row.
+    renderScheduleTable(
+      tbody,
+      narrativeState({
+        bond: { faceValue: 1000, couponRatePct: 5, years: 12, annualYieldPct: 6 },
+        schedule: buildSchedule(5, 12, 6)
+      }),
+      FORMATTERS
+    );
+    assert.equal(tbody.children.length, 13);
+    assert.equal(tbody.children[12], total);
+    assert.equal(tbody.children[2].children[1].children[1].textContent, '');
+    assert.match(tbody.children[11].children[1].children[1].textContent, /face/);
   } finally {
     restoreDocument(orig);
   }
@@ -244,11 +333,70 @@ test('renderCouponCompare builds a bar row per rate and scales the fill width', 
     assert.equal(couponRow.children[2].textContent, '5.0%');
     assert.equal(marketRow.children[2].textContent, '6.0%');
     // Coupon 5 of a 12 max => 41.67% width.
-    assert.ok(couponRow.children[1].children[0].style.width.startsWith('41.6'));
+    assert.ok(couponRow.children[1].children[0].style.scale.startsWith('0.416'));
+
+    // A later render reuses the rows, so the meter's width transition runs.
+    const rows = [...container.children];
+    const fill = couponRow.children[1].children[0];
+    renderCouponCompare(
+      container,
+      narrativeState({ bond: { faceValue: 1000, couponRatePct: 12, years: 10, annualYieldPct: 6 } }),
+      FORMATTERS
+    );
+    assert.deepEqual([...container.children], rows);
+    assert.equal(couponRow.children[1].children[0], fill);
+    assert.equal(fill.style.scale, '1 1');
+    assert.equal(couponRow.children[2].textContent, '12.0%');
   } finally {
     restoreDocument(orig);
   }
 });
+
+test('renderCouponCompare adopts rows that are already in the markup', () => {
+  const orig = setupDocumentMock();
+  try {
+    const container = makeElement();
+    const rows = ['This bond', 'Market'].map((label) => {
+      const row = makeElement();
+      const name = makeElement({ textContent: label });
+      const track = makeElement();
+      const fill = makeElement();
+      track.append(fill);
+      row.append(name, track, makeElement({ textContent: '5.0%' }));
+      return row;
+    });
+    container.append(...rows);
+    renderCouponCompare(container, narrativeState(), FORMATTERS);
+    assert.deepEqual([...container.children], rows, 'the markup rows are kept, not rebuilt');
+    assert.equal(rows[1].children[2].textContent, '6.0%');
+    assert.equal(rows[1].children[1].children[0].style.scale, '0.5 1');
+  } finally {
+    restoreDocument(orig);
+  }
+});
+
+// The stacked callouts keep one child per variant; the active one is what a reader sees.
+function activeVariant(element) {
+  const active = element.children.filter((child) => child.classList.contains('is-active'));
+  assert.equal(active.length, 1, 'exactly one variant is active');
+  return active[0];
+}
+
+function activeText(element) {
+  return activeVariant(element).textContent;
+}
+
+function variantNodes(element) {
+  return element.children.filter((child) => child.getAttribute('data-variant'));
+}
+
+function ghostNodes(element) {
+  return element.children.filter((child) => child.getAttribute('data-ghost'));
+}
+
+function variantKeys(element) {
+  return variantNodes(element).map((child) => child.getAttribute('data-variant'));
+}
 
 function narrativeElements() {
   return {
@@ -300,8 +448,8 @@ test('renderPriceSplit sizes each bar by its share of the price', () => {
     assert.equal(couponsRow.children[2].textContent, '$368');
     assert.equal(faceRow.children[2].textContent, '$558');
     // Coupons carry 368 of the 926.40 price => 39.7% of the bar.
-    assert.ok(couponsRow.children[1].children[0].style.width.startsWith('39.7'));
-    assert.ok(faceRow.children[1].children[0].style.width.startsWith('60.2'));
+    assert.ok(couponsRow.children[1].children[0].style.scale.startsWith('0.397'));
+    assert.ok(faceRow.children[1].children[0].style.scale.startsWith('0.602'));
   } finally {
     restoreDocument(orig);
   }
@@ -342,8 +490,9 @@ test('renderNarrative writes the discount readouts and up/down arrows', () => {
     renderNarrative(elements, narrativeState(), FORMATTERS);
     assert.equal(elements.priceValue.textContent, '$926.40');
     assert.equal(elements.priceCaption.textContent, 'This 10-year, 5% bond is now worth');
-    assert.equal(elements.regimeBadge.textContent, 'Discount');
-    assert.equal(elements.regimeBadge.className, 'chip is-red');
+    assert.deepEqual(variantKeys(elements.regimeBadge), ['premium', 'par', 'discount']);
+    assert.equal(activeText(elements.regimeBadge), 'Discount');
+    assert.equal(elements.regimeBadge.className, 'chip reserve is-red');
     assert.equal(elements.rateArrow.textContent, '▲');
     assert.equal(elements.rateArrow.className, 'br-arrow is-up');
     assert.equal(elements.priceArrow.textContent, '▼');
@@ -351,10 +500,14 @@ test('renderNarrative writes the discount readouts and up/down arrows', () => {
     assert.equal(elements.pvSplit.children.length, 2);
     assert.equal(elements.mathLegendCoupon.textContent, '$50');
     assert.equal(elements.mathSchedule.children.length, 11);
-    assert.match(elements.mathExplain.textContent, /market rate/);
+    assert.match(activeText(elements.mathExplain), /market rate/);
+    assert.match(activeText(elements.heroExplain), /discount to its \$1,000 face value/);
+    assert.match(activeText(elements.mechanismExplain), /sits below the market/);
+    assert.match(activeText(elements.rippleExplain), /loses value/);
     assert.equal(elements.statModified.textContent, '7.6');
-    assert.match(elements.analystExplain.textContent, /Modified duration/);
-    assert.match(elements.curveExplain.textContent, /normal curve/);
+    assert.match(activeText(elements.analystExplain), /Modified duration/);
+    assert.deepEqual(variantKeys(elements.curveExplain), ['normal', 'flat', 'inverted']);
+    assert.match(activeText(elements.curveExplain), /normal curve/);
     assert.equal(elements.btnApplyCurveLabel.textContent, 'Set the market rate to 4.8%');
   } finally {
     restoreDocument(orig);
@@ -372,7 +525,8 @@ test('renderNarrative renders a premium bond with a fractional coupon caption', 
     );
     assert.equal(elements.priceValue.textContent, '$1,081.11');
     assert.equal(elements.priceCaption.textContent, 'This 1-year, 5.5% bond is now worth');
-    assert.equal(elements.regimeBadge.className, 'chip is-green');
+    assert.equal(elements.regimeBadge.className, 'chip reserve is-green');
+    assert.equal(activeText(elements.regimeBadge), 'Premium');
     assert.equal(elements.priceArrow.textContent, '▲');
   } finally {
     restoreDocument(orig);
@@ -384,7 +538,8 @@ test('renderNarrative renders a par bond with flat arrows', () => {
   try {
     const elements = narrativeElements();
     renderNarrative(elements, narrativeState({ regime: 'par', price: 1000 }), FORMATTERS);
-    assert.equal(elements.regimeBadge.className, 'chip is-blue');
+    assert.equal(elements.regimeBadge.className, 'chip reserve is-blue');
+    assert.equal(activeText(elements.regimeBadge), 'At par');
     assert.equal(elements.rateArrow.textContent, '-');
     assert.equal(elements.rateArrow.className, 'br-arrow is-flat');
     assert.equal(elements.priceArrow.textContent, '-');
@@ -634,5 +789,359 @@ test('chart tooltip callbacks produce formatted output', () => {
   } finally {
     restoreDocument(orig);
     if (origWin) globalThis.window = origWin; else delete globalThis.window;
+  }
+});
+
+test('renderNarrative stacks every variant so swapping regimes keeps the same copy slots', () => {
+  const orig = setupDocumentMock();
+  try {
+    const elements = narrativeElements();
+    renderNarrative(elements, narrativeState(), FORMATTERS);
+    const heroNodes = [...elements.heroExplain.children];
+    assert.equal(variantNodes(elements.heroExplain).length, 3);
+    assert.equal(ghostNodes(elements.heroExplain).length, 3);
+    assert.equal(variantNodes(elements.heroExplain).filter((node) => node.classList.contains('is-active')).length, 1);
+
+    renderNarrative(elements, narrativeState({ regime: 'premium', price: 1081.11 }), FORMATTERS);
+    assert.deepEqual([...elements.heroExplain.children], heroNodes, 'the variant nodes are reused');
+    assert.match(activeText(elements.heroExplain), /premium over the \$1,000 face value/);
+    assert.match(activeText(elements.rippleExplain), /gain value/);
+
+    // Only the active variant carries real copy; the sizing copy reserves the space.
+    assert.deepEqual(
+      variantNodes(elements.heroExplain).map((node) => node.textContent === ''),
+      [false, true, true]
+    );
+    const ghosts = ghostNodes(elements.heroExplain);
+    assert.ok(ghosts.some((node) => /matches this bond's 12.0% coupon/.test(node.textContent)));
+    assert.ok(ghosts.some((node) => /Rates rose to 12.0%/.test(node.textContent)));
+    assert.ok(ghosts.every((node) => node.getAttribute('aria-hidden') === 'true'));
+
+    // Switching the curve swaps the active curve story and quotes that curve's own rate.
+    renderNarrative(
+      elements,
+      narrativeState({
+        curve: {
+          key: 'inverted',
+          label: 'Inverted',
+          atMaturityPct: 4.07,
+          shapes: {
+            normal: { label: 'Normal', atMaturityPct: 4.7837 },
+            flat: { label: 'Flat', atMaturityPct: 4.5 },
+            inverted: { label: 'Inverted', atMaturityPct: 4.07 }
+          }
+        }
+      }),
+      FORMATTERS
+    );
+    assert.match(activeText(elements.curveExplain), /inverted curve offers about 4.1%/);
+    const flat = variantNodes(elements.curveExplain).find((node) => node.getAttribute('data-variant') === 'flat');
+    assert.equal(flat.textContent, '', 'an inactive curve story is empty');
+  } finally {
+    restoreDocument(orig);
+  }
+});
+
+test('renderNarrative falls back to the selected curve when the state has no shape table', () => {
+  const orig = setupDocumentMock();
+  try {
+    const elements = narrativeElements();
+    renderNarrative(
+      elements,
+      narrativeState({ curve: { key: 'flat', label: 'Flat', atMaturityPct: 4.5 } }),
+      FORMATTERS
+    );
+    assert.deepEqual(variantKeys(elements.curveExplain), ['flat']);
+    assert.match(activeText(elements.curveExplain), /A flat curve pays nothing extra/);
+  } finally {
+    restoreDocument(orig);
+  }
+});
+
+test('renderNarrative adopts variant markup that is already on the page', () => {
+  const orig = setupDocumentMock();
+  try {
+    const elements = narrativeElements();
+    const authored = ['premium', 'par', 'discount'].map((key) => {
+      const node = makeElement();
+      node.setAttribute('data-variant', key);
+      return node;
+    });
+    elements.regimeBadge.append(...authored);
+    const authoredGhost = makeElement();
+    authoredGhost.setAttribute('data-ghost', 'text');
+    elements.mathExplain.append(authoredGhost);
+    renderNarrative(elements, narrativeState(), FORMATTERS);
+    assert.equal(ghostNodes(elements.mathExplain).length, 1, 'an authored sizing node is adopted');
+    assert.ok(authoredGhost.textContent.includes('12.0% market rate'));
+    assert.deepEqual([...elements.regimeBadge.children], authored, 'authored variants are kept, none added');
+    assert.equal(authored[2].textContent, 'Discount');
+    assert.equal(authored[2].classList.contains('is-active'), true);
+    assert.equal(authored[1].classList.contains('is-active'), false);
+  } finally {
+    restoreDocument(orig);
+  }
+});
+
+test('the static first-paint copy in index.html matches the default render', () => {
+  const html = readFileSync(
+    new URL('../../../../apps/bond-price-vs-rate/index.html', import.meta.url),
+    'utf8'
+  );
+  const bond = { faceValue: 1000, couponRatePct: 5, years: 10, annualYieldPct: 5, frequency: 1 };
+  const price = bondPrice(bond);
+  const regime = priceRegime(5, 5);
+  const shapes = Object.fromEntries(
+    Object.entries(YIELD_CURVES).map(([key, shape]) => [
+      key,
+      { label: shape.label, atMaturityPct: curveYieldPct(shape, 10) }
+    ])
+  );
+  const shock = (years) =>
+    (bondPrice({ ...bond, years, annualYieldPct: bond.annualYieldPct + 1 }) / bondPrice({ ...bond, years }) - 1) * 100;
+  const state = narrativeState({
+    bond,
+    price,
+    regime,
+    schedule: bondSchedule(bond),
+    analytics: bondAnalytics(bond),
+    sensitivity: { currentPct: shock(10), shortPct: shock(2), longPct: shock(30) },
+    curve: { key: 'normal', ...shapes.normal, shapes }
+  });
+
+  const sizing = sizingCopy(FORMATTERS);
+  const expectCopy = (id, texts, active) => {
+    const reals = Object.entries(texts)
+      .map(([key, text]) => `<span class="br-variant${key === active ? ' is-active' : ''}" data-variant="${key}">${key === active ? text : ''}</span>`)
+      .join('');
+    const ghosts = Object.entries(sizing[id])
+      .map(([key, text]) => `<span class="reserve-ghost" data-ghost="${key}" aria-hidden="true">${text}</span>`)
+      .join('');
+    assert.ok(
+      html.includes(`<p class="app-callout-body reserve" id="${id}">${reals}${ghosts}</p>`),
+      `${id} first-paint copy matches the default render`
+    );
+  };
+  const byRegime = (build) =>
+    Object.fromEntries(['premium', 'par', 'discount'].map((key) => [key, build({ ...state, regime: key }, FORMATTERS)]));
+
+  expectCopy('heroExplain', byRegime(heroExplainText), regime);
+  expectCopy('mechanismExplain', byRegime(mechanismExplainText), regime);
+  expectCopy('rippleExplain', byRegime(rippleExplainText), regime);
+  expectCopy(
+    'curveExplain',
+    Object.fromEntries(
+      Object.entries(shapes).map(([key, shape]) => [key, curveExplainText({ ...state, curve: { ...shape, key } }, FORMATTERS)])
+    ),
+    'normal'
+  );
+  expectCopy('mathExplain', { text: mathExplainText(state, FORMATTERS) }, 'text');
+  expectCopy('sensitivityExplain', { text: sensitivityExplainText(state, FORMATTERS) }, 'text');
+  expectCopy('analystExplain', { text: analystExplainText(state, FORMATTERS) }, 'text');
+
+  // The comparison rows ship with the default labels and values.
+  for (const label of ['This bond', 'Market', 'Coupons', 'Face value']) {
+    assert.ok(html.includes(`<span class="br-compare-label">${label}</span>`), `${label} row is in the markup`);
+  }
+  assert.ok(html.includes(`<span class="br-compare-num">${formatPercent(5)}</span>`));
+  const { pvCoupons, pvFace } = state.analytics;
+  assert.ok(html.includes(`<span class="br-compare-num">${formatCurrency(pvCoupons, 0)}</span>`));
+  assert.ok(html.includes(`<span class="br-compare-num">${formatCurrency(pvFace, 0)}</span>`));
+});
+
+// --- charts.js: which charts redraw, how, and when ---
+
+function recordingWindow(updates, { reducedMotion = false } = {}) {
+  return {
+    matchMedia: () => ({ matches: reducedMotion }),
+    Chart: function RecordingChart(canvas, config) {
+      this.type = config.type;
+      this.data = config.data;
+      this.options = config.options;
+      this.canvas = canvas;
+      this.update = (mode) => updates.push({ chart: this, mode });
+    }
+  };
+}
+
+function drawsOf(updates, chart) {
+  return updates.filter((entry) => entry.chart === chart).map((entry) => entry.mode);
+}
+
+test('renderCharts animates only the first draw, then redraws input changes without animation', () => {
+  const orig = setupDocumentMock();
+  const origWin = globalThis.window;
+  const updates = [];
+  globalThis.window = recordingWindow(updates);
+  try {
+    refreshPalette();
+    const charts = renderCharts(chartData());
+    assert.deepEqual(updates.map((entry) => entry.mode), [undefined, undefined, undefined], 'first draw eases in');
+
+    updates.length = 0;
+    renderCharts({ charts, ...chartData() });
+    assert.deepEqual(updates.map((entry) => entry.mode), ['none', 'none', 'none'], 'slider ticks redraw at once');
+  } finally {
+    restoreDocument(orig);
+    if (origWin) globalThis.window = origWin; else delete globalThis.window;
+  }
+});
+
+test('renderCharts redraws only the charts it is given data for', () => {
+  const orig = setupDocumentMock();
+  const origWin = globalThis.window;
+  const updates = [];
+  globalThis.window = recordingWindow(updates);
+  try {
+    refreshPalette();
+    const charts = renderCharts(chartData());
+    updates.length = 0;
+
+    const { priceRate, sensitivity, elements, formatDollarTick } = chartData();
+    renderCharts({ charts, elements, priceRate, sensitivity, formatDollarTick });
+    assert.equal(drawsOf(updates, charts.yieldCurve).length, 0, 'the yield curve is left alone');
+    assert.equal(drawsOf(updates, charts.priceRate).length, 1);
+    assert.equal(drawsOf(updates, charts.sensitivity).length, 1);
+  } finally {
+    restoreDocument(orig);
+    if (origWin) globalThis.window = origWin; else delete globalThis.window;
+  }
+});
+
+test('renderCharts eases a requested change unless the reader prefers reduced motion', () => {
+  for (const reducedMotion of [false, true]) {
+    const orig = setupDocumentMock();
+    const origWin = globalThis.window;
+    const updates = [];
+    globalThis.window = recordingWindow(updates, { reducedMotion });
+    try {
+      refreshPalette();
+      const charts = renderCharts(chartData());
+      updates.length = 0;
+      const { yieldCurve, elements, formatDollarTick } = chartData();
+      renderCharts({ charts, elements, yieldCurve, formatDollarTick, animate: { yieldCurve: true } });
+      assert.deepEqual(drawsOf(updates, charts.yieldCurve), [reducedMotion ? 'none' : undefined]);
+    } finally {
+      restoreDocument(orig);
+      if (origWin) globalThis.window = origWin; else delete globalThis.window;
+    }
+  }
+});
+
+test('renderCharts tolerates a browser without matchMedia', () => {
+  const orig = setupDocumentMock();
+  const origWin = globalThis.window;
+  const updates = [];
+  const win = recordingWindow(updates);
+  delete win.matchMedia;
+  globalThis.window = win;
+  try {
+    refreshPalette();
+    const charts = renderCharts(chartData());
+    updates.length = 0;
+    const { yieldCurve, elements, formatDollarTick } = chartData();
+    renderCharts({ charts, elements, yieldCurve, formatDollarTick, animate: { yieldCurve: true } });
+    assert.deepEqual(drawsOf(updates, charts.yieldCurve), [undefined]);
+  } finally {
+    restoreDocument(orig);
+    if (origWin) globalThis.window = origWin; else delete globalThis.window;
+  }
+});
+
+test('renderCharts keeps an off-screen chart pending and draws it once it scrolls into view', () => {
+  const orig = setupDocumentMock();
+  const origWin = globalThis.window;
+  const origObserver = globalThis.IntersectionObserver;
+  const updates = [];
+  let notify = null;
+  const observed = [];
+  globalThis.IntersectionObserver = class {
+    constructor(callback, options) {
+      notify = callback;
+      this.options = options;
+    }
+    observe(target) { observed.push(target); }
+  };
+  globalThis.window = recordingWindow(updates);
+  try {
+    refreshPalette();
+    const data = chartData();
+    const charts = renderCharts(data);
+    assert.equal(observed.length, 3, 'each canvas is watched');
+    updates.length = 0;
+
+    // The sensitivity chart scrolls out of range; the others stay in view.
+    notify([{ target: data.elements.sensitivityChart, isIntersecting: false }]);
+    renderCharts({ charts, ...chartData() });
+    assert.equal(drawsOf(updates, charts.sensitivity).length, 0, 'an off-screen chart is not redrawn');
+    assert.equal(drawsOf(updates, charts.priceRate).length, 1);
+
+    // The redraw on entering view uses the newest data.
+    const latest = chartData();
+    latest.sensitivity = { labels: ['2'], values: [-2], currentIndex: 0 };
+    renderCharts({ charts, ...latest });
+    updates.length = 0;
+    notify([
+      { target: {}, isIntersecting: true },
+      { target: data.elements.sensitivityChart, isIntersecting: true }
+    ]);
+    assert.deepEqual(drawsOf(updates, charts.sensitivity), ['none']);
+    assert.deepEqual(charts.sensitivity.data.labels, ['2'], 'the latest data is the one drawn');
+  } finally {
+    restoreDocument(orig);
+    if (origWin) globalThis.window = origWin; else delete globalThis.window;
+    if (origObserver) globalThis.IntersectionObserver = origObserver; else delete globalThis.IntersectionObserver;
+  }
+});
+
+test('the sizing copy is at least as long as any copy a slider setting can print', () => {
+  const sizing = sizingCopy(FORMATTERS);
+  const shapesFor = (years) =>
+    Object.fromEntries(
+      Object.entries(YIELD_CURVES).map(([key, shape]) => [key, { label: shape.label, atMaturityPct: curveYieldPct(shape, years) }])
+    );
+  const builders = {
+    heroExplain: (state, key) => heroExplainText({ ...state, regime: key }, FORMATTERS),
+    mechanismExplain: (state, key) => mechanismExplainText({ ...state, regime: key }, FORMATTERS),
+    rippleExplain: (state, key) => rippleExplainText({ ...state, regime: key }),
+    curveExplain: (state, key) => curveExplainText({ ...state, curve: { ...state.curve.shapes[key], key } }, FORMATTERS),
+    mathExplain: (state) => mathExplainText(state, FORMATTERS),
+    sensitivityExplain: (state) => sensitivityExplainText(state, FORMATTERS),
+    analystExplain: (state) => analystExplainText(state, FORMATTERS)
+  };
+  const longest = Object.fromEntries(Object.keys(builders).map((id) => [id, {}]));
+
+  for (let coupon = 1; coupon <= 12; coupon += 0.5) {
+    for (let rate = 1; rate <= 12; rate += 0.5) {
+      for (let years = 1; years <= 30; years += 1) {
+        const bond = { faceValue: 1000, couponRatePct: coupon, years, annualYieldPct: rate, frequency: 1 };
+        const shock = (maturity) =>
+          (bondPrice({ ...bond, years: maturity, annualYieldPct: rate + 1 }) / bondPrice({ ...bond, years: maturity }) - 1) * 100;
+        const shapes = shapesFor(years);
+        const state = {
+          bond,
+          price: bondPrice(bond),
+          regime: priceRegime(coupon, rate),
+          schedule: bondSchedule(bond),
+          analytics: bondAnalytics(bond),
+          sensitivity: { currentPct: shock(years), shortPct: shock(2), longPct: shock(30) },
+          curve: { key: 'normal', ...shapes.normal, shapes }
+        };
+        for (const [id, build] of Object.entries(builders)) {
+          for (const key of Object.keys(sizing[id])) {
+            longest[id][key] = Math.max(longest[id][key] ?? 0, build(state, key).length);
+          }
+        }
+      }
+    }
+  }
+
+  for (const [id, keys] of Object.entries(longest)) {
+    for (const [key, length] of Object.entries(keys)) {
+      assert.ok(
+        sizing[id][key].length >= length,
+        `${id}/${key} sizing copy (${sizing[id][key].length}) covers the longest real copy (${length})`
+      );
+    }
   }
 });

@@ -4,7 +4,10 @@ import test from 'node:test';
 import { buildCandidateRows } from '../../../../apps/tokenizer-explorer/js/modules/candidates.js';
 import { initAccordion } from '../../../../apps/tokenizer-explorer/js/modules/accordion.js';
 import {
+  insightReserveCopies,
+  renderCopyReserves,
   renderDistribution,
+  renderPromptReserve,
   renderScenario,
   renderScenarioOptions,
   renderTokenExamples
@@ -26,7 +29,9 @@ function makeElement(tagName = 'div') {
     className: '',
     children: [],
     innerHTML: '',
-    style: {},
+    style: {
+      setProperty(name, value) { this[name] = value; }
+    },
     textContent: '',
     title: '',
     type: '',
@@ -176,7 +181,12 @@ test('renderScenario renders the prompt as toned token chips and a temporary com
       sentenceCompletion: completion
     };
 
-    renderScenario(elements, { type: 'Code completion', prefix: 'function add(' }, 'value');
+    const scenario = {
+      type: 'Code completion',
+      prefix: 'function add(',
+      tokens: [{ word: 'a' }, { word: 'value' }, { word: 'x' }]
+    };
+    renderScenario(elements, scenario, 'value');
     assert.equal(elements.scenarioType.textContent, 'Code completion');
     assert.deepEqual(
       elements.sentencePrefix.children.map((chip) => chip.textContent),
@@ -186,18 +196,21 @@ test('renderScenario renders the prompt as toned token chips and a temporary com
     assert.match(elements.sentencePrefix.children[1].className, /is-green/);
     assert.equal(completion.textContent, 'value');
     assert.equal(completion.classList.contains('has-choice'), true);
+    // The blank is sized for the longest candidate word, picked or not.
+    assert.equal(completion.style['--blank-chars'], '5');
 
-    renderScenario(elements, { type: 'Code completion', prefix: 'function add(' });
+    renderScenario(elements, scenario);
     assert.equal(completion.textContent, '');
     assert.equal(completion.classList.contains('has-choice'), false);
+    assert.equal(completion.style['--blank-chars'], '5');
 
-    renderScenario(elements, { type: 'Code completion', prefix: 'function add(' }, null, true);
+    renderScenario(elements, scenario, null, true);
     assert.equal(elements.sentencePrefix.children[1].textContent, '·add(');
 
     // The completion blank is optional, so a bare prompt still renders.
     renderScenario(
       { scenarioType: makeElement(), sentencePrefix: makeElement() },
-      { type: 'Sentence', prefix: 'Hello world' }
+      { type: 'Sentence', prefix: 'Hello world', tokens: [] }
     );
   } finally {
     restoreDocument(mocks);
@@ -292,6 +305,7 @@ test('renderDistribution renders the candidate rows, insight, and sample status'
     assert.equal(first.odds.textContent, '60.0%');
     assert.equal(first.draw.textContent, '75.0%');
     assert.equal(first.seen.textContent, '70');
+    // Bars span their track and are scaled to their share by the stylesheet.
     assert.equal(first.track.children[0].style.width, '60%');
     assert.equal(first.track.children[1].style.width, '70%');
     assert.equal(first.row.classList.contains('is-picked'), false);
@@ -442,6 +456,81 @@ test('renderDistribution describes each top-p regime', () => {
     assert.match(elements.insightBox.textContent, /keeps 2 tokens/);
     renderDistribution(elements, { ...state, topP: 0.8, topTokens: [state.topTokens[0]] });
     assert.match(elements.insightBox.textContent, /keeps 1 token whose/);
+  } finally {
+    restoreDocument(mocks);
+  }
+});
+
+// --- reserved copy and prompt height ---
+
+const RESERVE_SCENARIOS = [
+  { prefix: 'The cat sat', tokens: [{ word: 'mat' }, { word: 'floor' }] },
+  { prefix: 'Water boils at 100', tokens: [{ word: 'Celsius' }, { word: 'centigrade' }, { word: 'hot' }] }
+];
+
+test('insightReserveCopies covers every insight line the sliders can produce', () => {
+  const copies = insightReserveCopies(RESERVE_SCENARIOS);
+  assert.equal(copies.length, 16);
+  assert.equal(new Set(copies).size, 16);
+  // The setting echoed in the copy ("temperature 0.3") never changes its length.
+  const shape = (text) => text.replace(/\d+\.\d+/g, '#');
+  const shapes = new Set(copies.map(shape));
+  // Written for the longest candidate word, so no real winner makes a longer line.
+  assert.ok(copies.some((copy) => copy.includes('"centigrade"')));
+
+  const mocks = setupDocumentMock();
+  try {
+    const state = makeDistributionState();
+    // The widest scenario has three candidates and the longest winner word.
+    const topTokens = ['centigrade', 'Celsius', 'hot'].map((word, idx) => ({ adjustedProb: 0.3, idx, word }));
+    // Every temperature and top P the sliders reach lands on a reserved line.
+    for (let step = 0; step <= 30; step += 1) {
+      for (const topP of [0.01, 0.1, 0.11, 0.5, 0.51, 0.7, 0.98, 0.99, 1]) {
+        const elements = makeDistributionElements();
+        renderDistribution(elements, { ...state, temperature: step / 10, topP, topTokens });
+        assert.ok(shapes.has(shape(elements.insightBox.textContent)), `${step / 10} ${topP}`);
+      }
+    }
+  } finally {
+    restoreDocument(mocks);
+  }
+});
+
+test('renderCopyReserves stacks every insight and status copy out of sight', () => {
+  const mocks = setupDocumentMock();
+  try {
+    const elements = { insightReserve: makeElement(), statusReserve: makeElement() };
+    renderCopyReserves(elements, RESERVE_SCENARIOS);
+    assert.equal(elements.insightReserve.children.length, 16);
+    assert.ok(elements.insightReserve.children.every((copy) => copy.className === 'tk-insight'));
+    assert.deepEqual(
+      elements.statusReserve.children.map((copy) => copy.textContent),
+      [
+        'Run 100 draws to compare the observed tally with the distribution.',
+        'Thin bars: tally from 100 draws of the renormalized pool, so a token can land above its blue bar.'
+      ]
+    );
+    assert.ok(elements.statusReserve.children.every((copy) => copy.className === 'tk-status'));
+  } finally {
+    restoreDocument(mocks);
+  }
+});
+
+test('renderPromptReserve holds one prompt with its blank per scenario', () => {
+  const mocks = setupDocumentMock();
+  try {
+    const container = makeElement();
+    renderPromptReserve(container, RESERVE_SCENARIOS);
+    assert.equal(container.children.length, 2);
+    const [cat, water] = container.children;
+    assert.deepEqual(
+      cat.children.slice(0, -1).map((chip) => chip.textContent),
+      ['The', ' cat', ' sat']
+    );
+    assert.match(cat.children[0].className, /chip is-mono token-chip prompt-chip/);
+    assert.equal(cat.children.at(-1).className, 'blank');
+    assert.equal(cat.children.at(-1).style['--blank-chars'], '5');
+    assert.equal(water.children.at(-1).style['--blank-chars'], '10');
   } finally {
     restoreDocument(mocks);
   }

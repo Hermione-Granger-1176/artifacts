@@ -549,7 +549,7 @@ help-json: ## Emit groups and commands as JSON
 
 # ─── Git @git ─────────────────────────────────────────────────────────────────
 
-.PHONY: git branches branch branch-current branch-prune worktree worktree-remove rebase-main rebase-continue sync-branch stage stage-all commit push push-force log log-file diff diff-staged
+.PHONY: git branches branch branch-current branch-prune worktree worktree-remove rebase-main rebase-continue sync-branch squash stage stage-all commit push push-force log log-file diff diff-staged
 
 git: ## Git commands (make git)
 	@$(MAKE) --no-print-directory help-git
@@ -596,6 +596,9 @@ rebase-continue: ## Continue an in-progress rebase after resolving conflicts
 
 sync-branch: ## Rebase the current branch onto its upstream branch
 	git pull --rebase
+
+squash: ## Uncommit the current branch's commits since its base and keep the changes staged, ready for make commit (make squash [base=branch])
+	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && git reset --soft "$$(git merge-base HEAD "origin/$(if $(base),$(base),$(MAIN_BRANCH))")"
 
 stage: export STAGE_FILES := $(value files)
 stage: export STAGE_FILE := $(value file)

@@ -84,8 +84,41 @@ test('filterAndSortArtifacts filters by search/tool/tag and sort order', () => {
   );
 });
 
-test('getPageNumbers collapses long page ranges', () => {
-  assert.deepEqual(getPageNumbers(5, 10), [1, 2, '...', 4, 5, 6, '...', 9, 10]);
+test('getPageNumbers lists every page up to seven', () => {
+  assert.deepEqual(getPageNumbers(1, 1), [1]);
+  assert.deepEqual(getPageNumbers(2, 2), [1, 2]);
+  assert.deepEqual(getPageNumbers(4, 7), [1, 2, 3, 4, 5, 6, 7]);
+});
+
+test('getPageNumbers collapses long page ranges around the current page', () => {
+  assert.deepEqual(getPageNumbers(5, 10), [1, '...', 4, 5, 6, '...', 10]);
+  assert.deepEqual(getPageNumbers(6, 10), [1, '...', 5, 6, 7, '...', 10]);
+});
+
+test('getPageNumbers keeps one ellipsis near either end of a long range', () => {
+  assert.deepEqual(getPageNumbers(1, 10), [1, 2, 3, 4, 5, '...', 10]);
+  assert.deepEqual(getPageNumbers(4, 10), [1, 2, 3, 4, 5, '...', 10]);
+  assert.deepEqual(getPageNumbers(7, 10), [1, '...', 6, 7, 8, 9, 10]);
+  assert.deepEqual(getPageNumbers(10, 10), [1, '...', 6, 7, 8, 9, 10]);
+});
+
+test('getPageNumbers always returns seven slots past seven pages, and never hides one page behind an ellipsis', () => {
+  for (const total of [8, 9, 10, 25, 100]) {
+    for (let current = 1; current <= total; current += 1) {
+      const slots = getPageNumbers(current, total);
+      assert.equal(slots.length, 7, `${current} of ${total}`);
+      assert.equal(slots[0], 1);
+      assert.equal(slots.at(-1), total);
+      assert.ok(slots.includes(current), `${current} of ${total} shows the current page`);
+
+      slots.forEach((slot, index) => {
+        if (slot === '...') {
+          const gap = slots[index + 1] - slots[index - 1] - 1;
+          assert.ok(gap >= 2, `${current} of ${total}: an ellipsis stands for at least two pages`);
+        }
+      });
+    }
+  }
 });
 
 

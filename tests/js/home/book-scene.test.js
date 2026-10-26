@@ -438,6 +438,14 @@ test('startIntro swings the cover open, reveals the left side mid-swing, and cle
   assert.equal(harness.sheet.animateCalls[0].keyframes[1].transform, 'translateX(0)');
   assert.equal(swing.keyframes.length, 2, 'one smooth swing with no lift step');
 
+  // The shadow slides its mask edge and never a layout property, so the intro shifts nothing.
+  const shadow = harness.sheet.querySelector('.book-shadow').animateCalls[0];
+  assert.deepEqual(shadow.keyframes.map((frame) => frame['--shadow-edge']), ['50%', '50%', '-12%']);
+  assert.equal(shadow.keyframes[1].offset, 0.5, 'the edge holds until the cover is half open');
+  for (const frame of shadow.keyframes) {
+    assert.deepEqual(Object.keys(frame).filter((key) => !['--shadow-edge', 'offset'].includes(key)), []);
+  }
+
   await harness.advance(500);
   assert.ok(!harness.shell.classList.contains('is-open'), 'the left half waits for the cover to land');
 

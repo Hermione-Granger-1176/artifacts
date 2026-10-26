@@ -15,9 +15,24 @@ function createMockEnv(overrides = {}) {
   const listeners = {};
   const elements = {};
 
+  // Records whether the transition-suspending class was on when the theme
+  // attribute changed, and queues animation frames for the tests to flush.
+  const themeSwaps = [];
+  const htmlClasses = new Set();
+  const frames = new Map();
+  let nextFrame = 1;
+
   const html = {
     getAttribute(name) { return attrs[name] ?? null; },
-    setAttribute(name, value) { attrs[name] = value; }
+    setAttribute(name, value) {
+      if (name === 'data-theme') themeSwaps.push(htmlClasses.has('theme-switching'));
+      attrs[name] = value;
+    },
+    classList: {
+      add(cls) { htmlClasses.add(cls); },
+      remove(cls) { htmlClasses.delete(cls); },
+      contains(cls) { return htmlClasses.has(cls); }
+    }
   };
 
   function makeElement(id) {
@@ -72,6 +87,11 @@ function createMockEnv(overrides = {}) {
     matchMedia() { return { matches: false }; },
     scrollY: 0,
     scrollTo() {},
+    requestAnimationFrame(callback) {
+      const id = nextFrame++;
+      frames.set(id, callback);
+      return id;
+    },
     history: { length: 2, back() {} },
     location: { origin: 'https://example.com', href: '' },
     addEventListener(event, handler, opts) {
@@ -84,7 +104,17 @@ function createMockEnv(overrides = {}) {
   globalThis.window = mockWindow;
   globalThis.HTMLElement = globalThis.HTMLElement ?? class {};
 
-  return { html, attrs, elements, listeners, themeColorMeta, mockDocument, mockWindow, ...overrides };
+  // Run the frame callbacks queued so far, as one animation frame would.
+  const flushFrame = () => {
+    const pending = [...frames.values()];
+    frames.clear();
+    pending.forEach((callback) => callback());
+  };
+
+  return {
+    html, attrs, elements, listeners, themeColorMeta, mockDocument, mockWindow,
+    htmlClasses, themeSwaps, flushFrame, ...overrides
+  };
 }
 
 function cleanupGlobals() {
@@ -286,6 +316,77 @@ test('initAppShell handles missing theme-color meta gracefully', () => {
     const shell = initAppShell({ homePath: '../' });
     shell.applyTheme('dark');
     assert.equal(env.attrs['data-theme'], 'dark');
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('initAppShell applyTheme suspends transitions around the theme change for two frames', () => {
+  const env = createMockEnv();
+  try {
+    const shell = initAppShell({ homePath: '../' });
+
+    shell.applyTheme('dark');
+    assert.deepEqual(env.themeSwaps, [true]);
+    assert.equal(env.htmlClasses.has('theme-switching'), true);
+
+    env.flushFrame();
+    assert.equal(env.htmlClasses.has('theme-switching'), true);
+    env.flushFrame();
+    assert.equal(env.htmlClasses.has('theme-switching'), false);
+    assert.equal(env.attrs['data-theme'], 'dark');
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('initAppShell applyTheme restarts the two-frame window on a rapid second toggle', () => {
+  const env = createMockEnv();
+  try {
+    const shell = initAppShell({ homePath: '../' });
+
+    shell.applyTheme('dark');
+    env.flushFrame();
+    shell.applyTheme('light');
+    env.flushFrame();
+    assert.equal(env.htmlClasses.has('theme-switching'), true);
+    env.flushFrame();
+    assert.equal(env.htmlClasses.has('theme-switching'), false);
+    assert.deepEqual(env.themeSwaps, [true, true]);
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('initAppShell scroll-top coalesces scroll events per frame and writes only on a change', () => {
+  const env = createMockEnv();
+  try {
+    initAppShell({ homePath: '../' });
+    const button = env.elements['scroll-top'];
+    let writes = 0;
+    const setAttribute = button.setAttribute.bind(button);
+    button.setAttribute = (name, value) => { writes += 1; setAttribute(name, value); };
+
+    const onScroll = env.listeners['window:scroll'];
+    globalThis.window.scrollY = 400;
+    onScroll();
+    onScroll();
+    onScroll();
+    assert.equal(button.classList.contains('is-visible'), false);
+    env.flushFrame();
+    assert.equal(button.classList.contains('is-visible'), true);
+    assert.equal(writes, 1);
+
+    globalThis.window.scrollY = 900;
+    onScroll();
+    env.flushFrame();
+    assert.equal(writes, 1);
+
+    globalThis.window.scrollY = 10;
+    onScroll();
+    env.flushFrame();
+    assert.equal(button.classList.contains('is-visible'), false);
+    assert.equal(writes, 2);
   } finally {
     cleanupGlobals();
   }

@@ -1,12 +1,11 @@
 import { applyDynamicStyles, createDetailContent } from './render.js';
 
 /**
- * Minimum scale factors for card-to-detail expand/collapse animations.
- * These prevent the detail panel from shrinking below a readable size
+ * Smallest scale for the card-to-detail expand/collapse animation.
+ * It keeps the detail panel from shrinking below a readable size
  * when the originating card is much smaller than the overlay.
  */
-const MIN_SCALE_X = 0.36;
-const MIN_SCALE_Y = 0.24;
+const MIN_SCALE = 0.36;
 
 /**
  * Create a detail overlay controller managing the expanded artifact panel lifecycle,
@@ -74,34 +73,47 @@ export function createDetailOverlay({
   }
 
   /**
+   * The panel's settled box. The layout size and the overlay's centre are used, not the
+   * panel's own bounding rect, because that rect includes the closed-state transform
+   * (the panel is centred in the overlay and sits scaled down until it opens).
+   * @returns {{ centerX: number, centerY: number, width: number, height: number }} Panel centre and size.
+   */
+  function measurePanel() {
+    const overlayRect = detailOverlay.getBoundingClientRect();
+    return {
+      centerX: overlayRect.left + overlayRect.width / 2,
+      centerY: overlayRect.top + overlayRect.height / 2,
+      width: detailPanel.offsetWidth,
+      height: detailPanel.offsetHeight
+    };
+  }
+
+  /**
+   * Start the panel from the card's centre at one uniform scale, so it never squashes.
    * @param {DOMRect | null} originRect - Bounding rect of the trigger card.
-   * @param {DOMRect} panelRect - Bounding rect of the detail panel.
+   * @param {{ centerX: number, centerY: number, width: number, height: number }} panel - Settled panel box.
    * @returns {void}
    */
-  function applyDetailMotion(originRect, panelRect) {
+  function applyDetailMotion(originRect, panel) {
     clearDetailMotion();
-    if (motion.prefersReducedMotion() || !originRect || !panelRect.width || !panelRect.height) {
+    if (motion.prefersReducedMotion() || !originRect || !panel.width || !panel.height) {
       return;
     }
 
-    const panelCenterX = panelRect.left + panelRect.width / 2;
-    const panelCenterY = panelRect.top + panelRect.height / 2;
     const originCenterX = originRect.left + originRect.width / 2;
     const originCenterY = originRect.top + originRect.height / 2;
-    const scaleX = Math.max(MIN_SCALE_X, Math.min(1, originRect.width / panelRect.width));
-    const scaleY = Math.max(MIN_SCALE_Y, Math.min(1, originRect.height / panelRect.height));
+    const fit = Math.max(originRect.width / panel.width, originRect.height / panel.height);
+    const scale = Math.max(MIN_SCALE, Math.min(1, fit));
 
-    detailPanel.style.setProperty('--detail-from-x', `${originCenterX - panelCenterX}px`);
-    detailPanel.style.setProperty('--detail-from-y', `${originCenterY - panelCenterY}px`);
-    detailPanel.style.setProperty('--detail-from-scale-x', `${scaleX}`);
-    detailPanel.style.setProperty('--detail-from-scale-y', `${scaleY}`);
+    detailPanel.style.setProperty('--detail-from-x', `${originCenterX - panel.centerX}px`);
+    detailPanel.style.setProperty('--detail-from-y', `${originCenterY - panel.centerY}px`);
+    detailPanel.style.setProperty('--detail-from-scale', `${scale}`);
   }
 
   function clearDetailMotion() {
     detailPanel.style.removeProperty('--detail-from-x');
     detailPanel.style.removeProperty('--detail-from-y');
-    detailPanel.style.removeProperty('--detail-from-scale-x');
-    detailPanel.style.removeProperty('--detail-from-scale-y');
+    detailPanel.style.removeProperty('--detail-from-scale');
   }
 
   /** @param {KeyboardEvent} event - Keydown event to trap within the overlay. */
@@ -177,9 +189,8 @@ export function createDetailOverlay({
     setBackgroundContentInert(backgroundElements, true);
     updateExpandedCardState();
 
-    const panelRect = detailPanel.getBoundingClientRect();
     const originRect = lastExpandedTrigger ? lastExpandedTrigger.getBoundingClientRect() : null;
-    applyDetailMotion(originRect, panelRect);
+    applyDetailMotion(originRect, measurePanel());
 
     windowObj.requestAnimationFrame(() => {
       detailOverlay.classList.add('open');
@@ -225,9 +236,8 @@ export function createDetailOverlay({
       return;
     }
 
-    const panelRect = detailPanel.getBoundingClientRect();
     const originRect = fallbackCard ? fallbackCard.getBoundingClientRect() : null;
-    applyDetailMotion(originRect, panelRect);
+    applyDetailMotion(originRect, measurePanel());
     overlayResetTimer = windowObj.setTimeout(finishClose, detailCloseDelay);
   }
 

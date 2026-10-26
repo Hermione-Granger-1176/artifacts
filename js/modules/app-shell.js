@@ -1,3 +1,4 @@
+import { createFrameScheduler } from "./frame-scheduler.js";
 import { writeStorage } from "./runtime.js";
 
 /**
@@ -169,10 +170,32 @@ export function initAppShell({
     themeToggle.setAttribute("title", `Switch to ${nextTheme} theme`);
   }
 
+  // Bumped on every theme change so only the latest change lifts the class.
+  let themeSwitchId = 0;
+
+  /**
+   * Turn CSS transitions off while the theme changes, so every themed color
+   * flips together instead of fading at its own speed. The shared
+   * .theme-switching rule lifts again two frames later, once the new colors
+   * have painted.
+   */
+  function suspendTransitions() {
+    const switchId = ++themeSwitchId;
+    html.classList.add("theme-switching");
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (switchId === themeSwitchId) {
+          html.classList.remove("theme-switching");
+        }
+      });
+    });
+  }
+
   /** @param {string} theme - Requested theme name. */
   function applyTheme(theme) {
     const normalizedTheme =
       windowObj.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(theme);
+    suspendTransitions();
     html.setAttribute("data-theme", normalizedTheme);
     syncThemeColor(normalizedTheme);
     syncThemeToggle();
@@ -209,12 +232,20 @@ export function initAppShell({
     window.history.back();
   }
 
+  // Visibility last written; null until the first write. Scroll events fire far
+  // more often than the button flips, so the DOM is touched only on a change.
+  let scrollTopVisible = /** @type {boolean | null} */ (null);
+
   function updateScrollTopVisibility() {
     if (!scrollTop) {
       return;
     }
 
     const isVisible = window.scrollY > 280;
+    if (isVisible === scrollTopVisible) {
+      return;
+    }
+    scrollTopVisible = isVisible;
     scrollTop.classList.toggle("is-visible", isVisible);
     scrollTop.setAttribute("aria-hidden", String(!isVisible));
     scrollTop.tabIndex = isVisible ? 0 : -1;
@@ -235,7 +266,9 @@ export function initAppShell({
       const behavior = prefersReducedMotion.matches ? "auto" : "smooth";
       window.scrollTo({ top: 0, behavior });
     });
-    window.addEventListener("scroll", updateScrollTopVisibility, { passive: true });
+    window.addEventListener("scroll", createFrameScheduler(updateScrollTopVisibility), {
+      passive: true
+    });
     updateScrollTopVisibility();
   }
 

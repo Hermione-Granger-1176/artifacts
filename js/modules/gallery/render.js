@@ -498,26 +498,24 @@ function buildNavButton({ page, step, disabled, label, content }) {
  * Render pagination controls into the given container element.
  * Previous and Next carry `data-page-step` so they stay relative to the latest
  * requested page, even when several are pressed while a page turn is running.
+ * With one page or none the row still renders, with every control disabled and
+ * a blank slot standing in for a second page tag, so the row keeps its height
+ * and the footer does not jump when a filter leaves a single page.
  * @param {HTMLElement} container - Pagination container.
  * @param {number} currentPage - Active page number.
  * @param {number} totalPages - Total available pages.
  * @returns {void}
  */
 export function renderPagination(container, currentPage, totalPages) {
-  if (totalPages <= 1) {
-    container.innerHTML = '';
-    delete container.dataset.renderKey;
-    return;
-  }
-
-  const renderKey = `${currentPage}/${totalPages}`;
+  const pageTotal = Math.max(1, totalPages);
+  const renderKey = `${currentPage}/${pageTotal}`;
   if (container.dataset.renderKey === renderKey) {
     return;
   }
 
-  const pages = getPageNumbers(currentPage, totalPages);
+  const pages = getPageNumbers(currentPage, pageTotal);
   const onFirst = currentPage === 1;
-  const onLast = currentPage === totalPages;
+  const onLast = currentPage === pageTotal;
   const pageButtons = pages.map((page) => {
     if (page === '...') {
       return '<span class="page-ellipsis" aria-hidden="true"><span class="page-ellipsis-dots">&hellip;</span></span>';
@@ -527,7 +525,10 @@ export function renderPagination(container, currentPage, totalPages) {
     const activeClass = isActive ? 'active' : '';
     const ariaCurrent = isActive ? 'aria-current="page"' : '';
     return `<button class="page-btn ${activeClass}" data-page="${page}" type="button" ${ariaCurrent} aria-label="Page ${page}"><span class="page-btn-paper"></span><span class="page-btn-number">${page}</span></button>`;
-  }).join('');
+  });
+  if (pageTotal === 1) {
+    pageButtons.push('<span class="page-ellipsis page-slot-empty" aria-hidden="true"></span>');
+  }
 
   container.innerHTML = [
     buildNavButton({ page: 1, disabled: onFirst, label: 'First page', content: ICONS.chevronFirst }),
@@ -535,12 +536,12 @@ export function renderPagination(container, currentPage, totalPages) {
       page: currentPage - 1, step: -1, disabled: onFirst, label: 'Prev page',
       content: `${ICONS.chevronLeft}<span class="page-btn-label">Prev</span>`
     }),
-    pageButtons,
+    pageButtons.join(''),
     buildNavButton({
       page: currentPage + 1, step: 1, disabled: onLast, label: 'Next page',
       content: `<span class="page-btn-label">Next</span>${ICONS.chevronRight}`
     }),
-    buildNavButton({ page: totalPages, disabled: onLast, label: 'Last page', content: ICONS.chevronLast })
+    buildNavButton({ page: pageTotal, disabled: onLast, label: 'Last page', content: ICONS.chevronLast })
   ].join('');
   container.dataset.renderKey = renderKey;
 }

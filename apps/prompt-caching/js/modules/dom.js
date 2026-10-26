@@ -36,6 +36,41 @@ export function clear(node) {
   node.replaceChildren();
 }
 
+/**
+ * Whether the visitor asked the system for reduced motion. Timed step-by-step
+ * demos jump straight to their final state when it is set.
+ * @returns {boolean} True when `prefers-reduced-motion: reduce` matches.
+ */
+export function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/**
+ * Reserve the largest box a changing element can ever need, so swapping its
+ * content never moves what sits below it. Hidden copies of every state share the
+ * live element's grid cell (its parent carries `.reserve`), so the cell
+ * always measures as the tallest state at the current width.
+ * @param {HTMLElement} live - Element the demo updates, already inside a `.reserve` parent.
+ * @param {HTMLElement[]} ghosts - One copy per state; each takes the live element's classes.
+ * @returns {void}
+ */
+export function reserveSpace(live, ghosts) {
+  const host = /** @type {HTMLElement} */ (live.parentNode);
+  for (const ghost of ghosts) {
+    ghost.classList.add("reserve-ghost");
+    ghost.setAttribute("aria-hidden", "true");
+    host.appendChild(ghost);
+  }
+}
+
+/**
+ * @param {string[]} texts - Candidate strings.
+ * @returns {string} The longest one, which wraps onto the most lines.
+ */
+export function longestText(texts) {
+  return texts.reduce((best, text) => (text.length > best.length ? text : best), "");
+}
+
 /* Segmented-control wiring now lives in the shared module so every artifact app
  * (and its aria-pressed sync) draws from one source. Re-exported here so the
  * prompt-caching demos keep importing it from their local dom module. */

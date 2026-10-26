@@ -7,6 +7,9 @@
  * @module narrative
  */
 
+import { setText } from "../../../../js/modules/dom-sync.js";
+import { setMeterValue } from "../../../../js/modules/meter.js";
+
 const REGIME_PRESENTATION = {
   premium: { label: "Premium", badgeClass: "is-green", rateArrow: "is-down", priceArrow: "is-up" },
   par: { label: "At par", badgeClass: "is-blue", rateArrow: "is-flat", priceArrow: "is-flat" },
@@ -22,6 +25,104 @@ const ARROW_GLYPH = {
 /** The slider ceiling, used to scale the coupon-vs-market comparison bars. */
 const RATE_SCALE_MAX = 12;
 
+/** Price regimes in the order their stacked variants are created. */
+const REGIMES = /** @type {const} */ (["premium", "par", "discount"]);
+
+/**
+ * @typedef {{ real: Map<string, HTMLElement>, ghost: Map<string, HTMLElement> }} StackNodes
+ */
+
+/** Variant and sizing elements per stacked container, keyed by variant name. */
+const stackNodes = /** @type {WeakMap<HTMLElement, StackNodes>} */ (new WeakMap());
+
+/**
+ * Find a stacked container's elements, adopting any that the markup already
+ * carries (`data-variant` for copy, `data-ghost` for sizing text), so the first
+ * paint can hold the default copy.
+ * @param {HTMLElement} container - Stacked container.
+ * @returns {StackNodes} Its variant and sizing elements.
+ */
+function stackOf(container) {
+  let nodes = stackNodes.get(container);
+  if (!nodes) {
+    nodes = { real: new Map(), ghost: new Map() };
+    for (const child of Array.from(container.children ?? [])) {
+      const variant = child.getAttribute("data-variant");
+      const ghost = child.getAttribute("data-ghost");
+      if (variant) {
+        nodes.real.set(variant, /** @type {HTMLElement} */ (child));
+      } else if (ghost) {
+        nodes.ghost.set(ghost, /** @type {HTMLElement} */ (child));
+      }
+    }
+    stackNodes.set(container, nodes);
+  }
+  return nodes;
+}
+
+/**
+ * Find or create one element of a stack.
+ * @param {HTMLElement} container - Stacked container.
+ * @param {Map<string, HTMLElement>} map - The container's elements of this kind.
+ * @param {string} key - Variant key.
+ * @param {"variant" | "ghost"} kind - Which kind of element.
+ * @returns {HTMLElement} The element.
+ */
+function stackNode(container, map, key, kind) {
+  let node = map.get(key);
+  if (!node) {
+    node = document.createElement("span");
+    node.className = kind === "ghost" ? "reserve-ghost" : "br-variant";
+    node.setAttribute(`data-${kind}`, key);
+    if (kind === "ghost") {
+      node.setAttribute("aria-hidden", "true");
+    }
+    container.appendChild(node);
+    map.set(key, node);
+  }
+  return node;
+}
+
+/**
+ * Fill a stacked container: every variant shares one grid cell, so the tallest
+ * copy sets the height and swapping the active variant never moves what sits
+ * below. Inactive variants are visibility:hidden, so they are never read,
+ * found, or selected; they only reserve space.
+ *
+ * With `sizing` copy, only the active variant carries real text. The sizing
+ * copy is the same wording with the widest numbers any slider setting can print,
+ * so the box is as tall as the longest possible text at this width and does not
+ * change height when digits change where a line wraps.
+ * @param {HTMLElement} container - Stacked container.
+ * @param {Record<string, string>} texts - Copy by variant key.
+ * @param {string} activeKey - The variant to show.
+ * @param {Record<string, string>} [sizing] - Widest-number copy by variant key.
+ * @returns {void}
+ */
+function renderVariants(container, texts, activeKey, sizing) {
+  const nodes = stackOf(container);
+  for (const [key, text] of Object.entries(texts)) {
+    const node = stackNode(container, nodes.real, key, "variant");
+    const active = key === activeKey;
+    setText(node, active || !sizing ? text : "");
+    node.classList.toggle("is-active", active);
+  }
+  for (const [key, text] of Object.entries(sizing ?? {})) {
+    setText(stackNode(container, nodes.ghost, key, "ghost"), text);
+  }
+}
+
+/**
+ * Build the copy for every regime from one text builder.
+ * @param {NarrativeState} state - Current state.
+ * @param {(state: NarrativeState, formatters: NarrativeFormatters) => string} build - Copy builder.
+ * @param {NarrativeFormatters} formatters - Formatters.
+ * @returns {Record<string, string>} Copy by regime.
+ */
+function regimeTexts(state, build, formatters) {
+  return Object.fromEntries(REGIMES.map((regime) => [regime, build({ ...state, regime }, formatters)]));
+}
+
 /**
  * @typedef {{
  *   faceValue: number,
@@ -36,7 +137,7 @@ const RATE_SCALE_MAX = 12;
  *   schedule: import('./bond-math.js').DiscountedCashFlow[],
  *   sensitivity: { currentPct: number, shortPct: number, longPct: number },
  *   analytics: import('./bond-math.js').BondAnalytics,
- *   curve: { key: string, label: string, atMaturityPct: number }
+ *   curve: { key: string, label: string, atMaturityPct: number, shapes?: Record<string, { label: string, atMaturityPct: number }> }
  * }} NarrativeState
  * @typedef {{
  *   formatCurrency: (value: number, digits?: number) => string,
@@ -168,74 +269,109 @@ export function mathExplainText({ bond, schedule, price }, { formatCurrency, for
  * @returns {void}
  */
 export function renderMathLegend(elements, { bond }, { formatCurrency, formatPercent }) {
-  elements.mathLegendCoupon.textContent = formatCurrency((bond.faceValue * bond.couponRatePct) / 100, 0);
-  elements.mathLegendRate.textContent = formatPercent(bond.annualYieldPct);
-  elements.mathLegendYears.textContent = String(bond.years);
-  elements.mathLegendFace.textContent = formatCurrency(bond.faceValue, 0);
+  setText(elements.mathLegendCoupon, formatCurrency((bond.faceValue * bond.couponRatePct) / 100, 0));
+  setText(elements.mathLegendRate, formatPercent(bond.annualYieldPct));
+  setText(elements.mathLegendYears, String(bond.years));
+  setText(elements.mathLegendFace, formatCurrency(bond.faceValue, 0));
 }
 
 /**
- * Build one cash-flow table row: year, payment, discount factor, and present value.
- * The final period merges the face repayment into the payment and flags it.
- * @param {import('./bond-math.js').DiscountedCashFlow} flow
- * @param {boolean} isFinal
- * @param {number} faceValue
- * @param {Pick<NarrativeFormatters, 'formatCurrency'>} formatters
- * @returns {HTMLElement}
+ * @typedef {{
+ *   row: HTMLElement,
+ *   year: HTMLElement,
+ *   payment: HTMLElement,
+ *   faceNote: HTMLElement,
+ *   factor: HTMLElement,
+ *   value: HTMLElement
+ * }} ScheduleRow
+ * @typedef {{ rows: ScheduleRow[], total: HTMLElement, totalValue: HTMLElement }} ScheduleTable
  */
-function buildScheduleRow({ timeYears, amount, discountFactor, presentValue }, isFinal, faceValue, { formatCurrency }) {
+
+/**
+ * Build one empty cash-flow table row. Every row has the same cells, so a row
+ * can become the final one (or stop being it) without being rebuilt: the final
+ * payment cell is one amount plus a face note, and the note is empty elsewhere.
+ * @returns {ScheduleRow}
+ */
+function buildScheduleRow() {
   const row = document.createElement("tr");
   row.className = "br-schedule-row";
 
   const year = document.createElement("td");
-  year.textContent = String(timeYears);
-
   const payment = document.createElement("td");
-  if (isFinal) {
-    const paymentAmount = document.createElement("span");
-    paymentAmount.textContent = formatCurrency(amount, 2);
-    const faceNote = document.createElement("span");
-    faceNote.className = "br-face-note";
-    faceNote.textContent = `incl. ${formatCurrency(faceValue, 0)} face`;
-    payment.append(paymentAmount, faceNote);
-  } else {
-    payment.textContent = formatCurrency(amount, 2);
-  }
-
+  const paymentAmount = document.createElement("span");
+  const faceNote = document.createElement("span");
+  faceNote.className = "br-face-note";
+  payment.append(paymentAmount, faceNote);
   const factor = document.createElement("td");
-  factor.textContent = discountFactor.toFixed(4);
-
   const value = document.createElement("td");
-  value.textContent = formatCurrency(presentValue, 2);
 
   row.append(year, payment, factor, value);
-  return row;
+  return { row, year, payment: paymentAmount, faceNote, factor, value };
 }
 
 /**
+ * Build the total row and its price cell.
+ * @returns {{ total: HTMLElement, totalValue: HTMLElement }}
+ */
+function buildTotalRow() {
+  const total = document.createElement("tr");
+  total.className = "br-schedule-total";
+  const label = document.createElement("td");
+  label.textContent = "Total (bond price)";
+  label.setAttribute("colspan", "3");
+  const totalValue = document.createElement("td");
+  total.append(label, totalValue);
+  return { total, totalValue };
+}
+
+/** Schedule state per table body: the rows and total row kept between renders. */
+const scheduleTables = /** @type {WeakMap<HTMLElement, ScheduleTable>} */ (new WeakMap());
+
+/**
  * Render the live worked cash-flow table: one row per coupon period plus a final
- * total row whose value is the bond price (the sum of the present values).
+ * total row whose value is the bond price (the sum of the present values). The
+ * rows are kept between renders and their cells updated in place; rows are added
+ * or removed only when the number of periods changes, so a rate or coupon tick
+ * touches no structure.
  * @param {HTMLElement} tbody
  * @param {NarrativeState} state
  * @param {NarrativeFormatters} formatters
  * @returns {void}
  */
 export function renderScheduleTable(tbody, { bond, schedule, price }, { formatCurrency }) {
-  tbody.textContent = "";
-  const lastIndex = schedule.length - 1;
-  schedule.forEach((flow, index) => {
-    tbody.appendChild(buildScheduleRow(flow, index === lastIndex, bond.faceValue, { formatCurrency }));
-  });
+  let table = scheduleTables.get(tbody);
+  if (!table) {
+    tbody.textContent = "";
+    table = { rows: [], ...buildTotalRow() };
+    tbody.appendChild(table.total);
+    scheduleTables.set(tbody, table);
+  }
 
-  const totalRow = document.createElement("tr");
-  totalRow.className = "br-schedule-total";
-  const label = document.createElement("td");
-  label.textContent = "Total (bond price)";
-  label.setAttribute("colspan", "3");
-  const total = document.createElement("td");
-  total.textContent = formatCurrency(price, 2);
-  totalRow.append(label, total);
-  tbody.appendChild(totalRow);
+  while (table.rows.length > schedule.length) {
+    /** @type {ScheduleRow} */ (table.rows.pop()).row.remove();
+  }
+  const added = [];
+  while (table.rows.length < schedule.length) {
+    const row = buildScheduleRow();
+    table.rows.push(row);
+    added.push(row.row);
+  }
+  if (added.length > 0) {
+    // Appending the total row again moves it behind the new rows.
+    tbody.append(...added, table.total);
+  }
+
+  const lastIndex = schedule.length - 1;
+  schedule.forEach(({ timeYears, amount, discountFactor, presentValue }, index) => {
+    const cells = table.rows[index];
+    setText(cells.year, String(timeYears));
+    setText(cells.payment, formatCurrency(amount, 2));
+    setText(cells.faceNote, index === lastIndex ? `incl. ${formatCurrency(bond.faceValue, 0)} face` : "");
+    setText(cells.factor, discountFactor.toFixed(4));
+    setText(cells.value, formatCurrency(presentValue, 2));
+  });
+  setText(table.totalValue, formatCurrency(price, 2));
 }
 
 /**
@@ -312,36 +448,82 @@ export function rippleExplainText({ regime }) {
 }
 
 /**
- * Build one labelled comparison row (label, proportional bar, value) as a DOM
- * node. The bar uses the shared .meter / .meter-fill component; `fillTone` is an
- * optional meter tone modifier (e.g. "is-amber") or "" for the default blue.
- * @param {string} label - Row label.
- * @param {number} widthPct - Meter fill width percentage.
- * @param {string} fillTone - Optional meter tone modifier.
- * @param {string} valueText - Value text.
- * @returns {HTMLElement} The compare row element.
+ * @typedef {{ label: string, widthPct: number, tone: string, valueText: string }} CompareRow
+ * @typedef {{ name: HTMLElement, fill: HTMLElement, num: HTMLElement }} CompareRowParts
  */
-function buildCompareRow(label, widthPct, fillTone, valueText) {
+
+/**
+ * Build one labelled comparison row (label, proportional bar, value) as a DOM
+ * node. The bar uses the shared .meter / .meter-fill component; `tone` is an
+ * optional meter tone modifier (e.g. "is-amber") or "" for the default blue.
+ * @param {string} tone - Optional meter tone modifier.
+ * @returns {{ row: HTMLElement, parts: CompareRowParts }} The row and its writable parts.
+ */
+function buildCompareRow(tone) {
   const row = document.createElement("div");
   row.className = "br-compare-row";
 
   const name = document.createElement("span");
   name.className = "br-compare-label";
-  name.textContent = label;
 
   const track = document.createElement("div");
   track.className = "meter";
   const fill = document.createElement("div");
-  fill.className = fillTone ? `meter-fill ${fillTone}` : "meter-fill";
-  fill.style.width = `${Math.max(0, Math.min(100, widthPct))}%`;
+  fill.className = tone ? `meter-fill ${tone}` : "meter-fill";
   track.appendChild(fill);
 
   const num = document.createElement("span");
   num.className = "br-compare-num";
-  num.textContent = valueText;
 
   row.append(name, track, num);
-  return row;
+  return { row, parts: { name, fill, num } };
+}
+
+/** Comparison row parts per container, kept between renders. */
+const compareTables = /** @type {WeakMap<HTMLElement, CompareRowParts[]>} */ (new WeakMap());
+
+/**
+ * Find the parts of a comparison row that is already in the markup.
+ * @param {Element} row - Row element.
+ * @returns {CompareRowParts} Its label, fill, and value elements.
+ */
+function adoptCompareRow(row) {
+  return {
+    name: /** @type {HTMLElement} */ (row.children[0]),
+    fill: /** @type {HTMLElement} */ (row.children[1].children[0]),
+    num: /** @type {HTMLElement} */ (row.children[2])
+  };
+}
+
+/**
+ * Write comparison rows into a container. The rows are created (or adopted from
+ * the markup) once and reused after, so a changed value rescales the bar and
+ * the shared meter transition animates it instead of replacing the node.
+ * @param {HTMLElement} container - Comparison container.
+ * @param {CompareRow[]} rows - Rows to show.
+ * @returns {void}
+ */
+function renderCompareRows(container, rows) {
+  let parts = compareTables.get(container);
+  if (!parts) {
+    const existing = Array.from(container.children ?? []);
+    if (existing.length === rows.length) {
+      parts = existing.map(adoptCompareRow);
+    } else {
+      container.textContent = "";
+      const built = rows.map(({ tone }) => buildCompareRow(tone));
+      container.append(...built.map(({ row }) => row));
+      parts = built.map(({ parts: rowParts }) => rowParts);
+    }
+    compareTables.set(container, parts);
+  }
+
+  rows.forEach(({ label, widthPct, valueText }, index) => {
+    const { name, fill, num } = parts[index];
+    setText(name, label);
+    setMeterValue(fill, widthPct / 100);
+    setText(num, valueText);
+  });
 }
 
 /**
@@ -352,23 +534,20 @@ function buildCompareRow(label, widthPct, fillTone, valueText) {
  * @returns {void}
  */
 export function renderCouponCompare(container, { bond }, { formatPercent }) {
-  container.textContent = "";
-  container.appendChild(
-    buildCompareRow(
-      "This bond",
-      (bond.couponRatePct / RATE_SCALE_MAX) * 100,
-      "",
-      formatPercent(bond.couponRatePct)
-    )
-  );
-  container.appendChild(
-    buildCompareRow(
-      "Market",
-      (bond.annualYieldPct / RATE_SCALE_MAX) * 100,
-      "is-amber",
-      formatPercent(bond.annualYieldPct)
-    )
-  );
+  renderCompareRows(container, [
+    {
+      label: "This bond",
+      widthPct: (bond.couponRatePct / RATE_SCALE_MAX) * 100,
+      tone: "",
+      valueText: formatPercent(bond.couponRatePct)
+    },
+    {
+      label: "Market",
+      widthPct: (bond.annualYieldPct / RATE_SCALE_MAX) * 100,
+      tone: "is-amber",
+      valueText: formatPercent(bond.annualYieldPct)
+    }
+  ]);
 }
 
 /**
@@ -380,23 +559,20 @@ export function renderCouponCompare(container, { bond }, { formatPercent }) {
  * @returns {void}
  */
 export function renderPriceSplit(container, { analytics }, { formatCurrency }) {
-  container.textContent = "";
-  container.appendChild(
-    buildCompareRow(
-      "Coupons",
-      (analytics.pvCoupons / analytics.price) * 100,
-      "",
-      formatCurrency(analytics.pvCoupons, 0)
-    )
-  );
-  container.appendChild(
-    buildCompareRow(
-      "Face value",
-      (analytics.pvFace / analytics.price) * 100,
-      "is-amber",
-      formatCurrency(analytics.pvFace, 0)
-    )
-  );
+  renderCompareRows(container, [
+    {
+      label: "Coupons",
+      widthPct: (analytics.pvCoupons / analytics.price) * 100,
+      tone: "",
+      valueText: formatCurrency(analytics.pvCoupons, 0)
+    },
+    {
+      label: "Face value",
+      widthPct: (analytics.pvFace / analytics.price) * 100,
+      tone: "is-amber",
+      valueText: formatCurrency(analytics.pvFace, 0)
+    }
+  ]);
 }
 
 /**
@@ -430,10 +606,97 @@ export function analystExplainText({ bond, analytics, sensitivity }, { formatCur
  * @returns {void}
  */
 export function renderAnalytics(elements, { analytics }, { formatPercent }) {
-  elements.statCurrentYield.textContent = formatPercent(analytics.currentYieldPct, 2);
-  elements.statMacaulay.textContent = `${analytics.macaulayYears.toFixed(1)} yrs`;
-  elements.statModified.textContent = analytics.modifiedYears.toFixed(1);
-  elements.statConvexity.textContent = analytics.convexity.toFixed(1);
+  setText(elements.statCurrentYield, formatPercent(analytics.currentYieldPct, 2));
+  setText(elements.statMacaulay, `${analytics.macaulayYears.toFixed(1)} yrs`);
+  setText(elements.statModified, analytics.modifiedYears.toFixed(1));
+  setText(elements.statConvexity, analytics.convexity.toFixed(1));
+}
+
+/**
+ * The longest numbers any slider setting can print (found by scanning every
+ * coupon, rate, and maturity): twelve percent rates, a thirty-year maturity, a
+ * price of nine characters, and the widest duration, convexity, and sensitivity
+ * readings. Only the copy built from it is used, never shown, to size the
+ * callouts.
+ * @type {NarrativeState}
+ */
+const WIDEST_STATE = {
+  bond: { faceValue: 1000, couponRatePct: 12, years: 30, annualYieldPct: 12 },
+  price: 3838.12,
+  regime: "par",
+  schedule: [
+    { period: 30, timeYears: 30, amount: 1120, discountFactor: 0.9901, presentValue: 1108.8 }
+  ],
+  sensitivity: { currentPct: -22.4, shortPct: -22.4, longPct: -22.4 },
+  analytics: {
+    price: 3838.12,
+    pvCoupons: 2838.22,
+    pvFace: 999.9,
+    currentYieldPct: 10.09,
+    macaulayYears: 29.9,
+    modifiedYears: 29.9,
+    convexity: 888.8,
+    dv01: 7.77
+  },
+  curve: {
+    key: "normal",
+    label: "Normal",
+    atMaturityPct: 5.4,
+    shapes: {
+      normal: { label: "Normal", atMaturityPct: 5.4 },
+      flat: { label: "Flat", atMaturityPct: 5.4 },
+      inverted: { label: "Inverted", atMaturityPct: 5.4 }
+    }
+  }
+};
+
+/** Sizing copy for the formatters it was built with. */
+let sizingCache = /** @type {{ formatters: NarrativeFormatters, copy: Record<string, Record<string, string>> } | null} */ (
+  null
+);
+
+/**
+ * Build the widest-number copy for every dynamic callout, by variant key. It
+ * never changes, so it is built once per set of formatters.
+ * @param {NarrativeFormatters} formatters - Formatters.
+ * @returns {Record<string, Record<string, string>>} Sizing copy by callout id, then variant key.
+ */
+export function sizingCopy(formatters) {
+  if (
+    sizingCache?.formatters.formatCurrency === formatters.formatCurrency &&
+    sizingCache.formatters.formatPercent === formatters.formatPercent
+  ) {
+    return sizingCache.copy;
+  }
+  const copy = {
+    heroExplain: regimeTexts(WIDEST_STATE, heroExplainText, formatters),
+    mechanismExplain: regimeTexts(WIDEST_STATE, mechanismExplainText, formatters),
+    rippleExplain: regimeTexts(WIDEST_STATE, rippleExplainText, formatters),
+    curveExplain: curveTexts(WIDEST_STATE, formatters),
+    mathExplain: { text: mathExplainText(WIDEST_STATE, formatters) },
+    sensitivityExplain: { text: sensitivityExplainText(WIDEST_STATE, formatters) },
+    analystExplain: { text: analystExplainText(WIDEST_STATE, formatters) }
+  };
+  sizingCache = { formatters, copy };
+  return copy;
+}
+
+/**
+ * Build the yield-curve copy for every curve shape, so the stacked callout is as
+ * tall as the longest one. Falls back to the selected shape alone when the state
+ * carries no shape table.
+ * @param {NarrativeState} state - Current state.
+ * @param {NarrativeFormatters} formatters - Formatters.
+ * @returns {Record<string, string>} Copy by curve key.
+ */
+function curveTexts(state, formatters) {
+  const shapes = state.curve.shapes ?? { [state.curve.key]: state.curve };
+  return Object.fromEntries(
+    Object.entries(shapes).map(([key, shape]) => [
+      key,
+      curveExplainText({ ...state, curve: { ...shape, key } }, formatters)
+    ])
+  );
 }
 
 /**
@@ -448,26 +711,43 @@ export function renderNarrative(elements, state, formatters) {
   const presentation = regimePresentation(regime);
   const couponLabel = couponText(bond.couponRatePct);
 
-  elements.priceValue.textContent = formatters.formatCurrency(price, 2);
-  elements.priceCaption.textContent = `This ${bond.years}-year, ${couponLabel} bond is now worth`;
+  setText(elements.priceValue, formatters.formatCurrency(price, 2));
+  setText(elements.priceCaption, `This ${bond.years}-year, ${couponLabel} bond is now worth`);
 
-  elements.regimeBadge.textContent = presentation.label;
-  elements.regimeBadge.className = `chip ${presentation.badgeClass}`;
+  renderVariants(
+    elements.regimeBadge,
+    Object.fromEntries(REGIMES.map((key) => [key, REGIME_PRESENTATION[key].label])),
+    regime
+  );
+  elements.regimeBadge.className = `chip reserve ${presentation.badgeClass}`;
 
-  elements.rateArrow.textContent = ARROW_GLYPH[/** @type {keyof typeof ARROW_GLYPH} */ (presentation.rateArrow)];
+  setText(elements.rateArrow, ARROW_GLYPH[/** @type {keyof typeof ARROW_GLYPH} */ (presentation.rateArrow)]);
   elements.rateArrow.className = `br-arrow ${presentation.rateArrow}`;
-  elements.priceArrow.textContent = ARROW_GLYPH[/** @type {keyof typeof ARROW_GLYPH} */ (presentation.priceArrow)];
+  setText(elements.priceArrow, ARROW_GLYPH[/** @type {keyof typeof ARROW_GLYPH} */ (presentation.priceArrow)]);
   elements.priceArrow.className = `br-arrow ${presentation.priceArrow}`;
 
-  elements.heroExplain.textContent = heroExplainText(state, formatters);
-  elements.mechanismExplain.textContent = mechanismExplainText(state, formatters);
-  elements.mathExplain.textContent = mathExplainText(state, formatters);
-  elements.sensitivityExplain.textContent = sensitivityExplainText(state, formatters);
-  elements.analystExplain.textContent = analystExplainText(state, formatters);
-  elements.curveExplain.textContent = curveExplainText(state, formatters);
-  elements.btnApplyCurveLabel.textContent =
-    `Set the market rate to ${formatters.formatPercent(state.curve.atMaturityPct)}`;
-  elements.rippleExplain.textContent = rippleExplainText(state);
+  const sizing = sizingCopy(formatters);
+  renderVariants(elements.heroExplain, regimeTexts(state, heroExplainText, formatters), regime, sizing.heroExplain);
+  renderVariants(
+    elements.mechanismExplain,
+    regimeTexts(state, mechanismExplainText, formatters),
+    regime,
+    sizing.mechanismExplain
+  );
+  renderVariants(elements.mathExplain, { text: mathExplainText(state, formatters) }, "text", sizing.mathExplain);
+  renderVariants(
+    elements.sensitivityExplain,
+    { text: sensitivityExplainText(state, formatters) },
+    "text",
+    sizing.sensitivityExplain
+  );
+  renderVariants(elements.analystExplain, { text: analystExplainText(state, formatters) }, "text", sizing.analystExplain);
+  renderVariants(elements.curveExplain, curveTexts(state, formatters), state.curve.key, sizing.curveExplain);
+  setText(
+    elements.btnApplyCurveLabel,
+    `Set the market rate to ${formatters.formatPercent(state.curve.atMaturityPct)}`
+  );
+  renderVariants(elements.rippleExplain, regimeTexts(state, rippleExplainText, formatters), regime, sizing.rippleExplain);
 
   renderCouponCompare(elements.couponCompare, state, formatters);
   renderMathLegend(elements, state, formatters);

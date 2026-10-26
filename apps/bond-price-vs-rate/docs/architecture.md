@@ -68,8 +68,15 @@ Choices share one texture with the vendor docs app: the yield-curve toggle uses 
 1. A slider `input` event updates the live value label and schedules a recalc (drags coalesce through `requestAnimationFrame`)
 2. `recalc()` reads the bond terms, prices the bond, builds its discounted cash-flow schedule, and classifies the price regime
 3. It samples price against the market rate for the rail curve, the percent price change from a one-point rate rise across maturities for the sensitivity bars, and the selected yield-curve preset across maturities for the curve chart
-4. The narrative module rewrites the rail and chapter readouts, the coupon-vs-market bars, the pricing-formula legend, the worked cash-flow table, the analyst tiles and price split, the apply-curve button label, and the six explanation paragraphs
-5. The three charts are created once and then updated in place with the new series and current-point highlights
+4. The narrative module updates the rail and chapter readouts, the coupon-vs-market bars, the pricing-formula legend, the worked cash-flow table, the analyst tiles and price split, the apply-curve button label, and the six explanation paragraphs, all in place: text is written only when it changed, the bar rows and table rows are kept (rows are added or removed only when the years change), and the width transition on the bars runs
+5. The three charts are created once and then updated in place. Each chart redraws only when its own inputs changed (the price curve and the sensitivity bars depend on all three sliders, the yield curve only on the curve shape and the years), and a chart that is off screen keeps its latest data pending and draws when it scrolls into view. Input-driven redraws skip Chart.js's animation; only the first draw and a curve switch ease, and not under reduced motion
+
+## Stable layout
+
+- Readouts whose copy changes are stacked: every variant sits in one grid cell (`.reserve`) and only the active one is visible, so the tallest variant sets the height. The regime chip stacks its three labels, and the hero, mechanism, curve, and ripple callouts stack their regime or curve variants
+- Callouts also hold a hidden sizing copy (`.reserve-ghost`, `aria-hidden`) written with the longest numbers any slider setting prints (`WIDEST_STATE` in `narrative.js`), so a digit more or less never changes where a line wraps. A unit test scans the slider grid and fails if real copy outgrows its sizing copy
+- The first-paint copy of those callouts, the comparison rows, and the chip labels is in `index.html`, so nothing grows when the script runs. A unit test checks that it matches the default render
+- The cash-flow table box has a fixed height, the price keeps a minimum width, and the rate and price arrows have a fixed width
 
 ## Theme model
 

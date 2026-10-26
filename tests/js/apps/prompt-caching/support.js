@@ -8,7 +8,8 @@
 function ctxStub() {
   return {
     fillStyle: "", strokeStyle: "", lineWidth: 1, font: "", globalAlpha: 1, textAlign: "left",
-    clearRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {},
+    clears: 0,
+    clearRect() { this.clears += 1; }, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {},
     arc() {}, fill() {}, fillText() {}, strokeText() {}, setLineDash() {}, save() {}, restore() {}, rect() {}
   };
 }
@@ -101,8 +102,16 @@ export function makeEl(tag = "div") {
     step: "",
     width: 300,
     height: 150,
+    offsetHeight: 0,
+    clientWidth: 0,
+    scrollHeight: 0,
+    scrollCalls: [],
     dataset: {},
-    style: {},
+    style: {
+      setProperty(name, value) {
+        this[name] = String(value);
+      }
+    },
     children: [],
     parentNode: null,
     classList: {
@@ -206,10 +215,17 @@ export function makeEl(tag = "div") {
       }
     },
     scrollIntoView() {},
+    scrollTo(options) {
+      node.scrollCalls.push(options);
+    },
+    click() {
+      node.fire("click");
+    },
     blur() {},
     focus() {},
     getContext() {
-      return ctxStub();
+      node.ctx = node.ctx || ctxStub();
+      return node.ctx;
     },
     querySelector(sel) {
       return qsa(node, sel)[0] || null;
@@ -237,7 +253,7 @@ const SIMPLE_IDS = [
   "dimCanvas", "dimCaption", "embCloud", "embCats", "embSuggestions", "embSelA", "embSelB",
   "embSimilarity", "embDistance", "embVerdict", "embSwapBtn", "embCanvas",
   "infPrompts", "infGoBtn", "infResetBtn", "infTokens", "infStatus", "infCacheCount", "infCacheBar",
-  "attnStepper", "attnStepTitle", "attnStepDesc", "attnStepVisual", "dotProduct",
+  "attnStepCard", "attnStepper", "attnStepTitle", "attnStepDesc", "attnStepVisual", "dotProduct",
   "attnGrid", "attnCaption", "smxSliders", "smxBars", "smxFormula",
   "cacheTokens", "kCacheVis", "vCacheVis", "cacheNarration", "cachePlayBtn", "cacheResetBtn",
   "cacheCompareVis", "cacheCompareCaption",
@@ -266,6 +282,11 @@ export function createHarness() {
   }
   for (const [id, label] of SECTION_DEFS) {
     registry[id].setAttribute("data-nav-label", label);
+  }
+
+  // Elements that reserve space (reserveSpace) sit inside a host, like in the markup.
+  for (const id of ["infTokens", "infStatus", "cacheNarration", "dimCaption"]) {
+    makeEl("div").appendChild(registry[id]);
   }
 
   // Toggle groups need their child buttons present before init runs.
@@ -311,6 +332,7 @@ export function createHarness() {
 
   const documentElement = {
     dataset: {},
+    classList: { add() {}, remove() {} },
     _theme: "light",
     getAttribute(name) {
       return name === "data-theme" ? this._theme : null;
@@ -324,6 +346,7 @@ export function createHarness() {
   };
 
   const documentMock = {
+    fonts: undefined,
     readyState: "interactive",
     referrer: "",
     documentElement,
@@ -360,14 +383,18 @@ export function createHarness() {
     addEventListener() {}
   };
 
+  const windowListeners = {};
+  const frames = [];
+  const state = { reducedMotion: false, deferFrames: false };
+
   const windowMock = {
     __ARTIFACTS_APP_THEME_BOOTSTRAP__: {
       normalizeTheme(t) {
         return t === "dark" ? "dark" : "light";
       }
     },
-    matchMedia() {
-      return { matches: false };
+    matchMedia(query) {
+      return { matches: state.reducedMotion && query.includes("prefers-reduced-motion") };
     },
     innerHeight: 800,
     scrollY: 0,
@@ -375,8 +402,14 @@ export function createHarness() {
     history: { length: 2, back() {} },
     location: { origin: "https://example.com", href: "" },
     localStorage: { getItem() { return null; }, setItem() {} },
-    addEventListener() {},
+    addEventListener(type, fn) {
+      (windowListeners[type] = windowListeners[type] || []).push(fn);
+    },
     requestAnimationFrame(fn) {
+      if (state.deferFrames) {
+        frames.push(fn);
+        return frames.length;
+      }
       fn();
       return 1;
     }
@@ -448,6 +481,12 @@ export function createHarness() {
     }
   }
 
+  function flushFrames() {
+    for (const fn of frames.splice(0)) {
+      fn();
+    }
+  }
+
   function fireObservers(idx) {
     const target = registry[SECTION_IDS[idx]];
     for (const observer of observers) {
@@ -461,8 +500,13 @@ export function createHarness() {
     teardown,
     flushIntervals,
     flushTimeouts,
+    flushFrames,
     fireObservers,
+    sectionIds: SECTION_IDS,
     intervals,
+    state,
+    documentMock,
+    fireWindow: (type, event = {}) => (windowListeners[type] || []).forEach((fn) => fn(event)),
     el: (id) => registry[id]
   };
 }

@@ -9,6 +9,17 @@ import {
 // Shared chip tone modifiers cycled across the illustrative token chips.
 const CHIP_TONES = ["is-blue", "is-green", "is-amber", "is-purple", "is-red"];
 
+const SAMPLE_STATUS_IDLE = "Run 100 draws to compare the observed tally with the distribution.";
+const SAMPLE_STATUS_TALLY =
+  "Thin bars: tally from 100 draws of the renormalized pool, so a token can land above its blue bar.";
+
+// One setting per branch of the two insight copies, used to size the hidden
+// copies that reserve the insight's height. Keep them in step with the branches
+// in temperatureInsight and topPInsight; the tests check that every setting
+// reachable from the sliders has a reserved copy.
+const INSIGHT_TEMPERATURES = [0, 0.3, 1, 2];
+const INSIGHT_TOP_PS = [0.1, 0.5, 0.7, 0.99];
+
 /**
  * @param {string} token - Raw token text.
  * @param {string} className - Chip classes, including its tone.
@@ -63,6 +74,99 @@ function topPInsight(topP, tokenCount) {
 }
 
 /**
+ * @param {{ word: string }} winner - Highest-probability token.
+ * @param {number} temperature - Sampling temperature.
+ * @param {number} topP - Nucleus sampling threshold.
+ * @param {number} tokenCount - Number of tokens in the pool.
+ * @returns {string} The full insight line.
+ */
+function insightCopy(winner, temperature, topP, tokenCount) {
+  return `${temperatureInsight(winner, temperature)} ${topPInsight(topP, tokenCount)}`;
+}
+
+/**
+ * @param {{ tokens: { word: string }[] }} scenario
+ * @returns {number} Characters in the scenario's longest candidate word.
+ */
+function longestWordLength(scenario) {
+  return Math.max(0, ...scenario.tokens.map((token) => token.word.length));
+}
+
+/**
+ * @param {string} tag
+ * @param {string} className
+ * @param {string} text
+ * @returns {HTMLElement}
+ */
+function createText(tag, className, text) {
+  const element = document.createElement(tag);
+  element.className = className;
+  element.textContent = text;
+  return element;
+}
+
+/**
+ * Every insight line the sliders can produce, written for the longest candidate
+ * word. They are stacked out of sight in one grid cell so the insight box is as
+ * tall as the longest, at whatever width the card has.
+ *
+ * @param {{ tokens: { word: string }[] }[]} scenarios
+ * @returns {string[]}
+ */
+export function insightReserveCopies(scenarios) {
+  const words = scenarios.flatMap((scenario) => scenario.tokens.map((token) => token.word));
+  const longest = words.reduce((best, word) => (word.length > best.length ? word : best), "");
+  const tokenCount = Math.max(...scenarios.map((scenario) => scenario.tokens.length));
+  return INSIGHT_TEMPERATURES.flatMap((temperature) =>
+    INSIGHT_TOP_PS.map((topP) => insightCopy({ word: longest }, temperature, topP, tokenCount))
+  );
+}
+
+/**
+ * Reserve the height of the longest insight and sample status copy. The live
+ * text sits in the same grid cell as hidden copies of every possible text, so
+ * the buttons and sliders below never move when the copy changes length.
+ *
+ * @param {{ insightReserve: HTMLElement, statusReserve: HTMLElement }} elements
+ * @param {{ tokens: { word: string }[] }[]} scenarios
+ * @returns {void}
+ */
+export function renderCopyReserves(elements, scenarios) {
+  elements.insightReserve.replaceChildren(
+    ...insightReserveCopies(scenarios).map((text) => createText("span", "tk-insight", text))
+  );
+  elements.statusReserve.replaceChildren(
+    ...[SAMPLE_STATUS_IDLE, SAMPLE_STATUS_TALLY].map((text) => createText("span", "tk-status", text))
+  );
+}
+
+/**
+ * Reserve the height of the tallest prompt. A hidden copy of every scenario's
+ * prompt shares one grid cell with the live prompt, so the cell is as tall as
+ * the tallest at the current width and a new scenario never moves what follows.
+ *
+ * @param {HTMLElement} container
+ * @param {{ prefix: string, tokens: { word: string }[] }[]} scenarios
+ * @returns {void}
+ */
+export function renderPromptReserve(container, scenarios) {
+  container.replaceChildren(
+    ...scenarios.map((scenario) => {
+      const line = document.createElement("div");
+      const blank = createText("span", "blank", "");
+      blank.style.setProperty("--blank-chars", String(longestWordLength(scenario)));
+      line.append(
+        ...splitPromptTokens(scenario.prefix).map((token, index) =>
+          createTokenChip(token, `chip is-mono token-chip prompt-chip ${CHIP_TONES[index % CHIP_TONES.length]}`, false)
+        ),
+        blank
+      );
+      return line;
+    })
+  );
+}
+
+/**
  * Fill the scenario dropdown with one option per scenario, showing the label
  * only (the prefix sentence lives in the prompt card).
  *
@@ -88,7 +192,7 @@ export function renderScenarioOptions(select, scenarios, activeIndex) {
  * completion blank that sits inline after the last chip.
  *
  * @param {{ scenarioType: HTMLElement, sentencePrefix: HTMLElement, sentenceCompletion?: HTMLElement }} elements
- * @param {{ prefix: string, type: string }} scenario
+ * @param {{ prefix: string, type: string, tokens: { word: string }[] }} scenario
  * @param {string | null} [chosenWord=null]
  * @param {boolean} [showWhitespace=false]
  * @returns {void}
@@ -101,6 +205,7 @@ export function renderScenario(elements, scenario, chosenWord = null, showWhites
     )
   );
   if (elements.sentenceCompletion) {
+    elements.sentenceCompletion.style.setProperty("--blank-chars", String(longestWordLength(scenario)));
     elements.sentenceCompletion.textContent = chosenWord ?? "";
     elements.sentenceCompletion.classList.toggle("has-choice", Boolean(chosenWord));
   }
@@ -167,14 +272,9 @@ export function renderDistribution(elements, state) {
   renderCandidateList(elements.candidateList, buildCandidateRows(state));
 
   const winner = state.topTokens[0];
-  elements.insightBox.textContent = `${temperatureInsight(winner, state.temperature)} ${topPInsight(
-    state.topP,
-    state.topTokens.length
-  )}`;
+  elements.insightBox.textContent = insightCopy(winner, state.temperature, state.topP, state.topTokens.length);
 
   if (elements.sampleStatus) {
-    elements.sampleStatus.textContent = state.sampleCounts
-      ? "Thin bars: tally from 100 draws of the renormalized pool, so a token can land above its blue bar."
-      : "Run 100 draws to compare the observed tally with the distribution.";
+    elements.sampleStatus.textContent = state.sampleCounts ? SAMPLE_STATUS_TALLY : SAMPLE_STATUS_IDLE;
   }
 }

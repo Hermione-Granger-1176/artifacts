@@ -1,9 +1,12 @@
 import { chartGlobal, createPaletteCache } from "../../../../js/modules/chart-theme.js";
+import { createOffscreenDraws } from "../../../../js/modules/offscreen-draws.js";
 
 /**
  * @typedef {import("chart.js").Chart} ChartInstance
  * @typedef {ReturnType<typeof colors>} Palette
  * @typedef {{ priceRate: ChartInstance, sensitivity: ChartInstance, yieldCurve: ChartInstance }} Charts
+ * @typedef {keyof Charts} ChartName
+ * @typedef {"none" | undefined} UpdateMode
  * @typedef {{ type?: string, title?: object, ticks?: object, grid?: object }} AxisConfig
  * @typedef {{
  *   palette: Palette,
@@ -131,9 +134,10 @@ function createMarkedSeriesChart(canvas, { curveLabel, markerLabel, formatValue 
  * @param {MarkedSeries} series - Curve points and the marker point.
  * @param {Palette} palette - Active color palette.
  * @param {{ lineColor: string, fillColor: string, xTitle: string, yTitle: string, formatY: (value: number) => string }} style - Curve colors and axis setup.
+ * @param {UpdateMode} mode - Chart.js update mode: "none" redraws at once, undefined animates.
  * @returns {void}
  */
-function syncMarkedSeriesChart(chart, series, palette, { lineColor, fillColor, xTitle, yTitle, formatY }) {
+function syncMarkedSeriesChart(chart, series, palette, { lineColor, fillColor, xTitle, yTitle, formatY }, mode) {
   chart.data.datasets[0].data = series.curve;
   chart.data.datasets[0].borderColor = lineColor;
   chart.data.datasets[0].backgroundColor = fillColor;
@@ -142,7 +146,7 @@ function syncMarkedSeriesChart(chart, series, palette, { lineColor, fillColor, x
   chart.data.datasets[1].borderColor = palette.surface;
 
   applyAxes(chart.options.scales, palette, { xTitle, yTitle, xType: "linear", formatY });
-  chart.update();
+  chart.update(mode);
 }
 
 /**
@@ -161,17 +165,24 @@ function createPriceRateChart(canvas) {
  * @param {ChartInstance} chart - Chart to update.
  * @param {ChartState} state - Current chart state.
  * @param {(value: number) => string} formatDollarTick - Dollar tick formatter.
+ * @param {UpdateMode} mode - Chart.js update mode.
  * @returns {void}
  */
-function syncPriceRateChart(chart, state, formatDollarTick) {
+function syncPriceRateChart(chart, state, formatDollarTick, mode) {
   const { palette } = state;
-  syncMarkedSeriesChart(chart, state.priceRate, palette, {
-    lineColor: palette.blue,
-    fillColor: palette.blueA(0.08),
-    xTitle: "Market interest rate (%)",
-    yTitle: "Price",
-    formatY: formatDollarTick
-  });
+  syncMarkedSeriesChart(
+    chart,
+    state.priceRate,
+    palette,
+    {
+      lineColor: palette.blue,
+      fillColor: palette.blueA(0.08),
+      xTitle: "Market interest rate (%)",
+      yTitle: "Price",
+      formatY: formatDollarTick
+    },
+    mode
+  );
 }
 
 /**
@@ -189,17 +200,24 @@ function createYieldCurveChart(canvas) {
 /**
  * @param {ChartInstance} chart - Chart to update.
  * @param {ChartState} state - Current chart state.
+ * @param {UpdateMode} mode - Chart.js update mode.
  * @returns {void}
  */
-function syncYieldCurveChart(chart, state) {
+function syncYieldCurveChart(chart, state, mode) {
   const { palette } = state;
-  syncMarkedSeriesChart(chart, state.yieldCurve, palette, {
-    lineColor: palette.amber,
-    fillColor: palette.amberA(0.08),
-    xTitle: "Years to maturity",
-    yTitle: "Yield (%)",
-    formatY: formatPercentTick
-  });
+  syncMarkedSeriesChart(
+    chart,
+    state.yieldCurve,
+    palette,
+    {
+      lineColor: palette.amber,
+      fillColor: palette.amberA(0.08),
+      xTitle: "Years to maturity",
+      yTitle: "Yield (%)",
+      formatY: formatPercentTick
+    },
+    mode
+  );
 }
 
 /**
@@ -238,9 +256,10 @@ function createSensitivityChart(canvas) {
 /**
  * @param {ChartInstance} chart - Chart to update.
  * @param {ChartState} state - Current chart state.
+ * @param {UpdateMode} mode - Chart.js update mode.
  * @returns {void}
  */
-function syncSensitivityChart(chart, state) {
+function syncSensitivityChart(chart, state, mode) {
   const { palette, sensitivity } = state;
   chart.data.labels = sensitivity.labels;
   chart.data.datasets[0].data = sensitivity.values;
@@ -253,7 +272,7 @@ function syncSensitivityChart(chart, state) {
     yTitle: "Price change (%)",
     formatY: formatPercentTick
   });
-  chart.update();
+  chart.update(mode);
 }
 
 /**
@@ -261,23 +280,26 @@ function syncSensitivityChart(chart, state) {
  * @returns {Charts} Chart instances.
  */
 function createCharts(elements) {
-  return {
+  const charts = {
     priceRate: createPriceRateChart(/** @type {HTMLCanvasElement} */ (elements.priceRateChart)),
     sensitivity: createSensitivityChart(/** @type {HTMLCanvasElement} */ (elements.sensitivityChart)),
     yieldCurve: createYieldCurveChart(/** @type {HTMLCanvasElement} */ (elements.yieldCurveChart))
   };
+  offscreenDraws.set(
+    charts,
+    createOffscreenDraws([elements.priceRateChart, elements.sensitivityChart, elements.yieldCurveChart])
+  );
+  return charts;
 }
 
-/**
- * @param {Charts} charts - Chart instances.
- * @param {ChartState} state - Current chart state.
- * @param {(value: number) => string} formatDollarTick - Dollar tick formatter.
- * @returns {void}
- */
-function syncCharts(charts, state, formatDollarTick) {
-  syncPriceRateChart(charts.priceRate, state, formatDollarTick);
-  syncSensitivityChart(charts.sensitivity, state);
-  syncYieldCurveChart(charts.yieldCurve, state);
+/** Each chart set's off-screen gate: a chart off screen keeps its latest redraw until it scrolls in. */
+const offscreenDraws = /** @type {WeakMap<Charts, import("../../../../js/modules/offscreen-draws.js").OffscreenDraws>} */ (
+  new WeakMap()
+);
+
+/** @returns {boolean} Whether the reader asked for reduced motion. */
+function prefersReducedMotion() {
+  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 /**
@@ -285,16 +307,36 @@ function syncCharts(charts, state, formatDollarTick) {
  * @typedef {{
  *   charts?: Partial<Charts>,
  *   elements: Record<string, HTMLElement>,
- *   priceRate: MarkedSeries,
- *   sensitivity: { labels: string[], values: number[], currentIndex: number },
- *   yieldCurve: MarkedSeries,
- *   formatDollarTick: (value: number) => string
+ *   priceRate?: MarkedSeries,
+ *   sensitivity?: { labels: string[], values: number[], currentIndex: number },
+ *   yieldCurve?: MarkedSeries,
+ *   formatDollarTick: (value: number) => string,
+ *   animate?: Partial<Record<ChartName, boolean>>
  * }} ChartRenderOptions
  */
 
 /**
- * Create or update the three explainer chart instances.
- * @param {ChartRenderOptions} options - Chart data and formatting callbacks.
+ * Redraw one chart now when it is on screen, or keep the redraw pending until it is.
+ * @param {Charts} charts - Chart instances.
+ * @param {ChartName} name - Chart to redraw.
+ * @param {(mode: UpdateMode) => void} run - Redraw with the given update mode.
+ * @param {boolean} animate - Whether this change is worth the chart's own animation.
+ * @returns {void}
+ */
+function drawOrDefer(charts, name, run, animate) {
+  const mode = animate && !prefersReducedMotion() ? undefined : "none";
+  /** @type {import("../../../../js/modules/offscreen-draws.js").OffscreenDraws} */ (offscreenDraws.get(charts)).draw(
+    charts[name].canvas,
+    () => run(mode)
+  );
+}
+
+/**
+ * Create the three explainer charts on the first call, then redraw only the ones
+ * given new data. Input-driven redraws skip Chart.js's animation so a slider drag
+ * follows the pointer; pass `animate` for a change that should ease (the first
+ * draw and a curve switch). A chart that is off screen redraws once it scrolls in.
+ * @param {ChartRenderOptions} options - Chart data, formatting callbacks, and which charts to redraw.
  * @returns {Charts} Chart instances keyed by name.
  */
 export function renderCharts({
@@ -303,10 +345,39 @@ export function renderCharts({
   priceRate,
   sensitivity,
   yieldCurve,
-  formatDollarTick
+  formatDollarTick,
+  animate = {}
 }) {
-  const nextCharts = charts.priceRate ? /** @type {Charts} */ (charts) : createCharts(elements);
-  const state = { palette: colors(), priceRate, sensitivity, yieldCurve };
-  syncCharts(nextCharts, state, formatDollarTick);
+  const created = !charts.priceRate;
+  const nextCharts = created ? createCharts(elements) : /** @type {Charts} */ (charts);
+  const palette = colors();
+
+  if (priceRate) {
+    const state = /** @type {ChartState} */ ({ palette, priceRate });
+    drawOrDefer(
+      nextCharts,
+      "priceRate",
+      (mode) => syncPriceRateChart(nextCharts.priceRate, state, formatDollarTick, mode),
+      created || Boolean(animate.priceRate)
+    );
+  }
+  if (sensitivity) {
+    const state = /** @type {ChartState} */ ({ palette, sensitivity });
+    drawOrDefer(
+      nextCharts,
+      "sensitivity",
+      (mode) => syncSensitivityChart(nextCharts.sensitivity, state, mode),
+      created || Boolean(animate.sensitivity)
+    );
+  }
+  if (yieldCurve) {
+    const state = /** @type {ChartState} */ ({ palette, yieldCurve });
+    drawOrDefer(
+      nextCharts,
+      "yieldCurve",
+      (mode) => syncYieldCurveChart(nextCharts.yieldCurve, state, mode),
+      created || Boolean(animate.yieldCurve)
+    );
+  }
   return nextCharts;
 }

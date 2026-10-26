@@ -1,4 +1,5 @@
 import { chartGlobal, createPaletteCache } from "../../../../js/modules/chart-theme.js";
+import { createOffscreenDraws } from "../../../../js/modules/offscreen-draws.js";
 
 /**
  * @typedef {import("chart.js").Chart} ChartInstance
@@ -227,9 +228,10 @@ function createBalanceChart(canvas) {
  * @param {ChartInstance} chart - Chart to update.
  * @param {ChartState} state - Current chart state.
  * @param {(value: number) => string} formatDollarTick - Y tick formatter.
+ * @param {import("chart.js").UpdateMode} [mode] - Update mode; `"none"` skips the animation.
  * @returns {void}
  */
-function syncBalanceChart(chart, state, formatDollarTick) {
+function syncBalanceChart(chart, state, formatDollarTick, mode) {
   const { base, extra, maxPeriods, lineLabels, palette, periodLabel } = state;
   chart.data.labels = lineLabels;
   const [withoutExtras, withExtras] = chart.data.datasets;
@@ -238,7 +240,7 @@ function syncBalanceChart(chart, state, formatDollarTick) {
   applyAxes(chart.options.scales, palette, periodLabel, formatDollarTick, {
     yTitle: "Balance"
   });
-  chart.update();
+  chart.update(mode);
 }
 
 /**
@@ -267,9 +269,10 @@ function createComparisonChart(canvas) {
  * @param {ChartInstance} chart - Chart to update.
  * @param {ChartState} state - Current chart state.
  * @param {(value: number) => string} formatDollarTick - Y tick formatter.
+ * @param {import("chart.js").UpdateMode} [mode] - Update mode; `"none"` skips the animation.
  * @returns {void}
  */
-function syncComparisonChart(chart, state, formatDollarTick) {
+function syncComparisonChart(chart, state, formatDollarTick, mode) {
   const { base, extra, palette, principal } = state;
   chart.data.datasets[0].data = [principal, Math.max(0, Math.round(principal - extra.totalExtra))];
   chart.data.datasets[0].backgroundColor = palette.blue;
@@ -284,7 +287,7 @@ function syncComparisonChart(chart, state, formatDollarTick) {
   });
   const compScales = /** @type {Record<string, AxisConfig>} */ (/** @type {unknown} */ (chart.options.scales));
   compScales.x.stacked = true;
-  chart.update();
+  chart.update(mode);
 }
 
 /**
@@ -404,9 +407,10 @@ function createSavingsChart(canvas) {
  * @param {ChartInstance} chart - Chart to update.
  * @param {ChartState} state - Current chart state.
  * @param {(value: number) => string} formatCurrency - Currency formatter.
+ * @param {import("chart.js").UpdateMode} [mode] - Update mode; `"none"` skips the animation.
  * @returns {void}
  */
-function syncSavingsChart(chart, state, formatCurrency) {
+function syncSavingsChart(chart, state, formatCurrency, mode) {
   const { interestPaid, interestSaved, interestTotal, palette } = state;
   chart.$artifactsFormatCurrency = formatCurrency;
   chart.$artifactsInterestTotal = interestTotal;
@@ -414,7 +418,7 @@ function syncSavingsChart(chart, state, formatCurrency) {
   chart.data.datasets[0].data = [interestPaid, interestSaved];
   chart.data.datasets[0].backgroundColor = [palette.noteRed, palette.noteGreen];
   chart.data.datasets[0].borderColor = palette.surface;
-  chart.update();
+  chart.update(mode);
 }
 
 /**
@@ -446,9 +450,10 @@ function createCumulativeChart(canvas) {
  * @param {ChartInstance} chart - Chart to update.
  * @param {ChartState} state - Current chart state.
  * @param {(value: number) => string} formatDollarTick - Y tick formatter.
+ * @param {import("chart.js").UpdateMode} [mode] - Update mode; `"none"` skips the animation.
  * @returns {void}
  */
-function syncCumulativeChart(chart, state, formatDollarTick) {
+function syncCumulativeChart(chart, state, formatDollarTick, mode) {
   const { extra, palette, periodLabel } = state;
   chart.data.labels = extra.rows.map((row) => row.period);
   const [principalSeries, extraSeries, interestSeries] = chart.data.datasets;
@@ -457,7 +462,7 @@ function syncCumulativeChart(chart, state, formatDollarTick) {
   paintDataset(interestSeries, extra.cumulativeInterest, palette.red, palette.redA(0.1));
   /** @type {Record<string, unknown>} */ (chart.options.plugins).annotation = state.annotation;
   applyAxes(chart.options.scales, palette, periodLabel, formatDollarTick);
-  chart.update();
+  chart.update(mode);
 }
 
 /**
@@ -486,9 +491,10 @@ function createPeriodChart(canvas) {
  * @param {ChartInstance} chart - Chart to update.
  * @param {ChartState} state - Current chart state.
  * @param {(value: number) => string} formatDollarTick - Y tick formatter.
+ * @param {import("chart.js").UpdateMode} [mode] - Update mode; `"none"` skips the animation.
  * @returns {void}
  */
-function syncPeriodChart(chart, state, formatDollarTick) {
+function syncPeriodChart(chart, state, formatDollarTick, mode) {
   const { extra, palette, periodLabel } = state;
   chart.data.labels = extra.rows.map((row) => row.period);
   const [principalSeries, extraSeries, interestSeries] = chart.data.datasets;
@@ -498,7 +504,7 @@ function syncPeriodChart(chart, state, formatDollarTick) {
   applyAxes(chart.options.scales, palette, periodLabel, formatDollarTick, {
     stackedY: true
   });
-  chart.update();
+  chart.update(mode);
 }
 
 /**
@@ -516,18 +522,64 @@ function createCharts(elements) {
 }
 
 /**
+ * @typedef {keyof Charts} ChartName
+ * @typedef {{ formatCurrency: (value: number) => string, formatDollarTick: (value: number) => string }} Formatters
+ * @typedef {{
+ *   state: ChartState,
+ *   formatters: Formatters,
+ *   drawn: Set<ChartName>,
+ *   offscreen: import("../../../../js/modules/offscreen-draws.js").OffscreenDraws
+ * }} ChartsController
+ */
+
+/** @type {Record<ChartName, (chart: ChartInstance, state: ChartState, formatters: Formatters, mode?: import("chart.js").UpdateMode) => void>} */
+const SYNCS = {
+  balance: (chart, state, { formatDollarTick }, mode) => syncBalanceChart(chart, state, formatDollarTick, mode),
+  comparison: (chart, state, { formatDollarTick }, mode) =>
+    syncComparisonChart(chart, state, formatDollarTick, mode),
+  savings: (chart, state, { formatCurrency }, mode) => syncSavingsChart(chart, state, formatCurrency, mode),
+  cumulative: (chart, state, { formatDollarTick }, mode) =>
+    syncCumulativeChart(chart, state, formatDollarTick, mode),
+  period: (chart, state, { formatDollarTick }, mode) => syncPeriodChart(chart, state, formatDollarTick, mode)
+};
+
+/** @type {ChartName[]} */
+const CHART_NAMES = ["balance", "comparison", "savings", "cumulative", "period"];
+
+/** @type {WeakMap<Charts, ChartsController>} */
+const controllers = new WeakMap();
+
+/**
+ * Draw one chart from the latest state. A chart's first draw keeps Chart.js's
+ * entrance animation; every later draw is immediate, so a slider drag does not
+ * replay a one second animation on each tick.
+ *
  * @param {Charts} charts - Chart instances.
- * @param {ChartState} state - Current chart state.
- * @param {(value: number) => string} formatCurrency - Currency formatter.
- * @param {(value: number) => string} formatDollarTick - Y tick formatter.
+ * @param {ChartsController} controller - Latest state and per-chart bookkeeping.
+ * @param {ChartName} name - Chart to draw.
  * @returns {void}
  */
-function syncCharts(charts, state, formatCurrency, formatDollarTick) {
-  syncBalanceChart(charts.balance, state, formatDollarTick);
-  syncComparisonChart(charts.comparison, state, formatDollarTick);
-  syncSavingsChart(charts.savings, state, formatCurrency);
-  syncCumulativeChart(charts.cumulative, state, formatDollarTick);
-  syncPeriodChart(charts.period, state, formatDollarTick);
+function syncChart(charts, controller, name) {
+  SYNCS[name](charts[name], controller.state, controller.formatters, controller.drawn.has(name) ? "none" : undefined);
+  controller.drawn.add(name);
+}
+
+/**
+ * @param {Charts} charts - Chart instances.
+ * @param {ChartState} state - Initial chart state.
+ * @param {Formatters} formatters - Value formatters.
+ * @returns {ChartsController} The controller kept for these charts.
+ */
+function createController(charts, state, formatters) {
+  /** @type {ChartsController} */
+  const controller = {
+    state,
+    formatters,
+    drawn: new Set(),
+    offscreen: createOffscreenDraws(CHART_NAMES.map((name) => charts[name].canvas))
+  };
+  controllers.set(charts, controller);
+  return controller;
 }
 
 /**
@@ -540,12 +592,16 @@ function syncCharts(charts, state, formatCurrency, formatDollarTick) {
  *   interestSaved: number,
  *   periodLabel: string,
  *   formatCurrency: (value: number) => string,
- *   formatDollarTick: (value: number) => string
+ *   formatDollarTick: (value: number) => string,
+ *   syncAll?: boolean
  * }} ChartRenderOptions
  */
 
 /**
- * Create or update all loan amortization chart instances.
+ * Create or update the loan amortization charts. Charts far off screen are not
+ * redrawn: they keep their latest redraw until they scroll into view. The
+ * first call, and calls with `syncAll` (such as showing the charts view again),
+ * draw every chart.
  * @param {ChartRenderOptions} options - Chart data and formatting callbacks.
  * @returns {Charts} Chart instances keyed by name.
  */
@@ -558,9 +614,11 @@ export function renderCharts({
   interestSaved,
   periodLabel,
   formatCurrency,
-  formatDollarTick
+  formatDollarTick,
+  syncAll = false
 }) {
-  const nextCharts = charts.balance ? /** @type {Charts} */ (charts) : createCharts(elements);
+  const created = !charts.balance;
+  const nextCharts = created ? createCharts(elements) : /** @type {Charts} */ (charts);
   const state = buildChartState({
     base,
     extra,
@@ -568,7 +626,13 @@ export function renderCharts({
     interestSaved,
     periodLabel
   });
+  const formatters = { formatCurrency, formatDollarTick };
+  const controller = controllers.get(nextCharts) ?? createController(nextCharts, state, formatters);
+  controller.state = state;
+  controller.formatters = formatters;
 
-  syncCharts(nextCharts, state, formatCurrency, formatDollarTick);
+  for (const name of CHART_NAMES) {
+    controller.offscreen.draw(nextCharts[name].canvas, () => syncChart(nextCharts, controller, name), created || syncAll);
+  }
   return nextCharts;
 }

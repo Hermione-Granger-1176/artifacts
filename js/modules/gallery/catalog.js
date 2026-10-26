@@ -115,49 +115,32 @@ export function filterAndSortArtifacts(artifacts, options) {
     .sort(comparator);
 }
 
+/** Page tags in the row once the page count outgrows it; the row never gets wider or narrower than this. */
+const PAGE_SLOT_COUNT = 7;
+
 /**
- * Build a collapsed page number sequence with ellipses for long ranges.
+ * Build the page number sequence for the pagination row. Up to seven pages are
+ * all listed. Beyond that the row is always seven slots, the first page, the
+ * last page, and either one ellipsis or two around the current page, so Prev and
+ * Next stay where they are as the reader turns pages.
  * @param {number} current - Current page (1-based).
  * @param {number} total - Total number of pages.
  * @returns {(number|string)[]} Page numbers and '...' ellipsis markers.
  */
 export function getPageNumbers(current, total) {
-  if (total <= 7) {
+  if (total <= PAGE_SLOT_COUNT) {
     return Array.from({ length: total }, (_, index) => index + 1);
   }
 
-  /** @type {number[]} */
-  const pages = [];
-  /** @param {number} page - Page number to add if not already present. */
-  const addPage = (page) => {
-    if (!pages.includes(page)) {
-      pages.push(page);
-    }
-  };
-
-  addPage(1);
-  addPage(2);
-  for (let page = current - 1; page <= current + 1; page += 1) {
-    if (page >= 1 && page <= total) {
-      addPage(page);
-    }
-  }
-  addPage(total - 1);
-  addPage(total);
-
-  pages.sort((left, right) => left - right);
-
-  const result = [];
-  let previousPage = null;
-
-  for (const page of pages) {
-    if (previousPage !== null && page - previousPage > 1) {
-      result.push('...');
-    }
-
-    result.push(page);
-    previousPage = page;
+  // Slots left for numbers beside the first page, the last page, and the ellipses.
+  const nearEdge = PAGE_SLOT_COUNT - 2;
+  if (current < nearEdge) {
+    return [...Array.from({ length: nearEdge }, (_, index) => index + 1), '...', total];
   }
 
-  return result;
+  if (current > total - nearEdge + 1) {
+    return [1, '...', ...Array.from({ length: nearEdge }, (_, index) => total - nearEdge + 1 + index)];
+  }
+
+  return [1, '...', current - 1, current, current + 1, '...', total];
 }

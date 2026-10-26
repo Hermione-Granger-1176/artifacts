@@ -172,6 +172,7 @@ export function setupFullMocks() {
     body,
     documentElement: {
       dataset: {},
+      classList: { add() {}, remove() {} },
       getAttribute(name) { return name === 'data-theme' ? 'light' : null; },
       setAttribute(name, value) { this.dataset[name] = value; }
     },

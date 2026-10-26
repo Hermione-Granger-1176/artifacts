@@ -275,6 +275,12 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   let pageCount = 1;
   /** @type {FocusTarget} */
   let pendingFocusTarget = null;
+  let themeSwitchToken = 0;
+  /** @type {{ key: string, items: ArtifactRecord[] } | null} */
+  let filteredCache = null;
+  // Markup the grid shows, so a render that would write the same cards (a keystroke that keeps
+  // the same matches) leaves the cards, their hover states, and their thumbnails alone.
+  let renderedGridHtml = '';
 
   const bookScene = createBookScene({
     documentObj,
@@ -535,7 +541,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
    */
   function applyTheme(theme, persist = true) {
     const normalizedTheme = theme === 'dark' ? 'dark' : 'light';
-    htmlElement.setAttribute('data-theme', normalizedTheme);
+    switchThemeWithoutTransitions(normalizedTheme);
     const nextTheme = normalizedTheme === 'dark' ? 'light' : 'dark';
     themeToggle.setAttribute('aria-pressed', String(normalizedTheme === 'dark'));
     themeToggle.setAttribute('aria-label', `Switch to ${nextTheme} theme`);
@@ -553,6 +559,30 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
 
     galleryStatus.textContent = `Theme switched to ${normalizedTheme} mode.`;
+  }
+
+  /**
+   * Swap the theme attribute with every transition switched off, so colors with
+   * different transition speeds change together instead of fading at different
+   * rates. The class comes off two frames later, after the new colors have painted.
+   * @param {string} theme - Normalized theme name.
+   */
+  function switchThemeWithoutTransitions(theme) {
+    if (htmlElement.getAttribute('data-theme') === theme) {
+      return;
+    }
+
+    themeSwitchToken += 1;
+    const token = themeSwitchToken;
+    htmlElement.classList.add('theme-switching');
+    htmlElement.setAttribute('data-theme', theme);
+    windowObj.requestAnimationFrame(() => {
+      windowObj.requestAnimationFrame(() => {
+        if (token === themeSwitchToken) {
+          htmlElement.classList.remove('theme-switching');
+        }
+      });
+    });
   }
 
   function renderFilterNotes() {
@@ -642,8 +672,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
      */
     const setSummary = (kind, activeCount, allLabel) => {
       const summary = filterNotesContainer.querySelector(`[data-filter-summary="${kind}"]`);
-      if (summary) {
-        summary.textContent = formatFilterSummary(activeCount, allLabel);
+      const text = formatFilterSummary(activeCount, allLabel);
+      if (summary && summary.textContent !== text) {
+        summary.textContent = text;
       }
     };
 
@@ -749,18 +780,31 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     const target = resolvePendingFocusTarget(pendingFocusTarget);
     pendingFocusTarget = null;
     if (target && typeof target.focus === 'function') {
-      target.focus();
+      // The re-rendered control is where the pointer or key just was; scrolling to it only makes the page jump.
+      target.focus({ preventScroll: true });
     }
   }
 
-  /** @returns {ArtifactRecord[]} Artifacts matching the current search, filters, and sort. */
+  /**
+   * The list is remembered by the state that produced it, so the render and the
+   * faces of a page turn share one filter pass.
+   * @returns {ArtifactRecord[]} Artifacts matching the current search, filters, and sort.
+   */
   function getFilteredArtifacts() {
-    return filterAndSortArtifacts(allArtifacts, {
-      currentQuery,
-      currentSort,
-      currentTags,
-      currentTools
-    });
+    const key = JSON.stringify([currentQuery, currentSort, [...currentTags].sort(), [...currentTools].sort()]);
+    if (filteredCache?.key !== key) {
+      filteredCache = {
+        key,
+        items: filterAndSortArtifacts(allArtifacts, {
+          currentQuery,
+          currentSort,
+          currentTags,
+          currentTools
+        })
+      };
+    }
+
+    return filteredCache.items;
   }
 
   /**
@@ -826,6 +870,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
     if (totalItems === 0) {
       grid.innerHTML = '';
+      renderedGridHtml = '';
       noResults.classList.remove('hidden');
       renderPagination(paginationContainer, 1, 0);
       bookScene.setPosition({ page: 1, totalPages: 1 });
@@ -836,8 +881,12 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     }
 
     noResults.classList.add('hidden');
-    grid.innerHTML = buildGridHtml(pageItems, overlay.getExpandedId(), shownPage);
-    applyDynamicStyles(grid);
+    const gridHtml = buildGridHtml(pageItems, overlay.getExpandedId(), shownPage);
+    if (gridHtml !== renderedGridHtml) {
+      grid.innerHTML = gridHtml;
+      applyDynamicStyles(grid);
+      renderedGridHtml = gridHtml;
+    }
     overlay.updateExpandedCardState();
     renderPagination(paginationContainer, currentPage, totalPages);
     bookScene.setPosition({ page: shownPage, totalPages });

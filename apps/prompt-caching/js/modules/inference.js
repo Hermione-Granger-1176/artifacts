@@ -1,9 +1,42 @@
 /* Inference simulator: streams generated tokens while the KV cache fills. */
 
 import { INF_RESPONSES } from "./data.js";
-import { byId, makeEl, clear } from "./dom.js";
+import { byId, makeEl, clear, prefersReducedMotion, reserveSpace, longestText } from "./dom.js";
 
 const STEP_INTERVAL_MS = 700;
+const IDLE_STATUS = "Hit Generate to start.";
+
+/** @param {number} cached - Prompt tokens in the cache. @returns {string} Status shown while generating starts. */
+const promptStatus = (cached) => `Prompt processed (${cached} tokens cached). Generating...`;
+/**
+ * @param {number} step - One-based generation step.
+ * @param {string} token - Token generated at this step.
+ * @param {number} reused - Rows reused from the cache.
+ * @returns {string} Status shown while a token streams.
+ */
+const stepStatus = (step, token, reused) =>
+  `Step ${step}: generated "${token}". Only 1 new KV row computed, ${reused} reused from cache.`;
+/** @param {number} total - Total tokens. @returns {string} Status shown when generation ends. */
+const doneStatus = (total) => `Done. ${total} total tokens. KV cache has ${total} rows.`;
+
+/**
+ * Longest status line of each kind across every prompt, so the status box can
+ * reserve the room the wordiest run needs.
+ * @param {string[]} prompts - Prompt names.
+ * @returns {string[]} One candidate per status kind.
+ */
+function statusCandidates(prompts) {
+  /** @type {string[][]} */
+  const [started, stepped, done] = [[], [], []];
+  for (const prompt of prompts) {
+    const cached = prompt.split(/\s+/).length;
+    const tokens = INF_RESPONSES[/** @type {keyof typeof INF_RESPONSES} */ (prompt)];
+    started.push(promptStatus(cached));
+    done.push(doneStatus(cached + tokens.length));
+    tokens.forEach((token, i) => stepped.push(stepStatus(i + 1, token, cached + i)));
+  }
+  return [IDLE_STATUS, longestText(started), longestText(stepped), longestText(done)];
+}
 
 export function initInference() {
   const promptsWrap = byId("infPrompts");
@@ -18,6 +51,15 @@ export function initInference() {
   }
 
   const prompts = Object.keys(INF_RESPONSES);
+  // The stream and the status line reserve the room of the longest run up front,
+  // so no chip or status change moves the cache bar and the page below.
+  reserveSpace(tokensWrap, prompts.map((prompt) => {
+    const ghost = makeEl("div", "pc-inf-tokens");
+    const final = [...prompt.split(/\s+/), ...INF_RESPONSES[/** @type {keyof typeof INF_RESPONSES} */ (prompt)]];
+    ghost.append(...final.map((tok) => makeEl("span", "chip is-mono inf-tok", tok)));
+    return ghost;
+  }));
+  reserveSpace(status, statusCandidates(prompts).map((text) => makeEl("div", "pc-inf-status", text)));
   let selected = prompts[0];
   let timer = /** @type {number | null} */ (null);
   let step = 0;
@@ -93,8 +135,25 @@ export function initInference() {
     clear(tokensWrap);
     clear(cacheBar);
     cacheCount.textContent = "0";
-    status.textContent = "Hit Generate to start.";
+    status.textContent = IDLE_STATUS;
     goBtn.disabled = false;
+  }
+
+  /** Stream the next generated token into the chip row and the cache bar. */
+  function generateToken() {
+    settleCurrentToken();
+    tokensWrap.appendChild(makeEl("span", "chip is-mono inf-tok is-solid-amber current", genTokens[step]));
+
+    step += 1;
+    updateCache();
+    status.textContent = stepStatus(step, genTokens[step - 1], promptTokens.length + step - 1);
+  }
+
+  function finish() {
+    stopTimer();
+    status.textContent = doneStatus(promptTokens.length + genTokens.length);
+    goBtn.disabled = false;
+    settleCurrentToken();
   }
 
   function start() {
@@ -106,27 +165,24 @@ export function initInference() {
       tokensWrap.appendChild(makeEl("span", "chip is-mono inf-tok", tok));
     }
     updateCache();
-    status.textContent = `Prompt processed (${promptTokens.length} tokens cached). Generating...`;
+    status.textContent = promptStatus(promptTokens.length);
     goBtn.disabled = true;
+
+    if (prefersReducedMotion()) {
+      // No streaming under reduced motion: show the finished run at once.
+      while (step < genTokens.length) {
+        generateToken();
+      }
+      finish();
+      return;
+    }
 
     timer = setInterval(() => {
       if (step >= genTokens.length) {
-        stopTimer();
-        const total = promptTokens.length + genTokens.length;
-        status.textContent = `Done. ${total} total tokens. KV cache has ${total} rows.`;
-        goBtn.disabled = false;
-        settleCurrentToken();
+        finish();
         return;
       }
-
-      settleCurrentToken();
-      tokensWrap.appendChild(makeEl("span", "chip is-mono inf-tok is-solid-amber current", genTokens[step]));
-
-      step += 1;
-      updateCache();
-      const total = promptTokens.length + step;
-      status.textContent =
-        `Step ${step}: generated "${genTokens[step - 1]}". Only 1 new KV row computed, ${total - 1} reused from cache.`;
+      generateToken();
     }, STEP_INTERVAL_MS);
   }
 

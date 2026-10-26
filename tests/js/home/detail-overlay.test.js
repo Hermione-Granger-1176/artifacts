@@ -26,6 +26,8 @@ function createFakeElement(id = '') {
     setAttribute(name, value) { attrs[name] = value; },
     removeAttribute(name) { delete attrs[name]; },
     hasAttribute(name) { return name in attrs; },
+    offsetWidth: 400,
+    offsetHeight: 300,
     getBoundingClientRect() {
       return { left: 100, top: 100, width: 400, height: 300 };
     },
@@ -261,8 +263,47 @@ describe('detail overlay applyDetailMotion', () => {
 
     assert.ok(deps.detailPanel.style._props['--detail-from-x'] !== undefined);
     assert.ok(deps.detailPanel.style._props['--detail-from-y'] !== undefined);
-    assert.ok(deps.detailPanel.style._props['--detail-from-scale-x'] !== undefined);
-    assert.ok(deps.detailPanel.style._props['--detail-from-scale-y'] !== undefined);
+    assert.ok(deps.detailPanel.style._props['--detail-from-scale'] !== undefined);
+    assert.equal(deps.detailPanel.style._props['--detail-from-scale-x'], undefined);
+    assert.equal(deps.detailPanel.style._props['--detail-from-scale-y'], undefined);
+  });
+
+  it('starts from the card centre at one uniform scale measured on the settled panel', () => {
+    const deps = createTestDeps({ reducedMotion: false });
+    // The overlay is 1000x800 at the origin and the panel is 500x400 inside it, drawn scaled down by its closed transform.
+    deps.detailOverlay.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 800 });
+    deps.detailPanel.offsetWidth = 500;
+    deps.detailPanel.offsetHeight = 400;
+    deps.detailPanel.getBoundingClientRect = () => ({ left: 330, top: 232, width: 420, height: 336 });
+    const overlay = createDetailOverlay(deps);
+    const artifactById = new Map([['test-1', { id: 'test-1', name: 'Test', url: '/test' }]]);
+
+    const triggerCard = createFakeElement();
+    triggerCard.getBoundingClientRect = () => ({ left: 100, top: 100, width: 300, height: 100 });
+    overlay.open('test-1', triggerCard, artifactById);
+
+    const props = deps.detailPanel.style._props;
+    assert.equal(props['--detail-from-x'], '-250px');
+    assert.equal(props['--detail-from-y'], '-250px');
+    // The wider ratio (300 / 500) wins, so the panel keeps its shape.
+    assert.equal(props['--detail-from-scale'], '0.6');
+  });
+
+  it('never starts the panel smaller than the minimum scale or larger than its own size', () => {
+    const artifactById = new Map([['test-1', { id: 'test-1', name: 'Test', url: '/test' }]]);
+    const small = createTestDeps({ reducedMotion: false });
+    const smallOverlay = createDetailOverlay(small);
+    const tinyCard = createFakeElement();
+    tinyCard.getBoundingClientRect = () => ({ left: 0, top: 0, width: 20, height: 20 });
+    smallOverlay.open('test-1', tinyCard, artifactById);
+    assert.equal(small.detailPanel.style._props['--detail-from-scale'], '0.36');
+
+    const large = createTestDeps({ reducedMotion: false });
+    const largeOverlay = createDetailOverlay(large);
+    const hugeCard = createFakeElement();
+    hugeCard.getBoundingClientRect = () => ({ left: 0, top: 0, width: 900, height: 900 });
+    largeOverlay.open('test-1', hugeCard, artifactById);
+    assert.equal(large.detailPanel.style._props['--detail-from-scale'], '1');
   });
 
   it('skips CSS properties when reduced motion is preferred', () => {

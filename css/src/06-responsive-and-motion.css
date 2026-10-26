@@ -137,16 +137,42 @@
 
   /* Mobile is one column: no spread, no 3D. The cover is a flat card that fades away. */
   .book-shell:not(.is-open) .book-sheet {
-    max-height: 34rem;
-    overflow: hidden;
     transform: none;
+  }
+
+  /*
+   * The sheet reserves one full page of cards from the first paint, so the intro, a filter
+   * with fewer matches, or a sort never changes the page height. The closed cover keeps its
+   * own shorter height and the reserved page stays hidden beneath and after it.
+   */
+  .book-shell:not(.is-open) .book-cover {
+    bottom: auto;
+    height: 34rem;
+  }
+
+  .book-shell:not(.is-open) .book-inner {
+    visibility: hidden;
   }
 
   /* Phones turn pages by button only, so the sheet keeps every native gesture. */
   .book-sheet {
+    /* A card is its thumbnail at the shared ratio, plus the note's padding, the frame border, and two caption lines. */
+    --phone-gap: 1.15rem;
+    --phone-page-pad: 1.35rem;
+    --phone-page-pad-left: calc(var(--paper-margin-x) + 0.75rem);
+    --phone-caption-lines: 2;
+    --phone-caption-height: calc(1.15rem + var(--phone-caption-lines) * 1.05 * 1.8rem);
+    --phone-card-width: calc(100cqi - var(--phone-page-pad-left) - var(--phone-page-pad));
+    --phone-card-height: calc(
+      (var(--phone-card-width) - 1.24rem - 10px) / var(--card-thumb-ratio) + 10px + 0.62rem + var(--phone-caption-height)
+    );
+    --phone-page-height: calc(
+      var(--gallery-page-cards) * var(--phone-card-height) + (var(--gallery-page-cards) - 1) * var(--phone-gap) + var(--phone-page-pad) * 2
+    );
+    --book-sheet-min-height: 0;
+
     height: auto;
     touch-action: auto;
-    --book-sheet-min-height: 0;
   }
 
   .book-shadow,
@@ -171,7 +197,8 @@
   .book-inner {
     position: relative;
     inset: auto;
-    padding: 1.35rem 1.35rem 1.35rem calc(var(--paper-margin-x) + 0.75rem);
+    min-height: var(--phone-page-height);
+    padding: var(--phone-page-pad) var(--phone-page-pad) var(--phone-page-pad) var(--phone-page-pad-left);
     border-radius: 6px;
     box-shadow: var(--shadow-md);
   }
@@ -195,11 +222,11 @@
     inset: auto;
     grid-template-columns: 1fr;
     grid-template-rows: none;
-    gap: 1.15rem;
+    gap: var(--phone-gap);
   }
 
   .artifact-page-slice {
-    gap: 1.15rem;
+    gap: var(--phone-gap);
     grid-template-rows: auto;
   }
 
@@ -219,16 +246,26 @@
     min-height: 0;
   }
 
+  .card-note {
+    min-height: var(--phone-card-height);
+  }
+
+  .card-thumbnail {
+    aspect-ratio: var(--card-thumb-ratio);
+  }
+
+  .card-note-body {
+    min-height: var(--phone-caption-height);
+  }
+
   .card-thumbnail-placeholder {
     min-height: 9rem;
   }
 
+  /* The page keeps its height with no cards, so the note sits at the top of the paper instead of the middle. */
   .no-results {
-    position: relative;
-    top: auto;
-    left: auto;
-    margin: 0 auto;
-    transform: rotate(-1deg);
+    top: var(--phone-page-pad);
+    transform: translateX(-50%) rotate(-1deg);
   }
 
   .card-name {
@@ -247,6 +284,18 @@
   .detail-content {
     padding: 1rem 0 0;
   }
+}
+
+/*
+ * Theme swaps repaint every themed surface at once, so any running color
+ * transition would fade at its own speed while the background flips. The
+ * theme toggles add this class to <html> for two frames around the change.
+ */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
