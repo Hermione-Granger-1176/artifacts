@@ -486,6 +486,38 @@ def _waiting_for_review_threads(
     return review_count is not None and review_count > fresh_thread_count
 
 
+def _report_when_threads_arrived(
+    pr: int,
+    *,
+    poll_count: int,
+    status: PollStatus,
+    baseline_thread_ids: frozenset[str],
+    checks_only: bool,
+    run_fn: RunFunction | None,
+) -> str | None:
+    """Return the final report once the fresh review's threads exist, else ``None``.
+
+    Raises ``GhError`` when the fresh review overview cannot be classified.
+    """
+    all_threads = pr_review.list_threads(pr, include_resolved=True, run_fn=run_fn)
+    review = status.fresh_review
+    if _waiting_for_review_threads(review, all_threads, baseline_thread_ids):
+        return None
+    if review is not None and review.generated_comment_count is None:
+        raise GhError(
+            "The fresh Copilot review overview could not be classified; "
+            "read it with `make pr-comments` and inspect "
+            "`make pr-review-comments` before merging."
+        )
+    return _watch_report(
+        pr=pr,
+        poll_count=poll_count,
+        status=status,
+        threads=[thread for thread in all_threads if thread.state == "open"],
+        requested=not checks_only,
+    )
+
+
 def watch_pr(
     pr: int | None = None,
     *,
@@ -518,7 +550,6 @@ def watch_pr(
         baseline = watch_baseline(pr, run_fn=run_fn)
         pr_review.request_copilot_review(pr, run_fn=run_fn)
     sleeper = sleep_fn or time.sleep
-    threads: list[pr_review.ReviewThread] = []
     # GitHub registers check runs progressively, so a rollup can be briefly both
     # small and entirely terminal before the rest appear. Requiring the check set
     # to repeat before declaring success establishes completeness by observation
@@ -550,23 +581,16 @@ def watch_pr(
             previous_check_ids = None
         review_ready = checks_only or status.fresh_review is not None
         if status.checks_settled and rollup_stable and review_ready:
-            all_threads = pr_review.list_threads(pr, include_resolved=True, run_fn=run_fn)
-            review = status.fresh_review
-            if not _waiting_for_review_threads(review, all_threads, baseline.thread_ids):
-                if review is not None and review.generated_comment_count is None:
-                    raise GhError(
-                        "The fresh Copilot review overview could not be classified; "
-                        "read it with `make pr-comments` and inspect "
-                        "`make pr-review-comments` before merging."
-                    )
-                threads = [thread for thread in all_threads if thread.state == "open"]
-                return _watch_report(
-                    pr=pr,
-                    poll_count=poll_count,
-                    status=status,
-                    threads=threads,
-                    requested=not checks_only,
-                )
+            report = _report_when_threads_arrived(
+                pr,
+                poll_count=poll_count,
+                status=status,
+                baseline_thread_ids=baseline.thread_ids,
+                checks_only=checks_only,
+                run_fn=run_fn,
+            )
+            if report is not None:
+                return report
 
         if poll_count < max_polls:
             # When everything else is ready and only the stability confirmation is

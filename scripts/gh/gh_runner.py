@@ -700,6 +700,38 @@ def _recorded_pr_number(branch: str, slug: str, *, run_fn: RunFunction | None) -
     return int(value)
 
 
+def _recorded_pull_head(pull: dict[str, Any], *, owner: str, branch: str) -> tuple[str, str]:
+    """Return the ``(owner, branch)`` a recorded pull request's head lives under.
+
+    A fork checkout's local branch is prefixed, so this reads the PR's own head
+    and falls back to ``owner`` and ``branch`` for whatever it omits.
+    """
+    head = as_object(pull.get("head"))
+    head_owner = as_object(as_object(head.get("repo")).get("owner")).get("login")
+    return (
+        str(head_owner or str(head.get("label") or "").partition(":")[0] or owner),
+        str(head.get("ref") or branch),
+    )
+
+
+def _first_pull_number_for_head(
+    slug: str, owner: str, head_branch: str, *, run_fn: RunFunction | None
+) -> int | None:
+    """Return the number of the open, else newest closed, PR whose head is ``owner:head_branch``."""
+    for state in ("open", "closed"):
+        pulls = rest(
+            f"repos/{slug}/pulls",
+            fields={"head": f"{owner}:{head_branch}", "state": state},
+            run_fn=run_fn,
+        )
+        if isinstance(pulls, list) and pulls:
+            try:
+                return int(pulls[0]["number"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise GhError("Could not read PR number from the pull request list.") from exc
+    return None
+
+
 def _current_pr_number_rest(*, run_fn: RunFunction | None = None) -> int:
     """Find the PR whose head is the current branch through the REST API.
 
@@ -717,22 +749,10 @@ def _current_pr_number_rest(*, run_fn: RunFunction | None = None) -> int:
         pull = as_object(rest(f"repos/{slug}/pulls/{recorded}", run_fn=run_fn))
         if pull.get("state") == "open":
             return recorded
-        # A fork checkout's local branch is prefixed, so use the PR's own head.
-        head = as_object(pull.get("head"))
-        head_owner = as_object(as_object(head.get("repo")).get("owner")).get("login")
-        owner = str(head_owner or str(head.get("label") or "").partition(":")[0] or owner)
-        head_branch = str(head.get("ref") or branch)
-    for state in ("open", "closed"):
-        pulls = rest(
-            f"repos/{slug}/pulls",
-            fields={"head": f"{owner}:{head_branch}", "state": state},
-            run_fn=run_fn,
-        )
-        if isinstance(pulls, list) and pulls:
-            try:
-                return int(pulls[0]["number"])
-            except (KeyError, TypeError, ValueError) as exc:
-                raise GhError("Could not read PR number from the pull request list.") from exc
+        owner, head_branch = _recorded_pull_head(pull, owner=owner, branch=branch)
+    found = _first_pull_number_for_head(slug, owner, head_branch, run_fn=run_fn)
+    if found is not None:
+        return found
     if recorded is not None:
         return recorded
     raise GhError("No pull request found for the current branch.")

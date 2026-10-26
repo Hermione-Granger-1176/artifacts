@@ -184,6 +184,16 @@ def test_discover_source_files_skips_vendor(tmp_path: Path) -> None:
     assert "apps/my-app/js/vendor/lib.min.js" not in relative
 
 
+def test_discover_source_files_ignores_skipped_names_above_root(tmp_path: Path) -> None:
+    """A skipped directory name in the checkout's own location does not hide its sources."""
+    root = tmp_path / "build" / "docs" / "repo"
+    (root / "js").mkdir(parents=True)
+    (root / "js" / "app.js").write_text("export default 1;")
+    files = discover_source_files(root)
+    relative = {f.relative_to(root).as_posix() for f in files}
+    assert relative == {"js/app.js"}
+
+
 def test_discover_source_files_finds_mjs(tmp_path: Path) -> None:
     """Discover source files finds mjs."""
     root = tmp_path / "repo"

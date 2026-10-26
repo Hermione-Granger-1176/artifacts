@@ -348,3 +348,28 @@ def test_load_exceptions_rejects_case_variant_duplicates(tmp_path: Path) -> None
             config_file,
             config_key=security_audit_policy.NPM_EXCEPTIONS_KEY,
         )
+
+
+@pytest.mark.parametrize(
+    ("package", "advisory_ids", "expected"),
+    [
+        ("Left-Pad", ("GHSA-AAAA-BBBB-CCCC",), True),
+        ("left-pad", ("42", "ghsa-aaaa-bbbb-cccc"), True),
+        ("left-pad", ("GHSA-OTHER",), False),
+        ("right-pad", ("GHSA-AAAA-BBBB-CCCC",), False),
+        ("left-pad", (), False),
+    ],
+)
+def test_exception_matches_package_and_any_advisory_id_case_insensitively(
+    package: str, advisory_ids: tuple[str, ...], expected: bool
+) -> None:
+    """An exception covers its package under any alias, ignoring case on both parts."""
+    exception = security_audit_policy.VulnerabilityExceptionEntry(
+        vulnerability_id="ghsa-aaaa-bbbb-cccc",
+        package="Left-pad",
+        reason="No fix.",
+        review_by=date(2999, 12, 31),
+        ignore_only_without_fix=False,
+    )
+
+    assert exception.matches(package, advisory_ids) is expected

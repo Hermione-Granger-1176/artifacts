@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
 from scripts.lib.gh_api import run_gh_api_json
@@ -458,14 +459,33 @@ def _append_set_drift(
     append_unexpected_items(issues, actual=actual, expected=expected, label=label)
 
 
-def audit_repo_settings(
-    *,
+@dataclass(frozen=True)
+class _RepoSettings:
+    """The shape-checked GitHub API responses the audit compares to its expectations."""
+
+    repository: dict[str, object]
+    pages: dict[str, object]
+    actions_permissions: dict[str, object]
+    selected_actions: dict[str, object]
+    pages_environment: dict[str, object]
+    pages_deployment_policies: dict[str, object]
+    protection: dict[str, object]
+    variables: dict[str, object]
+    secrets: dict[str, object]
+    rulesets: list[object]
+
+
+def _read_repo_settings(
     repo: str,
-    default_branch: str = "main",
-    pages_branch: str = "gh-pages",
-    run_gh_api_json_fn: Callable[..., object] = run_gh_api_json,
-) -> dict[str, object]:
-    """Audit critical repository settings that the release flow depends on."""
+    default_branch: str,
+    *,
+    run_gh_api_json_fn: Callable[..., object],
+) -> _RepoSettings:
+    """Read every settings endpoint the audit needs, then check each response's JSON shape.
+
+    Every endpoint is read before any response is checked, so an unreadable
+    endpoint is reported ahead of a malformed one.
+    """
     repository = run_gh_api_json_fn(
         f"repos/{repo}",
         description=f"reading repository metadata for {repo}",
@@ -537,22 +557,45 @@ def audit_repo_settings(
         pages_deployment_policies,
         f"{PAGES_ENVIRONMENT_NAME} deployment policies must be a JSON object",
     )
+    return _RepoSettings(
+        repository=repository,
+        pages=pages,
+        actions_permissions=actions_permissions,
+        selected_actions=selected_actions,
+        pages_environment=pages_environment,
+        pages_deployment_policies=pages_deployment_policies,
+        protection=protection,
+        variables=variables,
+        secrets=secrets,
+        rulesets=rulesets,
+    )
+
+
+def audit_repo_settings(
+    *,
+    repo: str,
+    default_branch: str = "main",
+    pages_branch: str = "gh-pages",
+    run_gh_api_json_fn: Callable[..., object] = run_gh_api_json,
+) -> dict[str, object]:
+    """Audit critical repository settings that the release flow depends on."""
+    settings = _read_repo_settings(repo, default_branch, run_gh_api_json_fn=run_gh_api_json_fn)
     detailed_rulesets = [
         load_ruleset_detail(repo, ruleset, run_gh_api_json_fn=run_gh_api_json_fn)
-        for ruleset in rulesets
+        for ruleset in settings.rulesets
     ]
 
     issues: list[str] = []
     summary: dict[str, object] = {
-        "default-branch": _check_default_branch(repository, default_branch, issues),
-        **_check_pages(pages, pages_branch, issues),
-        **_check_actions(actions_permissions, selected_actions, issues),
+        "default-branch": _check_default_branch(settings.repository, default_branch, issues),
+        **_check_pages(settings.pages, pages_branch, issues),
+        **_check_actions(settings.actions_permissions, settings.selected_actions, issues),
         "github-pages-deployment-policies": _check_pages_environment(
-            pages_environment, pages_deployment_policies, issues
+            settings.pages_environment, settings.pages_deployment_policies, issues
         ),
     }
 
-    security_features = enabled_security_features(repository)
+    security_features = enabled_security_features(settings.repository)
     append_missing_items(
         issues,
         actual=security_features,
@@ -560,17 +603,19 @@ def audit_repo_settings(
         label="security and analysis features",
     )
     summary["security-features"] = sorted(security_features)
-    summary["required-checks"] = _check_branch_protection(protection, default_branch, issues)
+    summary["required-checks"] = _check_branch_protection(
+        settings.protection, default_branch, issues
+    )
 
     append_missing_items(
         issues,
-        actual=collect_named_items(variables, "variables"),
+        actual=collect_named_items(settings.variables, "variables"),
         expected=EXPECTED_REPOSITORY_VARIABLES,
         label="repository variables",
     )
     append_missing_items(
         issues,
-        actual=collect_named_items(secrets, "secrets"),
+        actual=collect_named_items(settings.secrets, "secrets"),
         expected=EXPECTED_REPOSITORY_SECRETS,
         label="repository secrets",
     )

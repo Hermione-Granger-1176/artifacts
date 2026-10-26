@@ -15,7 +15,7 @@ from . import gh_runner
 from .gh_runner import GhError, RunFunction, require_mapping
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
 # gh accepts ``@copilot`` as a reviewer. The REST reviewer-request route has no
 # such alias, so it takes the bot's login instead.
@@ -144,20 +144,18 @@ def pr_view(pr: int, fields: Sequence[str], *, run_fn: RunFunction | None = None
     """
     slug = gh_runner.resolve_repo(run_fn=run_fn)
     pull = pull_request(slug, pr, run_fn=run_fn)
+    suppliers: dict[str, Callable[[], Any]] = {
+        "number": lambda: pull.get("number"),
+        "title": lambda: pull.get("title"),
+        "state": lambda: pull_state(pull),
+        "url": lambda: pull.get("html_url"),
+        "statusCheckRollup": lambda: status_check_rollup(slug, head_sha(pull), run_fn=run_fn),
+        "reviews": lambda: reviews(slug, pr, run_fn=run_fn),
+    }
     view: dict[str, Any] = {}
     for field in fields:
-        if field == "number":
-            view[field] = pull.get("number")
-        elif field == "title":
-            view[field] = pull.get("title")
-        elif field == "state":
-            view[field] = pull_state(pull)
-        elif field == "url":
-            view[field] = pull.get("html_url")
-        elif field == "statusCheckRollup":
-            view[field] = status_check_rollup(slug, head_sha(pull), run_fn=run_fn)
-        elif field == "reviews":
-            view[field] = reviews(slug, pr, run_fn=run_fn)
-        else:
+        supplier = suppliers.get(field)
+        if supplier is None:
             raise GhError(f"The REST fallback cannot supply the {field} field.")
+        view[field] = supplier()
     return view

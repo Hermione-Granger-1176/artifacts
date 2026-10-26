@@ -366,15 +366,6 @@ def collect_findings(
     return tuple(findings)
 
 
-def _matches_exception(exception: VulnerabilityExceptionEntry, finding: VendoredFinding) -> bool:
-    """Return whether a reviewed exception covers one finding, ignoring id case."""
-    finding_ids = {advisory_id.upper() for advisory_id in finding.all_ids}
-    return (
-        exception.package.casefold() == finding.package.casefold()
-        and exception.vulnerability_id.upper() in finding_ids
-    )
-
-
 def audit_findings(
     *,
     today: date,
@@ -388,7 +379,9 @@ def audit_findings(
 
     for finding in findings:
         label = f"{finding.package} {finding.version} {finding.advisory_id}"
-        matching = tuple(entry for entry in exceptions if _matches_exception(entry, finding))
+        matching = tuple(
+            entry for entry in exceptions if entry.matches(finding.package, finding.all_ids)
+        )
         matched_keys.update(entry.key for entry in matching)
         if len(matching) > 1:
             errors.append(f"Multiple vendored vulnerability exceptions match one advisory: {label}")
