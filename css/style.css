@@ -357,7 +357,6 @@ body.artifact-app {
   --transition-fast: 160ms;
 }
 
-
 /*
  * Touch screens: the smallest a control may be, so compact controls still take a fingertip.
  * Pointer screens leave it unset, and every control keeps its compact size there.
