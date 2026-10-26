@@ -402,6 +402,20 @@ class FakeList extends FakeElement {
     child.parentElement = this;
     return child;
   }
+
+  prepend(...nodes) {
+    this.children = [...nodes, ...this.children.filter((entry) => !nodes.includes(entry))];
+    nodes.forEach((node) => {
+      node.parentElement = this;
+    });
+  }
+
+  querySelectorAll(selector) {
+    if (selector === '[aria-pressed="true"]') {
+      return this.children.filter((child) => child.getAttribute('aria-pressed') === 'true');
+    }
+    return super.querySelectorAll(selector);
+  }
 }
 
 /**

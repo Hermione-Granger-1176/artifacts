@@ -465,9 +465,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
     const list = panel.querySelector('.filter-panel-options');
     if (list) {
-      const options = /** @type {HTMLElement[]} */ ([...list.children]);
-      const picked = options.filter((option) => option.getAttribute('aria-pressed') === 'true');
-      [...picked, ...options.filter((option) => !picked.includes(option))].forEach((option) => list.appendChild(option));
+      list.prepend(...list.querySelectorAll('[aria-pressed="true"]'));
     }
     const search = /** @type {HTMLInputElement | null} */ (panel.querySelector('[data-filter-panel-search]'));
     if (search) {
