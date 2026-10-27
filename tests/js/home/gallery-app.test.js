@@ -980,7 +980,7 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
 
   harness.elements.searchInput.value = 'Artifact 13';
   harness.elements.searchInput.dispatch('input', { target: harness.elements.searchInput });
-  harness.runTimers(150);
+  harness.runTimers(400);
   assert.equal(harness.windowObj.location.search, '?q=artifact+13');
   assert.equal(harness.elements.grid.cards.length, 1);
   assert.equal(harness.elements.searchClear.classList.contains('hidden'), false);
@@ -1008,7 +1008,7 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
 
   harness.elements.searchInput.value = 'missing artifact';
   harness.elements.searchInput.dispatch('input', { target: harness.elements.searchInput });
-  harness.runTimers(150);
+  harness.runTimers(400);
   assert.equal(harness.elements.grid.cards.length, 0);
   assert.equal(harness.elements.noResults.classList.contains('hidden'), false);
   assert.equal(harness.elements.galleryStatus.textContent, 'No artifacts match the current search and filters.');
@@ -1418,6 +1418,40 @@ test('a render that would write the same cards leaves the grid alone', () => {
   harness.elements.searchInput.dispatch('input', { target: harness.elements.searchInput });
   harness.runTimers();
   assert.notEqual(grid.cards, cards, 'different matches render new cards');
+});
+
+test('a typing burst runs one search after a pause, and Enter or an empty box search at once', () => {
+  const harness = createGalleryHarness();
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+  const input = harness.elements.searchInput;
+  const type = (value) => {
+    input.value = value;
+    input.dispatch('input', { target: input });
+  };
+
+  type('Art');
+  type('Artifact 1');
+  type('Artifact 13');
+  assert.equal(harness.windowObj.location.search, '', 'nothing runs mid-burst');
+  harness.runTimers(150);
+  assert.equal(harness.windowObj.location.search, '', 'the old 150ms delay no longer fires a search');
+  harness.runTimers(400);
+  assert.equal(harness.windowObj.location.search, '?q=artifact+13', 'one search for the whole burst');
+
+  type('Artifact 12');
+  input.dispatch('keydown', { key: 'Enter' });
+  assert.equal(harness.windowObj.location.search, '?q=artifact+12', 'Enter searches at once');
+  harness.runTimers(400);
+  assert.equal(harness.windowObj.location.search, '?q=artifact+12', 'and the pending search is dropped');
+
+  input.dispatch('keydown', { key: 'a' });
+  type('');
+  assert.equal(harness.windowObj.location.search, '', 'an emptied box shows everything at once');
+  assert.equal(harness.elements.grid.cards.length, 4);
 });
 
 test('the filtered list is computed once per search, filter, and sort state', async () => {

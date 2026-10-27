@@ -27,6 +27,12 @@ const ITEMS_PER_PAGE = 4;
 const NOTEPAD_ITEMS_PER_PAGE = 1;
 const SCROLL_TOP_THRESHOLD = 300;
 const DETAIL_CLOSE_DELAY = 360;
+/**
+ * How long the search waits after the last keystroke. Long enough that even slow
+ * typing (about 300ms a key) runs one search per word instead of one per key,
+ * and still short enough to feel immediate.
+ */
+const SEARCH_DELAY_MS = 400;
 const ACTIVATION_KEYS = new Set(['Enter', ' ']);
 /** How far a finger must travel up or down the notepad before the swipe turns the page. */
 const SWIPE_MIN_PX = 40;
@@ -392,12 +398,26 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   searchInput.addEventListener('input', () => {
     clearTimeout(debounceTimer);
-    debounceTimer = windowObj.setTimeout(() => {
-      currentQuery = searchInput.value.toLowerCase();
-      currentPage = 1;
-      applyStateChange();
-    }, 150);
+    // An emptied box is not a typing burst, so the full list comes back at once.
+    if (searchInput.value === '') {
+      applySearch();
+      return;
+    }
+    debounceTimer = windowObj.setTimeout(applySearch, SEARCH_DELAY_MS);
   });
+  searchInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      clearTimeout(debounceTimer);
+      applySearch();
+    }
+  });
+
+  /** Search for what the box holds now, from the first page. */
+  function applySearch() {
+    currentQuery = searchInput.value.toLowerCase();
+    currentPage = 1;
+    applyStateChange();
+  }
 
   searchClear.addEventListener('click', () => {
     searchInput.value = '';

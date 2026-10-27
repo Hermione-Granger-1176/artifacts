@@ -53,6 +53,8 @@ The root filter UI is rendered as desk notes by `buildFilterNotes()` in `js/modu
 
 The search field appears above the book, beside sort and reset controls. `#search-count` shows the number of matches during a search. `#gallery-status` announces that result to screen readers. The `/` shortcut focuses the search field.
 
+The search runs `SEARCH_DELAY_MS` (400ms) after the last keystroke, so a typed word runs one search instead of one per key, even for slow typists. Enter searches at once, and an emptied field shows every artifact at once.
+
 `.sort-toggle::after` supplies the visible label, "newest" or "oldest". The accessible button name includes the same label.
 
 ## Book scene
