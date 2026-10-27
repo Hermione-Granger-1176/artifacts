@@ -591,6 +591,9 @@ worktree-remove: ## Remove a clean worktree created by make worktree; the branch
 rebase-main: ## Rebase the current branch onto origin/main (make rebase-main [base=branch])
 	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && git rebase "origin/$(if $(base),$(base),$(MAIN_BRANCH))"
 
+merge-main: ## Merge origin/main, or origin/base, into the current branch without rewriting history (make merge-main [base=branch])
+	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && git merge --no-edit "origin/$(if $(base),$(base),$(MAIN_BRANCH))"
+
 rebase-continue: ## Continue an in-progress rebase after resolving conflicts
 	GIT_EDITOR=true git rebase --continue
 
