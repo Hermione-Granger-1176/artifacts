@@ -73,13 +73,27 @@ function sumPresentValues(rows) {
 }
 
 /**
- * Present value (clean price) of a bond.
+ * Present value (clean price) of a bond, in closed form: the coupons are an
+ * annuity, `c * (1 - v^n) / i`, and the face is paid once, `F * v^n`, where
+ * `v = 1 / (1 + i)`. It equals the sum of the schedule's present values without
+ * building the schedule, which matters because the price-rate curve prices the
+ * bond at more than a hundred rates on every slider tick.
  *
  * @param {PricedBond} bond - Bond terms plus its market yield.
  * @returns {number} Bond price.
  */
-export function bondPrice(bond) {
-  return sumPresentValues(bondSchedule(bond));
+export function bondPrice({ faceValue, couponRatePct, years, annualYieldPct, frequency }) {
+  const periods = Math.round(years * frequency);
+  if (periods <= 0) {
+    return 0;
+  }
+  const coupon = (faceValue * couponRatePct) / 100 / frequency;
+  const periodYield = annualYieldPct / 100 / frequency;
+  if (periodYield === 0) {
+    return coupon * periods + faceValue;
+  }
+  const discount = Math.pow(1 + periodYield, -periods);
+  return (coupon * (1 - discount)) / periodYield + faceValue * discount;
 }
 
 /**

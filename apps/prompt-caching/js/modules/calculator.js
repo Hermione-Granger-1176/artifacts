@@ -4,6 +4,10 @@ import { savingsMonthly } from "./math.js";
 import { byId, makeEl, clear } from "./dom.js";
 import { formatCompact, formatCurrency, formatPercent } from "../../../../js/modules/formatting.js";
 
+// One formatter for the slider readouts, so a drag does not build one per tick
+// (which is what toLocaleString does on every call).
+const COUNT_FORMAT = new Intl.NumberFormat();
+
 const PRESETS = [
   { name: "Hobby", sys: 1000, req: 100, hit: 70, price: 3 },
   { name: "Startup", sys: 2000, req: 500, hit: 80, price: 3 },
@@ -58,8 +62,8 @@ export function initCalculator() {
     const hitFraction = Number.parseFloat(hit.value) / 100;
     const pricePerM = Number.parseFloat(price.value);
 
-    sysVal.textContent = sysTokens.toLocaleString();
-    reqVal.textContent = requests.toLocaleString();
+    sysVal.textContent = COUNT_FORMAT.format(sysTokens);
+    reqVal.textContent = COUNT_FORMAT.format(requests);
     hitVal.textContent = formatPercent(hitFraction * 100, 0);
     priceVal.textContent = formatCurrency(pricePerM, 2);
 

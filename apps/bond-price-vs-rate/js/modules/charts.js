@@ -52,15 +52,29 @@ const { colors, refreshPalette } = createPaletteCache(({ css, cssAlpha }) => ({
 export { refreshPalette };
 
 /**
- * @param {import("chart.js").ChartOptions["scales"]} scales - Chart scale options.
+ * The axis setup each chart was last given. Rewriting the scale options makes
+ * Chart.js resolve them again, so a slider tick that changes only the data skips it.
+ * @type {WeakMap<ChartInstance, { palette: Palette, formatY: (value: number) => string, key: string }>}
+ */
+const appliedAxes = new WeakMap();
+
+/**
+ * @param {ChartInstance} chart - Chart whose scales to style.
  * @param {Palette} palette - Active color palette.
  * @param {{ xTitle: string, yTitle: string, xType?: string, formatY: (value: number) => string }} axisOptions - Axis titles, x scale type, and y tick formatter.
  * @returns {void}
  */
-function applyAxes(scales, palette, { xTitle, yTitle, xType = "category", formatY }) {
+function applyAxes(chart, palette, { xTitle, yTitle, xType = "category", formatY }) {
+  const scales = chart.options.scales;
   if (!scales) {
     return;
   }
+  const key = `${xTitle}|${yTitle}|${xType}`;
+  const applied = appliedAxes.get(chart);
+  if (applied?.palette === palette && applied.formatY === formatY && applied.key === key) {
+    return;
+  }
+  appliedAxes.set(chart, { palette, formatY, key });
   const xScale = /** @type {AxisConfig} */ (scales.x);
   const yScale = /** @type {AxisConfig} */ (scales.y);
 
@@ -145,7 +159,7 @@ function syncMarkedSeriesChart(chart, series, palette, { lineColor, fillColor, x
   chart.data.datasets[1].backgroundColor = palette.green;
   chart.data.datasets[1].borderColor = palette.surface;
 
-  applyAxes(chart.options.scales, palette, { xTitle, yTitle, xType: "linear", formatY });
+  applyAxes(chart, palette, { xTitle, yTitle, xType: "linear", formatY });
   chart.update(mode);
 }
 
@@ -267,7 +281,7 @@ function syncSensitivityChart(chart, state, mode) {
     index === sensitivity.currentIndex ? palette.red : palette.redA(0.45)
   );
   chart.data.datasets[0].borderColor = palette.noteRed;
-  applyAxes(chart.options.scales, palette, {
+  applyAxes(chart, palette, {
     xTitle: "Years to maturity",
     yTitle: "Price change (%)",
     formatY: formatPercentTick

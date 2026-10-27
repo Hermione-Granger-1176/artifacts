@@ -1,6 +1,10 @@
 import { cacheElements as cacheElementsByIds } from "../../../../js/modules/element-cache.js";
 import { setText } from "../../../../js/modules/dom-sync.js";
 
+// One formatter for the principal field, so a slider drag does not build one per
+// tick (which is what toLocaleString does on every call).
+const PRINCIPAL_FORMAT = new Intl.NumberFormat("en-US");
+
 const ELEMENT_IDS = [
   "inPrincipal",
   "inRate",
@@ -54,7 +58,7 @@ export function cacheElements(documentObj = document) {
  */
 export function syncInputsFromSliders(elements) {
   const inputs = /** @type {Record<string, HTMLInputElement>} */ (elements);
-  inputs.inPrincipal.value = Math.round(+inputs.slPrincipal.value).toLocaleString("en-US");
+  inputs.inPrincipal.value = PRINCIPAL_FORMAT.format(Math.round(+inputs.slPrincipal.value));
   inputs.inRate.value = (+inputs.slRate.value).toFixed(2);
   inputs.inTenure.value = inputs.slTenure.value;
 }

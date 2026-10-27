@@ -95,3 +95,26 @@ test('refreshPalette drops the cache and rebuilds immediately', () => {
     assert.equal(palette.blueA, 'rgba(10, 20, 30, 0.2)');
   });
 });
+
+test('palette alpha methods read each custom property once per theme', () => {
+  let reads = 0;
+  const { colors, refreshPalette } = createPaletteCache(({ cssAlpha: alpha }) => ({
+    blueA: (/** @type {number} */ value) => alpha('--note-blue', value)
+  }));
+
+  withDom({}, () => {
+    const original = globalThis.getComputedStyle;
+    globalThis.getComputedStyle = (element) => {
+      reads += 1;
+      return original(element);
+    };
+    const palette = colors();
+    assert.equal(palette.blueA(0.1), 'rgba(10, 20, 30, 0.1)');
+    assert.equal(palette.blueA(0.1), 'rgba(10, 20, 30, 0.1)');
+    assert.equal(palette.blueA(0.4), 'rgba(10, 20, 30, 0.4)');
+    assert.equal(reads, 2, 'one read per alpha, none on a repeat');
+
+    refreshPalette().blueA(0.1);
+    assert.equal(reads, 3, 'a new theme reads afresh');
+  });
+});

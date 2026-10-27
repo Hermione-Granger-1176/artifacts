@@ -4,6 +4,9 @@
  * @module dom-sync
  */
 
+/** Node.TEXT_NODE, spelled out so the module also loads where Node is not defined. */
+const TEXT_NODE = 3;
+
 /**
  * Set an element's text only when it differs from the current text.
  *
@@ -12,6 +15,17 @@
  * @returns {void}
  */
 export function setText(element, text) {
+  // A lone text node is rewritten in place. Assigning textContent would discard
+  // it and allocate a new one on every change, which a table of thousands of
+  // cells redrawn on each slider tick pays for in garbage collection.
+  const node = element.firstChild;
+  if (text !== "" && node && node === element.lastChild && node.nodeType === TEXT_NODE) {
+    const textNode = /** @type {Text} */ (node);
+    if (textNode.data !== text) {
+      textNode.data = text;
+    }
+    return;
+  }
   if (element.textContent !== text) {
     element.textContent = text;
   }

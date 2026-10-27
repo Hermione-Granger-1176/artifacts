@@ -28,6 +28,18 @@ test('setText and setAttr write only when the value changes', () => {
   assert.equal(node.getAttribute('aria-label'), 'x');
 });
 
+test('setText rewrites a lone text node in place instead of replacing it', () => {
+  const textNode = { nodeType: 3, data: 'a' };
+  const element = { firstChild: textNode, lastChild: textNode, textContent: 'a' };
+  setText(element, 'b');
+  assert.equal(element.firstChild, textNode, 'the same text node is kept');
+  assert.equal(textNode.data, 'b');
+
+  const clearing = { firstChild: textNode, lastChild: textNode, textContent: 'b' };
+  setText(clearing, '');
+  assert.equal(clearing.textContent, '', 'emptying an element still clears it');
+});
+
 test('createElement applies class, text, attributes, and children', () => {
   const saved = globalThis.document;
   globalThis.document = {
