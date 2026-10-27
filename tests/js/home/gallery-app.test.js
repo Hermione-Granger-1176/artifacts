@@ -720,8 +720,28 @@ function createGalleryHarness({
     };
     windowObj.cancelAnimationFrame = () => {};
     windowObj.innerWidth = 1280;
+    // Leaf turns play as Web Animations; each one finishes when the frame clock passes its duration.
+    const animations = [];
+    const animate = (keyframes, options) => {
+      const animation = {
+        endsAt: now + (options.duration || 0),
+        cancelled: false,
+        cancel() {
+          this.cancelled = true;
+          this.reject(new DOMException('cancelled', 'AbortError'));
+        }
+      };
+      animation.finished = new Promise((resolve, reject) => {
+        animation.resolve = resolve;
+        animation.reject = reject;
+      });
+      animation.finished.catch(() => undefined);
+      animations.push(animation);
+      return animation;
+    };
     documentObj.createElement = () => {
       const element = new FakeBookElement();
+      element.animate = animate;
       element.slices = {
         '.artifact-page-left': new FakeBookElement({ classes: ['artifact-page-left'] }),
         '.artifact-page-right': new FakeBookElement({ classes: ['artifact-page-right'] })
@@ -748,6 +768,16 @@ function createGalleryHarness({
           now += 16;
           const pending = frames.splice(0);
           pending.forEach((callback) => callback(now));
+          for (const animation of animations.splice(0)) {
+            if (animation.cancelled) {
+              continue;
+            }
+            if (animation.endsAt <= now) {
+              animation.resolve();
+            } else {
+              animations.push(animation);
+            }
+          }
           await settleMicrotasks();
         }
       }

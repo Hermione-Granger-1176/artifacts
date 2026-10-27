@@ -75,6 +75,9 @@ export function sortValuesByDisplayOrder(values, displayOrder) {
   return [...known, ...unknown];
 }
 
+// localeCompare builds a collator on every call; one shared collator orders ids the same way.
+const ID_COLLATOR = new Intl.Collator();
+
 /**
  * @param {ArtifactRecord[]} artifacts - Hydrated artifact records.
  * @param {{ currentQuery: string, currentSort: string, currentTags: string[], currentTools: string[] }} options - Active filter and sort state.
@@ -89,8 +92,8 @@ export function filterAndSortArtifacts(artifacts, options) {
   } = options;
   /** @type {Record<'newest' | 'oldest', (left: ArtifactRecord, right: ArtifactRecord) => number>} */
   const comparators = {
-    newest: (left, right) => right.id.localeCompare(left.id),
-    oldest: (left, right) => left.id.localeCompare(right.id)
+    newest: (left, right) => ID_COLLATOR.compare(right.id, left.id),
+    oldest: (left, right) => ID_COLLATOR.compare(left.id, right.id)
   };
   const comparator = currentSort === "newest" ? comparators.newest : comparators.oldest;
   const toolSet = new Set(currentTools);

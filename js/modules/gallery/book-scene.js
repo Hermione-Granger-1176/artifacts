@@ -124,6 +124,51 @@ function linear(t) {
 }
 
 /**
+ * The pose of a turning leaf at one progress value. Progress 0 is the leaf lying
+ * where the turn started and 1 is landed. A previous turn is the physical reverse
+ * of a next turn, so both share one angle. Past halfway the leaf is settling: its
+ * shadow moves from the page it left to the page it lands on.
+ * @param {boolean} next - Whether the leaf turns towards the next page.
+ * @param {number} progress - Turn progress from 0 to 1.
+ * @returns {{ transform: string, frontShade: number, backShade: number, castRight: number, castLeft: number }} Leaf angle and shading.
+ */
+function leafPose(next, progress) {
+  const q = next ? progress : 1 - progress;
+  const lift = Math.sin(Math.PI * q);
+  const settling = q > 0.5;
+  return {
+    transform: `rotateY(${-180 * q}deg)`,
+    frontShade: Math.min(1, q * 2) * 0.9,
+    backShade: settling ? Math.max(0, 1 - (q - 0.5) * 2) * 0.9 : 0,
+    castRight: settling ? 0 : lift * (next ? 0.7 : 0.6),
+    castLeft: settling ? lift * (next ? 0.6 : 0.7) : 0
+  };
+}
+
+/** Poses sampled per automatic leaf turn; the compositor interpolates linearly between them. */
+const LEAF_TURN_SAMPLES = 24;
+
+/**
+ * Keyframe offsets for an automatic turn, with the eased progress at each. The
+ * easing is baked into the samples, so the compositor plays the same curve the
+ * frame loop drew. Halfway appears twice, just before and just after, because
+ * the shading switches there at once rather than fading.
+ * @returns {Array<{ offset: number, progress: number }>} Samples in time order.
+ */
+function leafTurnSamples() {
+  const samples = [];
+  for (let index = 0; index <= LEAF_TURN_SAMPLES; index += 1) {
+    const offset = index / LEAF_TURN_SAMPLES;
+    if (offset === 0.5) {
+      samples.push({ offset, progress: 0.5 - 1e-9 }, { offset, progress: 0.5 + 1e-9 });
+    } else {
+      samples.push({ offset, progress: easeInOut(offset) });
+    }
+  }
+  return samples;
+}
+
+/**
  * Create book-scene helpers: the cover-opening intro, single-leaf page turns,
  * drag-to-scrub, and the queue that keeps rapid page requests from being lost.
  *
@@ -332,25 +377,45 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
   }
 
   /**
-   * Position a leaf and its shading for a turn progress value.
-   * Progress 0 is the leaf lying where the turn started and 1 is landed. A
-   * previous turn is the physical reverse of a next turn, so both share one angle.
+   * Position a leaf and its shading for a turn progress value, as a drag does
+   * on every pointer move.
    * @param {LeafParts} parts - Leaf elements.
    * @param {number} progress - Turn progress from 0 to 1.
    */
   function setLeafProgress(parts, progress) {
-    const q = parts.next ? progress : 1 - progress;
-    const lift = Math.sin(Math.PI * q);
-    const settling = q > 0.5;
-    parts.leaf.style.transform = `rotateY(${-180 * q}deg)`;
-    parts.frontShade.style.opacity = String(Math.min(1, q * 2) * 0.9);
-    parts.backShade.style.opacity = String(settling ? Math.max(0, 1 - (q - 0.5) * 2) * 0.9 : 0);
+    const pose = leafPose(parts.next, progress);
+    parts.leaf.style.transform = pose.transform;
+    parts.frontShade.style.opacity = String(pose.frontShade);
+    parts.backShade.style.opacity = String(pose.backShade);
     if (parts.castRight) {
-      parts.castRight.style.opacity = String(settling ? 0 : lift * (parts.next ? 0.7 : 0.6));
+      parts.castRight.style.opacity = String(pose.castRight);
     }
     if (parts.castLeft) {
-      parts.castLeft.style.opacity = String(settling ? lift * (parts.next ? 0.6 : 0.7) : 0);
+      parts.castLeft.style.opacity = String(pose.castLeft);
     }
+  }
+
+  /**
+   * The keyframe tracks of an automatic turn: the same poses setLeafProgress
+   * draws, for Web Animations to play on the compositor.
+   * @param {LeafParts} parts - Leaf elements.
+   * @returns {Array<[Element, Keyframe[]]>} Each element with its keyframes.
+   */
+  function leafTurnTracks(parts) {
+    const poses = leafTurnSamples().map(({ offset, progress }) => ({ offset, pose: leafPose(parts.next, progress) }));
+    /**
+     * @param {Element | null} element - Element to animate.
+     * @param {(pose: ReturnType<typeof leafPose>) => Keyframe} frame - Its keyframe for one pose.
+     * @returns {Array<[Element, Keyframe[]]>} The track, or none for a missing element.
+     */
+    const track = (element, frame) => (element ? [[element, poses.map(({ offset, pose }) => ({ offset, ...frame(pose) }))]] : []);
+    return [
+      ...track(parts.leaf, (pose) => ({ transform: pose.transform })),
+      ...track(parts.frontShade, (pose) => ({ opacity: pose.frontShade })),
+      ...track(parts.backShade, (pose) => ({ opacity: pose.backShade })),
+      ...track(parts.castRight, (pose) => ({ opacity: pose.castRight })),
+      ...track(parts.castLeft, (pose) => ({ opacity: pose.castLeft }))
+    ];
   }
 
   /**
@@ -499,7 +564,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
     active = turn;
     try {
-      await tween(turn, 0, 1, LEAF_TURN_MS, easeInOut, (value) => setLeafProgress(turn.leaf, value));
+      await animateTurn(turn, leafTurnTracks(turn.leaf), { duration: LEAF_TURN_MS, easing: 'linear' });
       if (!turn.aborted) {
         pages.commit(target);
       }

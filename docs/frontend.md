@@ -71,6 +71,8 @@ The left page stays hidden until the cover lands. The inside cover contains a co
 
 A turning leaf has two faces and matches the settled page dimensions. Its front shows the source page, its back shows the destination page, and the page underneath already contains destination content.
 
+One pose function, `leafPose()`, gives the leaf's angle and shading for any turn progress. A drag applies it on each pointer move. A button or page-number turn samples it into Web Animations keyframes (`leafTurnTracks()`) with the ease-in-out curve baked into the keyframe offsets, so the compositor plays the same curve without a main-thread frame loop. Halfway appears twice, so the shading still switches there at once.
+
 Dragging an outer edge or bottom corner moves the leaf with the pointer. Releasing beyond `DRAG_COMPLETE_THRESHOLD` (45%) completes the turn. An earlier release returns the leaf to its starting position. `.book-sheet` uses `touch-action: pan-y pinch-zoom` so horizontal drags turn pages while vertical scrolling and zoom remain available.
 
 **Prev**, **Next**, and page-number requests share one queue. After the current transition, the queue uses the latest requested page. A request made during a drag remains selected after that drag ends.

@@ -766,6 +766,13 @@ test('turnPage during the intro commits at once and keeps the latest request', a
 /* Leaf turns                                                         */
 /* ------------------------------------------------------------------ */
 
+/** The keyframes an element's latest animation plays. */
+const framesOf = (element) => element.animateCalls.at(-1).keyframes;
+/** The rotateY angle of one keyframe. */
+const angleOf = (frame) => Number.parseFloat(frame.transform.replace('rotateY(', ''));
+/** The keyframes that sit exactly halfway, before and after the shading switches. */
+const halfway = (frames) => frames.filter((frame) => frame.offset === 0.5);
+
 test('a next turn lifts one two-faced leaf and renders the page only when it lands', async () => {
   const harness = createHarness({ open: true });
   const liveRight = harness.grid.querySelector('.artifact-page-right');
@@ -786,16 +793,24 @@ test('a next turn lifts one two-faced leaf and renders the page only when it lan
   assert.equal(front.children[0].clonedFrom, liveRight, 'the front face is the page that is turning');
   assert.match(back.children[0].className, /artifact-page-left built-2/, 'the back face is the new left page');
   assert.match(ghost.children[0].className, /artifact-page-right built-2/, 'the page underneath is the new right page');
-  assert.match(leaf.style.transform, /^rotateY\(-?\d/);
   assert.deepEqual(harness.model.commits, [], 'the live pages are untouched mid-turn');
 
-  await harness.advance(300);
-  const angle = Number.parseFloat(leaf.style.transform.replace('rotateY(', ''));
-  assert.ok(angle < -20 && angle > -170, `mid-turn angle ${angle}`);
-  assert.ok(Number(front.children[1].style.opacity) > 0, 'the front shade darkens as the leaf lifts');
-  assert.ok(Number(harness.sheet.querySelector('.book-cast-right').style.opacity) > 0, 'cast shadow under the leaf');
+  // The turn plays on the compositor: eased poses sampled into linear keyframes.
+  const { options } = leaf.animateCalls[0];
+  assert.equal(options.easing, 'linear');
+  assert.equal(options.fill, 'both');
+  assert.ok(options.duration > 0);
+  const frames = framesOf(leaf);
+  assert.equal(frames[0].transform, 'rotateY(0deg)');
+  assert.equal(frames.at(-1).transform, 'rotateY(-180deg)');
+  // The easing is baked into the samples: a quarter of the time is 1/16 of the swing (cubic ease-in-out).
+  assert.equal(angleOf(frames.find((frame) => frame.offset === 0.25)), -180 * 0.0625);
+  assert.equal(angleOf(frames.find((frame) => frame.offset === 0.75)), -180 * 0.9375);
+  assert.ok(Math.max(...framesOf(front.children[1]).map((frame) => frame.opacity)) > 0, 'the front shade darkens as the leaf lifts');
+  const castRight = framesOf(harness.sheet.querySelector('.book-cast-right'));
+  assert.ok(castRight.find((frame) => frame.offset === 0.25).opacity > 0, 'cast shadow under the leaf');
 
-  await harness.advance(600);
+  await harness.advance(1000);
   await done;
   assert.deepEqual(harness.model.commits, [2]);
   assert.equal(harness.leafOf(), undefined);
@@ -812,15 +827,20 @@ test('a next turn ends flat on the left side with the landing page shaded then c
   const leaf = harness.leafOf();
   const backShade = leaf.children[1].children[1];
 
-  await harness.advance(520);
-  assert.ok(Number(harness.sheet.querySelector('.book-cast-left').style.opacity) >= 0);
-  assert.ok(Number(backShade.style.opacity) >= 0);
-  const late = Number.parseFloat(leaf.style.transform.replace('rotateY(', ''));
-  assert.ok(late < -90, `late-turn angle ${late}`);
+  // Halfway the shading switches at once: the landing page takes the shade and the left cast.
+  const [beforeHalf, afterHalf] = halfway(framesOf(backShade));
+  assert.equal(beforeHalf.opacity, 0);
+  assert.ok(afterHalf.opacity > 0.8);
+  const [castBefore, castAfter] = halfway(framesOf(harness.sheet.querySelector('.book-cast-left')));
+  assert.equal(castBefore.opacity, 0);
+  assert.ok(castAfter.opacity > 0.5);
+  const late = framesOf(leaf).find((frame) => frame.offset === 0.75);
+  assert.ok(angleOf(late) < -90, `late-turn angle ${angleOf(late)}`);
+  assert.equal(framesOf(backShade).at(-1).opacity, 0, 'the landing page ends clear');
 
-  await harness.advance(400);
+  await harness.advance(1000);
   await done;
-  assert.equal(leaf.style.transform, 'rotateY(-180deg)');
+  assert.equal(framesOf(leaf).at(-1).transform, 'rotateY(-180deg)');
 });
 
 test('a previous turn is the physical reverse and keeps the live left page as the back face', async () => {
@@ -836,16 +856,15 @@ test('a previous turn is the physical reverse and keeps the live left page as th
   assert.equal(ghost.className, 'book-ghost book-ghost-left');
   assert.match(front.children[0].className, /artifact-page-right built-2/, 'the front face is the target right page');
   assert.equal(back.children[0].clonedFrom, liveLeft, 'the back face is the page that is turning');
-  assert.ok(Number.parseFloat(leaf.style.transform.replace('rotateY(', '')) < -150, 'starts lying on the left');
+  const frames = framesOf(leaf);
+  assert.ok(angleOf(frames[0]) < -150, 'starts lying on the left');
+  const quarter = frames.find((frame) => frame.offset === 0.25);
+  assert.ok(angleOf(quarter) > -180 && angleOf(quarter) < -90, `early angle ${angleOf(quarter)}`);
+  assert.ok(framesOf(harness.sheet.querySelector('.book-cast-left')).every((frame) => frame.opacity >= 0));
 
-  await harness.advance(300);
-  const mid = Number.parseFloat(leaf.style.transform.replace('rotateY(', ''));
-  assert.ok(mid > -150 && mid < -20, `mid-turn angle ${mid}`);
-  assert.ok(Number(harness.sheet.querySelector('.book-cast-left').style.opacity) >= 0);
-
-  await harness.advance(700);
+  await harness.advance(1000);
   await done;
-  assert.equal(leaf.style.transform, 'rotateY(0deg)');
+  assert.equal(frames.at(-1).transform, 'rotateY(0deg)');
   assert.deepEqual(harness.model.commits, [2]);
   assert.equal(harness.leafOf(), undefined);
 });
@@ -1127,22 +1146,13 @@ test('an error while landing is reported, the leaf is removed, and the queue kee
 
 test('an error thrown while animating the leaf cleans up and is reported', async () => {
   const harness = createHarness({ open: true });
+  harness.env.animateError = new Error('animate failed');
   const done = harness.scene.turnPage(2);
-  await harness.advance(32);
-  const leaf = harness.leafOf();
-  Object.defineProperty(leaf.style, 'transform', {
-    set() {
-      throw new Error('style failed');
-    },
-    get() {
-      return '';
-    }
-  });
 
   await harness.advance(100);
   await done;
   assert.equal(harness.errors.length, 1);
-  assert.match(harness.errors[0].message, /style failed/);
+  assert.match(harness.errors[0].message, /animate failed/);
   assert.equal(harness.leafOf(), undefined);
   assert.ok(!harness.sheet.classList.contains('is-turning'));
 });
