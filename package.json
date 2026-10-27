@@ -22,13 +22,13 @@
   "devDependencies": {
     "actionlint": "2.0.6",
     "axe-core": "4.14.0",
-    "chart.js": "4.5.1",
+    "chart.js": "4.6.1",
     "chartjs-plugin-annotation": "3.1.0",
     "chartjs-plugin-datalabels": "2.2.0",
     "esbuild": "0.28.2",
     "eslint": "10.13.0",
     "globals": "17.13.0",
-    "knip": "6.41.0",
+    "knip": "6.42.1",
     "prettier": "3.9.10",
     "stylelint": "17.16.0",
     "typescript": "7.0.2"
