@@ -569,6 +569,10 @@ branch-current: ## Create and switch to a branch from the current commit without
 	$(call need,name,make branch-current name=my-feature)
 	git checkout -b "$(name)"
 
+switch: ## Switch to an existing local branch (make switch name=X)
+	$(call need,name,make switch name=my-feature)
+	git switch "$(name)"
+
 branch-prune: export PRUNE_MAIN_BRANCH := $(MAIN_BRANCH)
 branch-prune: export PRUNE_PAGES_BRANCH := $(PAGES_BRANCH)
 branch-prune: export PRUNE_CONFIRM := $(confirm)
