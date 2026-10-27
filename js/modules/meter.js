@@ -1,7 +1,7 @@
 /**
  * Shared meter-fill control for artifact apps. The shared .meter-fill is full
- * width and scaled from its left edge with the scale property, so moving the bar is a
- * compositor-only transform instead of a layout-triggering width change.
+ * width and scaled from its left edge with the `scale` property, so changing
+ * the fill needs no layout, unlike changing `width`.
  * @module meter
  */
 

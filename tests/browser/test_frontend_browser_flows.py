@@ -436,7 +436,7 @@ def test_dragging_a_page_edge_scrubs_the_leaf_then_completes_or_springs_back(
         edge_x = grid["x"] + grid["width"] - 12
         center_x = grid["x"] + grid["width"] / 2
 
-        # Spring back: drag a quarter of the way and let go.
+        # Spring back: drag a short way (a fifth of the grid width) and let go.
         page.mouse.move(edge_x, y)
         page.mouse.down()
         page.mouse.move(grid["x"] + grid["width"] * 0.8, y, steps=6)

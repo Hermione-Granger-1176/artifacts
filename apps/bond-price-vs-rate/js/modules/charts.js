@@ -27,8 +27,8 @@ function formatPercentTick(value) {
   return `${value.toFixed(2)}%`;
 }
 
-// Per-theme chart palette read from CSS custom properties; refreshPalette
-// keeps the app's theme-change contract.
+// Chart palette read from CSS custom properties and cached per theme. Call
+// refreshPalette after a theme change.
 const { colors, refreshPalette } = createPaletteCache(({ css, cssAlpha }) => ({
   blue: css("--color-blue"),
   green: css("--color-green"),

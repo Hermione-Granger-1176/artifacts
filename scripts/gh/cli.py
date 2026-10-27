@@ -1,8 +1,7 @@
-"""Command-line dispatcher for the GitHub PR/CI helpers.
+"""Command-line dispatcher for the GitHub PR, issue, and CI helpers.
 
 Run as ``python -m scripts.gh.cli <command>``. The Makefile wraps each command
-in a thin target, and ``<command> --help`` documents its options, so an agent
-can discover the full surface without re-deriving any ``gh`` plumbing.
+in a thin target, and ``<command> --help`` documents its options.
 """
 
 from __future__ import annotations
@@ -137,7 +136,7 @@ def _add_review_and_ci_commands(subparsers: _Subparsers) -> None:
     _add_json_option(list_comments_parser)
 
     delete_comment_parser = subparsers.add_parser(
-        "delete-comment", help="Delete a review comment by its node id"
+        "delete-comment", help="Delete a review comment by its node id or numeric id"
     )
     delete_comment_parser.add_argument(
         "--comment", required=True, help="Comment node id (PRRC_...) or numeric id"
@@ -390,7 +389,7 @@ def _handle_list_comments(args: argparse.Namespace) -> int:
 
 
 def _handle_delete_comment(args: argparse.Namespace) -> int:
-    """Delete a single review comment by node id."""
+    """Delete a single review comment by node id or numeric id."""
     pr_review.delete_review_comment(args.comment)
     print(f"Deleted {args.comment}")
     return 0

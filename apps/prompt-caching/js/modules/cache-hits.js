@@ -1,4 +1,4 @@
-/* Cross-request cache-hit visualiser with a live TTL countdown. */
+/* Cross-request cache-hit visualizer with a live TTL countdown. */
 
 import { CHV_SYSTEM, CHV_QUERIES } from "./data.js";
 import { formatTTL } from "./math.js";
@@ -94,6 +94,7 @@ export function initCacheHits() {
     const totalTokens = CHV_SYSTEM.length + query.length;
     const cachedCount = sysHit ? CHV_SYSTEM.length : 0;
     const computedCount = totalTokens - cachedCount;
+    // A cached token costs a tenth of the base rate, so a hit saves up to 90% of its cost.
     const savingsPct = cachedCount > 0 ? (cachedCount / totalTokens) * 90 : 0;
 
     const reqDiv = makeEl("div", "chv-req");

@@ -1,1 +1,1 @@
-"""GitHub PR and CI helper package backing the Makefile's pr-*/ci-* targets."""
+"""GitHub helper package behind the Makefile's ``pr-*``, ``issue-*``, and ``ci-*`` targets."""

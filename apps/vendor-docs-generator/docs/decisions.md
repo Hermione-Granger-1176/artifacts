@@ -57,11 +57,11 @@ A JSON batch always contains labels. Selecting JSON moves the level away from **
 
 The Format control selects PDF, PNG, or both. Batch mode also supports JSON. **Download** exports the current page, and **Generate ZIP** exports a batch. A page export writes its selected formats and one sidecar.
 
-The **JSON only** action remains in the Labels header for single-page mode. Pair mode appears only for a degraded scan whose format includes PNG. The PDF type appears only when the format includes PDF. `syncOutput` derives all visible choices and button labels from state.
+The **JSON only** action remains in the Labels header for single-page mode. Pair mode is enabled only for a degraded scan whose format includes PNG. The PDF type is enabled only when the format includes PDF. Both are dimmed rather than hidden otherwise, so the rows below do not move. `syncOutput` derives all choices and button labels from state.
 
 ## Fitted preview and full-size dialog
 
-An A4 page at 96dpi is 794x1123px. The preview scales to fit both width and height, so it needs no internal scrollbar. The frame height uses `clamp(380px, 100vh - 300px, 1123px)`. The 300px allowance covers the header, introduction, toolbar, and caption.
+An A4 page at 96dpi is 794x1123px. The preview scales to fit both width and height, never above 100% or below 25%, so it needs no internal scrollbar. The frame height uses `clamp(380px, 100vh - 300px, 1123px)`. The 300px allowance covers the header, introduction, toolbar, and caption.
 
 The wrapper uses the scaled page dimensions, while the page scales from its top-left corner. Scaling the wrapper itself would leave the full page dimensions in the layout and overflow the frame.
 
@@ -121,7 +121,7 @@ Canvas 2D cannot apply a projective transform in one call. The renderer approxim
 
 The seeded stream draws rotation, skew, banding, and light-position values before applying effects. Disabling grain therefore does not change rotation. This makes runs that differ in one setting comparable.
 
-Effect magnitudes vary by up to a quarter around the preset value, with randomized direction. Samples vary within a preset instead of repeating one fixed effect.
+Rotation and skew vary by up to a quarter around the preset value, with a randomized direction. Samples vary within a preset instead of repeating one fixed tilt.
 
 ## JPEG encoding for lossy presets
 
@@ -139,7 +139,7 @@ The common choices are presets. Nine custom sliders remain under **Fine-tune**. 
 
 **Stop and keep what is done** ends generation between documents. The active document completes before the archive is written, so partial files do not enter the ZIP.
 
-A partial archive retains normal folders, labels, and manifest entries. Its `README.txt` records both completed and planned counts, and its filename includes `_partial`. Stopping before any document finishes produces no download.
+A partial archive retains normal folders, labels, and manifest entries. Its filename includes `_partial`. When labels are on, its `README.txt` records both completed and planned counts. Stopping before any document finishes produces no download.
 
 ## Yielding during synchronous exports
 

@@ -43,7 +43,7 @@ Canvas 2D approximates keystone with four-pixel affine strips. Annotations retai
 
 The seed and reference date determine the document model. `buildDocument` defaults `today` to the generation day, so exact replay later requires the original date. The sidecar's `document_date` and seeded offset can recover that date, but the manifest does not record it directly.
 
-`random.js` provides a Lehmer generator. `Math.random` is used only by `rollSeed` and `planBatch` to choose new seeds. `format.js` avoids locale-dependent formatting so the same inputs produce the same text in browsers, Node tests, and thumbnail generation.
+`random.js` provides a Lehmer generator. `Math.random` is used only by `rollSeed`, which picks a new seed, and by `planBatch`, which picks batch seeds and mixes dense invoices into about 40% of invoice samples. `format.js` avoids locale-dependent formatting so the same inputs produce the same text in browsers, Node tests, and thumbnail generation.
 
 Random draw order is part of replay behavior. Drawing the day offset before the document number preserves earlier samples. Reordering those draws changes the generated documents.
 
@@ -63,9 +63,22 @@ Vendor accents in `vendors.js` are document content. They remain distinct litera
 
 `app.js` stores vendor, document type, invoice layout, seed, scan preset, overrides, and output choices. `draw` rebuilds the page and caption. `syncOutput` derives visible output controls, label notes, pair availability, size estimates, and the primary button label.
 
-`LABEL_LEVELS` maps label choices to ground truth, field boxes, and word boxes. `INCLUDE_SCOPES` maps batch scope to vendor and type selection. `DOCUMENT_TYPES` and `DEGRADE_PRESETS` provide control labels. `wireSegment` wraps `initSegmented` so programmatic changes also update selection highlights.
+`LABEL_LEVELS` maps label choices to ground truth, field boxes, and word boxes. `INCLUDE_SCOPES` maps batch scope to vendor and type selection. `DOCUMENT_TYPES` and `DEGRADE_PRESETS` provide control labels, and `DEGRADE_KNOBS` defines the nine fine-tune sliders. `wireSegment` wraps `initSegmented` so programmatic changes also update selection highlights.
+
+`degradationFor` plans the scan for one document, or returns `null` for a clean run. `annotate` measures boxes on the live paper, moves them through that plan, and builds the sidecar. Both single-page export and the batch loop call them.
+
+## Layout and stability
 
 The layout has a toolbar, a fitted page stage, and a sticky Output panel. The panel's scope switch and footer stay visible while its middle scrolls. Its vendor swatch uses the same `--vd-accent` as the printed page.
+
+Below about 1000px the three regions stack and the panel stops sticking. Below 700px the document-type pills give way to `#vdDocTypeSelect`.
+
+Controls that appear and disappear keep their space, so the export button stays under the pointer:
+
+- The estimate, the progress meter, and the status line each keep their row. The meter and the stop button use `visibility: hidden` while idle, and the status line is empty.
+- The PDF type control and the pair option are dimmed, not hidden, when they do not apply.
+- The seed chip holds the width of the widest seed.
+- The caption reserves two lines below 600px, three below 380px, and four below 340px, so a longer scan name does not push the page up or down.
 
 ## Export paths
 
@@ -73,7 +86,7 @@ The layout has a toolbar, a fitted page stage, and a sticky Output panel. The pa
 
 Text PDFs render directly from the model. PNG and rasterized PDFs use `html2canvas` sequentially because they share one paper element. Raster capture temporarily sets zoom to 1, including when the page is in the full-size dialog.
 
-A labeled batch writes one sidecar per page, a `manifest.jsonl` with one compact sidecar per line, and a `README.txt` with the schema and settings. JSON-only batches skip PDF and raster generation. The DOM stage still advances for progress and requested box measurements.
+A labeled batch writes one sidecar per page, a `manifest.jsonl` with one compact sidecar per line, and a `README.txt` with the schema and settings. A batch with Labels set to None writes none of the three. JSON-only batches skip PDF and raster generation. The DOM stage still advances for progress and requested box measurements.
 
 Pair mode applies to PNG output. `renderRaster` returns both the degraded image and its clean capture, so a pair does not require two captures. JSZip retains batch files in memory until it creates the archive.
 

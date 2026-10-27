@@ -1,9 +1,9 @@
 """Pull-request review-thread operations built on the GraphQL API.
 
-The listing prints each thread's node id (``PRRT_...``), and replies/resolves key
-off that id via ``addPullRequestReviewThreadReply`` and ``resolveReviewThread``.
-This avoids the extra lookup the old REST flow needed to turn a thread into a
-numeric comment ``databaseId``.
+The listing prints each thread's node id (``PRRT_...``), and replies and
+resolves use that id through ``addPullRequestReviewThreadReply`` and
+``resolveReviewThread``, so no lookup of a numeric comment ``databaseId`` is
+needed.
 
 When the environment blocks GraphQL, every operation here falls back to the REST
 API. REST has no thread node id, so a thread is identified by the numeric id of
@@ -674,9 +674,10 @@ def pr_summary(pr: int | None = None, *, run_fn: RunFunction | None = None) -> s
 
 
 # Copilot only reviews a pull request on creation and does not auto-rerun on
-# later pushes, so re-requesting it is part of the review-feedback loop. Use the
-# ``@copilot`` shorthand: the literal ``copilot-pull-request-reviewer[bot]`` login
-# does not resolve through the gh API.
+# later pushes, so re-requesting it is part of the review-feedback loop. Pass
+# ``gh`` the ``@copilot`` shorthand, because the literal
+# ``copilot-pull-request-reviewer[bot]`` login does not resolve there. The REST
+# fallback sends that login instead.
 def request_copilot_review(pr: int | None = None, *, run_fn: RunFunction | None = None) -> None:
     """Request a GitHub Copilot code review on the pull request.
 

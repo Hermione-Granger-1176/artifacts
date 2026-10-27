@@ -6,11 +6,11 @@ This artifact began as a standalone AI-generated HTML file (bespoke warm-cream p
 
 ### Shared design tokens
 
-The original warm palette was light-only. We remapped every color to the shared `--color-*` tokens so the app gets automatic light/dark and visually matches the rest of the gallery. The five original accent roles map to the five shared semantic hues (accent→amber, warm→blue, teal→green, indigo→purple, rose→red).
+The original warm palette was light-only. We remapped every color to the shared `--color-*` tokens, so the app switches between light and dark automatically and matches the rest of the gallery. The five original accent roles map to the five shared semantic hues (accent→amber, warm→blue, teal→green, indigo→purple, rose→red).
 
 ### Shared fonts
 
-Google Fonts (Instrument Serif / Source Sans 3 / JetBrains Mono) were dropped in favour of the shared `--font-body` / `--font-heading` / `--font-mono` stacks. This removes the only external dependency and keeps the strict `'self'` CSP intact.
+Google Fonts (Instrument Serif / Source Sans 3 / JetBrains Mono) were dropped in favor of the shared `--font-body` / `--font-heading` / `--font-mono` stacks. This removes the only external dependency and keeps the strict `'self'` CSP intact.
 
 ### Section progress navigation
 
@@ -18,7 +18,7 @@ The sticky numbered navigation helps readers track their position in the long pa
 
 ### Pure calculations and browser interactions
 
-All numerical behavior was extracted into pure functions in `math.js` (with data in `data.js`) so it can be unit-tested directly. The DOM-and-animation glue stays in the feature modules and is verified in-browser; the test harness cannot mount real canvas/`IntersectionObserver`/timer behavior, and importing the glue purely to chase coverage would add brittle mocks without testing real behavior.
+All numerical behavior lives in pure functions in `math.js` (with data in `data.js`), so tests call it directly. The DOM-and-animation glue stays in the feature modules. `tests/js/apps/prompt-caching/dom.test.js` drives it through a small DOM harness (`support.js`) with controllable timers, a fake `IntersectionObserver`, and stubbed canvas contexts. That checks wiring, state changes, and layout reservation. It does not check real canvas drawing or real timing, which need a browser.
 
 ### Steady-state savings model
 

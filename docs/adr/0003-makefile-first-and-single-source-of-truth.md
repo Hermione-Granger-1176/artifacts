@@ -31,7 +31,7 @@ These inconsistencies complicated setup and maintenance and let commands bypass 
 
 4. **Scripts organized by concern.** `scripts/` is split into subpackages: `build/`, `ci/`, `gh/`, `lib/`, `lint/`. A centralized `REPO_ROOT` in `scripts/__init__.py` replaces per-file path computation.
 
-5. **Tests mirror scripts.** `tests/` has matching subdirectories: `build/`, `ci/`, `gh/`, `lib/`, `lint/`, plus `browser/` for Playwright and grouped `js/` suites for home, shared, app-specific, and workflow-focused Node tests.
+5. **Tests mirror scripts.** `tests/` has matching subdirectories: `build/`, `ci/`, `gh/`, `lib/`, `lint/`, plus `browser/` for Playwright and grouped `js/` suites (`home`, `common`, `apps`, `tooling`, and `workflows`) for Node tests.
 
 6. **Auto-generated grouped help.** `make help` uses `## comment` annotations on targets and section headers tagged with `@slug` in the Makefile. Adding a target with `##` makes it appear automatically. `make help-pr`, `make help-ci`, and `make help-git` drill into sub-commands.
 
@@ -39,7 +39,7 @@ These inconsistencies complicated setup and maintenance and let commands bypass 
 
 ## Amendment
 
-The out-of-scope note below that `js/modules/` and `css/` remain flat was later superseded: gallery modules now live under `js/modules/gallery/`, and the shipped `css/style.css` is generated from authored partials in `css/src/` (ADR 0006 documents the shared token and component system that lives there). The Makefile-first and single-source-of-truth policies are unchanged by that reorganization.
+Later changes superseded two points. Decisions 4 and 5 list five subpackages, but `scripts/setup/` and `tests/setup/` now exist as well. The out-of-scope note below that `js/modules/` and `css/` remain flat no longer holds: gallery modules now live under `js/modules/gallery/`, and the shipped `css/style.css` is generated from authored partials in `css/src/` (ADR 0006 documents the shared token and component system that lives there). The Makefile-first and single-source-of-truth policies are unchanged by that reorganization.
 
 ## Consequences
 

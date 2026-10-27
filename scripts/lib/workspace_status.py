@@ -3,12 +3,12 @@
 
 This backs the ``status`` Make target. It must run on the system interpreter
 before ``make setup`` provisions a virtual environment, so it imports only the
-standard library and shells out (git, uv, npm, and the venv helpers) exactly
-like the previous inline shell recipe, guarding each on availability.
+standard library and shells out to git, uv, npm, and the venv helpers, treating
+a tool that cannot launch as a plain failure.
 
-The sections mirror the old recipe: Git, Venv, Node plus lock currency,
-Generated files (drift or a venv-less fallback) plus the ``_site`` payload, and
-the Pull request overview.
+The report has five sections: Git, Venv, Node plus lock currency, Generated
+files (drift, or a presence check without a venv) plus the ``_site`` payload,
+and the Pull request overview.
 """
 
 from __future__ import annotations
@@ -56,9 +56,8 @@ def _succeeds(
 ) -> subprocess.CompletedProcess[str] | None:
     """Return the completed process, or ``None`` when the tool cannot launch.
 
-    Mirrors the shell ``cmd >/dev/null 2>&1 && ... || ...`` idiom, where a
-    command that cannot even launch (missing, not executable, wrong format)
-    counts as a plain failure. ``OSError`` covers every such launch error. Every
+    A command that cannot launch (missing, not executable, wrong format) counts
+    as a plain failure. ``OSError`` covers every such launch error. Every
     subprocess in this module routes through here so no launch failure can hard
     fail ``make status``.
     """
@@ -168,9 +167,8 @@ def _write_pull_request_summary(out: TextIO, *, root: Path, venv_python: str, ru
         run_fn=run,
         env=_child_env(root),
     )
-    # Old shell ran ``$(GH) summary || true``: any failure, including a
-    # launch failure, is swallowed and the target still succeeds. The
-    # launch failure remains visible so the report is actionable.
+    # Any failure, including a launch failure, leaves the target succeeding.
+    # A launch failure still prints a line so the report stays actionable.
     _write_output(out, summary, f"UNAVAILABLE: {venv_python} could not be launched")
 
 
@@ -197,9 +195,9 @@ def _write_generated_files(
     if _ok(drift):
         emit("OK: js/data.js, js/gallery-config.js, css/style.css, README markers up to date")
         return
-    # Old shell: any failure (a nonzero exit or a launch failure) falls through
-    # to the STALE branch with whatever drift text was captured, which is empty
-    # on a launch failure (``drift`` is ``None`` here).
+    # Any failure (a nonzero exit or a launch failure) reports STALE with the
+    # captured drift text, which is empty on a launch failure (``drift`` is
+    # ``None`` here).
     emit("STALE: run make index && make styles")
     if drift is not None:
         for line in drift.stdout.splitlines():

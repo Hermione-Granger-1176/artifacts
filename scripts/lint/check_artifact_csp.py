@@ -9,7 +9,9 @@ page. This checker fails fast when an artifact:
       restrict ``default-src`` and ``script-src`` to ``'self'`` or ``'none'``
       sources, omits ``object-src``, ``base-uri``, or ``form-action``, sets
       ``object-src`` to anything but ``'none'``, or repeats a directive (browsers
-      ignore every copy after the first); or
+      ignore every copy after the first), names an ``img-src`` source other
+      than ``'self'``, ``'none'``, or ``data:``, or places the meta after
+      resource-capable markup in the document head; or
     - references an external (scheme or protocol-relative) URL from a
       ``<script src>``, a stylesheet ``<link href>``, or a ``url()`` inside an
       inline ``<style>`` block. Inline ``data:`` URIs and ``#fragment``

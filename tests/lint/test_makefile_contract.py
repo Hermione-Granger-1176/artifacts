@@ -136,7 +136,7 @@ MAKEFILE_LOGICAL_LINES = re.sub(r"\\\n[ \t]*", " ", MAKEFILE_TEXT)
 SHARED_BROWSER_CACHE = "ms-playwright"
 
 # Targets that lint, format, or scan Python. Their scope comes from the tool's
-# own config (CLAUDE.md rules 4 and 5); the Makefile only offers a per-invocation
+# own config (CLAUDE.md rule 4); the Makefile only offers a per-invocation
 # paths= override on top of it.
 PYTHON_SCOPE_TARGETS = (
     "lint-py",

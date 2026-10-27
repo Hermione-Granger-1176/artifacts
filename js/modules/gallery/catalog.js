@@ -118,13 +118,13 @@ export function filterAndSortArtifacts(artifacts, options) {
     .sort(comparator);
 }
 
-/** Page tags in the row once the page count outgrows it; the row never gets wider or narrower than this. */
+/** Slots in the pagination row. A longer page list collapses into exactly this many, so the row keeps its width. */
 const PAGE_SLOT_COUNT = 7;
 
 /**
  * Build the page number sequence for the pagination row. Up to seven pages are
- * all listed. Beyond that the row is always seven slots, the first page, the
- * last page, and either one ellipsis or two around the current page, so Prev and
+ * all listed. Beyond that the row is always seven slots: the first page, the
+ * last page, and one or two ellipses around the current page, so Prev and
  * Next stay where they are as the reader turns pages.
  * @param {number} current - Current page (1-based).
  * @param {number} total - Total number of pages.

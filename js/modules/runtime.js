@@ -15,7 +15,8 @@
  */
 
 /**
- * Read a value from localStorage, returning a fallback on failure.
+ * Read a value from localStorage, returning a fallback on failure. Unlike the
+ * `readStorage` that createRuntime returns, it does not report the error.
  * @param {string} key - Storage key to read.
  * @param {string|null} [fallbackValue=null] - Value to return when reads fail or the key is unset.
  * @returns {string|null} Stored value or the fallback.
@@ -30,7 +31,8 @@ export function readStorage(key, fallbackValue = null) {
 }
 
 /**
- * Write a value to localStorage, returning success status.
+ * Write a value to localStorage, returning success status. Unlike the
+ * `writeStorage` that createRuntime returns, it does not report the error.
  * @param {string} key - Storage key to write.
  * @param {string} value - Value to persist.
  * @returns {boolean} True when the write succeeds.
@@ -75,7 +77,9 @@ function normalizeConsoleMessage(message) {
 }
 
 /**
- * Ignore expected bootstrap validation noise that is already surfaced in the UI.
+ * Detect the gallery's "window.ARTIFACTS_DATA must be an array" validation
+ * error, which the page already shows to the reader. reportError still records
+ * it in `state.lastError` but skips the console call.
  * @param {*} message - Runtime message to check.
  * @returns {boolean} Whether to skip logging this message.
  */
@@ -185,6 +189,9 @@ async function copyRuntimeDiagnostics(state, windowObj, documentObj) {
 
 /**
  * Create a runtime instance providing error reporting, storage access, and lifecycle status.
+ * Creating one sets `window.__ARTIFACTS_RUNTIME__` to its state, sets
+ * `data-runtime-status` on the root element to "booting", and installs one
+ * click handler per window for the "Copy error details" button.
  * @param {{ consoleObj?: Console, documentObj?: Document, windowObj?: Window }} [options={}]
  *   Injected browser globals for startup and tests.
  * @returns {{
@@ -232,6 +239,9 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
   };
 
   /**
+   * Record the error in `state.lastError`, refresh the diagnostics panel, and log
+   * to the console. A fatal error also sets the runtime status to "error" and
+   * shows the error banner.
    * @param {*} error - Arbitrary thrown value; error shapes are untyped upstream.
    * @param {string} context - Human-readable failure context.
    * @param {{ fatal?: boolean }} [options={}] - Whether the failure is fatal.

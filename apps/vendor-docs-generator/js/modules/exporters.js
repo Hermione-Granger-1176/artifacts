@@ -272,10 +272,8 @@ export function planBatch({
 /**
  * Rough compressed size of one document, per artefact, in bytes.
  *
- * Measured from real runs and deliberately generous. The point is not accuracy
- * to the byte, it is that a 500-page PNG batch is generated and zipped entirely
- * in the browser, and someone will ask for one. A number beside the button is a
- * far better experience than a tab that stops responding.
+ * Rounded up from real runs. The estimate warns before a large batch, such as a
+ * 500-page PNG run, is generated and zipped entirely in the browser.
  */
 const BYTES_PER_DOCUMENT = {
   png: 900_000,

@@ -119,8 +119,8 @@ export function bondSchedule({ faceValue, couponRatePct, years, annualYieldPct, 
  *
  * Definitions (per-period yield `i`, `n` periods, `k` periods per year):
  * - Macaulay duration: PV-weighted average time to each cash flow, in years.
- * - Modified duration: Macaulay / (1 + i); the percent price drop per
- *   one-point annual rate rise.
+ * - Modified duration: Macaulay / (1 + i); the straight-line estimate of the
+ *   percent price drop per one-point rise in the annual rate.
  * - Convexity: sum(PV_t * t * (t + 1)) / (price * (1 + i)^2 * k^2), the
  *   curvature term in the price-rate relationship, in years squared.
  * - DV01: modified duration * price * 0.0001; the dollar move per one
@@ -175,7 +175,7 @@ const CURVE_TAU_YEARS = 8;
 /**
  * Annual yield offered by a curve shape at a given maturity:
  * `long + (short - long) * exp(-years / tau)`. Starts at the short rate and
- * decays smoothly toward the long rate, giving the standard concave shapes.
+ * moves smoothly toward the long rate, flattening as maturity grows.
  *
  * @param {YieldCurveShape} curve - Short- and long-end rates.
  * @param {number} years - Maturity in years.

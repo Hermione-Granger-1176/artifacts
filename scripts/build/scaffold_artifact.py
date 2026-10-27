@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Scaffold a new artifact directory under ``apps/``.
 
-This module backs `make new name=<artifact-name> [src=<path-to-html>]`.
+This module backs ``make new name=<artifact-name> [src=<path-to-html>]``.
 
 It creates a new artifact directory under ``apps/`` with the required metadata
 files, an HTML entry point, an app-local stylesheet and bootstrap module,
 internal docs, and a matching app test under ``tests/js/apps/<slug>/``. Every
-emitted file is designed to pass the repository gates (`make validate`, the JS
+emitted file is designed to pass the repository gates (``make validate``, the JS
 test-coverage check, ESLint, stylelint, Knip, and tsc) without hand edits.
 
 Two flows are supported:
@@ -20,7 +20,7 @@ Two flows are supported:
   rewritten) so the author can vendor or remove them before the security lint
   runs.
 
-Run through the Makefile in normal workflows; direct invocation is mainly for
+Run through the Makefile in normal workflows. Direct invocation is mainly for
 maintainers working on the build internals.
 """
 
@@ -222,9 +222,9 @@ initializeMatureApp({
 def _app_css_template(title: str) -> str:
     """Return a starter app stylesheet.
 
-    Points new apps at the shared components before they write new CSS and keeps
-    the design-token rules (enforced by ``make lint-app-css-tokens``) front and
-    center: no hex or literal colors, and radius, font-size, and letter-spacing
+    The comment block points new apps at the shared components before they write
+    new CSS and states the design-token rules that ``make lint-app-css-tokens``
+    enforces: no hex or literal colors, and radius, font-size, and letter-spacing
     values sized through the shared tokens.
     """
     return (
@@ -403,11 +403,11 @@ def _inject_before_head_close(html: str, snippet: str) -> str:
 def apply_contract_to_source(html: str) -> str:
     """Guarantee the shared contract inside a provided HTML document.
 
-    Injects the self-only CSP meta and the shared stylesheet links only when a
-    real meta or link tag already provides them, so an author who already wired
-    them keeps their exact markup while prose, script text, or commented-out
-    markup that merely names the header or the paths never suppresses the
-    contract.
+    Injects the self-only CSP meta and the shared and app stylesheet links only
+    when no real meta or link tag already provides them. An author who already
+    wired them keeps their exact markup, while prose, script text, or
+    commented-out markup that merely names the header or the paths never
+    suppresses the contract.
     """
     # Run the presence checks against a comment-free copy so a commented-out tag
     # does not suppress injection, while injecting into the original untouched html.

@@ -1017,7 +1017,7 @@ def test_main_rejects_symlink_components(
 
 
 def test_control_flow_allowlist_has_no_unused_entries() -> None:
-    """The allowlist is a ratchet and every entry must still match the Makefile."""
+    """Every allowlist entry must still match a Makefile target, so fixed ones get removed."""
     content = make_targets.MAKEFILE_PATH.read_text(encoding="utf-8")
     offenders = {
         violation.target

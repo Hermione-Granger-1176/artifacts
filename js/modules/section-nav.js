@@ -8,9 +8,9 @@ import { createFrameScheduler } from "./frame-scheduler.js";
  * @typedef {{ id: string, label: string }} NavSection
  */
 
-// Static skeleton with the kebab-case ids that initSectionNav defaults to.
-// The label starts empty because initSectionNav writes the active section's
-// label as soon as it runs.
+// Skeleton with the ids that initSectionNav defaults to (nav-nodes, nav-fill,
+// nav-label). The label starts empty because initSectionNav writes the active
+// section's label when it runs.
 const SECTION_NAV_MARKUP = `
   <nav class="section-nav" aria-label="Section progress">
     <div class="section-nav-inner">
@@ -25,10 +25,10 @@ const SECTION_NAV_MARKUP = `
 `;
 
 /**
- * Inject the shared section-nav skeleton into a mount slot, mirroring how
- * app-shell fills its placeholder slots: fill the slot's innerHTML only when it
- * has no element children yet, so a repeat call is a no-op. The injected ids
- * (nav-fill, nav-nodes, nav-label) match initSectionNav's defaults.
+ * Inject the shared section-nav skeleton into a mount slot. Like app-shell, it
+ * fills the slot only when the slot has no element children, so a repeat call
+ * does nothing. The injected ids (nav-fill, nav-nodes, nav-label) match
+ * initSectionNav's defaults.
  *
  * @param {Element | null} mount - Slot element to fill.
  * @returns {void}
@@ -41,9 +41,10 @@ export function renderSectionNav(mount) {
 }
 
 /**
- * Scroll a section into view, honoring the user's reduced-motion preference.
- * Shared so apps route their own jump links (pipeline nodes, buttons) through
- * the same reduced-motion-aware scroll as the nav nodes.
+ * Scroll the element with the given id into view. The scroll behavior is "auto"
+ * when the user prefers reduced motion and "smooth" otherwise. Apps call this for
+ * their own jump links so they behave like the nav nodes. Does nothing when no
+ * element has the id.
  * @param {string} id - Target element id.
  * @returns {void}
  */
@@ -56,9 +57,9 @@ export function scrollToSection(id) {
 }
 
 /**
- * Collect nav sections from the document: every element carrying both an id
- * and a data-nav-label attribute becomes one section, in document order, so
- * apps declare their nav in markup instead of a parallel JS list.
+ * Collect nav sections from the document. Each element with an id and a
+ * non-empty data-nav-label becomes one section, in document order, so apps
+ * declare the nav in markup.
  * @returns {NavSection[]}
  */
 function discoverSections() {
@@ -121,16 +122,19 @@ export function scrollProgress(anchors, scrollY) {
 /**
  * Build one numbered node per section inside the nodes container and keep the
  * fill, node states, and label in sync with the reader's scroll position.
- * Anchor ids default to the kebab-case markup used by newer apps.
+ * Returns without doing anything when no section exists on the page or when
+ * the nodes, fill, or label element is missing.
  *
- * Section positions are measured only when the layout changes (load, resize,
- * content growing or shrinking); a scroll frame just maps scrollY onto them,
- * so scrolling never forces a layout.
+ * Section positions are measured at init, on window resize, and when
+ * `document.body` resizes (if ResizeObserver exists). A scroll frame only maps
+ * `scrollY` onto the measured offsets, so scrolling never forces a layout.
  *
- * @param {NavSection[]} [explicitSections] - Optional fixed list; when omitted,
- *   sections are discovered from elements carrying data-nav-label. Sections
- *   missing from the page get no node.
- * @param {{ nodesId?: string, fillId?: string, labelId?: string }} [anchors]
+ * @param {NavSection[]} [explicitSections] - Optional fixed list. When omitted,
+ *   sections are discovered from elements with data-nav-label. Entries whose id
+ *   is not in the document are dropped and get no node.
+ * @param {{ nodesId?: string, fillId?: string, labelId?: string }} [anchors] -
+ *   Element ids for the nodes container, fill, and label. They default to
+ *   "nav-nodes", "nav-fill", and "nav-label", the ids renderSectionNav injects.
  * @returns {void}
  */
 export function initSectionNav(explicitSections, anchors = {}) {

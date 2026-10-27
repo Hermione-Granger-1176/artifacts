@@ -6,8 +6,8 @@ This reference describes automated coverage, numerical examples, and manual chec
 
 The tests cover these parts of the app:
 
-- `tests/js/apps/prompt-caching/modules.test.js` checks every `math.js` export and the integrity of `data.js`. Assertions cover vocabulary order, attention rows that sum to approximately 1, embedding completeness, and section and summary data.
-- `tests/js/apps/prompt-caching/dom.test.js` checks interactions, including stable cached K and V vectors as later tokens are added.
+- `tests/js/apps/prompt-caching/modules.test.js` checks every `math.js` export and the integrity of `data.js`. Assertions cover vocabulary order, attention rows that sum to approximately 1, the Q, K, and scores matrices matching the rounded products of their inputs, embedding completeness, summary data, and the nine anchored nav stages in `index.html`.
+- `tests/js/apps/prompt-caching/dom.test.js` drives every demo through a DOM harness with controllable timers. It checks interactions, stable cached K and V vectors as later tokens are added, the room each demo reserves for its largest state, the attention card's measurement timing, the reduced-motion paths, and that a theme change redraws the embedding canvases.
 - `make coverage-js` reports coverage against the repository thresholds in `package.json`.
 - `make check-local` runs lint, tests, coverage, dependency audits, artifact validation, and generated-file checks.
 

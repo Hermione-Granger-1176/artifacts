@@ -74,7 +74,7 @@ export function updateExtraField(extras, id, field, value) {
 }
 
 /**
- * Summarize one extra payment in the tooltip voice used by the app.
+ * Summarize one extra payment as the plain-language line shown on its row.
  *
  * @param {{ amount: number, every: number, period: number, startPeriod: number, type: string }} extra
  * @param {string} periodLabel
@@ -174,7 +174,7 @@ export function renderExtras({ container, extras, periodLabel }) {
           max: 2000
         });
 
-    // eslint-disable-next-line no-restricted-syntax -- numbers and cadence labels are controlled; the free-text summary is escaped via escapeHtml
+    // eslint-disable-next-line no-restricted-syntax -- numbers and cadence labels are controlled; the summary is escaped via escapeHtml
     item.innerHTML = `
         <div class="extra-head">
           <div class="segmented is-fused is-inset">

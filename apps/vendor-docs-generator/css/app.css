@@ -442,10 +442,10 @@ body.app-vendor-docs-generator .vd-check.is-disabled input {
 }
 
 /*
- * The scan knobs are folded away by default. Nine sliders is the right amount
- * of control and the wrong amount of panel: the presets are the common case, so
- * the five tiles and their note stay the whole story until someone asks for
- * more. Two columns keep the nine rows to five.
+ * The scan knobs are folded away by default, because the presets cover the
+ * common case and nine sliders take a lot of panel. The five tiles and their
+ * note stay on screen until someone opens Fine-tune. Two columns keep the nine
+ * sliders to five rows.
  */
 
 body.app-vendor-docs-generator .vd-disclosure summary {

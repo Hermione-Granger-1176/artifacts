@@ -416,10 +416,9 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     assert _step_uses(publish, "Download verified site artifact").startswith(
         "actions/download-artifact@"
     )
-    # Publish provisions through ci-setup like every other verifying job. It used
-    # to ask for no dependencies and then rebuild the environment by hand, which
-    # cost a full uv sync, an npm ci, and a Playwright --with-deps apt pass on
-    # every deploy while the caches that make those no-ops went unused.
+    # Publish provisions through ci-setup like every other verifying job. A manual
+    # rebuild would repeat a full uv sync, an npm ci, and a Playwright --with-deps
+    # apt pass on every deploy, and the caches that make those no-ops would go unused.
     assert _step_with(publish, "CI setup")["install-deps"] == "true"
     assert _step_with(publish, "CI setup")["browser-engines"] == "chromium"
     assert "container" not in publish
@@ -730,8 +729,8 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
         "steps.audit.outputs.checked == 'true' && steps.audit.outputs.status == '0'"
     )
 
-    # The stale-preview audit is folded into the settings audit step so the run
-    # stays green in the actionlint linter and shares one drift-alert channel.
+    # The stale-preview audit runs inside the settings audit step, so one run
+    # reports both audits and they share one drift-alert issue.
     assert "make ci-audit-repo-settings" in audit_run
     assert "make ci-audit-previews" in audit_run
     audit_fallback = _step(audit_job, "Alert when repository settings audit setup fails")
@@ -1113,8 +1112,7 @@ def test_setup_steps_cache_locked_environments_and_downloads() -> None:
         assert _step_with(_job(update, job_name), "CI setup")["install-deps"] == "true"
     for job_name in ("quick-gates", "heavy-checks", "root-browser", "app-shard", "assemble-site"):
         assert _step_with(_job(update, job_name), "CI setup")["browser-engines"] == ""
-    # Publish caches browsers through ci-setup now, so it no longer carries its
-    # own duplicate of that step.
+    # Publish caches browsers through ci-setup and has no duplicate step of its own.
     assert all(
         step.get("name") != "Cache Playwright browsers" for step in _job(update, "publish")["steps"]
     )

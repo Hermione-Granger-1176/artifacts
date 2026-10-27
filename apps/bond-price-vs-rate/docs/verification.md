@@ -52,3 +52,9 @@ All fixtures below assume a 10-year, 5% annual coupon, $1,000 face bond unless s
 - At 800px wide the rail is static, stacks above the first chapter, and the page does not scroll sideways
 
 `tests/js/apps/bond-price-vs-rate/chapters.test.js` covers the highlighter with a fake IntersectionObserver: the initial state, the band and tail observers, one current chapter at a time, and the no-observer and no-chapter fallbacks. The browser accessibility test also runs axe over the page, which detects insufficient body-text contrast.
+
+## Redraw and layout stability checks
+
+`tests/js/apps/bond-price-vs-rate/app.test.js` checks that a rate or coupon change redraws only the price curve and the sensitivity bars, a maturity change redraws all three charts, a curve preset redraws only the yield curve (the one change that eases), and a theme change repaints every chart without animation. A slider tick that changes nothing redraws nothing.
+
+`tests/js/apps/bond-price-vs-rate/rendering.test.js` checks that the first-paint copy in `index.html` matches the default render, that a chart off screen keeps its latest data pending until it scrolls in, and that every sizing copy is at least as long as the real copy at any coupon, rate, and maturity on a 0.5 point and 1 year grid (`the sizing copy is at least as long as any copy a slider setting can print`).

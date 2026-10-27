@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Generate artifact thumbnails with Playwright and Pillow.
 
-This module backs `make thumbnails`.
+This module backs ``make thumbnails``.
 
-It scans artifact directories for `index.html` files and uses Playwright to
+It scans artifact directories for ``index.html`` files and uses Playwright to
 capture screenshots for artifacts with missing or stale thumbnails, saving an
-optimized `thumbnail.webp` in each artifact folder.
+optimized ``thumbnail.webp`` in each artifact folder. A shard manifest or
+slug list in the environment narrows the scan to the listed artifacts.
 
 Artifacts are processed concurrently using async Playwright with a bounded
 semaphore to limit parallel browser pages.
 
-Run through the Makefile in normal workflows; direct invocation is mainly for
+Run through the Makefile in normal workflows. Direct invocation is mainly for
 maintainers working on the build internals.
 """
 
@@ -187,7 +188,7 @@ def save_thumbnail(image_bytes: bytes, thumb_path: Path) -> None:
 
 
 def artifact_url(artifact_dir: Path) -> str:
-    """Return the best URL for one artifact page during thumbnail capture."""
+    """Return the URL a capture loads: the local server page when one is running, else the file."""
     if ARTIFACT_BASE_URL:
         return f"{ARTIFACT_BASE_URL}/apps/{artifact_dir.name}/"
     return (artifact_dir / "index.html").resolve().as_uri()

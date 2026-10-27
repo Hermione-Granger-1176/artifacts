@@ -20,12 +20,11 @@ _WATCH_FIELDS = "statusCheckRollup,reviews"
 _PENDING_STATES = {"EXPECTED", "PENDING"}
 _SUCCESSFUL_CHECK_OUTCOMES = {"NEUTRAL", "SKIPPED", "SUCCESS"}
 # A floor on how many checks must exist before a rollup can settle, not a
-# prediction of the total. It used to be a fixed count matching a full CI run,
-# which meant any PR whose plan skipped work produced fewer checks than the
-# constant and could never settle: the watcher polled until max_polls and then
-# failed while reporting every check green. Completeness is now established by
-# ``watch_pr`` observing the check set repeat across consecutive settled polls,
-# so this only has to rule out settling against an empty rollup.
+# prediction of the total. A fixed count would stop any PR whose plan skips work
+# from ever settling, because it produces fewer checks than the constant. Instead
+# ``watch_pr`` establishes completeness by observing the check set repeat across
+# consecutive settled polls, so this only has to rule out settling against an
+# empty rollup.
 DEFAULT_EXPECTED_CHECKS = 1
 
 # How long to wait when the only outstanding condition is confirming that the
@@ -110,9 +109,8 @@ class CopilotReview:
         wording must say "generated no comments" on a first review or
         "generated no new comments" on a re-review. A v2 overview must
         recommend approval, list no findings, and have no counted section
-        other than the resolved list. A numeric
-        "generated 0 comments" deliberately does not count, so unexpected
-        wording fails closed.
+        other than the resolved list. A numeric "generated 0 comments"
+        deliberately does not count, so unexpected wording fails closed.
         """
         if self.is_v2_overview:
             labels = {label for label, _count, _end in _v2_sections(self.body)}

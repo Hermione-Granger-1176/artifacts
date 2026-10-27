@@ -12,7 +12,7 @@ The bond uses a fixed $1,000 face value and annual coupons. Those assumptions ke
 
 ## Why the apply button flashes the rate readout
 
-"Set the market rate to this curve's rate" changes a slider in the rail, which can be a few hundred pixels from the button. The slider thumb moves on its own, and the readout also flashes briefly so the cause and effect are visible without looking for it. The flash is a CSS animation that the reduced-motion rule turns off.
+"Set the market rate to this curve's rate" changes a slider in the rail, which can sit a few hundred pixels from the button. The slider thumb moves, and the readout also flashes briefly, so the reader sees the effect without hunting for it. The flash is a CSS animation that the reduced-motion rule turns off.
 
 ## Why plain ES modules
 
@@ -22,10 +22,10 @@ The app stays browser-native and deployable without a bundler. That keeps each a
 
 The page depends on Chart.js 4.4.1, self-hosted in `js/vendor/` rather than loaded from a CDN.
 
-- **Cold-load performance**: CDN delivery adds latency from external DNS resolution, TLS handshake, and download. Vendoring serves the script from the same GitHub Pages origin over an existing HTTP/2 connection.
-- **Resilience**: no runtime dependency on CDN availability or URL stability, which also keeps the self-only Content-Security-Policy intact.
-- **Full UMD build**: the tree-shakeable ESM build is smaller but requires a bundler. The project uses plain `<script>` tags to stay portable, so the UMD build is the right trade-off.
-- **No plugins**: the highlighted current point on the curve is a second one-point dataset and the highlighted sensitivity bar is a per-bar color, so neither the annotation nor the datalabels plugin is needed. They were removed from the page, `js/vendor/`, and the vendored-asset manifest.
+- **Cold-load performance:** A CDN adds DNS resolution, a TLS handshake, and a download. Vendoring serves the script from the same GitHub Pages origin over an existing HTTP/2 connection.
+- **Resilience:** The page has no runtime dependency on CDN availability or URL stability, and the self-only Content-Security-Policy stays intact.
+- **Full UMD build:** The tree-shakeable ESM build is smaller but needs a bundler. The project uses plain `<script>` tags to stay portable, so the UMD build is the better trade.
+- **No plugins:** The highlighted current point on the curve is a second one-point dataset and the highlighted sensitivity bar is a per-bar color, so the page needs neither the annotation nor the datalabels plugin. They were removed from the page, `js/vendor/`, and the vendored-asset manifest.
 
 ## Why annual compounding and a fixed face value
 
@@ -37,7 +37,7 @@ For each maturity, the sensitivity bars price the bond at the current rate and o
 
 ## Why a separate analyst readout chapter
 
-Duration, convexity, DV01, and current yield are the numbers a practitioner would actually quote, but leading with them would bury the story for a general reader. They live in their own late chapter as live stat tiles, after the intuition has been built, and the accompanying paragraph deliberately contrasts the duration straight-line estimate with the exact reprice so convexity is shown doing real work rather than named in passing. The price-split bars reuse the comparison-bar pattern from the coupon chapter so the page keeps one visual language.
+Duration, convexity, DV01, and current yield are the numbers a practitioner quotes, but leading with them would bury the story for a general reader. They sit in their own late chapter as live stat tiles, after the intuition is built. The paragraph beside them compares the straight-line duration estimate with the exact reprice, so the gap shows what convexity does. The price-split bars reuse the comparison-bar rows from the coupon chapter, so the page keeps one bar style.
 
 ## Why the mathematics is shown with a live table and an HTML-rendered formula
 
@@ -47,7 +47,9 @@ Each recalculation builds table cells with `createElement`. Shared `.table-wrap`
 
 ## Why three preset yield-curve shapes instead of a free-form curve
 
-The yield-curve chapter teaches one idea: rates differ by maturity and the shape is a signal. Three canonical presets (normal, flat, inverted) cover the shapes people actually talk about, and an exponential blend from a short-end rate to a long-end rate gives smooth, realistic curves with two numbers per preset and no curve-fitting machinery. The bond itself still prices against the single market-rate slider so the earlier chapters stay untouched; the bridge is an explicit button that copies the curve's rate at the bond's maturity into that slider, keeping one obvious source of truth for the price.
+The yield-curve chapter teaches one idea: rates differ by maturity, and the shape is a signal. Three presets (normal, flat, inverted) cover the shapes people discuss. An exponential blend from a short-end rate to a long-end rate gives a smooth curve from two numbers per preset, with no curve fitting.
+
+The bond still prices against the single market-rate slider, so the earlier chapters stay unchanged. An explicit button copies the curve's rate at the bond's maturity into that slider, so the slider remains the one source of the price.
 
 ## Why `data-theme` plus localStorage
 
@@ -55,7 +57,7 @@ The root gallery already uses this model. Reusing it keeps theme state consisten
 
 ## Why the app exposes a ready signal
 
-`window.__ARTIFACT_READY__` is set during the initial render so thumbnail generation can wait for the readouts and charts to finish drawing before capturing the page.
+`initializeMatureApp` sets `window.__ARTIFACT_READY__` once the first render returns, so thumbnail generation and the browser tests can wait for the readouts and charts before they capture or inspect the page.
 
 ## Deferred items
 

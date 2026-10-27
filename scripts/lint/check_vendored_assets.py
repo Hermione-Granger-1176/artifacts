@@ -7,7 +7,7 @@ go unnoticed. This checker reconciles the files on disk with
 ``config/vendored_assets.json``:
 
     - every vendored ``*.js`` file must be listed in the manifest;
-    - every manifest entry must exist on disk; and
+    - every manifest entry must exist on disk;
     - every file's SHA-256 must match the recorded hash; and
     - every entry's package must be a lower-case npm name, its version a semantic
       version, and its upstream URL must contain ``<package>@<version>``. The

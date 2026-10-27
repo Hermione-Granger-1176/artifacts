@@ -43,9 +43,9 @@ SHELL_CONTROL_FLOW_PATTERN = re.compile(r"^(?:if|for|while|case)\b")
 RECIPE_PREFIX_PATTERN = re.compile(r"^[@\-+]+")
 
 # Targets whose recipes may keep inline shell control flow. Every entry is
-# argument assembly or git plumbing, not logic that belongs in scripts/, and the
-# list is a ratchet: ``test_control_flow_allowlist_has_no_unused_entries`` fails
-# if a target is fixed and left behind here.
+# argument assembly or git plumbing, not logic that belongs in scripts/. The
+# list can only shrink: ``test_control_flow_allowlist_has_no_unused_entries``
+# fails when a fixed target stays listed here.
 #
 # Several of these exist *because* of the free-text rule. An optional flag whose
 # value is prose cannot be added with ``$(if $(COMMENT),--comment "$$COMMENT")``,

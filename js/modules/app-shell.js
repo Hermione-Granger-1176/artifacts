@@ -75,7 +75,7 @@ const APP_SCROLL_TOP_MARKUP = `
 `;
 
 /**
- * Fill a placeholder slot element with the given markup if it is still empty.
+ * Fill a placeholder slot with the given markup when the slot has no element children.
  * @param {Element | null | undefined} slot - Placeholder element to fill.
  * @param {string} markup - HTML markup to insert.
  */
@@ -88,7 +88,9 @@ function renderMarkupSlot(slot, markup) {
 }
 
 /**
- * Inject shared shell markup (header, error banner, scroll-to-top) into placeholder slots.
+ * Inject shared shell markup into the `[data-app-shell]` slots named "header",
+ * "runtime-error", and "scroll-top". Missing or already filled slots are skipped.
+ * A `homePath` with characters outside `./a-zA-Z0-9_-` falls back to "../../" in the header link.
  * @param {{ documentObj?: Document, homePath?: string }} [options={}]
  * @returns {void}
  */
@@ -111,7 +113,9 @@ export function renderAppShell({
 }
 
 /**
- * Initialize the shared app shell with theme toggle, back navigation, and scroll-to-top.
+ * Render the shell slots, then wire the theme toggle, back button, and
+ * scroll-to-top button. Requires app-theme.js to have run first, because theme
+ * values are normalized through `window.__ARTIFACTS_APP_THEME_BOOTSTRAP__`.
  * @param {{
  *   homePath?: string,
  *   metaThemeColors?: {dark: string, light: string},
@@ -121,7 +125,11 @@ export function renderAppShell({
  *   applyTheme: (theme: string) => void,
  *   syncThemeToggle: () => void,
  *   updateScrollTopVisibility: () => void
- * }}
+ * }} `applyTheme` normalizes the theme, sets `data-theme`, the theme-color meta
+ *   tag, and the toggle label, saves the theme to localStorage under "theme",
+ *   and calls `onThemeChange`. `syncThemeToggle` re-reads `data-theme` into the
+ *   toggle. `updateScrollTopVisibility` shows the scroll-to-top button once
+ *   `scrollY` passes 280px.
  */
 export function initAppShell({
   homePath = "../../",
@@ -170,14 +178,14 @@ export function initAppShell({
     themeToggle.setAttribute("title", `Switch to ${nextTheme} theme`);
   }
 
-  // Bumped on every theme change so only the latest change lifts the class.
+  // Bumped on every theme change so only the latest change removes the class.
   let themeSwitchId = 0;
 
   /**
    * Turn CSS transitions off while the theme changes, so every themed color
-   * flips together instead of fading at its own speed. The shared
-   * .theme-switching rule lifts again two frames later, once the new colors
-   * have painted.
+   * flips together instead of fading at its own speed. Add the shared
+   * .theme-switching class now and remove it after two animation frames, once
+   * the new colors have painted.
    */
   function suspendTransitions() {
     const switchId = ++themeSwitchId;
@@ -203,6 +211,8 @@ export function initAppShell({
     onThemeChange(normalizedTheme);
   }
 
+  // Go back in history only when the referrer is a same-origin page and the
+  // history has an earlier entry. Otherwise go to homePath.
   function handleBackClick() {
     const navigateHome = () => {
       window.location.href = homePath;
@@ -232,8 +242,8 @@ export function initAppShell({
     window.history.back();
   }
 
-  // Visibility last written; null until the first write. Scroll events fire far
-  // more often than the button flips, so the DOM is touched only on a change.
+  // Visibility last written; null until the first write. Skip DOM writes
+  // while the visibility is unchanged.
   let scrollTopVisible = /** @type {boolean | null} */ (null);
 
   function updateScrollTopVisibility() {

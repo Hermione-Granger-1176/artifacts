@@ -1321,7 +1321,7 @@ button {
   opacity: 0.85;
 }
 
-/* A long word gets a smaller hand so it stays on its square note. */
+/* A long label gets smaller type so it stays on its square note. */
 .desk-note[data-long] {
   font-size: 1.15rem;
 }

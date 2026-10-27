@@ -295,8 +295,8 @@ test('the last section is reached before the bottom of a page too short to scrol
     globalThis.document.documentElement.scrollHeight = 3000;
     initSectionNav(SECTIONS);
 
-    // Delta cannot reach the scanline, so it takes the second half of the
-    // stretch after Gamma (1720 to 2199) and holds it a few pixels short of the bottom.
+    // Delta cannot reach the scanline, so it becomes active halfway through the
+    // stretch after Gamma (1720 to 2199), at about 1960, and stays active to the bottom.
     scrollMockTo(registry, windowListeners, flushFrames, 1900);
     assert.equal(registry['nav-label'].textContent, 'Gamma');
     scrollMockTo(registry, windowListeners, flushFrames, 2190);

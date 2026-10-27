@@ -126,9 +126,9 @@ def _launch_error(cmd: list[str], exc: OSError) -> GhError:
 def _raise_for_final_failure(cmd: list[str], detail: str, kind: gh_policy.GhFailureKind) -> None:
     """Raise the dedicated error for a failure that no retry can fix.
 
-    GraphQL being blocked, a rate limit, and a forbidden response each have their
-    own error. Any other kind (transient or fatal) returns so the caller can retry
-    or fail with the generic message.
+    GraphQL being blocked, a rate limit, and a forbidden response each raise a
+    specific error. Any other kind (transient or fatal) returns so the caller can
+    retry or fail with the generic message.
     """
     if kind == "graphql_unavailable":
         raise _graphql_refused(cmd, detail)

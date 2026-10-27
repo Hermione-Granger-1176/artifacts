@@ -31,6 +31,17 @@ The regression scenarios have these expected results:
    - the completion blank sits on the same line as the last prompt chip
    - below 900px the settings card sits above the main card
    - the tokenization card spans the left edge of the main card to the right edge of the settings card
+6. Phone layout at 390px wide
+   - the page has no horizontal scroll and the candidate rows show Token, bar, Odds, and Draw columns
+   - after Sample 100x the Seen column is hidden and the thin amber bars carry the tally
+7. Layout stability
+   - switching between all six scenarios, moving either slider, and clicking **Pick next token**, **Sample 100x**, and **Reset** does not move the buttons or sliders below the changed text
+
+## Automated tests
+
+- `tests/js/apps/tokenizer-explorer/sampling.test.js` covers softmax, greedy ties, top-p renormalization, injected-random draws, and the hand-checked default scenario percentages below
+- `tests/js/apps/tokenizer-explorer/modules.test.js` covers scenario data, token examples, the candidate rows, table roles, and the hidden reserve copies, including that every slider setting lands on a reserved insight line
+- `tests/js/apps/tokenizer-explorer/app.test.js` loads `app.js` against mocks and drives the sliders, presets, scenario select, pick, tally, reset, and whitespace toggle
 
 ## End-to-end math check
 

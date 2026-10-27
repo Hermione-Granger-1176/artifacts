@@ -7,13 +7,14 @@ Node tests live in `tests/js/apps/vendor-docs-generator/`. `fake-dom.js`, `libra
 `document-model.test.js` recalculates expected values from printed strings rather than calling the model's calculation helpers. Its assertions cover these cases:
 
 - Each printed line amount equals quantity times unit price, rounded to cents.
-- Clean-invoice subtotal, per-line rounded tax, and grand total match the printed rows. Clean and dense layouts agree across vendors and seeds.
+- Clean-invoice subtotal, per-line rounded tax, shipping, and grand total match the printed rows. Clean and dense layouts agree across vendors and seeds.
 - Dense-invoice tax and line totals match both the table footer and summary block.
 - Amounts in words have the same cents as numeric totals.
 - Statement balances start at the printed opening balance and follow each charge and payment. Individual rows and the final banner remain nonnegative without a clamp.
-- Receipt subtotal plus tax equals the amount due, payment clears that amount, and balance equals zero.
+- Receipt subtotal plus tax plus shipping equals the amount due, payment clears that amount, and balance equals zero.
 - Challans report quantities and packages without a totals block. Remarks are distinct and include lot numbers.
-- Price variation stays within 4% of the catalog price plus one rounding step. Subscription quantities use 1-3 units.
+- Price variation stays within 4% of the catalog price plus one rounding step. Monthly and yearly units use quantities of 1 to 3.
+- Shipping is charged on goods and stays zero on pages that list only services.
 
 ## Vendor variation and dates
 
@@ -59,9 +60,9 @@ PDF regressions include overlapping letterhead and title, long metadata values t
 
 ## Exports and batches
 
-`exporters.test.js` checks download anchors, deferred URL revocation, data URLs, and PDF aspect ratios. Text PDFs do not rasterize, and raster exports do not emit a text layer.
+`exporters.test.js` checks download anchors, deferred URL revocation, data URLs, and PDF aspect ratios. Text PDFs do not rasterize, and raster exports do not emit a text layer. `planBatch` tests cover the vendor, type, and count cross product, unique seeds that wrap inside the seed range, and the dense-invoice mix.
 
-Batch assertions cover folders, capture counts, progress, sidecars, `manifest.jsonl`, and `README.txt`. JSON batches contain only sidecars. Estimates increase with applicable raster, annotation, and pair settings and ignore settings that produce no output.
+Batch assertions cover folders, capture counts, progress, sidecars, `manifest.jsonl`, and `README.txt`. An unlabeled batch writes no sidecars, manifest, or README. JSON batches contain only sidecars. Stopped batches keep the finished documents and report the cut. Stopping before the first document produces an empty archive, and the app skips the download for it. A long batch must yield to the event loop so a stop click can land. Estimates increase with applicable raster, annotation, and pair settings and ignore settings that produce no output.
 
 A degraded export captures once and retains the clean image for pair mode. Lossy scans use JPEG in rasterized PDFs and `.jpg` filenames. Pair mode writes the degraded image and clean PNG. Manifests record degradation settings, and JSON-only batches do not claim to contain clean-image pairs.
 
@@ -84,16 +85,18 @@ Scan checks cover preset changes, fine-tune sliders, custom settings, pair avail
 `tests/browser/test_frontend_apps_browser_flows.py` runs Chromium with the real vendored libraries. It checks the following behavior:
 
 - The preview fits without overflow. The dialog moves the live page, displays it at 794px wide, and returns it on close.
+- The Output panel stays inside the window while the page scrolls, including in batch mode with the fine-tune sliders open. Below 1000px the toolbar, page, and panel stack, and below 700px the document-type dropdown replaces the pills.
 - PDF, PNG, and ZIP downloads have valid signatures. ZIP paths contain the expected document files.
 - Statements show no negative balances.
 - Sidecars match the schema, vendor, printed subtotal, and absent clean-invoice fields.
 - Boxes declare `boxes_apply_to` as `["png", "pdf_raster"]`, use a 794x1123 page, and remain within normalized bounds. Word boxes appear when requested.
 - Labeled batches contain the page, sidecar, manifest, and README.
+- `test_vendor_docs_generator_batch_can_be_stopped_mid_run` starts a 900-document text-PDF batch, clicks **Stop and keep what is done**, and checks the `_partial.zip` name, the status line, matching sidecar and manifest counts, and the README's planned count.
 - `test_vendor_docs_generator_pdf_never_overprints_itself` instruments real jsPDF output across vendors, types, layouts, and seeds. Text rectangles do not overlap or leave the page.
 - `test_vendor_docs_generator_boxes_land_on_the_ink_they_name` uses `elementFromPoint` to check each region against its marked DOM node. It also checks region text and word bounds in real layout.
 - `test_vendor_docs_generator_degraded_boxes_follow_the_ink` counts dark pixels after a geometric transform. Transformed boxes must cover more of the shifted text than the original boxes.
 
-Shared app smoke and axe suites also cover this app. `vendors.test.js` checks that each printed vendor color maintains at least 4.5:1 contrast against its background.
+Shared app smoke and axe suites also cover this app. `vendors.test.js` checks that each accent keeps at least 4.5:1 contrast against the white text printed on it and that each vendor ink stays legible on paper and on its soft fill. It also checks the fictional phone and email ranges and the flat sales-tax rate. `random.test.js` and `format.test.js` cover the seeded generator, the money and date helpers, and the amount-in-words text.
 
 ## Coverage limits
 

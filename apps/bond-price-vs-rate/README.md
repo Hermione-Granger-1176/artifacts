@@ -6,15 +6,16 @@ This interactive explainer shows why bond prices fall when interest rates rise. 
 
 The explainer includes these views and controls:
 
-- Two columns on the normal page scroll: a sticky left rail (price, premium/par/discount badge, price-vs-rate curve, then the market rate, coupon, and years sliders) beside the story. Below 960px the rail stops pinning and stacks above the chapters
+- Two columns on the normal page scroll: a sticky left rail (price, a premium, par, or discount badge, the price-vs-rate curve, then the market rate, coupon, and years sliders) beside the story. Below 960px the rail stops pinning and stacks above the chapters
 - Seven numbered chapters (the inverse move, why it happens, how hard it swings, the yield curve, the maths, the analyst readout, the ripple). The chapter in view gets a filled number badge and full-strength heading and charts while the others sit slightly muted, tracked with an IntersectionObserver
 - Price-vs-rate curve marks where the bond currently sits
+- Readouts that change wording hold one fixed height, so the page below does not jump as you drag a slider
 - Discounting formula rendered in plain HTML and CSS (no math library, CSP-safe)
 - Worked cash-flow table with per-year present value breakdown
 - Percent price drop bar chart across maturities
 - Yield curve presets (normal, flat, inverted) with chart, and a button that moves the market-rate slider in the rail to the curve's rate
 - Analyst readout: current yield, Macaulay duration, modified duration, convexity, DV01
-- Adaptive ripple explanation for existing bondholders, tomorrow's bonds, the real economy
+- Adaptive ripple explanation for existing bondholders, tomorrow's bonds, and the real economy
 
 ## Made with
 

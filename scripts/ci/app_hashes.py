@@ -76,7 +76,7 @@ def _write_ledger(path: Path, hashes: dict[str, str]) -> None:
 
 
 def _parse_ls_files(stdout: str) -> list[tuple[str, str]]:
-    """Parse ``git ls-files -s`` records into blob hash and path pairs."""
+    """Parse ``git ls-files -s`` records into ``(path, blob hash)`` pairs."""
     records: list[tuple[str, str]] = []
     for line in stdout.splitlines():
         metadata, separator, filename = line.partition("\t")

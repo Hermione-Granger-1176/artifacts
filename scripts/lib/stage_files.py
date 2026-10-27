@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Stage files for ``make stage`` without letting a shell parse any path.
 
-The old recipe ran ``git add -- $(files)`` with the value interpolated straight
-into the shell, so a path was subject to word splitting, globbing, and shell
-syntax; a value containing ``;`` could start another command instead of naming
-a file. This helper reads paths from the environment and hands them to
+Interpolating ``$(files)`` into a shell recipe would subject each path to word
+splitting, globbing, and shell syntax, and a value containing ``;`` could start
+another command. This helper reads paths from the environment and hands them to
 ``git add`` as separate argv entries with ``shell=False``, so shell
 metacharacters in a filename stay inert.
 

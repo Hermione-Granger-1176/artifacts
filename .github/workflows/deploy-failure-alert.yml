@@ -1,9 +1,8 @@
 name: Deploy Failure Alert
 
-# The scheduled monitors alert on their own failures, but a failed main-branch
-# run of "Update Artifacts & Deploy" had no alerting. This workflow reacts to
-# that pipeline finishing and opens, updates, or closes one alert issue so a
-# broken main deploy is visible instead of silent.
+# The scheduled monitors alert on their own failures. This workflow covers the
+# main deploy pipeline: when a run of "Update Artifacts & Deploy" finishes, it
+# opens, updates, or closes one alert issue so a broken main deploy is visible.
 on:
   workflow_run:
     workflows:

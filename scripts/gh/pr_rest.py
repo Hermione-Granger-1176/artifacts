@@ -103,8 +103,8 @@ def status_check_rollup(
     """Return the check runs and commit statuses on ``sha`` as a ``statusCheckRollup`` list.
 
     Only the newest run of each check name in each check suite is kept. The
-    combined status ``state`` is ignored on purpose: it reads ``pending`` for a commit with no
-    statuses at all, which would hold every settled rollup open.
+    combined status ``state`` is ignored on purpose: it reads ``pending`` for a
+    commit with no statuses at all, which would hold every settled rollup open.
     """
     runs = gh_runner.rest_pages(
         f"repos/{slug}/commits/{sha}/check-runs", items_key="check_runs", run_fn=run_fn

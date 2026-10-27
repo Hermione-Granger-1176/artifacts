@@ -95,7 +95,7 @@ export function shuffleIndices(length, random) {
 /**
  * Roll a fresh document seed.
  * @param {() => number} [randomSource=Math.random] - Injectable for tests.
- * @returns {number} A six-digit-ish seed.
+ * @returns {number} An integer from 1,000 to 900,999.
  */
 export function rollSeed(randomSource = Math.random) {
   return Math.floor(randomSource() * 900_000) + 1_000;

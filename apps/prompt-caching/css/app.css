@@ -3,16 +3,16 @@
  *
  * Shared surfaces, controls, chips, stats, tables, buttons, and callouts live in
  * css/style.css. This file owns the guide's warm editorial palette, content
- * rhythm, and interactive visualisations. Interactive controls (buttons,
- * selectors, sliders, inputs) ride the shared blue accent; content keeps the
+ * rhythm, and interactive visualizations. Interactive controls (buttons,
+ * selectors, sliders, inputs) use the shared blue accent; content keeps the
  * warm amber personality (code windows, section numbers, data-viz tints,
  * callout tones, stat values).
  *
  * Sections:
  * 1. Palette, guide frame, typography, and local layout helpers
  * 2. Code examples, card variants, and guide callout variants
- * 3. Progress navigation, learning pipeline, and tokenisation
- * 4. Attention and softmax visualisations
+ * 3. Progress navigation, learning pipeline, and tokenization
+ * 4. Attention and softmax visualizations
  * 5. KV cache and request simulations
  * 6. Savings calculator and embedding explorer
  * 7. Guide recap, resources, and footer
@@ -243,7 +243,7 @@ body.app-prompt-caching .pc-card-head .pc-card-label {
   margin: 0;
 }
 
-/* Intro pricing tiles ride the shared .stat; only the display-size value and the
+/* Intro pricing tiles use the shared .stat; only the display-size value and the
  * warm accent/warm tints are scoped. */
 body.app-prompt-caching .pc-stat .stat-value {
   font-size: 2rem;
@@ -321,7 +321,7 @@ body.app-prompt-caching .pc-callout-glyph {
   flex-shrink: 0;
 }
 
-/* The code textarea rides the shared .text-input; the mono font and left-aligned,
+/* The code textarea uses the shared .text-input; the mono font and left-aligned,
  * resizable multi-line layout are the scoped overrides (shared inputs are
  * right-aligned single-line fields). */
 body.app-prompt-caching .pc-input {
@@ -430,7 +430,7 @@ body.app-prompt-caching .syn-cm {
   color: var(--color-text-secondary);
 }
 
-/* 3. Progress navigation, learning pipeline, and tokenisation. */
+/* 3. Progress navigation, learning pipeline, and tokenization. */
 
 body.app-prompt-caching .pc-pipeline {
   display: flex;
@@ -449,7 +449,7 @@ body.app-prompt-caching .pc-pipeline > :last-child {
   margin-right: auto;
 }
 
-/* The pipeline is a content visualisation of the model stages, not a control
+/* The pipeline is a content visualization of the model stages, not a control
  * bar, so it keeps its tinted-node look rather than the shared control accent. */
 body.app-prompt-caching .pc-pipeline-node {
   padding: 0.65rem 1.1rem;
@@ -609,7 +609,7 @@ body.app-prompt-caching .pc-tokid.pc-c4 {
   color: var(--color-red);
 }
 
-/* 4. Attention and softmax visualisations. */
+/* 4. Attention and softmax visualizations. */
 
 body.app-prompt-caching .pc-step-visual {
   margin-top: var(--space-4);
@@ -839,7 +839,7 @@ body.app-prompt-caching .pc-step-dot {
   transition: background-color 0.2s, border-color 0.2s, color 0.2s;
 }
 
-/* Active/done ride the warm accent (a content step marker). */
+/* Active/done use the warm accent (a content step marker). */
 body.app-prompt-caching .pc-step-dot.active {
   border-color: var(--pc-accent);
   background: var(--pc-accent);
@@ -1031,7 +1031,7 @@ body.app-prompt-caching .pc-cache-tokens {
   margin-bottom: var(--space-4);
 }
 
-/* Cache token chips ride the shared .chip family; the cached (amber) and new
+/* Cache token chips use the shared .chip family; the cached (amber) and new
  * (blue) states use the solid-chip tone modifiers in markup, so only the roomier
  * sizing and fill transition stay scoped here. */
 body.app-prompt-caching .pc-cache-chip {
@@ -1110,13 +1110,13 @@ body.app-prompt-caching .pc-narration {
   line-height: 1.7;
 }
 
-/* The compare pills ride the shared .chip tones; only the roomier sizing stays. */
+/* The compare pills use the shared .chip tones; only the roomier sizing stays. */
 body.app-prompt-caching .pc-pill {
   padding: 0.4rem 0.9rem;
   font-size: var(--font-size-control);
 }
 
-/* The inference prompt selector rides the shared .segmented skin; only the wrap
+/* The inference prompt selector uses the shared .segmented skin; only the wrap
  * stays scoped. */
 body.app-prompt-caching .pc-inf-prompts {
   flex-wrap: wrap;
@@ -1145,7 +1145,7 @@ body.app-prompt-caching .pc-inf-tokens:empty::before {
   font-size: var(--font-size-sm);
 }
 
-/* Streamed tokens ride the shared .chip family (base chip for prompt tokens,
+/* Streamed tokens use the shared .chip family (base chip for prompt tokens,
  * .is-amber for generated, .is-solid-amber for the current one); only the
  * padding and fill transition stay scoped. */
 body.app-prompt-caching .inf-tok {
@@ -1358,7 +1358,7 @@ body.app-prompt-caching .chv-legend-dot.is-rose {
   background: var(--pc-rose);
 }
 
-/* The provider comparison table rides the shared table styling inside
+/* The provider comparison table uses the shared table styling inside
  * .table-wrap; the prose-oriented layout (left-aligned headers and cells,
  * fixed aspect column, row hover) stays scoped, since the shared table is
  * tuned for right-aligned numeric data. Vertical rhythm lives on the wrap
@@ -1512,7 +1512,7 @@ body.app-prompt-caching .pc-calc-bar-val.is-teal {
   color: var(--pc-teal);
 }
 
-/* The workload stat pair rides the shared .stat-grid/.stat; the dashed border,
+/* The workload stat pair uses the shared .stat-grid/.stat; the dashed border,
  * compact padding, and smaller value type are the scoped variant. */
 body.app-prompt-caching .pc-calc-stats {
   margin-top: var(--space-4);
@@ -1546,7 +1546,7 @@ body.app-prompt-caching .pc-calc-display.is-accent {
 
 /* Embedding explorer. */
 
-/* The A/B selection badges ride the shared .chip tones (amber for A, green for B,
+/* The A/B selection badges use the shared .chip tones (amber for A, green for B,
  * matching the canvas markers); only the min-width stays scoped. */
 body.app-prompt-caching .emb-sel {
   box-sizing: content-box;
@@ -1554,7 +1554,7 @@ body.app-prompt-caching .emb-sel {
   justify-content: center;
 }
 
-/* The category selector rides the shared .segmented skin; the dashed top rule
+/* The category selector uses the shared .segmented skin; the dashed top rule
  * and wrap stay scoped. */
 body.app-prompt-caching .pc-emb-cats {
   flex-wrap: wrap;
@@ -1641,7 +1641,7 @@ body.app-prompt-caching .pc-canvas {
   height: auto;
 }
 
-/* The similarity/distance/verdict tiles ride the shared .stat-grid/.stat; the
+/* The similarity/distance/verdict tiles use the shared .stat-grid/.stat; the
  * display-size mono value and the warm accent/teal tints stay scoped. */
 body.app-prompt-caching .pc-emb-metric-value {
   font-size: 1.25rem;
@@ -1669,7 +1669,7 @@ body.app-prompt-caching .pc-emb-tags {
   margin-top: var(--space-4);
 }
 
-/* The quick-pick pair tags ride the shared .chip base; the smaller type and the
+/* The quick-pick pair tags use the shared .chip base; the smaller type and the
  * blue control hover/focus stay scoped. */
 body.app-prompt-caching .emb-tag {
   min-height: 1.75rem;

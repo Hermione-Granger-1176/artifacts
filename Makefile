@@ -183,7 +183,7 @@ workflow-lint: lint-workflows ## Alias for lint-workflows
 lint-doc-commands: ## Check contributor docs use Make targets
 	$(VENV_PYTHON) scripts/lint/check_doc_commands.py
 
-lint-make-targets: ## Check documented Make targets
+lint-make-targets: ## Check make target references in docs, CI, and source against the Makefile
 	$(VENV_PYTHON) scripts/lint/check_make_targets.py
 
 lint-js-test-coverage: ## Check every JS source file has test imports
@@ -252,7 +252,7 @@ typecheck: typecheck-py typecheck-web ## Run all type checks
 typecheck-py: ## Run mypy strict type checking over scripts/ [paths=...]
 	$(VENV_PYTHON) -m mypy $(if $(paths),$(paths),$(PY_TYPE_PATHS))
 
-typecheck-web: ## Run TypeScript checkJs over hand-written js/ modules
+typecheck-web: ## Run TypeScript checkJs over js/ and apps/*/js/
 	$(NPM) run typecheck:web
 
 # ─── Dead code @deadcode ──────────────────────────────────────────────────────
@@ -282,7 +282,7 @@ test: test-py test-js ## Run non-browser Python tests + JS tests
 
 # Honor ARGS only when given on the make command line, so a stray ARGS
 # environment variable cannot silently change what the test gate runs.
-test-py: ## Run Python tests only (with coverage, pass ARGS="-k name --no-cov" for a subset)
+test-py: ## Run Python tests except tests/browser, with coverage (pass ARGS="-k name --no-cov" for a subset)
 	$(VENV_PYTHON) -m pytest --ignore=tests/browser $(if $(filter command line,$(origin ARGS)),$(ARGS))
 
 test-ci: ## Run CI Python tests only
@@ -353,7 +353,7 @@ coverage-js-floors: ## Enforce per-file JS coverage floors (reads the coverage-j
 validate: ## Check artifact directories are complete
 	$(VENV_PYTHON) -c "from scripts.build.generate_index import validate; validate()"
 
-thumbnails: ## Regenerate WebP thumbnails (needs Chromium) (make thumbnails [slug=a,b])
+thumbnails: ## Generate missing or stale WebP thumbnails (needs Chromium) (make thumbnails [slug=a,b])
 	ARTIFACTS_THUMBNAIL_SLUGS="$(slug)" $(PLAYWRIGHT_LOCAL_RUN) $(VENV_PYTHON) scripts/build/generate_thumbnails.py
 
 thumbnails-shard: ## Generate thumbnails from one shard manifest (make thumbnails-shard shard_manifest=PATH)
@@ -364,7 +364,7 @@ thumbnails-shard: ## Generate thumbnails from one shard manifest (make thumbnail
 styles: ## Rebuild css/style.css from ordered source partials
 	$(VENV_PYTHON) scripts/build/generate_styles.py
 
-index: ## Rebuild js/data.js, js/gallery-config.js, README
+index: ## Rebuild js/data.js, js/gallery-config.js, and the README markers
 	$(VENV_PYTHON) scripts/build/generate_index.py
 
 site: styles ## Assemble _site/ deploy payload
@@ -889,14 +889,7 @@ ci-watch: ## Watch one CI run until done (make ci-watch [run=ID], defaults to th
 ci-failures: ## Show failed-step logs for this branch's latest run (make ci-failures [run=ID])
 	@$(GH) ci-failures $(if $(run),--run $(run))
 
-# The workflow helpers below run on the system interpreter with the shared
-# repository path prefix instead of $(VENV_PYTHON): the scheduled monitor workflows and the
-# update.yml plan, publish, and cleanup jobs call them in contexts without a
-# provisioned venv, and the coverage-summary and setup-failure alert paths must
-# work even when dependency installation itself failed. The helpers and
-# everything they import are stdlib-only. The monitor helpers read GH_TOKEN
-# from the environment.
-ci-platform-checks: ## Run fixed non-browser platform checks in parallel
+ci-platform-checks: ## Run ci-quick-gates, then ci-heavy-checks
 	@$(MAKE) --no-print-directory ci-quick-gates
 	@$(MAKE) --no-print-directory ci-heavy-checks
 
@@ -908,6 +901,14 @@ ci-heavy-checks: ## Run slow test, coverage, dead-code, and security checks
 	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py --timeout 1200 \
 		test-py coverage-js dead-code security
 
+# The workflow helpers from here down, except the two shard package and merge
+# targets and ci-schedule-watchdog, run on the system interpreter ($(PYTHON))
+# with the shared repository path prefix instead of $(VENV_PYTHON). The monitor
+# workflows and the update.yml plan, publish, and cleanup jobs call them without
+# a provisioned venv, and the coverage-summary and setup-failure alert paths
+# must work even when dependency installation failed. The helpers and
+# everything they import are stdlib-only. The monitor helpers read GH_TOKEN
+# from the environment.
 ci-thumbnail-plan: ## Compute a git-diff app impact plan (event_name= base_sha= head_sha= [force_full=true])
 	$(call need,event_name,make ci-thumbnail-plan event_name=push base_sha=SHA head_sha=SHA)
 	@$(PY_PATH_PREFIX) $(PYTHON) scripts/ci/workflow_helpers.py thumbnail-plan \

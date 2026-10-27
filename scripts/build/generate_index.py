@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """Generate gallery metadata outputs from the artifact directories.
 
-This module backs `make index` and `make validate`.
+This module backs ``make index`` and ``make validate``.
 
 It scans top-level artifact directories and generates the JavaScript data files
-used by the root gallery page. `js/data.js` contains artifact metadata, while
-`js/gallery-config.js` contains shared display configuration consumed by the
+used by the root gallery page. ``js/data.js`` contains artifact metadata, while
+``js/gallery-config.js`` contains shared display configuration consumed by the
 browser UI.
 
-It also updates auto-managed sections in `README.md`, including the site URL,
-total count, total badge, tool badges, and tag badges, so the README snapshot
-stays in sync.
+It also updates auto-managed sections in ``README.md``: the site URL, total
+count, total badge, tool badges, and tag badges.
 
 Each artifact directory can contain:
     - index.html: Required. The artifact itself.
@@ -18,10 +17,10 @@ Each artifact directory can contain:
     - description.txt: Optional. Short description.
     - tags.txt: Optional. One tag per line.
     - tools.txt: Optional. One AI tool per line.
-    - thumbnail.webp: Preferred auto-generated thumbnail written by
-      `generate_thumbnails.py`.
+    - thumbnail.webp: Optional. Written by ``generate_thumbnails.py``. The
+      generated data lists its path whether or not the file exists yet.
 
-Run through the Makefile in normal workflows; direct invocation is mainly for
+Run through the Makefile in normal workflows. Direct invocation is mainly for
 maintainers working on the build internals.
 """
 
@@ -49,7 +48,7 @@ JS_OUTPUT_FILE = REPO_ROOT / "js" / "data.js"
 JS_CONFIG_OUTPUT_FILE = REPO_ROOT / "js" / "gallery-config.js"
 README_FILE = REPO_ROOT / "README.md"
 
-# -- Type aliases re-exported for backward compatibility -----------------------
+# -- Type aliases re-exported for callers and tests ----------------------------
 
 ArtifactItem = index_sources.ArtifactItem
 BadgeConfig = index_outputs.BadgeConfig

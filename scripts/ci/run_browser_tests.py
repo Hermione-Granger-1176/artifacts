@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Run browser pytest files with a single retry and flaky reporting.
 
-This backs the ``test-browser-*`` Make targets. It replaces the previous inline
-Makefile macro so the retry-once policy and the flaky ``GITHUB_STEP_SUMMARY``
-note live in tested Python instead of shell.
+This backs the ``test-browser-*`` Make targets. The retry-once policy and the
+flaky ``GITHUB_STEP_SUMMARY`` note live here so tests cover them.
 
-Behavior mirrors the old macro exactly:
+The run follows these steps:
 
 1. Always export ``ARTIFACTS_REQUIRE_BROWSER_TESTS=1`` (plus any ``--env`` pairs).
 2. Run ``pytest --no-cov <args>``.
@@ -60,7 +59,7 @@ def _append_flaky_summary(env: Mapping[str, str]) -> None:
     """Append the flaky-test note to ``GITHUB_STEP_SUMMARY`` when it is set.
 
     Best effort: a flaky retry still succeeds even if the summary path cannot be
-    written, matching the old shell macro that ran the append under ``set +e``.
+    written.
     """
     summary_path = env.get(STEP_SUMMARY_ENV_VAR, "").strip()
     if not summary_path:

@@ -1,6 +1,6 @@
 /* Static datasets for the Prompt Caching explainer.
  *
- * Everything here is frozen reference data: the toy BPE vocabulary, the worked
+ * Everything here is static reference data: the toy BPE vocabulary, the worked
  * attention example, the hand-tuned word embeddings, and the canned demo
  * scripts. Colors are expressed as shared-token names so the canvas demos can
  * resolve them per-theme at draw time. The section nav comes from the

@@ -11,14 +11,13 @@
  *
  * **Degradation is seeded.** Every stochastic choice is drawn from the document
  * seed, in a fixed order, so a given seed plus a given preset always produces
- * the same page. A dataset that cannot be regenerated is not a dataset.
+ * the same page.
  *
  * **Degradation reports the geometry it applied.** Skew, rotation, and keystone
  * move the ink; noise, blur, and JPEG do not. `planDegradation` returns the
  * projective transform it is about to apply, in normalised page coordinates, so
  * the annotation payload can run every box through it before serialising.
- * Without that, this module would quietly corrupt the boxes, which is exactly
- * the kind of bug that ships because both halves test fine in isolation.
+ * Without that, the boxes would silently stop matching the ink.
  *
  * Planning is deliberately split from painting. `planDegradation` is pure
  * arithmetic over a seed and a page size, so the JSON-only batch path can

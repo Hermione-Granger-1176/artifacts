@@ -4,7 +4,8 @@
  */
 
 /**
- * Format a number as a compact dollar tick label (e.g. "$50k", "$2.5M").
+ * Format a number as a compact dollar tick label (e.g. "$50k", "$2.5k", "$2.5M").
+ * Values from 1,000 to 9,999 keep one decimal. Values from 10,000 up round to whole thousands.
  * @param {number} value - The value to format.
  * @returns {string} Compact dollar string for chart axis labels.
  */
@@ -42,9 +43,9 @@ export function formatCurrency(value, digits = 0) {
 const groupedNumberFormats = new Map();
 
 /**
- * One cached formatter per fraction-digit count. Building a formatter on every
- * call, which is what `toLocaleString` with options does, made a loan schedule
- * of 8,000 cells take about 180ms instead of about 7ms.
+ * One cached formatter per fraction-digit count. `toLocaleString` with options
+ * builds a new formatter on every call, which is orders of magnitude slower
+ * than reusing one across the thousands of cells in a loan schedule.
  * @param {number} digits - Fraction digits to show.
  * @returns {Intl.NumberFormat} An en-US formatter with grouped thousands.
  */
@@ -95,9 +96,10 @@ export function formatCompact(value) {
 }
 
 /**
- * Parse a string into a number, stripping non-numeric characters.
+ * Parse a string into a number after removing every character except digits,
+ * ".", and "-". Input such as "1-2" or "-" leaves no valid number.
  * @param {string} value - Raw input string.
- * @returns {number} Parsed number, or 0 when nothing numeric remains.
+ * @returns {number} Parsed number, or 0 when the remaining text is not a finite number.
  */
 export function parseNumber(value) {
   const parsed = +String(value).replace(/[^0-9.\-]/g, "");
