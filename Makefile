@@ -569,6 +569,10 @@ branch-current: ## Create and switch to a branch from the current commit without
 	$(call need,name,make branch-current name=my-feature)
 	git checkout -b "$(name)"
 
+switch: ## Switch to an existing local branch (make switch name=X)
+	$(call need,name,make switch name=my-feature)
+	git switch "$(name)"
+
 branch-prune: export PRUNE_MAIN_BRANCH := $(MAIN_BRANCH)
 branch-prune: export PRUNE_PAGES_BRANCH := $(PAGES_BRANCH)
 branch-prune: export PRUNE_CONFIRM := $(confirm)
@@ -590,6 +594,9 @@ worktree-remove: ## Remove a clean worktree created by make worktree; the branch
 
 rebase-main: ## Rebase the current branch onto origin/main (make rebase-main [base=branch])
 	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && git rebase "origin/$(if $(base),$(base),$(MAIN_BRANCH))"
+
+merge-main: ## Merge origin/main, or origin/base, into the current branch without rewriting history (make merge-main [base=branch])
+	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && git merge --no-edit "origin/$(if $(base),$(base),$(MAIN_BRANCH))"
 
 rebase-continue: ## Continue an in-progress rebase after resolving conflicts
 	GIT_EDITOR=true git rebase --continue
