@@ -65,6 +65,8 @@ The endpaper, settled pages, and turning leaf faces share the same ruled-paper p
 
 `startIntro()` releases the ribbon and starts the cover turn before the ribbon animation finishes. The cover rotates 180 degrees around the spine while the book moves to its centered-open position.
 
+The book's shadow opens with the cover on the compositor. `.book-shadow` in `css/src/02-gallery.css` holds a soft-edged mask whose edge sits on the spine while the book is closed; the intro slides the masked box and the shadow inside it home in opposite directions, so only the mask edge moves and only transforms animate. The page-stack edges animate their depth only once the book is open, so they take their first depth without growing in.
+
 The left page stays hidden until the cover lands. The inside cover contains a copy of the first left page. After landing, the live page replaces that copy without a fade or position change.
 
 ### Page turns and requests

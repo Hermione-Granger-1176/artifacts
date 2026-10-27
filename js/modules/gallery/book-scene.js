@@ -51,8 +51,6 @@ const NOTEPAD_RIBBON_OFF_KEYFRAMES = [
   { transform: 'translateY(-10px) rotate(-1.5deg)', opacity: 1, offset: 0.35 },
   { transform: 'translateY(90px) rotate(3deg)', opacity: 0 }
 ];
-// Where the shadow's mask edge ends up (see .book-shadow in 02-gallery.css).
-const SHADOW_EDGE_OPEN = '-12%';
 
 /**
  * @typedef {{ left: HTMLElement | null, right: HTMLElement | null }} PageFaces
@@ -1136,12 +1134,20 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     ], options);
     alongside(sheet, [{ transform: 'translateX(-25%)' }, { transform: 'translateX(0)' }], options);
     // The shadow trails the cover's footprint, so it never shows past its edge.
-    // Its box stays put and only its mask edge moves, which costs no layout.
-    alongside(sheet.querySelector('.book-shadow'), [
-      { '--shadow-edge': '50%' },
-      { '--shadow-edge': '50%', offset: 0.5 },
-      { '--shadow-edge': SHADOW_EDGE_OPEN }
-    ], options);
+    // Its box and its fill slide home in opposite directions from where the
+    // closed book holds them (see .book-shadow in 02-gallery.css), so only the
+    // mask edge moves, and only transforms animate.
+    const shadow = sheet.querySelector('.book-shadow');
+    if (shadow && typeof windowObj.getComputedStyle === 'function') {
+      for (const pseudoElement of [null, '::before']) {
+        const closed = windowObj.getComputedStyle(shadow, pseudoElement).transform;
+        alongside(shadow, [
+          { transform: closed },
+          { transform: closed, offset: 0.5 },
+          { transform: 'none' }
+        ], pseudoElement ? { ...options, pseudoElement } : options);
+      }
+    }
     alongside(sheet.querySelector('.book-cast-right'), [
       { opacity: 0 },
       { opacity: 0.55, offset: 0.3 },

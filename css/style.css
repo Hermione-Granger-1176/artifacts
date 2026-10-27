@@ -891,48 +891,62 @@ button {
 
 /*
  * The shadow always has the open book's box, so the intro never resizes it.
- * A soft-edged mask hides its left part while the book is closed and the intro
- * slides that edge outwards (a registered property, so it only repaints). Percentages
- * are of the mask image, which is centred on the box, so 50% is the book's spine and
- * -12% is past the left edge for every ramp width.
- * The mask image reaches past the box on every side, so the blur is not cut off.
+ * The shadow itself is the ::before; its masked box reaches past it by
+ * --shadow-reach on every side, so the blur is never cut off, and further to
+ * the left by --shadow-lead, so the box still covers the spine when the closed
+ * book slides it right. The mask image is two mask-widths wide (one mask-width
+ * is the shadow plus a reach on each side) and its right half sits on the
+ * shadow, so the soft edge has room on both sides; the edge rests at 44% of the
+ * image, just past the shadow's left side, where the open book leaves it. The
+ * closed book slides the box right by 62% of a mask-width, which puts the edge
+ * on the spine, and slides the shadow back by the same amount, so the shadow
+ * never moves. The intro slides both home: only transforms change, so the
+ * compositor runs the sweep.
  */
-@property --shadow-edge {
-  syntax: '<length-percentage>';
-  inherits: false;
-  initial-value: 50%;
-}
-
 .book-shadow {
   --shadow-reach: 80px;
+  --shadow-lead: 400px;
   --shadow-ramp: calc(var(--book-shadow-blur) * 1.6);
   --shadow-mask: linear-gradient(
     90deg,
-    transparent calc(var(--shadow-edge) - var(--shadow-ramp)),
-    #000 calc(var(--shadow-edge) + var(--shadow-ramp))
+    transparent calc(44% - var(--shadow-ramp)),
+    #000 calc(44% + var(--shadow-ramp))
   );
 
   position: absolute;
   inset: var(--book-shadow-inset);
   z-index: -3;
-  border-radius: 14px;
-  background: var(--book-shadow-color);
-  filter: blur(var(--book-shadow-blur));
+  margin: calc(var(--shadow-reach) * -1);
+  margin-left: calc(var(--shadow-lead) * -1);
   -webkit-mask-image: var(--shadow-mask);
   mask-image: var(--shadow-mask);
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
-  -webkit-mask-position: calc(var(--shadow-reach) * -1) calc(var(--shadow-reach) * -1);
-  mask-position: calc(var(--shadow-reach) * -1) calc(var(--shadow-reach) * -1);
-  -webkit-mask-size: calc(100% + var(--shadow-reach) * 2) calc(100% + var(--shadow-reach) * 2);
-  mask-size: calc(100% + var(--shadow-reach) * 2) calc(100% + var(--shadow-reach) * 2);
-  -webkit-mask-clip: no-clip;
-  mask-clip: no-clip;
+  /* 100% lines the image's right edge up with the box's, which is a reach past the shadow's. */
+  -webkit-mask-position: 100% 0;
+  mask-position: 100% 0;
+  -webkit-mask-size: calc((100% - var(--shadow-lead) + var(--shadow-reach)) * 2) 100%;
+  mask-size: calc((100% - var(--shadow-lead) + var(--shadow-reach)) * 2) 100%;
   pointer-events: none;
 }
 
-.book-shell.is-open .book-shadow {
-  --shadow-edge: -12%;
+.book-shadow::before {
+  content: '';
+  position: absolute;
+  inset: var(--shadow-reach);
+  left: var(--shadow-lead);
+  border-radius: 14px;
+  background: var(--book-shadow-color);
+  filter: blur(var(--book-shadow-blur));
+}
+
+/* A translate percentage is of the element's own width: the box is the mask-width plus the lead less a reach, and the shadow is the mask-width less two reaches. */
+.book-shell:not(.is-open) .book-shadow {
+  transform: translateX(calc((100% - var(--shadow-lead) + var(--shadow-reach)) * 0.62));
+}
+
+.book-shell:not(.is-open) .book-shadow::before {
+  transform: translateX(calc((100% + var(--shadow-reach) * 2) * -0.62));
 }
 
 /* Boards: the case shows as a rim around the open spread. */
@@ -1017,9 +1031,10 @@ button {
   pointer-events: none;
 }
 
-.book-inner::before,
-.book-inner::after {
-  /* The edge stacks grow and shrink as the page turns instead of snapping. */
+/* The edge stacks grow and shrink as the page turns instead of snapping. They
+   take their first depth while the book opens, without growing in. */
+.book-shell.is-open .book-inner::before,
+.book-shell.is-open .book-inner::after {
   transition: box-shadow 0.35s ease;
 }
 

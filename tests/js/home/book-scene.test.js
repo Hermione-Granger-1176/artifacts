@@ -301,6 +301,10 @@ function createHarness({
     setTimeout: env.setTimeout,
     requestAnimationFrame: env.requestAnimationFrame,
     cancelAnimationFrame: env.cancelAnimationFrame,
+    // The closed book holds the shadow box slid right and its fill slid back (02-gallery.css).
+    getComputedStyle: (element, pseudoElement) => ({
+      transform: pseudoElement ? 'matrix(1, 0, 0, 1, -600, 0)' : 'matrix(1, 0, 0, 1, 600, 0)'
+    }),
     resize(width) {
       const before = notepadQuery.matches;
       windowObj.innerWidth = width;
@@ -445,12 +449,16 @@ test('startIntro swings the cover open, reveals the left side mid-swing, and cle
   assert.equal(harness.sheet.animateCalls[0].keyframes[1].transform, 'translateX(0)');
   assert.equal(swing.keyframes.length, 2, 'one smooth swing with no lift step');
 
-  // The shadow slides its mask edge and never a layout property, so the intro shifts nothing.
-  const shadow = harness.sheet.querySelector('.book-shadow').animateCalls[0];
-  assert.deepEqual(shadow.keyframes.map((frame) => frame['--shadow-edge']), ['50%', '50%', '-12%']);
-  assert.equal(shadow.keyframes[1].offset, 0.5, 'the edge holds until the cover is half open');
-  for (const frame of shadow.keyframes) {
-    assert.deepEqual(Object.keys(frame).filter((key) => !['--shadow-edge', 'offset'].includes(key)), []);
+  // The shadow box and its fill slide home in opposite directions, so only the mask edge
+  // moves. Both animate transform alone, which the compositor runs.
+  const [box, fill] = harness.sheet.querySelector('.book-shadow').animateCalls;
+  assert.deepEqual(box.keyframes.map((frame) => frame.transform), ['matrix(1, 0, 0, 1, 600, 0)', 'matrix(1, 0, 0, 1, 600, 0)', 'none']);
+  assert.deepEqual(fill.keyframes.map((frame) => frame.transform), ['matrix(1, 0, 0, 1, -600, 0)', 'matrix(1, 0, 0, 1, -600, 0)', 'none']);
+  assert.equal(fill.options.pseudoElement, '::before');
+  assert.equal(box.options.pseudoElement, undefined);
+  assert.equal(box.keyframes[1].offset, 0.5, 'the edge holds until the cover is half open');
+  for (const frame of [...box.keyframes, ...fill.keyframes]) {
+    assert.deepEqual(Object.keys(frame).filter((key) => !['transform', 'offset'].includes(key)), []);
   }
 
   await harness.advance(500);
