@@ -14,6 +14,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 MAKEFILE_PATH = REPO_ROOT / "Makefile"
+# Group files the Makefile includes, relative to it. Keep in step with the
+# Makefile's `include $(sort $(wildcard mk/*.mk))` line.
+MAKE_INCLUDE_GLOB = "mk/*.mk"
 MARKDOWN_SUFFIX = ".md"
 SOURCE_SUFFIXES = frozenset({".py", ".mjs", ".js"})
 WORKFLOW_SUFFIXES = frozenset({".yml", ".yaml"})
@@ -184,10 +187,20 @@ def parse_makefile_targets(content: str) -> set[str]:
     return targets
 
 
-def load_makefile_targets(path: Path | None = None) -> set[str]:
-    """Load target names from the repository Makefile."""
+def makefile_sources(path: Path | None = None) -> list[Path]:
+    """Return the Makefile followed by its included group files, in make's include order."""
     makefile_path = path or MAKEFILE_PATH
-    return parse_makefile_targets(makefile_path.read_text(encoding="utf-8"))
+    return [makefile_path, *sorted(makefile_path.parent.glob(MAKE_INCLUDE_GLOB))]
+
+
+def read_makefile_text(path: Path | None = None) -> str:
+    """Return the Makefile and its included group files as one text."""
+    return "\n".join(source.read_text(encoding="utf-8") for source in makefile_sources(path))
+
+
+def load_makefile_targets(path: Path | None = None) -> set[str]:
+    """Load target names from the repository Makefile and its group files."""
+    return parse_makefile_targets(read_makefile_text(path))
 
 
 def _inline_code_snippets(line: str, line_number: int) -> list[CodeSnippet]:

@@ -7,6 +7,7 @@ import pytest
 
 from scripts import REPO_ROOT
 from scripts.lib import prune_branches
+from scripts.lint.make_targets import read_makefile_text
 
 
 def make_runner(
@@ -35,7 +36,7 @@ def make_runner(
 
 def test_makefile_branch_prune_target_uses_the_helper() -> None:
     """The Make target forwards its inputs and holds no inline shell control flow."""
-    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    makefile = read_makefile_text(REPO_ROOT / "Makefile")
 
     assert "branch-prune: export PRUNE_MAIN_BRANCH := $(MAIN_BRANCH)" in makefile
     assert "branch-prune: export PRUNE_PAGES_BRANCH := $(PAGES_BRANCH)" in makefile

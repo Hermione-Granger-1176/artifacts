@@ -140,6 +140,8 @@ Run `make lint-yaml` for YAML structure/format checks and `make lint-workflows` 
 
 ## Makefile
 
+- **Layout:** the root `Makefile` holds shared variables and helpers, then includes `mk/*.mk` in sorted order. Each `mk/NN-<group>.mk` file is one `make help` group: it opens with its `# ─── Title @slug` header and a `.PHONY` line, then holds the group's targets and the variables only that group uses. The `NN` prefix sets the group order in `make help`
+- **New targets:** add the target to its group's file. Add a new group as a new numbered file, with no edit to the root `Makefile`
 - **Indent:** tabs (required by Make)
 - **Variables:** uppercase with `?=` defaults. `PYTHON` auto-detects a supported interpreter and can be overridden when needed
 

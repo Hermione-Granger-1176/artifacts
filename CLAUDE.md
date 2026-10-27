@@ -5,7 +5,7 @@ This repository contains interactive HTML artifacts built with AI tools and host
 ## Required workflow
 
 1. Use `make <target>` for workspace tools and GitHub actions. Do not run `.venv/bin/*`, `pytest`, `ruff`, `mypy`, `npm run`, `npx`, `tsc`, `playwright`, `gh`, or `git` directly. `make git` lists Git targets. Run `make help` to find command groups, then `make help-<group>` to list a group's targets.
-2. If a target is missing, add it before using the tool. Add `## description` after the target name so generated help includes it.
+2. If a target is missing, add it before using the tool. Put it in the `mk/*.mk` file for its `make help` group, and add `## description` after the target name so generated help includes it.
 3. Read the Makefile and existing code before proposing changes. Reuse existing behavior and helpers.
 4. Keep each tool's scope in its owning configuration file. Use roots, globs, and exclusions so new files are discovered automatically. Do not duplicate source-file lists in targets, workflows, and configuration files. Configuration-file path references are allowed.
 5. Run auto-fix commands only when the user asks. These include `make align-tables`, `make fmt`, `make format`, and `make fix`.
