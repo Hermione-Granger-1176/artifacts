@@ -17,7 +17,12 @@ function makeElement(tagName = 'div') {
   return {
     tagName,
     id: '',
-    className: '',
+    // Like the DOM, className and classList read and write one set of classes.
+    get className() { return [...classes].join(' '); },
+    set className(value) {
+      classes.clear();
+      String(value).split(/\s+/).filter(Boolean).forEach((name) => classes.add(name));
+    },
     type: '',
     textContent: '',
     children: [],
@@ -132,7 +137,8 @@ test('section nav builds one numbered node per section and starts on the first',
 
     const nodes = registry['nav-nodes'].children;
     assert.equal(nodes.length, SECTIONS.length);
-    assert.equal(nodes[0].className, 'section-nav-node');
+    assert.equal(nodes[0].className, 'section-nav-node active', 'created active, so it never fades in on load');
+    assert.equal(nodes[1].className, 'section-nav-node');
     assert.equal(nodes[0].getAttribute('aria-label'), 'Alpha');
     assert.equal(nodes[0].children[0].textContent, '1');
     assert.equal(nodes[0].children[1].textContent, 'Alpha');

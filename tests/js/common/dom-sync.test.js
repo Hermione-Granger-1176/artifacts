@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createElement, setAttr, setText } from '../../../js/modules/dom-sync.js';
+import { createElement, setAttr, setText, skipFirstTransition } from '../../../js/modules/dom-sync.js';
 
 /** A node that counts writes to its text and attributes. */
 function createNode() {
@@ -66,5 +66,38 @@ test('createElement applies class, text, attributes, and children', () => {
     assert.deepEqual(bare.children, []);
   } finally {
     globalThis.document = saved;
+  }
+});
+
+test('skipFirstTransition holds only the first value without a transition', async () => {
+  const frames = [];
+  const saved = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => frames.push(callback);
+  try {
+    const element = { style: { transition: '' } };
+    skipFirstTransition(element);
+    assert.equal(element.style.transition, 'none', 'the first value lands without a transition');
+    frames.shift()();
+    assert.equal(element.style.transition, 'none', 'held through the frame that styles the value');
+    frames.shift()();
+    assert.equal(element.style.transition, '', 'restored after');
+
+    skipFirstTransition(element);
+    assert.equal(element.style.transition, '', 'later values animate');
+    assert.equal(frames.length, 0);
+  } finally {
+    if (saved) globalThis.requestAnimationFrame = saved; else delete globalThis.requestAnimationFrame;
+  }
+});
+
+test('skipFirstTransition leaves the element alone without animation frames', () => {
+  const saved = globalThis.requestAnimationFrame;
+  delete globalThis.requestAnimationFrame;
+  try {
+    const element = { style: { transition: '' } };
+    skipFirstTransition(element);
+    assert.equal(element.style.transition, '');
+  } finally {
+    if (saved) globalThis.requestAnimationFrame = saved;
   }
 });

@@ -149,7 +149,9 @@ export function initSectionNav(explicitSections, anchors = {}) {
   const nodeButtons = sections.map((section, index) => {
     const node = document.createElement("button");
     node.type = "button";
-    node.className = "section-nav-node";
+    // Each node starts in its state at the top of the page, the first one active. Nodes styled
+    // in any other state first (reading scrollY forces a style pass) would fade into it on load.
+    node.className = index === 0 ? "section-nav-node active" : "section-nav-node";
     node.setAttribute("aria-label", section.label);
 
     const number = document.createElement("span");
@@ -164,9 +166,11 @@ export function initSectionNav(explicitSections, anchors = {}) {
     return node;
   });
 
+  labelEl.textContent = sections[0].label;
+
   /** @type {number[]} */
   let sectionOffsets = [];
-  let drawnIndex = -1;
+  let drawnIndex = 0;
   let drawnScale = "";
 
   // Read every section's top once per layout.

@@ -2,6 +2,7 @@
 
 import { savingsMonthly } from "./math.js";
 import { byId, makeEl, clear } from "./dom.js";
+import { skipFirstTransition } from "../../../../js/modules/dom-sync.js";
 import { formatCompact, formatCurrency, formatPercent } from "../../../../js/modules/formatting.js";
 
 // One formatter for the slider readouts, so a drag does not build one per tick
@@ -81,6 +82,8 @@ export function initCalculator() {
     pctOut.textContent = `${formatPercent((savings / without) * 100, 0)} cheaper, ${money(savings * 12)} per year`;
     // Bars scale from their left edge (transform, not width), so a slider drag
     // animates on the compositor and never relayouts.
+    skipFirstTransition(barWithout);
+    skipFirstTransition(barWith);
     barWithout.style.transform = "scaleX(1)";
     barWith.style.transform = `scaleX(${withCache / without})`;
 

@@ -45,6 +45,35 @@ export function setAttr(element, name, value) {
   }
 }
 
+/** Elements whose first value has already been written. */
+const settledElements = new WeakSet();
+
+/**
+ * Let an element take its first value without its CSS transition, so a bar or
+ * meter starts at its value instead of growing in as the page loads. The
+ * transition is restored two frames later, once that value has been styled,
+ * and every later change animates as usual. Call it before each write; only
+ * the first call per element does anything.
+ *
+ * @param {HTMLElement} element
+ * @returns {void}
+ */
+export function skipFirstTransition(element) {
+  if (settledElements.has(element)) {
+    return;
+  }
+  settledElements.add(element);
+  if (typeof requestAnimationFrame !== "function") {
+    return;
+  }
+  element.style.transition = "none";
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      element.style.transition = "";
+    });
+  });
+}
+
 /**
  * Create an element with a class name, attributes, and children.
  *
