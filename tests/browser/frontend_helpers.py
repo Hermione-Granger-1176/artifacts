@@ -431,6 +431,7 @@ class MonitoredPage:
         allowed_page_errors: tuple[str, ...] = (),
         bypass_csp: bool = False,
         browser=None,
+        has_touch: bool = False,
     ) -> None:
         self._playwright = playwright
         self._base_url = base_url.rstrip("/") + "/"
@@ -438,6 +439,8 @@ class MonitoredPage:
         self._color_scheme = color_scheme
         self._reduced_motion = reduced_motion
         self._bypass_csp = bypass_csp
+        # Touch emulation also switches Chromium to `(pointer: coarse)` and `(hover: none)`.
+        self._has_touch = has_touch
         self._artifact_dir = _artifact_dir(name)
         self._browser = browser
         self._owns_browser = browser is None
@@ -459,6 +462,7 @@ class MonitoredPage:
             color_scheme=self._color_scheme,
             reduced_motion=self._reduced_motion,
             bypass_csp=self._bypass_csp,
+            has_touch=self._has_touch,
             # Pin the locale so toLocaleString() output (thousands separators)
             # is identical on every runner, keeping text assertions stable.
             locale="en-US",
