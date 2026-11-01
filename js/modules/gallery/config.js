@@ -265,6 +265,7 @@ function validateArtifactPath(value, path, expectedId, contract, compiledRegex, 
 /**
  * Validate the shape of `window.ARTIFACTS_DATA` at boot time.
  * @param {*} value - Runtime bootstrap data to validate.
+ * @param {ArtifactContract} [artifactContract] - Contract to validate against; defaults to the built-in contract.
  * @returns {ArtifactRecord[]} Validated artifact data.
  */
 export function validateArtifactsData(value, artifactContract = DEFAULT_CONFIG.artifactContract) {
