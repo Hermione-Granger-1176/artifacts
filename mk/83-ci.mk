@@ -2,6 +2,11 @@
 
 .PHONY: ci-runs ci-pages-runs ci-run ci-rerun ci-dispatch ci-caches ci-cache-delete ci-run-log ci-job-log ci-watch ci-failures
 
+# Smart default for CI-run targets: the caller's run= else the latest run on the
+# current branch, resolved through the tested gh helper (same source as
+# ci-failures). Stays empty when nothing can be resolved so the guard can fire.
+RUN_ID = $(if $(run),$(run),$(strip $(shell $(GH) latest-run-id 2>/dev/null)))
+
 ci-runs: ## List recent CI workflow runs
 	gh run list -L "$(if $(limit),$(limit),10)"
 

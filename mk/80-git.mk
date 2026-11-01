@@ -64,17 +64,18 @@ merge-abort: ## Abandon an in-progress merge and restore the branch to its state
 	git merge --abort
 
 # The paths reach git through the environment, as in make stage, so the shell
-# never parses them as syntax.
+# never splits, globs, or parses them. The stage helper checks out the chosen
+# side of each path and then stages it.
 resolve-ours: export STAGE_FILES := $(value files)
+resolve-ours: export STAGE_CHECKOUT := ours
 resolve-ours: ## During a merge, keep the current branch's side of conflicted files and stage them (make resolve-ours files="path ...")
 	@test -n "$$STAGE_FILES" || { printf 'Usage: make resolve-ours files="path/to/file"\n' >&2; exit 1; }
-	git checkout --ours -- $$STAGE_FILES
 	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.stage_files
 
 resolve-theirs: export STAGE_FILES := $(value files)
+resolve-theirs: export STAGE_CHECKOUT := theirs
 resolve-theirs: ## During a merge, take the incoming side of conflicted files and stage them (make resolve-theirs files="path ...")
 	@test -n "$$STAGE_FILES" || { printf 'Usage: make resolve-theirs files="path/to/file"\n' >&2; exit 1; }
-	git checkout --theirs -- $$STAGE_FILES
 	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.stage_files
 
 rebase-continue: ## Continue an in-progress rebase after resolving conflicts
@@ -91,6 +92,7 @@ squash: ## Uncommit the current branch's commits since its base and keep the cha
 
 stage: export STAGE_FILES := $(value files)
 stage: export STAGE_FILE := $(value file)
+stage: export STAGE_CHECKOUT :=
 stage: ## Stage selected files (make stage [files="path ..."] [file="path with spaces"])
 	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.stage_files
 

@@ -1,6 +1,6 @@
 # ─── Utilities @util ──────────────────────────────────────────────────────────
 
-.PHONY: status clean help help-json
+.PHONY: status clean help help-json FORCE
 
 status: ## Show workspace health (git, venv, node, generated files, PR)
 	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.workspace_status --venv-python "$(VENV_PYTHON)" --uv "$(UV)" --npm "$(NPM)"

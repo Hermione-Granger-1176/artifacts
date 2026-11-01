@@ -6,11 +6,6 @@
 # the REST API when the environment blocks GraphQL.
 PR_NUM = $(if $(pr_num),$(pr_num),$(strip $(shell $(GH) current-pr 2>/dev/null)))
 
-# Smart default for CI-run targets: the caller's run= else the latest run on the
-# current branch, resolved through the tested gh helper (same source as
-# ci-failures). Stays empty when nothing can be resolved so the guard can fire.
-RUN_ID = $(if $(run),$(run),$(strip $(shell $(GH) latest-run-id 2>/dev/null)))
-
 pr: ## PR commands (make pr)
 	@$(MAKE) --no-print-directory help-pr
 
