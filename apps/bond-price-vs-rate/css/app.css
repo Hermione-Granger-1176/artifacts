@@ -22,7 +22,7 @@ body.app-bond-price-vs-rate {
    * segmented track is 1px border and 4px padding either side, so its buttons
    * are 10px shorter than the track they sit in.
    */
-  --br-control-height: 2.5rem;
+  --br-control-height: max(2.5rem, var(--touch-target, 0px));
   --br-segment-height: max(calc(var(--br-control-height) - 10px), var(--touch-target, 0px));
   --br-badge-size: 1.75rem;
 

@@ -28,7 +28,7 @@ body.app-vendor-docs-generator {
    * The segmented track is 1px border and 4px padding either side, so its
    * buttons are 10px shorter than the track they sit in.
    */
-  --vd-control-height: 2.5rem;
+  --vd-control-height: max(2.5rem, var(--touch-target, 0px));
   --vd-segment-height: max(calc(var(--vd-control-height) - 10px), var(--touch-target, 0px));
 
   /* Vertical room the preview frame gives up to the header, intro, toolbar and caption. */

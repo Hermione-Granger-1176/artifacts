@@ -84,3 +84,44 @@ def test_app_runtime_error_banner_is_visible_when_bootstrap_fails(
 
         expect(page.locator("html")).to_have_attribute("data-runtime-status", "error")
         expect(page.locator("#runtime-error")).to_be_visible()
+
+
+# Controls exempt from the touch target: info markers meet the 24px WCAG 2.2
+# minimum inline in labels, and section-nav nodes gain an invisible target.
+SMALL_TOUCH_CONTROLS = """() => {
+    const textInput = 'input:not([type="range"]):not([type="checkbox"]):not([type="radio"])';
+    const controls = document.querySelectorAll(
+        `.page-shell button, .page-shell select, .page-shell ${textInput}`
+    );
+    const exempt = '.info-tip, .section-nav-node, [hidden], dialog:not([open])';
+    return [...controls]
+        .filter((el) => !el.closest(exempt) && el.getClientRects().length > 0)
+        .map((el) => ({
+            label: el.id || el.className || el.textContent.trim().slice(0, 30),
+            height: el.getBoundingClientRect().height,
+        }))
+        .filter((control) => control.height < 43.5);
+}"""
+
+
+@pytest.mark.parametrize("slug", selected_app_slugs())
+def test_app_controls_meet_the_touch_target_on_touch_screens(
+    app_browser: AppBrowserHarness, slug: str
+) -> None:
+    """On a touch screen every visible app control is at least 2.75rem (44px) tall."""
+    with MonitoredPage(
+        app_browser.playwright,
+        app_browser.server_url,
+        name=f"app-touch-{slug}",
+        viewport=(820, 1180),
+        bypass_csp=True,
+        browser=app_browser.browser,
+        has_touch=True,
+    ) as session:
+        page = session.page
+        assert page is not None
+        session.goto(_app_path(slug))
+        page.wait_for_function("window.__ARTIFACT_READY__ === true")
+        assert page.evaluate("matchMedia('(pointer: coarse)').matches")
+
+        assert page.evaluate(SMALL_TOUCH_CONTROLS) == []

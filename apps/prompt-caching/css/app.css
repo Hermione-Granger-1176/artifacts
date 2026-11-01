@@ -461,13 +461,16 @@ body.app-prompt-caching .pc-pipeline-node {
   transition: transform 0.2s, filter 0.2s;
   border: 1px solid transparent;
   flex-shrink: 0;
+  min-height: var(--touch-target, 0px);
   background: var(--color-surface-alt);
   color: var(--color-text-secondary);
 }
 
-body.app-prompt-caching .pc-pipeline-node:hover {
-  filter: brightness(0.97);
-  transform: translateY(-1px);
+@media (hover: hover) {
+  body.app-prompt-caching .pc-pipeline-node:hover {
+    filter: brightness(0.97);
+    transform: translateY(-1px);
+  }
 }
 
 body.app-prompt-caching .pc-pipeline-node:focus-visible {
@@ -823,8 +826,8 @@ body.app-prompt-caching .pc-stepper {
 }
 
 body.app-prompt-caching .pc-step-dot {
-  width: 32px;
-  height: 32px;
+  width: max(32px, var(--touch-target, 0px));
+  height: max(32px, var(--touch-target, 0px));
   border-radius: 50%;
   display: flex;
   align-items: center;

@@ -285,7 +285,11 @@ body.artifact-app .info-tip {
   font-weight: 600;
 }
 
-/* Touch screens: the info marker grows to the smallest comfortable tap size. */
+/*
+ * Touch screens: the info marker grows to 24px, the WCAG 2.2 minimum target size.
+ * It sits inline in labels, where a 2.75rem marker would break the line, and its
+ * tooltip pseudo-elements leave none free for a larger invisible target.
+ */
 @media (pointer: coarse) {
   body.artifact-app .info-tip {
     width: 24px;
