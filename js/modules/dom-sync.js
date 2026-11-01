@@ -52,8 +52,8 @@ const settledElements = new WeakSet();
 /**
  * Let an element take its first value without its CSS transition, so a bar or
  * meter starts at its value instead of growing in as the page loads. The
- * transition is restored two frames later, once that value has been styled,
- * and every later change animates as usual. Call it before each write; only
+ * element's own inline transition, if any, is restored two frames later, once
+ * that value has been styled, and every later change animates as usual. Call it before each write; only
  * the first call per element does anything.
  *
  * @param {HTMLElement} element
@@ -67,10 +67,11 @@ export function skipFirstTransition(element) {
   if (typeof requestAnimationFrame !== "function") {
     return;
   }
+  const inlineTransition = element.style.transition;
   element.style.transition = "none";
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      element.style.transition = "";
+      element.style.transition = inlineTransition;
     });
   });
 }

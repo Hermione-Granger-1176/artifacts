@@ -90,6 +90,22 @@ test('skipFirstTransition holds only the first value without a transition', asyn
   }
 });
 
+test('skipFirstTransition restores an inline transition the element already had', () => {
+  const frames = [];
+  const saved = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => frames.push(callback);
+  try {
+    const element = { style: { transition: 'width 120ms ease' } };
+    skipFirstTransition(element);
+    assert.equal(element.style.transition, 'none');
+    frames.shift()();
+    frames.shift()();
+    assert.equal(element.style.transition, 'width 120ms ease');
+  } finally {
+    globalThis.requestAnimationFrame = saved;
+  }
+});
+
 test('skipFirstTransition leaves the element alone without animation frames', () => {
   const saved = globalThis.requestAnimationFrame;
   delete globalThis.requestAnimationFrame;
