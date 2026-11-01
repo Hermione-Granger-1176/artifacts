@@ -61,8 +61,7 @@ async function importLoanApp() {
   await import(`../../../../apps/loan-amortization/js/app.js?t=${Date.now()}-${Math.random()}`);
 }
 
-function extraInputEvent(summaryNode, field, value) {
-  const row = { dataset: { extraId: '0' } };
+function extraInputEvent(row, summaryNode, field, value) {
   const input = {
     dataset: { field },
     value,
@@ -194,11 +193,16 @@ test('loan app schedules extra-field typing and keeps the EMI', async () => {
     assert.equal(slots.chip.classList.contains('is-empty'), false, 'an extra payment saves interest');
     const chipText = slots.chip.textContent;
 
+    // Typing reaches the extra through the row the app rendered and tagged.
+    const row = elementMap.extraList.querySelector('[data-extra-id]');
+    assert.equal(row, elementMap.extraList.children[0]);
+    assert.equal(row.dataset.extraId, '0');
+
     const summaryNode = new FakeNode('div');
     const inputs = elementMap.extraList._listeners.input[0];
-    inputs(extraInputEvent(summaryNode, 'amount', '1500'));
-    inputs(extraInputEvent(summaryNode, 'amount', '2500'));
-    inputs(extraInputEvent(summaryNode, 'amount', '3500'));
+    inputs(extraInputEvent(row, summaryNode, 'amount', '1500'));
+    inputs(extraInputEvent(row, summaryNode, 'amount', '2500'));
+    inputs(extraInputEvent(row, summaryNode, 'amount', '3500'));
 
     // The summary line follows the keystroke; the calculation waits for one frame.
     assert.match(summaryNode.textContent, /\$3,500/);
