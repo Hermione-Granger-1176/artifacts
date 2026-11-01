@@ -122,6 +122,12 @@ function extraField({ label, name, className, field, value, min, max, step }) {
  * @returns {void}
  */
 export function renderExtras({ container, extras, periodLabel }) {
+  // Rebuilding the rows would drop focus from the control that was pressed
+  // (a type toggle, say), so remember it and focus the same control after.
+  const active = /** @type {HTMLElement | null} */ (document.activeElement ?? null);
+  const focusRow = active && container.contains?.(active) ? /** @type {HTMLElement | null} */ (active.closest("[data-extra-id]")) : null;
+  const focusSelector = focusRow ? controlSelector(/** @type {HTMLElement} */ (active)) : "";
+
   container.innerHTML = "";
 
   for (const extra of extras) {
@@ -184,4 +190,26 @@ export function renderExtras({ container, extras, periodLabel }) {
 
     container.appendChild(item);
   }
+
+  if (focusRow && focusSelector) {
+    const target = /** @type {HTMLElement | null} */ (
+      container.querySelector(`[data-extra-id="${focusRow.dataset.extraId}"] ${focusSelector}`)
+    );
+    target?.focus();
+  }
+}
+
+/**
+ * @param {HTMLElement} control - A control inside an extra-payment row.
+ * @returns {string} A selector for the same control in the rebuilt row, or "" for none.
+ */
+function controlSelector(control) {
+  const { action, type, field } = control.dataset;
+  if (field) {
+    return `[data-field="${field}"]`;
+  }
+  if (action) {
+    return type ? `[data-action="${action}"][data-type="${type}"]` : `[data-action="${action}"]`;
+  }
+  return "";
 }

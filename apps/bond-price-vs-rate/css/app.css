@@ -25,6 +25,9 @@ body.app-bond-price-vs-rate {
   --br-control-height: 2.5rem;
   --br-segment-height: calc(var(--br-control-height) - 10px);
   --br-badge-size: 1.75rem;
+
+  /* The cash-flow table holds this height for any maturity, so the page below never moves. */
+  --br-schedule-height: 320px;
 }
 
 /* ── Page shell ───────────────────────────────────────────────────── */
@@ -93,12 +96,33 @@ body.app-bond-price-vs-rate .br-price-caption {
   font-size: var(--font-size-control);
 }
 
+/*
+ * Tabular digits plus room for the widest price ("$3,838.12", which is as wide
+ * as "$1,000.00" with tabular digits and fits in 8ch, a digit being 1ch), so the
+ * readout never changes width as the price gains or loses a digit.
+ */
 body.app-bond-price-vs-rate .br-price {
+  min-width: 8ch;
   color: var(--color-text-heading);
   font-size: 2.75rem;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Stacked variants: every variant of a readout shares the shared .reserve cell
+ * and only the active one shows. Each ghost (.reserve-ghost) is the same wording
+ * with the longest numbers any slider setting prints, so a digit more or less
+ * cannot change where a line wraps.
+ */
+body.app-bond-price-vs-rate .chip.reserve {
+  display: inline-grid;
+  justify-items: center;
+}
+
+body.app-bond-price-vs-rate .reserve > .br-variant:not(.is-active) {
+  visibility: hidden;
 }
 
 body.app-bond-price-vs-rate .br-rail-curve .section-kicker {
@@ -313,9 +337,13 @@ body.app-bond-price-vs-rate .br-vs-item .section-kicker {
   margin: 0;
 }
 
+/* A fixed width, so the glyph (or the dash before the script runs) never changes it. */
 body.app-bond-price-vs-rate .br-arrow {
+  display: inline-block;
+  width: 1em;
   font-size: 1.75rem;
   line-height: 1;
+  text-align: center;
 }
 
 /* Up = rising (warm), down = falling (cool); applied to whichever metric moves. */
@@ -428,10 +456,11 @@ body.app-bond-price-vs-rate .br-legend-def span {
   font-variant-numeric: tabular-nums;
 }
 
-/* Worked cash-flow table: a scrollable body (up to 30 rows) plus a total row. */
+/* Worked cash-flow table: a scrollable body (up to 30 rows) plus a total row, in a box of fixed height. */
 
 body.app-bond-price-vs-rate .br-schedule-wrap {
-  max-height: 320px;
+  height: var(--br-schedule-height);
+  max-height: none;
 }
 
 body.app-bond-price-vs-rate .br-face-note {
@@ -456,6 +485,11 @@ body.app-bond-price-vs-rate .br-compare {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+/* The bars ship in the markup; they start empty and grow in once the script sets them. */
+body.app-bond-price-vs-rate .br-compare .meter-fill {
+  scale: 0 1;
 }
 
 body.app-bond-price-vs-rate .br-compare-row {

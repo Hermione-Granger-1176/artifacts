@@ -45,10 +45,12 @@
 - The page shell and header widen to 1200px (app-local), with the 700px gutter rule restated
 - Both workbench cards share one padding, one gap, and one header row height. Inside the main card the header, prompt, bar list, and footer share one left and right edge. Inside the settings card every control field, the segmented control, the key idea, and the disclosure do the same
 - Select, buttons, and the segmented track share one control height (`--tk-control-height`)
-- Candidate rows and the column-label row share one grid template, so the token, bar, and number columns line up all the way down. The Seen column appears only after **Sample 100x**. On phones, the thin bar carries the tally instead
+- Candidate rows and the column-label row share one grid template, so the token, bar, and number columns line up all the way down. The Seen column has content only after **Sample 100x**, but its track is always reserved above phone width so the bars keep their width. On phones, the thin bar carries the tally instead
 
 ## Theme model
 
 - `<html>` owns `data-theme="light|dark"`
 - Shared shell behavior reads the same `theme` localStorage key as the root gallery
 - All colors come from shared tokens, so a theme change needs no JavaScript work in this app
+- Nothing below the prompt moves while the user works. The prompt, the insight line, and the sample status each share one grid cell with hidden copies of every possible text (`renderPromptReserve()` and `renderCopyReserves()`), so each is as tall as the longest at the current width. The "top P cut" divider is drawn over the top edge of the first cut row, the completion blank keeps one border box and the width of the longest candidate word, and the whitespace toggle holds both labels in one grid cell.
+- Below 900px the settings card sits above the main card on screen but after it in the markup, so the main card opts out of scroll anchoring. Otherwise opening "Show the code" throws the summary up the screen.

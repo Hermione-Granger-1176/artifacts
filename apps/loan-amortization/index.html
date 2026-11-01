@@ -100,26 +100,66 @@
               </div>
             </div>
           </div>
-          <div id="biweeklyMode" class="biweekly-mode" hidden>
+          <div id="biweeklyMode" class="biweekly-mode is-inactive">
             <div class="control-copy">Bi-weekly method</div>
             <div class="type-toggle is-inset is-full">
-              <button id="bwTrue" type="button" class="active" data-bw-mode="true">True</button>
-              <button id="bwAccel" type="button" data-bw-mode="accelerated">Accelerated</button>
+              <button id="bwTrue" type="button" class="active" data-bw-mode="true" disabled>True</button>
+              <button id="bwAccel" type="button" data-bw-mode="accelerated" disabled>Accelerated</button>
             </div>
-            <div id="bwDesc" class="control-copy is-small">EMI recalculated for 26 periods per year</div>
+            <div id="bwDesc" class="control-copy is-small">Used when the EMI frequency is Bi-weekly</div>
           </div>
         </section>
 
         <section class="loan-group" aria-labelledby="extraGroupTitle">
           <h2 class="section-kicker" id="extraGroupTitle">Extra payments</h2>
+          <button class="btn btn-outline" id="btnAdd" type="button">+ Add extra payment</button>
           <div id="extraList" class="extra-list"></div>
           <p class="extra-empty">No extra payments yet.</p>
-          <button class="btn btn-outline" id="btnAdd" type="button">+ Add extra payment</button>
         </section>
       </aside>
 
       <div class="loan-results">
-        <div id="metrics" class="loan-summary"></div>
+        <div id="metrics" class="loan-summary">
+          <div class="loan-hero">
+            <div class="loan-hero-main">
+              <div class="loan-hero-label">
+                <span data-metric="heroLabel">Monthly EMI</span>
+                <button type="button" class="info-tip is-start" data-metric="heroTip" data-tip="Fixed payment amount each month, excluding extra payments" aria-label="Fixed payment amount each month, excluding extra payments">?</button>
+              </div>
+              <div class="loan-hero-value" data-metric="heroValue">-</div>
+              <div class="loan-hero-sub" data-metric="heroSub">Fixed payment, no extras</div>
+            </div>
+            <div class="loan-hero-aside">
+              <span class="chip is-green is-empty" data-metric="chip" aria-hidden="true">&nbsp;</span>
+            </div>
+          </div>
+          <div class="stat-grid loan-kpis">
+            <div class="stat">
+              <button type="button" class="info-tip" data-tip="Interest without extras vs with extras applied" aria-label="Interest without extras vs with extras applied">?</button>
+              <div class="stat-label">Total interest</div>
+              <div class="stat-value" data-metric="interestValue">-</div>
+              <div class="stat-sub" data-metric="interestSub">Without extras: -</div>
+            </div>
+            <div class="stat">
+              <button type="button" class="info-tip" data-metric="payoffTip" data-tip="Number of months until the loan is fully paid off" aria-label="Number of months until the loan is fully paid off">?</button>
+              <div class="stat-label">Payoff in</div>
+              <div class="stat-value" data-metric="payoffValue">-</div>
+              <div class="stat-sub" data-metric="payoffSub">Until the loan is repaid</div>
+            </div>
+            <div class="stat">
+              <button type="button" class="info-tip" data-tip="Principal plus total interest. The real cost of your loan." aria-label="Principal plus total interest. The real cost of your loan.">?</button>
+              <div class="stat-label">Total paid</div>
+              <div class="stat-value" data-metric="paidValue">-</div>
+              <div class="stat-sub" data-metric="paidSub">Interest is -% of loan</div>
+            </div>
+            <div class="stat">
+              <button type="button" class="info-tip" data-metric="breakTip" data-tip="The first month when cumulative principal paid from EMI and extras meets or exceeds cumulative interest" aria-label="The first month when cumulative principal paid from EMI and extras meets or exceeds cumulative interest">?</button>
+              <div class="stat-label">Break-even</div>
+              <div class="stat-value" data-metric="breakValue">-</div>
+              <div class="stat-sub">Principal (EMI + extras) &gt;= interest</div>
+            </div>
+          </div>
+        </div>
 
         <section class="loan-view" aria-label="Results">
           <div class="segmented is-fused is-inset" id="viewToggle" aria-label="View mode">

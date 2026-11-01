@@ -11,6 +11,7 @@
 
 import { initializeMatureApp } from "../../../js/modules/app-runtime.js";
 import { initAppShell, renderAppShell } from "../../../js/modules/app-shell.js";
+import { setMeterValue } from "../../../js/modules/meter.js";
 import { initSegmented } from "../../../js/modules/segmented.js";
 
 import { collectBoxes, transformBoxes } from "./modules/annotate-boxes.js";
@@ -193,6 +194,20 @@ function fillSelect(select, entries) {
   }
 }
 
+/**
+ * Set an element's tooltip, or remove it when there is nothing to explain.
+ * @param {HTMLElement} element - Element to label.
+ * @param {string} text - Tooltip text, or an empty string to clear it.
+ * @returns {void}
+ */
+function setTitle(element, text) {
+  if (text) {
+    element.setAttribute("title", text);
+  } else {
+    element.removeAttribute("title");
+  }
+}
+
 initializeMatureApp({
   run: ({ runtime }) => {
     initAppShell();
@@ -206,6 +221,7 @@ initializeMatureApp({
     const formatJsonButton = buttonById("vdFormatJson");
     const downloadJsonButton = buttonById("vdDownloadJson");
     const pdfModeField = byId("vdPdfModeField");
+    const pdfModeToggle = byId("vdPdfMode");
     const labelsNote = byId("vdLabelsNote");
     const estimate = byId("vdEstimate");
     const degradeNote = byId("vdDegradeNote");
@@ -228,6 +244,7 @@ initializeMatureApp({
     const progressFill = byId("vdProgressFill");
     const batchStatus = byId("vdBatchStatus");
     const exportButton = buttonById("vdExport");
+    const batchStopButton = buttonById("vdBatchStop");
 
     const state = {
       docTypeId: DOCUMENT_TYPES[0].id,
@@ -248,6 +265,9 @@ initializeMatureApp({
 
     /** @type {ReturnType<typeof buildDocument>} */
     let currentModel;
+
+    /** Whether a batch is in flight, which is when the stop button is live. */
+    let batchRunning = false;
 
     /**
      * The three switches the Labels ladder stands for.
@@ -296,13 +316,13 @@ initializeMatureApp({
     }
 
     /**
-     * Set the status line, and hide it while it has nothing to say.
+     * Set the status line. An empty one keeps its row (see the footer rules in
+     * app.css), so a message arriving does not move the export button.
      * @param {string} text - Message, or an empty string to clear it.
      * @returns {void}
      */
     function setStatus(text) {
       batchStatus.textContent = text;
-      batchStatus.hidden = text === "";
     }
 
     /** @type {{ input: HTMLInputElement, key: string, output: HTMLElement, unit: string }[]} */
@@ -387,7 +407,7 @@ initializeMatureApp({
       state.format = /** @type {import("./modules/exporters.js").BatchFormat} */ (format);
       syncOutput();
     });
-    const pdfModeSegment = wireSegment(byId("vdPdfMode"), "data-pdf-mode", (pdfMode) => {
+    const pdfModeSegment = wireSegment(pdfModeToggle, "data-pdf-mode", (pdfMode) => {
       state.pdfMode = /** @type {import("./modules/exporters.js").PdfMode} */ (pdfMode);
       syncOutput();
     });
@@ -425,6 +445,9 @@ initializeMatureApp({
       }
     }
 
+    /** How many tasks are running with the zoom pinned to 1; see `atActualSize`. */
+    let pinnedAtActualSize = 0;
+
     /**
      * Scale the preview so the whole page fits the frame in both directions.
      *
@@ -435,7 +458,9 @@ initializeMatureApp({
      * @returns {void}
      */
     function syncFitScale() {
-      if (fullscreen.open) {
+      // The overlay owns the zoom while it is open, and so does an export, which
+      // needs the page at actual size however the frame resizes meanwhile.
+      if (fullscreen.open || pinnedAtActualSize > 0) {
         return;
       }
 
@@ -520,11 +545,13 @@ initializeMatureApp({
      * @returns {Promise<T>} Whatever the task resolves to.
      */
     async function atActualSize(task) {
+      pinnedAtActualSize += 1;
       paperScale.style.setProperty("--vd-zoom", "1");
 
       try {
         return await task();
       } finally {
+        pinnedAtActualSize -= 1;
         syncFitScale();
       }
     }
@@ -675,8 +702,25 @@ initializeMatureApp({
       const batch = state.mode === "batch";
       const settings = currentSettings();
       const degraded = !isClean(settings);
-      const { boxes, truth, words } = labelFlags();
 
+      applyOutputRules(batch);
+      syncOutputControls(batch);
+      syncApplicability(degraded);
+      labelsNote.textContent = labelsNoteText();
+      estimate.textContent = describeEstimate(batch, settings, degraded);
+
+      // A run in flight owns the button's label, and restores it when it ends.
+      if (!exportButton.disabled) {
+        exportButton.textContent = batch ? "Generate ZIP" : "Download";
+      }
+    }
+
+    /**
+     * Settle the choices that other choices rule out, before anything reads them.
+     * @param {boolean} batch - Whether the batch scope is selected.
+     * @returns {void}
+     */
+    function applyOutputRules(batch) {
       // JSON is only a batch format. Leaving batch with it selected falls back
       // to PDF rather than leaving page mode on a format it cannot write.
       if (!batch && state.format === "json") {
@@ -687,7 +731,14 @@ initializeMatureApp({
       if (state.format === "json" && state.labels === "none") {
         state.labels = "json";
       }
+    }
 
+    /**
+     * Point every segmented control at the state, and show the rows the scope has.
+     * @param {boolean} batch - Whether the batch scope is selected.
+     * @returns {void}
+     */
+    function syncOutputControls(batch) {
       modeSegment.set(state.mode);
       includeSegment.set(state.include);
       labelsSegment.set(state.labels);
@@ -697,20 +748,44 @@ initializeMatureApp({
       batchOptions.hidden = !batch;
       formatJsonButton.hidden = !batch;
       downloadJsonButton.hidden = batch;
+      syncStopButton();
       // None is the first rung, and the one a JSON batch cannot stand on.
       labelsSegment.buttons[0].disabled = state.format === "json";
-      pdfModeField.hidden = !writesPdf();
+    }
+
+    /**
+     * Dim the PDF type and the pair option when they do not apply, rather than
+     * hiding them, so the rows under them stay where they were.
+     * @param {boolean} degraded - Whether the scan settings change the page.
+     * @returns {void}
+     */
+    function syncApplicability(degraded) {
+      const pdfApplies = writesPdf();
+      pdfModeToggle.classList.toggle("is-disabled", !pdfApplies);
+      setTitle(pdfModeField, pdfApplies ? "" : "The PDF type only applies when the format includes a PDF.");
+
+      for (const button of pdfModeSegment.buttons) {
+        button.disabled = !pdfApplies;
+      }
+
       // Pair mode writes the clean original beside a degraded PNG, so it means
       // nothing for a clean page or an export with no PNG in it.
-      pairLabel.hidden = !degraded || !writesPng();
-      labelsNote.textContent = labelsNoteText();
+      const pairApplies = degraded && writesPng();
+      pairLabel.classList.toggle("is-disabled", !pairApplies);
+      pairToggle.disabled = !pairApplies;
+      setTitle(pairLabel, pairApplies ? "" : "Pairing needs a scan preset and a PNG in the format.");
+    }
 
-      const perCombination = Number(batchCount.value);
-      const count = batch
-        ? perCombination *
-          (includeScope().vendors ? VENDORS.length : 1) *
-          (includeScope().types ? DOCUMENT_TYPES.length : 1)
-        : 1;
+    /**
+     * Say what the export will write and roughly how large it is.
+     * @param {boolean} batch - Whether the batch scope is selected.
+     * @param {import("./modules/degrade.js").DegradeSettings} settings - Resolved scan settings.
+     * @param {boolean} degraded - Whether the scan settings change the page.
+     * @returns {string} The estimate line.
+     */
+    function describeEstimate(batch, settings, degraded) {
+      const { boxes, truth, words } = labelFlags();
+      const count = batch ? batchDocumentCount() : 1;
       const bytes = estimateBatchBytes({
         boxes,
         count,
@@ -723,14 +798,26 @@ initializeMatureApp({
         words
       });
 
-      estimate.textContent = batch
+      return batch
         ? `${count} documents, roughly ${formatBytes(bytes)}.`
         : `${pageFileList(degraded)}, roughly ${formatBytes(bytes)}.`;
+    }
 
-      // A run in flight owns the button's label, and restores it when it ends.
-      if (!exportButton.disabled) {
-        exportButton.textContent = batch ? "Generate ZIP" : "Download";
-      }
+    /** @returns {number} Documents the batch will write: the count per combination across its scope. */
+    function batchDocumentCount() {
+      const scope = includeScope();
+      return Number(batchCount.value) * (scope.vendors ? VENDORS.length : 1) * (scope.types ? DOCUMENT_TYPES.length : 1);
+    }
+
+    /**
+     * Place the stop button: live during a run, an invisible placeholder while a
+     * batch is selected (so starting one does not move anything), and gone in
+     * page mode. A run keeps it even if the scope is switched back mid-run.
+     * @returns {void}
+     */
+    function syncStopButton() {
+      batchStopButton.hidden = state.mode !== "batch" && !batchRunning;
+      batchStopButton.classList.toggle("is-idle", !batchRunning);
     }
 
     /**
@@ -740,11 +827,11 @@ initializeMatureApp({
      */
     function setProgress(fraction) {
       const percent = Math.round(Math.min(1, Math.max(0, fraction)) * 100);
-      progressFill.style.width = `${percent}%`;
+      setMeterValue(progressFill, percent / 100);
       progress.setAttribute("aria-valuenow", String(percent));
-      // An empty track is just a grey slab sitting above the button, so the
-      // meter only exists while there is progress to report.
-      progress.hidden = false;
+      // An empty track is just a grey slab above the button, so the meter
+      // stays invisible (but keeps its row) until there is progress to report.
+      progress.classList.remove("is-idle");
     }
 
     vendorSelect.addEventListener("change", () => {
@@ -761,7 +848,12 @@ initializeMatureApp({
     // Also fires for the Escape key, which is the dialog's own affordance.
     fullscreen.addEventListener("close", closeFullscreen);
 
-    window.addEventListener("resize", syncFitScale, { passive: true });
+    // The frame is what the page is fitted to, so it is what gets watched: a
+    // window resize, a rotated phone, and a panel that changes the layout around
+    // the frame all land here, where a window listener would see only the first.
+    // It also reports once on observe(), before the first paint, so the page is
+    // never shown at the wrong size.
+    new ResizeObserver(() => syncFitScale()).observe(paperFrame);
 
     buttonById("vdGenerate").addEventListener("click", () => {
       state.seed = rollSeed();
@@ -841,7 +933,6 @@ initializeMatureApp({
       );
     });
 
-    const batchStopButton = buttonById("vdBatchStop");
     // Read by `runBatch` between documents. A plain flag rather than an
     // AbortController because there is nothing to abort: the run is a loop, and
     // stopping it means finishing the archive early rather than discarding it.
@@ -854,20 +945,58 @@ initializeMatureApp({
     });
 
     /**
+     * The documents the panel's scope asks for: every vendor, every type, or the
+     * shown one, times the count per combination.
+     * @returns {ReturnType<typeof planBatch>} The batch plan.
+     */
+    function planCurrentBatch() {
+      const scope = includeScope();
+      return planBatch({
+        vendorIds: scope.vendors ? VENDORS.map((vendor) => vendor.id) : [state.vendorId],
+        docTypeIds: scope.types ? DOCUMENT_TYPES.map((type) => type.id) : [state.docTypeId],
+        perCombination: Number(batchCount.value)
+      });
+    }
+
+    /**
+     * Offer a finished or stopped run's archive, and report how it went.
+     * @param {{ blob: Blob, count: number, stopped: boolean }} result - What the run wrote.
+     * @param {number} planned - Documents the run set out to write.
+     * @param {number} startedAt - When the run started, in epoch milliseconds.
+     * @returns {void}
+     */
+    function deliverBatch({ blob, count, stopped }, planned, startedAt) {
+      const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+
+      // Stopping before the first document finished leaves an archive holding
+      // nothing but a README describing an empty run, which is a worse thing
+      // to hand someone than no file at all.
+      if (count === 0) {
+        setStatus("Stopped before the first document. Nothing downloaded.");
+        return;
+      }
+
+      const stamp = new Date().toISOString().slice(0, 10);
+      const suffix = stopped ? "docs_partial" : "docs";
+      triggerDownload(blob, `vendor_docs_${stamp}_${count}${suffix}.zip`);
+      setStatus(
+        stopped
+          ? `Stopped. ${count} of ${planned} documents in ${seconds}s.`
+          : `Done. ${count} documents in ${seconds}s.`
+      );
+    }
+
+    /**
      * Run the batch the panel describes and hand over the ZIP.
      * @returns {Promise<void>} Resolves once the archive has been offered for download.
      */
     async function exportBatch() {
       stopRequested = false;
       batchStopButton.disabled = false;
-      batchStopButton.hidden = false;
+      batchRunning = true;
+      syncStopButton();
 
-      const scope = includeScope();
-      const plan = planBatch({
-        vendorIds: scope.vendors ? VENDORS.map((vendor) => vendor.id) : [state.vendorId],
-        docTypeIds: scope.types ? DOCUMENT_TYPES.map((type) => type.id) : [state.docTypeId],
-        perCombination: Number(batchCount.value)
-      });
+      const plan = planCurrentBatch();
 
       setProgress(0);
       setStatus(`Generating ${plan.length} documents...`);
@@ -903,26 +1032,11 @@ initializeMatureApp({
           })
         );
 
-        const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
-
-        // Stopping before the first document finished leaves an archive holding
-        // nothing but a README describing an empty run, which is a worse thing
-        // to hand someone than no file at all.
-        if (count === 0) {
-          setStatus("Stopped before the first document. Nothing downloaded.");
-        } else {
-          const stamp = new Date().toISOString().slice(0, 10);
-          const suffix = stopped ? "docs_partial" : "docs";
-          triggerDownload(blob, `vendor_docs_${stamp}_${count}${suffix}.zip`);
-          setStatus(
-            stopped
-              ? `Stopped. ${count} of ${plan.length} documents in ${seconds}s.`
-              : `Done. ${count} documents in ${seconds}s.`
-          );
-        }
+        deliverBatch({ blob, count, stopped }, plan.length, startedAt);
       } finally {
-        batchStopButton.hidden = true;
-        progress.hidden = true;
+        batchRunning = false;
+        syncStopButton();
+        progress.classList.add("is-idle");
         draw();
       }
     }

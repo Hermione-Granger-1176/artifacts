@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { formatCurrency } from '../../../../js/modules/formatting.js';
+import { FakeNode, installFakeDom } from './fake-dom.js';
+
 // --- DOM helpers ---
 
 function makeElement(overrides = {}) {
@@ -114,7 +117,7 @@ test('syncBiweeklyModeUI toggles active class based on mode', () => {
   assert.match(bwDesc.textContent, /Monthly EMI/);
 });
 
-test('updateBiweeklyMode shows panel for biweekly frequency', () => {
+test('updateBiweeklyMode enables the panel for biweekly and disables it otherwise', () => {
   const elements = {
     biweeklyMode: makeElement(),
     bwTrue: makeElement(),
@@ -123,10 +126,19 @@ test('updateBiweeklyMode shows panel for biweekly frequency', () => {
   };
 
   updateBiweeklyMode(elements, 'biweekly', 'true');
-  assert.equal(elements.biweeklyMode.hidden, false);
+  assert.equal(elements.biweeklyMode.classList.contains('is-inactive'), false);
+  assert.equal(elements.bwTrue.disabled, false);
+  assert.equal(elements.bwAccel.disabled, false);
+  assert.match(elements.bwDesc.textContent, /recalculated/);
 
-  updateBiweeklyMode(elements, 'monthly', 'true');
-  assert.equal(elements.biweeklyMode.hidden, true);
+  updateBiweeklyMode(elements, 'monthly', 'accelerated');
+  // The panel is never hidden, so the controls below it keep their place.
+  assert.equal(elements.biweeklyMode.hidden, false);
+  assert.equal(elements.biweeklyMode.classList.contains('is-inactive'), true);
+  assert.equal(elements.bwTrue.disabled, true);
+  assert.equal(elements.bwAccel.disabled, true);
+  assert.match(elements.bwDesc.textContent, /Used when the EMI frequency is Bi-weekly/);
+  assert.equal(elements.bwAccel.classList.contains('active'), true);
 });
 
 test('setViewMode toggles charts and table visibility', () => {
@@ -199,71 +211,128 @@ const {
 
 restoreDocument(origDoc);
 
-test('renderTableSummary creates summary stat elements', () => {
-  const origDoc2 = setupDocumentMock();
+const tableFmt = (value) => `$${value}`;
+
+function withFakeDom(run) {
+  const restore = installFakeDom();
   try {
-    const container = makeElement();
-    renderTableSummary(container, {
+    run();
+  } finally {
+    restore();
+  }
+}
+
+test('renderTableSummary creates the tiles once and then only changes their text', () => {
+  withFakeDom(() => {
+    const container = new FakeNode('div');
+    const values = {
       totalEmi: '$1,200',
       totalPrincipal: '$1,000',
       totalInterest: '$200',
       totalExtras: '-',
       periods: '12'
-    });
+    };
+    renderTableSummary(container, values);
 
     assert.equal(container.children.length, 5);
     assert.equal(container.children[0].className, 'stat');
-  } finally {
-    restoreDocument(origDoc2);
-  }
+    assert.equal(container.children[0].children[0].textContent, 'Total EMI');
+    assert.equal(container.children[3].children[1].textContent, '-');
+
+    const tiles = [...container.children];
+    renderTableSummary(container, { ...values, totalExtras: '$500', periods: '10' });
+
+    assert.deepEqual(container.children, tiles);
+    assert.equal(container.children[3].children[1].textContent, '$500');
+    assert.equal(container.children[4].children[1].textContent, '10');
+  });
 });
 
 test('renderPeriodTable generates rows with extra highlighting', () => {
-  const origDoc2 = setupDocumentMock();
-  try {
-    const tbody = makeElement();
+  withFakeDom(() => {
+    const tbody = new FakeNode('tbody');
     const rows = [
       { period: 1, emi: 1000, principal: 800, interest: 200, extra: 0, balance: 9200 },
       { period: 2, emi: 1000, principal: 810, interest: 190, extra: 500, balance: 7890 }
     ];
-    const fmt = (v) => `$${v}`;
 
-    renderPeriodTable(tbody, rows, fmt);
+    renderPeriodTable(tbody, rows, tableFmt);
 
     assert.equal(tbody.children.length, 2);
     assert.equal(tbody.children[0].className, '');
     assert.equal(tbody.children[1].className, 'extra-highlight');
-    assert.match(tbody.children[0].innerHTML, /\$1000/);
-  } finally {
-    restoreDocument(origDoc2);
-  }
+    assert.deepEqual(
+      tbody.children[1].children.map((cell) => cell.textContent),
+      ['2', '$1000', '$810', '$190', '$500', '$7890']
+    );
+    assert.equal(tbody.children[0].children[4].textContent, '-');
+  });
+});
+
+test('renderPeriodTable reuses rows, grows by the difference, and shrinks from the end', () => {
+  withFakeDom(() => {
+    const tbody = new FakeNode('tbody');
+    const makeRows = (count, extra = 0) =>
+      Array.from({ length: count }, (_, index) => ({
+        period: index + 1,
+        emi: 100,
+        principal: 80,
+        interest: 20,
+        extra,
+        balance: 1000 - index
+      }));
+
+    renderPeriodTable(tbody, makeRows(3), tableFmt);
+    const first = [...tbody.children];
+
+    renderPeriodTable(tbody, makeRows(5, 50), tableFmt);
+    assert.equal(tbody.children.length, 5);
+    assert.deepEqual(tbody.children.slice(0, 3), first);
+    assert.equal(tbody.children[0].className, 'extra-highlight');
+    assert.equal(tbody.children[4].children[0].textContent, '5');
+
+    renderPeriodTable(tbody, makeRows(2), tableFmt);
+    assert.equal(tbody.children.length, 2);
+    assert.deepEqual(tbody.children, first.slice(0, 2));
+    assert.equal(tbody.children[0].className, '');
+    assert.equal(tbody.children[0].children[4].textContent, '-');
+
+    renderPeriodTable(tbody, [], tableFmt);
+    assert.equal(tbody.children.length, 0);
+  });
 });
 
 test('renderYearlyTable aggregates periods into yearly rows', () => {
-  const origDoc2 = setupDocumentMock();
-  try {
-    const tbody = makeElement();
+  withFakeDom(() => {
+    const tbody = new FakeNode('tbody');
     const rows = [];
     for (let i = 0; i < 24; i++) {
       rows.push({
         period: i + 1,
+        emi: 450,
         principal: 400,
         interest: 100,
         extra: i < 12 ? 50 : 0,
         balance: 10000 - (i + 1) * 400
       });
     }
-    const fmt = (v) => `$${v}`;
 
-    renderYearlyTable(tbody, rows, 10000, 12, fmt);
+    renderYearlyTable(tbody, rows, 10000, 12, tableFmt);
 
     assert.equal(tbody.children.length, 2);
     assert.equal(tbody.children[0].className, 'year-row');
-    assert.match(tbody.children[0].innerHTML, /Year 1/);
-    assert.match(tbody.children[1].innerHTML, /Year 2/);
-  } finally {
-    restoreDocument(origDoc2);
-  }
+    assert.deepEqual(
+      tbody.children[0].children.map((cell) => cell.textContent),
+      ['Year 1', '$10000', '$4800', '$1200', '$600', '$5200']
+    );
+    assert.equal(tbody.children[1].children[0].textContent, 'Year 2');
+    assert.equal(tbody.children[1].children[4].textContent, '-');
+
+    const yearOne = tbody.children[0];
+    renderYearlyTable(tbody, rows.slice(0, 12), 10000, 12, tableFmt);
+    assert.equal(tbody.children.length, 1);
+    assert.equal(tbody.children[0], yearOne);
+  });
 });
 
 // --- interactions.js ---
@@ -695,74 +764,6 @@ test('renderCharts creates chart instances on first call', () => {
   }
 });
 
-test('renderCharts reuses existing chart instances on subsequent calls', () => {
-  const orig = setupDocumentMock();
-  const origWin = globalThis.window;
-  let chartCreateCount = 0;
-  globalThis.window = {
-    Chart: function MockChart(_canvas, config) {
-      chartCreateCount++;
-      this.type = config.type;
-      this.data = { labels: [], datasets: config.data.datasets };
-      this.options = config.options;
-      this.plugins = config.plugins;
-      this.update = () => {};
-      this.$artifactsFormatCurrency = null;
-      this.$artifactsInterestTotal = null;
-      this.$artifactsPalette = null;
-    },
-    ChartDataLabels: {}
-  };
-
-  try {
-    const elements = {
-      balanceChart: {},
-      compChart: {},
-      savingsChart: {},
-      cumulChart: {},
-      periodChart: {}
-    };
-    const fmt = (v) => `$${v}`;
-
-    const base = {
-      periods: 6, totalInterest: 3000,
-      balances: [5000, 4000, 3000, 2000, 1000, 0]
-    };
-    const extra = {
-      periods: 5, totalInterest: 2500, totalExtra: 500, breakEven: null,
-      balances: [5000, 3800, 2500, 1200, 0],
-      rows: Array.from({ length: 5 }, (_, i) => ({ period: i + 1 })),
-      cumulativePrincipal: [1000, 2200, 3500, 4800, 5000],
-      cumulativeExtra: [100, 200, 300, 400, 500],
-      cumulativeInterest: [100, 180, 250, 310, 360],
-      principalParts: [1000, 1200, 1300, 1300, 200],
-      extraParts: [100, 100, 100, 100, 100],
-      interestParts: [100, 80, 70, 60, 50]
-    };
-
-    // First call creates charts
-    const firstCharts = renderCharts({
-      elements, base, extra, principal: 5000,
-      interestSaved: 500, periodLabel: 'Month',
-      formatCurrency: fmt, formatDollarTick: fmt
-    });
-    const firstCreateCount = chartCreateCount;
-
-    // Second call reuses them
-    renderCharts({
-      charts: firstCharts,
-      elements, base, extra, principal: 5000,
-      interestSaved: 500, periodLabel: 'Month',
-      formatCurrency: fmt, formatDollarTick: fmt
-    });
-
-    assert.equal(chartCreateCount, firstCreateCount, 'no new charts created on second call');
-  } finally {
-    restoreDocument(orig);
-    if (origWin) globalThis.window = origWin; else delete globalThis.window;
-  }
-});
-
 test('renderCharts chart tooltip callbacks produce formatted labels', () => {
   const orig = setupDocumentMock();
   const origWin = globalThis.window;
@@ -931,4 +932,120 @@ test('renderCharts handles zero interest saved', () => {
     restoreDocument(orig);
     if (origWin) globalThis.window = origWin; else delete globalThis.window;
   }
+});
+
+// --- charts.js update mode and off-screen charts ---
+
+function sampleSchedule() {
+  const base = { periods: 3, totalInterest: 1000, balances: [6000, 3000, 0] };
+  const extra = {
+    periods: 3, totalInterest: 800, totalExtra: 200, breakEven: 2,
+    balances: [5800, 2800, 0],
+    rows: [{ period: 1 }, { period: 2 }, { period: 3 }],
+    cumulativePrincipal: [3200, 6400, 9000],
+    cumulativeExtra: [200, 400, 600],
+    cumulativeInterest: [100, 180, 240],
+    principalParts: [3200, 3200, 2600],
+    extraParts: [200, 200, 200],
+    interestParts: [100, 80, 60]
+  };
+  return { base, extra };
+}
+
+function withTrackedCharts(run) {
+  const orig = setupDocumentMock();
+  const origWin = globalThis.window;
+  const origObserver = globalThis.IntersectionObserver;
+  const updates = [];
+  globalThis.window = {
+    Chart: function MockChart(canvas, config) {
+      this.canvas = canvas;
+      this.type = config.type;
+      this.data = config.data;
+      this.options = config.options;
+      this.plugins = config.plugins;
+      this.update = (mode) => updates.push([`${config.type}:${canvas.name}`, mode]);
+    },
+    ChartDataLabels: {}
+  };
+  try {
+    run(updates);
+  } finally {
+    restoreDocument(orig);
+    if (origObserver) globalThis.IntersectionObserver = origObserver;
+    else delete globalThis.IntersectionObserver;
+    if (origWin) globalThis.window = origWin; else delete globalThis.window;
+  }
+}
+
+function chartOptions(overrides = {}) {
+  const fmt = (v) => `$${v}`;
+  return {
+    elements: {
+      balanceChart: { name: 'balance' },
+      compChart: { name: 'comp' },
+      savingsChart: { name: 'savings' },
+      cumulChart: { name: 'cumul' },
+      periodChart: { name: 'period' }
+    },
+    ...sampleSchedule(),
+    principal: 9000,
+    interestSaved: 200,
+    periodLabel: 'Month',
+    formatCurrency: fmt,
+    formatDollarTick: fmt,
+    ...overrides
+  };
+}
+
+test('renderCharts animates each chart once, then updates without animation', () => {
+  withTrackedCharts((updates) => {
+    const options = chartOptions();
+    const charts = renderCharts(options);
+    assert.equal(updates.length, 5);
+    assert.ok(updates.every(([, mode]) => mode === undefined), 'first draw keeps the entrance animation');
+
+    updates.length = 0;
+    renderCharts({ ...options, charts });
+    renderCharts({ ...options, charts });
+    assert.equal(updates.length, 10);
+    assert.ok(updates.every(([, mode]) => mode === 'none'), 'later draws skip the animation');
+  });
+});
+
+test('renderCharts redraws only charts near the viewport and catches the rest up on entry', () => {
+  withTrackedCharts((updates) => {
+    const observers = [];
+    globalThis.IntersectionObserver = class {
+      constructor(callback, init) {
+        this.callback = callback;
+        this.init = init;
+        this.targets = [];
+        observers.push(this);
+      }
+      observe(target) { this.targets.push(target); }
+    };
+
+    const options = chartOptions();
+    const charts = renderCharts(options);
+    assert.equal(updates.length, 5, 'the first render draws every chart');
+    const [observer] = observers;
+    const [balanceCanvas, comparisonCanvas, savingsCanvas, cumulativeCanvas, periodCanvas] = observer.targets;
+
+    // Every chart but balance scrolls away: a tick redraws balance only, and
+    // savings catches up when it scrolls back in.
+    observer.callback([comparisonCanvas, savingsCanvas, cumulativeCanvas, periodCanvas].map((target) => ({ target, isIntersecting: false })));
+    updates.length = 0;
+    renderCharts({ ...options, charts });
+    assert.deepEqual(updates, [['line:balance', 'none']]);
+    observer.callback([{ target: savingsCanvas, isIntersecting: true }]);
+    assert.deepEqual(updates.at(-1), ['doughnut:savings', 'none']);
+
+    // syncAll draws everything, off screen or not.
+    observer.callback([{ target: balanceCanvas, isIntersecting: false }]);
+    updates.length = 0;
+    renderCharts({ ...options, charts, syncAll: true });
+    assert.equal(updates.length, 5);
+    assert.ok(updates.every(([, mode]) => mode === 'none'));
+  });
 });

@@ -258,6 +258,10 @@ body.artifact-app {
   --gallery-page-padding-bottom: var(--gallery-page-padding-block);
   --gallery-slice-padding: 1.2rem;
   --gallery-card-gap: 1.25rem;
+  /* Every artifact thumbnail is 960x600, so image slots can be sized before the image loads. */
+  --card-thumb-ratio: 1.6;
+  /* Cards on one book page (the gallery's ITEMS_PER_PAGE). The phone layout reserves a page of this many cards. */
+  --gallery-page-cards: 4;
   --desk-note-size: 100px;
   --desk-note-gap: 0.6rem;
   --desk-note-offset-top: 6rem;
@@ -363,6 +367,11 @@ body.artifact-app {
 
 html {
   scroll-behavior: smooth;
+}
+
+/* The gallery keeps the scrollbar's space reserved, so opening an overlay (which hides the bar) never shifts the page sideways. */
+html:has(body:not(.artifact-app)) {
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -514,7 +523,7 @@ button {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 40%, var(--color-border-solid));
   background: color-mix(in srgb, var(--accent) 10%, var(--color-bg-card));
-  transform: rotate(18deg) scale(1.08);
+  transform: translateY(-1px);
 }
 
 .btn-icon[aria-pressed="true"] {
@@ -585,7 +594,7 @@ button {
 }
 
 .search-wrapper:focus-within {
-  transform: rotate(0deg) scale(1.02);
+  transform: rotate(0deg);
 }
 
 .search-icon {
@@ -626,10 +635,22 @@ button {
   font-size: 1.7rem;
   font-weight: 700;
   line-height: 1;
+  transition:
+    opacity var(--transition-fast) ease,
+    visibility var(--transition-fast) ease,
+    background var(--transition-fast) ease;
 }
 
 .search-clear:hover {
   background: color-mix(in srgb, var(--color-note-text) 12%, transparent);
+}
+
+/* With an empty box the clear button fades out but keeps its slot, so the input does not resize on the first keystroke. Hidden visibility also takes it out of the tab order and the accessibility tree. */
+.search-clear.hidden {
+  display: inline-block !important;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* The "/" shortcut, drawn as a small keycap. */
@@ -656,6 +677,11 @@ button {
   font-weight: 500;
   color: var(--color-search-count);
   text-align: right;
+}
+
+/* An empty note still holds its line, so it does not grow from nothing on the first keystroke. */
+.search-count::before {
+  content: '\200b';
 }
 
 .control-cluster,
@@ -692,7 +718,7 @@ button {
   font-size: 1.25rem;
   font-weight: 700;
   box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.12);
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.2s ease;
 }
 
 .sort-toggle {
@@ -743,7 +769,7 @@ button {
   visibility: hidden;
   pointer-events: none;
   transition:
-    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 0.2s ease,
     opacity 0.15s ease,
     visibility 0s linear 0.15s;
 }
@@ -753,7 +779,7 @@ button {
   visibility: visible;
   pointer-events: auto;
   transition:
-    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 0.2s ease,
     opacity 0.15s ease;
 }
 
@@ -778,7 +804,7 @@ button {
 }
 
 .btn-reset-link:hover,
-.page-btn:hover {
+.page-btn:not(:disabled):hover {
   transform: translateY(-2px);
 }
 
@@ -855,18 +881,50 @@ button {
   pointer-events: none;
 }
 
+/*
+ * The shadow always has the open book's box, so the intro never resizes it.
+ * A soft-edged mask hides its left part while the book is closed and the intro
+ * slides that edge outwards (a registered property, so it only repaints). Percentages
+ * are of the mask image, which is centred on the box, so 50% is the book's spine and
+ * -12% is past the left edge for every ramp width.
+ * The mask image reaches past the box on every side, so the blur is not cut off.
+ */
+@property --shadow-edge {
+  syntax: '<length-percentage>';
+  inherits: false;
+  initial-value: 50%;
+}
+
 .book-shadow {
+  --shadow-reach: 80px;
+  --shadow-ramp: calc(var(--book-shadow-blur) * 1.6);
+  --shadow-mask: linear-gradient(
+    90deg,
+    transparent calc(var(--shadow-edge) - var(--shadow-ramp)),
+    #000 calc(var(--shadow-edge) + var(--shadow-ramp))
+  );
+
   position: absolute;
   inset: var(--book-shadow-inset);
   z-index: -3;
   border-radius: 14px;
   background: var(--book-shadow-color);
   filter: blur(var(--book-shadow-blur));
+  -webkit-mask-image: var(--shadow-mask);
+  mask-image: var(--shadow-mask);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: calc(var(--shadow-reach) * -1) calc(var(--shadow-reach) * -1);
+  mask-position: calc(var(--shadow-reach) * -1) calc(var(--shadow-reach) * -1);
+  -webkit-mask-size: calc(100% + var(--shadow-reach) * 2) calc(100% + var(--shadow-reach) * 2);
+  mask-size: calc(100% + var(--shadow-reach) * 2) calc(100% + var(--shadow-reach) * 2);
+  -webkit-mask-clip: no-clip;
+  mask-clip: no-clip;
   pointer-events: none;
 }
 
-.book-shell:not(.is-open) .book-shadow {
-  left: 50%;
+.book-shell.is-open .book-shadow {
+  --shadow-edge: -12%;
 }
 
 /* Boards: the case shows as a rim around the open spread. */
@@ -949,6 +1007,12 @@ button {
   bottom: 0;
   width: 50%;
   pointer-events: none;
+}
+
+.book-inner::before,
+.book-inner::after {
+  /* The edge stacks grow and shrink as the page turns instead of snapping. */
+  transition: box-shadow 0.35s ease;
 }
 
 .book-inner::before {
@@ -1049,7 +1113,7 @@ button {
   width: 22px;
   height: 22px;
   cursor: pointer;
-  transition: width 0.2s ease, height 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
 .book-peel-right {
@@ -1057,6 +1121,7 @@ button {
   border-top-left-radius: 6px;
   background: linear-gradient(315deg, transparent 50%, color-mix(in srgb, var(--color-page-paper) 86%, black) 50%);
   filter: drop-shadow(-2px -2px 3px rgba(0, 0, 0, 0.2));
+  transform-origin: bottom right;
 }
 
 .book-peel-left {
@@ -1064,16 +1129,12 @@ button {
   border-top-right-radius: 6px;
   background: linear-gradient(45deg, transparent 50%, color-mix(in srgb, var(--color-page-paper) 86%, black) 50%);
   filter: drop-shadow(2px -2px 3px rgba(0, 0, 0, 0.2));
+  transform-origin: bottom left;
 }
 
-.book-sheet:hover .book-peel {
-  width: 30px;
-  height: 30px;
-}
-
+/* Only the hovered corner grows, from 22px to 44px, and it scales from the page corner. */
 .book-sheet .book-peel:hover {
-  width: 44px;
-  height: 44px;
+  transform: scale(2);
 }
 
 .book-sheet[data-has-previous="false"] .book-peel-left,
@@ -1590,7 +1651,7 @@ button {
     2px 4px 6px rgba(0, 0, 0, 0.1),
     inset 0 0 20px rgba(0, 0, 0, 0.05);
   transform: rotate(var(--rotate, 0deg));
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   pointer-events: auto;
   display: flex;
   align-items: center;
@@ -1614,7 +1675,7 @@ button {
 .desk-note:hover {
   z-index: 100;
   opacity: 1;
-  transform: rotate(calc(var(--rotate, 0deg) * 0.5)) scale(1.05) translateY(-4px);
+  transform: rotate(var(--rotate, 0deg)) translateY(-4px);
   box-shadow:
     4px 8px 12px rgba(0, 0, 0, 0.15),
     inset 0 0 20px rgba(0, 0, 0, 0.05);
@@ -1623,7 +1684,10 @@ button {
 .desk-note.is-active {
   opacity: 1;
   z-index: 50;
-  border: 2px solid var(--color-text-primary);
+
+  /* An outline takes no space, so the note and its label stay put when it turns active. */
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: -2px;
   box-shadow:
     4px 8px 12px rgba(0, 0, 0, 0.15),
     inset 0 0 20px rgba(0, 0, 0, 0.05);
@@ -1764,7 +1828,7 @@ button {
   color: inherit;
   transform: rotate(var(--note-rotate));
   transform-origin: center top;
-  transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1), filter var(--transition-fast) ease;
+  transition: transform 0.24s ease, filter var(--transition-fast) ease;
   isolation: isolate;
 }
 
@@ -1791,8 +1855,15 @@ button {
 .artifact-card:hover,
 .artifact-card:focus-visible,
 .artifact-card.expanded {
-  transform: translateY(-8px) rotate(var(--note-hover-rotate));
+  transform: translateY(-4px) rotate(var(--note-hover-rotate));
   z-index: 2;
+}
+
+/* The card behind the open overlay stays flat on the page. */
+.artifact-card.expanded,
+.artifact-card.expanded:hover,
+.artifact-card.expanded:focus-visible {
+  transform: rotate(var(--note-rotate));
 }
 
 /* Attachment styles: washi tape, photo corners, or a paper clip, chosen per card. */
@@ -1997,10 +2068,18 @@ button {
   color: var(--color-pencil);
   font-size: 1.4rem;
   font-weight: 500;
+  transition:
+    transform 0.15s ease,
+    color 0.15s ease;
 }
 
 .page-ellipsis {
   color: var(--color-pencil-soft);
+}
+
+/* Holds the width of a second page tag while only one page exists, so the row keeps its shape. */
+.page-slot-empty {
+  visibility: hidden;
 }
 
 .page-btn-paper {
@@ -2089,10 +2168,7 @@ button {
   border-radius: 18px;
   background: var(--detail-accent, var(--color-page-paper));
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
-  transform:
-    translate(var(--detail-from-x, 0), var(--detail-from-y, 28px))
-    scaleX(var(--detail-from-scale-x, 0.84))
-    scaleY(var(--detail-from-scale-y, 0.84));
+  transform: translate(var(--detail-from-x, 0), var(--detail-from-y, 28px)) scale(var(--detail-from-scale, 0.84));
   transform-origin: center center;
   opacity: 0;
   transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
@@ -2116,6 +2192,9 @@ button {
   width: 100%;
   max-height: 50vh;
   object-fit: contain;
+
+  /* The thumbnail's shape is known, so the panel is the right height before the image arrives. */
+  aspect-ratio: var(--card-thumb-ratio);
 }
 
 .detail-media-placeholder {
@@ -2539,7 +2618,6 @@ body.artifact-app .segmented button.active,
 body.artifact-app .type-toggle button.active {
   background: var(--color-surface);
   color: var(--color-text);
-  font-weight: 500;
 }
 
 /*
@@ -2966,7 +3044,33 @@ body.artifact-app .stat-value.is-mono {
   font-family: var(--font-mono);
 }
 
-/* Meter: thin progress bar with a tone-colored fill. */
+/*
+ * Reserve: an element whose content changes shares one grid cell with hidden
+ * copies of its other states (.reserve-ghost), so the cell always holds the
+ * largest state and swapping the content never moves what sits below.
+ */
+
+body.artifact-app .reserve {
+  display: grid;
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.artifact-app .reserve > * {
+  grid-area: 1 / 1;
+}
+
+body.artifact-app .reserve-ghost {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/*
+ * Meter: thin progress bar with a tone-colored fill. The fill is full width and
+ * scaled from its left edge with the scale property (0 to 1, see setMeterValue
+ * in js/modules/meter.js), so a change runs on the compositor with no layout. An
+ * inline width still works as before for fills that have not adopted the helper.
+ */
 
 body.artifact-app .meter {
   height: 14px;
@@ -2976,9 +3080,13 @@ body.artifact-app .meter {
 }
 
 body.artifact-app .meter-fill {
+  width: 100%;
   height: 100%;
   background: var(--color-blue);
-  transition: width var(--transition-fast) ease;
+  transform-origin: left center;
+  transition:
+    scale var(--transition-fast) ease,
+    width var(--transition-fast) ease;
 }
 
 body.artifact-app .meter-fill.is-green {
@@ -3181,13 +3289,38 @@ body.artifact-app .syn-cm {
 
 /* Sticky frosted section-progress nav driven by js/modules/section-nav.js. */
 
+body.artifact-app {
+  --section-nav-track-height: 36px;
+  --section-nav-pad-y: 0.6rem;
+  --section-nav-border-width: 1px;
+  --section-nav-label-width: 90px;
+  --section-nav-node-size: 24px;
+}
+
+/*
+ * renderSectionNav injects the nav into the [data-section-nav] slot. The slot
+ * is display: contents so the sticky nav's containing block stays the body.
+ * While the slot is empty it is a block that holds the nav's height, so the
+ * page does not drop when the script fills it.
+ */
+body.artifact-app [data-section-nav] {
+  display: contents;
+}
+
+body.artifact-app [data-section-nav]:not(:has(.section-nav)) {
+  display: block;
+  min-height: calc(
+    var(--section-nav-track-height) + 2 * var(--section-nav-pad-y) + var(--section-nav-border-width)
+  );
+}
+
 body.artifact-app .section-nav {
   position: sticky;
   top: 0;
   z-index: 5;
   background: color-mix(in srgb, var(--color-bg) 92%, transparent);
   backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: var(--section-nav-border-width) solid var(--color-border);
 }
 
 body.artifact-app .section-nav-inner {
@@ -3196,7 +3329,7 @@ body.artifact-app .section-nav-inner {
   gap: 1rem;
   width: min(100% - 2rem, 1000px);
   margin: 0 auto;
-  padding: 0.6rem 0;
+  padding: var(--section-nav-pad-y) 0;
 }
 
 body.artifact-app .section-nav-track {
@@ -3204,7 +3337,7 @@ body.artifact-app .section-nav-track {
   align-items: center;
   position: relative;
   flex: 1;
-  min-height: 36px;
+  min-height: var(--section-nav-track-height);
 }
 
 body.artifact-app .section-nav-line,
@@ -3216,17 +3349,20 @@ body.artifact-app .section-nav-fill {
   border-radius: 1px;
 }
 
+/* The line and the fill both run from the first node's center to the last
+ * node's center, so a fill scaled to k / (n - 1) ends exactly on node k. */
+
 body.artifact-app .section-nav-line {
-  left: 12px;
-  right: 12px;
+  inset-inline: calc(var(--section-nav-node-size) / 2);
   background: var(--color-border);
 }
 
 body.artifact-app .section-nav-fill {
-  left: 12px;
-  width: 0;
+  inset-inline: calc(var(--section-nav-node-size) / 2);
   background: var(--color-blue);
-  transition: width 0.4s ease;
+  scale: 0 1;
+  transform-origin: left center;
+  transition: scale 0.2s ease-out;
 }
 
 body.artifact-app .section-nav-nodes {
@@ -3244,8 +3380,8 @@ body.artifact-app .section-nav-node {
   justify-content: center;
   position: relative;
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: var(--section-nav-node-size);
+  height: var(--section-nav-node-size);
   padding: 0;
   border: 2px solid var(--color-border-strong);
   border-radius: 50%;
@@ -3255,7 +3391,12 @@ body.artifact-app .section-nav-node {
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   font-weight: 700;
-  transition: all 0.3s ease;
+  transition:
+    border-color 0.3s ease,
+    background-color 0.3s ease,
+    color 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.3s ease;
 }
 
 body.artifact-app .section-nav-node:hover {
@@ -3304,7 +3445,10 @@ body.artifact-app .section-nav-node:focus-visible .section-nav-tip {
 }
 
 body.artifact-app .section-nav-label {
-  min-width: 90px;
+  flex: 0 0 var(--section-nav-label-width);
+  width: var(--section-nav-label-width);
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--color-text);
   font-size: var(--font-size-control);
   font-weight: 600;
@@ -3638,16 +3782,42 @@ body.artifact-app .scroll-top:focus-visible {
 
   /* Mobile is one column: no spread, no 3D. The cover is a flat card that fades away. */
   .book-shell:not(.is-open) .book-sheet {
-    max-height: 34rem;
-    overflow: hidden;
     transform: none;
+  }
+
+  /*
+   * The sheet reserves one full page of cards from the first paint, so the intro, a filter
+   * with fewer matches, or a sort never changes the page height. The closed cover keeps its
+   * own shorter height and the reserved page stays hidden beneath and after it.
+   */
+  .book-shell:not(.is-open) .book-cover {
+    bottom: auto;
+    height: 34rem;
+  }
+
+  .book-shell:not(.is-open) .book-inner {
+    visibility: hidden;
   }
 
   /* Phones turn pages by button only, so the sheet keeps every native gesture. */
   .book-sheet {
+    /* A card is its thumbnail at the shared ratio, plus the note's padding, the frame border, and two caption lines. */
+    --phone-gap: 1.15rem;
+    --phone-page-pad: 1.35rem;
+    --phone-page-pad-left: calc(var(--paper-margin-x) + 0.75rem);
+    --phone-caption-lines: 2;
+    --phone-caption-height: calc(1.15rem + var(--phone-caption-lines) * 1.05 * 1.8rem);
+    --phone-card-width: calc(100cqi - var(--phone-page-pad-left) - var(--phone-page-pad));
+    --phone-card-height: calc(
+      (var(--phone-card-width) - 1.24rem - 10px) / var(--card-thumb-ratio) + 10px + 0.62rem + var(--phone-caption-height)
+    );
+    --phone-page-height: calc(
+      var(--gallery-page-cards) * var(--phone-card-height) + (var(--gallery-page-cards) - 1) * var(--phone-gap) + var(--phone-page-pad) * 2
+    );
+    --book-sheet-min-height: 0;
+
     height: auto;
     touch-action: auto;
-    --book-sheet-min-height: 0;
   }
 
   .book-shadow,
@@ -3672,7 +3842,8 @@ body.artifact-app .scroll-top:focus-visible {
   .book-inner {
     position: relative;
     inset: auto;
-    padding: 1.35rem 1.35rem 1.35rem calc(var(--paper-margin-x) + 0.75rem);
+    min-height: var(--phone-page-height);
+    padding: var(--phone-page-pad) var(--phone-page-pad) var(--phone-page-pad) var(--phone-page-pad-left);
     border-radius: 6px;
     box-shadow: var(--shadow-md);
   }
@@ -3696,11 +3867,11 @@ body.artifact-app .scroll-top:focus-visible {
     inset: auto;
     grid-template-columns: 1fr;
     grid-template-rows: none;
-    gap: 1.15rem;
+    gap: var(--phone-gap);
   }
 
   .artifact-page-slice {
-    gap: 1.15rem;
+    gap: var(--phone-gap);
     grid-template-rows: auto;
   }
 
@@ -3720,16 +3891,26 @@ body.artifact-app .scroll-top:focus-visible {
     min-height: 0;
   }
 
+  .card-note {
+    min-height: var(--phone-card-height);
+  }
+
+  .card-thumbnail {
+    aspect-ratio: var(--card-thumb-ratio);
+  }
+
+  .card-note-body {
+    min-height: var(--phone-caption-height);
+  }
+
   .card-thumbnail-placeholder {
     min-height: 9rem;
   }
 
+  /* The page keeps its height with no cards, so the note sits at the top of the paper instead of the middle. */
   .no-results {
-    position: relative;
-    top: auto;
-    left: auto;
-    margin: 0 auto;
-    transform: rotate(-1deg);
+    top: var(--phone-page-pad);
+    transform: translateX(-50%) rotate(-1deg);
   }
 
   .card-name {
@@ -3748,6 +3929,18 @@ body.artifact-app .scroll-top:focus-visible {
   .detail-content {
     padding: 1rem 0 0;
   }
+}
+
+/*
+ * Theme swaps repaint every themed surface at once, so any running color
+ * transition would fade at its own speed while the background flips. The
+ * theme toggles add this class to <html> for two frames around the change.
+ */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

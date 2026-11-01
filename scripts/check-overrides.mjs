@@ -27,10 +27,14 @@ const DEFAULT_PKG_PATH = join(DEFAULT_ROOT_DIR, "package.json");
 
 const INSTALL_COMMAND = "npm install --package-lock-only --ignore-scripts";
 
-/** Probe phases in run order, each with the npm command that exercises it. */
+/**
+ * Probe phases in run order, each with the npm command that exercises it. The
+ * audit gates every severity, like `make audit-node`, so an override that
+ * clears a low or moderate advisory still counts as needed.
+ */
 const PROBE_PHASES = [
   ["install", INSTALL_COMMAND],
-  ["audit", "npm audit --audit-level=high"],
+  ["audit", "npm audit --audit-level=info"],
 ];
 
 /**

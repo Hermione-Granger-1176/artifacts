@@ -549,7 +549,7 @@ help-json: ## Emit groups and commands as JSON
 
 # ─── Git @git ─────────────────────────────────────────────────────────────────
 
-.PHONY: git branches branch branch-current branch-prune worktree worktree-remove rebase-main rebase-continue sync-branch stage stage-all commit push push-force log log-file diff diff-staged
+.PHONY: git branches branch branch-current switch branch-prune worktree worktree-remove rebase-main merge-main rebase-continue sync-branch squash stage stage-all commit push push-force log log-file diff diff-staged
 
 git: ## Git commands (make git)
 	@$(MAKE) --no-print-directory help-git
@@ -568,6 +568,10 @@ branch: ## Create and switch to a new branch off main, or off base for a stacked
 branch-current: ## Create and switch to a branch from the current commit without pulling (make branch-current name=X)
 	$(call need,name,make branch-current name=my-feature)
 	git checkout -b "$(name)"
+
+switch: ## Switch to an existing local branch (make switch name=X)
+	$(call need,name,make switch name=my-feature)
+	git switch "$(name)"
 
 branch-prune: export PRUNE_MAIN_BRANCH := $(MAIN_BRANCH)
 branch-prune: export PRUNE_PAGES_BRANCH := $(PAGES_BRANCH)
@@ -591,11 +595,17 @@ worktree-remove: ## Remove a clean worktree created by make worktree; the branch
 rebase-main: ## Rebase the current branch onto origin/main (make rebase-main [base=branch])
 	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && git rebase "origin/$(if $(base),$(base),$(MAIN_BRANCH))"
 
+merge-main: ## Merge origin/main, or origin/base, into the current branch without rewriting history (make merge-main [base=branch])
+	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && git merge --no-edit "origin/$(if $(base),$(base),$(MAIN_BRANCH))"
+
 rebase-continue: ## Continue an in-progress rebase after resolving conflicts
 	GIT_EDITOR=true git rebase --continue
 
 sync-branch: ## Rebase the current branch onto its upstream branch
 	git pull --rebase
+
+squash: ## Uncommit the current branch's commits since its base and keep the changes staged, ready for make commit (make squash [base=branch])
+	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && git reset --soft "$$(git merge-base HEAD "origin/$(if $(base),$(base),$(MAIN_BRANCH))")"
 
 stage: export STAGE_FILES := $(value files)
 stage: export STAGE_FILE := $(value file)

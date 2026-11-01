@@ -109,7 +109,6 @@ body.artifact-app .segmented button.active,
 body.artifact-app .type-toggle button.active {
   background: var(--color-surface);
   color: var(--color-text);
-  font-weight: 500;
 }
 
 /*
@@ -536,7 +535,33 @@ body.artifact-app .stat-value.is-mono {
   font-family: var(--font-mono);
 }
 
-/* Meter: thin progress bar with a tone-colored fill. */
+/*
+ * Reserve: an element whose content changes shares one grid cell with hidden
+ * copies of its other states (.reserve-ghost), so the cell always holds the
+ * largest state and swapping the content never moves what sits below.
+ */
+
+body.artifact-app .reserve {
+  display: grid;
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+body.artifact-app .reserve > * {
+  grid-area: 1 / 1;
+}
+
+body.artifact-app .reserve-ghost {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/*
+ * Meter: thin progress bar with a tone-colored fill. The fill is full width and
+ * scaled from its left edge with the scale property (0 to 1, see setMeterValue
+ * in js/modules/meter.js), so a change runs on the compositor with no layout. An
+ * inline width still works as before for fills that have not adopted the helper.
+ */
 
 body.artifact-app .meter {
   height: 14px;
@@ -546,9 +571,13 @@ body.artifact-app .meter {
 }
 
 body.artifact-app .meter-fill {
+  width: 100%;
   height: 100%;
   background: var(--color-blue);
-  transition: width var(--transition-fast) ease;
+  transform-origin: left center;
+  transition:
+    scale var(--transition-fast) ease,
+    width var(--transition-fast) ease;
 }
 
 body.artifact-app .meter-fill.is-green {
@@ -751,13 +780,38 @@ body.artifact-app .syn-cm {
 
 /* Sticky frosted section-progress nav driven by js/modules/section-nav.js. */
 
+body.artifact-app {
+  --section-nav-track-height: 36px;
+  --section-nav-pad-y: 0.6rem;
+  --section-nav-border-width: 1px;
+  --section-nav-label-width: 90px;
+  --section-nav-node-size: 24px;
+}
+
+/*
+ * renderSectionNav injects the nav into the [data-section-nav] slot. The slot
+ * is display: contents so the sticky nav's containing block stays the body.
+ * While the slot is empty it is a block that holds the nav's height, so the
+ * page does not drop when the script fills it.
+ */
+body.artifact-app [data-section-nav] {
+  display: contents;
+}
+
+body.artifact-app [data-section-nav]:not(:has(.section-nav)) {
+  display: block;
+  min-height: calc(
+    var(--section-nav-track-height) + 2 * var(--section-nav-pad-y) + var(--section-nav-border-width)
+  );
+}
+
 body.artifact-app .section-nav {
   position: sticky;
   top: 0;
   z-index: 5;
   background: color-mix(in srgb, var(--color-bg) 92%, transparent);
   backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: var(--section-nav-border-width) solid var(--color-border);
 }
 
 body.artifact-app .section-nav-inner {
@@ -766,7 +820,7 @@ body.artifact-app .section-nav-inner {
   gap: 1rem;
   width: min(100% - 2rem, 1000px);
   margin: 0 auto;
-  padding: 0.6rem 0;
+  padding: var(--section-nav-pad-y) 0;
 }
 
 body.artifact-app .section-nav-track {
@@ -774,7 +828,7 @@ body.artifact-app .section-nav-track {
   align-items: center;
   position: relative;
   flex: 1;
-  min-height: 36px;
+  min-height: var(--section-nav-track-height);
 }
 
 body.artifact-app .section-nav-line,
@@ -786,17 +840,20 @@ body.artifact-app .section-nav-fill {
   border-radius: 1px;
 }
 
+/* The line and the fill both run from the first node's center to the last
+ * node's center, so a fill scaled to k / (n - 1) ends exactly on node k. */
+
 body.artifact-app .section-nav-line {
-  left: 12px;
-  right: 12px;
+  inset-inline: calc(var(--section-nav-node-size) / 2);
   background: var(--color-border);
 }
 
 body.artifact-app .section-nav-fill {
-  left: 12px;
-  width: 0;
+  inset-inline: calc(var(--section-nav-node-size) / 2);
   background: var(--color-blue);
-  transition: width 0.4s ease;
+  scale: 0 1;
+  transform-origin: left center;
+  transition: scale 0.2s ease-out;
 }
 
 body.artifact-app .section-nav-nodes {
@@ -814,8 +871,8 @@ body.artifact-app .section-nav-node {
   justify-content: center;
   position: relative;
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: var(--section-nav-node-size);
+  height: var(--section-nav-node-size);
   padding: 0;
   border: 2px solid var(--color-border-strong);
   border-radius: 50%;
@@ -825,7 +882,12 @@ body.artifact-app .section-nav-node {
   font-family: var(--font-mono);
   font-size: var(--font-size-2xs);
   font-weight: 700;
-  transition: all 0.3s ease;
+  transition:
+    border-color 0.3s ease,
+    background-color 0.3s ease,
+    color 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.3s ease;
 }
 
 body.artifact-app .section-nav-node:hover {
@@ -874,7 +936,10 @@ body.artifact-app .section-nav-node:focus-visible .section-nav-tip {
 }
 
 body.artifact-app .section-nav-label {
-  min-width: 90px;
+  flex: 0 0 var(--section-nav-label-width);
+  width: var(--section-nav-label-width);
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--color-text);
   font-size: var(--font-size-control);
   font-weight: 600;
