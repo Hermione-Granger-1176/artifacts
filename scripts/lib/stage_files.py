@@ -12,6 +12,9 @@ The Makefile forwards two optional inputs:
 - ``STAGE_FILE``: exactly one path, kept intact even when it contains spaces.
 - ``STAGE_FILES``: a whitespace-separated list, unless its complete value names
   one existing or tracked path (which preserves legacy spaced-path calls).
+- ``STAGE_CHECKOUT``: optional ``ours`` or ``theirs``. During a merge it first
+  takes that side of the paths with ``git checkout --ours`` or ``--theirs``, for
+  ``make resolve-ours`` and ``make resolve-theirs``.
 
 At least one must be non-empty; otherwise a usage message is printed and the
 command exits non-zero.
@@ -30,6 +33,7 @@ from pathlib import Path
 GitRunner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
 
 USAGE = 'Usage: make stage [files="a.txt b.txt"] [file="one file with spaces.txt"]'
+CHECKOUT_SIDES = ("ours", "theirs")
 
 
 def collect_paths(
@@ -94,22 +98,48 @@ def stage_paths(paths: Sequence[str], *, run_fn: GitRunner | None = None) -> int
     return runner(["git", "add", "--", *paths]).returncode
 
 
+def checkout_side(paths: Sequence[str], side: str, *, run_fn: GitRunner | None = None) -> int:
+    """Take one side of a merge conflict for ``paths`` and return git's exit code.
+
+    Like ``stage_paths``, each path is its own argv entry after ``--``, so no
+    shell ever splits or globs it.
+    """
+    runner = run_fn or _default_run
+    return runner(["git", "checkout", f"--{side}", "--", *paths]).returncode
+
+
 def main(
     *,
     environ: Mapping[str, str] | None = None,
     run_fn: GitRunner | None = None,
     probe_fn: GitRunner | None = None,
 ) -> int:
-    """Collect paths from the environment and stage them, returning an exit code."""
+    """Collect paths from the environment and stage them, returning an exit code.
+
+    With ``STAGE_CHECKOUT`` set, the chosen side of each path is checked out
+    first, and nothing is staged if that fails.
+    """
+    env = os.environ if environ is None else environ
     runner = run_fn or _default_run
     probe = probe_fn or _default_probe
+    side = env.get("STAGE_CHECKOUT", "").strip()
+    if side and side not in CHECKOUT_SIDES:
+        print(
+            f"STAGE_CHECKOUT must be one of {', '.join(CHECKOUT_SIDES)}, not {side!r}",
+            file=sys.stderr,
+        )
+        return 1
     paths = collect_paths(
-        os.environ if environ is None else environ,
+        env,
         is_exact_path=lambda path: _is_existing_or_tracked(path, probe_fn=probe),
     )
     if not paths:
         print(USAGE, file=sys.stderr)
         return 1
+    if side:
+        status = checkout_side(paths, side, run_fn=runner)
+        if status != 0:
+            return status
     return stage_paths(paths, run_fn=runner)
 
 

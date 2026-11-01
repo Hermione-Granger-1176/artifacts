@@ -41,6 +41,8 @@ These inconsistencies complicated setup and maintenance and let commands bypass 
 
 Later changes superseded two points. Decisions 4 and 5 list five subpackages, but `scripts/setup/` and `tests/setup/` now exist as well. The out-of-scope note below that `js/modules/` and `css/` remain flat no longer holds: gallery modules now live under `js/modules/gallery/`, and the shipped `css/style.css` is generated from authored partials in `css/src/` (ADR 0006 documents the shared token and component system that lives there). The Makefile-first and single-source-of-truth policies are unchanged by that reorganization.
 
+The Makefile itself was later split. The root `Makefile` keeps shared variables and includes one `mk/NN-<group>.mk` file per help group, so the `@slug` headers in decision 6 now open those files. `make help` reads them through `MAKEFILE_LIST`, and `scripts/lint/make_targets.py` reads the same files for the target-reference and control-flow checks.
+
 ## Consequences
 
 - Adding a new source file or directory requires zero config changes because exclude-based scanning picks it up.

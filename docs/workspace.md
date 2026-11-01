@@ -76,6 +76,7 @@ This repository hosts a GitHub Pages gallery of interactive HTML artifacts.
 |- 404.html                  GitHub Pages error page
 |- index.html                Root gallery entry point
 |- Makefile                  Primary interface for supported workspace commands (run make help)
+|- mk/                       Make targets, one NN-<group>.mk file per make help group
 |- pyproject.toml            Python deps, tool config, site metadata
 |- uv.lock                   Frozen Python dependency graph
 |- package.json              Node deps, npm scripts, JS test/coverage config

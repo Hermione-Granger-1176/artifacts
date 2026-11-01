@@ -615,8 +615,8 @@ def test_find_shell_control_flow_respects_allowlist() -> None:
 
 
 def test_repository_makefile_has_no_raw_shell_control_flow() -> None:
-    """The committed Makefile passes the raw shell control-flow check."""
-    content = make_targets.MAKEFILE_PATH.read_text(encoding="utf-8")
+    """The committed Makefile and its group files pass the raw shell control-flow check."""
+    content = make_targets.read_makefile_text()
 
     assert make_targets.find_shell_control_flow(content) == []
 
@@ -633,6 +633,53 @@ def test_run_control_flow_check_formats_violations(tmp_path: Path) -> None:
         "(`for`); move the logic into scripts/ or add the target to "
         "CONTROL_FLOW_ALLOWLIST with a reason"
     ]
+
+
+def test_run_control_flow_check_names_the_group_file(tmp_path: Path) -> None:
+    """A violation in an included group file reports that file's path and line."""
+    makefile = tmp_path / "Makefile"
+    write_text(makefile, "include $(sort $(wildcard mk/*.mk))\n")
+    write_text(tmp_path / "mk" / "10-a.mk", "target-a:\n\t@true\n")
+    write_text(tmp_path / "mk" / "20-b.mk", "target-b:\n\tif true; then :; fi\n")
+
+    violations = check_make_targets.run_control_flow_check(makefile)
+
+    assert len(violations) == 1
+    assert violations[0].startswith("mk/20-b.mk:2: recipe for `target-b`")
+
+
+def test_makefile_sources_lists_group_files_in_include_order(tmp_path: Path) -> None:
+    """The Makefile comes first, then mk/*.mk sorted the way make's $(sort) orders them."""
+    makefile = tmp_path / "Makefile"
+    write_text(makefile, "")
+    for name in ("30-c.mk", "10-a.mk", "20-b.mk"):
+        write_text(tmp_path / "mk" / name, "")
+    write_text(tmp_path / "mk" / "notes.txt", "")
+
+    sources = make_targets.makefile_sources(makefile)
+
+    assert [source.relative_to(tmp_path).as_posix() for source in sources] == [
+        "Makefile",
+        "mk/10-a.mk",
+        "mk/20-b.mk",
+        "mk/30-c.mk",
+    ]
+
+
+def test_load_makefile_targets_includes_group_file_targets(tmp_path: Path) -> None:
+    """Targets defined in an included group file count as known targets."""
+    makefile = tmp_path / "Makefile"
+    write_text(makefile, "help:\n\t@true\n")
+    write_text(tmp_path / "mk" / "10-test.mk", "test-py:\n\t@true\n")
+
+    assert make_targets.load_makefile_targets(makefile) == {"help", "test-py"}
+
+
+def test_repository_makefile_includes_the_glob_the_readers_follow() -> None:
+    """The Makefile's include line matches the glob the lint readers expand."""
+    content = make_targets.MAKEFILE_PATH.read_text(encoding="utf-8")
+
+    assert f"include $(sort $(wildcard {make_targets.MAKE_INCLUDE_GLOB}))" in content
 
 
 def test_run_control_flow_check_defaults_to_repository_makefile() -> None:
@@ -1018,7 +1065,7 @@ def test_main_rejects_symlink_components(
 
 def test_control_flow_allowlist_has_no_unused_entries() -> None:
     """Every allowlist entry must still match a Makefile target, so fixed ones get removed."""
-    content = make_targets.MAKEFILE_PATH.read_text(encoding="utf-8")
+    content = make_targets.read_makefile_text()
     offenders = {
         violation.target
         for violation in make_targets.find_shell_control_flow(content, allowlist=frozenset())

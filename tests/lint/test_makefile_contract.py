@@ -5,9 +5,10 @@ import re
 from pathlib import Path
 
 from scripts.gh import cli
+from scripts.lint.make_targets import read_makefile_text
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MAKEFILE_TEXT = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+MAKEFILE_TEXT = read_makefile_text(REPO_ROOT / "Makefile")
 
 
 def test_python_recipes_preserve_the_callers_python_path() -> None:
@@ -336,3 +337,35 @@ def test_ci_run_targets_are_phony_and_documented() -> None:
     for target in ("ci-rerun", "ci-dispatch", "ci-caches", "ci-cache-delete"):
         assert re.search(rf"^\.PHONY:.*\b{target}\b", MAKEFILE_LOGICAL_LINES, re.MULTILINE)
         assert re.search(rf"^{target}:.*## \S", MAKEFILE_TEXT, re.MULTILINE)
+
+
+GROUP_FILES = sorted((REPO_ROOT / "mk").glob("*.mk"))
+GROUP_TARGET_PATTERN = re.compile(r"^([a-z][a-z0-9-]*):(?!=)", re.MULTILINE)
+
+
+def test_root_makefile_holds_shared_settings_only() -> None:
+    """Targets live in mk/*.mk, so the root Makefile defines none of its own."""
+    root_text = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert GROUP_FILES
+    assert GROUP_TARGET_PATTERN.findall(root_text) == []
+
+
+def test_each_group_file_opens_with_one_help_group() -> None:
+    """Every mk/*.mk file is one `make help` group, named by its header."""
+    for path in GROUP_FILES:
+        text = path.read_text(encoding="utf-8")
+        headers = re.findall(r"^# ─── .+? @[a-z]+ .*$", text, re.MULTILINE)
+
+        assert len(headers) == 1, path.name
+        assert text.startswith(headers[0]), path.name
+
+
+def test_group_file_targets_are_phony() -> None:
+    """Each group file declares every target it defines as phony."""
+    for path in GROUP_FILES:
+        text = path.read_text(encoding="utf-8")
+        phony = re.search(r"^\.PHONY: (.+)$", text, re.MULTILINE)
+
+        assert phony, path.name
+        assert set(GROUP_TARGET_PATTERN.findall(text)) <= set(phony.group(1).split()), path.name

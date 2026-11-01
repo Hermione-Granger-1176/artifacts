@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
 from scripts.lib import stage_files
+from scripts.lint.make_targets import read_makefile_text
 
 if TYPE_CHECKING:
     import pytest
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 
 def test_makefile_stage_target_uses_the_safe_helper() -> None:
     """The Make target exports both inputs and never interpolates paths into shell code."""
-    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    makefile = read_makefile_text(REPO_ROOT / "Makefile")
 
     assert "stage: export STAGE_FILES := $(value files)" in makefile
     assert "stage: export STAGE_FILE := $(value file)" in makefile
@@ -250,3 +251,58 @@ def test_main_stages_collected_paths() -> None:
 
     assert stage_files.main(environ={"STAGE_FILE": "one file.txt"}, run_fn=fake_run) == 0
     assert calls == [["git", "add", "--", "one file.txt"]]
+
+
+def test_makefile_resolve_targets_check_out_through_the_safe_helper() -> None:
+    """resolve-ours and resolve-theirs hand paths and side to the helper, never to the shell."""
+    makefile = read_makefile_text(REPO_ROOT / "Makefile")
+
+    for side in stage_files.CHECKOUT_SIDES:
+        assert f"resolve-{side}: export STAGE_FILES := $(value files)" in makefile
+        assert f"resolve-{side}: export STAGE_CHECKOUT := {side}" in makefile
+    assert "git checkout --ours" not in makefile
+    assert "git checkout --theirs" not in makefile
+    assert "stage: export STAGE_CHECKOUT :=\n" in makefile
+
+
+def test_main_checks_out_the_chosen_side_before_staging() -> None:
+    """A checkout side runs git checkout on the literal paths, then stages them."""
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(list(cmd))
+        return subprocess.CompletedProcess(args=list(cmd), returncode=0)
+
+    environ = {"STAGE_FILE": "one file.txt", "STAGE_CHECKOUT": "theirs"}
+    assert stage_files.main(environ=environ, run_fn=fake_run) == 0
+    assert calls == [
+        ["git", "checkout", "--theirs", "--", "one file.txt"],
+        ["git", "add", "--", "one file.txt"],
+    ]
+
+
+def test_main_stops_before_staging_when_the_checkout_fails() -> None:
+    """A failed checkout returns git's status and stages nothing."""
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(list(cmd))
+        return subprocess.CompletedProcess(args=list(cmd), returncode=1)
+
+    environ = {"STAGE_FILE": "a.txt", "STAGE_CHECKOUT": "ours"}
+    assert stage_files.main(environ=environ, run_fn=fake_run) == 1
+    assert calls == [["git", "checkout", "--ours", "--", "a.txt"]]
+
+
+def test_main_rejects_an_unknown_checkout_side(capsys: pytest.CaptureFixture[str]) -> None:
+    """Only ours and theirs are accepted; anything else runs no git command."""
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(list(cmd))
+        return subprocess.CompletedProcess(args=list(cmd), returncode=0)
+
+    environ = {"STAGE_FILE": "a.txt", "STAGE_CHECKOUT": "base"}
+    assert stage_files.main(environ=environ, run_fn=fake_run) == 1
+    assert calls == []
+    assert "STAGE_CHECKOUT must be one of ours, theirs" in capsys.readouterr().err
