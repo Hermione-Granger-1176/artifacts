@@ -527,7 +527,9 @@ button {
   transform: translateX(-25%);
 }
 
-.book-sheet.is-turning .artifact-card {
+/* The notepad's open link sits beside the card, so it is locked with it. */
+.book-sheet.is-turning .artifact-card,
+.book-sheet.is-turning .card-notes-open {
   pointer-events: none;
 }
 
