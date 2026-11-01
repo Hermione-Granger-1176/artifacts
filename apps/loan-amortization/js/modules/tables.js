@@ -1,15 +1,1 @@
-import{summarizeScheduleRows as $}from"./schedule-summary.js";export function renderTableSummary(d,e){const n=[["Total EMI",e.totalEmi],["Principal (EMI)",e.totalPrincipal],["Total interest",e.totalInterest],["Total extras",e.totalExtras],["Periods",e.periods]];d.innerHTML="";for(const[t,a]of n){const i=document.createElement("div");i.className="stat";const l=document.createElement("div");l.className="stat-label",l.textContent=t;const o=document.createElement("div");o.className="stat-value",o.textContent=a,i.append(l,o),d.appendChild(i)}}export function renderPeriodTable(d,e,n){d.innerHTML="";for(const t of e){const a=document.createElement("tr");t.extra>0&&(a.className="extra-highlight"),a.innerHTML=`
-      <td>${t.period}</td>
-      <td>${n(t.emi)}</td>
-      <td>${n(t.principal)}</td>
-      <td>${n(t.interest)}</td>
-      <td>${t.extra>0?n(t.extra):"-"}</td>
-      <td>${n(t.balance)}</td>
-    `,d.appendChild(a)}}export function renderYearlyTable(d,e,n,t,a){d.innerHTML="";const i=Math.ceil(e.length/t);for(let l=1;l<=i;l+=1){const o=(l-1)*t,s=e.slice(o,l*t),p=o===0?n:e[o-1].balance,m=s[s.length-1].balance,{totalPrincipal:x,totalInterest:E,totalExtras:r}=$(s),c=document.createElement("tr");c.className="year-row",c.innerHTML=`
-      <td>Year ${l}</td>
-      <td>${a(p)}</td>
-      <td>${a(x)}</td>
-      <td>${a(E)}</td>
-      <td>${r>0?a(r):"-"}</td>
-      <td>${a(m)}</td>
-    `,d.appendChild(c)}}
+import{createElement as d,setText as p}from"../../../../js/modules/dom-sync.js";import{summarizeScheduleRows as b}from"./schedule-summary.js";const h=[["totalEmi","Total EMI"],["totalPrincipal","Principal (EMI)"],["totalInterest","Total interest"],["totalExtras","Total extras"],["periods","Periods"]],g=new WeakMap;function I(a){const l=g.get(a);if(l)return l;const e={},n=h.map(([t,r])=>{const s=d("div",{className:"stat-value",text:"-"});return e[t]=s,d("div",{className:"stat"},[d("div",{className:"stat-label",text:r}),s])});return a.replaceChildren(...n),g.set(a,e),e}export function renderTableSummary(a,l){const e=I(a);for(const[n]of h)p(e[n],l[n])}function u(a,l,e,n){const t=a.children;for(;t.length>l.length;)t[t.length-1].remove();const r=t.length,s=document.createDocumentFragment();l.forEach((o,i)=>{let c=t[i];i>=r&&(c=document.createElement("tr"),c.append(...Array.from({length:e},()=>document.createElement("td"))),s.append(c)),n(c,o,i)}),a.append(s)}function x(a,l,e){a.className!==l&&(a.className=l),e.forEach((n,t)=>{p(a.children[t],n)})}export function renderPeriodTable(a,l,e){u(a,l,6,(n,t)=>{x(n,t.extra>0?"extra-highlight":"",[String(t.period),e(t.emi),e(t.principal),e(t.interest),t.extra>0?e(t.extra):"-",e(t.balance)])})}export function renderYearlyTable(a,l,e,n,t){const r=Math.ceil(l.length/n);u(a,Array.from({length:r},(s,o)=>o+1),6,(s,o)=>{const i=(o-1)*n,c=l.slice(i,o*n),E=i===0?e:l[i-1].balance,f=c[c.length-1].balance,{totalPrincipal:v,totalInterest:T,totalExtras:m}=b(c);x(s,"year-row",[`Year ${o}`,t(E),t(v),t(T),m>0?t(m):"-",t(f)])})}

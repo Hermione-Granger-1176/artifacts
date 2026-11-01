@@ -10,13 +10,13 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/">
   <meta property="og:site_name" content="Artifacts">
-  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=5321278618ca">
-  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=5321278618ca">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=845c75777ab7">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=845c75777ab7">
   <meta property="og:image:alt" content="Preview card for the Vendor Document Generator app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Vendor Document Generator | Artifacts">
   <meta name="twitter:description" content="Generate labelled synthetic vendor paperwork for document-AI work: invoices, receipts, quotations, delivery challans, credit notes, and account statements from six fictional businesses, each page shipped with a ground-truth JSON sidecar naming every printed value, with optional bounding boxes.">
-  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=5321278618ca">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/vendor-docs-generator/thumbnail.webp?v=845c75777ab7">
   <meta name="twitter:image:alt" content="Preview card for the Vendor Document Generator app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -28,26 +28,13 @@
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
   <link rel="preload" href="./js/vendor/jspdf.umd.min.js" as="script">
-  <link rel="stylesheet" href="../../css/style.css?v=8d569b17af4a">
-  <link rel="stylesheet" href="./css/app.css?v=fd06e4065868">
+  <link rel="stylesheet" href="../../css/style.css?v=0325cc0abf9c">
+  <link rel="stylesheet" href="./css/app.css?v=a896a8b438f5">
   <script defer src="./js/vendor/jspdf.umd.min.js"></script>
   <script defer src="./js/vendor/jspdf.plugin.autotable.min.js"></script>
   <script defer src="./js/vendor/html2canvas.min.js"></script>
   <script defer src="./js/vendor/jszip.min.js"></script>
-  <link rel="modulepreload" href="../../js/modules/app-runtime.js">
-  <link rel="modulepreload" href="../../js/modules/runtime.js">
-  <link rel="modulepreload" href="../../js/modules/app-shell.js">
-  <link rel="modulepreload" href="../../js/modules/segmented.js">
-  <link rel="modulepreload" href="js/modules/annotate-boxes.js">
-  <link rel="modulepreload" href="js/modules/degrade.js">
-  <link rel="modulepreload" href="js/modules/random.js">
-  <link rel="modulepreload" href="js/modules/annotations.js">
-  <link rel="modulepreload" href="js/modules/format.js">
-  <link rel="modulepreload" href="js/modules/document-model.js">
-  <link rel="modulepreload" href="js/modules/vendors.js">
-  <link rel="modulepreload" href="js/modules/exporters.js">
-  <link rel="modulepreload" href="js/modules/pdf-render.js">
-  <link rel="modulepreload" href="js/modules/paper-render.js">
+  <script type="module" blocking="render" src="./js/app.js?v=bd00147608e8"></script>
 </head>
 <body class="artifact-app app-vendor-docs-generator">
   <div data-app-shell="header"></div>
@@ -126,29 +113,6 @@
           </div>
 
           <div class="vd-output-body">
-            <section class="vd-section vd-batch-options" id="vdBatchOptions" aria-labelledby="vdBatchLabel" hidden>
-              <h2 class="section-kicker" id="vdBatchLabel">Batch</h2>
-              <div class="control-field">
-                <div class="control-field-head">
-                  <label for="vdBatchCount">Copies per combination</label>
-                  <output id="vdBatchCountOut" for="vdBatchCount">10</output>
-                </div>
-                <input id="vdBatchCount" class="range-input" type="range" min="1" max="50" step="1" value="10">
-              </div>
-
-              <div class="control-field">
-                <div class="control-field-head">
-                  <span id="vdIncludeLabel" class="vd-field-label">Include</span>
-                </div>
-                <div class="segmented is-fused is-inset" id="vdInclude" role="group" aria-labelledby="vdIncludeLabel">
-                  <button type="button" class="active" data-include="combo">This combo</button>
-                  <button type="button" data-include="types">All types</button>
-                  <button type="button" data-include="vendors">All vendors</button>
-                  <button type="button" data-include="all">Everything</button>
-                </div>
-              </div>
-            </section>
-
             <section class="vd-section" aria-labelledby="vdScanLabel">
               <div class="vd-section-head">
                 <h2 class="section-kicker" id="vdScanLabel">Scan quality</h2>
@@ -162,7 +126,7 @@
                 <div class="vd-knobs" id="vdKnobs"></div>
               </details>
 
-              <label class="vd-check" for="vdPair" id="vdPairLabel" hidden>
+              <label class="vd-check" for="vdPair" id="vdPairLabel">
                 <input type="checkbox" id="vdPair">
                 <span>Also export the clean original with PNG outputs</span>
               </label>
@@ -199,14 +163,37 @@
                 </div>
               </div>
             </section>
+
+            <section class="vd-section vd-batch-options" id="vdBatchOptions" aria-labelledby="vdBatchLabel" hidden>
+              <h2 class="section-kicker" id="vdBatchLabel">Batch</h2>
+              <div class="control-field">
+                <div class="control-field-head">
+                  <label for="vdBatchCount">Copies per combination</label>
+                  <output id="vdBatchCountOut" for="vdBatchCount">10</output>
+                </div>
+                <input id="vdBatchCount" class="range-input" type="range" min="1" max="50" step="1" value="10">
+              </div>
+
+              <div class="control-field">
+                <div class="control-field-head">
+                  <span id="vdIncludeLabel" class="vd-field-label">Include</span>
+                </div>
+                <div class="segmented is-fused is-inset" id="vdInclude" role="group" aria-labelledby="vdIncludeLabel">
+                  <button type="button" class="active" data-include="combo">This combo</button>
+                  <button type="button" data-include="types">All types</button>
+                  <button type="button" data-include="vendors">All vendors</button>
+                  <button type="button" data-include="all">Everything</button>
+                </div>
+              </div>
+            </section>
           </div>
 
           <div class="vd-output-foot">
             <p class="vd-estimate" id="vdEstimate">Calculating size...</p>
-            <div class="meter vd-progress" id="vdProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Batch progress" hidden>
+            <div class="meter vd-progress is-idle" id="vdProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Batch progress">
               <div class="meter-fill" id="vdProgressFill"></div>
             </div>
-            <p class="vd-status" id="vdBatchStatus" role="status" hidden></p>
+            <p class="vd-status" id="vdBatchStatus" role="status"></p>
             <button type="button" class="btn btn-primary vd-block-btn" id="vdExport">Download</button>
             <button type="button" class="btn btn-outline vd-block-btn" id="vdBatchStop" hidden>Stop and keep what is done</button>
           </div>
@@ -273,7 +260,5 @@
 
     <div data-app-shell="scroll-top"></div>
   </main>
-
-  <script type="module" src="./js/app.js?v=2b60e277fe9b"></script>
 </body>
 </html>

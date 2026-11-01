@@ -10,13 +10,13 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/">
   <meta property="og:site_name" content="Artifacts">
-  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=25be190b72a5">
-  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=25be190b72a5">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=38950beaaa38">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=38950beaaa38">
   <meta property="og:image:alt" content="Preview card for the Loan Amortization Schedule app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Loan Amortization Schedule | Artifacts">
   <meta name="twitter:description" content="Interactive loan amortization calculator with charts, extra payment scenarios, and detailed repayment schedules.">
-  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=25be190b72a5">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/loan-amortization/thumbnail.webp?v=38950beaaa38">
   <meta name="twitter:image:alt" content="Preview card for the Loan Amortization Schedule app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -31,23 +31,26 @@
   <link rel="preload" href="./js/vendor/chart.umd.min.js" as="script">
   <link rel="preload" href="./js/vendor/chartjs-plugin-annotation.min.js" as="script">
   <link rel="preload" href="./js/vendor/chartjs-plugin-datalabels.min.js" as="script">
-  <link rel="stylesheet" href="../../css/style.css?v=8d569b17af4a">
-  <link rel="stylesheet" href="./css/app.css?v=2df68312ed62">
+  <link rel="stylesheet" href="../../css/style.css?v=0325cc0abf9c">
+  <link rel="stylesheet" href="./css/app.css?v=0d084fe818ce">
   <script defer src="./js/vendor/chart.umd.min.js"></script>
   <script defer src="./js/vendor/chartjs-plugin-annotation.min.js"></script>
   <script defer src="./js/vendor/chartjs-plugin-datalabels.min.js"></script>
   <link rel="modulepreload" href="js/modules/amortization.js">
   <link rel="modulepreload" href="js/modules/charts.js">
   <link rel="modulepreload" href="../../js/modules/chart-theme.js">
+  <link rel="modulepreload" href="../../js/modules/offscreen-draws.js">
   <link rel="modulepreload" href="../../js/modules/app-runtime.js">
   <link rel="modulepreload" href="../../js/modules/runtime.js">
   <link rel="modulepreload" href="../../js/modules/app-shell.js">
+  <link rel="modulepreload" href="../../js/modules/frame-scheduler.js">
+  <link rel="modulepreload" href="../../js/modules/theme-switching.js">
   <link rel="modulepreload" href="js/modules/interactions.js">
   <link rel="modulepreload" href="../../js/modules/segmented.js">
   <link rel="modulepreload" href="js/modules/extras.js">
   <link rel="modulepreload" href="../../js/modules/html-escape.js">
   <link rel="modulepreload" href="../../js/modules/formatting.js">
-  <link rel="modulepreload" href="../../js/modules/frame-scheduler.js">
+  <link rel="modulepreload" href="../../js/modules/dom-sync.js">
   <link rel="modulepreload" href="js/modules/metrics.js">
   <link rel="modulepreload" href="js/modules/schedule-summary.js">
   <link rel="modulepreload" href="js/modules/tables.js">
@@ -117,26 +120,66 @@
               </div>
             </div>
           </div>
-          <div id="biweeklyMode" class="biweekly-mode" hidden>
+          <div id="biweeklyMode" class="biweekly-mode is-inactive">
             <div class="control-copy">Bi-weekly method</div>
             <div class="type-toggle is-inset is-full">
-              <button id="bwTrue" type="button" class="active" data-bw-mode="true">True</button>
-              <button id="bwAccel" type="button" data-bw-mode="accelerated">Accelerated</button>
+              <button id="bwTrue" type="button" class="active" data-bw-mode="true" disabled>True</button>
+              <button id="bwAccel" type="button" data-bw-mode="accelerated" disabled>Accelerated</button>
             </div>
-            <div id="bwDesc" class="control-copy is-small">EMI recalculated for 26 periods per year</div>
+            <div id="bwDesc" class="control-copy is-small">Used when the EMI frequency is Bi-weekly</div>
           </div>
         </section>
 
         <section class="loan-group" aria-labelledby="extraGroupTitle">
           <h2 class="section-kicker" id="extraGroupTitle">Extra payments</h2>
+          <button class="btn btn-outline" id="btnAdd" type="button">+ Add extra payment</button>
           <div id="extraList" class="extra-list"></div>
           <p class="extra-empty">No extra payments yet.</p>
-          <button class="btn btn-outline" id="btnAdd" type="button">+ Add extra payment</button>
         </section>
       </aside>
 
       <div class="loan-results">
-        <div id="metrics" class="loan-summary"></div>
+        <div id="metrics" class="loan-summary">
+          <div class="loan-hero">
+            <div class="loan-hero-main">
+              <div class="loan-hero-label">
+                <span data-metric="heroLabel">Monthly EMI</span>
+                <button type="button" class="info-tip is-start" data-metric="heroTip" data-tip="Fixed payment amount each month, excluding extra payments" aria-label="Fixed payment amount each month, excluding extra payments">?</button>
+              </div>
+              <div class="loan-hero-value" data-metric="heroValue">-</div>
+              <div class="loan-hero-sub" data-metric="heroSub">Fixed payment, no extras</div>
+            </div>
+            <div class="loan-hero-aside">
+              <span class="chip is-green is-empty" data-metric="chip" aria-hidden="true">&nbsp;</span>
+            </div>
+          </div>
+          <div class="stat-grid loan-kpis">
+            <div class="stat">
+              <button type="button" class="info-tip" data-tip="Interest without extras vs with extras applied" aria-label="Interest without extras vs with extras applied">?</button>
+              <div class="stat-label">Total interest</div>
+              <div class="stat-value" data-metric="interestValue">-</div>
+              <div class="stat-sub" data-metric="interestSub">Without extras: -</div>
+            </div>
+            <div class="stat">
+              <button type="button" class="info-tip" data-metric="payoffTip" data-tip="Number of months until the loan is fully paid off" aria-label="Number of months until the loan is fully paid off">?</button>
+              <div class="stat-label">Payoff in</div>
+              <div class="stat-value" data-metric="payoffValue">-</div>
+              <div class="stat-sub" data-metric="payoffSub">Until the loan is repaid</div>
+            </div>
+            <div class="stat">
+              <button type="button" class="info-tip" data-tip="Principal plus total interest. The real cost of your loan." aria-label="Principal plus total interest. The real cost of your loan.">?</button>
+              <div class="stat-label">Total paid</div>
+              <div class="stat-value" data-metric="paidValue">-</div>
+              <div class="stat-sub" data-metric="paidSub">Interest is -% of loan</div>
+            </div>
+            <div class="stat">
+              <button type="button" class="info-tip" data-metric="breakTip" data-tip="The first month when cumulative principal paid from EMI and extras meets or exceeds cumulative interest" aria-label="The first month when cumulative principal paid from EMI and extras meets or exceeds cumulative interest">?</button>
+              <div class="stat-label">Break-even</div>
+              <div class="stat-value" data-metric="breakValue">-</div>
+              <div class="stat-sub">Principal (EMI + extras) &gt;= interest</div>
+            </div>
+          </div>
+        </div>
 
         <section class="loan-view" aria-label="Results">
           <div class="segmented is-fused is-inset" id="viewToggle" aria-label="View mode">
@@ -250,6 +293,6 @@
 
   <div data-app-shell="scroll-top"></div>
 
-  <script type="module" src="./js/app.js?v=1be04a6a221c"></script>
+  <script type="module" src="./js/app.js?v=05b4ad3457ef"></script>
 </body>
 </html>
