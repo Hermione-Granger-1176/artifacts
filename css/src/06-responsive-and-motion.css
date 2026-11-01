@@ -49,7 +49,7 @@
   .toolbar-ribbon {
     position: relative;
     inset: auto;
-    width: 100%;
+    width: min(100%, 34rem);
     transform: none;
     margin-bottom: 1rem;
   }
@@ -79,19 +79,41 @@
     display: none;
   }
 
-  /* Tablets have no spare width beside the row, so the reset note keeps a reserved slot in it. */
-  .filter-reset {
-    position: relative;
-    top: auto;
-    left: auto;
+  /*
+   * Phones and tablets: the search note takes its own centred row, and the filter dropdowns and the
+   * sort note share a centred row under it. Each dropdown panel clears its own group and the search
+   * clears itself, so the reset note stays on the desk layout.
+   */
+  :where(body:not(.artifact-app)) .controls {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
-  .mobile-filter-stack {
-    grid-column: 1;
-    display: grid;
-    gap: 0.85rem;
-    margin-bottom: 1rem;
-    pointer-events: auto;
+  .search-wrapper {
+    order: -1;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .filter-dropdowns {
+    display: flex;
+    flex: none;
+    gap: 0.6rem;
+  }
+
+  .control-cluster {
+    flex: none;
+    min-width: 0;
+  }
+
+  .search-count {
+    order: 1;
+    flex: none;
+  }
+
+  .search-count:empty,
+  .filter-reset {
+    display: none;
   }
 
   .detail-panel {
@@ -102,33 +124,6 @@
 @media (max-width: 700px) {
   .book-layout {
     padding-inline: 0.75rem;
-  }
-
-  /* The search note takes the full width; the match count and sort note share the row below. */
-  :where(body:not(.artifact-app)) .controls {
-    flex-wrap: wrap;
-  }
-
-  .search-wrapper {
-    order: -1;
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-
-  .search-count {
-    flex: 1 1 auto;
-    text-align: left;
-  }
-
-  .control-cluster {
-    flex: none;
-  }
-
-  /* Phones: the reset note hangs left of the sort note, over the free end of the count line. */
-  .filter-reset {
-    position: absolute;
-    top: 0;
-    right: calc(100% + 0.75rem);
   }
 
   .book-stage {
@@ -207,14 +202,6 @@
     width: 100%;
     border-radius: 6px;
     box-shadow: none;
-  }
-
-  .mobile-filter-stack {
-    margin-bottom: 0.85rem;
-  }
-
-  .mobile-filter-group {
-    padding: 0.8rem 0.85rem;
   }
 
   .artifacts-grid {
