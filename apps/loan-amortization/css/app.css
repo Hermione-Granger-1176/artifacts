@@ -9,7 +9,7 @@
 
 body.app-loan-amortization {
   --loan-inputs-width: 300px;
-  --loan-control-height: 2.25rem;
+  --loan-control-height: max(2.25rem, var(--touch-target, 0px));
   --loan-value-width: 7rem;
   --loan-chart-height: 260px;
 }

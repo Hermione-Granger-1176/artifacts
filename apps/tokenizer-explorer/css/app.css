@@ -17,8 +17,8 @@ body.app-tokenizer-explorer {
    * workbench. The segmented track is 1px border and 4px padding either side,
    * so its buttons are 10px shorter than the track they sit in.
    */
-  --tk-control-height: 2.5rem;
-  --tk-segment-height: calc(var(--tk-control-height) - 10px);
+  --tk-control-height: max(2.5rem, var(--touch-target, 0px));
+  --tk-segment-height: max(calc(var(--tk-control-height) - 10px), var(--touch-target, 0px));
   --tk-settings-width: 300px;
 }
 
@@ -526,7 +526,7 @@ body.app-tokenizer-explorer .tk-disclosure {
 
 body.app-tokenizer-explorer .tk-disclosure summary {
   display: flex;
-  min-height: var(--space-6);
+  min-height: max(var(--space-6), var(--touch-target, 0px));
   align-items: center;
   justify-content: space-between;
   color: var(--color-text-secondary);
@@ -609,7 +609,7 @@ body.app-tokenizer-explorer .tk-workbench .btn {
 }
 
 body.app-tokenizer-explorer .tk-workbench .btn.btn-sm {
-  min-height: var(--space-8);
+  min-height: max(var(--space-8), var(--touch-target, 0px));
 }
 
 body.app-tokenizer-explorer .tk-workbench .btn {
