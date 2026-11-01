@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pytest
 from playwright.sync_api import expect
 
 from tests.browser.frontend_helpers import (
@@ -417,6 +418,64 @@ def test_bond_price_vs_rate_flow_covers_rail_chapters_and_curve_apply(
         assert first_chapter is not None
         assert stacked_rail["y"] + stacked_rail["height"] <= first_chapter["y"]
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+@app_scope_skipif("loan-amortization")
+@pytest.mark.parametrize("width", [901, 960, 1100, 1400])
+def test_loan_amortization_savings_chip_never_moves_the_kpis(
+    app_browser: AppBrowserHarness,
+    width: int,
+) -> None:
+    """The first extra payment shows the savings chip without moving the KPIs below the hero.
+
+    The extras line under the EMI and the chip both grow on that first extra
+    payment, so a chip sharing the hero row could wrap onto a new one.
+    """
+    with MonitoredPage(
+        app_browser.playwright,
+        app_browser.server_url,
+        name=f"app-loan-chip-{width}",
+        viewport=(width, 900),
+        bypass_csp=True,
+        browser=app_browser.browser,
+    ) as session:
+        page = session.page
+        assert page is not None
+        session.goto("/apps/loan-amortization/")
+        page.wait_for_function("window.__ARTIFACT_READY__ === true")
+
+        hero_value = page.locator("#metrics .loan-hero-value")
+        expect(hero_value).to_contain_text("$")
+        initial_value = hero_value.text_content() or ""
+        # The largest loan the sliders allow gives the longest chip and extras text.
+        largest = (("#slPrincipal", "500000"), ("#slRate", "20"), ("#slTenure", "30"))
+        for selector, value in largest:
+            page.locator(selector).evaluate(
+                """(el, value) => {
+                    el.value = value;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                }""",
+                value,
+            )
+        expect(hero_value).not_to_have_text(initial_value)
+
+        def kpis_offset() -> float:
+            return float(
+                page.evaluate(
+                    """() => {
+                        const top = (selector) => document.querySelector(selector)
+                            .getBoundingClientRect().top;
+                        return top('#metrics .loan-kpis') - top('#metrics');
+                    }"""
+                )
+            )
+
+        before = kpis_offset()
+        page.locator("#btnAdd").click()
+        page.locator('.extra-item [data-field="amount"]').fill("20000")
+        expect(page.locator("#metrics .chip")).to_contain_text("sooner")
+        expect(page.locator("#metrics .loan-hero-sub")).to_contain_text("in extra payments")
+        assert abs(kpis_offset() - before) < 1, "the savings chip moved the KPIs"
 
 
 @app_scope_skipif("vendor-docs-generator")
