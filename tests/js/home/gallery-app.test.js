@@ -560,6 +560,11 @@ function createGalleryHarness({
         const parsed = new URL(url, 'https://example.test');
         windowObj.location.pathname = parsed.pathname;
         windowObj.location.search = parsed.search;
+      },
+      replaceState(_state, _title, url) {
+        const parsed = new URL(url, 'https://example.test');
+        windowObj.location.pathname = parsed.pathname;
+        windowObj.location.search = parsed.search;
       }
     },
     location: {
@@ -1627,6 +1632,7 @@ test('a dropdown button whose panel is missing does nothing', () => {
   orphan.parentElement = harness.elements.filterDropdowns;
   assert.doesNotThrow(() => harness.elements.filterDropdowns.dispatch('click', { target: orphan }));
   assert.equal(orphan.getAttribute('aria-expanded'), null);
+});
 
 test('a page turn scrolls the book back into view only when its top is above the screen', () => {
   const harness = createGalleryHarness();
@@ -1655,6 +1661,9 @@ test('the notepad shows one artifact per page and keeps the reader in place acro
   harness.setNotepadLayout(false);
   assert.equal(harness.elements.grid.cards.length, 4);
   assert.match(harness.elements.galleryStatus.textContent, /page 2 of 4/, 'the fifth artifact sits on book page 2');
+  // The URL follows, so a reload opens the same page, without adding a history entry.
+  assert.match(harness.windowObj.location.search, /page=2/);
+  assert.equal(harness.historyCalls.length, 0);
 
   harness.setNotepadLayout(false);
   assert.match(harness.elements.galleryStatus.textContent, /page 2 of 4/, 'a change that keeps the layout leaves the page alone');
@@ -1662,6 +1671,8 @@ test('the notepad shows one artifact per page and keeps the reader in place acro
   harness.setNotepadLayout(true);
   assert.equal(harness.elements.grid.cards.length, 1);
   assert.match(harness.elements.galleryStatus.textContent, /page 5 of 13/);
+  assert.match(harness.windowObj.location.search, /page=5/);
+  assert.equal(harness.historyCalls.length, 0);
 });
 
 test('notepad swipes turn the page up for next and down for previous', async () => {
@@ -1698,9 +1709,12 @@ test('notepad swipes turn the page up for next and down for previous', async () 
 
   swipe(0, -120);
   const card = harness.elements.grid.cards[0];
-  harness.elements.grid.dispatch('click', { target: card });
+  const leftover = harness.elements.grid.dispatch('click', { target: card });
   await settleMicrotasks();
   assert.equal(harness.elements.detailOverlay.classList.contains('visible'), false, 'the click a swipe leaves behind does not open the card');
+  assert.equal(leftover.defaultPrevented, true, 'nor does it follow the open link it may have landed on');
+  const nextClick = harness.elements.grid.dispatch('click', { target: new FakeElement({ tagName: 'SPAN' }) });
+  assert.equal(nextClick.defaultPrevented, false, 'only that one click is swallowed');
 
   harness.setNotepadLayout(false);
   swipe(0, -120);
@@ -1714,5 +1728,3 @@ test('the notepad blocks native drags so a mouse swipe on the photo or link stil
   harness.setNotepadLayout(false);
   assert.equal(harness.book.sheet.dispatch('dragstart').defaultPrevented, false);
 });
-});
-

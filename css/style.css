@@ -1151,8 +1151,10 @@ button {
 }
 
 /* Only the hovered corner grows, from 22px to 44px, and it scales from the page corner. */
-.book-sheet .book-peel:hover {
-  transform: scale(2);
+@media (hover: hover) {
+  .book-sheet .book-peel:hover {
+    transform: scale(2);
+  }
 }
 
 .book-sheet[data-has-previous="false"] .book-peel-left,
@@ -1692,13 +1694,15 @@ button {
   border-radius: 1px;
 }
 
-.desk-note:hover {
-  z-index: 100;
-  opacity: 1;
-  transform: rotate(var(--rotate, 0deg)) translateY(-4px);
-  box-shadow:
-    4px 8px 12px rgba(0, 0, 0, 0.15),
-    inset 0 0 20px rgba(0, 0, 0, 0.05);
+@media (hover: hover) {
+  .desk-note:hover {
+    z-index: 100;
+    opacity: 1;
+    transform: rotate(var(--rotate, 0deg)) translateY(-4px);
+    box-shadow:
+      4px 8px 12px rgba(0, 0, 0, 0.15),
+      inset 0 0 20px rgba(0, 0, 0, 0.05);
+  }
 }
 
 .desk-note.is-active {
@@ -1996,11 +2000,22 @@ button {
   --tape: var(--color-note-6);
 }
 
-.artifact-card:hover,
 .artifact-card:focus-visible,
 .artifact-card.expanded {
   transform: translateY(-4px) rotate(var(--note-hover-rotate));
   z-index: 2;
+}
+
+/* A tap counts as hover on touch screens, so only a real pointer lifts a card on hover. */
+@media (hover: hover) {
+  .artifact-card:hover {
+    transform: translateY(-4px) rotate(var(--note-hover-rotate));
+    z-index: 2;
+  }
+
+  .artifact-card:hover .card-note {
+    box-shadow: 3px 8px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  }
 }
 
 /* The card behind the open overlay stays flat on the page. */
@@ -2090,7 +2105,6 @@ button {
   background: var(--card-bg-color, var(--color-bg-card));
 }
 
-.artifact-card:hover .card-note,
 .artifact-card:focus-visible .card-note,
 .artifact-card.expanded .card-note {
   box-shadow: 3px 8px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);

@@ -551,8 +551,11 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   registerThumbnailFallback(documentObj.getElementById('book-sheet') ?? grid);
 
   grid.addEventListener('click', (event) => {
+    // The click a page-turn swipe leaves behind is swallowed whole, so a swipe that started on
+    // the notepad's open link does not also open the artifact in a new tab.
     if (swipeTurned) {
       swipeTurned = false;
+      event.preventDefault();
       return;
     }
 
@@ -718,8 +721,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   /**
    * Switching between the book and the notepad changes how many artifacts a page holds, so the
-   * reader moves to the page that holds the first artifact they were looking at. Leaving the
-   * notepad brings the desk notes back, so an open filter panel has nothing left to cover.
+   * reader moves to the page that holds the first artifact they were looking at, and the URL
+   * follows so a reload lands there too. Leaving the notepad brings the desk notes back, so an
+   * open filter panel has nothing left to cover.
    */
   function onLayoutChange() {
     if (!notepadQuery.matches) {
@@ -736,6 +740,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     currentPage = Math.floor(((currentPage - 1) * pageSize) / nextSize) + 1;
     pageSize = nextSize;
     renderContent();
+    replaceState();
   }
 
   /**
@@ -878,6 +883,15 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     const currentUrl = `${windowObj.location.pathname}${windowObj.location.search}`;
     if (nextUrl !== currentUrl) {
       windowObj.history.pushState(null, '', nextUrl);
+    }
+  }
+
+  /** Rewrite the current history entry, for a page change the reader did not navigate to. */
+  function replaceState() {
+    const nextUrl = buildStateUrl();
+    const currentUrl = `${windowObj.location.pathname}${windowObj.location.search}`;
+    if (nextUrl !== currentUrl) {
+      windowObj.history.replaceState(null, '', nextUrl);
     }
   }
 
