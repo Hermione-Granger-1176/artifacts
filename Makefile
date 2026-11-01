@@ -549,7 +549,7 @@ help-json: ## Emit groups and commands as JSON
 
 # ─── Git @git ─────────────────────────────────────────────────────────────────
 
-.PHONY: git branches branch branch-current branch-prune worktree worktree-remove rebase-main rebase-continue sync-branch squash stage stage-all commit push push-force log log-file diff diff-staged
+.PHONY: git branches branch branch-current switch branch-prune worktree worktree-remove rebase-main merge-main rebase-continue sync-branch squash stage stage-all commit push push-force log log-file diff diff-staged
 
 git: ## Git commands (make git)
 	@$(MAKE) --no-print-directory help-git
