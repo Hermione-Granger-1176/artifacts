@@ -437,6 +437,16 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         session.goto("/apps/vendor-docs-generator/")
         page.wait_for_function("window.__ARTIFACT_READY__ === true")
 
+        # Deferred and module scripts run in document order, so the app module
+        # has to come after the vendor bundles that its export and scan-preview
+        # handlers call.
+        script_srcs = page.evaluate("[...document.scripts].map((s) => s.getAttribute('src') || '')")
+        # Site assembly appends a ?v= content hash to the app module.
+        app_index = next(i for i, src in enumerate(script_srcs) if src.startswith("./js/app.js"))
+        vendor_indexes = [i for i, src in enumerate(script_srcs) if src.startswith("./js/vendor/")]
+        assert len(vendor_indexes) == 4
+        assert max(vendor_indexes) < app_index, "app.js must run after the vendored libraries"
+
         # The fitted preview must show the whole page without ever scrolling:
         # that is the entire reason the frame clips and the overlay exists.
         fit = page.evaluate(
