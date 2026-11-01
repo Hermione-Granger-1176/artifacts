@@ -57,6 +57,8 @@ The root filter UI is rendered as desk notes by `buildFilterNotes()` in `js/modu
 
 The search field appears above the book, beside sort and reset controls. `#search-count` shows the number of matches during a search. `#gallery-status` announces that result to screen readers. The `/` shortcut focuses the search field.
 
+The search runs `SEARCH_DELAY_MS` (400ms) after the last keystroke, so a typed word runs one search instead of one per key, even for slow typists. Enter searches at once, and an emptied field shows every artifact at once.
+
 `.sort-toggle::after` supplies the visible label, "newest" or "oldest". The accessible button name includes the same label.
 
 ## Book scene
@@ -69,11 +71,15 @@ The endpaper, settled pages, and turning leaf faces share the same ruled-paper p
 
 `startIntro()` releases the ribbon and starts the cover turn before the ribbon animation finishes. The cover rotates 180 degrees around the spine while the book moves to its centered-open position.
 
+The book's shadow opens with the cover on the compositor. `.book-shadow` in `css/src/02-gallery.css` holds a soft-edged mask whose edge sits on the spine while the book is closed; the intro slides the masked box and the shadow inside it home in opposite directions, so only the mask edge moves and only transforms animate. The page-stack edges animate their depth only once the book is open, so they take their first depth without growing in.
+
 The left page stays hidden until the cover lands. The inside cover contains a copy of the first left page. After landing, the live page replaces that copy without a fade or position change.
 
 ### Page turns and requests
 
 A turning leaf has two faces and matches the settled page dimensions. Its front shows the source page, its back shows the destination page, and the page underneath already contains destination content.
+
+One pose function, `leafPose()`, gives the leaf's angle and shading for any turn progress. A drag applies it on each pointer move. A button or page-number turn samples it into Web Animations keyframes (`leafTurnTracks()`) with the ease-in-out curve baked into the keyframe offsets, so the compositor plays the same curve without a main-thread frame loop. Halfway appears twice, so the shading still switches there at once.
 
 Dragging an outer edge or bottom corner moves the leaf with the pointer. Releasing beyond `DRAG_COMPLETE_THRESHOLD` (45%) completes the turn. An earlier release returns the leaf to its starting position. `.book-sheet` uses `touch-action: pan-y pinch-zoom` so horizontal drags turn pages while vertical scrolling and zoom remain available.
 
