@@ -622,6 +622,11 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
    * @returns {Promise<void>} Settles when every animation has finished or been stopped.
    */
   async function animateTurn(turn, tracks, options) {
+    // Without Web Animations there is nothing to play, so the turn lands at once.
+    if (!tracks.every(([element]) => typeof element.animate === 'function')) {
+      return;
+    }
+
     /** @type {Animation[]} */
     const animations = [];
     turn.cancelTween = () => animations.forEach((animation) => animation.cancel());

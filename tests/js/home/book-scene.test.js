@@ -757,6 +757,23 @@ test('turnPage renders without animating when animation frames are unavailable',
   assert.deepEqual(noCancel.model.commits, [2]);
 });
 
+test('turnPage lands the page without throwing when Web Animations are unavailable', async () => {
+  const harness = createHarness({ open: true });
+  const realAnimate = FakeElement.prototype.animate;
+  FakeElement.prototype.animate = undefined;
+  try {
+    const turned = harness.scene.turnPage(2);
+    await harness.advance(1000);
+    await turned;
+  } finally {
+    FakeElement.prototype.animate = realAnimate;
+  }
+  assert.deepEqual(harness.model.commits, [2]);
+  assert.equal(harness.errors.length, 0);
+  assert.equal(harness.leafOf(), undefined);
+  assert.ok(!harness.sheet.classList.contains('is-turning'));
+});
+
 test('turnPage during the intro commits at once and keeps the latest request', async () => {
   const harness = createHarness({ open: true });
   harness.scene.turnPage(2);
