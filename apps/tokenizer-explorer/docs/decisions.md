@@ -32,6 +32,10 @@ The prompt chips and the tokenization examples both show leading spaces, so one 
 
 `drawToken()` and `tallyDraws()` accept an injectable random callback. The app uses `Math.random`, while tests can use deterministic rolls to verify token selection and tally aggregation exactly.
 
+## Why hidden copies reserve height
+
+The prompt, insight line, and sample status change length with the scenario and slider values, which would shift everything below them. A fixed `min-height` fails because line counts depend on the card width. Instead each live text shares one grid cell with hidden copies of every possible text, so the browser sizes the cell to the tallest one at any width. The cost is extra hidden DOM (16 insight copies, 2 status copies, 6 prompt copies). The insight copies are written for the longest candidate word, and a test checks that every slider setting maps to a reserved line.
+
 ## Why the shared app system is reused
 
 The page shares the bond explainer's controls and theme. Shared tokens, control fields, the shared inset-pill segmented skin (`.is-inset`), header chrome, and theme behavior keep that cohesion while tokenizer-specific layout selectors stay in the app-local stylesheet.

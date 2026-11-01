@@ -3,7 +3,7 @@
  *
  * They record the calls the renderers and exporters make rather than
  * producing real files, which is what lets the PDF and batch paths be tested
- * under Node without a browser or a 700KB UMD bundle.
+ * under Node without a browser or a 420KB UMD bundle.
  */
 
 /** Average glyph advance as a fraction of the point size, for measurement. */

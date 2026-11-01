@@ -6,10 +6,8 @@
  * and the jsPDF renderer walk that same list. One model means the two renderers
  * cannot disagree about the *facts* of a document.
  *
- * They can still disagree about its *appearance*, and for a long time they did:
- * the PDF ignored the vendor font, alignment and logo entirely. Sharing a model
- * is not the same as sharing a layout engine, and the docs used to claim it
- * was.
+ * Appearance is not shared. The PDF renderer has its own layout code, because
+ * sharing a model is not the same as sharing a layout engine.
  *
  * @module document-model
  */

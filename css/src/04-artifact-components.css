@@ -60,10 +60,9 @@ body.artifact-app .btn:disabled {
 /* Reusable artifact app controls and feedback. */
 
 /*
- * Segmented control: .segmented is the canonical skin. .type-toggle is grouped
- * into the same rule sets so it renders exactly as before while sharing one
- * source of truth. .is-fused is the joined, shared-border look that
- * .type-toggle uses.
+ * Segmented control: .segmented is the canonical skin. .type-toggle shares
+ * its rule sets, so both render from one source. .is-fused is the joined,
+ * shared-border look that .type-toggle uses.
  */
 
 body.artifact-app .segmented {

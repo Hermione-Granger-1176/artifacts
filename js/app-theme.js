@@ -10,9 +10,9 @@
     return theme === "dark" ? "dark" : defaultTheme;
   }
 
-  // This file runs synchronously in <head> before ES modules load.
-  // It cannot import from runtime.js. The inline localStorage access
-  // is intentional.
+  // This classic script runs in <head> before ES modules load, so it cannot
+  // import runtime.js and reads localStorage directly.
+  /** @returns {string | null} The saved theme, or null when storage is empty or throws. */
   function readStoredTheme() {
     try {
       return globalObject.localStorage?.getItem(storageKey);
@@ -36,6 +36,7 @@
     return normalizedTheme;
   }
 
+  // app-shell.js reads these helpers from the global, so it does not duplicate them.
   globalObject.__ARTIFACTS_APP_THEME_BOOTSTRAP__ = {
     applyDocumentTheme,
     defaultTheme,

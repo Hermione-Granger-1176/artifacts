@@ -1091,8 +1091,8 @@ def test_validate_artifact_item_rejects_bad_url_shape(tmp_path: Path) -> None:
 
 def test_validate_artifact_item_accepts_null_thumbnail(tmp_path: Path) -> None:
     """Validate artifact item accepts null thumbnail."""
-    # Generation now always emits the contract thumbnail path, but a null
-    # thumbnail remains a valid legacy/external value and must pass untouched.
+    # Generation always emits the contract thumbnail path, but a null thumbnail
+    # is still valid for externally supplied items and must pass untouched.
     config = make_config(tmp_path)
     assert (
         index_sources.validate_artifact_item(

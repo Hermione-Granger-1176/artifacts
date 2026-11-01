@@ -13,10 +13,10 @@
  * so a consumer multiplies by whatever image size they actually have and never
  * has to know what those three happened to be.
  *
- * The honest caveat, recorded on every payload rather than buried here: these
- * boxes are measured on the HTML page, so they describe the PNG and the
+ * These boxes are measured on the HTML page, so they describe the PNG and the
  * rasterised PDF. They do not describe the text-layer PDF, which jsPDF lays out
- * independently in its own coordinate system.
+ * independently in its own coordinate system. `boxes_apply_to` records this on
+ * every payload.
  *
  * @module annotate-boxes
  */
@@ -253,10 +253,9 @@ function warpBox([x, y, width, height], matrix) {
 /**
  * Move every box on a page through a transform.
  *
- * Called with whatever geometry the degradation pass applied, so the labels
- * describe the image that was actually written rather than the clean render it
- * started from. This is the join between degradation and annotation: skew, rotation, and
- * keystone move the ink, and without this the boxes would keep pointing at
+ * Called with the geometry the degradation pass applied, so the labels describe
+ * the image that was written rather than the clean render. Skew, rotation, and
+ * keystone move the ink, and without this step the boxes would keep pointing at
  * where the ink used to be.
  * @param {BoxAnnotations | null} boxes - Boxes measured on the clean page.
  * @param {Matrix3} matrix - Transform in normalised page coordinates.

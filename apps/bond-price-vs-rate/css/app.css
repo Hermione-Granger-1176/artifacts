@@ -215,8 +215,8 @@ body.app-bond-price-vs-rate .br-chapter.is-current .br-chapter-num {
 
 /*
  * Chapters out of view are muted: the heading drops to the secondary text
- * colour, the badge stays hollow, and the charts fade. Body text keeps its
- * full colour because fading it with opacity would push it below the 4.5:1
+ * color, the badge stays hollow, and the charts fade. Body text keeps its
+ * full color because fading it with opacity would push it below the 4.5:1
  * contrast floor. Muting only applies once the tracker is running, so no
  * chapter is ever left faded without it.
  */

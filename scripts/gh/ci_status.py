@@ -1,7 +1,7 @@
 """CI run inspection: find the current branch's latest run and its failures.
 
-Replaces the manual ``gh run list`` -> ``gh run view --log-failed`` dance with
-a single command that prints only what is needed to triage a red run.
+One command prints what is needed to triage a red run, in place of chaining
+``gh run list`` and ``gh run view --log-failed`` by hand.
 """
 
 from __future__ import annotations

@@ -71,7 +71,7 @@ export function bpeTokenize(text) {
 }
 
 /**
- * Deterministic djb2-style hash mapped into a 5-digit pseudo token ID.
+ * Deterministic djb2-style hash mapped into a pseudo token ID from 100 to 99999.
  * @param {string} value
  * @returns {number}
  */

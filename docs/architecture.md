@@ -2,47 +2,48 @@
 
 This document explains how the browser runtime, build scripts, and deployment pipeline work together.
 
-- [`workspace.md`](workspace.md) is the canonical reference for file ownership, generated outputs, and source-of-truth locations.
+- [`workspace.md`](workspace.md) owns file ownership, generated outputs, and source-of-truth locations.
 - [`operations.md`](operations.md) owns day-to-day commands, troubleshooting, and recovery runbooks.
 - [`maintenance.md`](maintenance.md) owns long-term stability contracts and review expectations.
 
-The workflow files and helper scripts remain the executable source of truth. This document records the intended architecture and cross-component boundaries.
+The workflow files and helper scripts are the executable source of truth. This document records the intended design and the boundaries between components.
 
 ## Overview
 
-This repository is a publishing platform for interactive HTML artifacts, hosted on GitHub Pages. Apps are self-contained HTML pages under `apps/`. The platform provides gallery rendering, thumbnails, metadata, PR previews, deployment, and verification.
+This repository publishes interactive HTML artifacts on GitHub Pages. Each app is a self-contained HTML page under `apps/`. The platform renders the gallery, generates thumbnails and metadata, deploys PR previews and the main site, and verifies each deploy.
 
 The system has three layers:
 
-1. **Runtime**: how the gallery works in the browser
-2. **Build**: how metadata, thumbnails, and the deployable site are generated
-3. **CI/CD**: how code flows from commit to live site with safety checks at every step
+1. The runtime layer is the gallery in the browser.
+2. The build layer generates metadata, thumbnails, and the deployable site.
+3. The CI/CD layer carries a commit to the live site and runs checks at each step.
 
 ## Runtime layer
 
-The deployed site is static HTML with a generated data layer.
+The deployed site is static HTML plus generated data files. [`frontend.md`](frontend.md) describes each module in detail.
 
-- `index.html` loads the gallery shell
-- The ordered `css/src/` partials provide root-gallery styling, shared app tokens, shell rules, reusable app components, utilities, and responsive rules. `make styles` bundles them into the single public `css/style.css` asset. Mature apps load only app-specific composition and layout rules from `apps/<slug>/css/app.css` after that shared asset.
-- `js/app.js` bootstraps runtime validation and initializes the gallery
-- `js/modules/gallery/*` split the gallery into config validation, catalog helpers, render helpers, book-scene motion, URL state, and the main orchestrator
-- `js/modules/runtime.js`, `js/modules/element-cache.js`, `js/modules/html-escape.js` provide shared utilities used by both the gallery and app modules
-- `js/gallery-config.js` (generated) provides shared display metadata
-- `js/data.js` (generated) provides artifact metadata
-- `js/app-theme.js` and `js/modules/app-shell.js` define the shared mature-app runtime system
-- `apps/*/index.html` pages are the artifact entry points, with app-local JS and docs alongside them
+- `index.html` is the gallery shell.
+- The ordered `css/src/` partials hold the gallery styles, shared app tokens, shell rules, reusable app components, utilities, and responsive rules. `make styles` bundles them into the single public `css/style.css`. A mature app loads `css/style.css` first and then its own composition and layout rules from `apps/<slug>/css/app.css`.
+- `js/app.js` validates the bootstrap data and initializes the gallery.
+- `js/modules/gallery/*` holds the gallery modules: config validation, catalog helpers, render helpers, the book scene, URL state, the detail overlay, and the `gallery-app.js` orchestrator.
+- `js/modules/runtime.js` and `js/modules/html-escape.js` are shared by the gallery and the apps. `js/modules/element-cache.js` and the other shared modules in `js/modules/` serve the apps.
+- `js/gallery-config.js` (generated) holds the shared display metadata.
+- `js/data.js` (generated) holds the artifact metadata.
+- `js/app-theme.js`, `js/modules/app-shell.js`, and `js/modules/app-runtime.js` form the shared mature-app system.
+- `apps/*/index.html` is each artifact's entry point, with app-local JS and docs beside it.
 
 ### How the gallery loads
 
-1. `index.html` loads the stylesheet and scripts
-2. `js/gallery-config.js` defines `window.ARTIFACTS_CONFIG`
-3. `js/data.js` defines `window.ARTIFACTS_DATA`
-4. `js/app.js` validates bootstrap data and calls `initializeGalleryApp`
-5. `js/modules/gallery/gallery-app.js` restores URL-synced search, filters, sort, and manages theme, overlays, keyboard shortcuts, cards, and pagination
-6. `js/modules/gallery/book-scene.js` animates the scrapbook cover and page turns, including pointer-driven dragging
-7. Clicking a card lazily loads `detail-overlay.js` via dynamic `import()` and opens the detail panel; subsequent clicks use the cached module
+1. `index.html` runs the classic script `js/app-theme.js` in the head, then loads `css/style.css`.
+2. `js/gallery-config.js` defines `window.ARTIFACTS_CONFIG`.
+3. `js/data.js` defines `window.ARTIFACTS_DATA`.
+4. The classic script `js/boot-guard.js` waits 8 seconds. If the module has not marked the runtime ready by then, it reveals the `#runtime-error` banner.
+5. The module `js/app.js` runs on `DOMContentLoaded`. It validates the bootstrap data, calls `initializeGalleryApp`, and marks the runtime ready.
+6. `js/modules/gallery/gallery-app.js` restores URL-synced search, filters, and sort, and manages theme, overlays, keyboard shortcuts, cards, and pagination.
+7. `js/modules/gallery/book-scene.js` animates the scrapbook cover and page turns, including pointer-driven dragging.
+8. The first click on a card loads `detail-overlay.js` with a dynamic `import()` and opens the detail panel. Later clicks reuse the cached module.
 
-The gallery never inspects artifact HTML directly. It depends entirely on generated metadata.
+The gallery never reads artifact HTML. It depends entirely on the generated metadata.
 
 ## Build layer
 
@@ -55,33 +56,42 @@ The gallery never inspects artifact HTML directly. It depends entirely on genera
 - Resolves thumbnails from `thumbnail.webp`
 - Writes `js/gallery-config.js` and `js/data.js`
 - Updates README auto markers (site URL, counts, badges)
+- Checks artifact folders in `make validate`, which calls `validate()` in the same module
+
+### Stylesheet bundling (`scripts/build/generate_styles.py`)
+
+- Concatenates the `css/src/NN-name.css` partials in filename order into `css/style.css`
+- Rejects symlinks, filenames that do not match `NN-name.css`, and a light and dark theme pair that does not declare the same tokens on the same lines
 
 ### Thumbnail generation (`scripts/build/generate_thumbnails.py`)
 
-- Serves the repo over local HTTP so app pages load shared CSS/JS
+- Serves the repo over local HTTP so app pages load shared CSS and JS
+- Skips an artifact whose thumbnail is newer than its runtime files
 - Opens each artifact page in Playwright
 - Waits for `window.__ARTIFACT_READY__ !== false` before capture
-- Captures, resizes, and writes a WebP thumbnail
+- Captures, resizes to at most 960 pixels wide, and writes a WebP thumbnail, retrying a failed screenshot up to three times
+- Reads `ARTIFACTS_THUMBNAIL_SLUGS` or a shard manifest to limit the run to some artifacts
 
 ### Deployable site assembly (`scripts/build/prepare_site.py`)
 
-- Copies site files into `_site/`
-- Omits build-only `css/src/` partials because they are already bundled into `css/style.css`
-- Applies cache-busting query strings to root assets
-- Injects canonical, Open Graph, and Twitter share metadata
+- Copies `404.html`, `assets/`, `css/`, `index.html`, and `js/` into `_site/`
+- Copies only the runtime files of each app (`index.html`, `css/`, `js/`, `assets/`, and `thumbnail.webp`), so app docs and metadata stay out of the site
+- Omits the build-only `css/src/` partials because `css/style.css` already bundles them
+- Appends a content-hash `?v=` query string to the root asset URLs and to each app's shared and app-local CSS and JS URLs
+- Injects canonical, Open Graph, and Twitter share metadata into the root page and each app page
 - Injects the configured site path into `404.html` and the web app manifest
-- Injects `<link rel="modulepreload">` hints by walking the static ES module import tree for each HTML entry point
-- Minifies CSS and JS assets using esbuild (skips vendor and already-minified files)
+- Injects `<link rel="modulepreload">` hints by walking the static ES module import tree of each HTML entry point
+- Minifies CSS and JS with esbuild, skipping vendored and already-minified files, and logs a warning instead when esbuild is missing
 - Writes `deploy-metadata.json` with the deploy commit SHA and version
-- Writes `.nojekyll` for branch-based Pages deployment
+- Writes `.nojekyll`, which GitHub Pages needs to serve the files without Jekyll processing
 
 ## CI/CD layer
 
 ### Main pipeline (`update.yml`)
 
-This is the core workflow. It triggers on every push to `main`, every PR event (opened, reopened, synchronize, closed), a weekly scheduled full-sweep (`cron: 23 4 * * 0`, Sunday 04:23 UTC), and manual dispatch (whose `full-sweep` input defaults to true).
+This is the core workflow. It runs on every push to `main`, on every PR event (opened, reopened, synchronize, closed), on a weekly full sweep (`cron: 23 4 * * 0`, Sunday 04:23 UTC), and on manual dispatch, whose `full-sweep` input defaults to true.
 
-A single `plan` job fans out into parallel verification jobs (quick gates, heavy checks, root browser, and a dynamic app-shard matrix). Those feed a single-pass `assemble-site` job that builds and uploads `_site/`. An aggregation-only `verify` job then gates the write path (`publish`, `save-app-ledger`, `persist-thumbnails`). See [ADR 0005](adr/0005-ci-scaling-architecture-and-roadmap.md) for the scaling rationale.
+The `plan` job fans out into parallel verification jobs: quick gates, heavy checks, root browser tests, and a dynamic matrix of app shards. Their results feed the `assemble-site` job, which builds and uploads `_site/` once. The `verify` job only aggregates results and gates the write path (`publish`, `save-app-ledger`, `persist-thumbnails`). [ADR 0005](adr/0005-ci-scaling-architecture-and-roadmap.md) records the scaling rationale.
 
 ```mermaid
 graph TD
@@ -140,7 +150,7 @@ graph TD
 
 ### Pipeline walkthrough by scenario
 
-Each scenario shows how its trigger affects job dependencies and data flow. The workflow YAML and helper scripts define the exact steps, permissions, and conditions.
+Each scenario shows how its trigger changes job dependencies and data flow. The workflow YAML and helper scripts define the exact steps, permissions, and conditions.
 
 #### Scenario 1: Push a commit to a same-repo PR branch
 
@@ -151,10 +161,10 @@ Trigger: `pull_request` event with `action: opened | reopened | synchronize`. Th
 - **`plan`** (timeout: 5 min, permissions: contents read, pull-requests read)
   - Calls `scripts/ci/workflow_helpers.py thumbnail-plan` with the event context.
   - Reads changed paths from the local three-dot Git diff between the base and head commits.
-  - Classifies each changed file: per-app runtime change (`apps/<slug>/index.html`, `apps/<slug>/js/`, `apps/<slug>/assets/`, `apps/<slug>/css/`), metadata change (`name.txt`, `description.txt`, `tags.txt`, or `tools.txt`), docs change, or shared runtime change (`css/style.css`, `js/app-theme.js`, and anything under `js/modules/` outside `js/modules/gallery/`).
+  - Classifies each changed file with `runtime_change_plan` in `scripts/lib/app_discovery.py`. A change to an app's `index.html`, `js/`, `css/`, or `assets/` marks that app as changed. A change to an app's `docs/`, `README.md`, or metadata files (`name.txt`, `description.txt`, `tags.txt`, `tools.txt`) marks nothing. A change to `css/style.css`, `js/app-theme.js`, or `js/modules/app-shell.js` marks every app. A change to another file under `js/modules/`, outside `js/modules/gallery/`, marks the apps that import it through static module imports, or every app when no app imports it. A change to a shared app browser test under `tests/browser/` widens only the browser scope to every app.
   - Resolves the primary app bot login dynamically from `vars.APP_ID` / `secrets.APP_PRIVATE_KEY` via `actions/create-github-app-token` (with `continue-on-error: true` for forks and Dependabot PRs where secrets are unavailable).
   - Computes `skip-verification`: `true` only when the workflow actor matches the resolved app bot login AND every file in the triggering commit is a thumbnail. For main pushes from merged thumbnail follow-up PRs, the commit-level files check is applied as defense-in-depth alongside existing PR provenance detection. Any detection failure defaults to `false` (full pipeline runs).
-  - Packs the affected apps into a bounded shard matrix and restores the main-verified ledger from the Actions cache, then applies memoization (`make ci-apply-app-ledger`) so apps whose input hash already passed on `main` drop out of the browser shards. Any ledger read failure falls open to full verification.
+  - Packs the affected apps that have a `js/app.js` into a shard matrix of 20 apps per shard, with at most 128 shards. It restores the main-verified ledger from the Actions cache and applies it with `make ci-apply-app-ledger`, so apps whose input hash already passed on `main` drop out of the browser shards. A ledger read failure falls back to full verification.
   - Uploads the full plan (with slug lists) as artifact `ci-plan-{run_id}`; job outputs stay small so Actions output limits cannot truncate large app changes.
   - Outputs: `browser-scope` (all / changed / none), `thumbnail-scope` (all / changed / none), `shard-matrix`, `shard-count`, `persist-mode` (pr-branch), `reason`, `skip-verification`.
   - Reads: PR branch code (checkout), the app-ledger cache. Writes: nothing (uploads the plan artifact).
@@ -210,9 +220,9 @@ All of these are skipped when the planner sets `skip-verification: true` (automa
   - Skipped alongside the verification jobs when `skip-verification: true`.
   - Will not start unless `verify` succeeded; `verify` in turn already required `secret-scan` to pass and `dependency-review` to pass or be skipped.
   - Step by step:
-    1. Checks out the PR branch code (for `pyproject.toml` reading only, `persist-credentials: false`).
-    2. Runs `ci-setup` action: calls `scripts/ci/workflow_helpers.py app-token-policy` → tokens allowed (same-repo, not fork, not Dependabot). Mints Hermione1176 (primary) and Harry1176 (escalation) tokens, installs Python and Node behind the shared dependency caches, and explicitly requests host Chromium with `browser-engines: chromium` because this mixed job runs live browser verification alongside GitHub CLI and Pages deployment operations. Pure browser jobs use the official container instead of this host browser path.
-    3. Downloads the `site-{run_id}` artifact into `_site/`. Does NOT rebuild anything.
+    1. Checks out `BUILD_REF` with `persist-credentials: false`.
+    2. Runs the `ci-setup` action. It calls `scripts/ci/workflow_helpers.py app-token-policy`, which allows tokens for a same-repo PR that is not from Dependabot. It mints the Hermione1176 (primary) and Harry1176 (escalation) tokens, installs Python and Node dependencies behind the shared caches, and installs host Chromium with `browser-engines: chromium`, because this job runs live browser verification next to GitHub CLI and Pages deployment steps. Browser-only jobs use the official container instead.
+    3. Downloads the `site-{run_id}` artifact into `_site/`. It rebuilds nothing.
     4. Reads site URL from `pyproject.toml`, constructs preview URL: `{site_url}/pr-preview/pr-{N}/`.
     5. Commits `_site/` to `gh-pages` under `pr-preview/pr-{N}/` using `deploy-verified.mjs` with `DEPLOY_SUBDIR`. This is a verified GraphQL commit using the Harry1176 (escalation) token. Only touches that subdirectory. The main site and other PR previews are untouched.
     6. Fetches the exact `gh-pages` commit it just produced, materializes the full branch tree into `.artifacts/pages-publish`, rejects symlinks, keeps `.nojekyll`, uploads that full tree with `actions/upload-pages-artifact`, and deploys it with `actions/deploy-pages`.
@@ -232,15 +242,15 @@ All of these are skipped when the planner sets `skip-verification: true` (automa
     5. Re-checks the PR HEAD SHA via `gh pr view`. If the PR branch has been pushed to since the workflow started (stale), skips the commit to avoid conflicts.
     6. If not stale: copies `thumbnail.webp` files from the artifact into the workspace, stages them with `git add`, and creates a verified commit directly on the PR branch using the Hermione1176 (primary) token with `commit-mode: direct`.
   - Reads: `thumbnail-persist-{run_id}` artifact. Writes: the PR branch (adds `apps/*/thumbnail.webp` files).
-  - This commit triggers a second workflow run (app token commits fire `synchronize` events). The planner detects it as an automated thumbnail-only commit (`skip-verification: true`), so the follow-up run skips the full verification/publish path and completes with `plan` + `secret-scan` + `dependency-review` (~2-5 min instead of ~45 min).
+  - This commit triggers a second workflow run, because commits made with an app token fire `synchronize` events. The planner detects an automated thumbnail-only commit (`skip-verification: true`), so the second run skips verification and publish and runs only `plan`, `secret-scan`, and `dependency-review`.
 
 #### Scenario 2: Push a commit to `main`
 
-Trigger: `push` event on `main` branch, or `workflow_dispatch`.
+Trigger: a `push` to `main`. A `workflow_dispatch` or the weekly `schedule` takes the same publish path with a forced full sweep, except that `persist-mode` is always `none` for those two events.
 
 The flow is identical to Scenario 1 with these differences:
 
-- **`plan`**: `persist-mode` is `followup-pr` when runtime changes or missing thumbnails require thumbnail persistence, otherwise `none`. It is never `pr-branch` because there is no PR.
+- **`plan`**: on a push, `persist-mode` is `followup-pr` when runtime changes or missing thumbnails call for persistence, and `none` otherwise. It is never `pr-branch`, because there is no PR.
 - **`dependency-review`**: does not run (not a PR event). `verify` treats it as `skipped`, which is acceptable.
 - **`save-app-ledger`**: runs only here (guarded to `push` on `refs/heads/main` after `verify` succeeds). It merges the freshly main-verified app hashes into the ledger cache so later runs can memoize matching apps out of the browser shards.
 - **`publish`**: instead of deploying a preview, commits `_site/` to the **root** of `gh-pages`, replacing the live site state. On a push produced by a merged PR, resolves the associated PR, removes its `pr-preview/pr-N/` subtree, and deletes its sticky preview comment before the root commit. Other previews remain preserved so open PR previews keep working. This makes a merged PR use one Pages deployment instead of a separate close-event cleanup deployment. Uses the `deploy-site` composite action with `skip-build: true`, then uploads and deploys the full `gh-pages` tree with the official Pages Actions. Verifies and browser-tests the live production URL. It also writes a classic deployment record: after the Pages deploy it creates a `github-pages` deployment via `POST /repos/{owner}/{repo}/deployments` (with `required_contexts: []` sent through `gh api --input -` so it does not wait on status checks), then marks that deployment `success` once verification and live browser tests pass, or `failure` if the job fails after the record was created. This runs for main-site publishes only (guarded by the same main-only condition as the main deploy) so the Deployments page and environment badge stay honest. The record is created with the workflow `GITHUB_TOKEN`, which carries `deployments: write` on the publish job.
@@ -273,17 +283,17 @@ The code is fully validated but never deployed and never written back to the sou
 
 #### Branch write summary
 
-| Branch                                    | Written by            | When                                                                              | What is written                                                           |
-| ----------------------------------------- | --------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| PR branch (for example `feature/new-app`) | `persist-thumbnails`  | Same-repo PR with runtime changes and thumbnail changes                           | `apps/*/thumbnail.webp` files via verified commit (Hermione1176)          |
-| Dependabot PR branch                      | `commit-python-locks` | Same-repo Dependabot uv PRs when direct verified commit succeeds                  | `uv.lock` via verified commit                                             |
-| `ci/refresh-python-locks-*`               | `commit-python-locks` | Same-repo Dependabot uv PRs when lock refresh writeback falls back to a PR branch | Fallback PR branch containing refreshed `uv.lock`                         |
-| `ci/refresh-action-shas-*`                | `refresh-action-shas` | Monthly or manually dispatched action SHA refreshes                               | Maintenance PR branch containing workflow SHA refreshes                   |
-| `ci/refresh-playwright-*`                 | `refresh-playwright`  | Monthly or manually dispatched Playwright package and image refreshes             | Maintenance PR branch containing `uv.lock` and workflow image pin changes |
-| `ci/refresh-locks-*`                      | `refresh-locks`       | Weekly or manually dispatched dependency lock refreshes                           | Maintenance PR branch containing refreshed dependency locks               |
-| `gh-pages`                                | `publish`             | Every successful deploy (PR preview or main site)                                 | Verified commit replacing site root or preview subdirectory (Harry1176)   |
-| `gh-pages`                                | `cleanup-preview`     | Unmerged PR closed                                                                | Verified commit removing preview subdirectory (Harry1176)                 |
-| `ci/save-generated-thumbnails-*`          | `persist-thumbnails`  | Push to `main` with runtime-driven thumbnail changes or missing thumbnails        | Follow-up PR branch with `thumbnail.webp` files (Harry1176)               |
+| Branch                                    | Written by            | When                                                                              | What is written                                                                              |
+| ----------------------------------------- | --------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| PR branch (for example `feature/new-app`) | `persist-thumbnails`  | Same-repo PR with runtime changes and thumbnail changes                           | `apps/*/thumbnail.webp` files via verified commit (Hermione1176)                             |
+| Dependabot PR branch                      | `commit-python-locks` | Same-repo Dependabot uv PRs when direct verified commit succeeds                  | `uv.lock` via verified commit                                                                |
+| `ci/refresh-python-locks-*`               | `commit-python-locks` | Same-repo Dependabot uv PRs when lock refresh writeback falls back to a PR branch | Fallback PR branch containing refreshed `uv.lock`                                            |
+| `ci/refresh-action-shas-*`                | `refresh-action-shas` | Monthly or manually dispatched action SHA refreshes                               | Maintenance PR branch containing workflow SHA refreshes                                      |
+| `ci/refresh-playwright-*`                 | `refresh-playwright`  | Monthly or manually dispatched Playwright package and image refreshes             | Maintenance PR branch containing `pyproject.toml`, `uv.lock`, and workflow image pin changes |
+| `ci/refresh-locks-*`                      | `refresh-locks`       | Weekly or manually dispatched dependency lock refreshes                           | Maintenance PR branch containing refreshed dependency locks                                  |
+| `gh-pages`                                | `publish`             | Every successful deploy (PR preview or main site)                                 | Verified commit replacing site root or preview subdirectory (Harry1176)                      |
+| `gh-pages`                                | `cleanup-preview`     | Unmerged PR closed                                                                | Verified commit removing preview subdirectory (Harry1176)                                    |
+| `ci/save-generated-thumbnails-*`          | `persist-thumbnails`  | Push to `main` with runtime-driven thumbnail changes or missing thumbnails        | Follow-up PR branch with `thumbnail.webp` files (Harry1176)                                  |
 
 ```mermaid
 graph LR
@@ -319,7 +329,7 @@ graph TD
     end
 
     subgraph "Repo settings audit (weekly)"
-        audit_schedule["Monday 8:23 UTC / manual"] --> audit["audit-repo-settings<br/>Check Actions, Pages, branch protection,<br/>variables, secrets, secret scanning,<br/>gh-pages ruleset<br/>Report drift"]
+        audit_schedule["Monday 8:23 UTC / manual"] --> audit["audit-repo-settings<br/>Check Actions, Pages, branch protection,<br/>variables, secrets, secret scanning,<br/>gh-pages ruleset, leaked PR previews<br/>Report drift"]
     end
 
     subgraph "Live smoke (daily)"
@@ -335,25 +345,25 @@ graph TD
     end
 ```
 
-**Python lock refresh** keeps Dependabot uv PRs self-contained: when a Dependabot PR changes `pyproject.toml` or `uv.lock`, `refresh-python-locks.yml` runs `make lock` on the PR branch and uploads the refreshed `uv.lock` as an artifact. Then `commit-python-locks.yml` (triggered by `workflow_run`) first verifies the successful same-repository Dependabot run, including its workflow name, PR, SHA, and branch. It downloads only that run's expected artifact, rejects symlinks and missing required files, and requires the artifact metadata to match the authenticated event values before verifying the branch has not moved. The shared verified-commit flow then writes the refreshed lock back to the PR branch or falls back to a maintenance PR branch when a direct write is not possible.
+**Python lock refresh** keeps Dependabot uv PRs self-contained. When a Dependabot PR changes `pyproject.toml` or `uv.lock`, `refresh-python-locks.yml` runs `make lock` on the PR branch and uploads the refreshed `uv.lock` as an artifact. `commit-python-locks.yml`, triggered by `workflow_run`, then verifies that the run succeeded for a same-repository Dependabot PR, including its workflow name, PR, SHA, and branch. It downloads only that run's expected artifact, rejects symlinks and missing required files, requires the artifact metadata to match the authenticated event values, and checks that the branch has not moved. The shared verified-commit flow writes the refreshed lock to the PR branch, or to a maintenance PR branch when a direct write is not possible.
 
-**Action SHA pinning** runs monthly as a safety net for newly added unpinned action references. It scans all workflow files for `uses:` lines whose refs are not already full 40-character SHAs, resolves those refs to commit SHAs via the GitHub API, and opens or updates a maintenance PR for any newly pinned workflow changes. It does not advance existing full-SHA pins.
+**Action SHA pinning** runs monthly as a safety net for newly added unpinned action references. It scans the workflow files for `uses:` lines whose refs are not full 40-character SHAs, resolves those refs to commit SHAs through the GitHub API, and opens or updates a maintenance PR with the pinned references. It does not advance existing full-SHA pins.
 
-**Dependency lock refresh** runs weekly to keep transitive Python and Node lock-file dependencies current even when Dependabot does not propose a direct update. It runs `make lock` and `make lock-node`, then opens or updates a maintenance PR for any lock-file changes.
+**Dependency lock refresh** runs weekly to keep transitive Python and Node dependencies current when Dependabot proposes no direct update. It runs `make lock` and `make lock-node`, then opens or updates a maintenance PR for any lock-file changes.
 
-**Playwright CI pin refresh** runs monthly and on manual dispatch. It runs `make refresh-ci-pins`, derives the official Python Playwright image tag from the version locked in `uv.lock`, resolves the immutable registry digest, and opens or updates a maintenance PR containing the dependency and workflow pin changes together.
+**Playwright CI pin refresh** runs monthly and on manual dispatch. It runs `make refresh-ci-pins`, which derives the official Python Playwright image tag from the Playwright version in `uv.lock` and resolves the image's immutable registry digest. It opens or updates one maintenance PR that changes `pyproject.toml`, `uv.lock`, `update.yml`, and `live-site-smoke.yml` together.
 
-**Repo settings audit** runs weekly and on manual dispatch. It calls `scripts/ci/workflow_helpers.py audit-repo-settings` to check that the Actions allowlist and SHA-pinning policy, the `github-pages` deployment policies, branch protection, repository variables/secrets, GitHub secret scanning and its push protection, and the gh-pages ruleset match the expected contract. Drift is reported to the step summary, opens or updates a dedicated GitHub issue, and closes that issue automatically once the audit passes again.
+**Repo settings audit** runs weekly and on manual dispatch. It runs `make ci-audit-repo-settings`, which calls `scripts/ci/workflow_helpers.py audit-repo-settings` to compare the Actions allowlist and SHA-pinning policy, the `github-pages` deployment policies, branch protection, repository variables and secrets, secret scanning and push protection, and the `gh-pages` ruleset with the expected values. It also runs `make ci-audit-previews`, which lists the `pr-preview/pr-N/` directories on `gh-pages` and reports any whose PR is no longer open. Drift goes to the step summary and to a dedicated GitHub issue, which the workflow closes once the audit passes again.
 
-**Live site smoke** runs daily and on manual dispatch. It executes `make test-browser-live` against the published site URL, uploads Playwright failure artifacts on regression, opens or updates a dedicated GitHub issue when the live smoke test fails, and closes that issue automatically once the live site passes again.
+**Live site smoke** runs daily and on manual dispatch. It runs `make test-browser-live` against the published site URL in the official Playwright container, uploads Playwright failure artifacts on a regression, opens or updates a dedicated GitHub issue on failure, and closes the issue once the site passes again.
 
-**Deploy failure alert** reacts to every completed run of the main deploy pipeline. The scheduled monitors alert on their own failures, but a failed main-branch run of `update.yml` had no alerting, so this workflow opens, updates, or closes one alert issue to keep a broken main deploy visible. Pull request and fork runs carry a different head branch and are ignored.
+**Deploy failure alert** runs after every completed run of `update.yml`. The scheduled monitors alert on their own failures, and this workflow covers the main deploy pipeline. It opens, updates, or closes one alert issue for runs on `main` and ignores pull request and fork runs, which have a different head branch.
 
-**Schedule watchdog** runs from the `push` trigger on `main` and on manual dispatch. GitHub auto-disables cron triggers after roughly 60 days of repository inactivity, and a disabled schedule cannot open its own alert issue, so the watchdog runs from a trigger GitHub never auto-disables and checks the enabled state of workflows declaring cron schedules. A non-active workflow opens or updates the watchdog alert issue; all active workflows close it. The watchdog does not inspect run age.
+**Schedule watchdog** runs on pushes to `main` and on manual dispatch. GitHub disables cron triggers after about 60 days of repository inactivity, and a disabled schedule cannot open its own alert issue. The watchdog therefore runs from a trigger that GitHub does not disable and checks the enabled state of every workflow that declares a cron schedule. A workflow that is not active opens or updates the watchdog issue. The watchdog closes the issue when every such workflow is active. The watchdog does not read run history.
 
-**CodeQL** runs on every push to `main`, every pull request to `main`, and weekly on Monday. It analyzes JavaScript/TypeScript, Python, and GitHub Actions workflows in separate jobs, scopes the scan with `.github/codeql/codeql-config.yml` (which ignores tests, vendored app scripts, and generated gallery data), and uploads results to GitHub code scanning. It runs with least-privilege permissions (`security-events: write` plus read access) and needs no app tokens.
+**CodeQL** runs on every push to `main`, every pull request to `main`, and weekly on Monday. It analyzes JavaScript and TypeScript, Python, and GitHub Actions workflows in separate jobs, limits the scan with `.github/codeql/codeql-config.yml`, which ignores tests, vendored app scripts, and generated gallery data, and uploads results to GitHub code scanning. Its permissions are `security-events: write` plus read access, and it needs no app tokens.
 
-**Dependency audit** runs weekly on Monday and on manual dispatch. It runs `make audit-python`, `make audit-node`, `make audit-vendored`, and `make check-overrides` under `set +e`, records the combined pass or fail state, then uses `scripts/ci/workflow_helpers.py sync-alert-issue` to open or update a dedicated GitHub issue when the audit fails and close it once the audit passes again. A final step fails the run when any audit failed. It uses the plain workflow token (`issues: write`), not an app token.
+**Dependency audit** runs weekly on Monday and on manual dispatch. It runs `make audit-python`, `make audit-node`, `make audit-vendored`, and `make check-overrides` with `set +e` and records the combined result. It then runs `make ci-alert-issue`, which calls `scripts/ci/workflow_helpers.py sync-alert-issue`, to open or update a dedicated GitHub issue on failure and to close it when the audits pass. A final step fails the run when any audit failed. The workflow uses the plain workflow token (`issues: write`), not an app token.
 
 ### Workflow reference
 
@@ -382,26 +392,28 @@ graph TD
 
 ### Script dependency map
 
-| Script                                                       | Called by                                        | Purpose                                                                                                      |
-| ------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `scripts/ci/workflow_helpers.py thumbnail-plan`              | plan job                                         | Compute the full automation plan (browser/thumbnail/persist scope plus shard matrix)                         |
-| `scripts/ci/app_hashes.py apply-ledger`                      | plan job                                         | Memoize apps whose input hash already passed on `main` out of the browser shards                             |
-| `scripts/ci/app_hashes.py update-ledger`                     | save-app-ledger job                              | Record main-verified app input hashes into the ledger cache                                                  |
-| `scripts/ci/app_shards.py write-manifest`                    | app-shard job                                    | Select one shard's slugs from the plan into a standalone manifest                                            |
-| `scripts/ci/app_shards.py package-result`                    | app-shard job                                    | Package a shard manifest and its generated thumbnails for transfer                                           |
-| `scripts/ci/app_shards.py merge-results`                     | assemble-site job                                | Merge every downloaded shard thumbnail result into the checkout                                              |
-| `scripts/ci/app_shards.py invalidate-thumbnails`             | app-shard job (`make thumbnails-shard`)          | Delete stale thumbnails for a shard's slugs before regeneration                                              |
-| `scripts/ci/workflow_helpers.py app-token-policy`            | ci-setup action                                  | Decide if app tokens should be minted                                                                        |
-| `scripts/ci/workflow_helpers.py validate-thumbnail-artifact` | persist-thumbnails job                           | Validate thumbnail artifact matches the plan                                                                 |
-| `scripts/ci/workflow_helpers.py audit-repo-settings`         | audit-repo-settings workflow                     | Check Actions, Pages deployment policies, protection, variables, secrets, ruleset                            |
-| `scripts/ci/workflow_helpers.py lock-refresh-workflow-run`   | commit-python-locks workflow                     | Validate the triggering Dependabot workflow run and emit its trusted artifact and target values              |
-| `scripts/ci/workflow_helpers.py validate-lock-artifact`      | commit-python-locks workflow                     | Reject unsafe artifact trees and require metadata to match the trusted triggering run                        |
-| `scripts/ci/refresh_ci_pins.py`                              | refresh-playwright workflow                      | Update the locked Playwright package and matching official CI image digest                                   |
-| `scripts/ci/run_parallel_checks.py`                          | quick-gates and heavy-checks jobs                | Run independent Make targets concurrently with captured CI-friendly output                                   |
-| `scripts/ci/verify_deploy.py`                                | publish job                                      | Poll published URL for expected HTML marker and deploy metadata SHA                                          |
-| `scripts/gh/cli.py`                                          | local `make pr-*` and `make ci-failures` targets | Provide tested GitHub PR review-thread and failed-CI helpers                                                 |
-| `deploy-verified.mjs`                                        | deploy-site action, publish/cleanup jobs         | Deploy to gh-pages via GraphQL verified commit; handles full site, preview subdirectory, and preview removal |
-| `verified-commit.mjs`                                        | verified-commit action                           | Create verified commit via GraphQL; fall back to PR on conflict                                              |
+| Script                                                       | Called by                                                         | Purpose                                                                                                      |
+| ------------------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `scripts/ci/workflow_helpers.py thumbnail-plan`              | plan job                                                          | Compute the full automation plan (browser/thumbnail/persist scope plus shard matrix)                         |
+| `scripts/ci/app_hashes.py apply-ledger`                      | plan job                                                          | Memoize apps whose input hash already passed on `main` out of the browser shards                             |
+| `scripts/ci/app_hashes.py update-ledger`                     | save-app-ledger job                                               | Record main-verified app input hashes into the ledger cache                                                  |
+| `scripts/ci/app_shards.py write-manifest`                    | app-shard job                                                     | Select one shard's slugs from the plan into a standalone manifest                                            |
+| `scripts/ci/app_shards.py package-result`                    | app-shard job                                                     | Package a shard manifest and its generated thumbnails for transfer                                           |
+| `scripts/ci/app_shards.py merge-results`                     | assemble-site job                                                 | Merge every downloaded shard thumbnail result into the checkout                                              |
+| `scripts/ci/app_shards.py invalidate-thumbnails`             | app-shard job (`make thumbnails-shard`)                           | Delete stale thumbnails for a shard's slugs before regeneration                                              |
+| `scripts/ci/workflow_helpers.py app-token-policy`            | ci-setup action                                                   | Decide if app tokens should be minted                                                                        |
+| `scripts/ci/workflow_helpers.py validate-thumbnail-artifact` | persist-thumbnails job                                            | Validate thumbnail artifact matches the plan                                                                 |
+| `scripts/ci/workflow_helpers.py audit-repo-settings`         | audit-repo-settings workflow                                      | Check Actions, Pages deployment policies, protection, variables, secrets, ruleset                            |
+| `scripts/ci/workflow_helpers.py lock-refresh-workflow-run`   | commit-python-locks workflow                                      | Validate the triggering Dependabot workflow run and emit its trusted artifact and target values              |
+| `scripts/ci/workflow_helpers.py validate-lock-artifact`      | commit-python-locks workflow                                      | Reject unsafe artifact trees and require metadata to match the trusted triggering run                        |
+| `scripts/ci/refresh_ci_pins.py`                              | refresh-playwright workflow                                       | Update the locked Playwright package and matching official CI image digest                                   |
+| `scripts/ci/run_parallel_checks.py`                          | quick-gates and heavy-checks jobs                                 | Run independent Make targets concurrently with captured CI-friendly output                                   |
+| `scripts/ci/verify_deploy.py`                                | publish job                                                       | Poll published URL for expected HTML marker and deploy metadata SHA                                          |
+| `scripts/gh/cli.py`                                          | local `make pr-*`, `make issue-*`, and `make ci-failures` targets | Provide tested PR, issue, review-thread, and failed-CI helpers                                               |
+| `scripts/ci/workflow_helpers.py audit-previews`              | audit-repo-settings workflow                                      | List `pr-preview/pr-N/` directories on `gh-pages` whose PR is no longer open                                 |
+| `scripts/ci/workflow_helpers.py sync-alert-issue`            | alert workflows                                                   | Open, update, or close one alert issue for a monitored failure                                               |
+| `deploy-verified.mjs`                                        | deploy-site action, publish/cleanup jobs                          | Deploy to gh-pages via GraphQL verified commit; handles full site, preview subdirectory, and preview removal |
+| `verified-commit.mjs`                                        | verified-commit action                                            | Create verified commit via GraphQL; fall back to PR on conflict                                              |
 
 ### Artifact flow
 
@@ -447,7 +459,7 @@ Harry1176 (escalation) does every branch write that Hermione does not: all `gh-p
 
 Harry does not need `pages: write`: the Pages publish itself runs on the workflow `GITHUB_TOKEN` (`pages: write` plus `id-token: write` on the `publish` and `cleanup-preview` jobs), and Harry only writes the `gh-pages` branch contents. It also does not create the classic deployment record; that uses the workflow `GITHUB_TOKEN` (`deployments: write`). Verify against the app settings page before removing any grant, since the audit does not enforce the write-app permission sets.
 
-Percy1176's installation must carry exactly the permissions the audit reads, so that a 403 from `scripts/ci/repo_audit.py` unambiguously means a missing grant rather than an unrelated failure:
+Percy1176's installation must carry exactly the permissions the audit reads, so that a 403 from `scripts/lib/gh_api.py` unambiguously means a missing grant rather than an unrelated failure:
 
 - `metadata: read` (implicit, required to call any repo endpoint)
 - `administration: read` (Actions policy, branch protection, Pages environment, rulesets)
@@ -464,17 +476,17 @@ Primary + escalation inputs to `ci-setup` are all-or-nothing (the action hard-fa
 | Push to main    | Yes               | Main deploy    | Follow-up PR        |
 | Fork PR         | No                | Skip           | Skip                |
 | Dependabot PR   | No                | Skip           | Skip                |
-| Manual dispatch | Yes               | Main deploy    | Follow-up PR        |
+| Manual dispatch | Yes               | Main deploy    | Skip                |
 
 ### Thumbnail persistence modes
 
 The `plan` job computes a `persist-mode` from the event context:
 
-| Mode          | When                                                  | What happens                            |
-| ------------- | ----------------------------------------------------- | --------------------------------------- |
-| `none`        | Fork PR, Dependabot PR, docs-only, no runtime changes | No source mutation                      |
-| `pr-branch`   | Trusted same-repo PR with runtime changes             | Thumbnails committed to the PR branch   |
-| `followup-pr` | Push to main with missing thumbnails                  | New PR opened (or existing one updated) |
+| Mode          | When                                                                                                 | What happens                            |
+| ------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `none`        | Fork PR, Dependabot PR, docs-only or metadata-only change, merged thumbnail PR, dispatch or schedule | No source mutation                      |
+| `pr-branch`   | Trusted same-repo PR with runtime changes or missing thumbnails                                      | Thumbnails committed to the PR branch   |
+| `followup-pr` | Push to main with runtime changes or missing thumbnails                                              | New PR opened (or existing one updated) |
 
 Loop prevention: merging a follow-up thumbnail PR is detected via PR provenance (not commit message), so squash-merge settings don't break the detection.
 
@@ -499,9 +511,11 @@ The workflows depend on repository settings that are not enforceable from source
 - `secrets.APP_PRIVATE_KEY`, `secrets.ESCALATION_APP_PRIVATE_KEY`, and `secrets.AUDIT_APP_PRIVATE_KEY` contain the private keys
 - `secrets.GITLEAKS_LICENSE` for the Gitleaks action (gitleaks-action only requires a license for organization accounts, so this is inert while the repository is owned by a user)
 - GitHub secret scanning and its push protection are enabled. They are free on this public repository and are the layer the `secret-scan` job cannot provide: push protection refuses the push carrying a secret, where a CI check can only report one already in history, by which point the credential needs rotating regardless. `secret-scan` scans source history behind that, with `.gitleaks.toml` excluding only the built site copies under `pr-preview/` on `gh-pages`
-- `main` branch protection requires `verify`, `secret-scan`, and `dependency-review` checks plus review/signing/history requirements
+- The Actions allowlist permits selected actions only: GitHub-owned actions, plus `astral-sh/setup-uv@*`, `gitleaks/gitleaks-action@*`, and `marocchino/sticky-pull-request-comment@*`. Actions must be pinned to full commit SHAs, and verified-creator actions are not allowed.
+- The `github-pages` environment accepts deployments from `gh-pages`, `main`, and `refs/pull/*/merge`.
+- `main` branch protection requires the `verify`, `secret-scan`, and `dependency-review` checks, plus the review, signing, and history requirements
 - `gh-pages` branch ruleset blocks create/delete/update/force-push except for the deploy app and repo admin
-- `.github/workflows/audit-repo-settings.yml` is the automated drift check for all of the above
+- `.github/workflows/audit-repo-settings.yml` checks all of the above for drift
 
 ## Configuration strategy
 
@@ -514,6 +528,9 @@ The workflows depend on repository settings that are not enforceable from source
 | `config/artifact_contract.json` | Shared artifact id, URL, and thumbnail path validation contract   |
 | `config/eslint.config.js`       | ESLint file patterns, ignores, rules                              |
 | `config/stylelint.config.js`    | Stylelint rules, ignoreFiles                                      |
+| `config/jsconfig.json`          | TypeScript `checkJs` scope and strictness for authored JS         |
+| `config/knip.json`              | Knip entry points and ignores for unused-code checks              |
+| `config/prettierrc.json`        | Prettier rules for metadata, config, workflows, and tooling       |
 | `.yamllint.yml`                 | Yamllint rules, ignore patterns                                   |
 | `.editorconfig`                 | Editor formatting rules per file type                             |
 | `config/gallery_metadata.json`  | Tag/tool display metadata for gallery config and README badges    |

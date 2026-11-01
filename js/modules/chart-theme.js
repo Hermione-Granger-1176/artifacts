@@ -5,11 +5,11 @@
  * @module chart-theme
  */
 
-// Chart.js and its plugins load as vendor globals on window. The runtime
-// depends only on those UMD globals; the ambient ChartVendorGlobals type in
-// config/types/chart-vendor.d.ts gives this view real Chart.js types (sourced
-// from the types-only devDependencies) without adding a runtime dependency.
-// Resolve at call time (never a cached reference).
+// Chart.js and its plugins load as UMD vendor globals on window. The ambient
+// ChartVendorGlobals type in config/types/chart-vendor.d.ts gives this view
+// real Chart.js types from the devDependencies, so the type check needs no
+// runtime import. Read the globals at call time, not at module load, because
+// the vendor scripts may not have run yet.
 /** @returns {ChartVendorGlobals} The window view of the vendor chart globals. */
 export function chartGlobal() {
   return /** @type {ChartVendorGlobals} */ (/** @type {unknown} */ (window));
@@ -25,8 +25,9 @@ export function cssValue(propertyName) {
 }
 
 /**
- * Re-express an rgb() custom property at a given alpha. Falls back to the
- * raw value when the property does not hold three numeric channels.
+ * Re-express an rgb() custom property at a given alpha. Takes the first three
+ * integers in the value as the channels, and returns the raw value when it
+ * holds fewer than three.
  * @param {string} propertyName - Custom property name holding an rgb() color.
  * @param {number} alpha - Alpha channel for the returned color.
  * @returns {string} An rgba() color, or the raw value on fallback.
@@ -46,9 +47,10 @@ export function isDark() {
 }
 
 /**
- * Wrap a palette builder in a per-theme cache. `colors()` rebuilds only when
- * the theme changed since the last call; `refreshPalette()` drops the cache
- * and rebuilds immediately, for theme-change handlers.
+ * Wrap a palette builder in a per-theme cache. `colors()` calls `buildPalette`
+ * only when the theme (read from `data-theme` by isDark) differs from the last
+ * call. `refreshPalette()` drops the cache and rebuilds at once, for handlers
+ * that run after a theme change or a CSS custom property edit.
  * @template T
  * @param {(helpers: { css: typeof cssValue, cssAlpha: typeof cssAlpha }) => T} buildPalette
  * @returns {{ colors: () => T, refreshPalette: () => T }}

@@ -56,7 +56,7 @@ def test_app_css_template_points_at_shared_components_and_tokens() -> None:
         ".section-kicker",
     ):
         assert component in css
-    # The design-token rules the new lint enforces.
+    # The design-token rules that make lint-app-css-tokens enforces.
     assert "no hex colors" in css
     assert "color-mix()" in css
     assert "var(--radius-*)" in css

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Recompress an oversized social share image in place.
 
-This module backs `make optimize-social-image`.
+This module backs ``make optimize-social-image``.
 
-The Open Graph share card (`assets/social/share-preview.png`) is served on every
+The Open Graph share card (``assets/social/share-preview.png``) is served on every
 link unfurl, so it should stay small. A 1200x630 card is comfortable at roughly
 100-150 KB, yet exported PNGs routinely ship several times that. This helper
 re-encodes the PNG (and downscales it to fit within 1200x630 when it is larger),
@@ -15,7 +15,7 @@ fine gradients and alpha edges can shift. The smaller of the palette candidate a
 a plain optimized truecolor candidate wins, which keeps flat graphic cards tiny
 while protecting gradient-heavy art.
 
-Run through the Makefile in normal workflows; direct invocation is mainly for
+Run through the Makefile in normal workflows. Direct invocation is mainly for
 maintainers working on the build internals.
 """
 

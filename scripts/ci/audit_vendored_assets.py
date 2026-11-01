@@ -194,7 +194,7 @@ def _version_key(value: object, advisory: object) -> VersionKey:
 
 
 def _boundaries(events: list[dict[str, object]], advisory: object) -> list[Boundary]:
-    """Return the sorted-by-kind boundaries of one SEMVER or ECOSYSTEM range.
+    """Return the ``(version key, kind)`` boundaries of one SEMVER or ECOSYSTEM range.
 
     Each event holds exactly one of ``introduced``, ``fixed``, ``last_affected``,
     or ``limit``, and a range needs an ``introduced`` event. Anything else is

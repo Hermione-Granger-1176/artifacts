@@ -1,3 +1,5 @@
+"""Audit the GitHub repository settings that the release flow depends on."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast

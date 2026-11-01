@@ -103,6 +103,12 @@ body.app-tokenizer-explorer .tk-card-head .section-kicker {
  * item, so the blank sits inline at the end of the line and only wraps when
  * the line is genuinely full. The wrapper that holds the chips dissolves so
  * the chips and the blank are siblings in one flex row.
+ *
+ * The prompt is as tall as the tallest scenario's prompt at the current width,
+ * so picking another scenario never moves what sits below it. The live prompt
+ * and one hidden copy of every scenario's prompt share one grid cell (the shared
+ * .reserve classes), so the cell takes the tallest of them and the browser does
+ * the line counting.
  */
 
 body.app-tokenizer-explorer .tk-prompt-live,
@@ -116,13 +122,6 @@ body.app-tokenizer-explorer .tk-prompt-reserve > div {
 body.app-tokenizer-explorer .tk-prompt-tokens {
   display: contents;
 }
-
-/*
- * The prompt is as tall as the tallest scenario's prompt at the current width,
- * so picking another scenario never moves what sits below it. The live prompt
- * and one hidden copy of every scenario's prompt share one grid cell, so the
- * cell takes the tallest of them and the browser does the line counting.
- */
 
 body.app-tokenizer-explorer .prompt-chip {
   padding: 0 var(--space-2);

@@ -1,11 +1,10 @@
 """Pull-request management commands behind the ``make pr-*`` targets.
 
-Each command runs the same ``gh pr ...`` invocation the Makefile used to call
-inline, with standard output left on the terminal so ``gh`` formats it exactly
-as before. When the environment blocks GitHub GraphQL (which every ``gh pr``
-subcommand needs), the command is rebuilt on the REST API instead. The
-functions return the process exit code so a failing check still fails the
-target.
+Each command runs a ``gh pr ...`` invocation with standard output left on the
+terminal, so ``gh`` formats it. When the environment blocks GitHub GraphQL
+(which every ``gh pr`` subcommand needs), the command is rebuilt on the REST
+API instead. The functions return the process exit code so a failing check
+still fails the target.
 """
 
 from __future__ import annotations

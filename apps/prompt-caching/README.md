@@ -6,14 +6,14 @@ This interactive explainer follows LLM inference through tokenization, embedding
 
 The page includes these interactive examples:
 
-- Sticky section-progress nav with clickable pipeline overview
+- Sticky section-progress nav (nine sections) with a clickable pipeline overview
 - Inference simulator that streams tokens while the KV cache fills
 - BPE-style tokenizer with text and token-ID views
-- Embedding playground: cosine similarity, 2D projection canvas, 1D/2D/3D dimension explorer
-- Attention step explorer with clickable matrix dot-products, hoverable attention grid, interactive softmax sliders
+- Embedding playground: cosine similarity and distance for two words, a 2D projection canvas, and a 1D, 2D, or 3D dimension explorer (drag to rotate in 3D)
+- Attention step explorer with clickable matrix dot-products, a Q/K toggle with a weight scrambler, a causal mask toggle, a hoverable attention grid, and interactive softmax sliders
 - KV-cache fill animation and no-cache vs with-cache computation comparison
-- Cross-request cache-hit visualizer with live TTL countdown
-- Savings calculator for your own workload
+- OpenAI and Anthropic comparison table, then a cross-request cache-hit visualizer with a live 5-minute TTL countdown
+- Savings calculator for your own workload, with Hobby, Startup, and Scale presets
 - Light and dark themes through the shared app theme
 
 ## Made with

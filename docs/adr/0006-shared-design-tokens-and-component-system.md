@@ -18,6 +18,10 @@ The apps had inconsistent colors and dimensions. No automated check prevented la
 4. At adoption, the four mature apps (`loan-amortization`, `bond-price-vs-rate`, `tokenizer-explorer`, and `prompt-caching`) moved to shared tokens, components, and modules. Each `app.css` keeps only app-specific dimensions, grids, visualizations, and component variants built on the tokens.
 5. `scripts/lint/check_app_css_tokens.py`, exposed as `make lint-app-css-tokens` and wired into `lint` and `ci-web`, forbids color literals in `apps/*/css/*.css`: hex colors, color functions (`rgb()` / `rgba()` / `hsl()` / `oklch()` and friends) whose channels do not start from `var()` or `color-mix()`, `color-mix()` calls that mix no token, and named colors (`transparent` and `currentcolor` stay allowed). It also enforces token usage for `border-radius`, `font-size`, and `letter-spacing`, with small documented allowlists for deliberate sub-token values scoped to the one stylesheet that owns them.
 
+## Amendment (ADR 0007)
+
+ADR 0007 moved every color that changes with the theme out of `css/src/01-tokens.css` and into `css/src/01-theme-light.css` and `css/src/01-theme-dark.css`. This amendment supersedes the dark override location in decision point 1. The token names, the type and spacing scales, and the component layer are unchanged.
+
 ## Consequences
 
 - The apps share a design system. Palette, spacing, and type changes happen in `css/src/01-tokens.css` rather than in each app folder.

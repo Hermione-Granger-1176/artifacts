@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Prepare the deployable Pages payload in ``_site/``.
 
-This module backs `make site`.
+This module backs ``make site``.
 
-It copies the deployable static site into ``_site/``, then applies deploy-time
-adjustments such as cache-busting query strings, the configured 404 fallback
-path, and the ``.nojekyll`` marker needed by GitHub Pages.
+It copies the runtime files of the site and of each app into ``_site/``, then
+applies deploy-time adjustments: ``modulepreload`` hints, esbuild minification,
+content-hash cache-busting query strings, social metadata, the configured site
+path in the 404 page and web app manifest, deploy metadata for post-deploy
+verification, and the ``.nojekyll`` marker that GitHub Pages needs.
 
-Run through the Makefile in normal workflows; direct invocation is mainly for
+Run through the Makefile in normal workflows. Direct invocation is mainly for
 maintainers working on the build internals.
 """
 
@@ -395,8 +397,9 @@ def _write_deploy_metadata(*, commit_sha: str, version: str, site_path: str) -> 
 def _resolve_module_tree(entry_file: Path) -> list[Path]:
     """Walk ES module imports starting from *entry_file* and return all dependencies.
 
-    Only static ``import … from "…"`` and ``export … from "…"`` are followed.
-    Dynamic ``import()`` is ignored because the browser discovers them at runtime.
+    Only static ``import ... from "..."`` and ``export ... from "..."`` are followed.
+    Dynamic ``import()`` is ignored because the browser discovers those modules at
+    runtime.
     The entry file itself is excluded from the result (it is already referenced by
     the ``<script>`` tag).
     """

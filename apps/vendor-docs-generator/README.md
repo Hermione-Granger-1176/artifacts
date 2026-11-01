@@ -4,7 +4,7 @@ This app produces labeled synthetic business documents for evaluating document-A
 
 Each page can include a JSON sidecar with labels for the printed values. The page and sidecar use the same document model, so a batch does not require manual field annotation.
 
-Every random choice is driven by one integer seed, while document dates are relative to the day of generation. The filename records the seed so samples remain identifiable. Exact replay in code also needs the original reference date, which is recoverable from the sidecar's `document_date` and the seed-derived date offsets.
+One integer seed drives every random choice, and document dates are relative to the day of generation. The filename records the seed so samples remain identifiable. See [Known limitations](#known-limitations) for what exact replay needs.
 
 ## Features
 
@@ -12,14 +12,14 @@ The generator supports these outputs and controls:
 
 - Six vendors and six document types. Invoices also have a dense tax layout, giving 42 vendor, type, and layout combinations.
 - Seeded generation. Vendor, type, and layout changes retain the seed. **New document** selects a fresh seed.
-- An A4 preview with fitted and full-size modes. Below about 1000px, the toolbar, page, and Output panel stack vertically.
+- An A4 preview with fitted and full-size modes. Below about 1000px, the toolbar, page, and Output panel stack vertically. Below 700px, a dropdown replaces the six document-type pills.
 - JSON field labels with printed text and normalized values. Unprinted fields are `null`.
 - Optional field and word boxes in normalized page coordinates.
 - Five scan presets and nine fine-tune sliders. Geometric effects also transform exported boxes.
 - Clean and degraded image pairs from one capture.
 - Text-layer PDF, rasterized PDF, and PNG exports. Lossy raster presets write JPEG files.
-- ZIP batches across selected vendors and types, with optional sidecars, `manifest.jsonl`, and `README.txt`. JSON-only mode skips PDF and raster generation. It still renders each DOM preview for progress and requested box measurements.
-- Partial archives when a batch stops. The README records completed and planned counts.
+- ZIP batches of 1 to 50 copies per vendor and type combination (10 by default), across the current combination, all types, all vendors, or everything. Sidecars, `manifest.jsonl`, and `README.txt` are written when labels are on. JSON-only mode skips PDF and raster generation. It still renders each DOM preview for progress and requested box measurements.
+- Partial archives when a batch stops. The filename ends in `_partial.zip`, and the `README.txt` records completed and planned counts.
 - Fictional contact details and a sample-data footer on every document.
 
 [Architecture](docs/architecture.md) describes control mappings, rendering, and export paths.
@@ -85,7 +85,7 @@ A shortened sidecar example shows the schema:
 }
 ```
 
-`boxes_apply_to` identifies the outputs that use the box coordinates. Boxes describe the rendered HTML page used for PNG and rasterized PDF exports. The text-layer PDF has an independent jsPDF layout.
+`boxes_apply_to` identifies the outputs that use the box coordinates. Boxes describe the rendered HTML page used for PNG and rasterized PDF exports. The text-layer PDF has an independent jsPDF layout. `boxes` and `boxes_apply_to` are `null` when the Labels level is JSON only. In `boxes.page`, `width` and `height` are the layout size in CSS pixels, and region coordinates are fractions of that page.
 
 ## Scan degradation
 

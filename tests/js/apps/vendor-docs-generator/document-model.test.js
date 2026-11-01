@@ -83,7 +83,7 @@ test('buildItems is capped by the catalogue size', () => {
 
 test('buildItems prices subscription units by term rather than by pallet', () => {
   // Nimbus sells monthly and yearly units, which are quantified 1-3 rather
-  // than the 2-41 range the physical catalogues use.
+  // than the 2-40 range the physical catalogues use.
   const items = buildItems('nimbus', 8080, 6);
   const subscriptions = items.filter((item) => item.unit === 'mo' || item.unit === 'yr');
   assert.ok(subscriptions.length > 0);

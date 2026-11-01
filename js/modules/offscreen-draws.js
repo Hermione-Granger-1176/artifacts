@@ -13,7 +13,7 @@
 
 /**
  * Watch the given canvases. A canvas counts as on screen until the observer
- * reports otherwise, and every canvas does without IntersectionObserver.
+ * reports otherwise. Without IntersectionObserver, every canvas always counts as on screen.
  * @param {Element[]} targets - Canvases to watch.
  * @param {string} [rootMargin="200px 0px"] - How far outside the viewport still counts as on screen.
  * @returns {OffscreenDraws} `draw` runs `run` now when its target is on screen

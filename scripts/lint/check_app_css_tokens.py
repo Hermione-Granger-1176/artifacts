@@ -2,10 +2,10 @@
 """Check that per-app stylesheets stay on the shared design-token system.
 
 Each artifact keeps its layout in ``apps/<slug>/css/*.css`` while shared color,
-radius, spacing, and type tokens live in ``css/style.css``. Nothing re-validates
-those app stylesheets after they are authored, so a hand edit can quietly drift
-back to hard-coded colors or off-token sizes. This checker fails fast when an
-app stylesheet:
+radius, spacing, and type tokens come from ``css/src/`` through the generated
+``css/style.css``. Nothing re-validates those app stylesheets after they are
+authored, so a hand edit can quietly drift back to hard-coded colors or
+off-token sizes. This checker fails fast when an app stylesheet:
 
     - hard-codes a hex color (``#fff``, ``#ffffff``, ``#ffffff80``) in a
       declaration value (id selectors and masked strings are not values);

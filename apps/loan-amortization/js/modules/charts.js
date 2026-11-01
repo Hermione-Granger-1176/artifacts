@@ -23,8 +23,8 @@ import { createOffscreenDraws } from "../../../../js/modules/offscreen-draws.js"
  * @typedef {{ balance: ChartInstance, comparison: ChartInstance, savings: ChartInstance, cumulative: ChartInstance, period: ChartInstance }} Charts
  */
 
-// Per-theme chart palette read from CSS custom properties; refreshPalette
-// keeps the app's theme-change contract.
+// Chart palette read from CSS custom properties and cached per theme. Call
+// refreshPalette after a theme change.
 const { colors, refreshPalette } = createPaletteCache(({ css, cssAlpha }) => ({
   blue: css("--color-blue"),
   green: css("--color-green"),

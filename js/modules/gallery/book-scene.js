@@ -148,9 +148,10 @@ const LEAF_TURN_SAMPLES = 24;
 
 /**
  * Keyframe offsets for an automatic turn, with the eased progress at each. The
- * easing is baked into the samples, so the compositor plays the same curve the
- * frame loop drew. Halfway appears twice, just before and just after, because
- * the shading switches there at once rather than fading.
+ * ease-in-out curve is baked into the progress values, so the animation itself
+ * can run with linear easing on the compositor. Halfway appears twice, just
+ * before and just after, because the shading switches there at once rather
+ * than fading.
  * @returns {Array<{ offset: number, progress: number }>} Samples in time order.
  */
 function leafTurnSamples() {

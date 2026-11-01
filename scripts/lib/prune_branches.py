@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 """Prune local branches whose content already exists in the base branch.
 
-The old recipe listed candidates with ``git for-each-ref --merged``, which is a
-pure ancestry test. Under a squash-merge workflow that test can never fire: a
-squash merge replays the branch as one new commit on the base, so the original
-branch tip is not an ancestor of the base and ``--merged`` never lists it. The
-target was effectively a no-op, and merged branches accumulated locally.
+``git for-each-ref --merged`` is a pure ancestry test, so it cannot find
+branches that landed through a squash merge. A squash merge replays the branch
+as one new commit on the base, so the original branch tip is not an ancestor of
+the base and ``--merged`` never lists it.
 
-This helper asks the question that actually matters instead: would merging the
-branch into the base change the base at all? ``git merge-tree --write-tree``
+This helper asks a different question: would merging the branch into the base
+change the base at all? ``git merge-tree --write-tree``
 answers it entirely in the object store, without touching the working tree or
 the current checkout. An identical tree means the branch contributes nothing
 and is safe to drop. A different tree, or a merge conflict, means the branch
 may hold work that exists nowhere else, so it is reported and kept rather than
 deleted.
 
-Deletion uses ``git branch -D``. ``-d`` applies the same ancestry test that
-failed above and would refuse every squash-merged branch, so the force flag is
-required; the tree comparison is the stronger guarantee that makes it safe.
+Deletion uses ``git branch -D``. ``-d`` applies the same ancestry test and
+would refuse every squash-merged branch, so the force flag is required. The tree
+comparison is what makes forcing safe.
 
 The Makefile forwards three inputs through the environment:
 
