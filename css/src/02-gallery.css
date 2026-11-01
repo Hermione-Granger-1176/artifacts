@@ -161,11 +161,13 @@ button {
     background var(--transition-fast) ease;
 }
 
-.btn-icon:hover {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--color-border-solid));
-  background: color-mix(in srgb, var(--accent) 10%, var(--color-bg-card));
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .btn-icon:hover {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--color-border-solid));
+    background: color-mix(in srgb, var(--accent) 10%, var(--color-bg-card));
+    transform: translateY(-1px);
+  }
 }
 
 .btn-icon[aria-pressed="true"] {
@@ -344,7 +346,7 @@ button {
   flex-wrap: nowrap;
 }
 
-/* Sort and reset are small sticky notes beside the search note. */
+/* Filter dropdowns, sort, and reset are small sticky notes beside the search note. */
 .filter-dropdown-toggle,
 .sort-toggle,
 .filter-reset {
@@ -426,10 +428,12 @@ button {
     opacity 0.15s ease;
 }
 
-.filter-dropdown-toggle:hover,
-.sort-toggle:hover,
-.filter-reset:hover {
-  transform: rotate(0deg) translateY(-2px);
+@media (hover: hover) {
+  .filter-dropdown-toggle:hover,
+  .sort-toggle:hover,
+  .filter-reset:hover {
+    transform: rotate(0deg) translateY(-2px);
+  }
 }
 
 .btn-reset-link {
@@ -447,9 +451,11 @@ button {
   box-shadow: var(--shadow-sm);
 }
 
-.btn-reset-link:hover,
-.page-btn:not(:disabled):hover {
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .btn-reset-link:hover,
+  .page-btn:not(:disabled):hover {
+    transform: translateY(-2px);
+  }
 }
 
 .sort-toggle-icon {
@@ -1300,6 +1306,11 @@ button {
   opacity: 0.85;
 }
 
+/* A long word gets a smaller hand so it stays on its square note. */
+.desk-note[data-long] {
+  font-size: 1.15rem;
+}
+
 .desk-note::before {
   content: '';
   position: absolute;
@@ -1768,6 +1779,50 @@ button {
   text-align: center;
 }
 
+/* The notepad writes each artifact's description and link under its photo. The book keeps them in the detail overlay. */
+.card-notes,
+.page-counter {
+  display: none;
+}
+
+.card-notes-text {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-pencil);
+  font-size: 1.35rem;
+  line-height: var(--paper-rule-gap);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.card-notes-open {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: var(--touch-target, 2.4rem);
+  padding: 0.2rem 0.95rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-strong);
+  color: var(--color-text-on-accent);
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.page-counter {
+  min-width: 4.5rem;
+  color: var(--color-pencil);
+  font-size: 1.4rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+[data-theme="dark"] .page-counter {
+  color: var(--color-text-primary);
+}
+
 /* Pencil-written caption. */
 .card-name {
   margin: 0;
@@ -1879,17 +1934,29 @@ button {
   color: var(--color-album-chalk);
 }
 
-.page-btn:hover {
-  color: var(--accent-ring);
+@media (hover: hover) {
+  .page-btn:hover {
+    color: var(--accent-ring);
+  }
+
+  .page-btn.active:hover {
+    color: var(--color-album-chalk);
+  }
 }
 
-.page-btn.active:hover {
-  color: var(--color-album-chalk);
-}
-
+/* A disabled tag lies flat on the desk with a faded label. Its paper stays opaque, so it never turns into a grey box on the night desk. */
 .page-btn:disabled {
-  opacity: 0.45;
   cursor: not-allowed;
+}
+
+.page-btn:disabled .page-btn-paper {
+  box-shadow: none;
+  transform: none;
+  opacity: 0.7;
+}
+
+.page-btn:disabled > :not(.page-btn-paper) {
+  opacity: 0.4;
 }
 
 /* Artifact detail overlay. */

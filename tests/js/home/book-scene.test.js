@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createBookScene } from '../../../js/modules/gallery/book-scene.js';
+import { NOTEPAD_QUERY, createBookScene } from '../../../js/modules/gallery/book-scene.js';
 
 class FakeClassList {
   constructor(owner) {
@@ -265,6 +265,8 @@ function createHarness({
     }
   }
   if (cover) {
+    cover.appendChild(new FakeElement(env, '', 'book-cover-face'));
+    cover.appendChild(new FakeElement(env, '', 'book-cover-back'));
     cover.appendChild(new FakeElement(env, '', 'book-ribbon'));
     cover.appendChild(new FakeElement(env, '', 'book-cover-shade'));
     cover.appendChild(new FakeElement(env, '', 'book-endpaper'));
@@ -283,22 +285,27 @@ function createHarness({
     shell.dataset.sceneIntro = 'open';
   }
 
-  const windowListeners = new Map();
+  // The notepad query follows the fake width and reports a change only when a resize crosses it.
+  const notepadListeners = [];
+  const notepadQuery = {
+    get matches() {
+      return windowObj.innerWidth <= 900;
+    },
+    addEventListener(type, handler) {
+      notepadListeners.push(handler);
+    }
+  };
   const windowObj = {
     innerWidth,
-    matchMedia: () => ({ matches: reducedMotion }),
+    matchMedia: (query) => (query === NOTEPAD_QUERY ? notepadQuery : { matches: reducedMotion }),
     setTimeout: env.setTimeout,
     requestAnimationFrame: env.requestAnimationFrame,
     cancelAnimationFrame: env.cancelAnimationFrame,
-    addEventListener(type, handler) {
-      const handlers = windowListeners.get(type) || [];
-      handlers.push(handler);
-      windowListeners.set(type, handlers);
-    },
     resize(width) {
+      const before = notepadQuery.matches;
       windowObj.innerWidth = width;
-      for (const handler of windowListeners.get('resize') || []) {
-        handler({ type: 'resize' });
+      if (notepadQuery.matches !== before) {
+        notepadListeners.forEach((handler) => handler({ type: 'change', matches: notepadQuery.matches }));
       }
     }
   };
@@ -572,15 +579,45 @@ test('startIntro cross-fades the sheet for reduced motion without rotation', asy
   assert.ok(harness.sheet.animateCalls.every(({ animation }) => animation.cancelled));
 });
 
-test('startIntro cross-fades on a mobile viewport', async () => {
+test('startIntro slides the band down and flips the notepad cover up on a mobile viewport', async () => {
   const harness = createHarness({ innerWidth: 390 });
   const intro = harness.scene.startIntro();
-  await harness.advance(1000);
+  await harness.advance(2500);
+  await intro;
+
+  const ribbon = harness.cover.querySelector('.book-ribbon');
+  assert.equal(ribbon.animateCalls.length, 1);
+  assert.match(ribbon.animateCalls[0].keyframes.at(-1).transform, /translateY\(\d+px\)/);
+  assert.equal(harness.cover.animateCalls.length, 1);
+  const flip = harness.cover.animateCalls[0].keyframes;
+  assert.deepEqual(flip.map((frame) => frame.transform), ['rotateX(0deg)', 'rotateX(180deg)'], 'the cover lifts toward the reader and over the binding');
+  assert.ok(flip.every((frame) => !('opacity' in frame)), 'the cover keeps its faces in 3D, so it never fades as a whole');
+  assert.equal(harness.cover.querySelector('.book-cover-face').animateCalls.length, 0, 'backface-visibility hides the outside');
+  const inside = harness.cover.querySelector('.book-cover-back').animateCalls[0];
+  assert.deepEqual(inside.keyframes.map((frame) => frame.opacity), [1, 1, 0], 'the inside fades as it drops behind the pad');
+  assert.equal(inside.options.duration, harness.cover.animateCalls[0].options.duration);
+  assert.equal(harness.sheet.animateCalls.length, 0, 'the notepad does not slide like the book');
+  assert.ok(harness.shell.classList.contains('is-open'));
+});
+
+test('a resize during the notepad intro stops it before the cover flips', async () => {
+  const harness = createHarness({ innerWidth: 390 });
+  const intro = harness.scene.startIntro();
+  await harness.advance(200);
+  harness.windowObj.resize(1200);
+  await harness.advance(2500);
   await intro;
 
   assert.equal(harness.cover.animateCalls.length, 0);
-  assert.equal(harness.sheet.animateCalls.length, 2);
-  assert.ok(harness.shell.classList.contains('is-open'));
+  assert.equal(harness.shell.dataset.sceneIntro, 'open');
+
+  const late = createHarness({ innerWidth: 390 });
+  const lateIntro = late.scene.startIntro();
+  await late.advance(500 + 300);
+  late.windowObj.resize(1200);
+  await late.advance(2500);
+  await lateIntro;
+  assert.equal(late.shell.dataset.sceneIntro, 'open');
 });
 
 test('startIntro opens the shell even when cover, sheet, or grid markup is missing', async () => {
@@ -892,22 +929,90 @@ test('turns cross-fade under reduced motion with no rotation and clear the opaci
   assert.equal(harness.created.length, 0);
 });
 
-test('mobile turns use the fade timing and fall back to the grid when there is no inner surface', async () => {
+const notepadLeafOf = (host) => host.children.find((child) => child.classList.contains('notepad-leaf'));
+
+test('a notepad turn forward shows the next page at once and flips a copy of the old one up', async () => {
   const harness = createHarness({ open: true, innerWidth: 390 });
   const done = harness.scene.turnPage(2);
+  await harness.advance(16);
+  assert.deepEqual(harness.model.commits, [2], 'the next page is already underneath');
+  const leaf = notepadLeafOf(harness.surface);
+  assert.ok(leaf);
+  const [front, back] = leaf.children;
+  assert.ok(front.classList.contains('notepad-leaf-front') && back.classList.contains('notepad-leaf-back'));
+  assert.ok(front.querySelector('.artifact-page-left'), 'the front carries the old page');
+  assert.equal(leaf.attributes['aria-hidden'], 'true');
+  assert.equal(leaf.inert, true);
+  assert.ok(harness.sheet.classList.contains('is-turning'));
+
+  // Only transform and opacity animate, so the compositor runs the flip without the main thread.
+  const [flip] = leaf.animateCalls;
+  assert.deepEqual(flip.keyframes.map((frame) => frame.transform), ['rotateX(0deg)', 'rotateX(180deg)'], 'the page lifts toward the reader');
+  assert.equal(flip.options.direction, 'normal');
+  assert.equal(flip.options.fill, 'both');
+  assert.deepEqual(back.animateCalls[0].keyframes.map((frame) => frame.opacity), [1, 1, 0], 'the back fades as it drops behind the pad');
+  const shade = front.querySelector('.notepad-leaf-shade');
+  assert.deepEqual(shade.animateCalls[0].keyframes.map((frame) => frame.opacity), [0, 0.35, 0.35], 'the page darkens toward upright');
+  assert.equal(front.animateCalls.length, 0, 'backface-visibility hides the page past upright');
+  assert.equal(harness.env.frames.length, 0, 'no frame loop runs alongside the flip');
+
+  await harness.advance(700);
+  await done;
+  assert.equal(notepadLeafOf(harness.surface), undefined);
+  assert.ok(!harness.sheet.classList.contains('is-turning'));
+  assert.deepEqual(harness.model.builds, [], 'going forward needs no new page built');
+});
+
+test('a notepad turn back brings the earlier page down over the shown one, then shows it', async () => {
+  const harness = createHarness({ open: true, innerWidth: 390 });
+  harness.model.shown = 3;
+  const done = harness.scene.turnPage(2);
+  await harness.advance(300);
+  assert.deepEqual(harness.model.commits, [], 'the shown page stays until the earlier one covers it');
+  assert.deepEqual(harness.model.builds, [2]);
+  const leaf = notepadLeafOf(harness.surface);
+  assert.ok(leaf.querySelector('.built-2'));
+  assert.equal(leaf.animateCalls[0].options.direction, 'reverse', 'the same flip, played backward over the binding');
+
   await harness.advance(500);
   await done;
   assert.deepEqual(harness.model.commits, [2]);
-  assert.equal(harness.surface.style.opacity, '');
+  assert.equal(notepadLeafOf(harness.surface), undefined);
+});
 
+test('a notepad turn falls back to the grid as its host and copes with a missing page', async () => {
   const bare = createHarness({ open: true, innerWidth: 390 });
   bare.surface.remove();
-  const bareDone = bare.scene.turnPage(2);
+  bare.grid.children.find((child) => child.classList.contains('artifact-page-left')).remove();
+  const done = bare.scene.turnPage(2);
   await bare.advance(60);
-  assert.ok(Number(bare.grid.style.opacity) < 1);
-  await bare.advance(500);
-  await bareDone;
-  assert.equal(bare.grid.style.opacity, '');
+  const leaf = notepadLeafOf(bare.grid);
+  assert.ok(leaf);
+  assert.equal(leaf.children[0].children.length, 1, 'the front holds only the shade, with no page to copy');
+  await bare.advance(800);
+  await done;
+  assert.equal(notepadLeafOf(bare.grid), undefined);
+
+  const noFaces = createHarness({ open: true, innerWidth: 390 });
+  noFaces.model.nullFaces = true;
+  noFaces.model.shown = 2;
+  const back = noFaces.scene.turnPage(1);
+  await noFaces.advance(800);
+  await back;
+  assert.deepEqual(noFaces.model.commits, [1]);
+});
+
+test('a notepad turn back that is cancelled mid-flip never shows the earlier page', async () => {
+  const harness = createHarness({ open: true, innerWidth: 390 });
+  harness.model.shown = 2;
+  harness.scene.turnPage(1);
+  await harness.advance(200);
+  const leaf = notepadLeafOf(harness.surface);
+  harness.scene.cancelTurn();
+  assert.ok(leaf.animateCalls[0].animation.cancelled, 'the flip stops with the turn');
+  await harness.advance(800);
+  assert.deepEqual(harness.model.commits, []);
+  assert.equal(notepadLeafOf(harness.surface), undefined);
 });
 
 test('a fade turn that is settled mid-flight still lands on the latest page', async () => {
@@ -971,7 +1076,7 @@ test('a resize across the mobile breakpoint mid-turn settles to the latest page 
   assert.deepEqual(harness.model.commits, [3], 'nothing replays after the settle');
 });
 
-test('a resize that stays desktop-sized does not disturb a turn, and a mobile fade settles when widened', async () => {
+test('a resize that stays desktop-sized does not disturb a turn, and a notepad flip settles when widened', async () => {
   const desktop = createHarness({ open: true });
   const done = desktop.scene.turnPage(2);
   await desktop.advance(100);
@@ -986,7 +1091,7 @@ test('a resize that stays desktop-sized does not disturb a turn, and a mobile fa
   await mobile.advance(60);
   mobile.windowObj.resize(1200);
   assert.deepEqual(mobile.model.commits, [2]);
-  assert.equal(mobile.surface.style.opacity, '');
+  assert.equal(notepadLeafOf(mobile.surface), undefined);
 });
 
 test('a resize while idle does nothing', () => {
