@@ -27,13 +27,21 @@ def test_gallery_smoke_covers_root_interactions(tmp_path: Path, monkeypatch) -> 
         assert page is not None
         session.goto("/")
 
-        search_box = page.locator("#search-input").bounding_box()
+        # Tablets centre the search note on its own row and the dropdowns and sort note under it.
+        search_box = page.locator(".search-wrapper").bounding_box()
+        tags_box = page.locator('[data-filter-open="tags"]').bounding_box()
         sort_box = page.locator("#sort-toggle").bounding_box()
         assert search_box is not None
+        assert tags_box is not None
         assert sort_box is not None
-        search_center_y = search_box["y"] + (search_box["height"] / 2)
-        sort_center_y = sort_box["y"] + (sort_box["height"] / 2)
-        assert abs(search_center_y - sort_center_y) < 12
+        row_left = tags_box["x"]
+        row_right = sort_box["x"] + sort_box["width"]
+        search_center_x = search_box["x"] + search_box["width"] / 2
+        assert abs((row_left + row_right) / 2 - search_center_x) < 12
+        assert tags_box["y"] > search_box["y"] + search_box["height"] - 4
+        tags_center_y = tags_box["y"] + tags_box["height"] / 2
+        sort_center_y = sort_box["y"] + sort_box["height"] / 2
+        assert abs(tags_center_y - sort_center_y) < 12
 
         page.set_viewport_size({"width": 1100, "height": 1100})
 

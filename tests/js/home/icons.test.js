@@ -11,6 +11,7 @@ test('ICONS exports the expected inline SVG fragments', () => {
     'chevronRight',
     'chevronFirst',
     'chevronLast',
+    'chevronDown',
     'close'
   ];
 

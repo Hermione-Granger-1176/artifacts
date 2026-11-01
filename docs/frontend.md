@@ -51,7 +51,7 @@ The shared modules under `js/modules/` are:
 - `js/modules/meter.js`: `setMeterValue()`, which sets a `.meter-fill` through the compositor-only `scale` property instead of its width
 - `js/modules/theme-switching.js`: `createThemeSwitchGuard()`, shared by the gallery and `app-shell.js`, which keeps `.theme-switching` on `<html>` for two frames around a theme change so every themed color flips together
 
-The root filter UI is rendered as desk notes by `buildFilterNotes()` in `js/modules/gallery/render.js` and toggled in `js/modules/gallery/gallery-app.js`.
+The root filter UI is rendered as desk notes by `buildFilterNotes()` in `js/modules/gallery/render.js` and toggled in `js/modules/gallery/gallery-app.js`. At 900px or narrower the desk notes are hidden and `#filter-dropdowns` shows one multi-select dropdown per filter group, built by `buildFilterDropdowns()` from a list of groups, so a new group is one more entry. Each is a note button that counts its picks (in its label and its accessible name) and opens a native modal `<dialog>` checklist on the bottom edge of the screen: options carry the desk notes' colors and the number of artifacts that use them, picked options move to the top when the panel opens, a list longer than eight options gets a search box, and Clear resets that group. Options filter the gallery live through the same handler as the desk notes. Widening past 900px closes an open panel. On these screens the toolbar is centred: the search note on its own row, then the dropdowns and the sort note on a row under it. The reset note stays on the desk layout, because each panel clears its own group and the search clears itself.
 
 ## Search and sort
 
