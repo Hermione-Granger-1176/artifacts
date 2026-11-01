@@ -295,17 +295,6 @@ def _run_pip_audit(
     return _parse_pip_audit_report(result, requirements_file)
 
 
-def _matches_exception(
-    exception: VulnerabilityExceptionEntry, finding: VulnerabilityFinding
-) -> bool:
-    """Return whether a reviewed exception matches one vulnerability finding."""
-    finding_ids = {vulnerability_id.casefold() for vulnerability_id in finding.all_ids}
-    return (
-        exception.package.casefold() == finding.package.casefold()
-        and exception.vulnerability_id.casefold() in finding_ids
-    )
-
-
 def _finding_error(
     finding: VulnerabilityFinding,
     matching_exceptions: tuple[VulnerabilityExceptionEntry, ...],
@@ -361,7 +350,7 @@ def _audit_python_dependencies(
 
     for finding in findings:
         matching_exceptions = tuple(
-            entry for entry in exceptions if _matches_exception(entry, finding)
+            entry for entry in exceptions if entry.matches(finding.package, finding.all_ids)
         )
         matched_exception_keys.update(entry.key for entry in matching_exceptions)
         error = _finding_error(finding, matching_exceptions, today=today)

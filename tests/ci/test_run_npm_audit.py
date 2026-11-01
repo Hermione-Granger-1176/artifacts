@@ -401,19 +401,19 @@ def test_run_npm_audit_reports_audit_errors(
 def test_matches_exception_compares_package_and_ids() -> None:
     """Matches exception compares package and ids."""
     finding = _finding(advisory_id="GHSA-1", aliases=("99",), package="Left-Pad")
-    assert run_npm_audit._matches_exception(
-        _exception(vulnerability_id="99", package="left-pad"), finding
+    assert _exception(vulnerability_id="99", package="left-pad").matches(
+        finding.package, finding.all_ids
     )
-    assert not run_npm_audit._matches_exception(
-        _exception(vulnerability_id="GHSA-2", package="left-pad"), finding
+    assert not _exception(vulnerability_id="GHSA-2", package="left-pad").matches(
+        finding.package, finding.all_ids
     )
 
 
 def test_matches_exception_compares_advisory_ids_case_insensitively() -> None:
     """A lower-case configured exception id matches the upper-cased finding id."""
     finding = _finding(advisory_id="GHSA-AAAA-BBBB-CCCC")
-    assert run_npm_audit._matches_exception(
-        _exception(vulnerability_id="ghsa-aaaa-bbbb-cccc"), finding
+    assert _exception(vulnerability_id="ghsa-aaaa-bbbb-cccc").matches(
+        finding.package, finding.all_ids
     )
 
 
