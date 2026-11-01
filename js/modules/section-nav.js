@@ -77,7 +77,8 @@ function discoverSections() {
  * Scroll offsets at which each section becomes the active one: when its top
  * reaches the scanline. Sections the page cannot scroll that far split the
  * last stretch of scrolling into equal shares, the final section included, so
- * it becomes active before the bottom and stays active down to it.
+ * it becomes active before the bottom and stays active down to it. A page with
+ * no scroll range keeps the natural anchors, so its first section stays active.
  * @param {number[]} tops - Section tops in document coordinates, in order.
  * @param {number} scanline - Distance of the scanline below the viewport top.
  * @param {number} end - Deepest scroll offset the page reaches.
@@ -90,7 +91,7 @@ export function sectionAnchors(tops, scanline, end) {
     anchors.push(Math.max(anchors.at(-1) ?? 0, top - scanline));
   }
   const firstUnreachable = Math.max(1, anchors.findIndex((anchor) => anchor >= end));
-  if (anchors.length > 1 && anchors[anchors.length - 1] >= end) {
+  if (end > 0 && anchors.length > 1 && anchors[anchors.length - 1] >= end) {
     const from = Math.min(anchors[firstUnreachable - 1], end);
     const steps = anchors.length - firstUnreachable + 1;
     for (let index = firstUnreachable; index < anchors.length; index += 1) {

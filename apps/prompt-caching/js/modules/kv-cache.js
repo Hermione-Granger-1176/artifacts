@@ -43,11 +43,11 @@ function initCacheAnimation() {
     return;
   }
 
-  // The narration reserves the room of its wordiest step, so the line count
-  // changing never moves the compare toggle below.
-  reserveSpace(narration, CACHE_TOKENS.map((_, i) => {
+  // The narration reserves the room of its wordiest state (idle, each token,
+  // and done), so the line count changing never moves the compare toggle below.
+  reserveSpace(narration, [-1, ...CACHE_TOKENS.keys()].map((step) => {
     const ghost = makeEl("div", "pc-narration");
-    ghost.append(...narrationFor(i - 1));
+    ghost.append(...narrationFor(step));
     return ghost;
   }));
 

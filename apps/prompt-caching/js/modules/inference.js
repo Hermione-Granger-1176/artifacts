@@ -19,6 +19,11 @@ const stepStatus = (step, token, reused) =>
 /** @param {number} total - Total tokens. @returns {string} Status shown when generation ends. */
 const doneStatus = (total) => `Done. ${total} total tokens. KV cache has ${total} rows.`;
 
+/** @param {string} prompt - Prompt text. @returns {string[]} Its tokens, one per word. */
+const promptWords = (prompt) => prompt.split(/\s+/);
+/** @param {string} prompt - Prompt text. @returns {string[]} The tokens the model generates for it. */
+const responseFor = (prompt) => INF_RESPONSES[/** @type {keyof typeof INF_RESPONSES} */ (prompt)];
+
 /**
  * Longest status line of each kind across every prompt, so the status box can
  * reserve the room the wordiest run needs.
@@ -29,8 +34,8 @@ function statusCandidates(prompts) {
   /** @type {string[][]} */
   const [started, stepped, done] = [[], [], []];
   for (const prompt of prompts) {
-    const cached = prompt.split(/\s+/).length;
-    const tokens = INF_RESPONSES[/** @type {keyof typeof INF_RESPONSES} */ (prompt)];
+    const cached = promptWords(prompt).length;
+    const tokens = responseFor(prompt);
     started.push(promptStatus(cached));
     done.push(doneStatus(cached + tokens.length));
     tokens.forEach((token, i) => stepped.push(stepStatus(i + 1, token, cached + i)));
@@ -55,7 +60,7 @@ export function initInference() {
   // so no chip or status change moves the cache bar and the page below.
   reserveSpace(tokensWrap, prompts.map((prompt) => {
     const ghost = makeEl("div", "pc-inf-tokens");
-    const final = [...prompt.split(/\s+/), ...INF_RESPONSES[/** @type {keyof typeof INF_RESPONSES} */ (prompt)]];
+    const final = [...promptWords(prompt), ...responseFor(prompt)];
     ghost.append(...final.map((tok) => makeEl("span", "chip is-mono inf-tok", tok)));
     return ghost;
   }));
@@ -158,8 +163,8 @@ export function initInference() {
 
   function start() {
     reset();
-    promptTokens = selected.split(/\s+/);
-    genTokens = INF_RESPONSES[/** @type {keyof typeof INF_RESPONSES} */ (selected)];
+    promptTokens = promptWords(selected);
+    genTokens = responseFor(selected);
 
     for (const tok of promptTokens) {
       tokensWrap.appendChild(makeEl("span", "chip is-mono inf-tok", tok));
