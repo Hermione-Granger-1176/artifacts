@@ -5,6 +5,9 @@
  * @module dom-sync
  */
 
+/** Node.TEXT_NODE, spelled out so the module also loads where Node is not defined. */
+const TEXT_NODE = 3;
+
 /**
  * Set an element's text only when it differs from the current text.
  *
@@ -13,6 +16,17 @@
  * @returns {void}
  */
 export function setText(element, text) {
+  // A lone text node is rewritten in place. Assigning textContent would discard
+  // it and allocate a new one on every change, which a table of thousands of
+  // cells redrawn on each slider tick pays for in garbage collection.
+  const node = element.firstChild;
+  if (text !== "" && node && node === element.lastChild && node.nodeType === TEXT_NODE) {
+    const textNode = /** @type {Text} */ (node);
+    if (textNode.data !== text) {
+      textNode.data = text;
+    }
+    return;
+  }
   if (element.textContent !== text) {
     element.textContent = text;
   }
@@ -30,6 +44,36 @@ export function setAttr(element, name, value) {
   if (element.getAttribute(name) !== value) {
     element.setAttribute(name, value);
   }
+}
+
+/** Elements whose first value has already been written. */
+const settledElements = new WeakSet();
+
+/**
+ * Let an element take its first value without its CSS transition, so a bar or
+ * meter starts at its value instead of growing in as the page loads. The
+ * element's own inline transition, if any, is restored two frames later, once
+ * that value has been styled, and every later change animates as usual. Call it before each write; only
+ * the first call per element does anything.
+ *
+ * @param {HTMLElement} element
+ * @returns {void}
+ */
+export function skipFirstTransition(element) {
+  if (settledElements.has(element)) {
+    return;
+  }
+  settledElements.add(element);
+  if (typeof requestAnimationFrame !== "function") {
+    return;
+  }
+  const inlineTransition = element.style.transition;
+  element.style.transition = "none";
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      element.style.transition = inlineTransition;
+    });
+  });
 }
 
 /**

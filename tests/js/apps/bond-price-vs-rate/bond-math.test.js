@@ -188,3 +188,22 @@ test('price regime classifies premium, par, and discount bonds', () => {
 test('price regime treats a hair-thin difference as par', () => {
   assert.equal(priceRegime(5, 5 + 1e-12), 'par');
 });
+
+test('the closed-form price equals the sum of the schedule present values', () => {
+  for (const frequency of [1, 2, 4]) {
+    for (const years of [1, 2, 7, 30]) {
+      for (const couponRatePct of [0, 2.5, 5, 12]) {
+        for (const annualYieldPct of [0, 0.1, 3, 5, 11.9]) {
+          const bond = { faceValue: 1000, couponRatePct, years, frequency, annualYieldPct };
+          const summed = bondSchedule(bond).reduce((sum, row) => sum + row.presentValue, 0);
+          // Both are float sums of the same terms; they agree to within rounding.
+          assert.ok(Math.abs(bondPrice(bond) - summed) <= 1e-12 * summed + 1e-12, JSON.stringify(bond));
+        }
+      }
+    }
+  }
+});
+
+test('a bond with no coupon periods has no cash flows to price', () => {
+  assert.equal(bondPrice({ ...PAR, years: 0, annualYieldPct: 5 }), 0);
+});
