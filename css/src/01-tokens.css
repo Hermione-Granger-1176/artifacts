@@ -66,7 +66,6 @@
   --radius-pill: 999px;
   --transition-fast: 0.2s;
   --book-sheet-min-height: 800px;
-  --book-sheet-min-height-tablet: 820px;
   /* Laptop fit: the book takes the screen height left after the header, search, and pagination. */
   --book-chrome-y: 290px;
   --book-fit-min-height: 460px;
@@ -78,8 +77,6 @@
   --gallery-card-gap: 1.25rem;
   /* Every artifact thumbnail is 960x600, so image slots can be sized before the image loads. */
   --card-thumb-ratio: 1.6;
-  /* Cards on one book page (the gallery's ITEMS_PER_PAGE). The phone layout reserves a page of this many cards. */
-  --gallery-page-cards: 4;
   --desk-note-size: 100px;
   --desk-note-gap: 0.6rem;
   --desk-note-offset-top: 6rem;
@@ -88,6 +85,8 @@
   --color-album-ribbon: rgb(214, 170, 72);
   --color-album-chalk: rgb(240, 236, 226);
   --color-album-print: rgb(250, 248, 242);
+  /* The notepad's wire binding. */
+  --color-notepad-coil: rgb(176, 174, 170);
   /* Graphite pencil on the daytime paper. The album pages keep this paper in both themes, so the pencil does too. */
   --color-pencil: rgb(72, 68, 63);
   --color-pencil-soft: rgb(104, 98, 90);

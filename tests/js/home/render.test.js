@@ -207,6 +207,20 @@ test('buildFilterDropdowns adds a search box only to a long list', () => {
   assert.equal(buildFilterDropdowns([]), '');
 });
 
+test('buildFilterNotes gives desk notes with long labels a smaller hand', () => {
+  const html = buildFilterNotes({
+    tools: [],
+    tags: ['visualization', 'finance'],
+    activeTools: [],
+    activeTags: [],
+    toolLabel: (v) => v,
+    tagLabel: (v) => v
+  });
+
+  assert.match(html, /data-filter-tag="visualization"[^>]*data-long/);
+  assert.doesNotMatch(html, /data-filter-tag="finance"[^>]*data-long/);
+});
+
 test('buildFilterNotes escapes HTML in labels', () => {
   const html = buildFilterNotes({
     tools: ['<xss>'],
@@ -416,4 +430,22 @@ test('buildGridHtml spreads attachment styles across ids', () => {
 
   assert.equal(styles.size, 5);
   assert.equal(tapes.size, 6);
+});
+
+test('buildGridHtml writes notepad notes under each card: the description and a link that opens in a new tab', () => {
+  const html = buildGridHtml([
+    { id: 'loan', name: 'Loan <calc>', description: 'Pay it off & see', url: 'apps/loan/', thumbnail: null },
+    { id: 'bare', name: 'Bare', thumbnail: null }
+  ], null);
+
+  assert.match(html, /<div class="card-notes">\s*<p class="card-notes-text">Pay it off &amp; see<\/p>/);
+  assert.match(html, /<a class="card-notes-open" href="apps\/loan\/" target="_blank" rel="noopener noreferrer">Open artifact <span class="visually-hidden">Loan &lt;calc&gt; \(opens in a new tab\)<\/span>/);
+  const bareNotes = html.slice(html.indexOf('data-id="bare"'));
+  assert.doesNotMatch(bareNotes, /card-notes-text|card-notes-open/, 'a card without a description or link writes empty notes');
+});
+
+test('renderPagination writes the page count the notepad shows between its arrows', () => {
+  const container = { dataset: {}, innerHTML: '' };
+  renderPagination(container, 2, 5);
+  assert.match(container.innerHTML, /<span class="page-counter" aria-hidden="true">2 \/ 5<\/span>/);
 });
