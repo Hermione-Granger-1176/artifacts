@@ -408,8 +408,18 @@ def test_bond_price_vs_rate_flow_covers_rail_chapters_and_curve_apply(
         expect(page.locator("#rateValue")).to_have_text(f"{applied_rate:.1f}%")
         expect(rail.locator("#rateValue")).to_be_in_viewport()
 
-        # Below 960px the rail stops pinning and stacks above the story.
+        # Tablets keep the pinned rail beside the story; below 760px it stacks above the story.
         page.set_viewport_size({"width": 800, "height": 900})
+        page.evaluate("window.scrollTo(0, 0)")
+        expect(rail).to_have_css("position", "sticky")
+        side_rail = rail.bounding_box()
+        side_chapter = chapters.nth(0).bounding_box()
+        assert side_rail is not None
+        assert side_chapter is not None
+        assert side_rail["x"] + side_rail["width"] <= side_chapter["x"]
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+        page.set_viewport_size({"width": 700, "height": 900})
         page.evaluate("window.scrollTo(0, 0)")
         expect(rail).to_have_css("position", "static")
         stacked_rail = rail.bounding_box()
@@ -476,6 +486,49 @@ def test_loan_amortization_savings_chip_never_moves_the_kpis(
         expect(page.locator("#metrics .chip")).to_contain_text("sooner")
         expect(page.locator("#metrics .loan-hero-sub")).to_contain_text("in extra payments")
         assert abs(kpis_offset() - before) < 1, "the savings chip moved the KPIs"
+
+
+@app_scope_skipif("loan-amortization")
+@pytest.mark.parametrize(
+    ("width", "side_by_side", "kpi_columns"),
+    [(800, True, 2), (740, False, 4), (700, False, 2)],
+)
+def test_loan_amortization_layout_across_the_tablet_breakpoint(
+    app_browser: AppBrowserHarness,
+    width: int,
+    side_by_side: bool,
+    kpi_columns: int,
+) -> None:
+    """Tablets keep the inputs beside the results; below 760px they stack above them."""
+    with MonitoredPage(
+        app_browser.playwright,
+        app_browser.server_url,
+        name=f"app-loan-layout-{width}",
+        viewport=(width, 900),
+        bypass_csp=True,
+        browser=app_browser.browser,
+    ) as session:
+        page = session.page
+        assert page is not None
+        session.goto("/apps/loan-amortization/")
+        page.wait_for_function("window.__ARTIFACT_READY__ === true")
+
+        inputs = page.locator(".loan-inputs").bounding_box()
+        results = page.locator(".loan-results").bounding_box()
+        assert inputs is not None
+        assert results is not None
+        if side_by_side:
+            expect(page.locator(".loan-inputs")).to_have_css("position", "sticky")
+            assert inputs["x"] + inputs["width"] <= results["x"]
+        else:
+            expect(page.locator(".loan-inputs")).to_have_css("position", "static")
+            assert inputs["y"] + inputs["height"] <= results["y"]
+        columns = page.evaluate(
+            "getComputedStyle(document.querySelector('#metrics .loan-kpis'))"
+            ".gridTemplateColumns.split(' ').length"
+        )
+        assert columns == kpi_columns
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 
 @app_scope_skipif("vendor-docs-generator")
