@@ -668,15 +668,9 @@ export function sizingCopy(formatters) {
   ) {
     return sizingCache.copy;
   }
-  const copy = {
-    heroExplain: regimeTexts(WIDEST_STATE, heroExplainText, formatters),
-    mechanismExplain: regimeTexts(WIDEST_STATE, mechanismExplainText, formatters),
-    rippleExplain: regimeTexts(WIDEST_STATE, rippleExplainText, formatters),
-    curveExplain: curveTexts(WIDEST_STATE, formatters),
-    mathExplain: { text: mathExplainText(WIDEST_STATE, formatters) },
-    sensitivityExplain: { text: sensitivityExplainText(WIDEST_STATE, formatters) },
-    analystExplain: { text: analystExplainText(WIDEST_STATE, formatters) }
-  };
+  const copy = Object.fromEntries(
+    Object.entries(EXPLANATIONS).map(([slot, { texts }]) => [slot, texts(WIDEST_STATE, formatters)])
+  );
   sizingCache = { formatters, copy };
   return copy;
 }
@@ -700,20 +694,67 @@ function curveTexts(state, formatters) {
 }
 
 /**
- * Render every narrative readout for the current bond state.
- * @param {Record<string, HTMLElement>} elements
- * @param {NarrativeState} state
- * @param {NarrativeFormatters} formatters
+ * @typedef {{
+ *   texts: (state: NarrativeState, formatters: NarrativeFormatters) => Record<string, string>,
+ *   active: (state: NarrativeState) => string
+ * }} Explanation
+ */
+
+/**
+ * @param {(state: NarrativeState, formatters: NarrativeFormatters) => string} build - Copy builder.
+ * @returns {Explanation} A callout whose copy changes with the price regime.
+ */
+function byRegime(build) {
+  return { texts: (state, formatters) => regimeTexts(state, build, formatters), active: (state) => state.regime };
+}
+
+/**
+ * @param {(state: NarrativeState, formatters: NarrativeFormatters) => string} build - Copy builder.
+ * @returns {Explanation} A callout with one variant.
+ */
+function single(build) {
+  return { texts: (state, formatters) => ({ text: build(state, formatters) }), active: () => "text" };
+}
+
+/**
+ * Every dynamic callout, keyed by its element: the copy for each of its variants
+ * and the variant a state shows. The same table builds the live copy and the
+ * widest-number sizing copy, so a new callout is one entry here.
+ * @type {Record<string, Explanation>}
+ */
+const EXPLANATIONS = {
+  heroExplain: byRegime(heroExplainText),
+  mechanismExplain: byRegime(mechanismExplainText),
+  rippleExplain: byRegime(rippleExplainText),
+  curveExplain: { texts: curveTexts, active: (state) => state.curve.key },
+  mathExplain: single(mathExplainText),
+  sensitivityExplain: single(sensitivityExplainText),
+  analystExplain: single(analystExplainText)
+};
+
+/**
+ * Write the live copy into every dynamic callout. Each one also holds its
+ * widest-number sizing copy, so its height never changes as the sliders move.
+ * @param {Record<string, HTMLElement>} elements - Callout elements by id.
+ * @param {NarrativeState} state - Current state.
+ * @param {NarrativeFormatters} formatters - Formatters.
  * @returns {void}
  */
-export function renderNarrative(elements, state, formatters) {
-  const { bond, price, regime } = state;
+function renderExplanations(elements, state, formatters) {
+  const sizing = sizingCopy(formatters);
+  for (const [slot, { texts, active }] of Object.entries(EXPLANATIONS)) {
+    renderVariants(elements[slot], texts(state, formatters), active(state), sizing[slot]);
+  }
+}
+
+/**
+ * Show the price regime: its badge and the rate and price arrows.
+ * @param {Record<string, HTMLElement>} elements - Readout elements.
+ * @param {import('./bond-math.js').PriceRegime} regime - Current regime.
+ * @returns {void}
+ */
+function renderRegimeSignals(elements, regime) {
   const presentation = regimePresentation(regime);
-  const couponLabel = couponText(bond.couponRatePct);
-
-  setText(elements.priceValue, formatters.formatCurrency(price, 2));
-  setText(elements.priceCaption, `This ${bond.years}-year, ${couponLabel} bond is now worth`);
-
   renderVariants(
     elements.regimeBadge,
     Object.fromEntries(REGIMES.map((key) => [key, REGIME_PRESENTATION[key].label])),
@@ -725,29 +766,26 @@ export function renderNarrative(elements, state, formatters) {
   elements.rateArrow.className = `br-arrow ${presentation.rateArrow}`;
   setText(elements.priceArrow, ARROW_GLYPH[/** @type {keyof typeof ARROW_GLYPH} */ (presentation.priceArrow)]);
   elements.priceArrow.className = `br-arrow ${presentation.priceArrow}`;
+}
 
-  const sizing = sizingCopy(formatters);
-  renderVariants(elements.heroExplain, regimeTexts(state, heroExplainText, formatters), regime, sizing.heroExplain);
-  renderVariants(
-    elements.mechanismExplain,
-    regimeTexts(state, mechanismExplainText, formatters),
-    regime,
-    sizing.mechanismExplain
-  );
-  renderVariants(elements.mathExplain, { text: mathExplainText(state, formatters) }, "text", sizing.mathExplain);
-  renderVariants(
-    elements.sensitivityExplain,
-    { text: sensitivityExplainText(state, formatters) },
-    "text",
-    sizing.sensitivityExplain
-  );
-  renderVariants(elements.analystExplain, { text: analystExplainText(state, formatters) }, "text", sizing.analystExplain);
-  renderVariants(elements.curveExplain, curveTexts(state, formatters), state.curve.key, sizing.curveExplain);
+/**
+ * Render every narrative readout for the current bond state.
+ * @param {Record<string, HTMLElement>} elements
+ * @param {NarrativeState} state
+ * @param {NarrativeFormatters} formatters
+ * @returns {void}
+ */
+export function renderNarrative(elements, state, formatters) {
+  const { bond, price, regime } = state;
+
+  setText(elements.priceValue, formatters.formatCurrency(price, 2));
+  setText(elements.priceCaption, `This ${bond.years}-year, ${couponText(bond.couponRatePct)} bond is now worth`);
+  renderRegimeSignals(elements, regime);
+  renderExplanations(elements, state, formatters);
   setText(
     elements.btnApplyCurveLabel,
     `Set the market rate to ${formatters.formatPercent(state.curve.atMaturityPct)}`
   );
-  renderVariants(elements.rippleExplain, regimeTexts(state, rippleExplainText, formatters), regime, sizing.rippleExplain);
 
   renderCouponCompare(elements.couponCompare, state, formatters);
   renderMathLegend(elements, state, formatters);

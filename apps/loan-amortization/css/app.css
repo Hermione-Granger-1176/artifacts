@@ -312,14 +312,16 @@ body.app-loan-amortization .loan-hero {
 }
 
 /*
- * The savings chip owns a slot from the first paint. It fades in and out and
- * keeps its last text while hidden, so nothing around it moves. Below 700px
- * the slot takes its own row, whatever the chip says.
+ * The savings chip owns a row from the first paint, at every width. It fades
+ * in and out and keeps its last text while hidden, so nothing around it moves.
+ * Beside the EMI it could wrap onto a new row, because the first extra payment
+ * widens the extras line under the EMI and fills the chip at the same time.
  */
 
 body.app-loan-amortization .loan-hero-aside {
   display: flex;
-  justify-content: flex-end;
+  flex: 1 0 100%;
+  justify-content: flex-start;
 }
 
 body.app-loan-amortization .loan-hero-aside .chip {
@@ -334,13 +336,6 @@ body.app-loan-amortization .loan-hero-aside .chip.is-empty {
   transition:
     opacity var(--transition-fast) ease,
     visibility 0s linear var(--transition-fast);
-}
-
-@media (max-width: 700px) {
-  body.app-loan-amortization .loan-hero-aside {
-    flex: 1 0 100%;
-    justify-content: flex-start;
-  }
 }
 
 body.app-loan-amortization .loan-hero-label {

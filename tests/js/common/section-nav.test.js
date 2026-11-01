@@ -249,6 +249,13 @@ test('sectionAnchors splits the last stretch of scrolling among the sections the
   assert.deepEqual(sectionAnchors([400], 300, 0), [100], 'a single section is left alone');
 });
 
+test('sectionAnchors keeps the natural anchors when the page has no scroll range', () => {
+  // A page that fits the viewport measures end = -1; a 1px overflow gives 0.
+  assert.deepEqual(sectionAnchors([0, 20, 220], 0, -1), [0, 20, 220]);
+  assert.deepEqual(sectionAnchors([0, 400, 600], 300, 0), [0, 100, 300]);
+  assert.equal(scrollProgress(sectionAnchors([0, 20, 220], 0, -1), 0), 0, 'the first section stays active');
+});
+
 test('scrollProgress is the active section plus the way to the next one', () => {
   const anchors = [0, 700, 1700];
   assert.equal(scrollProgress(anchors, -50), 0);

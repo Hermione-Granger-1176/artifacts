@@ -3,6 +3,7 @@
 // attributes, class lists) so tests can check node identity.
 
 const toCamel = (name) => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+const toKebab = (name) => name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
 
 export class FakeNode {
   constructor(tagName = '#fragment') {
@@ -38,12 +39,40 @@ export class FakeNode {
     this.classes = new Set(String(value).split(/\s+/).filter(Boolean));
   }
 
+  /**
+   * A live view of the `data-*` attributes, as in the DOM: reads, writes, and
+   * deletes go straight to the backing attributes.
+   */
   get dataset() {
-    const data = {};
-    for (const [name, value] of Object.entries(this.attributes)) {
-      if (name.startsWith('data-')) data[toCamel(name.slice(5))] = value;
-    }
-    return data;
+    const node = this;
+    return new Proxy({}, {
+      get: (_, key) => (typeof key === 'string' ? node.attributes[`data-${toKebab(key)}`] : undefined),
+      set: (_, key, value) => {
+        node.setAttribute(`data-${toKebab(String(key))}`, value);
+        return true;
+      },
+      deleteProperty: (_, key) => {
+        node.removeAttribute(`data-${toKebab(String(key))}`);
+        return true;
+      },
+      has: (_, key) => typeof key === 'string' && `data-${toKebab(key)}` in node.attributes,
+      ownKeys: () => Object.keys(node.attributes).filter((name) => name.startsWith('data-')).map((name) => toCamel(name.slice(5))),
+      getOwnPropertyDescriptor: (_, key) => {
+        const value = typeof key === 'string' ? node.attributes[`data-${toKebab(key)}`] : undefined;
+        return value === undefined ? undefined : { value, writable: true, enumerable: true, configurable: true };
+      }
+    });
+  }
+
+  get innerHTML() {
+    return this.markup ?? '';
+  }
+
+  /** Replace the children with markup this stand-in keeps only as a string. */
+  set innerHTML(value) {
+    for (const child of [...this.children]) child.detach();
+    this.ownText = '';
+    this.markup = String(value);
   }
 
   get textContent() {

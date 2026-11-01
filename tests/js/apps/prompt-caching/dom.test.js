@@ -446,6 +446,55 @@ test('attention card reserves its tallest state and re-measures on a width chang
   });
 });
 
+test('attention card re-measure keeps the projection, scramble, open calculation, and focus', () => {
+  withHarness((h) => {
+    const card = h.el('attnStepCard');
+    Object.defineProperty(card, 'offsetHeight', { get: () => 300 });
+    card.clientWidth = 900;
+    initAttention();
+    h.fireObservers(0);
+    const visual = h.el('attnStepVisual');
+    // The registry elements are flat; nest the visual so focus inside it is inside the card.
+    visual.parentNode = card;
+    const findButton = (label) => visual.querySelectorAll('button').find((b) => b.textContent === label);
+
+    findButton('WK → K').fire('click');
+    const realRandom = Math.random;
+    Math.random = () => 0.75;
+    try {
+      findButton('Scramble weights').fire('click');
+    } finally {
+      Math.random = realRandom;
+    }
+    visual.querySelectorAll('[data-mx="out1"].clickable')[1].fire('click');
+    const scrambleBtn = findButton('Scramble weights');
+    let focusOptions = null;
+    scrambleBtn.focus = (options) => {
+      focusOptions = options;
+    };
+    h.documentMock.activeElement = scrambleBtn;
+    const block = visual.children[0];
+    const calc = h.el('dotProduct').children[0];
+
+    h.state.deferFrames = true;
+    card.clientWidth = 500;
+    h.fireWindow('resize');
+    h.flushFrames();
+
+    // The same live nodes are back, so their state and listeners survive.
+    assert.equal(visual.children[0], block);
+    assert.equal(h.el('dotProduct').children[0], calc);
+    assert.match(calc.children[0].textContent, /^Row 1 x Column 2:/);
+    assert.equal(visual.querySelectorAll('.pc-attn-status').length, 1);
+    assert.equal(h.el('attnStepTitle').textContent, '1. Compute Q and K');
+    assert.deepEqual(focusOptions, { preventScroll: true });
+    // The restored controls still work.
+    findButton('WQ → Q').fire('click');
+    assert.equal(visual.querySelectorAll('.pc-attn-status').length, 0);
+    assert.equal(visual.querySelectorAll('[data-mx="out1"]')[0].textContent, '0.15');
+  });
+});
+
 test('attention card skips the reservation when the fonts are already loaded', () => {
   withHarness((h) => {
     h.documentMock.fonts = { status: 'loaded', ready: { then() { throw new Error('unexpected'); } } };
@@ -498,10 +547,11 @@ test('kv cache keeps every row in place and reserves its narration', () => {
     assert.deepEqual(states, ['cached', 'new', 'pending', 'pending', 'pending', 'pending']);
     assert.equal(rows('kCacheVis').length, rows('vCacheVis').length);
 
-    // A hidden narration per state (idle, four steps, done) beside the live one.
+    // A hidden narration per state (idle, five processing steps, done) beside the live one.
     const narrations = h.el('cacheNarration').parentNode.children;
-    assert.equal(narrations.length, 1 + 6);
+    assert.equal(narrations.length, 1 + 7);
     assert.ok(narrations.slice(1).every((n) => n.classList.contains('reserve-ghost')));
+    assert.match(narrations[narrations.length - 1].children[0].textContent, /^Done\./);
   });
 });
 

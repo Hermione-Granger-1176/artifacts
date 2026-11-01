@@ -285,12 +285,19 @@ function createCharts(elements) {
     sensitivity: createSensitivityChart(/** @type {HTMLCanvasElement} */ (elements.sensitivityChart)),
     yieldCurve: createYieldCurveChart(/** @type {HTMLCanvasElement} */ (elements.yieldCurveChart))
   };
-  offscreenDraws.set(
-    charts,
-    createOffscreenDraws([elements.priceRateChart, elements.sensitivityChart, elements.yieldCurveChart])
-  );
+  offscreenDraws.set(charts, createOffscreenDraws(CHART_NAMES.map((name) => charts[name].canvas)));
   return charts;
 }
+
+/** Chart names in drawing order. */
+const CHART_NAMES = /** @type {ChartName[]} */ (["priceRate", "sensitivity", "yieldCurve"]);
+
+/** @type {Record<ChartName, (chart: ChartInstance, state: ChartState, formatDollarTick: (value: number) => string, mode: UpdateMode) => void>} */
+const SYNCS = {
+  priceRate: syncPriceRateChart,
+  sensitivity: (chart, state, _formatDollarTick, mode) => syncSensitivityChart(chart, state, mode),
+  yieldCurve: (chart, state, _formatDollarTick, mode) => syncYieldCurveChart(chart, state, mode)
+};
 
 /** Each chart set's off-screen gate: a chart off screen keeps its latest redraw until it scrolls in. */
 const offscreenDraws = /** @type {WeakMap<Charts, import("../../../../js/modules/offscreen-draws.js").OffscreenDraws>} */ (
@@ -352,31 +359,18 @@ export function renderCharts({
   const nextCharts = created ? createCharts(elements) : /** @type {Charts} */ (charts);
   const palette = colors();
 
-  if (priceRate) {
-    const state = /** @type {ChartState} */ ({ palette, priceRate });
+  const updates = { priceRate, sensitivity, yieldCurve };
+
+  for (const name of CHART_NAMES) {
+    if (!updates[name]) {
+      continue;
+    }
+    const state = /** @type {ChartState} */ ({ palette, [name]: updates[name] });
     drawOrDefer(
       nextCharts,
-      "priceRate",
-      (mode) => syncPriceRateChart(nextCharts.priceRate, state, formatDollarTick, mode),
-      created || Boolean(animate.priceRate)
-    );
-  }
-  if (sensitivity) {
-    const state = /** @type {ChartState} */ ({ palette, sensitivity });
-    drawOrDefer(
-      nextCharts,
-      "sensitivity",
-      (mode) => syncSensitivityChart(nextCharts.sensitivity, state, mode),
-      created || Boolean(animate.sensitivity)
-    );
-  }
-  if (yieldCurve) {
-    const state = /** @type {ChartState} */ ({ palette, yieldCurve });
-    drawOrDefer(
-      nextCharts,
-      "yieldCurve",
-      (mode) => syncYieldCurveChart(nextCharts.yieldCurve, state, mode),
-      created || Boolean(animate.yieldCurve)
+      name,
+      (mode) => SYNCS[name](nextCharts[name], state, formatDollarTick, mode),
+      created || Boolean(animate[name])
     );
   }
   return nextCharts;

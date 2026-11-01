@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pytest
 from playwright.sync_api import expect
 
 from tests.browser.frontend_helpers import (
@@ -429,6 +430,64 @@ def test_bond_price_vs_rate_flow_covers_rail_chapters_and_curve_apply(
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 
+@app_scope_skipif("loan-amortization")
+@pytest.mark.parametrize("width", [901, 960, 1100, 1400])
+def test_loan_amortization_savings_chip_never_moves_the_kpis(
+    app_browser: AppBrowserHarness,
+    width: int,
+) -> None:
+    """The first extra payment shows the savings chip without moving the KPIs below the hero.
+
+    The extras line under the EMI and the chip both grow on that first extra
+    payment, so a chip sharing the hero row could wrap onto a new one.
+    """
+    with MonitoredPage(
+        app_browser.playwright,
+        app_browser.server_url,
+        name=f"app-loan-chip-{width}",
+        viewport=(width, 900),
+        bypass_csp=True,
+        browser=app_browser.browser,
+    ) as session:
+        page = session.page
+        assert page is not None
+        session.goto("/apps/loan-amortization/")
+        page.wait_for_function("window.__ARTIFACT_READY__ === true")
+
+        hero_value = page.locator("#metrics .loan-hero-value")
+        expect(hero_value).to_contain_text("$")
+        initial_value = hero_value.text_content() or ""
+        # The largest loan the sliders allow gives the longest chip and extras text.
+        largest = (("#slPrincipal", "500000"), ("#slRate", "20"), ("#slTenure", "30"))
+        for selector, value in largest:
+            page.locator(selector).evaluate(
+                """(el, value) => {
+                    el.value = value;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                }""",
+                value,
+            )
+        expect(hero_value).not_to_have_text(initial_value)
+
+        def kpis_offset() -> float:
+            return float(
+                page.evaluate(
+                    """() => {
+                        const top = (selector) => document.querySelector(selector)
+                            .getBoundingClientRect().top;
+                        return top('#metrics .loan-kpis') - top('#metrics');
+                    }"""
+                )
+            )
+
+        before = kpis_offset()
+        page.locator("#btnAdd").click()
+        page.locator('.extra-item [data-field="amount"]').fill("20000")
+        expect(page.locator("#metrics .chip")).to_contain_text("sooner")
+        expect(page.locator("#metrics .loan-hero-sub")).to_contain_text("in extra payments")
+        assert abs(kpis_offset() - before) < 1, "the savings chip moved the KPIs"
+
+
 @app_scope_skipif("vendor-docs-generator")
 def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
     app_browser: AppBrowserHarness,
@@ -446,6 +505,16 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         assert page is not None
         session.goto("/apps/vendor-docs-generator/")
         page.wait_for_function("window.__ARTIFACT_READY__ === true")
+
+        # Deferred and module scripts run in document order, so the app module
+        # has to come after the vendor bundles that its export and scan-preview
+        # handlers call.
+        script_srcs = page.evaluate("[...document.scripts].map((s) => s.getAttribute('src') || '')")
+        # Site assembly appends a ?v= content hash to the app module.
+        app_index = next(i for i, src in enumerate(script_srcs) if src.startswith("./js/app.js"))
+        vendor_indexes = [i for i, src in enumerate(script_srcs) if src.startswith("./js/vendor/")]
+        assert len(vendor_indexes) == 4
+        assert max(vendor_indexes) < app_index, "app.js must run after the vendored libraries"
 
         # The fitted preview must show the whole page without ever scrolling:
         # that is the entire reason the frame clips and the overlay exists.

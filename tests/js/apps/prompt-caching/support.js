@@ -145,6 +145,17 @@ export function makeEl(tag = "div") {
     get firstChild() {
       return this.children[0] || null;
     },
+    get childNodes() {
+      return this.children;
+    },
+    contains(other) {
+      for (let cur = other; cur; cur = cur.parentNode) {
+        if (cur === node) {
+          return true;
+        }
+      }
+      return false;
+    },
     get childElementCount() {
       return this.children.length;
     },

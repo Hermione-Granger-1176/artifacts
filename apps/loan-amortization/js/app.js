@@ -60,15 +60,14 @@ let nextExtraId = 0;
 let charts = {};
 let bwMode = "true";
 /**
- * The base schedule (no extras) depends only on the loan terms, so it is kept
- * until they change. Typing in an extra-payment field reuses it.
+ * The latest base schedule and the terms it was built from; see getBaseSchedule.
  * @type {{ key: string, base: ReturnType<typeof runSchedule> } | null}
  */
 let baseSchedule = null;
 /**
  * Inputs of the latest calculation, kept so a view that was hidden can be drawn
  * when it is shown.
- * @type {{ extra: ReturnType<typeof runSchedule>, base: ReturnType<typeof runSchedule>, principal: number, savings: number, label: string, periodsPerYear: number } | null}
+ * @type {(import("./modules/metrics.js").LoanMetrics & { principal: number }) | null}
  */
 let latest = null;
 /** Table bodies behind the latest calculation. Only the visible table is redrawn. */
@@ -231,22 +230,54 @@ function handleExtraListInput(event) {
   scheduleRecalc();
 }
 
-function recalc() {
+/**
+ * @typedef {{
+ *   principal: number,
+ *   annualRate: number,
+ *   years: number,
+ *   selectedFrequency: string,
+ *   frequency: ReturnType<typeof getFrequencyParams>,
+ *   ratePerPeriod: number,
+ *   totalPeriods: number,
+ *   emiOverride: ReturnType<typeof getBiweeklyEmiOverride>
+ * }} LoanTerms
+ */
+
+/**
+ * Read the loan terms from the controls and derive the per-period schedule inputs.
+ * @returns {LoanTerms} Current loan terms.
+ */
+function readLoanTerms() {
   const principal = +elements.slPrincipal.value;
   const annualRate = +elements.slRate.value;
   const years = +elements.slTenure.value;
   const selectedFrequency = getFrequency();
   const frequency = getFrequencyParams(selectedFrequency);
-  const ratePerPeriod = annualRate / 100 / frequency.periodsPerYear;
-  const totalPeriods = years * frequency.periodsPerYear;
-  const emiOverride = getBiweeklyEmiOverride({
+  return {
     principal,
     annualRate,
     years,
-    frequency: selectedFrequency,
-    bwMode
-  });
+    selectedFrequency,
+    frequency,
+    ratePerPeriod: annualRate / 100 / frequency.periodsPerYear,
+    totalPeriods: years * frequency.periodsPerYear,
+    emiOverride: getBiweeklyEmiOverride({
+      principal,
+      annualRate,
+      years,
+      frequency: selectedFrequency,
+      bwMode
+    })
+  };
+}
 
+/**
+ * The schedule without extras. It depends only on the loan terms, so it is
+ * rebuilt only when they change, and typing in an extra-payment field reuses it.
+ * @param {LoanTerms} terms - Current loan terms.
+ * @returns {ReturnType<typeof runSchedule>} The base schedule.
+ */
+function getBaseSchedule({ principal, annualRate, years, selectedFrequency, ratePerPeriod, totalPeriods, emiOverride }) {
   const baseKey = [principal, annualRate, years, selectedFrequency, bwMode].join("|");
   if (baseSchedule?.key !== baseKey) {
     baseSchedule = {
@@ -257,41 +288,43 @@ function recalc() {
       })
     };
   }
-  const { base } = baseSchedule;
-  const extra = runSchedule(principal, ratePerPeriod, totalPeriods, {
-    withExtras: true,
-    emiOverride,
-    extras
-  });
+  return baseSchedule.base;
+}
 
-  const savings = base.totalInterest - extra.totalInterest;
-  const periodsSaved = base.periods - extra.periods;
+/**
+ * Compare the schedule with extras against the base schedule.
+ * @param {LoanTerms} terms - Current loan terms.
+ * @param {ReturnType<typeof runSchedule>} base - Schedule without extras.
+ * @param {ReturnType<typeof runSchedule>} extra - Schedule with extras.
+ * @returns {import("./modules/metrics.js").LoanMetrics} Savings, payoff, and cost figures.
+ */
+function buildLoanMetrics({ principal, frequency }, base, extra) {
   const totalPaid = principal + extra.totalInterest;
-  const costRatio = totalPaid / principal;
-
-  renderMetrics(
-    elements.metrics,
-    {
-      base,
-      extra,
-      savings,
-      periodsSaved,
-      totalPaid,
-      costRatio,
-      label: frequency.label,
-      periodsPerYear: frequency.periodsPerYear
-    },
-    formatCurrency
-  );
-
-  latest = {
+  return {
     base,
     extra,
-    principal,
-    savings,
+    savings: base.totalInterest - extra.totalInterest,
+    periodsSaved: base.periods - extra.periods,
+    totalPaid,
+    costRatio: totalPaid / principal,
     label: frequency.label,
     periodsPerYear: frequency.periodsPerYear
   };
+}
+
+function recalc() {
+  const terms = readLoanTerms();
+  const base = getBaseSchedule(terms);
+  const extra = runSchedule(terms.principal, terms.ratePerPeriod, terms.totalPeriods, {
+    withExtras: true,
+    emiOverride: terms.emiOverride,
+    extras
+  });
+  const metrics = buildLoanMetrics(terms, base, extra);
+
+  renderMetrics(elements.metrics, metrics, formatCurrency);
+
+  latest = { ...metrics, principal: terms.principal };
   staleTables.period = true;
   staleTables.yearly = true;
   renderResults();

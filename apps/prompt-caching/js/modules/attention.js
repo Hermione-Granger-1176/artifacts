@@ -135,6 +135,53 @@ function defaultHint(dot) {
   dot.appendChild(makeEl("div", "pc-hint", "Click any cell in the output matrix to see how it was calculated."));
 }
 
+/**
+ * Keep a card's reserved height current. Measuring renders every state once,
+ * which is real work, and the card sits far down the page, so the first
+ * measurement waits until the card comes within two screens of the viewport,
+ * where its height can still change without anyone seeing it. Line wraps depend
+ * on the width, so it measures again when the width changes (a phone rotating,
+ * a window resize) and once the web fonts have settled.
+ * @param {HTMLElement} card - Card whose height is reserved.
+ * @param {() => void} reserve - Measures every state and sets the reservation.
+ * @returns {void}
+ */
+function keepReserved(card, reserve) {
+  let measured = false;
+  let reservedWidth = 0;
+  function measureOnce() {
+    measured = true;
+    reservedWidth = card.clientWidth;
+    reserve();
+  }
+  if (typeof IntersectionObserver === "function") {
+    const nearView = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        nearView.disconnect();
+        measureOnce();
+      }
+    }, { rootMargin: "200% 0px" });
+    nearView.observe(card);
+  } else {
+    measureOnce();
+  }
+
+  const remeasure = createFrameScheduler(() => {
+    if (measured && card.clientWidth !== reservedWidth) {
+      reservedWidth = card.clientWidth;
+      reserve();
+    }
+  });
+  window.addEventListener("resize", remeasure);
+  if (document.fonts && document.fonts.status !== "loaded") {
+    document.fonts.ready.then(() => {
+      if (measured) {
+        reserve();
+      }
+    });
+  }
+}
+
 function initStepper() {
   const card = byId("attnStepCard");
   const stepper = byId("attnStepper");
@@ -405,11 +452,18 @@ function initStepper() {
    * stepping, scrambling, or opening a calculation never moves what follows.
    * Every step is rendered once (also scrambled, unmasked, and with each
    * calculation open) and measured; the layout reads happen in one task, so
-   * nothing is painted and the view returns to where it was.
+   * nothing is painted. The live nodes are set aside and put back afterwards,
+   * so a later re-measure keeps the reader's projection, scrambled weights,
+   * open calculation, and focus.
    */
   function reserveTallestStep() {
     const resumeStep = current;
     const resumeMask = maskOn;
+    const resumeFrame = { ...frame };
+    const resumeText = [titleEl.textContent, descEl.textContent];
+    const resumeNodes = [stepper, visual, dot].map((el) => [...el.childNodes]);
+    const focused = /** @type {HTMLElement | null} */ (document.activeElement);
+    const refocus = focused && card.contains(focused) ? focused : null;
     card.style.minHeight = "";
     let tallest = 0;
     const measure = () => {
@@ -437,53 +491,19 @@ function initStepper() {
       }
     });
 
+    current = resumeStep;
     maskOn = resumeMask;
-    renderStep(resumeStep);
+    Object.assign(frame, resumeFrame);
+    [titleEl.textContent, descEl.textContent] = resumeText;
+    [stepper, visual, dot].forEach((el, i) => el.replaceChildren(...resumeNodes[i]));
+    refocus?.focus({ preventScroll: true });
     if (tallest > 0) {
       card.style.minHeight = `${tallest}px`;
     }
   }
 
   renderStep(0);
-
-  // Measuring renders every state once, which is real work, and the card sits
-  // far down the page. So it waits until the card comes within two screens of
-  // the viewport, where its height can still change without anyone seeing it.
-  let measured = false;
-  let reservedWidth = 0;
-  function measureOnce() {
-    measured = true;
-    reservedWidth = card.clientWidth;
-    reserveTallestStep();
-  }
-  if (typeof IntersectionObserver === "function") {
-    const nearView = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        nearView.disconnect();
-        measureOnce();
-      }
-    }, { rootMargin: "200% 0px" });
-    nearView.observe(card);
-  } else {
-    measureOnce();
-  }
-
-  // Line wraps depend on the width, so measure again when it changes (a phone
-  // rotating, a window resize) and once the web fonts have settled.
-  const remeasure = createFrameScheduler(() => {
-    if (measured && card.clientWidth !== reservedWidth) {
-      reservedWidth = card.clientWidth;
-      reserveTallestStep();
-    }
-  });
-  window.addEventListener("resize", remeasure);
-  if (document.fonts && document.fonts.status !== "loaded") {
-    document.fonts.ready.then(() => {
-      if (measured) {
-        reserveTallestStep();
-      }
-    });
-  }
+  keepReserved(card, reserveTallestStep);
 }
 
 /**
