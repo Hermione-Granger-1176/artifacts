@@ -1,30 +1,30 @@
 # Maintain the workspace
 
-Use this checklist when changes affect shared behavior, dependencies, automation, or repository settings. [Operations](operations.md) covers daily commands and recovery. [Workspace structure](workspace.md) lists file ownership, and [Architecture](architecture.md) explains the deployment design.
+Use this checklist when a change affects shared behavior, dependencies, automation, or repository settings. [Operations](operations.md) covers daily commands and recovery, [Workspace structure](workspace.md) lists file ownership, and [Architecture](architecture.md) explains the deployment design.
 
 ## Preserve shared contracts
 
-For changes to tooling or deployment, check these rules:
+Before you change tooling or deployment, check these rules:
 
 - Use the Makefile for local workflows and shared CI gates.
 - Keep tool scope in the owning configuration file. Avoid duplicate file selection in targets and workflows.
 - Keep site URL, site path, and repository URL under `[tool.artifacts]` in `pyproject.toml`.
 - Change inputs or generators for generated files. Do not maintain `_site/` or `gh-pages` by hand.
-- Keep the main verification and publish flow in `.github/workflows/update.yml`. Reuse the shared deployment actions and workflow helpers for writes.
+- Keep the main verification and publish flow in `.github/workflows/update.yml`. Route writes through the shared actions in `.github/actions/` and the helpers in `scripts/ci/`.
 - Preserve trust restrictions on previews, thumbnail persistence, and Dependabot lock updates.
 - Deploy the verified `_site/` artifact without rebuilding during publish.
 
 ## Review workflow changes
 
-Pin action references to full commit SHAs. Keep verification read-only and require it before write-capable jobs. Preserve matching preview deploy and cleanup behavior.
+Pin action references to full commit SHAs. Keep verification jobs read-only and make them pass before any job that can write. Keep preview deploy and preview cleanup in step: a preview path that `publish` writes must be one that `cleanup-preview` and the merged-PR cleanup in `publish` remove.
 
-For a new third-party action, add its full SHA immediately. `refresh-action-shas.yml` pins non-SHA references through a maintenance PR, but does not advance existing full-SHA pins.
+For a new third-party action, add its full SHA at once. `refresh-action-shas.yml` pins non-SHA references through a maintenance PR but does not advance existing full-SHA pins. Dependabot proposes updates to pinned actions.
 
 Update `tests/ci/test_workflow_contracts.py` when job dependencies, step names, or cache keys change. [ADR 0005](adr/0005-ci-scaling-architecture-and-roadmap.md) records the CI design and rejected alternatives.
 
 ## Review generator changes
 
-Update the matching tests and keep `make validate` consistent with the artifact contract. If ownership of generated files changes, update [Workspace structure](workspace.md).
+Update the matching tests, and keep `make validate` consistent with the artifact contract. If the owner of a generated file changes, update [Workspace structure](workspace.md).
 
 ## Refresh dependencies
 
@@ -51,14 +51,15 @@ Keep Pages, GitHub App credentials, branch protection, and the `gh-pages` rulese
 
 Keep alert titles stable so failed and recovered runs update the same issue. The alert workflows are:
 
-- `live-site-smoke.yml`, for published-site browser failures.
-- `audit-repo-settings.yml`, for repository-settings drift.
+- `live-site-smoke.yml`, for published-site browser failures. It updates `Live site smoke check failed`.
+- `audit-repo-settings.yml`, for repository-settings drift and leaked PR previews. It updates `Repository settings drift detected`.
 - `deploy-failure-alert.yml`, for completed `Update Artifacts & Deploy` runs on `main`. It updates `Main deploy pipeline failed` after a failure and closes the issue after success.
 - `schedule-watchdog.yml`, for inactive scheduled workflows. It updates `Scheduled workflow watchdog found stale or disabled schedules` and closes the issue when every scheduled workflow is active.
+- `dependency-audit.yml`, for failed weekly dependency audits. It updates `Dependency audit failed` and closes the issue when the audits pass.
 
-The deploy alert uses `workflow_run`, so scheduled-trigger inactivity does not disable it. The schedule watchdog runs on pushes and manual dispatch because a disabled schedule cannot report its own disabled state.
+The deploy alert uses `workflow_run`, so GitHub never disables it for repository inactivity. The schedule watchdog runs on pushes and manual dispatch because a disabled schedule cannot report its own disabled state.
 
-If a scheduled workflow stops appearing in Actions, inspect its enabled state and re-enable it if needed. The watchdog discovers workflows with cron schedules and checks their API `state`. It does not inspect run history or detect an active workflow that stops firing. Each scheduled check owns its result alerts.
+If a scheduled workflow stops appearing in Actions, check its enabled state and re-enable it. [Quality checks](checks.md#scheduled-monitoring) describes what the watchdog does and does not detect.
 
 ## Update decision records
 

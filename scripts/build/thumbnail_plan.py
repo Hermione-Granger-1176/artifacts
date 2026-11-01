@@ -1,3 +1,5 @@
+"""Plan thumbnail generation and persistence for one workflow event."""
+
 from __future__ import annotations
 
 import json
@@ -277,7 +279,7 @@ def _thumbnail_scope_and_slugs(
     """Return the thumbnail scope and the slugs to list for it.
 
     A full runtime scope regenerates every app, so it lists no slugs. Otherwise
-    the scope is the affected slugs, or ``none`` when no app is affected.
+    the scope is ``changed``, or ``none`` when no app is affected.
     """
     if runtime_scope == "all":
         return "all", []

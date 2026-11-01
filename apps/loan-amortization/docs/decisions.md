@@ -8,10 +8,10 @@ The app stays browser-native and deployable without a bundler. That keeps each a
 
 The page depends on Chart.js 4.4.1 plus two plugins (chartjs-plugin-annotation 3.0.1, chartjs-plugin-datalabels 2.2.0). These are self-hosted in `js/vendor/` rather than loaded from a CDN.
 
-- **Cold-load performance**: CDN delivery requires external DNS resolution, a TLS handshake, and a download. Vendoring serves all scripts from the same GitHub Pages origin over an existing HTTP/2 connection.
-- **Resilience**: no runtime dependency on CDN availability or URL stability.
-- **Full UMD builds**: Chart.js offers tree-shakeable ESM imports, but those require a JS bundler. The project uses plain `<script>` tags to stay portable, so the UMD build is the right trade-off.
-- **Stability over freshness**: versions are pinned and upgraded manually. No automated update bot. This is intentional to avoid surprise breakage.
+- **Cold-load performance:** A CDN adds DNS resolution, a TLS handshake, and a download. Vendoring serves all scripts from the same GitHub Pages origin over an existing HTTP/2 connection.
+- **Resilience:** The page has no runtime dependency on CDN availability or URL stability.
+- **Full UMD builds:** Chart.js offers tree-shakeable ESM imports, but those need a JS bundler. The project uses plain `<script>` tags to stay portable, so the UMD build is the better trade.
+- **Stability over freshness:** Versions are pinned and upgraded by hand, with no automated update bot, to avoid surprise breakage.
 
 ## Why inline SVG logo in the header
 
@@ -23,7 +23,7 @@ The root gallery already uses this model. Reusing it keeps theme state consisten
 
 ## Why the app exposes a ready signal
 
-`window.__ARTIFACT_READY__` is set during the initial render so thumbnail generation can wait for charts, metrics, and tables to finish drawing before capturing the page.
+`initializeMatureApp` sets `window.__ARTIFACT_READY__` once the first render returns, so thumbnail generation and the browser tests can wait for the metrics and charts before they capture or inspect the page.
 
 ## Why note-surface text stays dark in both themes
 
@@ -35,11 +35,15 @@ Inputs sit in a sticky left column so every change is answered on the same scree
 
 ## Why extra payments show a summary line instead of a hover tip
 
-The compact rows live in a scrolling sticky column, where a hover tooltip would be clipped. The plain-language summary is now a visible one-line caption on each row, updated as the fields change, so nothing is hidden behind a hover.
+The compact rows live in a scrolling sticky column, where a hover tooltip would be clipped. Each row shows its plain-language summary as a visible caption, updated as the fields change, so nothing is hidden behind a hover.
 
 ## Why the shell is widened app-locally
 
 Two columns do not fit the shared 1000px shell, so the loan page widens its own shell (and header, to keep one left edge) to 1200px. The shared tokens, colors, and components are unchanged.
+
+## Why hidden views are not drawn
+
+A 30-year weekly loan has 1,560 schedule rows, and the Charts view draws five charts. Drawing both views on every slider tick wastes work on the one the reader cannot see. The app draws only the view on screen, marks the other stale, and draws it when the reader switches. The no-extras schedule is also cached, because typing in an extra-payment field never changes it.
 
 ## Deferred items
 

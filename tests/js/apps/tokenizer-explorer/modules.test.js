@@ -305,7 +305,7 @@ test('renderDistribution renders the candidate rows, insight, and sample status'
     assert.equal(first.odds.textContent, '60.0%');
     assert.equal(first.draw.textContent, '75.0%');
     assert.equal(first.seen.textContent, '70');
-    // Bars span their track and are scaled to their share by the stylesheet.
+    // Bar widths are percentages of the track: odds for the blue bar, tally share for the thin bar.
     assert.equal(first.track.children[0].style.width, '60%');
     assert.equal(first.track.children[1].style.width, '70%');
     assert.equal(first.row.classList.contains('is-picked'), false);

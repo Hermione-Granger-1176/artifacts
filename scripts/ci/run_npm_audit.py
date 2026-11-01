@@ -10,8 +10,8 @@ unfixed), and unused exceptions are reported so the allow-list never rots.
 
 ``npm audit --audit-level`` only changes npm's exit code, and this wrapper
 reads the JSON report instead, so the threshold is reapplied here. Every
-severity is gated by default, matching the sibling artifacts repository; the
-reviewed-exception policy, not a severity floor, is what silences a finding.
+severity is gated by default, so the reviewed-exception policy, not a severity
+floor, is what silences a finding.
 ``--audit-level`` remains available to narrow an ad-hoc run.
 
 Exceptions live under ``npm_vulnerability_exceptions`` in

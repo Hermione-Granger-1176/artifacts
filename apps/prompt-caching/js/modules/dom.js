@@ -71,7 +71,6 @@ export function longestText(texts) {
   return texts.reduce((best, text) => (text.length > best.length ? text : best), "");
 }
 
-/* Segmented-control wiring now lives in the shared module so every artifact app
- * (and its aria-pressed sync) draws from one source. Re-exported here so the
- * prompt-caching demos keep importing it from their local dom module. */
+/* Segmented-control wiring (including the aria-pressed sync) lives in the shared
+ * module. Re-exported here so the demos import it from their local dom module. */
 export { initSegmented } from "../../../../js/modules/segmented.js";

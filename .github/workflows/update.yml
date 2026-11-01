@@ -675,16 +675,14 @@ jobs:
           # The official Python image remains the boundary for pure browser
           # jobs, while this job uses the shared host setup explicitly.
           browser-engines: chromium
-          # This job used to ask for no dependencies and then rebuild one by
-          # hand (pip install uv, then make setup-ci), which meant a full uv
-          # sync, an npm ci of 214 packages, and a Playwright --with-deps apt
-          # pass on every deploy while the caches that make those no-ops sat
-          # unused. The install now happens here, behind the shared cache hits.
+          # Install here, behind the shared cache hits. Installing by hand
+          # later in the job (pip install uv, then make setup-ci) would run a
+          # full uv sync, an npm ci, and a Playwright --with-deps apt pass on
+          # every deploy and leave the shared caches unused.
           #
-          # The trade is that an untrusted run (fork or Dependabot), which skips
-          # deploying because no app token is minted, still restores the caches.
-          # That is a restore, not an install, and it buys removing the only
-          # place in the pipeline that reinstalled everything from scratch.
+          # An untrusted run (fork or Dependabot) skips deploying because no app
+          # token is minted, but it still restores the caches. That is a
+          # restore, not an install.
           install-deps: "true"
 
       - name: Download verified site artifact

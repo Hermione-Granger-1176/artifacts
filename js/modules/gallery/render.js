@@ -70,7 +70,7 @@ function getRotationData(index) {
   return { noteRotate: BASE_ROTATIONS[rotationIndex], noteHoverRotate: HOVER_ROTATIONS[rotationIndex] };
 }
 
-/** Global color map: each tag/tool name gets one color, shared across filter notes and detail capsules. */
+/** Global color map: each tag or tool name gets one color, shared across desk notes, dropdown options, and detail capsules. */
 const labelColorMap = new Map();
 /** @type {string[] | null} */
 let shuffledColors = null;
@@ -95,7 +95,7 @@ function getShuffledFilterColors() {
 const LONG_LABEL_LENGTH = 10;
 
 /**
- * Build an HTML string for a single filter chip button.
+ * Build an HTML string for one filter button, a desk note or a dropdown option.
  * @param {{
  *   active?: boolean,
  *   className: string,
@@ -121,7 +121,7 @@ function createFilterControlButton({
   surface
 }) {
   const rotateAttr = rotate !== null ? ` data-rotate="${rotate}"` : '';
-  // Desk notes are a fixed square, so a long word gets a smaller hand to stay on the paper.
+  // Desk notes are a fixed square, so a long label gets smaller type to stay on the note.
   const longAttr = label.length > LONG_LABEL_LENGTH ? ' data-long' : '';
   const countHtml = count === undefined ? '' : `<span class="filter-option-count" aria-hidden="true">${count}</span>`;
 

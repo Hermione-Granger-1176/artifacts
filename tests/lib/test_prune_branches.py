@@ -45,7 +45,7 @@ def test_makefile_branch_prune_target_uses_the_helper() -> None:
 
 
 def test_branch_prune_is_not_in_the_control_flow_allowlist() -> None:
-    """The ratchet stays closed once the recipe no longer holds shell logic."""
+    """The target stays off the control-flow allowlist because its recipe holds no shell logic."""
     from scripts.lint.make_targets import CONTROL_FLOW_ALLOWLIST
 
     assert "branch-prune" not in CONTROL_FLOW_ALLOWLIST

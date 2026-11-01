@@ -22,9 +22,10 @@ export function escapeHtml(unsafe) {
 }
 
 /**
- * Escape a string for safe use in an HTML attribute value.
+ * Escape a string for a double-quoted HTML attribute value. It leaves single
+ * quotes alone, so do not use it in single-quoted or unquoted attributes.
  * @param {string} value - Raw string to escape.
- * @returns {string} Escaped string safe for attribute contexts.
+ * @returns {string} Escaped string for double-quoted attribute values.
  */
 export function escapeAttribute(value) {
   return String(value)

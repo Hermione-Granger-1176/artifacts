@@ -1,6 +1,7 @@
 /**
- * Shared helpers for updating existing DOM nodes in place. Writing only when a
- * value changed keeps focus, hover, and layout stable between input ticks.
+ * Shared helpers for updating existing DOM nodes in place. Skipping writes
+ * when the value is unchanged avoids needless mutations and style
+ * invalidation on every input tick.
  * @module dom-sync
  */
 
@@ -32,7 +33,8 @@ export function setAttr(element, name, value) {
 }
 
 /**
- * Create an element with a class name, attributes, and children.
+ * Create an element, optionally setting its class, text, attributes, and
+ * children. `text` is assigned as `textContent`, never parsed as HTML.
  *
  * @param {string} tag
  * @param {{ className?: string, text?: string, attrs?: Record<string, string> }} [props]

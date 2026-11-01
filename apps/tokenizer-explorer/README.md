@@ -10,9 +10,10 @@ The sampler includes these views and controls:
 - The prompt is rendered as colored token chips with the completion blank inline at the end of the line
 - A single bar list shows every candidate: token, bar after temperature, odds, renormalized draw chance, and (after Sample 100x) the observed count with a thin second bar
 - Tokens cut by top-p stay in the list, struck through, with a hatched bar below a labeled "top P cut" line
-- Scenario dropdown, temperature and top-p sliders with live notes, and Precise, Chat, and Creative presets (including temperature zero for greedy decoding) as an inset-pill segmented control
+- Scenario dropdown, a temperature slider (0 to 3.0, where 0 is greedy decoding, default 1.0) and a top-p slider (0.01 to 1.0, default 0.70) with live notes, and Precise, Chat, and Creative presets as an inset-pill segmented control
 - One "Order matters" key idea, plus the whole sampling step as pseudocode folded under "Show the code"
 - Show whitespace toggle in the main card header, which also applies to the tokenization examples
+- Reserved heights for the prompt, insight line, sample status, and slider notes, so picking a scenario or moving a slider never shifts the controls below
 - Expandable concept cards on tokens, temperature, nucleus sampling, and token-driven behavior
 - Sticky frosted progress nav with scroll spy
 

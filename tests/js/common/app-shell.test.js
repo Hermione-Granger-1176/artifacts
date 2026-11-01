@@ -199,12 +199,10 @@ test('initAppShell sets up theme toggle and syncs theme state', () => {
   try {
     const shell = initAppShell({ homePath: '../' });
 
-    // Theme toggle click changes theme
     env.listeners['theme-toggle:click']();
     assert.equal(env.attrs['data-theme'], 'dark');
     assert.equal(env.elements['theme-toggle'].getAttribute('aria-pressed'), 'true');
 
-    // Toggle again to switch back
     env.listeners['theme-toggle:click']();
     assert.equal(env.attrs['data-theme'], 'light');
     assert.equal(env.elements['theme-toggle'].getAttribute('aria-pressed'), 'false');

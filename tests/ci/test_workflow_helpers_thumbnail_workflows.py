@@ -1049,7 +1049,7 @@ def test_thumbnail_plan_skip_verification_true_for_bot_thumbnail_commit(
             "apps/loan-amortization/js/app.js\napps/loan-amortization/thumbnail.webp\n"
         ),
     )
-    # Commit-level files are only thumbnails (Hermione's commit)
+    # Commit-level files are only thumbnails (the bot's thumbnail commit)
     monkeypatch.setattr(
         workflow_helpers,
         "list_commit_files",

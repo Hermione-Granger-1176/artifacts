@@ -57,9 +57,7 @@ GH_FAILURE_CLASSIFIERS: tuple[tuple[GhFailureKind, re.Pattern[str]], ...] = (
 )
 
 # Idempotent GitHub calls get two retries. The delay grows exponentially and
-# includes bounded jitter so concurrent workflows do not retry in lockstep. The
-# 1.0s base keeps the first retry a full second out, matching the backoff the
-# gh wrappers used before this policy was extracted.
+# includes bounded jitter so concurrent workflows do not retry in lockstep.
 DEFAULT_GH_RETRIES = 2
 RETRY_BACKOFF_BASE_SECONDS = 1.0
 RETRY_BACKOFF_CAP_SECONDS = 8.0

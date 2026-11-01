@@ -51,11 +51,11 @@ test('getExtraForPeriod sums onetime and recurring extras', () => {
     { type: 'recurring', startPeriod: 1, every: 2, amount: 100 },
     { type: 'unknown', amount: 999 }
   ];
-  // Period 3: onetime(500) + recurring hits (3-1)%2===0 → 100 = 600
+  // Period 3: onetime 500 plus a recurring hit ((3-1)%2===0) of 100 is 600
   assert.equal(getExtraForPeriod(3, extras), 600);
-  // Period 2: recurring misses (2-1)%2===1 → 0
+  // Period 2: recurring misses ((2-1)%2===1), so 0
   assert.equal(getExtraForPeriod(2, extras), 0);
-  // Period 1: recurring hits (1-1)%2===0 → 100
+  // Period 1: recurring hits ((1-1)%2===0), so 100
   assert.equal(getExtraForPeriod(1, extras), 100);
 });
 
@@ -87,7 +87,7 @@ test('runSchedule respects emiOverride', () => {
 });
 
 test('runSchedule reports breakEven when cumulative principal overtakes interest', () => {
-  // High-rate short loan: interest dominates early, principal catches up
+  // At 2% per period, interest dominates early and principal catches up later
   const result = runSchedule(100000, 0.02, 60);
   assert.ok(result.breakEven !== null);
   assert.ok(result.breakEven > 1);

@@ -7,8 +7,8 @@
  * two agree on the content of a given seed. The layout is this module's own:
  * jsPDF positions in A4 points while the preview lays out in CSS pixels, so
  * nothing here can be derived from the DOM geometry. Anything drawn at a fixed
- * offset has to be measured against what sits next to it first, which is the
- * lesson of the letterhead and meta-gutter overprints this renderer shipped.
+ * offset has to be measured against what sits next to it first, because fixed
+ * offsets caused the letterhead and meta-gutter overprints.
  *
  * @module pdf-render
  */
@@ -217,9 +217,7 @@ function drawHeader(cursor, model) {
   doc.rect(0, 0, width, HEADER_BAR_HEIGHT, "F");
 
   if (hasMark) {
-    // The preview draws a monogram tile for these vendors and the PDF drew
-    // nothing at all, which is part of why the exported page never looked like
-    // the page on screen.
+    // The preview draws a monogram tile for these vendors, so the PDF does too.
     doc.setFillColor(...accent);
     doc.rect(MARGIN, 30, MONOGRAM_SIZE, MONOGRAM_SIZE, "F");
     cursor.textStyle("bold", 15, [255, 255, 255]);
@@ -228,11 +226,9 @@ function drawHeader(cursor, model) {
     });
   }
 
-  // Both halves of this row used to be drawn at a fixed size from opposite
-  // margins with nothing measured between them, so "Ironwood Construction
-  // Materials" and "DELIVERY CHALLAN" overprinted each other by 15pt on every
-  // single seed. Measure the letterhead first, then give the title whatever is
-  // left, shrinking it until it fits.
+  // Measure the letterhead first, then give the title whatever room is left,
+  // shrinking it until it fits. Fixed sizes from opposite margins made
+  // "Ironwood Construction Materials" and "DELIVERY CHALLAN" overprint by 15pt.
   doc.setFont(family, "bold");
   doc.setFontSize(17);
   const nameWidth = doc.getTextWidth(vendor.name);

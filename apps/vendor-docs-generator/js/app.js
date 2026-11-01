@@ -2,9 +2,10 @@
  * Vendor document generator: UI wiring.
  *
  * Holds the small amount of mutable state the workbench needs (which vendor,
- * which document type, which invoice layout, the current seed, and the output
- * choices: scope, format, labels, and batch size), and hands everything else
- * to the model, renderer, and exporter modules.
+ * which document type, which invoice layout, the current seed, the scan preset
+ * and its overrides, and the output choices: mode, include scope, format, PDF
+ * type, and labels), and hands everything else to the model, renderer, and
+ * exporter modules. The batch size is read from its slider when a batch runs.
  *
  * @module app
  */

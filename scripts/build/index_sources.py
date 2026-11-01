@@ -225,8 +225,8 @@ def resolve_thumbnail(
     renders and persists ``thumbnail.webp``), so the path is a stable contract
     value, not a presence flag. Decoupling it from on-disk presence keeps the
     generated-drift check stable no matter when thumbnails are rendered,
-    invalidated, or persisted - which is what lets a brand-new app land with a
-    correct ``data.js`` before its webp has been generated yet.
+    invalidated, or persisted. A brand-new app can therefore land with a correct
+    ``data.js`` before its webp has been generated.
     """
     return config.artifact_thumbnail_path(folder.name)
 

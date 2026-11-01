@@ -1,11 +1,10 @@
 /**
  * Turns a document model's facts into the ground-truth sidecar.
  *
- * This is the file that makes the generator worth using. Rendering plausible
- * paperwork is the easy half; anyone downloading 500 pages still has to label
- * 500 pages before they can measure an extractor against them. The sidecar is
- * the label set, emitted from the same values the page was printed from, so it
- * cannot drift out of agreement with the pixels.
+ * Rendering plausible paperwork is the easy half. Anyone downloading 500 pages
+ * still has to label them before they can score an extractor, so the sidecar is
+ * the label set. It is emitted from the same values the page was printed from,
+ * so it cannot disagree with the pixels.
  *
  * Two representations per field, because they answer different questions.
  * `text` is what an OCR pass should read off the page, character for character.

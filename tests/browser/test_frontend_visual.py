@@ -37,7 +37,7 @@ VIEWPORT = (1200, 800)
 MAX_DIFF_FRACTION = {"root": 0.18}
 DEFAULT_MAX_DIFF_FRACTION = 0.05
 
-# "root" plus every app slug: the five hero states under baseline control.
+# One hero baseline for "root" and one for each app slug.
 VISUAL_TARGETS = ["root", *discover_app_slugs()]
 
 

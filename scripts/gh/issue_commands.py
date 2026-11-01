@@ -1,9 +1,9 @@
 """Issue management commands behind the ``make issue-*`` targets.
 
-Each command runs the same ``gh issue ...`` invocation the Makefile used to call
-inline, with standard output left on the terminal so ``gh`` formats it exactly
-as before. When the environment blocks GitHub GraphQL, the command is rebuilt on
-the REST API instead. The functions return the process exit code.
+Each command runs a ``gh issue ...`` invocation with standard output left on
+the terminal, so ``gh`` formats it. When the environment blocks GitHub GraphQL,
+the command is rebuilt on the REST API instead. The functions return the
+process exit code.
 """
 
 from __future__ import annotations
