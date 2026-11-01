@@ -44,9 +44,9 @@ _PATH_RESOLVE_PATTERN = re.compile(r"""path\.resolve\s*\(\s*['"]([^'"]+\.(?:js|m
 SKIP_DIRECTORIES = _BASE_SKIP_DIRECTORIES | {"docs"}
 
 
-def _should_skip_path(path: Path) -> bool:
-    """Return whether one path sits inside a skipped directory."""
-    return any(part in SKIP_DIRECTORIES for part in path.parts)
+def _should_skip_path(path: Path, root: Path) -> bool:
+    """Return whether one path sits inside a skipped directory below ``root``."""
+    return any(part in SKIP_DIRECTORIES for part in path.relative_to(root).parts)
 
 
 def discover_source_files(root: Path) -> list[Path]:
@@ -58,7 +58,7 @@ def discover_source_files(root: Path) -> list[Path]:
             continue
         for pattern in ("*.js", "*.mjs"):
             source_files.extend(
-                path for path in sorted(abs_dir.rglob(pattern)) if not _should_skip_path(path)
+                path for path in sorted(abs_dir.rglob(pattern)) if not _should_skip_path(path, root)
             )
     return source_files
 

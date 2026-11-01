@@ -177,17 +177,12 @@ def _parse_npm_audit(payload: dict[str, object]) -> tuple[NpmVulnerabilityFindin
     return tuple(findings)
 
 
-def _run_npm_audit(npm_command: str = "npm") -> tuple[NpmVulnerabilityFinding, ...]:
-    """Run ``npm audit --json`` and return parsed vulnerability findings.
+def _read_npm_audit_report(command: list[str], npm_command: str) -> dict[str, object]:
+    """Run an assembled ``npm audit --json`` command and return its JSON report.
 
-    ``npm_command`` is a shell-style command string, so an override may carry
-    flags (for example ``npm --silent``). It is split with :func:`shlex.split`
-    before the ``audit --json`` arguments are appended.
+    Raises when npm cannot be launched, prints invalid JSON, or reports an error
+    instead of an audit.
     """
-    npm_parts = shlex.split(npm_command)
-    if not npm_parts:
-        raise ValueError("npm command must not be empty")
-    command = [*npm_parts, "audit", "--json"]
     try:
         result = subprocess.run(
             command,
@@ -224,22 +219,44 @@ def _run_npm_audit(npm_command: str = "npm") -> tuple[NpmVulnerabilityFinding, .
         )
         raise RuntimeError(f"npm audit reported an error: {summary}")
 
-    return _parse_npm_audit(payload)
+    return payload
 
 
-def _matches_exception(
-    exception: VulnerabilityExceptionEntry, finding: NpmVulnerabilityFinding
-) -> bool:
-    """Return whether a reviewed exception matches one npm finding.
+def _run_npm_audit(npm_command: str = "npm") -> tuple[NpmVulnerabilityFinding, ...]:
+    """Run ``npm audit --json`` and return parsed vulnerability findings.
 
-    Advisory ids compare case-insensitively: findings normalize GHSA ids to
-    upper case, so a lower-case configured exception must still match.
+    ``npm_command`` is a shell-style command string, so an override may carry
+    flags (for example ``npm --silent``). It is split with :func:`shlex.split`
+    before the ``audit --json`` arguments are appended.
     """
-    finding_ids = {advisory_id.upper() for advisory_id in finding.all_ids}
-    return (
-        exception.package.lower() == finding.package.lower()
-        and exception.vulnerability_id.upper() in finding_ids
-    )
+    npm_parts = shlex.split(npm_command)
+    if not npm_parts:
+        raise ValueError("npm command must not be empty")
+    command = [*npm_parts, "audit", "--json"]
+    return _parse_npm_audit(_read_npm_audit_report(command, npm_command))
+
+
+def _exception_error(
+    finding: NpmVulnerabilityFinding,
+    exception: VulnerabilityExceptionEntry,
+    *,
+    today: date,
+) -> str | None:
+    """Return why a matched exception no longer covers its finding, else ``None``."""
+    if today > exception.review_by:
+        return (
+            "Expired npm vulnerability exception: "
+            f"{exception.package} "
+            f"{exception.vulnerability_id} "
+            f"review_by={exception.review_by.isoformat()}"
+        )
+    if exception.ignore_only_without_fix and finding.fix_available:
+        return (
+            "npm vulnerability exception must be removed because a fix "
+            "is available: "
+            f"{finding.package} {finding.advisory_id}"
+        )
+    return None
 
 
 def _audit_npm_dependencies(
@@ -259,7 +276,7 @@ def _audit_npm_dependencies(
 
     for finding in findings:
         matching_exceptions = tuple(
-            entry for entry in exceptions if _matches_exception(entry, finding)
+            entry for entry in exceptions if entry.matches(finding.package, finding.all_ids)
         )
         matched_exception_keys.update(entry.key for entry in matching_exceptions)
         if len(matching_exceptions) > 1:
@@ -271,20 +288,9 @@ def _audit_npm_dependencies(
 
         matching_exception = matching_exceptions[0] if matching_exceptions else None
         if matching_exception is not None:
-            if today > matching_exception.review_by:
-                errors.append(
-                    "Expired npm vulnerability exception: "
-                    f"{matching_exception.package} "
-                    f"{matching_exception.vulnerability_id} "
-                    f"review_by={matching_exception.review_by.isoformat()}"
-                )
-                continue
-            if matching_exception.ignore_only_without_fix and finding.fix_available:
-                errors.append(
-                    "npm vulnerability exception must be removed because a fix "
-                    "is available: "
-                    f"{finding.package} {finding.advisory_id}"
-                )
+            exception_error = _exception_error(finding, matching_exception, today=today)
+            if exception_error is not None:
+                errors.append(exception_error)
                 continue
 
         if not _is_gated(finding.severity, audit_level):

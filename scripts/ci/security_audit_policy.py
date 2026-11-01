@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from scripts import REPO_ROOT
 
 if TYPE_CHECKING:
-    from collections.abc import Collection, Sequence
+    from collections.abc import Collection, Iterable, Sequence
     from pathlib import Path
 
 SECURITY_AUDIT_CONFIG_FILE = REPO_ROOT / "config" / "security_audit.json"
@@ -34,6 +34,17 @@ class VulnerabilityExceptionEntry:
     def key(self) -> tuple[str, str]:
         """Return the case-insensitive identity for this exception entry."""
         return (self.package.casefold(), self.vulnerability_id.casefold())
+
+    def matches(self, package: str, advisory_ids: Iterable[str]) -> bool:
+        """Return whether this exception covers ``package`` under any of ``advisory_ids``.
+
+        Package names and advisory ids compare case-insensitively, so a lower-case
+        configured id still covers an upper-cased GHSA id.
+        """
+        advisory_keys = {advisory_id.casefold() for advisory_id in advisory_ids}
+        return self.package.casefold() == package.casefold() and (
+            self.vulnerability_id.casefold() in advisory_keys
+        )
 
 
 def _load_security_audit_config(
