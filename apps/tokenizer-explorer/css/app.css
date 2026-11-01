@@ -526,7 +526,7 @@ body.app-tokenizer-explorer .tk-disclosure {
 
 body.app-tokenizer-explorer .tk-disclosure summary {
   display: flex;
-  min-height: var(--space-6);
+  min-height: max(var(--space-6), var(--touch-target, 0px));
   align-items: center;
   justify-content: space-between;
   color: var(--color-text-secondary);

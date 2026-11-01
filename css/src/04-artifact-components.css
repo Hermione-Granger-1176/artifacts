@@ -229,6 +229,13 @@ body.artifact-app .range-input {
   accent-color: var(--color-blue);
 }
 
+/* Touch screens: the slider box grows to the touch target; the native track stays thin and centred. */
+@media (pointer: coarse) {
+  body.artifact-app .range-input {
+    min-height: var(--touch-target);
+  }
+}
+
 /* Reusable artifact app control fields (slider rows). */
 
 body.artifact-app .control-field {

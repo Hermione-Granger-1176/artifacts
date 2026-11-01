@@ -417,6 +417,7 @@ body.app-vendor-docs-generator .vd-inline-field .segmented {
 
 body.app-vendor-docs-generator .vd-check {
   display: flex;
+  min-height: var(--touch-target, 0px);
   align-items: center;
   margin-top: var(--space-1);
   color: var(--color-text-secondary);
@@ -450,7 +451,7 @@ body.app-vendor-docs-generator .vd-check.is-disabled input {
 
 body.app-vendor-docs-generator .vd-disclosure summary {
   display: flex;
-  min-height: var(--space-6);
+  min-height: max(var(--space-6), var(--touch-target, 0px));
   align-items: center;
   color: var(--color-text-secondary);
   cursor: pointer;

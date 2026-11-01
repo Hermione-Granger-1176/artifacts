@@ -86,15 +86,17 @@ def test_app_runtime_error_banner_is_visible_when_bootstrap_fails(
         expect(page.locator("#runtime-error")).to_be_visible()
 
 
-# Controls exempt from the touch target: info markers meet the 24px WCAG 2.2
-# minimum inline in labels, and section-nav nodes gain an invisible target.
+# Every control a finger can reach. A checkbox or radio is measured by the label
+# that wraps it, since tapping the label toggles it. Exempt: info markers meet the
+# 24px WCAG 2.2 minimum inline in labels, and section-nav nodes gain an invisible
+# target.
 SMALL_TOUCH_CONTROLS = """() => {
-    const textInput = 'input:not([type="range"]):not([type="checkbox"]):not([type="radio"])';
     const controls = document.querySelectorAll(
-        `.page-shell button, .page-shell select, .page-shell ${textInput}`
+        '.page-shell :is(button, select, input, summary)'
     );
     const exempt = '.info-tip, .section-nav-node, [hidden], dialog:not([open])';
     return [...controls]
+        .map((el) => (el.matches('[type="checkbox"], [type="radio"]') && el.closest('label')) || el)
         .filter((el) => !el.closest(exempt) && el.getClientRects().length > 0)
         .map((el) => ({
             label: el.id || el.className || el.textContent.trim().slice(0, 30),
