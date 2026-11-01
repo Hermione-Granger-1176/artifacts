@@ -4,8 +4,9 @@
 
 import { DIM_COLORS, EMB_VECS, EMB_PAIRS, EMB_CATEGORIES } from "./data.js";
 import { cosineSim, eucDist, verdictForSimilarity, project2D } from "./math.js";
-import { byId, makeEl, clear, initSegmented } from "./dom.js";
+import { byId, makeEl, clear, initSegmented, reserveSpace } from "./dom.js";
 import { createPaletteCache } from "../../../../js/modules/chart-theme.js";
+import { createFrameScheduler } from "../../../../js/modules/frame-scheduler.js";
 
 /** @type {Record<string, number[] | undefined>} */
 const EMB_VECS_BY_WORD = EMB_VECS;
@@ -139,10 +140,13 @@ function initDimensions() {
   const allPoints = groups.flat();
 
   const captions = [
-    "1D: the same 24 points squashed onto one line. Clusters pile on top of each other.",
+    caption.textContent ?? "",
     "2D: a second axis and the 8 groups start pulling apart.",
     "3D: drag to rotate. Separation holds from every angle. Real models use 12,000+ axes."
   ];
+  // Reserve the room of the longest caption (two lines on a phone), so changing
+  // the mode never moves the page below.
+  reserveSpace(caption, captions.map((text) => makeEl("p", "pc-note", text)));
   let currentDims = 1;
   let yaw = 0.7;
   let pitch = 0.32;
@@ -190,9 +194,11 @@ function initDimensions() {
     ctx.globalAlpha = 1;
   }
 
+  // The bitmap keeps the size set in the markup for every mode (the 1D strip is
+  // drawn centered inside it), so the canvas box never changes shape and draw()
+  // never reallocates the bitmap.
   function draw() {
     const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext("2d"));
-    canvas.height = currentDims === 1 ? 90 : currentDims === 2 ? 260 : 300;
     const W = canvas.width;
     const H = canvas.height;
     const pad = 30;
@@ -238,6 +244,9 @@ function initDimensions() {
     }
   }
 
+  // A drag can fire several pointermoves per frame; draw once per frame.
+  const scheduleDraw = createFrameScheduler(draw);
+
   canvas.addEventListener("pointerdown", (event) => {
     if (currentDims !== 3) {
       return;
@@ -254,7 +263,7 @@ function initDimensions() {
     pitch = Math.min(1.2, Math.max(-1.2, pitch + (event.clientY - lastY) * 0.01));
     lastX = event.clientX;
     lastY = event.clientY;
-    draw();
+    scheduleDraw();
   });
   const stopDrag = () => {
     dragging = false;
@@ -287,6 +296,13 @@ function initSimilarity() {
   const canvas = /** @type {HTMLCanvasElement} */ (byId("embCanvas"));
   if (!cloud || !selAEl || !selBEl || !simEl) {
     return null;
+  }
+
+  // The A/B chips reserve the width of the longest word, so a longer pick never
+  // pushes the other chip and the Swap button sideways.
+  const longestWord = Math.max(...Object.keys(EMB_VECS_BY_WORD).map((word) => word.length));
+  for (const chip of [selAEl, selBEl]) {
+    chip.style.setProperty("--emb-word-ch", String(longestWord));
   }
 
   let selA = "happy";

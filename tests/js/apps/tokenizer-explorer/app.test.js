@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { cleanupMocks, setupFullMocks } from '../../common/app-entry-test-support.js';
+import { cleanupMocks, makeElement, setupFullMocks } from '../../common/app-entry-test-support.js';
 import { scenarios } from '../../../../apps/tokenizer-explorer/js/modules/scenarios.js';
 
 function makePresetButton(temperature, topP) {
@@ -21,6 +21,10 @@ function pickedRows(elementMap) {
 
 test('tokenizer explorer app.js loads and initializes without error', async () => {
   const { elementMap } = setupFullMocks();
+  // The reserved-height containers are tokenizer markup the shared mock omits.
+  for (const id of ['prompt-reserve', 'insight-reserve', 'status-reserve']) {
+    elementMap[id] = makeElement(id);
+  }
   const presetButtons = [
     makePresetButton('0.2', '0.9'),
     makePresetButton('0.7', '0.9'),
@@ -54,6 +58,10 @@ test('tokenizer explorer app.js loads and initializes without error', async () =
       scenarios.map((scenario) => scenario.label)
     );
     assert.equal(promptText(elementMap), scenarios[0].prefix);
+    // Hidden copies reserve the tallest prompt, insight, and status.
+    assert.equal(elementMap['prompt-reserve'].children.length, scenarios.length);
+    assert.equal(elementMap['insight-reserve'].children.length, 16);
+    assert.equal(elementMap['status-reserve'].children.length, 2);
     assert.equal(elementMap['candidate-list'].children.length, scenarios[0].tokens.length + 1);
     assert.match(elementMap['topp-note'].textContent, /^Keeps \d+ of 8 tokens, \d+% of the odds\.$/);
     assert.ok(presetButtons.every((button) => !button.classList.contains('active')));
@@ -63,9 +71,11 @@ test('tokenizer explorer app.js loads and initializes without error', async () =
       elementMap['temp-slider'].value = value;
       tempInput();
     }
+    assert.equal(elementMap['temp-val'].textContent, '2.0');
 
     elementMap['topp-slider'].value = '50';
     elementMap['topp-slider']._listeners.input[0]();
+    assert.equal(elementMap['topp-val'].textContent, '0.50');
 
     const presetClick = elementMap['sampling-presets']._listeners.click[0];
     presetClick({ target: { closest: () => null } });
@@ -125,11 +135,10 @@ test('tokenizer explorer app.js loads and initializes without error', async () =
 
     const whitespaceClick = elementMap['whitespace-toggle']._listeners.click[0];
     whitespaceClick();
-    assert.equal(elementMap['whitespace-toggle'].textContent, 'Hide whitespace');
     assert.equal(elementMap['whitespace-toggle'].getAttribute('aria-pressed'), 'true');
     assert.ok(elementMap['sentence-prefix'].children.some((chip) => chip.textContent.startsWith('·')));
     whitespaceClick();
-    assert.equal(elementMap['whitespace-toggle'].textContent, 'Show whitespace');
+    assert.equal(elementMap['whitespace-toggle'].getAttribute('aria-pressed'), 'false');
     assert.ok(elementMap['sentence-prefix'].children.every((chip) => !chip.textContent.startsWith('·')));
 
     // Moving a slider mid-pick clears the highlight and its pending timer.
@@ -137,6 +146,7 @@ test('tokenizer explorer app.js loads and initializes without error', async () =
     assert.equal(pickedRows(elementMap).length, 1);
     tempInput();
     assert.equal(pickedRows(elementMap).length, 0);
+    assert.equal(elementMap['sentence-completion'].classList.contains('has-choice'), false);
     assert.equal(clearedTimeouts, 3);
 
     elementMap['theme-toggle']._listeners.click[0]();

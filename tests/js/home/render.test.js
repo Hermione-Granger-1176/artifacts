@@ -58,12 +58,40 @@ test('buildGridHtml marks the expanded card and lazy-loads thumbnails', () => {
   assert.match(html, /type="button"/);
 });
 
-test('renderPagination clears single-page output and renders ellipsis for long ranges', () => {
-  const container = { innerHTML: 'stale', dataset: { renderKey: '1/2' } };
-  renderPagination(container, 1, 1);
-  assert.equal(container.innerHTML, '');
-  assert.equal(container.dataset.renderKey, undefined);
+const SLOT_PATTERN = /class="page-(?:btn|ellipsis)[ "]/g;
 
+test('renderPagination keeps a disabled row for one page or none, as wide as a two-page row', () => {
+  const twoPages = { innerHTML: '', dataset: {} };
+  renderPagination(twoPages, 1, 2);
+
+  for (const total of [1, 0]) {
+    const container = { innerHTML: 'stale', dataset: { renderKey: '1/2' } };
+    renderPagination(container, 1, total);
+    assert.equal(container.dataset.renderKey, '1/1', `${total} pages render as one`);
+    assert.equal(container.innerHTML.match(/<button/g).length, 5, 'four nav buttons and the one page');
+    assert.equal(container.innerHTML.match(/type="button" disabled/g).length, 4, 'every nav button is disabled');
+    assert.match(container.innerHTML, /aria-current="page"/);
+    assert.match(container.innerHTML, /<span class="page-ellipsis page-slot-empty" aria-hidden="true"><\/span>/);
+    assert.equal(
+      container.innerHTML.match(SLOT_PATTERN).length,
+      twoPages.innerHTML.match(SLOT_PATTERN).length,
+      'same number of slots as two pages'
+    );
+  }
+});
+
+test('renderPagination keeps the same number of slots on every page of a long range', () => {
+  const container = { innerHTML: '', dataset: {} };
+  const slotCounts = new Set();
+  for (let page = 1; page <= 12; page += 1) {
+    renderPagination(container, page, 12);
+    slotCounts.add(container.innerHTML.match(SLOT_PATTERN).length);
+  }
+  assert.deepEqual([...slotCounts], [7 + 4]);
+});
+
+test('renderPagination renders ellipsis for long ranges', () => {
+  const container = { innerHTML: '', dataset: {} };
   renderPagination(container, 5, 10);
   assert.match(container.innerHTML, /aria-label="First page"/);
   assert.match(container.innerHTML, /page-ellipsis/);

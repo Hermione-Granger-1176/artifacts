@@ -1,4 +1,5 @@
 import { cacheElements as cacheElementsByIds } from "../../../../js/modules/element-cache.js";
+import { setText } from "../../../../js/modules/dom-sync.js";
 
 const ELEMENT_IDS = [
   "inPrincipal",
@@ -58,24 +59,35 @@ export function syncInputsFromSliders(elements) {
   inputs.inTenure.value = inputs.slTenure.value;
 }
 
+const BIWEEKLY_DESCRIPTIONS = {
+  inactive: "Used when the EMI frequency is Bi-weekly",
+  true: "EMI recalculated for 26 periods per year",
+  accelerated: "Monthly EMI / 2 paid 26 times (13 monthly payments per year)"
+};
+
 /**
  * Update the bi-weekly mode button state and description copy.
  *
  * @param {Record<string, HTMLElement>} elements
  * @param {string} bwMode
+ * @param {boolean} [enabled] - Whether bi-weekly is the selected frequency.
  * @returns {void}
  */
-export function syncBiweeklyModeUI(elements, bwMode) {
+export function syncBiweeklyModeUI(elements, bwMode, enabled = true) {
   elements.bwTrue.classList.toggle("active", bwMode === "true");
   elements.bwAccel.classList.toggle("active", bwMode === "accelerated");
-  elements.bwDesc.textContent =
-    bwMode === "true"
-      ? "EMI recalculated for 26 periods per year"
-      : "Monthly EMI / 2 paid 26 times (13 monthly payments per year)";
+  setText(
+    elements.bwDesc,
+    enabled
+      ? BIWEEKLY_DESCRIPTIONS[/** @type {"true" | "accelerated"} */ (bwMode)]
+      : BIWEEKLY_DESCRIPTIONS.inactive
+  );
 }
 
 /**
- * Toggle the bi-weekly mode panel based on the selected cadence.
+ * Enable the bi-weekly mode panel only for the bi-weekly cadence. The panel
+ * stays in the layout and its buttons are disabled otherwise, so the controls
+ * below it never move when the frequency changes.
  *
  * @param {Record<string, HTMLElement>} elements
  * @param {string} frequency
@@ -83,8 +95,11 @@ export function syncBiweeklyModeUI(elements, bwMode) {
  * @returns {void}
  */
 export function updateBiweeklyMode(elements, frequency, bwMode) {
-  elements.biweeklyMode.hidden = frequency !== "biweekly";
-  syncBiweeklyModeUI(elements, bwMode);
+  const enabled = frequency === "biweekly";
+  elements.biweeklyMode.classList.toggle("is-inactive", !enabled);
+  /** @type {HTMLButtonElement} */ (elements.bwTrue).disabled = !enabled;
+  /** @type {HTMLButtonElement} */ (elements.bwAccel).disabled = !enabled;
+  syncBiweeklyModeUI(elements, bwMode, enabled);
 }
 
 /**

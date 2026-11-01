@@ -76,6 +76,10 @@
   --gallery-page-padding-bottom: var(--gallery-page-padding-block);
   --gallery-slice-padding: 1.2rem;
   --gallery-card-gap: 1.25rem;
+  /* Every artifact thumbnail is 960x600, so image slots can be sized before the image loads. */
+  --card-thumb-ratio: 1.6;
+  /* Cards on one book page (the gallery's ITEMS_PER_PAGE). The phone layout reserves a page of this many cards. */
+  --gallery-page-cards: 4;
   --desk-note-size: 100px;
   --desk-note-gap: 0.6rem;
   --desk-note-offset-top: 6rem;

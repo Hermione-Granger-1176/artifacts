@@ -130,10 +130,10 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
           <button class="btn btn-primary pc-push" id="infGoBtn" type="button">Generate</button>
           <button class="btn btn-outline" id="infResetBtn" type="button">Reset</button>
         </div>
-        <div id="infTokens" class="pc-inf-tokens"></div>
-        <div class="pc-row is-spread">
-          <div class="pc-inf-status" id="infStatus">Hit Generate to start.</div>
-          <div class="pc-meta"><span><span class="is-plain">KV cache rows:</span> <strong id="infCacheCount">0</strong></span></div>
+        <div class="reserve pc-inf-stream"><div id="infTokens" class="pc-inf-tokens"></div></div>
+        <div class="pc-row is-spread pc-inf-status-row">
+          <div class="reserve pc-inf-status-host"><div class="pc-inf-status" id="infStatus">Hit Generate to start.</div></div>
+          <div class="pc-meta"><span><span class="is-plain">KV cache rows:</span> <strong class="pc-count is-narrow" id="infCacheCount">0</strong></span></div>
         </div>
         <div class="pc-inf-cache-bar" id="infCacheBar"></div>
       </div>
@@ -153,12 +153,12 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
             <button type="button" data-view="ids">Token IDs</button>
           </div>
           <div class="pc-meta pc-push">
-            <span><strong id="tokCount">0</strong> tokens</span>
-            <span><strong class="is-plain" id="wordCount">0</strong> words</span>
-            <span><strong class="is-plain" id="charCount">0</strong> chars</span>
+            <span><strong class="pc-count" id="tokCount">0</strong> tokens</span>
+            <span><strong class="pc-count is-plain" id="wordCount">0</strong> words</span>
+            <span><strong class="pc-count is-wide is-plain" id="charCount">0</strong> chars</span>
           </div>
         </div>
-        <div id="tokenOutput" class="pc-token-output"></div>
+        <div id="tokenOutput" class="reserve pc-token-output"></div>
         <p class="pc-note pc-mt">This simulates BPE-style tokenization the way real tokenizers work: a leading space attaches to the following token (most tokens start with one), common words stay whole, uncommon words split into learned subword pieces, contractions like <code>'s</code> break off, and long numbers chunk into groups of three digits. Token IDs are deterministic hashes, not real vocabulary lookups.</p>
       </div>
       <h3>Why this matters for caching</h3>
@@ -205,8 +205,8 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
             <button type="button" data-dims="3">3D</button>
           </div>
         </div>
-        <canvas id="dimCanvas" width="680" height="260" class="pc-canvas"></canvas>
-        <p class="pc-note pc-mt" id="dimCaption">1D: the same 24 points squashed onto one line. Clusters pile on top of each other. Add dimensions to watch them separate.</p>
+        <canvas id="dimCanvas" width="680" height="300" class="pc-canvas"></canvas>
+        <div class="reserve pc-mt"><p class="pc-note" id="dimCaption">1D: the same 24 points squashed onto one line. Clusters pile on top of each other.</p></div>
       </div>
       <h3>Position encoding</h3>
       <p>Order matters. "The cat sat on the mat" means something very different from "the mat sat on the cat." After looking up a token's embedding, the model also encodes the token's <span class="pc-hl-teal">position in the sequence</span> into its embedding. This way the model knows not just <em>what</em> each token is, but <em>where</em> it appears.</p>
@@ -326,10 +326,10 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
         </div>
         <div class="pc-cache-tokens" id="cacheTokens"></div>
         <div class="pc-grid-2">
-          <div class="pc-cache-pane"><div class="pc-cache-pane-label is-teal">K cache</div><div id="kCacheVis"><span class="pc-empty">Empty, press Play</span></div></div>
-          <div class="pc-cache-pane"><div class="pc-cache-pane-label is-warm">V cache</div><div id="vCacheVis"><span class="pc-empty">Empty, press Play</span></div></div>
+          <div class="pc-cache-pane"><div class="pc-cache-pane-label is-teal">K cache</div><div id="kCacheVis" class="pc-cache-rows"><span class="pc-empty">Empty, press Play</span></div></div>
+          <div class="pc-cache-pane"><div class="pc-cache-pane-label is-warm">V cache</div><div id="vCacheVis" class="pc-cache-rows"><span class="pc-empty">Empty, press Play</span></div></div>
         </div>
-        <div id="cacheNarration" class="pc-narration"></div>
+        <div class="reserve"><div id="cacheNarration" class="pc-narration"></div></div>
       </div>
       <h3>Without cache vs. with cache</h3>
       <p>Toggle to see the difference in how much computation each approach requires.</p>
@@ -392,9 +392,9 @@ V = <span class="syn-fn">append</span>(cached_V, V_new)  <span class="syn-cm">//
         <div class="pc-row pc-mb">
           <button class="btn btn-primary btn-sm" id="chvSendBtn" type="button">Send request</button>
           <button class="btn btn-outline btn-sm" id="chvClearBtn" type="button">Clear cache</button>
-          <span class="pc-meta pc-push">Cache TTL: <strong id="chvTTL">5:00</strong></span>
+          <span class="pc-meta pc-push">Cache TTL: <strong class="pc-ttl" id="chvTTL">5:00</strong></span>
         </div>
-        <div class="pc-chv-reqs" id="chvReqs"><div class="pc-empty">No requests yet. Click "Send request" to begin.</div></div>
+        <div class="pc-chv-reqs" id="chvReqs" role="region" aria-label="Request log" tabindex="0"><div class="pc-empty">No requests yet. Click "Send request" to begin.</div></div>
         <div class="chv-legend">
           <span><span class="chv-legend-dot is-teal"></span> Cache hit (reused)</span>
           <span><span class="chv-legend-dot is-rose"></span> Cache miss (computed)</span>

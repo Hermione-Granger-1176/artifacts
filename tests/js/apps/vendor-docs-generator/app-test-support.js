@@ -109,6 +109,14 @@ export function choose(container, attribute, value) {
 }
 
 /**
+ * Remove the globals `setupAppMocks` adds beyond the shared ones.
+ * @returns {void}
+ */
+export function cleanupAppMocks() {
+  delete globalThis.ResizeObserver;
+}
+
+/**
  * Install every mock the app entry point needs.
  * @returns {Record<string, any>} Element handles and library fakes.
  */
@@ -155,14 +163,14 @@ export function setupAppMocks() {
   elementMap.vdBatchStop.textContent = 'Stop and keep what is done';
   elementMap.vdPair.checked = false;
 
-  // index.html ships these with a `hidden` attribute; the mock has no markup to
-  // read it from, so the initial state is mirrored here.
-  elementMap.vdProgress.hidden = true;
-  elementMap.vdBatchStatus.hidden = true;
+  // index.html ships these with a `hidden` attribute or an `is-idle` class; the
+  // mock has no markup to read them from, so the initial state is mirrored here.
+  // The meter, the status line, and the pair option keep their rows instead of
+  // hiding, so what they ship with is a class or nothing at all.
+  elementMap.vdProgress.classList.add('is-idle');
   elementMap.vdBatchStop.hidden = true;
   elementMap.vdBatchOptions.hidden = true;
   elementMap.vdFormatJson.hidden = true;
-  elementMap.vdPairLabel.hidden = true;
   elementMap.vdBatchCount.value = '2';
   // The paper stands in for a laid-out A4 page so the box collector has real
   // geometry to normalise against.
@@ -189,11 +197,28 @@ export function setupAppMocks() {
     return scratch;
   };
 
+  // The preview refits through one ResizeObserver on the frame. The stand-in
+  // records each observer so a test can resize the frame and fire the callback.
+  const resizeObservers = [];
+  globalThis.ResizeObserver = class {
+    constructor(callback) {
+      this.callback = callback;
+      this.target = null;
+      resizeObservers.push(this);
+    }
+
+    observe(target) {
+      this.target = target;
+    }
+
+    disconnect() {}
+  };
+
   globalThis.window.jspdf = { jsPDF: pdf.JsPdf };
   globalThis.window.html2canvas = canvas.html2canvas;
   globalThis.window.JSZip = zip.JsZip;
 
-  return { ...shared, canvas, dialog, layoutButtons, pdf, scratchCanvases, zip };
+  return { ...shared, canvas, dialog, layoutButtons, pdf, resizeObservers, scratchCanvases, zip };
 }
 
 /**

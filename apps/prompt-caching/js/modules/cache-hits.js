@@ -2,7 +2,7 @@
 
 import { CHV_SYSTEM, CHV_QUERIES } from "./data.js";
 import { formatTTL } from "./math.js";
-import { byId, makeEl, clear } from "./dom.js";
+import { byId, makeEl, clear, prefersReducedMotion } from "./dom.js";
 import { formatPercent } from "../../../../js/modules/formatting.js";
 
 const MAX_VISIBLE = 5;
@@ -50,6 +50,15 @@ export function initCacheHits() {
    * @returns {void}
    */
   function animateBlocks(blocks, hitClass, onDone) {
+    if (prefersReducedMotion()) {
+      // No left-to-right sweep under reduced motion: color every block at once.
+      for (const block of blocks) {
+        block.classList.remove("waiting");
+        block.classList.add(hitClass);
+      }
+      onDone?.();
+      return;
+    }
     let i = 0;
     const timer = setInterval(() => {
       if (i >= blocks.length) {
@@ -133,7 +142,9 @@ export function initCacheHits() {
       reqs.insertBefore(notice, reqs.firstChild);
     }
 
-    setTimeout(() => reqDiv.scrollIntoView({ behavior: "smooth", block: "nearest" }), 200);
+    // The log has a fixed height and scrolls inside itself. Scrolling the list
+    // (never scrollIntoView) keeps the page where the reader left it.
+    reqs.scrollTo({ top: reqs.scrollHeight, behavior: prefersReducedMotion() ? "auto" : "smooth" });
   }
 
   function clearCache() {

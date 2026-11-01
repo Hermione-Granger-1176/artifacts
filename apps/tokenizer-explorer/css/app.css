@@ -22,13 +22,6 @@ body.app-tokenizer-explorer {
   --tk-settings-width: 300px;
 }
 
-/* The section-nav is injected into this slot by renderSectionNav; display:
- * contents keeps the sticky nav's containing block at the body so it still
- * sticks to the top of the viewport. */
-body.app-tokenizer-explorer [data-section-nav] {
-  display: contents;
-}
-
 /* ── Page shell ───────────────────────────────────────────────────── */
 
 /*
@@ -112,7 +105,8 @@ body.app-tokenizer-explorer .tk-card-head .section-kicker {
  * the chips and the blank are siblings in one flex row.
  */
 
-body.app-tokenizer-explorer .tk-prompt {
+body.app-tokenizer-explorer .tk-prompt-live,
+body.app-tokenizer-explorer .tk-prompt-reserve > div {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -123,18 +117,35 @@ body.app-tokenizer-explorer .tk-prompt-tokens {
   display: contents;
 }
 
+/*
+ * The prompt is as tall as the tallest scenario's prompt at the current width,
+ * so picking another scenario never moves what sits below it. The live prompt
+ * and one hidden copy of every scenario's prompt share one grid cell, so the
+ * cell takes the tallest of them and the browser does the line counting.
+ */
+
 body.app-tokenizer-explorer .prompt-chip {
   padding: 0 var(--space-2);
   font-size: var(--font-size-md);
 }
 
+/*
+ * The blank is as wide as the longest candidate word (--blank-chars, set per
+ * scenario) and keeps one border box whether it is empty or filled, so picking
+ * a token only changes its colours. The side borders are transparent while empty.
+ */
+
 body.app-tokenizer-explorer .blank {
   display: inline-flex;
-  min-width: calc(var(--space-8) * 2);
+  min-width: max(
+    calc(var(--space-8) * 2),
+    calc(var(--blank-chars, 0) * 1ch + var(--space-4) + 2px)
+  );
   min-height: var(--space-8);
   align-items: center;
   justify-content: center;
   padding: 0 var(--space-2);
+  border: 1px solid transparent;
   border-bottom: 2px dashed var(--color-blue);
   font-family: var(--font-mono);
   font-size: var(--font-size-md);
@@ -147,8 +158,8 @@ body.app-tokenizer-explorer .blank:empty::before {
 }
 
 body.app-tokenizer-explorer .blank.has-choice {
-  min-width: 0;
-  border: 1px solid var(--color-green);
+  border-color: var(--color-green);
+  border-bottom-style: solid;
   border-radius: var(--radius-xs);
   background: var(--note-green);
   color: var(--color-green-text);
@@ -234,11 +245,12 @@ body.app-tokenizer-explorer .tk-swatch.is-seen {
 /*
  * One grid template for the header row and every candidate row, so the token,
  * bar, and number columns share their edges all the way down. The Seen column
- * only exists once Sample 100x has run.
+ * only has content once Sample 100x has run, but its track is always reserved,
+ * so the bars keep their width when the tally arrives.
  */
 
 body.app-tokenizer-explorer .tk-candidates {
-  --tk-cols: 7.5rem minmax(0, 1fr) 3.5rem 3.5rem;
+  --tk-cols: 7.5rem minmax(0, 1fr) 3.5rem 3.5rem 3.5rem;
 
   display: flex;
   flex-direction: column;
@@ -247,11 +259,8 @@ body.app-tokenizer-explorer .tk-candidates {
   list-style: none;
 }
 
-body.app-tokenizer-explorer .tk-candidates.has-samples {
-  --tk-cols: 7.5rem minmax(0, 1fr) 3.5rem 3.5rem 3.5rem;
-}
-
 body.app-tokenizer-explorer .tk-row {
+  position: relative;
   display: grid;
   align-items: center;
   grid-auto-rows: minmax(var(--space-8), auto);
@@ -353,16 +362,30 @@ body.app-tokenizer-explorer .tk-seen-fill {
   transition: width var(--transition-fast) ease;
 }
 
-/* A cut token keeps its row, struck through, with a hatched bar under the cut line. */
+/*
+ * A cut token keeps its row, struck through, with a hatched bar under the cut
+ * line. The line is drawn over the top edge of the first cut row and takes no
+ * space, so the rows never move when the cut lands on a different token.
+ */
 
 body.app-tokenizer-explorer .tk-cut-label {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+  left: 0;
   display: flex;
-  min-height: var(--space-6);
   align-items: center;
-  gap: var(--space-2);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
-  grid-column: 1 / -1;
+  gap: var(--space-2);
+  line-height: 1;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+body.app-tokenizer-explorer .tk-cut-label[hidden] {
+  display: none;
 }
 
 body.app-tokenizer-explorer .tk-cut-label::before,
@@ -415,12 +438,21 @@ body.app-tokenizer-explorer .tk-actions {
   gap: var(--space-2);
 }
 
-/* Room for two lines, so the buttons never shift when the status changes length. */
+/*
+ * Room for the longer status copy, so the buttons never shift when the status
+ * changes. The slot holds the live text and a hidden copy of every status in
+ * one grid cell, so it is as tall as the longest at any width.
+ */
+
+body.app-tokenizer-explorer .tk-status-slot {
+  min-width: 0;
+  flex: 1 1 14rem;
+  align-items: stretch;
+}
 
 body.app-tokenizer-explorer .tk-status {
   display: flex;
   min-height: var(--tk-control-height);
-  flex: 1 1 14rem;
   align-items: center;
   justify-content: flex-end;
   font-size: var(--font-size-sm);
@@ -592,6 +624,27 @@ body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button {
   min-height: var(--tk-segment-height);
   padding: 0 var(--space-2);
   flex: 1;
+}
+
+/*
+ * Both labels sit in one grid cell and the unpressed state hides the other, so
+ * the button keeps the width of the longer label and neighbours never shift.
+ */
+
+body.app-tokenizer-explorer .whitespace-toggle {
+  display: inline-grid;
+  flex: none;
+  justify-items: center;
+  white-space: nowrap;
+}
+
+body.app-tokenizer-explorer .whitespace-toggle > span {
+  grid-area: 1 / 1;
+}
+
+body.app-tokenizer-explorer .whitespace-toggle[aria-pressed="true"] > .is-off,
+body.app-tokenizer-explorer .whitespace-toggle[aria-pressed="false"] > .is-on {
+  visibility: hidden;
 }
 
 /* Reset is the quietest action: no border, just a tint on hover. */
@@ -831,6 +884,17 @@ body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):active {
   body.app-tokenizer-explorer .tk-settings {
     order: -1;
   }
+
+  /*
+   * The settings card sits above the main card on screen but after it in the
+   * markup. Scroll anchoring walks the markup order, so it anchors to a node in
+   * the main card, which is below the "Show the code" disclosure. Opening the
+   * disclosure pushes that node down and the browser scrolls to follow it,
+   * which throws the summary up the screen. The main card cannot be an anchor.
+   */
+  body.app-tokenizer-explorer .tk-main {
+    overflow-anchor: none;
+  }
 }
 
 @media (max-width: 700px) {
@@ -844,8 +908,11 @@ body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):active {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  body.app-tokenizer-explorer .tk-status {
+  body.app-tokenizer-explorer .tk-status-slot {
     flex-basis: 100%;
+  }
+
+  body.app-tokenizer-explorer .tk-status {
     justify-content: flex-start;
     text-align: left;
   }
@@ -862,8 +929,7 @@ body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):active {
    * The Seen cells are only visually hidden, because the bar is hidden from screen
    * readers and these cells are their only way to hear the counts.
    */
-  body.app-tokenizer-explorer .tk-candidates,
-  body.app-tokenizer-explorer .tk-candidates.has-samples {
+  body.app-tokenizer-explorer .tk-candidates {
     --tk-cols: 5.5rem minmax(0, 1fr) 2.75rem 2.75rem;
   }
 

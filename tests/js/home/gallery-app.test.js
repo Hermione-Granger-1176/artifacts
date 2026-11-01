@@ -997,8 +997,9 @@ function createPageButton(harness, { page, step }) {
   if (step !== undefined) {
     button.dataset.pageStep = String(step);
   }
-  button.focus = function focus() {
+  button.focus = function focus(options) {
     harness.documentObj.activeElement = this;
+    this.focusOptions = options;
   };
   return button;
 }
@@ -1049,6 +1050,7 @@ test('pagination keeps focus on the Next button while stepping', () => {
 
   harness.elements.pagination.dispatch('click', { target: nextButton });
   assert.equal(harness.documentObj.activeElement, nextButton);
+  assert.deepEqual(nextButton.focusOptions, { preventScroll: true }, 'restoring focus never scrolls the page');
 
   stepEnabled = false;
   harness.elements.pagination.dispatch('click', { target: createPageButton(harness, { page: 1, step: -1 }) });
@@ -1213,6 +1215,140 @@ test('page turns on an empty result set do not build a leaf', async () => {
   });
 
   assert.equal(harness.elements.grid.cards.length, 0);
-  assert.equal(harness.elements.pagination.innerHTML, '');
+  assert.match(harness.elements.pagination.innerHTML, /page-slot-empty/, 'the pagination row keeps its shape');
+  assert.equal(harness.elements.pagination.innerHTML.match(/<button/g).length, 5);
+  assert.equal(harness.elements.pagination.innerHTML.match(/ disabled /g).length, 4, 'every control is disabled');
   assert.equal(harness.book.sheet.dataset.hasNext, 'false');
+});
+
+test('a render that would write the same cards leaves the grid alone', () => {
+  const harness = createGalleryHarness();
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+  const grid = harness.elements.grid;
+  const cards = grid.cards;
+  // Every artifact matches "artifact", so the first page shows the same cards.
+  harness.elements.searchInput.value = 'artifact';
+  harness.elements.searchInput.dispatch('input', { target: harness.elements.searchInput });
+  harness.runTimers();
+  assert.equal(grid.cards, cards, 'the same matches keep the same card elements');
+
+  harness.elements.searchInput.value = 'Artifact 13';
+  harness.elements.searchInput.dispatch('input', { target: harness.elements.searchInput });
+  harness.runTimers();
+  assert.notEqual(grid.cards, cards, 'different matches render new cards');
+});
+
+test('the filtered list is computed once per search, filter, and sort state', async () => {
+  const harness = createGalleryHarness({ withBook: true });
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+  // A filter pass sorts a fresh list of every matching artifact, so count the sorts of 13 items.
+  const originalSort = Array.prototype.sort;
+  let passes = 0;
+  Array.prototype.sort = function countingSort(...args) {
+    passes += this.length === 13 ? 1 : 0;
+    return originalSort.apply(this, args);
+  };
+  const filterPasses = () => passes;
+  try {
+    harness.elements.pagination.dispatch('click', { target: createPageButton(harness, { page: 2 }) });
+    await settleMicrotasks();
+    await harness.book.runFrames();
+    assert.equal(filterPasses(), 0, 'a page turn and its faces reuse the list the render made');
+
+    harness.elements.sortToggle.dispatch('click');
+    assert.equal(filterPasses(), 1, 'a new sort order filters once');
+
+    harness.elements.sortToggle.dispatch('click');
+    assert.equal(filterPasses(), 2, 'going back is a new state again, because only the last list is kept');
+  } finally {
+    Array.prototype.sort = originalSort;
+  }
+});
+
+test('switching theme turns transitions off for two frames and restores them', async () => {
+  const harness = createGalleryHarness({ initialTheme: 'light', withBook: true });
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+  const root = harness.documentObj.documentElement;
+  await harness.book.runFrames(4);
+  assert.equal(root.classList.contains('theme-switching'), false, 'the first paint settles');
+
+  harness.elements.themeToggle.dispatch('click');
+  assert.equal(root.getAttribute('data-theme'), 'dark');
+  assert.equal(root.classList.contains('theme-switching'), true, 'the class is on before the colors change');
+
+  await harness.book.runFrames(1);
+  assert.equal(root.classList.contains('theme-switching'), true, 'it stays through the first frame');
+  await harness.book.runFrames(3);
+  assert.equal(root.classList.contains('theme-switching'), false);
+
+  // A second switch inside the window keeps transitions off until its own frames are done.
+  harness.elements.themeToggle.dispatch('click');
+  await harness.book.runFrames(1);
+  harness.elements.themeToggle.dispatch('click');
+  await harness.book.runFrames(1);
+  assert.equal(root.classList.contains('theme-switching'), true, 'the earlier switch does not end the later one early');
+  await harness.book.runFrames(3);
+  assert.equal(root.classList.contains('theme-switching'), false);
+});
+
+test('applying the theme that is already set does not touch transitions', () => {
+  const harness = createGalleryHarness({ initialTheme: 'dark' });
+  harness.documentObj.documentElement.setAttribute('data-theme', 'dark');
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+  assert.equal(harness.documentObj.documentElement.classList.contains('theme-switching'), false);
+});
+
+test('the filter summaries are only rewritten when their text changes', () => {
+  const harness = createGalleryHarness();
+  const writes = [];
+  const summaries = new Map();
+  const notes = harness.elements.bookmarkTabs;
+  notes.querySelectorAll = () => [];
+  notes.querySelector = (selector) => {
+    const kind = selector.match(/data-filter-summary="(\w+)"/)?.[1];
+    if (!kind) {
+      return null;
+    }
+    if (!summaries.has(kind)) {
+      let text = kind === 'tools' ? 'All tools' : 'All tags';
+      summaries.set(kind, {
+        get textContent() {
+          return text;
+        },
+        set textContent(value) {
+          text = value;
+          writes.push(`${kind}:${value}`);
+        }
+      });
+    }
+    return summaries.get(kind);
+  };
+  initializeGalleryApp({
+    documentObj: harness.documentObj,
+    runtime: harness.runtime,
+    windowObj: harness.windowObj
+  });
+  assert.deepEqual(writes, [], 'nothing to write at startup');
+
+  const note = new FakeElement({ tagName: 'BUTTON', classes: ['desk-note'] });
+  note.dataset.filterTool = 'claude';
+  note.parentElement = notes;
+  notes.dispatch('click', { target: note });
+  assert.deepEqual(writes, ['tools:1 active'], 'only the changed summary is written');
 });
