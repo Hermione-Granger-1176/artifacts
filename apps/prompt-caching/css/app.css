@@ -790,6 +790,7 @@ body.app-prompt-caching .pc-empty {
 
 body.app-prompt-caching .pc-mask-toggle {
   display: inline-flex;
+  min-height: var(--touch-target, 0px);
   align-items: center;
   gap: var(--space-2);
   margin-top: 0.6rem;
@@ -1579,7 +1580,7 @@ body.app-prompt-caching .pc-emb-cloud {
 body.app-prompt-caching .emb-word {
   display: inline-flex;
   align-items: center;
-  min-height: 1.75rem;
+  min-height: max(1.75rem, var(--touch-target, 0px));
   font-size: var(--font-size-sm);
   padding: 0.2rem 0.55rem;
   border-radius: 5px;
@@ -1592,10 +1593,12 @@ body.app-prompt-caching .emb-word {
   user-select: none;
 }
 
-body.app-prompt-caching .emb-word:hover {
-  border-color: var(--pc-accent);
-  color: var(--pc-accent);
-  background: var(--pc-accent-bg);
+@media (hover: hover) {
+  body.app-prompt-caching .emb-word:hover {
+    border-color: var(--pc-accent);
+    color: var(--pc-accent);
+    background: var(--pc-accent-bg);
+  }
 }
 
 body.app-prompt-caching .emb-word.sel-a {
@@ -1675,14 +1678,16 @@ body.app-prompt-caching .pc-emb-tags {
 /* The quick-pick pair tags ride the shared .chip base; the smaller type and the
  * blue control hover/focus stay scoped. */
 body.app-prompt-caching .emb-tag {
-  min-height: 1.75rem;
+  min-height: max(1.75rem, var(--touch-target, 0px));
   font-size: var(--font-size-xs);
   cursor: pointer;
 }
 
-body.app-prompt-caching .emb-tag:hover {
-  border-color: var(--color-blue);
-  color: var(--color-blue-text);
+@media (hover: hover) {
+  body.app-prompt-caching .emb-tag:hover {
+    border-color: var(--color-blue);
+    color: var(--color-blue-text);
+  }
 }
 
 body.app-prompt-caching .emb-tag:focus-visible {

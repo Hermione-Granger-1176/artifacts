@@ -92,7 +92,7 @@ def test_app_runtime_error_banner_is_visible_when_bootstrap_fails(
 # target.
 SMALL_TOUCH_CONTROLS = """() => {
     const controls = document.querySelectorAll(
-        '.page-shell :is(button, select, input, summary)'
+        '.page-shell :is(button, select, input, summary, [role="button"])'
     );
     const exempt = '.info-tip, .section-nav-node, [hidden], dialog:not([open])';
     return [...controls]
@@ -104,6 +104,10 @@ SMALL_TOUCH_CONTROLS = """() => {
         }))
         .filter((control) => control.height < 43.5);
 }"""
+
+
+# Per app, buttons that swap in controls the first render does not show.
+REVEAL_STATES = {"prompt-caching": ".pc-step-dot"}
 
 
 @pytest.mark.parametrize("slug", selected_app_slugs())
@@ -126,4 +130,11 @@ def test_app_controls_meet_the_touch_target_on_touch_screens(
         page.wait_for_function("window.__ARTIFACT_READY__ === true")
         assert page.evaluate("matchMedia('(pointer: coarse)').matches")
 
-        assert page.evaluate(SMALL_TOUCH_CONTROLS) == []
+        small = page.evaluate(SMALL_TOUCH_CONTROLS)
+        # Controls that only render in a later state: open each one and check again.
+        reveal = REVEAL_STATES.get(slug)
+        if reveal:
+            for index in range(page.locator(reveal).count()):
+                page.locator(reveal).nth(index).click()
+                small += page.evaluate(SMALL_TOUCH_CONTROLS)
+        assert small == []
