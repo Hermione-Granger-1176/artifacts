@@ -9,7 +9,7 @@
  * calls `onSelect(button)`. `aria-pressed` is also set once on init from the
  * markup's `.active` classes, so `.active` is the source of truth.
  * @param {HTMLElement} container - Element wrapping the toggle buttons.
- * @param {Function} onSelect - Called with the newly active button element.
+ * @param {(button: HTMLButtonElement) => void} onSelect - Called with the newly active button element.
  * @returns {HTMLButtonElement[]} The buttons found inside the container.
  */
 export function initSegmented(container, onSelect) {
