@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
@@ -75,6 +76,9 @@ def test_mobile_viewport_flow_keeps_gallery_usable(tmp_path: Path, monkeypatch) 
         expect(tools).to_have_attribute("aria-expanded", "true")
         page.locator('#filter-panel-tools [data-filter-tool="chatgpt"]').click()
         expect(tools).to_have_attribute("aria-label", "Tools, 1 selected")
+        # Clear is an action, not a toggle, so it never carries a pressed state.
+        clear = page.locator("#filter-panel-tools .filter-panel-clear")
+        expect(clear).not_to_have_attribute("aria-pressed", re.compile(".*"))
         expect(page.locator("#filter-reset")).to_be_hidden()
         page.keyboard.press("Escape")
         expect(page.locator("#filter-panel-tools")).not_to_be_visible()

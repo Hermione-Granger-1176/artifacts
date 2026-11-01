@@ -94,7 +94,8 @@ function toggleSelection(selection, value) {
 function countValues(items, field) {
   const counts = new Map();
   for (const item of items) {
-    for (const value of item[field]) {
+    // A value listed twice on one artifact still counts that artifact once.
+    for (const value of new Set(item[field])) {
       counts.set(value, (counts.get(value) || 0) + 1);
     }
   }
@@ -499,14 +500,16 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   /**
-   * Show only the panel options whose label contains the query.
+   * Show only the panel options whose label contains the query. The label is
+   * read on its own, so the artifact count beside it never matches a search.
    * @param {HTMLElement} panel - Filter panel.
    * @param {string} query - Lowercase search text.
    */
   function filterPanelOptions(panel, query) {
     panel.querySelectorAll('.filter-option').forEach((element) => {
       const option = /** @type {HTMLElement} */ (element);
-      option.hidden = query !== '' && !(option.textContent || '').toLowerCase().includes(query);
+      const label = option.querySelector('.filter-option-label') ?? option;
+      option.hidden = query !== '' && !(label.textContent || '').toLowerCase().includes(query);
     });
   }
 
@@ -782,9 +785,10 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     /**
      * @param {string} selector - Button selector.
      * @param {(button: HTMLElement) => boolean} isActive - Pressed-state test.
+     * @param {HTMLElement[]} [containers] - Where to look for the buttons.
      */
-    const setPressed = (selector, isActive) => {
-      [...filterNotesContainer.querySelectorAll(selector), ...filterDropdowns.querySelectorAll(selector)].forEach((element) => {
+    const setPressed = (selector, isActive, containers = [filterNotesContainer, filterDropdowns]) => {
+      containers.flatMap((container) => [...container.querySelectorAll(selector)]).forEach((element) => {
         const button = /** @type {HTMLElement} */ (element);
         const active = isActive(button);
         button.classList.toggle('is-active', active);
@@ -794,8 +798,10 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
     setPressed('[data-filter-tool]', (button) => currentTools.includes(button.dataset.filterTool || ''));
     setPressed('[data-filter-tag]', (button) => currentTags.includes(button.dataset.filterTag || ''));
-    setPressed('[data-filter-note="all-tools"]', () => currentTools.length === 0);
-    setPressed('[data-filter-note="all-tags"]', () => currentTags.length === 0);
+    // The panels' Clear buttons share these notes' values but are actions, not toggles, so only
+    // the desk notes carry a pressed state.
+    setPressed('[data-filter-note="all-tools"]', () => currentTools.length === 0, [filterNotesContainer]);
+    setPressed('[data-filter-note="all-tags"]', () => currentTags.length === 0, [filterNotesContainer]);
 
     /**
      * Each dropdown button counts its picks and says so in its name.

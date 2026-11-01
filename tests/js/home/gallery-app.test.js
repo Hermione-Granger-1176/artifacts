@@ -441,7 +441,11 @@ function addFakeDropdown(container, registerElement, { kind, dataset, values }) 
     const option = new FakeElement({ tagName: 'BUTTON', classes: ['filter-option'] });
     option.dataset[dataset] = value;
     option.dataset.filterSurface = 'mobile';
-    option.textContent = value.toUpperCase();
+    // The label sits in its own span; the button text also carries the artifact count.
+    const label = new FakeElement({ tagName: 'SPAN', classes: ['filter-option-label'] });
+    label.textContent = value.toUpperCase();
+    option.textContent = `${value.toUpperCase()}1`;
+    option.querySelector = (selector) => (selector === '.filter-option-label' ? label : null);
     option.setAttribute('aria-pressed', 'false');
     list.appendChild(option);
     return option;
@@ -1557,6 +1561,10 @@ test('a long panel search shows only the options that match and resets when the 
   searchBox.value = ' FIN ';
   filterDropdowns.dispatch('input', { target: searchBox });
   assert.deepEqual(options.map((option) => option.hidden), [false, true]);
+  // Searching a digit matches no label, even though every option's count is 1.
+  searchBox.value = '1';
+  filterDropdowns.dispatch('input', { target: searchBox });
+  assert.deepEqual(options.map((option) => option.hidden), [true, true]);
 
   const stray = new FakeElement({ tagName: 'INPUT' });
   filterDropdowns.dispatch('input', { target: stray });
@@ -1568,6 +1576,23 @@ test('a long panel search shows only the options that match and resets when the 
   filterDropdowns.dispatch('click', { target: toggle });
   assert.equal(searchBox.value, '');
   assert.deepEqual(options.map((option) => option.hidden), [false, false]);
+});
+
+test('dropdown options count each artifact once per value', () => {
+  const harness = createGalleryHarness({ withDropdowns: true });
+  // A tag listed twice on one artifact still counts that artifact once.
+  harness.windowObj.ARTIFACTS_DATA[0].tags = ['calculator', 'calculator'];
+  initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
+  const markup = harness.elements.filterDropdowns.innerHTML;
+  const countOf = (attribute, value) => {
+    const match = markup.match(new RegExp(`${attribute}="${value}"[^>]*>.*?<span class="filter-option-count" aria-hidden="true">(\\d+)</span>`));
+    return match && Number(match[1]);
+  };
+  // Of 13 artifacts, the 6 even ones are finance and claude and the 7 odd ones calculator and chatgpt.
+  assert.equal(countOf('data-filter-tag', 'finance'), 6);
+  assert.equal(countOf('data-filter-tag', 'calculator'), 7);
+  assert.equal(countOf('data-filter-tool', 'claude'), 6);
+  assert.equal(countOf('data-filter-tool', 'chatgpt'), 7);
 });
 
 test('widening past the dropdown layout closes an open panel', () => {
