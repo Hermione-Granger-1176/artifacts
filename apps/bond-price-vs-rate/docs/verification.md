@@ -23,6 +23,7 @@ All fixtures below assume a 10-year, 5% annual coupon, $1,000 face bond unless s
 - Zero-coupon 10-year $1,000: rate 3% gives `744.09`, rate 5% gives `613.91`, rate 7% gives `508.35`
 - A par bond prices to exactly its face value when the market rate equals the coupon (5%)
 - Cash-flow schedule (`bondSchedule`): the 10-year bond returns 10 rows, each paying the `$50` coupon except the final row, which merges the `$1,000` face into a `$1,050` payment; every discount factor is `1 / (1 + i)^t`, with the first-year 5% factor equal to `0.9524`; each present value is `amount * discountFactor`; and the present values sum to the bond price (asserted at both 5% and 6%)
+- Closed-form price (`bondPrice`): the coupon annuity `c * (1 - v^n) / i` plus the discounted face `F * v^n` matches the summed schedule to within floating-point rounding for coupon frequencies 1, 2, and 4, maturities from 1 to 30 years, coupons from 0% to 12%, and yields from 0% to 11.9%; a bond with no periods prices to zero
 - Regime: `priceRegime(6, 5)` is premium, `priceRegime(5, 5)` is par, `priceRegime(4, 5)` is discount
 - Sensitivity at a 5% rate and 5% coupon (percent drop for a +1 point move): 2-year about `-1.83%`, 5-year about `-4.21%`, 10-year about `-7.36%`, 20-year about `-11.47%`, 30-year about `-13.76%`
 - Analytics at a 6% rate (the discount fixture): price `926.40` splitting into coupons `368.00` plus face `558.39`, current yield `5.397%`, Macaulay `8.02` years, modified `7.57`, convexity `72.57`, DV01 `0.70`

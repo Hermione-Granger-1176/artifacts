@@ -118,25 +118,39 @@ function buildChartState({ base, extra, principal, interestSaved, periodLabel })
 }
 
 /**
- * @param {import("chart.js").ChartOptions["scales"]} scales - Chart scale options.
+ * The axis setup each chart was last given. Rewriting the scale options makes
+ * Chart.js resolve them again, so a slider tick that changes only the data skips it.
+ * @type {WeakMap<ChartInstance, { palette: Palette, formatDollarTick: (value: number) => string, key: string }>}
+ */
+const appliedAxes = new WeakMap();
+
+/**
+ * @param {ChartInstance} chart - Chart whose scales to style.
  * @param {Palette} palette - Active color palette.
  * @param {string} periodLabel - Default x axis label.
  * @param {(value: number) => string} formatDollarTick - Y tick formatter.
  * @param {{ stackedY?: boolean, showXGrid?: boolean, xTitle?: string, yTitle?: string | null }} [options={}] - Axis options.
  * @returns {void}
  */
-function applyAxes(scales, palette, periodLabel, formatDollarTick, options = {}) {
+function applyAxes(chart, palette, periodLabel, formatDollarTick, options = {}) {
+  const scales = chart.options.scales;
   if (!scales) {
     return;
   }
-  const xScale = /** @type {AxisConfig} */ (scales.x);
-  const yScale = /** @type {AxisConfig} */ (scales.y);
   const {
     stackedY = false,
     showXGrid = true,
     xTitle = periodLabel,
     yTitle = null
   } = options;
+  const key = `${stackedY}|${showXGrid}|${xTitle}|${yTitle}`;
+  const applied = appliedAxes.get(chart);
+  if (applied?.palette === palette && applied.formatDollarTick === formatDollarTick && applied.key === key) {
+    return;
+  }
+  appliedAxes.set(chart, { palette, formatDollarTick, key });
+  const xScale = /** @type {AxisConfig} */ (scales.x);
+  const yScale = /** @type {AxisConfig} */ (scales.y);
 
   xScale.title = { ...xScale.title, display: true, text: xTitle, color: palette.tick };
   xScale.ticks = { ...xScale.ticks, color: palette.tick, maxTicksLimit: 12 };
@@ -237,7 +251,7 @@ function syncBalanceChart(chart, state, formatDollarTick, mode) {
   const [withoutExtras, withExtras] = chart.data.datasets;
   paintDataset(withoutExtras, pad(base.balances, maxPeriods), palette.blue, palette.blueA(0.08));
   paintDataset(withExtras, pad(extra.balances, maxPeriods), palette.green, palette.greenA(0.08));
-  applyAxes(chart.options.scales, palette, periodLabel, formatDollarTick, {
+  applyAxes(chart, palette, periodLabel, formatDollarTick, {
     yTitle: "Balance"
   });
   chart.update(mode);
@@ -280,7 +294,7 @@ function syncComparisonChart(chart, state, formatDollarTick, mode) {
   chart.data.datasets[1].backgroundColor = palette.noteRed;
   chart.data.datasets[2].data = [0, Math.round(extra.totalExtra)];
   chart.data.datasets[2].backgroundColor = palette.noteGreen;
-  applyAxes(chart.options.scales, palette, state.periodLabel, formatDollarTick, {
+  applyAxes(chart, palette, state.periodLabel, formatDollarTick, {
     showXGrid: false,
     stackedY: true,
     xTitle: "Comparison"
@@ -461,7 +475,7 @@ function syncCumulativeChart(chart, state, formatDollarTick, mode) {
   paintDataset(extraSeries, extra.cumulativeExtra, palette.green, palette.greenA(0.1));
   paintDataset(interestSeries, extra.cumulativeInterest, palette.red, palette.redA(0.1));
   /** @type {Record<string, unknown>} */ (chart.options.plugins).annotation = state.annotation;
-  applyAxes(chart.options.scales, palette, periodLabel, formatDollarTick);
+  applyAxes(chart, palette, periodLabel, formatDollarTick);
   chart.update(mode);
 }
 
@@ -501,7 +515,7 @@ function syncPeriodChart(chart, state, formatDollarTick, mode) {
   paintDataset(principalSeries, extra.principalParts, palette.blue, palette.blueA(0.4));
   paintDataset(extraSeries, extra.extraParts, palette.green, palette.greenA(0.4));
   paintDataset(interestSeries, extra.interestParts, palette.red, palette.redA(0.45));
-  applyAxes(chart.options.scales, palette, periodLabel, formatDollarTick, {
+  applyAxes(chart, palette, periodLabel, formatDollarTick, {
     stackedY: true
   });
   chart.update(mode);

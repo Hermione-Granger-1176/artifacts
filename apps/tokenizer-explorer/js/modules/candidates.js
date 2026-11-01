@@ -1,3 +1,4 @@
+import { setText } from "../../../../js/modules/dom-sync.js";
 import { formatPercent } from "../../../../js/modules/formatting.js";
 
 /**
@@ -152,17 +153,41 @@ function createRowParts() {
  * @returns {void}
  */
 function updateRowParts(parts, row) {
+  // A slider tick changes a few numbers per row. Writing only what changed keeps
+  // the unchanged cells from invalidating style and layout on every tick.
   parts.item.classList.toggle("is-cut", !row.kept);
   parts.item.classList.toggle("is-picked", row.picked);
   parts.cutLabel.hidden = !row.startsCut;
-  parts.token.textContent = row.word;
-  parts.token.title = row.word;
-  parts.fill.style.width = `${row.oddsPercent > 0 ? Math.max(row.oddsPercent, MIN_BAR_PERCENT) : 0}%`;
-  parts.seenFill.style.width = `${row.seenPercent}%`;
-  parts.odds.textContent = formatPercent(row.oddsPercent);
-  parts.draw.textContent = row.drawPercent === null ? "cut" : formatPercent(row.drawPercent);
-  parts.seen.textContent = row.seenCount === null ? "" : String(row.seenCount);
-  parts.seen.title = row.seenCount === null ? "" : `${row.seenCount} of 100 draws`;
+  setText(parts.token, row.word);
+  setTitle(parts.token, row.word);
+  setWidth(parts.fill, `${row.oddsPercent > 0 ? Math.max(row.oddsPercent, MIN_BAR_PERCENT) : 0}%`);
+  setWidth(parts.seenFill, `${row.seenPercent}%`);
+  setText(parts.odds, formatPercent(row.oddsPercent));
+  setText(parts.draw, row.drawPercent === null ? "cut" : formatPercent(row.drawPercent));
+  setText(parts.seen, row.seenCount === null ? "" : String(row.seenCount));
+  setTitle(parts.seen, row.seenCount === null ? "" : `${row.seenCount} of 100 draws`);
+}
+
+/**
+ * @param {HTMLElement} element
+ * @param {string} title
+ * @returns {void}
+ */
+function setTitle(element, title) {
+  if (element.title !== title) {
+    element.title = title;
+  }
+}
+
+/**
+ * @param {HTMLElement} element
+ * @param {string} width - A CSS width.
+ * @returns {void}
+ */
+function setWidth(element, width) {
+  if (element.style.width !== width) {
+    element.style.width = width;
+  }
 }
 
 /**
