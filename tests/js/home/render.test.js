@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   applyDynamicStyles,
+  buildFilterDropdowns,
   buildFilterNotes,
   buildGridHtml,
   createDetailContent,
@@ -150,10 +151,7 @@ test('buildFilterNotes marks All as active when no filters are selected', () => 
   assert.match(html, />CLAUDE</);
   assert.match(html, />CHATGPT</);
   assert.match(html, />#game</);
-  assert.match(html, /class="mobile-filter-chip is-active"[^>]*data-filter-note="all-tools"/);
-  assert.match(html, /class="mobile-filter-chip is-active"[^>]*data-filter-note="all-tags"/);
-  assert.match(html, /mobile-filter-heading">Tools</);
-  assert.match(html, /mobile-filter-summary"[^>]*>All tools</);
+  assert.doesNotMatch(html, /filter-dropdown|filter-panel/, 'the dropdowns render separately');
 });
 
 test('buildFilterNotes marks active tools and tags and deactivates All', () => {
@@ -171,9 +169,42 @@ test('buildFilterNotes marks active tools and tags and deactivates All', () => {
   assert.doesNotMatch(html, /desk-note is-active"[^>]*data-filter-tool="chatgpt"/);
   assert.doesNotMatch(html, /desk-note is-active"[^>]*data-filter-tag="game"/);
   assert.match(html, /desk-note is-active"[^>]*data-filter-tag="finance"/);
-  assert.match(html, /mobile-filter-summary"[^>]*>1 active</);
-  assert.match(html, /class="mobile-filter-chip is-active"[^>]*data-filter-tool="claude"/);
-  assert.match(html, /class="mobile-filter-chip is-active"[^>]*data-filter-tag="finance"/);
+});
+
+/** @param {number} count - How many tag values the group has. */
+const tagGroup = (count, activeValues = []) => ({
+  kind: 'tags',
+  heading: 'Tags',
+  noteValue: 'all-tags',
+  values: Array.from({ length: count }, (_, index) => `tag-${index}`),
+  activeValues,
+  datasetName: 'data-filter-tag',
+  labelFor: (value) => value.toUpperCase(),
+  countFor: (value) => Number(value.split('-')[1]) + 1
+});
+
+test('buildFilterDropdowns renders a button and a checklist panel per group, in order', () => {
+  const html = buildFilterDropdowns([
+    tagGroup(2, ['tag-1']),
+    { ...tagGroup(1), kind: 'tools', heading: 'Tools', noteValue: 'all-tools', datasetName: 'data-filter-tool' }
+  ]);
+
+  assert.ok(html.indexOf('data-filter-open="tags"') < html.indexOf('data-filter-open="tools"'));
+  assert.match(html, /class="filter-dropdown-toggle" type="button" data-filter-open="tags" aria-haspopup="dialog" aria-controls="filter-panel-tags" aria-expanded="false" aria-label="Tags">/);
+  assert.match(html, /data-filter-summary="tags" aria-hidden="true">1</);
+  assert.match(html, /data-filter-summary="tools" aria-hidden="true"></, 'no picks shows no count');
+  assert.match(html, /<dialog id="filter-panel-tags" class="filter-panel" aria-labelledby="filter-panel-tags-title">/);
+  assert.match(html, /class="filter-option"[^>]*data-filter-surface="mobile" data-filter-tag="tag-0"[^>]*aria-pressed="false"><span class="filter-option-label">TAG-0<\/span><span class="filter-option-count" aria-hidden="true">1</);
+  assert.match(html, /class="filter-option is-active"[^>]*data-filter-tag="tag-1"[^>]*aria-pressed="true"/);
+  assert.match(html, /class="btn-reset-link filter-panel-clear"[^>]*data-filter-note="all-tags" data-filter-surface="mobile"/);
+  assert.match(html, /class="btn-icon filter-panel-close"[^>]*data-close-filter-panel aria-label="Close tags"/);
+  assert.match(html, /class="filter-panel-done"[^>]*data-close-filter-panel/);
+});
+
+test('buildFilterDropdowns adds a search box only to a long list', () => {
+  assert.doesNotMatch(buildFilterDropdowns([tagGroup(8)]), /data-filter-panel-search/);
+  assert.match(buildFilterDropdowns([tagGroup(9)]), /<input class="filter-panel-search" type="search" placeholder="Find tags\.\.\." aria-label="Find tags"/);
+  assert.equal(buildFilterDropdowns([]), '');
 });
 
 test('buildFilterNotes escapes HTML in labels', () => {
