@@ -51,8 +51,6 @@ const NOTEPAD_RIBBON_OFF_KEYFRAMES = [
   { transform: 'translateY(-10px) rotate(-1.5deg)', opacity: 1, offset: 0.35 },
   { transform: 'translateY(90px) rotate(3deg)', opacity: 0 }
 ];
-// Where the shadow's mask edge ends up (see .book-shadow in 02-gallery.css).
-const SHADOW_EDGE_OPEN = '-12%';
 
 /**
  * @typedef {{ left: HTMLElement | null, right: HTMLElement | null }} PageFaces
@@ -121,6 +119,51 @@ function easeOut(t) {
  */
 function linear(t) {
   return t;
+}
+
+/**
+ * The pose of a turning leaf at one progress value. Progress 0 is the leaf lying
+ * where the turn started and 1 is landed. A previous turn is the physical reverse
+ * of a next turn, so both share one angle. Past halfway the leaf is settling: its
+ * shadow moves from the page it left to the page it lands on.
+ * @param {boolean} next - Whether the leaf turns towards the next page.
+ * @param {number} progress - Turn progress from 0 to 1.
+ * @returns {{ transform: string, frontShade: number, backShade: number, castRight: number, castLeft: number }} Leaf angle and shading.
+ */
+function leafPose(next, progress) {
+  const q = next ? progress : 1 - progress;
+  const lift = Math.sin(Math.PI * q);
+  const settling = q > 0.5;
+  return {
+    transform: `rotateY(${-180 * q}deg)`,
+    frontShade: Math.min(1, q * 2) * 0.9,
+    backShade: settling ? Math.max(0, 1 - (q - 0.5) * 2) * 0.9 : 0,
+    castRight: settling ? 0 : lift * (next ? 0.7 : 0.6),
+    castLeft: settling ? lift * (next ? 0.6 : 0.7) : 0
+  };
+}
+
+/** Poses sampled per automatic leaf turn; the compositor interpolates linearly between them. */
+const LEAF_TURN_SAMPLES = 24;
+
+/**
+ * Keyframe offsets for an automatic turn, with the eased progress at each. The
+ * easing is baked into the samples, so the compositor plays the same curve the
+ * frame loop drew. Halfway appears twice, just before and just after, because
+ * the shading switches there at once rather than fading.
+ * @returns {Array<{ offset: number, progress: number }>} Samples in time order.
+ */
+function leafTurnSamples() {
+  const samples = [];
+  for (let index = 0; index <= LEAF_TURN_SAMPLES; index += 1) {
+    const offset = index / LEAF_TURN_SAMPLES;
+    if (offset === 0.5) {
+      samples.push({ offset, progress: 0.5 - 1e-9 }, { offset, progress: 0.5 + 1e-9 });
+    } else {
+      samples.push({ offset, progress: easeInOut(offset) });
+    }
+  }
+  return samples;
 }
 
 /**
@@ -332,25 +375,45 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
   }
 
   /**
-   * Position a leaf and its shading for a turn progress value.
-   * Progress 0 is the leaf lying where the turn started and 1 is landed. A
-   * previous turn is the physical reverse of a next turn, so both share one angle.
+   * Position a leaf and its shading for a turn progress value, as a drag does
+   * on every pointer move.
    * @param {LeafParts} parts - Leaf elements.
    * @param {number} progress - Turn progress from 0 to 1.
    */
   function setLeafProgress(parts, progress) {
-    const q = parts.next ? progress : 1 - progress;
-    const lift = Math.sin(Math.PI * q);
-    const settling = q > 0.5;
-    parts.leaf.style.transform = `rotateY(${-180 * q}deg)`;
-    parts.frontShade.style.opacity = String(Math.min(1, q * 2) * 0.9);
-    parts.backShade.style.opacity = String(settling ? Math.max(0, 1 - (q - 0.5) * 2) * 0.9 : 0);
+    const pose = leafPose(parts.next, progress);
+    parts.leaf.style.transform = pose.transform;
+    parts.frontShade.style.opacity = String(pose.frontShade);
+    parts.backShade.style.opacity = String(pose.backShade);
     if (parts.castRight) {
-      parts.castRight.style.opacity = String(settling ? 0 : lift * (parts.next ? 0.7 : 0.6));
+      parts.castRight.style.opacity = String(pose.castRight);
     }
     if (parts.castLeft) {
-      parts.castLeft.style.opacity = String(settling ? lift * (parts.next ? 0.6 : 0.7) : 0);
+      parts.castLeft.style.opacity = String(pose.castLeft);
     }
+  }
+
+  /**
+   * The keyframe tracks of an automatic turn: the same poses setLeafProgress
+   * draws, for Web Animations to play on the compositor.
+   * @param {LeafParts} parts - Leaf elements.
+   * @returns {Array<[Element, Keyframe[]]>} Each element with its keyframes.
+   */
+  function leafTurnTracks(parts) {
+    const poses = leafTurnSamples().map(({ offset, progress }) => ({ offset, pose: leafPose(parts.next, progress) }));
+    /**
+     * @param {Element | null} element - Element to animate.
+     * @param {(pose: ReturnType<typeof leafPose>) => Keyframe} frame - Its keyframe for one pose.
+     * @returns {Array<[Element, Keyframe[]]>} The track, or none for a missing element.
+     */
+    const track = (element, frame) => (element ? [[element, poses.map(({ offset, pose }) => ({ offset, ...frame(pose) }))]] : []);
+    return [
+      ...track(parts.leaf, (pose) => ({ transform: pose.transform })),
+      ...track(parts.frontShade, (pose) => ({ opacity: pose.frontShade })),
+      ...track(parts.backShade, (pose) => ({ opacity: pose.backShade })),
+      ...track(parts.castRight, (pose) => ({ opacity: pose.castRight })),
+      ...track(parts.castLeft, (pose) => ({ opacity: pose.castLeft }))
+    ];
   }
 
   /**
@@ -499,7 +562,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
     active = turn;
     try {
-      await tween(turn, 0, 1, LEAF_TURN_MS, easeInOut, (value) => setLeafProgress(turn.leaf, value));
+      await animateTurn(turn, leafTurnTracks(turn.leaf), { duration: LEAF_TURN_MS, easing: 'linear' });
       if (!turn.aborted) {
         pages.commit(target);
       }
@@ -1071,12 +1134,20 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     ], options);
     alongside(sheet, [{ transform: 'translateX(-25%)' }, { transform: 'translateX(0)' }], options);
     // The shadow trails the cover's footprint, so it never shows past its edge.
-    // Its box stays put and only its mask edge moves, which costs no layout.
-    alongside(sheet.querySelector('.book-shadow'), [
-      { '--shadow-edge': '50%' },
-      { '--shadow-edge': '50%', offset: 0.5 },
-      { '--shadow-edge': SHADOW_EDGE_OPEN }
-    ], options);
+    // Its box and its fill slide home in opposite directions from where the
+    // closed book holds them (see .book-shadow in 02-gallery.css), so only the
+    // mask edge moves, and only transforms animate.
+    const shadow = sheet.querySelector('.book-shadow');
+    if (shadow && typeof windowObj.getComputedStyle === 'function') {
+      for (const pseudoElement of [null, '::before']) {
+        const closed = windowObj.getComputedStyle(shadow, pseudoElement).transform;
+        alongside(shadow, [
+          { transform: closed },
+          { transform: closed, offset: 0.5 },
+          { transform: 'none' }
+        ], pseudoElement ? { ...options, pseudoElement } : options);
+      }
+    }
     alongside(sheet.querySelector('.book-cast-right'), [
       { opacity: 0 },
       { opacity: 0.55, offset: 0.3 },
