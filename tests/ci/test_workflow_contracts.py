@@ -6,6 +6,8 @@ from pathlib import Path
 
 import yaml
 
+from scripts.lint.make_targets import read_makefile_text
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 ACTIONS_DIR = REPO_ROOT / ".github" / "actions"
@@ -494,7 +496,7 @@ def test_browser_make_targets_retry_only_failed_tests_once() -> None:
     The retry-once policy lives in the tested ``scripts.ci.run_browser_tests``
     helper; the Makefile routes its browser targets through it.
     """
-    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    makefile = read_makefile_text(REPO_ROOT / "Makefile")
     helper = (REPO_ROOT / "scripts/ci/run_browser_tests.py").read_text(encoding="utf-8")
 
     assert "scripts.ci.run_browser_tests" in makefile

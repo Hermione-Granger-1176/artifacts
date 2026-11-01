@@ -3,8 +3,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from scripts.lint.make_targets import read_makefile_text
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MAKEFILE_TEXT = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+MAKEFILE_TEXT = read_makefile_text(REPO_ROOT / "Makefile")
 
 LOCAL_RUNTIME = "$(PLAYWRIGHT_LOCAL_RUNTIME)"
 LOCAL_RUN = "$(PLAYWRIGHT_LOCAL_RUN)"

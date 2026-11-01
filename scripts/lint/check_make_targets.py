@@ -24,6 +24,7 @@ from scripts.lint.make_targets import (
     find_shell_control_flow,
     iter_reference_files,
     load_makefile_targets,
+    makefile_sources,
     snippet_extractor,
 )
 
@@ -72,15 +73,17 @@ def run_check(paths: list[Path] | None = None, root: Path | None = None) -> list
 def run_control_flow_check(makefile_path: Path | None = None) -> list[str]:
     """Return recipe lines that begin raw shell control flow in the Makefile.
 
-    This runs on the Makefile itself rather than on the reference files, so it
-    happens once regardless of which paths were requested.
+    This runs on the Makefile and its group files rather than on the reference
+    files, so it happens once regardless of which paths were requested.
     """
     path = makefile_path or MAKEFILE_PATH
     return [
-        f"{path.name}:{violation.line_number}: recipe for `{violation.target}` begins "
-        f"raw shell control flow (`{violation.keyword}`); move the logic into scripts/ "
+        f"{source.relative_to(path.parent).as_posix()}:{violation.line_number}: "
+        f"recipe for `{violation.target}` begins raw shell control flow "
+        f"(`{violation.keyword}`); move the logic into scripts/ "
         "or add the target to CONTROL_FLOW_ALLOWLIST with a reason"
-        for violation in find_shell_control_flow(path.read_text(encoding="utf-8"))
+        for source in makefile_sources(path)
+        for violation in find_shell_control_flow(source.read_text(encoding="utf-8"))
     ]
 
 

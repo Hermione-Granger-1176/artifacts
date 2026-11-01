@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from scripts import REPO_ROOT
 from scripts.lib import stage_files
+from scripts.lint.make_targets import read_makefile_text
 
 if TYPE_CHECKING:
     import pytest
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 
 def test_makefile_stage_target_uses_the_safe_helper() -> None:
     """The Make target exports both inputs and never interpolates paths into shell code."""
-    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    makefile = read_makefile_text(REPO_ROOT / "Makefile")
 
     assert "stage: export STAGE_FILES := $(value files)" in makefile
     assert "stage: export STAGE_FILE := $(value file)" in makefile
