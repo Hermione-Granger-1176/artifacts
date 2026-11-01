@@ -139,7 +139,7 @@ The common choices are presets. Nine custom sliders remain under **Fine-tune**. 
 
 **Stop and keep what is done** ends generation between documents. The active document completes before the archive is written, so partial files do not enter the ZIP.
 
-A partial archive retains normal folders, labels, and manifest entries. Its filename includes `_partial`. When labels are on, its `README.txt` records both completed and planned counts. Stopping before any document finishes produces no download.
+A partial archive retains the normal folders, and its filename includes `_partial`. When labels are on, it also keeps the sidecars and manifest entries, and its `README.txt` records both completed and planned counts. Stopping before any document finishes produces no download.
 
 ## Yielding during synchronous exports
 

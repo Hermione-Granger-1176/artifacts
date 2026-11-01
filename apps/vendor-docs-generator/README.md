@@ -19,7 +19,7 @@ The generator supports these outputs and controls:
 - Clean and degraded image pairs from one capture.
 - Text-layer PDF, rasterized PDF, and PNG exports. Lossy raster presets write JPEG files.
 - ZIP batches of 1 to 50 copies per vendor and type combination (10 by default), across the current combination, all types, all vendors, or everything. Sidecars, `manifest.jsonl`, and `README.txt` are written when labels are on. JSON-only mode skips PDF and raster generation. It still renders each DOM preview for progress and requested box measurements.
-- Partial archives when a batch stops. The filename ends in `_partial.zip`, and the `README.txt` records completed and planned counts.
+- Partial archives when a batch stops. The filename ends in `_partial.zip`. When labels are on, the `README.txt` records completed and planned counts.
 - Fictional contact details and a sample-data footer on every document.
 
 [Architecture](docs/architecture.md) describes control mappings, rendering, and export paths.

@@ -24,7 +24,7 @@ ADR 0007 moved every color that changes with the theme out of `css/src/01-tokens
 
 ## Consequences
 
-- The apps share a design system. Palette, spacing, and type changes happen in `css/src/01-tokens.css` rather than in each app folder.
+- The apps share a design system. Spacing, type, and other theme-independent token changes happen in `css/src/01-tokens.css`, and theme colors change in `css/src/01-theme-light.css` and `css/src/01-theme-dark.css`, rather than in each app folder.
 - App stylesheets shrink toward app-specific layout, while a change to a shared token or component is intentional shared work in `css/src/`.
 - The token lint keeps app CSS from drifting back to hard-coded colors or off-token sizes after it is authored.
 - New shared UI behavior belongs in `js/modules/` and the `css/src/` component layer instead of being copied per app.
