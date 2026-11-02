@@ -57,6 +57,7 @@
   - `nextExtraId`
   - `charts`
   - `bwMode`
+  - `inputs` (the principal, rate, and tenure the calculation reads, which keep a typed value's precision)
   - `baseSchedule` (the schedule without extras, with the key of the loan terms it was built from)
   - `latest` (the inputs of the latest calculation, so a view that was hidden can be drawn when it is shown)
   - `staleTables` (which of the period and yearly tables needs a redraw)
@@ -66,8 +67,8 @@
 
 ## Recalculation chain
 
-1. An input event updates control state, and `syncInputsFromSliders()` copies the slider values into the formatted text inputs
-2. `recalc()` reads the loan terms, then derives the cadence parameters (`getFrequencyParams`) and the optional accelerated bi-weekly EMI (`getBiweeklyEmiOverride`)
+1. A slider drag reads all three sliders into `inputs` with `readSliderInputs()`. A text-field commit sets one field of `inputs` to the typed value, clamped to the slider range, and moves the slider to the nearest step. Either way, `syncTextInputs()` writes `inputs` back to the formatted text fields. A rejected value (empty, zero, or not a number) puts the last committed value back in its field
+2. `recalc()` reads the loan terms from `inputs`, not from the sliders, so a typed rate such as 6.1% keeps its precision even though the rate slider moves in 0.25 steps. It then derives the cadence parameters (`getFrequencyParams`) and the optional accelerated bi-weekly EMI (`getBiweeklyEmiOverride`)
 3. `runSchedule()` returns the baseline schedule and the extra-payment schedule. The baseline depends only on the loan terms, so `baseSchedule` keeps it until principal, rate, tenure, frequency, or bi-weekly mode changes, and typing in an extra field reuses it
 4. `renderMetrics()` updates the metric slots in place
 5. `renderResults()` draws the charts when the Charts view is open. In the Schedule view it draws the summary tiles and only the visible table, and marks the other table stale. Showing the Charts view draws every chart, and showing a table draws it if it is stale

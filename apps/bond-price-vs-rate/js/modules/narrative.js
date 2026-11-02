@@ -184,9 +184,11 @@ export function heroExplainText({ bond, price, regime }, { formatCurrency, forma
   const priceText = formatCurrency(price, 2);
   const faceText = formatCurrency(bond.faceValue, 0);
 
+  // The regime compares the market rate with the coupon. It says nothing about
+  // which slider moved, so the copy states the comparison, not a rate move.
   if (regime === "discount") {
     return (
-      `Rates rose to ${ratePct}, above this bond's ${couponPct} coupon. A new buyer can ` +
+      `The market rate is ${ratePct}, above this bond's ${couponPct} coupon. A new buyer can ` +
       `earn ${ratePct} on a fresh bond, so they will only pay ${priceText} for your ` +
       `${couponPct} bond, a discount to its ${faceText} face value.`
     );
@@ -194,8 +196,8 @@ export function heroExplainText({ bond, price, regime }, { formatCurrency, forma
 
   if (regime === "premium") {
     return (
-      `Rates slipped to ${ratePct}, below this bond's ${couponPct} coupon. Your ${couponPct} ` +
-      `payments now beat the market, so buyers will pay ${priceText}, a premium over the ` +
+      `The market rate is ${ratePct}, below this bond's ${couponPct} coupon. Your ${couponPct} ` +
+      `payments beat the market, so buyers will pay ${priceText}, a premium over the ` +
       `${faceText} face value.`
     );
   }
@@ -251,8 +253,13 @@ export function mathExplainText({ bond, schedule, price }, { formatCurrency, for
   const pvFaceText = formatCurrency(bond.faceValue * finalFactor, 2);
   const priceText = formatCurrency(price, 2);
 
+  const coupons =
+    bond.years === 1
+      ? `the one ${couponDollarsText} coupon payment is`
+      : `each of the ${bond.years} ${couponDollarsText} coupon payments is`;
+
   return (
-    `At a ${ratePct} market rate, each of the ${bond.years} ${couponDollarsText} coupon payments is ` +
+    `At a ${ratePct} market rate, ${coupons} ` +
     `divided by (1 + r) raised to its year, so a payment shrinks more the further out it sits. ` +
     `The ${faceText} face repayment in year ${bond.years} is worth ${pvFaceText} today, and adding ` +
     `every discounted coupon to that repayment gives the ${priceText} price. Raise the rate and ` +

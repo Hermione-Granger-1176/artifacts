@@ -222,3 +222,38 @@ test('loan app schedules extra-field typing and keeps the EMI', async () => {
     restore();
   }
 });
+
+test('loan app calculates with a typed rate even when the slider snaps it', async () => {
+  const { elementMap, slots, restore } = setupLoanApp();
+  // A real range input with step 0.25 stores 6.1 as 6. Model that snap.
+  let sliderRate = elementMap.slRate.value;
+  Object.defineProperty(elementMap.slRate, 'value', {
+    configurable: true,
+    get: () => sliderRate,
+    set: (next) => {
+      sliderRate = String(Math.round(Number(next) * 4) / 4);
+    }
+  });
+  try {
+    await importLoanApp();
+    const typeRate = (value) => {
+      elementMap.inRate.value = value;
+      elementMap.inRate._listeners.change[0].call(elementMap.inRate);
+      return slots.heroValue.textContent;
+    };
+
+    const emiAtSix = typeRate('6');
+    const emiAtSixPointOne = typeRate('6.1');
+
+    assert.equal(elementMap.slRate.value, '6', 'the slider shows the nearest step');
+    assert.equal(elementMap.inRate.value, '6.10', 'the field keeps the typed rate');
+    assert.notEqual(emiAtSixPointOne, emiAtSix, 'the EMI uses 6.1%, not the snapped 6%');
+
+    elementMap.inRate.value = 'abc';
+    elementMap.inRate._listeners.change[0].call(elementMap.inRate);
+    assert.equal(elementMap.inRate.value, '6.10', 'a rejected value puts the committed rate back');
+    assert.equal(slots.heroValue.textContent, emiAtSixPointOne);
+  } finally {
+    restore();
+  }
+});

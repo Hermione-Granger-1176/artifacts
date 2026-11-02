@@ -6,6 +6,7 @@ import { bindEvents } from "./modules/interactions.js";
 import {
   createExtra,
   removeExtraById,
+  renderExtraSummaries,
   renderExtras,
   setExtraType,
   summarizeExtra,
@@ -30,8 +31,9 @@ import {
   getChartElements,
   setTableMode,
   setViewMode,
+  readSliderInputs,
   syncBiweeklyModeUI,
-  syncInputsFromSliders,
+  syncTextInputs,
   updateBiweeklyMode as syncBiweeklyModeVisibility
 } from "./modules/ui.js";
 
@@ -59,6 +61,13 @@ let extras = [];
 let nextExtraId = 0;
 let charts = {};
 let bwMode = "true";
+/**
+ * The principal, rate, and tenure the calculation reads. A slider can hold only
+ * values on its step, so a typed rate such as 6.1% lives here while the rate
+ * slider shows the nearest step.
+ * @type {import("./modules/ui.js").LoanInputs}
+ */
+let inputs = { principal: 0, rate: 0, tenure: 0 };
 /**
  * The latest base schedule and the terms it was built from; see getBaseSchedule.
  * @type {{ key: string, base: ReturnType<typeof runSchedule> } | null}
@@ -89,27 +98,25 @@ initializeMatureApp({
     });
     bindLoanEvents();
     updateBiweeklyMode();
-    syncInputsFromSliders(elements);
+    inputs = readSliderInputs(elements);
+    syncTextInputs(elements, inputs);
     renderExtrasSection();
     recalc();
   }
 });
 
 function bindLoanEvents() {
-  const syncInputsAndRecalculate = () => {
-    syncInputsFromSliders(elements);
-    recalc();
-  };
-
   bindEvents({
     elements,
     onSliderInput: () => {
-      syncInputsFromSliders(elements);
+      inputs = readSliderInputs(elements);
+      syncTextInputs(elements, inputs);
       scheduleRecalc();
     },
-    onPrincipalCommit: syncInputsAndRecalculate,
-    onRateCommit: syncInputsAndRecalculate,
-    onTenureCommit: syncInputsAndRecalculate,
+    onPrincipalCommit: (principal) => commitInput({ principal }),
+    onRateCommit: (rate) => commitInput({ rate }),
+    onTenureCommit: (tenure) => commitInput({ tenure }),
+    onInvalidInput: () => syncTextInputs(elements, inputs),
     onFrequencyChange: () => {
       updateBiweeklyMode();
       renderExtrasSection();
@@ -134,6 +141,16 @@ function bindLoanEvents() {
     },
     parseNumber
   });
+}
+
+/**
+ * Apply a typed value, show it in its field, and recalculate.
+ * @param {Partial<import("./modules/ui.js").LoanInputs>} change - The committed field.
+ */
+function commitInput(change) {
+  inputs = { ...inputs, ...change };
+  syncTextInputs(elements, inputs);
+  recalc();
 }
 
 function getFrequency() {
@@ -224,7 +241,7 @@ function handleExtraListInput(event) {
     input.closest(".extra-item")?.querySelector(".extra-summary") ?? null
   );
   if (extra && summaryNode) {
-    setText(summaryNode, summarizeExtra(extra, getPeriodLabel()));
+    setText(summaryNode, summarizeExtra(extra, getPeriodLabel(), latest?.extra.periods));
   }
 
   scheduleRecalc();
@@ -248,9 +265,7 @@ function handleExtraListInput(event) {
  * @returns {LoanTerms} Current loan terms.
  */
 function readLoanTerms() {
-  const principal = +elements.slPrincipal.value;
-  const annualRate = +elements.slRate.value;
-  const years = +elements.slTenure.value;
+  const { principal, rate: annualRate, tenure: years } = inputs;
   const selectedFrequency = getFrequency();
   const frequency = getFrequencyParams(selectedFrequency);
   return {
@@ -323,6 +338,12 @@ function recalc() {
   const metrics = buildLoanMetrics(terms, base, extra);
 
   renderMetrics(elements.metrics, metrics, formatCurrency);
+  renderExtraSummaries({
+    container: elements.extraList,
+    extras,
+    periodLabel: getPeriodLabel(),
+    payoffPeriod: extra.periods
+  });
 
   latest = { ...metrics, principal: terms.principal };
   staleTables.period = true;
