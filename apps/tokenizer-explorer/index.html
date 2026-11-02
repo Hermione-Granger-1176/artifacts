@@ -10,13 +10,13 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/">
   <meta property="og:site_name" content="Artifacts">
-  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=ce60f0c2df64">
-  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=ce60f0c2df64">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=f9dc38393e76">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=f9dc38393e76">
   <meta property="og:image:alt" content="Preview card for the Tokenizer: Temperature & Top P Explorer app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Tokenizer: Temperature &amp; Top P Explorer | Artifacts">
   <meta name="twitter:description" content="Interactive explainer for tokenization, LLM next-token probabilities, temperature scaling, top-p sampling, and empirical draws.">
-  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=ce60f0c2df64">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/tokenizer-explorer/thumbnail.webp?v=f9dc38393e76">
   <meta name="twitter:image:alt" content="Preview card for the Tokenizer: Temperature & Top P Explorer app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -28,8 +28,8 @@
   <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
-  <link rel="stylesheet" href="../../css/style.css?v=01099266d901">
-  <link rel="stylesheet" href="./css/app.css?v=6c69f7fdb9b3">
+  <link rel="stylesheet" href="../../css/style.css?v=6f01d1a420b6">
+  <link rel="stylesheet" href="./css/app.css?v=611c3b1a3b4a">
   <link rel="modulepreload" href="../../js/modules/app-shell.js">
   <link rel="modulepreload" href="../../js/modules/frame-scheduler.js">
   <link rel="modulepreload" href="../../js/modules/runtime.js">
@@ -39,11 +39,11 @@
   <link rel="modulepreload" href="../../js/modules/section-nav.js">
   <link rel="modulepreload" href="js/modules/accordion.js">
   <link rel="modulepreload" href="js/modules/render.js">
+  <link rel="modulepreload" href="../../js/modules/formatting.js">
   <link rel="modulepreload" href="js/modules/candidates.js">
   <link rel="modulepreload" href="../../js/modules/dom-sync.js">
-  <link rel="modulepreload" href="../../js/modules/formatting.js">
-  <link rel="modulepreload" href="js/modules/token-examples.js">
   <link rel="modulepreload" href="js/modules/sampling.js">
+  <link rel="modulepreload" href="js/modules/token-examples.js">
   <link rel="modulepreload" href="js/modules/scenarios.js">
 </head>
 <body class="artifact-app app-tokenizer-explorer">
@@ -176,6 +176,7 @@
               <pre><span class="syn-cm"># one raw score per candidate</span>
 scores = <span class="syn-fn">model</span>(prompt)
 <span class="syn-cm"># step 1: temperature reshapes</span>
+<span class="syn-cm"># (temperature 0 skips this: argmax)</span>
 probs = <span class="syn-fn">softmax</span>(
   scores / <span class="syn-const">temperature</span>)
 <span class="syn-cm"># step 2: top-p cuts</span>
@@ -205,17 +206,17 @@ pool = <span class="syn-fn">keep_until</span>(
       </div>
 
       <div class="page-card card" id="card-token">
-        <button class="card-trigger" type="button" aria-expanded="false">
-          <div class="card-left">
-            <div class="card-icon blue">T</div>
-            <div>
-              <div class="card-title">What is a token?</div>
-              <div class="card-tagline">The model's unit of language</div>
-            </div>
-          </div>
+        <button class="card-trigger" type="button" aria-expanded="false" aria-controls="card-token-body">
+          <span class="card-left">
+            <span class="card-icon blue">T</span>
+            <span>
+              <span class="card-title">What is a token?</span>
+              <span class="card-tagline">The model's unit of language</span>
+            </span>
+          </span>
           <span class="card-arrow">&#9660;</span>
         </button>
-        <div class="card-body">
+        <div class="card-body" id="card-token-body">
           <p>A token is a chunk of text, somewhere between a character and a word. "unhappiness" might be split into "un", "happiness". "cat" stays as one token. Spaces and punctuation are tokens too.</p>
           <p>The model never sees letters. It sees a stream of token IDs, each one a number pointing to an entry in its vocabulary. Every response is the model picking the next token one step at a time.</p>
           <span class="tip">Rule of thumb: 1 token ≈ 0.75 words in English</span>
@@ -223,17 +224,17 @@ pool = <span class="syn-fn">keep_until</span>(
       </div>
 
       <div class="page-card card" id="card-temp">
-        <button class="card-trigger" type="button" aria-expanded="false">
-          <div class="card-left">
-            <div class="card-icon amber">~</div>
-            <div>
-              <div class="card-title">Temperature</div>
-              <div class="card-tagline">How confident or reckless the model is</div>
-            </div>
-          </div>
+        <button class="card-trigger" type="button" aria-expanded="false" aria-controls="card-temp-body">
+          <span class="card-left">
+            <span class="card-icon amber">~</span>
+            <span>
+              <span class="card-title">Temperature</span>
+              <span class="card-tagline">How confident or reckless the model is</span>
+            </span>
+          </span>
           <span class="card-arrow">&#9660;</span>
         </button>
-        <div class="card-body">
+        <div class="card-body" id="card-temp-body">
           <p>Before sampling, the model assigns a raw score to every possible next token. Temperature divides those scores before converting them into probabilities.</p>
           <p>Low temperature sharpens the distribution so the top token dominates. High temperature flattens it and gives strange or creative options a better chance.</p>
           <span class="tip">Code and facts: 0.2 to 0.5. Creative writing: 0.8 to 1.2.</span>
@@ -241,17 +242,17 @@ pool = <span class="syn-fn">keep_until</span>(
       </div>
 
       <div class="page-card card" id="card-topp">
-        <button class="card-trigger" type="button" aria-expanded="false">
-          <div class="card-left">
-            <div class="card-icon purple">P</div>
-            <div>
-              <div class="card-title">Top P (nucleus sampling)</div>
-              <div class="card-tagline">A probability budget for the candidate pool</div>
-            </div>
-          </div>
+        <button class="card-trigger" type="button" aria-expanded="false" aria-controls="card-topp-body">
+          <span class="card-left">
+            <span class="card-icon purple">P</span>
+            <span>
+              <span class="card-title">Top P (nucleus sampling)</span>
+              <span class="card-tagline">A probability budget for the candidate pool</span>
+            </span>
+          </span>
           <span class="card-arrow">&#9660;</span>
         </button>
-        <div class="card-body">
+        <div class="card-body" id="card-topp-body">
           <p>Top P sets a cumulative probability threshold. The model ranks tokens by probability and keeps adding them until the running total reaches P. Everything below the cutoff is excluded.</p>
           <p>When the model is confident, the nucleus stays small. When it is uncertain, more tokens survive the cutoff naturally.</p>
           <span class="tip">0.7 to 0.95 is the usual production sweet spot.</span>
@@ -259,17 +260,17 @@ pool = <span class="syn-fn">keep_until</span>(
       </div>
 
       <div class="page-card card" id="card-behavior">
-        <button class="card-trigger" type="button" aria-expanded="false">
-          <div class="card-left">
-            <div class="card-icon red">?</div>
-            <div>
-              <div class="card-title">Why tokens explain weird LLM behavior</div>
-              <div class="card-tagline">The model works with chunks, not individual letters</div>
-            </div>
-          </div>
+        <button class="card-trigger" type="button" aria-expanded="false" aria-controls="card-behavior-body">
+          <span class="card-left">
+            <span class="card-icon red">?</span>
+            <span>
+              <span class="card-title">Why tokens explain weird LLM behavior</span>
+              <span class="card-tagline">The model works with chunks, not individual letters</span>
+            </span>
+          </span>
           <span class="card-arrow">&#9660;</span>
         </button>
-        <div class="card-body">
+        <div class="card-body" id="card-behavior-body">
           <p>Counting the letters in "strawberry" can fail because a model sees token chunks, not a sequence of individual letters. The letters are present in the text, but they are not always the units the model is processing.</p>
           <p>Arithmetic with long numbers is difficult for a related reason. Digits can split into uneven pieces, so the model must reason across chunks rather than line up one digit at a time.</p>
           <p>Costs and context windows are measured in tokens too. A compact sentence in English may consume fewer tokens than the same idea written with uncommon text, long numbers, or some non-English scripts.</p>
@@ -280,6 +281,6 @@ pool = <span class="syn-fn">keep_until</span>(
 
   <div data-app-shell="scroll-top"></div>
 
-  <script type="module" src="./js/app.js?v=bb2dc90edf72"></script>
+  <script type="module" src="./js/app.js?v=05529e4054c6"></script>
 </body>
 </html>

@@ -10,13 +10,13 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/">
   <meta property="og:site_name" content="Artifacts">
-  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=877cbb119685">
-  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=877cbb119685">
+  <meta property="og:image" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=e9c4820d2e47">
+  <meta property="og:image:secure_url" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=e9c4820d2e47">
   <meta property="og:image:alt" content="Preview card for the Bonds vs Interest Rates app.">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Bonds vs Interest Rates | Artifacts">
   <meta name="twitter:description" content="A plain-language explainer of why bond prices fall when interest rates rise: drag the rate to reprice a bond you own, see how coupon and maturity change the swing, and what the move means for the wider economy.">
-  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=877cbb119685">
+  <meta name="twitter:image" content="https://hermione-granger-1176.github.io/artifacts/apps/bond-price-vs-rate/thumbnail.webp?v=e9c4820d2e47">
   <meta name="twitter:image:alt" content="Preview card for the Bonds vs Interest Rates app.">
   <meta name="theme-color" content="rgb(248, 248, 246)">
   <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -28,7 +28,7 @@
   <link rel="apple-touch-icon" href="../../assets/icons/apple-touch-icon.png">
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
   <link rel="preload" href="./js/vendor/chart.umd.min.js" as="script">
-  <link rel="stylesheet" href="../../css/style.css?v=01099266d901">
+  <link rel="stylesheet" href="../../css/style.css?v=6f01d1a420b6">
   <link rel="stylesheet" href="./css/app.css?v=a55df491d7f5">
   <script defer src="./js/vendor/chart.umd.min.js"></script>
   <link rel="modulepreload" href="js/modules/bond-math.js">
@@ -118,11 +118,11 @@
             <p>Drag the market rate in the controls on the left. Your bond's payments never change, so the only thing that can move is what someone will pay for it today. The market rate is the yield investors can get on a newly issued bond of the same kind.</p>
 
             <div class="br-seesaw">
-              <span class="br-vs-item"><span class="section-kicker">Rate</span><span class="br-arrow" id="rateArrow" aria-hidden="true">&mdash;</span></span>
-              <span class="br-vs-item"><span class="section-kicker">Price</span><span class="br-arrow" id="priceArrow" aria-hidden="true">&mdash;</span></span>
+              <span class="br-vs-item"><span class="section-kicker">Rate vs coupon</span><span class="br-arrow" id="rateArrow" aria-hidden="true">&mdash;</span></span>
+              <span class="br-vs-item"><span class="section-kicker">Price vs face</span><span class="br-arrow" id="priceArrow" aria-hidden="true">&mdash;</span></span>
             </div>
 
-            <div class="app-callout is-blue"><p class="app-callout-body reserve" id="heroExplain"><span class="br-variant" data-variant="premium"></span><span class="br-variant is-active" data-variant="par">The market rate matches this bond's 5.0% coupon, so it changes hands right at its $1,000 face value.</span><span class="br-variant" data-variant="discount"></span><span class="reserve-ghost" data-ghost="premium" aria-hidden="true">Rates slipped to 12.0%, below this bond's 12.0% coupon. Your 12.0% payments now beat the market, so buyers will pay $3,838.12, a premium over the $1,000 face value.</span><span class="reserve-ghost" data-ghost="par" aria-hidden="true">The market rate matches this bond's 12.0% coupon, so it changes hands right at its $1,000 face value.</span><span class="reserve-ghost" data-ghost="discount" aria-hidden="true">Rates rose to 12.0%, above this bond's 12.0% coupon. A new buyer can earn 12.0% on a fresh bond, so they will only pay $3,838.12 for your 12.0% bond, a discount to its $1,000 face value.</span></p></div>
+            <div class="app-callout is-blue"><p class="app-callout-body reserve" id="heroExplain"><span class="br-variant" data-variant="premium"></span><span class="br-variant is-active" data-variant="par">The market rate matches this bond's 5.0% coupon, so it changes hands right at its $1,000 face value.</span><span class="br-variant" data-variant="discount"></span><span class="reserve-ghost" data-ghost="premium" aria-hidden="true">The market rate is 12.0%, below this bond's 12.0% coupon. Your 12.0% payments beat the market, so buyers will pay $3,838.12, a premium over the $1,000 face value.</span><span class="reserve-ghost" data-ghost="par" aria-hidden="true">The market rate matches this bond's 12.0% coupon, so it changes hands right at its $1,000 face value.</span><span class="reserve-ghost" data-ghost="discount" aria-hidden="true">The market rate is 12.0%, above this bond's 12.0% coupon. A new buyer can earn 12.0% on a fresh bond, so they will only pay $3,838.12 for your 12.0% bond, a discount to its $1,000 face value.</span></p></div>
             <p class="control-copy">Watch the marked point on the curve to the left: it slides up and left when rates fall, down and right when they rise. The face value ($1,000) never changes; only the price does.</p>
           </div>
         </section>
