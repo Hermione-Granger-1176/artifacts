@@ -1120,10 +1120,17 @@ body.app-prompt-caching .pc-pill {
   font-size: var(--font-size-control);
 }
 
-/* The inference prompt selector uses the shared .segmented skin; only the wrap
- * stays scoped. */
+/* The inference prompt selector uses the shared inset .segmented skin; only
+ * the track width and wrap stay scoped. */
 body.app-prompt-caching .pc-inf-prompts {
   flex-wrap: wrap;
+  max-width: 100%;
+}
+
+/* Wrapped choices stretch to fill each row of the inset track. */
+body.app-prompt-caching .pc-inf-prompts button,
+body.app-prompt-caching .pc-emb-cats button {
+  flex: 1 1 auto;
 }
 
 body.app-prompt-caching .pc-inf-tokens {
@@ -1558,13 +1565,13 @@ body.app-prompt-caching .emb-sel {
   justify-content: center;
 }
 
-/* The category selector uses the shared .segmented skin; the dashed top rule
- * and wrap stay scoped. */
+/* The category selector uses the shared inset .segmented skin; only the
+ * spacing, track width, and wrap stay scoped. */
 body.app-prompt-caching .pc-emb-cats {
   flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
   margin: var(--space-5) 0 0.85rem;
-  padding-top: var(--space-5);
-  border-top: 1px dashed var(--color-border);
 }
 
 body.app-prompt-caching .pc-emb-cloud {
