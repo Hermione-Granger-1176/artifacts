@@ -784,6 +784,275 @@ def test_current_pr_number_fallback_qualifies_a_fork_branch_with_its_owner(
     assert gh_runner.current_pr_number(run_fn=runner) == 5
 
 
+def _tracking_runner(
+    config: dict[str, str], *, remote_url: str = "git@github.com:octo/Hello.git"
+) -> FakeGh:
+    """Build a runner for local branch ``review-copy`` with git ``config`` values and open PRs.
+
+    ``octo:feature`` has PR 5 and ``octo:review-copy`` has PR 99, so a lookup
+    that picks the wrong head returns the wrong number.
+    """
+    routes: list[Route] = [
+        (has("pr", "view"), graphql_blocked()),
+        (has("repo", "view"), graphql_blocked()),
+        (has("remote", "get-url", "origin"), completed_process(0, f"{remote_url}\n")),
+        (has("rev-parse"), completed_process(0, "review-copy\n")),
+    ]
+    routes += [
+        (has("config", "--get", key), completed_process(0, f"{value}\n"))
+        for key, value in config.items()
+    ]
+    routes += [
+        (has("config", "--get"), completed_process(1)),
+        (
+            rest("GET", "repos/octo/Hello/pulls", "head=octo:feature", "state=open"),
+            json_response([{"number": 5}]),
+        ),
+        (
+            rest("GET", "repos/octo/Hello/pulls", "head=octo:review-copy", "state=open"),
+            json_response([{"number": 99}]),
+        ),
+        (rest("GET", "repos/octo/Hello/pulls", "state=closed"), json_response([])),
+    ]
+    return FakeGh(routes)
+
+
+def test_current_pr_number_fallback_follows_the_upstream_a_branch_tracks() -> None:
+    """A local branch named differently from its upstream is looked up by the upstream's name."""
+    runner = _tracking_runner(
+        {"branch.review-copy.remote": "origin", "branch.review-copy.merge": "refs/heads/feature"}
+    )
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 5
+    assert not any("head=octo:review-copy" in call for call in runner.calls)
+
+
+def test_current_pr_number_fallback_names_the_tracked_remotes_owner() -> None:
+    """The head owner is the tracked remote's, which can differ from origin's."""
+    runner = FakeGh(
+        [
+            (has("pr", "view"), graphql_blocked()),
+            (
+                has("remote", "get-url", "origin"),
+                completed_process(0, "git@github.com:octo/Hello.git\n"),
+            ),
+            (
+                has("remote", "get-url", "fork"),
+                completed_process(0, "git@github.com:alice/Hello.git\n"),
+            ),
+            (has("rev-parse"), completed_process(0, "review-copy\n")),
+            (has("config", "--get", "branch.review-copy.remote"), completed_process(0, "fork\n")),
+            (
+                has("config", "--get", "branch.review-copy.merge"),
+                completed_process(0, "refs/heads/feature\n"),
+            ),
+            (has("config", "--get"), completed_process(1)),
+            (
+                rest("GET", "repos/octo/Hello/pulls", "head=alice:feature", "state=open"),
+                json_response([{"number": 8}]),
+            ),
+        ]
+    )
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 8
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["https://github.com/alice/Hello.git", "git@github.com:alice/Hello.git"],
+)
+def test_current_pr_number_fallback_follows_a_tracking_remote_given_as_a_url(url: str) -> None:
+    """An editable fork tracks its clone URL, which is read directly instead of as a remote name."""
+    runner = FakeGh(
+        [
+            (has("pr", "view"), graphql_blocked()),
+            (
+                has("remote", "get-url", "origin"),
+                completed_process(0, "git@github.com:octo/Hello.git\n"),
+            ),
+            (has("remote", "get-url", url), completed_process(1, "", "No such remote")),
+            (has("rev-parse"), completed_process(0, "review-copy\n")),
+            (has("config", "--get", "branch.review-copy.remote"), completed_process(0, f"{url}\n")),
+            (
+                has("config", "--get", "branch.review-copy.merge"),
+                completed_process(0, "refs/heads/feature\n"),
+            ),
+            (has("config", "--get"), completed_process(1)),
+            (
+                rest("GET", "repos/octo/Hello/pulls", "head=alice:feature", "state=open"),
+                json_response([{"number": 8, "head": {"repo": {"full_name": "alice/Hello"}}}]),
+            ),
+        ]
+    )
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 8
+
+
+def test_current_pr_number_fallback_ignores_a_tracking_url_that_is_not_on_github() -> None:
+    """A tracking URL on another host gives no GitHub head, so the local name is used."""
+    url = "https://example.com/alice/Hello.git"
+    runner = _tracking_runner(
+        {"branch.review-copy.remote": url, "branch.review-copy.merge": "refs/heads/feature"}
+    )
+    runner.routes.insert(0, (has("remote", "get-url", url), completed_process(1)))
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 99
+
+
+def test_current_pr_number_fallback_skips_a_pr_from_a_same_owner_repository(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two repositories of one owner can share a branch name, so the source repository decides."""
+    monkeypatch.setenv("GH_REPO", "org/project")
+    runner = FakeGh(
+        [
+            (has("pr", "view"), graphql_blocked()),
+            (has("remote"), completed_process(0, "git@github.com:org/project-fork.git\n")),
+            (has("rev-parse"), completed_process(0, "feature\n")),
+            (has("config", "--get"), completed_process(1)),
+            (
+                rest("GET", "repos/org/project/pulls", "head=org:feature", "state=open"),
+                json_response(
+                    [
+                        {"number": 11, "head": {"repo": {"full_name": "org/project"}}},
+                        {"number": 12, "head": {"repo": {"full_name": "Org/Project-Fork"}}},
+                    ]
+                ),
+            ),
+        ]
+    )
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 12
+
+
+def test_current_pr_number_fallback_finds_nothing_when_only_another_repository_matches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A PR from the sibling repository alone is not this branch's PR."""
+    monkeypatch.setenv("GH_REPO", "org/project")
+    sibling = [{"number": 11, "head": {"repo": {"full_name": "org/project"}}}]
+    runner = FakeGh(
+        [
+            (has("pr", "view"), graphql_blocked()),
+            (has("remote"), completed_process(0, "git@github.com:org/project-fork.git\n")),
+            (has("rev-parse"), completed_process(0, "feature\n")),
+            (has("config", "--get"), completed_process(1)),
+            (rest("GET", "repos/org/project/pulls", "head=org:feature"), json_response(sibling)),
+        ]
+    )
+
+    with pytest.raises(GhError, match="No pull request found"):
+        gh_runner.current_pr_number(run_fn=runner)
+
+
+def test_current_pr_number_fallback_keeps_a_pr_whose_source_repository_was_deleted() -> None:
+    """GitHub reports no head repository for a deleted fork, and the PR is still the branch's."""
+    runner = _branch_runner([{"number": 42, "head": {"repo": None}}])
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 42
+
+
+def test_current_pr_number_fallback_tries_the_local_name_after_the_tracked_head() -> None:
+    """A branch that still tracks another branch, such as main, is found by its own name."""
+    runner = _tracking_runner(
+        {"branch.review-copy.remote": "origin", "branch.review-copy.merge": "refs/heads/main"}
+    )
+    runner.routes.insert(
+        0,
+        (rest("GET", "repos/octo/Hello/pulls", "head=octo:main"), json_response([])),
+    )
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 99
+
+
+def test_current_pr_number_fallback_prefers_an_open_local_pr_over_a_closed_tracked_one() -> None:
+    """A branch still tracking main finds its own open PR, not main's old closed one."""
+    runner = _tracking_runner(
+        {"branch.review-copy.remote": "origin", "branch.review-copy.merge": "refs/heads/main"}
+    )
+    runner.routes[0:0] = [
+        (rest("GET", "repos/octo/Hello/pulls", "head=octo:main", "state=open"), json_response([])),
+        (
+            rest("GET", "repos/octo/Hello/pulls", "head=octo:main", "state=closed"),
+            json_response([{"number": 3}]),
+        ),
+    ]
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 99
+
+
+def test_current_pr_number_fallback_uses_a_closed_tracked_pr_when_nothing_is_open() -> None:
+    """With no open PR on any head, the tracked head's newest closed PR is used."""
+    runner = _tracking_runner(
+        {"branch.review-copy.remote": "origin", "branch.review-copy.merge": "refs/heads/feature"}
+    )
+    runner.routes[0:0] = [
+        (rest("GET", "repos/octo/Hello/pulls", "state=open"), json_response([])),
+        (
+            rest("GET", "repos/octo/Hello/pulls", "head=octo:feature", "state=closed"),
+            json_response([{"number": 3}]),
+        ),
+    ]
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 3
+
+
+def test_current_pr_number_fallback_prefers_a_recorded_pr_over_the_tracked_upstream() -> None:
+    """A PR recorded by a REST checkout wins, so tracking never overrides it."""
+    runner = FakeGh(
+        [
+            (has("pr", "view"), graphql_blocked()),
+            (has("remote"), completed_process(0, "git@github.com:alice/project.git\n")),
+            (has("rev-parse"), completed_process(0, "alice/feature\n")),
+            (
+                has("config", "--get", "branch.alice/feature.gh-pr-number"),
+                completed_process(0, "12\n"),
+            ),
+            (
+                has("config", "--get", "branch.alice/feature.gh-pr-repo"),
+                completed_process(0, "alice/project\n"),
+            ),
+            (
+                rest("GET", "repos/alice/project/pulls/12"),
+                json_response({"number": 12, "state": "open"}),
+            ),
+        ]
+    )
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 12
+    assert not any(
+        call[:3] == ["git", "config", "--get"] and call[3].endswith((".remote", ".merge"))
+        for call in runner.calls
+    )
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"branch.review-copy.remote": "origin"},
+        {"branch.review-copy.merge": "refs/heads/feature"},
+        {"branch.review-copy.remote": ".", "branch.review-copy.merge": "refs/heads/feature"},
+        {"branch.review-copy.remote": "origin", "branch.review-copy.merge": "refs/pull/7/head"},
+    ],
+    ids=["no merge ref", "no remote", "local upstream", "pull ref"],
+)
+def test_current_pr_number_fallback_ignores_an_upstream_that_is_not_a_github_head(
+    config: dict[str, str],
+) -> None:
+    """Without a GitHub remote and a heads ref, the origin owner and local name are used."""
+    assert gh_runner.current_pr_number(run_fn=_tracking_runner(config)) == 99
+
+
+def test_current_pr_number_fallback_ignores_a_tracked_remote_that_is_not_on_github() -> None:
+    """A tracked remote that gives no owner/name falls back to the local name."""
+    runner = _tracking_runner(
+        {"branch.review-copy.remote": "mirror", "branch.review-copy.merge": "refs/heads/feature"}
+    )
+    runner.routes.insert(0, (has("remote", "get-url", "mirror"), completed_process(1)))
+
+    assert gh_runner.current_pr_number(run_fn=runner) == 99
+
+
 def _recorded_runner(number: str, repo: str | None) -> FakeGh:
     """Build a runner whose branch has a recorded PR number and, optionally, repository."""
     return FakeGh(
@@ -799,6 +1068,8 @@ def _recorded_runner(number: str, repo: str | None) -> FakeGh:
                 has("config", "--get", "branch.alice/feature.gh-pr-repo"),
                 completed_process(0, f"{repo}\n") if repo else completed_process(1),
             ),
+            # No upstream is configured for the branch.
+            (has("config", "--get"), completed_process(1)),
             (
                 rest("GET", "repos/alice/project/pulls/12"),
                 json_response({"number": 12, "state": "open"}),

@@ -350,14 +350,18 @@ def list_threads(
     return [thread for thread in threads if thread.state == "open"]
 
 
-def _graphql_only(action: str, call: Callable[[], object]) -> None:
-    """Run a GraphQL-only ``call``, explaining the numeric-id route if GraphQL is blocked."""
+def _graphql_only(action: str, listing: str, call: Callable[[], object]) -> None:
+    """Run a GraphQL-only ``call``, explaining the numeric-id route if GraphQL is blocked.
+
+    ``listing`` names the ``make`` target that prints the right numeric ids: the
+    thread listing holds only each thread's first comment, so it cannot name a reply.
+    """
     try:
         call()
     except GhGraphqlUnavailableError as exc:
         raise GhError(
             f"Cannot {action} by node id because GitHub GraphQL is unavailable here. "
-            "Use the numeric id that `make pr-review-comments` prints instead."
+            f"Use the numeric id that `make {listing}` prints instead."
         ) from exc
 
 
@@ -382,6 +386,7 @@ def reply_to_thread(
         return
     _graphql_only(
         "reply to a thread",
+        "pr-review-comments",
         lambda: gh_runner.graphql(
             _REPLY_MUTATION,
             variables={"thread": thread_id, "body": body},
@@ -410,6 +415,7 @@ def resolve_thread(
         return
     _graphql_only(
         "resolve a thread",
+        "pr-review-comments",
         lambda: gh_runner.graphql(
             _RESOLVE_MUTATION, variables={"thread": thread_id}, run_fn=run_fn
         ),
@@ -584,6 +590,7 @@ def delete_review_comment(comment_id: str, *, run_fn: RunFunction | None = None)
         return
     _graphql_only(
         "delete a comment",
+        "pr-comments-list",
         lambda: gh_runner.graphql(
             _DELETE_COMMENT_MUTATION,
             variables={"comment": comment_id},

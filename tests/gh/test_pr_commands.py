@@ -179,7 +179,7 @@ def test_create_fallback_fills_from_a_single_commit() -> None:
     runner = _create_sandbox(
         (rest("GET", "repos/o/r"), json_response({"default_branch": "main"})),
         (has("rev-parse"), completed_process(0, "feature\n")),
-        _compare("repos/o/r/compare/main...feature", "Fix thing\n\nLonger body\n"),
+        _compare("repos/o/r/compare/main...abc", "Fix thing\n\nLonger body\n"),
         (
             rest("POST", "repos/o/r/pulls", "title=Fix thing", "head=feature", "base=main"),
             json_response({"html_url": "https://example/pull/9"}),
@@ -196,7 +196,7 @@ def test_create_fallback_summarizes_several_commits(capsys: pytest.CaptureFixtur
     """Several commits give the branch name as title and the subjects as a list."""
     runner = _create_sandbox(
         (has("rev-parse"), completed_process(0, "fix-the_thing\n")),
-        _compare("repos/o/r/compare/dev...fix-the_thing", "One", "Two\n\nbody"),
+        _compare("repos/o/r/compare/dev...abc", "One", "Two\n\nbody"),
         (
             rest("POST", "repos/o/r/pulls", "title=Fix the thing", "body=- One\n- Two", "base=dev"),
             json_response({"html_url": "https://example/pull/9"}),
@@ -211,7 +211,7 @@ def test_create_fallback_summarizes_several_commits(capsys: pytest.CaptureFixtur
 def test_create_fallback_compares_a_fork_head_against_the_selected_base(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """With GH_REPO on upstream, the text comes from upstream's base and the fork's branch."""
+    """With GH_REPO on upstream, the text comes from upstream's base and the fork's commit."""
     monkeypatch.setenv("GH_REPO", "org/project")
     runner = FakeGh(
         [
@@ -222,7 +222,7 @@ def test_create_fallback_compares_a_fork_head_against_the_selected_base(
                 rest("GET", "repos/alice/project/branches/fix%231"),
                 json_response({"commit": {"sha": "abc"}}),
             ),
-            _compare("repos/org/project/compare/main...alice:fix%231", "Subject only"),
+            _compare("repos/org/project/compare/main...abc", "Subject only"),
             (
                 rest("POST", "repos/org/project/pulls", "title=Subject only", "body="),
                 json_response({"html_url": "https://example/pull/9"}),
@@ -233,6 +233,41 @@ def test_create_fallback_compares_a_fork_head_against_the_selected_base(
     assert pr_commands.create_pr(base="main", run_fn=runner) == 0
 
 
+def test_create_fallback_compares_the_pushed_commit_for_a_same_organization_fork(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``org:feature`` cannot tell one organization's repositories apart, so the SHA is used."""
+    monkeypatch.setenv("GH_REPO", "org/project")
+    runner = FakeGh(
+        [
+            *sandbox_routes("org/project-fork"),
+            (_pushed, completed_process(0, "abc\n")),
+            (has("rev-parse"), completed_process(0, "feature\n")),
+            (
+                rest("GET", "repos/org/project-fork/branches/feature"),
+                json_response({"commit": {"sha": "abc"}}),
+            ),
+            _compare("repos/org/project/compare/main...abc", "Fork change"),
+            (
+                rest(
+                    "POST",
+                    "repos/org/project/pulls",
+                    "title=Fork change",
+                    "head=org:feature",
+                    "head_repo=project-fork",
+                ),
+                json_response({"html_url": "https://example/pull/9"}),
+            ),
+        ]
+    )
+
+    assert pr_commands.create_pr(base="main", run_fn=runner) == 0
+    compares = [
+        call[4] for call in runner.calls if call[:2] == ["gh", "api"] and "/compare/" in call[4]
+    ]
+    assert compares == ["repos/org/project/compare/main...abc"]
+
+
 def test_create_fallback_reads_commits_across_compare_pages() -> None:
     """A branch with more commits than one page still lists all of them."""
 
@@ -240,7 +275,7 @@ def test_create_fallback_reads_commits_across_compare_pages() -> None:
         """Route serving one compare page of ``count`` commits."""
         commits = [{"commit": {"message": f"c{number}-{i}"}} for i in range(count)]
         return (
-            rest("GET", "repos/o/r/compare/dev...feature", f"page={number}"),
+            rest("GET", "repos/o/r/compare/dev...abc", f"page={number}"),
             json_response({"commits": commits}),
         )
 
@@ -265,7 +300,7 @@ def test_create_fallback_rejects_a_branch_with_no_commits() -> None:
     """Nothing ahead of the base cannot be filled."""
     runner = _create_sandbox(
         (has("rev-parse"), completed_process(0, "feature\n")),
-        (rest("GET", "repos/o/r/compare/dev...feature"), json_response({"commits": []})),
+        (rest("GET", "repos/o/r/compare/dev...abc"), json_response({"commits": []})),
     )
 
     with pytest.raises(GhError, match="No commits on feature ahead of dev"):
@@ -543,13 +578,72 @@ def test_create_fallback_checks_a_fork_branch_and_qualifies_its_head(
                 json_response({"commit": {"sha": "abc"}}),
             ),
             (
-                rest("POST", "repos/org/project/pulls", "head=alice:feature", "base=main"),
+                rest(
+                    "POST",
+                    "repos/org/project/pulls",
+                    "head=alice:feature",
+                    "head_repo=project",
+                    "base=main",
+                ),
                 json_response({"html_url": "https://example/pull/9"}),
             ),
         ]
     )
 
     assert pr_commands.create_pr(title="T", base="main", run_fn=runner) == 0
+
+
+def test_create_fallback_names_the_source_repository_inside_one_organization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A fork inside the same organization needs head_repo, which names its repository."""
+    monkeypatch.setenv("GH_REPO", "org/project")
+    runner = FakeGh(
+        [
+            *sandbox_routes("org/project-fork"),
+            (_pushed, completed_process(0, "abc\n")),
+            (has("rev-parse"), completed_process(0, "feature\n")),
+            (
+                rest("GET", "repos/org/project-fork/branches/feature"),
+                json_response({"commit": {"sha": "abc"}}),
+            ),
+            (
+                rest(
+                    "POST",
+                    "repos/org/project/pulls",
+                    "head=org:feature",
+                    "head_repo=project-fork",
+                ),
+                json_response({"html_url": "https://example/pull/9"}),
+            ),
+        ]
+    )
+
+    assert pr_commands.create_pr(title="T", base="main", run_fn=runner) == 0
+    posts = [call for call in runner.calls if "--method" in call and "POST" in call]
+    assert len(posts) == 1
+
+
+def test_create_fallback_sends_no_head_repo_within_one_repository() -> None:
+    """A same-repository PR needs no head_repo."""
+    runner = FakeGh(
+        [
+            *sandbox_routes("o/r"),
+            (_pushed, completed_process(0, "abc\n")),
+            (has("rev-parse"), completed_process(0, "feature\n")),
+            (
+                rest("GET", "repos/o/r/branches/feature"),
+                json_response({"commit": {"sha": "abc"}}),
+            ),
+            (
+                rest("POST", "repos/o/r/pulls", "head=feature"),
+                json_response({"html_url": "https://example/pull/9"}),
+            ),
+        ]
+    )
+
+    assert pr_commands.create_pr(title="T", base="main", run_fn=runner) == 0
+    assert not any(arg.startswith("head_repo=") for call in runner.calls for arg in call)
 
 
 def test_checkout_fallback_prefixes_a_fork_branch_and_records_its_pr() -> None:

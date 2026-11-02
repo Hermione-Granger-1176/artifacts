@@ -13,7 +13,7 @@ pr-create: ## Open a pull request (make pr-create [base=branch]; TITLE='...' mak
 	@if [ -z "$$TITLE" ]; then \
 		$(GH) pr-create $(if $(base),--base "$(base)"); \
 	else \
-		$(GH) pr-create $(if $(base),--base "$(base)") --title "$$TITLE" --body-file -; \
+		$(GH) pr-create $(if $(base),--base "$(base)") --title="$$TITLE" --body-file -; \
 	fi
 
 pr-edit: ## Edit the current PR (TITLE='...' make pr-edit; new body on stdin: make pr-edit < body.md) [pr_num=N]
@@ -22,7 +22,7 @@ pr-edit: ## Edit the current PR (TITLE='...' make pr-edit; new body on stdin: ma
 	test -n "$$TITLE$$body" || \
 		{ printf "Usage: TITLE='New title' make pr-edit, or make pr-edit < body.md [pr_num=N]\n" >&2; exit 1; }; \
 	set -- $(if $(PR_NUM),--pr "$(PR_NUM)"); \
-	if [ -n "$$TITLE" ]; then set -- "$$@" --title "$$TITLE"; fi; \
+	if [ -n "$$TITLE" ]; then set -- "$$@" --title="$$TITLE"; fi; \
 	if [ -n "$$body" ]; then \
 		printf '%s' "$$body" | $(GH) edit-pr "$$@" --body-file -; \
 	else \

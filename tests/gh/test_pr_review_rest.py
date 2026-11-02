@@ -241,22 +241,37 @@ def test_address_numeric_thread_replies_then_resolves() -> None:
 
 
 @pytest.mark.parametrize(
-    "operation",
+    ("operation", "listing"),
     [
-        lambda runner: pr_review.reply_to_thread("PRRT_x", "b", run_fn=runner),
-        lambda runner: pr_review.resolve_thread("PRRT_x", run_fn=runner),
-        lambda runner: pr_review.address_thread("PRRT_x", "b", run_fn=runner),
-        lambda runner: pr_review.delete_review_comment("PRRC_x", run_fn=runner),
+        (
+            lambda runner: pr_review.reply_to_thread("PRRT_x", "b", run_fn=runner),
+            "pr-review-comments",
+        ),
+        (lambda runner: pr_review.resolve_thread("PRRT_x", run_fn=runner), "pr-review-comments"),
+        (
+            lambda runner: pr_review.address_thread("PRRT_x", "b", run_fn=runner),
+            "pr-review-comments",
+        ),
+        (
+            lambda runner: pr_review.delete_review_comment("PRRC_x", run_fn=runner),
+            "pr-comments-list",
+        ),
     ],
 )
 def test_node_ids_explain_the_numeric_route_when_graphql_is_blocked(
-    operation: Callable[[FakeGh], None],
+    operation: Callable[[FakeGh], None], listing: str
 ) -> None:
-    """A GraphQL node id cannot be used here, and the error says what to use instead."""
+    """A GraphQL node id cannot be used here, and the error names the listing with the right ids.
+
+    Thread actions take the thread listing. Deleting a comment takes the comment listing,
+    because the thread listing holds only first comments and cannot name a reply.
+    """
     runner = _sandbox()
 
-    with pytest.raises(GhError, match="numeric id"):
+    with pytest.raises(GhError, match="numeric id") as exc:
         operation(runner)
+
+    assert f"`make {listing}`" in str(exc.value)
 
 
 def test_delete_numeric_comment_uses_rest_delete() -> None:

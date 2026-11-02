@@ -4,6 +4,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 from scripts.gh import cli
 from scripts.lint.make_targets import read_makefile_text
 
@@ -369,3 +371,29 @@ def test_group_file_targets_are_phony() -> None:
 
         assert phony, path.name
         assert set(GROUP_TARGET_PATTERN.findall(text)) <= set(phony.group(1).split()), path.name
+
+
+@pytest.mark.parametrize(
+    ("target", "variable", "option"),
+    [
+        ("pr-create", "TITLE", "--title"),
+        ("pr-edit", "TITLE", "--title"),
+        ("issue-list", "SEARCH", "--search"),
+        ("issue-create", "TITLE", "--title"),
+        ("issue-edit", "TITLE", "--title"),
+        ("issue-close", "COMMENT", "--comment"),
+        ("issue-reopen", "COMMENT", "--comment"),
+    ],
+)
+def test_free_text_reaches_the_helper_as_one_option_equals_value_word(
+    target: str, variable: str, option: str
+) -> None:
+    """A value that starts with a dash, such as SEARCH='-label:bug', must not read as an option.
+
+    argparse takes ``--search -label:bug`` for two options and fails, while
+    ``--search=-label:bug`` is one word whose value it never inspects.
+    """
+    recipe = target_recipe(target)
+
+    assert f'{option}="$${variable}"' in recipe
+    assert f'{option} "$${variable}"' not in recipe

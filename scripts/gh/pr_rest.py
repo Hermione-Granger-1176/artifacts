@@ -106,8 +106,14 @@ def status_check_rollup(
     combined status ``state`` is ignored on purpose: it reads ``pending`` for a
     commit with no statuses at all, which would hold every settled rollup open.
     """
+    # The endpoint defaults to filter=latest, which can drop a same-named run from
+    # another suite before _latest_runs sees it. Ask for every run and keep the
+    # newest per suite and name here instead.
     runs = gh_runner.rest_pages(
-        f"repos/{slug}/commits/{sha}/check-runs", items_key="check_runs", run_fn=run_fn
+        f"repos/{slug}/commits/{sha}/check-runs",
+        items_key="check_runs",
+        fields={"filter": "all"},
+        run_fn=run_fn,
     )
     statuses = gh_runner.rest_pages(
         f"repos/{slug}/commits/{sha}/status", items_key="statuses", run_fn=run_fn
