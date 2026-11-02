@@ -93,6 +93,22 @@ test('filterAndSortArtifacts filters by search/tool/tag and sort order', () => {
   );
 });
 
+test('filterAndSortArtifacts orders by display name, not by slug', () => {
+  const artifacts = hydrateArtifacts(
+    [
+      ['bond-price-vs-rate', 'Bonds vs Interest Rates'],
+      ['a-loan', 'Loan Amortization Schedule'],
+      ['artifact-10', 'Artifact 10'],
+      ['artifact-2', 'Artifact 2']
+    ].map(([id, name]) => ({ id, name, description: '', tags: [], tools: [], url: `apps/${id}/`, thumbnail: null }))
+  );
+  const order = (currentSort) =>
+    filterAndSortArtifacts(artifacts, { currentQuery: '', currentSort, currentTags: [], currentTools: [] }).map((item) => item.name);
+
+  assert.deepEqual(order('az'), ['Artifact 2', 'Artifact 10', 'Bonds vs Interest Rates', 'Loan Amortization Schedule']);
+  assert.deepEqual(order('za'), ['Loan Amortization Schedule', 'Bonds vs Interest Rates', 'Artifact 10', 'Artifact 2']);
+});
+
 test('getPageNumbers lists every page up to seven', () => {
   assert.deepEqual(getPageNumbers(1, 1), [1]);
   assert.deepEqual(getPageNumbers(2, 2), [1, 2]);

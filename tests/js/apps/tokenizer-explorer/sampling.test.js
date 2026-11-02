@@ -130,3 +130,11 @@ test('each concept card trigger holds phrasing content and names the body it con
     assert.ok(controls && html.includes(`<div class="card-body" id="${controls}">`), `${controls} exists`);
   }
 });
+
+test('top P 1 keeps a tail token smaller than the float tolerance', () => {
+  // exp(-25) is about 1.4e-11, below the 1e-9 tolerance, but it can still be drawn.
+  const tokens = [{ word: 'top', baseLogit: 25 }, { word: 'tail', baseLogit: 0 }];
+  const { topTokens } = buildTopPSelection(tokens, 1, 1);
+  assert.deepEqual(topTokens.map((token) => token.word), ['top', 'tail']);
+  assert.ok(topTokens[1].prob > 0 && topTokens[1].prob < 1e-9);
+});

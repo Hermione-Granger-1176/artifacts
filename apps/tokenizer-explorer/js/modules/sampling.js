@@ -64,12 +64,18 @@ export function buildTopPSelection(tokens, temperature, topP) {
   let cumulative = 0;
   const inTopP = new Set();
   for (const token of sorted) {
+    // Top P 1 keeps every token that can be drawn, however small its share.
+    // A zero-probability token, such as the tail under greedy decoding, cannot.
+    if (topP >= 1 && token.prob === 0 && inTopP.size > 0) {
+      break;
+    }
     inTopP.add(token.idx);
     cumulative += token.prob;
     // A running float sum can land just under topP when the kept tokens add
     // up to it exactly (0.7 + 0.2 gives 0.8999999999999999), which would keep
-    // one extra token.
-    if (cumulative >= topP - TOP_P_EPSILON) {
+    // one extra token. The tolerance does not apply at top P 1, where it would
+    // drop a tail token smaller than the tolerance.
+    if (topP < 1 && cumulative >= topP - TOP_P_EPSILON) {
       break;
     }
   }

@@ -76,7 +76,19 @@ export function sortValuesByDisplayOrder(values, displayOrder) {
 }
 
 // localeCompare builds a collator on every call; one shared collator orders ids the same way.
-const ID_COLLATOR = new Intl.Collator();
+// Orders display names the way a reader expects: "Artifact 2" before "Artifact 10".
+const NAME_COLLATOR = new Intl.Collator(undefined, { numeric: true });
+
+/**
+ * Compare two artifacts by display name, then by id, so two artifacts with one
+ * name still sort the same way every time.
+ * @param {ArtifactRecord} left
+ * @param {ArtifactRecord} right
+ * @returns {number}
+ */
+function compareByName(left, right) {
+  return NAME_COLLATOR.compare(left.name, right.name) || NAME_COLLATOR.compare(left.id, right.id);
+}
 
 /**
  * @param {ArtifactRecord[]} artifacts - Hydrated artifact records.
@@ -110,7 +122,7 @@ export function filterAndSortArtifacts(artifacts, options) {
 
       return true;
     })
-    .sort((left, right) => direction * ID_COLLATOR.compare(left.id, right.id));
+    .sort((left, right) => direction * compareByName(left, right));
 }
 
 /** Slots in the pagination row. A longer page list collapses into exactly this many, so the row keeps its width. */
