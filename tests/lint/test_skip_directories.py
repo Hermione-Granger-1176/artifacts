@@ -4,18 +4,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from scripts.lint import SKIP_DIRECTORIES
+from scripts.lint import ROOT_SKIP_DIRECTORIES, SKIP_DIRECTORIES
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def ignored_directory_names() -> set[str]:
+def ignored_directory_names(*, root_anchored: bool = False) -> set[str]:
     """Return the .gitignore directory names a component matcher can express.
 
-    Only trailing-slash entries name a directory outright. A leading slash just
-    anchors the pattern to the repository root, so ``/build/`` still names the
-    single component ``build`` and must be kept; dropping those on sight is how
-    root-anchored entries used to escape this contract.
+    Only trailing-slash entries name a directory outright. A leading slash
+    anchors the pattern to the repository root, so ``/build/`` names the root
+    ``build`` directory only. ``root_anchored`` selects those entries, which
+    belong in ``ROOT_SKIP_DIRECTORIES``. The others match at any depth and
+    belong in ``SKIP_DIRECTORIES``.
 
     Globs and genuinely nested patterns are left to git. The walkers compare one
     path component at a time, so ``.claude/plans/`` has no faithful spelling
@@ -28,7 +29,7 @@ def ignored_directory_names() -> set[str]:
         if not entry or entry.startswith(("#", "!")) or not entry.endswith("/"):
             continue
         name = entry.strip("/")
-        if "*" in name or "/" in name:
+        if "*" in name or "/" in name or entry.startswith("/") != root_anchored:
             continue
         names.add(name)
     return names
@@ -41,9 +42,17 @@ def test_every_ignored_directory_is_skipped() -> None:
     assert not missing, f"add these .gitignore directories to SKIP_DIRECTORIES: {missing}"
 
 
+def test_every_root_anchored_ignore_is_skipped_at_the_root() -> None:
+    """A root-anchored .gitignore directory belongs in ROOT_SKIP_DIRECTORIES."""
+    missing = sorted(ignored_directory_names(root_anchored=True) - ROOT_SKIP_DIRECTORIES)
+
+    assert not missing, f"add these root-only directories to ROOT_SKIP_DIRECTORIES: {missing}"
+
+
 def test_the_gitignore_scan_finds_real_entries() -> None:
     """Guard the parser itself, so the check above cannot pass vacuously."""
     names = ignored_directory_names()
 
     assert "node_modules" in names
     assert ".playwright" in names
+    assert {"build", "dist"} <= ignored_directory_names(root_anchored=True)

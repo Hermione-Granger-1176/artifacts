@@ -94,9 +94,13 @@ def test_check_assets_flags_symlinked_file(tmp_path: Path) -> None:
 
     violations = check_assets(root, assets)
 
-    assert len(violations) == 1
-    assert violations[0].startswith(f"{_REL}: path must resolve to a regular file")
-    assert "no symlinked components" in violations[0]
+    assert len(violations) == 2
+    assert violations[0] == (
+        f"{_REL}: vendored paths must not be symlinks, because the manifest "
+        "cannot pin the files behind them"
+    )
+    assert violations[1].startswith(f"{_REL}: path must resolve to a regular file")
+    assert "no symlinked components" in violations[1]
 
 
 def test_check_assets_flags_symlinked_parent_directory(tmp_path: Path) -> None:
@@ -113,9 +117,26 @@ def test_check_assets_flags_symlinked_parent_directory(tmp_path: Path) -> None:
 
     violations = check_assets(root, assets)
 
-    assert len(violations) == 1
-    assert violations[0].startswith(f"{_REL}: path must resolve to a regular file")
-    assert "no symlinked components" in violations[0]
+    assert len(violations) == 2
+    assert violations[0].startswith("apps/demo/js/vendor: vendored paths must not be symlinks")
+    assert violations[1].startswith(f"{_REL}: path must resolve to a regular file")
+    assert "no symlinked components" in violations[1]
+
+
+def test_check_assets_flags_a_nested_symlinked_directory(tmp_path: Path) -> None:
+    """A symlinked directory inside a vendor tree is reported, not skipped by the walk."""
+    root = tmp_path / "repo"
+    outside_dir = tmp_path / "outside-lib"
+    outside_dir.mkdir()
+    (outside_dir / "evil.js").write_bytes(b"x")
+    vendor_dir = root / "apps" / "demo" / "js" / "vendor"
+    vendor_dir.mkdir(parents=True)
+    (vendor_dir / "lib").symlink_to(outside_dir, target_is_directory=True)
+
+    assert check_assets(root, ()) == [
+        "apps/demo/js/vendor/lib: vendored paths must not be symlinks, because the manifest "
+        "cannot pin the files behind them"
+    ]
 
 
 def test_discover_vendor_files_returns_sorted_relative_paths(tmp_path: Path) -> None:
@@ -127,6 +148,30 @@ def test_discover_vendor_files_returns_sorted_relative_paths(tmp_path: Path) -> 
     assert discover_vendor_files(tmp_path) == [
         "apps/a/js/vendor/one.js",
         "apps/b/js/vendor/two.js",
+    ]
+
+
+def test_discover_vendor_files_includes_nested_and_non_js_files(tmp_path: Path) -> None:
+    """Every file in a vendor tree is found, because lint and type checks skip the tree."""
+    _write_vendor_file(tmp_path, "apps/a/js/vendor/lib/d3.js", b"1")
+    _write_vendor_file(tmp_path, "apps/a/js/vendor/y.mjs", b"2")
+
+    assert discover_vendor_files(tmp_path) == [
+        "apps/a/js/vendor/lib/d3.js",
+        "apps/a/js/vendor/y.mjs",
+    ]
+
+
+def test_check_assets_rejects_files_the_manifest_cannot_pin(tmp_path: Path) -> None:
+    """A nested or .mjs vendor file fails with a shape message, not a manifest hint."""
+    _write_vendor_file(tmp_path, "apps/a/js/vendor/lib/d3.js", b"1")
+    _write_vendor_file(tmp_path, "apps/a/js/vendor/y.mjs", b"2")
+
+    assert check_assets(tmp_path, ()) == [
+        "apps/a/js/vendor/lib/d3.js: vendored files must be .js bundles directly under "
+        "apps/<slug>/js/vendor/, so the manifest can pin them",
+        "apps/a/js/vendor/y.mjs: vendored files must be .js bundles directly under "
+        "apps/<slug>/js/vendor/, so the manifest can pin them",
     ]
 
 

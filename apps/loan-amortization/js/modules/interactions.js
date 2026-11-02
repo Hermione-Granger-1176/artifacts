@@ -2,20 +2,28 @@ import { initSegmented } from "../../../../js/modules/segmented.js";
 
 /**
  * Bind change and Enter-key handling for a text input paired with a slider.
+ *
+ * A valid value is clamped to the range and passed to `onCommit`, so the
+ * calculation keeps its precision. The slider only shows the nearest step,
+ * because a range input snaps its value to `step`. An invalid value calls
+ * `onInvalid`, which puts the last committed value back in the field.
  * @param {Record<string, HTMLElement>} elements - Cached app elements.
- * @param {{ id: string, sliderId: string, min: number, max: number, parser: (value: string) => number, onCommit: () => void }} config - Input binding config.
+ * @param {{ id: string, sliderId: string, min: number, max: number, parser: (value: string) => number, onCommit: (value: number) => void, onInvalid: () => void }} config - Input binding config.
  * @returns {void}
  */
-function bindTextInput(elements, { id, sliderId, min, max, parser, onCommit }) {
+function bindTextInput(elements, { id, sliderId, min, max, parser, onCommit, onInvalid }) {
   elements[id].addEventListener(
     "change",
     /** @this {HTMLInputElement} */ function onChange() {
       const value = parser(this.value);
-      if (!Number.isNaN(value) && value > 0) {
-        const slider = /** @type {HTMLInputElement} */ (elements[sliderId]);
-        slider.value = String(Math.min(Math.max(value, min), max));
-        onCommit();
+      if (Number.isNaN(value) || value <= 0) {
+        onInvalid();
+        return;
       }
+      const clamped = Math.min(Math.max(value, min), max);
+      const slider = /** @type {HTMLInputElement} */ (elements[sliderId]);
+      slider.value = String(clamped);
+      onCommit(clamped);
     },
   );
 
@@ -34,9 +42,10 @@ function bindTextInput(elements, { id, sliderId, min, max, parser, onCommit }) {
  * @param {object} options
  * @param {Record<string, HTMLElement>} options.elements
  * @param {() => void} options.onSliderInput
- * @param {() => void} options.onPrincipalCommit
- * @param {() => void} options.onRateCommit
- * @param {() => void} options.onTenureCommit
+ * @param {(value: number) => void} options.onPrincipalCommit
+ * @param {(value: number) => void} options.onRateCommit
+ * @param {(value: number) => void} options.onTenureCommit
+ * @param {() => void} options.onInvalidInput
  * @param {() => void} options.onFrequencyChange
  * @param {(mode: string) => void} options.onBiweeklyModeChange
  * @param {() => void} options.onAddExtra
@@ -53,6 +62,7 @@ export function bindEvents({
   onPrincipalCommit,
   onRateCommit,
   onTenureCommit,
+  onInvalidInput,
   onFrequencyChange,
   onBiweeklyModeChange,
   onAddExtra,
@@ -72,7 +82,8 @@ export function bindEvents({
     min: 5000,
     max: 500000,
     parser: parseNumber,
-    onCommit: onPrincipalCommit
+    onCommit: onPrincipalCommit,
+    onInvalid: onInvalidInput
   });
   bindTextInput(elements, {
     id: "inRate",
@@ -80,7 +91,8 @@ export function bindEvents({
     min: 1,
     max: 20,
     parser: parseFloat,
-    onCommit: onRateCommit
+    onCommit: onRateCommit,
+    onInvalid: onInvalidInput
   });
   bindTextInput(elements, {
     id: "inTenure",
@@ -88,7 +100,8 @@ export function bindEvents({
     min: 1,
     max: 30,
     parser: (/** @type {string} */ value) => parseInt(value, 10),
-    onCommit: onTenureCommit
+    onCommit: onTenureCommit,
+    onInvalid: onInvalidInput
   });
 
   elements.selFreq.addEventListener("change", onFrequencyChange);

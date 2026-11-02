@@ -374,9 +374,9 @@ button {
 }
 
 /*
- * The visible label matches the start of the accessible name ("Sort by newest first").
- * The other word sits invisibly in the same grid cell, so the note keeps the wider
- * word's width and nothing beside it moves when the order flips.
+ * The visible label ("A to Z") appears in the accessible name ("Sort by name, A to Z").
+ * The other label sits invisibly in the same grid cell, so the note keeps the wider
+ * label's width and nothing beside it moves when the order flips.
  */
 .sort-toggle::before,
 .sort-toggle::after {
@@ -384,20 +384,20 @@ button {
 }
 
 .sort-toggle::before {
-  content: 'oldest';
+  content: 'Z to A';
   visibility: hidden;
 }
 
 .sort-toggle::after {
-  content: 'newest';
+  content: 'A to Z';
 }
 
-.sort-toggle.is-oldest::before {
-  content: 'newest';
+.sort-toggle.is-descending::before {
+  content: 'A to Z';
 }
 
-.sort-toggle.is-oldest::after {
-  content: 'oldest';
+.sort-toggle.is-descending::after {
+  content: 'Z to A';
 }
 
 /*
@@ -463,7 +463,7 @@ button {
   transition: transform 0.25s ease;
 }
 
-.sort-toggle.is-oldest .sort-toggle-icon {
+.sort-toggle.is-descending .sort-toggle-icon {
   transform: rotate(180deg);
 }
 

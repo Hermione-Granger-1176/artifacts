@@ -7,6 +7,8 @@ import hashlib
 import re
 from pathlib import Path
 
+import pytest
+
 from scripts import REPO_ROOT
 from scripts.lint.check_artifact_csp import (
     _ROOT_IMG_SOURCES,
@@ -324,6 +326,25 @@ def test_check_page_flags_relaxed_script_src(tmp_path: Path) -> None:
     assert any(
         "script-src must be restricted to 'self' or 'none'" in message for message in violations
     )
+
+
+@pytest.mark.parametrize("directive", ["script-src-elem", "script-src-attr"])
+def test_check_page_flags_relaxed_script_sub_directives(tmp_path: Path, directive: str) -> None:
+    """Browsers use script-src-elem and script-src-attr over script-src, so both are checked."""
+    csp = f"default-src 'self'; script-src 'self'; {directive} 'unsafe-inline'; {_HARDENING}"
+    path = _write_page(tmp_path, "demo", _page(csp=csp))
+    violations = check_page(path, display_path="apps/demo/index.html")
+    assert violations == [
+        f"apps/demo/index.html: {directive} must be restricted to 'self' or 'none' "
+        f"(found: {directive} 'unsafe-inline')"
+    ]
+
+
+def test_check_page_allows_restricted_script_sub_directives(tmp_path: Path) -> None:
+    """A restricted script-src-elem or script-src-attr passes."""
+    csp = f"default-src 'self'; script-src-elem 'self'; script-src-attr 'none'; {_HARDENING}"
+    path = _write_page(tmp_path, "demo", _page(csp=csp))
+    assert check_page(path, display_path="apps/demo/index.html") == []
 
 
 def test_check_page_allows_script_src_falling_back_to_default(tmp_path: Path) -> None:

@@ -307,3 +307,44 @@ test('runtime diagnostics click handler is bound only once across multiple creat
 
   assert.equal(windowObj.__ARTIFACTS_DIAGNOSTICS_BOUND__, true);
 });
+
+/**
+ * A document stub whose banner the boot guard already revealed.
+ * @param {string} originalMessage - The banner text before the guard rewrote it.
+ */
+function createGuardRevealedDocument(originalMessage) {
+  const documentObj = createDocumentStub();
+  const message = { textContent: 'The app failed to start. Check your connection and reload the page.' };
+  const classes = new Set(['runtime-error']);
+  Object.assign(documentObj.runtimeErrorBanner, {
+    dataset: { bootGuardMessage: originalMessage },
+    querySelector: (selector) => (selector === 'p' ? message : null),
+    classList: {
+      add: (name) => classes.add(name),
+      remove: (name) => classes.delete(name),
+      contains: (name) => classes.has(name)
+    }
+  });
+  return { documentObj, message, classes };
+}
+
+test('runtime hides a boot-guard banner when the app boots late', () => {
+  const { documentObj, message, classes } = createGuardRevealedDocument('The app failed to initialize correctly.');
+  const runtime = createRuntime({ consoleObj: { error() {} }, documentObj, windowObj: createWindowStub() });
+
+  runtime.markReady();
+
+  assert.equal(classes.has('hidden'), true);
+  assert.equal(message.textContent, 'The app failed to initialize correctly.');
+  assert.equal('bootGuardMessage' in documentObj.runtimeErrorBanner.dataset, false);
+});
+
+test('runtime keeps the banner when a fatal error came before the late boot', () => {
+  const { documentObj, classes } = createGuardRevealedDocument('The app failed to initialize correctly.');
+  const runtime = createRuntime({ consoleObj: { error() {} }, documentObj, windowObj: createWindowStub() });
+
+  runtime.reportError(new Error('boom'), 'startup', { fatal: true });
+  runtime.markReady();
+
+  assert.equal(classes.has('hidden'), false);
+});

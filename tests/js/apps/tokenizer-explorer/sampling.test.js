@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { readFileSync } from 'node:fs';
+
 import {
   buildTopPSelection,
   drawToken,
+  SAMPLE_DRAW_COUNT,
   softmax,
   tallyDraws
 } from '../../../../apps/tokenizer-explorer/js/modules/sampling.js';
@@ -101,4 +104,37 @@ test('tallyDraws aggregates deterministic sampled token counts', () => {
   assert.equal(tallies.get(3), 3);
   assert.equal(tallies.get(4), 2);
   assert.equal([...tallies.values()].reduce((sum, count) => sum + count, 0), rolls.length);
+});
+
+test('buildTopPSelection stops when float error leaves the sum just under top P', () => {
+  // Probabilities 0.6, 0.3, 0.1 sum to 0.8999999999999999 after two tokens.
+  const tokens = [6, 3, 1].map((weight, index) => ({ word: `t${index}`, baseLogit: Math.log(weight) }));
+  const { inTopP, retainedProbabilityMass } = buildTopPSelection(tokens, 1, 0.9);
+  assert.ok(retainedProbabilityMass < 0.9, 'the float sum really is under 0.9');
+  assert.deepEqual([...inTopP], [0, 1]);
+});
+
+test('the sample button label names SAMPLE_DRAW_COUNT draws', () => {
+  const html = readFileSync(new URL('../../../../apps/tokenizer-explorer/index.html', import.meta.url), 'utf8');
+  assert.match(html, new RegExp(`Sample ${SAMPLE_DRAW_COUNT}x`));
+  assert.match(html, new RegExp(`the ${SAMPLE_DRAW_COUNT}-draw tally`));
+});
+
+test('each concept card trigger holds phrasing content and names the body it controls', () => {
+  const html = readFileSync(new URL('../../../../apps/tokenizer-explorer/index.html', import.meta.url), 'utf8');
+  const triggers = [...html.matchAll(/<button class="card-trigger"[^>]*>([\s\S]*?)<\/button>/g)];
+  assert.equal(triggers.length, 4);
+  for (const [button, inner] of triggers) {
+    assert.doesNotMatch(inner, /<div/, 'a button may hold only phrasing content');
+    const controls = button.match(/aria-controls="([^"]+)"/)?.[1];
+    assert.ok(controls && html.includes(`<div class="card-body" id="${controls}">`), `${controls} exists`);
+  }
+});
+
+test('top P 1 keeps a tail token smaller than the float tolerance', () => {
+  // exp(-25) is about 1.4e-11, below the 1e-9 tolerance, but it can still be drawn.
+  const tokens = [{ word: 'top', baseLogit: 25 }, { word: 'tail', baseLogit: 0 }];
+  const { topTokens } = buildTopPSelection(tokens, 1, 1);
+  assert.deepEqual(topTokens.map((token) => token.word), ['top', 'tail']);
+  assert.ok(topTokens[1].prob > 0 && topTokens[1].prob < 1e-9);
 });

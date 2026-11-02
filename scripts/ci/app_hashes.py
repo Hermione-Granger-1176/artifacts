@@ -10,7 +10,7 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from scripts.ci.app_shards import browser_app_slugs
+from scripts.ci.app_shards import add_shards, browser_app_slugs
 from scripts.lib.app_discovery import (
     SHARED_APP_BROWSER_TEST_PATHS,
     artifact_base_path,
@@ -209,12 +209,18 @@ def apply_memoization(
 
     memoized = sorted(slug for slug in candidates if ledger.get(slug) == current_hashes.get(slug))
     memoized_slugs = set(memoized)
-    return {
+    memoized_plan = {
         **updated,
         "browser_slugs": [slug for slug in candidates if slug not in memoized_slugs],
         "memoized_browser_slugs": memoized,
         "memoization_available": True,
     }
+    # The shard jobs read each shard's own browser_slugs, which the thumbnail
+    # plan assigned before memoization. Rebuild the shards from the retained
+    # list so memoized apps leave the browser shards too.
+    if "shards" in plan:
+        return add_shards(memoized_plan, apps_root=root / artifact_base_path())
+    return memoized_plan
 
 
 def update_ledger(

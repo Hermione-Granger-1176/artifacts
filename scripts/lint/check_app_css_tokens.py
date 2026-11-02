@@ -269,12 +269,15 @@ _COLOR_MIX_RE = re.compile(r"(?<![-\w])color-mix\(", re.IGNORECASE)
 
 # One declaration whose value can carry a color, and that value up to the next
 # ';', '{', or '}'. Longer property alternatives come before their prefixes.
+# `[-a-z]*color` covers every property whose name ends in `color`, including
+# vendor-prefixed ones such as `scrollbar-color`, `stop-color`, and
+# `-webkit-text-fill-color`.
 _COLOR_DECLARATION_RE = re.compile(
     r"(?<![-\w])("
-    r"--[-\w]+|background-color|background-image|background|accent-color"
-    r"|caret-color|column-rule(?:-[a-z]+)*|text-decoration(?:-[a-z]+)*"
+    r"--[-\w]+|background-image|background|[-a-z]*color"
+    r"|column-rule(?:-[a-z]+)*|text-decoration(?:-[a-z]+)*"
     r"|box-shadow|text-shadow|border(?:-[a-z]+)*|outline(?:-[a-z]+)*"
-    r"|fill|stroke|color"
+    r"|fill|stroke"
     r")\s*:\s*([^;{}]*)",
     re.IGNORECASE,
 )

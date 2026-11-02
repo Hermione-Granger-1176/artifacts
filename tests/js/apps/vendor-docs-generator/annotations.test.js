@@ -218,6 +218,17 @@ test('the buyer address keeps its line break in text and loses it in value', () 
   );
 });
 
+test('a field the page sets in capitals records the capitals as text', () => {
+  // Harbor's stripe logo and every document title print in capitals. The text
+  // is what an OCR pass reads, and the value keeps the name as written.
+  const { fields } = annotate({ docTypeId: 'challan', seed: 7, vendorId: 'harbor' });
+  assert.deepEqual(fields.document_title, { text: 'DELIVERY CHALLAN', value: 'Delivery challan' });
+  assert.deepEqual(fields.vendor_name, { text: 'HARBOR FREIGHT LOGISTICS', value: 'Harbor Freight Logistics' });
+
+  const verde = annotate({ docTypeId: 'invoice', seed: 7, vendorId: 'verde' }).fields.vendor_name;
+  assert.equal(verde.text, verde.value, 'a logo that prints the name as written keeps one form');
+});
+
 test('every labelled value on the page matches the sidecar text for that field', () => {
   for (const selection of everyCombination(2)) {
     const model = buildDocument(selection);
@@ -351,4 +362,21 @@ test('the dataset README records the settings the run used', () => {
   assert.ok(plain.includes('Boxes:     off'));
   assert.ok(plain.includes('Scan:      clean'));
   assert.ok(!plain.includes('paired with'));
+});
+
+test('every printed sidecar field has at least one labelled region on the page', () => {
+  for (const selection of everyCombination(2)) {
+    const model = buildDocument(selection);
+    const payload = buildAnnotations(model);
+    const paper = createFakeElement('article');
+    renderPaper(paper, model, createFakeDocument());
+    const tagged = new Set(findTagged(paper).map((node) => node.getAttribute('data-field')));
+    const where = `${selection.vendorId}/${selection.docTypeId}/${selection.style}`;
+
+    for (const [field, annotation] of Object.entries(payload.fields)) {
+      if (annotation !== null) {
+        assert.ok(tagged.has(field), `${where} prints ${field} but gives it no box`);
+      }
+    }
+  }
 });

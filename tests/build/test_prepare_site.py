@@ -983,6 +983,26 @@ def test_inject_modulepreload_hints_adds_links(
     assert result.index("modulepreload") < result.index("</head>")
 
 
+def test_inject_modulepreload_hints_only_touches_the_first_head_close(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A later `</head>`, such as one in a code sample, stays page content."""
+    monkeypatch.setattr(prepare_site, "DEPLOY_DIR", tmp_path)
+    write_text(
+        tmp_path / "index.html",
+        "<head>\n</head>\n<body>\n<pre>&lt;head&gt;</head></pre>\n"
+        '<script type="module" src="js/app.js"></script>\n</body>\n',
+    )
+    write_text(tmp_path / "js" / "app.js", 'import { x } from "./lib.js";\n')
+    write_text(tmp_path / "js" / "lib.js", "export const x = 1;\n")
+
+    prepare_site._inject_modulepreload_hints()
+
+    result = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert result.count("modulepreload") == 1
+    assert "<pre>&lt;head&gt;</head></pre>" in result
+
+
 def test_inject_modulepreload_hints_skips_entry_outside_deploy(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

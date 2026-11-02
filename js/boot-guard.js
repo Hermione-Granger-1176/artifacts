@@ -46,7 +46,11 @@
     banner.classList.remove("hidden");
     banner.classList.remove("visually-hidden");
 
+    // A slow load can still boot after the timeout. The runtime reads this
+    // attribute when the app becomes ready, hides the banner, and restores
+    // the original message.
     var message = banner.querySelector("p");
+    banner.dataset.bootGuardMessage = message ? message.textContent : "";
     if (message) {
       message.textContent =
         "The app failed to start. Check your connection and reload the page.";

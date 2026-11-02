@@ -32,6 +32,15 @@ export function formatPeriodsAsDuration(periods, periodsPerYear) {
 }
 
 /**
+ * @param {number} count
+ * @param {string} noun - Singular noun, such as "month".
+ * @returns {string} "1 month" or "24 months".
+ */
+function countOf(count, noun) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+/**
  * Build the "saves $X, Ny Mm sooner" chip text shown beside the hero EMI.
  *
  * @param {Pick<LoanMetrics, "savings" | "periodsSaved" | "periodsPerYear">} metrics
@@ -97,9 +106,11 @@ export function buildMetricsView(
     interestValue: formatCurrency(extra.totalInterest),
     interestSub: `Without extras: ${formatCurrency(base.totalInterest)}`,
     payoffTip: `Number of ${period}s until the loan is fully paid off`,
-    payoffValue: `${extra.periods} ${period}s`,
+    payoffValue: countOf(extra.periods, period),
     payoffSub:
-      periodsSaved > 0 ? `${periodsSaved} earlier than without extras` : "Until the loan is repaid",
+      periodsSaved > 0
+        ? `${countOf(periodsSaved, period)} earlier than without extras`
+        : "Until the loan is repaid",
     paidValue: formatCurrency(totalPaid),
     paidSub: `Interest is ${((costRatio - 1) * 100).toFixed(1)}% of loan`,
     breakTip: `The first ${period} when cumulative principal paid from EMI and extras meets or exceeds cumulative interest`,

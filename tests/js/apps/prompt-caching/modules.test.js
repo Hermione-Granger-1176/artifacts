@@ -20,10 +20,18 @@ import {
   EMB_VECS,
   EMB_PAIRS,
   EMB_CATEGORIES,
+  DIM_COLORS,
   SUMMARY_STEPS
 } from '../../../../apps/prompt-caching/js/modules/data.js';
 
 // --- bpeTokenize ---
+
+test('bpeTokenize keeps characters outside the Basic Multilingual Plane whole', () => {
+  const tokens = bpeTokenize('\u{1D49C}bc \u{20000}');
+  assert.ok(tokens.every((token) => !/[\uD800-\uDFFF]/u.test(token.replace(/[\u{10000}-\u{10FFFF}]/gu, ''))), 'no lone surrogate');
+  assert.ok(tokens.includes('\u{1D49C}'));
+  assert.ok(tokens.includes(' \u{20000}'));
+});
 
 test('bpeTokenize returns [] for empty input', () => {
   assert.deepEqual(bpeTokenize(''), []);
@@ -130,17 +138,28 @@ test('softmax stays finite for large scores and masked values', () => {
 
 test('savingsMonthly matches a hand-computed example', () => {
   // 2000 tokens * 500 req/day * 30 days = 30,000,000 tokens/month.
-  // without = 30 * $3 = $90. 80% cached at 1/10 price.
+  // without = 30 * $3 = $90.
   const result = savingsMonthly({ sys: 2000, req: 500, hitFraction: 0.8, price: 3 });
   assert.ok(Math.abs(result.without - 90) < 1e-6);
-  // withCache = (0.2 * 30M / 1e6) * 3 + (0.8 * 30M / 1e6) * 0.3 = 18 + 7.2 = 25.2
-  assert.ok(Math.abs(result.withCache - 25.2) < 1e-6);
-  assert.ok(Math.abs(result.savings - 64.8) < 1e-6);
+  // Hits read at 0.1x and misses write at 1.25x:
+  // withCache = (0.8 * 30 * 0.1 + 0.2 * 30 * 1.25) * $3 = (2.4 + 7.5) * 3 = 29.7
+  assert.ok(Math.abs(result.withCache - 29.7) < 1e-6);
+  assert.ok(Math.abs(result.savings - 60.3) < 1e-6);
+  assert.equal(result.cacheable, true);
 });
 
-test('savingsMonthly has no savings when nothing is cached', () => {
-  const result = savingsMonthly({ sys: 1000, req: 100, hitFraction: 0, price: 5 });
-  assert.ok(Math.abs(result.savings) < 1e-9);
+test('savingsMonthly costs more than no caching when every request misses', () => {
+  // 6M tokens at $5: without = $30, and every miss is a 1.25x write = $37.50.
+  const result = savingsMonthly({ sys: 2000, req: 100, hitFraction: 0, price: 5 });
+  assert.ok(Math.abs(result.withCache - 37.5) < 1e-9);
+  assert.ok(Math.abs(result.savings + 7.5) < 1e-9);
+});
+
+test('savingsMonthly never caches a prefix shorter than the provider minimum', () => {
+  const result = savingsMonthly({ sys: 1000, req: 100, hitFraction: 0.9, price: 5 });
+  assert.equal(result.cacheable, false);
+  assert.equal(result.withCache, result.without);
+  assert.equal(result.savings, 0);
 });
 
 // --- formatTTL ---
@@ -290,4 +309,15 @@ test('summary steps carry a title, tone, and description', () => {
     assert.ok(step.tone.length > 0);
     assert.ok(step.desc.length > 0);
   }
+});
+
+test('DIM_COLORS gives each of the eight clusters its own color', () => {
+  assert.equal(DIM_COLORS.length, 8);
+  assert.equal(new Set(DIM_COLORS).size, 8);
+});
+
+test('the dimension caption counts every point the explorer draws', () => {
+  const html = readFileSync(new URL('../../../../apps/prompt-caching/index.html', import.meta.url), 'utf8');
+  // Each cluster draws six points.
+  assert.match(html, new RegExp(`the same ${DIM_COLORS.length * 6} points`));
 });

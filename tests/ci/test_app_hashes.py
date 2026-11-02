@@ -113,6 +113,31 @@ def test_apply_memoization_removes_only_matching_browser_apps(tmp_path: Path) ->
     assert result["memoization_available"] is True
 
 
+def test_apply_memoization_rebuilds_shard_browser_lists(tmp_path: Path) -> None:
+    """Shard jobs read per-shard lists, so memoized apps must leave the shards too."""
+    make_repo(tmp_path)
+    make_app(tmp_path, "alpha")
+    make_app(tmp_path, "beta")
+    ledger = tmp_path / "ledger.json"
+    app_hashes._write_ledger(ledger, {"alpha": "green", "beta": "stale"})
+    plan = {
+        "browser_scope": "all",
+        "thumbnail_scope": "none",
+        "changed_slugs": [],
+        "thumbnail_slugs": [],
+        "shards": [{"index": 0, "browser_slugs": ["alpha", "beta"], "thumbnail_slugs": []}],
+    }
+
+    result = app_hashes.apply_memoization(
+        plan,
+        ledger_path=ledger,
+        repo_root=tmp_path,
+        hash_inputs_fn=lambda _slugs, **_kwargs: {"alpha": "green", "beta": "new"},
+    )
+
+    assert result["shards"] == [{"index": 0, "browser_slugs": ["beta"], "thumbnail_slugs": []}]
+
+
 def test_apply_memoization_fails_open_without_ledger_or_hashes(tmp_path: Path) -> None:
     """Missing ledgers and failed hash calculation retain every browser app."""
     make_repo(tmp_path)

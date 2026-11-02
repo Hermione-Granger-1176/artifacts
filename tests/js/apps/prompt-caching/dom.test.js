@@ -187,17 +187,33 @@ test('embeddings drives the dimension explorer and similarity playground', () =>
 
     // Hovering the map highlights the nearest background word; clicking selects it.
     const embCanvas = h.el('embCanvas');
-    let hit = false;
-    for (let x = 0; x < 400 && !hit; x += 10) {
-      for (let y = 0; y < 300 && !hit; y += 10) {
+    let dot = null;
+    for (let x = 0; x < 400 && !dot; x += 10) {
+      for (let y = 0; y < 300 && !dot; y += 10) {
         embCanvas.fire('pointermove', { offsetX: x, offsetY: y });
-        hit = embCanvas.style.cursor === 'pointer';
+        dot = embCanvas.style.cursor === 'pointer' ? { offsetX: x, offsetY: y } : null;
       }
     }
-    assert.ok(hit, 'expected some pointer position to hover a background dot');
+    assert.ok(dot, 'expected some pointer position to hover a background dot');
     const before = h.el('embSelA').textContent;
-    embCanvas.fire('click', {});
-    assert.notEqual(h.el('embSelA').textContent, before);
+    const otherB = h.el('embSelB').textContent;
+    embCanvas.fire('click', dot);
+    const picked = h.el('embSelA').textContent;
+    assert.notEqual(picked, before);
+    // A second click on the same spot with no pointermove (a double-click) hits
+    // nothing, because the dot is now selected. B keeps its word.
+    embCanvas.fire('click', dot);
+    assert.equal(h.el('embSelB').textContent, otherB, 'a double-click never sets B to the same word');
+    // A click with no hover first (a touch tap) still selects the dot it lands on.
+    embCanvas.fire('pointerleave', {});
+    const selection = () => `${h.el('embSelA').textContent}|${h.el('embSelB').textContent}`;
+    const beforeTap = selection();
+    for (let x = 0; x < 400 && selection() === beforeTap; x += 10) {
+      for (let y = 0; y < 300 && selection() === beforeTap; y += 10) {
+        embCanvas.fire('click', { offsetX: x, offsetY: y });
+      }
+    }
+    assert.notEqual(selection(), beforeTap, 'a tap with no pointermove selects a dot');
     embCanvas.fire('pointermove', { offsetX: 0, offsetY: 0 }); // move off the dot
     embCanvas.fire('pointerleave', {});
     assert.equal(embCanvas.style.cursor, '');
@@ -238,6 +254,22 @@ test('dimension explorer keeps one canvas shape and draws a drag once per frame'
     h.flushFrames();
     assert.equal(draws(), before + 1);
     assert.deepEqual([canvas.width, canvas.height], shape);
+  });
+});
+
+test('dimension explorer resolves a color for every cluster', () => {
+  withHarness((h) => {
+    const ctx = h.el('dimCanvas').getContext('2d');
+    const fills = [];
+    Object.defineProperty(ctx, 'fillStyle', {
+      configurable: true,
+      get: () => fills.at(-1),
+      set: (value) => fills.push(value)
+    });
+    initEmbeddings();
+    h.el('dimToggle').children[1].fire('click');
+    assert.ok(fills.length > 0);
+    assert.ok(fills.every((value) => typeof value === 'string' && value !== ''), 'no cluster draws with an unresolved token');
   });
 });
 
@@ -336,8 +368,11 @@ test('attention steps, grid hover, and softmax sliders all respond', () => {
 
     const findButton = (label) =>
       visual.querySelectorAll('button').find((b) => b.textContent === label);
+    assert.equal(findButton('WQ → Q').getAttribute('aria-pressed'), 'true');
     findButton('WK → K').fire('click');
     assert.equal(cellText(), '-0.21');
+    assert.equal(findButton('WK → K').getAttribute('aria-pressed'), 'true');
+    assert.equal(findButton('WQ → Q').getAttribute('aria-pressed'), 'false');
     visual.querySelectorAll('[data-mx="out1"].clickable')[0].fire('click');
 
     // Scramble with a stubbed RNG: every weight becomes 0.50.
@@ -383,6 +418,11 @@ test('attention steps, grid hover, and softmax sliders all respond', () => {
     rows[0].fire('mouseenter');
     rows[rows.length - 1].fire('mouseenter');
     assert.ok(h.el('attnCaption').children.length > 0);
+    // Keyboard focus on a row's label button shows the same caption.
+    assert.equal(rows[1].querySelectorAll('button.pc-attn-row').length, 1);
+    rows[1].fire('focusin');
+    // Row 1 ("cat") predicts the next word, "sat".
+    assert.equal(h.el('attnCaption').children[1].textContent, 'sat');
 
     // Softmax slider.
     const slider = h.el('smxSliders').querySelectorAll('input')[0];
@@ -612,7 +652,19 @@ test('cache hit visualiser handles cold start, hits, eviction, TTL, and clear', 
     assert.equal(h.el('chvTTL').textContent, 'expired');
 
     h.el('chvClearBtn').fire('click');
-    assert.equal(h.el('chvTTL').textContent, '5:00');
+    assert.equal(h.el('chvTTL').textContent, 'none', 'nothing is cached after a clear');
+  });
+});
+
+test('cache hit visualiser stops running block sweeps on clear', () => {
+  withHarness((h) => {
+    initCacheHits();
+    h.el('chvSendBtn').fire('click');
+    assert.equal(h.intervals.size, 2, 'one block sweep and the TTL countdown');
+
+    h.el('chvClearBtn').fire('click');
+
+    assert.equal(h.intervals.size, 0, 'the clear stops the sweep and the countdown');
   });
 });
 
@@ -661,8 +713,18 @@ test('calculator updates spend figures from the sliders', () => {
     assert.equal(h.el('calcHitVal').textContent, '0%');
     // Manual slider moves deactivate every preset chip.
     assert.ok(chips.every((b) => !b.classList.contains('active')));
+    // At a 0% hit rate every request writes the cache at 1.25x, so the cached
+    // bar is the long one and the summary says caching costs more.
     assert.equal(h.el('calcBarWith').style.transform, 'scaleX(1)');
-    assert.equal(h.el('calcBarWithout').style.transform, 'scaleX(1)');
+    assert.equal(h.el('calcBarWithout').style.transform, 'scaleX(0.8)');
+    assert.match(h.el('calcSavings').textContent, /^-\$/);
+    assert.match(h.el('calcPct').textContent, /^25% more expensive/);
+
+    // A prefix under the provider minimum is never cached.
+    h.el('calcSys').value = '1000';
+    h.el('calcSys').fire('input');
+    assert.equal(h.el('calcSavings').textContent, '$0.00');
+    assert.match(h.el('calcPct').textContent, /Not cached: a prefix needs at least 1,024 tokens/);
 
     // Preset click drives all four sliders and re-activates its chip.
     chips.find((b) => b.textContent === 'Scale').fire('click');

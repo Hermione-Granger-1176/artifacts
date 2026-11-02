@@ -448,6 +448,26 @@ initializeMatureApp({
 
     /** How many tasks are running with the zoom pinned to 1; see `atActualSize`. */
     let pinnedAtActualSize = 0;
+    // A draw asked for while an export held the paper. It runs when the export ends.
+    let drawPending = false;
+    /**
+     * The scan and label settings the running export started with, or null
+     * when nothing is exporting. An export reads these instead of the live
+     * controls, so a change made mid-run applies to the next export rather
+     * than to half of this one, and the README describes every page in it.
+     * @type {ReturnType<typeof liveExportSettings> | null}
+     */
+    let exportSettings = null;
+
+    /** @returns {{ labels: ReturnType<typeof labelFlags>, preset: string, settings: ReturnType<typeof currentSettings> }} The settings on the controls now. */
+    function liveExportSettings() {
+      return { labels: labelFlags(), preset: state.degradePreset, settings: currentSettings() };
+    }
+
+    /** @returns {ReturnType<typeof liveExportSettings>} The running export's settings, else the live ones. */
+    function exportView() {
+      return exportSettings ?? liveExportSettings();
+    }
 
     /**
      * Scale the preview so the whole page fits the frame in both directions.
@@ -513,6 +533,14 @@ initializeMatureApp({
      * @returns {void}
      */
     function draw() {
+      // An export owns the paper until it finishes. Redrawing now would put a
+      // different document under a capture or a box measurement in flight, so
+      // the draw waits for the export to end.
+      if (pinnedAtActualSize > 0) {
+        drawPending = true;
+        return;
+      }
+
       const isInvoice = state.docTypeId === "invoice";
       const documentType = findDocumentType(state.docTypeId);
       const vendor = findVendor(state.vendorId);
@@ -546,6 +574,9 @@ initializeMatureApp({
      * @returns {Promise<T>} Whatever the task resolves to.
      */
     async function atActualSize(task) {
+      if (pinnedAtActualSize === 0) {
+        exportSettings = liveExportSettings();
+      }
       pinnedAtActualSize += 1;
       paperScale.style.setProperty("--vd-zoom", "1");
 
@@ -553,6 +584,13 @@ initializeMatureApp({
         return await task();
       } finally {
         pinnedAtActualSize -= 1;
+        if (pinnedAtActualSize === 0) {
+          exportSettings = null;
+          if (drawPending) {
+            drawPending = false;
+            draw();
+          }
+        }
         syncFitScale();
       }
     }
@@ -590,7 +628,7 @@ initializeMatureApp({
      * @returns {import("./modules/degrade.js").DegradePlan | null} The plan.
      */
     function degradationFor(model) {
-      const settings = currentSettings();
+      const { preset, settings } = exportView();
 
       if (isClean(settings)) {
         return null;
@@ -598,7 +636,7 @@ initializeMatureApp({
 
       return planDegradation({
         height: PAPER_HEIGHT,
-        preset: state.degradePreset,
+        preset,
         seed: model.seed,
         settings,
         width: PAPER_WIDTH
@@ -618,7 +656,7 @@ initializeMatureApp({
      * @returns {Record<string, any>} The sidecar payload.
      */
     function annotate(model, degradation = degradationFor(model)) {
-      const { boxes: withBoxes, words } = labelFlags();
+      const { boxes: withBoxes, words } = exportView().labels;
       const measured = withBoxes ? collectBoxes(paper, { words }) : null;
       const boxes = degradation ? transformBoxes(measured, degradation.transform) : measured;
       return buildAnnotations(model, boxes, degradation);
@@ -1028,6 +1066,9 @@ initializeMatureApp({
             renderPreview: (item) => {
               const model = buildDocument(item);
               renderPaper(paper, model);
+              // The paper now shows a batch page, so put the reader's page
+              // back once the run ends.
+              drawPending = true;
               return model;
             }
           })
@@ -1038,7 +1079,6 @@ initializeMatureApp({
         batchRunning = false;
         syncStopButton();
         progress.classList.add("is-idle");
-        draw();
       }
     }
 

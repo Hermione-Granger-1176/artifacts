@@ -420,7 +420,7 @@ test('buildCandidateRows tags the first cut token and normalizes the tally', () 
   assert.equal(rows[0].drawPercent, 75);
 });
 
-test('renderDistribution explains greedy and high-temperature extremes', () => {
+test('renderDistribution describes temperature by the winner it produced', () => {
   const mocks = setupDocumentMock();
   try {
     const elements = { candidateList: makeElement('ul'), insightBox: makeElement() };
@@ -434,28 +434,34 @@ test('renderDistribution explains greedy and high-temperature extremes', () => {
     assert.match(elements.insightBox.textContent, /greedy decoding/);
     renderDistribution(elements, { ...state, temperature: 2.5 });
     assert.match(elements.insightBox.textContent, /spreads out widely/);
-    renderDistribution(elements, { ...state, temperature: 0.2 });
-    assert.match(elements.insightBox.textContent, /almost deterministic/);
+    // A low temperature with an uncertain winner is not called deterministic.
+    renderDistribution(elements, { ...state, temperature: 0.3 });
+    assert.match(elements.insightBox.textContent, /"hello" leads with 60.0% of the odds, but other tokens still win draws/);
+    const dominant = [{ ...SORTED[0], prob: 0.995 }];
+    renderDistribution(elements, { ...state, sorted: dominant, temperature: 0.4 });
+    assert.match(elements.insightBox.textContent, /"hello" holds 99.5% of the odds and wins nearly every draw/);
   } finally {
     restoreDocument(mocks);
   }
 });
 
-test('renderDistribution describes each top-p regime', () => {
+test('renderDistribution describes top P by how many tokens it kept', () => {
   const mocks = setupDocumentMock();
   try {
     const elements = { candidateList: makeElement('ul'), insightBox: makeElement() };
     const state = makeDistributionState();
-    renderDistribution(elements, { ...state, topP: 0.05 });
-    assert.match(elements.insightBox.textContent, /very tight/);
+    const one = [state.topTokens[0]];
+    renderDistribution(elements, { ...state, topP: 0.05, topTokens: one });
+    assert.match(elements.insightBox.textContent, /keeps only the single most likely token/);
+    // A wide top P at a low temperature can still keep one token.
+    renderDistribution(elements, { ...state, topP: 0.99, topTokens: one });
+    assert.match(elements.insightBox.textContent, /Top P=0.99 keeps only the single most likely token/);
     renderDistribution(elements, { ...state, topP: 0.4 });
-    assert.match(elements.insightBox.textContent, /small, high-confidence pool/);
-    renderDistribution(elements, { ...state, topP: 1 });
-    assert.match(elements.insightBox.textContent, /nearly every token/);
+    assert.match(elements.insightBox.textContent, /small, high-confidence pool of 2 tokens/);
+    renderDistribution(elements, { ...state, topP: 1, topTokens: SORTED });
+    assert.match(elements.insightBox.textContent, /keeps every token/);
     renderDistribution(elements, { ...state, topP: 0.8 });
-    assert.match(elements.insightBox.textContent, /keeps 2 tokens/);
-    renderDistribution(elements, { ...state, topP: 0.8, topTokens: [state.topTokens[0]] });
-    assert.match(elements.insightBox.textContent, /keeps 1 token whose/);
+    assert.match(elements.insightBox.textContent, /keeps 2 tokens whose/);
   } finally {
     restoreDocument(mocks);
   }
@@ -472,23 +478,28 @@ test('insightReserveCopies covers every insight line the sliders can produce', (
   const copies = insightReserveCopies(RESERVE_SCENARIOS);
   assert.equal(copies.length, 16);
   assert.equal(new Set(copies).size, 16);
-  // The setting echoed in the copy ("temperature 0.3") never changes its length.
-  const shape = (text) => text.replace(/\d+\.\d+/g, '#');
+  // A setting, a percent, and a count never change a line's length by more
+  // than their widest form, which the reserve copies print.
+  const shape = (text) => text.replace(/\d+(\.\d+)?/g, '#');
   const shapes = new Set(copies.map(shape));
   // Written for the longest candidate word, so no real winner makes a longer line.
   assert.ok(copies.some((copy) => copy.includes('"centigrade"')));
 
   const mocks = setupDocumentMock();
   try {
-    const state = makeDistributionState();
     // The widest scenario has three candidates and the longest winner word.
-    const topTokens = ['centigrade', 'Celsius', 'hot'].map((word, idx) => ({ adjustedProb: 0.3, idx, word }));
-    // Every temperature and top P the sliders reach lands on a reserved line.
-    for (let step = 0; step <= 30; step += 1) {
-      for (const topP of [0.01, 0.1, 0.11, 0.5, 0.51, 0.7, 0.98, 0.99, 1]) {
-        const elements = makeDistributionElements();
-        renderDistribution(elements, { ...state, temperature: step / 10, topP, topTokens });
-        assert.ok(shapes.has(shape(elements.insightBox.textContent)), `${step / 10} ${topP}`);
+    const words = ['centigrade', 'Celsius', 'hot'];
+    for (const winnerProb of [0.995, 0.5]) {
+      const sorted = words.map((word, idx) => ({ adjustedProb: 0.3, idx, prob: idx === 0 ? winnerProb : 0.1, word }));
+      for (let step = 0; step <= 30; step += 1) {
+        for (const topP of [0.01, 0.1, 0.11, 0.5, 0.51, 0.7, 0.98, 0.99, 1]) {
+          for (let kept = 1; kept <= words.length; kept += 1) {
+            const elements = makeDistributionElements();
+            const state = makeDistributionState({ sorted, topTokens: sorted.slice(0, kept) });
+            renderDistribution(elements, { ...state, temperature: step / 10, topP });
+            assert.ok(shapes.has(shape(elements.insightBox.textContent)), `${step / 10} ${topP} ${kept}`);
+          }
+        }
       }
     }
   } finally {

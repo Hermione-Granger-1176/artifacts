@@ -40,13 +40,18 @@ FetchText = Callable[[], str]
 def retry(
     fetch: FetchText, *, attempts: int = 3, sleep: Callable[[float], None] = time.sleep
 ) -> str:
-    """Return a fetched value with bounded backoff for transient registry failures."""
+    """Return a fetched value with bounded backoff for transient registry failures.
+
+    The helper retries network failures (``OSError``, which covers ``URLError``,
+    ``HTTPError``, and timeouts) and truncated JSON bodies. A ``ValueError`` from
+    a malformed version or digest repeats on every call, so it fails at once.
+    """
     if attempts < 1:
         raise ValueError("attempts must be at least 1")
     for attempt in range(1, attempts):
         try:
             return fetch()
-        except Exception:
+        except (OSError, json.JSONDecodeError):
             sleep(attempt * 0.25)
     return fetch()
 

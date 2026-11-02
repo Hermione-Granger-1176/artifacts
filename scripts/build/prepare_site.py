@@ -459,7 +459,9 @@ def _inject_modulepreload_hints() -> None:
         ]
 
         insertion = "\n".join(hints) + "\n"
-        content = content.replace("</head>", insertion + "</head>")
+        # Only the first </head> closes the document head. A later one, say in
+        # a code sample, is page content and must stay unchanged.
+        content = content.replace("</head>", insertion + "</head>", 1)
         _write_text(html_path, content)
         logger.info(
             "Injected %d modulepreload hint(s) in %s",

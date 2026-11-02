@@ -1,9 +1,18 @@
 import { cacheElements as cacheElementsByIds } from "../../../../js/modules/element-cache.js";
 import { setText } from "../../../../js/modules/dom-sync.js";
 
-// One formatter for the principal field, so a slider drag does not build one per
-// tick (which is what toLocaleString does on every call).
+// One formatter per field, so a slider drag does not build one per tick (which
+// is what toLocaleString does on every call).
 const PRINCIPAL_FORMAT = new Intl.NumberFormat("en-US");
+// Two decimals for a slider rate such as 5.25, and up to four for a typed rate
+// such as 6.125, so the field shows the rate the calculation uses.
+const RATE_FORMAT = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 4,
+  useGrouping: false
+});
+
+/** @typedef {{ principal: number, rate: number, tenure: number }} LoanInputs */
 
 const ELEMENT_IDS = [
   "inPrincipal",
@@ -51,16 +60,32 @@ export function cacheElements(documentObj = document) {
 }
 
 /**
- * Sync the formatted text inputs from the slider values.
+ * Read the loan inputs from the three sliders.
  *
  * @param {Record<string, HTMLElement>} elements
+ * @returns {LoanInputs}
+ */
+export function readSliderInputs(elements) {
+  const sliders = /** @type {Record<string, HTMLInputElement>} */ (elements);
+  return {
+    principal: +sliders.slPrincipal.value,
+    rate: +sliders.slRate.value,
+    tenure: +sliders.slTenure.value
+  };
+}
+
+/**
+ * Write the loan inputs into the formatted text fields.
+ *
+ * @param {Record<string, HTMLElement>} elements
+ * @param {LoanInputs} inputs
  * @returns {void}
  */
-export function syncInputsFromSliders(elements) {
-  const inputs = /** @type {Record<string, HTMLInputElement>} */ (elements);
-  inputs.inPrincipal.value = PRINCIPAL_FORMAT.format(Math.round(+inputs.slPrincipal.value));
-  inputs.inRate.value = (+inputs.slRate.value).toFixed(2);
-  inputs.inTenure.value = inputs.slTenure.value;
+export function syncTextInputs(elements, { principal, rate, tenure }) {
+  const fields = /** @type {Record<string, HTMLInputElement>} */ (elements);
+  fields.inPrincipal.value = PRINCIPAL_FORMAT.format(Math.round(principal));
+  fields.inRate.value = RATE_FORMAT.format(rate);
+  fields.inTenure.value = String(tenure);
 }
 
 const BIWEEKLY_DESCRIPTIONS = {
@@ -78,8 +103,10 @@ const BIWEEKLY_DESCRIPTIONS = {
  * @returns {void}
  */
 export function syncBiweeklyModeUI(elements, bwMode, enabled = true) {
-  elements.bwTrue.classList.toggle("active", bwMode === "true");
-  elements.bwAccel.classList.toggle("active", bwMode === "accelerated");
+  for (const [button, mode] of /** @type {const} */ ([[elements.bwTrue, "true"], [elements.bwAccel, "accelerated"]])) {
+    button.classList.toggle("active", bwMode === mode);
+    button.setAttribute("aria-pressed", String(bwMode === mode));
+  }
   setText(
     elements.bwDesc,
     enabled

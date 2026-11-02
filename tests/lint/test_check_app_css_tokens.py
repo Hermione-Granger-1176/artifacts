@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from scripts.lint.check_app_css_tokens import (
     _color_function_violations,
     _color_mix_violations,
@@ -204,6 +206,26 @@ def test_named_color_flags_keyword_in_color_declaration() -> None:
     assert len(result) == 1
     assert "salmon" in result[0][1]
     assert result[0][0] == 2
+
+
+@pytest.mark.parametrize(
+    "prop",
+    [
+        "scrollbar-color",
+        "stop-color",
+        "flood-color",
+        "lighting-color",
+        "-webkit-text-fill-color",
+        "-webkit-tap-highlight-color",
+    ],
+)
+def test_named_color_flags_every_color_suffixed_property(prop: str) -> None:
+    """Any property whose name ends in `color` is scanned, prefixed or not."""
+    result = _named_color_violations(_mask(f"body.app-x .a {{ {prop}: red; }}\n"))
+    assert [message for _line, message in result] == [
+        f"named color 'red' in '{prop}' is not allowed; "
+        "use a shared color token via var() or a token-derived color-mix()"
+    ]
 
 
 def test_named_color_flags_custom_property_definition() -> None:

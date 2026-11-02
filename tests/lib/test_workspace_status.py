@@ -97,6 +97,28 @@ def test_full_report_with_venv(tmp_path: Path) -> None:
     assert "PR #1 [OPEN] Title" in report
 
 
+def test_package_lock_check_uses_npm_ci_dry_run(tmp_path: Path) -> None:
+    """`npm ci --dry-run` fails on a stale lock, which the report shows as STALE."""
+    commands: list[list[str]] = []
+
+    def npm_ci(command: list[str]) -> bool:
+        commands.append(command)
+        return command[:2] == ["npm", "ci"]
+
+    runner = FakeRun(
+        [
+            (_first("git"), _proc(0, "## main\n", "")),
+            (_first("uv"), _proc(0)),
+            (npm_ci, _proc(1)),
+        ]
+    )
+
+    report = _render(tmp_path, runner)
+
+    assert ["npm", "ci", "--dry-run", "--ignore-scripts"] in commands
+    assert "STALE: run make lock-node" in report
+
+
 def test_report_without_venv_uses_fallbacks(tmp_path: Path) -> None:
     """Without a venv the report skips checks and probes generated files directly."""
     (tmp_path / "js").mkdir()

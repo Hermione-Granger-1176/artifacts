@@ -56,7 +56,7 @@ const APP_HEADER_MARKUP = `
 `;
 
 const APP_RUNTIME_ERROR_MARKUP = `
-  <div id="runtime-error" class="runtime-error visually-hidden" role="alert" aria-live="assertive">
+  <div id="runtime-error" class="runtime-error hidden" role="alert" aria-live="assertive">
     <p>The app failed to initialize correctly. Reload the page, or try again later.</p>
     <details id="runtime-error-details" class="runtime-error-details" hidden>
       <summary>Technical details</summary>

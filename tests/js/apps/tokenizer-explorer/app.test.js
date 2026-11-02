@@ -77,6 +77,14 @@ test('tokenizer explorer app.js loads and initializes without error', async () =
     elementMap['topp-slider']._listeners.input[0]();
     assert.equal(elementMap['topp-val'].textContent, '0.50');
 
+    // At temperature 0.3 and top P 0.99 the first scenario keeps 2 tokens with
+    // 99.96% of the odds. The note rounds down, so it never claims 100% after a cut.
+    elementMap['temp-slider'].value = '3';
+    tempInput();
+    elementMap['topp-slider'].value = '99';
+    elementMap['topp-slider']._listeners.input[0]();
+    assert.equal(elementMap['topp-note'].textContent, 'Keeps 2 of 8 tokens, 99% of the odds.');
+
     const presetClick = elementMap['sampling-presets']._listeners.click[0];
     presetClick({ target: { closest: () => null } });
     presetClick({

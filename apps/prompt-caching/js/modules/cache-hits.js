@@ -8,6 +8,8 @@ import { formatPercent } from "../../../../js/modules/formatting.js";
 const MAX_VISIBLE = 5;
 const TTL_SECONDS = 300;
 const BLOCK_DELAY_MS = 80;
+/** TTL readout while nothing is cached, before the first request and after a clear. */
+const NO_CACHE_LABEL = "none";
 
 export function initCacheHits() {
   const sendBtn = byId("chvSendBtn");
@@ -22,6 +24,8 @@ export function initCacheHits() {
   let cachedPrefixTokens = 0;
   let ttlTimer = /** @type {number | null} */ (null);
   let ttlSec = 0;
+  /** Block sweeps still running, so a clear can stop them. */
+  const animationTimers = new Set();
 
   function stopTTL() {
     if (ttlTimer) {
@@ -63,6 +67,7 @@ export function initCacheHits() {
     const timer = setInterval(() => {
       if (i >= blocks.length) {
         clearInterval(timer);
+        animationTimers.delete(timer);
         onDone?.();
         return;
       }
@@ -70,6 +75,7 @@ export function initCacheHits() {
       blocks[i].classList.add(hitClass);
       i += 1;
     }, BLOCK_DELAY_MS);
+    animationTimers.add(timer);
   }
 
   /**
@@ -152,7 +158,11 @@ export function initCacheHits() {
     cachedPrefixTokens = 0;
     reqCount = 0;
     stopTTL();
-    ttlLabel.textContent = formatTTL(TTL_SECONDS);
+    for (const timer of animationTimers) {
+      clearInterval(timer);
+    }
+    animationTimers.clear();
+    ttlLabel.textContent = NO_CACHE_LABEL;
     clear(reqs);
     reqs.appendChild(makeEl("div", "pc-empty", 'No requests yet. Click "Send request" to begin.'));
   }

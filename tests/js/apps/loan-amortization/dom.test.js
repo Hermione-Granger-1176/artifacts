@@ -25,6 +25,8 @@ function makeElement(overrides = {}) {
       },
       contains(cls) { return classes.has(cls); }
     },
+    attributes: {},
+    setAttribute(name, value) { this.attributes[name] = value; },
     append(...nodes) { this.children.push(...nodes); },
     appendChild(child) { this.children.push(child); return child; },
     addEventListener: () => {},
@@ -61,7 +63,8 @@ function restoreDocument(origDoc) {
 
 import {
   cacheElements as cacheAppElements,
-  syncInputsFromSliders,
+  readSliderInputs,
+  syncTextInputs,
   syncBiweeklyModeUI,
   updateBiweeklyMode,
   setViewMode,
@@ -83,7 +86,7 @@ test('cacheElements returns cached DOM elements using element-cache', () => {
   assert.equal(result.inPrincipal.id, 'inPrincipal');
 });
 
-test('syncInputsFromSliders formats principal, rate, and tenure', () => {
+test('readSliderInputs and syncTextInputs round-trip the slider values', () => {
   const elements = {
     inPrincipal: { value: '' },
     inRate: { value: '' },
@@ -93,11 +96,21 @@ test('syncInputsFromSliders formats principal, rate, and tenure', () => {
     slTenure: { value: '15' }
   };
 
-  syncInputsFromSliders(elements);
+  syncTextInputs(elements, readSliderInputs(elements));
 
   assert.equal(elements.inPrincipal.value, '250,000');
   assert.equal(elements.inRate.value, '6.50');
   assert.equal(elements.inTenure.value, '15');
+});
+
+test('syncTextInputs shows a typed rate at the precision the calculation uses', () => {
+  const elements = { inPrincipal: { value: '' }, inRate: { value: '' }, inTenure: { value: '' } };
+
+  syncTextInputs(elements, { principal: 123456, rate: 6.125, tenure: 7 });
+
+  assert.equal(elements.inPrincipal.value, '123,456');
+  assert.equal(elements.inRate.value, '6.125');
+  assert.equal(elements.inTenure.value, '7');
 });
 
 test('syncBiweeklyModeUI toggles active class based on mode', () => {
@@ -115,6 +128,9 @@ test('syncBiweeklyModeUI toggles active class based on mode', () => {
   assert.equal(bwTrue.classList.contains('active'), false);
   assert.equal(bwAccel.classList.contains('active'), true);
   assert.match(bwDesc.textContent, /Monthly EMI/);
+  // Screen readers get the selected method from aria-pressed, not the class.
+  assert.equal(bwTrue.attributes['aria-pressed'], 'false');
+  assert.equal(bwAccel.attributes['aria-pressed'], 'true');
 });
 
 test('updateBiweeklyMode enables the panel for biweekly and disables it otherwise', () => {
@@ -394,6 +410,7 @@ test('bindEvents attaches listeners to slider and button elements', () => {
     onPrincipalCommit: () => calls.push('principal'),
     onRateCommit: () => calls.push('rate'),
     onTenureCommit: () => calls.push('tenure'),
+    onInvalidInput: () => calls.push('invalid'),
     onFrequencyChange: () => calls.push('freq'),
     onBiweeklyModeChange: (mode) => calls.push(`bw:${mode}`),
     onAddExtra: () => calls.push('add'),
@@ -466,6 +483,7 @@ test('bindEvents text input keydown Enter triggers blur', () => {
     onPrincipalCommit: () => {},
     onRateCommit: () => {},
     onTenureCommit: () => {},
+    onInvalidInput: () => {},
     onFrequencyChange: () => {},
     onBiweeklyModeChange: () => {},
     onAddExtra: () => {},
@@ -522,6 +540,7 @@ test('bindEvents text input clamps to min/max and triggers all commits', () => {
     onPrincipalCommit: () => calls.push('principal'),
     onRateCommit: () => calls.push('rate'),
     onTenureCommit: () => calls.push('tenure'),
+    onInvalidInput: () => calls.push('invalid'),
     onFrequencyChange: () => {},
     onBiweeklyModeChange: () => {},
     onAddExtra: () => {},
@@ -590,6 +609,7 @@ test('bindEvents text input ignores NaN and non-positive values', () => {
     onPrincipalCommit: () => calls.push('principal'),
     onRateCommit: () => {},
     onTenureCommit: () => {},
+    onInvalidInput: () => calls.push('invalid'),
     onFrequencyChange: () => {},
     onBiweeklyModeChange: () => {},
     onAddExtra: () => {},
@@ -600,10 +620,49 @@ test('bindEvents text input ignores NaN and non-positive values', () => {
     parseNumber: (v) => parseFloat(v)
   });
 
-  // NaN value should not trigger commit
+  // A NaN or non-positive value does not commit. It asks the app to restore
+  // the field, so the box never shows a value the calculation is not using.
   elements.inPrincipal.value = 'abc';
   listeners['inPrincipal:change'].call(elements.inPrincipal);
-  assert.equal(calls.length, 0);
+  elements.inPrincipal.value = '0';
+  listeners['inPrincipal:change'].call(elements.inPrincipal);
+  assert.deepEqual(calls, ['invalid', 'invalid']);
+});
+
+test('bindEvents commits the typed value clamped to the slider range', () => {
+  const listeners = {};
+  const committed = [];
+  const field = (id) => ({ id, value: '', addEventListener(type, handler) { listeners[`${id}:${type}`] = handler; }, blur() {} });
+  const elements = Object.fromEntries(
+    ['slPrincipal', 'slRate', 'slTenure', 'inPrincipal', 'inRate', 'inTenure', 'selFreq', 'bwTrue', 'bwAccel', 'btnAdd', 'extraList']
+      .map((id) => [id, field(id)])
+  );
+  elements.viewToggle = makeToggle(['btnCharts', 'btnTable'], listeners);
+  elements.tableToggle = makeToggle(['btnPeriod', 'btnYearly'], listeners);
+  bindEvents({
+    elements,
+    onSliderInput: () => {},
+    onPrincipalCommit: (value) => committed.push(['principal', value]),
+    onRateCommit: (value) => committed.push(['rate', value]),
+    onTenureCommit: (value) => committed.push(['tenure', value]),
+    onInvalidInput: () => {},
+    onFrequencyChange: () => {},
+    onBiweeklyModeChange: () => {},
+    onAddExtra: () => {},
+    onExtraListClick: () => {},
+    onExtraListInput: () => {},
+    onViewModeChange: () => {},
+    onTableModeChange: () => {},
+    parseNumber: (v) => parseFloat(v)
+  });
+
+  elements.inRate.value = '6.1';
+  listeners['inRate:change'].call(elements.inRate);
+  elements.inPrincipal.value = '9000000';
+  listeners['inPrincipal:change'].call(elements.inPrincipal);
+
+  assert.deepEqual(committed, [['rate', 6.1], ['principal', 500000]]);
+  assert.equal(elements.slRate.value, '6.1', 'the slider gets the typed value and snaps it in the browser');
 });
 
 // --- charts.js ---

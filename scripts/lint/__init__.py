@@ -39,15 +39,26 @@ SKIP_DIRECTORIES = frozenset(
         ".worktrees",
         "__pycache__",
         "_site",
-        "build",
-        "coverage",
-        "dist",
         "htmlcov",
         "node_modules",
         "test-results",
         "vendor",
     }
 )
+
+# Directories the walkers skip only at the repository root. .gitignore anchors
+# `/build/` and `/dist/` to the root, and coverage tools write `coverage/` there.
+# Skipping these names at any depth would also skip source trees such as
+# scripts/build/ and tests/build/.
+ROOT_SKIP_DIRECTORIES = frozenset({"build", "coverage", "dist"})
+
+
+def is_skipped_directory(name: str, *, at_root: bool) -> bool:
+    """Return whether a lint walker skips the directory ``name``.
+
+    ``at_root`` is true when the directory sits directly under the repository root.
+    """
+    return name in SKIP_DIRECTORIES or (at_root and name in ROOT_SKIP_DIRECTORIES)
 
 
 def add_root_argument(parser: argparse.ArgumentParser) -> None:
@@ -153,10 +164,12 @@ def iter_lint_paths(root: Path) -> Iterator[Path]:
         followlinks=False,
     ):
         current_path = Path(current_root)
+        at_root = current_path == root
         directory_names[:] = sorted(
             name
             for name in directory_names
-            if name not in SKIP_DIRECTORIES and not (current_path / name).is_symlink()
+            if not is_skipped_directory(name, at_root=at_root)
+            and not (current_path / name).is_symlink()
         )
         for file_name in sorted(file_names):
             path = current_path / file_name

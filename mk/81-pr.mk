@@ -36,7 +36,7 @@ pr-status: ## Show a PR's status and CI checks (make pr-status [pr_num=N])
 	@$(GH) pr-status $(if $(pr_num),--pr "$(pr_num)")
 
 pr-checks: ## Watch CI checks until done (make pr-checks [pr_num=N])
-	@$(GH) pr-checks $(if $(pr_num),--pr "$(pr_num)") || true
+	@$(GH) pr-checks $(if $(pr_num),--pr "$(pr_num)")
 
 pr-diff: ## Show the diff for the current PR (make pr-diff [pr_num=N])
 	@$(GH) pr-diff $(if $(pr_num),--pr "$(pr_num)")

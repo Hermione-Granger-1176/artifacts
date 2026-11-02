@@ -515,11 +515,16 @@ def scaffold_artifact(name: str, *, source_html: str | None = None) -> Path:
     if not is_kebab_case(name):
         raise ValueError("Artifact name must use kebab-case")
 
-    # Fail on an existing directory before reading or warning about the source
-    # HTML, so a re-run against a taken slug is a clean no-op with no output.
+    # Fail on an existing directory or test file before reading or warning
+    # about the source HTML, so a re-run against a taken slug is a clean no-op
+    # with no output. The test file can outlive a deleted app directory, and
+    # the scaffold must not overwrite a test someone wrote.
     artifact_dir = APPS_DIR / name
     if artifact_dir.exists():
         raise FileExistsError(f"Artifact directory already exists: {artifact_dir}")
+    test_file = TESTS_JS_APPS_DIR / name / "app.test.js"
+    if test_file.exists():
+        raise FileExistsError(f"Artifact test file already exists: {test_file}")
 
     title = _title_from_slug(name)
     index_html = _resolve_index_html(title, name, source_html)

@@ -377,6 +377,27 @@ def test_run_gh_api_form_posts_fields_with_shared_helper(
     }
 
 
+def test_run_gh_api_form_passes_an_attempt_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A caller can lower the attempt budget for a non-idempotent request."""
+    captured: dict[str, object] = {}
+
+    def fake_run_gh_api_form(_endpoint: str, *, max_attempts: int, **_kwargs: object) -> str:
+        captured["max_attempts"] = max_attempts
+        return ""
+
+    monkeypatch.setattr(workflow_helpers._gh_api, "run_gh_api_form", fake_run_gh_api_form)
+
+    workflow_helpers._run_gh_api_form(
+        "repos/owner/repo/issues",
+        method="POST",
+        fields=[],
+        description="creating alert issue",
+        max_attempts=1,
+    )
+
+    assert captured == {"max_attempts": 1}
+
+
 def test_run_gh_api_form_escapes_leading_at_values(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -376,6 +376,23 @@ def read_thumbnail_plan(root: Path) -> dict[str, object]:
     return cast("dict[str, object]", payload)
 
 
+def _thumbnail_artifact_slug(relative: str) -> str | None:
+    """Return the app slug of an ``<apps>/<slug>/thumbnail.webp`` path, else ``None``.
+
+    ``Path.match`` anchors a relative pattern at the right end, so it also
+    accepts nested paths such as ``apps/foo/apps/bar/thumbnail.webp``. This
+    check requires the exact depth and a valid slug.
+    """
+    base_parts = Path(artifact_base_path()).parts
+    parts = Path(relative).parts
+    if len(parts) != len(base_parts) + 2 or parts[: len(base_parts)] != base_parts:
+        return None
+    slug, filename = parts[len(base_parts) :]
+    if filename != _THUMBNAIL_FILE or not artifact_id_pattern().fullmatch(slug):
+        return None
+    return slug
+
+
 def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
     """Validate a thumbnail-persistence artifact tree and return its plan."""
     reject_path_symlinks(root, label="Thumbnail artifact root")
@@ -398,11 +415,11 @@ def validate_thumbnail_artifact(root: Path) -> dict[str, object]:
             if relative == THUMBNAIL_ARTIFACT_PLAN_FILE.as_posix():
                 continue
 
-            if not Path(relative).match(f"{artifact_base_path()}/*/{_THUMBNAIL_FILE}"):
+            slug = _thumbnail_artifact_slug(relative)
+            if slug is None:
                 raise ValueError(f"Unexpected file in thumbnail artifact: {relative}")
 
             saw_thumbnail = True
-            slug = Path(relative).parts[1]
             if not all_thumbnail_scope and slug not in allowed_slugs:
                 raise ValueError(f"Thumbnail artifact contains slug outside plan scope: {slug}")
 

@@ -57,9 +57,11 @@ runs:
     - name: Resolve deployed asset marker
       id: deploy-version
       shell: bash
+      env:
+        DEPLOY_COMMIT_SHA: ${{ inputs.commit-sha }}
       run: |
-        echo "short-sha=$(printf '%s' "${{ inputs.commit-sha }}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
-        echo "commit-sha=${{ inputs.commit-sha }}" >> "$GITHUB_OUTPUT"
+        echo "short-sha=$(printf '%s' "$DEPLOY_COMMIT_SHA" | cut -c1-7)" >> "$GITHUB_OUTPUT"
+        echo "commit-sha=$DEPLOY_COMMIT_SHA" >> "$GITHUB_OUTPUT"
 
     - name: Deploy to gh-pages
       id: gh-pages-deploy

@@ -1,4 +1,6 @@
+import { formatPercent } from "../../../../js/modules/formatting.js";
 import { buildCandidateRows, renderCandidateList } from "./candidates.js";
+import { SAMPLE_DRAW_COUNT } from "./sampling.js";
 import {
   formatTokenForDisplay,
   getTokenExampleStats,
@@ -9,16 +11,9 @@ import {
 // Shared chip tone modifiers cycled across the illustrative token chips.
 const CHIP_TONES = ["is-blue", "is-green", "is-amber", "is-purple", "is-red"];
 
-const SAMPLE_STATUS_IDLE = "Run 100 draws to compare the observed tally with the distribution.";
+const SAMPLE_STATUS_IDLE = `Run ${SAMPLE_DRAW_COUNT} draws to compare the observed tally with the distribution.`;
 const SAMPLE_STATUS_TALLY =
-  "Thin bars: tally from 100 draws of the renormalized pool, so a token can land above its blue bar.";
-
-// One setting per branch of the two insight copies, used to size the hidden
-// copies that reserve the insight's height. Keep them in step with the branches
-// in temperatureInsight and topPInsight; the tests check that every setting
-// reachable from the sliders has a reserved copy.
-const INSIGHT_TEMPERATURES = [0, 0.3, 1, 2];
-const INSIGHT_TOP_PS = [0.1, 0.5, 0.7, 0.99];
+  `Thin bars: tally from ${SAMPLE_DRAW_COUNT} draws of the renormalized pool, so a token can land above its blue bar.`;
 
 /**
  * @param {string} token - Raw token text.
@@ -34,8 +29,15 @@ function createTokenChip(token, className, showWhitespace) {
   return chip;
 }
 
+/** A winner at or above this probability takes nearly every draw. */
+const DOMINANT_PROBABILITY = 0.9;
+
 /**
- * @param {{ word: string }} winner - Highest-probability token.
+ * Describe the temperature by what it did to the distribution. The same
+ * temperature can leave one scenario nearly certain and another wide open, so
+ * the copy reads the winner's probability, not the slider value alone.
+ *
+ * @param {{ word: string, prob: number }} winner - Highest-probability token.
  * @param {number} temperature - Sampling temperature.
  * @returns {string} Explanatory copy.
  */
@@ -45,43 +47,49 @@ function temperatureInsight(winner, temperature) {
   }
 
   const value = temperature.toFixed(1);
-  if (temperature <= 0.3) {
-    return `At temperature ${value}, the model is almost deterministic. "${winner.word}" wins nearly every time. Great for code or facts where consistency matters.`;
+  const odds = formatPercent(winner.prob * 100);
+  if (winner.prob >= DOMINANT_PROBABILITY) {
+    return `At temperature ${value}, "${winner.word}" holds ${odds} of the odds and wins nearly every draw. Great for code or facts where consistency matters.`;
   }
   if (temperature >= 2.0) {
     return `At temperature ${value}, probability spreads out widely. Unusual tokens become real contenders. Useful for creative tasks, risky for factual ones.`;
   }
-  return `At temperature ${value}, "${winner.word}" is the favorite but there is real variety. A solid balance between coherence and surprise.`;
+  return `At temperature ${value}, "${winner.word}" leads with ${odds} of the odds, but other tokens still win draws. A solid balance between coherence and surprise.`;
 }
 
 /**
+ * Describe the top P cut by how many tokens it kept. Whether a wide top P keeps
+ * every token depends on temperature too, so the copy reads the kept count.
+ *
  * @param {number} topP - Nucleus sampling threshold.
- * @param {number} tokenCount - Number of tokens in the pool.
+ * @param {number} keptCount - Tokens that survive the cut.
+ * @param {number} totalCount - Tokens in the scenario.
  * @returns {string} Explanatory copy.
  */
-function topPInsight(topP, tokenCount) {
+function topPInsight(topP, keptCount, totalCount) {
   const value = topP.toFixed(2);
-  if (topP <= 0.1) {
-    return `Top P=${value} is very tight. Only the single most likely token makes the cut.`;
+  if (keptCount === 1) {
+    return `Top P=${value} keeps only the single most likely token.`;
+  }
+  if (keptCount === totalCount) {
+    return `Top P=${value} keeps every token. Temperature does all of the shaping here.`;
   }
   if (topP <= 0.5) {
-    return `Top P=${value} keeps a small, high-confidence pool. Only the safest tokens are in play.`;
+    return `Top P=${value} keeps a small, high-confidence pool of ${keptCount} tokens.`;
   }
-  if (topP >= 0.99) {
-    return `Top P=${value} is wide enough that nearly every token stays in play. Temperature does most of the shaping here.`;
-  }
-  return `Top P=${value} keeps ${tokenCount} token${tokenCount !== 1 ? "s" : ""} whose cumulative probability reaches that threshold.`;
+  return `Top P=${value} keeps ${keptCount} tokens whose cumulative probability reaches that threshold.`;
 }
 
 /**
- * @param {{ word: string }} winner - Highest-probability token.
+ * @param {{ word: string, prob: number }} winner - Highest-probability token.
  * @param {number} temperature - Sampling temperature.
  * @param {number} topP - Nucleus sampling threshold.
- * @param {number} tokenCount - Number of tokens in the pool.
+ * @param {number} keptCount - Tokens that survive the cut.
+ * @param {number} totalCount - Tokens in the scenario.
  * @returns {string} The full insight line.
  */
-function insightCopy(winner, temperature, topP, tokenCount) {
-  return `${temperatureInsight(winner, temperature)} ${topPInsight(topP, tokenCount)}`;
+function insightCopy(winner, temperature, topP, keptCount, totalCount) {
+  return `${temperatureInsight(winner, temperature)} ${topPInsight(topP, keptCount, totalCount)}`;
 }
 
 /**
@@ -117,8 +125,25 @@ export function insightReserveCopies(scenarios) {
   const words = scenarios.flatMap((scenario) => scenario.tokens.map((token) => token.word));
   const longest = words.reduce((best, word) => (word.length > best.length ? word : best), "");
   const tokenCount = Math.max(...scenarios.map((scenario) => scenario.tokens.length));
-  return INSIGHT_TEMPERATURES.flatMap((temperature) =>
-    INSIGHT_TOP_PS.map((topP) => insightCopy({ word: longest }, temperature, topP, tokenCount))
+  // One case per temperature line and one per top P line. The numbers are the
+  // widest each line can print: "100.0%", a two-decimal setting, and the
+  // largest token count.
+  const temperatureCases = [
+    { temperature: 0, prob: 1 },
+    { temperature: 0.3, prob: 1 },
+    { temperature: 2.5, prob: 0.5 },
+    { temperature: 1, prob: 0.5 }
+  ];
+  const topPCases = [
+    { topP: 0.05, keptCount: 1 },
+    { topP: 0.99, keptCount: tokenCount },
+    { topP: 0.4, keptCount: tokenCount - 1 },
+    { topP: 0.8, keptCount: tokenCount - 1 }
+  ];
+  return temperatureCases.flatMap(({ temperature, prob }) =>
+    topPCases.map(({ topP, keptCount }) =>
+      insightCopy({ word: longest, prob }, temperature, topP, keptCount, tokenCount)
+    )
   );
 }
 
@@ -271,8 +296,14 @@ export function renderTokenExamples(container, showWhitespace) {
 export function renderDistribution(elements, state) {
   renderCandidateList(elements.candidateList, buildCandidateRows(state));
 
-  const winner = state.topTokens[0];
-  elements.insightBox.textContent = insightCopy(winner, state.temperature, state.topP, state.topTokens.length);
+  const winner = state.sorted[0];
+  elements.insightBox.textContent = insightCopy(
+    winner,
+    state.temperature,
+    state.topP,
+    state.topTokens.length,
+    state.sorted.length
+  );
 
   if (elements.sampleStatus) {
     elements.sampleStatus.textContent = state.sampleCounts ? SAMPLE_STATUS_TALLY : SAMPLE_STATUS_IDLE;

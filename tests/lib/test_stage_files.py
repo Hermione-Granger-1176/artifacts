@@ -130,7 +130,17 @@ def test_stage_paths_passes_literal_argv_and_returns_status() -> None:
     )
 
     assert status == 3
-    assert calls == [["git", "add", "--", "one file.txt", "; touch /tmp/nope", "-leading-dash"]]
+    assert calls == [
+        [
+            "git",
+            "--literal-pathspecs",
+            "add",
+            "--",
+            "one file.txt",
+            "; touch /tmp/nope",
+            "-leading-dash",
+        ]
+    ]
 
 
 def test_default_run_invokes_subprocess_without_shell(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -146,11 +156,11 @@ def test_default_run_invokes_subprocess_without_shell(monkeypatch: pytest.Monkey
 
     monkeypatch.setattr(stage_files.subprocess, "run", fake_subprocess_run)
 
-    result = stage_files._default_run(["git", "add", "--", "a;b.txt"])
+    result = stage_files._default_run(["git", "--literal-pathspecs", "add", "--", "a;b.txt"])
 
     assert result.returncode == 0
     assert recorded == {
-        "cmd": ["git", "add", "--", "a;b.txt"],
+        "cmd": ["git", "--literal-pathspecs", "add", "--", "a;b.txt"],
         "kwargs": {"check": False, "shell": False, "text": True},
     }
 
@@ -211,7 +221,7 @@ def test_main_preserves_tracked_spaced_files_value() -> None:
     assert stage_files.main(environ={"STAGE_FILES": raw}, run_fn=fake_run, probe_fn=fake_run) == 0
     assert calls == [
         ["git", "--literal-pathspecs", "ls-files", "--error-unmatch", "--", raw],
-        ["git", "add", "--", raw],
+        ["git", "--literal-pathspecs", "add", "--", raw],
     ]
 
 
@@ -237,7 +247,7 @@ def test_main_splits_unmatched_multi_file_value() -> None:
             "--",
             "a.txt b.txt",
         ],
-        ["git", "add", "--", "a.txt", "b.txt"],
+        ["git", "--literal-pathspecs", "add", "--", "a.txt", "b.txt"],
     ]
 
 
@@ -250,7 +260,7 @@ def test_main_stages_collected_paths() -> None:
         return subprocess.CompletedProcess(args=list(cmd), returncode=0)
 
     assert stage_files.main(environ={"STAGE_FILE": "one file.txt"}, run_fn=fake_run) == 0
-    assert calls == [["git", "add", "--", "one file.txt"]]
+    assert calls == [["git", "--literal-pathspecs", "add", "--", "one file.txt"]]
 
 
 def test_makefile_resolve_targets_check_out_through_the_safe_helper() -> None:
@@ -277,7 +287,7 @@ def test_main_checks_out_the_chosen_side_before_staging() -> None:
     assert stage_files.main(environ=environ, run_fn=fake_run) == 0
     assert calls == [
         ["git", "checkout", "--theirs", "--", "one file.txt"],
-        ["git", "add", "--", "one file.txt"],
+        ["git", "--literal-pathspecs", "add", "--", "one file.txt"],
     ]
 
 

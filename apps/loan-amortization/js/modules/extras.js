@@ -1,3 +1,4 @@
+import { setText } from "../../../../js/modules/dom-sync.js";
 import { escapeHtml } from "../../../../js/modules/html-escape.js";
 
 /**
@@ -44,6 +45,9 @@ export function setExtraType(extras, id, type) {
 }
 
 const ALLOWED_EXTRA_FIELDS = new Set(["amount", "every", "startPeriod", "period"]);
+// The schedule matches these fields against whole period numbers, so a value
+// such as 1.5 would never match or would land on a different period.
+const PERIOD_FIELDS = new Set(["every", "startPeriod", "period"]);
 
 /**
  * Update one editable numeric field for an extra payment when the input is valid.
@@ -63,7 +67,7 @@ export function updateExtraField(extras, id, field, value) {
   if (Number.isNaN(parsed) || parsed < 0) {
     return;
   }
-  if (["every", "startPeriod", "period"].includes(field) && parsed < 1) {
+  if (PERIOD_FIELDS.has(field) && (parsed < 1 || !Number.isInteger(parsed))) {
     return;
   }
 
@@ -76,18 +80,48 @@ export function updateExtraField(extras, id, field, value) {
 /**
  * Summarize one extra payment as the plain-language line shown on its row.
  *
+ * An extra whose first payment falls after the payoff period never applies,
+ * and the summary says so instead of promising the payment.
+ *
  * @param {{ amount: number, every: number, period: number, startPeriod: number, type: string }} extra
  * @param {string} periodLabel
+ * @param {number} [payoffPeriod] - The last period of the schedule with extras.
  * @returns {string}
  */
-export function summarizeExtra(extra, periodLabel) {
-  if (extra.type === "recurring") {
-    return `Pays $${extra.amount.toLocaleString()} every ${
+export function summarizeExtra(extra, periodLabel, payoffPeriod = Infinity) {
+  const isRecurring = extra.type === "recurring";
+  const summary = isRecurring
+    ? `Pays $${extra.amount.toLocaleString()} every ${
       extra.every === 1 ? periodLabel : `${extra.every} ${periodLabel}s`
-    } starting from ${periodLabel} ${extra.startPeriod}`;
+    } starting from ${periodLabel} ${extra.startPeriod}`
+    : `One-time payment of $${extra.amount.toLocaleString()} at ${periodLabel} ${extra.period}`;
+  const firstPeriod = isRecurring ? extra.startPeriod : extra.period;
+  if (firstPeriod <= payoffPeriod) {
+    return summary;
   }
+  return `${summary}. Not applied: the loan is paid off by ${periodLabel} ${payoffPeriod}`;
+}
 
-  return `One-time payment of $${extra.amount.toLocaleString()} at ${periodLabel} ${extra.period}`;
+/**
+ * Rewrite each rendered row's summary for the latest payoff period.
+ *
+ * @param {{
+ *   container: HTMLElement,
+ *   extras: Array<{ amount: number, every: number, id: number, period: number, startPeriod: number, type: string }>,
+ *   periodLabel: string,
+ *   payoffPeriod: number
+ * }} options
+ * @returns {void}
+ */
+export function renderExtraSummaries({ container, extras, periodLabel, payoffPeriod }) {
+  for (const extra of extras) {
+    const summaryNode = /** @type {HTMLElement | null} */ (
+      container.querySelector(`[data-extra-id="${extra.id}"] .extra-summary`)
+    );
+    if (summaryNode) {
+      setText(summaryNode, summarizeExtra(extra, periodLabel, payoffPeriod));
+    }
+  }
 }
 
 const ICON_ATTRS =

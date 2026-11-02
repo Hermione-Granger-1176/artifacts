@@ -11,7 +11,7 @@ import {
   renderScenarioOptions,
   renderTokenExamples
 } from "./modules/render.js";
-import { buildTopPSelection, drawToken, tallyDraws } from "./modules/sampling.js";
+import { buildTopPSelection, drawToken, SAMPLE_DRAW_COUNT, tallyDraws } from "./modules/sampling.js";
 import { scenarios } from "./modules/scenarios.js";
 
 // Populated dynamically from ELEMENT_IDS via a string-keyed loop, so the shape
@@ -149,7 +149,7 @@ function pickNextToken() {
 function sampleOneHundredTimes() {
   const state = currentSamplingState();
   clearSamplingFeedback();
-  sampleCounts = tallyDraws(state.topTokens, 100);
+  sampleCounts = tallyDraws(state.topTokens, SAMPLE_DRAW_COUNT);
   render();
 }
 
@@ -194,7 +194,9 @@ function temperatureNote(temperature) {
  * @returns {string} Note text.
  */
 function topPNote(keptCount, totalCount, retainedMass) {
-  const percent = Math.round(Math.min(retainedMass, 1) * 100);
+  // Round down, so a cut pool never reads as 100% of the odds. A pool that
+  // keeps every token covers all of the odds.
+  const percent = keptCount === totalCount ? 100 : Math.floor(Math.min(retainedMass, 1) * 100);
   return `Keeps ${keptCount} of ${totalCount} tokens, ${percent}% of the odds.`;
 }
 

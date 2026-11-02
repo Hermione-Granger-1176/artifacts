@@ -74,6 +74,41 @@ def test_align_table_handles_uneven_columns() -> None:
     assert aligned[2].count("|") == 3
 
 
+def test_split_cells_keeps_escaped_pipes_in_one_cell() -> None:
+    """An escaped pipe is cell content, and an even backslash run does not escape."""
+    assert align_tables.split_cells(r"| a \| b | c |") == [r"a \| b", "c"]
+    assert align_tables.split_cells(r"| a \\| b |") == ["a \\\\", "b"]
+
+
+def test_align_table_keeps_a_body_row_of_dashes() -> None:
+    """Only the second row is the delimiter row, so a body row of dashes keeps its text."""
+    lines = ["| Name | Value |", "| --- | --- |", "| - | - |"]
+
+    assert align_tables.align_table(lines) == [
+        "| Name | Value |",
+        "| ---- | ----- |",
+        "| -    | -     |",
+    ]
+
+
+def test_align_table_keeps_list_item_indentation() -> None:
+    """A table nested in a list item keeps its indentation."""
+    lines = ["  | a | b |", "  |---|---|", "  | long | x |"]
+
+    assert align_tables.align_table(lines) == [
+        "  | a    | b   |",
+        "  | ---- | --- |",
+        "  | long | x   |",
+    ]
+
+
+def test_align_table_round_trips_escaped_pipes() -> None:
+    """Aligning keeps an escaped pipe escaped and the column count unchanged."""
+    lines = [r"| a \| b | c |", "| --- | --- |"]
+
+    assert align_tables.align_table(lines) == [r"| a \| b | c   |", "| ------ | --- |"]
+
+
 def test_process_file_aligns_tables(tmp_path: Path) -> None:
     """Process file aligns tables."""
     md = tmp_path / "test.md"

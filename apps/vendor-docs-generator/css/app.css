@@ -700,7 +700,6 @@ body.app-vendor-docs-generator .vd-doc-title {
   font-weight: 800;
   letter-spacing: var(--tracking-wide);
   line-height: 1.1;
-  text-transform: uppercase;
 }
 
 body.app-vendor-docs-generator .vd-page.is-dense .vd-doc-title {
@@ -802,7 +801,6 @@ body.app-vendor-docs-generator .vd-logo.is-stripe {
 body.app-vendor-docs-generator .vd-logo.is-stripe .vd-logo-name {
   font-size: 1.25rem;
   letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
 }
 
 body.app-vendor-docs-generator .vd-logo.is-thin {
@@ -813,14 +811,12 @@ body.app-vendor-docs-generator .vd-logo.is-thin .vd-logo-name {
   font-size: 1.5rem;
   font-weight: 300;
   letter-spacing: var(--tracking-wider);
-  text-transform: uppercase;
 }
 
 body.app-vendor-docs-generator .vd-logo.is-thin .vd-logo-sub {
   color: var(--vd-accent, var(--color-green));
   font-size: 0.69rem;
   letter-spacing: var(--tracking-widest);
-  text-transform: uppercase;
 }
 
 /* ── Document body blocks ─────────────────────────────────────────── */
@@ -1380,11 +1376,12 @@ body.app-vendor-docs-generator .vd-workbench .btn:not(:disabled):active {
   transform: scale(0.97);
 }
 
+/*
+ * The stamp's tilt is part of the printed page, not motion, so it stays under
+ * reduced motion. Undoing it here made the same seed render differently on a
+ * machine with reduced motion on.
+ */
 @media (prefers-reduced-motion: reduce) {
-  body.app-vendor-docs-generator .vd-stamp {
-    transform: none;
-  }
-
   body.app-vendor-docs-generator .vd-workbench .btn,
   body.app-vendor-docs-generator #vdDegradePreset button::before {
     transition: none;

@@ -21,6 +21,7 @@ function makeBanner(messageEl, { initialClasses = ['hidden'] } = {}) {
     querySelector(selector) {
       return selector === 'p' ? messageEl : null;
     },
+    dataset: {},
     _classes: classes,
   };
 }
@@ -28,7 +29,7 @@ function makeBanner(messageEl, { initialClasses = ['hidden'] } = {}) {
 function runBootGuard({ runtimeStatus = 'booting', banner = true } = {}) {
   const timers = [];
   const documentElement = { dataset: { runtimeStatus } };
-  const messageEl = { textContent: '' };
+  const messageEl = { textContent: 'The app failed to initialize correctly.' };
   const bannerEl = banner ? makeBanner(messageEl) : null;
   const documentObj = {
     documentElement,
@@ -75,6 +76,8 @@ test('scheduled guard reveals the error banner when the app never booted', () =>
   assert.equal(bannerEl._classes.has('visually-hidden'), false);
   assert.match(messageEl.textContent, /failed to start/);
   assert.equal(documentElement.dataset.runtimeStatus, 'error');
+  // The runtime restores this message and hides the banner if the app boots late.
+  assert.equal(bannerEl.dataset.bootGuardMessage, 'The app failed to initialize correctly.');
 });
 
 test('scheduled guard stands down when the app reported ready', () => {
@@ -84,7 +87,8 @@ test('scheduled guard stands down when the app reported ready', () => {
 
   assert.equal(revealed, false);
   assert.equal(bannerEl._classes.has('hidden'), true);
-  assert.equal(messageEl.textContent, '');
+  assert.equal(messageEl.textContent, 'The app failed to initialize correctly.');
+  assert.equal('bootGuardMessage' in bannerEl.dataset, false);
 });
 
 test('isBooted treats ready and error as booted, booting as not', () => {

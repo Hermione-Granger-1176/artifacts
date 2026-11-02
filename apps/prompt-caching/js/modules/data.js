@@ -187,11 +187,13 @@ export const SUMMARY_STEPS = [
   { title: "Cross-request reuse", tone: "rose", desc: "Providers keep the cache for 5 to 10 minutes. Same prompt prefix on the next request? Reuse everything. 10x cheaper, up to 85% faster." }
 ];
 
-/* Eight cluster colors, cycled from the shared semantic palette (resolved per
- * theme at draw time). */
+/* Eight distinct cluster colors from the shared palette, resolved per theme at
+ * draw time. The palette has five hues, so three clusters use the emphasis
+ * shade of a hue. Clusters 0 to 3 sit in the top row and 4 to 7 below them,
+ * and no shade sits next to another shade of its own hue. */
 export const DIM_COLORS = [
   "--color-amber", "--color-green", "--color-blue", "--color-purple",
-  "--color-red", "--color-amber", "--color-purple", "--color-green"
+  "--color-red", "--color-purple-emphasis", "--color-amber-emphasis", "--color-blue-emphasis"
 ];
 
 /* Pre-built 8-dimensional embeddings for common words. Dimensions loosely map to

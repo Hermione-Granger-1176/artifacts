@@ -434,12 +434,20 @@ body.app-loan-amortization .chart-legend-note {
   color: var(--color-text-secondary);
 }
 
+/*
+ * Each dot uses the color its series is drawn in. The line charts draw in the
+ * saturated --color-* tokens. The bar fills use the softer --note-* tokens.
+ */
 body.app-loan-amortization .dot.is-blue {
   background: var(--color-blue);
 }
 
-body.app-loan-amortization .dot.is-note-blue {
-  background: var(--note-blue);
+body.app-loan-amortization .dot.is-green {
+  background: var(--color-green);
+}
+
+body.app-loan-amortization .dot.is-red {
+  background: var(--color-red);
 }
 
 body.app-loan-amortization .dot.is-note-green {

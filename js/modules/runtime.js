@@ -268,10 +268,27 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
     }
   };
 
+  // The boot guard reveals the banner when the app has not booted after its
+  // timeout, and records the banner's original message. If the app boots
+  // after all, hide that banner. A banner that a fatal error revealed stays.
+  const dismissBootGuardBanner = () => {
+    const originalMessage = runtimeErrorBanner?.dataset?.bootGuardMessage;
+    if (!runtimeErrorBanner || originalMessage === undefined || state.lastError?.fatal) {
+      return;
+    }
+    delete runtimeErrorBanner.dataset.bootGuardMessage;
+    runtimeErrorBanner.classList.add('hidden');
+    const message = runtimeErrorBanner.querySelector('p');
+    if (message && originalMessage) {
+      message.textContent = originalMessage;
+    }
+  };
+
   return {
     markReady() {
       state.ready = true;
       setStatus('ready');
+      dismissBootGuardBanner();
     },
 
     readStorage(key, fallbackValue = null) {

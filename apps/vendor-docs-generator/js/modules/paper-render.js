@@ -18,7 +18,7 @@
  * @typedef {import("./vendors.js").Vendor} Vendor
  */
 
-import { initialsOf } from "./format.js";
+import { initialsOf, printedTitle, printedVendorName } from "./format.js";
 
 /**
  * Create an element with an optional class list and text.
@@ -64,17 +64,53 @@ function tag(element, field, value) {
 }
 
 /**
+ * Build an element holding `text`, labelled for the ground truth. A string
+ * field labels the whole element. Span tags wrap each tagged substring in its
+ * own labelled span, in order, so a field printed inside a longer string, such
+ * as the rate in "Sales tax (8.25%)", still gets its own box.
+ * @param {Document} doc - Owning document.
+ * @param {string} tagName - Element to create.
+ * @param {string} className - Class for the element.
+ * @param {string} text - Printed text.
+ * @param {import("./document-model.js").FieldSpec | null | undefined} field - Field or span tags.
+ * @returns {HTMLElement} The element.
+ */
+function labelled(doc, tagName, className, text, field) {
+  if (!Array.isArray(field)) {
+    return tag(make(doc, tagName, className, text), field ?? null, text);
+  }
+
+  const element = make(doc, tagName, className);
+  let rest = text;
+  for (const span of field) {
+    const at = rest.indexOf(span.text);
+    if (at < 0) {
+      throw new Error(`Span tag "${span.field}" is not in "${text}"`);
+    }
+    if (at > 0) {
+      element.appendChild(make(doc, "span", undefined, rest.slice(0, at)));
+    }
+    element.appendChild(tag(make(doc, "span", undefined, span.text), span.field, span.text));
+    rest = rest.slice(at + span.text.length);
+  }
+  if (rest) {
+    element.appendChild(make(doc, "span", undefined, rest));
+  }
+  return element;
+}
+
+/**
  * Append one element per line of text.
  * @param {Document} doc - Owning document.
  * @param {HTMLElement} parent - Element to append into.
  * @param {string[]} lines - Lines to render.
  * @param {string} className - Class for each line element.
- * @param {(string | null)[]} fields - Ground-truth field per line, including the name.
+ * @param {(import("./document-model.js").FieldSpec | null)[]} fields - Ground-truth field per line, including the name.
  * @returns {void}
  */
 function appendLines(doc, parent, lines, className, fields) {
   lines.forEach((line, index) => {
-    parent.appendChild(tag(make(doc, "div", className, line), fields[index + 1], line));
+    parent.appendChild(labelled(doc, "div", className, line, fields[index + 1]));
   });
 }
 
@@ -83,19 +119,19 @@ function appendLines(doc, parent, lines, className, fields) {
  * @param {Document} doc - Owning document.
  * @param {HTMLElement} parent - Element to append into.
  * @param {string[]} lines - The name followed by the remaining lines.
- * @param {(string | null)[]} fields - Ground-truth field per line, including the name.
+ * @param {(import("./document-model.js").FieldSpec | null)[]} fields - Ground-truth field per line, including the name.
  * @returns {void}
  */
 function appendParty(doc, parent, lines, fields) {
   const [name, ...rest] = lines;
-  parent.appendChild(tag(make(doc, "div", "vd-party-name", name), fields[0], name));
+  parent.appendChild(labelled(doc, "div", "vd-party-name", name, fields[0]));
   appendLines(doc, parent, rest, "vd-party-line", fields);
 }
 
 /**
  * Build a two-column key/value table.
  * @param {Document} doc - Owning document.
- * @param {import("./document-model.js").LabelledValue[]} pairs - Label/value/field triples.
+ * @param {import("./document-model.js").LabelledValue[]} pairs - Label, value, field, and label span tags.
  * @param {string} className - Class for the table element.
  * @returns {HTMLElement} The table.
  */
@@ -103,10 +139,10 @@ function keyValueTable(doc, pairs, className) {
   const table = make(doc, "table", className);
   const body = make(doc, "tbody");
 
-  for (const [label, value, field] of pairs) {
+  for (const [label, value, field, labelField] of pairs) {
     const row = make(doc, "tr");
-    row.appendChild(make(doc, "th", "vd-kv-key", label));
-    row.appendChild(tag(make(doc, "td", "vd-kv-value", value), field, value));
+    row.appendChild(labelled(doc, "th", "vd-kv-key", label, labelField));
+    row.appendChild(labelled(doc, "td", "vd-kv-value", value, field));
     body.appendChild(row);
   }
 
@@ -182,6 +218,7 @@ function renderTableBlock(doc, block) {
  */
 export function buildLogo(doc, vendor) {
   const logo = make(doc, "div", `vd-logo is-${vendor.logoStyle}`);
+  const name = printedVendorName(vendor);
 
   /**
    * @param {string} className - Class for the span.
@@ -194,27 +231,27 @@ export function buildLogo(doc, vendor) {
     case "block":
     case "stamp":
       logo.appendChild(make(doc, "span", "vd-logo-mark", initialsOf(vendor.name)));
-      logo.appendChild(namePart("vd-logo-name", vendor.name));
+      logo.appendChild(namePart("vd-logo-name", name));
       break;
 
     case "leaf":
     case "mono":
       logo.appendChild(make(doc, "span", "vd-logo-glyph", vendor.logoStyle === "leaf" ? "☘" : "☁"));
-      logo.appendChild(namePart("vd-logo-name", vendor.name));
+      logo.appendChild(namePart("vd-logo-name", name));
       break;
 
     case "thin": {
       // The thin lockup splits the name across two spans, so it produces two
       // `vendor_name` regions rather than one. That is the truth of the layout:
       // there is no single box on the page holding the whole name.
-      const [firstWord, ...restWords] = vendor.name.split(" ");
+      const [firstWord, ...restWords] = name.split(" ");
       logo.appendChild(namePart("vd-logo-name", firstWord));
       logo.appendChild(namePart("vd-logo-sub", restWords.join(" ")));
       break;
     }
 
     default:
-      logo.appendChild(namePart("vd-logo-name", vendor.name));
+      logo.appendChild(namePart("vd-logo-name", name));
   }
 
   return logo;
@@ -296,10 +333,10 @@ function renderTotals(doc, block) {
   const table = make(doc, "table", "vd-totals");
   const body = make(doc, "tbody");
 
-  block.rows.forEach(([label, value, field], index) => {
+  block.rows.forEach(([label, value, field, labelField], index) => {
     const row = make(doc, "tr", index === block.emphasisIndex ? "is-emphasis" : undefined);
-    row.appendChild(make(doc, "th", "vd-totals-label", label));
-    row.appendChild(tag(make(doc, "td", "vd-totals-value", value), field, value));
+    row.appendChild(labelled(doc, "th", "vd-totals-label", label, labelField));
+    row.appendChild(labelled(doc, "td", "vd-totals-value", value, field));
     body.appendChild(row);
   });
 
@@ -319,7 +356,7 @@ function renderChips(doc, block) {
   for (const [label, value, field] of block.items) {
     const chip = make(doc, "span", "vd-doc-chip");
     chip.appendChild(make(doc, "span", "vd-doc-chip-label", label));
-    chip.appendChild(tag(make(doc, "span", "vd-doc-chip-value", value), field, value));
+    chip.appendChild(labelled(doc, "span", "vd-doc-chip-value", value, field));
     wrapper.appendChild(chip);
   }
 
@@ -454,7 +491,7 @@ function renderHeader(doc, model) {
 
   const titleWrap = make(doc, "div", "vd-doc-title-wrap");
   titleWrap.appendChild(
-    tag(make(doc, "div", "vd-doc-title", model.title), "document_title", model.title)
+    tag(make(doc, "div", "vd-doc-title", printedTitle(model.title)), "document_title", model.title)
   );
 
   if (model.subtitle) {

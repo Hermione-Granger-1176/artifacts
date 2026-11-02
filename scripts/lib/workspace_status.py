@@ -151,11 +151,10 @@ def _write_node_section(
     emit("OK: node_modules exists" if node_ok else "MISSING: run make setup")
     uv_check = _succeeds([uv, "lock", "--check"], cwd=root, run_fn=run)
     emit("OK: uv.lock is current" if _ok(uv_check) else "STALE: run make lock")
-    npm_check = _succeeds(
-        [npm, "install", "--package-lock-only", "--ignore-scripts", "--dry-run"],
-        cwd=root,
-        run_fn=run,
-    )
+    # `npm ci` fails when package.json and package-lock.json disagree, and
+    # --dry-run leaves node_modules alone. `npm install --dry-run` exits 0 even
+    # for a stale lock, so it cannot answer this question.
+    npm_check = _succeeds([npm, "ci", "--dry-run", "--ignore-scripts"], cwd=root, run_fn=run)
     emit("OK: package-lock.json is current" if _ok(npm_check) else "STALE: run make lock-node")
 
 

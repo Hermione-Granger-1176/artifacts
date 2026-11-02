@@ -111,7 +111,7 @@ commit: ## Commit staged changes, message on stdin (make commit < msg.txt, or a 
 	cat > "$$tmp"; \
 	test -s "$$tmp" || { printf 'Empty commit message. Usage: make commit < msg.txt, or a heredoc\n' >&2; exit 1; }; \
 	$(GH) check-commit-message --message-file "$$tmp"; \
-	git commit $(if $(amend),--amend) -F "$$tmp"
+	git commit $(if $(filter 1,$(amend)),--amend) -F "$$tmp"
 
 push: ## Push the current branch to origin
 	git push -u origin HEAD

@@ -12,6 +12,7 @@ import {
   removeExtraById,
   setExtraType,
   updateExtraField,
+  renderExtraSummaries,
   summarizeExtra,
   renderExtras
 } from '../../../../apps/loan-amortization/js/modules/extras.js';
@@ -204,13 +205,32 @@ test('buildMetricsView promotes the EMI to the hero and keeps the other metrics'
   assert.equal(view.interestValue, '$4200');
   assert.equal(view.interestSub, 'Without extras: $5000');
   assert.equal(view.payoffValue, '18 months');
-  assert.equal(view.payoffSub, '2 earlier than without extras');
+  assert.equal(view.payoffSub, '2 months earlier than without extras');
   assert.equal(view.paidValue, '$54200');
   assert.equal(view.paidSub, 'Interest is 8.4% of loan');
   assert.equal(view.breakValue, 'Month 9');
   assert.match(view.heroTip, /each month/);
   assert.match(view.payoffTip, /Number of months/);
   assert.match(view.breakTip, /first month/);
+});
+
+test('buildMetricsView uses the singular for one period', () => {
+  const view = buildMetricsView(
+    {
+      base: { emi: 300, totalInterest: 50 },
+      extra: { totalInterest: 40, totalExtra: 100, periods: 1, breakEven: 1 },
+      savings: 10,
+      periodsSaved: 1,
+      totalPaid: 1040,
+      costRatio: 1.04,
+      label: 'Year',
+      periodsPerYear: 1
+    },
+    fmt
+  );
+
+  assert.equal(view.payoffValue, '1 year');
+  assert.equal(view.payoffSub, '1 year earlier than without extras');
 });
 
 test('buildMetricsView leaves the chip and extras sub-line empty when there are no extras', () => {
@@ -361,6 +381,44 @@ test('updateExtraField accepts allowed fields with valid values', () => {
   assert.equal(extras[0].amount, 1000);
   updateExtraField(extras, 1, 'every', '3');
   assert.equal(extras[0].every, 3);
+});
+
+test('updateExtraField rejects fractional period values', () => {
+  const extras = [{ id: 1, amount: 500, every: 1, startPeriod: 1, period: 1 }];
+  updateExtraField(extras, 1, 'every', '1.5');
+  updateExtraField(extras, 1, 'startPeriod', '2.5');
+  updateExtraField(extras, 1, 'period', '3.2');
+  assert.deepEqual(extras[0], { id: 1, amount: 500, every: 1, startPeriod: 1, period: 1 });
+  updateExtraField(extras, 1, 'amount', '250.5');
+  assert.equal(extras[0].amount, 250.5, 'a fractional amount is still fine');
+});
+
+test('summarizeExtra says when the first payment falls after payoff', () => {
+  const extra = { type: 'onetime', amount: 500, every: 1, startPeriod: 1, period: 200 };
+  assert.equal(
+    summarizeExtra(extra, 'month', 84),
+    'One-time payment of $500 at month 200. Not applied: the loan is paid off by month 84'
+  );
+  assert.equal(summarizeExtra({ ...extra, period: 84 }, 'month', 84), 'One-time payment of $500 at month 84');
+  assert.equal(
+    summarizeExtra({ ...extra, type: 'recurring', startPeriod: 90 }, 'month', 84),
+    'Pays $500 every month starting from month 90. Not applied: the loan is paid off by month 84'
+  );
+});
+
+test('renderExtraSummaries rewrites each row for the payoff period', () => {
+  const nodes = { 0: { textContent: '' } };
+  const container = {
+    querySelector: (selector) => (selector === '[data-extra-id="0"] .extra-summary' ? nodes[0] : null)
+  };
+  const extras = [
+    { id: 0, type: 'onetime', amount: 500, every: 1, startPeriod: 1, period: 90 },
+    { id: 1, type: 'onetime', amount: 500, every: 1, startPeriod: 1, period: 2 }
+  ];
+
+  renderExtraSummaries({ container, extras, periodLabel: 'month', payoffPeriod: 84 });
+
+  assert.equal(nodes[0].textContent, 'One-time payment of $500 at month 90. Not applied: the loan is paid off by month 84');
 });
 
 test('updateExtraField rejects NaN and negative values', () => {

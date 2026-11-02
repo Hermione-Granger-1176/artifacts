@@ -200,6 +200,13 @@ test('heroExplainText adapts to each regime', () => {
   );
 });
 
+test('heroExplainText states the rate against the coupon, not a rate move', () => {
+  // Raising only the coupon moves a bond into premium, so the copy cannot say rates slipped.
+  const text = heroExplainText(narrativeState({ regime: 'premium', price: 1081.11 }), FORMATTERS);
+  assert.match(text, /^The market rate is 6.0%, below this bond's 5.0% coupon/);
+  assert.doesNotMatch(heroExplainText(narrativeState(), FORMATTERS), /rose|slipped/);
+});
+
 test('mechanismExplainText adapts to each regime', () => {
   assert.match(mechanismExplainText(narrativeState(), FORMATTERS), /sits below the market/);
   assert.match(mechanismExplainText(narrativeState({ regime: 'premium' }), FORMATTERS), /sits above the market/);
@@ -213,6 +220,11 @@ test('mathExplainText walks discounting from the coupons to the price', () => {
   assert.match(text, /\$1,000 face repayment in year 10 is worth \$558.39 today/);
   assert.match(text, /gives the \$926.40 price/);
   assert.match(text, /higher rate drags the price down/);
+});
+
+test('mathExplainText uses the singular for a one-year bond', () => {
+  const state = narrativeState({ bond: { faceValue: 1000, couponRatePct: 1, years: 1, annualYieldPct: 6 }, schedule: buildSchedule(1, 1, 6) });
+  assert.match(mathExplainText(state, FORMATTERS), /the one \$10 coupon payment is divided/);
 });
 
 test('renderMathLegend writes the live coupon, rate, years, and face values', () => {
@@ -814,7 +826,7 @@ test('renderNarrative stacks every variant so swapping regimes keeps the same co
     );
     const ghosts = ghostNodes(elements.heroExplain);
     assert.ok(ghosts.some((node) => /matches this bond's 12.0% coupon/.test(node.textContent)));
-    assert.ok(ghosts.some((node) => /Rates rose to 12.0%/.test(node.textContent)));
+    assert.ok(ghosts.some((node) => /The market rate is 12.0%, above/.test(node.textContent)));
     assert.ok(ghosts.every((node) => node.getAttribute('aria-hidden') === 'true'));
 
     // Switching the curve swaps the active curve story and quotes that curve's own rate.
