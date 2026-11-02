@@ -1,5 +1,6 @@
 import { setText } from "../../../../js/modules/dom-sync.js";
 import { formatPercent } from "../../../../js/modules/formatting.js";
+import { SAMPLE_DRAW_COUNT } from "./sampling.js";
 
 /**
  * @typedef {{
@@ -119,7 +120,7 @@ function createHead() {
     ["tk-track-label", "After temperature", "Probability after temperature, before the top P cut", null],
     ["tk-odds", "Odds", "Probability after temperature", "columnheader"],
     ["tk-draw", "Draw", "Chance of being drawn once top P renormalizes the survivors", "columnheader"],
-    ["tk-seen", "Seen", "Times drawn in the last 100 samples", "columnheader"]
+    ["tk-seen", "Seen", `Times drawn in the last ${SAMPLE_DRAW_COUNT} samples`, "columnheader"]
   ];
   for (const [className, text, title, role] of labels) {
     const cell = withRole(makeCell("span", className, text), role);
@@ -165,7 +166,7 @@ function updateRowParts(parts, row) {
   setText(parts.odds, formatPercent(row.oddsPercent));
   setText(parts.draw, row.drawPercent === null ? "cut" : formatPercent(row.drawPercent));
   setText(parts.seen, row.seenCount === null ? "" : String(row.seenCount));
-  setTitle(parts.seen, row.seenCount === null ? "" : `${row.seenCount} of 100 draws`);
+  setTitle(parts.seen, row.seenCount === null ? "" : `${row.seenCount} of ${SAMPLE_DRAW_COUNT} draws`);
 }
 
 /**
