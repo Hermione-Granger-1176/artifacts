@@ -899,6 +899,7 @@ body.app-prompt-caching .pc-attn-grid .row-label {
 }
 
 body.app-prompt-caching .pc-attn-grid .pc-attn-row {
+  min-height: var(--touch-target, 0px);
   background: none;
   border: 0;
   padding: 0;
