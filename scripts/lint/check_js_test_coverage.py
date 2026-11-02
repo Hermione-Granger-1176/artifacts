@@ -9,8 +9,12 @@ import sys
 from pathlib import Path
 
 from scripts import REPO_ROOT
-from scripts.lint import SKIP_DIRECTORIES as _BASE_SKIP_DIRECTORIES
-from scripts.lint import add_root_argument, print_failures, root_from_args
+from scripts.lint import (
+    add_root_argument,
+    is_skipped_directory,
+    print_failures,
+    root_from_args,
+)
 
 # Directories containing JS source files that must have test coverage.
 SOURCE_DIRS = (
@@ -41,12 +45,14 @@ _DYNAMIC_IMPORT_PATTERN = re.compile(r"""import\s*\(\s*[`'"]([^`'"?]+)""")
 # Matches path.resolve('js/file.js'), used by tests that load via fs/vm
 _PATH_RESOLVE_PATTERN = re.compile(r"""path\.resolve\s*\(\s*['"]([^'"]+\.(?:js|mjs))['"]""")
 
-SKIP_DIRECTORIES = _BASE_SKIP_DIRECTORIES | {"docs"}
-
 
 def _should_skip_path(path: Path, root: Path) -> bool:
     """Return whether one path sits inside a skipped directory below ``root``."""
-    return any(part in SKIP_DIRECTORIES for part in path.relative_to(root).parts)
+    directories = path.relative_to(root).parts[:-1]
+    return any(
+        part == "docs" or is_skipped_directory(part, at_root=index == 0)
+        for index, part in enumerate(directories)
+    )
 
 
 def discover_source_files(root: Path) -> list[Path]:

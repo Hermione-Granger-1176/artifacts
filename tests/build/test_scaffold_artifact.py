@@ -587,6 +587,22 @@ def test_scaffold_artifact_rejects_existing_directory(
         scaffold_artifact.scaffold_artifact("budget-tracker")
 
 
+def test_scaffold_artifact_rejects_an_existing_test_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A test file left from an earlier app is kept, and no app directory is created."""
+    apps_dir, tests_dir = _install_temp_roots(tmp_path, monkeypatch)
+    existing = tests_dir / "budget-tracker" / "app.test.js"
+    existing.parent.mkdir(parents=True)
+    existing.write_text("// hand-written\n", encoding="utf-8")
+
+    with pytest.raises(FileExistsError, match="Artifact test file already exists"):
+        scaffold_artifact.scaffold_artifact("budget-tracker")
+
+    assert existing.read_text(encoding="utf-8") == "// hand-written\n"
+    assert not (apps_dir / "budget-tracker").exists()
+
+
 def test_scaffold_artifact_rejects_existing_directory_before_reading_source(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

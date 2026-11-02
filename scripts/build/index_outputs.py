@@ -6,7 +6,9 @@ import hashlib
 import json
 import re
 from collections.abc import Callable, Mapping, Sequence
+from html import escape
 from typing import TYPE_CHECKING, TypedDict, cast
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -240,14 +242,20 @@ def build_badge(
     *,
     default_badge_fn: Callable[[str], BadgeConfig],
 ) -> str:
-    """Build one README badge image tag."""
+    """Build one README badge image tag.
+
+    A tag or tool name can hold any character, so the label is percent-encoded
+    for the shields.io path and the alt text is HTML-escaped. Shields.io reads
+    `_` as a space and `--` as a dash, so those characters pass through.
+    """
     badge = config[key] if key in config else default_badge_fn(key)
-    src = f"https://img.shields.io/badge/{badge['label']}-{badge['color']}?style=flat-square"
+    label = quote(badge["label"], safe="_-.~")
+    src = f"https://img.shields.io/badge/{label}-{badge['color']}?style=flat-square"
     if badge["logo"]:
-        src += f"&logo={badge['logo']}"
+        src += f"&logo={quote(badge['logo'], safe='')}"
     if badge["logo_color"]:
         src += f"&logoColor={badge['logo_color']}"
-    return f'<img src="{src}" alt="{badge["alt"]}">'
+    return f'<img src="{src}" alt="{escape(badge["alt"])}">'
 
 
 def build_badges_block(

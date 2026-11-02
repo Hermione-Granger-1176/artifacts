@@ -20,6 +20,16 @@ def test_iter_lint_paths_sorts_files_and_prunes_ignored_directories(tmp_path: Pa
     ]
 
 
+def test_iter_lint_paths_skips_root_build_dirs_but_walks_nested_ones(tmp_path: Path) -> None:
+    """`/build/` and `/dist/` are root-only ignores, so scripts/build/ is still linted."""
+    for relative in ("build/out.js", "dist/out.js", "coverage/lcov.info", "scripts/build/gen.py"):
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("x", encoding="utf-8")
+
+    assert list(iter_lint_paths(tmp_path)) == [tmp_path / "scripts" / "build" / "gen.py"]
+
+
 def test_iter_lint_paths_skips_file_and_directory_symlinks(tmp_path: Path) -> None:
     """Lint traversal does not follow or return symlinked content."""
     real_file = tmp_path / "real.py"

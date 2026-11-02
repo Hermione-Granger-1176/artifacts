@@ -520,6 +520,31 @@ def test_validate_thumbnail_artifact_rejects_unexpected_files(tmp_path: Path) ->
         workflow_helpers.validate_thumbnail_artifact(artifact_root)
 
 
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "apps/loan-amortization/apps/bar/thumbnail.webp",
+        "nested/apps/loan-amortization/thumbnail.webp",
+        "apps/Bad_Slug/thumbnail.webp",
+    ],
+)
+def test_validate_thumbnail_artifact_rejects_paths_outside_one_app_level(
+    tmp_path: Path, relative: str
+) -> None:
+    """Only ``apps/<slug>/thumbnail.webp`` passes, never a nested or invalid path."""
+    artifact_root = tmp_path / "thumb-artifact"
+    write_text(
+        artifact_root / "plan.json",
+        json.dumps({"persist_mode": "followup-pr", "thumbnail_scope": "all"}),
+    )
+    target = artifact_root / relative
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"thumb")
+
+    with pytest.raises(ValueError, match="Unexpected file"):
+        workflow_helpers.validate_thumbnail_artifact(artifact_root)
+
+
 def test_thumbnail_plan_rejects_invalid_artifact_slugs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

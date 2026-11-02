@@ -42,6 +42,7 @@ ROOT_INDEX_FILENAME = "index.html"
 
 # Source tokens that keep a directive restricted to same-origin content.
 _RESTRICTIVE_SOURCES = frozenset({"'self'", "'none'"})
+_SCRIPT_SUB_DIRECTIVES = ("script-src-elem", "script-src-attr")
 _APP_IMG_SOURCES = frozenset({"'self'", "'none'", "data:"})
 _ROOT_IMG_SOURCES = _APP_IMG_SOURCES | frozenset({"https://img.shields.io"})
 
@@ -281,15 +282,26 @@ def _directive_violation(
     )
 
 
-def _script_src_violation(directives: dict[str, list[str]], display_path: str) -> str | None:
-    """Return the violation for a ``script-src`` (or inherited ``default-src``) that is open."""
-    script_src = directives.get("script-src", directives.get("default-src"))
-    if script_src is None or _directive_has_only_allowed_sources(script_src, _RESTRICTIVE_SOURCES):
-        return None
-    return (
-        f"{display_path}: script-src must be restricted to 'self' or 'none' "
-        f"(found: script-src {' '.join(script_src)})"
-    )
+def _script_src_violations(directives: dict[str, list[str]], display_path: str) -> list[str]:
+    """Return a violation for each open script directive.
+
+    ``script-src`` falls back to ``default-src``. Browsers use
+    ``script-src-elem`` for script elements and ``script-src-attr`` for inline
+    event handlers in place of ``script-src`` when either is present, so each
+    one present must be restricted too. An absent one falls back to
+    ``script-src``, which this function already checks.
+    """
+    candidates = {
+        "script-src": directives.get("script-src", directives.get("default-src")),
+        **{name: directives.get(name) for name in _SCRIPT_SUB_DIRECTIVES},
+    }
+    return [
+        f"{display_path}: {name} must be restricted to 'self' or 'none' "
+        f"(found: {name} {' '.join(sources)})"
+        for name, sources in candidates.items()
+        if sources is not None
+        and not _directive_has_only_allowed_sources(sources, _RESTRICTIVE_SOURCES)
+    ]
 
 
 def _img_src_violation(
@@ -329,9 +341,9 @@ def _csp_violations(
         for name in repeated
     )
 
+    violations.extend(_script_src_violations(directives, display_path))
     checks = (
         _directive_violation(directives, "default-src", _RESTRICTIVE_SOURCES, display_path),
-        _script_src_violation(directives, display_path),
         _img_src_violation(directives, display_path, allowed_img_sources),
         *(
             _directive_violation(directives, directive, allowed_sources, display_path)

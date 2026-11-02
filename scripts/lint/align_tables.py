@@ -21,7 +21,8 @@ from pathlib import Path
 
 from scripts import REPO_ROOT
 
-SEPARATOR_PATTERN = re.compile(r"^[\s|:*-]+$")
+# One delimiter-row cell: dashes with an optional colon at either end.
+SEPARATOR_PATTERN = re.compile(r"^:?-+:?$")
 
 
 def is_table_line(line: str) -> bool:
@@ -30,18 +31,34 @@ def is_table_line(line: str) -> bool:
     return "|" in stripped and stripped.startswith("|") and stripped.endswith("|")
 
 
+def _is_escaped(text: str, index: int) -> bool:
+    """Return whether an odd run of backslashes escapes the character at ``index``."""
+    preceding = text[:index]
+    return (len(preceding) - len(preceding.rstrip("\\"))) % 2 == 1
+
+
 def split_cells(line: str) -> list[str]:
-    """Split a table row into cell contents, stripping the outer pipes."""
-    stripped = line.strip()
-    if stripped.startswith("|"):
-        stripped = stripped[1:]
-    if stripped.endswith("|"):
+    r"""Split a table row into cell contents, stripping the outer pipes.
+
+    An escaped pipe (``\|``) is cell content, as in GitHub Flavored Markdown,
+    so it does not start a new cell.
+    """
+    stripped = line.strip().removeprefix("|")
+    if stripped.endswith("|") and not _is_escaped(stripped, len(stripped) - 1):
         stripped = stripped[:-1]
-    return [cell.strip() for cell in stripped.split("|")]
+
+    cells: list[str] = []
+    start = 0
+    for index, char in enumerate(stripped):
+        if char == "|" and not _is_escaped(stripped, index):
+            cells.append(stripped[start:index].strip())
+            start = index + 1
+    cells.append(stripped[start:].strip())
+    return cells
 
 
 def is_separator_row(cells: list[str]) -> bool:
-    """Return True if every cell matches the --- separator pattern."""
+    """Return True if every cell is a delimiter cell such as ``---`` or ``:---:``."""
     return all(SEPARATOR_PATTERN.match(cell) for cell in cells)
 
 
@@ -61,21 +78,31 @@ def build_separator(widths: list[int], original_cells: list[str]) -> str:
 
 
 def align_table(lines: list[str]) -> list[str]:
-    """Align a block of table lines so pipe characters are vertically aligned."""
+    """Align a block of table lines so pipe characters are vertically aligned.
+
+    Only the second row can be the delimiter row, so a body row of dashes keeps
+    its text. Every row keeps the first row's indentation, which places a table
+    inside a list item.
+    """
+    indent = lines[0][: len(lines[0]) - len(lines[0].lstrip())]
     rows = [split_cells(line) for line in lines]
     col_count = max(len(row) for row in rows)
     rows = [row + [""] * (col_count - len(row)) for row in rows]
-    content_rows = [row for row in rows if not is_separator_row(row)]
+    delimiter_index = 1 if len(rows) > 1 and is_separator_row(rows[1]) else None
+    content_rows = [row for index, row in enumerate(rows) if index != delimiter_index]
 
     widths = [
         max(3, max((len(row[col]) for row in content_rows), default=0)) for col in range(col_count)
     ]
 
     return [
-        build_separator(widths, row)
-        if is_separator_row(row)
-        else "| " + " | ".join(cell.ljust(widths[i]) for i, cell in enumerate(row)) + " |"
-        for row in rows
+        indent
+        + (
+            build_separator(widths, row)
+            if index == delimiter_index
+            else "| " + " | ".join(cell.ljust(widths[i]) for i, cell in enumerate(row)) + " |"
+        )
+        for index, row in enumerate(rows)
     ]
 
 

@@ -660,6 +660,25 @@ def test_build_badge_includes_logo_metadata_for_known_tools(
     assert "logoColor=white" in badge
 
 
+def test_build_badge_escapes_label_and_alt_text(tmp_path: Path) -> None:
+    """A name with URL or HTML characters cannot break the badge path or the alt attribute."""
+    config = make_config(tmp_path)
+    badge_config: dict[str, generate_index.BadgeConfig] = {
+        "qa": {
+            "label": 'Q/A?"x"',
+            "color": "27AE60",
+            "alt": 'Q/A "x" <b>',
+            "logo": None,
+            "logo_color": None,
+        }
+    }
+
+    assert config.build_badge("qa", badge_config) == (
+        '<img src="https://img.shields.io/badge/Q%2FA%3F%22x%22-27AE60?style=flat-square" '
+        'alt="Q/A &quot;x&quot; &lt;b&gt;">'
+    )
+
+
 def test_build_badges_block_returns_empty_string_for_empty_items(
     tmp_path: Path,
 ) -> None:

@@ -130,6 +130,30 @@ def test_discover_vendor_files_returns_sorted_relative_paths(tmp_path: Path) -> 
     ]
 
 
+def test_discover_vendor_files_includes_nested_and_non_js_files(tmp_path: Path) -> None:
+    """Every file in a vendor tree is found, because lint and type checks skip the tree."""
+    _write_vendor_file(tmp_path, "apps/a/js/vendor/lib/d3.js", b"1")
+    _write_vendor_file(tmp_path, "apps/a/js/vendor/y.mjs", b"2")
+
+    assert discover_vendor_files(tmp_path) == [
+        "apps/a/js/vendor/lib/d3.js",
+        "apps/a/js/vendor/y.mjs",
+    ]
+
+
+def test_check_assets_rejects_files_the_manifest_cannot_pin(tmp_path: Path) -> None:
+    """A nested or .mjs vendor file fails with a shape message, not a manifest hint."""
+    _write_vendor_file(tmp_path, "apps/a/js/vendor/lib/d3.js", b"1")
+    _write_vendor_file(tmp_path, "apps/a/js/vendor/y.mjs", b"2")
+
+    assert check_assets(tmp_path, ()) == [
+        "apps/a/js/vendor/lib/d3.js: vendored files must be .js bundles directly under "
+        "apps/<slug>/js/vendor/, so the manifest can pin them",
+        "apps/a/js/vendor/y.mjs: vendored files must be .js bundles directly under "
+        "apps/<slug>/js/vendor/, so the manifest can pin them",
+    ]
+
+
 def test_load_manifest_reads_valid_entries(tmp_path: Path) -> None:
     """Load manifest reads valid entries."""
     manifest = tmp_path / "vendored_assets.json"

@@ -34,11 +34,13 @@ from scripts.lint import add_root_argument, report_violations, root_from_args
 
 VENDORED_ASSETS_MANIFEST_FILE = REPO_ROOT / "config" / "vendored_assets.json"
 
-# Glob (relative to the workspace root) that matches every vendored bundle.
-VENDOR_GLOB = "apps/*/js/vendor/*.js"
+# Glob (relative to the workspace root) that matches every app's vendor
+# directory. ESLint and the type checker skip these whole trees, so the check
+# reads every file in them, not only the flat .js bundles a manifest entry names.
+VENDOR_DIR_GLOB = "apps/*/js/vendor"
 
 # Repo-relative vendor path shape: apps/<slug>/js/vendor/<file>.js with no
-# nested directories in the slug or file name (mirrors ``VENDOR_GLOB``).
+# nested directories in the slug or file name.
 _VENDOR_PATH_PATTERN = re.compile(r"^apps/[^/]+/js/vendor/[^/]+\.js$")
 
 # A lower-case npm package name, optionally scoped.
@@ -177,15 +179,32 @@ def _sha256(path: Path) -> str:
 
 
 def discover_vendor_files(root: Path) -> list[str]:
-    """Return repo-relative paths for every vendored bundle on disk."""
-    return sorted(match.relative_to(root).as_posix() for match in root.glob(VENDOR_GLOB))
+    """Return repo-relative paths for every file under an app's vendor directory."""
+    return sorted(
+        path.relative_to(root).as_posix()
+        for vendor_dir in root.glob(VENDOR_DIR_GLOB)
+        for path in vendor_dir.rglob("*")
+        if path.is_file()
+    )
+
+
+def _unlisted_file_violation(disk_path: str) -> str:
+    """Return the violation for a vendored file that the manifest does not list."""
+    if not _VENDOR_PATH_PATTERN.match(disk_path):
+        return (
+            f"{disk_path}: vendored files must be .js bundles directly under "
+            "apps/<slug>/js/vendor/, so the manifest can pin them"
+        )
+    return (
+        f"{disk_path}: vendored file is not listed in config/vendored_assets.json. {_UPDATE_HINT}"
+    )
 
 
 def _unlisted_file_violations(root: Path, assets: tuple[VendoredAsset, ...]) -> list[str]:
     """Return a violation for each vendored file on disk that the manifest omits."""
     manifest_paths = {asset.path for asset in assets}
     return [
-        f"{disk_path}: vendored file is not listed in config/vendored_assets.json. {_UPDATE_HINT}"
+        _unlisted_file_violation(disk_path)
         for disk_path in discover_vendor_files(root)
         if disk_path not in manifest_paths
     ]
