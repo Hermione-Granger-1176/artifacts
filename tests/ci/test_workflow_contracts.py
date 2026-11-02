@@ -223,6 +223,10 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
     assert _step(plan, "Checkout repository")["with"]["fetch-depth"] == 0
     plan_run = _step_run(plan, "Compute app impact plan")
     assert "make ci-thumbnail-plan" in plan_run
+    # Push plans diff from the last deployed main commit, so a replaced pending
+    # push run cannot leave its changes unplanned.
+    assert "git show FETCH_HEAD:deploy-metadata.json" in plan_run
+    assert 'git merge-base --is-ancestor "$deployed_sha" "$head_sha"' in plan_run
     assert (
         "force_full=\"${{ github.event_name == 'schedule'"
         " || inputs.full-sweep == true || inputs.full-sweep == 'true' }}\"" in plan_run
@@ -266,6 +270,10 @@ def test_update_workflow_supports_one_click_redeploy_of_a_known_good_sha() -> No
     # message instead of an opaque BUILD_REF checkout failure.
     assert 'gh api "repos/${{ github.repository }}/commits/${REDEPLOY_SHA}"' in validate_run
     assert "git cat-file" not in validate_run
+    # Only a full SHA can match deploy-metadata.commit_sha during verification,
+    # and the API also resolves branch and tag names, so both checks are needed.
+    assert "grep -Eqx '[0-9a-f]{40}'" in validate_run
+    assert 'if [ "$resolved" != "$REDEPLOY_SHA" ]; then' in validate_run
     # Validation must run before the checkout it guards against.
     plan_step_names = [step.get("name") for step in _steps(plan)]
     assert plan_step_names.index("Validate redeploy SHA") < plan_step_names.index(
@@ -806,9 +814,15 @@ def test_deploy_failure_alert_workflow_opens_and_closes_issue() -> None:
 
     assert set(_jobs(workflow)) == {"alert"}
     alert = _job(workflow, "alert")
-    assert alert["if"] == "github.event.workflow_run.head_branch == 'main'"
+    # A fork PR from the contributor's own `main` also reports head_branch main,
+    # so the filter must pin the event and the head repository too.
+    assert alert["if"] == (
+        "github.event.workflow_run.head_branch == 'main' && "
+        "github.event.workflow_run.event != 'pull_request' && "
+        "github.event.workflow_run.head_repository.full_name == github.repository"
+    )
     assert alert["timeout-minutes"] == 10
-    assert alert["permissions"] == {"contents": "read", "issues": "write"}
+    assert alert["permissions"] == {"actions": "write", "contents": "read", "issues": "write"}
 
     open_step = _step(alert, "Open or update deploy failure issue")
     assert open_step["if"] == "github.event.workflow_run.conclusion == 'failure'"
@@ -825,6 +839,16 @@ def test_deploy_failure_alert_workflow_opens_and_closes_issue() -> None:
     close_run = _step_run(alert, "Close deploy failure issue when a main run succeeds")
     assert "make ci-alert-issue" in close_run
     assert "state=close" in close_run
+
+    # A preview publish can cancel a pending main publish in the shared Pages
+    # concurrency group, so a cancelled run at the tip of main is redeployed.
+    redeploy = _step(alert, "Redeploy main when its run was cancelled")
+    assert redeploy["if"] == "github.event.workflow_run.conclusion == 'cancelled'"
+    assert redeploy["env"]["GH_TOKEN"] == "${{ github.token }}"
+    redeploy_run = _step_run(alert, "Redeploy main when its run was cancelled")
+    assert 'if [ "$main_sha" != "$RUN_SHA" ]; then' in redeploy_run
+    assert "gh workflow run update.yml" in redeploy_run
+    assert "--ref main" in redeploy_run
 
 
 def test_schedule_watchdog_runs_from_push_and_syncs_alert_issue() -> None:

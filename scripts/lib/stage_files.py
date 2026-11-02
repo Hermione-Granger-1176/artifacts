@@ -88,14 +88,16 @@ def _is_existing_or_tracked(path: str, *, probe_fn: GitRunner) -> bool:
 
 
 def stage_paths(paths: Sequence[str], *, run_fn: GitRunner | None = None) -> int:
-    """Stage ``paths`` via ``git add -- <paths>`` and return git's exit code.
+    """Stage ``paths`` via ``git --literal-pathspecs add -- <paths>`` and return git's exit code.
 
     The ``--`` stops option parsing so a leading-dash path is treated as a file,
     and passing each path as its own argv entry keeps spaces and shell
-    metacharacters literal.
+    metacharacters literal. ``--literal-pathspecs`` stops git from expanding
+    ``*.md`` or ``:(glob)`` magic, so git stages the same file that
+    ``_is_existing_or_tracked`` probed.
     """
     runner = run_fn or _default_run
-    return runner(["git", "add", "--", *paths]).returncode
+    return runner(["git", "--literal-pathspecs", "add", "--", *paths]).returncode
 
 
 def checkout_side(paths: Sequence[str], side: str, *, run_fn: GitRunner | None = None) -> int:

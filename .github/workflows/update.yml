@@ -87,7 +87,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REDEPLOY_SHA: ${{ inputs.redeploy-sha }}
         run: |
-          if ! gh api "repos/${{ github.repository }}/commits/${REDEPLOY_SHA}" --silent 2>/dev/null; then
+          # Deploy verification compares deploy-metadata.commit_sha (always a
+          # full SHA) with this input, and BUILD_REF reaches checkouts and shell
+          # steps, so accept only a full lowercase commit SHA. The commits API
+          # also resolves branch names, tags, and short SHAs, which would deploy
+          # and then fail verification on every attempt.
+          if ! printf '%s' "$REDEPLOY_SHA" | grep -Eqx '[0-9a-f]{40}'; then
+            echo "redeploy-sha must be a full 40-character lowercase commit SHA." >&2
+            exit 1
+          fi
+          resolved=$(gh api "repos/${{ github.repository }}/commits/${REDEPLOY_SHA}" --jq .sha 2>/dev/null || true)
+          if [ "$resolved" != "$REDEPLOY_SHA" ]; then
             echo "redeploy-sha ${REDEPLOY_SHA} is not a commit in this repository." >&2
             exit 1
           fi
@@ -127,6 +137,17 @@ jobs:
         run: |
           base_sha="${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}"
           head_sha="${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}"
+          # GitHub replaces a pending push run when a newer push lands. If this
+          # run diffed only event.before, no run would plan the replaced push's
+          # changes. Diff from the commit that main last deployed instead, when
+          # that commit is an ancestor of this push.
+          if [ "${{ github.event_name }}" = "push" ]; then
+            deployed_sha=$( { git fetch --quiet --depth=1 origin "$PAGES_BRANCH" \
+              && git show FETCH_HEAD:deploy-metadata.json | jq -r '.commit_sha // empty'; } 2>/dev/null || true)
+            if [ -n "$deployed_sha" ] && git merge-base --is-ancestor "$deployed_sha" "$head_sha" 2>/dev/null; then
+              base_sha="$deployed_sha"
+            fi
+          fi
           plan=$(make ci-thumbnail-plan \
             event_name="${{ github.event_name }}" \
             repo="${{ github.repository }}" \

@@ -9,6 +9,10 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 ISSUE_TITLE_MATCH_LIMIT = 100
+# Creating an issue or posting a comment is not idempotent. If a request times
+# out after GitHub applied it, a retry posts a second copy, so these calls make
+# one attempt. Closing an issue is idempotent and keeps the default retries.
+NON_IDEMPOTENT_ATTEMPTS = 1
 
 ALERT_LABELS = ("ops", "ci")
 
@@ -142,6 +146,7 @@ def _create_alert_issue(
         fields=fields,
         description=f"creating alert issue {title} for {repo}",
         jq_expr=".html_url",
+        max_attempts=NON_IDEMPOTENT_ATTEMPTS,
         required_permission="issues: write",
     )
     if not created_url.strip():
@@ -180,6 +185,7 @@ def _comment_on_alert_issue(
         method="POST",
         fields=[("body", body)],
         description=f"commenting on alert issue {title} for {repo}",
+        max_attempts=NON_IDEMPOTENT_ATTEMPTS,
         required_permission="issues: write",
     )
 
@@ -211,11 +217,13 @@ def sync_alert_issue(
         ]
         return _create_alert_issue(repo, title, fields, run_gh_api_form_fn=run_gh_api_form_fn)
 
-    issue_number = _issue_number(primary)
     if not should_exist:
-        _close_alert_issue(repo, title, issue_number, run_gh_api_form_fn=run_gh_api_form_fn)
+        for match in matches:
+            _close_alert_issue(
+                repo, title, _issue_number(match), run_gh_api_form_fn=run_gh_api_form_fn
+            )
         return ""
 
-    html_url = _issue_url(primary)
+    issue_number = _issue_number(primary)
     _comment_on_alert_issue(repo, title, issue_number, body, run_gh_api_form_fn=run_gh_api_form_fn)
-    return html_url
+    return _issue_url(primary)

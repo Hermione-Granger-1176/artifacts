@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.error import URLError
 
 import pytest
 
@@ -46,7 +47,7 @@ def test_retry_returns_a_first_success_without_sleep() -> None:
 
 def test_retry_retries_transient_failures() -> None:
     """Transient failures use bounded backoff before succeeding."""
-    results: list[object] = [RuntimeError("first"), "ok"]
+    results: list[object] = [URLError("first"), "ok"]
     sleeps: list[float] = []
 
     def fetch() -> str:
@@ -59,10 +60,40 @@ def test_retry_retries_transient_failures() -> None:
     assert sleeps == [0.25]
 
 
+def test_retry_retries_truncated_json() -> None:
+    """A truncated registry body is transient and is retried."""
+    results: list[object] = [json.JSONDecodeError("cut", "{", 1), "ok"]
+    sleeps: list[float] = []
+
+    def fetch() -> str:
+        result = results.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    assert pins.retry(fetch, sleep=sleeps.append) == "ok"
+    assert sleeps == [0.25]
+
+
+def test_retry_does_not_retry_deterministic_failures() -> None:
+    """A malformed payload fails on the first attempt without backoff."""
+    calls: list[int] = []
+    sleeps: list[float] = []
+
+    def fetch() -> str:
+        calls.append(1)
+        raise ValueError("PyPI returned an invalid latest Playwright version")
+
+    with pytest.raises(ValueError, match="invalid latest"):
+        pins.retry(fetch, sleep=sleeps.append)
+    assert calls == [1]
+    assert sleeps == []
+
+
 def test_retry_re_raises_the_final_failure() -> None:
     """The final failure remains visible after all retry attempts."""
-    with pytest.raises(RuntimeError, match="boom"):
-        pins.retry(lambda: (_ for _ in ()).throw(RuntimeError("boom")), attempts=1)
+    with pytest.raises(URLError, match="boom"):
+        pins.retry(lambda: (_ for _ in ()).throw(URLError("boom")), attempts=1)
 
 
 def test_retry_requires_a_positive_attempt_count() -> None:

@@ -251,6 +251,57 @@ def test_sync_alert_issue_closes_existing_issue_when_no_longer_needed() -> None:
     ]
 
 
+def test_sync_alert_issue_posts_create_and_comment_once() -> None:
+    """A lost response must not post a second issue or comment, so POSTs make one attempt."""
+    attempts: list[tuple[str, object]] = []
+
+    def fake_run_gh_api_form(endpoint: str, *, method: str, **kwargs: object) -> str:
+        attempts.append((method, kwargs.get("max_attempts")))
+        return "https://github.com/owner/repo/issues/11" if endpoint.endswith("/issues") else ""
+
+    for matches in ([], [{"number": 7, "html_url": "https://github.com/owner/repo/issues/7"}]):
+        issue_alerts.sync_alert_issue(
+            repo="owner/repo",
+            title="Artifact alert",
+            body="Something broke",
+            labels=["ci"],
+            should_exist=True,
+            issue_payloads_by_title_fn=lambda *_args, matches=matches, **_kwargs: matches,
+            run_gh_api_form_fn=fake_run_gh_api_form,
+        )
+
+    assert attempts == [
+        ("POST", issue_alerts.NON_IDEMPOTENT_ATTEMPTS),
+        ("POST", issue_alerts.NON_IDEMPOTENT_ATTEMPTS),
+    ]
+    assert issue_alerts.NON_IDEMPOTENT_ATTEMPTS == 1
+
+
+def test_sync_alert_issue_closes_every_duplicate() -> None:
+    """Closing clears duplicates too, so an earlier double post cannot stay open."""
+    closed: list[str] = []
+
+    def fake_run_gh_api_form(endpoint: str, *, method: str, **_kwargs: object) -> str:
+        assert method == "PATCH"
+        closed.append(endpoint)
+        return ""
+
+    issue_alerts.sync_alert_issue(
+        repo="owner/repo",
+        title="Artifact alert",
+        body="Resolved",
+        labels=["ci"],
+        should_exist=False,
+        issue_payloads_by_title_fn=lambda *_args, **_kwargs: [
+            {"number": 7, "html_url": "https://github.com/owner/repo/issues/7"},
+            {"number": 9, "html_url": "https://github.com/owner/repo/issues/9"},
+        ],
+        run_gh_api_form_fn=fake_run_gh_api_form,
+    )
+
+    assert closed == ["repos/owner/repo/issues/7", "repos/owner/repo/issues/9"]
+
+
 def test_sync_alert_issue_rejects_non_integer_issue_number_on_update() -> None:
     """Sync alert issue rejects non integer issue number on update."""
     with pytest.raises(RuntimeError, match="Matched issue number must be a positive integer"):

@@ -17,12 +17,18 @@ env:
 
 jobs:
   alert:
-    # Only main-branch runs are deploy-relevant. Pull-request and fork runs of
-    # the pipeline carry a different head branch and are ignored here.
-    if: github.event.workflow_run.head_branch == 'main'
+    # Only main-branch runs of this repository affect the deploy. A fork pull
+    # request from the contributor's own `main` branch also reports
+    # head_branch == 'main', so the filter also checks the event and the head
+    # repository.
+    if: >-
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event != 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
+      actions: write
       contents: read
       issues: write
     steps:
@@ -46,6 +52,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: TITLE="$ALERT_TITLE" make ci-alert-issue state=close run_url="$RUN_URL"
+
+      # Preview publishes share the Pages concurrency group with the main
+      # publish, and GitHub cancels a pending job when a newer job joins the
+      # group. A main run cancelled that way neither deploys nor fails, so this
+      # step redeploys main when the cancelled run is still the tip of main. It
+      # skips a run that a newer main push replaced, because that push deploys.
+      - name: Redeploy main when its run was cancelled
+        if: github.event.workflow_run.conclusion == 'cancelled'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          main_sha=$(gh api "repos/${{ github.repository }}/commits/main" --jq .sha)
+          if [ "$main_sha" != "$RUN_SHA" ]; then
+            echo "Cancelled run $RUN_SHA was superseded by main $main_sha; nothing to redeploy."
+            exit 0
+          fi
+          gh workflow run update.yml --repo "${{ github.repository }}" --ref main
+          echo "Dispatched a main redeploy for $RUN_SHA after its run was cancelled."
 
       - name: Summarize deploy failure alert
         if: github.event.workflow_run.conclusion == 'failure'
