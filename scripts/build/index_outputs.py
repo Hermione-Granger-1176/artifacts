@@ -245,11 +245,13 @@ def build_badge(
     """Build one README badge image tag.
 
     A tag or tool name can hold any character, so the label is percent-encoded
-    for the shields.io path and the alt text is HTML-escaped. Shields.io reads
-    `_` as a space and `--` as a dash, so those characters pass through.
+    for the shields.io path and the alt text is HTML-escaped. In that path a
+    single `-` separates the label from the color, so a literal dash is
+    written `--`. A `_` stays as written, because the generator uses it for a
+    space, which is also how shields.io reads it.
     """
     badge = config[key] if key in config else default_badge_fn(key)
-    label = quote(badge["label"], safe="_-.~")
+    label = quote(badge["label"].replace("-", "--"), safe="_-.~")
     src = f"https://img.shields.io/badge/{label}-{badge['color']}?style=flat-square"
     if badge["logo"]:
         src += f"&logo={quote(badge['logo'], safe='')}"

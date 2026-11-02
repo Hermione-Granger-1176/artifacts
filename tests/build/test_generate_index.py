@@ -679,6 +679,25 @@ def test_build_badge_escapes_label_and_alt_text(tmp_path: Path) -> None:
     )
 
 
+def test_build_badge_doubles_a_literal_dash(tmp_path: Path) -> None:
+    """A single dash separates the shields.io label from its color, so a label dash doubles."""
+    config = make_config(tmp_path)
+    badge_config: dict[str, generate_index.BadgeConfig] = {
+        "build-check": {
+            "label": "Build-Check",
+            "color": "27AE60",
+            "alt": "Build-Check",
+            "logo": None,
+            "logo_color": None,
+        }
+    }
+
+    assert config.build_badge("build-check", badge_config) == (
+        '<img src="https://img.shields.io/badge/Build--Check-27AE60?style=flat-square" '
+        'alt="Build-Check">'
+    )
+
+
 def test_build_badges_block_returns_empty_string_for_empty_items(
     tmp_path: Path,
 ) -> None:
