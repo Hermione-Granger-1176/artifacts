@@ -34,15 +34,20 @@ function chunkDigits(digits, space) {
  */
 function splitSubwords(core, space) {
   const pieces = [];
-  const lower = core.toLowerCase();
   let i = 0;
   while (i < core.length) {
     // Longest matching subword piece (SUB_PIECES is sorted longest first),
-    // falling back to a single character.
+    // falling back to a single character. Each slice is lower-cased on its
+    // own, because lower-casing the whole word can change its length ("İ"
+    // becomes two code units) and shift every later index.
     const piece = SUB_PIECES.find(
-      (candidate) => i + candidate.length <= core.length && lower.slice(i, i + candidate.length) === candidate
+      (candidate) =>
+        i + candidate.length <= core.length && core.slice(i, i + candidate.length).toLowerCase() === candidate
     );
-    const length = piece ? piece.length : 1;
+    // The fallback is one code point, so a character outside the Basic
+    // Multilingual Plane (such as "𝒜") stays whole instead of splitting into
+    // two lone surrogates.
+    const length = piece ? piece.length : String.fromCodePoint(/** @type {number} */ (core.codePointAt(i))).length;
     pieces.push((i === 0 ? space : "") + core.slice(i, i + length));
     i += length;
   }
@@ -153,18 +158,34 @@ export function softmax(scores) {
   return exps.map((value) => value / sum);
 }
 
+/** Shortest prompt prefix the providers cache, in tokens. Shorter prefixes are billed at the base rate. */
+export const CACHE_MIN_TOKENS = 1024;
+/** A cache read costs one tenth of the base input rate. */
+const CACHE_READ_MULTIPLIER = 0.1;
+/** A cache miss writes the prefix into the cache at 1.25 times the base rate. */
+const CACHE_WRITE_MULTIPLIER = 1.25;
+
 /**
  * Monthly spend with and without prompt caching for a steady workload.
+ *
+ * With caching on, a hit reads the prefix at a tenth of the base rate and a
+ * miss writes it at 1.25 times the base rate, so a low hit rate can cost more
+ * than not caching. A prefix shorter than CACHE_MIN_TOKENS is never cached,
+ * so it costs the same either way.
  * @param {{sys:number, req:number, hitFraction:number, price:number}} params
- * @returns {{without:number, withCache:number, savings:number}} dollars/month
+ * @returns {{without:number, withCache:number, savings:number, cacheable:boolean}} dollars/month
  */
 export function savingsMonthly({ sys, req, hitFraction, price }) {
   const tokensPerMonth = sys * req * 30;
   const without = (tokensPerMonth / 1e6) * price;
-  const cached = tokensPerMonth * hitFraction;
-  const uncached = tokensPerMonth * (1 - hitFraction);
-  const withCache = (uncached / 1e6) * price + (cached / 1e6) * (price / 10);
-  return { without, withCache, savings: without - withCache };
+  if (sys < CACHE_MIN_TOKENS) {
+    return { without, withCache: without, savings: 0, cacheable: false };
+  }
+  const readTokens = tokensPerMonth * hitFraction;
+  const writeTokens = tokensPerMonth * (1 - hitFraction);
+  const withCache =
+    ((readTokens * CACHE_READ_MULTIPLIER + writeTokens * CACHE_WRITE_MULTIPLIER) / 1e6) * price;
+  return { without, withCache, savings: without - withCache, cacheable: true };
 }
 
 /**

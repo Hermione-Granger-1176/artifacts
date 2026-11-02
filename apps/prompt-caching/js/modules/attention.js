@@ -279,8 +279,12 @@ function initStepper() {
           toggle.setAttribute("role", "group");
           toggle.setAttribute("aria-label", "Projection");
           for (const m of /** @type {("Q" | "K")[]} */ (["Q", "K"])) {
-            const btn = /** @type {HTMLButtonElement} */ (makeEl("button", m === mode && !scrambled ? "active" : "", `W${m} → ${m}`));
+            const selected = m === mode && !scrambled;
+            const btn = /** @type {HTMLButtonElement} */ (makeEl("button", selected ? "active" : "", `W${m} → ${m}`));
             btn.type = "button";
+            // Every other type-toggle in the app gets aria-pressed from initSegmented.
+            // This one is rebuilt on each draw, so it sets the state directly.
+            btn.setAttribute("aria-pressed", String(selected));
             btn.addEventListener("click", () => setMode(m));
             toggle.appendChild(btn);
           }
@@ -530,6 +534,27 @@ function initGrid() {
     return;
   }
 
+  /** @param {number} activeRow - Index of the row to highlight and describe. */
+  const showRow = (activeRow) => {
+    table.querySelectorAll("tr[data-row]").forEach((row, i) => {
+      row.querySelectorAll("td:not(.row-label)").forEach((cell, ci) => {
+        const value = AGRID_WEIGHTS[i][ci];
+        paintCell(/** @type {HTMLElement} */ (cell), value, value * (i === activeRow ? 50 : 8), i === activeRow);
+      });
+    });
+
+    const weights = AGRID_WEIGHTS[activeRow];
+    const dominant = weights.indexOf(Math.max(...weights));
+    const next = activeRow < AGRID_WORDS.length - 1 ? AGRID_WORDS[activeRow + 1] : "...";
+    caption.replaceChildren(
+      document.createTextNode('To generate "'),
+      makeEl("strong", "pc-hl-accent", next),
+      document.createTextNode('", the model pays '),
+      makeEl("strong", "pc-hl-teal", formatPercent(weights[dominant] * 100, 0)),
+      document.createTextNode(` attention to "${AGRID_WORDS[dominant]}"`)
+    );
+  };
+
   clear(table);
   const headRow = document.createElement("tr");
   headRow.appendChild(document.createElement("td"));
@@ -541,38 +566,22 @@ function initGrid() {
   AGRID_WORDS.forEach((word, ri) => {
     const tr = document.createElement("tr");
     tr.dataset.row = String(ri);
-    tr.appendChild(makeEl("td", "row-label", word));
+    // The row label is a button, so keyboard and screen-reader users can reach
+    // each row and get the same caption a mouse hover shows.
+    const label = makeEl("td", "row-label");
+    const button = /** @type {HTMLButtonElement} */ (makeEl("button", "pc-attn-row", word));
+    button.type = "button";
+    label.appendChild(button);
+    tr.appendChild(label);
     AGRID_WEIGHTS[ri].forEach((value) => {
       const td = makeEl("td", "", value === 0 ? "--" : value.toFixed(2));
       paintCell(td, value, value * 15, false);
       tr.appendChild(td);
     });
+    tr.addEventListener("mouseenter", () => showRow(ri));
+    tr.addEventListener("focusin", () => showRow(ri));
     table.appendChild(tr);
   });
-
-  for (const tr of table.querySelectorAll("tr[data-row]")) {
-    const trEl = /** @type {HTMLElement} */ (tr);
-    trEl.addEventListener("mouseenter", () => {
-      const activeRow = Number.parseInt(trEl.dataset.row ?? "", 10);
-      table.querySelectorAll("tr[data-row]").forEach((row, i) => {
-        row.querySelectorAll("td:not(.row-label)").forEach((cell, ci) => {
-          const value = AGRID_WEIGHTS[i][ci];
-          paintCell(/** @type {HTMLElement} */ (cell), value, value * (i === activeRow ? 50 : 8), i === activeRow);
-        });
-      });
-
-      const weights = AGRID_WEIGHTS[activeRow];
-      const dominant = weights.indexOf(Math.max(...weights));
-      const next = activeRow < AGRID_WORDS.length - 1 ? AGRID_WORDS[activeRow + 1] : "...";
-      caption.replaceChildren(
-        document.createTextNode('To generate "'),
-        makeEl("strong", "pc-hl-accent", next),
-        document.createTextNode('", the model pays '),
-        makeEl("strong", "pc-hl-teal", formatPercent(weights[dominant] * 100, 0)),
-        document.createTextNode(` attention to "${AGRID_WORDS[dominant]}"`)
-      );
-    });
-  }
 }
 
 function initSoftmax() {

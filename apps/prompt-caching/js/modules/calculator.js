@@ -1,6 +1,6 @@
 /* Savings calculator: preset workloads, sliders, and a live cost dashboard. */
 
-import { savingsMonthly } from "./math.js";
+import { CACHE_MIN_TOKENS, savingsMonthly } from "./math.js";
 import { byId, makeEl, clear } from "./dom.js";
 import { skipFirstTransition } from "../../../../js/modules/dom-sync.js";
 import { formatCompact, formatCurrency, formatPercent } from "../../../../js/modules/formatting.js";
@@ -9,8 +9,9 @@ import { formatCompact, formatCurrency, formatPercent } from "../../../../js/mod
 // (which is what toLocaleString does on every call).
 const COUNT_FORMAT = new Intl.NumberFormat();
 
+// Every preset prefix is at least CACHE_MIN_TOKENS long, so each one caches.
 const PRESETS = [
-  { name: "Hobby", sys: 1000, req: 100, hit: 70, price: 3 },
+  { name: "Hobby", sys: 1500, req: 100, hit: 70, price: 3 },
   { name: "Startup", sys: 2000, req: 500, hit: 80, price: 3 },
   { name: "Scale", sys: 8000, req: 5000, hit: 90, price: 3 }
 ];
@@ -18,7 +19,23 @@ const PRESETS = [
 // Whole dollars once past $1,000 (grouped thousands), cents below that.
 /** @param {number} value - Dollar amount. @returns {string} Formatted currency. */
 function money(value) {
-  return value >= 1000 ? formatCurrency(value, 0) : formatCurrency(value, 2);
+  return Math.abs(value) >= 1000 ? formatCurrency(value, 0) : formatCurrency(value, 2);
+}
+
+/**
+ * The line under the savings figure.
+ * @param {{ without: number, savings: number, cacheable: boolean }} result - savingsMonthly output.
+ * @returns {string}
+ */
+function savingsSummary({ without, savings, cacheable }) {
+  if (!cacheable) {
+    return `Not cached: a prefix needs at least ${COUNT_FORMAT.format(CACHE_MIN_TOKENS)} tokens`;
+  }
+  const percent = formatPercent((Math.abs(savings) / without) * 100, 0);
+  if (savings < 0) {
+    return `${percent} more expensive: cache writes cost more than the hits save`;
+  }
+  return `${percent} cheaper, ${money(savings * 12)} per year`;
 }
 
 export function initCalculator() {
@@ -68,7 +85,7 @@ export function initCalculator() {
     hitVal.textContent = formatPercent(hitFraction * 100, 0);
     priceVal.textContent = formatCurrency(pricePerM, 2);
 
-    const { without, withCache, savings } = savingsMonthly({
+    const { without, withCache, savings, cacheable } = savingsMonthly({
       sys: sysTokens,
       req: requests,
       hitFraction,
@@ -78,14 +95,16 @@ export function initCalculator() {
     withoutOut.textContent = money(without);
     withOut.textContent = money(withCache);
     savingsOut.textContent = money(savings);
+    pctOut.textContent = savingsSummary({ without, savings, cacheable });
 
-    pctOut.textContent = `${formatPercent((savings / without) * 100, 0)} cheaper, ${money(savings * 12)} per year`;
     // Bars scale from their left edge (transform, not width), so a slider drag
-    // animates on the compositor and never relayouts.
+    // animates on the compositor and never relayouts. Cache writes cost more
+    // than the base rate, so either bar can be the longer one.
+    const longest = Math.max(without, withCache);
     skipFirstTransition(barWithout);
     skipFirstTransition(barWith);
-    barWithout.style.transform = "scaleX(1)";
-    barWith.style.transform = `scaleX(${withCache / without})`;
+    barWithout.style.transform = `scaleX(${without / longest})`;
+    barWith.style.transform = `scaleX(${withCache / longest})`;
 
     const tokensPerMonth = sysTokens * requests * 30;
     tokensOut.textContent = formatCompact(tokensPerMonth);

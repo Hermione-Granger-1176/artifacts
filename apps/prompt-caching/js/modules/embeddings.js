@@ -28,8 +28,11 @@ const TONE_VARS = {
 // hover redraws stop re-reading computed styles every frame. refreshPalette()
 // drops the cache when the theme toggles.
 const CANVAS_VARS = [
-  "--color-amber", "--color-green", "--color-blue", "--color-purple", "--color-red",
-  "--color-border-strong", "--color-text-tertiary", "--color-text-secondary", "--color-surface"
+  ...new Set([
+    ...DIM_COLORS,
+    "--color-amber", "--color-green", "--color-blue", "--color-purple", "--color-red",
+    "--color-border-strong", "--color-text-tertiary", "--color-text-secondary", "--color-surface"
+  ])
 ];
 
 const { colors: canvasPalette, refreshPalette: refreshCanvasPalette } = createPaletteCache(({ css }) => {
@@ -119,7 +122,7 @@ function initDimensions() {
     return null;
   }
 
-  // One set of 24 points generated in 3D. Every view is a projection of the
+  // One set of 48 points (8 clusters of 6) generated in 3D. Every view is a projection of the
   // same data, so adding dimensions genuinely adds separation rather than
   // drawing a new picture.
   const groups = DIM_COLORS.map((token, gi) => {
@@ -526,11 +529,20 @@ function initSimilarity() {
     }
   }
 
+  /**
+   * @param {MouseEvent} event - A pointer or click event on the canvas.
+   * @returns {string | null} The unselected word under the pointer, if any.
+   */
+  function wordAt(event) {
+    const target = /** @type {HTMLCanvasElement} */ (canvas);
+    const scaleX = target.width / (target.clientWidth || target.width);
+    const scaleY = target.height / (target.clientHeight || target.height);
+    return hitTest(event.offsetX * scaleX, event.offsetY * scaleY);
+  }
+
   if (canvas) {
     canvas.addEventListener("pointermove", (event) => {
-      const scaleX = canvas.width / (canvas.clientWidth || canvas.width);
-      const scaleY = canvas.height / (canvas.clientHeight || canvas.height);
-      const hit = hitTest(event.offsetX * scaleX, event.offsetY * scaleY);
+      const hit = wordAt(event);
       if (hit !== hovered) {
         hovered = hit;
         canvas.style.cursor = hovered ? "pointer" : "";
@@ -544,9 +556,13 @@ function initSimilarity() {
         redrawCurrent();
       }
     });
-    canvas.addEventListener("click", () => {
-      if (hovered) {
-        clickWord(hovered);
+    // Hit-test the click itself. A touch tap fires no pointermove first, and
+    // `hovered` still names the word a first click just selected, so reusing
+    // it would make a double-click compare a word with itself.
+    canvas.addEventListener("click", (event) => {
+      const hit = wordAt(event);
+      if (hit) {
+        clickWord(hit);
       }
     });
   }

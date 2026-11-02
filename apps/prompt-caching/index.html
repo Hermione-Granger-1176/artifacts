@@ -206,7 +206,7 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
           </div>
         </div>
         <canvas id="dimCanvas" width="680" height="300" class="pc-canvas"></canvas>
-        <div class="reserve pc-mt"><p class="pc-note" id="dimCaption">1D: the same 24 points squashed onto one line. Clusters pile on top of each other.</p></div>
+        <div class="reserve pc-mt"><p class="pc-note" id="dimCaption">1D: the same 48 points squashed onto one line. Clusters pile on top of each other.</p></div>
       </div>
       <h3>Position encoding</h3>
       <p>Order matters. "The cat sat on the mat" means something very different from "the mat sat on the cat." After looking up a token's embedding, the model also encodes the token's <span class="pc-hl-teal">position in the sequence</span> into its embedding. This way the model knows not just <em>what</em> each token is, but <em>where</em> it appears.</p>
@@ -272,9 +272,9 @@ tokens = <span class="syn-fn">tokenize</span>(prompt)
       <h3>Attention weights in action</h3>
       <p>Below is a simplified attention grid for "the cat sat on the mat". Hover any row to see how much weight each previous token contributes to generating the next one. Notice how the second "the" leans on "sat" and "on" to predict "mat", and how early tokens can only look at themselves.</p>
       <div class="page-card pc-card">
-        <div class="pc-card-label">Hover rows to explore attention weights</div>
+        <div class="pc-card-label">Hover or focus rows to explore attention weights</div>
         <div class="pc-scroll-x"><table class="pc-attn-grid" id="attnGrid"></table></div>
-        <p class="pc-caption" id="attnCaption">Hover a row to see the weight distribution.</p>
+        <p class="pc-caption" id="attnCaption" aria-live="polite">Hover or focus a row to see the weight distribution.</p>
       </div>
       <div class="app-callout pc-callout is-warm">
         <div class="app-callout-title">Why mask future tokens?</div>
@@ -392,7 +392,7 @@ V = <span class="syn-fn">append</span>(cached_V, V_new)  <span class="syn-cm">//
         <div class="pc-row pc-mb">
           <button class="btn btn-primary btn-sm" id="chvSendBtn" type="button">Send request</button>
           <button class="btn btn-outline btn-sm" id="chvClearBtn" type="button">Clear cache</button>
-          <span class="pc-meta pc-push">Cache TTL: <strong class="pc-ttl" id="chvTTL">5:00</strong></span>
+          <span class="pc-meta pc-push">Cache TTL: <strong class="pc-ttl" id="chvTTL">none</strong></span>
         </div>
         <div class="pc-chv-reqs" id="chvReqs" role="region" aria-label="Request log" tabindex="0"><div class="pc-empty">No requests yet. Click "Send request" to begin.</div></div>
         <div class="chv-legend">
@@ -464,7 +464,7 @@ V = <span class="syn-fn">append</span>(cached_V, V_new)  <span class="syn-cm">//
             </div>
           </div>
         </div>
-        <p class="pc-meta pc-calc-note">Simplified model: it prices cached input tokens at one tenth of the base rate (the steady state once a prefix is cached) and omits the one-time 25% cache-write surcharge shown in the table above, so it slightly overstates savings at very low request volumes.</p>
+        <p class="pc-meta pc-calc-note">Model: each cache hit reads the system prompt at one tenth of the base rate, and each miss writes it at 1.25 times the base rate (the 25% surcharge in the table above). At a low hit rate the writes cost more than the hits save. A system prompt under 1,024 tokens is never cached, so it costs the same either way.</p>
       </div>
     </section>
 
