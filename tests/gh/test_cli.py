@@ -502,3 +502,31 @@ def test_current_pr_subcommand_prints_the_number(
 
     assert cli.main(["current-pr"]) == 0
     assert capsys.readouterr().out == "42\n"
+
+
+@pytest.mark.parametrize(
+    ("argv", "attribute", "value"),
+    [
+        (["issue-list", "--search=-label:bug"], "search", "-label:bug"),
+        (["issue-create", "--title=-1 off", "--body", "b"], "title", "-1 off"),
+        (["issue-create", "--title=-fix", "--body", "b"], "title", "-fix"),
+        (["issue-close", "--issue", "7", "--comment=-not planned"], "comment", "-not planned"),
+    ],
+)
+def test_option_equals_value_keeps_a_leading_dash(
+    argv: list[str], attribute: str, value: str
+) -> None:
+    """The Makefile passes free text as --option=value, so a leading dash survives parsing."""
+    args = cli._build_parser().parse_args(argv)
+
+    assert getattr(args, attribute) == value
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [["issue-list", "--search", "-label:bug"], ["issue-create", "--title", "-fix", "--body", "b"]],
+)
+def test_separate_value_with_a_leading_dash_is_read_as_an_option(argv: list[str]) -> None:
+    """The separate-word form fails, which is why the Makefile never uses it for free text."""
+    with pytest.raises(SystemExit):
+        cli._build_parser().parse_args(argv)

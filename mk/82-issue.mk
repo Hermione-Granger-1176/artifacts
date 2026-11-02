@@ -11,7 +11,7 @@ issue-list: ## List issues (make issue-list [state=open|closed|all] [label=bug] 
 	set -- $(if $(state),--state "$(state)") $(if $(label),--label "$(label)") \
 		$(if $(assignee),--assignee "$(assignee)") $(if $(filter 1,$(mine)),--assignee @me) \
 		$(if $(author),--author "$(author)") $(if $(limit),--limit "$(limit)"); \
-	if [ -n "$$SEARCH" ]; then set -- "$$@" --search "$$SEARCH"; fi; \
+	if [ -n "$$SEARCH" ]; then set -- "$$@" --search="$$SEARCH"; fi; \
 	$(GH) issue-list "$$@"
 
 issue-view: ## Show an issue with its comments (make issue-view issue=N)
@@ -25,7 +25,7 @@ issue-summary: ## One-screen issue overview: state, labels, assignees, recent co
 issue-create: ## Open an issue, body on stdin (TITLE='Fix X' make issue-create < issue.md [labels="a,b"] [assignee=@me])
 	@test -n "$$TITLE" || \
 		(printf "Usage: TITLE='Fix X' make issue-create < issue.md [labels=\"bug,ci\"] [assignee=@me]\n" >&2; exit 1)
-	@$(GH) issue-create --title "$$TITLE" $(if $(labels),--labels "$(labels)") \
+	@$(GH) issue-create --title="$$TITLE" $(if $(labels),--labels "$(labels)") \
 		$(if $(assignee),--assignee "$(assignee)") --body-file -
 
 issue-comment: ## Comment on an issue, body on stdin (make issue-comment issue=N < notes.md)
@@ -39,7 +39,7 @@ issue-edit: ## Edit an issue (TITLE='...' make issue-edit issue=N; new body on s
 	test -n "$$TITLE$$body" || \
 		{ printf "Nothing to change. Set TITLE='...' or pipe a new body in.\n" >&2; exit 1; }; \
 	set -- --issue "$(issue)"; \
-	if [ -n "$$TITLE" ]; then set -- "$$@" --title "$$TITLE"; fi; \
+	if [ -n "$$TITLE" ]; then set -- "$$@" --title="$$TITLE"; fi; \
 	if [ -n "$$body" ]; then \
 		printf '%s' "$$body" | $(GH) issue-edit "$$@" --body-file -; \
 	else \
@@ -70,14 +70,14 @@ issue-close: ## Close an issue (make issue-close issue=N [reason=completed|"not 
 	$(call need,issue,make issue-close issue=123)
 	@set -e; \
 	set -- --issue "$(issue)" $(if $(reason),--reason "$(reason)"); \
-	if [ -n "$$COMMENT" ]; then set -- "$$@" --comment "$$COMMENT"; fi; \
+	if [ -n "$$COMMENT" ]; then set -- "$$@" --comment="$$COMMENT"; fi; \
 	$(GH) issue-close "$$@"
 
 issue-reopen: ## Reopen a closed issue (make issue-reopen issue=N; COMMENT='...' to say why)
 	$(call need,issue,make issue-reopen issue=123)
 	@set -e; \
 	set -- --issue "$(issue)"; \
-	if [ -n "$$COMMENT" ]; then set -- "$$@" --comment "$$COMMENT"; fi; \
+	if [ -n "$$COMMENT" ]; then set -- "$$@" --comment="$$COMMENT"; fi; \
 	$(GH) issue-reopen "$$@"
 
 issue-develop: ## Create and check out a branch linked to an issue (make issue-develop issue=N [base=branch] [name=branch])

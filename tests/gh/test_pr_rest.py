@@ -59,6 +59,16 @@ def _rollup_runner(runs: list[object], statuses: object) -> FakeGh:
     )
 
 
+def test_status_check_rollup_requests_every_check_run() -> None:
+    """The default latest filter can hide a same-named run from another suite, so ask for all."""
+    runner = _rollup_runner([], {"statuses": []})
+
+    pr_rest.status_check_rollup("o/r", "abc123", run_fn=runner)
+
+    (check_call,) = [call for call in runner.calls if "repos/o/r/commits/abc123/check-runs" in call]
+    assert "filter=all" in check_call
+
+
 def test_status_check_rollup_matches_the_gh_shape() -> None:
     """Check runs and commit statuses become upper-case rollup entries."""
     runs = [

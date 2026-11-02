@@ -140,19 +140,19 @@ def create_pr(
             raise GhError("HEAD is detached. Check out a branch before creating a pull request.")
         target = base or gh_runner.default_branch(slug, run_fn=run_fn)
         source = gh_runner.checkout_repo(slug, run_fn=run_fn)
-        _require_pushed(source, branch, run_fn=run_fn)
+        head_sha = _require_pushed(source, branch, run_fn=run_fn)
         head = branch if gh_runner.same_repo(source, slug) else f"{source.split('/')[0]}:{branch}"
         pr_title, pr_body = (
             (title, body)
             if title is not None
-            else _filled_text(slug, target, head, branch, run_fn=run_fn)
+            else _filled_text(slug, target, head_sha, branch, run_fn=run_fn)
         )
-        pull = gh_runner.rest(
-            f"repos/{slug}/pulls",
-            method="POST",
-            fields={"title": pr_title, "head": head, "base": target, "body": pr_body},
-            run_fn=run_fn,
-        )
+        fields = {"title": pr_title, "head": head, "base": target, "body": pr_body}
+        if not gh_runner.same_repo(source, slug):
+            # GitHub needs the source repository's name when a cross-repository
+            # PR stays inside one organization, where the owner prefix is not enough.
+            fields["head_repo"] = source.split("/")[1]
+        pull = gh_runner.rest(f"repos/{slug}/pulls", method="POST", fields=fields, run_fn=run_fn)
         print(pull.get("html_url") if isinstance(pull, dict) else "Created pull request")
         return 0
 
@@ -161,8 +161,8 @@ def create_pr(
     )
 
 
-def _require_pushed(slug: str, branch: str, *, run_fn: RunFunction | None) -> None:
-    """Fail unless GitHub's copy of ``branch`` points at the local ``HEAD``.
+def _require_pushed(slug: str, branch: str, *, run_fn: RunFunction | None) -> str:
+    """Return the local ``HEAD`` commit, failing unless GitHub's ``branch`` points at it.
 
     ``gh pr create`` offers to push the branch first. The REST fallback does
     not push, so it refuses rather than open a PR that is missing commits.
@@ -180,12 +180,17 @@ def _require_pushed(slug: str, branch: str, *, run_fn: RunFunction | None) -> No
         raise GhError(f"Branch {branch} is not on GitHub. Run make push first.") from exc
     if as_object(remote.get("commit")).get("sha") != local:
         raise GhError(f"GitHub's {branch} does not match your local HEAD. Run make push first.")
+    return local
 
 
 def _filled_text(
-    slug: str, base: str, head: str, branch: str, *, run_fn: RunFunction | None = None
+    slug: str, base: str, head_sha: str, branch: str, *, run_fn: RunFunction | None = None
 ) -> tuple[str, str]:
-    """Return a PR title and body drawn from the commits ``head`` adds to ``base``.
+    """Return a PR title and body drawn from the commits ``head_sha`` adds to ``base``.
+
+    The head is a commit SHA rather than a branch name. Repositories of one owner
+    can share a branch name, so ``owner:branch`` may name the wrong one, while the
+    pushed commit is unambiguous across a fork network.
 
     Mirrors ``gh pr create --fill``: one commit supplies its own subject and
     body, several commits give the branch name as the title and their subjects
@@ -193,7 +198,7 @@ def _filled_text(
     depends on a local tracking ref that is missing, stale, or from a fork.
     """
     entries = gh_runner.rest_pages(
-        f"repos/{slug}/compare/{quote(base, safe='')}...{quote(head, safe=':')}",
+        f"repos/{slug}/compare/{quote(base, safe='')}...{head_sha}",
         items_key="commits",
         run_fn=run_fn,
     )
