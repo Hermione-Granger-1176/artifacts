@@ -13,7 +13,7 @@
  * @module pdf-render
  */
 
-import { initialsOf } from "./format.js";
+import { initialsOf, printedTitle, printedVendorName } from "./format.js";
 
 /**
  * @typedef {import("./document-model.js").DocumentModel} DocumentModel
@@ -207,7 +207,7 @@ function drawHeader(cursor, model) {
   const { doc, width, accent, family } = cursor;
   const { vendor } = model;
   const ink = hexToRgb(vendor.ink);
-  const title = model.title.toUpperCase();
+  const title = printedTitle(model.title);
   const hasMark = MONOGRAM_STYLES.has(vendor.logoStyle);
   const nameX = MARGIN + (hasMark ? MONOGRAM_SIZE + 12 : 0);
   // The detail lines drop below the monogram tile when there is one.
@@ -231,7 +231,10 @@ function drawHeader(cursor, model) {
   // "Ironwood Construction Materials" and "DELIVERY CHALLAN" overprint by 15pt.
   doc.setFont(family, "bold");
   doc.setFontSize(17);
-  const nameWidth = doc.getTextWidth(vendor.name);
+  // The same capitals as the page's logo, so the sidecar's vendor_name text
+  // matches both outputs.
+  const vendorName = printedVendorName(vendor);
+  const nameWidth = doc.getTextWidth(vendorName);
   const titleRoom = width - MARGIN - nameX - nameWidth - HEADER_GAP;
   const titleSize = fitFontSize(
     doc,
@@ -244,7 +247,7 @@ function drawHeader(cursor, model) {
   );
 
   cursor.textStyle("bold", 17, ink);
-  doc.text(vendor.name, nameX, 46);
+  doc.text(vendorName, nameX, 46);
 
   cursor.textStyle("normal", 8.5, GREY);
   doc.text(vendor.tagline, MARGIN, 60 + detailOffset);

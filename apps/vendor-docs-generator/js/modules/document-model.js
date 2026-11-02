@@ -35,12 +35,17 @@ import { TAX_RATE, catalogFor, findDocumentType, findVendor } from "./vendors.js
  * that value belongs to. The third slot is what lets the paper renderer stamp
  * `data-field` onto the node without knowing anything about the schema, and
  * what keeps the box annotations and the JSON sidecar naming one thing once.
- * @typedef {[label: string, value: string, field?: string]} LabelledValue
+ * @typedef {{ field: string, text: string }} SpanTag A field printed inside a
+ *   longer string, such as the rate in "Sales tax (8.25%)". The paper renderer
+ *   wraps that text in its own labelled span, so the field gets its own box.
+ * @typedef {string | SpanTag[]} FieldSpec The field for a whole string, or the
+ *   fields of the spans inside it.
+ * @typedef {[label: string, value: string, field?: FieldSpec, labelField?: SpanTag[]]} LabelledValue
  *
  * @typedef {{ kind: "stamp", text: string }} StampBlock
- * @typedef {{ kind: "parties", label: string, lineFields?: (string | null)[], lines: string[], meta: LabelledValue[] }} PartiesBlock
+ * @typedef {{ kind: "parties", label: string, lineFields?: (FieldSpec | null)[], lines: string[], meta: LabelledValue[] }} PartiesBlock
  * @typedef {{ kind: "keygrid", columns: LabelledValue[][] }} KeyGridBlock
- * @typedef {{ kind: "partypair", columnFields?: (string | null)[][], columns: [string[], string[]], headings: [string, string] }} PartyPairBlock
+ * @typedef {{ kind: "partypair", columnFields?: (FieldSpec | null)[][], columns: [string[], string[]], headings: [string, string] }} PartyPairBlock
  * @typedef {{ kind: "table", columns: Column[], dense?: boolean, fields?: (string | null)[], footer?: string[], rowScope?: string, rows: string[][] }} TableBlock
  * @typedef {{ kind: "totals", emphasisIndex: number, rows: LabelledValue[] }} TotalsBlock
  * @typedef {{ kind: "words", text: string }} WordsBlock
@@ -498,6 +503,18 @@ function pricedTable(items) {
 }
 
 /**
+ * The sales tax row. The rate is printed only inside the label, so the label
+ * carries a span tag that gives `tax_rate` its own box.
+ * @param {{ tax: number, taxRate: number }} totals - Computed totals.
+ * @param {string} [label] - Row label before the rate.
+ * @returns {LabelledValue} Label, amount, amount field, and the rate's span tag.
+ */
+function salesTaxRow(totals, label = "Sales tax") {
+  const rate = formatRate(totals.taxRate);
+  return [`${label} (${rate})`, formatMoney(totals.tax), "tax_amount", [{ field: "tax_rate", text: rate }]];
+}
+
+/**
  * Build the standard subtotal / tax / total block.
  * @param {ReturnType<typeof computeTotals>} totals - Computed totals.
  * @param {number | null} [shipping] - Optional shipping charge.
@@ -506,7 +523,7 @@ function pricedTable(items) {
 function totalsBlock(totals, shipping = null) {
   const rows = /** @type {LabelledValue[]} */ ([
     ["Subtotal", formatMoney(totals.subtotal), "subtotal"],
-    [`Sales tax (${formatRate(totals.taxRate)})`, formatMoney(totals.tax), "tax_amount"]
+    salesTaxRow(totals)
   ]);
 
   if (shipping !== null) {
@@ -680,12 +697,13 @@ function densePartyPair(buyer) {
       [buyer.name, ...buyer.lines, `Contact: ${buyer.contact}`],
       [buyer.name, ...buyer.lines, `Tel: ${buyer.phone}`]
     ],
-    // Only the receiver column is tagged. The consignee repeats the same
-    // party, and tagging both would put two regions with the same field on
-    // opposite sides of the page for one printed fact.
+    // The receiver column tags the name and address. The consignee repeats
+    // them, and tagging both would put two regions with the same field on
+    // opposite sides of the page for one printed fact. The contact and the
+    // phone each appear once, so each gets a span tag inside its line.
     columnFields: [
-      ["buyer_name", ...buyer.lines.map(() => "buyer_address"), null],
-      [null, ...buyer.lines.map(() => null), null]
+      ["buyer_name", ...buyer.lines.map(() => "buyer_address"), [{ field: "buyer_contact", text: buyer.contact }]],
+      [null, ...buyer.lines.map(() => null), [{ field: "buyer_phone", text: buyer.phone }]]
     ]
   };
 }
@@ -797,7 +815,9 @@ function buildDenseInvoice(context) {
       kind: "totals",
       rows: [
         ["Total assessable value", formatMoney(totals.subtotal), "subtotal"],
-        ["Total sales tax", formatMoney(totals.tax), "tax_amount"],
+        // The rate also prints on every line, but those cells belong to the
+        // line items. The document-level rate needs its own printed place.
+        salesTaxRow(totals, "Total sales tax"),
         ["Shipping and handling", formatMoney(shipping), "shipping"],
         ["Grand total", formatMoney(grand), "grand_total"]
       ],
@@ -896,7 +916,7 @@ function buildReceipt(context) {
         kind: "totals",
         rows: [
           ["Subtotal", formatMoney(totals.subtotal), "subtotal"],
-          [`Sales tax (${formatRate(totals.taxRate)})`, formatMoney(totals.tax), "tax_amount"],
+          salesTaxRow(totals),
           ["Shipping and handling", formatMoney(shipping), "shipping"],
           ["Amount due", formatMoney(paidTotals.grand), "grand_total"],
           ["AMOUNT PAID", formatMoney(paidTotals.grand), "amount_paid"],
@@ -1183,7 +1203,14 @@ function buildStatement(context) {
         // `Q${1 + seed % 4}`, a quarter drawn from the seed and unrelated to
         // both the transactions and the generated date, so a Q4 heading routinely
         // sat on a ledger of Q2 rows.
-        ["Period", `${formatDate(periodStart)} - ${formatDate(lastMovement)}`],
+        [
+          "Period",
+          `${formatDate(periodStart)} - ${formatDate(lastMovement)}`,
+          [
+            { field: "period_start", text: formatDate(periodStart) },
+            { field: "period_end", text: formatDate(lastMovement) }
+          ]
+        ],
         ["Generated", formatDate(context.baseDate), "document_date"]
       ]),
       {

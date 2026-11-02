@@ -64,8 +64,21 @@ test('the block and stamp treatments print a two-letter monogram', () => {
 
 test('the thin treatment splits the name into a lead word and a tail', () => {
   const logo = buildLogo(createFakeDocument(), findVendor('lumen'));
-  assert.equal(findByClass(logo, 'vd-logo-name')[0].textContent, 'Lumen');
-  assert.equal(findByClass(logo, 'vd-logo-sub')[0].textContent, 'Office Interiors');
+  // The capitals are in the text, so the box text matches the pixels.
+  assert.equal(findByClass(logo, 'vd-logo-name')[0].textContent, 'LUMEN');
+  assert.equal(findByClass(logo, 'vd-logo-sub')[0].textContent, 'OFFICE INTERIORS');
+});
+
+test('only the stripe and thin treatments print the name in capitals', () => {
+  const nameOf = (id) => {
+    const logo = buildLogo(createFakeDocument(), findVendor(id));
+    return [...findByClass(logo, 'vd-logo-name'), ...findByClass(logo, 'vd-logo-sub')]
+      .map((node) => node.textContent)
+      .join(' ');
+  };
+  assert.equal(nameOf('harbor'), findVendor('harbor').name.toUpperCase(), 'stripe');
+  assert.equal(nameOf('lumen'), findVendor('lumen').name.toUpperCase(), 'thin');
+  assert.equal(nameOf('verde'), findVendor('verde').name, 'leaf prints the name as written');
 });
 
 test('the paper carries the letterhead, title, and sample footer', () => {
@@ -74,7 +87,7 @@ test('the paper carries the letterhead, title, and sample footer', () => {
 
   assert.ok(page.className.includes('is-left'), 'the page should carry the vendor layout class');
   assert.equal(findByClass(paper, 'vd-accent-bar').length, 1);
-  assert.equal(findByClass(paper, 'vd-doc-title')[0].textContent, model.title);
+  assert.equal(findByClass(paper, 'vd-doc-title')[0].textContent, model.title.toUpperCase());
   assert.match(findByClass(paper, 'vd-doc-foot')[0].textContent, /Not a valid tax record/);
 
   // The middle line holds the phone and the email in two separately labelled
@@ -96,7 +109,7 @@ test('rendering twice replaces the page rather than stacking pages', () => {
   renderPaper(paper, buildDocument({ docTypeId: 'receipt', seed: 2, today: TODAY, vendorId: 'verde' }), doc);
 
   assert.equal(findByClass(paper, 'vd-page').length, 1);
-  assert.equal(findByClass(paper, 'vd-doc-title')[0].textContent, 'Receipt');
+  assert.equal(findByClass(paper, 'vd-doc-title')[0].textContent, 'RECEIPT');
 });
 
 test('the subtitle is omitted when a document type has none', () => {
@@ -201,4 +214,22 @@ test('every vendor and type combination renders without throwing', () => {
       );
     }
   }
+});
+
+test('the page preview is not a live region, but the short caption is', async () => {
+  // A live region on the paper would read the whole document aloud on every
+  // redraw, and once per document in a batch.
+  const { readFileSync } = await import('node:fs');
+  const html = readFileSync(new URL('../../../../apps/vendor-docs-generator/index.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(html.match(/<article class="vd-paper"[^>]*>/)[0], /aria-live/);
+  assert.match(html, /<p class="vd-caption-text" aria-live="polite">/);
+});
+
+test('reduced motion never changes the printed page', async () => {
+  // The capture reads the page as styled, so a reduced-motion rule that moved
+  // the stamp would make one seed render two different pages.
+  const { readFileSync } = await import('node:fs');
+  const css = readFileSync(new URL('../../../../apps/vendor-docs-generator/css/app.css', import.meta.url), 'utf8');
+  const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.doesNotMatch(reduced.slice(0, reduced.indexOf('\n}\n')), /\.vd-(stamp|paper|page)\b/);
 });

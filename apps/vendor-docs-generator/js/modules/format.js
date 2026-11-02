@@ -244,3 +244,27 @@ export function initialsOf(name) {
     .join("")
     .toUpperCase();
 }
+
+/** Logo styles that set the vendor name in capitals. */
+const CAPITALISED_LOGO_STYLES = new Set(["stripe", "thin"]);
+
+/**
+ * The document title as the page prints it. The title is set in capitals, and
+ * the capitals live in the text itself (not in a CSS text-transform), so the
+ * sidecar text, the box text, and the pixels all agree.
+ * @param {string} title - Document title, such as "Delivery challan".
+ * @returns {string} The printed title, such as "DELIVERY CHALLAN".
+ */
+export function printedTitle(title) {
+  return title.toUpperCase();
+}
+
+/**
+ * The vendor name as the logo prints it. The stripe and thin logos set the
+ * name in capitals. The other logos print it as written.
+ * @param {{ name: string, logoStyle: string }} vendor - Vendor whose name to print.
+ * @returns {string} The printed name.
+ */
+export function printedVendorName(vendor) {
+  return CAPITALISED_LOGO_STYLES.has(vendor.logoStyle) ? vendor.name.toUpperCase() : vendor.name;
+}

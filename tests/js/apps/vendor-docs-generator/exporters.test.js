@@ -296,6 +296,21 @@ test('a both-format text batch still needs a capture for the PNG half', async ()
   assert.equal(canvas.captures.length, 2);
 });
 
+test('a batch files a debit note under debitnote, the variant the model resolved', async () => {
+  const { deps, zip } = createExportDeps();
+  await runBatch({
+    deps,
+    format: 'pdf',
+    paper: createFakeElement('article'),
+    pdfMode: 'text',
+    // Odd seeds resolve the credit-or-debit type to a debit note.
+    plan: [{ vendorId: 'apex', docTypeId: 'creditnote', seed: 1001, style: 'clean' }],
+    renderPreview: (item) => buildDocument({ ...item, today: TODAY })
+  });
+
+  assert.deepEqual([...zip.archives[0].files.keys()], ['apex/debitnote/apex_debitnote_1001.pdf']);
+});
+
 test('batch progress reports each document and then the zipping phase', async () => {
   const { progress } = await runFixture({ format: 'pdf', pdfMode: 'text' });
 

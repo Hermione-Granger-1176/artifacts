@@ -7,6 +7,7 @@ import {
   pdfFontFor,
   renderPdf
 } from '../../../../apps/vendor-docs-generator/js/modules/pdf-render.js';
+import { printedVendorName } from '../../../../apps/vendor-docs-generator/js/modules/format.js';
 import { DOCUMENT_TYPES, VENDORS, findVendor } from '../../../../apps/vendor-docs-generator/js/modules/vendors.js';
 
 import { createFakeJsPdf } from './library-fakes.js';
@@ -53,7 +54,8 @@ test('the letterhead prints the vendor identity and the accent rule', () => {
   const { doc, model } = renderInto({ docTypeId: 'invoice', seed: 2024, vendorId: 'harbor' });
   const printed = doc.texts.map((entry) => entry.text);
 
-  assert.ok(printed.includes(model.vendor.name));
+  // Harbor's stripe logo sets the name in capitals on the page and in the PDF.
+  assert.ok(printed.includes(model.vendor.name.toUpperCase()));
   assert.ok(printed.includes(model.vendor.tagline));
   assert.ok(printed.includes(model.vendor.taxId));
   assert.ok(printed.includes('INVOICE'), 'the title is printed upper-cased');
@@ -233,7 +235,7 @@ test('the letterhead and the title never overprint each other', () => {
           style,
           vendorId: vendor.id
         });
-        const name = doc.texts.find((entry) => entry.text === model.vendor.name);
+        const name = doc.texts.find((entry) => entry.text === printedVendorName(model.vendor));
         const title = doc.texts.find((entry) => entry.text === model.title.toUpperCase());
 
         assert.ok(name && title, `${vendor.id}/${type.id} should print both`);

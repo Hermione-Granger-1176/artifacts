@@ -27,7 +27,15 @@
 
 import { BOXES_APPLY_TO } from "./annotate-boxes.js";
 import { DEGRADATION_APPLIES_TO } from "./degrade.js";
-import { formatDate, formatMoney, formatRate, isoDate, roundCents } from "./format.js";
+import {
+  formatDate,
+  formatMoney,
+  formatRate,
+  isoDate,
+  printedTitle,
+  printedVendorName,
+  roundCents
+} from "./format.js";
 
 /**
  * @typedef {import("./document-model.js").DocumentModel} DocumentModel
@@ -139,6 +147,17 @@ function textField(value) {
 }
 
 /**
+ * A string field whose printed form differs from its value, such as a title
+ * the page sets in capitals.
+ * @param {string} text - The characters on the page.
+ * @param {string} value - The normalised value.
+ * @returns {AnnotatedField} Field pair.
+ */
+function printedField(text, value) {
+  return { text, value };
+}
+
+/**
  * Share the null handling and pair shape of numeric annotations.
  * @param {number | undefined | null} value - Number the page may print.
  * @param {(value: number) => string} format - Printed representation.
@@ -223,7 +242,7 @@ function documentFields(model) {
   // facts are true of every page the generator produces. The company
   // registration is not: only the dense invoice prints it.
   return {
-    document_title: textField(model.title),
+    document_title: printedField(printedTitle(model.title), model.title),
     document_number: textField(facts.documentNumber),
     document_date: dateField(facts.documentDate),
     due_date: dateField(facts.dueDate),
@@ -239,7 +258,7 @@ function documentFields(model) {
     payment_terms: textField(facts.paymentTerms),
     adjustment_reason: textField(facts.reason),
     vehicle_number: textField(facts.vehicleNumber),
-    vendor_name: textField(vendor.name),
+    vendor_name: printedField(printedVendorName(vendor), vendor.name),
     vendor_address: textField(vendor.addr),
     vendor_email: textField(vendor.email),
     vendor_phone: textField(vendor.phone),

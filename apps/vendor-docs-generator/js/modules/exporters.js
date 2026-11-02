@@ -469,7 +469,9 @@ export async function runBatch({
     }
 
     const model = renderPreview(item);
-    const base = `${item.vendorId}/${item.docTypeId}/${model.filenameBase}`;
+    // The folder names the variant the model resolved, so an odd-seed debit
+    // note lands in debitnote/, not in the creditnote/ folder it was planned as.
+    const base = `${item.vendorId}/${model.docVariantId}/${model.filenameBase}`;
     const degradation = degrade ? degrade(model) : null;
 
     if (wantsPdf && pdfMode === "text") {

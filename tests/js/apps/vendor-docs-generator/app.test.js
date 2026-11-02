@@ -359,6 +359,33 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
       replacePaperChildren(...nodes);
     };
 
+    // ── Controls touched mid-run wait for the run to end ──────────────
+    // A redraw mid-run would put another document under a capture or a box
+    // measurement in flight, so the page the reader picked appears afterwards.
+    elementMap.vdBatchCount.value = '2';
+    const vendorBeforeRun = elementMap.vdVendor.value;
+    let captionDuringRun = null;
+    elementMap.vdPaper.replaceChildren = (...nodes) => {
+      paperRenderCount += 1;
+      if (captionDuringRun === null && !elementMap.vdBatchStop.classList.contains('is-idle')) {
+        elementMap.vdVendor.value = 'nimbus';
+        fire(elementMap.vdVendor, 'change');
+        captionDuringRun = elementMap.vdCaptionVendor.textContent;
+      }
+      replacePaperChildren(...nodes);
+    };
+    const captionBeforeRun = elementMap.vdCaptionVendor.textContent;
+    fire(elementMap.vdExport, 'click');
+    await waitForBatch(elementMap.vdExport);
+    assert.equal(captionDuringRun, captionBeforeRun, 'a vendor change mid-run does not redraw the paper');
+    assert.equal(elementMap.vdCaptionVendor.textContent, 'Nimbus Cloud Services', 'the redraw runs once the batch ends');
+    elementMap.vdPaper.replaceChildren = (...nodes) => {
+      paperRenderCount += 1;
+      replacePaperChildren(...nodes);
+    };
+    elementMap.vdVendor.value = vendorBeforeRun;
+    fire(elementMap.vdVendor, 'change');
+
     // ── Include maps onto the two cross-product switches ──────────────
     elementMap.vdBatchCount.value = '1';
     choose(elementMap.vdInclude, 'data-include', 'types');
