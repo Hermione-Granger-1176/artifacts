@@ -743,10 +743,10 @@ def test_search_note_shows_a_match_count_and_a_labelled_sort_note(
                 page.click("#search-clear")
                 expect(page.locator("#search-count")).to_have_text("")
 
-                assert page.evaluate(sort_label) == '"newest"', label
+                assert page.evaluate(sort_label) == '"A to Z"', label
                 page.click("#sort-toggle")
                 expect(page.locator("#sort-toggle")).to_have_attribute("aria-pressed", "true")
-                assert page.evaluate(sort_label) == '"oldest"', label
+                assert page.evaluate(sort_label) == '"Z to A"', label
 
 
 def test_toolbar_notes_hold_still_when_filters_and_sort_change(tmp_path: Path, monkeypatch) -> None:

@@ -67,7 +67,7 @@ test('filterAndSortArtifacts filters by search/tool/tag and sort order', () => {
 
   const filtered = filterAndSortArtifacts(artifacts, {
     currentQuery: 'helper',
-    currentSort: 'newest',
+    currentSort: 'az',
     currentTags: ['finance'],
     currentTools: ['claude']
   });
@@ -76,7 +76,16 @@ test('filterAndSortArtifacts filters by search/tool/tag and sort order', () => {
   assert.deepEqual(
     filterAndSortArtifacts(artifacts, {
       currentQuery: '',
-      currentSort: 'oldest',
+      currentSort: 'za',
+      currentTags: [],
+      currentTools: []
+    }).map((item) => item.id),
+    ['artifact-b', 'artifact-a']
+  );
+  assert.deepEqual(
+    filterAndSortArtifacts(artifacts, {
+      currentQuery: '',
+      currentSort: 'az',
       currentTags: [],
       currentTools: []
     }).map((item) => item.id),
@@ -138,7 +147,7 @@ test('filterAndSortArtifacts stays responsive on a larger catalog fixture', () =
   const startedAt = performance.now();
   const filtered = filterAndSortArtifacts(artifacts, {
     currentQuery: 'helper',
-    currentSort: 'newest',
+    currentSort: 'za',
     currentTags: ['finance'],
     currentTools: ['claude']
   });

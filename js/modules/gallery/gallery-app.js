@@ -7,6 +7,7 @@ import { getGalleryConfig, getTagLabel, getToolLabel } from './config.js';
 import {
   buildGalleryUrl,
   DEFAULT_GALLERY_STATE,
+  normalizeSearchQuery,
   readGalleryStateFromSearch
 } from './gallery-url.js';
 import { ICONS } from './icons.js';
@@ -399,9 +400,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   });
 
   searchInput.addEventListener('input', () => {
-    clearTimeout(debounceTimer);
+    cancelPendingSearch();
     // An emptied box is not a typing burst, so the full list comes back at once.
-    if (searchInput.value === '') {
+    if (normalizeSearchQuery(searchInput.value) === '') {
       applySearch();
       return;
     }
@@ -409,16 +410,35 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   });
   searchInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
-      clearTimeout(debounceTimer);
       applySearch();
     }
   });
 
   /** Search for what the box holds now, from the first page. */
   function applySearch() {
-    currentQuery = searchInput.value.toLowerCase();
+    cancelPendingSearch();
+    currentQuery = normalizeSearchQuery(searchInput.value);
     currentPage = 1;
     applyStateChange();
+  }
+
+  function cancelPendingSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = undefined;
+  }
+
+  /**
+   * Commit text typed during the search debounce. Another control can change
+   * the state before the debounce fires, and syncUIToState would then put the
+   * old query back in the box and lose the typing.
+   */
+  function commitPendingSearch() {
+    if (debounceTimer === undefined) {
+      return;
+    }
+    cancelPendingSearch();
+    currentQuery = normalizeSearchQuery(searchInput.value);
+    currentPage = 1;
   }
 
   searchClear.addEventListener('click', () => {
@@ -551,7 +571,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   sortToggle.addEventListener('click', () => {
-    currentSort = currentSort === 'newest' ? 'oldest' : 'newest';
+    currentSort = currentSort === 'za' ? 'az' : 'za';
     currentPage = 1;
     applyStateChange();
   });
@@ -658,6 +678,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   windowObj.addEventListener('popstate', () => {
     overlay.close({ restoreFocus: false, immediate: true });
+    // Back and Forward restore the query in the URL, so drop any pending typing.
+    cancelPendingSearch();
     suppressPush = true;
     readStateFromUrl();
     syncUIToState();
@@ -707,6 +729,13 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       const page = currentPage + step;
       if (step !== 0 && page >= 1 && page <= pageCount) {
         swipeTurned = true;
+        // The browser dispatches the click that follows pointerup in the same
+        // task. A swipe can end without one (a touch, or a drag that leaves
+        // the grid), so drop the flag after this task. Otherwise it would
+        // swallow the next keyboard Enter on a card.
+        windowObj.setTimeout(() => {
+          swipeTurned = false;
+        }, 0);
         goToPage(page);
       }
     });
@@ -916,7 +945,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   function syncUIToState() {
-    if (searchInput.value.toLowerCase() !== currentQuery) {
+    // Compare normalized text, so a trailing space the reader just typed stays
+    // in the box while they keep typing.
+    if (normalizeSearchQuery(searchInput.value) !== currentQuery) {
       searchInput.value = currentQuery;
     }
 
@@ -980,12 +1011,12 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   function updateSortToggle() {
-    const isOldest = currentSort === 'oldest';
-    const label = `Sort by ${isOldest ? 'oldest' : 'newest'} first`;
-    sortToggle.classList.toggle('is-oldest', isOldest);
+    const isDescending = currentSort === 'za';
+    const label = `Sort by name, ${isDescending ? 'Z to A' : 'A to Z'}`;
+    sortToggle.classList.toggle('is-descending', isDescending);
     sortToggle.setAttribute('aria-label', label);
     sortToggle.setAttribute('title', label);
-    sortToggle.setAttribute('aria-pressed', String(isOldest));
+    sortToggle.setAttribute('aria-pressed', String(isDescending));
   }
 
   /**
@@ -1013,6 +1044,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
    * @returns {void}
    */
   function applyStateChange({ focusTarget = null } = {}) {
+    commitPendingSearch();
     overlay.close({ restoreFocus: false, immediate: true });
     pendingFocusTarget = focusTarget;
     syncUIToState();
@@ -1049,7 +1081,10 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       page: () => /** @type {HTMLElement | null} */ (
         (descriptor.step
           && paginationContainer.querySelector(`[data-page-step="${CSS.escape(descriptor.step)}"]:not(:disabled)`))
-        || paginationContainer.querySelector(`[data-page="${CSS.escape(descriptor.value)}"]`)
+        // The First and Last nav buttons also carry data-page and come first
+        // in DOM order. Skip disabled ones, or focus lands on a dead button and
+        // falls back to <body>.
+        || paginationContainer.querySelector(`[data-page="${CSS.escape(descriptor.value)}"]:not(:disabled)`)
       ),
       'desk-note': () => /** @type {HTMLElement | null} */ (
         filterNotesContainer.querySelector(`[data-${selectorName}="${CSS.escape(descriptor.value)}"]`)

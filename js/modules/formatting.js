@@ -10,22 +10,39 @@
  * @returns {string} Compact dollar string for chart axis labels.
  */
 export function formatDollarTick(value) {
-  const absoluteValue = Math.abs(value);
-  const sign = value < 0 ? "-" : "";
+  const magnitude = dollarTickMagnitude(Math.abs(value));
+  return `${signFor(value, magnitude)}$${magnitude}`;
+}
 
+/**
+ * @param {number} absoluteValue - A non-negative value.
+ * @returns {string} The compact magnitude for formatDollarTick, without sign or "$".
+ */
+function dollarTickMagnitude(absoluteValue) {
   if (absoluteValue >= 1000000) {
-    return `${sign}$${(absoluteValue / 1000000).toFixed(1)}M`;
+    return `${(absoluteValue / 1000000).toFixed(1)}M`;
   }
 
   if (absoluteValue >= 10000) {
-    return `${sign}$${Math.round(absoluteValue / 1000)}k`;
+    return `${Math.round(absoluteValue / 1000)}k`;
   }
 
   if (absoluteValue >= 1000) {
-    return `${sign}$${(absoluteValue / 1000).toFixed(1)}k`;
+    return `${(absoluteValue / 1000).toFixed(1)}k`;
   }
 
-  return `${sign}$${Math.round(absoluteValue)}`;
+  return String(Math.round(absoluteValue));
+}
+
+/**
+ * Return the minus sign for a negative value, unless its formatted magnitude
+ * rounds to zero. Float residue such as -0.004 then reads "$0.00", not "-$0.00".
+ * @param {number} value - The value being formatted.
+ * @param {string} magnitude - The formatted absolute value.
+ * @returns {string} "-" or "".
+ */
+function signFor(value, magnitude) {
+  return value < 0 && /[1-9]/.test(magnitude) ? "-" : "";
 }
 
 /**
@@ -36,7 +53,7 @@ export function formatDollarTick(value) {
  */
 export function formatCurrency(value, digits = 0) {
   const magnitude = groupedNumberFormat(digits).format(Math.abs(value));
-  return `${value < 0 ? "-" : ""}$${magnitude}`;
+  return `${signFor(value, magnitude)}$${magnitude}`;
 }
 
 /** @type {Map<number, Intl.NumberFormat>} */
@@ -68,7 +85,8 @@ function groupedNumberFormat(digits) {
  * @returns {string} Formatted percent string (e.g. "5.0%").
  */
 export function formatPercent(value, digits = 1) {
-  return `${value.toFixed(digits)}%`;
+  const magnitude = Math.abs(value).toFixed(digits);
+  return `${signFor(value, magnitude)}${magnitude}%`;
 }
 
 /**
@@ -77,22 +95,28 @@ export function formatPercent(value, digits = 1) {
  * @returns {string} Compact string (e.g. "30k", "2.5M", "3.0B").
  */
 export function formatCompact(value) {
-  const absoluteValue = Math.abs(value);
-  const sign = value < 0 ? "-" : "";
+  const magnitude = compactMagnitude(Math.abs(value));
+  return `${signFor(value, magnitude)}${magnitude}`;
+}
 
+/**
+ * @param {number} absoluteValue - A non-negative value.
+ * @returns {string} The compact magnitude for formatCompact, without a sign.
+ */
+function compactMagnitude(absoluteValue) {
   if (absoluteValue >= 1e9) {
-    return `${sign}${(absoluteValue / 1e9).toFixed(1)}B`;
+    return `${(absoluteValue / 1e9).toFixed(1)}B`;
   }
 
   if (absoluteValue >= 1e6) {
-    return `${sign}${(absoluteValue / 1e6).toFixed(1)}M`;
+    return `${(absoluteValue / 1e6).toFixed(1)}M`;
   }
 
   if (absoluteValue >= 1e3) {
-    return `${sign}${Math.round(absoluteValue / 1e3)}k`;
+    return `${Math.round(absoluteValue / 1e3)}k`;
   }
 
-  return `${sign}${Math.round(absoluteValue)}`;
+  return String(Math.round(absoluteValue));
 }
 
 /**

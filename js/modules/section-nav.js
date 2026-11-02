@@ -114,7 +114,10 @@ export function scrollProgress(anchors, scrollY) {
   for (let index = 1; index < anchors.length; index += 1) {
     if (scrollY < anchors[index]) {
       const start = anchors[index - 1];
-      return index - 1 + Math.max(0, scrollY - start) / (anchors[index] - start);
+      // Two sections can share an offset, for example a hidden one that
+      // reports 0. Dividing by that zero span would return NaN.
+      const span = anchors[index] - start;
+      return index - 1 + (span > 0 ? Math.max(0, scrollY - start) / span : 0);
     }
   }
   return Math.max(0, anchors.length - 1);

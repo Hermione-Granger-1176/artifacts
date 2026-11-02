@@ -70,7 +70,7 @@ On the desk layout the search note sits above the book, beside the sort and rese
 
 The search runs `SEARCH_DELAY_MS` (400ms) after the last keystroke, so a typed word usually runs one search instead of one per key. Enter searches at once, and an emptied field shows every artifact at once. Each search starts at page 1.
 
-`.sort-toggle::after` supplies the visible label, "newest" or "oldest". The accessible button name is "Sort by newest first" or "Sort by oldest first".
+The gallery data has no creation dates, so the sort toggle orders artifacts by name. `.sort-toggle::after` supplies the visible label, "A to Z" or "Z to A". The accessible button name is "Sort by name, A to Z" or "Sort by name, Z to A". The URL holds `sort=za` for Z to A. An older `sort=oldest` link opens in the default A to Z order.
 
 Search text, filters, sort order, and page live in the URL as `q`, `tool`, `tag`, `sort`, and `page`. Only non-default values appear. Each change pushes a history entry, and Back and Forward restore the state.
 

@@ -8,6 +8,7 @@ globalThis.CSS.escape = globalThis.CSS.escape || ((v) => String(v).replace(/([^\
 import { initializeGalleryApp } from '../../../js/modules/gallery/gallery-app.js';
 import {
   buildGalleryUrl,
+  normalizeSearchQuery,
   readGalleryStateFromSearch
 } from '../../../js/modules/gallery/gallery-url.js';
 
@@ -843,7 +844,7 @@ function createGalleryHarness({
 
 test('readGalleryStateFromSearch normalizes query params against allowed values', () => {
   const state = readGalleryStateFromSearch({
-    search: '?page=0&sort=oldest&q=Loan%20Calc&tool=chatgpt,claude,unknown&tag=finance,calculator,invalid',
+    search: '?page=0&sort=za&q=Loan%20Calc&tool=chatgpt,claude,unknown&tag=finance,calculator,invalid',
     allTools: ['claude', 'chatgpt'],
     allTags: ['finance', 'calculator']
   });
@@ -851,11 +852,23 @@ test('readGalleryStateFromSearch normalizes query params against allowed values'
   assert.deepEqual(state, {
     page: 1,
     q: 'loan calc',
-    sort: 'oldest',
+    sort: 'za',
     tools: ['claude', 'chatgpt'],
     tags: ['finance', 'calculator'],
     rawQuery: 'Loan Calc'
   });
+});
+
+test('normalizeSearchQuery trims and lower-cases, including the URL query', () => {
+  assert.equal(normalizeSearchQuery('  Chart '), 'chart');
+  assert.equal(normalizeSearchQuery('   '), '');
+  const state = readGalleryStateFromSearch({ search: '?q=+Loan+', allTools: [], allTags: [] });
+  assert.equal(state.q, 'loan');
+});
+
+test('readGalleryStateFromSearch opens a pre-rename sort=oldest link in the default A to Z order', () => {
+  const state = readGalleryStateFromSearch({ search: '?sort=oldest', allTools: [], allTags: [] });
+  assert.equal(state.sort, 'az');
 });
 
 test('readGalleryStateFromSearch falls back to defaults for invalid params', () => {
@@ -868,7 +881,7 @@ test('readGalleryStateFromSearch falls back to defaults for invalid params', () 
   assert.deepEqual(state, {
     page: 1,
     q: '',
-    sort: 'newest',
+    sort: 'az',
     tools: [],
     tags: [],
     rawQuery: ''
@@ -880,7 +893,7 @@ test('buildGalleryUrl omits default state from the query string', () => {
     buildGalleryUrl({
       pathname: '/gallery/',
       page: 1,
-      sort: 'newest',
+      sort: 'az',
       q: '',
       tools: [],
       tags: []
@@ -894,12 +907,12 @@ test('buildGalleryUrl encodes non-default gallery state', () => {
     buildGalleryUrl({
       pathname: '/gallery/',
       page: 2,
-      sort: 'oldest',
+      sort: 'za',
       q: 'loan calc',
       tools: ['claude', 'chatgpt'],
       tags: ['finance']
     }),
-    '/gallery/?page=2&tool=claude%2Cchatgpt&tag=finance&sort=oldest&q=loan+calc'
+    '/gallery/?page=2&tool=claude%2Cchatgpt&tag=finance&sort=za&q=loan+calc'
   );
 });
 
@@ -931,7 +944,7 @@ test('initializeGalleryApp requires runtime and required elements', () => {
 });
 
 test('initializeGalleryApp restores URL and theme state on startup', () => {
-  const harness = createGalleryHarness({ initialTheme: 'light', search: '?page=2&sort=oldest' });
+  const harness = createGalleryHarness({ initialTheme: 'light', search: '?page=2&sort=za' });
 
   initializeGalleryApp({
     documentObj: harness.documentObj,
@@ -978,7 +991,7 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
     harness.documentObj.activeElement = this;
   };
   harness.elements.pagination.querySelector = (selector) => {
-    if (selector === '[data-page="2"]') {
+    if (selector === '[data-page="2"]:not(:disabled)') {
       return pageTwoButton;
     }
     return null;
@@ -1011,7 +1024,7 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
   assert.equal(harness.elements.filterReset.classList.contains('is-active'), true);
 
   harness.elements.sortToggle.dispatch('click');
-  assert.match(harness.windowObj.location.search, /sort=oldest/);
+  assert.match(harness.windowObj.location.search, /sort=za/);
   assert.equal(harness.elements.sortToggle.getAttribute('aria-pressed'), 'true');
   assert.match(harness.windowObj.location.search, /tool=claude/);
 
@@ -1024,7 +1037,7 @@ test('initializeGalleryApp syncs filters, pagination, popstate, and scrolling', 
   assert.equal(harness.elements.searchCount.textContent, 'nothing yet');
 
   harness.elements.noResultsReset.dispatch('click');
-  assert.equal(harness.windowObj.location.search, '?sort=oldest');
+  assert.equal(harness.windowObj.location.search, '?sort=za');
   assert.equal(harness.documentObj.activeElement, harness.elements.searchInput);
 
   harness.windowObj.location.search = '?q=Artifact+12&tool=claude';
@@ -1159,7 +1172,7 @@ test('initializeGalleryApp desk notes toggle tool and tag filters', () => {
     harness.documentObj.activeElement = this;
   };
   harness.elements.pagination.querySelector = (selector) => {
-    if (selector === '[data-page="2"]') {
+    if (selector === '[data-page="2"]:not(:disabled)') {
       return pageTwoButton;
     }
     return null;
@@ -1229,7 +1242,9 @@ test('pagination keeps focus on the Next button while stepping', () => {
     if (selector.startsWith('[data-page-step="1"]')) {
       return stepEnabled ? nextButton : null;
     }
-    if (selector === '[data-page="2"]') {
+    // The fallback skips disabled buttons, so a disabled First or Last nav
+    // button that shares the page number never takes focus.
+    if (selector === '[data-page="2"]:not(:disabled)') {
       return pageButton;
     }
     return null;
@@ -1342,7 +1357,7 @@ test('search, filter, and sort changes during a page turn render the new results
 
   elements.sortToggle.dispatch('click');
   assert.equal(book.sheet.children.length, 0, 'the leaf is dropped');
-  assert.equal(harness.windowObj.location.search, '?sort=oldest');
+  assert.equal(harness.windowObj.location.search, '?sort=za');
   assert.match(elements.galleryStatus.textContent, /page 1 of 4/);
 
   await book.runFrames(200);
@@ -1780,6 +1795,13 @@ test('notepad swipes turn the page up for next and down for previous', async () 
   const nextClick = harness.elements.grid.dispatch('click', { target: new FakeElement({ tagName: 'SPAN' }) });
   assert.equal(nextClick.defaultPrevented, false, 'only that one click is swallowed');
 
+  // A swipe that ends without a click (a touch, or a drag off the grid) must
+  // not swallow a later keyboard click, so the flag clears after its task.
+  swipe(0, -120);
+  harness.runTimers(0);
+  const keyboardClick = harness.elements.grid.dispatch('click', { target: new FakeElement({ tagName: 'SPAN' }) });
+  assert.equal(keyboardClick.defaultPrevented, false, 'a click after the swipe task is not swallowed');
+
   harness.setNotepadLayout(false);
   swipe(0, -120);
   assert.match(status(), /page 1 of 4/, 'the book takes no swipes');
@@ -1791,4 +1813,41 @@ test('the notepad blocks native drags so a mouse swipe on the photo or link stil
   assert.equal(harness.book.sheet.dispatch('dragstart').defaultPrevented, true);
   harness.setNotepadLayout(false);
   assert.equal(harness.book.sheet.dispatch('dragstart').defaultPrevented, false);
+});
+
+test('a filter click during the search debounce keeps and applies the typed query', () => {
+  const harness = createGalleryHarness();
+  initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
+
+  harness.elements.searchInput.value = 'Artifact 13';
+  harness.elements.searchInput.dispatch('input', { target: harness.elements.searchInput });
+  const toolTab = new FakeElement({ tagName: 'BUTTON', classes: ['desk-note'] });
+  toolTab.dataset.filterTool = 'claude';
+  toolTab.parentElement = harness.elements.bookmarkTabs;
+  toolTab.ownerDocument = harness.documentObj;
+  harness.elements.bookmarkTabs._queryResults.set('[data-filter-tool="claude"]', toolTab);
+  harness.elements.bookmarkTabs.dispatch('click', { target: toolTab });
+
+  assert.equal(harness.elements.searchInput.value, 'Artifact 13', 'the typed text stays in the box');
+  assert.match(harness.windowObj.location.search, /q=artifact\+13/);
+  assert.match(harness.windowObj.location.search, /tool=claude/);
+
+  const pushesBefore = harness.historyCalls.length;
+  harness.runTimers(400);
+  assert.equal(harness.historyCalls.length, pushesBefore, 'the cancelled debounce never fires a second search');
+});
+
+test('search ignores surrounding whitespace but keeps a typed trailing space in the box', () => {
+  const harness = createGalleryHarness();
+  initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
+
+  harness.elements.searchInput.value = 'Artifact 13 ';
+  harness.elements.searchInput.dispatch('input', { target: harness.elements.searchInput });
+  harness.runTimers(400);
+  assert.equal(harness.windowObj.location.search, '?q=artifact+13');
+  assert.equal(harness.elements.searchInput.value, 'Artifact 13 ', 'the reader can keep typing after the space');
+
+  harness.elements.searchInput.value = '   ';
+  harness.elements.searchInput.dispatch('input', { target: harness.elements.searchInput });
+  assert.equal(harness.windowObj.location.search, '', 'a box of spaces is no search');
 });

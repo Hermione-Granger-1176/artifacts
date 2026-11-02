@@ -52,6 +52,16 @@ test('formatCompact handles negative and small values', () => {
   assert.equal(formatCompact(0), '0');
 });
 
+test('formatters drop the minus sign when a negative value rounds to zero', () => {
+  assert.equal(formatCurrency(-0.004, 2), '$0.00');
+  assert.equal(formatCurrency(-0.3), '$0');
+  assert.equal(formatDollarTick(-0.4), '$0');
+  assert.equal(formatCompact(-0.2), '0');
+  assert.equal(formatPercent(-0.04), '0.0%');
+  assert.equal(formatCurrency(-0.6), '-$1');
+  assert.equal(formatPercent(-0.06), '-0.1%');
+});
+
 test('parseNumber strips non-numeric characters', () => {
   assert.equal(parseNumber('$1,234.56'), 1234.56);
   assert.equal(parseNumber('-$42'), -42);
@@ -67,7 +77,9 @@ test('formatCurrency matches toLocaleString for each digit count, cached or not'
   for (const digits of [0, 2, 0, 2]) {
     for (const value of [0, 0.4, 0.5, 1.5, 999.5, 1234.56, 50000, 1234567.89, -0.4, -56.5, -1234.5]) {
       const expected = Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
-      assert.equal(formatCurrency(value, digits), `${value < 0 ? '-' : ''}$${expected}`, `${value} @ ${digits}`);
+      // A negative value that rounds to zero has no sign: -0.4 @ 0 digits is "$0".
+      const sign = value < 0 && /[1-9]/.test(expected) ? '-' : '';
+      assert.equal(formatCurrency(value, digits), `${sign}$${expected}`, `${value} @ ${digits}`);
     }
   }
 });

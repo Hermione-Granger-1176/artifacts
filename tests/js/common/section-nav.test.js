@@ -271,6 +271,7 @@ test('scrollProgress is the active section plus the way to the next one', () => 
   assert.equal(scrollProgress(anchors, 1700), 2);
   assert.equal(scrollProgress(anchors, 9000), 2);
   assert.equal(scrollProgress([0, 0, 600], 0), 1, 'a zero-length stretch is passed at once');
+  assert.equal(scrollProgress([400, 400, 900], 100), 0, 'two sections at one offset ahead of the reader give 0, not NaN');
   assert.equal(scrollProgress([], 0), 0);
 });
 
