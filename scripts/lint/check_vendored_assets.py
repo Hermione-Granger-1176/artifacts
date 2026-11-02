@@ -24,13 +24,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from scripts import REPO_ROOT
-from scripts.lint import add_root_argument, report_violations, root_from_args
+from scripts.lint import add_root_argument, contains_symlink, report_violations, root_from_args
 
 VENDORED_ASSETS_MANIFEST_FILE = REPO_ROOT / "config" / "vendored_assets.json"
 
@@ -178,13 +179,40 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def walk_vendor_trees(root: Path) -> tuple[list[str], list[str]]:
+    """Return the regular files and the symlinks under every app's vendor directory.
+
+    The walk does not follow symlinks. A symlinked vendor directory, or a
+    symlink inside one, is returned as a symlink instead of being skipped, so
+    the files behind it cannot pass the check unseen.
+    """
+    files: list[str] = []
+    links: list[str] = []
+    for vendor_dir in root.glob(VENDOR_DIR_GLOB):
+        if contains_symlink(vendor_dir, root):
+            links.append(vendor_dir.relative_to(root).as_posix())
+            continue
+        for walk_root, dirnames, filenames in os.walk(vendor_dir, followlinks=False):
+            for name in (*dirnames, *filenames):
+                path = Path(walk_root) / name
+                relative = path.relative_to(root).as_posix()
+                if path.is_symlink():
+                    links.append(relative)
+                elif path.is_file():
+                    files.append(relative)
+    return sorted(files), sorted(links)
+
+
 def discover_vendor_files(root: Path) -> list[str]:
-    """Return repo-relative paths for every file under an app's vendor directory."""
-    return sorted(
-        path.relative_to(root).as_posix()
-        for vendor_dir in root.glob(VENDOR_DIR_GLOB)
-        for path in vendor_dir.rglob("*")
-        if path.is_file()
+    """Return repo-relative paths for every regular file under an app's vendor directory."""
+    return walk_vendor_trees(root)[0]
+
+
+def _symlink_violation(link_path: str) -> str:
+    """Return the violation for a symlink inside a vendor tree."""
+    return (
+        f"{link_path}: vendored paths must not be symlinks, because the manifest "
+        "cannot pin the files behind them"
     )
 
 
@@ -201,11 +229,12 @@ def _unlisted_file_violation(disk_path: str) -> str:
 
 
 def _unlisted_file_violations(root: Path, assets: tuple[VendoredAsset, ...]) -> list[str]:
-    """Return a violation for each vendored file on disk that the manifest omits."""
+    """Return a violation for each vendor symlink, and each vendored file the manifest omits."""
     manifest_paths = {asset.path for asset in assets}
-    return [
+    files, links = walk_vendor_trees(root)
+    return [_symlink_violation(link) for link in links] + [
         _unlisted_file_violation(disk_path)
-        for disk_path in discover_vendor_files(root)
+        for disk_path in files
         if disk_path not in manifest_paths
     ]
 
