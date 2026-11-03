@@ -26,9 +26,9 @@
     "chartjs-plugin-annotation": "3.1.0",
     "chartjs-plugin-datalabels": "2.2.0",
     "esbuild": "0.28.2",
-    "eslint": "10.13.0",
+    "eslint": "10.14.0",
     "globals": "17.13.0",
-    "knip": "6.42.1",
+    "knip": "6.44.0",
     "prettier": "3.9.10",
     "stylelint": "17.16.0",
     "typescript": "7.0.2"
