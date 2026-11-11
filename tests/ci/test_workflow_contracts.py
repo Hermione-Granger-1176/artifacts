@@ -763,8 +763,10 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     tools_bootstrap = _step_run(smoke_job, "Install workflow tools")
     assert "command -v make" in tools_bootstrap
     assert "command -v gh" in tools_bootstrap
-    assert "apt-get update" in tools_bootstrap
+    assert "apt-get update --error-on=any" in tools_bootstrap
     assert "apt-get install --no-install-recommends --yes gh make" in tools_bootstrap
+    assert "for attempt in" in tools_bootstrap
+    assert smoke_job["outputs"] == {"status": "${{ steps.smoke.outputs.status }}"}
     assert _step_uses(smoke_job, "CI setup") == "./.github/actions/ci-setup"
     assert _step_with(smoke_job, "CI setup")["browser-engines"] == ""
     assert (
@@ -785,10 +787,22 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert open_token == "${{ github.token }}"
     close_token = _step(smoke_job, "Close live-site smoke issue when clean")["env"]["GH_TOKEN"]
     assert close_token == "${{ github.token }}"
-    smoke_fallback = _step(smoke_job, "Alert when live-site smoke setup fails")
-    assert smoke_fallback["if"] == "failure() && steps.smoke.outputs.status == ''"
+    # The setup-failure alert runs on the host runner so it still works when
+    # the container never got make or gh installed.
+    assert all(
+        step.get("name") != "Alert when live-site smoke setup fails" for step in smoke_job["steps"]
+    )
+    alert_job = _job(live_smoke, "setup-failure-alert")
+    assert alert_job["needs"] == "smoke"
+    assert alert_job["runs-on"] == "ubuntu-latest"
+    assert "container" not in alert_job
+    assert alert_job["permissions"] == {"contents": "read", "issues": "write"}
+    assert alert_job["if"] == (
+        "${{ always() && needs.smoke.result == 'failure' && needs.smoke.outputs.status == '' }}"
+    )
+    smoke_fallback = _step(alert_job, "Alert when live-site smoke setup fails")
     assert smoke_fallback["env"]["GH_TOKEN"] == "${{ github.token }}"
-    smoke_fallback_run = _step_run(smoke_job, "Alert when live-site smoke setup fails")
+    smoke_fallback_run = _step_run(alert_job, "Alert when live-site smoke setup fails")
     assert "make ci-alert-issue" in smoke_fallback_run
     assert "state=setup-failure" in smoke_fallback_run
 

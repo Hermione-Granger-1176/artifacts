@@ -23,6 +23,8 @@ jobs:
     permissions:
       contents: read
       issues: write
+    outputs:
+      status: ${{ steps.smoke.outputs.status }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -31,9 +33,18 @@ jobs:
 
       - name: Install workflow tools
         run: |
+          # Retry the apt bootstrap so a brief runner DNS outage does not fail
+          # the daily smoke before it reaches the published site.
           if ! command -v make >/dev/null 2>&1 || ! command -v gh >/dev/null 2>&1; then
-            apt-get update
-            apt-get install --no-install-recommends --yes gh make
+            for attempt in 1 2 3; do
+              if apt-get update --error-on=any && apt-get install --no-install-recommends --yes gh make; then
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                exit 1
+              fi
+              sleep $((attempt * 30))
+            done
             rm -rf /var/lib/apt/lists/*
           fi
 
@@ -101,12 +112,27 @@ jobs:
             echo "Issue: ${{ steps.live-issue.outputs.url || 'issue not created' }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Alert when live-site smoke setup fails
-        if: failure() && steps.smoke.outputs.status == ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: TITLE="Live site smoke check failed" make ci-alert-issue state=setup-failure run_url="$RUN_URL"
-
       - name: Fail workflow on smoke regression
         if: steps.smoke.outputs.status != '0'
         run: exit 1
+
+  # Setup failures inside the container can leave it without make or gh, so
+  # the fallback alert runs on the host runner, which ships both tools.
+  setup-failure-alert:
+    needs: smoke
+    if: ${{ always() && needs.smoke.result == 'failure' && needs.smoke.outputs.status == '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Alert when live-site smoke setup fails
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: TITLE="Live site smoke check failed" make ci-alert-issue state=setup-failure run_url="$RUN_URL"
