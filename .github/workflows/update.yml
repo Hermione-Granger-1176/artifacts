@@ -288,9 +288,18 @@ jobs:
 
       - name: Install GNU make
         run: |
+          # Retry the apt bootstrap so a brief runner DNS outage does not
+          # fail the browser job before it starts.
           if ! command -v make >/dev/null 2>&1; then
-            apt-get update
-            apt-get install --no-install-recommends --yes make
+            for attempt in 1 2 3; do
+              if apt-get update --error-on=any && apt-get install --no-install-recommends --yes make; then
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                exit 1
+              fi
+              sleep $((attempt * 30))
+            done
             rm -rf /var/lib/apt/lists/*
           fi
 
@@ -363,9 +372,18 @@ jobs:
 
       - name: Install GNU make
         run: |
+          # Retry the apt bootstrap so a brief runner DNS outage does not
+          # fail the browser job before it starts.
           if ! command -v make >/dev/null 2>&1; then
-            apt-get update
-            apt-get install --no-install-recommends --yes make
+            for attempt in 1 2 3; do
+              if apt-get update --error-on=any && apt-get install --no-install-recommends --yes make; then
+                break
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                exit 1
+              fi
+              sleep $((attempt * 30))
+            done
             rm -rf /var/lib/apt/lists/*
           fi
 
