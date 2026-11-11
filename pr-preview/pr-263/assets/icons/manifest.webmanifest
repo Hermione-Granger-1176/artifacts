@@ -1,0 +1,13 @@
+{
+  "name": "Artifacts",
+  "short_name": "Artifacts",
+  "description": "A collection of interactive HTML artifacts built with AI tools.",
+  "start_url": "/artifacts/",
+  "display": "standalone",
+  "background_color": "#202020",
+  "theme_color": "#D97706",
+  "icons": [
+    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512" }
+  ]
+}
