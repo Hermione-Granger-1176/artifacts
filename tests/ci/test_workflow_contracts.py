@@ -92,6 +92,19 @@ def _step_run(job: dict[str, object], name: str) -> str:
     return run
 
 
+def _assert_apt_bootstrap_retries(run: str, packages: str) -> None:
+    """Pin the container apt bootstrap's retry budget and backoff.
+
+    A brief runner DNS outage should get three attempts spaced 30s and 60s
+    apart, and a failed index fetch must count as a failure.
+    """
+    assert "apt-get update --error-on=any" in run
+    assert f"apt-get install --no-install-recommends --yes {packages}" in run
+    assert "for attempt in 1 2 3; do" in run
+    assert "sleep $((attempt * 30))" in run
+    assert 'if [ "$attempt" -eq 3 ]; then' in run
+
+
 def _step_uses(job: dict[str, object], name: str) -> str:
     uses = _step(job, name).get("uses")
     assert isinstance(uses, str)
@@ -306,9 +319,7 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     assert isinstance(root_container.get("image"), str)
     assert PLAYWRIGHT_CI_IMAGE_PIN.fullmatch(root_container["image"])
     assert root_container["options"] == "--init --ipc=host"
-    make_bootstrap = _step_run(root_browser, "Install GNU make")
-    assert "apt-get update" in make_bootstrap
-    assert "apt-get install --no-install-recommends --yes make" in make_bootstrap
+    _assert_apt_bootstrap_retries(_step_run(root_browser, "Install GNU make"), "make")
     assert _step_with(root_browser, "CI setup")["browser-engines"] == ""
     assert all("playwright" not in str(step.get("run", "")) for step in root_browser["steps"]), (
         "browser installation belongs in the pinned Playwright container"
@@ -332,9 +343,7 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     )
     assert "make ci-write-shard-manifest" in _step_run(shard, "Write shard manifest")
     assert shard["container"] == root_browser["container"]
-    make_bootstrap = _step_run(shard, "Install GNU make")
-    assert "apt-get update" in make_bootstrap
-    assert "apt-get install --no-install-recommends --yes make" in make_bootstrap
+    _assert_apt_bootstrap_retries(_step_run(shard, "Install GNU make"), "make")
     assert _step_with(shard, "CI setup")["browser-engines"] == ""
     assert (
         "make test-browser-apps-shard shard_manifest=.artifacts/shard-manifest.json"
@@ -763,13 +772,7 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     tools_bootstrap = _step_run(smoke_job, "Install workflow tools")
     assert "command -v make" in tools_bootstrap
     assert "command -v gh" in tools_bootstrap
-    assert "apt-get update --error-on=any" in tools_bootstrap
-    assert "apt-get install --no-install-recommends --yes gh make" in tools_bootstrap
-    # Pin the retry budget and backoff so a transient DNS outage still gets
-    # three attempts spaced 30s and 60s apart before the job gives up.
-    assert "for attempt in 1 2 3; do" in tools_bootstrap
-    assert "sleep $((attempt * 30))" in tools_bootstrap
-    assert 'if [ "$attempt" -eq 3 ]; then' in tools_bootstrap
+    _assert_apt_bootstrap_retries(tools_bootstrap, "gh make")
     assert smoke_job["outputs"] == {"status": "${{ steps.smoke.outputs.status }}"}
     assert _step_uses(smoke_job, "CI setup") == "./.github/actions/ci-setup"
     assert _step_with(smoke_job, "CI setup")["browser-engines"] == ""
