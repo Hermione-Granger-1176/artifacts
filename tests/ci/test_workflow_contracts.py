@@ -765,7 +765,11 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert "command -v gh" in tools_bootstrap
     assert "apt-get update --error-on=any" in tools_bootstrap
     assert "apt-get install --no-install-recommends --yes gh make" in tools_bootstrap
-    assert "for attempt in" in tools_bootstrap
+    # Pin the retry budget and backoff so a transient DNS outage still gets
+    # three attempts spaced 30s and 60s apart before the job gives up.
+    assert "for attempt in 1 2 3; do" in tools_bootstrap
+    assert "sleep $((attempt * 30))" in tools_bootstrap
+    assert 'if [ "$attempt" -eq 3 ]; then' in tools_bootstrap
     assert smoke_job["outputs"] == {"status": "${{ steps.smoke.outputs.status }}"}
     assert _step_uses(smoke_job, "CI setup") == "./.github/actions/ci-setup"
     assert _step_with(smoke_job, "CI setup")["browser-engines"] == ""
