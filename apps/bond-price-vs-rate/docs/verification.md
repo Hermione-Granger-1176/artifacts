@@ -6,7 +6,7 @@ For a bond with face value `F`, annual coupon rate `c`, `k` coupon periods per y
 
 - Price: `P = sum_{t=1..n} C / (1 + i)^t + F / (1 + i)^n`
 - Regime: coupon above the market rate is a premium (price above face), coupon equal to the rate is par (price at face), coupon below the rate is a discount (price below face)
-- Sensitivity: the percent price change from a one-point rate rise at maturity `m` is `bondPrice(m, y + 1) / bondPrice(m, y) - 1`, evaluated directly (no duration approximation)
+- Sensitivity: the percent price change from a one-point rate rise at maturity `m` is `bondPrice(m, y + 1) / bondPrice(m, y) - 1`, evaluated directly (no duration approximation). Each bar is the dollar loss `bondPrice(m, y) - bondPrice(m, y + 1)`, labelled with the new price `bondPrice(m, y + 1)`
 - Price split: `PV(face) = F / (1 + i)^n` and `PV(coupons) = P - PV(face)`
 - Current yield: annual coupon dollars over price, `(F * c) / P`
 - Macaulay duration (years): `sum(t_years * PV_t) / P`
@@ -25,7 +25,7 @@ All fixtures below assume a 10-year, 5% annual coupon, $1,000 face bond unless s
 - Cash-flow schedule (`bondSchedule`): the 10-year bond returns 10 rows, each paying the `$50` coupon except the final row, which merges the `$1,000` face into a `$1,050` payment; every discount factor is `1 / (1 + i)^t`, with the first-year 5% factor equal to `0.9524`; each present value is `amount * discountFactor`; and the present values sum to the bond price (asserted at both 5% and 6%)
 - Closed-form price (`bondPrice`): the coupon annuity `c * (1 - v^n) / i` plus the discounted face `F * v^n` matches the summed schedule to within floating-point rounding for coupon frequencies 1, 2, and 4, maturities from 1 to 30 years, coupons from 0% to 12%, and yields from 0% to 11.9%; a bond with no periods prices to zero
 - Regime: `priceRegime(6, 5)` is premium, `priceRegime(5, 5)` is par, `priceRegime(4, 5)` is discount
-- Sensitivity at a 5% rate and 5% coupon (percent drop for a +1 point move): 2-year about `-1.83%`, 5-year about `-4.21%`, 10-year about `-7.36%`, 20-year about `-11.47%`, 30-year about `-13.76%`
+- Sensitivity at a 5% rate and 5% coupon (percent drop for a +1 point move): 2-year about `-1.83%`, 5-year about `-4.21%`, 10-year about `-7.36%`, 20-year about `-11.47%`, 30-year about `-13.76%`. The bar labels for the same bond read `$982 (-$18)`, `$958 (-$42)`, `$926 (-$74)`, `$885 (-$115)`, and `$862 (-$138)`
 - Analytics at a 6% rate (the discount fixture): price `926.40` splitting into coupons `368.00` plus face `558.39`, current yield `5.397%`, Macaulay `8.02` years, modified `7.57`, convexity `72.57`, DV01 `0.70`
 - Closed-form anchors: a zero-coupon bond's Macaulay duration equals its maturity and its convexity is `n(n+1)/(1+y)^2`; a par bond's Macaulay duration is `(1+y)/y * (1 - (1+y)^-n)`
 - Consistency anchors: DV01 matches the exact one-basis-point reprice to within `0.001`; modified duration matches a central-difference numeric derivative for a semiannual bond; duration plus the convexity term reproduces the exact one-point move to second order

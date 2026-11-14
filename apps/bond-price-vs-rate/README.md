@@ -12,7 +12,7 @@ The explainer includes these views and controls:
 - Readouts that change wording hold one fixed height, so the page below does not jump as you drag a slider
 - Discounting formula rendered in plain HTML and CSS (no math library, CSP-safe)
 - Worked cash-flow table with per-year present value breakdown
-- Percent price drop bar chart across maturities
+- Horizontal bar chart of what a one-point rate rise costs a $1,000 bond at each maturity, with the new price and dollar loss written at each bar end
 - Yield curve presets (normal, flat, inverted) with chart, and a button that moves the market-rate slider in the rail to the curve's rate
 - Analyst readout: current yield, Macaulay duration, modified duration, convexity, DV01
 - Adaptive ripple explanation for existing bondholders, tomorrow's bonds, and the real economy

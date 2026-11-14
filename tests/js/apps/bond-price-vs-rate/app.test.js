@@ -84,6 +84,7 @@ test('bond-price-vs-rate redraws only the charts whose inputs changed', async ()
       this.data = config.data;
       this.options = config.options;
       this.update = (mode) => updates.push({ canvas, mode });
+      this.stop = () => {};
     };
     await import(`../../../../apps/bond-price-vs-rate/js/app.js?t=${Date.now()}-${Math.random()}`);
 

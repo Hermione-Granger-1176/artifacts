@@ -135,7 +135,7 @@ function regimeTexts(state, build, formatters) {
  *   price: number,
  *   regime: import('./bond-math.js').PriceRegime,
  *   schedule: import('./bond-math.js').DiscountedCashFlow[],
- *   sensitivity: { currentPct: number, shortPct: number, longPct: number },
+ *   sensitivity: { currentPct: number, shortPct: number, longPct: number, rateAfterPct: number },
  *   analytics: import('./bond-math.js').BondAnalytics,
  *   curve: { key: string, label: string, atMaturityPct: number, shapes?: Record<string, { label: string, atMaturityPct: number }> }
  * }} NarrativeState
@@ -379,6 +379,19 @@ export function renderScheduleTable(tbody, { bond, schedule, price }, { formatCu
     setText(cells.value, formatCurrency(presentValue, 2));
   });
   setText(table.totalValue, formatCurrency(price, 2));
+}
+
+/**
+ * Build the sensitivity chart title: the rate move it shows, in plain numbers.
+ * @param {NarrativeState} state
+ * @param {NarrativeFormatters} formatters
+ * @returns {string}
+ */
+export function sensitivityTitleText({ bond, sensitivity }, { formatCurrency, formatPercent }) {
+  return (
+    `If rates rise from ${formatPercent(bond.annualYieldPct)} to ${formatPercent(sensitivity.rateAfterPct)}, ` +
+    `a ${formatCurrency(bond.faceValue, 0)} bond is worth:`
+  );
 }
 
 /**
@@ -634,7 +647,7 @@ const WIDEST_STATE = {
   schedule: [
     { period: 30, timeYears: 30, amount: 1120, discountFactor: 0.9901, presentValue: 1108.8 }
   ],
-  sensitivity: { currentPct: -22.4, shortPct: -22.4, longPct: -22.4 },
+  sensitivity: { currentPct: -22.4, shortPct: -22.4, longPct: -22.4, rateAfterPct: 13 },
   analytics: {
     price: 3838.12,
     pvCoupons: 2838.22,
@@ -735,6 +748,7 @@ const EXPLANATIONS = {
   rippleExplain: byRegime(rippleExplainText),
   curveExplain: { texts: curveTexts, active: (state) => state.curve.key },
   mathExplain: single(mathExplainText),
+  sensitivityTitle: single(sensitivityTitleText),
   sensitivityExplain: single(sensitivityExplainText),
   analystExplain: single(analystExplainText)
 };
