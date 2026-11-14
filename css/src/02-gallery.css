@@ -1322,7 +1322,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.85;
+  opacity: var(--desk-note-rest-opacity);
 }
 
 /* A long label gets smaller type so it stays on its square note. */
@@ -1967,7 +1967,7 @@ button {
 
 @media (hover: hover) {
   .page-btn:hover {
-    color: var(--accent-ring);
+    color: var(--color-page-btn-hover-ink);
   }
 
   .page-btn.active:hover {

@@ -79,7 +79,7 @@ body.artifact-app .brand-link {
 
 body.artifact-app .brand-link:hover,
 body.artifact-app .brand-link:focus-visible {
-  color: var(--color-amber);
+  color: var(--color-amber-text);
   outline: none;
 }
 

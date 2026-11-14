@@ -776,22 +776,22 @@ body.app-tokenizer-explorer .card-icon {
 }
 
 body.app-tokenizer-explorer .card-icon.blue {
-  background: var(--note-blue);
+  background: color-mix(in srgb, var(--note-blue) 55%, var(--color-surface));
   color: var(--color-blue-text);
 }
 
 body.app-tokenizer-explorer .card-icon.amber {
-  background: var(--note-amber);
+  background: color-mix(in srgb, var(--note-amber) 55%, var(--color-surface));
   color: var(--color-amber-text);
 }
 
 body.app-tokenizer-explorer .card-icon.purple {
-  background: var(--note-purple);
+  background: color-mix(in srgb, var(--note-purple) 55%, var(--color-surface));
   color: var(--color-purple-text);
 }
 
 body.app-tokenizer-explorer .card-icon.red {
-  background: var(--note-red);
+  background: color-mix(in srgb, var(--note-red) 55%, var(--color-surface));
   color: var(--color-red-text);
 }
 

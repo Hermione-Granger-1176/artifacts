@@ -729,7 +729,7 @@ test('refreshPalette cssAlpha returns raw value when color has fewer than 3 numb
   globalThis.getComputedStyle = () => ({
     getPropertyValue(prop) {
       // Return a color with fewer than 3 numeric groups for alpha test
-      if (prop === '--note-blue') return 'blue';
+      if (prop === '--color-note-3') return 'blue';
       return 'rgb(100, 150, 200)';
     }
   });

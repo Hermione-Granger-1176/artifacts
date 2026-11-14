@@ -1887,11 +1887,12 @@ body.app-prompt-caching .pc-footer {
 
 body.app-prompt-caching .pc-footer a {
   color: var(--pc-accent);
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
 }
 
 body.app-prompt-caching .pc-footer a:hover {
-  text-decoration: underline;
+  text-decoration-thickness: 2px;
 }
 
 /* 8. Responsive overrides. */
