@@ -31,6 +31,7 @@
   --color-album-cover-ink: rgb(66, 59, 53);
   --color-attach-corner: var(--color-album-ribbon);
   --color-page-btn-active-border: var(--color-album-ribbon);
+  --color-page-btn-hover-ink: rgb(143, 47, 31);
   --color-search-count: var(--color-text-secondary);
   --color-chip-text: var(--color-text-primary);
   --color-chip-active-text: var(--color-note-text);
@@ -119,6 +120,7 @@ html[data-theme="dark"] body.artifact-app {
   --color-album-cover-ink: rgb(39, 35, 31);
   --color-attach-corner: var(--color-album-cover);
   --color-page-btn-active-border: var(--color-album-cover-ink);
+  --color-page-btn-hover-ink: var(--color-accent-ring);
   --color-search-count: var(--color-pencil-soft);
   --color-chip-text: var(--color-note-text);
   --color-chip-active-text: var(--color-text-primary);
@@ -2335,7 +2337,7 @@ button {
 
 @media (hover: hover) {
   .page-btn:hover {
-    color: var(--accent-ring);
+    color: var(--color-page-btn-hover-ink);
   }
 
   .page-btn.active:hover {

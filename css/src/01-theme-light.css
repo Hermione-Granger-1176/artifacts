@@ -25,6 +25,7 @@
   --color-album-cover-ink: rgb(39, 35, 31);
   --color-attach-corner: var(--color-album-cover);
   --color-page-btn-active-border: var(--color-album-cover-ink);
+  --color-page-btn-hover-ink: var(--color-accent-ring);
   --color-search-count: var(--color-pencil-soft);
   --color-chip-text: var(--color-note-text);
   --color-chip-active-text: var(--color-text-primary);

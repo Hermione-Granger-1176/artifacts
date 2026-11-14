@@ -1967,7 +1967,7 @@ button {
 
 @media (hover: hover) {
   .page-btn:hover {
-    color: var(--accent-ring);
+    color: var(--color-page-btn-hover-ink);
   }
 
   .page-btn.active:hover {
