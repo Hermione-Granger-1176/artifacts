@@ -29,12 +29,13 @@
   <link rel="manifest" href="../../assets/icons/manifest.webmanifest">
   <link rel="preload" href="./js/vendor/chart.umd.min.js" as="script">
   <link rel="stylesheet" href="../../css/style.css?v=6f01d1a420b6">
-  <link rel="stylesheet" href="./css/app.css?v=a55df491d7f5">
+  <link rel="stylesheet" href="./css/app.css?v=86080fa7b17d">
   <script defer src="./js/vendor/chart.umd.min.js"></script>
   <link rel="modulepreload" href="js/modules/bond-math.js">
   <link rel="modulepreload" href="js/modules/chapters.js">
   <link rel="modulepreload" href="js/modules/charts.js">
   <link rel="modulepreload" href="../../js/modules/chart-theme.js">
+  <link rel="modulepreload" href="../../js/modules/formatting.js">
   <link rel="modulepreload" href="../../js/modules/offscreen-draws.js">
   <link rel="modulepreload" href="../../js/modules/app-runtime.js">
   <link rel="modulepreload" href="../../js/modules/runtime.js">
@@ -45,7 +46,6 @@
   <link rel="modulepreload" href="../../js/modules/segmented.js">
   <link rel="modulepreload" href="js/modules/ui.js">
   <link rel="modulepreload" href="../../js/modules/element-cache.js">
-  <link rel="modulepreload" href="../../js/modules/formatting.js">
   <link rel="modulepreload" href="js/modules/narrative.js">
   <link rel="modulepreload" href="../../js/modules/dom-sync.js">
   <link rel="modulepreload" href="../../js/modules/meter.js">
@@ -160,9 +160,9 @@
             <p>A rate change is applied to every remaining payment, and long bonds have far more payments still waiting to be discounted. So the same rate move barely dents a short bond but can hammer a long one. That sensitivity is what professionals call <em>duration</em>. Drag the years slider in the controls on the left to move your bond along the chart.</p>
 
             <div class="page-card chart-card br-card">
-              <h3 class="br-card-title">Price drop if rates rise 1%</h3>
-              <div class="chart-frame is-medium"><canvas id="sensitivityChart"></canvas></div>
-              <p class="control-copy">The same one-point rate rise, across different maturities. Your bond is highlighted.</p>
+              <h3 class="br-card-title reserve" id="sensitivityTitle"><span class="br-variant is-active" data-variant="text">If rates rise from 5.0% to 6.0%, a $1,000 bond is worth:</span><span class="reserve-ghost" data-ghost="text" aria-hidden="true">If rates rise from 12.0% to 13.0%, a $1,000 bond is worth:</span></h3>
+              <div class="chart-frame is-bars"><canvas id="sensitivityChart"></canvas></div>
+              <p class="control-copy">Longer bonds lock you into the old, lower rate for more years, so buyers demand a bigger discount.</p>
             </div>
 
             <div class="app-callout is-blue"><p class="app-callout-body reserve" id="sensitivityExplain"><span class="br-variant is-active" data-variant="text">At today's 5.0% rate, a one-point rise would shave about 7.4% off your 10-year bond, versus roughly 1.8% for a 2-year and 13.8% for a 30-year.</span><span class="reserve-ghost" data-ghost="text" aria-hidden="true">At today's 12.0% rate, a one-point rise would shave about 22.4% off your 30-year bond, versus roughly 22.4% for a 2-year and 22.4% for a 30-year.</span></p></div>
@@ -335,6 +335,6 @@
 
   <div data-app-shell="scroll-top"></div>
 
-  <script type="module" src="./js/app.js?v=1069a46c307a"></script>
+  <script type="module" src="./js/app.js?v=77a02af0a152"></script>
 </body>
 </html>
