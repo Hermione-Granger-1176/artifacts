@@ -1,4 +1,5 @@
 import { chartGlobal, createPaletteCache } from "../../../../js/modules/chart-theme.js";
+import { formatCurrency, formatPercent } from "../../../../js/modules/formatting.js";
 import { createOffscreenDraws } from "../../../../js/modules/offscreen-draws.js";
 
 /**
@@ -11,9 +12,10 @@ import { createOffscreenDraws } from "../../../../js/modules/offscreen-draws.js"
  * @typedef {{
  *   palette: Palette,
  *   priceRate: MarkedSeries,
- *   sensitivity: { labels: string[], values: number[], currentIndex: number },
+ *   sensitivity: SensitivityBars,
  *   yieldCurve: MarkedSeries
  * }} ChartState
+ * @typedef {{ labels: string[], prices: number[], losses: number[], currentIndex: number }} SensitivityBars
  */
 
 /**
@@ -35,6 +37,7 @@ const { colors, refreshPalette } = createPaletteCache(({ css, cssAlpha }) => ({
   red: css("--color-red"),
   amber: css("--color-amber"),
   noteRed: css("--note-red"),
+  heading: css("--color-text-heading"),
   blueA(/** @type {number} */ alpha) {
     return cssAlpha("--note-blue", alpha);
   },
@@ -234,7 +237,68 @@ function syncYieldCurveChart(chart, state, mode) {
   );
 }
 
+/** Space between a bar's end and its label, and the room kept right of the bars for the widest label. */
+const BAR_LABEL_GAP = 8;
+const BAR_LABEL_ROOM = 112;
+
 /**
+ * What each sensitivity chart was last given: the bars and the label colors.
+ * The end labels, tick styling, and tooltip read it at draw time.
+ * @type {WeakMap<ChartInstance, { bars: SensitivityBars, palette: Palette }>}
+ */
+const barStates = new WeakMap();
+
+/**
+ * The label beside a sensitivity bar: the price after the rise and the dollars lost.
+ * @param {SensitivityBars} bars - Sensitivity bars.
+ * @param {number} index - Bar index.
+ * @returns {string} Label text, e.g. "$926 (-$74)".
+ */
+function barEndLabel(bars, index) {
+  return `${formatCurrency(bars.prices[index])} (-${formatCurrency(bars.losses[index])})`;
+}
+
+/**
+ * Whether a bar is the reader's bond, for a chart that may not be synced yet.
+ * @param {ChartInstance} chart - Sensitivity chart.
+ * @param {number} index - Bar index.
+ * @returns {boolean} True for the highlighted bar.
+ */
+function isCurrentBar(chart, index) {
+  return barStates.get(chart)?.bars.currentIndex === index;
+}
+
+/**
+ * Draws each bar's label just past its end. The page carries no datalabels
+ * plugin, so this one chart gets a small inline plugin instead.
+ * @type {import("chart.js").Plugin<"bar">}
+ */
+const barEndLabels = {
+  id: "brBarEndLabels",
+  afterDatasetsDraw(chart) {
+    const state = barStates.get(/** @type {ChartInstance} */ (/** @type {unknown} */ (chart)));
+    if (!state) {
+      return;
+    }
+    const { family = "sans-serif", size = 12 } = chart.options.font ?? {};
+    const { ctx } = chart;
+    ctx.save();
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    chart.getDatasetMeta(0).data.forEach((bar, index) => {
+      const current = index === state.bars.currentIndex;
+      ctx.font = `${current ? 600 : 400} ${size}px ${family}`;
+      ctx.fillStyle = current ? state.palette.heading : state.palette.tick;
+      ctx.fillText(barEndLabel(state.bars, index), bar.x + BAR_LABEL_GAP, bar.y);
+    });
+    ctx.restore();
+  }
+};
+
+/**
+ * A horizontal bar per maturity, as long as the dollars a one-point rate rise
+ * costs, with the new price and the loss written at its end. The value axis is
+ * hidden because every bar carries its own number.
  * @param {HTMLCanvasElement} canvas - Target canvas element.
  * @returns {ChartInstance} The created chart.
  */
@@ -243,25 +307,48 @@ function createSensitivityChart(canvas) {
     type: "bar",
     data: {
       labels: [],
-      datasets: [{ label: "Price change", data: [], borderWidth: 1.5 }]
+      datasets: [{ label: "Dollars lost", data: [], borderWidth: 1.5, maxBarThickness: 24 }]
     },
+    plugins: [barEndLabels],
     options: {
+      indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
+      layout: { padding: { right: BAR_LABEL_ROOM } },
       plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
             /** @param {import("chart.js").TooltipItem<"bar">} context - Tooltip item. */
             label(context) {
-              return `${(context.parsed.y ?? 0).toFixed(1)}%`;
+              const state = barStates.get(/** @type {ChartInstance} */ (/** @type {unknown} */ (context.chart)));
+              if (!state) {
+                return "";
+              }
+              const price = state.bars.prices[context.dataIndex];
+              const loss = state.bars.losses[context.dataIndex];
+              return `Worth ${formatCurrency(price)}, down ${formatPercent((loss / (price + loss)) * 100)}`;
             }
           }
         }
       },
       scales: {
-        x: { title: {}, ticks: {}, grid: {} },
-        y: { title: {}, ticks: {}, grid: {} }
+        x: { display: false, beginAtZero: true },
+        y: {
+          border: { display: false },
+          grid: { display: false },
+          ticks: {
+            /** @param {import("chart.js").ScriptableScaleContext} context - Tick context. */
+            color(context) {
+              const state = barStates.get(/** @type {ChartInstance} */ (/** @type {unknown} */ (context.chart)));
+              return isCurrentBar(context.chart, context.index) ? state?.palette.heading : state?.palette.tick;
+            },
+            /** @param {import("chart.js").ScriptableScaleContext} context - Tick context. */
+            font(context) {
+              return { weight: isCurrentBar(context.chart, context.index) ? 600 : 400 };
+            }
+          }
+        }
       }
     }
   });
@@ -275,17 +362,13 @@ function createSensitivityChart(canvas) {
  */
 function syncSensitivityChart(chart, state, mode) {
   const { palette, sensitivity } = state;
+  barStates.set(chart, { bars: sensitivity, palette });
   chart.data.labels = sensitivity.labels;
-  chart.data.datasets[0].data = sensitivity.values;
-  chart.data.datasets[0].backgroundColor = sensitivity.values.map((/** @type {number} */ _value, /** @type {number} */ index) =>
+  chart.data.datasets[0].data = sensitivity.losses;
+  chart.data.datasets[0].backgroundColor = sensitivity.losses.map((/** @type {number} */ _value, /** @type {number} */ index) =>
     index === sensitivity.currentIndex ? palette.red : palette.redA(0.45)
   );
   chart.data.datasets[0].borderColor = palette.noteRed;
-  applyAxes(chart, palette, {
-    xTitle: "Years to maturity",
-    yTitle: "Price change (%)",
-    formatY: formatPercentTick
-  });
   chart.update(mode);
 }
 
@@ -329,7 +412,7 @@ function prefersReducedMotion() {
  *   charts?: Partial<Charts>,
  *   elements: Record<string, HTMLElement>,
  *   priceRate?: MarkedSeries,
- *   sensitivity?: { labels: string[], values: number[], currentIndex: number },
+ *   sensitivity?: SensitivityBars,
  *   yieldCurve?: MarkedSeries,
  *   formatDollarTick: (value: number) => string,
  *   animate?: Partial<Record<ChartName, boolean>>
@@ -348,7 +431,14 @@ function drawOrDefer(charts, name, run, animate) {
   const mode = animate && !prefersReducedMotion() ? undefined : "none";
   /** @type {import("../../../../js/modules/offscreen-draws.js").OffscreenDraws} */ (offscreenDraws.get(charts)).draw(
     charts[name].canvas,
-    () => run(mode)
+    () => {
+      // An instant redraw cancels any ease still running, such as the first
+      // draw's, which would otherwise finish later and put back the old bars.
+      if (mode === "none") {
+        charts[name].stop();
+      }
+      run(mode);
+    }
   );
 }
 

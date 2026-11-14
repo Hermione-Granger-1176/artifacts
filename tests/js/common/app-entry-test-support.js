@@ -115,7 +115,7 @@ export function setupFullMocks() {
     'heroExplain', 'couponCompare', 'mechanismExplain',
     'mathLegendCoupon', 'mathLegendRate', 'mathLegendYears', 'mathLegendFace',
     'mathSchedule', 'mathExplain',
-    'sensitivityChart', 'sensitivityExplain', 'priceRateChart', 'rippleExplain',
+    'sensitivityChart', 'sensitivityTitle', 'sensitivityExplain', 'priceRateChart', 'rippleExplain',
     'statCurrentYield', 'statMacaulay', 'statModified', 'statConvexity',
     'pvSplit', 'analystExplain',
     'curveToggle', 'btnCurveNormal', 'btnCurveFlat', 'btnCurveInverted', 'btnApplyCurve', 'btnApplyCurveLabel',
@@ -226,6 +226,7 @@ export function setupFullMocks() {
       this.options = config.options;
       this.plugins = config.plugins;
       this.update = () => {};
+      this.stop = () => {};
       this.$artifactsFormatCurrency = null;
       this.$artifactsInterestTotal = null;
       this.$artifactsPalette = null;

@@ -25,7 +25,7 @@ The page depends on Chart.js 4.4.1, self-hosted in `js/vendor/` rather than load
 - **Cold-load performance:** A CDN adds DNS resolution, a TLS handshake, and a download. Vendoring serves the script from the same GitHub Pages origin over an existing HTTP/2 connection.
 - **Resilience:** The page has no runtime dependency on CDN availability or URL stability, and the self-only Content-Security-Policy stays intact.
 - **Full UMD build:** The tree-shakeable ESM build is smaller but needs a bundler. The project uses plain `<script>` tags to stay portable, so the UMD build is the better trade.
-- **No plugins:** The highlighted current point on the curve is a second one-point dataset and the highlighted sensitivity bar is a per-bar color, so the page needs neither the annotation nor the datalabels plugin. They were removed from the page, `js/vendor/`, and the vendored-asset manifest.
+- **No vendored plugins:** The highlighted current point on the curve is a second one-point dataset and the highlighted sensitivity bar is a per-bar color, so the page needs neither the annotation nor the datalabels plugin. They were removed from the page, `js/vendor/`, and the vendored-asset manifest. The sensitivity bars write their labels with a small inline plugin in `charts.js` instead.
 
 ## Why annual compounding and a fixed face value
 
@@ -33,7 +33,11 @@ The teaching bond (10-year, 5% coupon, $1,000 face) is easiest to reason about w
 
 ## Why the sensitivity chart uses a direct reprice
 
-For each maturity, the sensitivity bars price the bond at the current rate and one percentage point higher. They report the exact percentage change rather than a duration approximation. The resulting comparison shows how longer maturities increase rate sensitivity.
+For each maturity, the sensitivity bars price the bond at the current rate and one percentage point higher. They report the exact change rather than a duration approximation. The resulting comparison shows how longer maturities increase rate sensitivity.
+
+## Why the sensitivity bars show dollars
+
+The bars run horizontally and are as long as the dollars lost, with the new price and the loss written at each bar end (for example `$926 (-$74)`). A percent drop on a downward bar read as a double negative, and "rise 1%" was easy to misread as 5% becoming 5.05%. The title states the move in plain numbers instead, and the value axis is hidden because every bar carries its own number. Horizontal bars also suit the wide chapter card: the extra width lengthens the bars rather than spreading out a few thick columns.
 
 ## Why a separate analyst readout chapter
 

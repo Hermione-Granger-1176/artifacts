@@ -22,6 +22,7 @@ const ELEMENT_IDS = [
   "mathSchedule",
   "mathExplain",
   "sensitivityChart",
+  "sensitivityTitle",
   "sensitivityExplain",
   "priceRateChart",
   "statCurrentYield",
