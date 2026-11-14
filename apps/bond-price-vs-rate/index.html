@@ -142,9 +142,9 @@
             <p>A rate change is applied to every remaining payment, and long bonds have far more payments still waiting to be discounted. So the same rate move barely dents a short bond but can hammer a long one. That sensitivity is what professionals call <em>duration</em>. Drag the years slider in the controls on the left to move your bond along the chart.</p>
 
             <div class="page-card chart-card br-card">
-              <h3 class="br-card-title">Price drop if rates rise 1%</h3>
-              <div class="chart-frame is-medium"><canvas id="sensitivityChart"></canvas></div>
-              <p class="control-copy">The same one-point rate rise, across different maturities. Your bond is highlighted.</p>
+              <h3 class="br-card-title reserve" id="sensitivityTitle"><span class="br-variant is-active" data-variant="text">If rates rise from 5.0% to 6.0%, a $1,000 bond is worth:</span><span class="reserve-ghost" data-ghost="text" aria-hidden="true">If rates rise from 12.0% to 13.0%, a $1,000 bond is worth:</span></h3>
+              <div class="chart-frame is-bars"><canvas id="sensitivityChart"></canvas></div>
+              <p class="control-copy">Longer bonds lock you into the old, lower rate for more years, so buyers demand a bigger discount.</p>
             </div>
 
             <div class="app-callout is-blue"><p class="app-callout-body reserve" id="sensitivityExplain"><span class="br-variant is-active" data-variant="text">At today's 5.0% rate, a one-point rise would shave about 7.4% off your 10-year bond, versus roughly 1.8% for a 2-year and 13.8% for a 30-year.</span><span class="reserve-ghost" data-ghost="text" aria-hidden="true">At today's 12.0% rate, a one-point rise would shave about 22.4% off your 30-year bond, versus roughly 22.4% for a 2-year and 22.4% for a 30-year.</span></p></div>

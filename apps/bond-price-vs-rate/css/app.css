@@ -314,6 +314,11 @@ body.app-bond-price-vs-rate .chart-frame.is-medium {
   height: 280px;
 }
 
+/* Up to six horizontal bars (five maturities plus the bond's own), each about 24px thick. */
+body.app-bond-price-vs-rate .chart-frame.is-bars {
+  height: 220px;
+}
+
 /* Rate and price arrows: opposite ways for the same move. */
 
 body.app-bond-price-vs-rate .br-seesaw {

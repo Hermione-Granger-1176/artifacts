@@ -126,36 +126,50 @@ function applyCurveRate() {
 }
 
 /**
+ * A bond's price at today's rate and after a one-point rate rise, at a given maturity.
+ * @param {ReturnType<typeof readBond>} bond - Current bond terms.
+ * @param {number} years - Maturity in years.
+ * @returns {{ before: number, after: number }} Prices before and after the rise.
+ */
+function shockPrices(bond, years) {
+  return {
+    before: bondPrice({ ...bond, years }),
+    after: bondPrice({ ...bond, years, annualYieldPct: bond.annualYieldPct + RATE_SHOCK })
+  };
+}
+
+/**
  * Percent price change for a one-point rate rise at a given maturity.
  * @param {ReturnType<typeof readBond>} bond - Current bond terms.
  * @param {number} years - Maturity in years.
  * @returns {number} Percent price change.
  */
 function shockPct(bond, years) {
-  const atRate = bondPrice({ ...bond, years });
-  const atShock = bondPrice({ ...bond, years, annualYieldPct: bond.annualYieldPct + RATE_SHOCK });
-  return (atShock / atRate - 1) * 100;
+  const { before, after } = shockPrices(bond, years);
+  return (after / before - 1) * 100;
 }
 
 /**
- * Compare the one-point price hit across maturities, highlighting the current one.
+ * Compare the one-point price hit across maturities, highlighting the current
+ * one: each maturity's price after the rise and the dollars it lost.
  * @param {ReturnType<typeof readBond>} bond - Current bond terms.
  */
 function buildSensitivity(bond) {
   const maturities = Array.from(new Set([...SENSITIVITY_MATURITIES, bond.years]))
     .filter((maturity) => maturity >= YEARS_MIN && maturity <= YEARS_MAX)
     .sort((a, b) => a - b);
+  const shocks = maturities.map((maturity) => shockPrices(bond, maturity));
 
   return {
-    labels: maturities.map(String),
-    values: maturities.map((maturity) => shockPct(bond, maturity)),
+    labels: maturities.map((maturity) => `${maturity}-year`),
+    prices: shocks.map(({ after }) => after),
+    losses: shocks.map(({ before, after }) => before - after),
     currentIndex: maturities.indexOf(bond.years),
     currentPct: shockPct(bond, bond.years),
     shortPct: shockPct(bond, 2),
     longPct: shockPct(bond, 30)
   };
 }
-
 
 /**
  * The inputs each chart depends on. The price curve and the sensitivity bars
@@ -189,7 +203,12 @@ function renderChangedCharts(bond, sensitivity, redrawAll) {
     elements: getChartElements(elements),
     priceRate: changed("priceRate") ? buildPriceRateSeries(bond) : undefined,
     sensitivity: changed("sensitivity")
-      ? { labels: sensitivity.labels, values: sensitivity.values, currentIndex: sensitivity.currentIndex }
+      ? {
+          labels: sensitivity.labels,
+          prices: sensitivity.prices,
+          losses: sensitivity.losses,
+          currentIndex: sensitivity.currentIndex
+        }
       : undefined,
     yieldCurve: changed("yieldCurve") ? buildYieldCurveSeries(bond) : undefined,
     formatDollarTick,
@@ -223,7 +242,8 @@ function recalc({ redrawAll = false } = {}) {
     sensitivity: {
       currentPct: sensitivity.currentPct,
       shortPct: sensitivity.shortPct,
-      longPct: sensitivity.longPct
+      longPct: sensitivity.longPct,
+      rateAfterPct: bond.annualYieldPct + RATE_SHOCK
     },
     curve: { key: selectedCurveKey, ...shapes[selectedCurveKey], shapes }
   };

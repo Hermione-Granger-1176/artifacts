@@ -22,6 +22,7 @@ import {
   renderScheduleTable,
   rippleExplainText,
   sensitivityExplainText,
+  sensitivityTitleText,
   sizingCopy
 } from '../../../../apps/bond-price-vs-rate/js/modules/narrative.js';
 import {
@@ -151,7 +152,7 @@ function narrativeState(overrides = {}) {
     price: 926.4,
     regime: 'discount',
     schedule: buildSchedule(5, 10, 6),
-    sensitivity: { currentPct: -7.36, shortPct: -1.83, longPct: -13.76 },
+    sensitivity: { currentPct: -7.36, shortPct: -1.83, longPct: -13.76, rateAfterPct: 7 },
     analytics: {
       price: 926.4,
       pvCoupons: 368,
@@ -329,6 +330,10 @@ test('sensitivityExplainText reports magnitudes for the current, short, and long
   assert.match(text, /13.8% for a 30-year/);
 });
 
+test('sensitivityTitleText names the rate move and the face value', () => {
+  assert.equal(sensitivityTitleText(narrativeState(), FORMATTERS), 'If rates rise from 6.0% to 7.0%, a $1,000 bond is worth:');
+});
+
 test('rippleExplainText adapts to each regime', () => {
   assert.match(rippleExplainText(narrativeState()), /loses value/);
   assert.match(rippleExplainText(narrativeState({ regime: 'premium' })), /gain value/);
@@ -425,6 +430,7 @@ function narrativeElements() {
     mathLegendYears: makeElement(),
     mathLegendFace: makeElement(),
     mathSchedule: makeElement(),
+    sensitivityTitle: makeElement(),
     sensitivityExplain: makeElement(),
     analystExplain: makeElement(),
     rippleExplain: makeElement(),
@@ -691,6 +697,7 @@ function chartWindow(createdConfigs) {
       this.data = config.data;
       this.options = config.options;
       this.update = () => {};
+      this.stop = () => {};
     }
   };
 }
@@ -702,7 +709,12 @@ function chartData() {
       curve: [{ x: 1, y: 1300 }, { x: 5, y: 1000 }, { x: 12, y: 650 }],
       current: { x: 5, y: 1000 }
     },
-    sensitivity: { labels: ['2', '10', '30'], values: [-1.8, -7.4, -13.8], currentIndex: 1 },
+    sensitivity: {
+      labels: ['2-year', '10-year', '30-year'],
+      prices: [981.67, 926.4, 862.35],
+      losses: [18.33, 73.6, 137.65],
+      currentIndex: 1
+    },
     yieldCurve: {
       curve: [{ x: 1, y: 3.3 }, { x: 10, y: 4.8 }, { x: 30, y: 5.4 }],
       current: { x: 10, y: 4.8 }
@@ -788,16 +800,81 @@ test('chart tooltip callbacks produce formatted output', () => {
     assert.equal(curveLabel, 'Curve yield: 4.78%');
 
     const bar = configs.find((c) => c.type === 'bar');
-    const barLabel = bar.options.plugins.tooltip.callbacks.label({ parsed: { y: -7.36 } });
-    assert.equal(barLabel, '-7.4%');
+    assert.equal(bar.options.plugins.tooltip.callbacks.label({ chart: {}, dataIndex: 0 }), '', 'an unsynced chart has no tooltip');
 
     // Percent axis ticks always show two decimals and never leak float noise.
     const yieldTick = curveLine.options.scales.y.ticks.callback;
     assert.equal(yieldTick(4.800000000000001), '4.80%');
     assert.equal(yieldTick(3.6000000000000005), '3.60%');
     assert.equal(yieldTick(5), '5.00%');
-    const barTick = bar.options.scales.y.ticks.callback;
-    assert.equal(barTick(-13.799999999999999), '-13.80%');
+  } finally {
+    restoreDocument(orig);
+    if (origWin) globalThis.window = origWin; else delete globalThis.window;
+  }
+});
+
+function fakeContext() {
+  const calls = [];
+  return {
+    calls,
+    save() { calls.push('save'); },
+    restore() { calls.push('restore'); },
+    fillText(text, x, y) { calls.push({ text, x, y, font: this.font, fillStyle: this.fillStyle }); }
+  };
+}
+
+test('sensitivity bars are horizontal dollar losses with the new price and loss at each bar end', () => {
+  const orig = setupDocumentMock();
+  const origWin = globalThis.window;
+  const configs = [];
+  globalThis.window = chartWindow(configs);
+  try {
+    const palette = refreshPalette();
+    const charts = renderCharts(chartData());
+    const bar = configs.find((c) => c.type === 'bar');
+    charts.sensitivity.options.font = { family: 'Inter', size: 12 };
+    assert.equal(bar.options.indexAxis, 'y');
+    assert.equal(bar.options.scales.x.display, false, 'every bar carries its own number, so the value axis is hidden');
+    assert.deepEqual(charts.sensitivity.data.labels, ['2-year', '10-year', '30-year']);
+    assert.deepEqual(charts.sensitivity.data.datasets[0].data, [18.33, 73.6, 137.65]);
+    assert.deepEqual(charts.sensitivity.data.datasets[0].backgroundColor, [palette.redA(0.45), palette.red, palette.redA(0.45)]);
+
+    // The tooltip gives the new price and the percent lost.
+    const tooltip = bar.options.plugins.tooltip.callbacks.label;
+    assert.equal(tooltip({ chart: charts.sensitivity, dataIndex: 1 }), 'Worth $926, down 7.4%');
+
+    // The reader's bar gets the heading color and a heavier weight on its tick.
+    const ticks = bar.options.scales.y.ticks;
+    assert.equal(ticks.color({ chart: charts.sensitivity, index: 1 }), palette.heading);
+    assert.equal(ticks.color({ chart: charts.sensitivity, index: 0 }), palette.tick);
+    assert.deepEqual(ticks.font({ chart: charts.sensitivity, index: 1 }), { weight: 600 });
+    assert.deepEqual(ticks.font({ chart: charts.sensitivity, index: 2 }), { weight: 400 });
+    assert.equal(ticks.color({ chart: {}, index: 0 }), undefined, 'an unsynced chart falls back to the defaults');
+
+    // The inline plugin writes each label just past its bar's end.
+    const [plugin] = bar.plugins;
+    const ctx = fakeContext();
+    const bars = [{ x: 40, y: 10 }, { x: 160, y: 40 }, { x: 300, y: 70 }];
+    const drawWith = (context, data) =>
+      plugin.afterDatasetsDraw(Object.assign(charts.sensitivity, { ctx: context, getDatasetMeta: () => ({ data }) }));
+    drawWith(ctx, bars);
+    const drawn = ctx.calls.filter((call) => typeof call === 'object');
+    assert.deepEqual(drawn.map((call) => call.text), ['$982 (-$18)', '$926 (-$74)', '$862 (-$138)']);
+    assert.deepEqual(drawn.map((call) => call.x), [48, 168, 308]);
+    assert.equal(drawn[1].font, '600 12px Inter');
+    assert.equal(drawn[1].fillStyle, palette.heading);
+    assert.equal(drawn[0].font, '400 12px Inter');
+    assert.equal(ctx.calls[0], 'save');
+    assert.equal(ctx.calls.at(-1), 'restore');
+
+    // A chart that was never synced draws nothing, and missing font defaults fall back.
+    const idle = fakeContext();
+    plugin.afterDatasetsDraw({ ctx: idle, getDatasetMeta: () => ({ data: bars }) });
+    assert.deepEqual(idle.calls, []);
+    charts.sensitivity.options.font = undefined;
+    const fallback = fakeContext();
+    drawWith(fallback, bars.slice(0, 1));
+    assert.equal(fallback.calls[1].font, '400 12px sans-serif');
   } finally {
     restoreDocument(orig);
     if (origWin) globalThis.window = origWin; else delete globalThis.window;
@@ -917,7 +994,7 @@ test('the static first-paint copy in index.html matches the default render', () 
     regime,
     schedule: bondSchedule(bond),
     analytics: bondAnalytics(bond),
-    sensitivity: { currentPct: shock(10), shortPct: shock(2), longPct: shock(30) },
+    sensitivity: { currentPct: shock(10), shortPct: shock(2), longPct: shock(30), rateAfterPct: 6 },
     curve: { key: 'normal', ...shapes.normal, shapes }
   });
 
@@ -948,6 +1025,13 @@ test('the static first-paint copy in index.html matches the default render', () 
     'normal'
   );
   expectCopy('mathExplain', { text: mathExplainText(state, FORMATTERS) }, 'text');
+  const titleGhost = sizing.sensitivityTitle.text;
+  assert.ok(
+    html.includes(
+      `<h3 class="br-card-title reserve" id="sensitivityTitle"><span class="br-variant is-active" data-variant="text">${sensitivityTitleText(state, FORMATTERS)}</span><span class="reserve-ghost" data-ghost="text" aria-hidden="true">${titleGhost}</span></h3>`
+    ),
+    'sensitivityTitle first-paint copy matches the default render'
+  );
   expectCopy('sensitivityExplain', { text: sensitivityExplainText(state, FORMATTERS) }, 'text');
   expectCopy('analystExplain', { text: analystExplainText(state, FORMATTERS) }, 'text');
 
@@ -972,6 +1056,7 @@ function recordingWindow(updates, { reducedMotion = false } = {}) {
       this.options = config.options;
       this.canvas = canvas;
       this.update = (mode) => updates.push({ chart: this, mode });
+      this.stop = () => {};
     }
   };
 }
@@ -993,6 +1078,34 @@ test('renderCharts animates only the first draw, then redraws input changes with
     updates.length = 0;
     renderCharts({ charts, ...chartData() });
     assert.deepEqual(updates.map((entry) => entry.mode), ['none', 'none', 'none'], 'slider ticks redraw at once');
+  } finally {
+    restoreDocument(orig);
+    if (origWin) globalThis.window = origWin; else delete globalThis.window;
+  }
+});
+
+test('an instant redraw stops a running ease first, so the old ease cannot put back stale bars', () => {
+  const orig = setupDocumentMock();
+  const origWin = globalThis.window;
+  const log = [];
+  globalThis.window = {
+    matchMedia: () => ({ matches: false }),
+    Chart: function LoggingChart(canvas, config) {
+      this.data = config.data;
+      this.options = config.options;
+      this.canvas = canvas;
+      this.update = (mode) => log.push(`update:${mode ?? 'ease'}`);
+      this.stop = () => log.push('stop');
+    }
+  };
+  try {
+    refreshPalette();
+    const charts = renderCharts({ ...chartData(), priceRate: undefined, yieldCurve: undefined });
+    assert.deepEqual(log, ['update:ease'], 'the first draw eases without stopping anything');
+
+    log.length = 0;
+    renderCharts({ charts, elements: chartData().elements, sensitivity: chartData().sensitivity, formatDollarTick: String });
+    assert.deepEqual(log, ['stop', 'update:none']);
   } finally {
     restoreDocument(orig);
     if (origWin) globalThis.window = origWin; else delete globalThis.window;
@@ -1090,7 +1203,7 @@ test('renderCharts keeps an off-screen chart pending and draws it once it scroll
 
     // The redraw on entering view uses the newest data.
     const latest = chartData();
-    latest.sensitivity = { labels: ['2'], values: [-2], currentIndex: 0 };
+    latest.sensitivity = { labels: ['2-year'], prices: [980], losses: [20], currentIndex: 0 };
     renderCharts({ charts, ...latest });
     updates.length = 0;
     notify([
@@ -1098,7 +1211,7 @@ test('renderCharts keeps an off-screen chart pending and draws it once it scroll
       { target: data.elements.sensitivityChart, isIntersecting: true }
     ]);
     assert.deepEqual(drawsOf(updates, charts.sensitivity), ['none']);
-    assert.deepEqual(charts.sensitivity.data.labels, ['2'], 'the latest data is the one drawn');
+    assert.deepEqual(charts.sensitivity.data.labels, ['2-year'], 'the latest data is the one drawn');
   } finally {
     restoreDocument(orig);
     if (origWin) globalThis.window = origWin; else delete globalThis.window;
@@ -1118,6 +1231,7 @@ test('the sizing copy is at least as long as any copy a slider setting can print
     rippleExplain: (state, key) => rippleExplainText({ ...state, regime: key }),
     curveExplain: (state, key) => curveExplainText({ ...state, curve: { ...state.curve.shapes[key], key } }, FORMATTERS),
     mathExplain: (state) => mathExplainText(state, FORMATTERS),
+    sensitivityTitle: (state) => sensitivityTitleText(state, FORMATTERS),
     sensitivityExplain: (state) => sensitivityExplainText(state, FORMATTERS),
     analystExplain: (state) => analystExplainText(state, FORMATTERS)
   };
@@ -1136,7 +1250,7 @@ test('the sizing copy is at least as long as any copy a slider setting can print
           regime: priceRegime(coupon, rate),
           schedule: bondSchedule(bond),
           analytics: bondAnalytics(bond),
-          sensitivity: { currentPct: shock(years), shortPct: shock(2), longPct: shock(30) },
+          sensitivity: { currentPct: shock(years), shortPct: shock(2), longPct: shock(30), rateAfterPct: rate + 1 },
           curve: { key: 'normal', ...shapes.normal, shapes }
         };
         for (const [id, build] of Object.entries(builders)) {
