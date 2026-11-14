@@ -32,6 +32,7 @@
   --color-attach-corner: var(--color-album-ribbon);
   --color-page-btn-active-border: var(--color-album-ribbon);
   --color-page-btn-hover-ink: rgb(143, 47, 31);
+  --desk-note-rest-opacity: 1;
   --color-search-count: var(--color-text-secondary);
   --color-chip-text: var(--color-text-primary);
   --color-chip-active-text: var(--color-note-text);
@@ -121,6 +122,7 @@ html[data-theme="dark"] body.artifact-app {
   --color-attach-corner: var(--color-album-cover);
   --color-page-btn-active-border: var(--color-album-cover-ink);
   --color-page-btn-hover-ink: var(--color-accent-ring);
+  --desk-note-rest-opacity: 0.85;
   --color-search-count: var(--color-pencil-soft);
   --color-chip-text: var(--color-note-text);
   --color-chip-active-text: var(--color-text-primary);
@@ -174,7 +176,7 @@ body.artifact-app {
   --color-tip-bg: rgb(232, 232, 230);
   --color-tooltip-bg: rgb(51, 51, 51);
   --color-tooltip-text: rgb(255, 255, 255);
-  --chart-tick: rgb(136, 136, 136);
+  --chart-tick: var(--color-text-tertiary);
   --chart-grid: rgba(0, 0, 0, 0.06);
   --chart-annotation-border: rgb(136, 136, 136);
   --chart-annotation-bg: rgba(0, 0, 0, 0.65);
@@ -1692,7 +1694,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.85;
+  opacity: var(--desk-note-rest-opacity);
 }
 
 /* A long label gets smaller type so it stays on its square note. */
@@ -2662,7 +2664,7 @@ body.artifact-app .brand-link {
 
 body.artifact-app .brand-link:hover,
 body.artifact-app .brand-link:focus-visible {
-  color: var(--color-amber);
+  color: var(--color-amber-text);
   outline: none;
 }
 
@@ -3655,7 +3657,7 @@ body.artifact-app .section-nav-node {
 @media (hover: hover) {
   body.artifact-app .section-nav-node:hover {
     border-color: var(--color-blue);
-    color: var(--color-blue);
+    color: var(--color-blue-text);
     transform: scale(1.15);
   }
 }

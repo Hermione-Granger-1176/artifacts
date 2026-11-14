@@ -29,17 +29,17 @@ const { colors, refreshPalette } = createPaletteCache(({ css, cssAlpha }) => ({
   blue: css("--color-blue"),
   green: css("--color-green"),
   red: css("--color-red"),
-  noteBlue: css("--note-blue"),
-  noteGreen: css("--note-green"),
-  noteRed: css("--note-red"),
+  noteBlue: css("--color-note-3"),
+  noteGreen: css("--color-note-4"),
+  noteRed: css("--color-note-2"),
   blueA(/** @type {number} */ alpha) {
-    return cssAlpha("--note-blue", alpha);
+    return cssAlpha("--color-note-3", alpha);
   },
   greenA(/** @type {number} */ alpha) {
-    return cssAlpha("--note-green", alpha);
+    return cssAlpha("--color-note-4", alpha);
   },
   redA(/** @type {number} */ alpha) {
-    return cssAlpha("--note-red", alpha);
+    return cssAlpha("--color-note-2", alpha);
   },
   redText: css("--color-red-text"),
   greenText: css("--color-green-text"),

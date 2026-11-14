@@ -911,7 +911,7 @@ body.artifact-app .section-nav-node {
 @media (hover: hover) {
   body.artifact-app .section-nav-node:hover {
     border-color: var(--color-blue);
-    color: var(--color-blue);
+    color: var(--color-blue-text);
     transform: scale(1.15);
   }
 }

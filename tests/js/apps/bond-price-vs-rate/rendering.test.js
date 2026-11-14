@@ -730,7 +730,7 @@ test('cssAlpha falls back to the raw value when a color has fewer than three num
   globalThis.document = { body: {}, documentElement: { getAttribute() { return 'dark'; } } };
   globalThis.getComputedStyle = () => ({
     getPropertyValue(prop) {
-      return prop === '--note-blue' ? 'blue' : 'rgb(1, 2, 3)';
+      return prop === '--color-note-3' ? 'blue' : 'rgb(1, 2, 3)';
     }
   });
   try {

@@ -451,11 +451,11 @@ body.app-loan-amortization .dot.is-red {
 }
 
 body.app-loan-amortization .dot.is-note-green {
-  background: var(--note-green);
+  background: var(--color-note-4);
 }
 
 body.app-loan-amortization .dot.is-note-red {
-  background: var(--note-red);
+  background: var(--color-note-2);
 }
 
 body.app-loan-amortization #tableToggle {

@@ -26,6 +26,7 @@
   --color-attach-corner: var(--color-album-cover);
   --color-page-btn-active-border: var(--color-album-cover-ink);
   --color-page-btn-hover-ink: var(--color-accent-ring);
+  --desk-note-rest-opacity: 0.85;
   --color-search-count: var(--color-pencil-soft);
   --color-chip-text: var(--color-note-text);
   --color-chip-active-text: var(--color-text-primary);
@@ -79,7 +80,7 @@ body.artifact-app {
   --color-tip-bg: rgb(232, 232, 230);
   --color-tooltip-bg: rgb(51, 51, 51);
   --color-tooltip-text: rgb(255, 255, 255);
-  --chart-tick: rgb(136, 136, 136);
+  --chart-tick: var(--color-text-tertiary);
   --chart-grid: rgba(0, 0, 0, 0.06);
   --chart-annotation-border: rgb(136, 136, 136);
   --chart-annotation-bg: rgba(0, 0, 0, 0.65);
