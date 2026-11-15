@@ -6,10 +6,12 @@ generous tolerance (see ``scripts/ci/visual_regression.py``). Set
 ``ARTIFACTS_UPDATE_VISUAL_BASELINES=1`` (via ``make visual-baselines``) to
 rewrite the baselines after an intentional visual change.
 
-Baselines are environment sensitive (system font rendering differs between
-hosts), so this suite is a local and on-demand tool. It is intentionally not
-part of the blocking CI browser gate; regenerate the baselines in the same
-environment where the check runs.
+Font rendering differs between hosts, so the committed baselines are the ones
+the pinned Playwright image renders, and CI compares against them in that image.
+When a capture differs, the test also writes it to
+``$ARTIFACTS_BROWSER_ARTIFACT_DIR/visual-baselines/``, which CI uploads with the
+job's failure artifacts; ``make visual-baselines-from-ci`` adopts those captures
+as the new baselines after an intentional change.
 """
 
 from __future__ import annotations
@@ -21,7 +23,12 @@ from typing import TYPE_CHECKING
 import pytest
 
 from scripts.ci import visual_regression
-from tests.browser.frontend_helpers import REPO_ROOT, MonitoredPage, discover_app_slugs
+from tests.browser.frontend_helpers import (
+    ARTIFACT_DIR_ENV,
+    REPO_ROOT,
+    MonitoredPage,
+    discover_app_slugs,
+)
 
 if TYPE_CHECKING:
     from tests.browser.conftest import AppBrowserHarness
@@ -114,4 +121,10 @@ def test_hero_matches_baseline(app_browser: AppBrowserHarness, tmp_path: Path, t
     if not result.passed:
         failed_copy = tmp_path / f"{target}-candidate.png"
         failed_copy.write_bytes(image_bytes)
+        artifact_root = os.environ.get(ARTIFACT_DIR_ENV, "").strip()
+        if artifact_root:
+            # Named like the baseline, so a CI capture can replace it as is.
+            captured = Path(artifact_root) / "visual-baselines" / baseline.name
+            captured.parent.mkdir(parents=True, exist_ok=True)
+            captured.write_bytes(image_bytes)
         pytest.fail(f"{target}: {result.message} (candidate saved at {failed_copy})")
