@@ -1,1 +1,0 @@
-export function initAccordion(e){e.addEventListener("click",r=>{const t=r.target.closest(".card-trigger");if(!t)return;const c=t.closest(".card").classList.toggle("open");t.setAttribute("aria-expanded",String(c))})}
