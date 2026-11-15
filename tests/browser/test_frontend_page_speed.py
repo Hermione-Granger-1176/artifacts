@@ -18,6 +18,7 @@ ordinary runner noise. ``make test-page-speed`` runs it; ``budget_ms=`` and
 
 from __future__ import annotations
 
+import math
 import os
 import statistics
 from collections.abc import Generator
@@ -75,8 +76,9 @@ def _budget_ms() -> float:
     if not raw:
         return DEFAULT_BUDGET_MS
     value = float(raw)
-    if value <= 0:
-        raise ValueError(f"{BUDGET_ENV} must be positive, got {raw}")
+    # NaN would fail every page and inf would pass every page, so both are refused.
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{BUDGET_ENV} must be a positive finite number, got {raw}")
     return value
 
 
