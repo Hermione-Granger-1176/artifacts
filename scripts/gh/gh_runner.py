@@ -1,7 +1,7 @@
 """Thin, dependency-injected wrappers around the ``gh`` and ``git`` CLIs.
 
-Every public function accepts ``run_fn`` so tests can inject a fake subprocess
-runner and exercise the logic without touching the network or a real
+Every function that runs a subprocess accepts ``run_fn`` so tests can inject a
+fake runner and exercise the logic without touching the network or a real
 repository. Keeping the GitHub plumbing here means the PR and CI helpers share
 one place for repository and pull-request detection, timeouts, and retries.
 
@@ -632,8 +632,7 @@ def _repo_from_url(url: str) -> str:
     segments = [segment for segment in remote_path.removesuffix(".git").split("/") if segment]
     if len(segments) < 2:
         return ""
-    owner_name = "/".join(segments[-2:])
-    return owner_name if _is_owner_name(owner_name) else ""
+    return "/".join(segments[-2:])
 
 
 def _github_remote_path(url: str) -> str:

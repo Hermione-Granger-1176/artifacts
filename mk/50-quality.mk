@@ -1,6 +1,6 @@
 # ─── Quality gates @quality ───────────────────────────────────────────────────
 
-.PHONY: ci-python ci-web ci ci-fast security audit-python audit-node audit-vendored check-generated check-local check-fast check-web check fix
+.PHONY: ci-python ci-web ci ci-fast security audit-python audit-node audit-vendored check-generated check-local check-web check fix
 
 ci-python: format-py-check lint-py typecheck-py dead-code-py test-py ## Python CI gate
 
@@ -33,8 +33,6 @@ check-generated: ## Check canonical generated files are up to date
 	$(VENV_PYTHON) scripts/lint/check_generated_drift.py
 
 check-local: ci ## Alias for the full local CI gate
-
-check-fast: ci-fast ## Alias for ci-fast
 
 check-web: test-browser thumbnails ## Browser gate: test-browser + thumbnails
 

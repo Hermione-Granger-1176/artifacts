@@ -153,7 +153,7 @@ def create_pr(
             # PR stays inside one organization, where the owner prefix is not enough.
             fields["head_repo"] = source.split("/")[1]
         pull = gh_runner.rest(f"repos/{slug}/pulls", method="POST", fields=fields, run_fn=run_fn)
-        print(pull.get("html_url") if isinstance(pull, dict) else "Created pull request")
+        print(pull["html_url"])
         return 0
 
     return gh_runner.gh_or_rest(

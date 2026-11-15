@@ -209,12 +209,6 @@ def test_remaining_thread_comments_bad_connection_shape() -> None:
         pr_review._remaining_thread_comments("PRRT_x", page_info, run_fn=runner)
 
 
-def test_remaining_thread_comments_rejects_non_dict_page_info() -> None:
-    """Test remaining thread comments rejects non dict page info."""
-    with pytest.raises(GhError):
-        pr_review._remaining_thread_comments("PRRT_x", "not a dict")
-
-
 def test_remaining_thread_comments_hasnext_without_cursor_raises() -> None:
     """Test remaining thread comments hasnext without cursor raises."""
     with pytest.raises(GhError):
@@ -1319,14 +1313,6 @@ def test_rollup_summary_rejects_non_dict_entry() -> None:
     """Test rollup summary rejects non dict entry."""
     with pytest.raises(GhError):
         pr_review.rollup_summary([{"conclusion": "SUCCESS"}, "not a dict"])
-
-
-def test_owner_name_rejects_invalid_slug(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The owner/name splitter rejects a malformed slug."""
-    monkeypatch.setattr(gh_runner, "resolve_repo", lambda **_kwargs: "owner/")
-
-    with pytest.raises(GhError):
-        pr_review._owner_name()
 
 
 def _copilot_runner(seen: dict[str, list[list[str]]]) -> Any:

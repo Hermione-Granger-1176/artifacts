@@ -1,6 +1,6 @@
 # ─── Lint @lint ───────────────────────────────────────────────────────────────
 
-.PHONY: lint editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows workflow-lint lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-app-css-tokens lint-vendored-assets check-overrides
+.PHONY: lint editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-app-css-tokens lint-vendored-assets check-overrides
 
 lint: editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-app-css-tokens lint-vendored-assets check-overrides ## Run all linters
 
@@ -21,8 +21,6 @@ lint-yaml: ## Run yamllint only [paths on stdin]
 
 lint-workflows: ## Run workflow linter only
 	$(NPM) run lint:workflows
-
-workflow-lint: lint-workflows ## Alias for lint-workflows
 
 lint-doc-commands: ## Check contributor docs use Make targets
 	$(VENV_PYTHON) scripts/lint/check_doc_commands.py

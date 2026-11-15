@@ -691,12 +691,6 @@ def test_check_status_rejects_malformed_entries(rollup: object) -> None:
         pr_watch._check_status(rollup, expected_checks=1)
 
 
-def test_check_status_rejects_invalid_expected_count() -> None:
-    """The expected check count must enforce at least one check."""
-    with pytest.raises(GhError, match="expected_checks must be at least 1"):
-        pr_watch._check_status([], expected_checks=0)
-
-
 def test_poll_once_uses_only_reviews_newer_than_the_id_baseline() -> None:
     """A review from an earlier cycle cannot satisfy a new watch."""
     runner = _poll_runner(

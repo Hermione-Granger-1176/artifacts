@@ -1268,7 +1268,7 @@ def test_helper_wrappers_delegate_expected_contract_and_metadata_logic(
     assert index_outputs.sort_items({"beta", "alpha"}, ["beta"]) == ["beta", "alpha"]
 
 
-# -- IndexConfig.create_default and backward-compat re-exports ----------------
+# -- IndexConfig.create_default ------------------------------------------------
 
 
 def test_create_default_builds_production_config() -> None:
@@ -1281,12 +1281,6 @@ def test_create_default_builds_production_config() -> None:
     assert config.name_file == "name.txt"
     assert config.is_kebab_case("loan-tool")
     assert not config.is_kebab_case("Bad Name")
-
-
-def test_generate_index_is_kebab_case_re_export() -> None:
-    """Test generate index is kebab case re export."""
-    assert generate_index.is_kebab_case("budget-tracker") is True
-    assert generate_index.is_kebab_case("BudgetTracker") is False
 
 
 def test_artifact_id_pattern_compiles_from_contract() -> None:

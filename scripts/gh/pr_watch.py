@@ -302,8 +302,6 @@ def _check_status(
     """Return settled, successful, count, summary, and identities for a rollup."""
     if not isinstance(rollup, list):
         raise GhError("Unexpected statusCheckRollup shape in PR view response.")
-    if expected_checks < 1:
-        raise GhError("expected_checks must be at least 1.")
 
     settled = len(rollup) >= expected_checks
     successful = settled

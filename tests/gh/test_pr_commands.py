@@ -351,15 +351,18 @@ def test_create_fallback_keeps_the_real_error_of_a_failed_branch_lookup() -> Non
 def test_create_fallback_with_a_title_uses_the_given_text(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """An explicit title and body are sent as given, and a non-object reply is tolerated."""
+    """An explicit title and body are sent as given, and the new PR's URL is printed."""
     runner = _create_sandbox(
         (has("rev-parse"), completed_process(0, "feature\n")),
-        (rest("POST", "repos/o/r/pulls", "title=T", "body=B", "base=dev"), json_response([])),
+        (
+            rest("POST", "repos/o/r/pulls", "title=T", "body=B", "base=dev"),
+            json_response({"html_url": "https://github.com/o/r/pull/9"}),
+        ),
     )
 
     pr_commands.create_pr(title="T", base="dev", body="B", run_fn=runner)
 
-    assert capsys.readouterr().out.strip() == "Created pull request"
+    assert capsys.readouterr().out.strip() == "https://github.com/o/r/pull/9"
 
 
 def test_list_fallback_prints_open_pull_requests(capsys: pytest.CaptureFixture[str]) -> None:

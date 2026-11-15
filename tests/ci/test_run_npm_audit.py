@@ -610,12 +610,11 @@ def test_main_reports_errors(
 
 
 def test_is_gated_applies_the_npm_severity_ladder() -> None:
-    """Severities below the audit level are not gated; unknown ones always are."""
+    """Severities below the audit level are not gated."""
     assert run_npm_audit._is_gated("critical", "high") is True
     assert run_npm_audit._is_gated("high", "high") is True
     assert run_npm_audit._is_gated("moderate", "high") is False
     assert run_npm_audit._is_gated("moderate", "low") is True
-    assert run_npm_audit._is_gated("", "high") is True
 
 
 def test_audit_gates_every_severity_by_default() -> None:

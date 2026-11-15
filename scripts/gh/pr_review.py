@@ -479,10 +479,6 @@ def _remaining_thread_comments(
     thread_id: str, page_info: dict[str, Any], *, run_fn: RunFunction | None = None
 ) -> list[ReviewComment]:
     """Page a single thread's comments beyond the first 100 already collected."""
-    if not isinstance(page_info, dict):
-        raise GhError(
-            f"Unexpected review thread pageInfo shape for {thread_id} in GraphQL response."
-        )
     comments: list[ReviewComment] = []
     while True:
         if not _page_has_next(
@@ -787,7 +783,6 @@ def rollup_summary(rollup: list[dict[str, Any]]) -> str:
 def _owner_name(*, run_fn: RunFunction | None = None) -> tuple[str, str]:
     """Return the ``(owner, name)`` pair for the current repository."""
     slug = gh_runner.resolve_repo(run_fn=run_fn)
+    # resolve_repo only returns slugs with two non-empty parts.
     owner, name = slug.split("/", 1)
-    if not owner or not name:
-        raise GhError(f"Invalid repository slug: {slug}")
     return owner, name
