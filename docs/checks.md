@@ -76,6 +76,7 @@ These targets combine checks or select a narrower scope:
 - `make test-browser-root-smoke`, `make test-browser-root-accessibility`, and `make test-browser-root-flows` run the root gallery Playwright suites separately. `make test-browser-root` runs all three.
 - `make test-browser-apps-smoke`, `make test-browser-apps-accessibility`, and `make test-browser-apps-flows` run the mature app Playwright suites separately. `make test-browser-apps` remains the aggregate app gate.
 - `make test-browser-webkit-smoke` runs the WebKit cross-engine smoke pass over the root gallery and the mature apps.
+- `make test-page-speed` opens the gallery and each mature app in Chromium as a first visit with an empty cache, from the assembled site, and times navigation to the runtime's ready mark. The median of five visits per page must stay under 1000 ms. CI runs it in the `root-browser` job. [Operations](operations.md#page-speed-budget) explains the budget.
 - `make check-web` is the browser-only gate. It runs `make test-browser` and `make thumbnails`.
 - `make check` runs `make check-local`, `make check-web`, `make index`, and `make site`.
 - `make validate` fails when a directory under `apps/` lacks `index.html` or `name.txt`, has an empty `name.txt`, or has a name that is not kebab-case.
