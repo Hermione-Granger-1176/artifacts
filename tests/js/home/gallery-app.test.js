@@ -710,8 +710,12 @@ function createGalleryHarness({
   if (!withBook) {
     // index.html always ships the book shell and sheet. A shell that never opened
     // leaves the scene rendering each page at once; the sheet still takes swipes.
+    // This harness has no cover, so the intro would end at once and open the
+    // shell; pinning its intro state keeps it closed.
+    const shell = registerElement(new FakeElement({ id: 'book-shell' }));
+    Object.defineProperty(shell.dataset, 'sceneIntro', { get: () => undefined, set() {} });
     book = {
-      shell: registerElement(new FakeElement({ id: 'book-shell' })),
+      shell,
       sheet: registerElement(new FakeElement({ id: 'book-sheet' }))
     };
   }

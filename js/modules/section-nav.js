@@ -3,6 +3,7 @@
  * fill, so they always agree. Styled by the shared .section-nav rules. */
 
 import { createFrameScheduler } from "./frame-scheduler.js";
+import { scrollBehavior } from "./motion.js";
 
 /**
  * @typedef {{ id: string, label: string, target: HTMLElement }} NavSection
@@ -47,8 +48,7 @@ export function renderSectionNav(mount) {
 export function scrollToSection(id) {
   const target = document.getElementById(id);
   if (target) {
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    target.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
+    target.scrollIntoView({ behavior: scrollBehavior() });
   }
 }
 
@@ -206,7 +206,5 @@ export function initSectionNav() {
   draw();
   window.addEventListener("scroll", scheduleDraw, { passive: true });
   window.addEventListener("resize", scheduleMeasure, { passive: true });
-  if (typeof ResizeObserver === "function") {
-    new ResizeObserver(scheduleMeasure).observe(document.body);
-  }
+  new ResizeObserver(scheduleMeasure).observe(document.body);
 }

@@ -489,7 +489,7 @@
   body.artifact-app .app-header-inner,
   body.artifact-app .page-shell,
   body.artifact-app .section-nav-inner {
-    width: min(100% - 1.25rem, 1000px);
+    width: min(100% - 1.25rem, var(--shell-max-width));
   }
 
   body.artifact-app .section-nav-label {

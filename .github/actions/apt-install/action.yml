@@ -1,0 +1,40 @@
+name: Install container tools
+description: >-
+  Install command-line tools that a job container lacks, retrying a brief apt
+  outage. Requires actions/checkout to have run first.
+
+inputs:
+  packages:
+    description: >-
+      Space-separated apt packages, each named after the command it provides.
+      A package whose command is already on PATH is skipped.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install missing packages
+      shell: sh
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        missing=""
+        for package in $PACKAGES; do
+          command -v "$package" >/dev/null 2>&1 || missing="$missing $package"
+        done
+        if [ -n "$missing" ]; then
+          # Retry the apt bootstrap so a brief runner DNS outage does not fail
+          # the job before it starts. A failed index fetch counts as a failure.
+          for attempt in 1 2 3; do
+            # $missing is a list of package names, so it is split on purpose.
+            # shellcheck disable=SC2086
+            if apt-get update --error-on=any && apt-get install --no-install-recommends --yes $missing; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 30))
+          done
+          rm -rf /var/lib/apt/lists/*
+        fi

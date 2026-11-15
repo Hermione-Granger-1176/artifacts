@@ -8,6 +8,7 @@ import {
   runSchedule
 } from '../../../../apps/loan-amortization/js/modules/amortization.js';
 import {
+  MAX_EXTRA_AMOUNT,
   createExtra,
   removeExtraById,
   setExtraType,
@@ -414,6 +415,35 @@ test('updateExtraField rejects NaN and negative values', () => {
   assert.equal(extras[0].amount, 500); // unchanged, negative rejected
 });
 
+test('updateExtraField rejects amounts that parse to Infinity', () => {
+  const extras = [createExtra(1)];
+  // `1e400` is a well-formed number literal, so a type=number field may keep it.
+  updateExtraField(extras, 1, 'amount', '1e400');
+  assert.equal(extras[0].amount, 500);
+  updateExtraField(extras, 1, 'amount', 'Infinity');
+  assert.equal(extras[0].amount, 500);
+  updateExtraField(extras, 1, 'every', '1e400');
+  assert.equal(extras[0].every, 1);
+});
+
+test('updateExtraField clamps a huge amount to the largest loan', () => {
+  const extras = [createExtra(1)];
+  assert.equal(updateExtraField(extras, 1, 'amount', '1e308'), MAX_EXTRA_AMOUNT);
+  assert.equal(extras[0].amount, MAX_EXTRA_AMOUNT);
+  assert.equal(summarizeExtra(extras[0], 'month'), 'Pays $500,000 every month starting from month 1');
+  updateExtraField(extras, 1, 'amount', String(MAX_EXTRA_AMOUNT));
+  assert.equal(extras[0].amount, MAX_EXTRA_AMOUNT);
+  assert.equal(updateExtraField(extras, 1, 'amount', '499999.5'), 499_999.5);
+  assert.equal(extras[0].amount, 499_999.5);
+  assert.equal(updateExtraField(extras, 1, 'amount', '-1'), undefined);
+  assert.equal(updateExtraField(extras, 2, 'amount', '10'), undefined, 'no extra with that id');
+});
+
+test('the extra amount cap matches the top of the loan-amount slider', () => {
+  const sliderMax = /id="slPrincipal"[^>]*\smax="(\d+)"/.exec(pageMarkup)?.[1];
+  assert.equal(Number(sliderMax), MAX_EXTRA_AMOUNT);
+});
+
 test('updateExtraField rejects zero for period fields', () => {
   const extras = [createExtra(1)];
   updateExtraField(extras, 1, 'every', '0');
@@ -501,6 +531,7 @@ test('renderExtras builds recurring and one-time DOM elements', () => {
   assert.equal(children[0].className, 'extra-item');
   assert.match(children[0].innerHTML, /Recurring/);
   assert.match(children[0].innerHTML, /data-field="amount"/);
+  assert.match(children[0].innerHTML, /class="amount-input"[^>]*\smax="500000"[^>]*data-field="amount"/);
   assert.match(children[1].innerHTML, /One-time/);
   assert.match(children[1].innerHTML, /data-field="period"/);
   assert.match(children[0].innerHTML, /class="btn-remove"/);

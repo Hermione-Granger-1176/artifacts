@@ -116,16 +116,3 @@ test('a fully visible last chapter wins even if it never reaches the band', () =
     assert.deepEqual(currentNames(chapters), ['chapter-3']);
   });
 });
-
-test('chapter tracking leaves every chapter at full strength without IntersectionObserver', () => {
-  const original = globalThis.IntersectionObserver;
-  delete globalThis.IntersectionObserver;
-  try {
-    const { story, chapters, documentObj } = makeStory(2);
-    initChapterTracking(documentObj);
-    assert.equal(story.classList.contains('is-tracking'), false);
-    assert.deepEqual(currentNames(chapters), []);
-  } finally {
-    if (original) globalThis.IntersectionObserver = original;
-  }
-});

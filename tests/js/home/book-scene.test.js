@@ -649,9 +649,9 @@ test('startIntro cleans up and still opens the book when an animation throws', a
   assert.ok(!harness.shell.classList.contains('is-opening'));
 });
 
-test('startIntro skips elements that cannot animate', async () => {
+test('startIntro skips a part the markup leaves out', async () => {
   const harness = createHarness();
-  harness.cover.querySelector('.book-ribbon').animate = undefined;
+  harness.cover.querySelector('.book-ribbon').remove();
   const intro = harness.scene.startIntro();
   await harness.advance(3000);
   await intro;
@@ -741,35 +741,6 @@ test('turnPage selects and renders immediately when the book is missing or not y
   await closed.scene.turnPage(2);
   assert.deepEqual(closed.model.commits, [2]);
   assert.equal(closed.created.length, 0);
-});
-
-test('turnPage renders without animating when animation frames are unavailable', async () => {
-  const harness = createHarness({ open: true });
-  harness.windowObj.requestAnimationFrame = undefined;
-  await harness.scene.turnPage(2);
-  assert.deepEqual(harness.model.commits, [2]);
-
-  const noCancel = createHarness({ open: true });
-  noCancel.windowObj.cancelAnimationFrame = undefined;
-  await noCancel.scene.turnPage(2);
-  assert.deepEqual(noCancel.model.commits, [2]);
-});
-
-test('turnPage lands the page without throwing when Web Animations are unavailable', async () => {
-  const harness = createHarness({ open: true });
-  const realAnimate = FakeElement.prototype.animate;
-  FakeElement.prototype.animate = undefined;
-  try {
-    const turned = harness.scene.turnPage(2);
-    await harness.advance(1000);
-    await turned;
-  } finally {
-    FakeElement.prototype.animate = realAnimate;
-  }
-  assert.deepEqual(harness.model.commits, [2]);
-  assert.equal(harness.errors.length, 0);
-  assert.equal(harness.leafOf(), undefined);
-  assert.ok(!harness.sheet.classList.contains('is-turning'));
 });
 
 test('turnPage during the intro commits at once and keeps the latest request', async () => {

@@ -1,4 +1,5 @@
 import { createFrameScheduler } from "./frame-scheduler.js";
+import { scrollBehavior } from "./motion.js";
 import { writeStorage } from "./runtime.js";
 import { createThemeSwitchGuard } from "./theme-switching.js";
 
@@ -131,7 +132,6 @@ export function initAppShell({
   const themeToggle = /** @type {HTMLElement} */ (document.getElementById("theme-toggle"));
   const scrollTop = /** @type {HTMLElement} */ (document.getElementById("scroll-top"));
   const themeColorMeta = /** @type {Element} */ (document.querySelector('meta[name="theme-color"]'));
-  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   function currentTheme() {
     return windowObj.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(
@@ -209,8 +209,7 @@ export function initAppShell({
   });
 
   scrollTop.addEventListener("click", () => {
-    const behavior = prefersReducedMotion.matches ? "auto" : "smooth";
-    window.scrollTo({ top: 0, behavior });
+    window.scrollTo({ top: 0, behavior: scrollBehavior() });
   });
   window.addEventListener("scroll", createFrameScheduler(updateScrollTopVisibility), {
     passive: true

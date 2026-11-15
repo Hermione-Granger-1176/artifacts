@@ -92,14 +92,33 @@ def _step_run(job: dict[str, object], name: str) -> str:
     return run
 
 
-def _assert_apt_bootstrap_retries(run: str, packages: str) -> None:
+APT_INSTALL_ACTION = "./.github/actions/apt-install"
+
+
+def _assert_apt_install(job: dict[str, object], name: str, packages: str) -> None:
+    """Pin a container job's tool bootstrap to the shared retrying action."""
+    assert _step_uses(job, name) == APT_INSTALL_ACTION
+    assert _step_with(job, name) == {"packages": packages}
+
+
+def test_apt_install_action_retries_a_brief_apt_outage() -> None:
     """Pin the container apt bootstrap's retry budget and backoff.
 
     A brief runner DNS outage should get three attempts spaced 30s and 60s
-    apart, and a failed index fetch must count as a failure.
+    apart, a failed index fetch must count as a failure, and a tool already on
+    PATH is not reinstalled.
     """
+    action = yaml.safe_load(
+        (REPO_ROOT / ".github" / "actions" / "apt-install" / "action.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    (step,) = action["runs"]["steps"]
+    run = step["run"]
+    assert step["env"] == {"PACKAGES": "${{ inputs.packages }}"}
+    assert 'command -v "$package"' in run
     assert "apt-get update --error-on=any" in run
-    assert f"apt-get install --no-install-recommends --yes {packages}" in run
+    assert "apt-get install --no-install-recommends --yes $missing" in run
     assert "for attempt in 1 2 3; do" in run
     assert "sleep $((attempt * 30))" in run
     assert 'if [ "$attempt" -eq 3 ]; then' in run
@@ -319,7 +338,7 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     assert isinstance(root_container.get("image"), str)
     assert PLAYWRIGHT_CI_IMAGE_PIN.fullmatch(root_container["image"])
     assert root_container["options"] == "--init --ipc=host"
-    _assert_apt_bootstrap_retries(_step_run(root_browser, "Install GNU make"), "make")
+    _assert_apt_install(root_browser, "Install GNU make", "make")
     assert _step_with(root_browser, "CI setup")["browser-engines"] == ""
     assert all("playwright" not in str(step.get("run", "")) for step in root_browser["steps"]), (
         "browser installation belongs in the pinned Playwright container"
@@ -328,6 +347,10 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
         _step_run(root_browser, "Run WebKit smoke pass").strip() == "make test-browser-webkit-smoke"
     )
     assert _step_run(root_browser, "Check page speed").strip() == "make test-page-speed"
+    assert _step_run(root_browser, "Compare visual baselines").strip() == "make test-visual"
+    assert _step(root_browser, "Compare visual baselines")["env"] == {
+        "ARTIFACTS_BROWSER_ARTIFACT_DIR": ".artifacts/browser-ci/root"
+    }
     assert _step(root_browser, "Run root browser verification")["env"] == {
         "ARTIFACTS_BROWSER_ARTIFACT_DIR": ".artifacts/browser-ci/root"
     }
@@ -344,7 +367,7 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     )
     assert "make ci-write-shard-manifest" in _step_run(shard, "Write shard manifest")
     assert shard["container"] == root_browser["container"]
-    _assert_apt_bootstrap_retries(_step_run(shard, "Install GNU make"), "make")
+    _assert_apt_install(shard, "Install GNU make", "make")
     assert _step_with(shard, "CI setup")["browser-engines"] == ""
     assert (
         "make test-browser-apps-shard shard_manifest=.artifacts/shard-manifest.json"
@@ -770,10 +793,7 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert isinstance(smoke_container.get("image"), str)
     assert PLAYWRIGHT_CI_IMAGE_PIN.fullmatch(smoke_container["image"])
     assert smoke_container["options"] == "--init --ipc=host"
-    tools_bootstrap = _step_run(smoke_job, "Install workflow tools")
-    assert "command -v make" in tools_bootstrap
-    assert "command -v gh" in tools_bootstrap
-    _assert_apt_bootstrap_retries(tools_bootstrap, "gh make")
+    _assert_apt_install(smoke_job, "Install workflow tools", "gh make")
     assert smoke_job["outputs"] == {"status": "${{ steps.smoke.outputs.status }}"}
     assert _step_uses(smoke_job, "CI setup") == "./.github/actions/ci-setup"
     assert _step_with(smoke_job, "CI setup")["browser-engines"] == ""

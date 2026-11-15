@@ -18,6 +18,8 @@
  */
 
 body.app-vendor-docs-generator {
+  /* Three columns of controls and a page do not fit the shared 1000px shell, so this app widens its shell, header included. */
+  --shell-max-width: 1232px;
   --vd-page-width: 794px;
   --vd-page-height: 1123px;
   --vd-page-pad: 44px;
@@ -34,20 +36,6 @@ body.app-vendor-docs-generator {
   /* Vertical room the preview frame gives up to the header, intro, toolbar and caption. */
   --vd-frame-inset: 300px;
   --vd-fullscreen-bar-height: 61px;
-}
-
-/* ── Page shell ───────────────────────────────────────────────────── */
-
-/*
- * Three columns of controls and a page do not fit the shared 1000px shell, so
- * this app widens its own. The header is widened with it so the two keep one
- * left edge. The shared 700px rule narrows the side gutters, and it has the
- * same specificity as the rule below, so it is restated at the bottom.
- */
-
-body.app-vendor-docs-generator .page-shell,
-body.app-vendor-docs-generator .app-header-inner {
-  width: min(100% - 2rem, 1232px);
 }
 
 /* ── Studio layout ────────────────────────────────────────────────── */
@@ -1246,11 +1234,6 @@ body.app-vendor-docs-generator .vd-fact-list dd {
 /* Six pills no longer fit a phone-width toolbar: offer the dropdown instead. */
 
 @media (max-width: 700px) {
-  body.app-vendor-docs-generator .page-shell,
-  body.app-vendor-docs-generator .app-header-inner {
-    width: min(100% - 1.25rem, 1232px);
-  }
-
   body.app-vendor-docs-generator .vd-toolbar .segmented.vd-type-pills {
     display: none;
   }

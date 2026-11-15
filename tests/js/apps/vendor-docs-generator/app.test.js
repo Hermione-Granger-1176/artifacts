@@ -237,6 +237,15 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     assert.match(elementMap.vdLabelsNote.textContent, /not the text-layer PDF/);
     const fieldSidecar = await downloadsDuring(() => fire(elementMap.vdDownloadJson, 'click'));
     assert.deepEqual(fieldSidecar, ['apex_invoice.json']);
+
+    // A page that is not rendered measures 0 x 0. The export says so and
+    // writes nothing, rather than a sidecar whose every box is [0, 0, 0, 0].
+    const laidOut = elementMap.vdPaper.rect;
+    elementMap.vdPaper.rect = { left: 0, top: 0, width: 0, height: 0 };
+    assert.deepEqual(await downloadsDuring(() => fire(elementMap.vdDownloadJson, 'click')), []);
+    assert.match(elementMap.vdBatchStatus.textContent, /preview is not on screen/);
+    assert.equal(elementMap.vdDownloadJson.disabled, false, 'the button must not stay stuck');
+    elementMap.vdPaper.rect = laidOut;
     // Both still writes the text-layer PDF, so the boxes caveat stays.
     choose(elementMap.vdFormat, 'data-format', 'both');
     assert.match(elementMap.vdLabelsNote.textContent, /not the text-layer PDF/);

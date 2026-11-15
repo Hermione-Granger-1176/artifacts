@@ -56,16 +56,3 @@ test('createOffscreenDraws draws on screen at once and holds only the latest off
     assert.deepEqual(log, ['a1', 'b2', 'a3'], 'a forced draw runs at once and drops the pending one');
   });
 });
-
-test('createOffscreenDraws draws everything at once without IntersectionObserver', () => {
-  const saved = globalThis.IntersectionObserver;
-  delete globalThis.IntersectionObserver;
-  try {
-    const target = {};
-    const log = [];
-    createOffscreenDraws([target], '0px').draw(target, () => log.push('x'));
-    assert.deepEqual(log, ['x']);
-  } finally {
-    if (saved) globalThis.IntersectionObserver = saved;
-  }
-});

@@ -37,15 +37,6 @@ export function clear(node) {
 }
 
 /**
- * Whether the visitor asked the system for reduced motion. Timed step-by-step
- * demos jump straight to their final state when it is set.
- * @returns {boolean} True when `prefers-reduced-motion: reduce` matches.
- */
-export function prefersReducedMotion() {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-/**
  * Reserve the largest box a changing element can ever need, so swapping its
  * content never moves what sits below it. Hidden copies of every state share the
  * live element's grid cell (its parent carries `.reserve`), so the cell

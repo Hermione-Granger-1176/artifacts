@@ -5,6 +5,8 @@
  * engine, canvas context stubs) plus controllable timers and IntersectionObserver
  * so the feature modules can be driven end-to-end without a browser. */
 
+import { InertObserver } from "../../common/browser-floor.js";
+
 function ctxStub() {
   return {
     fillStyle: "", strokeStyle: "", lineWidth: 1, font: "", globalAlpha: 1, textAlign: "left",
@@ -357,7 +359,7 @@ export function createHarness() {
   };
 
   const documentMock = {
-    fonts: undefined,
+    fonts: { status: "loaded", ready: Promise.resolve() },
     readyState: "interactive",
     referrer: "",
     documentElement,
@@ -429,7 +431,7 @@ export function createHarness() {
   const saved = {};
 
   function install() {
-    for (const key of ["document", "window", "getComputedStyle", "IntersectionObserver", "setInterval", "clearInterval", "setTimeout", "clearTimeout"]) {
+    for (const key of ["document", "window", "getComputedStyle", "IntersectionObserver", "ResizeObserver", "requestAnimationFrame", "setInterval", "clearInterval", "setTimeout", "clearTimeout"]) {
       saved[key] = globalThis[key];
     }
     globalThis.document = documentMock;
@@ -447,6 +449,9 @@ export function createHarness() {
       observe() {}
       disconnect() {}
     };
+    globalThis.ResizeObserver = InertObserver;
+    // The global and the window property are one function in a browser.
+    globalThis.requestAnimationFrame = (fn) => windowMock.requestAnimationFrame(fn);
     globalThis.setInterval = (fn) => {
       const id = ++timerSeq;
       intervals.set(id, fn);

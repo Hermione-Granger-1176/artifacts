@@ -154,17 +154,13 @@ function keepReserved(card, reserve) {
     reservedWidth = card.clientWidth;
     reserve();
   }
-  if (typeof IntersectionObserver === "function") {
-    const nearView = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        nearView.disconnect();
-        measureOnce();
-      }
-    }, { rootMargin: "200% 0px" });
-    nearView.observe(card);
-  } else {
-    measureOnce();
-  }
+  const nearView = new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting)) {
+      nearView.disconnect();
+      measureOnce();
+    }
+  }, { rootMargin: "200% 0px" });
+  nearView.observe(card);
 
   const remeasure = createFrameScheduler(() => {
     if (measured && card.clientWidth !== reservedWidth) {
@@ -173,7 +169,7 @@ function keepReserved(card, reserve) {
     }
   });
   window.addEventListener("resize", remeasure);
-  if (document.fonts && document.fonts.status !== "loaded") {
+  if (document.fonts.status !== "loaded") {
     document.fonts.ready.then(() => {
       if (measured) {
         reserve();

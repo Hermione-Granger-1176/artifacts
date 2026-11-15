@@ -1,41 +1,71 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { prefersReducedMotion, scrollBehavior } from '../../../js/modules/motion.js';
 import { createMotionHelper } from '../../../js/modules/gallery/motion.js';
 
-describe('createMotionHelper', () => {
-  it('prefersReducedMotion returns the media query match state', () => {
-    const query = { matches: true };
-    const win = { scrollTo() {} };
-    const motion = createMotionHelper(query, win);
-    assert.equal(motion.prefersReducedMotion(), true);
+/** A window whose reduced-motion query matches `state.reduce`, recording queries and scrolls. */
+function fakeWindow(state = { reduce: false }) {
+  const queries = [];
+  const scrolls = [];
+  return {
+    state,
+    queries,
+    scrolls,
+    matchMedia(query) {
+      queries.push(query);
+      return { matches: state.reduce };
+    },
+    scrollTo(options) {
+      scrolls.push(options);
+    }
+  };
+}
 
-    query.matches = false;
-    assert.equal(motion.prefersReducedMotion(), false);
+describe('prefersReducedMotion', () => {
+  it('reads the live reduced-motion media query', () => {
+    const win = fakeWindow();
+    assert.equal(prefersReducedMotion(win), false);
+    win.state.reduce = true;
+    assert.equal(prefersReducedMotion(win), true);
+    assert.deepEqual(win.queries, ['(prefers-reduced-motion: reduce)', '(prefers-reduced-motion: reduce)']);
   });
 
-  it('getScrollBehavior returns auto when reduced motion is preferred', () => {
-    const motion = createMotionHelper({ matches: true }, { scrollTo() {} });
+  it('queries the global window by default', () => {
+    const saved = globalThis.window;
+    globalThis.window = fakeWindow({ reduce: true });
+    try {
+      assert.equal(prefersReducedMotion(), true);
+      assert.equal(scrollBehavior(), 'auto');
+    } finally {
+      if (saved) globalThis.window = saved; else delete globalThis.window;
+    }
+  });
+});
+
+describe('scrollBehavior', () => {
+  it('is auto under reduced motion and smooth otherwise', () => {
+    assert.equal(scrollBehavior(fakeWindow({ reduce: true })), 'auto');
+    assert.equal(scrollBehavior(fakeWindow({ reduce: false })), 'smooth');
+  });
+});
+
+describe('createMotionHelper', () => {
+  it('binds the shared helpers to the given window', () => {
+    const win = fakeWindow();
+    const motion = createMotionHelper(win);
+    assert.equal(motion.prefersReducedMotion(), false);
+    assert.equal(motion.getScrollBehavior(), 'smooth');
+    win.state.reduce = true;
+    assert.equal(motion.prefersReducedMotion(), true);
     assert.equal(motion.getScrollBehavior(), 'auto');
   });
 
-  it('getScrollBehavior returns smooth when reduced motion is not preferred', () => {
-    const motion = createMotionHelper({ matches: false }, { scrollTo() {} });
-    assert.equal(motion.getScrollBehavior(), 'smooth');
-  });
-
-  it('scrollToTop calls windowObj.scrollTo with correct args', () => {
-    const calls = [];
-    const win = { scrollTo(opts) { calls.push(opts); } };
-    const motion = createMotionHelper({ matches: false }, win);
+  it('scrollToTop scrolls to the top with the behavior the preference allows', () => {
+    const win = fakeWindow();
+    const motion = createMotionHelper(win);
     motion.scrollToTop();
-    assert.deepEqual(calls, [{ top: 0, behavior: 'smooth' }]);
-  });
-
-  it('scrollToTop uses auto behavior when reduced motion is preferred', () => {
-    const calls = [];
-    const win = { scrollTo(opts) { calls.push(opts); } };
-    const motion = createMotionHelper({ matches: true }, win);
+    win.state.reduce = true;
     motion.scrollToTop();
-    assert.deepEqual(calls, [{ top: 0, behavior: 'auto' }]);
+    assert.deepEqual(win.scrolls, [{ top: 0, behavior: 'smooth' }, { top: 0, behavior: 'auto' }]);
   });
 });

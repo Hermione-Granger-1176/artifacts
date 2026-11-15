@@ -115,9 +115,10 @@ Run `make check-local` for the non-browser gate. When browser behavior or thumbn
 ## Visual regression baselines
 
 - `make test-visual` compares a hero screenshot of the root gallery and of each mature app, taken at a 1200x800 viewport, with the committed baselines in `tests/browser/baselines/`. The comparison in `scripts/ci/visual_regression.py` (Pillow) is tolerant. A pixel counts as changed only when a channel differs by more than 32 of 255. An image fails when more than 5% of its pixels change, or 18% for the root gallery, whose animated 3D book scene stays a few percent noisy after animations are frozen.
-- Screenshot rendering depends on the host's fonts, so this check is local and on demand. It is not part of the blocking CI browser gate. Regenerate the baselines in the environment where you run the check.
-- After an intentional visual change, run `make visual-baselines` and review the PNG diff before you commit.
-- Both targets need Chromium. Run `make setup-all` or `make setup-playwright`, or `make setup-playwright-local` and `local_libs=1` on a host that lacks the browsers' shared libraries.
+- Screenshot rendering depends on the host's fonts, so the committed baselines are the ones CI's pinned Playwright image renders, and the `root-browser` job compares against them in that image as a blocking step. A local run on another host can fail on font rendering alone.
+- After an intentional visual change, push it and let CI fail the comparison. The test saves each differing capture under `visual-baselines/` in the root-browser failure artifact. Run `make visual-baselines-from-ci` (or add `run=ID`) to adopt those captures, review the PNG diff, and commit it.
+- `make visual-baselines` regenerates the baselines from your own host, which is useful only for a local before-and-after comparison. Do not commit its output.
+- `make test-visual` and `make visual-baselines` need Chromium. Run `make setup-all` or `make setup-playwright`, or `make setup-playwright-local` and `local_libs=1` on a host that lacks the browsers' shared libraries.
 
 ## Page-speed budget
 

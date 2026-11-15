@@ -1,5 +1,11 @@
 # Frontend reference
 
+## Supported browsers
+
+The gallery and the apps target [Baseline](https://web.dev/baseline) "widely available": a web feature is in scope once Chrome, Edge, Firefox, and Safari have all supported it for at least 30 months. Code uses features inside that floor directly, with no feature check or fallback, and tests stub them where Node lacks them (`tests/js/common/browser-floor.js`). A feature outside the floor needs a feature check and a working fallback until it reaches the floor.
+
+CI runs the browser suites in Chromium and a WebKit smoke pass across the gallery and every mature app (`make test-browser-webkit-smoke`). Firefox is not run in CI, so the floor is what keeps it supported.
+
 ## Root gallery entry points
 
 - `index.html` loads the root gallery shell
@@ -30,7 +36,7 @@ The gallery modules under `js/modules/gallery/` are:
 - `js/modules/gallery/detail-overlay.js`: detail panel lifecycle, open/close animation, and focus trapping (imported dynamically on the first card click or the first pointer entry into the grid)
 - `js/modules/gallery/icons.js`: shared inline SVG icon markup
 - `js/modules/gallery/inert.js`: background element inert/interactive toggling for overlay accessibility
-- `js/modules/gallery/motion.js`: the reduced-motion check and the scroll helpers that respect it
+- `js/modules/gallery/motion.js`: binds the shared reduced-motion helpers to the gallery window for the book scene and detail overlay, and scrolls to the top with the behavior they allow
 - `js/modules/gallery/book-scene.js`: the cover intro, page turns (a leaf for the book, a flip for the notepad), page drags, and the queue for page requests
 - `js/modules/gallery/render.js`: HTML generation for cards, detail content, desk-note filters, filter dropdowns, and pagination
 - `js/modules/gallery/gallery-url.js`: reads and writes the `q`, `tool`, `tag`, `sort`, and `page` URL parameters
@@ -49,6 +55,7 @@ The shared modules under `js/modules/` are:
 - `js/modules/section-nav.js`: sticky section-progress nav (`initSectionNav()`, `renderSectionNav()`, `scrollToSection()`) with numbered nodes, a progress fill, and a scroll spy. `renderSectionNav()` fills the page's empty `[data-section-nav]` slot, and `initSectionNav()` then discovers sections from elements that carry an id and a `data-nav-label` attribute, in document order. It measures section tops only when the layout changes. A section becomes active when its top reaches a scanline at 35% of the viewport height. Sections the page cannot scroll that far share the last stretch of scrolling equally, the final one included, so the last section is active before the bottom and stays active down to it. One progress number (the active section plus the way to the next) drives the nodes, the label, and a fill that runs from node center to node center, styled by the shared `.section-nav` component rules. The first node is created active, so the nav never fades into its starting state on load
 - `js/modules/chart-theme.js`: theme-aware Chart.js helpers (`chartGlobal()` vendor global access, `cssValue()` / `cssAlpha()` custom property reads, `isDark()`, and `createPaletteCache()` per-theme palette caching, which also caches the palette's alpha colors so a chart sync never reads computed styles) used by the chart-based apps
 - `js/modules/frame-scheduler.js`: `createFrameScheduler()`, which coalesces repeated requests (such as slider input) into one callback on the next animation frame
+- `js/modules/motion.js`: `prefersReducedMotion()`, the one reduced-motion check, and `scrollBehavior()`, which returns `"auto"` under reduced motion and `"smooth"` otherwise. The gallery, the app shell, the section nav, and the apps all import it
 - `js/modules/offscreen-draws.js`: `createOffscreenDraws()`, which holds a chart redraw while its canvas is off screen and runs the latest one when the canvas scrolls near the viewport
 - `js/modules/theme-switching.js`: `createThemeSwitchGuard()`, shared by the gallery and `app-shell.js`, which keeps `.theme-switching` on `<html>` for two frames around a theme change so every themed color flips together
 

@@ -1,7 +1,8 @@
 /* Inference simulator: streams generated tokens while the KV cache fills. */
 
 import { INF_RESPONSES } from "./data.js";
-import { byId, makeEl, clear, prefersReducedMotion, reserveSpace, longestText } from "./dom.js";
+import { byId, makeEl, clear, reserveSpace, longestText } from "./dom.js";
+import { prefersReducedMotion } from "../../../../js/modules/motion.js";
 
 const STEP_INTERVAL_MS = 700;
 const IDLE_STATUS = "Hit Generate to start.";

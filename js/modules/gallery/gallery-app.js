@@ -220,9 +220,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     scrollTopBtn
   ].filter(Boolean));
 
-  const prefersReducedMotionQuery = windowObj.matchMedia('(prefers-reduced-motion: reduce)');
   const notepadQuery = windowObj.matchMedia(NOTEPAD_QUERY);
-  const motion = createMotionHelper(prefersReducedMotionQuery, windowObj);
+  const motion = createMotionHelper(windowObj);
   const suspendThemeTransitions = createThemeSwitchGuard(htmlElement, windowObj);
   // validateGalleryBootstrapData has checked both generated globals before this runs.
   const galleryConfig = galleryWindow.ARTIFACTS_CONFIG;

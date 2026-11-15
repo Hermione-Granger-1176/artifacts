@@ -105,15 +105,3 @@ test('skipFirstTransition restores an inline transition the element already had'
     globalThis.requestAnimationFrame = saved;
   }
 });
-
-test('skipFirstTransition leaves the element alone without animation frames', () => {
-  const saved = globalThis.requestAnimationFrame;
-  delete globalThis.requestAnimationFrame;
-  try {
-    const element = { style: { transition: '' } };
-    skipFirstTransition(element);
-    assert.equal(element.style.transition, '');
-  } finally {
-    if (saved) globalThis.requestAnimationFrame = saved;
-  }
-});

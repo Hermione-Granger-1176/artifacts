@@ -8,28 +8,12 @@
  */
 
 body.app-loan-amortization {
+  /* Two columns need more than the shared 1000px shell, so this app widens its shell, header included. */
+  --shell-max-width: 1200px;
   --loan-inputs-width: 300px;
   --loan-control-height: max(2.25rem, var(--touch-target, 0px));
   --loan-value-width: 7rem;
   --loan-chart-height: 260px;
-}
-
-/*
- * Two columns need more than the shared 1000px shell, so this app widens its
- * own. The header widens with it so the two keep one left edge. The shared
- * 700px rule has the same specificity as the rule below, so it is restated.
- */
-
-body.app-loan-amortization .page-shell,
-body.app-loan-amortization .app-header-inner {
-  width: min(100% - 2rem, 1200px);
-}
-
-@media (max-width: 700px) {
-  body.app-loan-amortization .page-shell,
-  body.app-loan-amortization .app-header-inner {
-    width: min(100% - 1.25rem, 1200px);
-  }
 }
 
 /* Two-column layout: sticky inputs on the left, results on the right. */

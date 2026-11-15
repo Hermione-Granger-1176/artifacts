@@ -13,7 +13,7 @@
 
 /**
  * Watch the given canvases. A canvas counts as on screen until the observer
- * reports otherwise. Without IntersectionObserver, every canvas always counts as on screen.
+ * reports otherwise.
  * @param {Element[]} targets - Canvases to watch.
  * @param {string} [rootMargin="200px 0px"] - How far outside the viewport still counts as on screen.
  * @returns {OffscreenDraws} `draw` runs `run` now when its target is on screen
@@ -25,24 +25,22 @@ export function createOffscreenDraws(targets, rootMargin = "200px 0px") {
   /** @type {Map<Element, () => void>} */
   const pending = new Map();
 
-  if (typeof IntersectionObserver === "function") {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const { target, isIntersecting } of entries) {
-          if (!isIntersecting) {
-            offscreen.add(target);
-            continue;
-          }
-          offscreen.delete(target);
-          const run = pending.get(target);
-          pending.delete(target);
-          run?.();
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const { target, isIntersecting } of entries) {
+        if (!isIntersecting) {
+          offscreen.add(target);
+          continue;
         }
-      },
-      { rootMargin }
-    );
-    targets.forEach((target) => observer.observe(target));
-  }
+        offscreen.delete(target);
+        const run = pending.get(target);
+        pending.delete(target);
+        run?.();
+      }
+    },
+    { rootMargin }
+  );
+  targets.forEach((target) => observer.observe(target));
 
   return {
     draw(target, run, force = false) {

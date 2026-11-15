@@ -42,6 +42,9 @@ import {
   syncSliderLabels
 } from '../../../../apps/bond-price-vs-rate/js/modules/ui.js';
 import { refreshPalette, renderCharts } from '../../../../apps/bond-price-vs-rate/js/modules/charts.js';
+import { installBrowserFloor } from '../../common/browser-floor.js';
+
+installBrowserFloor();
 
 // --- DOM helpers ---
 
@@ -702,6 +705,7 @@ test('nudgeRateValue restarts the readout highlight on every call', () => {
 
 function chartWindow(createdConfigs) {
   return {
+    matchMedia: () => ({ matches: false }),
     Chart: function MockChart(canvas, config) {
       this.canvas = canvas;
       if (createdConfigs) {
@@ -1143,26 +1147,6 @@ test('renderCharts eases a requested change unless the reader prefers reduced mo
       restoreDocument(orig);
       if (origWin) globalThis.window = origWin; else delete globalThis.window;
     }
-  }
-});
-
-test('renderCharts tolerates a browser without matchMedia', () => {
-  const orig = setupDocumentMock();
-  const origWin = globalThis.window;
-  const updates = [];
-  const win = recordingWindow(updates);
-  delete win.matchMedia;
-  globalThis.window = win;
-  try {
-    refreshPalette();
-    const charts = renderCharts(chartData());
-    updates.length = 0;
-    const { yieldCurve, elements, formatDollarTick } = chartData();
-    renderCharts({ charts, elements, yieldCurve, formatDollarTick, animate: { yieldCurve: true } });
-    assert.deepEqual(drawsOf(updates, charts.yieldCurve), [undefined]);
-  } finally {
-    restoreDocument(orig);
-    if (origWin) globalThis.window = origWin; else delete globalThis.window;
   }
 });
 

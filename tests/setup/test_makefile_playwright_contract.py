@@ -14,7 +14,10 @@ BROWSER_TESTS = "$(RUN_BROWSER_TESTS)"
 
 # A recipe that names a browser suite or the thumbnail renderer launches a real
 # browser and therefore has to inherit the private runtime when local_libs=1.
-BROWSER_RECIPE_MARKERS = ("tests/browser/", "generate_thumbnails.py")
+# A recipe launches a browser when it runs a browser test file or the thumbnail
+# generator; a recipe that only reads or writes files under tests/browser/
+# (such as the visual baselines) does not.
+BROWSER_RECIPE_MARKERS = ("tests/browser/test_", "generate_thumbnails.py")
 
 
 def target_recipe(name: str) -> str:

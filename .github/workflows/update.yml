@@ -287,21 +287,9 @@ jobs:
           ref: ${{ env.BUILD_REF }}
 
       - name: Install GNU make
-        run: |
-          # Retry the apt bootstrap so a brief runner DNS outage does not
-          # fail the browser job before it starts.
-          if ! command -v make >/dev/null 2>&1; then
-            for attempt in 1 2 3; do
-              if apt-get update --error-on=any && apt-get install --no-install-recommends --yes make; then
-                break
-              fi
-              if [ "$attempt" -eq 3 ]; then
-                exit 1
-              fi
-              sleep $((attempt * 30))
-            done
-            rm -rf /var/lib/apt/lists/*
-          fi
+        uses: ./.github/actions/apt-install
+        with:
+          packages: make
 
       - name: CI setup
         uses: ./.github/actions/ci-setup
@@ -333,6 +321,13 @@ jobs:
         env:
           ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-ci/root
         run: make test-page-speed
+
+      # Baselines are what this pinned image renders, so CI is where they hold.
+      # A mismatch saves the captures with the failure artifacts below.
+      - name: Compare visual baselines
+        env:
+          ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-ci/root
+        run: make test-visual
 
       - name: Upload root browser failure artifacts
         if: failure()
@@ -378,21 +373,9 @@ jobs:
           path: .artifacts/ci-plan
 
       - name: Install GNU make
-        run: |
-          # Retry the apt bootstrap so a brief runner DNS outage does not
-          # fail the browser job before it starts.
-          if ! command -v make >/dev/null 2>&1; then
-            for attempt in 1 2 3; do
-              if apt-get update --error-on=any && apt-get install --no-install-recommends --yes make; then
-                break
-              fi
-              if [ "$attempt" -eq 3 ]; then
-                exit 1
-              fi
-              sleep $((attempt * 30))
-            done
-            rm -rf /var/lib/apt/lists/*
-          fi
+        uses: ./.github/actions/apt-install
+        with:
+          packages: make
 
       - name: Write shard manifest
         run: >-

@@ -32,21 +32,9 @@ jobs:
           fetch-depth: 1
 
       - name: Install workflow tools
-        run: |
-          # Retry the apt bootstrap so a brief runner DNS outage does not fail
-          # the daily smoke before it reaches the published site.
-          if ! command -v make >/dev/null 2>&1 || ! command -v gh >/dev/null 2>&1; then
-            for attempt in 1 2 3; do
-              if apt-get update --error-on=any && apt-get install --no-install-recommends --yes gh make; then
-                break
-              fi
-              if [ "$attempt" -eq 3 ]; then
-                exit 1
-              fi
-              sleep $((attempt * 30))
-            done
-            rm -rf /var/lib/apt/lists/*
-          fi
+        uses: ./.github/actions/apt-install
+        with:
+          packages: gh make
 
       - name: CI setup
         id: setup

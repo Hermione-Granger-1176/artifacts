@@ -50,31 +50,47 @@ const ALLOWED_EXTRA_FIELDS = new Set(["amount", "every", "startPeriod", "period"
 const PERIOD_FIELDS = new Set(["every", "startPeriod", "period"]);
 
 /**
+ * Largest extra payment one row can hold: the top of the loan-amount slider.
+ * The schedule caps every extra at the outstanding balance, which never
+ * exceeds the principal, so a larger amount pays off nothing more and would
+ * only print as a run of digits in the row summary. A typed amount above it is
+ * clamped, the way the principal and rate fields clamp to their ranges.
+ */
+export const MAX_EXTRA_AMOUNT = 500_000;
+
+/**
  * Update one editable numeric field for an extra payment when the input is valid.
+ *
+ * A value that is not a finite number is rejected, as a negative one is:
+ * `1e400` is a well-formed number literal that parses to Infinity.
  *
  * @param {Array<Record<string, number | string>>} extras
  * @param {number} id
  * @param {string} field
  * @param {string} value
- * @returns {void}
+ * @returns {number | undefined} The value stored, which a clamp can make
+ *   differ from the typed one, or undefined when the input was rejected.
  */
 export function updateExtraField(extras, id, field, value) {
   if (!ALLOWED_EXTRA_FIELDS.has(field)) {
-    return;
+    return undefined;
   }
 
   const parsed = +value;
-  if (Number.isNaN(parsed) || parsed < 0) {
-    return;
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return undefined;
   }
   if (PERIOD_FIELDS.has(field) && (parsed < 1 || !Number.isInteger(parsed))) {
-    return;
+    return undefined;
   }
 
   const extra = extras.find((item) => item.id === id);
-  if (extra) {
-    extra[field] = parsed;
+  if (!extra) {
+    return undefined;
   }
+  const stored = field === "amount" ? Math.min(parsed, MAX_EXTRA_AMOUNT) : parsed;
+  extra[field] = stored;
+  return stored;
 }
 
 /**
@@ -132,16 +148,15 @@ const ONETIME_ICON = `<svg ${ICON_ATTRS}><circle cx="8" cy="8" r="2.25"/></svg>`
 /**
  * Build one labelled numeric field for an extra-payment row.
  *
- * @param {{ label: string, name: string, className: string, field: string, value: number, min: number, max?: number, step?: number }} options
+ * @param {{ label: string, name: string, className: string, field: string, value: number, min: number, max: number, step?: number }} options
  * @returns {string}
  */
 function extraField({ label, name, className, field, value, min, max, step }) {
-  const maxAttr = max === undefined ? "" : ` max="${max}"`;
   const stepAttr = step === undefined ? "" : ` step="${step}"`;
   return `
         <label class="extra-field">
           <span>${label}</span>
-          <input class="${className}" type="number" aria-label="${name}" value="${value}" min="${min}"${maxAttr}${stepAttr} data-field="${field}">
+          <input class="${className}" type="number" aria-label="${name}" value="${value}" min="${min}" max="${max}"${stepAttr} data-field="${field}">
         </label>`;
 }
 
@@ -177,6 +192,7 @@ export function renderExtras({ container, extras, periodLabel }) {
       field: "amount",
       value: extra.amount,
       min: 0,
+      max: MAX_EXTRA_AMOUNT,
       step: 100
     });
     const timingFields = isRecurring

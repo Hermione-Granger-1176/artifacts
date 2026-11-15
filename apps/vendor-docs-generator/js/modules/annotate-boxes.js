@@ -61,17 +61,11 @@ function round(value) {
  * @returns {NormalisedBox} Box as `[x, y, width, height]` in 0..1 page units.
  */
 function normalise(rect, page) {
-  // A detached or zero-height page would otherwise divide by zero and fill the
-  // payload with Infinity. Falling back to 1 keeps the numbers finite and makes
-  // the degenerate case obvious instead of poisonous.
-  const pageWidth = page.width || 1;
-  const pageHeight = page.height || 1;
-
   return [
-    round((rect.left - page.left) / pageWidth),
-    round((rect.top - page.top) / pageHeight),
-    round(rect.width / pageWidth),
-    round(rect.height / pageHeight)
+    round((rect.left - page.left) / page.width),
+    round((rect.top - page.top) / page.height),
+    round(rect.width / page.width),
+    round(rect.height / page.height)
   ];
 }
 
@@ -159,12 +153,25 @@ function wordBoxes(element, page, doc) {
  * document order. That is deliberate: a two-line address genuinely occupies two
  * boxes, and merging them would claim a single box covering the gap between
  * them that no ink ever lands in.
+ *
+ * A page that is not rendered (detached, `display: none`, or inside a hidden
+ * frame) measures 0 x 0, and so does every node on it. There is nothing true to
+ * report then, and any fallback divisor would turn every box into a plausible
+ * looking zero, so the measurement refuses instead.
  * @param {HTMLElement} paper - The rendered `.vd-paper` element.
  * @param {{ doc?: Document, words?: boolean }} [options={}] - Measurement options.
  * @returns {BoxAnnotations} Page dimensions and one region per labelled node.
+ * @throws {Error} When the page has no rendered size.
  */
 export function collectBoxes(paper, { doc = document, words = false } = {}) {
   const page = paper.getBoundingClientRect();
+
+  if (!(page.width > 0 && page.height > 0)) {
+    throw new Error(
+      "The document preview is not on screen, so its label boxes cannot be measured. Show the preview and export again."
+    );
+  }
+
   /** @type {Region[]} */
   const regions = [];
 
@@ -201,8 +208,8 @@ export function collectBoxes(paper, { doc = document, words = false } = {}) {
     // preview happens to be showing. `offsetWidth` ignores CSS transforms,
     // which is exactly why it is read here and the rect is not.
     page: {
-      width: paper.offsetWidth || Math.round(page.width),
-      height: paper.offsetHeight || Math.round(page.height),
+      width: paper.offsetWidth,
+      height: paper.offsetHeight,
       unit: "normalised"
     },
     regions

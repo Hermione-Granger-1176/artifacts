@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { formatCurrency } from '../../../../js/modules/formatting.js';
+import { installBrowserFloor } from '../../common/browser-floor.js';
 import { FakeNode, installFakeDom } from './fake-dom.js';
+
+installBrowserFloor();
 
 // --- DOM helpers ---
 

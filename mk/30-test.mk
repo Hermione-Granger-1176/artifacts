@@ -1,6 +1,6 @@
 # ─── Test @test ───────────────────────────────────────────────────────────────
 
-.PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-apps-shard test-browser-webkit-smoke test-visual visual-baselines test-browser-live test-page-speed coverage-js coverage-js-floors
+.PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-apps-shard test-browser-webkit-smoke test-visual visual-baselines visual-baselines-from-ci test-browser-live test-page-speed coverage-js coverage-js-floors
 
 # Browser targets run through the tested retry-once helper so the flaky-report
 # policy lives in scripts/ instead of inline shell. BROWSER_ARGS threads an
@@ -60,8 +60,22 @@ test-browser-webkit-smoke: ## Run the WebKit cross-engine smoke pass (root + app
 test-visual: ## Compare hero screenshots against committed baselines (needs Chromium) (pass ARGS="-k name")
 	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_visual.py $(BROWSER_ARGS)
 
-visual-baselines: ## Regenerate committed hero screenshot baselines (needs Chromium)
+visual-baselines: ## Regenerate hero screenshot baselines on this host, for a local comparison only (needs Chromium)
 	ARTIFACTS_UPDATE_VISUAL_BASELINES=1 ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(PLAYWRIGHT_LOCAL_RUN) $(VENV_PYTHON) -m pytest --no-cov tests/browser/test_frontend_visual.py
+
+# The committed baselines are what CI's pinned Playwright image renders. After an
+# intentional visual change, CI fails the comparison and uploads its captures in
+# the root-browser failure artifact; this adopts them as the new baselines.
+visual-baselines-from-ci: ## Replace the visual baselines with the captures a CI run uploaded (make visual-baselines-from-ci [run=ID], defaults to this branch's latest)
+	@run_id="$(RUN_ID)"; \
+	test -n "$$run_id" || { printf 'Usage: make visual-baselines-from-ci run=123456 (or run on a branch with a resolvable latest run)\n' >&2; exit 1; }; \
+	tmp=$$(mktemp -d "$${TMPDIR:-/tmp}/artifacts-visual.XXXXXX"); \
+	trap 'rm -rf -- "$$tmp"' EXIT; \
+	gh run download "$$run_id" --name "root-browser-artifacts-$$run_id" --dir "$$tmp"; \
+	test -d "$$tmp/visual-baselines" || { printf 'Run %s uploaded no visual captures; the comparison passed or did not run.\n' "$$run_id" >&2; exit 1; }; \
+	cp -- "$$tmp"/visual-baselines/*.png tests/browser/baselines/; \
+	printf 'Adopted CI captures from run %s:\n' "$$run_id"; \
+	ls -1 "$$tmp/visual-baselines"
 
 test-browser-live: ## Run live-site browser verification (pass ARGS="-k name" for a subset)
 	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_live.py $(BROWSER_ARGS)

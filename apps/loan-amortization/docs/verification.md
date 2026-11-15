@@ -41,6 +41,7 @@ The regression scenarios have these expected results:
 - At `0%` interest, the schedule pays down linearly without division by zero
 - A high tenure (`30` years) renders charts and yearly summaries without runtime errors
 - Extra payments above the remaining balance are capped at that balance
+- An extra-payment amount that is negative or not a finite number, such as `1e400`, is ignored and the last valid amount stays. An amount above `$500,000`, the top of the loan-amount slider, is clamped to it
 - Break-even is the first period where cumulative principal plus extras meets or exceeds cumulative interest
 - The schedule stops when the balance falls below `$0.01` (the remainder is set to zero) or after `2000` periods, whichever comes first. The longest loan the inputs allow is 30 years weekly, or `1560` periods
 

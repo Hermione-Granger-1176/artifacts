@@ -1,5 +1,6 @@
 import { chartGlobal, createPaletteCache } from "../../../../js/modules/chart-theme.js";
 import { formatCurrency, formatPercent } from "../../../../js/modules/formatting.js";
+import { prefersReducedMotion } from "../../../../js/modules/motion.js";
 import { createOffscreenDraws } from "../../../../js/modules/offscreen-draws.js";
 
 /**
@@ -404,11 +405,6 @@ const SYNCS = {
 const offscreenDraws = /** @type {WeakMap<Charts, import("../../../../js/modules/offscreen-draws.js").OffscreenDraws>} */ (
   new WeakMap()
 );
-
-/** @returns {boolean} Whether the reader asked for reduced motion. */
-function prefersReducedMotion() {
-  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
 
 /**
  * @typedef {{ curve: Array<{ x: number, y: number }>, current: { x: number, y: number } }} MarkedSeries

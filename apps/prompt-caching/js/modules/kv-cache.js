@@ -1,7 +1,8 @@
 /* KV cache fill animation plus the no-cache / with-cache computation compare. */
 
 import { CACHE_TOKENS, CACHE_COMPARE_TOKENS } from "./data.js";
-import { byId, makeEl, clear, initSegmented, prefersReducedMotion, reserveSpace } from "./dom.js";
+import { byId, makeEl, clear, initSegmented, reserveSpace } from "./dom.js";
+import { prefersReducedMotion } from "../../../../js/modules/motion.js";
 
 const STEP_INTERVAL_MS = 900;
 const PLACEHOLDER_VECTOR = "[-0.00, -0.00, -0.00]";

@@ -6,8 +6,8 @@
  * chapter crossing it as current, so the reader always has one chapter at full
  * strength while the others sit slightly muted. A second observer covers the
  * last chapter, which can be too short to ever reach the band before the page
- * runs out of scroll. The muting is a CSS rule gated on `.is-tracking`, so a
- * browser without IntersectionObserver leaves every chapter at full strength.
+ * runs out of scroll. The muting is a CSS rule gated on `.is-tracking`, so
+ * every chapter stays at full strength until the tracking starts.
  * @module chapters
  */
 
@@ -27,17 +27,12 @@ function markCurrent(chapters, current) {
 }
 
 /**
- * Start tracking which chapter is in view. Safe to call without
- * IntersectionObserver support. The page markup always carries the chapters.
+ * Start tracking which chapter is in view. The page markup always carries the chapters.
  * @param {Document} [documentObj] - Document to query for `.br-chapter` nodes.
  * @returns {void}
  */
 export function initChapterTracking(documentObj = document) {
   const chapters = Array.from(documentObj.querySelectorAll(".br-chapter"));
-  if (typeof IntersectionObserver !== "function") {
-    return;
-  }
-
   /** @type {HTMLElement} */ (chapters[0].parentElement).classList.add("is-tracking");
   markCurrent(chapters, chapters[0]);
 

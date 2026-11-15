@@ -815,7 +815,7 @@ body.artifact-app .section-nav-inner {
   display: flex;
   align-items: center;
   gap: 1rem;
-  width: min(100% - 2rem, 1000px);
+  width: min(100% - 2rem, var(--shell-max-width));
   margin: 0 auto;
   padding: var(--section-nav-pad-y) 0;
 }

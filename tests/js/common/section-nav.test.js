@@ -306,10 +306,9 @@ test('a layout change re-measures the sections once per frame', () => {
   }
 });
 
-test('section nav works without ResizeObserver', () => {
+test('section nav skips labelled ids that have no element', () => {
   const { registry, windowListeners, flushFrames, restore } = setupNavMocks();
   try {
-    delete globalThis.ResizeObserver;
     delete registry['sec-gamma'];
     initSectionNav();
     assert.deepEqual(registry['nav-nodes'].children.map((node) => node.getAttribute('aria-label')), ['Alpha', 'Beta', 'Delta']);

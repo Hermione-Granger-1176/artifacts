@@ -18,6 +18,14 @@ function setupBondApp() {
       mocks.elementMap[id].append(row);
     }
   }
+  // The page always carries its story chapters, which chapter tracking observes.
+  const story = makeElement('story');
+  const chapters = [makeElement('chapter-1'), makeElement('chapter-2')];
+  for (const chapter of chapters) {
+    chapter.parentElement = story;
+  }
+  const queryAll = globalThis.document.querySelectorAll;
+  globalThis.document.querySelectorAll = (selector) => (selector === '.br-chapter' ? chapters : queryAll(selector));
   const SharedChart = globalThis.window.Chart;
   globalThis.window.Chart = function CanvasChart(canvas, config) {
     SharedChart.call(this, canvas, config);
