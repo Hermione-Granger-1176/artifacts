@@ -1,0 +1,1 @@
+export function bootstrapGallery({createRuntime:t,initializeGalleryApp:a,validateGalleryBootstrapData:e,windowObj:o}){const r=t();r.setupGlobalErrorHandlers();try{e(o),a({runtime:r}),r.markReady()}catch(l){r.reportError(l,"gallery initialization",{fatal:!0})}return r}
