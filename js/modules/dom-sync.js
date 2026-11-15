@@ -64,9 +64,6 @@ export function skipFirstTransition(element) {
     return;
   }
   settledElements.add(element);
-  if (typeof requestAnimationFrame !== "function") {
-    return;
-  }
   const inlineTransition = element.style.transition;
   element.style.transition = "none";
   requestAnimationFrame(() => {

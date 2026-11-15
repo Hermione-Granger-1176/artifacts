@@ -129,7 +129,7 @@ Decorative radii up to 5px remain allowed. Font sizes can use relative units or 
 - Reusable colors, controls, surfaces, and callouts live in the relevant `css/src/` partial and are bundled into `css/style.css`. App-specific layout selectors live in `apps/<slug>/css/app.css` and retain their `body.app-<slug>` scope
 - Mature app HTML should keep app-specific body content local, while shell placeholders (`data-app-shell`) let the shared module render the common header, runtime-error banner, and scroll-to-top control
 - App headers should reuse the Artifacts logo, back button, theme toggle, and app-styled scroll-to-top pattern
-- App content containers should stay near `1000px` wide unless a product requirement clearly needs more space
+- App content containers should stay near `1000px` wide unless a product requirement clearly needs more space. The shared header, page shell, and section nav read their width cap from `--shell-max-width` in `css/src/01-tokens.css`. An app that needs more room sets only that property on its `body.app-<slug>` block and does not restate the shell `width` rules, so the shared narrow-screen gutters still apply
 
 ## YAML
 

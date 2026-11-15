@@ -163,6 +163,8 @@ body.artifact-app {
   --radius-md: 12px;
   --radius-pill: 999px;
   --transition-fast: 160ms;
+  /* The widest the app header, page shell, and section nav grow. An app that needs more room sets only this. */
+  --shell-max-width: 1000px;
 }
 
 /*

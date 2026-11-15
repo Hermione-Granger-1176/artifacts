@@ -46,7 +46,7 @@
 
 ## Layout model
 
-- The page shell, header, and section nav widen to 1200px (app-local), with the 700px gutter rule restated
+- The page shell, header, and section nav widen to 1200px: the app sets `--shell-max-width: 1200px`, and the shared shell rules, including the 700px gutter rule, read it
 - Below 900px the workbench is one column. Below 700px the tokenization examples are one column too. Below 480px the cards use tighter padding and **Pick next token** takes a full row
 - Both workbench cards share one padding, one gap, and one header row height. Inside the main card the header, prompt, bar list, and footer share one left and right edge. Inside the settings card every control field, the segmented control, the key idea, and the disclosure do the same
 - Select, buttons, and the segmented track share one control height (`--tk-control-height`)

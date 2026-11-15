@@ -52,7 +52,7 @@ body.artifact-app .app-header {
 
 body.artifact-app .app-header-inner,
 body.artifact-app .page-shell {
-  width: min(100% - 2rem, 1000px);
+  width: min(100% - 2rem, var(--shell-max-width));
   margin: 0 auto;
 }
 

@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { setMeterValue } from '../../../js/modules/meter.js';
+import { installBrowserFloor } from './browser-floor.js';
+
+installBrowserFloor();
 
 function createFill() {
   return { style: { scale: '' } };

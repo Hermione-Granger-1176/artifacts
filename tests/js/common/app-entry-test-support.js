@@ -1,3 +1,5 @@
+import { installBrowserFloor } from './browser-floor.js';
+
 /**
  * Unlink a node from whatever currently holds it.
  * @param {Record<string, any>} node - Node to detach.
@@ -98,7 +100,11 @@ export function makeElement(id) {
   };
 }
 
+/** Removes the floor APIs the latest setupFullMocks call defined. */
+let removeBrowserFloor = () => {};
+
 export function setupFullMocks() {
+  removeBrowserFloor = installBrowserFloor();
   const elementMap = {};
   const allIds = [
     'inPrincipal', 'inRate', 'inTenure',
@@ -239,6 +245,7 @@ export function setupFullMocks() {
 }
 
 export function cleanupMocks() {
+  removeBrowserFloor();
   delete globalThis.document;
   delete globalThis.window;
   delete globalThis.getComputedStyle;

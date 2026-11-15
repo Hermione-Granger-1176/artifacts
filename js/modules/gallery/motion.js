@@ -1,27 +1,19 @@
+import { prefersReducedMotion, scrollBehavior } from '../motion.js';
+
 /**
- * Create a motion helper that respects the user's reduced-motion preference.
- * @param {{ matches: boolean }} prefersReducedMotionQuery - Media-query-like object for
- * reduced-motion detection.
- * @param {{ scrollTo: (options: { top: number, behavior: ('auto'|'smooth') }) => void }} windowObj
- *   Window-like object used for scrolling.
+ * Bind the shared reduced-motion helpers to the gallery's window, so the book
+ * scene and the detail overlay can take them as one injected dependency.
+ * @param {Pick<Window, 'matchMedia' | 'scrollTo'>} windowObj - Window to query and scroll.
  * @returns {{
  *   prefersReducedMotion: () => boolean,
- *   getScrollBehavior: () => ('auto'|'smooth'),
+ *   getScrollBehavior: () => ScrollBehavior,
  *   scrollToTop: () => void
  * }} Motion helper methods.
  */
-export function createMotionHelper(prefersReducedMotionQuery, windowObj) {
-  function prefersReducedMotion() {
-    return prefersReducedMotionQuery.matches;
-  }
-
-  function getScrollBehavior() {
-    return prefersReducedMotion() ? 'auto' : 'smooth';
-  }
-
-  function scrollToTop() {
-    windowObj.scrollTo({ top: 0, behavior: getScrollBehavior() });
-  }
-
-  return { prefersReducedMotion, getScrollBehavior, scrollToTop };
+export function createMotionHelper(windowObj) {
+  return {
+    prefersReducedMotion: () => prefersReducedMotion(windowObj),
+    getScrollBehavior: () => scrollBehavior(windowObj),
+    scrollToTop: () => windowObj.scrollTo({ top: 0, behavior: scrollBehavior(windowObj) })
+  };
 }

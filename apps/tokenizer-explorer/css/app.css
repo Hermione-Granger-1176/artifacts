@@ -13,6 +13,12 @@
 
 body.app-tokenizer-explorer {
   /*
+   * A settings card beside the sampler does not fit the shared 1000px shell, so
+   * this app widens its shell, header and section nav included.
+   */
+  --shell-max-width: 1200px;
+
+  /*
    * One height for every select, button, and segmented control in the
    * workbench. The segmented track is 1px border and 4px padding either side,
    * so its buttons are 10px shorter than the track they sit in.
@@ -23,19 +29,6 @@ body.app-tokenizer-explorer {
 }
 
 /* ── Page shell ───────────────────────────────────────────────────── */
-
-/*
- * A settings card beside the sampler does not fit the shared 1000px shell, so
- * this app widens its own. The header and section nav widen with it so the
- * three keep one left edge. The shared 700px rule narrows the side gutters and
- * has the same specificity as the rule below, so it is restated at the bottom.
- */
-
-body.app-tokenizer-explorer .page-shell,
-body.app-tokenizer-explorer .app-header-inner,
-body.app-tokenizer-explorer .section-nav-inner {
-  width: min(100% - 2rem, 1200px);
-}
 
 /* Section-nav scroll targets clear the sticky frosted nav when jumped to. */
 
@@ -904,12 +897,6 @@ body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):active {
 }
 
 @media (max-width: 700px) {
-  body.app-tokenizer-explorer .page-shell,
-  body.app-tokenizer-explorer .app-header-inner,
-  body.app-tokenizer-explorer .section-nav-inner {
-    width: min(100% - 1.25rem, 1200px);
-  }
-
   body.app-tokenizer-explorer .token-example-list {
     grid-template-columns: minmax(0, 1fr);
   }

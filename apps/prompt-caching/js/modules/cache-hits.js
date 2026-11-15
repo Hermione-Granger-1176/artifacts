@@ -2,8 +2,9 @@
 
 import { CHV_SYSTEM, CHV_QUERIES } from "./data.js";
 import { formatTTL } from "./math.js";
-import { byId, makeEl, clear, prefersReducedMotion } from "./dom.js";
+import { byId, makeEl, clear } from "./dom.js";
 import { formatPercent } from "../../../../js/modules/formatting.js";
+import { prefersReducedMotion, scrollBehavior } from "../../../../js/modules/motion.js";
 
 const MAX_VISIBLE = 5;
 const TTL_SECONDS = 300;
@@ -148,7 +149,7 @@ export function initCacheHits() {
 
     // The log has a fixed height and scrolls inside itself. Scrolling the list
     // (never scrollIntoView) keeps the page where the reader left it.
-    reqs.scrollTo({ top: reqs.scrollHeight, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    reqs.scrollTo({ top: reqs.scrollHeight, behavior: scrollBehavior() });
   }
 
   function clearCache() {

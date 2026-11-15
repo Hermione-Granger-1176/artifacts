@@ -299,10 +299,6 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       return null;
     }
 
-    if (typeof windowObj.requestAnimationFrame !== 'function' || typeof windowObj.cancelAnimationFrame !== 'function') {
-      return null;
-    }
-
     return { shell, sheet, grid };
   }
 
@@ -605,11 +601,6 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
    * @returns {Promise<void>} Settles when every animation has finished or been stopped.
    */
   async function animateTurn(turn, tracks, options) {
-    // Without Web Animations there is nothing to play, so the turn lands at once.
-    if (!tracks.every(([element]) => typeof element.animate === 'function')) {
-      return;
-    }
-
     /** @type {Animation[]} */
     const animations = [];
     turn.cancelTween = () => animations.forEach((animation) => animation.cancel());
@@ -988,7 +979,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
    * @returns {Promise<void>} Resolves when the animation finishes or is cancelled.
    */
   async function playIntro(state, element, keyframes, options) {
-    if (!element || typeof element.animate !== 'function') {
+    if (!element) {
       return;
     }
 
@@ -1126,7 +1117,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
     // closed book holds them (see .book-shadow in 02-gallery.css), so only the
     // mask edge moves, and only transforms animate.
     const shadow = sheet.querySelector('.book-shadow');
-    if (shadow && typeof windowObj.getComputedStyle === 'function') {
+    if (shadow) {
       for (const pseudoElement of [null, '::before']) {
         const closed = windowObj.getComputedStyle(shadow, pseudoElement).transform;
         alongside(shadow, [

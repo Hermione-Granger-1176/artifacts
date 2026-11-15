@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { createHarness, makeEl as harnessMakeEl } from './support.js';
 import { EMB_VECS } from '../../../../apps/prompt-caching/js/modules/data.js';
-import { byId, makeEl as domMakeEl, clear, prefersReducedMotion, reserveSpace, longestText } from '../../../../apps/prompt-caching/js/modules/dom.js';
+import { byId, makeEl as domMakeEl, clear, reserveSpace, longestText } from '../../../../apps/prompt-caching/js/modules/dom.js';
 import { initNavigation } from '../../../../apps/prompt-caching/js/modules/navigation.js';
 import { initTokenizer } from '../../../../apps/prompt-caching/js/modules/tokenizer.js';
 import { initEmbeddings } from '../../../../apps/prompt-caching/js/modules/embeddings.js';
@@ -37,14 +37,6 @@ test('dom helpers read, build, and clear nodes', () => {
     assert.equal(node.children.length, 0);
     // makeEl with no text leaves textContent empty.
     assert.equal(domMakeEl('div').textContent, '');
-  });
-});
-
-test('prefersReducedMotion follows the media query', () => {
-  withHarness((h) => {
-    assert.equal(prefersReducedMotion(), false);
-    h.state.reducedMotion = true;
-    assert.equal(prefersReducedMotion(), true);
   });
 });
 
@@ -534,16 +526,6 @@ test('attention card skips the reservation when the fonts are already loaded', (
     h.fireObservers(0);
     // Without layout the measured height is 0, so no min-height is written.
     assert.equal(h.el('attnStepCard').style.minHeight, '');
-  });
-});
-
-test('attention card measures at once without IntersectionObserver', () => {
-  withHarness((h) => {
-    const card = h.el('attnStepCard');
-    Object.defineProperty(card, 'offsetHeight', { get: () => 320 });
-    delete globalThis.IntersectionObserver;
-    initAttention();
-    assert.equal(card.style.minHeight, '320px');
   });
 });
 

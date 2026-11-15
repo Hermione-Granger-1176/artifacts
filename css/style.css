@@ -339,6 +339,8 @@ body.artifact-app {
   --radius-md: 12px;
   --radius-pill: 999px;
   --transition-fast: 160ms;
+  /* The widest the app header, page shell, and section nav grow. An app that needs more room sets only this. */
+  --shell-max-width: 1000px;
 }
 
 /*
@@ -2607,7 +2609,7 @@ body.artifact-app .app-header {
 
 body.artifact-app .app-header-inner,
 body.artifact-app .page-shell {
-  width: min(100% - 2rem, 1000px);
+  width: min(100% - 2rem, var(--shell-max-width));
   margin: 0 auto;
 }
 
@@ -3531,7 +3533,7 @@ body.artifact-app .section-nav-inner {
   display: flex;
   align-items: center;
   gap: 1rem;
-  width: min(100% - 2rem, 1000px);
+  width: min(100% - 2rem, var(--shell-max-width));
   margin: 0 auto;
   padding: var(--section-nav-pad-y) 0;
 }
@@ -4367,7 +4369,7 @@ body.artifact-app .scroll-top:focus-visible {
   body.artifact-app .app-header-inner,
   body.artifact-app .page-shell,
   body.artifact-app .section-nav-inner {
-    width: min(100% - 1.25rem, 1000px);
+    width: min(100% - 1.25rem, var(--shell-max-width));
   }
 
   body.artifact-app .section-nav-label {
