@@ -327,6 +327,7 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
     assert (
         _step_run(root_browser, "Run WebKit smoke pass").strip() == "make test-browser-webkit-smoke"
     )
+    assert _step_run(root_browser, "Check page speed").strip() == "make test-page-speed"
     assert _step(root_browser, "Run root browser verification")["env"] == {
         "ARTIFACTS_BROWSER_ARTIFACT_DIR": ".artifacts/browser-ci/root"
     }

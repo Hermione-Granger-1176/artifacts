@@ -327,6 +327,13 @@ jobs:
           ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-ci/root
         run: make test-browser-webkit-smoke
 
+      # Times the gallery and every app to its ready mark in Chromium, against
+      # an absolute budget, on the pinned image so runs stay comparable.
+      - name: Check page speed
+        env:
+          ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-ci/root
+        run: make test-page-speed
+
       - name: Upload root browser failure artifacts
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -1,6 +1,6 @@
 # ─── Test @test ───────────────────────────────────────────────────────────────
 
-.PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-apps-shard test-browser-webkit-smoke test-visual visual-baselines test-browser-live coverage-js coverage-js-floors
+.PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-apps-shard test-browser-webkit-smoke test-visual visual-baselines test-browser-live test-page-speed coverage-js coverage-js-floors
 
 # Browser targets run through the tested retry-once helper so the flaky-report
 # policy lives in scripts/ instead of inline shell. BROWSER_ARGS threads an
@@ -65,6 +65,9 @@ visual-baselines: ## Regenerate committed hero screenshot baselines (needs Chrom
 
 test-browser-live: ## Run live-site browser verification (pass ARGS="-k name" for a subset)
 	$(RUN_BROWSER_TESTS) tests/browser/test_frontend_live.py $(BROWSER_ARGS)
+
+test-page-speed: ## Time the gallery and each app to ready in Chromium against a budget (make test-page-speed [budget_ms=N] [runs=N])
+	$(RUN_BROWSER_TESTS) $(if $(budget_ms),--env ARTIFACTS_PAGE_SPEED_BUDGET_MS="$(budget_ms)") $(if $(runs),--env ARTIFACTS_PAGE_SPEED_RUNS="$(runs)") tests/browser/test_frontend_page_speed.py -rP $(BROWSER_ARGS)
 
 coverage-js: ## Run JS tests with coverage enforcement (emits .artifacts/js-coverage.lcov) [COVERAGE_OUTPUT=path]
 	@mkdir -p .artifacts
