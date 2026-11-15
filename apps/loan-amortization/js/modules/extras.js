@@ -68,25 +68,29 @@ export const MAX_EXTRA_AMOUNT = 500_000;
  * @param {number} id
  * @param {string} field
  * @param {string} value
- * @returns {void}
+ * @returns {number | undefined} The value stored, which a clamp can make
+ *   differ from the typed one, or undefined when the input was rejected.
  */
 export function updateExtraField(extras, id, field, value) {
   if (!ALLOWED_EXTRA_FIELDS.has(field)) {
-    return;
+    return undefined;
   }
 
   const parsed = +value;
   if (!Number.isFinite(parsed) || parsed < 0) {
-    return;
+    return undefined;
   }
   if (PERIOD_FIELDS.has(field) && (parsed < 1 || !Number.isInteger(parsed))) {
-    return;
+    return undefined;
   }
 
   const extra = extras.find((item) => item.id === id);
-  if (extra) {
-    extra[field] = field === "amount" ? Math.min(parsed, MAX_EXTRA_AMOUNT) : parsed;
+  if (!extra) {
+    return undefined;
   }
+  const stored = field === "amount" ? Math.min(parsed, MAX_EXTRA_AMOUNT) : parsed;
+  extra[field] = stored;
+  return stored;
 }
 
 /**

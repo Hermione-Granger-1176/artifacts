@@ -104,6 +104,18 @@ test('loan amortization app.js loads and initializes without error', async () =>
     const extraListListeners = elementMap.extraList._listeners;
     extraListListeners.click[0]({ target: { closest: () => null } });
 
+    // A clamped amount is written back, so the field shows what the schedule uses.
+    const amountInput = {
+      value: '1e308',
+      dataset: { field: 'amount' },
+      closest: (selector) => (selector === '[data-extra-id]' ? { dataset: { extraId: '0' } } : null)
+    };
+    extraListListeners.input[0]({ target: amountInput });
+    assert.equal(amountInput.value, '500000');
+    amountInput.value = '2500';
+    extraListListeners.input[0]({ target: amountInput });
+    assert.equal(amountInput.value, '2500', 'an accepted amount is left as typed');
+
     for (const [action, data] of [
       ['set-type', { type: 'onetime' }],
       ['remove-extra', {}]

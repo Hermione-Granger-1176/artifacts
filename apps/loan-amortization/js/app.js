@@ -213,7 +213,11 @@ function handleExtraListClick(event) {
 function handleExtraListInput(event) {
   const input = /** @type {HTMLInputElement} */ (event.target);
   const extraId = getExtraId(input);
-  updateExtraField(extras, extraId, /** @type {string} */ (input.dataset.field), input.value);
+  const stored = updateExtraField(extras, extraId, /** @type {string} */ (input.dataset.field), input.value);
+  // A clamped amount shows the value the schedule uses, not the typed one.
+  if (stored !== undefined && stored !== +input.value) {
+    input.value = String(stored);
+  }
   const extra = extras.find((item) => item.id === extraId);
   const summaryNode = /** @type {HTMLElement | null} */ (
     input.closest(".extra-item")?.querySelector(".extra-summary") ?? null

@@ -428,13 +428,15 @@ test('updateExtraField rejects amounts that parse to Infinity', () => {
 
 test('updateExtraField clamps a huge amount to the largest loan', () => {
   const extras = [createExtra(1)];
-  updateExtraField(extras, 1, 'amount', '1e308');
+  assert.equal(updateExtraField(extras, 1, 'amount', '1e308'), MAX_EXTRA_AMOUNT);
   assert.equal(extras[0].amount, MAX_EXTRA_AMOUNT);
   assert.equal(summarizeExtra(extras[0], 'month'), 'Pays $500,000 every month starting from month 1');
   updateExtraField(extras, 1, 'amount', String(MAX_EXTRA_AMOUNT));
   assert.equal(extras[0].amount, MAX_EXTRA_AMOUNT);
-  updateExtraField(extras, 1, 'amount', '499999.5');
+  assert.equal(updateExtraField(extras, 1, 'amount', '499999.5'), 499_999.5);
   assert.equal(extras[0].amount, 499_999.5);
+  assert.equal(updateExtraField(extras, 1, 'amount', '-1'), undefined);
+  assert.equal(updateExtraField(extras, 2, 'amount', '10'), undefined, 'no extra with that id');
 });
 
 test('the extra amount cap matches the top of the loan-amount slider', () => {
