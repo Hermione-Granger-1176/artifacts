@@ -10,9 +10,6 @@ export function initTokenizer() {
   const tokCount = byId("tokCount");
   const wordCount = byId("wordCount");
   const charCount = byId("charCount");
-  if (!input || !output || !toggle) {
-    return;
-  }
 
   let viewMode = "text";
 
@@ -58,7 +55,7 @@ export function initTokenizer() {
   }
 
   initSegmented(toggle, (/** @type {HTMLElement} */ btn) => {
-    viewMode = btn.dataset.view ?? "";
+    viewMode = /** @type {string} */ (btn.dataset.view);
     showView();
   });
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -139,8 +140,8 @@ MAKEFILE_LOGICAL_LINES = re.sub(r"\\\n[ \t]*", " ", MAKEFILE_TEXT)
 SHARED_BROWSER_CACHE = "ms-playwright"
 
 # Targets that lint, format, or scan Python. Their scope comes from the tool's
-# own config (CLAUDE.md rule 4); the Makefile only offers a per-invocation
-# paths= override on top of it.
+# own config (CLAUDE.md rule 4); the Makefile only lets a caller narrow it with
+# paths on stdin.
 PYTHON_SCOPE_TARGETS = (
     "lint-py",
     "fmt-py",
@@ -161,31 +162,93 @@ def target_recipe(name: str) -> str:
     return match.group("recipe")
 
 
-def test_python_scope_targets_keep_the_paths_override() -> None:
-    """A per-invocation ``paths=`` still narrows every Python scope target.
+def test_python_scope_targets_take_paths_on_stdin() -> None:
+    """Paths on stdin still narrow every Python scope target.
 
-    Checked in the recipe, not only in the help text. Advertising ``[paths=...]``
-    while the command line has lost ``$(if $(paths),...)`` is the failure worth
-    catching, and every command line has to carry it: fmt-py runs two tools, so
-    an override on only the first would silently widen the second back to the
-    whole tree.
+    Checked in the recipe, not only in the help text. Each target is one call to
+    the stdin path runner, so a tool can never run outside it: fmt-py chains its
+    two tools with --then, and both see the same paths, rather than the second
+    widening back to the whole tree.
     """
     for target in PYTHON_SCOPE_TARGETS:
-        assert re.search(rf"^{re.escape(target)}:.*\[paths=\.\.\.\]", MAKEFILE_TEXT, re.MULTILINE)
+        assert re.search(rf"^{re.escape(target)}:.*\[paths on stdin\]", MAKEFILE_TEXT, re.MULTILINE)
 
         commands = [line for line in target_recipe(target).splitlines() if line.strip()]
 
-        assert commands
-        for command in commands:
-            assert "$(if $(paths),$(paths)" in command
+        assert len(commands) == 1
+        assert commands[0].startswith("\t@$(STDIN_PATHS) ")
+    assert "ruff check --fix --then $(VENV_PYTHON) -m ruff format" in target_recipe("fmt-py")
 
 
 def test_vulture_scope_comes_from_its_own_config() -> None:
     """dead-code-py passes no default path, so [tool.vulture] owns the scope."""
     recipe = target_recipe("dead-code-py")
 
-    assert "$(if $(paths),$(paths))" in recipe
+    assert "@$(STDIN_PATHS) -- $(VENV_PYTHON) -m vulture" in recipe
     assert "pyproject.toml" not in recipe
+
+
+@pytest.mark.parametrize("variable", ["files", "file", "paths", "path", "src"])
+def test_no_recipe_reads_paths_from_a_make_variable(variable: str) -> None:
+    """Make splits and expands a variable before any tool sees it, so paths use stdin."""
+    assert f"$({variable})" not in MAKEFILE_TEXT
+    assert f"$(value {variable})" not in MAKEFILE_TEXT
+
+
+@pytest.mark.parametrize("variable", ["files", "file", "paths", "path", "src"])
+def test_retired_path_arguments_are_refused_rather_than_ignored(variable: str) -> None:
+    """A caller still passing paths as an argument gets the stdin form, not a silent no-op."""
+    result = subprocess.run(
+        ["make", "--no-print-directory", "-n", "stage", f"{variable}=a.txt"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert f"{variable}= is no longer an argument: pass paths on stdin" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("target", "invocation"),
+    [
+        ("stage", '--require --name "make stage" -- git --literal-pathspecs add --'),
+        (
+            "resolve-ours",
+            '--require --name "make resolve-ours" -- git --literal-pathspecs checkout --ours -- '
+            "--then git --literal-pathspecs add --",
+        ),
+        (
+            "resolve-theirs",
+            '--require --name "make resolve-theirs" -- git --literal-pathspecs checkout --theirs '
+            "-- --then git --literal-pathspecs add --",
+        ),
+        ("diff", "-- git diff --"),
+        ("diff-staged", "-- git diff --cached --"),
+        ("align-tables", "-- $(VENV_PYTHON) scripts/lint/align_tables.py"),
+        ("align-tables-check", "-- $(VENV_PYTHON) scripts/lint/align_tables.py --check"),
+        ("lint-yaml", ". -- $(VENV)/bin/yamllint"),
+        ("typecheck-py", "$(PY_TYPE_PATHS) -- $(VENV_PYTHON) -m mypy"),
+        (
+            "format-prettier-diff",
+            '--require --name "make format-prettier-diff" -- $(VENV_PYTHON) -m '
+            'scripts.lint.format_prettier_diff --runner "$(NPM) exec --no --"',
+        ),
+        ("optimize-social-image", "-- $(VENV_PYTHON) scripts/build/optimize_social_image.py"),
+    ],
+)
+def test_path_targets_read_their_paths_from_stdin(target: str, invocation: str) -> None:
+    """Each file-taking target hands its stdin paths to the tool without a shell."""
+    assert target_recipe(target).strip() == f"@$(STDIN_PATHS) {invocation}"
+
+
+def test_apply_patch_reads_the_patch_from_stdin() -> None:
+    """The patch arrives on stdin; a terminal gets the usage line instead."""
+    recipe = target_recipe("apply-patch")
+
+    assert "test ! -t 0 ||" in recipe
+    assert recipe.rstrip().endswith("git apply --3way --index")
 
 
 def test_lock_node_update_bumps_selected_packages_only() -> None:

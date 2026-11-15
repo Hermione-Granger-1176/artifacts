@@ -39,8 +39,7 @@ from scripts.ci.security_audit_policy import (
 _GHSA_PATTERN = re.compile(r"GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}", re.IGNORECASE)
 
 # npm's severity ladder, weakest first. Parsing rejects unknown or absent
-# severities, while _is_gated still treats an unexpected value as gated
-# defensively.
+# severities, so every finding's severity is on it.
 SEVERITY_ORDER = ("info", "low", "moderate", "high", "critical")
 DEFAULT_AUDIT_LEVEL = SEVERITY_ORDER[0]
 NPM_AUDIT_TIMEOUT_SECONDS = 120
@@ -48,8 +47,6 @@ NPM_AUDIT_TIMEOUT_SECONDS = 120
 
 def _is_gated(severity: str, audit_level: str) -> bool:
     """Return whether one advisory severity is at or above the audit level."""
-    if severity not in SEVERITY_ORDER:
-        return True
     return SEVERITY_ORDER.index(severity) >= SEVERITY_ORDER.index(audit_level)
 
 

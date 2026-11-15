@@ -240,11 +240,3 @@ def test_pr_view_includes_the_rollup_when_requested() -> None:
     )
 
     assert pr_rest.pr_view(7, ["statusCheckRollup"], run_fn=runner) == {"statusCheckRollup": []}
-
-
-def test_pr_view_rejects_an_unsupported_field() -> None:
-    """Asking for a field the REST path cannot build is explicit."""
-    runner = _runner((rest("GET", "repos/o/r/pulls/7"), json_response(PULL)))
-
-    with pytest.raises(GhError, match="cannot supply the labels field"):
-        pr_rest.pr_view(7, ["labels"], run_fn=runner)

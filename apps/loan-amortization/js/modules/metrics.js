@@ -135,7 +135,7 @@ function getSlots(container) {
   if (!slots) {
     slots = new Map();
     for (const node of /** @type {HTMLElement[]} */ ([...container.querySelectorAll("[data-metric]")])) {
-      slots.set(node.dataset.metric ?? "", node);
+      slots.set(/** @type {string} */ (node.dataset.metric), node);
     }
     slotCache.set(container, slots);
   }
@@ -158,11 +158,8 @@ export function renderMetrics(container, metrics, formatCurrency) {
   const view = buildMetricsView(metrics, formatCurrency);
 
   for (const [name, text] of Object.entries(view)) {
-    const slot = slots.get(name);
-    if (!slot) {
-      continue;
-    }
-
+    // index.html ships a slot for every MetricsView key.
+    const slot = /** @type {HTMLElement} */ (slots.get(name));
     if (TIP_SLOTS.has(name)) {
       setAttr(slot, "data-tip", text);
       setAttr(slot, "aria-label", text);

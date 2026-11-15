@@ -5,11 +5,11 @@ import { createRuntime } from "./runtime.js";
  */
 
 /**
- * Create the shared runtime, install its global error handlers, and call `run`
- * once the DOM is ready (immediately when `readyState` is not "loading").
+ * Create the shared runtime, install its global error handlers, and call `run`.
+ * Every app loads its entry as a module script, which runs after the document
+ * has been parsed, so `run` is called right away.
  * `window.__ARTIFACT_READY__` is true only after `run` returns. If `run` throws,
- * the error is reported as fatal and rethrown. If a fatal error was already
- * recorded before the app starts, `run` is skipped.
+ * the error is reported once as fatal, which shows the runtime error banner.
  *
  * @param {{
  *   documentObj?: Document,
@@ -18,7 +18,7 @@ import { createRuntime } from "./runtime.js";
  *   run: (args: { runtime: ReturnType<typeof createRuntime> }) => void,
  *   windowObj?: Window
  * }} options
- * @returns {ReturnType<typeof createRuntime>} The runtime, returned before `run` executes when the DOM is still loading.
+ * @returns {ReturnType<typeof createRuntime>} The runtime.
  */
 export function initializeMatureApp({
   documentObj = document,
@@ -36,27 +36,12 @@ export function initializeMatureApp({
   const runtime = createRuntime({ ...runtimeOptions, documentObj, windowObj: runtimeWindow });
   runtime.setupGlobalErrorHandlers();
 
-  function bootstrap() {
-    if (runtime.state.lastError?.fatal) {
-      runtimeWindow.__ARTIFACT_READY__ = false;
-      return;
-    }
-
-    try {
-      run({ runtime });
-      runtimeWindow.__ARTIFACT_READY__ = true;
-      runtime.markReady();
-    } catch (error) {
-      runtimeWindow.__ARTIFACT_READY__ = false;
-      runtime.reportError(error, onErrorContext, { fatal: true });
-      throw error;
-    }
-  }
-
-  if (documentObj.readyState === "loading") {
-    documentObj.addEventListener("DOMContentLoaded", bootstrap);
-  } else {
-    bootstrap();
+  try {
+    run({ runtime });
+    runtimeWindow.__ARTIFACT_READY__ = true;
+    runtime.markReady();
+  } catch (error) {
+    runtime.reportError(error, onErrorContext, { fatal: true });
   }
 
   return runtime;

@@ -53,8 +53,26 @@ body_file message message_file notes_file detail_file
 $(foreach v,$(RETIRED_TEXT_ARGS),$(if $(filter command line,$(origin $(v))),$(error \
 $(v)= is no longer an argument: body and other prose arrive on stdin, while a title, search term, or close comment comes from the environment)))
 
+# ─── Paths ────────────────────────────────────────────────────────────────────
+#
+# Targets that take files read them on stdin, one per line, so a path can hold
+# spaces, quotes, or shell syntax without any quoting:
+#
+#     make stage <<'EOF'
+#     My Notes.md
+#     apps/loan-amortization/js/app.js
+#     EOF
+#
+# Without stdin, a check covers its default scope. The helper runs each command
+# without a shell, one argument per path.
+STDIN_PATHS = $(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.stdin_paths
+
+RETIRED_PATH_ARGS := files file paths path src
+$(foreach v,$(RETIRED_PATH_ARGS),$(if $(filter command line,$(origin $(v))),$(error \
+$(v)= is no longer an argument: pass paths on stdin, one per line (make <target> <<'EOF' then one path per line, then EOF))))
+
 # Fail with a usage line when a required variable is empty.
-# Usage: $(call need,varname,make new name=my-artifact [src=file.html])
+# Usage: $(call need,varname,make switch name=my-feature)
 define need
 @test -n "$($(1))" || { printf 'Usage: %s\n' '$(2)' >&2; exit 1; }
 endef

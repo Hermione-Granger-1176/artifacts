@@ -13,7 +13,8 @@ import { createThemeSwitchGuard } from "./theme-switching.js";
  * @typedef {Window & { __ARTIFACTS_APP_THEME_BOOTSTRAP__: AppThemeBootstrap }} AppShellWindow
  */
 
-const SAFE_RELATIVE_PATH_RE = /^[./a-zA-Z0-9_-]+$/;
+/** Every app lives at apps/<slug>/, two levels below the gallery. */
+const HOME_PATH = "../../";
 
 const APP_HEADER_MARKUP = `
   <header class="app-header">
@@ -24,7 +25,7 @@ const APP_HEADER_MARKUP = `
             <path d="m15 18-6-6 6-6"></path>
           </svg>
         </button>
-        <a href="__HOME_PATH__" class="brand-link" aria-label="Go to Artifacts home">
+        <a href="${HOME_PATH}" class="brand-link" aria-label="Go to Artifacts home">
           <svg class="brand-mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" aria-hidden="true">
             <rect fill="rgb(217, 119, 6)" x="14" y="20" width="84" height="92" rx="18"></rect>
             <rect fill="rgb(243, 214, 166)" x="26" y="12" width="84" height="92" rx="18"></rect>
@@ -76,49 +77,34 @@ const APP_SCROLL_TOP_MARKUP = `
 `;
 
 /**
- * Fill a placeholder slot with the given markup when the slot has no element children.
- * @param {Element | null | undefined} slot - Placeholder element to fill.
+ * Fill a placeholder slot with the given markup.
+ * @param {Element} slot - Placeholder element to fill.
  * @param {string} markup - HTML markup to insert.
  */
 function renderMarkupSlot(slot, markup) {
-  if (!slot || slot.childElementCount > 0) {
-    return;
-  }
-
   slot.innerHTML = markup.trim();
 }
 
 /**
- * Inject shared shell markup into the `[data-app-shell]` slots named "header",
- * "runtime-error", and "scroll-top". Missing or already filled slots are skipped.
- * A `homePath` with characters outside `./a-zA-Z0-9_-` falls back to "../../" in the header link.
- * @param {{ documentObj?: Document, homePath?: string }} [options={}]
+ * Inject shared shell markup into the empty `[data-app-shell]` slots named
+ * "header", "runtime-error", and "scroll-top" that every app page ships. Apps
+ * call it once at module load, before the runtime looks up the error banner.
+ * @param {{ documentObj?: Document }} [options={}]
  * @returns {void}
  */
-export function renderAppShell({
-  documentObj = document,
-  homePath = "../../"
-} = {}) {
-  renderMarkupSlot(
-    documentObj.querySelector('[data-app-shell="header"]'),
-    APP_HEADER_MARKUP.replaceAll("__HOME_PATH__", SAFE_RELATIVE_PATH_RE.test(homePath) ? homePath : "../../")
-  );
-  renderMarkupSlot(
-    documentObj.querySelector('[data-app-shell="runtime-error"]'),
-    APP_RUNTIME_ERROR_MARKUP
-  );
-  renderMarkupSlot(
-    documentObj.querySelector('[data-app-shell="scroll-top"]'),
-    APP_SCROLL_TOP_MARKUP
-  );
+export function renderAppShell({ documentObj = document } = {}) {
+  /** @param {string} name - Slot name. */
+  const slot = (name) => /** @type {Element} */ (documentObj.querySelector(`[data-app-shell="${name}"]`));
+  renderMarkupSlot(slot("header"), APP_HEADER_MARKUP);
+  renderMarkupSlot(slot("runtime-error"), APP_RUNTIME_ERROR_MARKUP);
+  renderMarkupSlot(slot("scroll-top"), APP_SCROLL_TOP_MARKUP);
 }
 
 /**
- * Render the shell slots, then wire the theme toggle, back button, and
- * scroll-to-top button. Requires app-theme.js to have run first, because theme
- * values are normalized through `window.__ARTIFACTS_APP_THEME_BOOTSTRAP__`.
+ * Wire the theme toggle, back button, and scroll-to-top button that
+ * renderAppShell injected. Requires app-theme.js to have run first, because
+ * theme values are normalized through `window.__ARTIFACTS_APP_THEME_BOOTSTRAP__`.
  * @param {{
- *   homePath?: string,
  *   metaThemeColors?: {dark: string, light: string},
  *   onThemeChange?: (theme: string) => void
  * }} [options={}]
@@ -133,20 +119,18 @@ export function renderAppShell({
  *   `scrollY` passes 280px.
  */
 export function initAppShell({
-  homePath = "../../",
   metaThemeColors = {
     dark: "rgb(20, 20, 20)",
     light: "rgb(248, 248, 246)"
   },
   onThemeChange = () => {}
 } = {}) {
-  renderAppShell({ documentObj: document, homePath });
   const windowObj = /** @type {AppShellWindow} */ (/** @type {unknown} */ (window));
   const html = document.documentElement;
-  const backButton = document.getElementById("back-button");
-  const themeToggle = document.getElementById("theme-toggle");
-  const scrollTop = document.getElementById("scroll-top");
-  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  const backButton = /** @type {HTMLElement} */ (document.getElementById("back-button"));
+  const themeToggle = /** @type {HTMLElement} */ (document.getElementById("theme-toggle"));
+  const scrollTop = /** @type {HTMLElement} */ (document.getElementById("scroll-top"));
+  const themeColorMeta = /** @type {Element} */ (document.querySelector('meta[name="theme-color"]'));
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   function currentTheme() {
@@ -157,10 +141,6 @@ export function initAppShell({
 
   /** @param {string} theme - Active theme name. */
   function syncThemeColor(theme) {
-    if (!themeColorMeta) {
-      return;
-    }
-
     themeColorMeta.setAttribute(
       "content",
       theme === "dark" ? metaThemeColors.dark : metaThemeColors.light
@@ -168,10 +148,6 @@ export function initAppShell({
   }
 
   function syncThemeToggle() {
-    if (!themeToggle) {
-      return;
-    }
-
     const theme = currentTheme();
     const nextTheme = theme === "dark" ? "light" : "dark";
     themeToggle.setAttribute("aria-pressed", String(theme === "dark"));
@@ -196,30 +172,15 @@ export function initAppShell({
   }
 
   // Go back in history only when the referrer is a same-origin page and the
-  // history has an earlier entry. Otherwise go to homePath.
+  // history has an earlier entry. Otherwise go to the gallery. A non-empty
+  // document.referrer is always an absolute URL.
   function handleBackClick() {
-    const navigateHome = () => {
-      window.location.href = homePath;
-    };
-
-    if (!document.referrer) {
-      navigateHome();
-      return;
-    }
-
-    let referrerUrl;
-    try {
-      referrerUrl = new URL(document.referrer);
-    } catch (_error) {
-      navigateHome();
-      return;
-    }
-
     if (
-      referrerUrl.origin !== window.location.origin ||
+      !document.referrer ||
+      new URL(document.referrer).origin !== window.location.origin ||
       window.history.length <= 1
     ) {
-      navigateHome();
+      window.location.href = HOME_PATH;
       return;
     }
 
@@ -231,10 +192,6 @@ export function initAppShell({
   let scrollTopVisible = /** @type {boolean | null} */ (null);
 
   function updateScrollTopVisibility() {
-    if (!scrollTop) {
-      return;
-    }
-
     const isVisible = window.scrollY > 280;
     if (isVisible === scrollTopVisible) {
       return;
@@ -245,26 +202,20 @@ export function initAppShell({
     scrollTop.tabIndex = isVisible ? 0 : -1;
   }
 
-  if (backButton) {
-    backButton.addEventListener("click", handleBackClick);
-  }
+  backButton.addEventListener("click", handleBackClick);
 
-  if (themeToggle) {
-    themeToggle.addEventListener("click", () => {
-      applyTheme(currentTheme() === "dark" ? "light" : "dark");
-    });
-  }
+  themeToggle.addEventListener("click", () => {
+    applyTheme(currentTheme() === "dark" ? "light" : "dark");
+  });
 
-  if (scrollTop) {
-    scrollTop.addEventListener("click", () => {
-      const behavior = prefersReducedMotion.matches ? "auto" : "smooth";
-      window.scrollTo({ top: 0, behavior });
-    });
-    window.addEventListener("scroll", createFrameScheduler(updateScrollTopVisibility), {
-      passive: true
-    });
-    updateScrollTopVisibility();
-  }
+  scrollTop.addEventListener("click", () => {
+    const behavior = prefersReducedMotion.matches ? "auto" : "smooth";
+    window.scrollTo({ top: 0, behavior });
+  });
+  window.addEventListener("scroll", createFrameScheduler(updateScrollTopVisibility), {
+    passive: true
+  });
+  updateScrollTopVisibility();
 
   syncThemeColor(currentTheme());
   syncThemeToggle();

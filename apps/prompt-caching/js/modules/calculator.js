@@ -44,9 +44,6 @@ export function initCalculator() {
   const hit = /** @type {HTMLInputElement} */ (byId("calcHit"));
   const price = /** @type {HTMLInputElement} */ (byId("calcPrice"));
   const presetsWrap = byId("calcPresets");
-  if (!sys || !req || !hit || !price || !presetsWrap) {
-    return;
-  }
 
   const sysVal = byId("calcSysVal");
   const reqVal = byId("calcReqVal");

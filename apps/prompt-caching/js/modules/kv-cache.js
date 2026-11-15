@@ -39,9 +39,6 @@ function initCacheAnimation() {
   const narration = byId("cacheNarration");
   const playBtn = /** @type {HTMLButtonElement} */ (byId("cachePlayBtn"));
   const resetBtn = byId("cacheResetBtn");
-  if (!tokensWrap || !kVis || !vVis || !playBtn) {
-    return;
-  }
 
   // The narration reserves the room of its wordiest state (idle, each token,
   // and done), so the line count changing never moves the compare toggle below.
@@ -135,9 +132,7 @@ function initCacheAnimation() {
   }
 
   playBtn.addEventListener("click", play);
-  if (resetBtn) {
-    resetBtn.addEventListener("click", reset);
-  }
+  resetBtn.addEventListener("click", reset);
   renderState();
 }
 
@@ -145,9 +140,6 @@ function initCacheCompare() {
   const toggle = byId("cacheCompareToggle");
   const vis = byId("cacheCompareVis");
   const caption = byId("cacheCompareCaption");
-  if (!toggle || !vis || !caption) {
-    return;
-  }
 
   let mode = "no";
 
@@ -181,7 +173,7 @@ function initCacheCompare() {
   }
 
   initSegmented(toggle, (/** @type {HTMLElement} */ btn) => {
-    mode = btn.dataset.compare ?? "";
+    mode = /** @type {string} */ (btn.dataset.compare);
     render();
   });
   render();

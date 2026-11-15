@@ -18,9 +18,7 @@
   --color-text-primary: rgb(244, 239, 231);
   --color-text-secondary: rgb(180, 175, 167);
   --color-accent: rgb(236, 138, 112);
-  --color-accent-hover: rgb(239, 156, 133);
   --color-accent-ring: rgb(247, 208, 198);
-  --color-accent-ghost: rgba(236, 138, 112, 0.14);
   --color-page-paper: rgb(241, 234, 223);
   --color-page-shadow: rgba(0, 0, 0, 0.45);
   --color-border: rgba(244, 239, 231, 0.1);
@@ -34,9 +32,6 @@
   --color-page-btn-hover-ink: rgb(143, 47, 31);
   --desk-note-rest-opacity: 1;
   --color-search-count: var(--color-text-secondary);
-  --color-chip-text: var(--color-text-primary);
-  --color-chip-active-text: var(--color-note-text);
-  --chip-active-mix: 88%;
   --desk-light: radial-gradient(ellipse 55% 50% at 50% 46%, rgba(255, 214, 160, 0.08), transparent 70%), radial-gradient(ellipse 70% 78% at 50% 52%, rgb(55, 53, 51) 0%, rgb(34, 33, 32) 42%, rgb(11, 11, 11) 100%);
   --book-shadow-inset: 14px 6px -10px;
   --book-shadow-color: rgba(0, 0, 0, 0.42);
@@ -108,9 +103,7 @@ html[data-theme="dark"] body.artifact-app {
   --color-text-primary: rgb(45, 32, 23);
   --color-text-secondary: rgb(107, 92, 77);
   --color-accent: rgb(212, 114, 92);
-  --color-accent-hover: rgb(192, 96, 74);
   --color-accent-ring: rgb(143, 47, 31);
-  --color-accent-ghost: rgba(212, 114, 92, 0.1);
   --color-page-paper: rgb(254, 252, 248);
   --color-page-shadow: rgba(0, 0, 0, 0.08);
   --color-border: rgba(45, 32, 23, 0.1);
@@ -124,9 +117,6 @@ html[data-theme="dark"] body.artifact-app {
   --color-page-btn-hover-ink: var(--color-accent-ring);
   --desk-note-rest-opacity: 0.85;
   --color-search-count: var(--color-pencil-soft);
-  --color-chip-text: var(--color-note-text);
-  --color-chip-active-text: var(--color-text-primary);
-  --chip-active-mix: 62%;
   --desk-light: none;
   --book-shadow-inset: 8px -6px -14px;
   --book-shadow-color: rgba(40, 25, 10, 0.28);
@@ -246,9 +236,6 @@ body.artifact-app {
   --font-display: 'Fredoka One', cursive;
   --radius-sm: 8px;
   --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-note: 6px;
-  --radius-book: 8px;
   --radius-pill: 999px;
   --transition-fast: 0.2s;
   --book-sheet-min-height: 800px;
@@ -256,10 +243,6 @@ body.artifact-app {
   --book-chrome-y: 290px;
   --book-fit-min-height: 460px;
   --book-spread-ratio: 1.325;
-  --gallery-page-padding-block: 1.2rem;
-  --gallery-page-padding-top: var(--gallery-page-padding-block);
-  --gallery-page-padding-bottom: var(--gallery-page-padding-block);
-  --gallery-slice-padding: 1.2rem;
   --gallery-card-gap: 1.25rem;
   /* Every artifact thumbnail is 960x600, so image slots can be sized before the image loads. */
   --card-thumb-ratio: 1.6;
@@ -301,9 +284,7 @@ body.artifact-app {
   --text-primary: var(--color-text-primary);
   --text-secondary: var(--color-text-secondary);
   --accent: var(--color-accent);
-  --accent-hover: var(--color-accent-hover);
   --accent-ring: var(--color-accent-ring);
-  --accent-ghost: var(--color-accent-ghost);
   --border-color: var(--color-border);
   --border-solid: var(--color-border-solid);
   --card-color-1: rgb(240, 212, 200);
@@ -2160,8 +2141,7 @@ button {
   object-position: top;
 }
 
-.card-thumbnail-placeholder::before,
-.detail-media-placeholder::before {
+.card-thumbnail-placeholder::before {
   content: '\2699';
   position: absolute;
   left: 50%;
@@ -2430,16 +2410,6 @@ button {
 
   /* The thumbnail's shape is known, so the panel is the right height before the image arrives. */
   aspect-ratio: var(--card-thumb-ratio);
-}
-
-.detail-media-placeholder {
-  width: 100%;
-  min-height: 12rem;
-  position: relative;
-}
-
-.detail-media-placeholder::before {
-  font-size: 2.5rem;
 }
 
 .detail-content {
@@ -3167,12 +3137,6 @@ body.artifact-app .chip {
   font-weight: 600;
 }
 
-body.artifact-app .chip.is-yellow {
-  border: 1px solid var(--color-amber);
-  background: var(--note-yellow);
-  color: var(--color-text);
-}
-
 body.artifact-app .chip.is-red {
   border: 1px solid var(--color-red);
   background: var(--note-red);
@@ -3213,23 +3177,8 @@ body.artifact-app .chip.is-solid-blue {
   color: var(--color-text-on-accent);
 }
 
-body.artifact-app .chip.is-solid-green {
-  background: var(--color-green);
-  color: var(--color-text-on-accent);
-}
-
-body.artifact-app .chip.is-solid-red {
-  background: var(--color-red);
-  color: var(--color-text-on-accent);
-}
-
 body.artifact-app .chip.is-solid-amber {
   background: var(--color-amber);
-  color: var(--color-text-on-accent);
-}
-
-body.artifact-app .chip.is-solid-purple {
-  background: var(--color-purple);
   color: var(--color-text-on-accent);
 }
 

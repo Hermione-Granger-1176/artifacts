@@ -421,12 +421,6 @@ body.artifact-app .chip {
   font-weight: 600;
 }
 
-body.artifact-app .chip.is-yellow {
-  border: 1px solid var(--color-amber);
-  background: var(--note-yellow);
-  color: var(--color-text);
-}
-
 body.artifact-app .chip.is-red {
   border: 1px solid var(--color-red);
   background: var(--note-red);
@@ -467,23 +461,8 @@ body.artifact-app .chip.is-solid-blue {
   color: var(--color-text-on-accent);
 }
 
-body.artifact-app .chip.is-solid-green {
-  background: var(--color-green);
-  color: var(--color-text-on-accent);
-}
-
-body.artifact-app .chip.is-solid-red {
-  background: var(--color-red);
-  color: var(--color-text-on-accent);
-}
-
 body.artifact-app .chip.is-solid-amber {
   background: var(--color-amber);
-  color: var(--color-text-on-accent);
-}
-
-body.artifact-app .chip.is-solid-purple {
-  background: var(--color-purple);
   color: var(--color-text-on-accent);
 }
 

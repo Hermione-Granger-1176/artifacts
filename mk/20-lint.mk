@@ -1,14 +1,14 @@
 # ─── Lint @lint ───────────────────────────────────────────────────────────────
 
-.PHONY: lint editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows workflow-lint lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-app-css-tokens lint-vendored-assets check-overrides
+.PHONY: lint editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-app-css-tokens lint-vendored-assets check-overrides
 
 lint: editorconfig-check lint-py lint-js lint-css lint-yaml lint-workflows lint-doc-commands lint-make-targets lint-js-test-coverage lint-artifact-csp lint-app-css-tokens lint-vendored-assets check-overrides ## Run all linters
 
 editorconfig-check: ## Check EditorConfig rules
 	$(VENV_PYTHON) scripts/lint/check_editorconfig.py
 
-lint-py: ## Run ruff only [paths=...]
-	$(VENV_PYTHON) -m ruff check $(if $(paths),$(paths),.)
+lint-py: ## Run ruff only [paths on stdin]
+	@$(STDIN_PATHS) . -- $(VENV_PYTHON) -m ruff check
 
 lint-js: ## Run eslint only
 	$(NPM) run lint:js
@@ -16,13 +16,11 @@ lint-js: ## Run eslint only
 lint-css: ## Run stylelint only
 	$(NPM) run lint:css
 
-lint-yaml: ## Run yamllint only [paths=...]
-	$(VENV)/bin/yamllint $(if $(paths),$(paths),.)
+lint-yaml: ## Run yamllint only [paths on stdin]
+	@$(STDIN_PATHS) . -- $(VENV)/bin/yamllint
 
 lint-workflows: ## Run workflow linter only
 	$(NPM) run lint:workflows
-
-workflow-lint: lint-workflows ## Alias for lint-workflows
 
 lint-doc-commands: ## Check contributor docs use Make targets
 	$(VENV_PYTHON) scripts/lint/check_doc_commands.py

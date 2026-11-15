@@ -27,18 +27,18 @@ function markCurrent(chapters, current) {
 }
 
 /**
- * Start tracking which chapter is in view. Safe to call on a page with no
- * chapters or without IntersectionObserver support.
+ * Start tracking which chapter is in view. Safe to call without
+ * IntersectionObserver support. The page markup always carries the chapters.
  * @param {Document} [documentObj] - Document to query for `.br-chapter` nodes.
  * @returns {void}
  */
 export function initChapterTracking(documentObj = document) {
   const chapters = Array.from(documentObj.querySelectorAll(".br-chapter"));
-  if (chapters.length === 0 || typeof IntersectionObserver !== "function") {
+  if (typeof IntersectionObserver !== "function") {
     return;
   }
 
-  chapters[0].parentElement?.classList.add("is-tracking");
+  /** @type {HTMLElement} */ (chapters[0].parentElement).classList.add("is-tracking");
   markCurrent(chapters, chapters[0]);
 
   const band = new IntersectionObserver(

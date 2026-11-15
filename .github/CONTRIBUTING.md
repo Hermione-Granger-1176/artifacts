@@ -11,7 +11,7 @@ Use this guide to prepare a contribution to the Artifacts workspace.
 
 ## Add an artifact
 
-1. To create a new app, run `make new name=my-artifact`. To import an HTML file, run `make new name=my-artifact src=path/to/file.html` instead.
+1. To create a new app, run `make new name=my-artifact`. To import an HTML file, pass its path on stdin instead: `make new name=my-artifact <<< path/to/file.html`.
 2. Build the app and fill in `name.txt`, `description.txt`, `tags.txt`, and `tools.txt`.
 3. For an imported page, vendor or remove reported off-origin references before the CSP check.
 4. Verify the artifact's behavior or calculations at least once.

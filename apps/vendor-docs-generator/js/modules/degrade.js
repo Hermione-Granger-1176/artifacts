@@ -308,7 +308,7 @@ function pagePixelTransform(applied, width, height) {
   // Keystone as a real projective map rather than a horizontal squeeze: tilting
   // a page away from the lens narrows the far edge *and* foreshortens it, and a
   // model trained on a squeeze alone would not have seen the second half.
-  const gradient = centreY ? applied.keystone / centreY : 0;
+  const gradient = applied.keystone / centreY;
   const base = multiply(
     /** @type {Matrix3} */ ([[1, 0, 0], [0, 1, 0], [0, -gradient, 1]]),
     multiply(
@@ -318,6 +318,20 @@ function pagePixelTransform(applied, width, height) {
   );
   const centred = about(base, centreX, centreY);
   return multiply(fitTransform(centred, width, height), centred);
+}
+
+/**
+ * Reject a page or bitmap without a positive size. The planning and pixel maths
+ * divide by both dimensions, so they are checked once here, where a page enters.
+ * @param {number} width - Page or bitmap width.
+ * @param {number} height - Page or bitmap height.
+ * @returns {void}
+ * @throws {RangeError} When either dimension is not a positive number.
+ */
+function assertPageSize(width, height) {
+  if (!(width > 0 && height > 0)) {
+    throw new RangeError(`A page needs a positive size, got ${width} x ${height}.`);
+  }
 }
 
 /**
@@ -336,6 +350,7 @@ function pagePixelTransform(applied, width, height) {
  * @returns {DegradePlan} The transform, plus every value actually used.
  */
 export function planDegradation({ height, preset = "custom", seed, settings, width }) {
+  assertPageSize(width, height);
   const random = createSeededRandom(seed + SEED_OFFSET);
   // Drawn unconditionally and in a fixed order, so turning one effect off never
   // shifts the stream underneath the others.
@@ -383,9 +398,7 @@ function fitTransform(m, width, height) {
   const minY = Math.min(...ys);
   const spanX = Math.max(...xs) - minX;
   const spanY = Math.max(...ys) - minY;
-  // A page with no measurable size has nothing to overflow, so it needs no
-  // shrinking; guarding here keeps a detached preview out of 0/0.
-  const scale = Math.min(1, spanX ? width / spanX : 1, spanY ? height / spanY : 1);
+  const scale = Math.min(1, width / spanX, height / spanY);
   const left = (width - spanX * scale) / 2;
   const top = (height - spanY * scale) / 2;
 
@@ -400,7 +413,7 @@ function fitTransform(m, width, height) {
  */
 function pageScaling(width, height) {
   return {
-    inverse: /** @type {Matrix3} */ ([[1 / (width || 1), 0, 0], [0, 1 / (height || 1), 0], [0, 0, 1]]),
+    inverse: /** @type {Matrix3} */ ([[1 / width, 0, 0], [0, 1 / height, 0], [0, 0, 1]]),
     scale: /** @type {Matrix3} */ ([[width, 0, 0], [0, height, 0], [0, 0, 1]])
   };
 }
@@ -481,7 +494,7 @@ export function applyPixelPass(data, width, height, applied, random) {
   const lightY = lightCenter[1] * height;
   const farX = Math.max(lightX, width - lightX);
   const farY = Math.max(lightY, height - lightY);
-  const farthest = farX * farX + farY * farY || 1;
+  const farthest = farX * farX + farY * farY;
   const cut = 255 * (0.45 + threshold * 0.2);
 
   for (let y = 0; y < height; y += 1) {
@@ -741,6 +754,7 @@ function drawEdgeShadow(ctx, strength, width, height) {
  * @returns {HTMLCanvasElement} A new canvas holding the degraded page.
  */
 export function degradeCanvas(source, plan, { documentObj = document } = {}) {
+  assertPageSize(source.width, source.height);
   const { applied } = plan;
   const random = createSeededRandom(plan.seed + SEED_OFFSET);
   const canvas = documentObj.createElement("canvas");

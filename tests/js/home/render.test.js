@@ -22,11 +22,11 @@ test('createDetailContent renders fallback and escaped values', () => {
   const html = createDetailContent({
     name: 'Artifact <One>',
     description: '',
-    thumbnail: null,
+    thumbnail: 'apps/artifact-1/thumbnail.webp',
     url: 'apps/artifact-1/?x=<tag>'
   });
 
-  assert.match(html, /detail-media-placeholder/);
+  assert.match(html, /<img class="detail-media" src="apps\/artifact-1\/thumbnail\.webp" alt="Artifact &lt;One&gt; preview">/);
   assert.match(html, /Artifact &lt;One&gt;/);
   assert.match(html, /id="detail-description"/);
   assert.match(html, /Open the artifact to explore the interactive experience\./);
@@ -45,7 +45,7 @@ test('buildGridHtml marks the expanded card and lazy-loads thumbnails', () => {
       {
         id: 'artifact-2',
         name: 'Artifact Two',
-        thumbnail: null
+        thumbnail: 'thumb-2.webp'
       }
     ],
     'artifact-2'
@@ -55,7 +55,7 @@ test('buildGridHtml marks the expanded card and lazy-loads thumbnails', () => {
   assert.match(html, /data-id="artifact-1"/);
   assert.match(html, /loading="lazy"/);
   assert.match(html, /data-id="artifact-2"[^]*aria-expanded="true"/);
-  assert.match(html, /card-thumbnail-placeholder/);
+  assert.doesNotMatch(html, /card-thumbnail-placeholder/);
   assert.match(html, /type="button"/);
 });
 
@@ -276,7 +276,7 @@ function createdPlaceholder() {
   return { tagName: 'DIV', className: '' };
 }
 
-function fakeFrame({ withParent = true } = {}) {
+function fakeFrame() {
   const created = createdPlaceholder();
   const ownerDocument = {
     createElement(tag) {
@@ -284,18 +284,15 @@ function fakeFrame({ withParent = true } = {}) {
       return created;
     }
   };
-  const parent = withParent
-    ? {
-        replaced: null,
-        removed: null,
-        replaceChild(next, old) {
-          this.replaced = next;
-          this.removed = old;
-        }
-      }
-    : null;
-  const frame = { ownerDocument, parentNode: parent, className: 'card-photo-frame' };
-  return { frame, parent, created };
+  const frame = {
+    ownerDocument,
+    className: 'card-photo-frame',
+    replacedWith: null,
+    replaceWith(next) {
+      this.replacedWith = next;
+    }
+  };
+  return { frame, created };
 }
 
 function fakeImage(frameResult, { className = 'card-thumbnail', tagName = 'IMG' } = {}) {
@@ -307,42 +304,30 @@ function fakeImage(frameResult, { className = 'card-thumbnail', tagName = 'IMG' 
 }
 
 test('handleThumbnailError swaps a broken card thumbnail for the placeholder', () => {
-  const { frame, parent, created } = fakeFrame();
+  const { frame, created } = fakeFrame();
   const img = fakeImage(frame);
 
   handleThumbnailError({ target: img });
 
   assert.equal(created.className, 'card-thumbnail-placeholder');
-  assert.equal(parent.replaced, created);
-  assert.equal(parent.removed, frame);
+  assert.equal(frame.replacedWith, created);
 });
 
 test('handleThumbnailError ignores non-image targets', () => {
-  const { frame, parent } = fakeFrame();
+  const { frame } = fakeFrame();
   handleThumbnailError({ target: { tagName: 'DIV', classList: { contains: () => true }, closest: () => frame } });
-  assert.equal(parent.replaced, null);
+  assert.equal(frame.replacedWith, null);
 });
 
 test('handleThumbnailError ignores images without the card-thumbnail class', () => {
-  const { frame, parent } = fakeFrame();
+  const { frame } = fakeFrame();
   const img = fakeImage(frame, { className: 'detail-media' });
   handleThumbnailError({ target: img });
-  assert.equal(parent.replaced, null);
+  assert.equal(frame.replacedWith, null);
 });
 
 test('handleThumbnailError ignores a null target', () => {
   assert.doesNotThrow(() => handleThumbnailError({ target: null }));
-});
-
-test('handleThumbnailError is a no-op when no photo frame is found', () => {
-  const img = fakeImage(null);
-  assert.doesNotThrow(() => handleThumbnailError({ target: img }));
-});
-
-test('handleThumbnailError is a no-op when the frame has no parent', () => {
-  const { frame } = fakeFrame({ withParent: false });
-  const img = fakeImage(frame);
-  assert.doesNotThrow(() => handleThumbnailError({ target: img }));
 });
 
 test('registerThumbnailFallback binds a capture-phase error listener', () => {
@@ -386,7 +371,7 @@ test('applyDynamicStyles skips rotate when data-rotate is absent', () => {
 });
 
 test('buildGridHtml deals cards onto left and right pages with printed page numbers', () => {
-  const items = ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id.toUpperCase(), thumbnail: null }));
+  const items = ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id.toUpperCase(), thumbnail: 'thumb.webp' }));
   const html = buildGridHtml(items, null, 3);
 
   const left = html.slice(html.indexOf('artifact-page-left'), html.indexOf('artifact-page-right'));
@@ -400,7 +385,7 @@ test('buildGridHtml deals cards onto left and right pages with printed page numb
 });
 
 test('buildGridHtml numbers pages from one by default and marks an empty page', () => {
-  const html = buildGridHtml([{ id: 'only', name: 'Only', thumbnail: null }], null);
+  const html = buildGridHtml([{ id: 'only', name: 'Only', thumbnail: 'thumb.webp' }], null);
 
   assert.match(html, /artifact-page-left"[^>]*aria-label="Left book page"/);
   assert.match(html, /artifact-page-right is-empty"[^>]*aria-label="Right book page"/);
@@ -409,9 +394,9 @@ test('buildGridHtml numbers pages from one by default and marks an empty page', 
 });
 
 test('buildGridHtml picks a stable attachment style and tape colour from the card id', () => {
-  const item = { id: 'loan-amortization', name: 'Loan', thumbnail: null };
+  const item = { id: 'loan-amortization', name: 'Loan', thumbnail: 'thumb.webp' };
   const first = buildGridHtml([item], null);
-  const again = buildGridHtml([item, { id: 'other', name: 'Other', thumbnail: null }], null, 2);
+  const again = buildGridHtml([item, { id: 'other', name: 'Other', thumbnail: 'thumb.webp' }], null, 2);
 
   const attachOf = (html, id) => html.match(new RegExp(`data-id="${id}"[^>]*data-attach="([a-z-]+)" data-tape="(\\d)"`));
   const a = attachOf(first, 'loan-amortization');
@@ -423,7 +408,7 @@ test('buildGridHtml picks a stable attachment style and tape colour from the car
 });
 
 test('buildGridHtml spreads attachment styles across ids', () => {
-  const items = Array.from({ length: 40 }, (_, index) => ({ id: `artifact-${index}`, name: `A${index}`, thumbnail: null }));
+  const items = Array.from({ length: 40 }, (_, index) => ({ id: `artifact-${index}`, name: `A${index}`, thumbnail: 'thumb.webp' }));
   const html = buildGridHtml(items, null);
   const styles = new Set([...html.matchAll(/data-attach="([a-z-]+)"/g)].map((match) => match[1]));
   const tapes = new Set([...html.matchAll(/data-tape="(\d)"/g)].map((match) => match[1]));
@@ -434,14 +419,15 @@ test('buildGridHtml spreads attachment styles across ids', () => {
 
 test('buildGridHtml writes notepad notes under each card: the description and a link that opens in a new tab', () => {
   const html = buildGridHtml([
-    { id: 'loan', name: 'Loan <calc>', description: 'Pay it off & see', url: 'apps/loan/', thumbnail: null },
-    { id: 'bare', name: 'Bare', thumbnail: null }
+    { id: 'loan', name: 'Loan <calc>', description: 'Pay it off & see', url: 'apps/loan/', thumbnail: 'apps/loan/thumbnail.webp' },
+    { id: 'bare', name: 'Bare', url: 'apps/bare/', thumbnail: 'apps/bare/thumbnail.webp' }
   ], null);
 
   assert.match(html, /<div class="card-notes">\s*<p class="card-notes-text">Pay it off &amp; see<\/p>/);
   assert.match(html, /<a class="card-notes-open" href="apps\/loan\/" target="_blank" rel="noopener noreferrer">Open artifact <span class="visually-hidden">Loan &lt;calc&gt; \(opens in a new tab\)<\/span>/);
   const bareNotes = html.slice(html.indexOf('data-id="bare"'));
-  assert.doesNotMatch(bareNotes, /card-notes-text|card-notes-open/, 'a card without a description or link writes empty notes');
+  assert.doesNotMatch(bareNotes, /card-notes-text/, 'a card without a description writes no note text');
+  assert.match(bareNotes, /<a class="card-notes-open" href="apps\/bare\/"/);
 });
 
 test('renderPagination writes the page count the notepad shows between its arrows', () => {

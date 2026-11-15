@@ -182,12 +182,12 @@ function renderExtrasSection() {
 }
 
 /**
- * @param {HTMLElement} control - Control inside an extra-payment row.
- * @returns {number} The row's extra id, or NaN outside a row.
+ * @param {HTMLElement} control - Control inside an extra-payment row; renderExtras puts every control in one.
+ * @returns {number} The row's extra id.
  */
 function getExtraId(control) {
-  const extraRow = /** @type {HTMLElement | null} */ (control.closest("[data-extra-id]"));
-  return Number(extraRow?.dataset.extraId);
+  const extraRow = /** @type {HTMLElement} */ (control.closest("[data-extra-id]"));
+  return Number(extraRow.dataset.extraId);
 }
 
 /** @param {Event} event - Delegated click event. */
@@ -198,44 +198,22 @@ function handleExtraListClick(event) {
     return;
   }
 
+  // renderExtras writes two actions: remove-extra, and set-type with a data-type.
   const extraId = getExtraId(button);
-  if (Number.isNaN(extraId)) {
-    return;
+  if (button.dataset.action === "remove-extra") {
+    extras = /** @type {ReturnType<typeof createExtra>[]} */ (removeExtraById(extras, extraId));
+  } else {
+    setExtraType(extras, extraId, /** @type {string} */ (button.dataset.type));
   }
-
-  const actions = {
-    "remove-extra": () => {
-      extras = /** @type {ReturnType<typeof createExtra>[]} */ (removeExtraById(extras, extraId));
-    },
-    "set-type": () => {
-      setExtraType(extras, extraId, button.dataset.type ?? "");
-    }
-  };
-
-  const action = actions[/** @type {"remove-extra" | "set-type"} */ (button.dataset.action ?? "")];
-  if (!action) {
-    return;
-  }
-
-  action();
   renderExtrasSection();
   recalc();
 }
 
-/** @param {Event} event - Delegated input event. */
+/** @param {Event} event - Delegated input event; every input in the list is a `data-field` number input. */
 function handleExtraListInput(event) {
-  const target = /** @type {HTMLElement | null} */ (event.target);
-  const input = /** @type {HTMLInputElement | null} */ (target?.closest("input[data-field]") ?? null);
-  if (!input) {
-    return;
-  }
-
+  const input = /** @type {HTMLInputElement} */ (event.target);
   const extraId = getExtraId(input);
-  if (Number.isNaN(extraId)) {
-    return;
-  }
-
-  updateExtraField(extras, extraId, input.dataset.field ?? "", input.value);
+  updateExtraField(extras, extraId, /** @type {string} */ (input.dataset.field), input.value);
   const extra = extras.find((item) => item.id === extraId);
   const summaryNode = /** @type {HTMLElement | null} */ (
     input.closest(".extra-item")?.querySelector(".extra-summary") ?? null

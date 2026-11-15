@@ -68,18 +68,16 @@ const appliedAxes = new WeakMap();
  * @returns {void}
  */
 function applyAxes(chart, palette, { xTitle, yTitle, xType = "category", formatY }) {
-  const scales = chart.options.scales;
-  if (!scales) {
-    return;
-  }
   const key = `${xTitle}|${yTitle}|${xType}`;
   const applied = appliedAxes.get(chart);
   if (applied?.palette === palette && applied.formatY === formatY && applied.key === key) {
     return;
   }
   appliedAxes.set(chart, { palette, formatY, key });
-  const xScale = /** @type {AxisConfig} */ (scales.x);
-  const yScale = /** @type {AxisConfig} */ (scales.y);
+  // createMarkedSeriesChart gives every chart that reaches here x and y scale skeletons.
+  const { x: xScale, y: yScale } = /** @type {Record<"x" | "y", AxisConfig>} */ (
+    /** @type {unknown} */ (chart.options.scales)
+  );
 
   xScale.type = xType;
   xScale.title = { ...xScale.title, display: true, text: xTitle, color: palette.tick };
@@ -132,7 +130,7 @@ function createMarkedSeriesChart(canvas, { curveLabel, markerLabel, formatValue 
           callbacks: {
             /** @param {import("chart.js").TooltipItem<"line">} context - Tooltip item. */
             label(context) {
-              return `${context.dataset.label}: ${formatValue(context.parsed.y ?? 0)}`;
+              return `${context.dataset.label}: ${formatValue(/** @type {number} */ (context.parsed.y))}`;
             }
           }
         }
@@ -242,11 +240,21 @@ const BAR_LABEL_GAP = 8;
 const BAR_LABEL_ROOM = 112;
 
 /**
- * What each sensitivity chart was last given: the bars and the label colors.
- * The end labels, tick styling, and tooltip read it at draw time.
- * @type {WeakMap<ChartInstance, { bars: SensitivityBars, palette: Palette }>}
+ * What each sensitivity chart was last given: the bars and the label colors,
+ * keyed by its canvas. createSensitivityChart seeds an empty entry before
+ * Chart.js first draws, and every sync replaces it. The end labels, tick
+ * styling, and tooltip read it at draw time.
+ * @type {WeakMap<HTMLCanvasElement, { bars: SensitivityBars, palette: Palette }>}
  */
 const barStates = new WeakMap();
+
+/**
+ * @param {{ canvas: HTMLCanvasElement }} chart - Sensitivity chart.
+ * @returns {{ bars: SensitivityBars, palette: Palette }} Its latest bars and colors.
+ */
+function barState(chart) {
+  return /** @type {{ bars: SensitivityBars, palette: Palette }} */ (barStates.get(chart.canvas));
+}
 
 /**
  * The label beside a sensitivity bar: the price after the rise and the dollars lost.
@@ -259,13 +267,13 @@ function barEndLabel(bars, index) {
 }
 
 /**
- * Whether a bar is the reader's bond, for a chart that may not be synced yet.
- * @param {ChartInstance} chart - Sensitivity chart.
+ * Whether a bar is the reader's bond.
+ * @param {{ canvas: HTMLCanvasElement }} chart - Sensitivity chart.
  * @param {number} index - Bar index.
  * @returns {boolean} True for the highlighted bar.
  */
 function isCurrentBar(chart, index) {
-  return barStates.get(chart)?.bars.currentIndex === index;
+  return barState(chart).bars.currentIndex === index;
 }
 
 /**
@@ -276,11 +284,9 @@ function isCurrentBar(chart, index) {
 const barEndLabels = {
   id: "brBarEndLabels",
   afterDatasetsDraw(chart) {
-    const state = barStates.get(/** @type {ChartInstance} */ (/** @type {unknown} */ (chart)));
-    if (!state) {
-      return;
-    }
-    const { family = "sans-serif", size = 12 } = chart.options.font ?? {};
+    const state = barState(chart);
+    // Chart.js resolves options.font through Chart.defaults.font, which sets both.
+    const { family, size } = /** @type {import("chart.js").FontSpec} */ (chart.options.font);
     const { ctx } = chart;
     ctx.save();
     ctx.textAlign = "left";
@@ -303,6 +309,7 @@ const barEndLabels = {
  * @returns {ChartInstance} The created chart.
  */
 function createSensitivityChart(canvas) {
+  barStates.set(canvas, { bars: { labels: [], prices: [], losses: [], currentIndex: -1 }, palette: colors() });
   return new (chartGlobal().Chart)(canvas, {
     type: "bar",
     data: {
@@ -321,10 +328,7 @@ function createSensitivityChart(canvas) {
           callbacks: {
             /** @param {import("chart.js").TooltipItem<"bar">} context - Tooltip item. */
             label(context) {
-              const state = barStates.get(/** @type {ChartInstance} */ (/** @type {unknown} */ (context.chart)));
-              if (!state) {
-                return "";
-              }
+              const state = barState(context.chart);
               const price = state.bars.prices[context.dataIndex];
               const loss = state.bars.losses[context.dataIndex];
               return `Worth ${formatCurrency(price)}, down ${formatPercent((loss / (price + loss)) * 100)}`;
@@ -340,8 +344,8 @@ function createSensitivityChart(canvas) {
           ticks: {
             /** @param {import("chart.js").ScriptableScaleContext} context - Tick context. */
             color(context) {
-              const state = barStates.get(/** @type {ChartInstance} */ (/** @type {unknown} */ (context.chart)));
-              return isCurrentBar(context.chart, context.index) ? state?.palette.heading : state?.palette.tick;
+              const { palette } = barState(context.chart);
+              return isCurrentBar(context.chart, context.index) ? palette.heading : palette.tick;
             },
             /** @param {import("chart.js").ScriptableScaleContext} context - Tick context. */
             font(context) {
@@ -362,7 +366,7 @@ function createSensitivityChart(canvas) {
  */
 function syncSensitivityChart(chart, state, mode) {
   const { palette, sensitivity } = state;
-  barStates.set(chart, { bars: sensitivity, palette });
+  barStates.set(chart.canvas, { bars: sensitivity, palette });
   chart.data.labels = sensitivity.labels;
   chart.data.datasets[0].data = sensitivity.losses;
   chart.data.datasets[0].backgroundColor = sensitivity.losses.map((/** @type {number} */ _value, /** @type {number} */ index) =>

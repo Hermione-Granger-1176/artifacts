@@ -54,23 +54,18 @@ function makeElement(tagName = 'div') {
   };
 }
 
-function setupNavMocks({
-  anchorIds = ['nav-nodes', 'nav-fill', 'nav-label'],
-  withSections = true,
-  reduceMotion = false
-} = {}) {
+function setupNavMocks({ reduceMotion = false } = {}) {
   const registry = {};
-  for (const id of anchorIds) {
+  for (const id of ['nav-nodes', 'nav-fill', 'nav-label']) {
     registry[id] = makeElement();
   }
-  if (withSections) {
-    SECTIONS.forEach((section, index) => {
-      const target = makeElement('section');
-      target.id = section.id;
-      target.rectTop = index * 1000;
-      registry[section.id] = target;
-    });
-  }
+  SECTIONS.forEach((section, index) => {
+    const target = makeElement('section');
+    target.id = section.id;
+    target.rectTop = index * 1000;
+    target.setAttribute('data-nav-label', section.label);
+    registry[section.id] = target;
+  });
 
   const observers = [];
   const originalDocument = globalThis.document;
@@ -91,6 +86,12 @@ function setupNavMocks({
     documentElement: { scrollHeight: 10000 },
     body: makeElement('body'),
     getElementById(id) { return registry[id] ?? null; },
+    // The page's labelled sections, in document order.
+    querySelectorAll(selector) {
+      return selector === '[data-nav-label]'
+        ? SECTIONS.map((section) => registry[section.id]).filter(Boolean)
+        : [];
+    },
     createElement(tagName) { return makeElement(tagName); }
   };
   globalThis.ResizeObserver = class {
@@ -114,8 +115,8 @@ function setupNavMocks({
   return { observers, registry, windowListeners, flushFrames, restore };
 }
 
-test('renderSectionNav injects the shared skeleton into an empty mount', () => {
-  const mount = { childElementCount: 0, innerHTML: '' };
+test('renderSectionNav injects the shared skeleton into the mount', () => {
+  const mount = { innerHTML: '' };
   renderSectionNav(mount);
   assert.match(mount.innerHTML, /class="section-nav"/);
   assert.match(mount.innerHTML, /id="nav-fill"/);
@@ -123,17 +124,10 @@ test('renderSectionNav injects the shared skeleton into an empty mount', () => {
   assert.match(mount.innerHTML, /id="nav-label"/);
 });
 
-test('renderSectionNav is a no-op for a missing or already-filled mount', () => {
-  assert.doesNotThrow(() => renderSectionNav(null));
-  const filled = { childElementCount: 3, innerHTML: 'existing' };
-  renderSectionNav(filled);
-  assert.equal(filled.innerHTML, 'existing');
-});
-
 test('section nav builds one numbered node per section and starts on the first', () => {
   const { observers, registry, restore } = setupNavMocks();
   try {
-    initSectionNav(SECTIONS);
+    initSectionNav();
 
     const nodes = registry['nav-nodes'].children;
     assert.equal(nodes.length, SECTIONS.length);
@@ -149,28 +143,6 @@ test('section nav builds one numbered node per section and starts on the first',
 
     assert.equal(observers.length, 1);
     assert.deepEqual(observers[0].targets, [globalThis.document.body], 'layout changes re-measure the sections');
-  } finally {
-    restore();
-  }
-});
-
-test('discovers sections from data-nav-label markup when no list is passed', () => {
-  const { registry, restore } = setupNavMocks();
-  try {
-    const sectionEls = SECTIONS.map((section) => {
-      const el = registry[section.id];
-      el.setAttribute('data-nav-label', section.label);
-      return el;
-    });
-    globalThis.document.querySelectorAll = (sel) =>
-      sel === '[data-nav-label]' ? sectionEls : [];
-
-    initSectionNav();
-
-    const nodes = registry['nav-nodes'].children;
-    assert.equal(nodes.length, SECTIONS.length);
-    assert.equal(nodes[0].getAttribute('aria-label'), 'Alpha');
-    assert.equal(registry['nav-label'].textContent, 'Alpha');
   } finally {
     restore();
   }
@@ -196,21 +168,10 @@ test('discovery skips elements missing an id or a label value', () => {
   }
 });
 
-test('section nav honors custom camelCase anchor ids', () => {
-  const { registry, restore } = setupNavMocks({ anchorIds: ['navNodes', 'navFill', 'navLabel'] });
-  try {
-    initSectionNav(SECTIONS, { nodesId: 'navNodes', fillId: 'navFill', labelId: 'navLabel' });
-    assert.equal(registry['navNodes'].children.length, SECTIONS.length);
-    assert.equal(registry['navLabel'].textContent, 'Alpha');
-  } finally {
-    restore();
-  }
-});
-
 test('clicking a node scrolls its section into view smoothly', () => {
   const { registry, restore } = setupNavMocks();
   try {
-    initSectionNav(SECTIONS);
+    initSectionNav();
 
     registry['nav-nodes'].children[2]._listeners.click[0]();
     assert.ok(registry['sec-gamma'].scrolledTo);
@@ -224,7 +185,7 @@ test('clicking a node scrolls its section into view smoothly', () => {
 test('clicking a node uses an instant scroll when reduced motion is preferred', () => {
   const { registry, restore } = setupNavMocks({ reduceMotion: true });
   try {
-    initSectionNav(SECTIONS);
+    initSectionNav();
 
     registry['nav-nodes'].children[0]._listeners.click[0]();
     assert.equal(registry['sec-alpha'].scrollBehavior, 'auto');
@@ -278,7 +239,7 @@ test('scrollProgress is the active section plus the way to the next one', () => 
 test('scrolling moves the fill smoothly and switches the active node at each section', () => {
   const { registry, windowListeners, flushFrames, restore } = setupNavMocks();
   try {
-    initSectionNav(SECTIONS);
+    initSectionNav();
     const nodes = registry['nav-nodes'].children;
     const fill = registry['nav-fill'].style;
 
@@ -307,7 +268,7 @@ test('the last section is reached before the bottom of a page too short to scrol
   const { registry, windowListeners, flushFrames, restore } = setupNavMocks();
   try {
     globalThis.document.documentElement.scrollHeight = 3000;
-    initSectionNav(SECTIONS);
+    initSectionNav();
 
     // Delta cannot reach the scanline, so it becomes active halfway through the
     // stretch after Gamma (1720 to 2199), at about 1960, and stays active to the bottom.
@@ -324,7 +285,7 @@ test('the last section is reached before the bottom of a page too short to scrol
 test('a layout change re-measures the sections once per frame', () => {
   const { observers, registry, windowListeners, flushFrames, restore } = setupNavMocks();
   try {
-    initSectionNav(SECTIONS);
+    initSectionNav();
     let reads = 0;
     const read = registry['sec-beta'].getBoundingClientRect;
     registry['sec-beta'].getBoundingClientRect = function () { reads += 1; return read.call(this); };
@@ -345,26 +306,12 @@ test('a layout change re-measures the sections once per frame', () => {
   }
 });
 
-test('section nav is a no-op for missing anchors or empty sections', () => {
-  const { observers, registry, restore } = setupNavMocks({ anchorIds: ['nav-fill', 'nav-label'] });
-  try {
-    assert.doesNotThrow(() => initSectionNav(SECTIONS));
-    assert.equal(observers.length, 0);
-
-    registry['nav-nodes'] = makeElement();
-    assert.doesNotThrow(() => initSectionNav([]));
-    assert.equal(registry['nav-nodes'].children.length, 0);
-  } finally {
-    restore();
-  }
-});
-
-test('section nav works without ResizeObserver and leaves out sections missing from the page', () => {
+test('section nav works without ResizeObserver', () => {
   const { registry, windowListeners, flushFrames, restore } = setupNavMocks();
   try {
     delete globalThis.ResizeObserver;
     delete registry['sec-gamma'];
-    initSectionNav(SECTIONS);
+    initSectionNav();
     assert.deepEqual(registry['nav-nodes'].children.map((node) => node.getAttribute('aria-label')), ['Alpha', 'Beta', 'Delta']);
     windowListeners.resize.handler();
     flushFrames();
@@ -377,7 +324,7 @@ test('section nav works without ResizeObserver and leaves out sections missing f
 test('scrolling within a section leaves the nodes and label alone', () => {
   const { registry, windowListeners, flushFrames, restore } = setupNavMocks();
   try {
-    initSectionNav(SECTIONS);
+    initSectionNav();
     scrollMockTo(registry, windowListeners, flushFrames, 800);
     assert.equal(registry['nav-label'].textContent, 'Beta');
 

@@ -55,12 +55,8 @@ export function initEmbeddings() {
   return {
     redraw() {
       refreshCanvasPalette();
-      if (dims) {
-        dims.draw();
-      }
-      if (sim) {
-        sim.refresh();
-      }
+      dims.draw();
+      sim.refresh();
     }
   };
 }
@@ -118,9 +114,6 @@ function initDimensions() {
   const canvas = /** @type {HTMLCanvasElement} */ (byId("dimCanvas"));
   const caption = byId("dimCaption");
   const toggle = byId("dimToggle");
-  if (!canvas || !caption || !toggle || !canvas.getContext) {
-    return null;
-  }
 
   // One set of 48 points (8 clusters of 6) generated in 3D. Every view is a projection of the
   // same data, so adding dimensions genuinely adds separation rather than
@@ -143,7 +136,7 @@ function initDimensions() {
   const allPoints = groups.flat();
 
   const captions = [
-    caption.textContent ?? "",
+    /** @type {string} */ (caption.textContent),
     "2D: a second axis and the 8 groups start pulling apart.",
     "3D: drag to rotate. Separation holds from every angle. Real models use 12,000+ axes."
   ];
@@ -275,7 +268,7 @@ function initDimensions() {
   canvas.addEventListener("pointerleave", stopDrag);
 
   initSegmented(toggle, (/** @type {HTMLElement} */ btn) => {
-    currentDims = Number.parseInt(btn.dataset.dims ?? "", 10);
+    currentDims = Number.parseInt(/** @type {string} */ (btn.dataset.dims), 10);
     caption.textContent = captions[currentDims - 1];
     canvas.classList.toggle("is-rotatable", currentDims === 3);
     dragging = false;
@@ -297,9 +290,6 @@ function initSimilarity() {
   const verdEl = byId("embVerdict");
   const swapBtn = byId("embSwapBtn");
   const canvas = /** @type {HTMLCanvasElement} */ (byId("embCanvas"));
-  if (!cloud || !selAEl || !selBEl || !simEl) {
-    return null;
-  }
 
   // The A/B chips reserve the width of the longest word, so a longer pick never
   // pushes the other chip and the Swap button sideways.
@@ -424,9 +414,6 @@ function initSimilarity() {
    * @returns {void}
    */
   function drawCanvas(vecA, vecB) {
-    if (!canvas || !canvas.getContext) {
-      return;
-    }
     const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext("2d"));
     const W = canvas.width;
     const H = canvas.height;
@@ -567,7 +554,7 @@ function initSimilarity() {
     });
   }
 
-  swapBtn?.addEventListener("click", () => {
+  swapBtn.addEventListener("click", () => {
     [selA, selB] = [selB, selA];
     refresh();
   });

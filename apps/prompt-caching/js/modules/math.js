@@ -70,7 +70,9 @@ export function bpeTokenize(text) {
 
   const tokens = [];
 
-  for (const part of text.match(GPT_SPLIT_RE) || []) {
+  // Every code point is a letter, a number, whitespace, or another symbol, so
+  // the split matches at least once in non-empty text.
+  for (const part of /** @type {RegExpMatchArray} */ (text.match(GPT_SPLIT_RE))) {
     if (/^\s+$/.test(part) || /^ ?[^\s\p{L}\p{N}]/u.test(part)) {
       tokens.push(part);
       continue;
@@ -139,8 +141,9 @@ export function eucDist(a, b) {
 }
 
 /**
- * Numerically stable softmax over raw scores. `-Infinity` scores map to weight 0
- * (used by the causal mask). Always sums to ~1 when at least one score is finite.
+ * Numerically stable softmax over raw scores. `-Infinity` scores map to weight 0,
+ * the way a masked position drops out of attention. Always sums to ~1 when at
+ * least one score is finite.
  * @param {number[]} scores - Raw scores.
  * @returns {number[]} Softmax weights.
  */
@@ -151,10 +154,8 @@ export function softmax(scores) {
   }
   const maxScore = Math.max(...finiteScores);
   const exps = scores.map((s) => (Number.isFinite(s) ? Math.exp(s - maxScore) : 0));
+  // The largest finite score contributes exp(0) = 1, so the sum is at least 1.
   const sum = exps.reduce((acc, value) => acc + value, 0);
-  if (sum === 0) {
-    return scores.map(() => 0);
-  }
   return exps.map((value) => value / sum);
 }
 

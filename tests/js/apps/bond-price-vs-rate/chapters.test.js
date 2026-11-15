@@ -117,13 +117,6 @@ test('a fully visible last chapter wins even if it never reaches the band', () =
   });
 });
 
-test('chapter tracking does nothing on a page without chapters', () => {
-  withFakeObserver((observers) => {
-    initChapterTracking({ querySelectorAll: () => [] });
-    assert.equal(observers.length, 0);
-  });
-});
-
 test('chapter tracking leaves every chapter at full strength without IntersectionObserver', () => {
   const original = globalThis.IntersectionObserver;
   delete globalThis.IntersectionObserver;
@@ -135,13 +128,4 @@ test('chapter tracking leaves every chapter at full strength without Intersectio
   } finally {
     if (original) globalThis.IntersectionObserver = original;
   }
-});
-
-test('chapter tracking tolerates a chapter with no parent element', () => {
-  withFakeObserver(() => {
-    const { chapters, documentObj } = makeStory(1);
-    chapters[0].parentElement = null;
-    assert.doesNotThrow(() => initChapterTracking(documentObj));
-    assert.deepEqual(currentNames(chapters), ['chapter-1']);
-  });
 });

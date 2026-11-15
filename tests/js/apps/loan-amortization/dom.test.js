@@ -677,9 +677,6 @@ globalThis.window = {
     this.options = config.options;
     this.plugins = config.plugins;
     this.update = () => {};
-    this.$artifactsFormatCurrency = null;
-    this.$artifactsInterestTotal = null;
-    this.$artifactsPalette = null;
   },
   ChartDataLabels: {}
 };
@@ -756,9 +753,6 @@ test('renderCharts creates chart instances on first call', () => {
       this.options = config.options;
       this.plugins = config.plugins;
       this.update = () => {};
-      this.$artifactsFormatCurrency = null;
-      this.$artifactsInterestTotal = null;
-      this.$artifactsPalette = null;
     },
     ChartDataLabels: {}
   };
@@ -835,9 +829,6 @@ test('renderCharts chart tooltip callbacks produce formatted labels', () => {
       this.options = config.options;
       this.plugins = config.plugins;
       this.update = () => {};
-      this.$artifactsFormatCurrency = null;
-      this.$artifactsInterestTotal = null;
-      this.$artifactsPalette = null;
       // Expose chartArea for centerText plugin
       this.chartArea = { left: 0, right: 200, top: 0, bottom: 200 };
       this.ctx = {
@@ -871,7 +862,7 @@ test('renderCharts chart tooltip callbacks produce formatted labels', () => {
       interestParts: [100, 80, 60]
     };
 
-    renderCharts({
+    const charts = renderCharts({
       elements, base, extra, principal: 9000,
       interestSaved: 200, periodLabel: 'Month',
       formatCurrency: fmt, formatDollarTick: fmt
@@ -891,52 +882,30 @@ test('renderCharts chart tooltip callbacks produce formatted labels', () => {
       }
     }
 
-    // Exercise doughnut-specific plugin callbacks
+    // Doughnut callbacks read the palette, formatter, and total the last sync stored.
     const doughnutConfig = createdCharts.find((c) => c.type === 'doughnut');
-    if (doughnutConfig) {
+    const { datalabels } = doughnutConfig.options.plugins;
+    const dataset = { data: [800, 200] };
+    assert.equal(datalabels.display({ dataIndex: 0, dataset, chart: charts.savings }), true);
+    assert.equal(datalabels.display({ dataIndex: 0, dataset: { data: [0, 1000] }, chart: charts.savings }), false);
+    assert.equal(datalabels.display({ dataIndex: 1, dataset: { data: [20, 980] }, chart: charts.savings }), false);
+    const palette = refreshPalette();
+    assert.equal(datalabels.color({ dataIndex: 0, chart: charts.savings }), palette.redEmphasis);
+    assert.equal(datalabels.color({ dataIndex: 1, chart: charts.savings }), palette.greenEmphasis);
+    assert.equal(datalabels.formatter(800, { chart: charts.savings }), '80%\n$800');
 
-      // Exercise datalabels display callback
-      const displayFn = doughnutConfig.options.plugins.datalabels.display;
-      const showResult = displayFn({
-        dataIndex: 0,
-        dataset: { data: [800, 200] },
-        chart: { $artifactsInterestTotal: 1000 }
-      });
-      assert.equal(showResult, true);
-
-      // Exercise datalabels color callback
-      const colorFn = doughnutConfig.options.plugins.datalabels.color;
-      const colorResult = colorFn({
-        dataIndex: 0,
-        chart: { $artifactsPalette: { redEmphasis: 'red', greenEmphasis: 'green' } }
-      });
-      assert.equal(colorResult, 'red');
-
-      // Exercise datalabels formatter callback
-      const formatterFn = doughnutConfig.options.plugins.datalabels.formatter;
-      const fmtResult = formatterFn(800, {
-        chart: { $artifactsInterestTotal: 1000, $artifactsFormatCurrency: fmt }
-      });
-      assert.match(fmtResult, /80%/);
-
-      // Exercise centerText afterDraw plugin
-      const centerTextPlugin = doughnutConfig.plugins?.find((p) => p.id === 'centerText');
-      if (centerTextPlugin) {
-        const mockChart = {
-          data: { datasets: [{ data: [980, 20] }] },
-          $artifactsInterestTotal: 1000,
-          $artifactsPalette: { redEmphasis: 'red', greenEmphasis: 'green' },
-          $artifactsFormatCurrency: fmt,
-          chartArea: { left: 0, right: 200, top: 0, bottom: 200 },
-          ctx: {
-            save() {}, restore() {}, fillText() {},
-            textAlign: '', fillStyle: '', font: ''
-          }
-        };
-        // Dominant index = 0 (98% > 95%)
-        centerTextPlugin.afterDraw(mockChart);
-      }
-    }
+    // Center text draws only for a slice above 95% of the total, and only after a sync.
+    const centerTextPlugin = doughnutConfig.plugins.find((p) => p.id === 'centerText');
+    const drawn = [];
+    const ctx = { save() {}, restore() {}, fillText: (text) => drawn.push(text), textAlign: '', fillStyle: '', font: '' };
+    centerTextPlugin.afterDraw({ data: { datasets: [{ data: [] }] }, ctx, chartArea: charts.savings.chartArea });
+    assert.deepEqual(drawn, [], 'nothing to draw before the first sync');
+    centerTextPlugin.afterDraw(charts.savings);
+    assert.deepEqual(drawn, [], 'no dominant slice');
+    charts.savings.data.datasets[0].data = [980, 20];
+    charts.savings.ctx = ctx;
+    centerTextPlugin.afterDraw(charts.savings);
+    assert.deepEqual(drawn, ['98%', '$980']);
   } finally {
     restoreDocument(orig);
     if (origWin) globalThis.window = origWin; else delete globalThis.window;
@@ -953,9 +922,6 @@ test('renderCharts handles zero interest saved', () => {
       this.options = config.options;
       this.plugins = config.plugins;
       this.update = () => {};
-      this.$artifactsFormatCurrency = null;
-      this.$artifactsInterestTotal = null;
-      this.$artifactsPalette = null;
     },
     ChartDataLabels: {}
   };

@@ -32,15 +32,15 @@ branch-prune: ## Prune local branches whose content is already in main (make bra
 
 # Worktrees default to .worktrees/<branch>, which git and every lint walker
 # already ignore. Slashes are flattened so a branch like fix/x stays one directory.
-WORKTREE_PATH = $(if $(path),$(path),.worktrees/$(subst /,-,$(name)))
+WORKTREE_PATH = $(if $(dir),$(dir),.worktrees/$(subst /,-,$(name)))
 
-worktree: ## Create a branch off origin/main, or origin/base, in a new worktree (make worktree name=X [base=branch] [path=DIR])
-	$(call need,name,make worktree name=my-feature [base=other-branch] [path=../dir])
+worktree: ## Create a branch off origin/main, or origin/base, in a new worktree (make worktree name=X [base=branch] [dir=DIR])
+	$(call need,name,make worktree name=my-feature [base=other-branch] [dir=../dir])
 	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && \
 	git worktree add --no-track -b "$(name)" "$(WORKTREE_PATH)" "origin/$(if $(base),$(base),$(MAIN_BRANCH))"
 
-worktree-remove: ## Remove a clean worktree created by make worktree; the branch is kept (make worktree-remove name=X [path=DIR])
-	$(call need,name,make worktree-remove name=my-feature [path=../dir])
+worktree-remove: ## Remove a clean worktree created by make worktree; the branch is kept (make worktree-remove name=X [dir=DIR])
+	$(call need,name,make worktree-remove name=my-feature [dir=../dir])
 	git worktree remove "$(WORKTREE_PATH)"
 
 rebase-main: ## Rebase the current branch onto origin/main (make rebase-main [base=branch])
@@ -56,27 +56,21 @@ merge-branch: ## Merge a local or remote-tracking branch into the current branch
 	$(call need,name,make merge-branch name=my-feature)
 	git merge --no-edit "$(name)"
 
-apply-patch: ## Apply a patch file to the working tree and index, merging three ways where it does not apply cleanly (make apply-patch file=PATH)
-	$(call need,file,make apply-patch file=changes.patch)
-	git apply --3way --index "$(file)"
+apply-patch: ## Apply a patch from stdin to the working tree and index, merging three ways where it does not apply cleanly (make apply-patch < changes.patch)
+	@test ! -t 0 || { printf 'Usage: make apply-patch < changes.patch\n' >&2; exit 1; }
+	git apply --3way --index
 
 merge-abort: ## Abandon an in-progress merge and restore the branch to its state before it
 	git merge --abort
 
-# The paths reach git through the environment, as in make stage, so the shell
-# never splits, globs, or parses them. The stage helper checks out the chosen
-# side of each path and then stages it.
-resolve-ours: export STAGE_FILES := $(value files)
-resolve-ours: export STAGE_CHECKOUT := ours
-resolve-ours: ## During a merge, keep the current branch's side of conflicted files and stage them (make resolve-ours files="path ...")
-	@test -n "$$STAGE_FILES" || { printf 'Usage: make resolve-ours files="path/to/file"\n' >&2; exit 1; }
-	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.stage_files
+# Paths arrive on stdin, as in make stage. --literal-pathspecs stops git from
+# expanding *.md or :(glob) magic, so git touches exactly the named file. The
+# chosen side is checked out first, and nothing is staged if that fails.
+resolve-ours: ## During a merge, keep the current branch's side of conflicted files and stage them (paths on stdin)
+	@$(STDIN_PATHS) --require --name "make resolve-ours" -- git --literal-pathspecs checkout --ours -- --then git --literal-pathspecs add --
 
-resolve-theirs: export STAGE_FILES := $(value files)
-resolve-theirs: export STAGE_CHECKOUT := theirs
-resolve-theirs: ## During a merge, take the incoming side of conflicted files and stage them (make resolve-theirs files="path ...")
-	@test -n "$$STAGE_FILES" || { printf 'Usage: make resolve-theirs files="path/to/file"\n' >&2; exit 1; }
-	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.stage_files
+resolve-theirs: ## During a merge, take the incoming side of conflicted files and stage them (paths on stdin)
+	@$(STDIN_PATHS) --require --name "make resolve-theirs" -- git --literal-pathspecs checkout --theirs -- --then git --literal-pathspecs add --
 
 rebase-continue: ## Continue an in-progress rebase after resolving conflicts
 	GIT_EDITOR=true git rebase --continue
@@ -90,11 +84,8 @@ squash-onto: ## Merge origin/main, or origin/base, then uncommit everything abov
 squash: ## Uncommit the current branch's commits since its base and keep the changes staged, ready for make commit (make squash [base=branch])
 	git fetch origin "$(if $(base),$(base),$(MAIN_BRANCH))" && git reset --soft "$$(git merge-base HEAD "origin/$(if $(base),$(base),$(MAIN_BRANCH))")"
 
-stage: export STAGE_FILES := $(value files)
-stage: export STAGE_FILE := $(value file)
-stage: export STAGE_CHECKOUT :=
-stage: ## Stage selected files (make stage [files="path ..."] [file="path with spaces"])
-	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.stage_files
+stage: ## Stage selected files (paths on stdin, one per line)
+	@$(STDIN_PATHS) --require --name "make stage" -- git --literal-pathspecs add --
 
 stage-all: ## Stage all workspace changes
 	git add -A
@@ -122,15 +113,14 @@ push-force: ## Push the current branch to origin after a rebase (uses --force-wi
 log: ## Show recent commit log (make log [limit=N])
 	git log --oneline -$(if $(limit),$(limit),20)
 
-log-file: ## Show recent commit log for one file (make log-file path=FILE [limit=N])
-	$(call need,path,make log-file path=.github/workflows/update.yml [limit=N])
-	git log --date=short --pretty=format:'%h %ad %s' -$(if $(limit),$(limit),20) -- "$(path)"
+log-file: ## Show recent commit log for files (paths on stdin) (make log-file [limit=N])
+	@$(STDIN_PATHS) --require --name "make log-file" -- git log --date=short '--pretty=format:%h %ad %s' -$(if $(limit),$(limit),20) --
 
-diff: ## Show unstaged changes (make diff [path=FILE])
-	git diff $(if $(path),-- "$(path)")
+diff: ## Show unstaged changes [paths on stdin]
+	@$(STDIN_PATHS) -- git diff --
 
-diff-staged: ## Show staged changes (make diff-staged [path=FILE])
-	git diff --cached $(if $(path),-- "$(path)")
+diff-staged: ## Show staged changes [paths on stdin]
+	@$(STDIN_PATHS) -- git diff --cached --
 
 diff-base: ## Show what the current branch changes against origin/main, or origin/base (make diff-base [base=branch] [stat=1])
 	git diff $(if $(filter 1,$(stat)),--stat) "origin/$(if $(base),$(base),$(MAIN_BRANCH))...HEAD"

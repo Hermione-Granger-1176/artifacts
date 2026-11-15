@@ -187,12 +187,10 @@ export function setupFullMocks() {
       if (sel === 'meta[name="theme-color"]') {
         return { setAttribute() {}, getAttribute() { return null; } };
       }
-      if (sel.startsWith('[data-app-shell=')) {
-        const key = sel;
-        if (!shellSlots[key]) {
-          shellSlots[key] = { childElementCount: 0, innerHTML: '' };
-        }
-        return shellSlots[key];
+      // Every app page ships these empty slots for the shared shell and section nav.
+      if (sel.startsWith('[data-app-shell=') || sel === '[data-section-nav]') {
+        shellSlots[sel] = shellSlots[sel] || { innerHTML: '' };
+        return shellSlots[sel];
       }
       return null;
     },
@@ -227,9 +225,6 @@ export function setupFullMocks() {
       this.plugins = config.plugins;
       this.update = () => {};
       this.stop = () => {};
-      this.$artifactsFormatCurrency = null;
-      this.$artifactsInterestTotal = null;
-      this.$artifactsPalette = null;
     },
     ChartDataLabels: {}
   };

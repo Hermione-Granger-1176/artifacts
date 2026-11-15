@@ -218,9 +218,7 @@ function createHarness({
   open = false,
   pageCount = 5,
   reducedMotion = false,
-  withPages = true,
-  withOnError = true,
-  withMotion = true
+  withPages = true
 } = {}) {
   const env = {
     now: 0,
@@ -358,9 +356,9 @@ function createHarness({
   const scene = createBookScene({
     documentObj,
     windowObj,
-    motion: withMotion ? { prefersReducedMotion: () => windowObj.matchMedia().matches } : undefined,
+    motion: { prefersReducedMotion: () => windowObj.matchMedia().matches },
     pages: withPages ? model : undefined,
-    onError: withOnError ? (error) => errors.push(error) : undefined
+    onError: (error) => errors.push(error)
   });
 
   const flush = async () => {
@@ -1195,23 +1193,6 @@ test('missing page faces fall back to rendering the page directly', async () => 
   assert.deepEqual(noLive.model.commits, [2]);
 });
 
-test('without an onError handler errors go to the console', async () => {
-  const harness = createHarness({ open: true, withOnError: false });
-  const original = console.error;
-  const logged = [];
-  console.error = (error) => logged.push(error);
-  try {
-    harness.model.commitError = new Error('boom');
-    const done = harness.scene.turnPage(2);
-    await harness.advance(1000);
-    await done;
-  } finally {
-    console.error = original;
-  }
-  assert.equal(logged.length, 1);
-  assert.match(logged[0].message, /boom/);
-});
-
 /* ------------------------------------------------------------------ */
 /* Drag to scrub                                                      */
 /* ------------------------------------------------------------------ */
@@ -1601,17 +1582,3 @@ test('a queued turn that finds the book closed renders directly', async () => {
   assert.equal(harness.created.length, 0);
 });
 
-test('reduced motion falls back to matchMedia when no motion helper is given', async () => {
-  const reduced = createHarness({ reducedMotion: true, withMotion: false });
-  const intro = reduced.scene.startIntro();
-  await reduced.advance(1000);
-  await intro;
-  assert.equal(reduced.cover.animateCalls.length, 0);
-  assert.equal(reduced.sheet.animateCalls.length, 2);
-
-  const plain = createHarness({ withMotion: false });
-  const swing = plain.scene.startIntro();
-  await plain.advance(3000);
-  await swing;
-  assert.equal(plain.cover.animateCalls.length, 1);
-});

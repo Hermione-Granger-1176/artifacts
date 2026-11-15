@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
@@ -146,10 +147,10 @@ def test_overlay_and_no_results_states_have_no_blocking_axe_violations(
         assert_minimum_contrast(page, ".detail-close", minimum_ratio=4.5)
 
         page.locator(".detail-close").click()
-        page.wait_for_timeout(450)
+        # Closing hands the page back only when the overlay drops `visible`.
+        expect(page.locator("#detail-overlay")).not_to_have_class(re.compile(r"\bvisible\b"))
 
         page.fill("#search-input", "artifact that does not exist")
-        page.wait_for_timeout(250)
         expect(page.locator("#no-results")).not_to_have_class("no-results hidden")
         no_results = run_axe(page, include=["#no-results"])
         assert_no_blocking_axe_violations(no_results)

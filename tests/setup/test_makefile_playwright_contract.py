@@ -52,7 +52,7 @@ def browser_launching_targets() -> dict[str, str]:
 def test_playwright_uses_native_host_detection() -> None:
     """Do not retain the obsolete Ubuntu platform override workaround.
 
-    Playwright 1.61.x supports this host natively, and a stale override can leave
+    The pinned Playwright supports this host natively, and a stale override can leave
     the revision cache holding a browser built for another platform archive.
     """
     assert "PLAYWRIGHT_HOST_PLATFORM_OVERRIDE" not in MAKEFILE_TEXT

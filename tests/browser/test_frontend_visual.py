@@ -78,7 +78,14 @@ def _capture_hero(app_browser: AppBrowserHarness, target: str) -> bytes:
             "() => { document.getAnimations().forEach((animation) => { "
             "try { animation.finish(); } catch (error) { animation.pause(); } }); }"
         )
-        page.wait_for_timeout(200)
+        # Finishing the intro's first fade lets the book scene start the next one
+        # and only then mark itself open, so wait for that end state, then for
+        # every animation started since to settle before the capture.
+        if target == "root":
+            page.wait_for_selector('#book-shell[data-scene-intro="open"]', state="attached")
+        page.wait_for_function(
+            "() => document.getAnimations().every((animation) => animation.playState !== 'running')"
+        )
         return page.screenshot(full_page=False)
 
 

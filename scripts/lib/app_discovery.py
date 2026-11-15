@@ -203,9 +203,8 @@ def _static_import_closure(app_dir: Path, root: Path, modules_root: Path) -> set
         js_path = pending.pop()
         if js_path in visited or not js_path.is_file():
             continue
-        relative = _repo_relative_path(js_path, root)
-        if relative is None:
-            continue
+        # Every queued path already passed _local_import_path's containment check.
+        relative = js_path.relative_to(root.resolve()).as_posix()
         visited.add(js_path)
         reached.add(relative)
 

@@ -148,20 +148,14 @@ def test_format_results_no_error_line_when_all_pass() -> None:
 
 def test_main_returns_zero_on_all_passing(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test main returns zero on all passing."""
-    monkeypatch.setattr(
-        "scripts.ci.run_parallel_checks.subprocess",
-        SimpleNamespace(run=_make_run_fn(stdout="ok")),
-    )
+    monkeypatch.setattr(subprocess, "run", _make_run_fn(stdout="ok"))
 
     assert main(["lint", "test-py"]) == 0
 
 
 def test_main_returns_one_on_any_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test main returns one on any failure."""
-    monkeypatch.setattr(
-        "scripts.ci.run_parallel_checks.subprocess",
-        SimpleNamespace(run=_make_run_fn(returncode=1, stderr="fail")),
-    )
+    monkeypatch.setattr(subprocess, "run", _make_run_fn(returncode=1, stderr="fail"))
 
     assert main(["lint"]) == 1
 
@@ -175,10 +169,7 @@ def test_main_passes_timeout_flag(monkeypatch: pytest.MonkeyPatch) -> None:
         captured_timeout["value"] = kwargs.get("timeout")
         return SimpleNamespace(returncode=0, stdout="ok", stderr="")
 
-    monkeypatch.setattr(
-        "scripts.ci.run_parallel_checks.subprocess",
-        SimpleNamespace(run=recording_run),
-    )
+    monkeypatch.setattr(subprocess, "run", recording_run)
 
     assert main(["--timeout", "42", "lint"]) == 0
     assert captured_timeout["value"] == 42
@@ -203,3 +194,16 @@ def test_main_rejects_non_positive_timeout() -> None:
 def test_main_returns_one_with_no_targets() -> None:
     """Test main returns one with no targets."""
     assert main([]) == 1
+
+
+def test_run_check_gives_the_target_no_stdin() -> None:
+    """A target that reads optional paths must not wait on the caller's stdin."""
+    seen: dict[str, object] = {}
+
+    def recording_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        seen.update(kwargs)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    run_check("lint-yaml", run_fn=recording_run)
+
+    assert seen["stdin"] is subprocess.DEVNULL

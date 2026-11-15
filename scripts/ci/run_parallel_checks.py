@@ -33,11 +33,19 @@ def _failed_check(name: str, start: float, output: str) -> CheckResult:
 def run_check(
     name: str, *, timeout: int = DEFAULT_TIMEOUT, run_fn: RunFunction | None = None
 ) -> CheckResult:
-    """Run a single make target and return the captured result."""
+    """Run a single make target and return the captured result.
+
+    The target gets no stdin. Path-taking targets read paths from stdin, and a
+    pipe inherited from the caller that never closes would make them wait.
+    """
     start = time.monotonic()
     try:
         result = (run_fn or subprocess.run)(
-            ["make", name], capture_output=True, text=True, timeout=timeout
+            ["make", name],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            stdin=subprocess.DEVNULL,
         )
     except subprocess.TimeoutExpired:
         return _failed_check(name, start, f"Timed out after {timeout}s")

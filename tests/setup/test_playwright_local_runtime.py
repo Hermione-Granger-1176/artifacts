@@ -99,17 +99,6 @@ def fake_os_release(monkeypatch: pytest.MonkeyPatch, content: str | None) -> Non
 # ─── Dependency dry-run parsing ──────────────────────────────────────────────
 
 
-def test_parse_dependency_seeds_accepts_only_package_tokens() -> None:
-    """Accept the legacy printed install command without evaluating it."""
-    output = """
-Installing dependencies...
-sudo apt-get install -y --no-install-recommends \\
-  libgtk-3-0 libnss3
-"""
-
-    assert runtime.parse_dependency_seeds(output) == ("libgtk-3-0", "libnss3")
-
-
 def test_parse_dependency_seeds_accepts_playwright_missing_package_report() -> None:
     """Accept the current Playwright dry-run missing-package report."""
     output = """
@@ -119,14 +108,6 @@ Missing system dependencies (2):
 """
 
     assert runtime.parse_dependency_seeds(output) == ("libgtk-3-0", "libnss3")
-
-
-def test_parse_dependency_seeds_rejects_shell_syntax() -> None:
-    """Reject shell operators in dry-run output even though it is never executed."""
-    output = "sudo apt-get install libgtk-3-0; touch unexpected\n"
-
-    with pytest.raises(runtime.RuntimeSetupError, match="unsafe shell syntax"):
-        runtime.parse_dependency_seeds(output)
 
 
 def test_parse_dependency_seeds_rejects_incomplete_missing_package_report() -> None:
@@ -142,26 +123,22 @@ def test_parse_dependency_seeds_accepts_a_satisfied_host() -> None:
     assert runtime.parse_dependency_seeds("All system dependencies are installed.\n") == ()
 
 
+def test_parse_dependency_seeds_rejects_an_apt_get_command() -> None:
+    """Playwright 1.64 no longer prints an install command, so one is not a package list."""
+    with pytest.raises(runtime.RuntimeSetupError, match="did not provide package seeds"):
+        runtime.parse_dependency_seeds("sudo apt-get install -y libnss3\n")
+
+
 def test_parse_dependency_seeds_requires_a_recognized_report() -> None:
     """Refuse to guess when Playwright prints neither report shape."""
     with pytest.raises(runtime.RuntimeSetupError, match="did not provide package seeds"):
         runtime.parse_dependency_seeds("something unexpected\n")
 
 
-def test_parse_dependency_seeds_rejects_invalid_names_in_both_report_shapes() -> None:
+def test_parse_dependency_seeds_rejects_invalid_package_names() -> None:
     """Reject package tokens that could escape the private archive directory."""
     with pytest.raises(runtime.RuntimeSetupError, match="invalid package name"):
-        runtime.parse_dependency_seeds("apt-get install ../escape\n")
-
-    with pytest.raises(runtime.RuntimeSetupError, match="invalid package name"):
         runtime.parse_dependency_seeds("Missing system dependencies (1):\n  ../escape\n")
-
-
-def test_parse_dependency_seeds_ignores_unrelated_apt_get_lines() -> None:
-    """Only an ``apt-get install`` command contributes seeds."""
-    output = "sudo apt-get update\napt-get\nMissing system dependencies (1):\n  libnss3\n"
-
-    assert runtime.parse_dependency_seeds(output) == ("libnss3",)
 
 
 def test_parse_dependency_seeds_stops_at_the_end_of_the_indented_block() -> None:
@@ -169,18 +146,6 @@ def test_parse_dependency_seeds_stops_at_the_end_of_the_indented_block() -> None
     output = "Missing system dependencies (1):\n  libnss3\nRun the command above.\n"
 
     assert runtime.parse_dependency_seeds(output) == ("libnss3",)
-
-
-def test_normalize_shell_lines_rejects_an_unterminated_command() -> None:
-    """A dangling backslash continuation is a malformed report, not a package list."""
-    with pytest.raises(runtime.RuntimeSetupError, match="unterminated"):
-        runtime.normalize_shell_lines("apt-get install \\\n")
-
-
-def test_parse_dependency_seeds_rejects_unparsable_quoting() -> None:
-    """Unbalanced quoting in the dry-run output is reported, never evaluated."""
-    with pytest.raises(runtime.RuntimeSetupError, match="cannot parse"):
-        runtime.parse_dependency_seeds("apt-get install 'unclosed\n")
 
 
 # ─── APT simulation parsing ──────────────────────────────────────────────────

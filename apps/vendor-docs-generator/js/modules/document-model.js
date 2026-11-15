@@ -228,12 +228,9 @@ function hashText(text, initial, multiplier, modulo) {
  *
  * The seed owns the commercial event: which buyer, which dates. The vendor owns
  * its own paperwork: its document number series, its ledger, how many of its own
- * catalogue items it puts on a page. Those used to be seed-only, so one seed
- * produced the same invoice number, the same quantity vector, and a
- * byte-identical statement across all six vendors. Folding this salt into the
- * vendor-owned derivations separates them while leaving the buyer and the dates
- * shared, which is what keeps the side-by-side comparison in the About section
- * honest.
+ * catalogue items it puts on a page. This salt goes into every vendor-owned
+ * derivation, so six vendors on one seed print different numbers and ledgers
+ * while sharing the buyer and the dates.
  * @param {string} vendorId - Vendor identifier.
  * @returns {number} Deterministic salt for that vendor.
  */
@@ -303,12 +300,9 @@ export function buildItems(vendorId, seed, count) {
 /**
  * Stable per-item product code.
  *
- * The dense invoice used to print an HSN column, which is an Indian GST
- * classification sitting next to a US sales-tax scheme and an EIN, and its
- * values were the row index plus a constant rather than a classification of
- * anything. A neutral internal product code carries the same "extra identifier
- * column" signal for extraction work without claiming a jurisdiction, and
- * hashing the description means one catalogue item keeps one code everywhere.
+ * A neutral internal code gives the dense invoice an extra identifier column
+ * without claiming a tax jurisdiction, and hashing the description keeps one
+ * code per catalogue item everywhere.
  * @param {string} description - Catalogue description.
  * @returns {string} Six-digit product code.
  */
@@ -352,11 +346,8 @@ export function computeLineTaxes(items, taxRate = TAX_RATE) {
  * Sum line items and apply the flat sales-tax rate.
  *
  * The tax is the sum of the per-line rounded tax, not the rate applied once to
- * the subtotal. Those two disagree by a cent whenever the per-line rounding
- * happens to push the same way: the clean and dense layouts of one seed used to
- * print $53,484.92 and $53,484.93 for the same five lines, because each did it
- * the other way. Summing the lines is the definition every layout can honour,
- * including the dense one that has to print a tax column that adds up.
+ * the subtotal, which can differ by a cent. Every layout uses this one
+ * definition, including the dense one whose printed tax column has to add up.
  * @param {LineItem[]} items - Priced line items.
  * @param {number} [taxRate=TAX_RATE] - Sales-tax rate as a fraction.
  * @returns {{ grand: number, subtotal: number, tax: number, taxRate: number }} Totals.
@@ -407,10 +398,9 @@ const SERVICE_UNITS = new Set(["day", "mo", "shp", "yr"]);
 /**
  * Freight and handling charged on top of the line items.
  *
- * This used to be a hardcoded `$0.00` on every dense invoice, which is a dead
- * field: an extractor can learn it without reading the page. A page of services
- * still ships nothing, so those stay at zero and the corpus keeps genuine zeros
- * alongside genuine values.
+ * Goods pages get a seeded charge, so an extractor has to read the field; a
+ * page of services ships nothing and stays at zero, so the corpus holds genuine
+ * zeros alongside genuine values.
  * @param {LineItem[]} items - Priced line items.
  * @param {number} seed - Seed driving the charge.
  * @returns {number} Shipping and handling in currency units.
@@ -667,9 +657,7 @@ function denseKeyGrid({ baseDate, documentNumber, dueDate, orderDate, orderNumbe
         ["Payment terms", "Net 30", "payment_terms"]
       ],
       [
-        // A company registration belongs to the seller, not to the seed. It
-        // used to be derived from the seed alone, so all six vendors shared
-        // one registration number.
+        // A company registration belongs to the seller, not to the seed.
         ["Company reg", vendor.companyReg, "vendor_company_reg"],
         ["Order number", orderNumber, "order_number"],
         ["Order date", formatDate(orderDate), "order_date"],
@@ -899,9 +887,7 @@ function buildReceipt(context) {
           ["Receipt #", documentNumber, "document_number"],
           ["Date", formatDate(receiptDate), "document_date"],
           // One seed is one commercial event, so the receipt settles the invoice
-          // that same seed produces. It used to derive its own unrelated number,
-          // which meant no receipt in the corpus could ever be matched to an
-          // invoice in the corpus.
+          // that same seed produces and the two can be matched.
           ["Against invoice", againstInvoice, "against_invoice"],
           ["Method", paymentMethod, "payment_method"]
         ],
@@ -1014,10 +1000,8 @@ function buildChallan(context) {
         ],
         fields: [null, "description", "quantity", "unit", "remarks"],
         rowScope: "line_items",
-        // The remarks column used to read "Goods only" on every row, which is a
-        // column of one repeated constant. A lot number plus the occasional
-        // handling note gives it something an extraction pipeline can actually be
-        // asked to read.
+        // Each remark carries a lot number plus the occasional handling note,
+        // so the column varies and an extraction pipeline has to read it.
         rows: items.map((item, index) => [
           String(index + 1),
           item.desc,
@@ -1177,11 +1161,8 @@ function buildLedger(context, periodStart) {
  * @returns {BuiltDocument} Statement of account with a running ledger.
  */
 function buildStatement(context) {
-  // The ledger has to end on or before the day the statement was generated. It
-  // used to start at `new Date(year, seed % 6, 3)`, which had no relationship to
-  // the generated date at all: a statement generated in March would list
-  // transactions running through June, summarising activity that had not
-  // happened yet, and no statement could ever fall in the second half of a year.
+  // The ledger runs over the period that ends on the generated date, so a
+  // statement never lists activity after the day it was generated.
   const periodStart = addDays(context.baseDate, -PERIOD_DAYS);
   const { balance, lastMovement, transactions } = buildLedger(context, periodStart);
   const documentNumber = `STM-${context.number}`;
@@ -1199,10 +1180,7 @@ function buildStatement(context) {
     blocks: [
       partiesBlock("Account", context.buyer, [
         ["Statement #", documentNumber, "document_number"],
-        // The printed period describes the rows underneath it. The old label was
-        // `Q${1 + seed % 4}`, a quarter drawn from the seed and unrelated to
-        // both the transactions and the generated date, so a Q4 heading routinely
-        // sat on a ledger of Q2 rows.
+        // The printed period spans the ledger rows underneath it.
         [
           "Period",
           `${formatDate(periodStart)} - ${formatDate(lastMovement)}`,

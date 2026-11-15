@@ -52,7 +52,7 @@ All fixtures below assume a 10-year, 5% annual coupon, $1,000 face bond unless s
 - Applying the inverted curve moves the market-rate slider in the rail and keeps its readout in sync
 - At 800px wide the rail stays pinned beside the first chapter, and at 700px it is static and stacks above it. Neither width scrolls sideways
 
-`tests/js/apps/bond-price-vs-rate/chapters.test.js` covers the highlighter with a fake IntersectionObserver: the initial state, the band and tail observers, one current chapter at a time, and the no-observer and no-chapter fallbacks. The browser accessibility test also runs axe over the page, which detects insufficient body-text contrast.
+`tests/js/apps/bond-price-vs-rate/chapters.test.js` covers the highlighter with a fake IntersectionObserver: the initial state, the band and tail observers, one current chapter at a time, and the no-observer fallback. The browser accessibility test also runs axe over the page, which detects insufficient body-text contrast.
 
 ## Redraw and layout stability checks
 

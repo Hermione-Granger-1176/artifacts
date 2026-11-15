@@ -44,7 +44,7 @@ Python dependency setup uses uv. Put `uv` on PATH before you run the setup, inst
 
 To change workspace code:
 
-1. To add an artifact, run `make new name=my-artifact`, or `make new name=my-artifact src=path/to/page.html` to install an existing HTML file. Both create the metadata, stylesheet, app shell, docs, and a `tests/js/apps/<slug>/app.test.js` stub. The placeholder passes the gates without edits. A `src=` import keeps off-origin references, so vendor or remove each reported reference before the CSP check can pass.
+1. To add an artifact, run `make new name=my-artifact`, or `make new name=my-artifact <<< path/to/page.html` to install an existing HTML file, read from stdin. Both create the metadata, stylesheet, app shell, docs, and a `tests/js/apps/<slug>/app.test.js` stub. The placeholder passes the gates without edits. An HTML import keeps off-origin references, so vendor or remove each reported reference before the CSP check can pass.
 2. Run `make setup`, or `make setup-all` when you also need Chromium. Run `make install-hooks` once to enable the local pre-commit checks.
 3. Edit files.
 4. Run `make check-local`.

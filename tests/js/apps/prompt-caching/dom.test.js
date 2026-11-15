@@ -103,14 +103,6 @@ test('navigation builds nodes, tracks sections, and renders the timeline', () =>
   });
 });
 
-test('navigation is a no-op when its anchors are missing', () => {
-  withHarness((h) => {
-    h.el('nav-nodes').remove();
-    delete h.registry['nav-nodes'];
-    assert.doesNotThrow(() => initNavigation());
-  });
-});
-
 // --- tokenizer.js ---
 
 test('tokenizer renders colored tokens and an ID view', () => {

@@ -346,21 +346,3 @@ def test_runtime_change_plan_fails_open_when_consumer_discovery_errors(
 
     assert plan["browser_scope"] == "all"
     assert plan["shared_runtime_changed"] is True
-
-
-def test_shared_module_consumers_skips_paths_without_repo_relative_names(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A defensive traversal ignores a queued path that cannot map to the repository."""
-    modules = tmp_path / "js" / "modules"
-    modules.mkdir(parents=True)
-    (modules / "chart-theme.js").write_text("export {};\n", encoding="utf-8")
-    app_dir = tmp_path / "apps" / "alpha"
-    (app_dir / "js").mkdir(parents=True)
-    (app_dir / "index.html").write_text("<html></html>\n", encoding="utf-8")
-    app_file = app_dir / "js" / "app.js"
-    app_file.write_text("export {};\n", encoding="utf-8")
-    monkeypatch.setattr(app_discovery, "_script_sources", lambda *_args: [app_file])
-    monkeypatch.setattr(app_discovery, "_repo_relative_path", lambda *_args: None)
-
-    assert app_discovery.shared_module_consumers(tmp_path) == {"js/modules/chart-theme.js": set()}

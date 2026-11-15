@@ -48,23 +48,11 @@ JS_OUTPUT_FILE = REPO_ROOT / "js" / "data.js"
 JS_CONFIG_OUTPUT_FILE = REPO_ROOT / "js" / "gallery-config.js"
 README_FILE = REPO_ROOT / "README.md"
 
-# -- Type aliases re-exported for callers and tests ----------------------------
+# -- Type aliases ---------------------------------------------------------------
 
 ArtifactItem = index_sources.ArtifactItem
 BadgeConfig = index_outputs.BadgeConfig
 GalleryMetadata = index_outputs.GalleryMetadata
-
-# -- Public convenience wrapper over the contract-driven check ----------------
-
-
-def is_kebab_case(name: str) -> bool:
-    """Return True when a directory name follows kebab-case.
-
-    Wraps the production artifact contract so callers that only need the
-    check do not have to build an ``IndexConfig`` themselves.
-    """
-    config = IndexConfig.create_default()
-    return config.is_kebab_case(name)
 
 
 # -- Internal helpers ----------------------------------------------------------

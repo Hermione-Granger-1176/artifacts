@@ -77,7 +77,7 @@ function buildChartState({ base, extra, principal, interestSaved, periodLabel })
   const lineLabels = Array.from({ length: maxPeriods }, (_, index) => index + 1);
   const interestPaid = Math.round(extra.totalInterest);
   const roundedInterestSaved = Math.max(0, Math.round(interestSaved));
-  const interestTotal = interestPaid + roundedInterestSaved || 1;
+  const interestTotal = interestPaid + roundedInterestSaved;
 
   return {
     annotation:
@@ -133,10 +133,6 @@ const appliedAxes = new WeakMap();
  * @returns {void}
  */
 function applyAxes(chart, palette, periodLabel, formatDollarTick, options = {}) {
-  const scales = chart.options.scales;
-  if (!scales) {
-    return;
-  }
   const {
     stackedY = false,
     showXGrid = true,
@@ -149,8 +145,10 @@ function applyAxes(chart, palette, periodLabel, formatDollarTick, options = {}) 
     return;
   }
   appliedAxes.set(chart, { palette, formatDollarTick, key });
-  const xScale = /** @type {AxisConfig} */ (scales.x);
-  const yScale = /** @type {AxisConfig} */ (scales.y);
+  // Every chart is created with x and y scale skeletons (see dollarChartOptions).
+  const { x: xScale, y: yScale } = /** @type {Record<"x" | "y", AxisConfig>} */ (
+    /** @type {unknown} */ (chart.options.scales)
+  );
 
   xScale.title = { ...xScale.title, display: true, text: xTitle, color: palette.tick };
   xScale.ticks = { ...xScale.ticks, color: palette.tick, maxTicksLimit: 12 };
@@ -170,7 +168,7 @@ function applyAxes(chart, palette, periodLabel, formatDollarTick, options = {}) 
  * @returns {string} "Series: $1,234" tooltip label.
  */
 function dollarTooltipLabel(context) {
-  return `${context.dataset.label}: $${(context.parsed.y ?? 0).toLocaleString()}`;
+  return `${context.dataset.label}: $${/** @type {number} */ (context.parsed.y).toLocaleString()}`;
 }
 
 /**
@@ -305,6 +303,23 @@ function syncComparisonChart(chart, state, formatDollarTick, mode) {
 }
 
 /**
+ * The palette, currency formatter, and interest total behind each savings
+ * chart's latest sync, read by its label and center-text callbacks.
+ * @type {WeakMap<ChartInstance, { palette: Palette, formatCurrency: (value: number) => string, total: number }>}
+ */
+const savingsStates = new WeakMap();
+
+/**
+ * @param {ChartInstance} chart - The savings chart.
+ * @returns {{ palette: Palette, formatCurrency: (value: number) => string, total: number }} Its latest sync state.
+ */
+function savingsState(chart) {
+  return /** @type {{ palette: Palette, formatCurrency: (value: number) => string, total: number }} */ (
+    savingsStates.get(chart)
+  );
+}
+
+/**
  * @param {HTMLCanvasElement} canvas - Target canvas element.
  * @returns {ChartInstance} The created chart.
  */
@@ -342,18 +357,14 @@ function createSavingsChart(canvas) {
           /** @param {DataLabelsContext} context - Datalabels context. */
           display(context) {
             const value = /** @type {number} */ (context.dataset.data[context.dataIndex]);
-            const total = context.chart.$artifactsInterestTotal || 1;
-            return value > 0 && value / total <= 0.95;
+            return value > 0 && value / savingsState(context.chart).total <= 0.95;
           },
           anchor: "end",
           align: "end",
           offset: 8,
           /** @param {DataLabelsContext} context - Datalabels context. */
           color(context) {
-            const palette = context.chart.$artifactsPalette;
-            if (!palette) {
-              return "currentColor";
-            }
+            const { palette } = savingsState(context.chart);
             return context.dataIndex === 0 ? palette.redEmphasis : palette.greenEmphasis;
           },
           font: { weight: 500, size: 12 },
@@ -364,13 +375,8 @@ function createSavingsChart(canvas) {
            * @returns {string} Formatted label.
            */
           formatter(value, context) {
-            const total = context.chart.$artifactsInterestTotal || 1;
-            const percentage = Math.round((value / total) * 100);
-            const formatCurrencyFn = context.chart.$artifactsFormatCurrency;
-            if (typeof formatCurrencyFn !== "function") {
-              return `${percentage}%`;
-            }
-            return `${percentage}%\n${formatCurrencyFn(value)}`;
+            const { total, formatCurrency } = savingsState(context.chart);
+            return `${Math.round((value / total) * 100)}%\n${formatCurrency(value)}`;
           }
         }
       }
@@ -379,16 +385,13 @@ function createSavingsChart(canvas) {
       id: "centerText",
       /** @param {ChartInstance} chart - Chart being drawn. */
       afterDraw(chart) {
+        // Chart.js draws once while constructing the chart, before the first sync.
+        const state = savingsStates.get(chart);
+        if (!state) {
+          return;
+        }
+        const { palette, formatCurrency: formatCurrencyFn, total } = state;
         const dataset = /** @type {number[]} */ (chart.data.datasets[0].data);
-        const total = chart.$artifactsInterestTotal || dataset.reduce((sum, value) => sum + value, 0);
-        const palette = chart.$artifactsPalette;
-        const formatCurrencyFn = chart.$artifactsFormatCurrency;
-        if (!palette || typeof formatCurrencyFn !== "function") {
-          return;
-        }
-        if (total === 0) {
-          return;
-        }
 
         const dominantIndex = dataset.findIndex((value) => value / total > 0.95);
         if (dominantIndex === -1) {
@@ -426,9 +429,7 @@ function createSavingsChart(canvas) {
  */
 function syncSavingsChart(chart, state, formatCurrency, mode) {
   const { interestPaid, interestSaved, interestTotal, palette } = state;
-  chart.$artifactsFormatCurrency = formatCurrency;
-  chart.$artifactsInterestTotal = interestTotal;
-  chart.$artifactsPalette = palette;
+  savingsStates.set(chart, { palette, formatCurrency, total: interestTotal });
   chart.data.datasets[0].data = [interestPaid, interestSaved];
   chart.data.datasets[0].backgroundColor = [palette.noteRed, palette.noteGreen];
   chart.data.datasets[0].borderColor = palette.surface;

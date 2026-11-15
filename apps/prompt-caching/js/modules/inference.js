@@ -51,9 +51,6 @@ export function initInference() {
   const status = byId("infStatus");
   const cacheCount = byId("infCacheCount");
   const cacheBar = byId("infCacheBar");
-  if (!promptsWrap || !goBtn || !tokensWrap) {
-    return;
-  }
 
   const prompts = Object.keys(INF_RESPONSES);
   // The stream and the status line reserve the room of the longest run up front,
@@ -192,7 +189,5 @@ export function initInference() {
   }
 
   goBtn.addEventListener("click", start);
-  if (resetBtn) {
-    resetBtn.addEventListener("click", reset);
-  }
+  resetBtn.addEventListener("click", reset);
 }

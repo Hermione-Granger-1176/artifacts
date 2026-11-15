@@ -32,7 +32,7 @@ The main directories are:
 Use one of the two scaffold inputs:
 
 1. For a new placeholder, run `make new name=my-artifact`.
-2. For an existing HTML file, run `make new name=my-artifact src=path/to/file.html` instead.
+2. For an existing HTML file, pass its path on stdin instead: `make new name=my-artifact <<< path/to/file.html`.
 
 Both inputs create metadata files, `css/app.css`, `js/app.js`, a README, architecture and verification docs, decision notes, and `tests/js/apps/<slug>/app.test.js`.
 
@@ -46,7 +46,7 @@ After the scaffold, complete these steps:
 2. Verify its behavior or calculations.
 3. Run `make validate` and the relevant checks in [Operations](docs/operations.md).
 
-For user-provided artifacts, prefer the `src=` import and metadata edits. Avoid unrelated refactors. CI generates thumbnails, so missing local thumbnails do not block the contribution. Push only when authorized.
+For user-provided artifacts, prefer the HTML import and metadata edits. Avoid unrelated refactors. CI generates thumbnails, so missing local thumbnails do not block the contribution. Push only when authorized.
 
 ## Local commands
 
@@ -86,7 +86,15 @@ The commands with less obvious argument patterns are:
 | Remove a worktree       | `make worktree-remove name=my-feature`            |
 | Commit staged work      | `make commit < message.txt`                       |
 
-Supply multiline messages on stdin through a heredoc or file redirect. Do not pass prose as Make arguments. For short fields, use environment variables such as `TITLE='...'`, `SEARCH='...'`, or `COMMENT='...'` with the relevant target.
+Supply multiline messages on stdin through a heredoc or file redirect. Do not pass prose as Make arguments. Targets that take files, such as `make stage`, `make resolve-ours`, `make format-prettier-diff`, and the `lint-py` or `align-tables-check` checks, read paths on stdin, one per line, so a path with spaces or quotes needs no escaping. Without paths, a check covers its default scope:
+
+```bash
+make stage <<'EOF'
+apps/loan-amortization/js/app.js
+docs/my notes.md
+EOF
+```
+ For short fields, use environment variables such as `TITLE='...'`, `SEARCH='...'`, or `COMMENT='...'` with the relevant target.
 
 ## Tool configuration
 

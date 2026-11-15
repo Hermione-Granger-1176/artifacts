@@ -140,9 +140,8 @@ export const VENDORS = [
 ];
 
 /**
- * Line-item catalogues, one per vendor, so a document's contents match the
- * business printed at the top of it. Reached through `catalogFor` rather than
- * exported directly, so the fallback for an unknown vendor lives in one place.
+ * Line-item catalogues, one per vendor in `VENDORS`, so a document's contents
+ * match the business printed at the top of it.
  * @type {Readonly<Record<string, readonly CatalogEntry[]>>}
  */
 const CATALOGS = {
@@ -229,9 +228,10 @@ export function findDocumentType(typeId) {
 
 /**
  * Read a vendor's catalogue.
- * @param {string} vendorId - Vendor identifier.
+ * @param {string} vendorId - A `VENDORS` id. `findVendor` is the one fallback for
+ *   an unknown id, so resolve through it first.
  * @returns {readonly CatalogEntry[]} Catalogue entries for that vendor.
  */
 export function catalogFor(vendorId) {
-  return CATALOGS[vendorId] ?? CATALOGS.apex;
+  return CATALOGS[vendorId];
 }

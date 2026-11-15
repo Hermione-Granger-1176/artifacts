@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Scaffold a new artifact directory under ``apps/``.
 
-This module backs ``make new name=<artifact-name> [src=<path-to-html>]``.
+This module backs ``make new name=<artifact-name>``, which reads an optional
+HTML file to import from stdin.
 
 It creates a new artifact directory under ``apps/`` with the required metadata
 files, an HTML entry point, an app-local stylesheet and bootstrap module,
@@ -11,9 +12,9 @@ test-coverage check, ESLint, stylelint, Knip, and tsc) without hand edits.
 
 Two flows are supported:
 
-* Without ``--from-html`` the scaffold emits a semantic placeholder page wired
+* Without a source path the scaffold emits a semantic placeholder page wired
   to the shared stylesheet and app shell.
-* With ``--from-html <path>`` an existing AI-generated HTML file is installed as
+* With a source path an existing AI-generated HTML file is installed as
   ``index.html``. The shared contract is still guaranteed: the self-only
   Content-Security-Policy meta and the shared stylesheet links are injected when
   absent, and any external script/style references are reported (never silently
@@ -552,19 +553,12 @@ def scaffold_artifact(name: str, *, source_html: str | None = None) -> Path:
 def _parse_args(args: list[str]) -> tuple[str, str | None]:
     """Parse the scaffold CLI into (name, optional source-HTML path)."""
     usage = (
-        "Usage: make new name=<artifact-name> [src=<path-to-html>] "
-        "(direct CLI form: scaffold_artifact.py <artifact-name> [--from-html <path-to-html>])"
+        "Usage: make new name=<artifact-name>, with an HTML file to import on stdin "
+        "(direct CLI form: scaffold_artifact.py <artifact-name> [<path-to-html>])"
     )
-    if not args:
+    if not args or len(args) > 2:
         raise ValueError(usage)
-
-    name = args[0]
-    rest = args[1:]
-    if not rest:
-        return name, None
-    if len(rest) != 2 or rest[0] != "--from-html":
-        raise ValueError(usage)
-    return name, rest[1]
+    return args[0], args[1] if len(args) == 2 else None
 
 
 def main(argv: list[str] | None = None) -> int:

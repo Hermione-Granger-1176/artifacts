@@ -109,7 +109,7 @@ function unionRects(rects) {
  * @returns {Node[]} Text nodes.
  */
 function textNodesIn(node) {
-  const children = Array.from(node.childNodes ?? []);
+  const children = Array.from(node.childNodes);
   return children.flatMap((child) =>
     child.nodeType === TEXT_NODE ? [child] : textNodesIn(child)
   );
@@ -132,7 +132,7 @@ function wordBoxes(element, page, doc) {
   const words = [];
 
   for (const textNode of textNodesIn(element)) {
-    const text = textNode.textContent ?? "";
+    const text = /** @type {string} */ (textNode.textContent);
     const pattern = /\S+/g;
     let match = pattern.exec(text);
 
@@ -179,7 +179,7 @@ export function collectBoxes(paper, { doc = document, words = false } = {}) {
     /** @type {Region} */
     const region = {
       field,
-      text: (element.textContent ?? "").trim(),
+      text: /** @type {string} */ (element.textContent).trim(),
       box: normalise(rect, page)
     };
 

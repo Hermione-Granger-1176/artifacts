@@ -97,8 +97,11 @@ test('every vendor has a catalogue of priced units', () => {
   }
 });
 
-test('catalogFor falls back for an unknown vendor', () => {
-  assert.deepEqual(catalogFor('nope'), catalogFor('apex'));
+test('every vendor has its own catalogue, and an unknown id resolves through findVendor', () => {
+  for (const vendor of VENDORS) {
+    assert.ok(catalogFor(vendor.id).length > 0, `${vendor.id} has no catalogue`);
+  }
+  assert.deepEqual(catalogFor(findVendor('nope').id), catalogFor('apex'));
 });
 
 test('document types are unique and labelled', () => {

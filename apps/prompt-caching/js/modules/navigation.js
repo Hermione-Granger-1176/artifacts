@@ -8,12 +8,9 @@ export function initNavigation() {
   renderSectionNav(document.querySelector("[data-section-nav]"));
   initSectionNav();
 
-  const pipeline = byId("pipelineDiagram");
-  if (pipeline) {
-    for (const node of pipeline.querySelectorAll("[data-target]")) {
-      const el = /** @type {HTMLElement} */ (node);
-      el.addEventListener("click", () => scrollToSection(el.dataset.target ?? ""));
-    }
+  for (const node of byId("pipelineDiagram").querySelectorAll("[data-target]")) {
+    const el = /** @type {HTMLElement} */ (node);
+    el.addEventListener("click", () => scrollToSection(/** @type {string} */ (el.dataset.target)));
   }
 
   renderTimeline();
@@ -21,9 +18,6 @@ export function initNavigation() {
 
 function renderTimeline() {
   const wrap = byId("summaryTimeline");
-  if (!wrap) {
-    return;
-  }
   clear(wrap);
 
   SUMMARY_STEPS.forEach((step, i) => {

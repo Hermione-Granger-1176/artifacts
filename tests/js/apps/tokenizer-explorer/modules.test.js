@@ -156,17 +156,10 @@ test('initAccordion toggles a card open and updates aria state', () => {
   assert.deepEqual(ariaValues, ['true']);
 });
 
-test('initAccordion ignores a click without a usable trigger and card', () => {
+test('initAccordion ignores a click outside a card trigger', () => {
   let clickHandler;
   initAccordion({ addEventListener(_type, handler) { clickHandler = handler; } });
-  clickHandler({ target: { closest() { return null; } } });
-  clickHandler({
-    target: {
-      closest(selector) {
-        return selector === '.card-trigger' ? { closest() { return null; } } : null;
-      }
-    }
-  });
+  assert.doesNotThrow(() => clickHandler({ target: { closest() { return null; } } }));
 });
 
 // --- render.js ---
@@ -207,11 +200,6 @@ test('renderScenario renders the prompt as toned token chips and a temporary com
     renderScenario(elements, scenario, null, true);
     assert.equal(elements.sentencePrefix.children[1].textContent, '·add(');
 
-    // The completion blank is optional, so a bare prompt still renders.
-    renderScenario(
-      { scenarioType: makeElement(), sentencePrefix: makeElement() },
-      { type: 'Sentence', prefix: 'Hello world', tokens: [] }
-    );
   } finally {
     restoreDocument(mocks);
   }
@@ -362,14 +350,14 @@ test('renderDistribution reuses rows so bar widths can transition', () => {
   }
 });
 
-test('renderDistribution keeps a tiny probability visible and handles an empty tally', () => {
+test('renderDistribution keeps a tiny probability visible beside an all-or-nothing tally', () => {
   const mocks = setupDocumentMock();
   try {
     const elements = makeDistributionElements();
     renderDistribution(
       elements,
       makeDistributionState({
-        sampleCounts: new Map(),
+        sampleCounts: new Map([[0, 100]]),
         sorted: [
           { adjustedProb: 1, idx: 0, prob: 0.00001, word: 'only' },
           { adjustedProb: 0, idx: 1, prob: 0, word: 'never' }
@@ -380,8 +368,8 @@ test('renderDistribution keeps a tiny probability visible and handles an empty t
     );
     const [, tiny, zero] = elements.candidateList.children;
     assert.equal(tiny.children[2].children[0].style.width, '0.5%');
-    assert.equal(tiny.children[2].children[1].style.width, '0%');
-    assert.equal(tiny.children[5].textContent, '0');
+    assert.equal(tiny.children[2].children[1].style.width, '100%');
+    assert.equal(tiny.children[5].textContent, '100');
     // A zero probability (greedy decoding at temperature 0) draws no bar at all.
     assert.equal(zero.children[2].children[0].style.width, '0%');
   } finally {
@@ -423,7 +411,7 @@ test('buildCandidateRows tags the first cut token and normalizes the tally', () 
 test('renderDistribution describes temperature by the winner it produced', () => {
   const mocks = setupDocumentMock();
   try {
-    const elements = { candidateList: makeElement('ul'), insightBox: makeElement() };
+    const elements = { candidateList: makeElement('ul'), insightBox: makeElement(), sampleStatus: makeElement() };
     const state = makeDistributionState({
       topP: 1,
       sorted: [SORTED[0]],
@@ -448,7 +436,7 @@ test('renderDistribution describes temperature by the winner it produced', () =>
 test('renderDistribution describes top P by how many tokens it kept', () => {
   const mocks = setupDocumentMock();
   try {
-    const elements = { candidateList: makeElement('ul'), insightBox: makeElement() };
+    const elements = { candidateList: makeElement('ul'), insightBox: makeElement(), sampleStatus: makeElement() };
     const state = makeDistributionState();
     const one = [state.topTokens[0]];
     renderDistribution(elements, { ...state, topP: 0.05, topTokens: one });

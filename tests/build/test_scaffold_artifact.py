@@ -641,15 +641,15 @@ def test_main_scaffolds_artifact_and_returns_zero(
     assert "Created artifact scaffold" in captured.out
 
 
-def test_main_accepts_from_html_flag(
+def test_main_installs_the_source_html_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Test main installs a drop-in HTML file through the --from-html flag."""
+    """Test main installs a drop-in HTML file named after the artifact name."""
     apps_dir, _ = _install_temp_roots(tmp_path, monkeypatch)
     source = tmp_path / "provided.html"
     source.write_text("<html><head></head><body><p>Drop in</p></body></html>", encoding="utf-8")
 
-    result = scaffold_artifact.main(["budget-tracker", "--from-html", str(source)])
+    result = scaffold_artifact.main(["budget-tracker", str(source)])
 
     captured = capsys.readouterr()
     assert result == 0
@@ -676,10 +676,10 @@ def test_main_requires_exactly_one_positional_argument() -> None:
         scaffold_artifact.main([])
 
 
-def test_parse_args_rejects_unknown_flag() -> None:
-    """Test the CLI parser rejects an unexpected trailing argument."""
+def test_parse_args_rejects_more_than_one_source() -> None:
+    """Test the CLI parser rejects a second source path."""
     with pytest.raises(ValueError, match="Usage: make new name=<artifact-name>"):
-        scaffold_artifact._parse_args(["budget-tracker", "--bogus", "value"])
+        scaffold_artifact._parse_args(["budget-tracker", "a.html", "b.html"])
 
 
 def test_the_placeholder_page_passes_the_artifact_csp_lint() -> None:

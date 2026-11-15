@@ -1,18 +1,20 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
 import shutil
 import threading
 from dataclasses import dataclass, field
-from functools import partial
+from functools import cache, partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urljoin, urlsplit
 
 import pytest
+from PIL import Image
 
 import scripts.build.prepare_site as prepare_site
 from scripts.lib.path_validation import reject_path_symlinks
@@ -43,6 +45,14 @@ def write_text(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+@cache
+def _fixture_thumbnail() -> bytes:
+    """Return a tiny real WebP image for fixture artifact thumbnails."""
+    buffer = io.BytesIO()
+    Image.new("RGB", (8, 6), (214, 196, 160)).save(buffer, format="WEBP")
+    return buffer.getvalue()
+
+
 def build_smoke_site(
     tmp_path: Path,
     monkeypatch,
@@ -69,8 +79,12 @@ def build_smoke_site(
         REPO_ROOT / "config" / "artifact_contract.json",
         config_dir / "artifact_contract.json",
     )
+    artifact_contract = json.loads(
+        (config_dir / "artifact_contract.json").read_text(encoding="utf-8")
+    )
 
     config = {
+        "artifactContract": artifact_contract,
         "toolDisplayOrder": ["claude", "chatgpt", "gemini"],
         "tagDisplayOrder": ["finance", "calculator", "visualization"],
         "tools": {
@@ -92,7 +106,7 @@ def build_smoke_site(
             "tags": ["finance"] if index % 2 == 0 else ["calculator"],
             "tools": ["claude"] if index % 2 == 0 else ["chatgpt"],
             "url": f"apps/artifact-{index:02d}/",
-            "thumbnail": None,
+            "thumbnail": f"apps/artifact-{index:02d}/thumbnail.webp",
         }
         for index in range(1, artifact_count + 1)
     ]
@@ -123,6 +137,9 @@ def build_smoke_site(
                 source_root / artifact["url"] / "index.html",
                 f"<html><body><h1>{artifact['name']}</h1></body></html>\n",
             )
+            thumbnail = artifact.get("thumbnail")
+            if isinstance(thumbnail, str):
+                (source_root / thumbnail).write_bytes(_fixture_thumbnail())
 
     write_text(
         source_root / "pyproject.toml",
@@ -625,14 +642,14 @@ def contrast_ratio(
         r"""async ({ selector, backgroundSelector }) => {
             // A control clicked just before this check may still be easing between
             // colors. Measure the colors it settles on, not a frame mid-transition.
-            const transitions = document
-                .getAnimations()
-                .filter((animation) => animation instanceof CSSTransition)
-                .map((animation) => animation.finished.catch(() => undefined));
-            await Promise.race([
-                Promise.all(transitions),
-                new Promise((resolve) => setTimeout(resolve, 2000)),
-            ]);
+            // A CSS transition always finishes or is cancelled, so this wait ends;
+            // a cancelled one rejects, and the color it was cancelled at is final.
+            await Promise.all(
+                document
+                    .getAnimations()
+                    .filter((animation) => animation instanceof CSSTransition)
+                    .map((animation) => animation.finished.catch(() => undefined)),
+            );
 
             function parseColor(value) {
                 if (!value || value === 'transparent') {

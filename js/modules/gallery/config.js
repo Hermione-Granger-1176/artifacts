@@ -1,11 +1,11 @@
 /**
  * @typedef {{ label: string }} LabelEntry
  * @typedef {{
- *   toolDisplayOrder?: string[],
- *   tagDisplayOrder?: string[],
- *   artifactContract?: ArtifactContract,
- *   tools?: Record<string, LabelEntry>,
- *   tags?: Record<string, LabelEntry>
+ *   toolDisplayOrder: string[],
+ *   tagDisplayOrder: string[],
+ *   artifactContract: ArtifactContract,
+ *   tools: Record<string, LabelEntry>,
+ *   tags: Record<string, LabelEntry>
  * }} GalleryConfig
  * @typedef {{
  *   artifactIdPattern: string,
@@ -17,7 +17,7 @@
  *   name: string,
  *   url: string,
  *   description?: string | null,
- *   thumbnail?: string | null,
+ *   thumbnail: string,
  *   tags: string[],
  *   tools: string[]
  * }} ArtifactRecord
@@ -26,23 +26,6 @@
  *   ARTIFACTS_DATA?: ArtifactRecord[]
  * }} GalleryWindow
  */
-
-/** @type {Required<GalleryConfig>} */
-const DEFAULT_CONFIG = {
-  artifactContract: {
-    artifactIdPattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
-    artifactBasePath: 'apps',
-    thumbnailFile: 'thumbnail.webp'
-  },
-  toolDisplayOrder: ['claude', 'chatgpt', 'gemini'],
-  tagDisplayOrder: [],
-  tools: {
-    claude: { label: 'Claude' },
-    chatgpt: { label: 'ChatGPT' },
-    gemini: { label: 'Gemini' }
-  },
-  tags: {}
-};
 
 /**
  * Return whether a value is a plain object.
@@ -120,15 +103,6 @@ function decodeUriComponentSafely(value) {
   } catch {
     return value;
   }
-}
-
-/**
- * Return the provided artifact contract or fall back to the default.
- * @param {ArtifactContract | null | undefined} value - Candidate contract.
- * @returns {ArtifactContract} The resolved contract.
- */
-function getArtifactContract(value) {
-  return value || DEFAULT_CONFIG.artifactContract;
 }
 
 /**
@@ -265,12 +239,10 @@ function validateArtifactPath(value, path, expectedId, contract, compiledRegex, 
 /**
  * Validate the shape of `window.ARTIFACTS_DATA` at boot time.
  * @param {*} value - Runtime bootstrap data to validate.
- * @param {ArtifactContract} [artifactContract] - Contract to validate against; defaults to the built-in contract.
+ * @param {ArtifactContract} contract - Validated artifact contract from the gallery config.
  * @returns {ArtifactRecord[]} Validated artifact data.
  */
-export function validateArtifactsData(value, artifactContract = DEFAULT_CONFIG.artifactContract) {
-  const contract = getArtifactContract(artifactContract);
-  validateArtifactContract(contract, 'artifactContract');
+export function validateArtifactsData(value, contract) {
   assertShape(Array.isArray(value), 'window.ARTIFACTS_DATA must be an array');
 
   const idRegex = compileArtifactIdRegex(contract);
@@ -284,10 +256,7 @@ export function validateArtifactsData(value, artifactContract = DEFAULT_CONFIG.a
     validateArtifactPath(item.url, `${path}.url`, item.id, contract, idRegex, '');
 
     validateNullableStringField(item, 'description', path);
-    validateNullableStringField(item, 'thumbnail', path);
-    if (item.thumbnail !== undefined && item.thumbnail !== null) {
-      validateArtifactPath(item.thumbnail, `${path}.thumbnail`, item.id, contract, idRegex, contract.thumbnailFile);
-    }
+    validateArtifactPath(item.thumbnail, `${path}.thumbnail`, item.id, contract, idRegex, contract.thumbnailFile);
 
     validateStringArray(item.tags, `${path}.tags`);
     validateStringArray(item.tools, `${path}.tools`);
@@ -313,16 +282,10 @@ export function validateArtifactsConfig(value) {
   ];
 
   for (const [key, validator] of validators) {
-    if (!(key in value)) {
-      continue;
-    }
-
     validator(value[key], `window.ARTIFACTS_CONFIG.${key}`);
   }
 
-  if ('artifactContract' in value) {
-    validateArtifactContract(value.artifactContract, 'window.ARTIFACTS_CONFIG.artifactContract');
-  }
+  validateArtifactContract(value.artifactContract, 'window.ARTIFACTS_CONFIG.artifactContract');
 
   return value;
 }
@@ -335,35 +298,22 @@ export function validateArtifactsConfig(value) {
 export function validateGalleryBootstrapData(windowObj = window) {
   const galleryWindow = /** @type {GalleryWindow} */ (windowObj);
   const config = validateArtifactsConfig(galleryWindow.ARTIFACTS_CONFIG);
-  validateArtifactsData(galleryWindow.ARTIFACTS_DATA, getArtifactContract(config.artifactContract));
+  validateArtifactsData(galleryWindow.ARTIFACTS_DATA, config.artifactContract);
 }
 
 /**
- * Merge runtime config from `window.ARTIFACTS_CONFIG` with built-in defaults.
+ * Return the gallery config that `validateGalleryBootstrapData` already checked.
  * @param {Window} [windowObj=window] - Runtime window object containing bootstrap globals.
- * @returns {Required<GalleryConfig>} Merged gallery config.
+ * @returns {GalleryConfig} Gallery config.
  */
 export function getGalleryConfig(windowObj = window) {
   const galleryWindow = /** @type {GalleryWindow} */ (windowObj);
-  const runtimeConfig = galleryWindow.ARTIFACTS_CONFIG || {};
-  return {
-    artifactContract: getArtifactContract(runtimeConfig.artifactContract),
-    toolDisplayOrder: runtimeConfig.toolDisplayOrder || DEFAULT_CONFIG.toolDisplayOrder,
-    tagDisplayOrder: runtimeConfig.tagDisplayOrder || DEFAULT_CONFIG.tagDisplayOrder,
-    tools: {
-      ...DEFAULT_CONFIG.tools,
-      ...(runtimeConfig.tools || {})
-    },
-    tags: {
-      ...DEFAULT_CONFIG.tags,
-      ...(runtimeConfig.tags || {})
-    }
-  };
+  return /** @type {GalleryConfig} */ (galleryWindow.ARTIFACTS_CONFIG);
 }
 
 /**
  * Return the display label for one tool identifier.
- * @param {Required<GalleryConfig>} config - Gallery config object.
+ * @param {GalleryConfig} config - Gallery config object.
  * @param {string} tool - Tool identifier.
  * @returns {string} Display label.
  */
@@ -373,7 +323,7 @@ export function getToolLabel(config, tool) {
 
 /**
  * Return the display label for one tag identifier.
- * @param {Required<GalleryConfig>} config - Gallery config object.
+ * @param {GalleryConfig} config - Gallery config object.
  * @param {string} tag - Tag identifier.
  * @returns {string} Display label.
  */

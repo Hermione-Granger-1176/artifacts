@@ -160,8 +160,5 @@ def pr_view(pr: int, fields: Sequence[str], *, run_fn: RunFunction | None = None
     }
     view: dict[str, Any] = {}
     for field in fields:
-        supplier = suppliers.get(field)
-        if supplier is None:
-            raise GhError(f"The REST fallback cannot supply the {field} field.")
-        view[field] = supplier()
+        view[field] = suppliers[field]()
     return view

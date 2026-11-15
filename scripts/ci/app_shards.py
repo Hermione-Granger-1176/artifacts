@@ -318,10 +318,8 @@ COMMAND_HANDLERS = {
 def main(argv: list[str] | None = None) -> int:
     """Run one Makefile-facing app-shard command."""
     args = _parser().parse_args(argv)
-    handler = COMMAND_HANDLERS.get(args.command)
-    if handler is None:  # pragma: no cover - argparse constrains command values.
-        raise ValueError(f"Unsupported app-shard command: {args.command}")
-    return handler(args)
+    # argparse only accepts the commands registered in COMMAND_HANDLERS.
+    return COMMAND_HANDLERS[args.command](args)
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -143,10 +143,9 @@ test('keystone narrows the far edge and foreshortens it', () => {
 });
 
 test('combined phone geometry keeps every page corner inside the sheet', () => {
-  // Pure centred keystone fits even with the old scale-only implementation.
-  // Rotation and skew expose its missing translation; seed 1131 is a known
-  // witness, and the sweep guards the full jittered preset rather than one
-  // hand-picked transform.
+  // A fit needs translation as well as scale once rotation and skew combine
+  // with keystone; seed 1131 is a known witness, and the sweep covers the full
+  // jittered preset rather than one hand-picked transform.
   const tolerance = 1e-6;
 
   for (let seed = 1_000; seed < 1_200; seed += 1) {
@@ -375,9 +374,12 @@ test('where a degraded rendering exists is a published constant', () => {
   assert.deepEqual(DEGRADATION_APPLIES_TO, ['png', 'pdf_raster']);
 });
 
-test('a zero-sized page still produces finite numbers', () => {
-  const degenerate = planDegradation({ width: 0, height: 0, preset: 'fax', seed: 3, settings: resolveSettings('fax') });
-
-  assert.ok(degenerate.transform.every((row) => row.every(Number.isFinite)));
-  assert.ok(degenerate.transformPx.every((row) => row.every(Number.isFinite)));
+test('a page without a positive size is rejected before any maths runs', () => {
+  const settings = resolveSettings('fax');
+  for (const [width, height] of [[0, 0], [794, 0], [0, 1123], [-1, 1123], [Number.NaN, 1123]]) {
+    assert.throws(() => planDegradation({ width, height, preset: 'fax', seed: 3, settings }), RangeError);
+  }
+  const { documentObj } = createFakeCanvasDocument();
+  const degradation = planDegradation({ width: 794, height: 1123, preset: 'fax', seed: 3, settings });
+  assert.throws(() => degradeCanvas(createFakeCanvas(0, 0), degradation, { documentObj }), RangeError);
 });

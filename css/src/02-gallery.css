@@ -1788,8 +1788,7 @@ button {
   object-position: top;
 }
 
-.card-thumbnail-placeholder::before,
-.detail-media-placeholder::before {
+.card-thumbnail-placeholder::before {
   content: '\2699';
   position: absolute;
   left: 50%;
@@ -2058,16 +2057,6 @@ button {
 
   /* The thumbnail's shape is known, so the panel is the right height before the image arrives. */
   aspect-ratio: var(--card-thumb-ratio);
-}
-
-.detail-media-placeholder {
-  width: 100%;
-  min-height: 12rem;
-  position: relative;
-}
-
-.detail-media-placeholder::before {
-  font-size: 2.5rem;
 }
 
 .detail-content {
