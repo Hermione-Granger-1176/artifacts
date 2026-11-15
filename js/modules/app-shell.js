@@ -1,4 +1,4 @@
-import{createFrameScheduler as f}from"./frame-scheduler.js";import{writeStorage as v}from"./runtime.js";import{createThemeSwitchGuard as _}from"./theme-switching.js";const A=/^[./a-zA-Z0-9_-]+$/,T=`
+import{createFrameScheduler as v}from"./frame-scheduler.js";import{writeStorage as T}from"./runtime.js";import{createThemeSwitchGuard as f}from"./theme-switching.js";const w="../../",A=`
   <header class="app-header">
     <div class="app-header-inner">
       <div class="app-nav">
@@ -7,7 +7,7 @@ import{createFrameScheduler as f}from"./frame-scheduler.js";import{writeStorage 
             <path d="m15 18-6-6 6-6"></path>
           </svg>
         </button>
-        <a href="__HOME_PATH__" class="brand-link" aria-label="Go to Artifacts home">
+        <a href="${w}" class="brand-link" aria-label="Go to Artifacts home">
           <svg class="brand-mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" aria-hidden="true">
             <rect fill="rgb(217, 119, 6)" x="14" y="20" width="84" height="92" rx="18"></rect>
             <rect fill="rgb(243, 214, 166)" x="26" y="12" width="84" height="92" rx="18"></rect>
@@ -36,7 +36,7 @@ import{createFrameScheduler as f}from"./frame-scheduler.js";import{writeStorage 
       </button>
     </div>
   </header>
-`,S=`
+`,_=`
   <div id="runtime-error" class="runtime-error hidden" role="alert" aria-live="assertive">
     <p>The app failed to initialize correctly. Reload the page, or try again later.</p>
     <details id="runtime-error-details" class="runtime-error-details" hidden>
@@ -45,11 +45,11 @@ import{createFrameScheduler as f}from"./frame-scheduler.js";import{writeStorage 
       <button id="runtime-error-copy" class="runtime-error-copy" type="button" hidden>Copy error details</button>
     </details>
   </div>
-`,E=`
+`,S=`
   <button id="scroll-top" class="scroll-top" type="button" aria-label="Scroll to top" aria-hidden="true" tabindex="-1">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <line x1="12" y1="19" x2="12" y2="5"></line>
       <polyline points="5 12 12 5 19 12"></polyline>
     </svg>
   </button>
-`;function d(t,n){!t||t.childElementCount>0||(t.innerHTML=n.trim())}export function renderAppShell({documentObj:t=document,homePath:n="../../"}={}){d(t.querySelector('[data-app-shell="header"]'),T.replaceAll("__HOME_PATH__",A.test(n)?n:"../../")),d(t.querySelector('[data-app-shell="runtime-error"]'),S),d(t.querySelector('[data-app-shell="scroll-top"]'),E)}export function initAppShell({homePath:t="../../",metaThemeColors:n={dark:"rgb(20, 20, 20)",light:"rgb(248, 248, 246)"},onThemeChange:y=()=>{}}={}){renderAppShell({documentObj:document,homePath:t});const u=window,l=document.documentElement,h=document.getElementById("back-button"),i=document.getElementById("theme-toggle"),o=document.getElementById("scroll-top"),p=document.querySelector('meta[name="theme-color"]'),b=window.matchMedia("(prefers-reduced-motion: reduce)");function a(){return u.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(l.getAttribute("data-theme"))}function m(e){p&&p.setAttribute("content",e==="dark"?n.dark:n.light)}function s(){if(!i)return;const e=a(),r=e==="dark"?"light":"dark";i.setAttribute("aria-pressed",String(e==="dark")),i.setAttribute("aria-label",`Switch to ${r} theme`),i.setAttribute("title",`Switch to ${r} theme`)}const k=_(l,window);function w(e){const r=u.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(e);k(),l.setAttribute("data-theme",r),m(r),s(),v("theme",r),y(r)}function x(){const e=()=>{window.location.href=t};if(!document.referrer){e();return}let r;try{r=new URL(document.referrer)}catch{e();return}if(r.origin!==window.location.origin||window.history.length<=1){e();return}window.history.back()}let g=null;function c(){if(!o)return;const e=window.scrollY>280;e!==g&&(g=e,o.classList.toggle("is-visible",e),o.setAttribute("aria-hidden",String(!e)),o.tabIndex=e?0:-1)}return h&&h.addEventListener("click",x),i&&i.addEventListener("click",()=>{w(a()==="dark"?"light":"dark")}),o&&(o.addEventListener("click",()=>{const e=b.matches?"auto":"smooth";window.scrollTo({top:0,behavior:e})}),window.addEventListener("scroll",f(c),{passive:!0}),c()),m(a()),s(),{applyTheme:w,syncThemeToggle:s,updateScrollTopVisibility:c}}
+`;function u(n,t){n.innerHTML=t.trim()}export function renderAppShell({documentObj:n=document}={}){const t=o=>n.querySelector(`[data-app-shell="${o}"]`);u(t("header"),A),u(t("runtime-error"),_),u(t("scroll-top"),S)}export function initAppShell({metaThemeColors:n={dark:"rgb(20, 20, 20)",light:"rgb(248, 248, 246)"},onThemeChange:t=()=>{}}={}){const o=window,s=document.documentElement,g=document.getElementById("back-button"),i=document.getElementById("theme-toggle"),l=document.getElementById("scroll-top"),b=document.querySelector('meta[name="theme-color"]'),y=window.matchMedia("(prefers-reduced-motion: reduce)");function a(){return o.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(s.getAttribute("data-theme"))}function h(e){b.setAttribute("content",e==="dark"?n.dark:n.light)}function d(){const e=a(),r=e==="dark"?"light":"dark";i.setAttribute("aria-pressed",String(e==="dark")),i.setAttribute("aria-label",`Switch to ${r} theme`),i.setAttribute("title",`Switch to ${r} theme`)}const k=f(s,window);function m(e){const r=o.__ARTIFACTS_APP_THEME_BOOTSTRAP__.normalizeTheme(e);k(),s.setAttribute("data-theme",r),h(r),d(),T("theme",r),t(r)}function x(){if(!document.referrer||new URL(document.referrer).origin!==window.location.origin||window.history.length<=1){window.location.href=w;return}window.history.back()}let p=null;function c(){const e=window.scrollY>280;e!==p&&(p=e,l.classList.toggle("is-visible",e),l.setAttribute("aria-hidden",String(!e)),l.tabIndex=e?0:-1)}return g.addEventListener("click",x),i.addEventListener("click",()=>{m(a()==="dark"?"light":"dark")}),l.addEventListener("click",()=>{const e=y.matches?"auto":"smooth";window.scrollTo({top:0,behavior:e})}),window.addEventListener("scroll",v(c),{passive:!0}),c(),h(a()),d(),{applyTheme:m,syncThemeToggle:d,updateScrollTopVisibility:c}}
