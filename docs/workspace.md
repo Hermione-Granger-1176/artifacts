@@ -156,7 +156,7 @@ The artifact contract includes these files. Paths are relative to the artifact d
 - Add or modify artifacts in `apps/`.
 - Use Makefile targets for normal local and documented workflows. See [`operations.md`](operations.md) for which targets to run in each workflow.
 - Run `make new name=my-artifact` for a starting structure that passes the gates: the shared-stylesheet and app-shell wiring, `css/app.css` and `js/app.js` stubs, `README.md` and `docs/` stubs, metadata files, and a passing `tests/js/apps/<slug>/app.test.js`.
-- Run `make new name=my-artifact src=path/to/file.html` to import an existing HTML file. It installs the file as `index.html`, adds the CSP meta tag and shared stylesheet links only when they are absent, reports off-origin script or style references without rewriting them, and scaffolds the same app-local files, docs, and test stub.
+- Run `make new name=my-artifact <<< path/to/file.html` to import an existing HTML file. It installs the file as `index.html`, adds the CSP meta tag and shared stylesheet links only when they are absent, reports off-origin script or style references without rewriting them, and scaffolds the same app-local files, docs, and test stub.
 - Update generator logic in `scripts/` when derived-output behavior should change.
 - Prefer keeping tool scope in its owning config file, and avoid adding ad hoc duplicated file selection unless a target or workflow truly needs it.
 - Use `make validate` when you change top-level artifact directories or the artifact folder contract.

@@ -6,9 +6,8 @@ fmt: fmt-py fmt-js fmt-css fmt-prettier ## Auto-fix all formatting and lint fixe
 
 format: fmt ## Alias for fmt
 
-fmt-py: ## Auto-fix Python (ruff check --fix + ruff format) [paths=...]
-	$(VENV_PYTHON) -m ruff check --fix $(if $(paths),$(paths),.)
-	$(VENV_PYTHON) -m ruff format $(if $(paths),$(paths),.)
+fmt-py: ## Auto-fix Python (ruff check --fix + ruff format) [paths on stdin]
+	@$(STDIN_PATHS) . -- $(VENV_PYTHON) -m ruff check --fix --then $(VENV_PYTHON) -m ruff format
 
 fmt-js: ## Auto-fix JavaScript (eslint --fix)
 	$(NPM) run lint:js -- --fix
@@ -21,27 +20,20 @@ fmt-prettier: ## Auto-format metadata, workflows, and tooling scripts
 
 format-check: format-py-check format-prettier-check align-tables-check ## Check Python, Prettier, and Markdown table formatting
 
-format-py-check: ## Check Python formatting only [paths=...]
-	$(VENV_PYTHON) -m ruff format --check $(if $(paths),$(paths),.)
+format-py-check: ## Check Python formatting only [paths on stdin]
+	@$(STDIN_PATHS) . -- $(VENV_PYTHON) -m ruff format --check
 
-format-py-diff: ## Show Python formatting changes without modifying files [paths=...]
-	$(VENV_PYTHON) -m ruff format --check --diff $(if $(paths),$(paths),.)
+format-py-diff: ## Show Python formatting changes without modifying files [paths on stdin]
+	@$(STDIN_PATHS) . -- $(VENV_PYTHON) -m ruff format --check --diff
 
 format-prettier-check: ## Check Prettier-managed non-Markdown files only
 	$(NPM) run format:check
 
-format-prettier-diff: ## Show Prettier formatting changes without modifying files (make format-prettier-diff path=config/eslint.config.js)
-	@test -n "$(path)" || (printf 'Usage: make format-prettier-diff path=config/eslint.config.js\n' >&2; exit 1)
-	$(if $(filter %.md %.markdown,$(path)),$(error Markdown formatting is owned by make align-tables-check),)
-	@set -e; \
-	formatted=$$(mktemp "$${TMPDIR:-/tmp}/artifacts-prettier.XXXXXX"); \
-	trap 'rm -f -- "$$formatted"' EXIT; \
-	$(NPM) exec --no -- prettier --config config/prettierrc.json --ignore-path config/prettierignore \
-		-- "$(path)" > "$$formatted"; \
-	diff -u -- "$(path)" "$$formatted" || test $$? -eq 1
+format-prettier-diff: ## Show Prettier formatting changes without modifying files (paths on stdin, required)
+	@$(STDIN_PATHS) --require --name "make format-prettier-diff" -- $(VENV_PYTHON) -m scripts.lint.format_prettier_diff --runner "$(NPM) exec --no --"
 
-align-tables: ## Align markdown table pipes across all docs [paths="README.md docs/example.md"]
-	$(VENV_PYTHON) scripts/lint/align_tables.py $(if $(paths),$(paths))
+align-tables: ## Align markdown table pipes across all docs [paths on stdin]
+	@$(STDIN_PATHS) -- $(VENV_PYTHON) scripts/lint/align_tables.py
 
-align-tables-check: ## Check markdown table pipe alignment without modifying files [paths="README.md docs/example.md"]
-	$(VENV_PYTHON) scripts/lint/align_tables.py --check $(if $(paths),$(paths))
+align-tables-check: ## Check markdown table pipe alignment without modifying files [paths on stdin]
+	@$(STDIN_PATHS) -- $(VENV_PYTHON) scripts/lint/align_tables.py --check

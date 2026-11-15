@@ -31,9 +31,9 @@ serve: index site ## Build the packaged site and serve it locally (make serve [P
 
 generate: styles thumbnails index ## Rebuild all canonical generated assets
 
-new: ## Scaffold a new artifact directory (make new name=X [src=file.html])
-	$(call need,name,make new name=my-artifact [src=file.html])
-	$(VENV_PYTHON) scripts/build/scaffold_artifact.py "$(name)" $(if $(src),--from-html "$(src)")
+new: ## Scaffold a new artifact directory; import an HTML file by passing its path on stdin (make new name=X)
+	$(call need,name,make new name=my-artifact)
+	@$(STDIN_PATHS) -- $(VENV_PYTHON) scripts/build/scaffold_artifact.py "$(name)"
 
-optimize-social-image: ## Recompress the Open Graph share image in place (make optimize-social-image [path=FILE])
-	$(VENV_PYTHON) scripts/build/optimize_social_image.py $(if $(path),"$(path)")
+optimize-social-image: ## Recompress the Open Graph share image in place [path on stdin]
+	@$(STDIN_PATHS) -- $(VENV_PYTHON) scripts/build/optimize_social_image.py

@@ -5,8 +5,8 @@ Reads markdown files, finds table blocks (consecutive lines containing pipes),
 and pads each cell so that pipe characters are vertically aligned.
 
 Usage:
-    make align-tables [paths="README.md docs/example.md"]
-    make align-tables-check [paths="README.md docs/example.md"]
+    make align-tables [paths on stdin, one per line]
+    make align-tables-check [paths on stdin, one per line]
 
 With no paths, processes all .md files in the repository. Pass paths to process
 only those files. The check target writes nothing and exits 1 when any table
