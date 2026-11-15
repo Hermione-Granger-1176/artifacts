@@ -122,7 +122,7 @@ Run `make check-local` for the non-browser gate. When browser behavior or thumbn
 ## Page-speed budget
 
 - `make test-page-speed` measures each page from navigation start until the page's runtime sets `data-runtime-status="ready"`, which happens after the page's own script has rendered it. Each visit uses a fresh browser context, so nothing is cached. The check fails when a page's median over five visits exceeds the budget, so one slow visit does not fail it alone.
-- The 1000 ms budget is about twice the time the pinned Playwright image measures on the hosted runner. It catches a page that becomes much slower, such as a blocking script, heavy work at startup, or a render loop, without failing on runner noise. It does not measure network transfer, because the site is served locally.
+- The 500 ms budget is about four times the slowest page's median on the hosted runner, where the pinned Playwright image measured 40 to 120 ms per page. The margin keeps it passing on a busy developer machine, where pages measured up to about 350 ms. It catches a page that becomes much slower, such as a blocking script, heavy work at startup, or a render loop, without failing on runner noise. It does not measure network transfer, because the site is served locally.
 - To investigate, run `make test-page-speed runs=10`, or pass `budget_ms=` to see every page's timings without failing. Raise `DEFAULT_BUDGET_MS` in `tests/browser/test_frontend_page_speed.py` only for a deliberate change that makes a page slower, and say why in the PR.
 
 ## Required GitHub settings

@@ -7,7 +7,9 @@ loaded when its runtime marks the document ready
 script has rendered it. The median over several visits must stay under an
 absolute budget, so a single slow visit cannot fail the check on its own.
 
-The budget is roughly twice the calibrated time on the hosted CI runner. It
+The budget is about four times the slowest page's median on the hosted CI
+runner, where pages measured 40 to 120 ms on the pinned Playwright image, so it
+also holds on a busy developer machine, where they measure up to about 350 ms. It
 catches a page that becomes much slower, such as a blocking script, a large
 synchronous computation at startup, or a render loop, without failing on
 ordinary runner noise. ``make test-page-speed`` runs it; ``budget_ms=`` and
@@ -36,7 +38,7 @@ from tests.browser.frontend_helpers import (
 BUDGET_ENV = "ARTIFACTS_PAGE_SPEED_BUDGET_MS"
 RUNS_ENV = "ARTIFACTS_PAGE_SPEED_RUNS"
 SUMMARY_ENV = "GITHUB_STEP_SUMMARY"
-DEFAULT_BUDGET_MS = 1000.0
+DEFAULT_BUDGET_MS = 500.0
 DEFAULT_RUNS = 5
 READY_TIMEOUT_MS = 30_000
 
@@ -67,15 +69,25 @@ class SpeedHarness:
     browser: Any
 
 
-def _positive_number(name: str, default: float) -> float:
-    """Return a positive number from the environment, or ``default`` when unset."""
-    raw = os.environ.get(name, "").strip()
+def _budget_ms() -> float:
+    """Return the budget from the environment, or the default when unset."""
+    raw = os.environ.get(BUDGET_ENV, "").strip()
     if not raw:
-        return default
+        return DEFAULT_BUDGET_MS
     value = float(raw)
     if value <= 0:
-        raise ValueError(f"{name} must be positive, got {raw}")
+        raise ValueError(f"{BUDGET_ENV} must be positive, got {raw}")
     return value
+
+
+def _run_count() -> int:
+    """Return the number of visits per page, a whole number of at least 1."""
+    raw = os.environ.get(RUNS_ENV, "").strip()
+    if not raw:
+        return DEFAULT_RUNS
+    if not raw.isdigit() or int(raw) < 1:
+        raise ValueError(f"{RUNS_ENV} must be a whole number of at least 1, got {raw}")
+    return int(raw)
 
 
 @pytest.fixture(scope="module")
@@ -122,8 +134,8 @@ def _report(path: str, timings: list[float], median: float, budget: float) -> No
 @pytest.mark.parametrize("path", ["/", *(f"/apps/{slug}/" for slug in discover_app_slugs())])
 def test_page_reaches_ready_within_budget(speed_site: SpeedHarness, path: str) -> None:
     """The median first-visit time to the ready mark stays under the budget."""
-    budget = _positive_number(BUDGET_ENV, DEFAULT_BUDGET_MS)
-    runs = int(_positive_number(RUNS_ENV, DEFAULT_RUNS))
+    budget = _budget_ms()
+    runs = _run_count()
     timings = [time_to_ready(speed_site, path) for _ in range(runs)]
     median = statistics.median(timings)
 
