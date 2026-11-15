@@ -75,10 +75,14 @@ def _budget_ms() -> float:
     raw = os.environ.get(BUDGET_ENV, "").strip()
     if not raw:
         return DEFAULT_BUDGET_MS
-    value = float(raw)
+    message = f"{BUDGET_ENV} must be a positive finite number, got {raw}"
+    try:
+        value = float(raw)
+    except ValueError as error:
+        raise ValueError(message) from error
     # NaN would fail every page and inf would pass every page, so both are refused.
     if not math.isfinite(value) or value <= 0:
-        raise ValueError(f"{BUDGET_ENV} must be a positive finite number, got {raw}")
+        raise ValueError(message)
     return value
 
 
