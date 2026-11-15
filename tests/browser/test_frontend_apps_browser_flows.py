@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import io
 import json
 import re
@@ -8,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import expect
 
 from tests.browser.frontend_helpers import (
@@ -97,8 +99,25 @@ def test_loan_amortization_flow_covers_theme_and_schedule(app_browser: AppBrowse
         expect(page.locator("html")).to_have_attribute("data-theme", "dark")
 
         page.evaluate("window.scrollTo(0, 900)")
-        page.wait_for_timeout(100)
         expect(page.locator("#scroll-top")).to_have_attribute("aria-hidden", "false")
+
+
+def _wait_for_fit_scale(page) -> None:
+    """Wait until the vendor-docs preview has refitted its page to a resized frame.
+
+    The app rescales the page from a ResizeObserver on ``#vdPaperFrame``. Observers
+    are notified in creation order, so a fresh observer's first notification
+    arrives only after the app's own observer has seen the frame's current size.
+    """
+    page.evaluate(
+        """() => new Promise((resolve) => {
+            const observer = new ResizeObserver(() => {
+                observer.disconnect();
+                resolve();
+            });
+            observer.observe(document.querySelector('#vdPaperFrame'));
+        })"""
+    )
 
 
 def _box(page, selector: str) -> dict[str, float]:
@@ -212,7 +231,11 @@ def test_tokenizer_explorer_flow_covers_sampling_and_theme(app_browser: AppBrows
                     element.dispatchEvent(new Event('input', { bubbles: true }));
                 }"""
         )
-        page.wait_for_timeout(100)
+        expect(page.locator("#candidate-list .is-cut")).not_to_have_count(initial_cut_count)
+        page.wait_for_function(
+            "previous => document.querySelector('#topp-note').textContent !== previous",
+            arg=initial_topp_note,
+        )
         assert page.locator("#candidate-list .is-cut").count() != initial_cut_count
         assert page.locator("#topp-note").text_content() != initial_topp_note
 
@@ -601,9 +624,9 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         # Checked at several depths rather than one, because a sticky item can
         # only travel as far as its own grid area and a single sample would
         # pass just as well against an element that had already let go.
+        # The page scrolls smoothly by default, so jump straight to each depth.
         for depth in (200, 300):
-            page.evaluate(f"window.scrollTo(0, {depth})")
-            page.wait_for_timeout(150)
+            page.evaluate(f"window.scrollTo({{ top: {depth}, behavior: 'instant' }})")
             pinned = page.evaluate(
                 """() => {
                     const output = document.querySelector('.vd-output').getBoundingClientRect();
@@ -619,8 +642,7 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
             assert pinned["outputHeight"] <= pinned["viewport"], (depth, pinned)
             assert pinned["buttonBottom"] <= pinned["viewport"], (depth, pinned)
 
-        page.evaluate("window.scrollTo(0, 0)")
-        page.wait_for_timeout(150)
+        page.evaluate("window.scrollTo({ top: 0, behavior: 'instant' })")
 
         # Batch mode reveals its rows and renames the one primary button; the
         # panel stays inside the window even with the fine-tune knobs open.
@@ -647,7 +669,7 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         # Below about 1000px the studio stacks (toolbar, page, output), and below
         # 700px the type pills give way to the dropdown.
         page.set_viewport_size({"width": 900, "height": 900})
-        page.wait_for_timeout(150)
+        _wait_for_fit_scale(page)
         stacked = page.evaluate(
             """() => ({
                 stageBottom: document.querySelector('.vd-stage').getBoundingClientRect().bottom,
@@ -659,14 +681,12 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         assert stacked["outputTop"] >= stacked["stageBottom"] - 1, stacked
         assert stacked["overflow"] <= 0, stacked
         page.set_viewport_size({"width": 600, "height": 900})
-        page.wait_for_timeout(150)
         expect(page.locator("#vdDocType")).to_be_hidden()
         expect(page.locator("#vdDocTypeSelect")).to_be_visible()
         page.locator("#vdDocTypeSelect").select_option("receipt")
         expect(page.locator('#vdDocType [data-type="receipt"]')).to_have_class("active")
         page.locator("#vdDocTypeSelect").select_option("invoice")
         page.set_viewport_size({"width": 1400, "height": 900})
-        page.wait_for_timeout(150)
         expect(page.locator("#vdDocType")).to_be_visible()
 
         # Selection drives the preview and the caption, and the swatch next to
@@ -735,10 +755,12 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
             collected.clear()
             page.locator(selector).click()
 
-            for _ in range(600):
-                if len(collected) >= expected:
+            # The standing listener records every download; each wait returns on the next one.
+            while len(collected) < expected:
+                try:
+                    page.wait_for_event("download", timeout=60000)
+                except PlaywrightTimeoutError:
                     break
-                page.wait_for_timeout(100)
 
             names = [item.suggested_filename for item in collected]
             assert len(collected) == expected, names
@@ -884,10 +906,9 @@ def test_vendor_docs_generator_batch_can_be_stopped_mid_run(
         )
         page.locator("#vdBatchStop").click()
 
-        for _ in range(600):
-            if downloads:
-                break
-            page.wait_for_timeout(100)
+        if not downloads:
+            with contextlib.suppress(PlaywrightTimeoutError):
+                page.wait_for_event("download", timeout=60000)
 
         assert downloads, "a stopped run still hands over what it finished"
         name = downloads[0].suggested_filename

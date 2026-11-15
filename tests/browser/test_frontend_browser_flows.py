@@ -42,7 +42,6 @@ def test_keyboard_only_flow_keeps_focus_visible_and_restores_trigger(
         expect(page.locator(".detail-close")).to_be_focused()
 
         page.keyboard.press("Escape")
-        page.wait_for_timeout(450)
         expect(page.locator("#detail-overlay")).not_to_have_class("detail-overlay visible open")
         expect(first_card).to_be_focused()
 
@@ -104,11 +103,12 @@ def test_mobile_viewport_flow_keeps_gallery_usable(tmp_path: Path, monkeypatch) 
             page.mouse.up()
             expect(page.locator(".page-counter")).to_have_text(re.compile(rf"^{expected} / \d+$"))
 
-        page.wait_for_timeout(800)
+        # The counter moves when the swipe lands; the flip then plays over the card.
+        expect(page.locator("#book-sheet")).not_to_have_class(re.compile(r"\bis-turning\b"))
         page.locator(".artifact-card").first.click()
         expect(page.locator("#detail-title")).to_be_visible()
         page.locator(".detail-close").click()
-        page.wait_for_timeout(450)
+        expect(page.locator("#detail-overlay")).not_to_have_class(re.compile(r"\bvisible\b"))
 
 
 def test_reduced_motion_flow_persists_theme_and_closes_overlay_immediately(
@@ -165,8 +165,10 @@ def test_large_catalog_fixture_exercises_filtering_and_pagination(
         expect(page.locator(".artifact-card")).to_have_count(1)
 
         page.locator('.desk-note[data-filter-tool="claude"]').click()
-        page.wait_for_timeout(100)
         expect(page.locator(".artifact-card")).to_have_count(4)
+        expect(page.locator("#gallery-status")).to_contain_text(
+            "Showing 28 artifacts; page 1 of 7."
+        )
         status_text = page.locator("#gallery-status").text_content() or ""
         assert "Showing 28 artifacts; page 1 of 7." in status_text
 
@@ -205,8 +207,59 @@ DIRTY_BOOK_STATE = """() => {
 }"""
 
 
+# Counts animation frames the page has requested and not yet run. Every book
+# turn tweens on the frame clock or plays Web Animations, so no pending frame and
+# no running script animation means nothing in flight can still land a page.
+FRAME_TRACKER = """(() => {
+    const pending = new Set();
+    const request = window.requestAnimationFrame.bind(window);
+    const cancel = window.cancelAnimationFrame.bind(window);
+    window.requestAnimationFrame = (callback) => {
+        const id = request((time) => {
+            pending.delete(id);
+            callback(time);
+        });
+        pending.add(id);
+        return id;
+    };
+    window.cancelAnimationFrame = (id) => {
+        pending.delete(id);
+        cancel(id);
+    };
+    window.__pendingFrames = pending;
+})();"""
+
+BOOK_IDLE = """() => window.__pendingFrames.size === 0 && document.getAnimations().every(
+    (animation) => animation instanceof CSSTransition
+        || animation instanceof CSSAnimation
+        || animation.playState !== 'running'
+)"""
+
+
 def _wait_for_open_book(page) -> None:
     expect(page.locator("#book-shell")).to_have_attribute("data-scene-intro", "open", timeout=12000)
+
+
+def _wait_for_clean_book(page) -> None:
+    """Wait until a turn has finished and cleared its leaf, inline styles, and animations."""
+    page.wait_for_function(
+        f"""() => {{
+            const state = ({DIRTY_BOOK_STATE})();
+            return state.dirty.length === 0
+                && state.animations === 0
+                && state.strays === 0
+                && !state.turning;
+        }}"""
+    )
+
+
+def _wait_for_idle_book(page) -> None:
+    """Wait until no turn is in flight: no pending frame and no running script animation.
+
+    Needs ``FRAME_TRACKER`` installed as an init script before the page loads. Polls
+    on a timer, because polling on animation frames would count its own frames.
+    """
+    page.wait_for_function(BOOK_IDLE, polling=50)
 
 
 def _assert_clean_book(page) -> None:
@@ -520,7 +573,7 @@ def test_reduced_motion_book_cross_fades_without_a_leaf(tmp_path: Path, monkeypa
         expect(page.locator(".book-inner")).not_to_have_attribute(
             "style", "opacity: 0.5", timeout=1500
         )
-        page.wait_for_timeout(400)
+        _wait_for_clean_book(page)
         _assert_clean_book(page)
         assert page.evaluate("window.__leafAdds") == 0
         assert page.evaluate("window.__rotations") == []
@@ -564,7 +617,7 @@ def test_notepad_flips_its_page_up_over_the_binding_and_leaves_no_inline_state(
         page.get_by_role("button", name="Next page").click()
         expect(page.locator(".page-counter")).to_have_text(re.compile(r"^2 / \d+$"))
         expect(page.locator("#gallery-status")).to_contain_text("page 2 of", timeout=3000)
-        page.wait_for_timeout(900)
+        _wait_for_clean_book(page)
         _assert_clean_book(page)
         expect(page.locator(".notepad-leaf")).to_have_count(0)
         assert page.evaluate("window.__notepadLeaves") == 1
@@ -624,6 +677,7 @@ def test_resize_across_the_mobile_breakpoint_mid_turn_leaves_no_leaf_or_inline_s
     ):
         page = session.page
         assert page is not None
+        page.add_init_script(FRAME_TRACKER)
         session.goto("/")
         _wait_for_open_book(page)
 
@@ -634,7 +688,9 @@ def test_resize_across_the_mobile_breakpoint_mid_turn_leaves_no_leaf_or_inline_s
         # Book page 2 starts with the fifth artifact, which is notepad page 5.
         expect(page.locator("#gallery-status")).to_contain_text("page 5 of")
         _assert_clean_book(page)
-        page.wait_for_timeout(900)
+        # Clean now must also mean clean for good: a cancelled turn that kept
+        # running would hold a frame or an animation until it landed.
+        _wait_for_idle_book(page)
         _assert_clean_book(page)
         expect(page.locator(".page-counter")).to_have_text(re.compile(r"^5 / \d+$"))
 
@@ -650,6 +706,7 @@ def test_search_during_a_page_turn_renders_the_new_results(tmp_path: Path, monke
     ):
         page = session.page
         assert page is not None
+        page.add_init_script(FRAME_TRACKER)
         session.goto("/")
         _wait_for_open_book(page)
 
@@ -658,7 +715,8 @@ def test_search_during_a_page_turn_renders_the_new_results(tmp_path: Path, monke
         page.fill("#search-input", "Artifact 13")
         expect(page.locator(".book-leaf")).to_have_count(0)
         expect(page.locator(".artifact-card")).to_have_count(1, timeout=2000)
-        page.wait_for_timeout(900)
+        # The cancelled turn must not land later and replace the search results.
+        _wait_for_idle_book(page)
         expect(page.locator(".artifact-card")).to_have_count(1)
         expect(page.locator("#gallery-status")).to_contain_text("Showing 1 artifact")
         _assert_clean_book(page)

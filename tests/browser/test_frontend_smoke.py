@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 from pathlib import Path
 
@@ -71,7 +72,6 @@ def test_gallery_smoke_covers_root_interactions(tmp_path: Path, monkeypatch) -> 
         expect(page.locator(".artifact-card")).to_have_count(4)
 
         page.fill("#search-input", "Artifact 13")
-        page.wait_for_timeout(250)
         expect(page.locator(".artifact-card")).to_have_count(1)
 
         page.locator(".artifact-card").first.click()
@@ -79,8 +79,9 @@ def test_gallery_smoke_covers_root_interactions(tmp_path: Path, monkeypatch) -> 
         expect(page.locator("#detail-title")).to_have_text("Artifact 13")
 
         page.locator("button.detail-close").click()
-        page.wait_for_timeout(450)
         expect(page.locator("#detail-overlay")).not_to_have_class("detail-overlay visible open")
+        # The close finishes when the overlay drops `visible` after its exit motion.
+        expect(page.locator("#detail-overlay")).not_to_have_class(re.compile(r"\bvisible\b"))
 
 
 def test_404_links_handle_root_and_preview_paths(tmp_path: Path, monkeypatch) -> None:
@@ -122,7 +123,7 @@ def test_gallery_shows_runtime_error_for_invalid_bootstrap_data(
             playwright,
             server.url,
             name="frontend-smoke-invalid-bootstrap",
-            allowed_page_errors=("window.ARTIFACTS_DATA must be an array",),
+            allowed_console_errors=("window.ARTIFACTS_DATA must be an array",),
         ) as session,
     ):
         page = session.page
