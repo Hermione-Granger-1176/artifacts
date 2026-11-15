@@ -193,18 +193,23 @@ test('regions include text ranges that extend beyond the element layout box', ()
   }
 });
 
-test('a page with no measurable size yields finite coordinates', () => {
+test('a page with no rendered size refuses to report boxes', () => {
   const doc = createFakeDocument();
   const paper = createFakeElement('article');
   renderPaper(paper, buildDocument({ docTypeId: 'invoice', seed: 7, today: TODAY, vendorId: 'apex' }), doc);
 
-  // Never laid out, so every rect is zero. Dividing by the page would produce
-  // NaN and Infinity throughout the payload rather than an obvious zero.
-  const { page, regions } = collectBoxes(paper, { doc });
+  // Never laid out, as a hidden or detached page is: the page and every node on
+  // it measure 0 x 0. Any stand-in divisor would label every value at a
+  // plausible-looking [0, 0, 0, 0], so the measurement fails loudly instead.
+  assert.throws(() => collectBoxes(paper, { doc }), /preview is not on screen/);
+  assert.throws(() => collectBoxes(paper, { doc, words: true }), /preview is not on screen/);
+});
 
-  assert.equal(page.width, 0);
-  assert.ok(regions.length > 0);
-  assert.ok(regions.every((region) => region.box.every(Number.isFinite)));
+test('a page with width but no height is refused too', () => {
+  const { doc, paper } = render();
+  paper.rect = { ...paper.rect, height: 0 };
+
+  assert.throws(() => collectBoxes(paper, { doc }), /label boxes cannot be measured/);
 });
 
 test('a node carrying an empty data-field is skipped rather than emitted', () => {

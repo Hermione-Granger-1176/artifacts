@@ -67,14 +67,43 @@ const SCALES = /** @type {[string, number][]} */ ([
 ]);
 
 /**
- * Round a value to whole cents, avoiding the float drift that makes repeated
- * addition of `x.xx5` values disagree between runs.
+ * Round a value to whole cents, half away from zero, on the decimal the value
+ * prints as.
+ *
+ * `Math.round(value * 100)` works on the binary value instead, so a half-cent
+ * amount such as 522.295, stored as 522.29499999999996, would be cut down to
+ * 522.29 while 0.145 rounds up. Reading the digits of the shortest decimal
+ * string keeps the decision exact: the third decimal digit alone says whether
+ * the dropped part is at least half a cent. Shifting the decimal point with an
+ * `e2` suffix instead would not be exact, because re-parsing a 17-digit string
+ * such as `147.49999999999999` lands on 147.5.
  * @param {number} value - Raw amount.
  * @returns {number} Amount rounded to two decimal places.
  */
 export function roundCents(value) {
-  const correction = value < 0 ? -Number.EPSILON : Number.EPSILON;
-  return Math.round((value + correction) * 100) / 100;
+  const magnitude = Math.abs(value);
+  const text = String(magnitude);
+
+  // Exponent notation means below 1e-6, which is zero cents, or at least 1e21,
+  // which is already a whole number.
+  if (text.includes("e")) {
+    return magnitude < 1 ? 0 : value;
+  }
+
+  const [whole, fraction = ""] = text.split(".");
+
+  // Whole cents already, and also `Infinity` and `NaN`, which have no point.
+  if (fraction.length <= 2) {
+    return value;
+  }
+
+  // A third decimal only prints when doubles are under a cent apart, below
+  // 2^46, so the cents stay below 2^53: an exact integer, and dividing it by
+  // 100 gives the nearest double to the printed cents.
+  const cents = Number(whole + fraction.slice(0, 2)) + (fraction.charAt(2) >= "5" ? 1 : 0);
+
+  // A negative amount that rounds to zero comes back as plain zero, not -0.
+  return value < 0 && cents !== 0 ? -cents / 100 : cents / 100;
 }
 
 /**

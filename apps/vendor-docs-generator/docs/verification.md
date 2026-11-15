@@ -16,6 +16,8 @@ Node tests live in `tests/js/apps/vendor-docs-generator/`. `fake-dom.js`, `libra
 - Price variation stays within 4% of the catalog price plus one rounding step. Monthly and yearly units use quantities of 1 to 3.
 - Shipping is charged on goods and stays zero on pages that list only services.
 
+`format.test.js` checks that `roundCents` rounds every half cent away from zero on the value's shortest decimal string, so `522.295` gives `522.30` and `-2.675` gives `-2.68`, and that whole and two-decimal amounts pass through unchanged. It compares `roundCents` with an exact BigInt reference at and next to every seventh half cent up to $20,000. `document-model.test.js` checks each line's 8.25% tax against integer-cent arithmetic for every amount below $10,000.
+
 ## Vendor variation and dates
 
 For a shared seed, all vendors use the same buyer and issue date. Document numbers, item quantities, registration details, and statement ledgers vary by vendor.
@@ -48,7 +50,7 @@ The same seed and reference date produce a deep-equal model. Different seeds pro
 - Row fields use `line_items.<n>.<key>` or `transactions.<n>.<key>` paths.
 - Blank cells produce no region.
 - Requested word boxes stay within their regions and preserve their baselines.
-- An unlaid-out page produces finite coordinates.
+- A page with no rendered size, such as a hidden or detached one, throws a clear error instead of writing `[0, 0, 0, 0]` boxes. The app test shows that error in the status line and writes no file.
 
 These tests do not prove that boxes overlap the correct text in a real browser. The browser tests below cover that behavior.
 

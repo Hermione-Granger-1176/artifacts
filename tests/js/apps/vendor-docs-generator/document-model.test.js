@@ -111,6 +111,24 @@ test('computeTotals sums the per-line rounded tax, not the rate on the subtotal'
   assert.deepEqual(computeLineTaxes(items), [2.48, 0.83]);
 });
 
+test('computeLineTaxes rounds each half cent of tax up, exactly as integer cents would', () => {
+  // TAX_RATE is 8.25%, so a line of N cents owes N * 825 / 10,000 cents.
+  assert.equal(TAX_RATE, 0.0825);
+  const items = Array.from({ length: 1_000_000 }, (_, cents) => ({
+    desc: '',
+    unit: 'ea',
+    price: cents / 100,
+    qty: 1,
+    amount: cents / 100
+  }));
+  const taxes = computeLineTaxes(items);
+
+  for (let cents = 0; cents < items.length; cents += 1) {
+    const exact = Math.floor((cents * 825 + 5_000) / 10_000);
+    assert.equal(Math.round(taxes[cents] * 100), exact, `tax on ${cents / 100}`);
+  }
+});
+
 test('the clean and dense invoices of one seed print the same grand total', () => {
   for (const vendor of VENDORS) {
     for (let index = 0; index < 40; index += 1) {
