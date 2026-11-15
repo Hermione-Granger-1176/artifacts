@@ -91,9 +91,14 @@ def _run_count() -> int:
     raw = os.environ.get(RUNS_ENV, "").strip()
     if not raw:
         return DEFAULT_RUNS
-    if not raw.isdigit() or int(raw) < 1:
-        raise ValueError(f"{RUNS_ENV} must be a whole number of at least 1, got {raw}")
-    return int(raw)
+    message = f"{RUNS_ENV} must be a whole number of at least 1, got {raw}"
+    try:
+        value = int(raw)
+    except ValueError as error:
+        raise ValueError(message) from error
+    if value < 1:
+        raise ValueError(message)
+    return value
 
 
 @pytest.fixture(scope="module")
