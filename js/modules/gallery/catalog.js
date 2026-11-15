@@ -6,7 +6,7 @@
  *   tags: string[],
  *   tools: string[],
  *   url: string,
- *   thumbnail?: string | null,
+ *   thumbnail: string,
  *   searchText?: string
  * }} ArtifactRecord
  */
@@ -91,9 +91,9 @@ function compareByName(left, right) {
 }
 
 /**
- * @param {ArtifactRecord[]} artifacts - Hydrated artifact records.
+ * @param {(ArtifactRecord & { searchText: string })[]} artifacts - Records from hydrateArtifacts.
  * @param {{ currentQuery: string, currentSort: string, currentTags: string[], currentTools: string[] }} options - Active filter and sort state.
- * @returns {ArtifactRecord[]} Filtered and sorted records.
+ * @returns {(ArtifactRecord & { searchText: string })[]} Filtered and sorted records.
  */
 export function filterAndSortArtifacts(artifacts, options) {
   const {
@@ -116,7 +116,7 @@ export function filterAndSortArtifacts(artifacts, options) {
         return false;
       }
 
-      if (currentQuery && !(item.searchText ?? "").includes(currentQuery)) {
+      if (currentQuery && !item.searchText.includes(currentQuery)) {
         return false;
       }
 

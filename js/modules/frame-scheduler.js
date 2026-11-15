@@ -3,10 +3,9 @@
  * Requests made while a frame is already pending are dropped, so a burst of
  * slider input runs the callback once per frame.
  * @param {() => void} callback - Work to run on the next frame.
- * @param {Pick<Window, "requestAnimationFrame">} [windowObj] - Frame clock. When omitted, the global `window` is read at each request.
  * @returns {() => void} Function that schedules the callback.
  */
-export function createFrameScheduler(callback, windowObj) {
+export function createFrameScheduler(callback) {
   let pendingFrame = /** @type {number | null} */ (null);
 
   return () => {
@@ -14,7 +13,7 @@ export function createFrameScheduler(callback, windowObj) {
       return;
     }
 
-    pendingFrame = (windowObj ?? window).requestAnimationFrame(() => {
+    pendingFrame = window.requestAnimationFrame(() => {
       pendingFrame = null;
       callback();
     });

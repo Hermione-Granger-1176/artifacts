@@ -48,12 +48,10 @@ const MONOGRAM_STYLES = new Set(["block", "stamp"]);
 /**
  * Map a CSS font stack onto one of the three fonts jsPDF ships by default.
  *
- * Each vendor carries a `font`, and the PDF renderer used to ignore it and set
- * Helvetica for everybody. That flattened six deliberately unrelated brands into
- * one letterhead in the export, which for a document-AI corpus throws away the
- * most valuable axis of variation there is. The core fonts are the only ones
- * available without embedding a binary, so serif and monospace stacks map onto
- * times and courier and everything else stays helvetica.
+ * Each vendor's `font` carries into the export, so the six brands keep distinct
+ * letterheads in the PDF. The core fonts are the only ones available without
+ * embedding a binary, so serif and monospace stacks map onto times and courier
+ * and everything else stays helvetica.
  * @param {string} stack - CSS font-family stack from the vendor record.
  * @returns {string} A jsPDF core font family name.
  */

@@ -21,7 +21,6 @@ import {
   formatDollarTick,
   parseNumber
 } from '../../../../js/modules/formatting.js';
-import { escapeAttribute } from '../../../../js/modules/html-escape.js';
 import {
   buildMetricsView,
   formatPeriodsAsDuration,
@@ -129,10 +128,6 @@ test('formatDollarTick handles millions, thousands, and small values', () => {
 test('parseNumber strips non-numeric characters', () => {
   assert.equal(parseNumber('$1,234.56'), 1234.56);
   assert.equal(parseNumber('abc'), 0);
-});
-
-test('escapeAttribute escapes HTML-sensitive characters', () => {
-  assert.equal(escapeAttribute('<a href="x">&'), '&lt;a href=&quot;x&quot;&gt;&amp;');
 });
 
 // --- schedule-summary.js ---
@@ -350,16 +345,6 @@ test('renderMetrics keeps nodes and the chip text when values change or the chip
     assert.equal(slots.chip.textContent, chipText);
     assert.equal(slots.chip.classList.contains('is-empty'), true);
     assert.equal(slots.chip.getAttribute('aria-hidden'), 'true');
-  } finally {
-    restore();
-  }
-});
-
-test('renderMetrics skips slots the markup does not provide', () => {
-  const restore = installFakeDom();
-  try {
-    const container = new FakeNode('div');
-    assert.doesNotThrow(() => renderMetrics(container, sampleMetrics, fmt));
   } finally {
     restore();
   }

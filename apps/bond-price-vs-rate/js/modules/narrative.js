@@ -46,7 +46,7 @@ function stackOf(container) {
   let nodes = stackNodes.get(container);
   if (!nodes) {
     nodes = { real: new Map(), ghost: new Map() };
-    for (const child of Array.from(container.children ?? [])) {
+    for (const child of Array.from(container.children)) {
       const variant = child.getAttribute("data-variant");
       const ghost = child.getAttribute("data-ghost");
       if (variant) {
@@ -137,7 +137,7 @@ function regimeTexts(state, build, formatters) {
  *   schedule: import('./bond-math.js').DiscountedCashFlow[],
  *   sensitivity: { currentPct: number, shortPct: number, longPct: number, rateAfterPct: number },
  *   analytics: import('./bond-math.js').BondAnalytics,
- *   curve: { key: string, label: string, atMaturityPct: number, shapes?: Record<string, { label: string, atMaturityPct: number }> }
+ *   curve: { key: string, label: string, atMaturityPct: number, shapes: Record<string, { label: string, atMaturityPct: number }> }
  * }} NarrativeState
  * @typedef {{
  *   formatCurrency: (value: number, digits?: number) => string,
@@ -468,36 +468,9 @@ export function rippleExplainText({ regime }) {
 }
 
 /**
- * @typedef {{ label: string, widthPct: number, tone: string, valueText: string }} CompareRow
+ * @typedef {{ label: string, widthPct: number, valueText: string }} CompareRow
  * @typedef {{ name: HTMLElement, fill: HTMLElement, num: HTMLElement }} CompareRowParts
  */
-
-/**
- * Build one labelled comparison row (label, proportional bar, value) as a DOM
- * node. The bar uses the shared .meter / .meter-fill component; `tone` is an
- * optional meter tone modifier (e.g. "is-amber") or "" for the default blue.
- * @param {string} tone - Optional meter tone modifier.
- * @returns {{ row: HTMLElement, parts: CompareRowParts }} The row and its writable parts.
- */
-function buildCompareRow(tone) {
-  const row = document.createElement("div");
-  row.className = "br-compare-row";
-
-  const name = document.createElement("span");
-  name.className = "br-compare-label";
-
-  const track = document.createElement("div");
-  track.className = "meter";
-  const fill = document.createElement("div");
-  fill.className = tone ? `meter-fill ${tone}` : "meter-fill";
-  track.appendChild(fill);
-
-  const num = document.createElement("span");
-  num.className = "br-compare-num";
-
-  row.append(name, track, num);
-  return { row, parts: { name, fill, num } };
-}
 
 /** Comparison row parts per container, kept between renders. */
 const compareTables = /** @type {WeakMap<HTMLElement, CompareRowParts[]>} */ (new WeakMap());
@@ -516,9 +489,10 @@ function adoptCompareRow(row) {
 }
 
 /**
- * Write comparison rows into a container. The rows are created (or adopted from
- * the markup) once and reused after, so a changed value rescales the bar and
- * the shared meter transition animates it instead of replacing the node.
+ * Write comparison rows into a container. index.html ships one
+ * `.br-compare-row` per row (label, .meter bar with its tone, value); they are
+ * adopted once and reused after, so a changed value rescales the bar and the
+ * shared meter transition animates it instead of replacing the node.
  * @param {HTMLElement} container - Comparison container.
  * @param {CompareRow[]} rows - Rows to show.
  * @returns {void}
@@ -526,15 +500,7 @@ function adoptCompareRow(row) {
 function renderCompareRows(container, rows) {
   let parts = compareTables.get(container);
   if (!parts) {
-    const existing = Array.from(container.children ?? []);
-    if (existing.length === rows.length) {
-      parts = existing.map(adoptCompareRow);
-    } else {
-      container.textContent = "";
-      const built = rows.map(({ tone }) => buildCompareRow(tone));
-      container.append(...built.map(({ row }) => row));
-      parts = built.map(({ parts: rowParts }) => rowParts);
-    }
+    parts = Array.from(container.children).map(adoptCompareRow);
     compareTables.set(container, parts);
   }
 
@@ -558,13 +524,11 @@ export function renderCouponCompare(container, { bond }, { formatPercent }) {
     {
       label: "This bond",
       widthPct: (bond.couponRatePct / RATE_SCALE_MAX) * 100,
-      tone: "",
       valueText: formatPercent(bond.couponRatePct)
     },
     {
       label: "Market",
       widthPct: (bond.annualYieldPct / RATE_SCALE_MAX) * 100,
-      tone: "is-amber",
       valueText: formatPercent(bond.annualYieldPct)
     }
   ]);
@@ -583,13 +547,11 @@ export function renderPriceSplit(container, { analytics }, { formatCurrency }) {
     {
       label: "Coupons",
       widthPct: (analytics.pvCoupons / analytics.price) * 100,
-      tone: "",
       valueText: formatCurrency(analytics.pvCoupons, 0)
     },
     {
       label: "Face value",
       widthPct: (analytics.pvFace / analytics.price) * 100,
-      tone: "is-amber",
       valueText: formatCurrency(analytics.pvFace, 0)
     }
   ]);
@@ -697,18 +659,16 @@ export function sizingCopy(formatters) {
 
 /**
  * Build the yield-curve copy for every curve shape, so the stacked callout is as
- * tall as the longest one. Falls back to the selected shape alone when the state
- * carries no shape table.
+ * tall as the longest one.
  * @param {NarrativeState} state - Current state.
  * @param {NarrativeFormatters} formatters - Formatters.
  * @returns {Record<string, string>} Copy by curve key.
  */
 function curveTexts(state, formatters) {
-  const shapes = state.curve.shapes ?? { [state.curve.key]: state.curve };
   return Object.fromEntries(
-    Object.entries(shapes).map(([key, shape]) => [
+    Object.entries(state.curve.shapes).map(([key, shape]) => [
       key,
-      curveExplainText({ ...state, curve: { ...shape, key } }, formatters)
+      curveExplainText({ ...state, curve: { ...state.curve, ...shape, key } }, formatters)
     ])
   );
 }

@@ -295,8 +295,7 @@ test('each vendor letterhead prints in its own font family', () => {
     })
   );
 
-  // Every vendor used to export in Helvetica regardless of its own `font`, so
-  // six deliberately unrelated brands produced one identical letterhead.
+  // Each vendor exports in the core font nearest its own `font`.
   assert.equal(families.get('ironwood'), 'courier');
   assert.equal(families.get('verde'), 'times');
   assert.equal(families.get('apex'), 'helvetica');

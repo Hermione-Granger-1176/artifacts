@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { bootstrapGallery } from '../../../js/modules/gallery/bootstrap.js';
+
 function createRuntimeStub() {
   return {
     markReadyCalls: 0,
@@ -18,19 +20,13 @@ function createRuntimeStub() {
   };
 }
 
-function createBootstrapHarness({ initializeError = null, validateError = null } = {}) {
-  const listeners = new Map();
+function bootWithFakes({ initializeError = null, validateError = null } = {}) {
   const runtime = createRuntimeStub();
   const initializeCalls = [];
   const validateCalls = [];
+  const windowObj = { sentinel: 'window' };
 
-  globalThis.window = { sentinel: 'window' };
-  globalThis.document = {
-    addEventListener(type, handler) {
-      listeners.set(type, handler);
-    }
-  };
-  globalThis.__APP_TEST_HOOKS__ = {
+  const returned = bootstrapGallery({
     createRuntime: () => runtime,
     initializeGalleryApp(args) {
       if (initializeError) {
@@ -38,77 +34,63 @@ function createBootstrapHarness({ initializeError = null, validateError = null }
       }
       initializeCalls.push(args);
     },
-    validateGalleryBootstrapData(windowObj) {
+    validateGalleryBootstrapData(target) {
       if (validateError) {
         throw validateError;
       }
-      validateCalls.push(windowObj);
-    }
-  };
-
-  return {
-    getHandler() {
-      return listeners.get('DOMContentLoaded');
+      validateCalls.push(target);
     },
-    initializeCalls,
-    runtime,
-    validateCalls
-  };
-}
+    windowObj
+  });
 
-async function importAppModule() {
-  return import(`../../../js/app.js?test=${Date.now()}-${Math.random()}`);
+  return { initializeCalls, returned, runtime, validateCalls, windowObj };
 }
 
 test.afterEach(() => {
-  delete globalThis.__APP_TEST_HOOKS__;
   delete globalThis.document;
   delete globalThis.window;
 });
 
-test('app registers a DOMContentLoaded bootstrap handler on import', async () => {
-  const harness = createBootstrapHarness();
+test('bootstrapGallery validates, initializes, and marks the runtime ready', () => {
+  const harness = bootWithFakes();
 
-  await importAppModule();
-
-  assert.equal(typeof harness.getHandler(), 'function');
-});
-
-test('app bootstraps gallery successfully on DOMContentLoaded', async () => {
-  const harness = createBootstrapHarness();
-
-  await importAppModule();
-  harness.getHandler()();
-
+  assert.equal(harness.returned, harness.runtime);
   assert.equal(harness.runtime.setupGlobalErrorHandlersCalls, 1);
-  assert.deepEqual(harness.validateCalls, [globalThis.window]);
+  assert.deepEqual(harness.validateCalls, [harness.windowObj]);
   assert.deepEqual(harness.initializeCalls, [{ runtime: harness.runtime }]);
   assert.equal(harness.runtime.markReadyCalls, 1);
   assert.deepEqual(harness.runtime.reportErrorCalls, []);
 });
 
-test('app reports fatal bootstrap errors and rethrows them', async () => {
+test('bootstrapGallery reports an initialization error once as fatal without rethrowing', () => {
   const boom = new Error('boom');
-  const harness = createBootstrapHarness({ initializeError: boom });
+  const harness = bootWithFakes({ initializeError: boom });
 
-  await importAppModule();
-
-  assert.throws(() => harness.getHandler()(), /boom/);
   assert.equal(harness.runtime.setupGlobalErrorHandlersCalls, 1);
   assert.equal(harness.runtime.markReadyCalls, 0);
-  assert.equal(harness.runtime.reportErrorCalls.length, 1);
-  assert.deepEqual(harness.runtime.reportErrorCalls[0], {
-    error: boom,
-    context: 'gallery initialization',
-    options: { fatal: true }
-  });
+  assert.deepEqual(harness.runtime.reportErrorCalls, [
+    { error: boom, context: 'gallery initialization', options: { fatal: true } }
+  ]);
 });
 
-test('app falls back to the real modules when no test hooks are installed', async () => {
+test('bootstrapGallery reports validation errors before initialization', () => {
+  const boom = new Error('invalid bootstrap');
+  const harness = bootWithFakes({ validateError: boom });
+
+  assert.deepEqual(harness.initializeCalls, []);
+  assert.equal(harness.runtime.markReadyCalls, 0);
+  assert.deepEqual(harness.runtime.reportErrorCalls, [
+    { error: boom, context: 'gallery initialization', options: { fatal: true } }
+  ]);
+});
+
+test('app boots the real modules on DOMContentLoaded and records a fatal error once', async (t) => {
   const listeners = new Map();
+  const windowListeners = new Map();
   globalThis.window = {
-    addEventListener() {},
-    ARTIFACTS_CONFIG: {}
+    addEventListener(type, handler) {
+      windowListeners.set(type, handler);
+    }
   };
   globalThis.document = {
     addEventListener(type, handler) {
@@ -117,33 +99,20 @@ test('app falls back to the real modules when no test hooks are installed', asyn
     getElementById: () => null,
     documentElement: { dataset: {} }
   };
+  const logged = t.mock.method(console, 'error', () => {});
 
-  await importAppModule();
+  await import(`../../../js/app.js?test=${Date.now()}`);
+  assert.equal(typeof listeners.get('DOMContentLoaded'), 'function');
 
-  // Without hooks the real runtime boots and the real validator rejects the
-  // stub window (ARTIFACTS_DATA is missing), so bootstrap fails fatally.
-  assert.throws(() => listeners.get('DOMContentLoaded')(), /ARTIFACTS_DATA must be an array/);
-  assert.equal(
-    globalThis.document.documentElement.dataset.runtimeStatus,
-    'error',
-    'the real runtime flags the fatal boot error for the boot guard'
-  );
-  assert.equal(globalThis.window.__ARTIFACTS_RUNTIME__.ready, false);
-});
+  // The stub window has no generated globals, so the real validator rejects it.
+  listeners.get('DOMContentLoaded')();
 
-test('app reports validation errors before initialization', async () => {
-  const boom = new Error('invalid bootstrap');
-  const harness = createBootstrapHarness({ validateError: boom });
-
-  await importAppModule();
-
-  assert.throws(() => harness.getHandler()(), /invalid bootstrap/);
-  assert.deepEqual(harness.initializeCalls, []);
-  assert.equal(harness.runtime.markReadyCalls, 0);
-  assert.equal(harness.runtime.reportErrorCalls.length, 1);
-  assert.deepEqual(harness.runtime.reportErrorCalls[0], {
-    error: boom,
-    context: 'gallery initialization',
-    options: { fatal: true }
-  });
+  const state = globalThis.window.__ARTIFACTS_RUNTIME__;
+  assert.equal(state.ready, false);
+  assert.equal(state.lastError.context, 'gallery initialization');
+  assert.equal(state.lastError.fatal, true);
+  assert.match(state.lastError.message, /ARTIFACTS_CONFIG must be an object/);
+  assert.equal(globalThis.document.documentElement.dataset.runtimeStatus, 'error');
+  assert.equal(logged.mock.callCount(), 1);
+  assert.equal(typeof windowListeners.get('error'), 'function');
 });

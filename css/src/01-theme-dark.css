@@ -12,9 +12,7 @@
   --color-text-primary: rgb(244, 239, 231);
   --color-text-secondary: rgb(180, 175, 167);
   --color-accent: rgb(236, 138, 112);
-  --color-accent-hover: rgb(239, 156, 133);
   --color-accent-ring: rgb(247, 208, 198);
-  --color-accent-ghost: rgba(236, 138, 112, 0.14);
   --color-page-paper: rgb(241, 234, 223);
   --color-page-shadow: rgba(0, 0, 0, 0.45);
   --color-border: rgba(244, 239, 231, 0.1);
@@ -28,9 +26,6 @@
   --color-page-btn-hover-ink: rgb(143, 47, 31);
   --desk-note-rest-opacity: 1;
   --color-search-count: var(--color-text-secondary);
-  --color-chip-text: var(--color-text-primary);
-  --color-chip-active-text: var(--color-note-text);
-  --chip-active-mix: 88%;
   --desk-light: radial-gradient(ellipse 55% 50% at 50% 46%, rgba(255, 214, 160, 0.08), transparent 70%), radial-gradient(ellipse 70% 78% at 50% 52%, rgb(55, 53, 51) 0%, rgb(34, 33, 32) 42%, rgb(11, 11, 11) 100%);
   --book-shadow-inset: 14px 6px -10px;
   --book-shadow-color: rgba(0, 0, 0, 0.42);

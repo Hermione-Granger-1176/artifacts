@@ -71,9 +71,7 @@ function extraInputEvent(row, summaryNode, field, value) {
       return null;
     }
   };
-  return {
-    target: { closest: (selector) => (selector === 'input[data-field]' ? input : null) }
-  };
+  return { target: input };
 }
 
 test('loan amortization app.js loads and initializes without error', async () => {
@@ -108,8 +106,7 @@ test('loan amortization app.js loads and initializes without error', async () =>
 
     for (const [action, data] of [
       ['set-type', { type: 'onetime' }],
-      ['remove-extra', {}],
-      ['unknown-action', {}]
+      ['remove-extra', {}]
     ]) {
       extraListListeners.click[0]({
         target: {
@@ -123,17 +120,6 @@ test('loan amortization app.js loads and initializes without error', async () =>
         }
       });
     }
-    // A button outside any extra row is ignored.
-    extraListListeners.click[0]({
-      target: {
-        closest: () => ({ dataset: { action: 'remove-extra' }, closest: () => null })
-      }
-    });
-
-    extraListListeners.input[0]({ target: { closest: () => null } });
-    extraListListeners.input[0]({
-      target: { closest: () => ({ dataset: { field: 'amount' }, closest: () => null }) }
-    });
 
     elementMap.inPrincipal.value = '200000';
     elementMap.inPrincipal._listeners.change[0].call(elementMap.inPrincipal);

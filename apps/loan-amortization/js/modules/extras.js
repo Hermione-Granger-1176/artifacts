@@ -159,7 +159,7 @@ export function renderExtras({ container, extras, periodLabel }) {
   // Rebuilding the rows would drop focus from the control that was pressed
   // (a type toggle, say), so remember it and focus the same control after.
   const active = /** @type {HTMLElement | null} */ (document.activeElement ?? null);
-  const focusRow = active && container.contains?.(active) ? /** @type {HTMLElement | null} */ (active.closest("[data-extra-id]")) : null;
+  const focusRow = active && container.contains(active) ? /** @type {HTMLElement | null} */ (active.closest("[data-extra-id]")) : null;
   const focusSelector = focusRow ? controlSelector(/** @type {HTMLElement} */ (active)) : "";
 
   container.innerHTML = "";

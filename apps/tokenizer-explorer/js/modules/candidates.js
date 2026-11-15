@@ -74,7 +74,7 @@ export function buildCandidateRows(state) {
       oddsPercent: token.prob * 100,
       drawPercent: kept ? token.adjustedProb * 100 : null,
       seenCount,
-      seenPercent: seenCount !== null && drawTotal > 0 ? (seenCount / drawTotal) * 100 : 0
+      seenPercent: seenCount !== null ? (seenCount / drawTotal) * 100 : 0
     };
   });
 }

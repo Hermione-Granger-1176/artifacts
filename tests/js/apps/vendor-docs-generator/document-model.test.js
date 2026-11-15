@@ -187,8 +187,7 @@ test('the filename says which adjustment note the page actually is', () => {
   const credit = buildDocument({ docTypeId: 'creditnote', seed: 100, today: TODAY, vendorId: 'apex' });
   const debit = buildDocument({ docTypeId: 'creditnote', seed: 101, today: TODAY, vendorId: 'apex' });
 
-  // Half of these pages print DEBIT NOTE, and every one of them used to be
-  // filed as `creditnote`, so the label contradicted the image.
+  // A page that prints DEBIT NOTE is filed as a debit note, so the label matches the image.
   assert.equal(credit.title, 'Credit note');
   assert.equal(credit.docVariantId, 'creditnote');
   assert.equal(credit.filenameBase, 'apex_creditnote_100');
@@ -212,8 +211,7 @@ test('one seed gives every vendor its own paperwork but the same customer', () =
     assert.equal(metaOf(model).Date, metaOf(models[0]).Date);
   }
 
-  // The vendor owns its own series and its own catalogue draw. All six used to
-  // print INV-213257 and the identical quantity vector 17, 34, 14, 7, 8.
+  // The vendor owns its own series and its own catalogue draw, so no two vendors share either.
   const numbers = new Set(models.map((model) => metaOf(model)['Invoice #']));
   assert.equal(numbers.size, VENDORS.length, `document numbers collided: ${[...numbers]}`);
 
@@ -270,8 +268,7 @@ test('shipping is charged on goods and stays zero for pure services', () => {
     Array.from({ length: 40 }, (_unused, index) => shippingCharge(goods, index * 31))
   );
 
-  // The field used to be a hardcoded $0.00 on every dense invoice, which an
-  // extractor can learn without reading the page.
+  // Shipping varies with the seed, so an extractor has to read the field.
   assert.ok(charges.size > 1, 'shipping should vary');
   assert.ok([...charges].some((value) => value > 0), 'goods should sometimes be charged freight');
   assert.ok([...charges].some((value) => value === 0), 'and sometimes go carriage paid');
@@ -422,9 +419,7 @@ test('the receipt shows the tax it charged and closes at a zero balance', () => 
       blockOf(model, 'table').rows.reduce((sum, row) => sum + parseMoney(row[5]), 0) * 100
     ) / 100;
 
-  // The receipt used to jump from the item table straight to an amount due that
-  // silently included 8.25%, so the printed lines never summed to the printed
-  // total and nothing on the page explained the gap.
+  // The receipt prints its subtotal and tax, so the printed lines sum to the printed total.
   assert.equal(parseMoney(rows.Subtotal), lineSum, 'the subtotal must equal the printed lines');
   assert.equal(
     Math.round(
@@ -452,9 +447,7 @@ test('a receipt settles the invoice its own seed produces', () => {
     const settled = Object.fromEntries(blockOf(receipt, 'parties').meta)['Against invoice'];
     const adjusted = Object.fromEntries(blockOf(note, 'parties').meta)['Against invoice'];
 
-    // One seed is one commercial event. These used to be three unrelated
-    // derivations, so no receipt or note in the corpus could be matched to any
-    // invoice in the corpus.
+    // One seed is one commercial event, so its receipt and note point at its invoice.
     assert.equal(settled, invoiceNumber, `${vendor.id} receipt points elsewhere`);
     assert.equal(adjusted, invoiceNumber, `${vendor.id} note points elsewhere`);
     assert.deepEqual(
@@ -516,8 +509,7 @@ test('the delivery challan withholds prices and counts the shipment', () => {
   assert.equal(blockOf(model, 'totals'), undefined, 'a challan must not price the goods');
 
   const chips = Object.fromEntries(blockOf(model, 'chips').items);
-  // Packages are how the goods are crated, not the row count. Those used to be
-  // the same number on every challan the generator had ever produced.
+  // Packages are how the goods are crated, not the row count.
   assert.ok(
     Number(chips['Total packages']) >= table.rows.length,
     'every line needs at least one package'
@@ -527,7 +519,7 @@ test('the delivery challan withholds prices and counts the shipment', () => {
     table.rows.reduce((sum, row) => sum + Number(row[2]), 0)
   );
 
-  // The remarks column used to read "Goods only" on every row of every challan.
+  // Every challan row carries its own remark.
   const remarks = new Set(table.rows.map((row) => row[4]));
   assert.equal(remarks.size, table.rows.length, 'each row needs its own remark');
 
@@ -594,10 +586,7 @@ test('a statement never summarises transactions that have not happened yet', () 
       const [periodStart, periodEnd] = meta.Period.split(' - ').map((part) => new Date(part));
       const dates = blockOf(model, 'table').rows.map((row) => new Date(row[0]));
 
-      // The period label used to be `Q${1 + seed % 4}`, drawn from the seed and
-      // unrelated to either the rows or the generated date, and the ledger
-      // started at month `seed % 6`, so a statement generated in March routinely
-      // listed activity running through June.
+      // The printed period spans the ledger rows and ends by the generated date.
       assert.ok(periodEnd <= generated, `${vendor.id}/${seed} period ends after it was generated`);
 
       for (const date of dates) {

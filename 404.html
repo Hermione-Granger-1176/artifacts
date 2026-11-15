@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'sha256-gk5BS7GluXgeuwZQBDH8IF+NfEepAOLnFZ1zQrKpgmk='; style-src 'self' 'sha256-VeD5c2QqRFlRmtmpYI37DsRdFu8MMHg+AXSkP1S9ytI='; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+    content="default-src 'self'; script-src 'self' 'sha256-E2omw0JeC9wvXONydu2m0DKllyKLpp0QzTpbgQhuhQ4='; style-src 'self' 'sha256-VeD5c2QqRFlRmtmpYI37DsRdFu8MMHg+AXSkP1S9ytI='; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
   <title>Page Not Found | Artifacts</title>
   <style>
     :root {
@@ -98,7 +98,7 @@
   <script>
     (function () {
       const homeLink = document.getElementById("home-link");
-      const sitePath = document.body.dataset.sitePath || "/";
+      const sitePath = document.body.dataset.sitePath;
       const siteParts = sitePath.split("/").filter(Boolean);
       const pathParts = window.location.pathname.split("/").filter(Boolean);
       const isPreviewPath =

@@ -1,7 +1,30 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { cleanupMocks, setupFullMocks } from '../../common/app-entry-test-support.js';
+import { cleanupMocks, makeElement, setupFullMocks } from '../../common/app-entry-test-support.js';
+
+/**
+ * Mount the shared mocks, then add what this page's markup always carries:
+ * two label/meter/value rows in each comparison block, and a canvas on every chart.
+ */
+function setupBondApp() {
+  const mocks = setupFullMocks();
+  for (const id of ['couponCompare', 'pvSplit']) {
+    for (let index = 0; index < 2; index += 1) {
+      const row = makeElement('row');
+      const meter = makeElement('meter');
+      meter.append(makeElement('fill'));
+      row.append(makeElement('label'), meter, makeElement('num'));
+      mocks.elementMap[id].append(row);
+    }
+  }
+  const SharedChart = globalThis.window.Chart;
+  globalThis.window.Chart = function CanvasChart(canvas, config) {
+    SharedChart.call(this, canvas, config);
+    this.canvas = canvas;
+  };
+  return mocks;
+}
 
 function fire(element, type, event) {
   const handlers = element._listeners[type];
@@ -13,7 +36,7 @@ function fire(element, type, event) {
 }
 
 test('bond-price-vs-rate app.js boots the shared runtime without error', async () => {
-  const { elementMap } = setupFullMocks();
+  const { elementMap } = setupBondApp();
   try {
     // Cache-bust the import so repeat runs re-evaluate the module.
     await import(`../../../../apps/bond-price-vs-rate/js/app.js?t=${Date.now()}-${Math.random()}`);
@@ -70,7 +93,7 @@ test('bond-price-vs-rate app.js boots the shared runtime without error', async (
 });
 
 test('bond-price-vs-rate redraws only the charts whose inputs changed', async () => {
-  const { elementMap } = setupFullMocks();
+  const { elementMap } = setupBondApp();
   try {
     const updates = [];
     // Queue frames instead of running them inline, the way a browser coalesces input.
@@ -81,6 +104,7 @@ test('bond-price-vs-rate redraws only the charts whose inputs changed', async ()
       frames.splice(0).forEach((callback) => callback());
     };
     globalThis.window.Chart = function RecordingChart(canvas, config) {
+      this.canvas = canvas;
       this.data = config.data;
       this.options = config.options;
       this.update = (mode) => updates.push({ canvas, mode });

@@ -117,9 +117,9 @@ function buildYieldCurveSeries(bond) {
  */
 function applyCurveRate() {
   const bond = readBond();
+  // Every curve stays between its short and long rates (3% to 5.5%), inside the slider's range.
   const ratePct = curveYieldPct(YIELD_CURVES[selectedCurveKey], bond.years);
-  const clamped = Math.min(RATE_AXIS_MAX, Math.max(RATE_AXIS_MIN, ratePct));
-  elements.slRate.value = String(Math.round(clamped * 10) / 10);
+  elements.slRate.value = String(Math.round(ratePct * 10) / 10);
   syncSliderLabels(elements);
   nudgeRateValue(elements);
   scheduleRecalc();
@@ -155,9 +155,7 @@ function shockPct(bond, years) {
  * @param {ReturnType<typeof readBond>} bond - Current bond terms.
  */
 function buildSensitivity(bond) {
-  const maturities = Array.from(new Set([...SENSITIVITY_MATURITIES, bond.years]))
-    .filter((maturity) => maturity >= YEARS_MIN && maturity <= YEARS_MAX)
-    .sort((a, b) => a - b);
+  const maturities = Array.from(new Set([...SENSITIVITY_MATURITIES, bond.years])).sort((a, b) => a - b);
   const shocks = maturities.map((maturity) => shockPrices(bond, maturity));
 
   return {

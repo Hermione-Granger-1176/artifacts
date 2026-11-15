@@ -177,10 +177,10 @@ function leafTurnSamples() {
  * @param {{
  *   documentObj?: Document,
  *   windowObj?: Window,
- *   motion?: { prefersReducedMotion?: () => boolean },
+ *   motion: { prefersReducedMotion: () => boolean },
  *   pages?: BookPages,
- *   onError?: (error: unknown) => void
- * }} [options={}] - Injected browser APIs, page model, and error sink.
+ *   onError: (error: unknown) => void
+ * }} options - Injected browser APIs, motion preference, page model, and error sink.
  * @returns {{
  *   startIntro: () => Promise<void>,
  *   turnPage: (target: number) => Promise<void>,
@@ -188,7 +188,7 @@ function leafTurnSamples() {
  *   setPosition: (position: { page: number, totalPages: number }) => void
  * }} Book-scene helpers.
  */
-export function createBookScene({ documentObj = document, windowObj = window, motion, pages = NO_PAGES, onError } = {}) {
+export function createBookScene({ documentObj = document, windowObj = window, motion, pages = NO_PAGES, onError }) {
   /** @type {Promise<void> | null} */
   let introPromise = null;
   /** @type {(() => void) | null} */
@@ -205,24 +205,6 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
   // Re-copies the live left page into the cover while the intro swings it open.
   /** @type {(() => void) | null} */
   let syncCover = null;
-
-  /** @param {unknown} error - Error from an animation path. */
-  function reportError(error) {
-    if (typeof onError === 'function') {
-      onError(error);
-      return;
-    }
-
-    console.error(error);
-  }
-
-  function prefersReducedMotion() {
-    if (motion && typeof motion.prefersReducedMotion === 'function') {
-      return motion.prefersReducedMotion();
-    }
-
-    return windowObj.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  }
 
   const notepadQuery = windowObj.matchMedia(NOTEPAD_QUERY);
 
@@ -730,7 +712,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
           const parts = getTurnParts();
           if (!parts) {
             pages.commit(target);
-          } else if (prefersReducedMotion()) {
+          } else if (motion.prefersReducedMotion()) {
             await playFadeTurn(parts, target);
           } else if (isMobile()) {
             await playFlipTurn(parts, from, target);
@@ -738,7 +720,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
             await playLeafTurn(parts, from, target);
           }
         } catch (error) {
-          reportError(error);
+          onError(error);
         }
       }
     } finally {
@@ -850,7 +832,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
 
     const parts = getTurnParts();
     const origin = /** @type {Element | null} */ (event.target);
-    if (!parts || prefersReducedMotion() || isMobile() || origin?.closest('.artifact-card')) {
+    if (!parts || motion.prefersReducedMotion() || isMobile() || origin?.closest('.artifact-card')) {
       return;
     }
 
@@ -983,7 +965,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
           await tween(turn, progress, 0, 360 * progress + 120, easeOut, (value) => setLeafProgress(leafParts, value));
         }
       } catch (error) {
-        reportError(error);
+        onError(error);
       } finally {
         finishTurn(turn);
         void kick();
@@ -1200,7 +1182,7 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
         return;
       }
 
-      if (prefersReducedMotion()) {
+      if (motion.prefersReducedMotion()) {
         await playCrossfadeIntro(state, shell, sheet);
       } else if (isMobile()) {
         await playFlipIntro(state, shell, cover);

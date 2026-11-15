@@ -129,12 +129,14 @@ function createFilterControlButton({
 }
 
 /**
- * Look up the assigned color for a tool or tag label.
+ * Look up the color buildFilterNotes assigned to a tool or tag label. The
+ * gallery renders the desk notes for every tool and tag before anything else
+ * asks for a color.
  * @param {string} name - Tool or tag label.
  * @returns {string} The assigned CSS color value.
  */
 function getLabelColor(name) {
-  return labelColorMap.get(name) || 'var(--color-capsule-default)';
+  return labelColorMap.get(name);
 }
 
 /**
@@ -321,17 +323,13 @@ export function buildFilterNotes({ tools, tags, activeTools, activeTags, toolLab
  *   description?: string|null,
  *   name: string,
  *   tags?: string[],
- *   thumbnail?: string|null,
+ *   thumbnail: string,
  *   tools?: string[],
  *   url: string
  * }} item - Artifact metadata for the active detail card.
  * @returns {string} Detail overlay HTML.
  */
 export function createDetailContent(item) {
-  const heroMedia = item.thumbnail
-    ? `<img class="detail-media" src="${escapeHtml(item.thumbnail)}" alt="${escapeHtml(item.name)} preview">`
-    : '<div class="detail-media-placeholder"></div>';
-
   const description = item.description || 'Open the artifact to explore the interactive experience.';
   const detailTags = buildSnippetList(item.tags, 'detail-meta-tags');
   const detailTools = buildSnippetList(item.tools, 'detail-meta-tools');
@@ -341,7 +339,7 @@ export function createDetailContent(item) {
       ${ICONS.close}
     </button>
     <div class="detail-media-wrap">
-      ${heroMedia}
+      <img class="detail-media" src="${escapeHtml(item.thumbnail)}" alt="${escapeHtml(item.name)} preview">
     </div>
     <div class="detail-content">
       <h2 id="detail-title" class="detail-title">${escapeHtml(item.name)}</h2>
@@ -367,15 +365,11 @@ export function handleThumbnailError(event) {
     return;
   }
 
-  const frame = target.closest('.card-photo-frame');
-  const parent = frame?.parentNode;
-  if (!frame || !parent) {
-    return;
-  }
-
+  // Every card thumbnail sits in a photo frame inside the card's thumbnail area.
+  const frame = /** @type {Element} */ (target.closest('.card-photo-frame'));
   const placeholder = frame.ownerDocument.createElement('div');
   placeholder.className = 'card-thumbnail-placeholder';
-  parent.replaceChild(placeholder, frame);
+  frame.replaceWith(placeholder);
 }
 
 /**
@@ -392,21 +386,13 @@ export function registerThumbnailFallback(grid) {
  * Build the HTML for a single artifact card in the grid. The notes after the card are
  * what the phone notepad writes under its one artifact: the description and a link
  * straight to it. The two-page book hides them and keeps them in the detail overlay.
- * @param {{ id: string, name: string, description?: string | null, url?: string, thumbnail?: string | null }} item - Artifact record.
+ * @param {{ id: string, name: string, description?: string | null, url: string, thumbnail: string }} item - Artifact record.
  * @param {boolean} isExpanded - Whether the card is expanded.
  * @param {number} index - Card position.
  * @returns {string} The card HTML.
  */
 function createCard(item, isExpanded, index) {
   const cardColor = getCardColor(index);
-  const thumbnailHtml = item.thumbnail
-    ? `
-      <div class="card-photo-frame">
-        <img class="card-thumbnail" src="${escapeHtml(item.thumbnail)}" alt="${escapeHtml(item.name)}" loading="lazy">
-      </div>
-    `
-    : '<div class="card-thumbnail-placeholder"></div>';
-
   const rotation = getRotationData(index);
   const attachment = getAttachmentData(item.id);
   return `
@@ -414,7 +400,9 @@ function createCard(item, isExpanded, index) {
       aria-label="View details for ${escapeHtml(item.name)}" aria-expanded="${isExpanded}" aria-haspopup="dialog">
       <div class="card-note">
         <div class="card-thumbnail-area">
-          ${thumbnailHtml}
+          <div class="card-photo-frame">
+            <img class="card-thumbnail" src="${escapeHtml(item.thumbnail)}" alt="${escapeHtml(item.name)}" loading="lazy">
+          </div>
         </div>
         <div class="card-overlay card-note-body">
           <div class="card-name">${escapeHtml(item.name)}</div>
@@ -423,7 +411,7 @@ function createCard(item, isExpanded, index) {
     </button>
     <div class="card-notes">
       ${item.description ? `<p class="card-notes-text">${escapeHtml(item.description)}</p>` : ''}
-      ${item.url ? `<a class="card-notes-open" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">Open artifact <span class="visually-hidden">${escapeHtml(item.name)} (opens in a new tab)</span>${ICONS.open}</a>` : ''}
+      <a class="card-notes-open" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">Open artifact <span class="visually-hidden">${escapeHtml(item.name)} (opens in a new tab)</span>${ICONS.open}</a>
     </div>
   `;
 }
@@ -436,8 +424,8 @@ function createCard(item, isExpanded, index) {
  *   id: string,
  *   name: string,
  *   description?: string|null,
- *   url?: string,
- *   thumbnail?: string|null
+ *   url: string,
+ *   thumbnail: string
  * }>} items - Artifacts visible on the current page.
  * @param {string|null} expandedId - Artifact ID currently expanded in the overlay.
  * @param {number} [pageNumber=1] - Gallery page being rendered; page numbers are two per spread.

@@ -603,7 +603,7 @@ initializeMatureApp({
      * @returns {Promise<void>} Resolves once the button has been restored.
      */
     async function withBusyButton(button, busyLabel, task) {
-      const originalLabel = button.textContent ?? "";
+      const originalLabel = /** @type {string} */ (button.textContent);
       button.disabled = true;
       button.textContent = busyLabel;
 
@@ -920,8 +920,7 @@ initializeMatureApp({
      * Export the page on screen in whichever formats are selected.
      *
      * One click is one export: the PDF, the PNG, or both, then a single sidecar
-     * describing the page. The sidecar used to follow each download button, so
-     * asking for both formats wrote it twice.
+     * describing the page, written once whichever formats are selected.
      * @returns {Promise<void>} Resolves once everything has been handed to the browser.
      */
     function exportPage() {

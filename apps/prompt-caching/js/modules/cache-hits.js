@@ -16,9 +16,6 @@ export function initCacheHits() {
   const clearBtn = byId("chvClearBtn");
   const reqs = byId("chvReqs");
   const ttlLabel = byId("chvTTL");
-  if (!sendBtn || !reqs || !ttlLabel) {
-    return;
-  }
 
   let reqCount = 0;
   let cachedPrefixTokens = 0;
@@ -168,7 +165,5 @@ export function initCacheHits() {
   }
 
   sendBtn.addEventListener("click", send);
-  if (clearBtn) {
-    clearBtn.addEventListener("click", clearCache);
-  }
+  clearBtn.addEventListener("click", clearCache);
 }

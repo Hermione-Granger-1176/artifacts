@@ -365,7 +365,7 @@ function createArtifacts(count = 13) {
       id,
       name: `Artifact ${number}`,
       tags: number % 2 === 0 ? ['finance'] : ['calculator'],
-      thumbnail: number % 3 === 0 ? `apps/${id}/thumbnail.webp` : null,
+      thumbnail: `apps/${id}/thumbnail.webp`,
       tools: number % 2 === 0 ? ['claude'] : ['chatgpt'],
       url: `apps/${id}/`
     };
@@ -475,8 +475,6 @@ function createGalleryHarness({
   reducedMotion = false,
   search = '',
   withBook = false,
-  withDropdowns = false,
-  withSheet = false,
   notepad = false
 } = {}) {
   const documentListeners = new Map();
@@ -682,12 +680,11 @@ function createGalleryHarness({
     const key = match && (match[1] === 'filter-tag' ? 'filterTag' : 'filterTool');
     return key ? filterDropdowns._options.filter((option) => option.dataset[key] !== undefined) : [];
   };
-  const dropdowns = withDropdowns
-    ? {
-      tags: addFakeDropdown(filterDropdowns, registerElement, { kind: 'tags', dataset: 'filterTag', values: ['finance', 'calculator'] }),
-      tools: addFakeDropdown(filterDropdowns, registerElement, { kind: 'tools', dataset: 'filterTool', values: ['claude', 'chatgpt'] })
-    }
-    : null;
+  // buildFilterDropdowns always renders both groups; the fake innerHTML does not, so stand them in.
+  const dropdowns = {
+    tags: addFakeDropdown(filterDropdowns, registerElement, { kind: 'tags', dataset: 'filterTag', values: ['finance', 'calculator'] }),
+    tools: addFakeDropdown(filterDropdowns, registerElement, { kind: 'tools', dataset: 'filterTool', values: ['claude', 'chatgpt'] })
+  };
 
   [
     [grid, container],
@@ -710,9 +707,13 @@ function createGalleryHarness({
   });
 
   let book = null;
-  if (withSheet && !withBook) {
-    // A bare sheet takes swipes; with no book shell the scene renders each page at once.
-    book = { sheet: registerElement(new FakeElement({ id: 'book-sheet' })) };
+  if (!withBook) {
+    // index.html always ships the book shell and sheet. A shell that never opened
+    // leaves the scene rendering each page at once; the sheet still takes swipes.
+    book = {
+      shell: registerElement(new FakeElement({ id: 'book-shell' })),
+      sheet: registerElement(new FakeElement({ id: 'book-sheet' }))
+    };
   }
   if (withBook) {
     const shell = registerElement(new FakeBookElement({ id: 'book-shell' }));
@@ -1276,19 +1277,11 @@ test('pagination ignores disabled buttons, the current page, and non-page target
   assert.equal(harness.historyCalls.length, 0);
 });
 
-test('broken thumbnails are caught on the whole book sheet, or on the grid without a book', () => {
+test('broken thumbnails are caught on the whole book sheet', () => {
   const withBook = createGalleryHarness({ withBook: true });
   initializeGalleryApp({ documentObj: withBook.documentObj, runtime: withBook.runtime, windowObj: withBook.windowObj });
   assert.equal(withBook.book.sheet.listeners.get('error')?.length, 1, 'the sheet covers turning leaves and ghost pages');
   assert.equal(withBook.elements.grid.listeners.get('error'), undefined);
-
-  const withoutBook = createGalleryHarness();
-  initializeGalleryApp({
-    documentObj: withoutBook.documentObj,
-    runtime: withoutBook.runtime,
-    windowObj: withoutBook.windowObj
-  });
-  assert.equal(withoutBook.elements.grid.listeners.get('error')?.length, 1);
 });
 
 test('page turns keep the live book untouched until the leaf lands and then render the page', async () => {
@@ -1557,10 +1550,11 @@ test('the filter summaries are only rewritten when their text changes', () => {
   const notes = harness.elements.bookmarkTabs;
   const dropdowns = harness.elements.filterDropdowns;
   notes.querySelectorAll = () => [];
+  const querySelector = dropdowns.querySelector;
   dropdowns.querySelector = (selector) => {
     const kind = selector.match(/data-filter-summary="(\w+)"/)?.[1];
     if (!kind) {
-      return null;
+      return querySelector(selector);
     }
     if (!summaries.has(kind)) {
       let text = '';
@@ -1591,7 +1585,7 @@ test('the filter summaries are only rewritten when their text changes', () => {
 });
 
 test('a dropdown button opens its panel with picked options first, and the panel closes from its buttons and backdrop', () => {
-  const harness = createGalleryHarness({ withDropdowns: true, search: '?tag=calculator' });
+  const harness = createGalleryHarness({ search: '?tag=calculator' });
   initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
   const { filterDropdowns } = harness.elements;
   const { toggle, panel, list, options } = harness.dropdowns.tags;
@@ -1624,7 +1618,7 @@ test('a dropdown button opens its panel with picked options first, and the panel
 });
 
 test('dropdown options filter the gallery live and their buttons count the picks', () => {
-  const harness = createGalleryHarness({ withDropdowns: true });
+  const harness = createGalleryHarness();
   initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
   const { filterDropdowns } = harness.elements;
   const { tags, tools } = harness.dropdowns;
@@ -1648,7 +1642,7 @@ test('dropdown options filter the gallery live and their buttons count the picks
 });
 
 test('a long panel search shows only the options that match and resets when the panel reopens', () => {
-  const harness = createGalleryHarness({ withDropdowns: true });
+  const harness = createGalleryHarness();
   initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
   const { filterDropdowns } = harness.elements;
   const { toggle, panel, options, searchBox } = harness.dropdowns.tags;
@@ -1675,7 +1669,7 @@ test('a long panel search shows only the options that match and resets when the 
 });
 
 test('dropdown options count each artifact once per value', () => {
-  const harness = createGalleryHarness({ withDropdowns: true });
+  const harness = createGalleryHarness();
   // A tag listed twice on one artifact still counts that artifact once.
   harness.windowObj.ARTIFACTS_DATA[0].tags = ['calculator', 'calculator'];
   initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
@@ -1692,7 +1686,7 @@ test('dropdown options count each artifact once per value', () => {
 });
 
 test('widening past the dropdown layout closes an open panel', () => {
-  const harness = createGalleryHarness({ withDropdowns: true });
+  const harness = createGalleryHarness();
   initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
   const { filterDropdowns } = harness.elements;
   const { toggle, panel } = harness.dropdowns.tags;
@@ -1705,7 +1699,7 @@ test('widening past the dropdown layout closes an open panel', () => {
 });
 
 test('a dropdown button whose panel is missing does nothing', () => {
-  const harness = createGalleryHarness({ withDropdowns: true });
+  const harness = createGalleryHarness();
   initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
   const orphan = new FakeElement({ tagName: 'BUTTON', classes: ['filter-dropdown-toggle'] });
   orphan.parentElement = harness.elements.filterDropdowns;
@@ -1717,10 +1711,7 @@ test('a page turn scrolls the book back into view only when its top is above the
   const harness = createGalleryHarness();
   initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
   let bookTop = 40;
-  const bookShell = new FakeElement({ id: 'book-shell' });
-  bookShell.getBoundingClientRect = () => ({ top: bookTop });
-  const getElementById = harness.documentObj.getElementById;
-  harness.documentObj.getElementById = (id) => (id === 'book-shell' ? bookShell : getElementById(id));
+  harness.book.shell.getBoundingClientRect = () => ({ top: bookTop });
   harness.windowObj.scrollY = 900;
 
   harness.elements.pagination.dispatch('click', { target: createPageButton(harness, { page: 2 }) });
@@ -1755,7 +1746,7 @@ test('the notepad shows one artifact per page and keeps the reader in place acro
 });
 
 test('notepad swipes turn the page up for next and down for previous', async () => {
-  const harness = createGalleryHarness({ notepad: true, withSheet: true });
+  const harness = createGalleryHarness({ notepad: true });
   initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
   const { sheet } = harness.book;
   /** @param {number} dx @param {number} dy @param {object} [down] */
@@ -1808,7 +1799,7 @@ test('notepad swipes turn the page up for next and down for previous', async () 
 });
 
 test('the notepad blocks native drags so a mouse swipe on the photo or link still turns', () => {
-  const harness = createGalleryHarness({ notepad: true, withSheet: true });
+  const harness = createGalleryHarness({ notepad: true });
   initializeGalleryApp({ documentObj: harness.documentObj, runtime: harness.runtime, windowObj: harness.windowObj });
   assert.equal(harness.book.sheet.dispatch('dragstart').defaultPrevented, true);
   harness.setNotepadLayout(false);

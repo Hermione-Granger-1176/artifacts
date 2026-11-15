@@ -133,7 +133,8 @@ export function tallyDraws(tokens, drawCount, random = Math.random) {
   const tallies = new Map(tokens.map((token) => [token.idx, 0]));
   for (let draw = 0; draw < drawCount; draw += 1) {
     const token = drawToken(tokens, random);
-    tallies.set(token.idx, (tallies.get(token.idx) ?? 0) + 1);
+    // drawToken returns one of `tokens`, whose idx the map was seeded with.
+    tallies.set(token.idx, /** @type {number} */ (tallies.get(token.idx)) + 1);
   }
   return tallies;
 }

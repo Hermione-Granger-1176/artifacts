@@ -796,7 +796,7 @@ body.app-tokenizer-explorer .card-icon.red {
 }
 
 /* The title and tagline are spans, because a button may hold only phrasing
- * content. display: block stacks them as the old divs did. */
+ * content; display: block stacks them. */
 body.app-tokenizer-explorer .card-title,
 body.app-tokenizer-explorer .card-tagline {
   display: block;

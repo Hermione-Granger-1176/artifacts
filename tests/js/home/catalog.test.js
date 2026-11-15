@@ -20,7 +20,7 @@ test('hydrateArtifacts precomputes lowercase search text', () => {
       tags: ['finance'],
       tools: ['claude'],
       url: 'apps/loan-tool/',
-      thumbnail: null
+      thumbnail: 'apps/loan-tool/thumbnail.webp'
     }
   ]);
 
@@ -52,7 +52,7 @@ test('filterAndSortArtifacts filters by search/tool/tag and sort order', () => {
       tags: ['finance'],
       tools: ['claude'],
       url: 'apps/artifact-b/',
-      thumbnail: null
+      thumbnail: 'apps/artifact-b/thumbnail.webp'
     },
     {
       id: 'artifact-a',
@@ -61,7 +61,7 @@ test('filterAndSortArtifacts filters by search/tool/tag and sort order', () => {
       tags: ['calculator'],
       tools: ['chatgpt'],
       url: 'apps/artifact-a/',
-      thumbnail: null
+      thumbnail: 'apps/artifact-a/thumbnail.webp'
     }
   ]);
 
@@ -100,7 +100,7 @@ test('filterAndSortArtifacts orders by display name, not by slug', () => {
       ['a-loan', 'Loan Amortization Schedule'],
       ['artifact-10', 'Artifact 10'],
       ['artifact-2', 'Artifact 2']
-    ].map(([id, name]) => ({ id, name, description: '', tags: [], tools: [], url: `apps/${id}/`, thumbnail: null }))
+    ].map(([id, name]) => ({ id, name, description: '', tags: [], tools: [], url: `apps/${id}/`, thumbnail: `apps/${id}/thumbnail.webp` }))
   );
   const order = (currentSort) =>
     filterAndSortArtifacts(artifacts, { currentQuery: '', currentSort, currentTags: [], currentTools: [] }).map((item) => item.name);
@@ -156,7 +156,7 @@ test('filterAndSortArtifacts stays responsive on a larger catalog fixture', () =
       tags: index % 3 === 0 ? ['finance', 'calculator'] : ['ai', 'education'],
       tools: index % 2 === 0 ? ['claude'] : ['chatgpt'],
       url: `apps/artifact-${String(index + 1).padStart(3, '0')}/`,
-      thumbnail: null
+      thumbnail: `apps/artifact-${String(index + 1).padStart(3, '0')}/thumbnail.webp`
     }))
   );
 

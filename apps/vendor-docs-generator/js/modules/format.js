@@ -231,8 +231,7 @@ export function amountInWords(value) {
  * First letters of the first two words of a name.
  *
  * Shared by both renderers so the monogram tile reads the same in the export as
- * it does on screen; it used to exist only in the paper renderer, and the PDF
- * drew no mark at all.
+ * it does on screen.
  * @param {string} name - Vendor name.
  * @returns {string} Up to two upper-case initials.
  */

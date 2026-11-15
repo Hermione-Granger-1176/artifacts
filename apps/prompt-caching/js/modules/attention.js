@@ -124,7 +124,7 @@ function bindClickable(visual, outId, handler) {
   for (const node of visual.querySelectorAll(`[data-mx="${outId}"].clickable`)) {
     const cell = /** @type {HTMLElement} */ (node);
     cell.addEventListener("click", () => {
-      handler(Number.parseInt(cell.dataset.r ?? "", 10), Number.parseInt(cell.dataset.c ?? "", 10), cell);
+      handler(Number.parseInt(/** @type {string} */ (cell.dataset.r), 10), Number.parseInt(/** @type {string} */ (cell.dataset.c), 10), cell);
     });
   }
 }
@@ -189,9 +189,6 @@ function initStepper() {
   const descEl = byId("attnStepDesc");
   const visual = byId("attnStepVisual");
   const dot = byId("dotProduct");
-  if (!card || !stepper || !titleEl || !descEl || !visual || !dot) {
-    return;
-  }
 
   let maskOn = true;
   let current = 0;
@@ -530,9 +527,6 @@ function paintCell(cell, value, pct, strong) {
 function initGrid() {
   const table = byId("attnGrid");
   const caption = byId("attnCaption");
-  if (!table || !caption) {
-    return;
-  }
 
   /** @param {number} activeRow - Index of the row to highlight and describe. */
   const showRow = (activeRow) => {
@@ -588,9 +582,6 @@ function initSoftmax() {
   const slidersWrap = byId("smxSliders");
   const barsWrap = byId("smxBars");
   const formula = byId("smxFormula");
-  if (!slidersWrap || !barsWrap || !formula) {
-    return;
-  }
 
   const scores = [...SMX_INITIAL_SCORES];
   /** @type {HTMLElement[]} */

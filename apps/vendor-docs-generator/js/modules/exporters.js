@@ -128,7 +128,8 @@ export async function renderRaster(paper, deps, plan = null) {
     return { canvas: clean, clean, dataUrl: clean.toDataURL("image/png"), extension: "png" };
   }
 
-  const canvas = degradeCanvas(clean, plan, { documentObj: deps.documentObj ?? document });
+  // degradeCanvas falls back to the global document when deps carries none.
+  const canvas = degradeCanvas(clean, plan, { documentObj: deps.documentObj });
   const { dataUrl, extension } = encodeCanvas(canvas, plan.applied);
   return { canvas, clean, dataUrl, extension };
 }

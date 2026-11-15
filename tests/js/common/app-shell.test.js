@@ -64,18 +64,11 @@ function createMockEnv(overrides = {}) {
     getAttribute(name) { return this._attrs[name] ?? null; }
   };
 
-  const shellSlots = {
-    '[data-app-shell="header"]': createSlot(),
-    '[data-app-shell="runtime-error"]': createSlot(),
-    '[data-app-shell="scroll-top"]': createSlot()
-  };
-
   const mockDocument = {
     documentElement: html,
     getElementById(id) { return elements[id] ?? null; },
     querySelector(sel) {
-      if (sel === 'meta[name="theme-color"]') return themeColorMeta;
-      return shellSlots[sel] ?? null;
+      return sel === 'meta[name="theme-color"]' ? themeColorMeta : null;
     },
     referrer: ''
   };
@@ -134,12 +127,11 @@ test('renderAppShell fills shared shell placeholders', () => {
       querySelector(selector) {
         return slots[selector] ?? null;
       }
-    },
-    homePath: '../'
+    }
   });
 
   assert.match(slots['[data-app-shell="header"]'].innerHTML, /id="theme-toggle"/);
-  assert.match(slots['[data-app-shell="header"]'].innerHTML, /href="\.\.\/"/);
+  assert.match(slots['[data-app-shell="header"]'].innerHTML, /href="\.\.\/\.\.\/" class="brand-link"/);
   assert.match(slots['[data-app-shell="runtime-error"]'].innerHTML, /id="runtime-error"/);
   assert.match(slots['[data-app-shell="runtime-error"]'].innerHTML, /id="runtime-error-details"/);
   assert.match(slots['[data-app-shell="runtime-error"]'].innerHTML, /id="runtime-error-copy"/);
@@ -149,58 +141,10 @@ test('renderAppShell fills shared shell placeholders', () => {
   assert.match(slots['[data-app-shell="scroll-top"]'].innerHTML, /id="scroll-top"/);
 });
 
-test('renderAppShell rejects unsafe homePath and falls back to default', () => {
-  const slot = createSlot();
-
-  renderAppShell({
-    documentObj: {
-      querySelector(selector) {
-        return selector === '[data-app-shell="header"]' ? slot : null;
-      }
-    },
-    homePath: 'javascript:alert(1)' // eslint-disable-line no-script-url
-  });
-
-  assert.match(slot.innerHTML, /href="\.\.\/\.\.\/"/);
-  assert.doesNotMatch(slot.innerHTML, /javascript/);
-});
-
-test('renderAppShell accepts valid relative homePath', () => {
-  const slot = createSlot();
-
-  renderAppShell({
-    documentObj: {
-      querySelector(selector) {
-        return selector === '[data-app-shell="header"]' ? slot : null;
-      }
-    },
-    homePath: '../custom-path/'
-  });
-
-  assert.match(slot.innerHTML, /href="\.\.\/custom-path\/"/);
-});
-
-test('renderAppShell leaves populated placeholders unchanged', () => {
-  const slot = {
-    childElementCount: 1,
-    innerHTML: '<p>Keep existing content</p>'
-  };
-
-  renderAppShell({
-    documentObj: {
-      querySelector(selector) {
-        return selector === '[data-app-shell="header"]' ? slot : null;
-      }
-    }
-  });
-
-  assert.equal(slot.innerHTML, '<p>Keep existing content</p>');
-});
-
 test('initAppShell sets up theme toggle and syncs theme state', () => {
   const env = createMockEnv();
   try {
-    const shell = initAppShell({ homePath: '../' });
+    const shell = initAppShell();
 
     env.listeners['theme-toggle:click']();
     assert.equal(env.attrs['data-theme'], 'dark');
@@ -219,7 +163,6 @@ test('initAppShell applyTheme normalizes and persists', () => {
   try {
     const themeChanges = [];
     const shell = initAppShell({
-      homePath: '../',
       onThemeChange: (t) => themeChanges.push(t)
     });
 
@@ -239,9 +182,9 @@ test('initAppShell applyTheme normalizes and persists', () => {
 test('initAppShell back button navigates home when no referrer', () => {
   const env = createMockEnv();
   try {
-    initAppShell({ homePath: '../' });
+    initAppShell();
     env.listeners['back-button:click']();
-    assert.equal(globalThis.window.location.href, '../');
+    assert.equal(globalThis.window.location.href, '../../');
   } finally {
     cleanupGlobals();
   }
@@ -253,7 +196,7 @@ test('initAppShell back button uses history.back for same-origin referrer', () =
     let backedUp = false;
     globalThis.document.referrer = 'https://example.com/page';
     globalThis.window.history.back = () => { backedUp = true; };
-    initAppShell({ homePath: '../' });
+    initAppShell();
     env.listeners['back-button:click']();
     assert.equal(backedUp, true);
   } finally {
@@ -265,9 +208,9 @@ test('initAppShell back button navigates home for cross-origin referrer', () => 
   const env = createMockEnv();
   try {
     globalThis.document.referrer = 'https://other-site.com/page';
-    initAppShell({ homePath: '../' });
+    initAppShell();
     env.listeners['back-button:click']();
-    assert.equal(globalThis.window.location.href, '../');
+    assert.equal(globalThis.window.location.href, '../../');
   } finally {
     cleanupGlobals();
   }
@@ -276,7 +219,7 @@ test('initAppShell back button navigates home for cross-origin referrer', () => 
 test('initAppShell scroll-top toggles visibility based on scroll position', () => {
   const env = createMockEnv();
   try {
-    const shell = initAppShell({ homePath: '../' });
+    const shell = initAppShell();
 
     globalThis.window.scrollY = 300;
     shell.updateScrollTopVisibility();
@@ -297,26 +240,9 @@ test('initAppShell scroll-top click scrolls to top', () => {
   try {
     let scrollArgs = null;
     globalThis.window.scrollTo = (args) => { scrollArgs = args; };
-    initAppShell({ homePath: '../' });
+    initAppShell();
     env.listeners['scroll-top:click']();
     assert.deepEqual(scrollArgs, { top: 0, behavior: 'smooth' });
-  } finally {
-    cleanupGlobals();
-  }
-});
-
-test('initAppShell handles missing theme-color meta gracefully', () => {
-  const env = createMockEnv();
-  try {
-    const origQuerySelector = globalThis.document.querySelector.bind(globalThis.document);
-    globalThis.document.querySelector = (sel) => {
-      if (sel === 'meta[name="theme-color"]') return null;
-      return origQuerySelector(sel);
-    };
-    // Should not throw
-    const shell = initAppShell({ homePath: '../' });
-    shell.applyTheme('dark');
-    assert.equal(env.attrs['data-theme'], 'dark');
   } finally {
     cleanupGlobals();
   }
@@ -325,7 +251,7 @@ test('initAppShell handles missing theme-color meta gracefully', () => {
 test('initAppShell applyTheme suspends transitions around the theme change for two frames', () => {
   const env = createMockEnv();
   try {
-    const shell = initAppShell({ homePath: '../' });
+    const shell = initAppShell();
 
     shell.applyTheme('dark');
     assert.deepEqual(env.themeSwaps, [true]);
@@ -344,7 +270,7 @@ test('initAppShell applyTheme suspends transitions around the theme change for t
 test('initAppShell applyTheme restarts the two-frame window on a rapid second toggle', () => {
   const env = createMockEnv();
   try {
-    const shell = initAppShell({ homePath: '../' });
+    const shell = initAppShell();
 
     shell.applyTheme('dark');
     env.flushFrame();
@@ -362,7 +288,7 @@ test('initAppShell applyTheme restarts the two-frame window on a rapid second to
 test('initAppShell scroll-top coalesces scroll events per frame and writes only on a change', () => {
   const env = createMockEnv();
   try {
-    initAppShell({ homePath: '../' });
+    initAppShell();
     const button = env.elements['scroll-top'];
     let writes = 0;
     const setAttribute = button.setAttribute.bind(button);

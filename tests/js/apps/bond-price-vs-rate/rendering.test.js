@@ -89,6 +89,19 @@ function makeElement(overrides = {}) {
   };
 }
 
+/** A comparison block as index.html ships it: two label/meter/value rows. */
+function compareBlock() {
+  const container = makeElement();
+  for (let index = 0; index < 2; index += 1) {
+    const row = makeElement();
+    const track = makeElement();
+    track.append(makeElement());
+    row.append(makeElement(), track, makeElement());
+    container.append(row);
+  }
+  return container;
+}
+
 function setupDocumentMock({ theme = 'light' } = {}) {
   const origDoc = globalThis.document;
   const origGcs = globalThis.getComputedStyle;
@@ -340,10 +353,10 @@ test('rippleExplainText adapts to each regime', () => {
   assert.match(rippleExplainText(narrativeState({ regime: 'par' })), /hold their value/);
 });
 
-test('renderCouponCompare builds a bar row per rate and scales the fill width', () => {
+test('renderCouponCompare fills a bar row per rate and scales the fill width', () => {
   const orig = setupDocumentMock();
   try {
-    const container = makeElement();
+    const container = compareBlock();
     renderCouponCompare(container, narrativeState(), FORMATTERS);
     assert.equal(container.children.length, 2);
     const [couponRow, marketRow] = container.children;
@@ -434,8 +447,8 @@ function narrativeElements() {
     sensitivityExplain: makeElement(),
     analystExplain: makeElement(),
     rippleExplain: makeElement(),
-    couponCompare: makeElement(),
-    pvSplit: makeElement(),
+    couponCompare: compareBlock(),
+    pvSplit: compareBlock(),
     statCurrentYield: makeElement(),
     statMacaulay: makeElement(),
     statModified: makeElement(),
@@ -458,7 +471,7 @@ test('analystExplainText quotes duration, convexity, DV01, and current yield', (
 test('renderPriceSplit sizes each bar by its share of the price', () => {
   const orig = setupDocumentMock();
   try {
-    const container = makeElement();
+    const container = compareBlock();
     renderPriceSplit(container, narrativeState(), FORMATTERS);
     assert.equal(container.children.length, 2);
     const [couponsRow, faceRow] = container.children;
@@ -689,7 +702,8 @@ test('nudgeRateValue restarts the readout highlight on every call', () => {
 
 function chartWindow(createdConfigs) {
   return {
-    Chart: function MockChart(_canvas, config) {
+    Chart: function MockChart(canvas, config) {
+      this.canvas = canvas;
       if (createdConfigs) {
         createdConfigs.push(config);
       }
@@ -799,9 +813,6 @@ test('chart tooltip callbacks produce formatted output', () => {
     });
     assert.equal(curveLabel, 'Curve yield: 4.78%');
 
-    const bar = configs.find((c) => c.type === 'bar');
-    assert.equal(bar.options.plugins.tooltip.callbacks.label({ chart: {}, dataIndex: 0 }), '', 'an unsynced chart has no tooltip');
-
     // Percent axis ticks always show two decimals and never leak float noise.
     const yieldTick = curveLine.options.scales.y.ticks.callback;
     assert.equal(yieldTick(4.800000000000001), '4.80%');
@@ -849,7 +860,6 @@ test('sensitivity bars are horizontal dollar losses with the new price and loss 
     assert.equal(ticks.color({ chart: charts.sensitivity, index: 0 }), palette.tick);
     assert.deepEqual(ticks.font({ chart: charts.sensitivity, index: 1 }), { weight: 600 });
     assert.deepEqual(ticks.font({ chart: charts.sensitivity, index: 2 }), { weight: 400 });
-    assert.equal(ticks.color({ chart: {}, index: 0 }), undefined, 'an unsynced chart falls back to the defaults');
 
     // The inline plugin writes each label just past its bar's end.
     const [plugin] = bar.plugins;
@@ -867,14 +877,13 @@ test('sensitivity bars are horizontal dollar losses with the new price and loss 
     assert.equal(ctx.calls[0], 'save');
     assert.equal(ctx.calls.at(-1), 'restore');
 
-    // A chart that was never synced draws nothing, and missing font defaults fall back.
+    // Before its first sync the chart holds an empty seed: no bars, nothing drawn.
+    const seeded = renderCharts({ ...chartData(), elements: { priceRateChart: {}, sensitivityChart: {}, yieldCurveChart: {} }, sensitivity: undefined });
+    seeded.sensitivity.options.font = { family: 'Inter', size: 12 };
     const idle = fakeContext();
-    plugin.afterDatasetsDraw({ ctx: idle, getDatasetMeta: () => ({ data: bars }) });
-    assert.deepEqual(idle.calls, []);
-    charts.sensitivity.options.font = undefined;
-    const fallback = fakeContext();
-    drawWith(fallback, bars.slice(0, 1));
-    assert.equal(fallback.calls[1].font, '400 12px sans-serif');
+    plugin.afterDatasetsDraw(Object.assign(seeded.sensitivity, { ctx: idle, getDatasetMeta: () => ({ data: [] }) }));
+    assert.deepEqual(idle.calls, ['save', 'restore']);
+    assert.equal(ticks.color({ chart: seeded.sensitivity, index: 0 }), palette.tick);
   } finally {
     restoreDocument(orig);
     if (origWin) globalThis.window = origWin; else delete globalThis.window;
@@ -926,22 +935,6 @@ test('renderNarrative stacks every variant so swapping regimes keeps the same co
     assert.match(activeText(elements.curveExplain), /inverted curve offers about 4.1%/);
     const flat = variantNodes(elements.curveExplain).find((node) => node.getAttribute('data-variant') === 'flat');
     assert.equal(flat.textContent, '', 'an inactive curve story is empty');
-  } finally {
-    restoreDocument(orig);
-  }
-});
-
-test('renderNarrative falls back to the selected curve when the state has no shape table', () => {
-  const orig = setupDocumentMock();
-  try {
-    const elements = narrativeElements();
-    renderNarrative(
-      elements,
-      narrativeState({ curve: { key: 'flat', label: 'Flat', atMaturityPct: 4.5 } }),
-      FORMATTERS
-    );
-    assert.deepEqual(variantKeys(elements.curveExplain), ['flat']);
-    assert.match(activeText(elements.curveExplain), /A flat curve pays nothing extra/);
   } finally {
     restoreDocument(orig);
   }

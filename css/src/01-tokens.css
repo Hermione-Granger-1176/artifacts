@@ -60,9 +60,6 @@
   --font-display: 'Fredoka One', cursive;
   --radius-sm: 8px;
   --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-note: 6px;
-  --radius-book: 8px;
   --radius-pill: 999px;
   --transition-fast: 0.2s;
   --book-sheet-min-height: 800px;
@@ -70,10 +67,6 @@
   --book-chrome-y: 290px;
   --book-fit-min-height: 460px;
   --book-spread-ratio: 1.325;
-  --gallery-page-padding-block: 1.2rem;
-  --gallery-page-padding-top: var(--gallery-page-padding-block);
-  --gallery-page-padding-bottom: var(--gallery-page-padding-block);
-  --gallery-slice-padding: 1.2rem;
   --gallery-card-gap: 1.25rem;
   /* Every artifact thumbnail is 960x600, so image slots can be sized before the image loads. */
   --card-thumb-ratio: 1.6;
@@ -115,9 +108,7 @@
   --text-primary: var(--color-text-primary);
   --text-secondary: var(--color-text-secondary);
   --accent: var(--color-accent);
-  --accent-hover: var(--color-accent-hover);
   --accent-ring: var(--color-accent-ring);
-  --accent-ghost: var(--color-accent-ghost);
   --border-color: var(--color-border);
   --border-solid: var(--color-border-solid);
   --card-color-1: rgb(240, 212, 200);

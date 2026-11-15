@@ -2,9 +2,9 @@
  * @typedef {{
  *   type: string,
  *   amount: number,
- *   period?: number,
- *   startPeriod?: number,
- *   every?: number
+ *   period: number,
+ *   startPeriod: number,
+ *   every: number
  * }} ExtraPayment
  * @typedef {{
  *   period: number,
@@ -31,7 +31,12 @@
  * }} ScheduleResult
  */
 
-/** Hard stop for the schedule loop, so a payment that never covers interest cannot run forever. */
+/**
+ * Hard stop for the schedule loop. The app's payments always exceed the
+ * period's interest, so its schedules end within the tenure (at most 1,560
+ * weekly periods); the cap bounds a call whose emiOverride does not cover the
+ * interest, where the balance would never fall.
+ */
 const MAX_SCHEDULE_PERIODS = 2000;
 
 /**
@@ -67,16 +72,9 @@ export function getExtraForPeriod(period, extras) {
         }
         break;
       case "recurring":
-        if (
-          extra.startPeriod !== undefined &&
-          extra.every !== undefined &&
-          period >= extra.startPeriod &&
-          (period - extra.startPeriod) % extra.every === 0
-        ) {
+        if (period >= extra.startPeriod && (period - extra.startPeriod) % extra.every === 0) {
           total += extra.amount;
         }
-        break;
-      default:
         break;
     }
   }

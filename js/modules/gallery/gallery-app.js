@@ -3,7 +3,7 @@ import {
   hydrateArtifacts,
   sortValuesByDisplayOrder,
 } from './catalog.js';
-import { getGalleryConfig, getTagLabel, getToolLabel } from './config.js';
+import { getTagLabel, getToolLabel } from './config.js';
 import {
   buildGalleryUrl,
   DEFAULT_GALLERY_STATE,
@@ -49,10 +49,13 @@ const BOOK_SCROLL_MARGIN = 12;
  *   tags: string[],
  *   tools: string[],
  *   url: string,
- *   thumbnail?: string | null,
+ *   thumbnail: string,
  *   searchText?: string
  * }} ArtifactRecord
- * @typedef {Window & { ARTIFACTS_DATA?: ArtifactRecord[] }} GalleryWindow
+ * @typedef {Window & {
+ *   ARTIFACTS_CONFIG: import('./config.js').GalleryConfig,
+ *   ARTIFACTS_DATA: ArtifactRecord[]
+ * }} GalleryWindow
  * @typedef {{
  *   dataset?: string,
  *   step?: string,
@@ -206,6 +209,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   const filterNotesContainer = requireElement(documentObj, 'filter-notes');
   const filterDropdowns = requireElement(documentObj, 'filter-dropdowns');
   const galleryStatus = requireElement(documentObj, 'gallery-status');
+  const bookShell = requireElement(documentObj, 'book-shell');
+  const bookSheet = requireElement(documentObj, 'book-sheet');
   const htmlElement = documentObj.documentElement;
 
   const backgroundElements = /** @type {HTMLElement[]} */ ([
@@ -219,9 +224,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   const notepadQuery = windowObj.matchMedia(NOTEPAD_QUERY);
   const motion = createMotionHelper(prefersReducedMotionQuery, windowObj);
   const suspendThemeTransitions = createThemeSwitchGuard(htmlElement, windowObj);
-  const galleryConfig = getGalleryConfig(windowObj);
-  const rawArtifacts = Array.isArray(galleryWindow.ARTIFACTS_DATA) ? galleryWindow.ARTIFACTS_DATA : [];
-  const allArtifacts = hydrateArtifacts(rawArtifacts);
+  // validateGalleryBootstrapData has checked both generated globals before this runs.
+  const galleryConfig = galleryWindow.ARTIFACTS_CONFIG;
+  const allArtifacts = hydrateArtifacts(galleryWindow.ARTIFACTS_DATA);
   const artifactById = new Map(allArtifacts.map((item) => [item.id, item]));
   const allTags = sortValuesByDisplayOrder(
     [...new Set(allArtifacts.flatMap((item) => item.tags))],
@@ -385,7 +390,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   readStateFromUrl();
   renderFilterNotes();
 
-  const savedTheme = appRuntime.readStorage('theme', 'light') || 'light';
+  const savedTheme = appRuntime.readStorage('theme', 'light');
   applyTheme(savedTheme, false);
   updateScrollTopVisibility(false);
 
@@ -588,7 +593,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   // A turning leaf, its ghost page, and the cover's inside page sit outside the
   // grid, so catch broken thumbnails on the whole sheet when the book is there.
-  registerThumbnailFallback(documentObj.getElementById('book-sheet') ?? grid);
+  registerThumbnailFallback(bookSheet);
 
   grid.addEventListener('click', (event) => {
     // The click a page-turn swipe leaves behind is swallowed whole, so a swipe that started on
@@ -642,10 +647,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     });
   });
 
-  const bookSheet = documentObj.getElementById('book-sheet');
-  if (bookSheet) {
-    bindNotepadSwipe(bookSheet);
-  }
+  bindNotepadSwipe(bookSheet);
 
   documentObj.addEventListener('keydown', (event) => {
     switch (event.key) {
@@ -797,7 +799,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
    * pagination row under a tall phone page never leaves the reader at the new page's end.
    */
   function scrollBookIntoView() {
-    const bookTop = documentObj.getElementById('book-shell')?.getBoundingClientRect().top ?? 0;
+    const bookTop = bookShell.getBoundingClientRect().top;
     if (bookTop < 0) {
       windowObj.scrollTo({ top: windowObj.scrollY + bookTop - BOOK_SCROLL_MARGIN, behavior: motion.getScrollBehavior() });
     }
@@ -818,7 +820,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   /**
-   * @param {string} theme - Requested theme name.
+   * @param {string | null} theme - Requested theme name; anything but "dark" means light.
    * @param {boolean} [persist=true] - Whether to persist the theme.
    */
   function applyTheme(theme, persist = true) {
@@ -832,13 +834,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       appRuntime.writeStorage('theme', normalizedTheme);
     }
 
-    const meta = documentObj.querySelector('meta[name="theme-color"]');
-    if (meta) {
-      const bgColor = windowObj.getComputedStyle(htmlElement).getPropertyValue('--color-bg-primary').trim();
-      if (bgColor) {
-        meta.setAttribute('content', bgColor);
-      }
-    }
+    const bgColor = windowObj.getComputedStyle(htmlElement).getPropertyValue('--color-bg-primary').trim();
+    /** @type {Element} */ (documentObj.querySelector('meta[name="theme-color"]')).setAttribute('content', bgColor);
 
     galleryStatus.textContent = `Theme switched to ${normalizedTheme} mode.`;
   }
@@ -986,13 +983,13 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
      * @param {number} activeCount - Selected values in the group.
      */
     const setSummary = (kind, heading, activeCount) => {
-      const summary = filterDropdowns.querySelector(`[data-filter-summary="${kind}"]`);
+      const summary = /** @type {Element} */ (filterDropdowns.querySelector(`[data-filter-summary="${kind}"]`));
       const text = activeCount > 0 ? String(activeCount) : '';
-      if (summary && summary.textContent !== text) {
+      if (summary.textContent !== text) {
         summary.textContent = text;
       }
-      filterDropdowns.querySelector(`[data-filter-open="${kind}"]`)
-        ?.setAttribute('aria-label', activeCount > 0 ? `${heading}, ${activeCount} selected` : heading);
+      /** @type {Element} */ (filterDropdowns.querySelector(`[data-filter-open="${kind}"]`))
+        .setAttribute('aria-label', activeCount > 0 ? `${heading}, ${activeCount} selected` : heading);
     };
 
     setSummary('tools', 'Tools', currentTools.length);
@@ -1100,7 +1097,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   function restorePendingFocus() {
     const target = resolvePendingFocusTarget(pendingFocusTarget);
     pendingFocusTarget = null;
-    if (target && typeof target.focus === 'function') {
+    if (target) {
       // The re-rendered control is where the pointer or key just was; scrolling to it only makes the page jump.
       target.focus({ preventScroll: true });
     }

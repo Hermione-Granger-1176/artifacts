@@ -6,17 +6,13 @@
  */
 export function initAccordion(container) {
   container.addEventListener("click", (event) => {
-    const target = /** @type {Element | null} */ (event.target);
-    const trigger = target?.closest(".card-trigger");
+    const trigger = /** @type {Element} */ (event.target).closest(".card-trigger");
     if (!trigger) {
       return;
     }
 
-    const card = trigger.closest(".card");
-    if (!card) {
-      return;
-    }
-
+    // Every trigger in index.html sits directly inside its .card.
+    const card = /** @type {Element} */ (trigger.closest(".card"));
     const isOpen = card.classList.toggle("open");
     trigger.setAttribute("aria-expanded", String(isOpen));
   });

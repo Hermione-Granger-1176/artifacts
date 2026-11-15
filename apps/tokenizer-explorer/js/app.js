@@ -88,17 +88,14 @@ function bindEvents() {
   elements.tempSlider.addEventListener("input", resetSamples);
   elements.toppSlider.addEventListener("input", resetSamples);
   elements.samplingPresets.addEventListener("click", (/** @type {MouseEvent} */ event) => {
-    const target = /** @type {Element | null} */ (event.target);
-    const preset = target?.closest(".sampling-preset");
+    const preset = /** @type {Element} */ (event.target).closest(".sampling-preset");
     if (!preset) {
       return;
     }
 
+    // Every preset button in index.html carries both data attributes.
     const temperature = preset.getAttribute("data-temperature");
     const topP = preset.getAttribute("data-topp");
-    if (!temperature || !topP) {
-      return;
-    }
     elements.tempSlider.value = String(Number(temperature) * 10);
     elements.toppSlider.value = String(Number(topP) * 100);
     resetSamples();

@@ -1,14 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createRuntime, readStorage, writeStorage } from '../../../js/modules/runtime.js';
+import { createRuntime, writeStorage } from '../../../js/modules/runtime.js';
 
 function createWindowStub() {
   const listeners = new Map();
   const storage = new Map();
 
   return {
-    __ARTIFACTS_ERROR_HANDLERS_BOUND__: false,
     location: { href: 'https://example.com/apps/demo/' },
     navigator: {
       clipboard: {
@@ -155,16 +154,14 @@ test('runtime falls back when storage access throws', () => {
   assert.match(errors[1], /localStorage write/);
 });
 
-test('runtime setupGlobalErrorHandlers is idempotent and handles rejections', () => {
+test('runtime setupGlobalErrorHandlers reports unhandled rejections', () => {
   const documentObj = createDocumentStub();
   const windowObj = createWindowStub();
   const runtime = createRuntime({ consoleObj: { error() {} }, documentObj, windowObj });
 
   runtime.setupGlobalErrorHandlers();
-  runtime.setupGlobalErrorHandlers();
   windowObj.dispatch('unhandledrejection', { reason: { message: 'async boom' } });
 
-  assert.equal(windowObj.__ARTIFACTS_ERROR_HANDLERS_BOUND__, true);
   assert.equal(runtime.state.lastError.message, 'async boom');
   assert.equal(documentObj.documentElement.dataset.runtimeStatus, 'error');
 });
@@ -183,7 +180,7 @@ test('runtime treats post-ready global failures as non-fatal', () => {
   assert.equal(documentObj.documentElement.dataset.runtimeStatus, 'ready');
 });
 
-test('runtime suppresses expected bootstrap validation console noise', () => {
+test('runtime logs bootstrap validation errors to the console', () => {
   const errors = [];
   const runtime = createRuntime({
     consoleObj: { error(message) { errors.push(message); } },
@@ -197,9 +194,8 @@ test('runtime suppresses expected bootstrap validation console noise', () => {
     { fatal: true }
   );
 
-  assert.deepEqual(errors, []);
+  assert.deepEqual(errors, ['[Artifacts] gallery initialization: window.ARTIFACTS_DATA must be an array']);
 });
-
 
 test('runtime copy diagnostics is a safe no-op without clipboard access', async () => {
   const documentObj = createDocumentStub();
@@ -217,35 +213,6 @@ test('runtime copy diagnostics is a safe no-op without clipboard access', async 
 
   await Promise.resolve();
   assert.equal(documentObj.runtimeErrorCopy.textContent, 'Copy error details');
-});
-
-test('standalone readStorage reads from window.localStorage', () => {
-  const storage = new Map([['color', 'blue']]);
-  const original = globalThis.window;
-  globalThis.window = {
-    localStorage: {
-      getItem(key) { return storage.get(key) ?? null; }
-    }
-  };
-
-  assert.equal(readStorage('color'), 'blue');
-  assert.equal(readStorage('missing'), null);
-  assert.equal(readStorage('missing', 'default'), 'default');
-
-  globalThis.window = original;
-});
-
-test('standalone readStorage returns fallback when localStorage throws', () => {
-  const original = globalThis.window;
-  globalThis.window = {
-    localStorage: {
-      getItem() { throw new Error('blocked'); }
-    }
-  };
-
-  assert.equal(readStorage('any', 'safe'), 'safe');
-
-  globalThis.window = original;
 });
 
 test('standalone writeStorage writes to window.localStorage', () => {
@@ -274,38 +241,6 @@ test('standalone writeStorage returns false when localStorage throws', () => {
   assert.equal(writeStorage('color', 'red'), false);
 
   globalThis.window = original;
-});
-
-test('runtime reportError tolerates documentObj without getElementById for diagnostics', () => {
-  const windowObj = createWindowStub();
-  // createRuntime needs getElementById at init. Deleting it afterwards leaves
-  // reportError with a stub that lacks it when it updates the diagnostics.
-  const minimalDoc = {
-    documentElement: { dataset: {} },
-    addEventListener() {},
-    getElementById() { return null; }
-  };
-
-  const runtime = createRuntime({
-    consoleObj: { error() {} },
-    documentObj: minimalDoc,
-    windowObj
-  });
-
-  delete minimalDoc.getElementById;
-
-  runtime.reportError(new Error('test'), 'test context', { fatal: true });
-  assert.equal(runtime.state.lastError.message, 'test');
-});
-
-test('runtime diagnostics click handler is bound only once across multiple createRuntime calls', () => {
-  const windowObj = createWindowStub();
-  const docObj = createDocumentStub();
-
-  createRuntime({ windowObj, documentObj: docObj, consoleObj: { error() {} } });
-  createRuntime({ windowObj, documentObj: docObj, consoleObj: { error() {} } });
-
-  assert.equal(windowObj.__ARTIFACTS_DIAGNOSTICS_BOUND__, true);
 });
 
 /**

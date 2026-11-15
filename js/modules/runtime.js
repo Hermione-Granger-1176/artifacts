@@ -7,28 +7,8 @@
  *   summary: string
  * }} RuntimeErrorRecord
  * @typedef {{ ready: boolean, lastError: RuntimeErrorRecord | null }} RuntimeState
- * @typedef {Window & {
- *   __ARTIFACTS_DIAGNOSTICS_BOUND__?: boolean,
- *   __ARTIFACTS_ERROR_HANDLERS_BOUND__?: boolean,
- *   __ARTIFACTS_RUNTIME__?: RuntimeState
- * }} RuntimeWindow
+ * @typedef {Window & { __ARTIFACTS_RUNTIME__?: RuntimeState }} RuntimeWindow
  */
-
-/**
- * Read a value from localStorage, returning a fallback on failure. Unlike the
- * `readStorage` that createRuntime returns, it does not report the error.
- * @param {string} key - Storage key to read.
- * @param {string|null} [fallbackValue=null] - Value to return when reads fail or the key is unset.
- * @returns {string|null} Stored value or the fallback.
- */
-export function readStorage(key, fallbackValue = null) {
-  try {
-    const value = window.localStorage.getItem(key);
-    return value ?? fallbackValue;
-  } catch (_error) {
-    return fallbackValue;
-  }
-}
 
 /**
  * Write a value to localStorage, returning success status. Unlike the
@@ -65,27 +45,6 @@ function normalizeErrorMessage(error) {
   }
 
   return 'Unknown runtime error';
-}
-
-/**
- * Normalize console output into a single comparable line.
- * @param {*} message - Console message to normalize.
- * @returns {string} Comparable message text.
- */
-function normalizeConsoleMessage(message) {
-  return String(message).replace(/\s+/g, ' ').trim();
-}
-
-/**
- * Detect the gallery's "window.ARTIFACTS_DATA must be an array" validation
- * error, which the page already shows to the reader. reportError still records
- * it in `state.lastError` but skips the console call.
- * @param {*} message - Runtime message to check.
- * @returns {boolean} Whether to skip logging this message.
- */
-function shouldIgnoreRuntimeError(message) {
-  const normalizedMessage = normalizeConsoleMessage(message).toLowerCase();
-  return normalizedMessage.includes('window.artifacts_data must be an array');
 }
 
 /**
@@ -130,9 +89,6 @@ function buildErrorSummary(errorRecord, documentObj, windowObj) {
  * @returns {void}
  */
 function updateRuntimeDiagnostics(documentObj, state) {
-  if (typeof documentObj.getElementById !== 'function') {
-    return;
-  }
   const details = documentObj.getElementById('runtime-error-details');
   const output = documentObj.getElementById('runtime-error-output');
   const copyButton = documentObj.getElementById('runtime-error-copy');
@@ -190,8 +146,8 @@ async function copyRuntimeDiagnostics(state, windowObj, documentObj) {
 /**
  * Create a runtime instance providing error reporting, storage access, and lifecycle status.
  * Creating one sets `window.__ARTIFACTS_RUNTIME__` to its state, sets
- * `data-runtime-status` on the root element to "booting", and installs one
- * click handler per window for the "Copy error details" button.
+ * `data-runtime-status` on the root element to "booting", and installs the
+ * click handler for the "Copy error details" button. A page creates one runtime.
  * @param {{ consoleObj?: Console, documentObj?: Document, windowObj?: Window }} [options={}]
  *   Injected browser globals for startup and tests.
  * @returns {{
@@ -213,17 +169,14 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
 
   runtimeWindow.__ARTIFACTS_RUNTIME__ = state;
   documentObj.documentElement.dataset.runtimeStatus = 'booting';
-  if (typeof documentObj.addEventListener === 'function' && !runtimeWindow.__ARTIFACTS_DIAGNOSTICS_BOUND__) {
-    runtimeWindow.__ARTIFACTS_DIAGNOSTICS_BOUND__ = true;
-    documentObj.addEventListener('click', (event) => {
-      const target = /** @type {Element | null} */ (event.target);
-      const copyButton = target?.closest?.('#runtime-error-copy');
-      if (!copyButton) {
-        return;
-      }
-      void copyRuntimeDiagnostics(state, windowObj, documentObj);
-    });
-  }
+  documentObj.addEventListener('click', (event) => {
+    const target = /** @type {Element | null} */ (event.target);
+    const copyButton = target?.closest?.('#runtime-error-copy');
+    if (!copyButton) {
+      return;
+    }
+    void copyRuntimeDiagnostics(state, windowObj, documentObj);
+  });
 
   /** @param {string} value - Runtime status written to the document dataset. */
   const setStatus = (value) => {
@@ -262,10 +215,7 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
       showFatalBanner();
     }
 
-    const consoleMessage = `[Artifacts] ${context}: ${state.lastError.message}`;
-    if (!shouldIgnoreRuntimeError(consoleMessage)) {
-      consoleObj.error(consoleMessage, error);
-    }
+    consoleObj.error(`[Artifacts] ${context}: ${errorRecord.message}`, error);
   };
 
   // The boot guard reveals the banner when the app has not booted after its
@@ -304,12 +254,6 @@ export function createRuntime({ consoleObj = console, documentObj = document, wi
     reportError,
 
     setupGlobalErrorHandlers() {
-      if (runtimeWindow.__ARTIFACTS_ERROR_HANDLERS_BOUND__) {
-        return;
-      }
-
-      runtimeWindow.__ARTIFACTS_ERROR_HANDLERS_BOUND__ = true;
-
       runtimeWindow.addEventListener('error', (event) => {
         reportError(event.error || event.message, 'window error', { fatal: !state.ready });
       });

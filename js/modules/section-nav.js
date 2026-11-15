@@ -5,10 +5,10 @@
 import { createFrameScheduler } from "./frame-scheduler.js";
 
 /**
- * @typedef {{ id: string, label: string }} NavSection
+ * @typedef {{ id: string, label: string, target: HTMLElement }} NavSection
  */
 
-// Skeleton with the ids that initSectionNav defaults to (nav-nodes, nav-fill,
+// Skeleton with the ids that initSectionNav reads (nav-nodes, nav-fill,
 // nav-label). The label starts empty because initSectionNav writes the active
 // section's label when it runs.
 const SECTION_NAV_MARKUP = `
@@ -25,19 +25,15 @@ const SECTION_NAV_MARKUP = `
 `;
 
 /**
- * Inject the shared section-nav skeleton into a mount slot. Like app-shell, it
- * fills the slot only when the slot has no element children, so a repeat call
- * does nothing. The injected ids (nav-fill, nav-nodes, nav-label) match
- * initSectionNav's defaults.
+ * Inject the shared section-nav skeleton into the page's empty
+ * `[data-section-nav]` slot. The injected ids (nav-fill, nav-nodes, nav-label)
+ * are the ones initSectionNav reads.
  *
- * @param {Element | null} mount - Slot element to fill.
+ * @param {Element | null} mount - The slot, as `document.querySelector` returns it. Every page that calls this ships one.
  * @returns {void}
  */
 export function renderSectionNav(mount) {
-  if (!mount || mount.childElementCount > 0) {
-    return;
-  }
-  mount.innerHTML = SECTION_NAV_MARKUP.trim();
+  /** @type {Element} */ (mount).innerHTML = SECTION_NAV_MARKUP.trim();
 }
 
 /**
@@ -68,7 +64,7 @@ function discoverSections() {
   for (const target of document.querySelectorAll("[data-nav-label]")) {
     const label = (target.getAttribute("data-nav-label") || "").trim();
     if (target.id && label) {
-      found.push({ id: target.id, label });
+      found.push({ id: target.id, label, target: /** @type {HTMLElement} */ (target) });
     }
   }
   return found;
@@ -126,33 +122,21 @@ export function scrollProgress(anchors, scrollY) {
 /**
  * Build one numbered node per section inside the nodes container and keep the
  * fill, node states, and label in sync with the reader's scroll position.
- * Returns without doing anything when no section exists on the page or when
- * the nodes, fill, or label element is missing.
+ * Sections are the elements with an id and a data-nav-label, in document
+ * order. Call it after renderSectionNav, on a page with at least one section.
  *
  * Section positions are measured at init, on window resize, and when
  * `document.body` resizes (if ResizeObserver exists). A scroll frame only maps
  * `scrollY` onto the measured offsets, so scrolling never forces a layout.
  *
- * @param {NavSection[]} [explicitSections] - Optional fixed list. When omitted,
- *   sections are discovered from elements with data-nav-label. Entries whose id
- *   is not in the document are dropped and get no node.
- * @param {{ nodesId?: string, fillId?: string, labelId?: string }} [anchors] -
- *   Element ids for the nodes container, fill, and label. They default to
- *   "nav-nodes", "nav-fill", and "nav-label", the ids renderSectionNav injects.
  * @returns {void}
  */
-export function initSectionNav(explicitSections, anchors = {}) {
-  const sections = (explicitSections ?? discoverSections()).filter((section) => document.getElementById(section.id));
-  const { nodesId = "nav-nodes", fillId = "nav-fill", labelId = "nav-label" } = anchors;
-  const nodesWrap = document.getElementById(nodesId);
-  const fill = document.getElementById(fillId);
-  const label = document.getElementById(labelId);
-  if (sections.length === 0 || !nodesWrap || !fill || !label) {
-    return;
-  }
-  const fillEl = fill;
-  const labelEl = label;
-  const targets = sections.map((section) => /** @type {HTMLElement} */ (document.getElementById(section.id)));
+export function initSectionNav() {
+  const sections = discoverSections();
+  const nodesWrap = /** @type {HTMLElement} */ (document.getElementById("nav-nodes"));
+  const fillEl = /** @type {HTMLElement} */ (document.getElementById("nav-fill"));
+  const labelEl = /** @type {HTMLElement} */ (document.getElementById("nav-label"));
+  const targets = sections.map((section) => section.target);
 
   const nodeButtons = sections.map((section, index) => {
     const node = document.createElement("button");

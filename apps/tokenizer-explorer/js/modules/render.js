@@ -216,7 +216,7 @@ export function renderScenarioOptions(select, scenarios, activeIndex) {
  * Render the scenario type, the prompt as coloured token chips, and the
  * completion blank that sits inline after the last chip.
  *
- * @param {{ scenarioType: HTMLElement, sentencePrefix: HTMLElement, sentenceCompletion?: HTMLElement }} elements
+ * @param {{ scenarioType: HTMLElement, sentencePrefix: HTMLElement, sentenceCompletion: HTMLElement }} elements
  * @param {{ prefix: string, type: string, tokens: { word: string }[] }} scenario
  * @param {string | null} [chosenWord=null]
  * @param {boolean} [showWhitespace=false]
@@ -229,11 +229,9 @@ export function renderScenario(elements, scenario, chosenWord = null, showWhites
       createTokenChip(token, `chip is-mono token-chip prompt-chip ${CHIP_TONES[index % CHIP_TONES.length]}`, showWhitespace)
     )
   );
-  if (elements.sentenceCompletion) {
-    elements.sentenceCompletion.style.setProperty("--blank-chars", String(longestWordLength(scenario)));
-    elements.sentenceCompletion.textContent = chosenWord ?? "";
-    elements.sentenceCompletion.classList.toggle("has-choice", Boolean(chosenWord));
-  }
+  elements.sentenceCompletion.style.setProperty("--blank-chars", String(longestWordLength(scenario)));
+  elements.sentenceCompletion.textContent = chosenWord ?? "";
+  elements.sentenceCompletion.classList.toggle("has-choice", Boolean(chosenWord));
 }
 
 /**
@@ -281,7 +279,7 @@ export function renderTokenExamples(container, showWhitespace) {
  * list owns its own rows (see candidates.js) so slider updates can animate
  * the existing bars.
  *
- * @param {{ candidateList: HTMLElement, insightBox: HTMLElement, sampleStatus?: HTMLElement }} elements
+ * @param {{ candidateList: HTMLElement, insightBox: HTMLElement, sampleStatus: HTMLElement }} elements
  * @param {{
  *   inTopP: Set<number>,
  *   selectedTokenIndex: number | null,
@@ -305,7 +303,5 @@ export function renderDistribution(elements, state) {
     state.sorted.length
   );
 
-  if (elements.sampleStatus) {
-    elements.sampleStatus.textContent = state.sampleCounts ? SAMPLE_STATUS_TALLY : SAMPLE_STATUS_IDLE;
-  }
+  elements.sampleStatus.textContent = state.sampleCounts ? SAMPLE_STATUS_TALLY : SAMPLE_STATUS_IDLE;
 }
