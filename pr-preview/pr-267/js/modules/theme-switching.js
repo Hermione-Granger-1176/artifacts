@@ -1,1 +1,0 @@
-export function createThemeSwitchGuard(e,t){let i=0;return function(){const s=++i;e.classList.add("theme-switching"),t.requestAnimationFrame(()=>{t.requestAnimationFrame(()=>{s===i&&e.classList.remove("theme-switching")})})}}
