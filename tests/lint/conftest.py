@@ -13,12 +13,9 @@ import pytest
 def scanned_directories(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
     """Record every directory the lint walkers open, in scan order.
 
-    Asserting on returned paths only proves ignored files were filtered out of
-    the result. It cannot tell a walker that never entered ``node_modules``
-    apart from one that read the whole tree and discarded it afterwards, and
-    reading the tree is the expensive half. Recording at ``os.scandir`` (which
-    ``Path.walk`` calls once per directory it descends into) makes the skip
-    itself observable.
+    Recording at ``os.scandir`` (which ``Path.walk`` calls once per directory it
+    descends into) lets a test check that ignored directories are never opened,
+    not only that their files are missing from the result.
     """
     recorded: list[Path] = []
     real_scandir = os.scandir

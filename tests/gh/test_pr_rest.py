@@ -60,7 +60,7 @@ def _rollup_runner(runs: list[object], statuses: object) -> FakeGh:
 
 
 def test_status_check_rollup_requests_every_check_run() -> None:
-    """The default latest filter can hide a same-named run from another suite, so ask for all."""
+    """Requests check runs with filter=all, so same-named runs from every suite are returned."""
     runner = _rollup_runner([], {"statuses": []})
 
     pr_rest.status_check_rollup("o/r", "abc123", run_fn=runner)
@@ -108,7 +108,7 @@ def test_status_check_rollup_matches_the_gh_shape() -> None:
 
 
 def test_status_check_rollup_keeps_the_newest_run_of_each_name() -> None:
-    """A re-run replaces the older run of the same name, wherever it appears in the list."""
+    """Keeps the run with the highest id for each check name, wherever it appears in the list."""
     runs = [
         {"id": 2, "name": "lint", "status": "completed", "conclusion": "success"},
         {"id": 1, "name": "lint", "status": "completed", "conclusion": "failure"},

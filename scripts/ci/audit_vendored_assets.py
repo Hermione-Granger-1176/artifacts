@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Audit vendored third-party bundles against the OSV advisory database.
 
-``npm audit`` and ``pip-audit`` read lock files, so they never see the bundles
+``npm audit`` and ``pip-audit`` read lock files and do not cover the bundles
 under ``apps/<slug>/js/vendor/``. ``config/vendored_assets.json`` pins each
-bundle by hash, which proves the file did not change but says nothing about
-whether its version has a published advisory.
+bundle by hash, which verifies the file content but not whether its version has
+a published advisory.
 
 This script asks OSV (https://osv.dev) about every package and version in that
 manifest and applies the same reviewed-exception policy as the npm and Python
@@ -43,23 +43,22 @@ if TYPE_CHECKING:
 
 OSV_QUERY_URL = "https://api.osv.dev/v1/query"
 OSV_ECOSYSTEM = "npm"
-# OSV starts paginating a query that runs past 20 seconds, so the client waits
-# longer than that and follows the page token instead of timing out first.
+# OSV paginates queries that run past 20 seconds. The timeout is longer than
+# that, so long queries return a page token rather than timing out.
 OSV_TIMEOUT_SECONDS = 45
 OSV_MAX_PAGES = 5
-# This audit runs in the required PR gate, so one dropped connection must not
-# fail a pull request. A transient failure retries. A bad response never does.
+# Transient failures (see ``_is_transient``) are retried up to OSV_ATTEMPTS
+# times. Bad responses are never retried.
 OSV_ATTEMPTS = 3
 OSV_RETRY_DELAY_SECONDS = 2
 
-# Range types whose events are release versions that can be compared. GIT
-# ranges list commit hashes and say nothing about a release. OSV defines no
-# other type, so any other value is malformed data.
+# Range types whose events are comparable release versions. GIT ranges list
+# commit hashes and are skipped. Any other type is malformed.
 _COMPARABLE_RANGE_TYPES = frozenset({"SEMVER", "ECOSYSTEM"})
 _KNOWN_RANGE_TYPES = _COMPARABLE_RANGE_TYPES | {"GIT"}
 _EVENT_KINDS = frozenset({"introduced", "fixed", "last_affected", "limit"})
-# One to three release numbers, because OSV allows shorthand such as ``3.5``, then
-# optional dot-separated pre-release and build identifiers that are never empty.
+# One to three release numbers, such as ``3.5``, then optional dot-separated
+# pre-release and build identifiers that are never empty.
 _IDENTIFIERS = r"[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*"
 _SEMVER_PATTERN = re.compile(rf"(\d+(?:\.\d+){{0,2}})(?:-({_IDENTIFIERS}))?(?:\+{_IDENTIFIERS})?")
 
@@ -198,8 +197,7 @@ def _boundaries(events: list[dict[str, object]], advisory: object) -> list[Bound
 
     Each event holds exactly one of ``introduced``, ``fixed``, ``last_affected``,
     or ``limit``, and a range needs an ``introduced`` event. Anything else is
-    malformed and raises, so a misspelled key cannot read as "no fix". A
-    ``limit`` of ``*`` bounds nothing and is dropped.
+    malformed and raises. A ``limit`` of ``*`` bounds nothing and is dropped.
     """
     boundaries: list[Boundary] = []
     for event in events:
@@ -266,8 +264,7 @@ def _listed_versions(entry: dict[str, object], advisory: object) -> set[VersionK
     """Return the keys of the versions an entry lists as affected.
 
     Every listed value must be a semantic version. A value that cannot be
-    ordered, such as ``v4.0.0``, could still name the same release as a fixed
-    version, so skipping it could report a fix that does not exist.
+    ordered, such as ``v4.0.0``, raises ``ValueError``.
     """
     versions = entry.get("versions", [])
     if not isinstance(versions, list):
@@ -283,8 +280,7 @@ def _has_fix(vulnerability: dict[str, object], package: str, version: str) -> bo
     counts only when it is later than ``version`` and lies outside every range
     and every listed version. A fix in one range does not help while another
     range still covers it. A malformed structure, an unknown range type, or a
-    record with no entry for the package raises ``ValueError`` so the audit
-    fails closed instead of treating unreadable data as "no fix".
+    record with no entry for the package raises ``ValueError``.
     """
     advisory = vulnerability.get("id")
     affected = vulnerability.get("affected", [])

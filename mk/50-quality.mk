@@ -8,8 +8,8 @@ ci-web: editorconfig-check format-prettier-check lint-js lint-css lint-yaml type
 
 ci: ci-python ci-web security validate check-generated ## Full local CI gate without browser tests
 
-# check-generated runs after the parallel batch because it rewrites and
-# restores generated files in place, which would race concurrent readers.
+# check-generated runs after the parallel batch. It rewrites and restores
+# generated files in place, so it must not run alongside readers of those files.
 ci-fast: ## Run the non-browser CI checks in parallel
 	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py format-check lint typecheck test-py coverage-js dead-code security validate
 	@$(MAKE) --no-print-directory check-generated

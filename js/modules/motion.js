@@ -1,6 +1,5 @@
 /**
- * The reader's reduced-motion preference, shared by the gallery and the apps so
- * every animation and scroll checks it the same way.
+ * The reader's reduced-motion preference, read by the gallery and the apps.
  * @module motion
  */
 

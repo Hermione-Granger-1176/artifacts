@@ -18,7 +18,7 @@ from scripts.lib import gh_policy
         ("502 Bad Gateway", "transient"),
         ("504 Gateway Time-out", "transient"),
         ("HTTP 500: Internal Server Error", "transient"),
-        # 501 stays fatal: "Not Implemented" never clears on a retry.
+        # 501 is fatal, so it is not retried.
         ("HTTP 501: Not Implemented", "fatal"),
         ("HTTP 429: Too Many Requests", "rate_limit"),
         ("429 Too Many Requests", "rate_limit"),
@@ -27,7 +27,7 @@ from scripts.lib import gh_policy
             "use the REST API (https://api.github.com/graphql)",
             "graphql_unavailable",
         ),
-        # An ordinary 403 is not a blocked GraphQL endpoint and must not switch paths.
+        # An ordinary 403 classifies as fatal, not as graphql_unavailable.
         ("HTTP 403: Forbidden", "fatal"),
     ],
 )
@@ -48,8 +48,7 @@ def test_rate_limit_rule_wins_when_message_mentions_http_403() -> None:
         "error: parse failure at line 503, column 12",
         "Validation failed: body is limited to 504 characters",
         "Not Found (HTTP 404): run 5021 does not exist",
-        # A bare 429 must not be read as a rate limit either: that would abort
-        # with a misleading "wait for the window to reset" message.
+        # A bare 429 is not classified as a rate limit.
         "fatal: could not read object 429fe0c",
         "error: workflow run 429 was not found",
     ],

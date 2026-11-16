@@ -191,15 +191,14 @@ function temperatureNote(temperature) {
  * @returns {string} Note text.
  */
 function topPNote(keptCount, totalCount, retainedMass) {
-  // Round down, so a cut pool never reads as 100% of the odds. A pool that
-  // keeps every token covers all of the odds.
+  // Rounds down. Only a pool that keeps every token reports 100%.
   const percent = keptCount === totalCount ? 100 : Math.floor(Math.min(retainedMass, 1) * 100);
   return `Keeps ${keptCount} of ${totalCount} tokens, ${percent}% of the odds.`;
 }
 
 /**
- * Mark the preset whose temperature and top-p match the sliders, if any, so
- * the segmented control reads as a state and not just a row of buttons.
+ * Marks the preset whose temperature and top-p match the sliders, if any, and
+ * sets its aria-pressed state.
  *
  * @param {number} temperature - Current temperature.
  * @param {number} topP - Current top-p.

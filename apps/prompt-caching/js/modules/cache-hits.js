@@ -147,8 +147,7 @@ export function initCacheHits() {
       reqs.insertBefore(notice, reqs.firstChild);
     }
 
-    // The log has a fixed height and scrolls inside itself. Scrolling the list
-    // (never scrollIntoView) keeps the page where the reader left it.
+    // The log scrolls inside its own fixed-height box; the page itself is not scrolled.
     reqs.scrollTo({ top: reqs.scrollHeight, behavior: scrollBehavior() });
   }
 

@@ -1,12 +1,10 @@
-/* Tiny DOM helpers shared by the interactive demos. Kept free of inline style
- * strings: dynamic styling is applied through the CSSOM (`element.style.*`),
- * which the strict `style-src 'self'` CSP permits, unlike `style="…"` markup. */
+/* Tiny DOM helpers shared by the interactive demos. Dynamic styles are set
+ * through `element.style.*`; no inline `style="…"` markup is generated. */
 
 /**
- * Look up an element by id. The interactive demos only run against their own
- * markup, where every queried id is present, so the result is treated as
- * non-null. Callers that touch subtype-specific members (an input value, a
- * canvas context) cast the result to the concrete element type.
+ * Look up an element by id. The id must exist in the page markup; the result
+ * is not null-checked. Callers that touch subtype-specific members (an input
+ * value, a canvas context) cast the result to the concrete element type.
  * @param {string} id - Element id to resolve.
  * @returns {HTMLElement} The resolved element.
  */
@@ -37,10 +35,8 @@ export function clear(node) {
 }
 
 /**
- * Reserve the largest box a changing element can ever need, so swapping its
- * content never moves what sits below it. Hidden copies of every state share the
- * live element's grid cell (its parent carries `.reserve`), so the cell
- * always measures as the tallest state at the current width.
+ * Adds hidden copies of every state to the live element's grid cell. The parent
+ * carries `.reserve`, so the cell measures as the tallest state at the current width.
  * @param {HTMLElement} live - Element the demo updates, already inside a `.reserve` parent.
  * @param {HTMLElement[]} ghosts - One copy per state; each takes the live element's classes.
  * @returns {void}
@@ -62,6 +58,5 @@ export function longestText(texts) {
   return texts.reduce((best, text) => (text.length > best.length ? text : best), "");
 }
 
-/* Segmented-control wiring (including the aria-pressed sync) lives in the shared
- * module. Re-exported here so the demos import it from their local dom module. */
+/* Re-exports the shared segmented-control wiring, including the aria-pressed sync. */
 export { initSegmented } from "../../../../js/modules/segmented.js";

@@ -33,9 +33,9 @@
   /*
    * Printed-document palette. Deliberately theme-independent, so it is not in
    * the theme files: a preview of a page that will be exported to PDF or PNG
-   * has to keep looking like paper in both themes.
-   * Because white paper is the only background these ever sit on, the ink,
-   * muted and faint steps are each held above 4.5:1 against it.
+   * keeps looking like paper in both themes.
+   * The ink, muted, and faint steps each keep a contrast ratio above 4.5:1 on
+   * white paper, the only background they sit on.
    */
   --color-document-paper: rgb(255, 255, 255);
   --color-document-ink: rgb(26, 26, 26);
@@ -68,19 +68,19 @@
   --book-fit-min-height: 460px;
   --book-spread-ratio: 1.325;
   --gallery-card-gap: 1.25rem;
-  /* Every artifact thumbnail is 960x600, so image slots can be sized before the image loads. */
+  /* Every artifact thumbnail is 960x600. Image slots use this ratio before the image loads. */
   --card-thumb-ratio: 1.6;
   --desk-note-size: 100px;
   --desk-note-gap: 0.6rem;
   --desk-note-offset-top: 6rem;
   --album-rim: 14px;
-  /* Scrapbook album. The leather colours are themed, so they live in the theme files. */
+  /* Scrapbook album. The leather colours are themed and live in the theme files. */
   --color-album-ribbon: rgb(214, 170, 72);
   --color-album-chalk: rgb(240, 236, 226);
   --color-album-print: rgb(250, 248, 242);
   /* The notepad's wire binding. */
   --color-notepad-coil: rgb(176, 174, 170);
-  /* Graphite pencil on the daytime paper. The album pages keep this paper in both themes, so the pencil does too. */
+  /* Graphite pencil on the daytime paper, which the album pages keep in both themes. */
   --color-pencil: rgb(72, 68, 63);
   --color-pencil-soft: rgb(104, 98, 90);
   --color-pencil-on-note: rgb(72, 68, 63);
@@ -168,8 +168,8 @@ body.artifact-app {
 }
 
 /*
- * Touch screens: the smallest a control may be, so compact controls still take a fingertip.
- * Pointer screens leave it unset, and every control keeps its compact size there.
+ * Touch screens: the minimum size for a control. Pointer screens leave it unset,
+ * and controls keep their compact size there.
  */
 @media (pointer: coarse) {
   :root {

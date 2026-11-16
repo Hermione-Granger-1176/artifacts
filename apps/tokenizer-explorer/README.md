@@ -4,39 +4,24 @@ This interactive explainer shows how temperature and top-p change next-token sam
 
 ## Features
 
-The sampler includes these views and controls:
+- A prompt shown as colored token chips, with the completion blank at the end of the line.
+- A next-token list with each candidate's shaped odds, its renormalized draw chance, and, after 100 samples, its observed count.
+- Tokens cut by top-p stay in the list, struck through, below a "top P cut" line.
+- A scenario dropdown, a temperature slider (0 to 3.0, where 0 is greedy decoding, default 1.0), a top-p slider (0.01 to 1.0, default 0.70), and Precise, Chat, and Creative presets.
+- Tokenization examples with token and character counts.
+- Expandable concept cards, and the sampling pseudocode under "Show the code".
 
-- Two top-aligned columns: one main card (prompt, next-token bars, actions) and a settings card on the right that stacks above the main card below 900px
-- The prompt is rendered as colored token chips with the completion blank inline at the end of the line
-- A single bar list shows every candidate: token, bar after temperature, odds, renormalized draw chance, and (after Sample 100x) the observed count with a thin second bar
-- Tokens cut by top-p stay in the list, struck through, with a hatched bar below a labeled "top P cut" line
-- Scenario dropdown, a temperature slider (0 to 3.0, where 0 is greedy decoding, default 1.0) and a top-p slider (0.01 to 1.0, default 0.70) with live notes, and Precise, Chat, and Creative presets as an inset-pill segmented control
-- One "Order matters" key idea, plus the whole sampling step as pseudocode folded under "Show the code"
-- Show whitespace toggle in the main card header, which also applies to the tokenization examples
-- Reserved heights for the prompt, insight line, sample status, and slider notes, so picking a scenario or moving a slider never shifts the controls below
-- Expandable concept cards on tokens, temperature, nucleus sampling, and token-driven behavior
-- Sticky frosted progress nav with scroll spy
+## Use the app
+
+- Pick a scenario from the dropdown. Each scenario has its own candidate tokens and probabilities.
+- Move the temperature or top-p slider, or click a preset. The note under each slider explains the current setting.
+- Click **Pick next token** to draw one token. Click **Sample 100x** to draw 100 tokens and fill the Seen column. Click **Reset** to clear the picks and tallies.
+- Click **Show whitespace** to show leading spaces as dots in the prompt and in the tokenization examples.
+- Open a concept card to read more about it.
 
 ## Made with
 
 - Claude
-
-## Structure
-
-```text
-index.html
-css/app.css
-js/
-├── app.js
-└── modules/
-    ├── scenarios.js
-    ├── sampling.js
-    ├── candidates.js
-    ├── token-examples.js
-    ├── render.js
-    └── accordion.js
-docs/
-```
 
 ## Documentation
 

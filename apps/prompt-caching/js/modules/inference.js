@@ -54,8 +54,8 @@ export function initInference() {
   const cacheBar = byId("infCacheBar");
 
   const prompts = Object.keys(INF_RESPONSES);
-  // The stream and the status line reserve the room of the longest run up front,
-  // so no chip or status change moves the cache bar and the page below.
+  // The stream and the status line reserve room for the longest run up front,
+  // so chip and status changes do not move the cache bar below.
   reserveSpace(tokensWrap, prompts.map((prompt) => {
     const ghost = makeEl("div", "pc-inf-tokens");
     const final = [...promptWords(prompt), ...responseFor(prompt)];

@@ -3,9 +3,9 @@ import { initSegmented } from "../../../../js/modules/segmented.js";
 /**
  * Bind change and Enter-key handling for a text input paired with a slider.
  *
- * A valid value is clamped to the range and passed to `onCommit`, so the
- * calculation keeps its precision. The slider only shows the nearest step,
- * because a range input snaps its value to `step`. An invalid value calls
+ * A valid value is clamped to the range and passed to `onCommit` at full
+ * precision. The slider shows the nearest step, because a range input snaps its
+ * value to `step`. An invalid value calls
  * `onInvalid`, which puts the last committed value back in the field.
  * @param {Record<string, HTMLElement>} elements - Cached app elements.
  * @param {{ id: string, sliderId: string, min: number, max: number, parser: (value: string) => number, onCommit: (value: number) => void, onInvalid: () => void }} config - Input binding config.

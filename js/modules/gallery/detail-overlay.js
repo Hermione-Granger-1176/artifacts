@@ -1,9 +1,7 @@
 import { applyDynamicStyles, createDetailContent } from './render.js';
 
 /**
- * Smallest scale for the card-to-detail expand/collapse animation.
- * It keeps the detail panel from shrinking below a readable size
- * when the originating card is much smaller than the overlay.
+ * Smallest starting scale for the card-to-detail expand and collapse animation.
  */
 const MIN_SCALE = 0.36;
 
@@ -73,9 +71,8 @@ export function createDetailOverlay({
   }
 
   /**
-   * The panel's settled box. The layout size and the overlay's centre are used, not the
-   * panel's own bounding rect, because that rect includes the closed-state transform
-   * (the panel is centred in the overlay and sits scaled down until it opens).
+   * The panel's settled box: its layout size and the overlay's centre, excluding
+   * the closed-state transform.
    * @returns {{ centerX: number, centerY: number, width: number, height: number }} Panel centre and size.
    */
   function measurePanel() {
@@ -89,7 +86,7 @@ export function createDetailOverlay({
   }
 
   /**
-   * Start the panel from the card's centre at one uniform scale, so it never squashes.
+   * Starts the panel from the card's centre at one uniform scale.
    * @param {DOMRect | null} originRect - Bounding rect of the trigger card.
    * @param {{ centerX: number, centerY: number, width: number, height: number }} panel - Settled panel box.
    * @returns {void}

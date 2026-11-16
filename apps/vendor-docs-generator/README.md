@@ -1,28 +1,32 @@
 # Vendor document generator
 
-This app produces labeled synthetic business documents for evaluating document-AI extractors. Six fictional vendors provide distinct layouts for invoices, receipts, quotations, delivery challans, credit and debit notes, and account statements.
+This app generates labeled synthetic business documents for testing document-AI extractors. Six fictional vendors provide distinct layouts for invoices, receipts, quotations, delivery challans, credit and debit notes, and account statements.
 
-Each page can include a JSON sidecar with labels for the printed values. The page and sidecar use the same document model, so a batch does not require manual field annotation.
+Each document can come with a JSON sidecar that labels its printed values. The page and sidecar come from one document model, so a batch needs no manual annotation.
 
-One integer seed drives every random choice, and document dates are relative to the day of generation. The filename records the seed so samples remain identifiable. See [Known limitations](#known-limitations) for what exact replay needs.
+One integer seed drives the random choices in each document. Document dates are relative to the day of generation. The filename records the seed. See [Known limitations](#known-limitations) for what exact replay needs.
 
 ## Features
 
-The generator supports these outputs and controls:
-
-- Six vendors and six document types. Invoices also have a dense tax layout, giving 42 vendor, type, and layout combinations.
-- Seeded generation. Vendor, type, and layout changes retain the seed. **New document** selects a fresh seed.
-- An A4 preview with fitted and full-size modes. Below about 1000px, the toolbar, page, and Output panel stack vertically. Below 700px, a dropdown replaces the six document-type pills.
+- Six vendors and six document types. Invoices also have a dense tax layout, which gives 42 vendor, type, and layout combinations.
+- Seeded generation. Changing the vendor, type, or layout keeps the seed. **New document** picks a new seed.
+- An A4 preview with fitted and full-size modes.
 - JSON field labels with printed text and normalized values. Unprinted fields are `null`.
 - Optional field and word boxes in normalized page coordinates.
-- Five scan presets and nine fine-tune sliders. Geometric effects also transform exported boxes.
+- Five scan presets and nine fine-tune sliders. Geometric effects also transform the exported boxes.
 - Clean and degraded image pairs from one capture.
 - Text-layer PDF, rasterized PDF, and PNG exports. Lossy raster presets write JPEG files.
-- ZIP batches of 1 to 50 copies per vendor and type combination (10 by default), across the current combination, all types, all vendors, or everything. Sidecars, `manifest.jsonl`, and `README.txt` are written when labels are on. JSON-only mode skips PDF and raster generation. It still renders each DOM preview for progress and requested box measurements.
-- Partial archives when a batch stops. The filename ends in `_partial.zip`. When labels are on, the `README.txt` records completed and planned counts.
+- ZIP batches of 1 to 50 copies per vendor and type combination, with 10 by default. A batch covers the current combination, all types, all vendors, or everything.
+- Partial archives when a batch stops. The filename ends in `_partial.zip`.
 - Fictional contact details and a sample-data footer on every document.
 
-[Architecture](docs/architecture.md) describes control mappings, rendering, and export paths.
+## Use the app
+
+- Pick a vendor and a document type in the toolbar. For invoices, pick a layout. Click **New document** for a new seed.
+- Click **Preview scan** to see the page with the current scan preset applied.
+- Pick a scan preset, or open **Fine-tune** to adjust the nine sliders. Moving a slider switches the preset to custom.
+- In the Output panel, choose the labels, the format (PDF, PNG, or both), and the scope. Click **Download** to export the current page, or **Generate ZIP** to export a batch.
+- Click **Stop and keep what is done** to end a batch between documents. The finished documents go into a `_partial.zip` archive.
 
 ## Made with
 
@@ -31,33 +35,7 @@ The generator supports these outputs and controls:
 - html2canvas (vendored)
 - JSZip (vendored)
 
-All four libraries are vendored under `js/vendor/` and pinned by SHA-256 in `config/vendored_assets.json`, which keeps the page's self-only Content-Security-Policy intact.
-
-## Structure
-
-```text
-index.html
-css/app.css
-js/
-├── app.js
-├── modules/
-│   ├── annotate-boxes.js
-│   ├── annotations.js
-│   ├── degrade.js
-│   ├── document-model.js
-│   ├── exporters.js
-│   ├── format.js
-│   ├── paper-render.js
-│   ├── pdf-render.js
-│   ├── random.js
-│   └── vendors.js
-└── vendor/
-    ├── html2canvas.min.js
-    ├── jspdf.plugin.autotable.min.js
-    ├── jspdf.umd.min.js
-    └── jszip.min.js
-docs/
-```
+All four libraries are vendored under `js/vendor/` and pinned by SHA-256 in `config/vendored_assets.json`.
 
 ## Ground truth
 
@@ -85,11 +63,11 @@ A shortened sidecar example shows the schema:
 }
 ```
 
-`boxes_apply_to` identifies the outputs that use the box coordinates. Boxes describe the rendered HTML page used for PNG and rasterized PDF exports. The text-layer PDF has an independent jsPDF layout. `boxes` and `boxes_apply_to` are `null` when the Labels level is JSON only. In `boxes.page`, `width` and `height` are the layout size in CSS pixels, and region coordinates are fractions of that page.
+`boxes_apply_to` lists the outputs that use the box coordinates: PNG and rasterized PDF. The text-layer PDF has its own jsPDF layout, so the boxes do not describe it. `boxes` and `boxes_apply_to` are `null` when the Labels level is JSON. In `boxes.page`, `width` and `height` are the layout size in CSS pixels. Region coordinates are fractions of that page.
 
 ## Scan degradation
 
-`degradation` is `null` on a clean run. Otherwise it names the preset, the seed, every resolved setting, and the projective transform applied, as a 3x3 matrix over the same normalized coordinates the boxes use.
+`degradation` is `null` on a clean run. Otherwise it names the preset, the seed, every resolved setting, and the projective transform. The transform is a 3x3 matrix over the same normalized coordinates as the boxes.
 
 Skew, rotation, and keystone change the geometry. The exported boxes already include that transform. Each region has a `quad` with the four transformed corners and a `box` with their axis-aligned bounding rectangle.
 
@@ -103,15 +81,15 @@ Skew, rotation, and keystone change the geometry. The exported boxes already inc
 }
 ```
 
-A lossy preset writes a `.jpg` file because the output uses JPEG encoding.
+A lossy preset writes a `.jpg` file, because the output uses JPEG encoding.
 
 ## Known limitations
 
 The generator has three known limitations:
 
-- **Batch memory.** JSZip holds each exported file in memory until it writes the archive. Large raster batches can exceed the tab's memory. The size estimate reports expected output size, but the app enforces no memory limit. Streaming output requires a different archive strategy.
-- **Vendor and document compatibility.** Every vendor can issue every document type. A delivery challan can therefore contain service items. The arithmetic and layout are valid, but some combinations are implausible. Restricting them requires per-type catalogs or a compatibility table.
-- **Reference date.** Dates are relative to the generation day. Exact replay requires the seed, degradation settings, and original reference date. The date can be reconstructed from `document_date` and the seeded offset, but the manifest does not record it directly.
+- **Batch memory.** JSZip holds each exported file in memory until it writes the archive. Large raster batches can exceed the tab's memory. The size estimate reports expected output size, but the app sets no memory limit.
+- **Vendor and document compatibility.** Every vendor can issue every document type. A delivery challan can therefore list service items. The arithmetic and layout stay valid, but some combinations are implausible.
+- **Reference date.** Dates are relative to the generation day. Exact replay needs the seed, the degradation settings, and the original reference date. The sidecar's `document_date` and the seeded offset can recover that date, but the manifest does not record it.
 
 ## Documentation
 

@@ -6,8 +6,8 @@
 /**
  * Wire a segmented toggle. Clicking a button inside `container` makes it the
  * only `.active` button, sets `aria-pressed` on every button to match, and
- * calls `onSelect(button)`. `aria-pressed` is also set once on init from the
- * markup's `.active` classes, so `.active` is the source of truth.
+ * calls `onSelect(button)`. On init, `aria-pressed` is also synced from the
+ * markup's `.active` classes.
  * @param {HTMLElement} container - Element wrapping the toggle buttons.
  * @param {(button: HTMLButtonElement) => void} onSelect - Called with the newly active button element.
  * @returns {HTMLButtonElement[]} The buttons found inside the container.

@@ -7,7 +7,7 @@ HTML file to import from stdin.
 It creates a new artifact directory under ``apps/`` with the required metadata
 files, an HTML entry point, an app-local stylesheet and bootstrap module,
 internal docs, and a matching app test under ``tests/js/apps/<slug>/``. Every
-emitted file is designed to pass the repository gates (``make validate``, the JS
+emitted file passes the repository gates (``make validate``, the JS
 test-coverage check, ESLint, stylelint, Knip, and tsc) without hand edits.
 
 Two flows are supported:
@@ -17,9 +17,8 @@ Two flows are supported:
 * With a source path an existing AI-generated HTML file is installed as
   ``index.html``. The shared contract is still guaranteed: the self-only
   Content-Security-Policy meta and the shared stylesheet links are injected when
-  absent, and any external script/style references are reported (never silently
-  rewritten) so the author can vendor or remove them before the security lint
-  runs.
+  absent. External script and style references are reported, never rewritten,
+  and the author vendors or removes them before the security lint runs.
 
 Run through the Makefile in normal workflows. Direct invocation is mainly for
 maintainers working on the build internals.
@@ -50,8 +49,8 @@ DESCRIPTION_FILE = "description.txt"
 TAGS_FILE = "tags.txt"
 TOOLS_FILE = "tools.txt"
 
-# Self-only policy shared by every artifact. Kept as a constant so the drop-in
-# flow can inject the exact same meta the placeholder template ships with.
+# Self-only policy shared by every artifact. The drop-in flow injects the same
+# meta the placeholder template ships with.
 CSP_CONTENT = (
     "default-src 'self'; script-src 'self'; style-src 'self'; "
     "img-src 'self' data:; connect-src 'self'; "
@@ -64,10 +63,10 @@ APP_STYLESHEET_HREF = "./css/app.css"
 SHARED_STYLESHEET_LINK = f'<link rel="stylesheet" href="{SHARED_STYLESHEET_HREF}">'
 APP_STYLESHEET_LINK = f'<link rel="stylesheet" href="{APP_STYLESHEET_HREF}">'
 
-# Strip HTML comment blocks before any presence or reference scan so a commented-out
-# tag (for example an example CSP meta, stylesheet link, or script src left in a
-# comment) never poses as live markup. Non-greedy so adjacent comments stay separate,
-# and DOTALL so a comment spanning multiple lines is removed in full.
+# Strip HTML comment blocks before any presence or reference scan. A commented-out
+# tag, such as an example CSP meta, stylesheet link, or script src, is not live
+# markup. The pattern is non-greedy, so adjacent comments stay separate, and DOTALL
+# removes multi-line comments in full.
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 
 # The word boundary keeps `<header>` elements from matching as an opening head tag.
@@ -78,15 +77,13 @@ _HTML_CLOSE_RE = re.compile(r"</html\s*>", re.IGNORECASE)
 _HTML_OPEN_RE = re.compile(r"<html\b[^>]*>", re.IGNORECASE)
 _DOCTYPE_RE = re.compile(r"<!doctype[^>]*>", re.IGNORECASE)
 
-# Detect an existing CSP only inside a real <meta http-equiv="Content-Security-Policy">
-# tag, never loose prose or script text that merely names the header. Attribute
-# names and values are case-insensitive in HTML, order is free, and the value may be
-# single-quoted, double-quoted, or unquoted, so the pattern stays tolerant of all
-# three. The leading lookahead requires a content attribute so a meta that names the
-# header but carries no policy still gets the enforced one injected. The lookbehinds
-# keep data-http-equiv / data-content style attributes from posing as the real ones.
-# The trailing negative lookahead requires a value terminator so a longer header such
-# as Content-Security-Policy-Report-Only cannot pose as the enforced one.
+# Detects an existing CSP only inside a real <meta http-equiv="Content-Security-Policy">
+# tag. Attribute names and values are case-insensitive in HTML, order is free, and
+# the value may be single-quoted, double-quoted, or unquoted. The leading lookahead
+# requires a content attribute, so a meta that names the header without a policy does
+# not count. The lookbehinds reject data-http-equiv and data-content attributes. The
+# trailing negative lookahead requires a value terminator, so a longer header such as
+# Content-Security-Policy-Report-Only does not match.
 _CSP_PRESENT_RE = re.compile(
     r"""<meta\b(?=[^>]*(?<![\w-])content\s*=)"""
     r"""[^>]*(?<![\w-])http-equiv\s*=\s*["']?\s*content-security-policy(?![\w-])""",
@@ -94,11 +91,9 @@ _CSP_PRESENT_RE = re.compile(
 )
 
 # Matches src/href attributes and CSS url() targets that point off-origin,
-# including protocol-relative references (//host/path). Attribute values may be
-# double-quoted, single-quoted, or unquoted; external URLs never contain unencoded
-# whitespace, quotes, or ">", so the value class stops at all of them and works for
-# every quoting style. The lookbehind keeps data-src / data-href style attributes
-# from posing as the real ones, matching the other presence checks in this module.
+# including protocol-relative references (//host/path). Values may be double-quoted,
+# single-quoted, or unquoted. The value class stops at unencoded whitespace, quotes,
+# or ">". The lookbehind rejects data-src and data-href attributes.
 _EXTERNAL_ATTR_RE = re.compile(
     r"""(?<![\w-])(?:src|href)\s*=\s*["']?\s*((?:https?:)?//[^\s"'>]+)""",
     re.IGNORECASE,
@@ -112,12 +107,11 @@ _EXTERNAL_URL_RE = re.compile(
 def _stylesheet_link_re(href: str) -> re.Pattern[str]:
     """Build a regex that detects a real stylesheet ``<link>`` for one exact href.
 
-    Presence must anchor to a ``<link>`` tag whose ``rel`` is ``stylesheet``,
-    never loose prose or script text that merely names the path. Attribute order
-    is free, values may be double-quoted, single-quoted, or unquoted, and the
-    lookbehinds keep data-rel / data-href style attributes from posing as the
-    real ones. The trailing lookahead requires a value terminator so a longer
-    path that merely starts with the href cannot match.
+    Matches only a ``<link>`` tag whose ``rel`` is ``stylesheet``. Attribute order
+    is free, and values may be double-quoted, single-quoted, or unquoted. The
+    lookbehinds reject data-rel and data-href attributes. The trailing lookahead
+    requires a value terminator, so a longer path that starts with the href does
+    not match.
     """
     return re.compile(
         rf"""<link\b(?=[^>]*(?<![\w-])rel\s*=\s*["']?\s*stylesheet\b)"""
@@ -247,9 +241,8 @@ def _app_css_template(title: str) -> str:
 def _app_test_template(slug: str, title: str) -> str:
     """Return a starter app test that boots the emitted bootstrap module.
 
-    The assertion is intentionally behavioral: importing ``app.js`` under the
-    shared mocks must reach a ``ready`` runtime state, proving the bootstrap
-    wiring is intact rather than merely that the file parses.
+    The assertion is behavioral: importing ``app.js`` under the shared mocks
+    must reach a ``ready`` runtime state.
     """
     return f"""import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -332,9 +325,8 @@ Fill in this document as the app grows.
 def _strip_html_comments(html: str) -> str:
     """Return the document with HTML comment blocks removed.
 
-    Used only to build the copy scanned for presence and reference checks, so
-    commented-out markup never poses as live tags. The original document is left
-    untouched for injection.
+    Builds the copy scanned for presence and reference checks. The original
+    document is left untouched for injection.
     """
     return _HTML_COMMENT_RE.sub("", html)
 
@@ -342,8 +334,7 @@ def _strip_html_comments(html: str) -> str:
 def _first_live_match(html: str, pattern: re.Pattern[str]) -> re.Match[str] | None:
     """Return the first match of ``pattern`` that sits outside HTML comments.
 
-    Used when an injection needs a position inside the original document, where
-    comment stripping would shift every offset.
+    Match offsets refer to the original document, not the comment-stripped copy.
     """
     comment_spans = [match.span() for match in _HTML_COMMENT_RE.finditer(html)]
     for match in pattern.finditer(html):
@@ -357,9 +348,7 @@ def find_external_references(html: str) -> list[str]:
 
     Detects ``src`` / ``href`` attributes (quoted or unquoted) and CSS ``url()``
     targets that use an absolute or protocol-relative URL. These are the
-    references the security lint hard-fails on, so the scaffolder surfaces them
-    instead of rewriting. Commented-out markup is skipped so an example URL left
-    in an HTML comment never triggers a misleading warning.
+    references the security lint rejects. Commented-out markup is skipped.
     """
     scannable = _strip_html_comments(html)
     references: set[str] = set()
@@ -372,8 +361,7 @@ def _inject_after_head_open(html: str, snippet: str) -> str:
     """Insert a snippet immediately after the opening ``<head>`` tag.
 
     Falls back to the opening ``<html>`` tag, then the doctype, and only then
-    to a plain prepend, so a headless document never gains markup ahead of its
-    doctype (content before the doctype puts the page into quirks mode).
+    to a plain prepend.
     """
     for pattern in (_HEAD_OPEN_RE, _HTML_OPEN_RE, _DOCTYPE_RE):
         match = pattern.search(html)
@@ -387,11 +375,8 @@ def _inject_before_head_close(html: str, snippet: str) -> str:
     """Insert a snippet immediately before the closing ``</head>`` tag.
 
     Falls back to injecting before ``</body>``, then before ``</html>``, and
-    only then to appending, so a headless document keeps the snippet inside the
-    document where browsers still apply it. Inserting before a closing tag
-    (rather than after an opening one) preserves the relative order of
-    successive injections, which keeps the shared stylesheet ahead of the
-    app-local one.
+    only then to appending. Inserting before a closing tag keeps successive
+    injections in order, so the shared stylesheet stays ahead of the app-local one.
     """
     for pattern in (_HEAD_CLOSE_RE, _BODY_CLOSE_RE, _HTML_CLOSE_RE):
         match = pattern.search(html)
@@ -410,14 +395,12 @@ def apply_contract_to_source(html: str) -> str:
     commented-out markup that merely names the header or the paths never
     suppresses the contract.
     """
-    # Run the presence checks against a comment-free copy so a commented-out tag
-    # does not suppress injection, while injecting into the original untouched html.
+    # Presence checks run on a comment-free copy. Injection targets the original html.
     scannable = _strip_html_comments(html)
     if _CSP_PRESENT_RE.search(scannable) is None:
         html = _inject_after_head_open(html, CSP_META)
     if _SHARED_STYLESHEET_PRESENT_RE.search(scannable) is None:
-        # An already-present app link must stay after the shared one so app rules
-        # keep overriding shared rules, so inject ahead of it instead of at head-close.
+        # Inject the shared link ahead of an existing app link, so app rules override shared rules.
         app_link = _first_live_match(html, _APP_STYLESHEET_PRESENT_RE)
         if app_link is None:
             html = _inject_before_head_close(html, SHARED_STYLESHEET_LINK)
@@ -516,10 +499,9 @@ def scaffold_artifact(name: str, *, source_html: str | None = None) -> Path:
     if not is_kebab_case(name):
         raise ValueError("Artifact name must use kebab-case")
 
-    # Fail on an existing directory or test file before reading or warning
-    # about the source HTML, so a re-run against a taken slug is a clean no-op
-    # with no output. The test file can outlive a deleted app directory, and
-    # the scaffold must not overwrite a test someone wrote.
+    # Check for an existing directory or test file before reading the source HTML or
+    # printing warnings. A test file can outlive a deleted app directory and is never
+    # overwritten.
     artifact_dir = APPS_DIR / name
     if artifact_dir.exists():
         raise FileExistsError(f"Artifact directory already exists: {artifact_dir}")

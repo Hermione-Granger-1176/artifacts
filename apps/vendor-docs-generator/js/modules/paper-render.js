@@ -1,13 +1,11 @@
 /**
  * Renders a document model onto the on-screen A4 paper.
  *
- * Two constraints shape this module. The app ships under a self-only
- * Content-Security-Policy with no `unsafe-inline`, so inline `style`
- * attributes never apply: per-vendor colour and type come in as CSS custom
- * properties set through CSSOM, which CSP does not police. And the repo bans
- * assigning template literals to `innerHTML`, so everything below is built
- * with `createElement` and `textContent`, which also makes the generated
- * content injection-proof by construction.
+ * Two constraints shape this module. The app's Content-Security-Policy has no
+ * `unsafe-inline`, so per-vendor colour and type are set as CSS custom
+ * properties through CSSOM rather than inline `style` attributes. Everything is
+ * built with `createElement` and `textContent`, not `innerHTML`, so generated
+ * content is never parsed as HTML.
  *
  * @module paper-render
  */
@@ -45,11 +43,9 @@ function make(doc, tag, className, text) {
 /**
  * Mark an element as carrying a ground-truth value.
  *
- * This is the entire coupling between the renderer and the annotation layer:
- * `annotate-boxes.js` reads `[data-field]` back off the page and never needs to
- * know what a totals block or a keygrid is. Empty values are skipped so a blank
- * cell in a ledger does not produce a box for a field the sidecar reports as
- * null.
+ * This is the only link between the renderer and the annotation layer:
+ * `annotate-boxes.js` reads `[data-field]` back off the page. Empty values are
+ * skipped, so a blank cell does not produce a box.
  * @param {HTMLElement} element - Element holding the value.
  * @param {string | null | undefined} field - Ground-truth field key.
  * @param {string} [value] - The printed value, used to skip blanks.
@@ -65,9 +61,9 @@ function tag(element, field, value) {
 
 /**
  * Build an element holding `text`, labelled for the ground truth. A string
- * field labels the whole element. Span tags wrap each tagged substring in its
- * own labelled span, in order, so a field printed inside a longer string, such
- * as the rate in "Sales tax (8.25%)", still gets its own box.
+ * field labels the whole element. Span tags label each tagged substring in its
+ * own span, in order, so a field inside a longer string, such as the rate in
+ * "Sales tax (8.25%)", gets its own box.
  * @param {Document} doc - Owning document.
  * @param {string} tagName - Element to create.
  * @param {string} className - Class for the element.
@@ -242,8 +238,7 @@ export function buildLogo(doc, vendor) {
 
     case "thin": {
       // The thin lockup splits the name across two spans, so it produces two
-      // `vendor_name` regions rather than one. That is the truth of the layout:
-      // there is no single box on the page holding the whole name.
+      // `vendor_name` regions. No single box holds the whole name.
       const [firstWord, ...restWords] = name.split(" ");
       logo.appendChild(namePart("vd-logo-name", firstWord));
       logo.appendChild(namePart("vd-logo-sub", restWords.join(" ")));
@@ -445,8 +440,7 @@ function renderBlock(doc, block) {
 /**
  * Push a vendor's brand values onto an element as custom properties.
  *
- * This is the CSP-safe half of the theming: the stylesheet only ever reads
- * `var(--vd-*)`, and the concrete values arrive here through CSSOM.
+ * The stylesheet reads `var(--vd-*)`, and the values are set here through CSSOM.
  * @param {HTMLElement} element - Element to theme.
  * @param {Vendor} vendor - Vendor supplying the values.
  * @returns {void}
@@ -474,9 +468,8 @@ function renderHeader(doc, model) {
     tag(make(doc, "div", "vd-vendor-line", vendor.addr), "vendor_address", vendor.addr)
   );
 
-  // The phone and the email share one printed line but are two separate facts,
-  // so each gets its own span and its own box rather than one region holding
-  // both values and the separator between them.
+  // The phone and email share one printed line but are separate facts, so each
+  // gets its own span and box.
   const contactLine = make(doc, "div", "vd-vendor-line");
   contactLine.appendChild(tag(make(doc, "span", "", vendor.phone), "vendor_phone", vendor.phone));
   contactLine.appendChild(make(doc, "span", "", " · "));

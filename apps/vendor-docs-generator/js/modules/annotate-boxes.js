@@ -4,14 +4,12 @@
  * The paper renderer stamps `data-field` onto every node that carries a
  * ground-truth value, so this module is a measurement pass and nothing more: it
  * walks those nodes, takes their rects, and expresses each one relative to the
- * page. No layout knowledge lives here, which is why a new block type in the
- * renderer needs no change in this file.
+ * page. No layout knowledge lives here, so a new block type in the renderer
+ * needs no change in this file.
  *
  * Coordinates are normalised to the 0..1 page box rather than reported in
- * pixels. Normalised coordinates survive the preview's fit-to-frame transform,
- * the export's 2x capture scale, and any future change to the page dimensions,
- * so a consumer multiplies by whatever image size they actually have and never
- * has to know what those three happened to be.
+ * pixels. A consumer multiplies by the size of the image it has. The preview's
+ * fit-to-frame transform and the export's capture scale do not change the values.
  *
  * These boxes are measured on the HTML page, so they describe the PNG and the
  * rasterised PDF. They do not describe the text-layer PDF, which jsPDF lays out
@@ -38,7 +36,7 @@ import { project } from "./degrade.js";
 /** Where DOM-measured boxes are valid, recorded alongside the boxes themselves. */
 export const BOXES_APPLY_TO = ["png", "pdf_raster"];
 
-/** Decimal places kept per coordinate; four is sub-pixel on any plausible page. */
+/** Decimal places kept per coordinate. */
 const PRECISION = 4;
 
 /** DOM node type for a text node. */
@@ -112,9 +110,8 @@ function textNodesIn(node) {
 /**
  * Measure each whitespace-separated word inside one labelled element.
  *
- * A `Range` over the text node is the only way to get per-word geometry without
- * wrapping every word in a span, which would change how the browser lays the
- * line out and so change the very thing being measured.
+ * Each word is measured with a `Range` over its text node, so the text is not
+ * wrapped in extra elements.
  * @param {Element} element - Labelled element.
  * @param {{ height: number, left: number, top: number, width: number }} page - Page rect.
  * @param {Document} doc - Owning document.
@@ -150,14 +147,11 @@ function wordBoxes(element, page, doc) {
  * Measure every labelled value on a rendered page.
  *
  * A field printed in more than one place produces more than one region, in
- * document order. That is deliberate: a two-line address genuinely occupies two
- * boxes, and merging them would claim a single box covering the gap between
- * them that no ink ever lands in.
+ * document order. Each printed place keeps its own box.
  *
  * A page that is not rendered (detached, `display: none`, or inside a hidden
- * frame) measures 0 x 0, and so does every node on it. There is nothing true to
- * report then, and any fallback divisor would turn every box into a plausible
- * looking zero, so the measurement refuses instead.
+ * frame) measures 0 x 0, and so does every node on it. The function throws in
+ * that case instead of returning boxes.
  * @param {HTMLElement} paper - The rendered `.vd-paper` element.
  * @param {{ doc?: Document, words?: boolean }} [options={}] - Measurement options.
  * @returns {BoxAnnotations} Page dimensions and one region per labelled node.
@@ -193,9 +187,8 @@ export function collectBoxes(paper, { doc = document, words = false } = {}) {
     if (words) {
       region.words = wordBoxes(element, page, doc);
       if (region.words.length) {
-        // Chromium can report a text Range that extends slightly beyond its
-        // element's layout box for some font metrics. A labelled region must
-        // contain the ink-level word boxes on every browser version.
+        // Extend the region to contain every word box. A text Range can extend
+        // past the element's layout box.
         region.box = unionBoxes([region.box, ...region.words.map((word) => word.box)]);
       }
     }
@@ -204,9 +197,8 @@ export function collectBoxes(paper, { doc = document, words = false } = {}) {
   }
 
   return {
-    // The page is reported at its own layout size, not at whatever scale the
-    // preview happens to be showing. `offsetWidth` ignores CSS transforms,
-    // which is exactly why it is read here and the rect is not.
+    // The page is reported at its layout size, not at the preview's scale.
+    // `offsetWidth` ignores CSS transforms.
     page: {
       width: paper.offsetWidth,
       height: paper.offsetHeight,
@@ -228,13 +220,9 @@ function isIdentity(matrix) {
 /**
  * Move one box through a transform.
  *
- * The result carries both shapes on purpose. `box` stays an axis-aligned
- * `[x, y, width, height]` so an evaluation script written against a clean run
- * keeps working unchanged against a degraded one; `quad` carries the four
- * corners the ink actually landed on, which is what a rotated page really looks
- * like and what a polygon-aware consumer wants. Reporting only the quad would
- * break every existing reader; reporting only the box would silently claim a
- * tilted value is upright.
+ * The result has two shapes. `box` is the axis-aligned `[x, y, width, height]`
+ * bounding box of the transformed corners. `quad` holds those four corners in
+ * the order top-left, top-right, bottom-right, bottom-left of the input box.
  * @param {NormalisedBox} box - Box before the transform.
  * @param {Matrix3} matrix - Transform in normalised page coordinates.
  * @returns {{ box: NormalisedBox, quad: Quad }} Bounding box and exact corners.
@@ -260,10 +248,9 @@ function warpBox([x, y, width, height], matrix) {
 /**
  * Move every box on a page through a transform.
  *
- * Called with the geometry the degradation pass applied, so the labels describe
- * the image that was written rather than the clean render. Skew, rotation, and
- * keystone move the ink, and without this step the boxes would keep pointing at
- * where the ink used to be.
+ * Called with the geometry the degradation pass applied, so the boxes describe
+ * the written image rather than the clean render. Skew, rotation, and keystone
+ * move the ink.
  * @param {BoxAnnotations | null} boxes - Boxes measured on the clean page.
  * @param {Matrix3} matrix - Transform in normalised page coordinates.
  * @returns {BoxAnnotations | null} Transformed boxes, or the input untouched.

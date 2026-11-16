@@ -218,7 +218,7 @@ test('heroExplainText adapts to each regime', () => {
 });
 
 test('heroExplainText states the rate against the coupon, not a rate move', () => {
-  // Raising only the coupon moves a bond into premium, so the copy cannot say rates slipped.
+  // Checks that the copy compares the market rate with the coupon and never describes a rate move.
   const text = heroExplainText(narrativeState({ regime: 'premium', price: 1081.11 }), FORMATTERS);
   assert.match(text, /^The market rate is 6.0%, below this bond's 5.0% coupon/);
   assert.doesNotMatch(heroExplainText(narrativeState(), FORMATTERS), /rose|slipped/);
@@ -307,7 +307,7 @@ test('renderScheduleTable updates the cells in place and only changes rows when 
     assert.equal(rows[0].children[2].textContent, (1 / 1.08).toFixed(4));
     assert.equal(total.children[1].textContent, '$798.70');
 
-    // Fewer years remove the trailing rows; the old final row stops carrying the face note.
+    // Fewer years remove the trailing rows, and the new final row takes the face note.
     renderScheduleTable(
       tbody,
       narrativeState({

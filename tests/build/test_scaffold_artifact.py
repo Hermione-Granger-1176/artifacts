@@ -163,7 +163,7 @@ def test_apply_contract_injects_when_only_comments_provide_pieces() -> None:
 
     result = scaffold_artifact.apply_contract_to_source(html)
 
-    # Both live tags are injected because the only prior copies were commented out.
+    # Commented-out copies do not count, so both live tags are injected.
     assert scaffold_artifact.CSP_META in result
     assert scaffold_artifact.SHARED_STYLESHEET_LINK in result
     assert result.count("http-equiv") == 2
@@ -346,8 +346,8 @@ def test_apply_contract_inserts_shared_link_before_existing_app_link() -> None:
 
     result = scaffold_artifact.apply_contract_to_source(html)
 
-    # The shared link is injected once, after the commented copy but before the
-    # live app link, so app rules keep overriding shared rules.
+    # The shared link is injected once, after the commented copy and before the
+    # live app link.
     assert result.count(scaffold_artifact.SHARED_STYLESHEET_LINK) == 1
     shared = result.index(scaffold_artifact.SHARED_STYLESHEET_LINK)
     assert result.index("<!--") < shared < result.rindex(scaffold_artifact.APP_STYLESHEET_LINK)
@@ -683,14 +683,14 @@ def test_parse_args_rejects_more_than_one_source() -> None:
 
 
 def test_the_placeholder_page_passes_the_artifact_csp_lint() -> None:
-    """The scaffold template and the CSP lint cannot drift apart unnoticed."""
+    """The scaffold placeholder page passes the artifact CSP lint."""
     assert policy_violations(scaffold_artifact._index_template("Demo", "demo")) == []
 
 
 def test_drop_in_with_its_own_weak_csp_is_reported(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A drop-in that keeps its own CSP gets a warning instead of a silent lint failure later."""
+    """A drop-in with its own weak CSP produces a warning on stderr."""
     source = tmp_path / "page.html"
     source.write_text(
         "<!doctype html><html><head>"

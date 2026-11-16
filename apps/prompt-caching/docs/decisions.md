@@ -23,3 +23,7 @@ All numerical behavior lives in pure functions in `math.js` (with data in `data.
 ### Steady-state savings model
 
 `savingsMonthly` prices cached input tokens at one tenth of the base rate, which is the ongoing cost once a prefix is already cached. It deliberately omits the one-time 25% cache-write surcharge (documented in the providers table) and sub-5-minute cache expiry. Those matter for a single cold request but wash out across a steady workload, so folding them in would add noise without changing the lesson. The calculator therefore slightly overstates savings at very low request volumes, and a note under the calculator says so.
+
+## Why the bars scale with `transform`
+
+The calculator and softmax bars scale with `transform: scaleX` from their left edge, so a slider drag animates on the compositor and never triggers a relayout.

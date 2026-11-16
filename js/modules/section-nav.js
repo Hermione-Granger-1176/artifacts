@@ -10,7 +10,7 @@ import { scrollBehavior } from "./motion.js";
  */
 
 // Skeleton with the ids that initSectionNav reads (nav-nodes, nav-fill,
-// nav-label). The label starts empty because initSectionNav writes the active
+// nav-label). The label starts empty. initSectionNav writes the active
 // section's label when it runs.
 const SECTION_NAV_MARKUP = `
   <nav class="section-nav" aria-label="Section progress">
@@ -40,7 +40,7 @@ export function renderSectionNav(mount) {
 /**
  * Scroll the element with the given id into view. The scroll behavior is "auto"
  * when the user prefers reduced motion and "smooth" otherwise. Apps call this for
- * their own jump links so they behave like the nav nodes. Does nothing when no
+ * their own jump links, and the scroll matches the nav nodes. Does nothing when no
  * element has the id.
  * @param {string} id - Target element id.
  * @returns {void}
@@ -54,8 +54,8 @@ export function scrollToSection(id) {
 
 /**
  * Collect nav sections from the document. Each element with an id and a
- * non-empty data-nav-label becomes one section, in document order, so apps
- * declare the nav in markup.
+ * non-empty data-nav-label becomes one section, in document order. Apps declare
+ * the nav in markup.
  * @returns {NavSection[]}
  */
 function discoverSections() {
@@ -126,8 +126,8 @@ export function scrollProgress(anchors, scrollY) {
  * order. Call it after renderSectionNav, on a page with at least one section.
  *
  * Section positions are measured at init, on window resize, and when
- * `document.body` resizes (if ResizeObserver exists). A scroll frame only maps
- * `scrollY` onto the measured offsets, so scrolling never forces a layout.
+ * `document.body` resizes. A scroll frame only maps `scrollY` onto the measured
+ * offsets and does not measure.
  *
  * @returns {void}
  */
@@ -141,8 +141,7 @@ export function initSectionNav() {
   const nodeButtons = sections.map((section, index) => {
     const node = document.createElement("button");
     node.type = "button";
-    // Each node starts in its state at the top of the page, the first one active. Nodes styled
-    // in any other state first (reading scrollY forces a style pass) would fade into it on load.
+    // Each node starts in its top-of-page state, with the first one active.
     node.className = index === 0 ? "section-nav-node active" : "section-nav-node";
     node.setAttribute("aria-label", section.label);
 

@@ -2,17 +2,15 @@
 
 .PHONY: test test-py test-ci test-ci-workflows test-js test-browser test-browser-root test-browser-root-smoke test-browser-root-accessibility test-browser-root-flows test-browser-apps test-browser-apps-smoke test-browser-apps-accessibility test-browser-apps-flows test-browser-apps-shard test-browser-webkit-smoke test-visual visual-baselines visual-baselines-from-ci test-browser-live test-page-speed coverage-js coverage-js-floors
 
-# Browser targets run through the tested retry-once helper so the flaky-report
-# policy lives in scripts/ instead of inline shell. BROWSER_ARGS threads an
-# optional ARGS= tail (e.g. -k filters), honored only when passed on the make
-# command line so a stray ARGS environment variable cannot change the gate.
+# Browser targets run through the retry-once helper in scripts/ci. BROWSER_ARGS
+# passes an optional ARGS= tail (e.g. -k filters), honored only when given on the
+# make command line.
 RUN_BROWSER_TESTS = $(PLAYWRIGHT_LOCAL_RUN) $(VENV_PYTHON) -m scripts.ci.run_browser_tests
 BROWSER_ARGS = $(if $(filter command line,$(origin ARGS)),$(ARGS))
 
 test: test-py test-js ## Run non-browser Python tests + JS tests
 
-# Honor ARGS only when given on the make command line, so a stray ARGS
-# environment variable cannot silently change what the test gate runs.
+# Honor ARGS only when given on the make command line.
 test-py: ## Run Python tests except tests/browser, with coverage (pass ARGS="-k name --no-cov" for a subset)
 	$(VENV_PYTHON) -m pytest --ignore=tests/browser $(if $(filter command line,$(origin ARGS)),$(ARGS))
 
@@ -63,9 +61,9 @@ test-visual: ## Compare hero screenshots against committed baselines (needs Chro
 visual-baselines: ## Regenerate hero screenshot baselines on this host, for a local comparison only (needs Chromium)
 	ARTIFACTS_UPDATE_VISUAL_BASELINES=1 ARTIFACTS_REQUIRE_BROWSER_TESTS=1 $(PLAYWRIGHT_LOCAL_RUN) $(VENV_PYTHON) -m pytest --no-cov tests/browser/test_frontend_visual.py
 
-# The committed baselines are what CI's pinned Playwright image renders. After an
-# intentional visual change, CI fails the comparison and uploads its captures in
-# the root-browser failure artifact; this adopts them as the new baselines.
+# The committed baselines match what CI's pinned Playwright image renders. A CI
+# run that fails the comparison uploads its captures in the root-browser failure
+# artifact. This target adopts those captures as the new baselines.
 visual-baselines-from-ci: ## Replace the visual baselines with the captures a CI run uploaded (make visual-baselines-from-ci [run=ID], defaults to this branch's latest)
 	@run_id="$(RUN_ID)"; \
 	test -n "$$run_id" || { printf 'Usage: make visual-baselines-from-ci run=123456 (or run on a branch with a resolvable latest run)\n' >&2; exit 1; }; \

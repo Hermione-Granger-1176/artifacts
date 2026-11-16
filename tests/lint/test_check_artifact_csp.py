@@ -293,7 +293,7 @@ def test_check_page_reports_unreadable_page_as_violation(tmp_path: Path) -> None
 
 def test_check_page_flags_missing_csp(tmp_path: Path) -> None:
     """Check page flags missing csp."""
-    # A non-CSP meta tag exercises the "skip other meta tags" path.
+    # A non-CSP meta tag is ignored when looking for the policy.
     html = '<html><head><meta charset="utf-8"><title>x</title></head><body></body></html>'
     path = _write_page(tmp_path, "demo", html)
     violations = check_page(path, display_path="apps/demo/index.html")
@@ -330,7 +330,7 @@ def test_check_page_flags_relaxed_script_src(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("directive", ["script-src-elem", "script-src-attr"])
 def test_check_page_flags_relaxed_script_sub_directives(tmp_path: Path, directive: str) -> None:
-    """Browsers use script-src-elem and script-src-attr over script-src, so both are checked."""
+    """script-src-elem and script-src-attr are checked as well as script-src."""
     csp = f"default-src 'self'; script-src 'self'; {directive} 'unsafe-inline'; {_HARDENING}"
     path = _write_page(tmp_path, "demo", _page(csp=csp))
     violations = check_page(path, display_path="apps/demo/index.html")
@@ -349,7 +349,7 @@ def test_check_page_allows_restricted_script_sub_directives(tmp_path: Path) -> N
 
 def test_check_page_allows_script_src_falling_back_to_default(tmp_path: Path) -> None:
     """Check page allows script src falling back to default."""
-    # The trailing semicolon exercises the empty-directive skip while script-src
+    # The trailing semicolon adds an empty directive, which is ignored. script-src
     # falls back to the restrictive default-src.
     path = _write_page(tmp_path, "demo", _page(csp=f"default-src 'self'; {_HARDENING};"))
     assert check_page(path, display_path="apps/demo/index.html") == []
@@ -553,6 +553,6 @@ def test_main_returns_one_when_violations(tmp_path: Path) -> None:
 
 
 def test_policy_violations_checks_html_without_a_file() -> None:
-    """The scaffold checks page HTML directly, so it needs the policy half on its own."""
+    """policy_violations checks page HTML passed as a string, without reading a file."""
     assert policy_violations(_page()) == []
     assert policy_violations(_page(csp="default-src *"), "demo.html")[0].startswith("demo.html:")

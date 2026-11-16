@@ -215,9 +215,8 @@ def apply_memoization(
         "memoized_browser_slugs": memoized,
         "memoization_available": True,
     }
-    # The shard jobs read each shard's own browser_slugs, which the thumbnail
-    # plan assigned before memoization. Rebuild the shards from the retained
-    # list so memoized apps leave the browser shards too.
+    # Shard jobs read each shard's browser_slugs. Rebuild the shards from the
+    # retained list so memoized apps are removed from the browser shards.
     if "shards" in plan:
         return add_shards(memoized_plan, apps_root=root / artifact_base_path())
     return memoized_plan

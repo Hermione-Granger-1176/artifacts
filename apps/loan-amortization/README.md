@@ -1,18 +1,21 @@
 # Loan amortization schedule
 
-Interactive loan amortization calculator with charts, extra payment scenarios, and detailed repayment schedules.
+This interactive calculator shows the periodic payment, total interest, and payoff time for a loan. It compares the baseline schedule with a schedule that adds extra payments.
 
 ## Features
 
-The calculator includes these views and controls:
+- A payment (EMI) as the main result, with a savings chip and four metrics: total interest, payoff time, total paid, and break-even.
+- Yearly, half-yearly, quarterly, monthly, bi-weekly, and weekly payment frequencies.
+- Five charts: balance, scenario comparison, interest savings, cumulative payments, and per-period payments.
+- Per-period and yearly repayment tables. The app draws only the view that is on screen.
+- Light and dark themes through the shared app shell.
 
-- Baseline payoff vs extra-payment scenario comparison
-- Yearly, half-yearly, quarterly, monthly, bi-weekly, and weekly cadences
-- Two-column calculator: a sticky input column (loan, frequency, extra payments) beside the results. Below 760px the inputs stack above the results
-- The periodic payment (EMI) as the main result, with a savings chip and four supporting metrics (total interest, payoff time, total paid, break-even)
-- Five charts in one chart-card style: balance, scenario comparison, interest savings, cumulative payments, and per-period payments
-- Per-period and yearly repayment tables, drawn only while visible
-- Light and dark theme persistence through the shared app shell
+## Use the app
+
+- Set the loan amount, interest rate, and tenure with the sliders, or type a value into a field. A typed rate such as 6.1% keeps its precision, even though the rate slider moves in 0.25 steps. Typed values clamp to the slider range. An empty, zero, or non-numeric value reverts to the last valid value.
+- Choose a payment frequency. Bi-weekly payments have a toggle between the True and Accelerated methods.
+- Click **+ Add extra payment** to add a one-time or recurring extra payment. Each row shows a summary of its effect.
+- Switch between **Charts** and **Schedule**. The schedule view shows the per-period or yearly table.
 
 ## Made with
 
@@ -20,29 +23,6 @@ The calculator includes these views and controls:
 - Chart.js 4.4.1 (vendored)
 - chartjs-plugin-annotation 3.0.1 (vendored)
 - chartjs-plugin-datalabels 2.2.0 (vendored)
-
-## Structure
-
-```text
-index.html
-css/app.css
-js/
-├── app.js
-├── modules/
-│   ├── amortization.js
-│   ├── charts.js
-│   ├── tables.js
-│   ├── extras.js
-│   ├── interactions.js
-│   ├── metrics.js
-│   ├── schedule-summary.js
-│   └── ui.js
-└── vendor/
-    ├── chart.umd.min.js
-    ├── chartjs-plugin-annotation.min.js
-    └── chartjs-plugin-datalabels.min.js
-docs/
-```
 
 ## Documentation
 

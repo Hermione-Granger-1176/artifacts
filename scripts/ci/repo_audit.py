@@ -34,11 +34,9 @@ EXPECTED_PAGES_DEPLOYMENT_POLICIES = {
     "main:branch",
     "refs/pull/*/merge:branch",
 }
-# GitHub's own secret scanning, which is free on public repositories. It is the
-# layer the gitleaks job cannot provide: push protection refuses the push that
-# carries a secret, rather than reporting it once it is already in history and
-# the credential has to be rotated regardless. The three GitHub App private keys
-# in EXPECTED_REPOSITORY_SECRETS are what makes that distinction matter here.
+# GitHub secret scanning with push protection. Push protection blocks a push
+# that contains a secret. The gitleaks job reports secrets only after they are
+# in history.
 EXPECTED_SECURITY_ANALYSIS = {
     "secret_scanning",
     "secret_scanning_push_protection",
@@ -241,9 +239,8 @@ def load_ruleset_detail(
 def enabled_security_features(repository: dict[str, object]) -> set[str]:
     """Return the security_and_analysis features reported as enabled.
 
-    The block is absent for callers without administration access, which reads
-    the same as every feature being off. That is the safe direction: the audit
-    reports it as drift rather than certifying a setting it could not see.
+    A missing block (no administration access) reads as every feature being off,
+    so the audit reports drift.
     """
     raw = repository.get("security_and_analysis")
     if not isinstance(raw, dict):

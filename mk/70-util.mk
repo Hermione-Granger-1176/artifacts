@@ -5,18 +5,13 @@
 status: ## Show workspace health (git, venv, node, generated files, PR)
 	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.workspace_status --venv-python "$(VENV_PYTHON)" --uv "$(UV)" --npm "$(NPM)"
 
-# Only repository-local state is removable here. Playwright's browsers live in
-# the shared ~/.cache/ms-playwright cache that every project on the machine
-# reuses, so this target must never grow a path that reaches outside the repo.
-# Every other path below is a fixed repository-relative literal, so VENV is the
-# one way this rm -rf can be aimed elsewhere. It is ?=, and make imports the
-# environment, so an unrelated exported VENV would silently redirect it. Make
-# functions split on whitespace, so a VENV holding spaces would expand into
-# several paths that each pass a containment filter and each get deleted. Keep
-# the value only when VENV is a single word that resolves under CURDIR, and let
-# the recipe refuse the empty result rather than delete a shorter path. The
-# expansion is quoted in the recipe too, while the fixed literals stay unquoted
-# so *.egg-info still globs.
+# Only repository-local state is removed here. Playwright's browsers live in the
+# shared ~/.cache/ms-playwright cache and are not removed. Every path must stay
+# inside the repository. Every path except VENV is a fixed repository-relative
+# literal. VENV is ?= and is read from the environment, so it must be a single
+# word that resolves under CURDIR. CLEAN_VENV keeps it only in that case, and the
+# recipe refuses to run otherwise. The recipe quotes the CLEAN_VENV expansion, and
+# the fixed literals stay unquoted so *.egg-info globs.
 CLEAN_VENV = $(if $(filter 1,$(words $(VENV))),$(filter $(CURDIR)/%,$(abspath $(VENV))))
 
 clean: ## Remove local environments, build outputs, and caches (keeps shared Playwright browsers)
@@ -59,8 +54,8 @@ help-%: FORCE ## List the commands in one group (e.g. make help-pr)
 		}' $(MAKEFILE_LIST)
 	@printf '\n'
 
-# .PHONY cannot cover pattern rules, so help-% depends on FORCE to stay
-# runnable even if a file named help-<group> ever appears in the workspace.
+# .PHONY does not apply to pattern rules. help-% depends on FORCE, so it runs
+# even when a file named help-<group> exists.
 FORCE:
 
 help-json: ## Emit groups and commands as JSON

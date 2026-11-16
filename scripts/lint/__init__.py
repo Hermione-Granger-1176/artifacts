@@ -12,19 +12,15 @@ if TYPE_CHECKING:
     import argparse
     from collections.abc import Callable, Iterable, Iterator
 
-# Directories the lint walkers never descend into. Every ignored directory in
-# .gitignore that can be named by a single path component belongs here: an
-# ignored tree holds generated or vendored content that is not ours to lint, and
-# walking one is slow and produces false failures (the extracted Debian packages
-# under .playwright/ are hundreds of megabytes).
+# Directories the lint walkers never descend into. Each directory that .gitignore
+# ignores by a single path component belongs here. These trees hold generated or
+# vendored content.
 #
-# Entries are matched one path component at a time (`part in SKIP_DIRECTORIES`),
-# so a nested pattern such as .gitignore's `.claude/plans/` cannot be represented
-# here. Listing the bare component `plans` would skip any directory of that name
-# anywhere in the tree, and listing `.claude` would skip more than .gitignore
-# excludes, since only two of its subdirectories are ignored. Those stay walked.
-# tests/lint/test_skip_directories.py fails if .gitignore grows a single-component
-# directory that is missing here, so this list cannot silently fall behind.
+# Entries match one path component at a time (`part in SKIP_DIRECTORIES`), so a
+# nested .gitignore pattern such as `.claude/plans/` cannot be listed. A bare
+# `plans` would skip every directory with that name, and `.claude` would skip
+# subdirectories that .gitignore does not ignore. tests/lint/test_skip_directories.py
+# fails when .gitignore has a single-component directory missing from this list.
 SKIP_DIRECTORIES = frozenset(
     {
         ".artifacts",
@@ -46,10 +42,9 @@ SKIP_DIRECTORIES = frozenset(
     }
 )
 
-# Directories the walkers skip only at the repository root. .gitignore anchors
-# `/build/` and `/dist/` to the root, and coverage tools write `coverage/` there.
-# Skipping these names at any depth would also skip source trees such as
-# scripts/build/ and tests/build/.
+# Directories the walkers skip only at the repository root. Skipping these names
+# at any depth would also skip source trees such as scripts/build/ and
+# tests/build/.
 ROOT_SKIP_DIRECTORIES = frozenset({"build", "coverage", "dist"})
 
 

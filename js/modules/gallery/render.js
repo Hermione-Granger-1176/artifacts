@@ -47,8 +47,8 @@ function hashString(value) {
 }
 
 /**
- * Pick the scrapbook attachment style and tape colour for a card from its id,
- * so a given artifact always looks attached the same way.
+ * Pick the scrapbook attachment style and tape colour for a card from its id.
+ * The same id always gives the same result.
  * @param {string} id - Artifact id.
  * @returns {{ attach: string, tape: number }} Attachment style name and 1-based tape colour.
  */
@@ -91,7 +91,7 @@ function getShuffledFilterColors() {
   return shuffledColors;
 }
 
-/** Labels longer than this many characters overflow a desk note at its regular size. */
+/** Labels longer than this many characters get the `data-long` attribute. */
 const LONG_LABEL_LENGTH = 10;
 
 /**
@@ -121,7 +121,7 @@ function createFilterControlButton({
   surface
 }) {
   const rotateAttr = rotate !== null ? ` data-rotate="${rotate}"` : '';
-  // Desk notes are a fixed square, so a long label gets smaller type to stay on the note.
+  // Long labels get the data-long attribute.
   const longAttr = label.length > LONG_LABEL_LENGTH ? ' data-long' : '';
   const countHtml = count === undefined ? '' : `<span class="filter-option-count" aria-hidden="true">${count}</span>`;
 
@@ -129,9 +129,8 @@ function createFilterControlButton({
 }
 
 /**
- * Look up the color buildFilterNotes assigned to a tool or tag label. The
- * gallery renders the desk notes for every tool and tag before anything else
- * asks for a color.
+ * Look up the color buildFilterNotes assigned to a tool or tag label. Desk
+ * notes must be built first, since they assign the colors.
  * @param {string} name - Tool or tag label.
  * @returns {string} The assigned CSS color value.
  */
@@ -355,7 +354,7 @@ export function createDetailContent(item) {
 
 /**
  * Swap a failed card thumbnail image for the shared placeholder treatment.
- * Registered as a capture-phase delegated listener because img error events do not bubble.
+ * Registered as a capture-phase delegated listener. Image error events do not bubble.
  * @param {Event} event - Error event dispatched by a broken image.
  * @returns {void}
  */
@@ -455,7 +454,7 @@ export function buildGridHtml(items, expandedId, pageNumber = 1) {
 
 /**
  * Apply CSS custom properties from data attributes to elements in a container.
- * Called after innerHTML assignment to avoid inline style attributes for CSP compliance.
+ * Call after innerHTML assignment. Sets styles through the CSSOM, not inline style attributes.
  * @param {HTMLElement} container - Parent element to walk.
  * @returns {void}
  */
@@ -495,11 +494,10 @@ function buildNavButton({ page, step, disabled, label, content }) {
 
 /**
  * Render pagination controls into the given container element.
- * Previous and Next carry `data-page-step` so they stay relative to the latest
- * requested page, even when several are pressed while a page turn is running.
- * With one page or none the row still renders, with every control disabled and
- * a blank slot standing in for a second page tag, so the row keeps its height
- * and the footer does not jump when a filter leaves a single page.
+ * Previous and Next carry `data-page-step`, which keeps them relative to the
+ * latest requested page while a page turn is running. With one page or none the
+ * row still renders, with every control disabled and a blank slot in place of a
+ * second page tag.
  * @param {HTMLElement} container - Pagination container.
  * @param {number} currentPage - Active page number.
  * @param {number} totalPages - Total available pages.

@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """Build and use a private, no-sudo Linux runtime for Playwright browsers.
 
-The utility deliberately uses only Python's standard library.  It obtains package
-names from Playwright's dependency dry run, resolves that set with a simulated
-APT transaction, downloads the resulting archives with ``apt download``, and
-extracts them below the repository's ignored ``.playwright`` directory.  It never
-installs a package or changes the system package database.
+The utility uses only Python's standard library. It obtains package names from
+Playwright's dependency dry run, resolves that set with a simulated APT
+transaction, downloads the resulting archives with ``apt download``, and extracts
+them below the repository's ignored ``.playwright`` directory. It never installs a
+package or changes the system package database.
 
-Browsers themselves are not copied per repository: they use Playwright's shared
-``$HOME/.cache/ms-playwright`` cache so every project reuses one copy.  Only the
-extracted shared libraries and per-run scratch stay under ``.playwright``.
+Browsers are not copied per repository. They use Playwright's shared
+``$HOME/.cache/ms-playwright`` cache. Only the extracted shared libraries and
+per-run scratch stay under ``.playwright``.
 
-Chromium and WebKit are installed by separate Make targets, so a preparation run
-extends the recorded engine set instead of replacing it.  The active package
-closure is therefore always the union required by every engine prepared so far.
+Chromium and WebKit are installed by separate Make targets. A preparation run
+extends the recorded engine set rather than replacing it. The active package
+closure is the union required by every engine prepared so far.
 """
 
 from __future__ import annotations
@@ -54,9 +54,8 @@ WEBKIT_LAUNCHER_LOCAL_LD_LINE = (
     'export LD_LIBRARY_PATH="${MYDIR}/lib:${MYDIR}/sys/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"'
 )
 
-# Launch every prepared engine, load a trivial in-memory document, and evaluate a
-# title so the gate proves a real browser process started rather than only that an
-# executable exists.  Engine names arrive as arguments after ``python -c``.
+# Launch every prepared engine, load a trivial in-memory document, and check its
+# title. Engine names arrive as arguments after ``python -c``.
 PROBE_PROGRAM = """
 import sys
 
@@ -120,13 +119,13 @@ class CacheManifest:
 
 
 def default_shared_browser_root() -> Path:
-    """Return Playwright's shared browser cache so every project reuses one copy.
+    """Return Playwright's shared browser cache.
 
-    Browsers are large and version-stable, so they live in Playwright's normal
-    user-level cache (``$HOME/.cache/ms-playwright``) rather than a per-repository
-    copy. An explicit ``PLAYWRIGHT_BROWSERS_PATH`` in the environment wins, mirroring
-    Playwright's own precedence. Only the extracted shared libraries and per-run
-    scratch stay under the repository's ignored ``.playwright`` cache.
+    Browsers live in Playwright's user-level cache (``$HOME/.cache/ms-playwright``),
+    not in a per-repository copy. An explicit ``PLAYWRIGHT_BROWSERS_PATH`` in the
+    environment takes precedence, as it does in Playwright. Only the extracted
+    shared libraries and per-run scratch stay under the repository's ignored
+    ``.playwright`` cache.
     """
     override = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
     if override:
@@ -156,8 +155,8 @@ class RuntimePaths:
     def from_repo(cls, repo_root: Path, browser_root: Path | None = None) -> RuntimePaths:
         """Create cache paths without following a user-controlled cache symlink.
 
-        ``browser_root`` defaults to the shared Playwright browser cache; callers
-        (and tests) may pass an explicit path to isolate the browser location.
+        ``browser_root`` defaults to the shared Playwright browser cache. Callers
+        and tests may pass an explicit path.
         """
         resolved_root = repo_root.resolve()
         cache_root = resolved_root / ".playwright"
@@ -204,10 +203,9 @@ def resolve_for_containment(path: Path) -> Path:
 def is_within(path: Path, parent: Path) -> bool:
     """Return whether a resolved path remains under the resolved parent.
 
-    Resolution itself can fail on hostile input, so this guard denies rather
-    than propagates. Broken symlinks and symlink loops are rejected when they
-    are part of the path being checked. Callers that intentionally validate a
-    possibly dangling link target should check its lexical location separately.
+    Resolution failures return False. Broken symlinks and symlink loops are
+    rejected when they are part of the path being checked. Callers that validate
+    a possibly dangling link target check its lexical location separately.
     """
     try:
         resolve_for_containment(path).relative_to(resolve_for_containment(parent))
@@ -218,8 +216,7 @@ def is_within(path: Path, parent: Path) -> bool:
 
 def require_regular_directory(path: Path, label: str) -> None:
     """Reject symlinked roots before reading, creating, or deleting their contents."""
-    # lstat (unlike exists) does not follow symlinks, so a dangling symlink is
-    # still rejected here instead of surfacing later as a raw mkdir/rmtree error.
+    # lstat does not follow symlinks, so a dangling symlink is rejected here.
     try:
         mode = path.lstat().st_mode
     except FileNotFoundError:
@@ -266,10 +263,9 @@ def cache_lock(paths: RuntimePaths) -> Iterator[None]:
         descriptor = os.open(lock_path, os.O_CREAT | os.O_RDWR | no_follow, 0o600)
     except OSError as error:
         raise fail(f"cannot open the repository-local Playwright cache lock: {error}") from error
-    # Validate and tighten the descriptor before wrapping it in a stream. Opening
-    # a stream over a non-regular file (a planted FIFO, say) can fail *after* it
-    # takes ownership of the descriptor, which would replace this guard's message
-    # with an unhandled double-close error.
+    # Validate the descriptor before wrapping it in a stream. A stream over a
+    # non-regular file, such as a FIFO, can fail after it takes ownership of the
+    # descriptor.
     try:
         if not stat.S_ISREG(os.fstat(descriptor).st_mode):
             raise fail("Playwright cache lock must be a regular file")
@@ -360,10 +356,9 @@ def playwright_cli(paths: RuntimePaths) -> Path:
 def playwright_version(paths: RuntimePaths) -> str:
     """Read the installed Playwright version from the virtual environment's metadata.
 
-    The distribution directory name is the resolved version uv installed, so the
-    manifest keys on what the environment actually runs rather than on a declared
-    range. Reading the directory name keeps this dependency-free and fast enough
-    to re-check before every wrapped command.
+    The distribution directory name holds the resolved version uv installed, not a
+    declared range. Reading it needs no dependencies and is fast enough to run
+    before every wrapped command.
     """
     versions = {
         match.group(1)
@@ -578,8 +573,7 @@ def download_and_extract(packages: Sequence[PackageVersion], stage: Path) -> Pat
             cwd=stage,
             env=environment,
         )
-    # Validate once after every archive is extracted: nothing uses the tree until
-    # this passes, so a single full scan keeps the same safety at O(files) cost.
+    # Validate the whole tree once, after every archive is extracted.
     validate_extracted_root(extracted_root)
     for archive in debs:
         archive.unlink()
@@ -590,11 +584,8 @@ def download_and_extract(packages: Sequence[PackageVersion], stage: Path) -> Pat
 
 def _reject_escaping_entry(entry: Path, extracted_root: Path) -> None:
     """Raise unless an extracted entry, and any symlink target it holds, stays in the root."""
-    # Containment applies to where a symlink sits, never to what it points
-    # at. Resolving through the link here would conflate a dangling link
-    # with an escaping one. The target gets its own lexical containment
-    # check below, which keeps valid APT documentation links usable even
-    # when their sibling package is already present on the host.
+    # Containment applies to where a symlink sits, not to what it points at. The
+    # target gets its own lexical containment check below.
     location = entry.parent if entry.is_symlink() else entry
     if not is_within(location, extracted_root):
         raise fail(
@@ -717,10 +708,8 @@ def recorded_engines(paths: RuntimePaths) -> tuple[str, ...]:
 def requested_engines(paths: RuntimePaths, engines: Sequence[str]) -> tuple[str, ...]:
     """Return the union of the newly requested engines and the recorded engine set.
 
-    Chromium and WebKit are installed by separate Make targets, so preparing one
-    must extend rather than replace the closure the other already needs. Taking the
-    union here means the manifest's engine set only ever grows, and the resolved
-    package closure is always the union that every prepared engine requires.
+    The manifest's engine set only grows, and the resolved package closure covers
+    every prepared engine.
     """
     return tuple(sorted({*engines, *recorded_engines(paths)}))
 
@@ -822,8 +811,8 @@ def prepare_locked(paths: RuntimePaths, engines: Sequence[str]) -> None:
         patch_webkit_launchers(paths)
         print(f"Prepared repository-local Playwright runtime for {', '.join(manifest.engines)}.")
     finally:
-        # ignore_errors keeps a cleanup problem from masking the real setup error
-        # this finally may be unwinding. Anything left behind is swept by
+        # ignore_errors: cleanup failures do not replace the setup error being
+        # unwound. Anything left behind is swept by
         # remove_stale_staging on the next preparation.
         shutil.rmtree(stage, ignore_errors=True)
 
@@ -869,10 +858,8 @@ def discovered_directories(root: Path) -> dict[str, list[Path]]:
             found["gstreamer"].append(directory)
         if relative.parts[-2:] == ("glib-2.0", "schemas"):
             found["schemas"].append(directory)
-        # Decide on the path shape before reading the directory. Only a handful of
-        # directories in an extracted tree are loader directories (7 of 331 in a
-        # 193-package cache), and this runs on every wrapped browser invocation, so
-        # the short circuit skips the iterdir syscalls for the other 98%.
+        # Check the path shape before reading the directory. Directories whose shape
+        # cannot be a loader directory are skipped without an iterdir call.
         if _is_loader_directory_path(relative.parts) and _holds_shared_library(directory):
             found["libraries"].append(directory)
     return found
@@ -918,9 +905,9 @@ def runtime_environment(
 
 def browser_cache_ready(paths: RuntimePaths, engines: Sequence[str]) -> bool:
     """Require every prepared engine in the shared browser cache before a wrapped run."""
-    # browser_root is the user-owned shared cache (for example ~/.cache/ms-playwright),
-    # which is only read and launcher-patched in place and never deleted here, so a
-    # symlinked cache (a common redirect to another disk) is accepted; is_dir follows it.
+    # browser_root is the user-owned shared cache. It is read and launcher-patched
+    # in place and never deleted here. A symlinked cache is accepted; is_dir follows
+    # the link.
     if not paths.browser_root.is_dir():
         return False
     for engine in engines:
@@ -963,10 +950,8 @@ def webkit_launcher_is_patched(launcher: Path) -> bool:
 def patch_webkit_launchers(paths: RuntimePaths) -> None:
     """Patch shared WebKit wrappers to retain the repository-local library path.
 
-    These writes land in the shared browser cache, which is routinely read-only on
-    a mounted or shared home. Every filesystem step is therefore reported as a
-    concise setup error, since main() only renders RuntimeSetupError and anything
-    else would reach the Make user as a raw traceback.
+    Writes go to the shared browser cache. Every filesystem step raises
+    RuntimeSetupError, because main() renders only that type.
     """
     for launcher in webkit_launchers(paths):
         try:
@@ -1001,9 +986,8 @@ def _replace_launcher(launcher: Path, updated: str) -> None:
     except OSError as error:
         raise fail(f"cannot patch the shared WebKit launcher {launcher}: {error}") from error
     finally:
-        # Never let cleanup replace the real diagnostic: on the success path the
-        # rename already consumed this name, and on the failure path the caller
-        # needs the write error, not a second one from tidying up after it.
+        # Cleanup errors are suppressed. On the success path the rename already
+        # consumed this name.
         with suppress(OSError):
             temporary.unlink(missing_ok=True)
 
@@ -1013,9 +997,7 @@ def require_ready(paths: RuntimePaths) -> tuple[str, ...]:
     require_regular_directory(paths.cache_root, "Playwright cache root")
     require_regular_directory(paths.local_libraries, "local library cache")
     require_regular_directory(paths.extracted_root, "extracted Playwright runtime root")
-    # Establish that a cache exists at all before validating its contents, so an
-    # untouched repository is told to run setup instead of being handed a
-    # confusing extraction diagnostic.
+    # Check that the manifest and runtime root exist before validating their contents.
     manifest = load_manifest(paths.manifest)
     if manifest is None or not paths.extracted_root.is_dir():
         raise fail("local Playwright runtime is not prepared; run make setup-playwright-local")
@@ -1055,11 +1037,10 @@ def run_in_runtime(
 def probe(paths: RuntimePaths) -> int:
     """Launch and close every prepared engine with the private runtime.
 
-    The probe program imports Playwright, so it reuses the running interpreter
-    rather than resolving ``.venv/bin/python``. Every entry point is the Make
-    target, which already runs this module under the virtual-environment
-    interpreter, and that path is a symlink to the system interpreter, so the
-    containment guard used for the Playwright CLI cannot validate it.
+    The probe reuses the running interpreter rather than resolving
+    ``.venv/bin/python``. Make runs this module under the virtual-environment
+    interpreter. The containment guard used for the Playwright CLI cannot validate
+    that path, which is a symlink to the system interpreter.
     """
     engines = require_ready(paths)
     return run_in_runtime(paths, [sys.executable, "-c", PROBE_PROGRAM, *engines])
@@ -1088,8 +1069,7 @@ def status(paths: RuntimePaths) -> int:
 def clean(paths: RuntimePaths) -> None:
     """Remove only this repository's private runtime cache, keeping shared browsers.
 
-    The shared browser cache lives outside ``.playwright`` and is reused by other
-    projects, so it is deliberately left in place.
+    The shared browser cache lives outside ``.playwright`` and is left in place.
     """
     require_regular_directory(paths.cache_root, "Playwright cache root")
     if paths.cache_root.exists():

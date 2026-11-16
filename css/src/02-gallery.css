@@ -10,7 +10,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* The gallery keeps the scrollbar's space reserved, so opening an overlay (which hides the bar) never shifts the page sideways. */
+/* Reserves the scrollbar gutter in the gallery. Opening an overlay, which hides the bar, does not shift the page sideways. */
 html:has(body:not(.artifact-app)) {
   scrollbar-gutter: stable;
 }
@@ -289,7 +289,7 @@ button {
   background: color-mix(in srgb, var(--color-note-text) 12%, transparent);
 }
 
-/* With an empty box the clear button fades out but keeps its slot, so the input does not resize on the first keystroke. Hidden visibility also takes it out of the tab order and the accessibility tree. */
+/* With an empty box, the clear button fades out and keeps its slot. Hidden visibility also removes it from the tab order and the accessibility tree. */
 .search-clear.hidden {
   display: inline-block !important;
   visibility: hidden;
@@ -314,7 +314,7 @@ button {
   transform: rotate(-4deg);
 }
 
-/* How many artifacts match, in pencil. Sized to balance the sort note on the other side. */
+/* How many artifacts match, in pencil. Its width matches the control cluster's minimum width. */
 .search-count {
   flex: 0 0 5.5rem;
   font-size: 1.35rem;
@@ -323,7 +323,7 @@ button {
   text-align: right;
 }
 
-/* An empty note still holds its line, so it does not grow from nothing on the first keystroke. */
+/* An empty note still holds its line height. */
 .search-count::before {
   content: '\200b';
 }
@@ -376,7 +376,7 @@ button {
 /*
  * The visible label ("A to Z") appears in the accessible name ("Sort by name, A to Z").
  * The other label sits invisibly in the same grid cell, so the note keeps the wider
- * label's width and nothing beside it moves when the order flips.
+ * label's width.
  */
 .sort-toggle::before,
 .sort-toggle::after {
@@ -401,8 +401,8 @@ button {
 }
 
 /*
- * The reset note hangs beside the sort note outside the row's flow, so showing it
- * never resizes the search note. It only fades in while a filter is active.
+ * The reset note hangs beside the sort note, outside the row's flow. It fades in
+ * only while a filter is active.
  */
 .filter-reset {
   position: absolute;
@@ -481,7 +481,7 @@ button {
 }
 
 .book-shell {
-  /* Fit the open book to the screen height, and shrink its width with it so the pages keep their shape. */
+  /* Fits the open book to the screen height and scales its width with it. */
   --book-fit-height: clamp(
     var(--book-fit-min-height),
     calc(100svh - var(--book-chrome-y)),
@@ -518,7 +518,7 @@ button {
   height: min(var(--book-fit-height), calc(100cqi / var(--book-spread-ratio)));
   transform-style: preserve-3d;
 
-  /* Horizontal drags turn pages, so touch browsers must not take them for panning. */
+  /* Horizontal drags turn pages, so touch panning is limited to the vertical axis. */
   touch-action: pan-y pinch-zoom;
 }
 
@@ -527,7 +527,7 @@ button {
   transform: translateX(-25%);
 }
 
-/* The notepad's open link sits beside the card, so it is locked with it. */
+/* Cards and their open links ignore the pointer while a turn runs. */
 .book-sheet.is-turning .artifact-card,
 .book-sheet.is-turning .card-notes-open {
   pointer-events: none;
@@ -535,17 +535,13 @@ button {
 
 /*
  * The shadow always has the open book's box, so the intro never resizes it.
- * The shadow itself is the ::before; its masked box reaches past it by
- * --shadow-reach on every side, so the blur is never cut off, and further to
- * the left by --shadow-lead, so the box still covers the spine when the closed
- * book slides it right. The mask image is two mask-widths wide (one mask-width
- * is the shadow plus a reach on each side) and its right half sits on the
- * shadow, so the soft edge has room on both sides; the edge rests at 44% of the
- * image, just past the shadow's left side, where the open book leaves it. The
- * closed book slides the box right by 62% of a mask-width, which puts the edge
- * on the spine, and slides the shadow back by the same amount, so the shadow
- * never moves. The intro slides both home: only transforms change, so the
- * compositor runs the sweep.
+ * The shadow itself is the ::before. The masked box extends past it by
+ * --shadow-reach on every side, and by --shadow-lead to the left, so the box
+ * still covers the spine when the closed book slides it right. The mask image
+ * is two mask-widths wide, and its edge rests at 44% of the image, just past
+ * the shadow's left side. The closed book slides the box right by 62% of a
+ * mask-width, which puts the edge on the spine, and slides the shadow back by
+ * the same amount. The intro slides both home. Only transforms change.
  */
 .book-shadow {
   --shadow-reach: 80px;
@@ -675,8 +671,8 @@ button {
   pointer-events: none;
 }
 
-/* The edge stacks grow and shrink as the page turns instead of snapping. They
-   take their first depth while the book opens, without growing in. */
+/* The edge stacks animate their box-shadow as the page turns. Their first depth
+   is taken while the book opens, without a transition. */
 .book-shell.is-open .book-inner::before,
 .book-shell.is-open .book-inner::after {
   transition: box-shadow 0.35s ease;
@@ -706,7 +702,7 @@ button {
     calc(min(var(--stack-right-n), 6) * 1.5px) calc(min(var(--stack-right-n), 6) * 0.6px) 0 calc(min(var(--stack-right-n), 6) * -0.3px) var(--color-page-paper);
 }
 
-/* One ruled paper for every surface in the book. All of these share the same top edge, so the rules line up and never shift when a leaf lands. */
+/* One ruled paper for every surface in the book. All of these share the same top edge, so their rules line up. */
 .book-inner::before,
 .book-inner::after,
 .book-endpaper,
@@ -1075,7 +1071,7 @@ button {
   --tape: var(--color-note-6);
 }
 
-/* Chalky doodles, drawn as masks so they take the chalk token colour. */
+/* Chalky doodles, drawn as masks filled with the chalk token colour. */
 .book-doodle {
   position: absolute;
   background: var(--color-album-chalk);
@@ -1325,7 +1321,7 @@ button {
   opacity: var(--desk-note-rest-opacity);
 }
 
-/* A long label gets smaller type so it stays on its square note. */
+/* Long labels use a smaller font size. */
 .desk-note[data-long] {
   font-size: 1.15rem;
 }
@@ -1358,7 +1354,7 @@ button {
   opacity: 1;
   z-index: 50;
 
-  /* An outline takes no space, so the note and its label stay put when it turns active. */
+  /* An outline takes no layout space, so the note does not move when it turns active. */
   outline: 2px solid var(--color-text-primary);
   outline-offset: -2px;
   box-shadow:
@@ -1561,13 +1557,13 @@ button {
   grid-template-rows: repeat(2, minmax(0, 1fr));
 }
 
-/* Both pages are the same ruled sheet, so the cards on each sit right of its red margin line. */
+/* Both pages use the same ruled sheet. Cards sit right of the red margin line. */
 .artifact-page-left,
 .artifact-page-right {
   padding: 1.2rem 1.4rem 2.4rem calc(var(--paper-margin-x) + 1rem);
 }
 
-/* Gutter shading is baked into each page so a turning leaf carries its own. */
+/* Each page carries its own gutter shading, including a turning leaf. */
 .artifact-page-slice::after {
   content: '';
   position: absolute;
@@ -1655,7 +1651,7 @@ button {
   z-index: 2;
 }
 
-/* A tap counts as hover on touch screens, so only a real pointer lifts a card on hover. */
+/* Hover lifts a card only for devices with a hover-capable pointer. */
 @media (hover: hover) {
   .artifact-card:hover {
     transform: translateY(-4px) rotate(var(--note-hover-rotate));
@@ -1927,7 +1923,7 @@ button {
   color: var(--color-pencil-soft);
 }
 
-/* Holds the width of a second page tag while only one page exists, so the row keeps its shape. */
+/* Holds the width of a second page tag while only one page exists. */
 .page-slot-empty {
   visibility: hidden;
 }
@@ -1974,7 +1970,7 @@ button {
   }
 }
 
-/* A disabled tag lies flat on the desk with a faded label. Its paper stays opaque, so it never turns into a grey box on the night desk. */
+/* A disabled tag lies flat, with faded paper and label. */
 .page-btn:disabled {
   cursor: not-allowed;
 }
@@ -2055,7 +2051,7 @@ button {
   max-height: 50vh;
   object-fit: contain;
 
-  /* The thumbnail's shape is known, so the panel is the right height before the image arrives. */
+  /* Reserves the thumbnail's aspect ratio before the image loads. */
   aspect-ratio: var(--card-thumb-ratio);
 }
 

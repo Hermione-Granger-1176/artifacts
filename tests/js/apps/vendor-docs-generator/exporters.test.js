@@ -339,8 +339,7 @@ test('a stopped batch keeps the documents it finished and says it was cut short'
     plan,
     annotate: (docModel) => buildAnnotations(docModel),
     readme: { boxes: false, degradation: 'clean', words: false },
-    // Ask to stop once two documents exist, the way a click landing mid-run
-    // would. The third iteration is the one that sees it.
+    // Requests a stop once two documents exist. The third iteration sees the request.
     shouldStop: () => rendered >= 2,
     renderPreview: (item) => {
       rendered += 1;
@@ -405,8 +404,7 @@ test('a long batch hands the main thread back so a stop click can be seen', asyn
   const plan = Array.from({ length: 12 }, (_entry, index) => ({
     vendorId: 'apex', docTypeId: 'invoice', seed: 1000 + index, style: 'clean'
   }));
-  // A batch that never yields runs to completion before anything queued behind
-  // it gets a turn, which is exactly the bug the stop button would hit.
+  // A batch that never yields blocks anything queued behind it, including the stop button.
   let sawTurn = false;
   setTimeout(() => { sawTurn = true; }, 0);
   const realNow = Date.now;
@@ -592,8 +590,7 @@ test('pair mode downloads the degraded page and the original it came from', asyn
   const host = createDownloadHost();
   const current = model({ seed: 4242, vendorId: 'apex', docTypeId: 'invoice' });
 
-  // One document creates both the scratch canvas and the download anchors, the
-  // way a browser does.
+  // One document creates both the scratch canvas and the download anchors.
   const documentObj = {
     ...host.documentObj,
     createElement: (tag) =>

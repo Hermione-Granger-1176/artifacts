@@ -1,22 +1,14 @@
 #!/usr/bin/env python3
 """Prune local branches whose content already exists in the base branch.
 
-``git for-each-ref --merged`` is a pure ancestry test, so it cannot find
-branches that landed through a squash merge. A squash merge replays the branch
-as one new commit on the base, so the original branch tip is not an ancestor of
-the base and ``--merged`` never lists it.
+A branch is fully contained when merging it into the base would leave the base
+tree unchanged. The check runs ``git merge-tree --write-tree`` in the object
+store, without touching the working tree or the current checkout. An identical
+tree means the branch is safe to drop. A different tree, or a merge conflict,
+means the branch is reported and kept.
 
-This helper asks a different question: would merging the branch into the base
-change the base at all? ``git merge-tree --write-tree``
-answers it entirely in the object store, without touching the working tree or
-the current checkout. An identical tree means the branch contributes nothing
-and is safe to drop. A different tree, or a merge conflict, means the branch
-may hold work that exists nowhere else, so it is reported and kept rather than
-deleted.
-
-Deletion uses ``git branch -D``. ``-d`` applies the same ancestry test and
-would refuse every squash-merged branch, so the force flag is required. The tree
-comparison is what makes forcing safe.
+Deletion uses ``git branch -D``. ``-d`` applies an ancestry test and refuses
+squash-merged branches. The tree comparison gates each deletion.
 
 The Makefile forwards three inputs through the environment:
 
@@ -33,7 +25,7 @@ import sys
 from collections.abc import Callable, Mapping, Sequence
 
 # A runner takes the git command vector and returns the completed process.
-# Injectable so tests never touch a real repository.
+# Tests pass a stub runner in place of run_git.
 GitRunner = Callable[[Sequence[str]], "subprocess.CompletedProcess[str]"]
 
 MERGE_TREE_HINT = "branch-prune needs git 2.38 or newer for merge-tree --write-tree."
@@ -141,9 +133,8 @@ def main(
     env = os.environ if environ is None else environ
     base, branches = candidate_branches(env, runner=runner)
 
-    # Resolve the base before probing for merge-tree support. Both fail the same
-    # way on an old git and on a missing base, so checking capability first would
-    # blame the git version for what is really an unresolvable ref.
+    # Resolve the base before probing for merge-tree support. A missing base also
+    # makes the merge-tree probe fail.
     try:
         tree = base_tree(base, runner=runner)
     except RuntimeError as error:
@@ -189,9 +180,8 @@ def _print_branches(header: str, branches: Sequence[str]) -> None:
 def _delete_branches(branches: Sequence[str], *, runner: GitRunner) -> int:
     """Delete each branch, stopping at the first refusal, and return the exit code.
 
-    Deletion is the destructive step, so a refusal stops the run rather than
-    continuing down the list. git explains itself on stderr, which the caller
-    needs to see to know whether anything was actually removed.
+    The first refusal stops the run. The message comes from stderr, falling back
+    to stdout.
     """
     for branch in branches:
         result = runner(["branch", "-D", branch])

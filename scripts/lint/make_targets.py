@@ -45,17 +45,14 @@ BLOCK_SCALAR_PATTERN = re.compile(r"^[|>][+-]?\d*$")
 SHELL_CONTROL_FLOW_PATTERN = re.compile(r"^(?:if|for|while|case)\b")
 RECIPE_PREFIX_PATTERN = re.compile(r"^[@\-+]+")
 
-# Targets whose recipes may keep inline shell control flow. Every entry is
-# argument assembly or git plumbing, not logic that belongs in scripts/. The
-# list can only shrink: ``test_control_flow_allowlist_has_no_unused_entries``
+# Targets whose recipes may keep inline shell control flow. Each entry handles
+# argument assembly or git plumbing rather than logic that belongs in scripts/.
+# The list can only shrink: ``test_control_flow_allowlist_has_no_unused_entries``
 # fails when a fixed target stays listed here.
 #
-# Several of these exist *because* of the free-text rule. An optional flag whose
-# value is prose cannot be added with ``$(if $(COMMENT),--comment "$$COMMENT")``,
-# since a Make conditional expands the value and would run ``$(shell ...)`` inside
-# it. Testing in the recipe's shell is the only safe way to append the flag, so
-# the branch is mandatory rather than lazy. See the Free text section of the
-# Makefile.
+# Several entries add an optional free-text flag. That flag is tested in the
+# recipe's shell, not added with ``$(if ...)``, because Make would expand the
+# prose value. See the Free text section of the Makefile.
 CONTROL_FLOW_ALLOWLIST = frozenset(
     {
         "coverage-js",  # optionally tee the JavaScript coverage report
@@ -123,8 +120,7 @@ def find_shell_control_flow(
 
     Only tab-indented recipe lines are considered. Lines inside ``define ...
     endef`` blocks, variable-assignment continuations, and quoted program bodies
-    are ignored, and allowlisted targets are skipped, so future inline shell
-    logic is pushed into ``scripts/`` instead.
+    are ignored, and allowlisted targets are skipped.
     """
     violations: list[ShellControlFlow] = []
     in_define = False
@@ -234,10 +230,8 @@ def extract_markdown_code_snippets(text: str) -> list[CodeSnippet]:
 def extract_source_code_snippets(text: str) -> list[CodeSnippet]:
     """Extract backticked spans from source comments, docstrings, and strings.
 
-    Source files mix prose with commands, and an unquoted scan would read
-    ordinary English such as "make sure" as a target reference. Backticks are
-    the convention this repository already uses when naming a command inside a
-    string, so they are what marks a span as a real reference.
+    Only backticked spans count as references. An unquoted scan would read
+    prose such as "make sure" as a target.
     """
     snippets: list[CodeSnippet] = []
     for line_number, line in enumerate(text.splitlines(), start=1):
@@ -248,14 +242,11 @@ def extract_source_code_snippets(text: str) -> list[CodeSnippet]:
 def extract_workflow_run_snippets(text: str) -> list[CodeSnippet]:
     """Extract shell lines from ``run:`` values in any ``.github`` YAML file.
 
-    The whole directory is scanned rather than an enumerated list of workflow
-    and action paths, so a new kind of ``.github`` YAML that runs shell is
-    covered the day it is added. Files without a ``run:`` key simply yield
-    nothing.
+    Every YAML file under ``.github`` is scanned, so new workflow and action
+    files are covered automatically. Files without a ``run:`` key yield nothing.
 
-    A ``run:`` value is shell, so every ``make`` word in it is a real
-    invocation. These are the references that break CI silently when a target
-    is renamed, which is why they are read directly rather than via backticks.
+    Every ``make`` word in a ``run:`` value is treated as an invocation, since
+    run values are shell. These are read directly, not through backticks.
     """
     snippets: list[CodeSnippet] = []
     lines = text.splitlines()
@@ -266,8 +257,8 @@ def extract_workflow_run_snippets(text: str) -> list[CodeSnippet]:
         if match is None:
             continue
 
-        # Only the indicator decides the scalar style: YAML allows a trailing
-        # comment after it, as in ``run: | # keep this shell in one step``.
+        # The indicator alone decides the scalar style. A trailing YAML comment
+        # after it is allowed, as in ``run: | # comment``.
         value = match.group(3).strip()
         indicator = value.split(maxsplit=1)[0] if value else ""
         if not BLOCK_SCALAR_PATTERN.match(indicator):
@@ -275,10 +266,9 @@ def extract_workflow_run_snippets(text: str) -> list[CodeSnippet]:
                 snippets.append(CodeSnippet(line_number=index, text=value))
             continue
 
-        # The block ends at the first key indented no further than ``run:``
-        # itself. In a `- run: |` step the sequence dash sits left of the key,
-        # so sibling keys such as `shell:` and `env:` are more indented than
-        # the line's leading whitespace and would otherwise be read as shell.
+        # The block ends at the first non-blank line indented no further than the
+        # run: key. Sibling keys such as `shell:` and `env:` sit at that column,
+        # so they end the block instead of being read as shell.
         key_indent = len(match.group(1)) + len(match.group(2) or "")
         while index < len(lines):
             body = lines[index]
@@ -294,8 +284,8 @@ def extract_workflow_run_snippets(text: str) -> list[CodeSnippet]:
 def is_test_path(relative_path: Path) -> bool:
     """Return whether a repository-relative path holds test code.
 
-    Test files legitimately name targets that do not exist, as fixtures for
-    the checkers themselves, so they are excluded from source scanning.
+    Test files name nonexistent targets as fixtures, so they are excluded from
+    scanning.
     """
     if any(part in TEST_DIRECTORY_NAMES for part in relative_path.parts):
         return True

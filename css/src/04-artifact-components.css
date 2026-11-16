@@ -23,7 +23,7 @@ body.artifact-app .btn {
   font-weight: 500;
 }
 
-/* The emphasis blue holds 4.5:1 under the label in both themes; the base blue only reaches 3.6:1 against white. */
+/* Primary buttons use the emphasis blue, which holds 4.5:1 under the label in both themes. */
 body.artifact-app .btn-primary {
   background: var(--color-blue-emphasis);
   color: var(--color-text-on-accent);
@@ -293,8 +293,6 @@ body.artifact-app .info-tip {
 
 /*
  * Touch screens: the info marker grows to 24px, the WCAG 2.2 minimum target size.
- * It sits inline in labels, where a 2.75rem marker would break the line, and its
- * tooltip pseudo-elements leave none free for a larger invisible target.
  */
 @media (pointer: coarse) {
   body.artifact-app .info-tip {
@@ -556,8 +554,8 @@ body.artifact-app .reserve-ghost {
 /*
  * Meter: thin progress bar with a tone-colored fill. The fill is full width and
  * scaled from its left edge with the scale property (0 to 1, see setMeterValue
- * in js/modules/meter.js), so a change runs on the compositor with no layout. An
- * inline width still works as before for fills that have not adopted the helper.
+ * in js/modules/meter.js). An inline width still applies to fills that do not
+ * use the helper.
  */
 
 body.artifact-app .meter {
@@ -787,9 +785,8 @@ body.artifact-app {
 
 /*
  * renderSectionNav injects the nav into the [data-section-nav] slot. The slot
- * is display: contents so the sticky nav's containing block stays the body.
- * While the slot is empty it is a block that holds the nav's height, so the
- * page does not drop when the script fills it.
+ * is display: contents, so the sticky nav's containing block is the body. While
+ * the slot is empty it is a block that holds the nav's height.
  */
 body.artifact-app [data-section-nav] {
   display: contents;
@@ -941,7 +938,7 @@ body.artifact-app .section-nav-node:last-child .section-nav-tip {
   transform: none;
 }
 
-/* A tap counts as hover on touch screens and would leave the tip stuck open, so only a real pointer shows it on hover. */
+/* Shows the tip on hover only for devices with a hover-capable pointer. */
 @media (hover: hover) {
   body.artifact-app .section-nav-node:hover .section-nav-tip {
     opacity: 1;

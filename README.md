@@ -72,7 +72,7 @@ The scaffold takes two inputs:
 - `make new name=my-artifact` creates a placeholder that passes the checks without edits.
 - `make new name=my-artifact <<< path/to/file.html` installs an existing HTML file as `index.html`, adds the CSP meta tag and shared stylesheet links when they are absent, and reports off-origin references that you must vendor or remove.
 
-[Contributing](.github/CONTRIBUTING.md) lists the steps to add an artifact. After a push to `main`, CI generates thumbnails, builds the site, and deploys it. [Architecture](docs/architecture.md) describes deployment and PR previews.
+[Contributing](.github/CONTRIBUTING.md) lists the steps to add an artifact. After a push to `main`, CI generates thumbnails, builds the site, and deploys it. [CI and deployment](docs/ci.md) describes deployment and PR previews.
 
 <br>
 
@@ -80,8 +80,10 @@ The scaffold takes two inputs:
 
 - [Workspace](docs/workspace.md)
 - [Architecture](docs/architecture.md)
+- [CI and deployment](docs/ci.md)
 - [Frontend](docs/frontend.md)
 - [Operations](docs/operations.md)
+- [Troubleshooting](docs/troubleshooting.md)
 - [Quality checks](docs/checks.md)
 - [Maintenance](docs/maintenance.md)
 - [Style guide](docs/style.md)

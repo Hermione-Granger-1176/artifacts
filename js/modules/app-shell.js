@@ -103,8 +103,8 @@ export function renderAppShell({ documentObj = document } = {}) {
 
 /**
  * Wire the theme toggle, back button, and scroll-to-top button that
- * renderAppShell injected. Requires app-theme.js to have run first, because
- * theme values are normalized through `window.__ARTIFACTS_APP_THEME_BOOTSTRAP__`.
+ * renderAppShell injected. Requires app-theme.js to have run first. Theme values
+ * are normalized through `window.__ARTIFACTS_APP_THEME_BOOTSTRAP__`.
  * @param {{
  *   metaThemeColors?: {dark: string, light: string},
  *   onThemeChange?: (theme: string) => void
@@ -155,8 +155,8 @@ export function initAppShell({
     themeToggle.setAttribute("title", `Switch to ${nextTheme} theme`);
   }
 
-  // Turn CSS transitions off while the theme changes, so every themed color
-  // flips together instead of fading at its own speed.
+  // Turns CSS transitions off while the theme changes, so every themed color
+  // flips together.
   const suspendTransitions = createThemeSwitchGuard(html, window);
 
   /** @param {string} theme - Requested theme name. */

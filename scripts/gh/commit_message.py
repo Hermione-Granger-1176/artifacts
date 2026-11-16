@@ -1,33 +1,28 @@
 """Validate commit messages before they reach ``git commit``.
 
-Stdin-driven commit flows (``make commit <<'EOF' ... EOF``) can leak shell
-fragments into the recorded message when a terminator is mistyped or
-trailing shell is pasted after the closing token. Commit ``b68de52`` captured
-``EOF && make push 2>&1 | tail -3`` inside its message this way. This module
-rejects the obvious shell-leak shapes while keeping false positives unlikely, so
-only clearly shell-shaped lines are flagged.
+Rejects messages that contain leaked shell text, such as a mistyped heredoc
+terminator or trailing shell after the closing token. Only clearly shell-shaped
+lines are flagged.
 """
 
 from __future__ import annotations
 
 import re
 
-# A quoted heredoc opener such as ``<<'EOF'`` or ``<<"MSG"`` is unambiguous
-# shell, so any quote right after ``<<`` is treated as a leak.
+# A quoted heredoc opener such as ``<<'EOF'`` or ``<<"MSG"``. Any quote right
+# after ``<<`` counts as a leak.
 _QUOTED_HEREDOC_OPENER = re.compile(r"<<-?\s*['\"]")
 
-# An unquoted heredoc opener such as ``<<EOF`` or ``<< HEREDOC``. Restricted to
-# the common uppercase delimiters so a legitimate left-shift like ``value << 2``
-# is never mistaken for a heredoc.
+# An unquoted heredoc opener such as ``<<EOF`` or ``<< HEREDOC``. Matches only
+# the common uppercase delimiters, so ``value << 2`` is not flagged.
 _UNQUOTED_HEREDOC_OPENER = re.compile(r"<<-?\s*(?:EOF|EOT|END|HEREDOC|MSG|BODY|PATCH)\b")
 
-# A bare heredoc terminator left in the body, optionally followed by trailing
-# shell (``EOF && make push``). Matches only the common uppercase delimiters as
-# a whole leading token so ordinary prose is not flagged.
+# A bare heredoc terminator, optionally followed by trailing shell
+# (``EOF && make push``). Matches only the common uppercase delimiters as a
+# whole leading token.
 _HEREDOC_TERMINATOR = re.compile(r"^\s*(?:EOF|EOT|HEREDOC)(?:\s*(?:$|&&|\|\||;|\||&|>|<|\d*>))")
 
-# Shell redirection (``2>&1``) and pipes into a pager (``| tail``/``| head``)
-# are unambiguous shell fragments that do not belong in a commit message.
+# Shell redirection (``2>&1``) and pipes into a pager (``| tail``/``| head``).
 _SHELL_REDIRECT = re.compile(r"\d*>&\d")
 _SHELL_PAGER_PIPE = re.compile(r"\|\s*(?:tail|head)\b")
 

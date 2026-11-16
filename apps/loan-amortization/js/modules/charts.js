@@ -566,8 +566,7 @@ const controllers = new WeakMap();
 
 /**
  * Draw one chart from the latest state. A chart's first draw keeps Chart.js's
- * entrance animation; every later draw is immediate, so a slider drag does not
- * replay a one second animation on each tick.
+ * entrance animation; later draws are immediate.
  *
  * @param {Charts} charts - Chart instances.
  * @param {ChartsController} controller - Latest state and per-chart bookkeeping.

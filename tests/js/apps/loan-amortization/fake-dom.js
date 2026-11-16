@@ -1,6 +1,6 @@
 // A small DOM stand-in for the loan app tests. It implements the tree
-// operations the app's in-place updates rely on (append, remove, fragments,
-// attributes, class lists) so tests can check node identity.
+// operations (append, remove, fragments), attributes, and class lists that
+// the app uses. Nodes keep their identity across in-place updates.
 
 const toCamel = (name) => name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
 const toKebab = (name) => name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
@@ -104,7 +104,7 @@ export class FakeNode {
 
   detach() {
     if (this.parentNode) {
-      // Mutate in place: a live HTMLCollection reference must see the removal.
+      // Splices the array in place, so existing references to it see the removal.
       const siblings = this.parentNode.children;
       siblings.splice(siblings.indexOf(this), 1);
       this.parentNode = null;

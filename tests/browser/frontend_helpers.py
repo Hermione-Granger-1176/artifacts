@@ -228,7 +228,7 @@ def app_scope_skipif(slug: str) -> pytest.MarkDecorator:
 
 
 class StaticServer:
-    """StaticServer."""
+    """Serve a directory over HTTP on a loopback port, in a background thread."""
 
     def __init__(self, directory: Path) -> None:
         handler = partial(SimpleHTTPRequestHandler, directory=str(directory))
@@ -249,10 +249,9 @@ class StaticServer:
 
 
 def selected_browser_engine() -> str:
-    """Return the Playwright engine name for this run (defaults to Chromium).
+    """Return the Playwright engine name for this run, which defaults to Chromium.
 
-    All existing suites default to Chromium. The WebKit smoke pass overrides
-    ``ARTIFACTS_BROWSER_ENGINE`` to run the same helpers against WebKit.
+    The WebKit smoke pass sets ``ARTIFACTS_BROWSER_ENGINE`` to run the same helpers against WebKit.
     """
     engine = os.environ.get(BROWSER_ENGINE_ENV, "").strip().lower() or DEFAULT_BROWSER_ENGINE
     if engine not in SUPPORTED_BROWSER_ENGINES:
@@ -295,7 +294,7 @@ def _matches_allowed(message: str, allowed_patterns: tuple[str, ...]) -> bool:
 
 @dataclass
 class RuntimeMonitor:
-    """RuntimeMonitor."""
+    """Collect console, page, and network failures for one Playwright page."""
 
     base_url: str
     allowed_console_errors: tuple[str, ...] = ()
@@ -307,8 +306,7 @@ class RuntimeMonitor:
 
     def bind(self, page) -> None:
         """Attach listeners that record console, page, and network failures."""
-        # Track CSS filenames that loaded successfully so duplicate fetches from
-        # wrong paths do not create false failures in the browser test server.
+        # URLs of CSS files that loaded successfully, for recognizing duplicate fetches.
         loaded_css_paths: set[str] = set()
 
         def track_console(message) -> None:
@@ -346,12 +344,10 @@ class RuntimeMonitor:
             self.request_failures.append(f"{request.method} {request.url} -> {failure}")
 
         def _is_duplicate_css_fetch(url: str, status: int) -> bool:
-            """Detect Chromium duplicate CSS fetches.
+            """Return True for a 404 on a CSS file that already loaded from another path.
 
-            Chromium may re-request a previously loaded CSS filename relative
-            to the document URL instead of the stylesheet URL. These phantom
-            404s are harmless because the CSS already loaded from the correct
-            path.
+            Chromium sometimes re-requests a loaded stylesheet relative to the
+            document URL.
             """
             if status != 404 or not url.endswith(".css"):
                 return False
@@ -378,17 +374,10 @@ class RuntimeMonitor:
         page.on("response", track_response)
 
     def _should_ignore_url(self, url: str) -> bool:
-        """Return True only for non-HTTP URLs (data:, blob:, etc.).
+        """Return True only for non-HTTP URLs (data:, blob:, and similar).
 
-        This filters out non-network schemes so they are not recorded as
-        request or response failures.  It does not allowlist any external
-        HTTP(S) hosts. Failed or errored requests to external origins are recorded
-        by the request/response tracking callbacks, which is the intended
-        enforcement point for the self-hosting policy.
-
-        If a future app needs to allowlist an external origin, add a host
-        set here and gate the return on membership (see git history for
-        the former ``IGNORED_EXTERNAL_HOSTS`` pattern).
+        Non-network schemes are never recorded as request or response failures.
+        No HTTP(S) host is ignored, so failed requests to external origins are recorded.
         """
         if not url:
             return False
@@ -420,12 +409,7 @@ class RuntimeMonitor:
             raise AssertionError(self.failure_summary())
 
     def reset(self) -> None:
-        """Forget every failure recorded so far.
-
-        A navigation retry helper calls this between attempts so failures from
-        an unserved attempt do not fail ``assert_clean()`` after a later
-        attempt succeeds.
-        """
+        """Clear every recorded failure. Navigation retries call this between attempts."""
         self.console_errors.clear()
         self.page_errors.clear()
         self.request_failures.clear()
@@ -433,7 +417,7 @@ class RuntimeMonitor:
 
 
 class MonitoredPage:
-    """MonitoredPage."""
+    """Playwright page wrapper that fails on runtime errors and saves artifacts on failure."""
 
     def __init__(
         self,
@@ -480,8 +464,7 @@ class MonitoredPage:
             reduced_motion=self._reduced_motion,
             bypass_csp=self._bypass_csp,
             has_touch=self._has_touch,
-            # Pin the locale so toLocaleString() output (thousands separators)
-            # is identical on every runner, keeping text assertions stable.
+            # Fixes the locale so toLocaleString() output is the same on every runner.
             locale="en-US",
         )
         if self._artifact_dir is not None:
@@ -560,7 +543,7 @@ class MonitoredPage:
 
 
 def ensure_axe_loaded(page) -> None:
-    """Ensure axe loaded."""
+    """Add the axe-core bundle to the page unless window.axe is already present."""
     if page.evaluate("Boolean(window.axe)"):
         return
     if not AXE_SOURCE_FILE.exists():

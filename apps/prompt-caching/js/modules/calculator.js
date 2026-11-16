@@ -5,8 +5,7 @@ import { byId, makeEl, clear } from "./dom.js";
 import { skipFirstTransition } from "../../../../js/modules/dom-sync.js";
 import { formatCompact, formatCurrency, formatPercent } from "../../../../js/modules/formatting.js";
 
-// One formatter for the slider readouts, so a drag does not build one per tick
-// (which is what toLocaleString does on every call).
+// Shared formatter for the slider readouts, created once.
 const COUNT_FORMAT = new Intl.NumberFormat();
 
 // Every preset prefix is at least CACHE_MIN_TOKENS long, so each one caches.
@@ -94,9 +93,8 @@ export function initCalculator() {
     savingsOut.textContent = money(savings);
     pctOut.textContent = savingsSummary({ without, savings, cacheable });
 
-    // Bars scale from their left edge (transform, not width), so a slider drag
-    // animates on the compositor and never relayouts. Cache writes cost more
-    // than the base rate, so either bar can be the longer one.
+    // Bars scale from their left edge with transform, not width. Either bar can
+    // be the longer one, because cache writes cost more than the base rate.
     const longest = Math.max(without, withCache);
     skipFirstTransition(barWithout);
     skipFirstTransition(barWith);

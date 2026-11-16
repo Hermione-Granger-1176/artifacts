@@ -10,7 +10,7 @@ from scripts.ci import security_audit_policy
 
 
 def _write_config(path: Path, content: str) -> Path:
-    """Write one security-audit test configuration."""
+    """Write a config file and return its path."""
     path.write_text(content, encoding="utf-8")
     return path
 
@@ -53,13 +53,13 @@ def test_load_exceptions_reads_valid_config(tmp_path: Path) -> None:
 
 
 def test_load_config_rejects_missing_file(tmp_path: Path) -> None:
-    """A missing policy file fails closed."""
+    """A missing policy file raises FileNotFoundError."""
     with pytest.raises(FileNotFoundError, match="config file not found"):
         security_audit_policy._load_security_audit_config(tmp_path / "missing.json")
 
 
 def test_load_config_rejects_directory(tmp_path: Path) -> None:
-    """A directory is reported as the wrong input type."""
+    """A directory raises ValueError."""
     with pytest.raises(ValueError, match="must be a regular file"):
         security_audit_policy._load_security_audit_config(tmp_path)
 
@@ -78,7 +78,7 @@ def test_load_config_rejects_symlink(tmp_path: Path) -> None:
 
 
 def test_load_config_reports_invalid_json_path(tmp_path: Path) -> None:
-    """Malformed JSON reports the policy path without leaking parser internals."""
+    """Malformed JSON raises ValueError that names the policy path."""
     config_file = _write_config(tmp_path / "security_audit.json", "{")
 
     with pytest.raises(ValueError, match=rf"invalid JSON: {config_file}"):
@@ -86,7 +86,7 @@ def test_load_config_reports_invalid_json_path(tmp_path: Path) -> None:
 
 
 def test_load_config_rejects_duplicate_json_keys(tmp_path: Path) -> None:
-    """Duplicate object keys cannot silently replace security policy."""
+    """Duplicate object keys raise ValueError."""
     config_file = _write_config(
         tmp_path / "security_audit.json",
         '{"npm_vulnerability_exceptions": [], "npm_vulnerability_exceptions": []}',
@@ -146,7 +146,7 @@ def test_load_exceptions_rejects_non_object_entry(tmp_path: Path) -> None:
 
 
 def test_load_exceptions_rejects_missing_required_fields(tmp_path: Path) -> None:
-    """Required policy fields cannot be empty or absent."""
+    """An entry missing package, reason, or review_by raises ValueError."""
     config_file = _write_config(
         tmp_path / "security_audit.json",
         '{"npm_vulnerability_exceptions": [{"id": "GHSA-aaaa-bbbb-cccc"}]}',
@@ -177,7 +177,7 @@ def test_load_exceptions_rejects_invalid_required_values(
     value: object,
     tmp_path: Path,
 ) -> None:
-    """Present fields still need the type and content required by policy."""
+    """A field with the wrong type or blank content raises ValueError naming it."""
     entry: dict[str, object] = {
         "id": "42",
         "package": "left-pad",
@@ -222,7 +222,7 @@ def test_load_exceptions_accepts_zero_numeric_id(tmp_path: Path) -> None:
 
 
 def test_load_exceptions_normalizes_surrounding_whitespace(tmp_path: Path) -> None:
-    """Policy identities and values do not retain accidental outer whitespace."""
+    """Surrounding whitespace is stripped from ids and text values."""
     config_file = _write_config(
         tmp_path / "security_audit.json",
         """
@@ -249,7 +249,7 @@ def test_load_exceptions_normalizes_surrounding_whitespace(tmp_path: Path) -> No
 
 
 def test_load_exceptions_rejects_unknown_fields(tmp_path: Path) -> None:
-    """Typos in security-sensitive options cannot be ignored."""
+    """Unknown field names raise ValueError."""
     config_file = _write_config(
         tmp_path / "security_audit.json",
         """
@@ -273,7 +273,7 @@ def test_load_exceptions_rejects_unknown_fields(tmp_path: Path) -> None:
 
 
 def test_load_exceptions_rejects_invalid_review_date(tmp_path: Path) -> None:
-    """Review dates must use the stable ISO format."""
+    """Review dates must be written as YYYY-MM-DD."""
     config_file = _write_config(
         tmp_path / "security_audit.json",
         """
@@ -296,7 +296,7 @@ def test_load_exceptions_rejects_invalid_review_date(tmp_path: Path) -> None:
 
 
 def test_load_exceptions_rejects_non_boolean_fix_policy(tmp_path: Path) -> None:
-    """The fix-availability policy must be an actual boolean."""
+    """ignore_only_without_fix must be a JSON boolean."""
     config_file = _write_config(
         tmp_path / "security_audit.json",
         """
@@ -320,7 +320,7 @@ def test_load_exceptions_rejects_non_boolean_fix_policy(tmp_path: Path) -> None:
 
 
 def test_load_exceptions_rejects_case_variant_duplicates(tmp_path: Path) -> None:
-    """Case variants cannot create two policies for the same advisory."""
+    """Entries that differ only in case for the same package and id raise ValueError."""
     config_file = _write_config(
         tmp_path / "security_audit.json",
         """

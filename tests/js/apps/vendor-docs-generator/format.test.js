@@ -21,7 +21,7 @@ test('roundCents settles float drift onto whole cents', () => {
 });
 
 test('roundCents rounds every half cent away from zero, at any size', () => {
-  // 522.295 is stored as 522.29499999999996, so binary rounding cut it to 522.29.
+  // 522.295 is stored as 522.29499999999996 and still rounds up to 522.30.
   assert.equal(roundCents(522.295), 522.3);
   assert.equal(roundCents(0.145), 0.15);
   assert.equal(roundCents(1.005), 1.01);
@@ -35,8 +35,7 @@ test('roundCents rounds every half cent away from zero, at any size', () => {
 });
 
 test('roundCents decides on the printed digits, not on a re-parsed shift', () => {
-  // The double just below 1.475 prints as 1.4749999999999999. Shifting that
-  // string by `e2` re-parses to exactly 147.5 and would round it up.
+  // The double just below 1.475 prints as 1.4749999999999999, so it rounds down to 1.47.
   assert.equal(roundCents(1.4749999999999999), 1.47);
   assert.equal(roundCents(1.475), 1.48);
 });
@@ -111,7 +110,7 @@ test('formatMoney prefixes the grouped amount with a dollar sign', () => {
 });
 
 test('formatMoney keeps a negative sign outside the currency symbol', () => {
-  // `$-1,234.50` is what naive prefixing produces, and no ledger prints that.
+  // The sign comes before the currency symbol, as in -$1,234.50.
   assert.equal(formatMoney(-1234.5), '-$1,234.50');
   assert.equal(formatMoney(-0.004), '$0.00');
 });

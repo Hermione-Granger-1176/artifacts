@@ -1,61 +1,88 @@
 # Verification
 
+This page lists the formulas and expected values the app uses, the tests that check them, and the commands that run those tests.
+
 ## Core formulas
 
-For a bond with face value `F`, annual coupon rate `c`, `k` coupon periods per year, and `n = years * k` periods, the per-period coupon is `C = F * c / k` and the per-period yield is `i = y / k` for an annual market rate `y`. The explainer always prices annual bonds (`k = 1`), but the math stays frequency-general.
+For face value `F`, annual coupon rate `c`, `k` coupon periods per year, and `n = years * k` periods, the per-period coupon is `C = F * c / k`. The per-period yield is `i = y / k` for an annual market rate `y`. The app prices annual bonds (`k = 1`). The math supports any `k`.
 
 - Price: `P = sum_{t=1..n} C / (1 + i)^t + F / (1 + i)^n`
-- Regime: coupon above the market rate is a premium (price above face), coupon equal to the rate is par (price at face), coupon below the rate is a discount (price below face)
-- Sensitivity: the percent price change from a one-point rate rise at maturity `m` is `bondPrice(m, y + 1) / bondPrice(m, y) - 1`, evaluated directly (no duration approximation). Each bar is the dollar loss `bondPrice(m, y) - bondPrice(m, y + 1)`, labelled with the new price `bondPrice(m, y + 1)`
-- Price split: `PV(face) = F / (1 + i)^n` and `PV(coupons) = P - PV(face)`
-- Current yield: annual coupon dollars over price, `(F * c) / P`
-- Macaulay duration (years): `sum(t_years * PV_t) / P`
-- Modified duration: `Macaulay / (1 + i)`
-- Convexity: `sum(PV_t * t * (t + 1)) / (P * (1 + i)^2 * k^2)` with `t` the period index
-- DV01: `modified duration * P * 0.0001`
-- Yield curve: each preset blends a short-end rate toward a long-end rate, `y(m) = long + (short - long) * exp(-m / 8)` for maturity `m` in years; normal is 3% to 5.5%, flat is 4.5%, inverted is 5.5% to 3.5%
+- Regime: a coupon above the market rate is a premium (price above face). A coupon equal to the rate is par (price at face). A coupon below the rate is a discount (price below face).
+- Sensitivity: the percent price change from a one-point rate rise at maturity `m` is `bondPrice(m, y + 1) / bondPrice(m, y) - 1`. The app computes it by repricing, not with a duration approximation. Each bar is the dollar loss `bondPrice(m, y) - bondPrice(m, y + 1)`. Its label shows the new price `bondPrice(m, y + 1)`.
+- Price split: `PV(face) = F / (1 + i)^n` and `PV(coupons) = P - PV(face)`.
+- Current yield: `(F * c) / P`.
+- Macaulay duration (years): `sum(t_years * PV_t) / P`.
+- Modified duration: `Macaulay / (1 + i)`.
+- Convexity: `sum(PV_t * t * (t + 1)) / (P * (1 + i)^2 * k^2)`, where `t` is the period index.
+- DV01: `modified duration * P * 0.0001`.
+- Yield curve: each preset blends a short-end rate toward a long-end rate, `y(m) = long + (short - long) * exp(-m / 8)`, with `m` in years. The `short` and `long` rates are 3% and 5.5% for normal, 4.5% and 4.5% for flat, and 5.5% and 3.5% for inverted.
 
 ## Representative checks
 
-All fixtures below assume a 10-year, 5% annual coupon, $1,000 face bond unless stated. The price and regime fixtures are encoded as assertions in `tests/js/apps/bond-price-vs-rate/bond-math.test.js`.
+The fixtures below use a 10-year, 5% annual coupon, $1,000 face value bond unless stated. The math checks are asserted in `tests/js/apps/bond-price-vs-rate/bond-math.test.js`.
 
-- Prices by market rate: 3% gives `1170.60`, 4% gives `1081.11`, 5% gives `1000.00`, 6% gives `926.40`, 7% gives `859.53`
-- Zero-coupon 10-year $1,000: rate 3% gives `744.09`, rate 5% gives `613.91`, rate 7% gives `508.35`
-- A par bond prices to exactly its face value when the market rate equals the coupon (5%)
-- Cash-flow schedule (`bondSchedule`): the 10-year bond returns 10 rows, each paying the `$50` coupon except the final row, which merges the `$1,000` face into a `$1,050` payment; every discount factor is `1 / (1 + i)^t`, with the first-year 5% factor equal to `0.9524`; each present value is `amount * discountFactor`; and the present values sum to the bond price (asserted at both 5% and 6%)
-- Closed-form price (`bondPrice`): the coupon annuity `c * (1 - v^n) / i` plus the discounted face `F * v^n` matches the summed schedule to within floating-point rounding for coupon frequencies 1, 2, and 4, maturities from 1 to 30 years, coupons from 0% to 12%, and yields from 0% to 11.9%; a bond with no periods prices to zero
-- Regime: `priceRegime(6, 5)` is premium, `priceRegime(5, 5)` is par, `priceRegime(4, 5)` is discount
-- Sensitivity at a 5% rate and 5% coupon (percent drop for a +1 point move): 2-year about `-1.83%`, 5-year about `-4.21%`, 10-year about `-7.36%`, 20-year about `-11.47%`, 30-year about `-13.76%`. The bar labels for the same bond read `$982 (-$18)`, `$958 (-$42)`, `$926 (-$74)`, `$885 (-$115)`, and `$862 (-$138)`
-- Analytics at a 6% rate (the discount fixture): price `926.40` splitting into coupons `368.00` plus face `558.39`, current yield `5.397%`, Macaulay `8.02` years, modified `7.57`, convexity `72.57`, DV01 `0.70`
-- Closed-form anchors: a zero-coupon bond's Macaulay duration equals its maturity and its convexity is `n(n+1)/(1+y)^2`; a par bond's Macaulay duration is `(1+y)/y * (1 - (1+y)^-n)`
-- Consistency anchors: DV01 matches the exact one-basis-point reprice to within `0.001`; modified duration matches a central-difference numeric derivative for a semiannual bond; duration plus the convexity term reproduces the exact one-point move to second order
-- Yield-curve anchors: the normal preset rises with maturity and the inverted preset falls; the flat preset is constant at `4.5%`; the normal curve at 10 years is `4.7837%`; every preset stays inside the 1-12 slider range over 1-30 years (all asserted directly)
+- Prices by market rate: `3%` gives `1170.60`, `4%` gives `1081.11`, `5%` gives `1000.00`, `6%` gives `926.40`, and `7%` gives `859.53`.
+- Zero-coupon 10-year $1,000 bond: `3%` gives `744.09`, `5%` gives `613.91`, and `7%` gives `508.35`.
+- A par bond (market rate equal to the 5% coupon) prices to exactly its face value.
+- Cash-flow schedule (`bondSchedule`): the 10-year bond returns 10 rows. Each row pays `$50`, except the last, which pays `$1,050` (the coupon plus the `$1,000` face). Each discount factor is `1 / (1 + i)^t`. The first-year factor at 5% is `0.9524`. Each present value is `amount * discountFactor`. The present values sum to the bond price at 5% and at 6%.
+- Closed-form price (`bondPrice`): the coupon annuity `c * (1 - v^n) / i` plus the discounted face `F * v^n` matches the summed schedule within floating-point rounding. This holds for coupon frequencies 1, 2, and 4, maturities from 1 to 30 years, coupons from 0% to 12%, and yields from 0% to 11.9%. A bond with no periods prices to zero.
+- Regime: `priceRegime(6, 5)` is `premium`, `priceRegime(5, 5)` is `par`, and `priceRegime(4, 5)` is `discount`.
+- Sensitivity at a 5% rate and 5% coupon, for a +1 point move:
+  - 2-year: about `-1.83%`, label `$982 (-$18)`
+  - 5-year: about `-4.21%`, label `$958 (-$42)`
+  - 10-year: about `-7.36%`, label `$926 (-$74)`
+  - 20-year: about `-11.47%`, label `$885 (-$115)`
+  - 30-year: about `-13.76%`, label `$862 (-$138)`
+- Analytics at a 6% rate (the discount fixture): price `926.40`, split into coupons `368.00` and face `558.39`. Current yield `5.397%`, Macaulay `8.02` years, modified `7.57`, convexity `72.57`, and DV01 `0.70`.
+- Closed-form anchors: a zero-coupon bond's Macaulay duration equals its maturity, and its convexity is `n(n+1)/(1+y)^2`. A par bond's Macaulay duration is `(1+y)/y * (1 - (1+y)^-n)`.
+- Consistency anchors: DV01 matches the exact one-basis-point reprice within `0.001`. Modified duration matches a central-difference numeric derivative for a semiannual bond. Duration plus the convexity term reproduces the exact one-point move to second order.
+- Yield-curve anchors: the normal preset rises with maturity, and the inverted preset falls. The flat preset stays at `4.5%`. The normal curve at 10 years is `4.7837%`. Every preset stays inside the 1 to 12 slider range over 1 to 30 years.
 
 ## Edge cases
 
-- Near `0%`, discount factors approach 1 and the price approaches the undiscounted cash-flow total without division by zero
-- A 1-year bond has a single coupon-plus-face cash flow and prices to `(C + F) / (1 + i)` (asserted directly)
-- A coupon and market rate difference within the rounding tolerance is classified as par so slider rounding does not flicker the badge (asserted directly)
+- Near `0%`, discount factors approach 1, and the price approaches the undiscounted cash-flow total. The calculation does not divide by zero.
+- A 1-year bond has one cash flow, the coupon plus face, and prices to `(C + F) / (1 + i)`.
+- A coupon and market rate within the rounding tolerance classify as par. The badge stays steady while a slider rounds.
 
 ## Precision notes
 
-- Prices are asserted to within `0.01`
-- Core math stays in floating point; rounding happens only for presentation in the price readout, the comparison bars, and the chart axes
+- Prices are asserted within `0.01`.
+- Core math stays in floating point. Rounding happens only in presentation: the price readout, the comparison bars, and the chart axes.
 
 ## Layout checks
 
-`tests/browser/test_frontend_apps_browser_flows.py` drives the page at 1280px wide and asserts the layout contract:
+The browser flow test in `tests/browser/test_frontend_apps_browser_flows.py` (`-k bond_price_vs_rate`) drives the page at 1280px, 800px, and 700px wide:
 
-- The rail is `position: sticky`, sits left of the story, and holds the price, badge, curve, and all three sliders
-- Seven numbered chapters render, the first starts current, and the charts of out-of-view chapters are faded
-- Scrolling a later chapter into the reading band makes it the only current chapter, and the rail stays inside the window the whole way
-- Applying the inverted curve moves the market-rate slider in the rail and keeps its readout in sync
-- At 800px wide the rail stays pinned beside the first chapter, and at 700px it is static and stacks above it. Neither width scrolls sideways
+- The rail is `position: sticky`, sits left of the story, and holds the price, badge, curve, and all three sliders.
+- Seven numbered chapters render. The first starts as current, and the charts of out-of-view chapters are faded.
+- Scrolling a later chapter into the reading band makes it the only current chapter. The rail stays inside the window the whole way.
+- Applying the inverted curve moves the market-rate slider in the rail and keeps its readout in sync.
+- At 800px the rail stays pinned beside the first chapter. At 700px it is static and stacks above the story. Neither width scrolls sideways.
 
-`tests/js/apps/bond-price-vs-rate/chapters.test.js` covers the highlighter with a fake IntersectionObserver: the initial state, the band and tail observers, one current chapter at a time, and the no-observer fallback. The browser accessibility test also runs axe over the page, which detects insufficient body-text contrast.
+`tests/js/apps/bond-price-vs-rate/chapters.test.js` covers the highlighter with a fake IntersectionObserver. It checks the initial state, the band and tail observers, one current chapter at a time, and the no-observer fallback.
+
+The accessibility suite runs axe over the page. Axe reports body text with insufficient contrast.
 
 ## Redraw and layout stability checks
 
-`tests/js/apps/bond-price-vs-rate/app.test.js` checks that a rate or coupon change redraws only the price curve and the sensitivity bars, a maturity change redraws all three charts, a curve preset redraws only the yield curve (the one change that eases), and a theme change repaints every chart without animation. A slider tick that changes nothing redraws nothing.
+`tests/js/apps/bond-price-vs-rate/app.test.js` checks the redraw rules:
 
-`tests/js/apps/bond-price-vs-rate/rendering.test.js` checks that the first-paint copy in `index.html` matches the default render, that a chart off screen keeps its latest data pending until it scrolls in, and that every sizing copy is at least as long as the real copy at any coupon, rate, and maturity on a 0.5 point and 1 year grid (`the sizing copy is at least as long as any copy a slider setting can print`).
+- A rate or coupon change redraws only the price curve and the sensitivity bars.
+- A maturity change redraws all three charts.
+- A curve preset redraws only the yield curve, the one change that eases.
+- A theme change repaints every chart without animation.
+- A slider tick that changes nothing redraws nothing.
+
+`tests/js/apps/bond-price-vs-rate/rendering.test.js` checks the following:
+
+- The first-paint copy in `index.html` matches the default render.
+- A chart off screen keeps its latest data pending until it scrolls in.
+- Every sizing copy is at least as long as the real copy at any coupon, rate, and maturity on a 0.5 point and 1 year grid.
+
+## Re-check
+
+- Node tests (math, chapters, rendering, redraws): `make test-js`. Coverage thresholds: `make coverage-js`.
+- Browser layout and flows: `make test-browser-apps-flows ARGS="-k bond_price_vs_rate"`.
+- Accessibility for all apps: `make test-browser-apps-accessibility`.
+
+Browser targets need Chromium. Run `make setup-playwright` once.

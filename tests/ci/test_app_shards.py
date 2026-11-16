@@ -291,11 +291,10 @@ def test_invalidate_package_and_merge_shard_results(tmp_path: Path) -> None:
 
 
 def test_merge_shard_results_accepts_flattened_single_result(tmp_path: Path) -> None:
-    """A single artifact extracted directly into the results root still merges.
+    """Test a manifest at the results root itself is merged.
 
-    download-artifact places one matched artifact's contents directly in the
-    download path (no per-artifact directory), so the manifest sits at the
-    results root itself.
+    This is the layout for a single artifact extracted with no per-artifact
+    directory.
     """
     results_root = tmp_path / "results"
     write_json(

@@ -1,15 +1,14 @@
 /**
  * Theme-aware helpers shared by the Chart.js-based artifact apps: reading
  * chart colors from CSS custom properties and caching the derived palette per
- * theme so chart syncs do not re-read computed styles on every frame.
+ * theme.
  * @module chart-theme
  */
 
 // Chart.js and its plugins load as UMD vendor globals on window. The ambient
-// ChartVendorGlobals type in config/types/chart-vendor.d.ts gives this view
-// real Chart.js types from the devDependencies, so the type check needs no
-// runtime import. Read the globals at call time, not at module load, because
-// the vendor scripts may not have run yet.
+// ChartVendorGlobals type in config/types/chart-vendor.d.ts types this view
+// with the Chart.js types from the devDependencies. Read the globals at call
+// time, not at module load: the vendor scripts may not have run yet.
 /** @returns {ChartVendorGlobals} The window view of the vendor chart globals. */
 export function chartGlobal() {
   return /** @type {ChartVendorGlobals} */ (/** @type {unknown} */ (window));
@@ -50,9 +49,8 @@ function withAlpha(raw, alpha) {
 }
 
 /**
- * A cssAlpha that reads each property and builds each alpha color once. The
- * palette's alpha methods run on every chart sync, and every uncached read is a
- * getComputedStyle call that can also force a style recalculation.
+ * Caching variant of cssAlpha. Each property and alpha pair is read and built
+ * once per reader.
  * @returns {typeof cssAlpha} The caching reader, valid for one theme.
  */
 function createAlphaReader() {
@@ -79,8 +77,7 @@ export function isDark() {
  * only when the theme (read from `data-theme` by isDark) differs from the last
  * call. `refreshPalette()` drops the cache and rebuilds at once, for handlers
  * that run after a theme change or a CSS custom property edit. The builder's
- * cssAlpha also caches, so palette methods that take an alpha read styles
- * once per theme.
+ * cssAlpha caches each color, so each alpha color is read once per theme.
  * @template T
  * @param {(helpers: { css: typeof cssValue, cssAlpha: typeof cssAlpha }) => T} buildPalette
  * @returns {{ colors: () => T, refreshPalette: () => T }}

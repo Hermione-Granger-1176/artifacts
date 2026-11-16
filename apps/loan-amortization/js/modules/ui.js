@@ -1,11 +1,10 @@
 import { cacheElements as cacheElementsByIds } from "../../../../js/modules/element-cache.js";
 import { setText } from "../../../../js/modules/dom-sync.js";
 
-// One formatter per field, so a slider drag does not build one per tick (which
-// is what toLocaleString does on every call).
+// One formatter per field, created once. toLocaleString builds a new formatter on every call.
 const PRINCIPAL_FORMAT = new Intl.NumberFormat("en-US");
-// Two decimals for a slider rate such as 5.25, and up to four for a typed rate
-// such as 6.125, so the field shows the rate the calculation uses.
+// Two to four decimals, so a slider rate such as 5.25 and a typed rate such as
+// 6.125 both display in full.
 const RATE_FORMAT = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 4,

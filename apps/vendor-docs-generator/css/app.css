@@ -10,15 +10,13 @@
  * Every selector is scoped under body.app-vendor-docs-generator and every
  * colour derives from the shared design tokens. The document's per-vendor
  * accent, ink, and typeface arrive as the --vd-* custom properties, which
- * js/modules/paper-render.js sets through CSSOM: the app ships under a
- * self-only Content-Security-Policy, so inline style attributes would never
- * apply, and the six vendor brand colours are document content rather than app
- * chrome. The toolbar's vendor swatch reads the same --vd-accent. Literal
- * colour definitions belong in css/src/, never here.
+ * js/modules/paper-render.js sets through CSSOM. The six vendor brand colours
+ * are document content, not app chrome. The toolbar's vendor swatch reads the
+ * same --vd-accent. Literal colour definitions belong in css/src/, never here.
  */
 
 body.app-vendor-docs-generator {
-  /* Three columns of controls and a page do not fit the shared 1000px shell, so this app widens its shell, header included. */
+  /* Widens the shared 1000px shell, header included, to fit the controls and the page. */
   --shell-max-width: 1232px;
   --vd-page-width: 794px;
   --vd-page-height: 1123px;
@@ -63,11 +61,10 @@ body.app-vendor-docs-generator h2.section-kicker {
 }
 
 /*
- * One control height, one skin per kind of choice. Dropdowns, buttons, and the
- * segmented tracks all share --vd-control-height, and the track gets a tinted
- * trough so the active segment reads as a raised pill rather than as a label
- * that happens to be darker. Segments split their track evenly, so a column of
- * them shares both edges.
+ * One control height, one skin per kind of choice. Dropdowns, buttons, and
+ * segmented tracks share --vd-control-height. The segmented track has a tinted
+ * trough, and its active segment reads as a raised pill. Segments split the
+ * track evenly.
  */
 
 body.app-vendor-docs-generator .vd-workbench .select-input,
@@ -94,7 +91,7 @@ body.app-vendor-docs-generator .vd-workbench .segmented.is-fused button:disabled
   cursor: default;
 }
 
-/* The container is already faded, so its disabled buttons do not fade twice. */
+/* Disabled buttons inside a faded container keep full opacity. */
 
 body.app-vendor-docs-generator .segmented.is-disabled {
   opacity: 0.45;
@@ -109,10 +106,8 @@ body.app-vendor-docs-generator .vd-block-btn {
 }
 
 /*
- * Secondary actions that sit beside a heading or a caption (Preview scan, Full
- * size, Download JSON only) are the same outline button with its border and
- * height taken down, so they stay findable without competing with the one
- * primary button in the footer.
+ * Secondary actions beside a heading or a caption (Preview scan, Full size,
+ * Download JSON only) are outline buttons with a reduced border and height.
  */
 
 body.app-vendor-docs-generator .vd-workbench .btn.vd-quiet-btn {
@@ -160,9 +155,8 @@ body.app-vendor-docs-generator .vd-tool.is-seed .chip {
 }
 
 /*
- * A seed has four to six numerals, so "seed 123456" is the widest the chip
- * gets. Holding that width (plus the chip's own padding) keeps New document,
- * which sits beside it, under the pointer whatever the next seed turns out to be.
+ * The chip holds the width of "seed 123456", so the New document button beside
+ * it does not move as the seed changes.
  */
 
 body.app-vendor-docs-generator #vdChipSeed {
@@ -182,9 +176,8 @@ body.app-vendor-docs-generator .vd-vendor-pick .select-input {
 }
 
 /*
- * The swatch previews the vendor's brand colour, which is why it reads the same
- * --vd-accent the page does. It is set through CSSOM from draw(), because an
- * inline style attribute would be dropped by the self-only CSP.
+ * The swatch shows the vendor's brand colour from --vd-accent, which draw() sets
+ * through CSSOM.
  */
 
 body.app-vendor-docs-generator .vd-swatch {
@@ -240,9 +233,7 @@ body.app-vendor-docs-generator .vd-paper-frame {
 
 /*
  * A transform does not change the layout box, so the wrapper is sized to the
- * *scaled* page and the page itself is scaled from its top-left corner inside
- * it. Scaling the wrapper instead would leave a full-size 794x1123 box in the
- * layout, which overflows the frame and defeats centring.
+ * scaled page, and the page is scaled from its top-left corner inside it.
  */
 
 body.app-vendor-docs-generator .vd-paper-scale {
@@ -255,7 +246,7 @@ body.app-vendor-docs-generator .vd-paper-scale .vd-paper {
   transform-origin: top left;
 }
 
-/* The caption is the only thing on the stage besides the page: what it shows. */
+/* Caption under the page, showing the vendor, type, and scan preset. */
 
 body.app-vendor-docs-generator .vd-caption {
   display: flex;
@@ -290,12 +281,9 @@ body.app-vendor-docs-generator .vd-caption-tools {
 /* ── Output panel ─────────────────────────────────────────────────── */
 
 /*
- * One card, one left edge. The scope switch is pinned to the top and the
- * export button to the bottom, and only the choices between them scroll, so
- * the two things that decide what a click does are always in view. The panel
- * pins beside the page while the window scrolls, and is capped to the window
- * so a batch with the fine-tune knobs open scrolls inside it instead of
- * pushing the footer off screen.
+ * The scope switch is pinned to the top and the export button to the bottom.
+ * Only the choices between them scroll. The panel is sticky beside the page and
+ * capped to the window height.
  */
 
 body.app-vendor-docs-generator .vd-output {
@@ -339,9 +327,8 @@ body.app-vendor-docs-generator .vd-section {
 }
 
 /*
- * The rule sits above each section but the first rather than below each one
- * but the last: the Batch section is the last child and comes and goes, and a
- * rule under the section before it would be left doubled with the footer's.
+ * The border goes above every section except the first. The Batch section is
+ * shown and hidden, so a trailing border would double with the footer's rule.
  */
 
 body.app-vendor-docs-generator .vd-section + .vd-section {
@@ -361,13 +348,13 @@ body.app-vendor-docs-generator .vd-section .control-field-note {
   line-height: 1.5;
 }
 
-/* The two batch rows are separate questions, so they sit a step further apart. */
+/* Gap between the two batch rows. */
 
 body.app-vendor-docs-generator .vd-batch-options {
   gap: var(--space-3);
 }
 
-/* Row labels read the same in every section: muted, medium weight, under an uppercase header. */
+/* Batch row labels are muted and medium weight. */
 
 body.app-vendor-docs-generator .vd-batch-options .control-field-head label,
 body.app-vendor-docs-generator .vd-batch-options .vd-field-label {
@@ -419,7 +406,7 @@ body.app-vendor-docs-generator .vd-check input {
   cursor: pointer;
 }
 
-/* Pairing is dimmed rather than removed when it does not apply, so the rows below hold still. */
+/* Pairing is dimmed rather than removed when it does not apply. */
 
 body.app-vendor-docs-generator .vd-check.is-disabled {
   cursor: default;
@@ -431,10 +418,9 @@ body.app-vendor-docs-generator .vd-check.is-disabled input {
 }
 
 /*
- * The scan knobs are folded away by default, because the presets cover the
- * common case and nine sliders take a lot of panel. The five tiles and their
- * note stay on screen until someone opens Fine-tune. Two columns keep the nine
- * sliders to five rows.
+ * The scan knobs are folded away by default. The five preset tiles and their
+ * note stay visible until Fine-tune is opened. Two columns lay out the nine
+ * sliders.
  */
 
 body.app-vendor-docs-generator .vd-disclosure summary {
@@ -454,8 +440,8 @@ body.app-vendor-docs-generator .vd-disclosure summary::-webkit-details-marker {
   display: none;
 }
 
-/* A chevron drawn from two borders, so it inherits the label's colour and
-   needs no asset under the self-only CSP. */
+/* A chevron drawn from two borders. It inherits the label colour and needs no
+   image asset. */
 
 body.app-vendor-docs-generator .vd-disclosure summary::after {
   width: 6px;
@@ -513,11 +499,9 @@ body.app-vendor-docs-generator .vd-status {
 
 /*
  * The estimate, the meter, and the status line each keep their row whether or
- * not they have anything to say, and the stop button keeps its row while a
- * batch is selected, so the export button stays where it was pressed. The
- * meter and the stop button go invisible rather than absent while idle, which
- * also takes them out of the tab order and the accessibility tree. The status
- * line is simply empty.
+ * not they have content, and the stop button keeps its row while a batch is
+ * selected. While idle, the meter and the stop button use visibility: hidden,
+ * which also removes them from the tab order and the accessibility tree.
  */
 
 body.app-vendor-docs-generator .vd-estimate,
@@ -574,8 +558,8 @@ body.app-vendor-docs-generator .vd-fullscreen-bar {
 }
 
 /*
- * The page sits at its true 794px here, so this is the one place a scrollbar
- * is expected: it is a document reader, and A4 is taller than a laptop.
+ * The page is shown at 794px here. This is the one place a scrollbar is
+ * expected.
  */
 
 body.app-vendor-docs-generator .vd-fullscreen-body {
@@ -593,9 +577,8 @@ body.app-vendor-docs-generator .vd-fullscreen-body .vd-paper-scale {
 }
 
 /*
- * The scan preview is a raster of the page rather than the page itself, so it
- * is sized against the same A4 width the paper uses and left to shrink on a
- * short window instead of forcing the overlay to scroll in both directions.
+ * The scan preview is a raster image. It is sized to the A4 width and shrinks
+ * on a short window instead of scrolling in both directions.
  */
 
 body.app-vendor-docs-generator .vd-scan-preview {
@@ -945,9 +928,8 @@ body.app-vendor-docs-generator .vd-items {
 }
 
 /*
- * The shared table skin sticks its thead, greys its th text, and pins a
- * control-sized font on both. All three are right for a data table in the app
- * chrome and wrong inside a printed page, so the document tables restate them.
+ * The shared table skin sets a sticky thead, grey th text, and a control-sized
+ * font. The document tables restate these for the printed page.
  */
 
 body.app-vendor-docs-generator .vd-items thead {
@@ -1205,10 +1187,8 @@ body.app-vendor-docs-generator .vd-fact-list dd {
 /* ── Responsive ───────────────────────────────────────────────────── */
 
 /*
- * Below about 1000px the three columns no longer fit, so the studio stacks in
- * the order the work happens: toolbar, page, output. The output panel stops
- * pinning, since there is no column for it to pin beside, and its choices stop
- * scrolling on their own and join the page.
+ * Below 1000px the studio stacks: toolbar, page, output. The output panel is not
+ * sticky, and its choices do not scroll separately.
  */
 
 @media (max-width: 1000px) {
@@ -1231,7 +1211,7 @@ body.app-vendor-docs-generator .vd-fact-list dd {
   }
 }
 
-/* Six pills no longer fit a phone-width toolbar: offer the dropdown instead. */
+/* At phone width, the dropdown replaces the six type pills. */
 
 @media (max-width: 700px) {
   body.app-vendor-docs-generator .vd-toolbar .segmented.vd-type-pills {
@@ -1249,12 +1229,9 @@ body.app-vendor-docs-generator .vd-fact-list dd {
 }
 
 /*
- * Beside the Fit tools there is room for about 200px of caption on a phone, so
- * the vendor, the type, and the scan name wrap onto a second line (a scan
- * preset or a knob is what adds that name). Down to about 570px the longest
- * combination needs two lines, so two are held open and choosing a preset or
- * dragging a knob does not move the controls below. The narrowest phones need
- * three or four.
+ * The caption wraps onto more lines as the viewport narrows. Two lines are
+ * reserved from 600px down, three from 380px, and four from 340px, so the
+ * controls below do not move when the caption changes.
  */
 
 @media (max-width: 600px) {
@@ -1279,12 +1256,10 @@ body.app-vendor-docs-generator .vd-fact-list dd {
 /* ── Scan preset icons and control feel ───────────────────────────── */
 
 /*
- * Each scan preset button carries a tiny page drawn in CSS: a white sheet, an
- * accent header bar, and ruled lines. The preset's own filter and transform
- * are applied to that sheet, so the icon previews the wear (grey cast, copier
- * contrast, a tilted fax, a keystoned phone photo) before it is chosen. Pure
- * CSS keyed on data-preset, so no markup or script change and no asset under
- * the self-only CSP.
+ * Each scan preset button has a small page icon drawn in CSS: a white sheet, an
+ * accent header bar, and ruled lines. The preset's filter and transform are
+ * applied to that sheet, so the icon previews the effect. The icons are keyed on
+ * data-preset.
  */
 
 body.app-vendor-docs-generator #vdDegradePreset button {
@@ -1342,9 +1317,8 @@ body.app-vendor-docs-generator #vdDegradePreset [data-preset="phone"]:hover::bef
 }
 
 /*
- * Buttons lift on hover and press on :active, the same feel the shared
- * .is-inset choices have. Only transform animates on .btn, so fills flip with
- * the theme instead of fading through a low-contrast midpoint.
+ * Buttons lift on hover and press on :active. Only transform is transitioned on
+ * .btn, so fills change with the theme without a fade.
  */
 
 body.app-vendor-docs-generator .vd-workbench .btn {
@@ -1360,9 +1334,8 @@ body.app-vendor-docs-generator .vd-workbench .btn:not(:disabled):active {
 }
 
 /*
- * The stamp's tilt is part of the printed page, not motion, so it stays under
- * reduced motion. Undoing it here made the same seed render differently on a
- * machine with reduced motion on.
+ * The stamp's tilt is part of the printed page, not motion, so reduced motion
+ * does not change it.
  */
 @media (prefers-reduced-motion: reduce) {
   body.app-vendor-docs-generator .vd-workbench .btn,

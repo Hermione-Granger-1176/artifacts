@@ -197,7 +197,7 @@ def test_run_reports_os_error() -> None:
 
 
 def test_reply_mutation_does_not_retry() -> None:
-    """A reply is non-idempotent and must not retry on a transient error."""
+    """A reply is not retried on a transient error."""
     runner = SequenceRunner([completed_process(1, "", "(HTTP 502)")])
 
     with pytest.raises(GhError):
@@ -207,7 +207,7 @@ def test_reply_mutation_does_not_retry() -> None:
 
 
 def test_resolve_mutation_retries() -> None:
-    """Resolving is idempotent, so a transient error is retried."""
+    """Resolving is retried on a transient error."""
     runner = SequenceRunner(
         [
             completed_process(1, "", "(HTTP 502)"),
@@ -574,7 +574,7 @@ def test_rest_command_vector_for_a_mutation_is_not_retried() -> None:
 
 
 def test_rest_sends_mutation_fields_as_a_json_body_on_stdin() -> None:
-    """A mutation body travels on stdin, so its size never hits the argument limit."""
+    """A mutation body is sent on stdin as a JSON object."""
     seen: dict[str, object] = {}
 
     def runner(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -756,7 +756,7 @@ def test_current_pr_number_fallback_prefers_an_open_pr_then_the_newest_closed_on
 
 
 def test_current_pr_number_fallback_open_query_wins_over_closed_pulls() -> None:
-    """The open query is answered first, so a closed PR is never even requested."""
+    """The open query is answered first, and the closed query is not sent."""
     runner = _branch_runner([{"number": 7, "state": "open"}], [{"number": 9}])
 
     assert gh_runner.current_pr_number(run_fn=runner) == 7
@@ -789,8 +789,7 @@ def _tracking_runner(
 ) -> FakeGh:
     """Build a runner for local branch ``review-copy`` with git ``config`` values and open PRs.
 
-    ``octo:feature`` has PR 5 and ``octo:review-copy`` has PR 99, so a lookup
-    that picks the wrong head returns the wrong number.
+    Heads ``octo:feature`` (PR 5) and ``octo:review-copy`` (PR 99) map to different numbers.
     """
     routes: list[Route] = [
         (has("pr", "view"), graphql_blocked()),
@@ -862,7 +861,7 @@ def test_current_pr_number_fallback_names_the_tracked_remotes_owner() -> None:
     ["https://github.com/alice/Hello.git", "git@github.com:alice/Hello.git"],
 )
 def test_current_pr_number_fallback_follows_a_tracking_remote_given_as_a_url(url: str) -> None:
-    """An editable fork tracks its clone URL, which is read directly instead of as a remote name."""
+    """A tracking remote given as a URL is read directly, not as a remote name."""
     runner = FakeGh(
         [
             (has("pr", "view"), graphql_blocked()),
@@ -902,7 +901,7 @@ def test_current_pr_number_fallback_ignores_a_tracking_url_that_is_not_on_github
 def test_current_pr_number_fallback_skips_a_pr_from_a_same_owner_repository(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Two repositories of one owner can share a branch name, so the source repository decides."""
+    """A PR is matched by its source repository, not only by owner and branch name."""
     monkeypatch.setenv("GH_REPO", "org/project")
     runner = FakeGh(
         [
@@ -998,7 +997,7 @@ def test_current_pr_number_fallback_uses_a_closed_tracked_pr_when_nothing_is_ope
 
 
 def test_current_pr_number_fallback_prefers_a_recorded_pr_over_the_tracked_upstream() -> None:
-    """A PR recorded by a REST checkout wins, so tracking never overrides it."""
+    """A PR number recorded in git config is used before any tracking-based lookup."""
     runner = FakeGh(
         [
             (has("pr", "view"), graphql_blocked()),
@@ -1199,7 +1198,7 @@ def test_current_pr_number_fallback_ignores_a_number_recorded_for_another_repo(
 
 
 def test_current_pr_number_fallback_ignores_a_number_recorded_without_a_repo() -> None:
-    """A number with no recorded repository cannot be trusted and is looked up instead."""
+    """A number with no recorded repository is ignored, and the branch is looked up instead."""
     assert gh_runner.current_pr_number(run_fn=_recorded_runner("12", None)) == 99
 
 
@@ -1255,7 +1254,7 @@ def test_same_repo_ignores_case() -> None:
 
 
 def test_require_checkout_repo_refuses_an_unidentifiable_origin() -> None:
-    """A non-GitHub origin cannot hold the selected repository's PRs and branches."""
+    """A non-GitHub origin is refused."""
     runner = FakeGh([(has("remote"), completed_process(0, "https://gitlab.com/o/r.git\n"))])
 
     with pytest.raises(GhError, match="Cannot check out PR #1: origin is not a GitHub repository"):

@@ -1,23 +1,17 @@
 /**
  * Turns a document model's facts into the ground-truth sidecar.
  *
- * Rendering plausible paperwork is the easy half. Anyone downloading 500 pages
- * still has to label them before they can score an extractor, so the sidecar is
- * the label set. It is emitted from the same values the page was printed from,
- * so it cannot disagree with the pixels.
+ * The sidecar is the label set for a rendered page. It is built from the same
+ * values the page was printed from, so the two cannot disagree.
  *
- * Two representations per field, because they answer different questions.
- * `text` is what an OCR pass should read off the page, character for character.
- * `value` is what an extractor should normalise to: an ISO date, a number, a
- * plain string. Scoring against only one of them hides real failures, so both
- * are always present.
+ * Each field has two representations. `text` is what an OCR pass should read
+ * off the page, character for character. `value` is what an extractor should
+ * normalise to: an ISO date, a number, a plain string. Both are always present.
  *
  * Three rules hold for every document, and `annotations.test.js` enforces them:
  *
  * 1. Every key in `FIELD_KEYS` is present on every document. An absent fact is
- *    an explicit `null`, never a missing key and never an empty string, so a
- *    consumer can always tell "this page has no PO number" from "the generator
- *    forgot to record one".
+ *    an explicit `null`, never a missing key and never an empty string.
  * 2. A field is non-null only when the page actually prints it.
  * 3. The money adds up: the line amounts sum to the subtotal, and subtotal plus
  *    tax plus shipping equals the grand total.
@@ -48,23 +42,16 @@ import {
 /**
  * Wire format version.
  *
- * Anyone who writes an evaluation script against these key names is hurt by a
- * silent rename, so the names are frozen: a key never changes meaning, and this
- * bumps if one ever has to.
- *
- * 1.1 added `degradation`, and a `quad` alongside `box` on every region of a
- * geometrically degraded page. Both are additive: a reader written against 1.0
- * still finds every key it knew, holding what it expected.
+ * Key names are frozen: a key never changes meaning. The version changes if a
+ * key has to.
  */
 export const SCHEMA_VERSION = "1.1";
 
 /**
  * Every document-level key the sidecar emits, in output order.
  *
- * The list is the contract. Building the payload by walking it, rather than by
- * spreading whatever a builder happened to record, is what guarantees rule 1
- * above: a document type that knows nothing about `vehicle_number` still emits
- * `"vehicle_number": null`.
+ * The list is the contract. The payload is built by walking it, so a document
+ * type that does not set a key still emits it, as `null`.
  */
 export const FIELD_KEYS = [
   "document_title",
@@ -215,9 +202,8 @@ function countField(count) {
 /**
  * The buyer's address block.
  *
- * `text` keeps the line break, because that is how the page prints it and an
- * OCR pass will see two lines. `value` is the single-line normalisation an
- * extractor is expected to produce.
+ * `text` keeps the line break the page prints. `value` is the single-line form
+ * an extractor should produce.
  * @param {string[]} lines - Address lines.
  * @returns {AnnotatedField} Field pair, or null when there is no address.
  */
@@ -238,9 +224,8 @@ function documentFields(model) {
   const { facts, vendor } = model;
   const totals = facts.totals;
 
-  // The letterhead is unconditional in both renderers, so these five vendor
-  // facts are true of every page the generator produces. The company
-  // registration is not: only the dense invoice prints it.
+  // Both renderers print the letterhead on every page, so the five vendor facts
+  // below are always set. Only the dense invoice prints the company registration.
   return {
     document_title: printedField(printedTitle(model.title), model.title),
     document_number: textField(facts.documentNumber),
@@ -283,10 +268,8 @@ function documentFields(model) {
 /**
  * Assemble the per-line annotations.
  *
- * A delivery challan lists goods without prices, so its lines carry a quantity
- * and a lot number and nothing else. Emitting the price anyway, on the grounds
- * that the generator happens to know it, would score an extractor against a
- * number that is not on the page.
+ * Unpriced documents, such as a delivery challan, emit `null` for `unit_price`
+ * and `amount`, because the page does not print them.
  * @param {DocumentFacts} facts - Facts recorded by the builder.
  * @returns {Record<string, AnnotatedField | number>[]} One entry per line item.
  */
@@ -317,9 +300,8 @@ function lineItems(facts) {
 /**
  * Assemble the statement ledger annotations.
  *
- * Statements carry no line items, and their rows do not share a key set with
- * one, so they get their own array rather than being forced into `line_items`
- * under names that would mean something different.
+ * Statement rows go in their own `transactions` array, with keys that differ
+ * from `line_items`.
  * @param {DocumentFacts} facts - Facts recorded by the builder.
  * @returns {Record<string, AnnotatedField | number>[]} One entry per ledger row.
  */
@@ -359,12 +341,11 @@ export function buildAnnotations(model, boxes = null, degradation = null) {
     line_items: lineItems(model.facts),
     transactions: transactions(model.facts),
     boxes,
-    // Stated on the payload rather than left for a reader to discover: the
-    // boxes are measured on the HTML page, so a text-layer PDF is not one of
-    // the renderings they describe.
+    // Boxes are measured on the HTML page, so a text-layer PDF is not among the
+    // renderings they describe.
     boxes_apply_to: boxes ? BOXES_APPLY_TO : null,
-    // The transform stays visible after boxes are moved through it so a
-    // consumer can filter samples by geometry or map back to the clean render.
+    // The transform is kept after the boxes are moved through it, so a consumer
+    // can filter by geometry or map back to the clean render.
     degradation: degradation
       ? {
           preset: degradation.preset,
@@ -389,8 +370,8 @@ export function annotationsToJson(annotations) {
 /**
  * Serialise a run of sidecars as JSON Lines.
  *
- * Tooling that streams a dataset wants one file to read, not five hundred to
- * glob, so the batch writes this alongside the per-document files.
+ * The batch writes this alongside the per-document files, so a dataset can be
+ * read from one file.
  * @param {Record<string, any>[]} entries - Sidecars in generation order.
  * @returns {string} One compact JSON object per line.
  */
@@ -401,9 +382,8 @@ export function annotationsToJsonl(entries) {
 /**
  * Describe a downloaded dataset in its own root file.
  *
- * A ZIP found in a downloads folder six months later should explain itself
- * without the page that produced it, including the settings it was generated
- * under, so a result can be reproduced rather than guessed at.
+ * The README records the settings a dataset was generated under, so the output
+ * can be reproduced without the app.
  * @param {{
  *   boxes: boolean,
  *   count: number,
@@ -423,9 +403,8 @@ export function datasetReadme(settings) {
     "=================================",
     "",
     `Generated: ${settings.generatedAt}`,
-    // A stopped run still writes an archive, and an archive that reports the
-    // number asked for rather than the number inside it is the one thing this
-    // file exists to prevent.
+    // A stopped run still writes an archive. The count is the number of
+    // documents inside it, not the number requested.
     `Documents: ${settings.count}${
       settings.planned && settings.planned !== settings.count
         ? ` (run stopped early; ${settings.planned} were planned)`

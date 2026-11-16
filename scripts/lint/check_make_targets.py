@@ -1,7 +1,6 @@
 """Check every Make target reference in the repository against the Makefile.
 
-References are read from documentation, CI shell, and source code, since a
-reference to a renamed target is a bug wherever it lives.
+References are read from documentation, CI shell, and source code.
 """
 
 from __future__ import annotations

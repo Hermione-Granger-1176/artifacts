@@ -1,11 +1,10 @@
 // Ambient types for the Chart.js UMD globals the artifact apps load from
 // js/vendor/. The runtime code reads them through chartGlobal() in
-// js/modules/chart-theme.js; these declarations give that view real Chart.js
-// types (from the exact-pinned chart.js, chartjs-plugin-annotation, and
-// chartjs-plugin-datalabels devDependencies) instead of any.
+// js/modules/chart-theme.js. The types come from the exact-pinned chart.js,
+// chartjs-plugin-annotation, and chartjs-plugin-datalabels devDependencies.
 import type { Chart, ChartConfiguration, Plugin } from "chart.js";
-// Load the plugin type packages so their `declare module "chart.js"`
-// augmentations register the "datalabels" and "annotation" plugin option keys.
+// Importing the plugin type packages registers the "datalabels" and
+// "annotation" plugin option keys on chart.js.
 import type {} from "chartjs-plugin-datalabels";
 import type {} from "chartjs-plugin-annotation";
 
@@ -22,9 +21,8 @@ declare module "chart.js" {
 declare global {
   /**
    * Constructor view of the vendored Chart.js UMD global. The config generic is
-   * left broad on purpose: these apps build configurations dynamically and rely
-   * on per-controller options (cutout, datalabels, annotation). Callback
-   * parameters are typed precisely at each call site instead.
+   * broad, and the per-controller options (cutout, datalabels, annotation) are
+   * not typed here. Callback parameters are typed at each call site.
    */
   interface ChartConstructorLike {
     new (

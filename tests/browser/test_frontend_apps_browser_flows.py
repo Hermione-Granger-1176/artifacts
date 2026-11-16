@@ -459,10 +459,10 @@ def test_loan_amortization_savings_chip_never_moves_the_kpis(
     app_browser: AppBrowserHarness,
     width: int,
 ) -> None:
-    """The first extra payment shows the savings chip without moving the KPIs below the hero.
+    """The first extra payment shows the savings chip without moving the KPI row.
 
-    The extras line under the EMI and the chip both grow on that first extra
-    payment, so a chip sharing the hero row could wrap onto a new one.
+    The extras line under the EMI and the savings chip both grow when the first
+    extra payment is added. The KPI row must stay where it was.
     """
     with MonitoredPage(
         app_browser.playwright,
@@ -572,9 +572,8 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         session.goto("/apps/vendor-docs-generator/")
         page.wait_for_function("window.__ARTIFACT_READY__ === true")
 
-        # Deferred and module scripts run in document order, so the app module
-        # has to come after the vendor bundles that its export and scan-preview
-        # handlers call.
+        # Scripts run in document order. The app module must run after the vendor
+        # bundles that its export and scan-preview handlers call.
         script_srcs = page.evaluate("[...document.scripts].map((s) => s.getAttribute('src') || '')")
         # Site assembly appends a ?v= content hash to the app module.
         app_index = next(i for i, src in enumerate(script_srcs) if src.startswith("./js/app.js"))
@@ -582,8 +581,7 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
         assert len(vendor_indexes) == 4
         assert max(vendor_indexes) < app_index, "app.js must run after the vendored libraries"
 
-        # The fitted preview must show the whole page without ever scrolling:
-        # that is the entire reason the frame clips and the overlay exists.
+        # The fitted preview shows the whole page without scrolling.
         fit = page.evaluate(
             """() => {
                 const frame = document.querySelector('#vdPaperFrame');
@@ -621,10 +619,8 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
 
         # The output panel is capped to the window, so the export button is
         # always reachable, and it pins beside the page while the window scrolls.
-        # Checked at several depths rather than one, because a sticky item can
-        # only travel as far as its own grid area and a single sample would
-        # pass just as well against an element that had already let go.
-        # The page scrolls smoothly by default, so jump straight to each depth.
+        # Checked at several scroll depths, so the sticky panel is verified across
+        # its travel and not at one point. Each jump is instant, not smooth.
         for depth in (200, 300):
             page.evaluate(f"window.scrollTo({{ top: {depth}, behavior: 'instant' }})")
             pinned = page.evaluate(
@@ -732,18 +728,16 @@ def test_vendor_docs_generator_flow_covers_preview_overlay_and_exports(
             "() => document.querySelector('#vdPaper').getBoundingClientRect().width"
         )
         assert paper_width == 794, paper_width
-        # The dialog queues its close event, so the hand-back is not synchronous.
+        # The dialog's close event is queued, so the hand-back happens asynchronously.
         page.locator("#vdFullClose").click()
         page.wait_for_function(
             "() => document.querySelector('#vdPaperFrame').contains("
             "document.querySelector('#vdPaper'))"
         )
 
-        # Exports run the real vendored jsPDF, html2canvas and JSZip, so this is
-        # the only place the produced files are known to be well-formed.
-        # A page export can produce two files, the page and its sidecar, and
-        # expect_download only catches what fires inside its own block. A
-        # standing listener catches both however they are ordered.
+        # Exports run the vendored jsPDF, html2canvas, and JSZip libraries, and the
+        # checks below validate the files they produce. A page export writes two
+        # files, the page and its sidecar. A standing listener records both, in any order.
         collected: list = []
 
         def remember(item: object) -> None:
@@ -864,10 +858,8 @@ def test_vendor_docs_generator_batch_can_be_stopped_mid_run(
         expect(page.locator("#vdBatchStop")).to_be_hidden()
 
         # Text PDF across the whole cross product. jsPDF is synchronous, so this
-        # is the format whose loop never awaits anything: it is precisely the
-        # run that used to hold the main thread from the first document to the
-        # last. 900 documents take about 4.5 seconds, which is long enough that
-        # a stop click has somewhere to land.
+        # run never yields to the event loop between documents. The batch of 900
+        # documents runs long enough for a stop click to land.
         page.locator('#vdFormat [data-format="pdf"]').click()
         page.locator('#vdInclude [data-include="all"]').click()
         page.locator("#vdBatchCount").fill("25")
@@ -892,9 +884,8 @@ def test_vendor_docs_generator_batch_can_be_stopped_mid_run(
         )
         assert footer["stop"] <= footer["viewport"], footer
 
-        # Wait for the run to be genuinely under way, then click. If the loop
-        # never yielded, this click would sit in the queue until the whole batch
-        # had already been written and the assertions below would see a full run.
+        # Wait for the run to be under way, then click. The click is handled only
+        # while the loop yields between documents.
         page.wait_for_function(
             "planned => {"
             "  const match = document.querySelector('#vdBatchStatus')"
@@ -938,14 +929,11 @@ def test_vendor_docs_generator_batch_can_be_stopped_mid_run(
 def test_vendor_docs_generator_pdf_never_overprints_itself(
     app_browser: AppBrowserHarness,
 ) -> None:
-    """Every combination must lay out without overlapping or off-page text.
+    """Every document combination lays out with no overlapping or off-page text.
 
-    The PDF renderer positions in A4 points and cannot borrow the DOM's layout,
-    so anything drawn at a fixed offset has to be measured against its
-    neighbour. Two places were not: the vendor name overprinted the document
-    title by 15pt on every Ironwood challan, and a long `Reason` value
-    overprinted its own label on a quarter of credit notes. Both were invisible
-    to the preview tests because the preview lays out in CSS and wraps.
+    The PDF renderer positions text in A4 points without the DOM's layout, so
+    each drawn string is measured against the others. The preview tests do not
+    cover this, since the preview lays out in CSS and wraps.
     """
     with MonitoredPage(
         app_browser.playwright,
@@ -1042,13 +1030,10 @@ def test_vendor_docs_generator_pdf_never_overprints_itself(
 def test_vendor_docs_generator_boxes_land_on_the_ink_they_name(
     app_browser: AppBrowserHarness,
 ) -> None:
-    """Every reported box must actually cover the value it claims to.
+    """Every reported box must cover the value it names.
 
-    The Node tests measure a fake layout, so they can only prove the walk and
-    the arithmetic. Whether a normalised box lands on the right pixels is a
-    question about a real browser laying out a real page, and the only honest
-    way to ask it is to convert each box back to viewport coordinates and see
-    what is underneath the middle of it.
+    Each box is converted back to viewport coordinates, and the element under its
+    center must carry the same data-field.
     """
     with MonitoredPage(
         app_browser.playwright,
@@ -1161,13 +1146,10 @@ def test_vendor_docs_generator_boxes_land_on_the_ink_they_name(
 def test_vendor_docs_generator_degraded_boxes_follow_the_ink(
     app_browser: AppBrowserHarness,
 ) -> None:
-    """Tilting the page must move the labels with it, not leave them behind.
+    """Tilting the page moves the labels with it.
 
-    Degradation and boxes both pass their own tests in isolation, which is
-    exactly how a feature that silently corrupts another one ships. The only
-    check that catches it is this one: rasterise a real page, tilt it, and count
-    the ink actually inside each transformed box against the ink still inside
-    the box it started from.
+    A real page is rasterised and tilted. The ink inside each transformed box is
+    counted and compared with the ink inside the box the region started from.
     """
     with MonitoredPage(
         app_browser.playwright,

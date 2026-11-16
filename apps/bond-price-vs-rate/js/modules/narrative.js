@@ -2,8 +2,8 @@
  * Narrative rendering for the bonds vs interest rates explainer.
  *
  * Every DOM write here uses textContent or createElement, so no markup is ever
- * interpolated. The pure copy builders are exported separately so they can be
- * unit tested without a DOM.
+ * interpolated. The copy builders are pure: they take state and formatters and
+ * return strings.
  * @module narrative
  */
 
@@ -37,8 +37,7 @@ const stackNodes = /** @type {WeakMap<HTMLElement, StackNodes>} */ (new WeakMap(
 
 /**
  * Find a stacked container's elements, adopting any that the markup already
- * carries (`data-variant` for copy, `data-ghost` for sizing text), so the first
- * paint can hold the default copy.
+ * carries (`data-variant` for copy, `data-ghost` for sizing text).
  * @param {HTMLElement} container - Stacked container.
  * @returns {StackNodes} Its variant and sizing elements.
  */
@@ -184,8 +183,8 @@ export function heroExplainText({ bond, price, regime }, { formatCurrency, forma
   const priceText = formatCurrency(price, 2);
   const faceText = formatCurrency(bond.faceValue, 0);
 
-  // The regime compares the market rate with the coupon. It says nothing about
-  // which slider moved, so the copy states the comparison, not a rate move.
+  // The regime compares the market rate with the coupon. The copy describes that
+  // comparison, not a change in the rate.
   if (regime === "discount") {
     return (
       `The market rate is ${ratePct}, above this bond's ${couponPct} coupon. A new buyer can ` +
@@ -295,9 +294,9 @@ export function renderMathLegend(elements, { bond }, { formatCurrency, formatPer
  */
 
 /**
- * Build one empty cash-flow table row. Every row has the same cells, so a row
- * can become the final one (or stop being it) without being rebuilt: the final
- * payment cell is one amount plus a face note, and the note is empty elsewhere.
+ * Build one empty cash-flow table row. Every row has the same cells. The payment
+ * cell holds one amount plus a face note; the note is empty unless the row is the
+ * final one.
  * @returns {ScheduleRow}
  */
 function buildScheduleRow() {
@@ -595,10 +594,9 @@ export function renderAnalytics(elements, { analytics }, { formatPercent }) {
 }
 
 /**
- * The longest numbers any slider setting can print (found by scanning every
- * coupon, rate, and maturity): twelve percent rates, a thirty-year maturity, a
- * price of nine characters, and the widest duration, convexity, and sensitivity
- * readings. Only the copy built from it is used, never shown, to size the
+ * The longest numbers any slider setting can print: twelve percent rates, a
+ * thirty-year maturity, a price of nine characters, and the widest duration,
+ * convexity, and sensitivity readings. Only the copy built from it is used, never shown, to size the
  * callouts.
  * @type {NarrativeState}
  */
@@ -698,8 +696,8 @@ function single(build) {
 
 /**
  * Every dynamic callout, keyed by its element: the copy for each of its variants
- * and the variant a state shows. The same table builds the live copy and the
- * widest-number sizing copy, so a new callout is one entry here.
+ * and the variant a state shows. The live copy and the widest-number sizing copy
+ * are both built from this table.
  * @type {Record<string, Explanation>}
  */
 const EXPLANATIONS = {

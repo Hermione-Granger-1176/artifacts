@@ -472,7 +472,7 @@ def test_list_comments_bad_pageinfo_raises() -> None:
 
 
 def test_list_comments_bad_thread_pageinfo_raises() -> None:
-    """A truthy non-dict thread comments.pageInfo must raise GhError, not crash."""
+    """A non-dict thread comments.pageInfo raises GhError."""
     runner = _threads_runner(
         {
             "data": {
@@ -1136,7 +1136,7 @@ def test_main_delete_comment_invokes_helper(
 
 
 def test_comment_on_pr_uses_explicit_pr_without_retry() -> None:
-    """PR-level comments use gh directly and do not retry a non-idempotent write."""
+    """PR-level comments call gh once, with no retry."""
     seen: dict[str, list[list[str]]] = {}
     pr_review.comment_on_pr(7, "Looks good", run_fn=_copilot_runner(seen))
 
@@ -1370,7 +1370,7 @@ def test_request_copilot_review_propagates_error() -> None:
 
 
 def test_request_copilot_review_does_not_retry_transient_failures() -> None:
-    """The reviewer mutation opts out of retries so it never double-requests."""
+    """The reviewer request is not retried after a transient failure."""
     runner = FakeGh([(has("pr", "edit"), completed_process(1, "", "(HTTP 502) bad gateway"))])
 
     with pytest.raises(GhError):
@@ -1380,7 +1380,7 @@ def test_request_copilot_review_does_not_retry_transient_failures() -> None:
 
 
 def test_request_copilot_review_reraises_rate_limit() -> None:
-    """A rate limit surfaces unchanged so callers stop instead of retrying."""
+    """A rate limit is re-raised as GhRateLimitError."""
     runner = FakeGh(
         [(has("pr", "edit"), completed_process(1, "", "API rate limit exceeded (HTTP 429)"))]
     )
@@ -1420,14 +1420,14 @@ def test_edit_pr_title_only_omits_body_argument() -> None:
 
 
 def test_edit_pr_forwards_body_file_to_gh() -> None:
-    """edit_pr passes a body file straight to gh so gh reads it (no oversized arg)."""
+    """edit_pr passes a body file path to gh with --body-file."""
     seen: dict[str, list[list[str]]] = {}
     pr_review.edit_pr(7, body_file="notes.md", run_fn=_copilot_runner(seen))
     assert seen["cmds"][-1] == ["gh", "pr", "edit", "7", "--body-file", "notes.md"]
 
 
 def test_edit_pr_pipes_stdin_body_to_gh(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A ``-`` body file is read once and piped to gh, so the REST fallback can reuse it."""
+    """A ``-`` body file is read from standard input and passed to gh as input."""
     monkeypatch.setattr("sys.stdin", io.StringIO("piped body"))
     inputs: list[object] = []
 
@@ -1442,7 +1442,7 @@ def test_edit_pr_pipes_stdin_body_to_gh(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_edit_pr_prefers_body_file_over_inline_body() -> None:
-    """A body file wins over an inline body so gh never gets an oversized --body."""
+    """A body file takes precedence over an inline body."""
     seen: dict[str, list[list[str]]] = {}
     pr_review.edit_pr(body="inline", body_file="notes.md", run_fn=_copilot_runner(seen))
     assert seen["cmds"][-1] == ["gh", "pr", "edit", "--body-file", "notes.md"]

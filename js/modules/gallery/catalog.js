@@ -75,8 +75,7 @@ export function sortValuesByDisplayOrder(values, displayOrder) {
   return [...known, ...unknown];
 }
 
-// localeCompare builds a collator on every call; one shared collator orders ids the same way.
-// Orders display names the way a reader expects: "Artifact 2" before "Artifact 10".
+// Shared numeric collator for display names: "Artifact 2" sorts before "Artifact 10".
 const NAME_COLLATOR = new Intl.Collator(undefined, { numeric: true });
 
 /**
@@ -125,14 +124,13 @@ export function filterAndSortArtifacts(artifacts, options) {
     .sort((left, right) => direction * compareByName(left, right));
 }
 
-/** Slots in the pagination row. A longer page list collapses into exactly this many, so the row keeps its width. */
+/** Slots in the pagination row. Longer page lists collapse into this many slots. */
 const PAGE_SLOT_COUNT = 7;
 
 /**
  * Build the page number sequence for the pagination row. Up to seven pages are
  * all listed. Beyond that the row is always seven slots: the first page, the
- * last page, and one or two ellipses around the current page, so Prev and
- * Next stay where they are as the reader turns pages.
+ * last page, and one or two ellipses around the current page.
  * @param {number} current - Current page (1-based).
  * @param {number} total - Total number of pages.
  * @returns {(number|string)[]} Page numbers and '...' ellipsis markers.

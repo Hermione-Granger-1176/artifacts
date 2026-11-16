@@ -41,8 +41,8 @@ function initCacheAnimation() {
   const playBtn = /** @type {HTMLButtonElement} */ (byId("cachePlayBtn"));
   const resetBtn = byId("cacheResetBtn");
 
-  // The narration reserves the room of its wordiest state (idle, each token,
-  // and done), so the line count changing never moves the compare toggle below.
+  // The narration reserves room for its longest state (idle, each token, done),
+  // so a change in line count does not move the compare toggle below.
   reserveSpace(narration, [-1, ...CACHE_TOKENS.keys()].map((step) => {
     const ghost = makeEl("div", "pc-narration");
     ghost.append(...narrationFor(step));
@@ -55,8 +55,8 @@ function initCacheAnimation() {
   let valueVectors = /** @type {string[]} */ ([]);
 
   /**
-   * Rows not cached yet stay in the layout as hidden placeholders, so the pane
-   * is already as tall as the full cache and filling it moves nothing.
+   * Rows not cached yet stay in the layout as placeholders, so the pane is as
+   * tall as the full cache from the start.
    * @param {HTMLElement} target - Container to render rows into.
    * @param {string[]} vectors - Stable vectors generated for this animation run.
    */

@@ -45,3 +45,7 @@ The page shares the bond explainer's controls and theme. Shared tokens, control 
 - More scenarios and domain-specific examples
 - A selectable real tokenizer, if its vocabulary can remain local and clearly versioned
 - API-backed model comparisons
+
+## Why the main card disables scroll anchoring
+
+Below 900px the settings card sits above the main card on screen but after it in the markup. Without `overflow-anchor: none` on the main card, opening "Show the code" pushes the summary up the screen.

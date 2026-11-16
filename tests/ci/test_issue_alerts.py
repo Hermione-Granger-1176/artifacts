@@ -212,7 +212,7 @@ def test_sync_alert_issue_updates_existing_issue_when_present() -> None:
 
 
 def test_sync_alert_issue_closes_existing_issue_when_no_longer_needed() -> None:
-    """Sync alert issue closes existing issue when no longer needed."""
+    """Sync alert issue closes the existing issue when should_exist is False."""
     close_calls = []
 
     def fake_run_gh_api_form(
@@ -252,7 +252,7 @@ def test_sync_alert_issue_closes_existing_issue_when_no_longer_needed() -> None:
 
 
 def test_sync_alert_issue_posts_create_and_comment_once() -> None:
-    """A lost response must not post a second issue or comment, so POSTs make one attempt."""
+    """Issue-create and comment POSTs make exactly one attempt."""
     attempts: list[tuple[str, object]] = []
 
     def fake_run_gh_api_form(endpoint: str, *, method: str, **kwargs: object) -> str:
@@ -278,7 +278,7 @@ def test_sync_alert_issue_posts_create_and_comment_once() -> None:
 
 
 def test_sync_alert_issue_closes_every_duplicate() -> None:
-    """Closing clears duplicates too, so an earlier double post cannot stay open."""
+    """Closing applies to every matching issue, not only the first."""
     closed: list[str] = []
 
     def fake_run_gh_api_form(endpoint: str, *, method: str, **_kwargs: object) -> str:
@@ -369,7 +369,7 @@ def test_sync_alert_issue_returns_empty_when_no_open_issue_to_close() -> None:
     ],
 )
 def test_build_alert_body_rejects_unusable_run_urls(run_url: str, message: str) -> None:
-    """Alert bodies do not record malformed or misleading run links."""
+    """Run URLs that are empty, not https, or not Actions run links are rejected."""
     with pytest.raises(ValueError, match=message):
         issue_alerts.build_alert_body(state="open", run_url=run_url)
 
@@ -395,7 +395,7 @@ def test_issue_payloads_by_title_scopes_query_to_labels() -> None:
 
 
 def test_issue_payloads_by_title_rejects_a_capped_result() -> None:
-    """A capped response cannot safely prove that an alert issue is absent."""
+    """A response at the 100-item page cap is rejected as possibly truncated."""
     payload = [{"number": number, "title": "Other"} for number in range(100)]
 
     with pytest.raises(RuntimeError, match="may be truncated"):
@@ -407,7 +407,7 @@ def test_issue_payloads_by_title_rejects_a_capped_result() -> None:
 
 
 def test_issue_payloads_by_title_rejects_malformed_entries() -> None:
-    """A malformed issue entry fails closed instead of being ignored."""
+    """A non-object entry in the issues response raises RuntimeError."""
     with pytest.raises(RuntimeError, match="entries must be JSON objects"):
         issue_alerts.issue_payloads_by_title(
             "owner/repo",
@@ -417,7 +417,7 @@ def test_issue_payloads_by_title_rejects_malformed_entries() -> None:
 
 
 def test_issue_payloads_by_title_prefers_the_oldest_duplicate() -> None:
-    """Duplicate alert issues converge on the oldest matching issue."""
+    """Matching issues are returned in ascending issue-number order."""
     payload = [
         {"number": 12, "title": "Alert", "html_url": "https://example/12"},
         {"number": 4, "title": "Alert", "html_url": "https://example/4"},
@@ -433,7 +433,7 @@ def test_issue_payloads_by_title_prefers_the_oldest_duplicate() -> None:
 
 
 def test_sync_alert_issue_rejects_empty_create_url() -> None:
-    """Creating an alert without a returned URL is an operational failure."""
+    """Raises RuntimeError when creating an alert returns no URL."""
     with pytest.raises(RuntimeError, match="returned no URL"):
         issue_alerts.sync_alert_issue(
             repo="owner/repo",
@@ -448,7 +448,7 @@ def test_sync_alert_issue_rejects_empty_create_url() -> None:
 
 @pytest.mark.parametrize("field", ["repo", "title"])
 def test_sync_alert_issue_rejects_flag_like_identifiers(field: str) -> None:
-    """Structured alert identifiers cannot be passed as option-looking values."""
+    """A repo or title that starts with a dash is rejected."""
     values = {
         "repo": "-owner/repo",
         "title": "-Alert",

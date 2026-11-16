@@ -28,9 +28,7 @@ dev = [
 ]
 
 [tool.uv]
-# A floor, not a pin. Contributors install uv independently, so an exact pin
-# would turn a routine setup into a mandatory self-update. Raise this only when
-# the project actually needs a newer uv behavior.
+# A floor, not a pin. Raise this only when the project needs a newer uv behavior.
 required-version = ">=0.11.0"
 
 [tool.hatch.build.targets.wheel]
@@ -90,11 +88,11 @@ known-first-party = ["scripts"]
 [tool.vulture]
 paths = ["scripts", "tests"]
 min_confidence = 60
-# TypedDict fields are read through string keys, so vulture only sees the
-# declarations: ThumbnailStats (attempted/generated/skipped), BadgeConfig
+# Vulture sees only the declarations of these TypedDict fields, which are read
+# through string keys: ThumbnailStats (attempted/generated/skipped), BadgeConfig
 # (alt/logo/logo_color), ArtifactItem (id), and ArtifactContract
-# (artifactIdPattern/artifactBasePath/thumbnailFile). pytest runs the autouse
-# GraphQL-verdict reset fixture in tests/gh/conftest.py without any caller.
+# (artifactIdPattern/artifactBasePath/thumbnailFile). pytest calls the autouse
+# GraphQL-verdict reset fixture in tests/gh/conftest.py without a caller.
 ignore_names = [
   "attempted",
   "generated",

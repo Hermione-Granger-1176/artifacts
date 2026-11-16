@@ -33,7 +33,7 @@ import { SAMPLE_DRAW_COUNT } from "./sampling.js";
  * @typedef {{ head: HTMLElement, order: string, parts: Map<number, RowParts> }} ListState
  */
 
-// Smallest bar width, in percent, so a tiny but nonzero probability stays visible.
+// Smallest bar width, in percent, applied to any nonzero probability.
 const MIN_BAR_PERCENT = 0.5;
 
 /** @type {WeakMap<HTMLElement, ListState>} */
@@ -41,10 +41,9 @@ const listStates = new WeakMap();
 
 /**
  * Derive one display row per candidate, in probability order. The bar always
- * shows the temperature-shaped probability: top-p never changes a bar's
- * length, it only marks the tail as cut, so the two controls stay visually
- * distinct. The renormalized draw chance rides in its own column, and the
- * observed tally (when present) turns into a count and a share.
+ * shows the temperature-shaped probability; top-p never changes a bar's length
+ * and only marks the tail as cut. The renormalized draw chance is in its own
+ * column, and the observed tally (when present) becomes a count and a share.
  *
  * @param {{
  *   inTopP: Set<number>,
@@ -94,8 +93,8 @@ function makeCell(tag, className, text = "") {
 
 /**
  * Give an element its table role, or hide it from assistive technology when
- * `role` is null. The list is a `<ul role="table">`, so each row and cell needs
- * a role for screen readers to pair every value with its column header.
+ * `role` is null. The list is a `<ul role="table">`; each row and cell needs a
+ * role so screen readers can pair every value with its column header.
  *
  * @param {HTMLElement} element
  * @param {string | null} role
@@ -113,7 +112,7 @@ function withRole(element, role) {
 /** @returns {HTMLElement} The static column-label row that heads the list. */
 function createHead() {
   const head = withRole(makeCell("li", "tk-row tk-list-head"), "row");
-  // The bar repeats the Odds value, so its column is hidden from screen readers.
+  // The bar repeats the Odds value; its column is hidden from screen readers.
   /** @type {[string, string, string, string | null][]} */
   const labels = [
     ["tk-token", "Token", "The candidate token", "columnheader"],
@@ -154,8 +153,7 @@ function createRowParts() {
  * @returns {void}
  */
 function updateRowParts(parts, row) {
-  // A slider tick changes a few numbers per row. Writing only what changed keeps
-  // the unchanged cells from invalidating style and layout on every tick.
+  // Writes only the values that changed, so unchanged cells are not restyled on each slider tick.
   parts.item.classList.toggle("is-cut", !row.kept);
   parts.item.classList.toggle("is-picked", row.picked);
   parts.cutLabel.hidden = !row.startsCut;
@@ -193,10 +191,9 @@ function setWidth(element, width) {
 
 /**
  * Render the candidate list in place. Rows are created once per list and
- * reused, so a slider move changes each bar's width on an existing element
- * and the CSS width transition can animate it. The rows are only re-inserted
- * when their order changes (a new scenario), never for temperature or top-p,
- * because moving a node would cancel its transition.
+ * reused; a slider move changes each bar's width on the existing element. Rows
+ * are re-inserted only when their order changes (a new scenario), not for
+ * temperature or top-p changes.
  *
  * @param {HTMLElement} list - The <ul> that holds the rows.
  * @param {CandidateRow[]} rows

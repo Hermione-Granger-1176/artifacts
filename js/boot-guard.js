@@ -1,9 +1,8 @@
 (function bootGuard(globalObject) {
-  // This classic script runs before the ES module bundle. It cannot import
-  // from runtime.js. If the module never executes (a network blip loading
-  // js/app.js, for example) the runtime status stays "booting" forever and
-  // the page shows an empty grid with no banner. After a generous timeout we
-  // reveal the existing #runtime-error container so the failure is visible.
+  // Classic script that runs before the ES module bundle, so it cannot import
+  // runtime.js. If the module never executes, the runtime status stays
+  // "booting". After the timeout, it reveals the existing #runtime-error
+  // container.
   var DEFAULT_TIMEOUT_MS = 8000;
 
   /**
@@ -17,9 +16,9 @@
     return documentObject.documentElement.dataset.runtimeStatus || "";
   }
 
-  // The runtime sets data-runtime-status to "ready" on markReady() and to
-  // "error" when a fatal error already surfaced its own banner. Either value
-  // means the app started, so the guard should stand down.
+  // The runtime sets data-runtime-status to "ready" on markReady(), or to
+  // "error" after a fatal error shows its own banner. Either value means the
+  // guard stands down.
   /**
    * @param {Document | null | undefined} documentObject - Target document.
    * @returns {boolean} Whether the runtime already started.
@@ -46,9 +45,8 @@
     banner.classList.remove("hidden");
     banner.classList.remove("visually-hidden");
 
-    // A slow load can still boot after the timeout. The runtime reads this
-    // attribute when the app becomes ready, hides the banner, and restores
-    // the original message.
+    // If the app boots after the timeout, the runtime reads this attribute,
+    // hides the banner, and restores the original message.
     var message = banner.querySelector("p");
     banner.dataset.bootGuardMessage = message ? message.textContent : "";
     if (message) {

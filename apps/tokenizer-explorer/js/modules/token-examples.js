@@ -1,7 +1,7 @@
 /**
- * Illustrative, pre-split examples. Different BPE vocabularies may segment
- * the same text differently, so these arrays teach patterns rather than claim
- * to be output from a specific production tokenizer.
+ * Illustrative, pre-split examples. They teach patterns and are not output from
+ * a specific production tokenizer. Different BPE vocabularies segment the same
+ * text differently.
  */
 export const tokenExamples = [
   {
@@ -31,9 +31,8 @@ export const tokenExamples = [
 ];
 
 /**
- * Count Unicode code points rather than UTF-16 code units. Grapheme clusters
- * such as an emoji with a skin-tone modifier count once per code point, which
- * matches how the illustrative examples split them into separate tokens.
+ * Counts Unicode code points, not UTF-16 code units. A grapheme cluster such as
+ * an emoji with a skin-tone modifier counts once per code point.
  *
  * @param {string} text
  * @returns {number}

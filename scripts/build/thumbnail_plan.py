@@ -114,9 +114,8 @@ def list_changed_files(
 ) -> list[str]:
     """Return files changed since the merge base of ``base_sha`` and ``head_sha``.
 
-    GitHub's changed-files REST payload is bounded, so the checked-out history
-    is the only source of truth. Callers turn failures into a conservative
-    all-app plan instead of trusting an incomplete changed-file list.
+    The changed files come from the checked-out history, not the REST payload.
+    Failures raise, and callers fall back to an all-app plan.
     """
     if not base_sha or not head_sha:
         raise RuntimeError("Both base and head revisions are required for changed-file detection")
@@ -168,8 +167,7 @@ def is_automated_thumbnail_commit(
     2. Every file in the commit matches the thumbnail pattern.
 
     Returns False on any detection failure (empty actor, empty bot login,
-    missing commit SHA, no files, or non-thumbnail files). This ensures the
-    skip is a narrow optimization exit, never a default.
+    missing commit SHA, no files, or non-thumbnail files).
     """
     if not actor or not app_bot_login or actor != app_bot_login:
         return False
@@ -379,9 +377,8 @@ def read_thumbnail_plan(root: Path) -> dict[str, object]:
 def _thumbnail_artifact_slug(relative: str) -> str | None:
     """Return the app slug of an ``<apps>/<slug>/thumbnail.webp`` path, else ``None``.
 
-    ``Path.match`` anchors a relative pattern at the right end, so it also
-    accepts nested paths such as ``apps/foo/apps/bar/thumbnail.webp``. This
-    check requires the exact depth and a valid slug.
+    The path must have exactly that depth and a valid slug. Nested paths such as
+    ``apps/foo/apps/bar/thumbnail.webp`` return None.
     """
     base_parts = Path(artifact_base_path()).parts
     parts = Path(relative).parts

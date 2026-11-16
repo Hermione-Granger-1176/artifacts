@@ -17,9 +17,8 @@ import { DOCUMENT_TYPES, TAX_RATE, VENDORS } from '../../../../apps/vendor-docs-
 const TODAY = new Date(2026, 5, 15);
 
 /**
- * Parse a `$1,234.50` string back into a number, so a test can re-derive the
- * arithmetic from the rendered strings rather than trusting the same helper
- * the model used to produce them.
+ * Parses a `$1,234.50` string back into a number. Tests use it to re-derive
+ * arithmetic from the printed strings, not from the model's own helpers.
  * @param {string} text - Money string.
  * @returns {number} Numeric value.
  */
@@ -102,9 +101,8 @@ test('computeTotals sums the per-line rounded tax, not the rate on the subtotal'
 
   assert.equal(totals.subtotal, 40);
   // 30 * 0.0825 = 2.475 -> 2.48 and 10 * 0.0825 = 0.825 -> 0.83, so 3.31, where
-  // the rate applied once to 40 would give 3.30. The dense layout has to print a
-  // tax column that adds up, so the sum of the lines is the definition both
-  // layouts follow.
+  // the rate applied once to 40 would give 3.30. Tax is the sum of the rounded
+  // per-line taxes, which both layouts print.
   assert.equal(totals.tax, 3.31);
   assert.equal(totals.grand, 43.31);
   assert.equal(totals.taxRate, TAX_RATE);
@@ -222,8 +220,7 @@ test('one seed gives every vendor its own paperwork but the same customer', () =
   );
   const metaOf = (model) => Object.fromEntries(blockOf(model, 'parties').meta);
 
-  // The seed owns the commercial event, so the buyer and the dates are shared.
-  // That is what makes the side-by-side comparison in the About section real.
+  // The seed owns the commercial event, so the buyer and dates are shared across vendors.
   for (const model of models) {
     assert.deepEqual(blockOf(model, 'parties').lines, blockOf(models[0], 'parties').lines);
     assert.equal(metaOf(model).Date, metaOf(models[0]).Date);
@@ -252,8 +249,7 @@ test('one seed gives every vendor its own statement ledger', () => {
     )
   );
 
-  // buildStatement never touched the vendor, so all six were byte-identical
-  // apart from the branding painted around them.
+  // Each vendor gets a different ledger for the same seed.
   assert.equal(new Set(ledgers).size, VENDORS.length);
 });
 
@@ -286,7 +282,7 @@ test('shipping is charged on goods and stays zero for pure services', () => {
     Array.from({ length: 40 }, (_unused, index) => shippingCharge(goods, index * 31))
   );
 
-  // Shipping varies with the seed, so an extractor has to read the field.
+  // Shipping varies with the seed: some goods orders pay freight and others ship carriage paid.
   assert.ok(charges.size > 1, 'shipping should vary');
   assert.ok([...charges].some((value) => value > 0), 'goods should sometimes be charged freight');
   assert.ok([...charges].some((value) => value === 0), 'and sometimes go carriage paid');
@@ -326,8 +322,7 @@ test('the clean invoice totals match its own printed line items', () => {
   }
 
   expectedSubtotal = Math.round(expectedSubtotal * 100) / 100;
-  // Summed per line, matching what the dense layout has to print in its tax
-  // column, so the two treatments of one seed cannot disagree.
+  // Tax is summed per line, as the dense layout prints it.
   const expectedTax =
     Math.round(
       rows.reduce((sum, row) => sum + Math.round(parseMoney(row[5]) * TAX_RATE * 100) / 100, 0) *
@@ -583,9 +578,7 @@ test('the statement ledger balance walks the charges and payments', () => {
     assert.equal(parseMoney(row[5]), balance, `running balance after ${row[1]}`);
   }
 
-  // Asserted against the walked balance directly, with no clamp. An earlier
-  // Math.max(0, ...) here is what let a ledger that overpaid its own balance
-  // ship: the banner read zero while the rows read negative.
+  // Compares the banner with the walked balance directly, with no clamp at zero.
   assert.equal(parseMoney(blockOf(model, 'banner').value), balance);
 });
 
@@ -681,8 +674,7 @@ test('the recorded document number is the one the page prints', () => {
 
 test('the dense invoice records the shipping it added to the printed total', () => {
   // The table footer totals the line items; only the summary carries shipping.
-  // Recording the pre-shipping total would put a number in the sidecar that
-  // does not appear anywhere on the page.
+  // The recorded grand total includes shipping, as the summary prints it.
   for (let seed = 1_000; seed < 1_060; seed += 7) {
     const model = buildDocument({
       docTypeId: 'invoice',

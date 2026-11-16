@@ -114,7 +114,7 @@ def test_apply_memoization_removes_only_matching_browser_apps(tmp_path: Path) ->
 
 
 def test_apply_memoization_rebuilds_shard_browser_lists(tmp_path: Path) -> None:
-    """Shard jobs read per-shard lists, so memoized apps must leave the shards too."""
+    """Memoized apps are removed from each shard's browser list."""
     make_repo(tmp_path)
     make_app(tmp_path, "alpha")
     make_app(tmp_path, "beta")

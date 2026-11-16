@@ -4,7 +4,7 @@
 Fetches a deployed root or preview URL and waits for the expected deploy version
 marker to appear in the HTML and the expected commit SHA to appear in
 ``deploy-metadata.json``. This gives CI a post-deploy check without adding
-extra dependencies or relying on GitHub Pages-specific APIs.
+extra dependencies.
 
 Usage:
     python scripts/ci/verify_deploy.py --expected-substring "?v=<sha>" \

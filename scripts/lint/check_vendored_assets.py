@@ -2,8 +2,7 @@
 """Verify vendored third-party libraries against a pinned integrity manifest.
 
 Vendored bundles under ``apps/<slug>/js/vendor/*.js`` are excluded from the lint,
-type, and dead-code gates, so a silent edit or an upstream swap would otherwise
-go unnoticed. This checker reconciles the files on disk with
+type, and dead-code gates. This checker reconciles the files on disk with
 ``config/vendored_assets.json``:
 
     - every vendored ``*.js`` file must be listed in the manifest;
@@ -12,11 +11,10 @@ go unnoticed. This checker reconciles the files on disk with
     - every entry's package must be a lower-case npm name, its version a semantic
       version, and its upstream URL must contain ``<package>@<version>``. The
       advisory audit sends the package and version to OSV, which matches names
-      case-sensitively and returns nothing for an unknown name or version, so a
-      typo would otherwise read as a clean result.
+      case-sensitively and returns no results for an unknown name or version.
 
-When an upgrade is intentional, update the manifest ``version``, ``upstream``,
-and ``sha256`` for the affected entry so the new bundle is pinned explicitly.
+To upgrade an entry, update its ``version``, ``upstream``, and ``sha256`` in the
+manifest.
 """
 
 from __future__ import annotations
@@ -36,8 +34,8 @@ from scripts.lint import add_root_argument, contains_symlink, report_violations,
 VENDORED_ASSETS_MANIFEST_FILE = REPO_ROOT / "config" / "vendored_assets.json"
 
 # Glob (relative to the workspace root) that matches every app's vendor
-# directory. ESLint and the type checker skip these whole trees, so the check
-# reads every file in them, not only the flat .js bundles a manifest entry names.
+# directory. ESLint and the type checker skip these trees, so this check reads
+# every file in them, not only the .js bundles named in the manifest.
 VENDOR_DIR_GLOB = "apps/*/js/vendor"
 
 # Repo-relative vendor path shape: apps/<slug>/js/vendor/<file>.js with no
@@ -78,10 +76,9 @@ class VendoredAsset:
 def _validate_asset_path(raw_path: str, entry_path: str) -> str:
     """Return a validated repo-relative vendor path or raise ``ValueError``.
 
-    Manifest paths are read and hashed as files under the repo root, so a
-    traversal (``..``), absolute, or non-vendor path would let the checker
-    reach outside ``apps/<slug>/js/vendor/*.js``. Reject anything that does
-    not match the vendor shape exactly.
+    Manifest paths are read as files under the repo root. Traversal (``..``),
+    absolute, and non-vendor paths are rejected. Any path must match the vendor
+    shape exactly.
     """
     pure = PurePosixPath(raw_path)
     if pure.is_absolute() or ".." in pure.parts or not _VENDOR_PATH_PATTERN.match(raw_path):
@@ -183,8 +180,7 @@ def walk_vendor_trees(root: Path) -> tuple[list[str], list[str]]:
     """Return the regular files and the symlinks under every app's vendor directory.
 
     The walk does not follow symlinks. A symlinked vendor directory, or a
-    symlink inside one, is returned as a symlink instead of being skipped, so
-    the files behind it cannot pass the check unseen.
+    symlink inside one, is returned in the links list.
     """
     files: list[str] = []
     links: list[str] = []
@@ -242,10 +238,10 @@ def _unlisted_file_violations(root: Path, assets: tuple[VendoredAsset, ...]) -> 
 def _asset_violation(root: Path, resolved_root: Path, asset: VendoredAsset) -> str | None:
     """Return the violation for one manifest entry, or ``None`` when its file matches."""
     file_path = root / asset.path
-    # A symlinked file or parent directory could point the hash at content
-    # outside the repository, so the entry must resolve to exactly the
-    # manifest path under the resolved root before it is read. This mirrors
-    # the reject_symlinks guard prepare_site.py applies to its payload tree.
+    # The entry must resolve to exactly its manifest path under the resolved
+    # root, so a symlinked file or parent directory cannot point the hash at
+    # content outside the repository. Same rule as the reject_symlinks guard in
+    # prepare_site.py.
     if file_path.resolve() != resolved_root / asset.path:
         return (
             f"{asset.path}: path must resolve to a regular file under the repository "

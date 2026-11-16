@@ -198,12 +198,8 @@ export function createBranchName(prefix, date = new Date()) {
 }
 
 /**
- * Pick the newest unmerged pull request for a fallback branch.
- *
- * Resetting a dated branch can close its open pull request automatically. A
- * lookup limited to open pull requests would then create a duplicate, while
- * a closed unmerged pull request remains reusable. Merged pull requests are
- * excluded because their branch has already served a different change.
+ * Pick the newest pull request for a fallback branch that was not merged.
+ * Open and closed pull requests both qualify. Merged pull requests are skipped.
  * @param {Array<{number: number, state: string, merged_at: string | null, html_url: string}>} pulls - Pull requests for the branch.
  * @returns {{number: number, state: string, merged_at: string | null, html_url: string} | undefined} Reusable pull request, if any.
  */
@@ -305,8 +301,8 @@ async function createCommitOnBranch(clients, { branchName, headSha, headline, fi
 /**
  * Create the fallback branch at `sha`, or force-reset it there when it exists.
  *
- * The race guard handles another run creating the branch between the
- * existence check and the POST. Only "Reference already exists" 422s are
+ * If another run creates the branch between the existence check and the POST,
+ * the branch is reset instead. Only "Reference already exists" 422s are
  * recovered; all other errors propagate.
  * @param {{ fetchJson: (url: string, options?: RequestInit) => Promise<object | null>, owner: string, repo: string }} clients - API clients.
  * @param {string} fallbackBranch - Fallback branch name.

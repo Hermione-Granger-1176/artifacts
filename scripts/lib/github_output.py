@@ -18,8 +18,7 @@ def report_checked(
     """Append ``<output_name>=true|false`` to the ``GITHUB_OUTPUT`` file when one is set.
 
     Local runs have no output file, so they record nothing. The value says
-    whether an audit reached a trustworthy verdict, which keeps an API failure
-    distinct from a failing verdict.
+    whether an audit reached a trustworthy verdict.
     """
     path = (os.environ if env is None else env).get(GITHUB_OUTPUT_ENV)
     if not path:

@@ -1,47 +1,30 @@
 # Prompt caching, demystified
 
-This interactive explainer follows LLM inference through tokenization, embeddings, attention, the key-value (KV) cache, and provider caching.
+This interactive explainer follows an LLM request through tokenization, embeddings, attention, the key-value (KV) cache, and provider prompt caching.
 
 ## Features
 
-The page includes these interactive examples:
+- A sticky progress nav with nine sections and a clickable pipeline overview.
+- Demos for token streaming, the KV cache, embeddings, attention, and cache hits.
+- A comparison of OpenAI and Anthropic caching.
+- A savings calculator for your own workload, with Hobby, Startup, and Scale presets.
+- Light and dark themes through the shared app theme.
 
-- Sticky section-progress nav (nine sections) with a clickable pipeline overview
-- Inference simulator that streams tokens while the KV cache fills
-- BPE-style tokenizer with text and token-ID views
-- Embedding playground: cosine similarity and distance for two words, a 2D projection canvas, and a 1D, 2D, or 3D dimension explorer (drag to rotate in 3D)
-- Attention step explorer with clickable matrix dot-products, a Q/K toggle with a weight scrambler, a causal mask toggle, a hoverable attention grid, and interactive softmax sliders
-- KV-cache fill animation and no-cache vs with-cache computation comparison
-- OpenAI and Anthropic comparison table, then a cross-request cache-hit visualizer with a live 5-minute TTL countdown
-- Savings calculator for your own workload, with Hobby, Startup, and Scale presets
-- Light and dark themes through the shared app theme
+## Use the app
+
+- Jump between sections with the progress nav, or click a stage in the pipeline overview.
+- In the tokenizer, switch between the text and token-ID views.
+- In the inference simulator, click **Generate** to stream tokens and **Reset** to start over.
+- In the embedding playground, select words or word pairs and click **Swap**. Drag the 3D dimension explorer to rotate it.
+- In the attention explorer, step through the calculation and click a matrix cell to see its dot product. Toggle the causal mask, hover the attention grid, and move the softmax sliders.
+- In the KV-cache demo, click **Play** to watch the cache fill. Click **Reset** to start over, or use comparison mode to contrast no cache with a cache.
+- In the cache-hit visualizer, click **Send** to add a request and **Clear** to reset the log. The TTL countdown shows when a cached prefix expires.
+- Move the savings sliders to change the monthly cost totals.
 
 ## Made with
 
 - Claude
 - No runtime dependencies (vanilla HTML, CSS, ES modules, CSP-safe)
-
-## Structure
-
-```text
-index.html
-css/app.css
-js/
-├── app.js
-└── modules/
-    ├── data.js
-    ├── math.js
-    ├── navigation.js
-    ├── tokenizer.js
-    ├── embeddings.js
-    ├── inference.js
-    ├── attention.js
-    ├── kv-cache.js
-    ├── cache-hits.js
-    ├── calculator.js
-    └── dom.js
-docs/
-```
 
 ## Documentation
 

@@ -2,11 +2,10 @@
 """Detect leaked PR preview directories on the GitHub Pages branch.
 
 PR previews are published under ``pr-preview/pr-<number>/`` on the ``gh-pages``
-branch and are removed by the PR-close cleanup job. When that single cleanup
-run fails, the preview directory leaks and is never reclaimed. This module
-lists the top-level ``pr-preview/`` directories through the git trees API,
-compares them against the open pull requests, and reports any preview whose
-pull request is no longer open so the cleanup can be re-run.
+branch and are removed by the PR-close cleanup job. This module lists the
+top-level ``pr-preview/`` directories through the git trees API, compares them
+against the open pull requests, and reports any preview whose pull request is
+not open so the cleanup can be re-run.
 
 For normal use, prefer ``make ci-audit-previews`` over calling this module
 directly.
@@ -94,8 +93,6 @@ def list_open_pr_numbers(
 
     The listing endpoint caps each page at ``_PULLS_PER_PAGE`` results, so pages
     are fetched sequentially until a short (or empty) page signals the end.
-    Without this, repos with more open pull requests than one page would leave
-    later PRs unseen and their live previews wrongly flagged as stale.
     """
     numbers: set[int] = set()
     page = 1
@@ -142,7 +139,7 @@ def audit_previews(
     """Return live preview directories, raising when stale previews leak.
 
     A stale preview is a ``pr-preview/pr-<number>/`` directory whose pull
-    request is no longer open. When any are found, a ``ValueError`` is raised
+    request is not open. When any are found, a ``ValueError`` is raised
     naming the directories and the cleanup action to take.
     """
     preview_dirs = list_preview_dir_names(repo, pages_branch, run_gh_api_json_fn=run_gh_api_json_fn)

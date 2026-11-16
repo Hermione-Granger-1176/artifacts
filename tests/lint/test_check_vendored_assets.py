@@ -152,7 +152,7 @@ def test_discover_vendor_files_returns_sorted_relative_paths(tmp_path: Path) -> 
 
 
 def test_discover_vendor_files_includes_nested_and_non_js_files(tmp_path: Path) -> None:
-    """Every file in a vendor tree is found, because lint and type checks skip the tree."""
+    """Every file under a vendor tree is found, including nested and non-.js files."""
     _write_vendor_file(tmp_path, "apps/a/js/vendor/lib/d3.js", b"1")
     _write_vendor_file(tmp_path, "apps/a/js/vendor/y.mjs", b"2")
 
@@ -262,7 +262,7 @@ def test_load_manifest_rejects_malformed_sha256(tmp_path: Path) -> None:
 def test_load_manifest_rejects_a_package_name_osv_would_not_match(
     tmp_path: Path, package: str
 ) -> None:
-    """OSV matches names case-sensitively, so a name that is not lower-case npm is rejected."""
+    """A package name that is not a lower-case npm package name is rejected."""
     manifest = tmp_path / "vendored_assets.json"
     entry = _entry(_REL, _SHA_A)
     entry["package"] = package
@@ -295,7 +295,7 @@ def test_load_manifest_accepts_a_scoped_package(tmp_path: Path) -> None:
 def test_load_manifest_rejects_a_version_that_is_not_a_semantic_version(
     tmp_path: Path, version: str
 ) -> None:
-    """A mistyped version would make OSV return nothing, so it is rejected."""
+    """A version that is not a semantic version is rejected."""
     manifest = tmp_path / "vendored_assets.json"
     entry = _entry(_REL, _SHA_A)
     entry["version"] = version

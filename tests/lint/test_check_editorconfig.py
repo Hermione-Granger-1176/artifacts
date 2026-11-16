@@ -406,7 +406,7 @@ def test_expand_braces_keeps_an_unclosed_group_literal() -> None:
 
 
 def test_expand_braces_keeps_a_single_choice_group_literal() -> None:
-    """A one-choice group is a literal brace, since EditorConfig needs two or more."""
+    """A group with one choice is matched as literal braces."""
     assert check_editorconfig._expand_braces("*.{js}") == ["*.{js}"]
 
 

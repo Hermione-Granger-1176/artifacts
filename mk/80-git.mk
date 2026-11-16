@@ -31,7 +31,7 @@ branch-prune: ## Prune local branches whose content is already in main (make bra
 	@$(PY_PATH_PREFIX) $(PYTHON) -m scripts.lib.prune_branches
 
 # Worktrees default to .worktrees/<branch>, which git and every lint walker
-# already ignore. Slashes are flattened so a branch like fix/x stays one directory.
+# ignore. Slashes in the branch name become hyphens, so fix/x maps to one directory.
 WORKTREE_PATH = $(if $(dir),$(dir),.worktrees/$(subst /,-,$(name)))
 
 worktree: ## Create a branch off origin/main, or origin/base, in a new worktree (make worktree name=X [base=branch] [dir=DIR])
@@ -63,9 +63,9 @@ apply-patch: ## Apply a patch from stdin to the working tree and index, merging 
 merge-abort: ## Abandon an in-progress merge and restore the branch to its state before it
 	git merge --abort
 
-# Paths arrive on stdin, as in make stage. --literal-pathspecs stops git from
-# expanding *.md or :(glob) magic, so git touches exactly the named file. The
-# chosen side is checked out first, and nothing is staged if that fails.
+# Paths arrive on stdin, as in make stage. --literal-pathspecs disables git
+# pathspec magic such as *.md or :(glob), so git touches only the named files.
+# The chosen side is checked out first, and nothing is staged if that fails.
 resolve-ours: ## During a merge, keep the current branch's side of conflicted files and stage them (paths on stdin)
 	@$(STDIN_PATHS) --require --name "make resolve-ours" -- git --literal-pathspecs checkout --ours -- --then git --literal-pathspecs add --
 

@@ -29,8 +29,8 @@ const INSTALL_COMMAND = "npm install --package-lock-only --ignore-scripts";
 
 /**
  * Probe phases in run order, each with the npm command that exercises it. The
- * audit gates every severity, like `make audit-node`, so an override that
- * clears a low or moderate advisory still counts as needed.
+ * audit runs at every severity, like `make audit-node`. An override that clears
+ * only a low or moderate advisory still counts as needed.
  */
 const PROBE_PHASES = [
   ["install", INSTALL_COMMAND],
@@ -63,8 +63,7 @@ function serializePackage(pkg) {
 
 /**
  * Build the default npm-probing tester that installs and audits a package.json
- * with selected overrides removed. Kept separate so the decision logic can be
- * unit tested with the npm calls stubbed.
+ * with selected overrides removed.
  * @param {{
  *   pkg: object,
  *   execSyncImpl: typeof execSync,
@@ -127,8 +126,7 @@ function classifyOverrides(names, testWithout, consoleObj) {
 
 /**
  * Run the override staleness check and return a process exit code.
- * The npm probing is delegated to `testWithoutImpl` so the decision and
- * reporting logic can be exercised without touching the network or disk.
+ * The npm probing is delegated to `testWithoutImpl` when it is provided.
  * @param {{
  *   argv?: string[],
  *   pkgPath?: string,

@@ -1,45 +1,25 @@
 # Bonds and interest rates
 
-This interactive explainer shows why bond prices fall when interest rates rise. The price, curve, and three sliders stay in a sticky left column while seven chapters explain the price change and its wider effects.
+This interactive explainer shows why bond prices fall when interest rates rise. A left rail holds the price, its curve, and three sliders while seven chapters explain the price change and its wider effects.
 
 ## Features
 
-The explainer includes these views and controls:
+- A sticky left rail with the price, a premium, par, or discount badge, the price-vs-rate curve, and the market rate, coupon, and years sliders. Below 760px the rail stacks above the chapters.
+- Seven numbered chapters: the inverse move, why it happens, how hard it swings, the yield curve, the maths, the analyst readout, and the ripple.
+- A discounting formula and a worked cash-flow table whose present values sum to the price.
+- A bar chart of the dollar loss from a one-point rate rise at each maturity.
+- An analyst readout with current yield, Macaulay duration, modified duration, convexity, and DV01.
 
-- Two columns on the normal page scroll: a sticky left rail (price, a premium, par, or discount badge, the price-vs-rate curve, then the market rate, coupon, and years sliders) beside the story. Tablets keep the rail pinned at 300px wide. Below 760px the rail stops pinning and stacks above the chapters
-- Seven numbered chapters (the inverse move, why it happens, how hard it swings, the yield curve, the maths, the analyst readout, the ripple). The chapter in view gets a filled number badge and full-strength heading and charts while the others sit slightly muted, tracked with an IntersectionObserver
-- Price-vs-rate curve marks where the bond currently sits
-- Readouts that change wording hold one fixed height, so the page below does not jump as you drag a slider
-- Discounting formula rendered in plain HTML and CSS (no math library, CSP-safe)
-- Worked cash-flow table with per-year present value breakdown
-- Horizontal bar chart of what a one-point rate rise costs a $1,000 bond at each maturity, with the new price and dollar loss written at each bar end
-- Yield curve presets (normal, flat, inverted) with chart, and a button that moves the market-rate slider in the rail to the curve's rate
-- Analyst readout: current yield, Macaulay duration, modified duration, convexity, DV01
-- Adaptive ripple explanation for existing bondholders, tomorrow's bonds, and the real economy
+## Use the app
+
+- Drag the market rate, coupon, and years sliders in the left rail. The price, the badge, and the curve update on each move.
+- Scroll the chapters to read the story. The chapter in view has a filled number badge and full-strength charts. The other chapters are dimmed.
+- In chapter 4, click one of the yield curve shapes (normal, flat, or inverted). Then click the apply button to set the market rate slider to that curve's rate at the bond's maturity.
 
 ## Made with
 
 - Claude
 - Chart.js 4.4.1 (vendored)
-
-## Structure
-
-```text
-index.html
-css/app.css
-js/
-├── app.js
-├── modules/
-│   ├── bond-math.js
-│   ├── chapters.js
-│   ├── charts.js
-│   ├── narrative.js
-│   ├── interactions.js
-│   └── ui.js
-└── vendor/
-    └── chart.umd.min.js
-docs/
-```
 
 ## Documentation
 

@@ -71,9 +71,8 @@ test('boxes are normalised into the page, not reported in pixels', () => {
 });
 
 test('a preview scaled by a CSS transform reports the same boxes', () => {
-  // Normalising against the page's own rect is what makes this true: both the
-  // element rect and the page rect scale together, so the ratio does not move.
-  // Without it every box would be wrong at any zoom other than 100%.
+  // Boxes are normalised against the page's own rect, so a uniformly scaled
+  // page reports the same boxes.
   const { doc, paper } = render();
   const full = collectBoxes(paper, { doc });
 
@@ -134,8 +133,7 @@ test('blank ledger cells are not labelled, because the sidecar calls them null',
     0,
     'an empty charges cell should carry no region at all'
   );
-  // The brought-forward row has neither a charge nor a payment, so those two
-  // cells must be missing from the regions rather than present and empty.
+  // The brought-forward row has neither a charge nor a payment, so those cells produce no regions.
   assert.ok(!regions.some((region) => region.field === 'transactions.0.charge'));
   assert.ok(regions.some((region) => region.field === 'transactions.1.balance'));
 });
@@ -198,9 +196,8 @@ test('a page with no rendered size refuses to report boxes', () => {
   const paper = createFakeElement('article');
   renderPaper(paper, buildDocument({ docTypeId: 'invoice', seed: 7, today: TODAY, vendorId: 'apex' }), doc);
 
-  // Never laid out, as a hidden or detached page is: the page and every node on
-  // it measure 0 x 0. Any stand-in divisor would label every value at a
-  // plausible-looking [0, 0, 0, 0], so the measurement fails loudly instead.
+  // A page that was never laid out, as a hidden or detached one, measures 0 x 0.
+  // The collector throws rather than returning boxes such as [0, 0, 0, 0].
   assert.throws(() => collectBoxes(paper, { doc }), /preview is not on screen/);
   assert.throws(() => collectBoxes(paper, { doc, words: true }), /preview is not on screen/);
 });

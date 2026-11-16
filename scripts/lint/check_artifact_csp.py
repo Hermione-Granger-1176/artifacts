@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Check that the root and artifact pages ship a strict CSP and no external scripts or styles.
 
-Artifact pages under ``apps/<slug>/index.html`` receive a Content-Security-Policy
-meta tag at scaffold time, but nothing re-validates a hand-pasted or hand-edited
-page. This checker fails fast when an artifact:
+Artifact pages under ``apps/<slug>/index.html`` carry a Content-Security-Policy
+meta tag. This checker fails when an artifact:
 
     - is missing the Content-Security-Policy meta tag, or its policy does not
       restrict ``default-src`` and ``script-src`` to ``'self'`` or ``'none'``
@@ -17,9 +16,9 @@ page. This checker fails fast when an artifact:
       inline ``<style>`` block. Inline ``data:`` URIs and ``#fragment``
       references inside ``url()`` are same-document content and stay allowed.
 
-The root ``index.html`` shares the same posture, except its documented
-``img-src https://img.shields.io`` badge-image exception. Artifact pages remain
-limited to same-origin and inline ``data:`` image sources.
+The root ``index.html`` uses the same policy, with one extra ``img-src`` source:
+``https://img.shields.io``. Artifact pages allow only same-origin and inline
+``data:`` image sources.
 """
 
 from __future__ import annotations
@@ -46,9 +45,9 @@ _SCRIPT_SUB_DIRECTIVES = ("script-src-elem", "script-src-attr")
 _APP_IMG_SOURCES = frozenset({"'self'", "'none'", "data:"})
 _ROOT_IMG_SOURCES = _APP_IMG_SOURCES | frozenset({"https://img.shields.io"})
 
-# Directives every page must state. base-uri and form-action do not fall back to
-# default-src. object-src does, but an explicit 'none' is stricter than the 'self'
-# that default-src gives it. frame-ancestors is deliberately absent: browsers
+# Directives every page must state explicitly. base-uri and form-action do not
+# fall back to default-src, and object-src must be 'none' rather than the 'self'
+# that default-src would allow. frame-ancestors is not listed because browsers
 # ignore it in a meta tag.
 _REQUIRED_DIRECTIVES = (
     ("object-src", frozenset({"'none'"})),
@@ -56,8 +55,8 @@ _REQUIRED_DIRECTIVES = (
     ("form-action", _RESTRICTIVE_SOURCES),
 )
 
-# Opening tags and inline style blocks. Artifact markup keeps attribute values
-# free of ``>``, so a non-greedy attribute scan is robust enough here.
+# Opening tags and inline style blocks. The patterns assume attribute values
+# contain no ``>``.
 _SCRIPT_TAG_PATTERN = re.compile(r"<script\b[^>]*>", re.IGNORECASE)
 _LINK_TAG_PATTERN = re.compile(r"<link\b[^>]*>", re.IGNORECASE)
 _STYLE_BLOCK_PATTERN = re.compile(r"<style\b[^>]*>(.*?)</style>", re.IGNORECASE | re.DOTALL)
@@ -73,8 +72,8 @@ _CSS_URL_PATTERN = re.compile(r"""url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)"
 # A URL scheme prefix such as ``https:`` or ``data:``.
 _SCHEME_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 
-# These elements can execute code, fetch a resource, or change the resolution
-# of following resource URLs while the document head is being parsed.
+# Head elements that can execute code, fetch a resource, or change how later
+# URLs resolve.
 _RESOURCE_CAPABLE_HEAD_TAGS = frozenset(
     {
         "audio",
@@ -128,7 +127,7 @@ class _HeadCspParser(HTMLParser):
 
 
 def _handle_starttag(parser: _HeadCspParser, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-    """Track real head markup while ignoring comments and template content."""
+    """Track head markup. Template content and noscript or title text are ignored."""
     tag = tag.lower()
     attributes = {name.lower(): value or "" for name, value in attrs}
 
@@ -142,8 +141,8 @@ def _handle_starttag(parser: _HeadCspParser, tag: str, attrs: list[tuple[str, st
         return
 
     if tag not in _HEAD_CONTENT_TAGS:
-        # In HTML parsing, body content implicitly closes head. A CSP meta
-        # encountered after this point is not a document-head policy.
+        # Body content implicitly closes the head. A CSP meta after this point
+        # is not a head policy.
         parser._head_open = False
         return
 
@@ -184,8 +183,8 @@ def _handle_endtag(parser: _HeadCspParser, tag: str) -> None:
         parser._head_open = False
 
 
-# HTMLParser discovers callback names dynamically. Bind the module-level
-# handlers explicitly so their callback role is visible to static analysis.
+# Attach the module-level handlers as HTMLParser callbacks. HTMLParser looks
+# them up by name.
 for callback_name, handler in (
     ("handle_" + "starttag", _handle_starttag),
     ("handle_" + "endtag", _handle_endtag),
@@ -232,9 +231,8 @@ def _extract_csp_policy(html: str) -> str | None:
 def _parse_csp_directives(policy: str) -> tuple[dict[str, list[str]], list[str]]:
     """Parse a CSP policy into a directive-to-sources mapping and its repeated names.
 
-    Browsers ignore every copy of a directive after the first, so the mapping
-    keeps the first copy. A repeated name is also returned, because a later
-    copy that looks strict would otherwise hide a permissive first one.
+    The mapping keeps the first copy of each directive, the one browsers use.
+    Repeated directive names are returned separately.
     """
     directives: dict[str, list[str]] = {}
     repeated: list[str] = []
@@ -255,8 +253,8 @@ def _directive_has_only_allowed_sources(
 ) -> bool:
     """Return whether every source in a directive belongs to its approved set.
 
-    Per the CSP spec ``'none'`` is only meaningful as the sole source
-    expression, so a directive that mixes it with other tokens is rejected.
+    A directive that mixes ``'none'`` with other sources is rejected, since
+    ``'none'`` is valid only as the sole source expression.
     """
     if "'none'" in sources and len(sources) > 1:
         return False
@@ -283,13 +281,11 @@ def _directive_violation(
 
 
 def _script_src_violations(directives: dict[str, list[str]], display_path: str) -> list[str]:
-    """Return a violation for each open script directive.
+    """Return a violation for each script directive that is not restricted.
 
-    ``script-src`` falls back to ``default-src``. Browsers use
-    ``script-src-elem`` for script elements and ``script-src-attr`` for inline
-    event handlers in place of ``script-src`` when either is present, so each
-    one present must be restricted too. An absent one falls back to
-    ``script-src``, which this function already checks.
+    ``script-src`` falls back to ``default-src``. ``script-src-elem`` and
+    ``script-src-attr`` are checked when present and must be restricted too.
+    An absent one falls back to ``script-src``.
     """
     candidates = {
         "script-src": directives.get("script-src", directives.get("default-src")),
@@ -408,9 +404,8 @@ def _inline_style_violations(html: str, display_path: str) -> list[str]:
     violations: list[str] = []
     for block_match in _STYLE_BLOCK_PATTERN.finditer(html):
         for reference in _extract_css_urls(block_match.group(1)):
-            # Inline data URIs and in-document fragments are same-document, not
-            # external network fetches, so they stay allowed. URL schemes are
-            # case-insensitive, so match data: against a lowercased scheme.
+            # Inline data: URIs and #fragment references stay allowed. Scheme
+            # matching is case-insensitive.
             if reference[:5].lower() == "data:" or reference.startswith("#"):
                 continue
             if _is_external_reference(reference):

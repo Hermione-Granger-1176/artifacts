@@ -35,11 +35,9 @@ setup-playwright: ## Install Chromium for browser tests
 setup-playwright-ci: ## Install Chromium with system deps
 	$(VENV)/bin/playwright install chromium --with-deps
 
-# Used by the ci-setup action, which keys its browser cache on the engine set so
-# a restored entry always holds exactly the engines the job asked for. Engines
-# arrive hyphen-separated (chromium-webkit) because the value is part of a cache
-# key; no supported engine name contains a hyphen, so splitting on it is
-# unambiguous. Validation below rejects malformed or unsupported values.
+# Used by the ci-setup action. Engines arrive hyphen-separated (chromium-webkit).
+# No supported engine name contains a hyphen, so the value splits unambiguously.
+# Validation below rejects malformed or unsupported values.
 setup-playwright-engines: ## Install named Playwright engines (make setup-playwright-engines engines=chromium-webkit [with_deps=1])
 	$(call need,engines,make setup-playwright-engines engines=chromium-webkit [with_deps=1])
 	$(if $(filter-out 1,$(words $(strip $(engines)))),$(error engines must be one hyphen-separated value),)
@@ -57,11 +55,10 @@ setup-playwright-webkit: ## Install WebKit for the cross-engine smoke pass
 setup-playwright-webkit-ci: ## Install WebKit with system deps
 	$(VENV)/bin/playwright install webkit --with-deps
 
-# The two local targets share one manifest. Preparing an engine extends the
-# recorded engine set instead of replacing it, so the extracted package closure
-# stays the union Chromium and WebKit both need and installing one engine never
-# strands the other. Preparing again after the browser install patches the shared
-# WebKit launcher so it appends the inherited library path.
+# The two local targets share one manifest. Preparing an engine adds to the
+# recorded engine set rather than replacing it, so the extracted package closure
+# covers every prepared engine. Preparing again after the browser install patches
+# the shared WebKit launcher to append the inherited library path.
 setup-playwright-local: ## Install Chromium and the private Ubuntu/Debian runtime without sudo
 	$(PLAYWRIGHT_LOCAL_RUNTIME) prepare --engine chromium
 	PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 $(VENV)/bin/playwright install chromium

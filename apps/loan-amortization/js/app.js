@@ -74,8 +74,8 @@ let inputs = { principal: 0, rate: 0, tenure: 0 };
  */
 let baseSchedule = null;
 /**
- * Inputs of the latest calculation, kept so a view that was hidden can be drawn
- * when it is shown.
+ * Metrics and principal from the latest calculation. A hidden view is drawn from
+ * this when it is shown.
  * @type {(import("./modules/metrics.js").LoanMetrics & { principal: number }) | null}
  */
 let latest = null;

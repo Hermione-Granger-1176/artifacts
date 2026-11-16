@@ -104,7 +104,7 @@ test('bond-price-vs-rate redraws only the charts whose inputs changed', async ()
   const { elementMap } = setupBondApp();
   try {
     const updates = [];
-    // Queue frames instead of running them inline, the way a browser coalesces input.
+    // Queue animation frames and run them only when the test flushes them.
     const frames = [];
     globalThis.window.requestAnimationFrame = (callback) => frames.push(callback);
     const input = (element) => {

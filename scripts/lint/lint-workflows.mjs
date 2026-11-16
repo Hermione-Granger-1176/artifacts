@@ -8,9 +8,7 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 
 /**
- * Drop actionlint results that are known false positives for this repo.
- * Only the `undefined variable "vars"` diagnostic is suppressed; every other
- * message (including real errors) must survive so regressions stay visible.
+ * Drops the actionlint `undefined variable "vars"` result. Every other result is kept.
  * @param {{ message: string }[]} results - Raw actionlint results.
  * @returns {{ message: string }[]} Results worth reporting.
  */
@@ -46,10 +44,9 @@ function formatResult(result) {
 /**
  * Lint one workflow file with a fresh actionlint instance.
  *
- * The actionlint WebAssembly module accumulates linear memory across calls on
- * one instance and eventually panics with "RuntimeError: unreachable" on a
- * large workflow such as update.yml. A per-file instance keeps each lint
- * within its own heap.
+ * Each workflow file gets its own actionlint instance. A shared instance keeps
+ * its WebAssembly memory across calls and can panic on large workflows such as
+ * update.yml.
  * @param {string} relativePath - Repo-relative workflow path.
  * @param {{
  *   createLinterImpl: typeof createLinter,

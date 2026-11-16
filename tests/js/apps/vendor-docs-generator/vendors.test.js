@@ -33,8 +33,7 @@ test('every vendor is fully specified and uniquely identified', () => {
 
 test('vendor contact details stay inside the reserved fiction ranges', () => {
   for (const vendor of VENDORS) {
-    // 555-01xx numbers and .example domains are reserved for fiction, which is
-    // what keeps generated samples from pointing at a real business.
+    // Contact details use the reserved fiction ranges: 555-01xx numbers and .example domains.
     assert.match(vendor.phone, /555 01\d{2}$/, `${vendor.id} has a non-fictional phone number`);
     assert.match(vendor.email, /\.example$/, `${vendor.id} has a non-fictional email domain`);
   }
@@ -65,8 +64,7 @@ function contrastWithWhite(hex) {
 
 test('vendor accents stay legible under the white text printed on them', () => {
   for (const vendor of VENDORS) {
-    // Table headers and stamps print white on the accent, so the accent is
-    // load-bearing for contrast, not decoration.
+    // Table headers and stamps print white on the accent.
     const ratio = contrastWithWhite(vendor.accent);
     assert.ok(ratio >= 4.5, `${vendor.id} accent ${vendor.accent} is only ${ratio.toFixed(2)}:1`);
   }

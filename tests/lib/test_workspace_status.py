@@ -124,8 +124,8 @@ def test_report_without_venv_uses_fallbacks(tmp_path: Path) -> None:
     (tmp_path / "js").mkdir()
     (tmp_path / "js/data.js").write_text("", encoding="utf-8")
 
-    # A missing tool and other launch failures (not executable, wrong format)
-    # both raise OSError subclasses and must be treated as a plain failure.
+    # A missing tool and other launch failures both raise OSError subclasses,
+    # and each is reported as a plain failure.
     runner = FakeRun(
         [
             (_first("git"), PermissionError("git")),
@@ -172,7 +172,7 @@ def test_drift_and_stale_locks_with_venv(tmp_path: Path) -> None:
 
 
 def test_summary_launch_failure_is_swallowed(tmp_path: Path) -> None:
-    """A PR summary that cannot launch is swallowed, matching ``$(GH) summary || true``."""
+    """A PR summary that cannot launch is reported as unavailable, and the report still renders."""
     _make_venv(tmp_path)
 
     runner = FakeRun(

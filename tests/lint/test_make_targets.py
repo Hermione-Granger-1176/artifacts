@@ -749,7 +749,7 @@ def test_run_check_skips_default_path_symlink(tmp_path: Path) -> None:
 def test_main_reports_unknown_targets_consistently(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Unknown targets use shared CI failure context."""
+    """Unknown targets are reported in the standard failure format with a leading header."""
     write_text(tmp_path / "Makefile", "check-local:\n\t@true\n")
     write_text(tmp_path / "README.md", "Use `make missing-target`.\n")
     monkeypatch.setattr(check_make_targets, "REPO_ROOT", tmp_path)
@@ -792,7 +792,7 @@ def test_extract_source_code_snippets_requires_backticks() -> None:
 
 
 def test_extract_workflow_run_snippets_reads_block_scalars_and_inline_values() -> None:
-    """Workflow shell is read directly, since every make word there is an invocation."""
+    """Workflow run: blocks are read as shell, where each make word is an invocation."""
     references = make_targets.extract_path_make_references(
         Path(".github/workflows/ci.yml"),
         "jobs:\n"
@@ -951,7 +951,7 @@ def test_run_check_reports_an_unknown_target_in_workflow_shell(tmp_path: Path) -
 
 
 def test_run_check_reports_an_unknown_target_in_source_strings(tmp_path: Path) -> None:
-    """A wrong target named in an error message is caught before it misleads anyone."""
+    """A target named in an error message in source is checked like any other reference."""
     write_text(tmp_path / "Makefile", "pr-review-comments:\n\t@true\n")
     module = tmp_path / "scripts" / "gh" / "pr_watch.py"
     write_text(module, 'raise GhError("inspect `make pr-comment-typo` before merging")\n')
@@ -1064,7 +1064,7 @@ def test_main_rejects_symlink_components(
 
 
 def test_control_flow_allowlist_has_no_unused_entries() -> None:
-    """Every allowlist entry must still match a Makefile target, so fixed ones get removed."""
+    """Every CONTROL_FLOW_ALLOWLIST entry still matches a Makefile target with control flow."""
     content = make_targets.read_makefile_text()
     offenders = {
         violation.target
@@ -1133,7 +1133,7 @@ def test_resolve_doc_paths_reports_inaccessible_paths(tmp_path: Path) -> None:
 def test_resolve_doc_paths_rejects_a_target_that_resolves_outside(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Resolved-path containment remains a defence-in-depth check."""
+    """A resolved path outside the repository is refused even when the symlink check passes."""
     root = tmp_path / "repo"
     root.mkdir()
     outside = tmp_path / "outside.md"

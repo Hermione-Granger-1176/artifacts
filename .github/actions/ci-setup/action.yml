@@ -204,19 +204,16 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
-    # setup-uv reads tool.uv.required-version from pyproject.toml, which keeps
-    # local and CI invocations on one minimum-compatible policy. Its dependency cache is
-    # disabled because the conditional uv cache below is restored only when a
-    # .venv miss means uv will actually consume it.
+    # setup-uv reads tool.uv.required-version from pyproject.toml. Its built-in
+    # dependency cache is disabled; the uv download cache below is used instead.
     - name: Set up uv
       if: inputs.install-deps == 'true'
       uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
         enable-cache: false
 
-    # Likewise no `cache: npm`: ~/.npm only matters when `npm ci` runs, and a
-    # node_modules hit means it does not. The conditional cache below restores
-    # it exactly when it will be read.
+    # The built-in npm cache is off. The npm download cache below is restored
+    # only when node_modules misses and npm ci will read it.
     - name: Set up Node.js
       if: inputs.node-version != ''
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -245,11 +242,9 @@ runs:
         path: node_modules
         key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.node-version.outputs.version }}-${{ hashFiles('package.json', 'package-lock.json') }}
 
-    # The download caches below are gated on their consumer having missed. A
-    # .venv hit means `make install` never runs, so ~/.cache/uv is restored and
-    # then read by nothing; the same holds for ~/.npm against `npm ci`. Gating
-    # keeps them for the miss path, where they are what makes the rebuild fast,
-    # and skips the transfer on the hit path, which is the common case.
+    # The download caches run only when the step that reads them will run: the
+    # uv cache on a .venv miss (make install), the npm cache on a node_modules
+    # miss (npm ci).
     - name: Cache uv downloads
       if: inputs.install-deps == 'true' && steps.venv-cache.outputs.cache-hit != 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -260,9 +255,8 @@ runs:
           uv-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-python.outputs.python-version }}-
           uv-${{ runner.os }}-${{ runner.arch }}-
 
-    # Also gated on node-version, which the action allows to be empty: without
-    # it an empty caller would cache ~/.npm under a key with a hollow version
-    # segment for a toolchain that was never set up.
+    # Also skipped when node-version is empty, because no Node.js toolchain is
+    # set up in that case.
     - name: Cache npm downloads
       if: >-
         inputs.install-deps == 'true' && inputs.node-version != ''
@@ -312,13 +306,10 @@ runs:
         BROWSER_ENGINES: ${{ inputs.browser-engines }}
         PLAYWRIGHT_CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
       run: |
-        # A cache hit restores browser binaries, never the system libraries
-        # they load. Those are apt packages on an ephemeral runner, so they
-        # are gone every time and --with-deps has to reinstall them for any
-        # engine the runner image does not already satisfy. Chromium's are on
-        # the standard image, which is why a Chromium-only hit may skip the
-        # pass; WebKit's are not, and skipping it left MiniBrowser unable to
-        # load its libraries even though the binary restored fine.
+        # A cache hit restores browser binaries but not the system libraries
+        # they load. The install runs with --with-deps unless Chromium alone
+        # hit the cache, since the standard runner image already provides
+        # Chromium's libraries.
         if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ] && [ "$BROWSER_ENGINES" = "chromium" ]; then
           make setup-playwright-engines engines="$BROWSER_ENGINES"
         else

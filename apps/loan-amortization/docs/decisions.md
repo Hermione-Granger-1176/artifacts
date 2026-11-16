@@ -50,3 +50,7 @@ A 30-year weekly loan has 1,560 schedule rows, and the Charts view draws five ch
 - User-facing theme preference controls beyond the shared toggle
 - Additional chart views or export actions
 - Stronger formula snapshots in automated browser tests
+
+## Why the bi-weekly toggle keeps its place
+
+The bi-weekly True and Accelerated toggle stays in the layout and is dimmed and disabled unless bi-weekly is selected, so the controls below it never move. The view area has a minimum height of one viewport, so switching between Charts and Schedule never clamps the scroll position.

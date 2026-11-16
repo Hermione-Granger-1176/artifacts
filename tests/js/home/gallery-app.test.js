@@ -680,7 +680,7 @@ function createGalleryHarness({
     const key = match && (match[1] === 'filter-tag' ? 'filterTag' : 'filterTool');
     return key ? filterDropdowns._options.filter((option) => option.dataset[key] !== undefined) : [];
   };
-  // buildFilterDropdowns always renders both groups; the fake innerHTML does not, so stand them in.
+  // buildFilterDropdowns always renders both groups; the fake innerHTML does not, so both are added here.
   const dropdowns = {
     tags: addFakeDropdown(filterDropdowns, registerElement, { kind: 'tags', dataset: 'filterTag', values: ['finance', 'calculator'] }),
     tools: addFakeDropdown(filterDropdowns, registerElement, { kind: 'tools', dataset: 'filterTool', values: ['claude', 'chatgpt'] })
@@ -708,10 +708,9 @@ function createGalleryHarness({
 
   let book = null;
   if (!withBook) {
-    // index.html always ships the book shell and sheet. A shell that never opened
-    // leaves the scene rendering each page at once; the sheet still takes swipes.
-    // This harness has no cover, so the intro would end at once and open the
-    // shell; pinning its intro state keeps it closed.
+    // index.html always ships the book shell and sheet. This harness has no cover, so an
+    // intro would open the shell at once. Pinning sceneIntro keeps the shell closed, so
+    // pages render directly and the sheet still takes swipes.
     const shell = registerElement(new FakeElement({ id: 'book-shell' }));
     Object.defineProperty(shell.dataset, 'sceneIntro', { get: () => undefined, set() {} });
     book = {
@@ -1790,8 +1789,8 @@ test('notepad swipes turn the page up for next and down for previous', async () 
   const nextClick = harness.elements.grid.dispatch('click', { target: new FakeElement({ tagName: 'SPAN' }) });
   assert.equal(nextClick.defaultPrevented, false, 'only that one click is swallowed');
 
-  // A swipe that ends without a click (a touch, or a drag off the grid) must
-  // not swallow a later keyboard click, so the flag clears after its task.
+  // A swipe that ends without a click clears its click guard after its task,
+  // so a later keyboard click is not swallowed.
   swipe(0, -120);
   harness.runTimers(0);
   const keyboardClick = harness.elements.grid.dispatch('click', { target: new FakeElement({ tagName: 'SPAN' }) });

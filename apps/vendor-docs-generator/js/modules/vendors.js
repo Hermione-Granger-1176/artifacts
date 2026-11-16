@@ -6,14 +6,13 @@
  * invented for sample data. The phone numbers use the 555 range reserved for
  * fiction and the EINs are not issued numbers.
  *
- * The per-vendor colours and typefaces are deliberately raw literals rather
- * than shared design tokens: they are the *content* of a generated document
- * (six businesses that should look like six unrelated brands), not app chrome.
- * The app's own surfaces are token-derived in css/app.css; these values are
- * pushed onto the paper element as custom properties at render time.
+ * The per-vendor colours and typefaces are raw literals, not design tokens.
+ * They are the *content* of a generated document. The app's own surfaces are
+ * token-derived in css/app.css; these values are set as custom properties on
+ * the paper element at render time.
  *
- * Each `accent` still has to clear 4.5:1 against white, because table headers
- * and stamps print white text on it. `vendors.test.js` enforces that.
+ * Each `accent` must clear 4.5:1 contrast against white, which table headers
+ * and stamps print on. `vendors.test.js` enforces that.
  *
  * @module vendors
  */
@@ -228,8 +227,8 @@ export function findDocumentType(typeId) {
 
 /**
  * Read a vendor's catalogue.
- * @param {string} vendorId - A `VENDORS` id. `findVendor` is the one fallback for
- *   an unknown id, so resolve through it first.
+ * @param {string} vendorId - A `VENDORS` id. Unknown ids return `undefined`;
+ *   resolve through `findVendor` first.
  * @returns {readonly CatalogEntry[]} Catalogue entries for that vendor.
  */
 export function catalogFor(vendorId) {

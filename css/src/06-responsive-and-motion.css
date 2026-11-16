@@ -8,14 +8,14 @@
   }
 }
 
-/* Laptop and desktop: the book scales with the screen height, so captions scale with the book width. */
+/* Laptop and desktop: caption size follows the book width. */
 @media (min-width: 901px) {
   .card-name {
     font-size: clamp(1.15rem, 2.6cqi, 1.7rem);
   }
 }
 
-/* Short laptop screens: tighten the chrome above and below the book so the book gets the height. */
+/* Short laptop screens: tightens the chrome above and below the book. */
 @media (min-width: 901px) and (max-height: 900px) {
   :root {
     --book-chrome-y: 236px;
@@ -39,13 +39,13 @@
 /*
  * Phones and tablets held upright: the two-page book becomes a notepad bound at the top. It shows
  * one artifact per page and flips its pages up over the binding, like a desk calendar. The notepad
- * fills the screen below the search, so the page itself barely scrolls.
+ * fills the screen below the search, and the page itself barely scrolls.
  */
 @media (max-width: 900px) {
   :root {
     --notepad-width: 40rem;
     --notepad-binding: 30px;
-    /* Header, the two toolbar rows, the pager, and their gaps: the screen height the notepad leaves for them. */
+    /* Height taken by the header, the two toolbar rows, the pager, and their gaps. */
     --notepad-chrome-y: 18.25rem;
   }
 
@@ -90,8 +90,8 @@
 
   /*
    * The toolbar is centred: the search note on its own row, then the filter dropdowns and the sort
-   * note on a row under it. Each dropdown panel clears its own group and the search clears itself,
-   * so the reset note stays on the desk layout.
+   * note on a row under it. Each dropdown panel clears its own group, and the search clears itself.
+   * The reset note is hidden in this layout.
    */
   .toolbar-ribbon {
     width: min(100%, var(--notepad-width));
@@ -144,9 +144,9 @@
   }
 
   /*
-   * The notepad is drawn flat, so the cover and a turning page always paint over the page under
-   * them, even while they tip away from the reader. Each still gets depth from its parent's
-   * perspective, seen from the binding.
+   * The notepad is drawn flat. The cover and a turning page paint over the page under them while
+   * they tip away from the reader. Each gets depth from its parent's perspective, seen from the
+   * binding.
    */
   .book-sheet,
   .book-inner {
@@ -158,11 +158,11 @@
     height: clamp(23rem, calc(100svh - var(--notepad-chrome-y)), 50rem);
     transform-style: flat;
 
-    /* Swipes up and down turn the pages, so only sideways pans and zoom stay with the browser. */
+    /* Vertical swipes turn pages. Only sideways panning and pinch zoom remain browser gestures. */
     touch-action: pan-x pinch-zoom;
   }
 
-  /* The closed notepad hangs page one under its cover, so the cover flips up onto a page that is already there. */
+  /* The closed notepad hangs page one under its cover. The cover flips up onto that page. */
   .book-shell:not(.is-open) .book-sheet {
     transform: none;
   }
@@ -210,8 +210,8 @@
   }
 
   /*
-   * A top-bound notepad is held shut by a band across its lower cover, like an elastic closure,
-   * so the ribbon runs side to side and slides down off the bottom edge before the cover flips up.
+   * The band holds the closed notepad shut across its lower cover. It runs side to side and slides
+   * down off the bottom edge before the cover flips up.
    */
   .book-ribbon {
     inset: 84cqh 0 auto;
@@ -321,9 +321,9 @@
   }
 
   /*
-   * Each face hides once it turns away from the reader, so the page gives way to the plain back
-   * as the sheet passes upright. The leaf keeps its faces in 3D for this, so it never takes an
-   * opacity of its own, which would flatten them; the back face fades instead.
+   * Each face hides once it turns away from the reader, so the plain back shows as the sheet
+   * passes upright. The leaf never takes an opacity of its own, because that flattens its 3D
+   * faces. The back face fades instead.
    */
   .notepad-leaf-face {
     position: absolute;
@@ -357,7 +357,7 @@
     opacity: 0;
   }
 
-  /* The cover hangs from the binding too, so it flips up on load like the pages do. */
+  /* The cover hangs from the binding too and flips up on load like the pages. */
   .book-cover {
     inset: 0;
     width: auto;
@@ -368,7 +368,7 @@
     border-radius: 8px;
   }
 
-  /* The cover turns over the binding like the pages, so its inside faces the reader once it is past upright. */
+  /* The cover turns over the binding like the pages. Its inside faces the reader once it is past upright. */
   .book-cover-back {
     border-radius: 8px;
     transform: rotateX(180deg);
@@ -423,7 +423,7 @@
 
 /*
  * Short landscape screens (phones on their side): the detail card sets its picture beside the
- * text and scrolls the text, so the open button is never cut off below the screen.
+ * text and scrolls the text within the panel height.
  */
 @media (orientation: landscape) and (max-height: 560px) {
   .detail-overlay {
@@ -457,9 +457,8 @@
 }
 
 /*
- * Theme swaps repaint every themed surface at once, so any running color
- * transition would fade at its own speed while the background flips. The
- * theme toggles add this class to <html> for two frames around the change.
+ * Turns off color transitions while the theme changes. The theme toggles add
+ * this class to <html> for two frames around the change.
  */
 .theme-switching,
 .theme-switching *,

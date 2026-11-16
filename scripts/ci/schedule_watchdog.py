@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Detect disabled scheduled workflows without inferring health from run age.
 
-The push-triggered watchdog checks GitHub's workflow state because a disabled
-schedule cannot report its own failure. Smoke tests and other scheduled checks
-own their result alerts. Delayed or missing runs do not imply a disabled workflow.
+The push-triggered watchdog checks GitHub's workflow state for each scheduled
+workflow. Smoke tests and other scheduled checks own their result alerts. Delayed
+or missing runs do not imply a disabled workflow.
 """
 
 from __future__ import annotations

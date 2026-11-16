@@ -405,9 +405,7 @@ def _handle_comment(args: argparse.Namespace) -> int:
 def _handle_edit_pr(args: argparse.Namespace) -> int:
     """Edit a pull request's title and/or body.
 
-    The body file is forwarded to ``gh pr edit --body-file`` rather than read
-    here, so gh handles large files (and ``-`` stdin) without an oversized
-    command-line argument.
+    The body file is forwarded unread to ``gh pr edit --body-file``.
     """
     pr_review.edit_pr(args.pr, title=args.title, body=args.body, body_file=args.body_file)
     print("Edited PR")

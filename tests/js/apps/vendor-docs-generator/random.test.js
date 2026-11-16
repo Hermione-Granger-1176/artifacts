@@ -26,7 +26,7 @@ test('createSeededRandom stays inside the open unit interval', () => {
 });
 
 test('createSeededRandom normalises seeds that would stall the generator', () => {
-  // A zero state would be a fixed point, so it has to be lifted into range.
+  // Checks that zero and the largest 31-bit seed still produce draws in the open unit interval.
   for (const seed of [0, -0, 2_147_483_647]) {
     const value = createSeededRandom(seed)();
     assert.ok(value > 0 && value < 1, `seed ${seed} produced ${value}`);

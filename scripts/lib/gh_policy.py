@@ -1,10 +1,9 @@
 """Shared failure classification and retry backoff for GitHub CLI calls.
 
 Both the workflow helpers and the interactive GitHub CLI wrappers invoke
-``gh``. Keeping their retry decisions here makes rate-limit handling
-consistent: rate limits always fail fast, transient infrastructure failures
-can retry, and all other errors are final. A blocked GraphQL endpoint is its
-own kind, so the interactive wrappers can switch to REST instead of retrying.
+``gh``. Rate limits fail fast, transient infrastructure failures retry, and all
+other errors are final. A blocked GraphQL endpoint is its own kind, and the
+interactive wrappers switch to REST instead of retrying.
 """
 
 from __future__ import annotations
@@ -17,19 +16,16 @@ from typing import Literal
 type GhFailureKind = Literal["graphql_unavailable", "rate_limit", "transient", "forbidden", "fatal"]
 type RandomFunction = Callable[[], float]
 
-# Rules are checked in order. A blocked GraphQL endpoint answers with an HTTP 403
-# whose text names the REST routes to use instead, so it is matched on that text
-# before any rule that reads the status code. A rate-limit message can also
-# mention HTTP 403, so it must win before the permission-specific rule.
+# Rules are checked in order, and the first match wins. GraphQL-unavailable text is
+# matched first, and rate-limit text before the forbidden rule, since a rate-limit
+# message can also mention HTTP 403.
 GH_FAILURE_CLASSIFIERS: tuple[tuple[GhFailureKind, re.Pattern[str]], ...] = (
     ("graphql_unavailable", re.compile(r"GraphQL is not available", re.IGNORECASE)),
     (
         "rate_limit",
         re.compile(
-            # 429 needs the same HTTP anchoring as the server codes below: a bare
-            # ``429`` also appears in run numbers and line numbers, and a false
-            # rate-limit verdict aborts with a misleading "wait for the window
-            # to reset" message instead of surfacing the real failure.
+            # Match 429 only as an HTTP status, like the server codes below. A bare
+            # 429 also appears in run and line numbers.
             r"rate limit|submitted too quickly|abuse detection|secondary rate|"
             r"\bHTTP 429\b|\b429 too many requests\b",
             re.IGNORECASE,
@@ -38,12 +34,9 @@ GH_FAILURE_CLASSIFIERS: tuple[tuple[GhFailureKind, re.Pattern[str]], ...] = (
     (
         "transient",
         re.compile(
-            # Retry 500, 502, 503, and 504: GitHub returns these for overloaded
-            # or proxy-layer failures that usually clear. 501 is excluded on
-            # purpose, because "Not Implemented" never becomes available by
-            # retrying. Codes only count when the message marks them as an HTTP
-            # status or pairs them with their reason phrase; a bare ``502`` would
-            # also match line numbers, object ids, and byte counts.
+            # Retries 500, 502, 503, and 504. 501 is not retried. A code matches only
+            # as an HTTP status or with its reason phrase, so a bare number such as
+            # 502 does not match.
             r"\bHTTP 50[0234]\b|"
             r"\b50[0234] (?:internal server error|bad gateway|"
             r"service unavailable|gateway time-?out)\b|"
@@ -56,8 +49,8 @@ GH_FAILURE_CLASSIFIERS: tuple[tuple[GhFailureKind, re.Pattern[str]], ...] = (
     ("forbidden", re.compile(r"Resource not accessible by integration", re.IGNORECASE)),
 )
 
-# Idempotent GitHub calls get two retries. The delay grows exponentially and
-# includes bounded jitter so concurrent workflows do not retry in lockstep.
+# Idempotent GitHub calls get two retries. The delay grows exponentially, with
+# bounded jitter.
 DEFAULT_GH_RETRIES = 2
 RETRY_BACKOFF_BASE_SECONDS = 1.0
 RETRY_BACKOFF_CAP_SECONDS = 8.0

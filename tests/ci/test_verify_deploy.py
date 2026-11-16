@@ -10,7 +10,7 @@ import scripts.ci.verify_deploy as verify_deploy
 
 
 def write_text(path: Path, content: str) -> None:
-    """Write text."""
+    """Create parent directories and write text as UTF-8."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 

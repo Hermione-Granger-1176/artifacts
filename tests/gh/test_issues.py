@@ -57,7 +57,7 @@ def test_issue_summary_includes_meta_labels_and_recent_comments() -> None:
 
 
 def test_issue_summary_handles_empty_optional_fields() -> None:
-    """Null author, labels, assignees, milestone, and comments render as ``none``."""
+    """A null author renders as ``@unknown``; other null fields render as ``none``."""
     payload = {
         "number": 9,
         "title": "Empty",

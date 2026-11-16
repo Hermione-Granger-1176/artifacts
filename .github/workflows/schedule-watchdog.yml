@@ -1,10 +1,7 @@
 name: Schedule Watchdog
 
-# GitHub auto-disables cron triggers after about 60 days of repository
-# inactivity, and a disabled schedule cannot open its own alert issue. This
-# watchdog runs from the push trigger (which GitHub never auto-disables) so a
-# disabled scheduled workflow becomes a visible alert issue instead of
-# silently taking the monitoring layer offline.
+# Runs on pushes to main and on manual dispatch. Checks that the scheduled
+# workflows are enabled and reports stale or disabled ones through an alert issue.
 on:
   push:
     branches:
@@ -14,7 +11,7 @@ on:
 env:
   PYTHONPATH: "."
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  # Keep the issue identity so healthy runs can close existing watchdog alerts.
+  # Title that identifies the watchdog alert issue. Healthy runs close the issue by this title.
   ALERT_TITLE: Scheduled workflow watchdog found stale or disabled schedules
 
 jobs:
@@ -43,8 +40,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Make maps every failing recipe to exit code 2, so the Python
-          # watchdog writes `checked=true|false` for the alert decision.
+          # Make exits with code 2 when a recipe fails. The Python watchdog writes
+          # checked=true|false to GITHUB_OUTPUT for the alert steps.
           set +e
           make ci-schedule-watchdog > schedule-watchdog.txt 2>&1
           status=$?

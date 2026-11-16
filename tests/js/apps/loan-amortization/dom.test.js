@@ -151,7 +151,7 @@ test('updateBiweeklyMode enables the panel for biweekly and disables it otherwis
   assert.match(elements.bwDesc.textContent, /recalculated/);
 
   updateBiweeklyMode(elements, 'monthly', 'accelerated');
-  // The panel is never hidden, so the controls below it keep their place.
+  // The panel stays visible and only its inactive state changes.
   assert.equal(elements.biweeklyMode.hidden, false);
   assert.equal(elements.biweeklyMode.classList.contains('is-inactive'), true);
   assert.equal(elements.bwTrue.disabled, true);
@@ -623,8 +623,8 @@ test('bindEvents text input ignores NaN and non-positive values', () => {
     parseNumber: (v) => parseFloat(v)
   });
 
-  // A NaN or non-positive value does not commit. It asks the app to restore
-  // the field, so the box never shows a value the calculation is not using.
+  // A NaN or non-positive value does not commit. It calls onInvalidInput so the
+  // app restores the field.
   elements.inPrincipal.value = 'abc';
   listeners['inPrincipal:change'].call(elements.inPrincipal);
   elements.inPrincipal.value = '0';
@@ -711,7 +711,7 @@ test('refreshPalette clears the cache and returns fresh palette', () => {
   try {
     const first = refreshPalette();
     const second = refreshPalette();
-    // Both should be valid palettes (cache was cleared)
+    // Both calls return valid palettes with matching colors.
     assert.ok(first.blue === second.blue);
     assert.ok('tick' in second);
     assert.ok('grid' in second);

@@ -427,7 +427,7 @@ def test_generate_thumbnails_exits_when_playwright_is_missing(
 
 
 class FakeClock:
-    """FakeClock."""
+    """Stand-in for the page clock that records the time passed to set_fixed_time."""
 
     def __init__(self) -> None:
         self.fixed_time: str | None = None
@@ -438,7 +438,7 @@ class FakeClock:
 
 
 class FakePage:
-    """FakePage."""
+    """Stand-in for a Playwright page that asserts the capture arguments it receives."""
 
     def __init__(
         self,
@@ -496,7 +496,7 @@ class FakePage:
 
 
 class FakeBrowser:
-    """FakeBrowser."""
+    """Stand-in for a Playwright browser that hands out FakePage objects."""
 
     def __init__(
         self,
@@ -538,7 +538,7 @@ class FakeBrowser:
 
 
 class FakePlaywright:
-    """FakePlaywright."""
+    """Stand-in for the Playwright handle, exposing a chromium launcher."""
 
     def __init__(
         self,
@@ -565,7 +565,7 @@ class FakePlaywright:
 
 
 class FakeAsyncPlaywright:
-    """FakeAsyncPlaywright."""
+    """Stand-in for the async_playwright() context manager."""
 
     def __init__(
         self,

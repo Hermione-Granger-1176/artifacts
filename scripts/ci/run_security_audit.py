@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 """Run a policy-driven Python dependency security audit for exported requirements.
 
-A bare ``pip-audit --strict`` fails the build on any advisory, including
-triaged transitive ones, with no principled override. This module wraps
-``pip-audit --strict --format json`` with a reviewed-exception policy:
-exceptions expire on a ``review_by`` date, an exception is evicted once a fix
-becomes available (when it was granted only while unfixed), and unused
-exceptions are reported so the allow-list never rots.
+This module wraps ``pip-audit --strict --format json`` with a reviewed-exception
+policy: exceptions expire on a ``review_by`` date, an exception stops applying
+once a fix becomes available (when it was granted only while unfixed), and
+unused exceptions are reported.
 
-``--strict`` semantics are preserved twice over: the flag is always passed, and
-any dependency pip-audit reports as skipped is surfaced as an audit error.
+The ``--strict`` flag is always passed, and any dependency pip-audit reports as
+skipped becomes an audit error.
 
 Exceptions live under ``python_vulnerability_exceptions`` in
 ``config/security_audit.json``.
@@ -35,7 +33,7 @@ from scripts.ci.security_audit_policy import (
 )
 
 # Default pip-audit invocation. The Makefile overrides this with the repository
-# virtualenv form so CI uses the managed pip-audit installation.
+# virtualenv form.
 DEFAULT_PIP_AUDIT_COMMAND = "pip-audit"
 MAX_SUBPROCESS_ERROR_DETAIL_LENGTH = 500
 PIP_AUDIT_TIMEOUT_SECONDS = 120

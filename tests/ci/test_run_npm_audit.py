@@ -32,8 +32,7 @@ def _exception(
     *,
     vulnerability_id: str = "GHSA-aaaa-bbbb-cccc",
     package: str = "left-pad",
-    # A stable far-future default keeps unexpired-exception tests from rotting
-    # as the real calendar advances past any near-term date.
+    # Far-future review date, so the exception is unexpired.
     review_by: date = date(2999, 12, 31),
     ignore_only_without_fix: bool = False,
 ) -> VulnerabilityExceptionEntry:
@@ -80,7 +79,7 @@ def test_advisory_ids_falls_back_to_numeric_source() -> None:
 
 @pytest.mark.parametrize("source", [True, -1, "42", {}, [], None])
 def test_advisory_ids_rejects_invalid_numeric_source(source: object) -> None:
-    """Malformed npm source ids fail closed instead of becoming bogus aliases."""
+    """Malformed npm source ids raise ValueError."""
     with pytest.raises(ValueError, match="'source' must be a non-negative integer"):
         run_npm_audit._advisory_ids(
             {
@@ -91,7 +90,7 @@ def test_advisory_ids_rejects_invalid_numeric_source(source: object) -> None:
 
 
 def test_advisory_ids_rejects_non_string_url() -> None:
-    """Malformed advisory URLs cannot be stringified into trusted input."""
+    """A non-string advisory URL raises ValueError."""
     with pytest.raises(ValueError, match="'url' must be a string"):
         run_npm_audit._advisory_ids({"url": {}, "source": 42})
 
@@ -128,7 +127,7 @@ def test_parse_advisory_builds_finding() -> None:
 
 @pytest.mark.parametrize("severity", [None, "", "HIGH", "unknown", 1])
 def test_parse_advisory_rejects_invalid_severity(severity: object) -> None:
-    """Malformed severities cannot pass through a reviewed exception."""
+    """Severities outside the npm severity ladder raise ValueError."""
     with pytest.raises(ValueError, match="invalid severity"):
         run_npm_audit._parse_advisory(
             {"source": 42, "severity": severity},
@@ -188,7 +187,7 @@ def test_parse_npm_audit_defaults_package_name_to_key() -> None:
 
 @pytest.mark.parametrize("name", [None, "", " ", 42])
 def test_parse_npm_audit_rejects_invalid_package_name(name: object) -> None:
-    """Malformed package names cannot be coerced into exception identities."""
+    """Package names that are not non-blank strings raise ValueError."""
     payload = {
         "vulnerabilities": {
             "left-pad": {
@@ -220,7 +219,7 @@ def test_parse_npm_audit_rejects_invalid_package_name(name: object) -> None:
     ],
 )
 def test_parse_npm_audit_rejects_invalid_fix_available(fix_available: object) -> None:
-    """Unexpected fix metadata fails closed instead of changing policy truthiness."""
+    """Unexpected fixAvailable values raise ValueError."""
     payload = {
         "vulnerabilities": {
             "left-pad": {
@@ -309,7 +308,7 @@ def test_run_npm_audit_splits_command_with_flags(monkeypatch: pytest.MonkeyPatch
 
 
 def test_run_npm_audit_rejects_empty_command() -> None:
-    """An empty override cannot accidentally execute a binary named audit."""
+    """An empty command override raises ValueError."""
     with pytest.raises(ValueError, match="must not be empty"):
         run_npm_audit._run_npm_audit("  ")
 
@@ -499,7 +498,7 @@ def test_audit_reports_unused_exception() -> None:
 
 
 def test_audit_counts_exception_below_raised_threshold_as_used() -> None:
-    """Ad-hoc severity filtering does not make a valid policy look stale."""
+    """An exception that matches a finding below the audit level counts as used."""
     exception = _exception()
     ignored, errors = run_npm_audit._audit_npm_dependencies(
         today=date(2026, 1, 1),
@@ -562,7 +561,7 @@ def test_audit_rejects_ambiguous_exceptions_below_threshold() -> None:
 
 
 def test_audit_rejects_multiple_exceptions_matching_one_advisory() -> None:
-    """Alias and primary-id policies cannot ambiguously govern one finding."""
+    """Exceptions matching one finding by alias and by primary id fail the audit."""
     ignored, errors = run_npm_audit._audit_npm_dependencies(
         today=date(2026, 1, 1),
         exceptions=(
@@ -618,7 +617,7 @@ def test_is_gated_applies_the_npm_severity_ladder() -> None:
 
 
 def test_audit_gates_every_severity_by_default() -> None:
-    """The default gate reviews weak advisories too, not just high and critical."""
+    """With no audit level set, every severity is gated."""
     for severity in run_npm_audit.SEVERITY_ORDER:
         ignored, errors = run_npm_audit._audit_npm_dependencies(
             today=date(2026, 1, 1),
@@ -633,7 +632,7 @@ def test_audit_gates_every_severity_by_default() -> None:
 
 
 def test_audit_skips_findings_below_a_raised_audit_level() -> None:
-    """Raising the audit level narrows an ad-hoc run to the stronger advisories."""
+    """Findings below the audit level are skipped."""
     ignored, errors = run_npm_audit._audit_npm_dependencies(
         today=date(2026, 1, 1),
         exceptions=(),

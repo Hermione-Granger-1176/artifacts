@@ -29,11 +29,7 @@ const ITEMS_PER_PAGE = 4;
 const NOTEPAD_ITEMS_PER_PAGE = 1;
 const SCROLL_TOP_THRESHOLD = 300;
 const DETAIL_CLOSE_DELAY = 360;
-/**
- * How long the search waits after the last keystroke. Long enough that even slow
- * typing (about 300ms a key) runs one search per word instead of one per key,
- * and still short enough to feel immediate.
- */
+/** Delay in milliseconds between the last keystroke and the search. */
 const SEARCH_DELAY_MS = 400;
 const ACTIVATION_KEYS = new Set(['Enter', ' ']);
 /** How far a finger must travel up or down the notepad before the swipe turns the page. */
@@ -117,9 +113,8 @@ function countValues(items, field) {
 }
 
 /**
- * Which way a finger's travel turns the notepad. Like a calendar, pushing the page up flips it
- * over the binding to the next one. Travel that is too short, or more sideways than up or down,
- * turns nothing.
+ * Pages to turn for a swipe. Pushing up moves to the next page and pushing down moves to the
+ * previous one. Travel shorter than SWIPE_MIN_PX, or more sideways than vertical, turns nothing.
  * @param {number} dx - Horizontal travel in pixels.
  * @param {number} dy - Vertical travel in pixels, positive downwards.
  * @returns {-1 | 0 | 1} Pages to move.
@@ -330,13 +325,13 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   let pendingFocusTarget = null;
   /** @type {{ key: string, items: ArtifactRecord[] } | null} */
   let filteredCache = null;
-  // Markup the grid shows, so a render that would write the same cards (a keystroke that keeps
-  // the same matches) leaves the cards, their hover states, and their thumbnails alone.
+  // Markup currently shown in the grid. A render that produces the same markup leaves the
+  // cards, their hover states, and their thumbnails untouched.
   let renderedGridHtml = '';
   let pageSize = getPageSize();
   /** @type {{ x: number, y: number } | null} */
   let swipeStart = null;
-  // A swipe that turned the page ends on a card, so the click it may leave behind must not open it.
+  // Set when a swipe turns the page. The click that follows is swallowed.
   let swipeTurned = false;
 
   const bookScene = createBookScene({
@@ -405,7 +400,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   searchInput.addEventListener('input', () => {
     cancelPendingSearch();
-    // An emptied box is not a typing burst, so the full list comes back at once.
+    // An emptied search box applies immediately.
     if (normalizeSearchQuery(searchInput.value) === '') {
       applySearch();
       return;
@@ -432,9 +427,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   /**
-   * Commit text typed during the search debounce. Another control can change
-   * the state before the debounce fires, and syncUIToState would then put the
-   * old query back in the box and lose the typing.
+   * Commits text typed during the search debounce. Called before a state change,
+   * so the typed text is kept.
    */
   function commitPendingSearch() {
     if (debounceTimer === undefined) {
@@ -595,8 +589,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   registerThumbnailFallback(bookSheet);
 
   grid.addEventListener('click', (event) => {
-    // The click a page-turn swipe leaves behind is swallowed whole, so a swipe that started on
-    // the notepad's open link does not also open the artifact in a new tab.
+    // Swallows the click that a page-turn swipe leaves behind, including a swipe that started
+    // on the notepad's open link.
     if (swipeTurned) {
       swipeTurned = false;
       event.preventDefault();
@@ -630,8 +624,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       return;
     }
 
-    // Previous and Next are relative to the latest requested page, so presses made
-    // while a turn is still running keep stepping instead of repeating the same page.
+    // Previous and Next are relative to the latest requested page, including presses
+    // made while a turn is running.
     const step = Number.parseInt(button.dataset.pageStep || '', 10);
     const requested = Number.isNaN(step) ? Number.parseInt(button.dataset.page || '', 10) : currentPage + step;
     const page = Math.min(requested, pageCount);
@@ -679,7 +673,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
 
   windowObj.addEventListener('popstate', () => {
     overlay.close({ restoreFocus: false, immediate: true });
-    // Back and Forward restore the query in the URL, so drop any pending typing.
+    // Back and Forward restore the query from the URL. Pending typing is dropped.
     cancelPendingSearch();
     suppressPush = true;
     readStateFromUrl();
@@ -710,8 +704,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   });
 
   /**
-   * Turn notepad pages with a vertical swipe on the sheet. A swipe that turned the page ends on
-   * a card, so it also swallows the click that follows.
+   * Turns notepad pages with a vertical swipe on the sheet. A swipe that turns the page also
+   * swallows the click that follows.
    * @param {HTMLElement} sheet - The book sheet.
    */
   function bindNotepadSwipe(sheet) {
@@ -730,10 +724,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
       const page = currentPage + step;
       if (step !== 0 && page >= 1 && page <= pageCount) {
         swipeTurned = true;
-        // The browser dispatches the click that follows pointerup in the same
-        // task. A swipe can end without one (a touch, or a drag that leaves
-        // the grid), so drop the flag after this task. Otherwise it would
-        // swallow the next keyboard Enter on a card.
+        // Any click after pointerup is dispatched in the same task. A swipe can
+        // end with no click, so the flag is cleared after this task.
         windowObj.setTimeout(() => {
           swipeTurned = false;
         }, 0);
@@ -743,7 +735,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     sheet.addEventListener('pointercancel', () => {
       swipeStart = null;
     });
-    // A mouse drag that starts on the photo or the open link would become a native drag and cancel the swipe.
+    // Blocks native drag on the notepad. A native drag on the photo or open link would cancel the swipe.
     sheet.addEventListener('dragstart', (event) => {
       if (notepadQuery.matches) {
         event.preventDefault();
@@ -759,7 +751,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   function goToPage(page, focusTarget = null) {
     pendingFocusTarget = focusTarget;
     overlay.close({ restoreFocus: false, immediate: true });
-    // Measure before the turn writes the new pagination, so the read needs no fresh layout.
+    // Measures before the turn writes the new pagination.
     scrollBookIntoView();
     void bookScene.turnPage(page);
   }
@@ -770,10 +762,9 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   /**
-   * Switching between the book and the notepad changes how many artifacts a page holds, so the
-   * reader moves to the page that holds the first artifact they were looking at, and the URL
-   * follows so a reload lands there too. Leaving the notepad brings the desk notes back, so an
-   * open filter panel has nothing left to cover.
+   * Switching between the book and the notepad changes how many artifacts a page holds. The
+   * reader moves to the page holding the first artifact they were viewing, and the URL follows.
+   * Leaving the notepad closes any open filter panel.
    */
   function onLayoutChange() {
     if (!notepadQuery.matches) {
@@ -794,8 +785,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   /**
-   * Bring the book's top edge back on screen when a page turn starts below it, so the
-   * pagination row under a tall phone page never leaves the reader at the new page's end.
+   * Scrolls the book's top edge back into view when it sits above the viewport at the start of
+   * a page turn.
    */
   function scrollBookIntoView() {
     const bookTop = bookShell.getBoundingClientRect().top;
@@ -840,9 +831,8 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
   }
 
   /**
-   * Swap the theme attribute with every transition switched off, so colors with
-   * different transition speeds change together instead of fading at different
-   * rates. The class comes off two frames later, after the new colors have painted.
+   * Swap the theme attribute with every transition switched off, so all colors change
+   * together. The class comes off two frames later, once the new colors have painted.
    * @param {string} theme - Normalized theme name.
    */
   function switchThemeWithoutTransitions(theme) {
@@ -1078,8 +1068,7 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
         (descriptor.step
           && paginationContainer.querySelector(`[data-page-step="${CSS.escape(descriptor.step)}"]:not(:disabled)`))
         // The First and Last nav buttons also carry data-page and come first
-        // in DOM order. Skip disabled ones, or focus lands on a dead button and
-        // falls back to <body>.
+        // in DOM order, so disabled ones are skipped.
         || paginationContainer.querySelector(`[data-page="${CSS.escape(descriptor.value)}"]:not(:disabled)`)
       ),
       'desk-note': () => /** @type {HTMLElement | null} */ (
@@ -1097,14 +1086,14 @@ export function initializeGalleryApp({ documentObj = document, runtime, windowOb
     const target = resolvePendingFocusTarget(pendingFocusTarget);
     pendingFocusTarget = null;
     if (target) {
-      // The re-rendered control is where the pointer or key just was; scrolling to it only makes the page jump.
+      // Focuses the re-rendered control without scrolling to it.
       target.focus({ preventScroll: true });
     }
   }
 
   /**
-   * The list is remembered by the state that produced it, so the render and the
-   * faces of a page turn share one filter pass.
+   * Caches the result for the current state, so a render and the faces of a page turn
+   * share one filter pass.
    * @returns {ArtifactRecord[]} Artifacts matching the current search, filters, and sort.
    */
   function getFilteredArtifacts() {

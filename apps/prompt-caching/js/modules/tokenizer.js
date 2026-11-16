@@ -13,9 +13,9 @@ export function initTokenizer() {
 
   let viewMode = "text";
 
-  // Both views live in the output at once, stacked in one grid cell, and the
-  // inactive one is hidden. The box therefore always fits the taller view for
-  // the current text and width, so switching views never moves what follows.
+  // Both views stay in the output at once, stacked in one grid cell, with the
+  // inactive one hidden. The box fits the taller view for the current text and
+  // width, so switching views does not shift the content after it.
   const textLayer = makeEl("div", "pc-token-layer");
   const idsLayer = makeEl("div", "pc-token-layer");
   output.replaceChildren(textLayer, idsLayer);

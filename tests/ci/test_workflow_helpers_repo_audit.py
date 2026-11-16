@@ -10,7 +10,7 @@ from scripts.lib.github_output import report_checked
 
 
 def test_collect_named_items_rejects_non_lists_and_non_dict_entries() -> None:
-    """Malformed Actions list responses must not be treated as empty lists."""
+    """Malformed Actions list responses raise RuntimeError instead of reading as empty."""
     with pytest.raises(RuntimeError, match="must include a variables list"):
         repo_audit.collect_named_items({"variables": "invalid"}, "variables")
     with pytest.raises(RuntimeError, match="non-object entry"):
@@ -104,7 +104,7 @@ def test_extract_required_checks_handles_missing_data() -> None:
 
 
 def test_extract_required_checks_rejects_malformed_status_checks() -> None:
-    """Malformed required checks fail closed instead of looking like no checks."""
+    """Malformed required-check data raises RuntimeError instead of reading as no checks."""
     with pytest.raises(RuntimeError, match="required status checks must be a JSON object"):
         repo_audit.extract_required_checks({"required_status_checks": []})
     with pytest.raises(RuntimeError, match="contexts must be a JSON array"):
@@ -328,7 +328,7 @@ def _patch_audit_responses(monkeypatch: pytest.MonkeyPatch, responses: dict[str,
 def test_audit_repo_settings_rejects_malformed_core_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Malformed metadata, Pages, and HTTPS fields fail closed."""
+    """Malformed metadata, Pages, and HTTPS fields raise RuntimeError."""
     responses = _minimal_audit_responses()
     responses["repos/owner/repo"] = {"default_branch": 9}
     _patch_audit_responses(monkeypatch, responses)
@@ -413,7 +413,7 @@ def test_audit_repo_settings_validates_review_settings(
     error: type[Exception],
     message: str,
 ) -> None:
-    """Review requirements must be present and typed before they are trusted."""
+    """Review requirements must be present and correctly typed."""
     responses = _minimal_audit_responses()
     responses["repos/owner/repo/branches/main/protection"] = protection
     _patch_audit_responses(monkeypatch, responses)
@@ -509,8 +509,7 @@ def test_enabled_security_features_reads_only_enabled_entries() -> None:
             "secret_scanning": {"status": "enabled"},
             "secret_scanning_push_protection": {"status": "disabled"},
             "secret_scanning_validity_checks": "enabled",
-            # A non-string key cannot come back from GitHub's JSON, but the value
-            # is typed as object, so the guard keeps the set[str] return honest.
+            # Non-string keys are skipped so the return type stays set[str].
             9: {"status": "enabled"},
         }
     }
@@ -519,11 +518,7 @@ def test_enabled_security_features_reads_only_enabled_entries() -> None:
 
 
 def test_enabled_security_features_treats_a_missing_block_as_nothing_enabled() -> None:
-    """The block is absent without administration access, which must read as drift.
-
-    Reporting an unreadable setting as satisfied would let the audit certify
-    push protection it never actually observed.
-    """
+    """A missing security block means no feature is enabled."""
     assert repo_audit.enabled_security_features({}) == set()
     assert repo_audit.enabled_security_features({"security_and_analysis": None}) == set()
 
@@ -531,7 +526,7 @@ def test_enabled_security_features_treats_a_missing_block_as_nothing_enabled() -
 def test_audit_repo_settings_flags_disabled_push_protection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Push protection off is drift, since it is the layer that blocks the push."""
+    """Disabled push protection is reported as drift."""
     responses = {
         "repos/owner/repo": {
             "default_branch": "main",
@@ -671,7 +666,7 @@ def test_audit_repo_settings_rejects_invalid_new_response_types(
     response: object,
     message: str,
 ) -> None:
-    """New policy endpoints fail closed when GitHub returns the wrong shape."""
+    """Raises RuntimeError when a policy endpoint returns the wrong JSON shape."""
     responses = _minimal_audit_responses()
     responses[endpoint] = response
     _patch_audit_responses(monkeypatch, responses)
@@ -683,7 +678,7 @@ def test_audit_repo_settings_rejects_invalid_new_response_types(
 def test_audit_repo_settings_rejects_invalid_environment_policy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """An environment without a deployment policy object fails closed."""
+    """An environment without a deployment policy object raises RuntimeError."""
     responses = _minimal_audit_responses()
     responses["repos/owner/repo/environments/github-pages"] = {}
     _patch_audit_responses(monkeypatch, responses)

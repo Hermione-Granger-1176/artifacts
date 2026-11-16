@@ -221,12 +221,9 @@ def resolve_thumbnail(
 ) -> str:
     """Return the canonical thumbnail path for an artifact.
 
-    Every artifact is guaranteed a thumbnail by the build/deploy pipeline (CI
-    renders and persists ``thumbnail.webp``), so the path is a stable contract
-    value, not a presence flag. Decoupling it from on-disk presence keeps the
-    generated-drift check stable no matter when thumbnails are rendered,
-    invalidated, or persisted. A brand-new app can therefore land with a correct
-    ``data.js`` before its webp has been generated.
+    The path is derived from the contract and does not depend on whether the
+    file exists on disk. CI renders and persists ``thumbnail.webp`` for each
+    artifact.
     """
     return config.artifact_thumbnail_path(folder.name)
 

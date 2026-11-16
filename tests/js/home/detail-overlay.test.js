@@ -285,7 +285,7 @@ describe('detail overlay applyDetailMotion', () => {
     const props = deps.detailPanel.style._props;
     assert.equal(props['--detail-from-x'], '-250px');
     assert.equal(props['--detail-from-y'], '-250px');
-    // The wider ratio (300 / 500) wins, so the panel keeps its shape.
+    // The wider ratio (300 / 500) is used.
     assert.equal(props['--detail-from-scale'], '0.6');
   });
 

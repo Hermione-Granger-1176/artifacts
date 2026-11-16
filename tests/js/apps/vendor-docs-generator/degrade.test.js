@@ -104,8 +104,7 @@ test('rotation is jittered and signed, not the preset number repeated', () => {
 });
 
 test('turning one effect off does not move the others', () => {
-  // Every stochastic value is drawn up front in a fixed order, so a run with
-  // grain disabled tilts by exactly as much as the same run with grain on.
+  // Stochastic values are drawn in a fixed order, so disabling grain leaves the rotation unchanged.
   const withGrain = plan('copier');
   const withoutGrain = plan('copier', { noise: 0 });
 
@@ -143,9 +142,8 @@ test('keystone narrows the far edge and foreshortens it', () => {
 });
 
 test('combined phone geometry keeps every page corner inside the sheet', () => {
-  // A fit needs translation as well as scale once rotation and skew combine
-  // with keystone; seed 1131 is a known witness, and the sweep covers the full
-  // jittered preset rather than one hand-picked transform.
+  // Checks that every corner stays inside the sheet for the jittered phone
+  // preset across 200 seeds.
   const tolerance = 1e-6;
 
   for (let seed = 1_000; seed < 1_200; seed += 1) {
@@ -210,8 +208,8 @@ test('boxes follow the ink through the transform', () => {
   assert.equal(total.quad.length, 8);
   assert.deepEqual(total.quad.slice(0, 2), project(transform, 0.7, 0.6).map((value) => Math.round(value * 10_000) / 10_000));
 
-  // box stays the axis-aligned hull of quad, which is what keeps a reader
-  // written against a clean run working against a degraded one.
+  // box stays the axis-aligned hull of quad, so readers written for clean runs
+  // still work on degraded ones.
   const xs = [total.quad[0], total.quad[2], total.quad[4], total.quad[6]];
   const ys = [total.quad[1], total.quad[3], total.quad[5], total.quad[7]];
   assert.ok(Math.abs(total.box[0] - Math.min(...xs)) < 1e-4);
@@ -339,8 +337,7 @@ test('the blur filter is lifted before the artifacts are painted', () => {
   const { documentObj } = createFakeCanvasDocument();
   const output = degradeCanvas(createFakeCanvas(40, 56), plan('copier'), { documentObj });
 
-  // Dust drawn through the page blur would be blurred dust, which is not what a
-  // speck on the platen looks like.
+  // Dust is drawn after the blur filter is cleared, so it stays sharp.
   assert.equal(output.ctx.filter, 'none');
   assert.ok(output.ctx.calls.some((call) => call.name === 'arc'), 'copier paper has dust and punch holes');
 });

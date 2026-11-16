@@ -136,12 +136,9 @@ function defaultHint(dot) {
 }
 
 /**
- * Keep a card's reserved height current. Measuring renders every state once,
- * which is real work, and the card sits far down the page, so the first
- * measurement waits until the card comes within two screens of the viewport,
- * where its height can still change without anyone seeing it. Line wraps depend
- * on the width, so it measures again when the width changes (a phone rotating,
- * a window resize) and once the web fonts have settled.
+ * Keeps a card's reserved height current. The first measurement runs when the
+ * card comes within two screens of the viewport. It measures again when the
+ * width changes (for example, a rotation or a window resize) and once web fonts load.
  * @param {HTMLElement} card - Card whose height is reserved.
  * @param {() => void} reserve - Measures every state and sets the reservation.
  * @returns {void}
@@ -189,10 +186,9 @@ function initStepper() {
   let maskOn = true;
   let current = 0;
 
-  // Each step renders inside a shared window-style frame (same look as the
-  // pseudocode cards); `frame` points at the current title and body elements.
-  // Both are populated by the step builder below before any draw() runs, so
-  // they are typed as non-null elements.
+  // Each step renders inside a shared window-style frame. `frame` points at the
+  // current title and body elements, which are populated before any draw() runs,
+  // so they are typed as non-null elements.
   const frame = /** @type {{ title: HTMLElement, body: HTMLElement }} */ (
     /** @type {unknown} */ ({ title: null, body: null })
   );
@@ -275,8 +271,8 @@ function initStepper() {
             const selected = m === mode && !scrambled;
             const btn = /** @type {HTMLButtonElement} */ (makeEl("button", selected ? "active" : "", `W${m} → ${m}`));
             btn.type = "button";
-            // Every other type-toggle in the app gets aria-pressed from initSegmented.
-            // This one is rebuilt on each draw, so it sets the state directly.
+            // Set directly: this toggle is rebuilt on each draw, unlike the ones
+            // wired by initSegmented, which sync aria-pressed themselves.
             btn.setAttribute("aria-pressed", String(selected));
             btn.addEventListener("click", () => setMode(m));
             toggle.appendChild(btn);
@@ -445,13 +441,11 @@ function initStepper() {
   }
 
   /**
-   * Hold the card at the height of its tallest state at the current width, so
-   * stepping, scrambling, or opening a calculation never moves what follows.
-   * Every step is rendered once (also scrambled, unmasked, and with each
-   * calculation open) and measured; the layout reads happen in one task, so
-   * nothing is painted. The live nodes are set aside and put back afterwards,
-   * so a later re-measure keeps the reader's projection, scrambled weights,
-   * open calculation, and focus.
+   * Sets the card's min-height to its tallest state at the current width. Renders
+   * every step, including scrambled, unmasked, and each calculation open, and
+   * measures each one. Runs in one task, so nothing paints. The live nodes are
+   * restored afterwards, keeping the reader's projection, scrambled weights, open
+   * calculation, and focus.
    */
   function reserveTallestStep() {
     const resumeStep = current;
@@ -556,8 +550,7 @@ function initGrid() {
   AGRID_WORDS.forEach((word, ri) => {
     const tr = document.createElement("tr");
     tr.dataset.row = String(ri);
-    // The row label is a button, so keyboard and screen-reader users can reach
-    // each row and get the same caption a mouse hover shows.
+    // The row label is a button. Focusing it shows the same caption as hovering the row.
     const label = makeEl("td", "row-label");
     const button = /** @type {HTMLButtonElement} */ (makeEl("button", "pc-attn-row", word));
     button.type = "button";

@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 """Run a policy-driven npm dependency security audit.
 
-A bare ``npm audit --audit-level=high`` fails the build on any high or critical
-advisory, including unfixable transitive ones, with no principled override.
-This module wraps ``npm audit --json`` with the same reviewed-exception policy
-the Python audit uses: exceptions expire on a ``review_by`` date, an exception
-is evicted once a fix becomes available (when it was granted only while
-unfixed), and unused exceptions are reported so the allow-list never rots.
+This module wraps ``npm audit --json`` with the reviewed-exception policy the
+Python audit uses: exceptions expire on a ``review_by`` date, an exception stops
+applying once a fix becomes available (when it was granted only while unfixed),
+and unused exceptions are reported.
 
-``npm audit --audit-level`` only changes npm's exit code, and this wrapper
-reads the JSON report instead, so the threshold is reapplied here. Every
-severity is gated by default, so the reviewed-exception policy, not a severity
-floor, is what silences a finding.
-``--audit-level`` remains available to narrow an ad-hoc run.
+``npm audit --audit-level`` only changes npm's exit code. This wrapper reads the
+JSON report, so the threshold is applied here. Every severity is gated by
+default, and only a reviewed exception silences a finding. Pass
+``--audit-level`` to narrow an ad-hoc run.
 
 Exceptions live under ``npm_vulnerability_exceptions`` in
 ``config/security_audit.json`` and share the schema of the Python entries.
@@ -239,7 +236,7 @@ def _exception_error(
     *,
     today: date,
 ) -> str | None:
-    """Return why a matched exception no longer covers its finding, else ``None``."""
+    """Return why a matched exception does not cover its finding, else ``None``."""
     if today > exception.review_by:
         return (
             "Expired npm vulnerability exception: "

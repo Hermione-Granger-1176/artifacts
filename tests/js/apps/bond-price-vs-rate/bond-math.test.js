@@ -137,7 +137,7 @@ test('duration plus convexity reproduces the exact one-point move to second orde
   const analytics = bondAnalytics(bond);
   const exactPct = bondPrice({ ...bond, annualYieldPct: 7 }) / bondPrice(bond) - 1;
   const taylorPct = -analytics.modifiedYears * 0.01 + 0.5 * analytics.convexity * 0.0001;
-  // The Taylor estimate lands within a few hundredths of a percent; duration alone is ~0.35% off.
+  // Checks that the Taylor estimate matches the exact move to within 0.05%.
   assert.ok(Math.abs(taylorPct - exactPct) < 0.0005);
 });
 

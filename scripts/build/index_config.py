@@ -2,9 +2,8 @@
 
 This module defines :class:`IndexConfig`, a frozen dataclass that captures all
 configuration the index generation pipeline needs. Higher-level functions in
-:mod:`index_sources` and :mod:`index_outputs` accept a config instance instead
-of individual parameters, while the low-level helpers they wrap remain
-independently testable with explicit arguments.
+:mod:`index_sources` and :mod:`index_outputs` accept a config instance. The
+low-level helpers they wrap take explicit arguments.
 """
 
 from __future__ import annotations

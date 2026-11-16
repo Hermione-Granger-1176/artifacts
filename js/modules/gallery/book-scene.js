@@ -1,7 +1,6 @@
 const INTRO_DELAY_MS = 500;
 const RIBBON_OFF_MS = 520;
-// The cover starts to swing once the ribbon is this far through sliding off,
-// so the two motions flow into each other with no pause between them.
+// Fraction of the ribbon slide after which the cover starts to swing.
 const RIBBON_LEAD = 0.55;
 const COVER_OPEN_MS = 1000;
 const CROSSFADE_OUT_MS = 200;
@@ -11,21 +10,21 @@ const REDUCED_FADE_OUT_MS = 120;
 const REDUCED_FADE_IN_MS = 160;
 const MOBILE_FADE_MS = 200;
 /**
- * Phones and tablets held upright get a one-page notepad bound at the top. The gallery shares this
- * query for its page size and filter dropdowns; keep it equal to the notepad block in 06-responsive-and-motion.css.
+ * Media query for the one-page notepad layout on phones and tablets held upright. The gallery
+ * shares it for its page size and filter dropdowns. Must match the notepad block in
+ * 06-responsive-and-motion.css.
  */
 export const NOTEPAD_QUERY = '(max-width: 900px)';
 const FLIP_TURN_MS = 620;
 const FLIP_TURN_EASING = 'cubic-bezier(0.65, 0, 0.35, 1)';
 const COVER_FLIP_MS = 900;
 // A notepad sheet turns like a desk calendar page: its bottom edge lifts toward the reader
-// (a positive rotateX), stands straight out at 90 degrees, then swings up over the binding and
-// drops behind the pad. The cover and every page share these keyframes, which only touch
-// transform and opacity so the compositor can run them. The sheet's faces hide by
-// backface-visibility, so its plain back shows past upright with no script involved.
+// (a positive rotateX), stands out at 90 degrees, then swings up over the binding and drops
+// behind the pad. The cover and every page share these keyframes, which animate only transform
+// and opacity. Backface visibility hides the front face past upright, so the plain back shows.
 /** @type {Keyframe[]} */
 const FLIP_KEYFRAMES = [{ transform: 'rotateX(0deg)' }, { transform: 'rotateX(180deg)' }];
-// Past 80 percent of the swing the sheet is falling behind the pad, so its back fades away.
+// After 80 percent of the swing, the back fades out.
 /** @type {Keyframe[]} */
 const FLIP_BACK_FADE_KEYFRAMES = [{ opacity: 1 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }];
 // A page darkens as it turns from the light toward upright.
@@ -148,10 +147,9 @@ const LEAF_TURN_SAMPLES = 24;
 
 /**
  * Keyframe offsets for an automatic turn, with the eased progress at each. The
- * ease-in-out curve is baked into the progress values, so the animation itself
- * can run with linear easing on the compositor. Halfway appears twice, just
- * before and just after, because the shading switches there at once rather
- * than fading.
+ * ease-in-out curve is baked into the progress values, and the animation runs
+ * with linear easing. Halfway appears twice, just before and just after, so the
+ * shading switches there without a fade.
  * @returns {Array<{ offset: number, progress: number }>} Samples in time order.
  */
 function leafTurnSamples() {
@@ -172,8 +170,8 @@ function leafTurnSamples() {
  * drag-to-scrub, and the queue that keeps rapid page requests from being lost.
  *
  * A page turn is one two-faced leaf hinged at the spine. The live pages are not
- * touched until the turn lands, so a spring-back needs no cleanup beyond
- * removing the leaf. Every method no-ops safely when the matching DOM is absent.
+ * touched until the turn lands. A spring-back cleans up by removing the leaf.
+ * Every method no-ops safely when the matching DOM is absent.
  * @param {{
  *   documentObj?: Document,
  *   windowObj?: Window,
@@ -1112,10 +1110,10 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       { opacity: 0 }
     ], options);
     alongside(sheet, [{ transform: 'translateX(-25%)' }, { transform: 'translateX(0)' }], options);
-    // The shadow trails the cover's footprint, so it never shows past its edge.
-    // Its box and its fill slide home in opposite directions from where the
-    // closed book holds them (see .book-shadow in 02-gallery.css), so only the
-    // mask edge moves, and only transforms animate.
+    // The shadow trails the cover's footprint, so it does not show past its edge.
+    // Its box and fill slide in opposite directions from the closed-book position
+    // (see .book-shadow in 02-gallery.css). Only the mask edge moves, and only
+    // transforms animate.
     const shadow = sheet.querySelector('.book-shadow');
     if (shadow) {
       for (const pseudoElement of [null, '::before']) {
@@ -1134,15 +1132,14 @@ export function createBookScene({ documentObj = document, windowObj = window, mo
       { opacity: 0 }
     ], options);
 
-    // The left half stays hidden until the cover lands on it: an open book's
-    // left side is the cover, so nothing pops in while it swings.
+    // The left half stays hidden until the cover lands on it.
     await Promise.all([swing, ...companions]);
     if (state.aborted) {
       return;
     }
 
     // The cover has landed as the left board, showing the same page the live
-    // grid holds, so the swap to the real left page is invisible.
+    // grid holds.
     openShell(shell);
   }
 

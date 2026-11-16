@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """Check that per-app stylesheets stay on the shared design-token system.
 
-Each artifact keeps its layout in ``apps/<slug>/css/*.css`` while shared color,
+Each artifact keeps its layout in ``apps/<slug>/css/*.css``. The shared color,
 radius, spacing, and type tokens come from ``css/src/`` through the generated
-``css/style.css``. Nothing re-validates those app stylesheets after they are
-authored, so a hand edit can quietly drift back to hard-coded colors or
-off-token sizes. This checker fails fast when an app stylesheet:
+``css/style.css``. This checker fails when an app stylesheet:
 
     - hard-codes a hex color (``#fff``, ``#ffffff``, ``#ffffff80``) in a
       declaration value (id selectors and masked strings are not values);
@@ -19,7 +17,7 @@ off-token sizes. This checker fails fast when an app stylesheet:
       allowed as CSS-wide non-palette keywords);
     - sets a ``border-radius`` (or a ``border-*-radius``) to a px literal above
       5px, instead of ``var(--radius-*)``, ``0``, or ``50%`` (px literals up to
-      5px are allowed for deliberate sub-token decorative radii);
+      5px are allowed);
     - sets a ``font-size`` to a raw px literal instead of ``var(--font-size-*)``,
       a ``clamp()`` built on token or relative units (a px literal inside
       ``clamp()`` is still flagged), or an em / rem / % / inherit value; or
@@ -28,16 +26,12 @@ off-token sizes. This checker fails fast when an app stylesheet:
       literal (a trailing ``!important`` is tolerated; a token buried inside a
       larger expression is not).
 
-The rules are calibrated so the currently migrated app stylesheets pass as they
-stand while regressions fail. A few deliberate literals that predate the shared
-tokens are grandfathered through small, documented allowlists scoped to the one
-stylesheet that owns them (see the ``*_ALLOWLIST`` constants below).
+Allowlisted literals are scoped to the one stylesheet that owns them (see the
+``*_ALLOWLIST`` constants below).
 
-Scanning is line-based regex matching (the same approach as the other lints in
-this package), not a full CSS parse. Comment blocks, quoted strings, and
-``url()`` arguments are masked to same-length whitespace before scanning so a
-value inside them never triggers a false positive while reported line numbers
-stay stable.
+Scanning uses regex matching, not a full CSS parse. Comment blocks, quoted
+strings, and ``url()`` arguments are masked to same-length whitespace before
+scanning, so values inside them never match and line numbers stay stable.
 """
 
 from __future__ import annotations
@@ -56,8 +50,7 @@ if TYPE_CHECKING:
 # Directory (relative to the workspace root) that holds artifact directories.
 APPS_DIRNAME = "apps"
 
-# Font-size px literals deliberately retained on fixed, display-only elements,
-# scoped to the one stylesheet that owns each literal.
+# Raw px font-size values allowed in each stylesheet, keyed by its path.
 FONT_SIZE_PX_ALLOWLIST: dict[str, frozenset[str]] = {
     # .inf-cache-cell (hidden, color: transparent, cell label)
     "apps/prompt-caching/css/app.css": frozenset({"9px"}),
@@ -65,9 +58,7 @@ FONT_SIZE_PX_ALLOWLIST: dict[str, frozenset[str]] = {
     "apps/tokenizer-explorer/css/app.css": frozenset({"15px"}),
 }
 
-# Letter-spacing literals deliberately retained where no shared tracking token
-# fits (negative display-heading tightening and one uppercase label tracking),
-# scoped to the one stylesheet that owns each literal.
+# Raw letter-spacing values allowed in each stylesheet, keyed by its path.
 LETTER_SPACING_ALLOWLIST: dict[str, frozenset[str]] = {
     # .pc h1 / .pc h2 heading tightening and .pc-section-num label tracking
     "apps/prompt-caching/css/app.css": frozenset({"-0.01em", "0.16em"}),
@@ -75,13 +66,11 @@ LETTER_SPACING_ALLOWLIST: dict[str, frozenset[str]] = {
     "apps/tokenizer-explorer/css/app.css": frozenset({"-0.01em"}),
 }
 
-# The largest px border-radius kept as a deliberate sub-token decorative value.
-# Anything above it must move onto a shared --radius-* token.
+# The largest px border-radius allowed. Larger values must use a --radius-* token.
 MAX_DECORATIVE_RADIUS_PX = 5
 
-# Every CSS named color keyword (CSS Color Module Level 4). ``transparent`` and
-# ``currentcolor`` are deliberately absent: they are CSS-wide keywords rather
-# than palette drift, and stay allowed.
+# CSS named color keywords (CSS Color Module Level 4). ``transparent`` and
+# ``currentcolor`` are absent because they are CSS-wide keywords and stay allowed.
 NAMED_COLOR_KEYWORDS = frozenset(
     {
         "aliceblue",
@@ -235,15 +224,12 @@ NAMED_COLOR_KEYWORDS = frozenset(
     }
 )
 
-# One non-semantic region: a ``/* ... */`` comment block (DOTALL so it spans
-# lines; non-greedy so adjacent comments stay separate), a single- or
-# double-quoted CSS string on one line with backslash escapes consumed (so an
-# escaped quote such as ``"\"#fff\""`` cannot end the string early), or a
-# ``url(...)`` reference (so SVG fragments such as ``url(#blur)`` never read
-# as hex colors). All three are alternatives of one regex so masking happens
-# in a single left-to-right pass and the construct that starts first wins: a
-# ``/*`` inside a string never opens a comment, and a quote inside a comment
-# never opens a string.
+# Non-semantic regions: a ``/* ... */`` comment (spans lines, non-greedy), a
+# single- or double-quoted string on one line with backslash escapes, or a
+# ``url(...)`` reference. The alternatives form one regex that runs in a single
+# left-to-right pass, so the construct that starts first wins: a ``/*`` inside a
+# string does not open a comment, and a quote inside a comment does not open a
+# string.
 _NON_SEMANTIC_RE = re.compile(
     r"/\*.*?\*/"
     r"|\"(?:\\.|[^\"\\\n])*\""
@@ -263,15 +249,14 @@ _COLOR_FUNCTION_RE = re.compile(
     re.IGNORECASE,
 )
 
-# The opening of a ``color-mix(...)`` call; its full argument list is then
-# extracted by balancing nested parens, so a var() after a nested call counts.
+# The opening of a ``color-mix(...)`` call. The full argument list is read
+# afterward with balanced parens.
 _COLOR_MIX_RE = re.compile(r"(?<![-\w])color-mix\(", re.IGNORECASE)
 
 # One declaration whose value can carry a color, and that value up to the next
 # ';', '{', or '}'. Longer property alternatives come before their prefixes.
-# `[-a-z]*color` covers every property whose name ends in `color`, including
-# vendor-prefixed ones such as `scrollbar-color`, `stop-color`, and
-# `-webkit-text-fill-color`.
+# `[-a-z]*color` matches every property name ending in `color`, including
+# vendor-prefixed ones such as `-webkit-text-fill-color`.
 _COLOR_DECLARATION_RE = re.compile(
     r"(?<![-\w])("
     r"--[-\w]+|background-image|background|[-a-z]*color"
@@ -282,17 +267,16 @@ _COLOR_DECLARATION_RE = re.compile(
     re.IGNORECASE,
 )
 
-# The name part of a ``var(--name`` reference, masked before the named-color
-# scan so token names such as ``--note-red`` never read as color keywords.
+# The name part of a ``var(--name`` reference. It is masked before the
+# named-color scan, so token names such as ``--note-red`` are not read as keywords.
 _VAR_NAME_RE = re.compile(r"var\(\s*--[-\w]+", re.IGNORECASE)
 
 # One candidate named-color keyword inside a declaration value.
 _NAMED_COLOR_RE = re.compile(r"[a-zA-Z]+")
 
 # One token-governed declaration: a border-radius, font-size, or letter-spacing
-# property and its value up to the next ';', '{', or '}'. The leading lookbehind
-# keeps custom-property names such as ``--font-size-sm`` from posing as the
-# property, since they are never followed by a declaration colon.
+# property and its value up to the next ';', '{', or '}'. The lookbehind skips
+# custom properties such as ``--font-size-sm``.
 _DECLARATION_RE = re.compile(
     r"(?<![-\w])(border-[a-z-]*radius|font-size|letter-spacing)\s*:\s*([^;{}]*)",
     re.IGNORECASE,
@@ -523,8 +507,7 @@ def check_stylesheet(path: Path, *, display_path: str) -> list[str]:
     try:
         css = _mask(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError) as error:
-        # Report the exception class only: its message varies by OS and path,
-        # and the violation output should stay deterministic.
+        # Report only the exception class name.
         return [
             f"{display_path}: stylesheet could not be read as UTF-8 text ({type(error).__name__})"
         ]
@@ -549,9 +532,8 @@ def discover_app_stylesheets(apps_dir: Path) -> list[Path]:
 def run_check(root: Path | None = None) -> list[str]:
     """Run the app-CSS token check and return all violations.
 
-    Finding zero stylesheets is itself a violation: it means the checker
-    scanned nothing (a wrong ``--root``, a broken checkout, or a layout
-    change), and silently passing would defeat the gate.
+    Finding zero stylesheets is itself a violation, so an empty scan does not
+    pass. The usual causes are a wrong ``--root`` or a moved layout.
     """
     workspace_root = root or REPO_ROOT
     apps_dir = workspace_root / APPS_DIRNAME

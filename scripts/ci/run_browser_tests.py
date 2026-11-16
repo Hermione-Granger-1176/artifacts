@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Run browser pytest files with a single retry and flaky reporting.
 
-This backs the ``test-browser-*`` Make targets. The retry-once policy and the
-flaky ``GITHUB_STEP_SUMMARY`` note live here so tests cover them.
+This backs the ``test-browser-*`` Make targets.
 
 The run follows these steps:
 
@@ -80,7 +79,7 @@ def run_browser_tests(
     """Run browser pytest files with one retry, returning the final exit code."""
     env = dict(os.environ if base_env is None else base_env)
     env.update(extra_env or {})
-    # Set the required flag last so an --env pair cannot disable the gate.
+    # Set last so an --env pair cannot override the required flag.
     env[REQUIRE_BROWSER_TESTS_ENV_VAR] = "1"
 
     runner = run_fn or _default_run
