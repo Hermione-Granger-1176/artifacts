@@ -17,8 +17,8 @@ def make_runner(
 ) -> prune_branches.GitRunner:
     """Return a runner answering from a table and recording every invocation.
 
-    An unlisted command raises rather than defaulting to success, so a test
-    cannot pass while the implementation quietly runs a command nobody declared.
+    An unlisted command raises an AssertionError, so every git command a test
+    allows must be declared in its table.
     """
 
     def runner(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
@@ -46,7 +46,7 @@ def test_makefile_branch_prune_target_uses_the_helper() -> None:
 
 
 def test_branch_prune_is_not_in_the_control_flow_allowlist() -> None:
-    """The target stays off the control-flow allowlist because its recipe holds no shell logic."""
+    """The branch-prune recipe is not on the control-flow allowlist."""
     from scripts.lint.make_targets import CONTROL_FLOW_ALLOWLIST
 
     assert "branch-prune" not in CONTROL_FLOW_ALLOWLIST
@@ -163,7 +163,7 @@ def test_merge_tree_result_preserves_unsupported_command_exit_code() -> None:
 
 
 def test_merge_tree_error_detail_accepts_error_like_stdout() -> None:
-    """Error-like stdout is useful when Git leaves stderr empty."""
+    """Error text on stdout is used as the detail when stderr is empty."""
     result = subprocess.CompletedProcess(["git", "merge-tree"], 129, "fatal: unknown option\n", "")
     assert prune_branches.merge_tree_error_detail(result) == "fatal: unknown option"
 
@@ -347,7 +347,7 @@ def test_main_reports_merge_tree_execution_errors(capsys: pytest.CaptureFixture[
 def test_main_reads_the_process_environment_by_default(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Omitting environ falls back to os.environ so the Make target needs no arguments."""
+    """Omitting environ reads the process environment."""
     monkeypatch.setenv("PRUNE_MAIN_BRANCH", "main")
     monkeypatch.setenv("PRUNE_PAGES_BRANCH", "gh-pages")
     monkeypatch.delenv("PRUNE_CONFIRM", raising=False)

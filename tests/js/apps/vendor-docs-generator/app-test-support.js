@@ -154,8 +154,7 @@ export function setupAppMocks() {
       handler.call(dialog, { type: 'close' });
     }
   };
-  // Mirror the labels index.html ships, since the busy-state handling swaps
-  // them out and puts them back.
+  // Mirrors the labels index.html ships. The busy state swaps them out and restores them.
   elementMap.vdGenerate.textContent = 'New document';
   elementMap.vdDownloadJson.textContent = 'Download JSON only';
   elementMap.vdPreviewScan.textContent = 'Preview scan';
@@ -163,25 +162,22 @@ export function setupAppMocks() {
   elementMap.vdBatchStop.textContent = 'Stop and keep what is done';
   elementMap.vdPair.checked = false;
 
-  // index.html ships these with a `hidden` attribute or an `is-idle` class; the
-  // mock has no markup to read them from, so the initial state is mirrored here.
-  // The meter, the status line, and the pair option keep their rows instead of
-  // hiding, so what they ship with is a class or nothing at all.
+  // index.html ships these with a `hidden` attribute or an `is-idle` class. The
+  // mock has no markup, so that initial state is set here. The meter, the status
+  // line, and the pair option are never hidden; they carry a class or nothing.
   elementMap.vdProgress.classList.add('is-idle');
   elementMap.vdBatchStop.hidden = true;
   elementMap.vdBatchOptions.hidden = true;
   elementMap.vdFormatJson.hidden = true;
   elementMap.vdBatchCount.value = '2';
-  // The paper stands in for a laid-out A4 page so the box collector has real
-  // geometry to normalise against.
+  // The paper stands in for a laid-out A4 page, giving the box collector geometry to normalise against.
   elementMap.vdPaper.offsetWidth = 794;
   elementMap.vdPaper.offsetHeight = 1123;
   elementMap.vdPaper.rect = { left: 0, top: 0, width: 794, height: 1123 };
 
   const pdf = createFakeJsPdf();
-  // A postage-stamp capture: the degradation pixel pass is a real loop over
-  // every byte, and running it over a 1588 x 2246 page in a UI test would spend
-  // seconds proving something the degrade tests already prove properly.
+  // A small capture. The degradation pixel pass loops over every byte, so a
+  // full-size page would take seconds here. degrade.test.js covers that pass in detail.
   const canvas = createFakeHtml2Canvas({ width: 80, height: 113 });
   const zip = createFakeJsZip();
   const scratchCanvases = [];

@@ -262,8 +262,8 @@ test('attention worked example is internally consistent', () => {
     assert.ok(Math.abs(sum - 1) < 0.02);
   }
 
-  // Q and K are exactly the rounded products of the displayed embeddings and
-  // weight matrices, so the click-to-expand arithmetic verifies cell by cell.
+  // Checks that each Q and K cell is the rounded product of the displayed
+  // embeddings and weight matrices.
   const round2 = (value) => Math.round(value * 100) / 100;
   const cell = (W, r, c) =>
     round2(ATTN_DATA.emb[r].reduce((acc, value, k) => acc + value * W[k][c], 0));
@@ -289,9 +289,7 @@ test('attention worked example is internally consistent', () => {
 
 test('embedding catalogue, pairs, and categories reference real vectors', () => {
   for (const [a, b] of EMB_PAIRS) {
-    // Pairs may intentionally include an out-of-vocabulary word ("submarine" exists,
-    // but the demo also handles misses); every listed pair word that is a category
-    // member must have a vector.
+    // Checks that each pair holds two strings. Pair words may fall outside the vector catalogue.
     assert.ok(typeof a === 'string' && typeof b === 'string');
   }
   for (const words of Object.values(EMB_CATEGORIES)) {

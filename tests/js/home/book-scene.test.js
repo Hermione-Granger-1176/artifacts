@@ -447,8 +447,8 @@ test('startIntro swings the cover open, reveals the left side mid-swing, and cle
   assert.equal(harness.sheet.animateCalls[0].keyframes[1].transform, 'translateX(0)');
   assert.equal(swing.keyframes.length, 2, 'one smooth swing with no lift step');
 
-  // The shadow box and its fill slide home in opposite directions, so only the mask edge
-  // moves. Both animate transform alone, which the compositor runs.
+  // The shadow box and its fill slide in opposite directions, so only the mask edge moves.
+  // Both animate transform only.
   const [box, fill] = harness.sheet.querySelector('.book-shadow').animateCalls;
   assert.deepEqual(box.keyframes.map((frame) => frame.transform), ['matrix(1, 0, 0, 1, 600, 0)', 'matrix(1, 0, 0, 1, 600, 0)', 'none']);
   assert.deepEqual(fill.keyframes.map((frame) => frame.transform), ['matrix(1, 0, 0, 1, -600, 0)', 'matrix(1, 0, 0, 1, -600, 0)', 'none']);
@@ -958,7 +958,7 @@ test('a notepad turn forward shows the next page at once and flips a copy of the
   assert.equal(leaf.inert, true);
   assert.ok(harness.sheet.classList.contains('is-turning'));
 
-  // Only transform and opacity animate, so the compositor runs the flip without the main thread.
+  // Only transform and opacity are animated.
   const [flip] = leaf.animateCalls;
   assert.deepEqual(flip.keyframes.map((frame) => frame.transform), ['rotateX(0deg)', 'rotateX(180deg)'], 'the page lifts toward the reader');
   assert.equal(flip.options.direction, 'normal');

@@ -134,8 +134,8 @@ def run_gh_api(
 
     ``required_permission`` names the GitHub App installation permission the
     endpoint needs (e.g. ``"administration: read"``). When the call fails with
-    ``Resource not accessible by integration``, the permission is surfaced in
-    the raised error so a 403 points directly at the missing grant.
+    ``Resource not accessible by integration``, the raised error names the
+    permission.
     """
     command = ["gh", "api", endpoint, *paginate, "--jq", jq_expr]
     return _run_gh_command(
@@ -174,7 +174,7 @@ def gh_escape_data_value(value: str) -> str:
     """Escape one value for ``gh api -f`` form usage.
 
     The GitHub CLI treats ``@`` specially for file reads. Prefix a literal ``@``
-    with a backslash so titles/bodies can safely round-trip through ``gh api``.
+    with a backslash.
     """
     if value.startswith("@"):
         return f"\\{value}"

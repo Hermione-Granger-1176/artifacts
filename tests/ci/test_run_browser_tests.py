@@ -58,7 +58,7 @@ def test_extra_env_is_merged() -> None:
 
 
 def test_extra_env_cannot_disable_the_required_gate() -> None:
-    """The required flag wins over an --env pair so the gate cannot be turned off."""
+    """The required flag overrides an extra env value with the same name."""
     runner = FakeRunner([0])
 
     run_browser_tests.run_browser_tests(
@@ -135,7 +135,7 @@ def test_flaky_retry_pass_without_summary_env_skips_file(
 
 
 def test_flaky_retry_pass_can_fail_an_explicit_ci_gate() -> None:
-    """CI can make a flaky pass fail instead of hiding it behind a warning."""
+    """A flaky pass returns 1 when the fail-on-flaky variable is set."""
     runner = FakeRunner([1, 0])
 
     status = run_browser_tests.run_browser_tests(

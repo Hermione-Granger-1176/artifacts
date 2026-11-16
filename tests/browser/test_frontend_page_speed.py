@@ -1,19 +1,17 @@
 """Page-speed budget for the gallery and every app, measured in Chromium.
 
 Each page is opened in a fresh browser context, as a first visit with an empty
-cache, from the assembled site that GitHub Pages serves. A page counts as
+cache, from the assembled site, served the way the deploy serves it. A page counts as
 loaded when its runtime marks the document ready
 (``data-runtime-status="ready"``), which happens only after the page's own
 script has rendered it. The median over several visits must stay under an
 absolute budget, so a single slow visit cannot fail the check on its own.
 
-The budget is about four times the slowest page's median on the hosted CI
-runner, where pages measured 40 to 120 ms on the pinned Playwright image, so it
-also holds on a busy developer machine, where they measure up to about 350 ms. It
-catches a page that becomes much slower, such as a blocking script, a large
-synchronous computation at startup, or a render loop, without failing on
-ordinary runner noise. ``make test-page-speed`` runs it; ``budget_ms=`` and
-``runs=`` override the defaults for a local investigation.
+The default budget sits well above typical first-visit times on CI and on
+developer machines. It catches a page that becomes much slower, such as a
+blocking script, a large synchronous computation at startup, or a render loop,
+without failing on ordinary runner noise. ``make test-page-speed`` runs it;
+``budget_ms=`` and ``runs=`` override the defaults for a local investigation.
 """
 
 from __future__ import annotations
@@ -80,7 +78,7 @@ def _budget_ms() -> float:
         value = float(raw)
     except ValueError as error:
         raise ValueError(message) from error
-    # NaN would fail every page and inf would pass every page, so both are refused.
+    # Rejects NaN, infinity, and non-positive values.
     if not math.isfinite(value) or value <= 0:
         raise ValueError(message)
     return value

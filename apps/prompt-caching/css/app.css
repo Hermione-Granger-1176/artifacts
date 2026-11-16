@@ -391,8 +391,7 @@ body.app-prompt-caching .pc-meta {
   color: var(--color-text-secondary);
 }
 
-/* A count keeps a minimum width (right aligned), so its label stays put while
- * the number gains or loses a digit. */
+/* Counts keep a minimum width and are right aligned. */
 body.app-prompt-caching .pc-count {
   display: inline-block;
   min-width: 3ch;
@@ -448,8 +447,7 @@ body.app-prompt-caching .pc-pipeline > :last-child {
   margin-right: auto;
 }
 
-/* The pipeline is a content visualization of the model stages, not a control
- * bar, so it keeps its tinted-node look rather than the shared control accent. */
+/* Pipeline nodes use tinted backgrounds, not the shared control accent. */
 body.app-prompt-caching .pc-pipeline-node {
   padding: 0.65rem 1.1rem;
   border-radius: var(--radius-sm);
@@ -1383,11 +1381,9 @@ body.app-prompt-caching .chv-legend-dot.is-rose {
   background: var(--pc-rose);
 }
 
-/* The provider comparison table uses the shared table styling inside
- * .table-wrap; the prose-oriented layout (left-aligned headers and cells,
- * fixed aspect column, row hover) stays scoped, since the shared table is
- * tuned for right-aligned numeric data. Vertical rhythm lives on the wrap
- * so the card hugs the table with no inner gap. */
+/* The provider comparison table uses the shared table styling inside .table-wrap.
+ * Left-aligned headers and cells, a fixed first column, and row hover are scoped
+ * here. Vertical margin sits on the wrap, so the card has no inner gap around the table. */
 body.app-prompt-caching .table-wrap {
   margin: var(--space-4) 0;
 }
@@ -1596,8 +1592,8 @@ body.app-prompt-caching .pc-emb-cloud {
   margin-bottom: 1.1rem;
 }
 
-/* The word cloud is a content selection surface tied to the canvas markers, so
- * its selection keeps the warm amber/teal tints rather than the control accent. */
+/* The word cloud is a content selection surface. Its selection uses the warm
+ * amber and teal tints, not the control accent. */
 body.app-prompt-caching .emb-word {
   display: inline-flex;
   align-items: center;

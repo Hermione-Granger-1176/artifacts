@@ -4,16 +4,14 @@
 This module backs ``make optimize-social-image``.
 
 The Open Graph share card (``assets/social/share-preview.png``) is served on every
-link unfurl, so it should stay small. A 1200x630 card is comfortable at roughly
-100-150 KB, yet exported PNGs routinely ship several times that. This helper
+link unfurl. A 1200x630 card should land around 100-150 KB. This helper
 re-encodes the PNG (and downscales it to fit within 1200x630 when it is larger),
-writing back only when the result is actually smaller so a repeat run is a no-op.
+writing back only when the result is smaller.
 
 The optimization is lossy. Any transparency is flattened onto a white background,
 and one of the candidate encodings quantizes the image to a 256-color palette, so
 fine gradients and alpha edges can shift. The smaller of the palette candidate and
-a plain optimized truecolor candidate wins, which keeps flat graphic cards tiny
-while protecting gradient-heavy art.
+a plain optimized truecolor candidate is written.
 
 Run through the Makefile in normal workflows. Direct invocation is mainly for
 maintainers working on the build internals.
@@ -34,7 +32,7 @@ from scripts import REPO_ROOT
 # Canonical Open Graph card. Overridable on the command line.
 DEFAULT_TARGET = REPO_ROOT / "assets" / "social" / "share-preview.png"
 
-# Open Graph recommends a 1200x630 card; never emit anything larger.
+# Largest output dimensions. Larger images are downscaled to fit.
 MAX_WIDTH = 1200
 MAX_HEIGHT = 630
 
@@ -95,9 +93,8 @@ def optimize_png(path: Path) -> OptimizeResult:
     before = path.stat().st_size
     with Image.open(path) as opened:
         opened.load()
-        # Flatten before resizing: Pillow forces NEAREST resampling for
-        # palette ("P") and bilevel ("1") images, so downscaling those modes
-        # directly would produce jagged output.
+        # Flatten before resizing. Pillow resamples palette ("P") and bilevel
+        # ("1") images with NEAREST.
         image = _resize_within_bounds(_flatten_to_rgb(opened))
         encoded = _encode_smallest(image)
 

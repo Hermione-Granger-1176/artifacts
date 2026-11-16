@@ -1,7 +1,6 @@
 /* Pure, framework-free math for the Prompt Caching explainer.
  *
- * Every export is a deterministic function with no DOM access, so the demos'
- * numerical behavior can be unit-tested directly.
+ * Every export is a deterministic function with no DOM access.
  */
 
 import { WHOLE_TOKENS, SUB_PIECES } from "./data.js";
@@ -38,15 +37,13 @@ function splitSubwords(core, space) {
   while (i < core.length) {
     // Longest matching subword piece (SUB_PIECES is sorted longest first),
     // falling back to a single character. Each slice is lower-cased on its
-    // own, because lower-casing the whole word can change its length ("İ"
-    // becomes two code units) and shift every later index.
+    // own, so indexes stay aligned with the original word.
     const piece = SUB_PIECES.find(
       (candidate) =>
         i + candidate.length <= core.length && core.slice(i, i + candidate.length).toLowerCase() === candidate
     );
     // The fallback is one code point, so a character outside the Basic
-    // Multilingual Plane (such as "𝒜") stays whole instead of splitting into
-    // two lone surrogates.
+    // Multilingual Plane (such as "𝒜") stays whole.
     const length = piece ? piece.length : String.fromCodePoint(/** @type {number} */ (core.codePointAt(i))).length;
     pieces.push((i === 0 ? space : "") + core.slice(i, i + length));
     i += length;
@@ -70,8 +67,8 @@ export function bpeTokenize(text) {
 
   const tokens = [];
 
-  // Every code point is a letter, a number, whitespace, or another symbol, so
-  // the split matches at least once in non-empty text.
+  // Every code point matches the split pattern, so match() returns a non-null
+  // array for non-empty text.
   for (const part of /** @type {RegExpMatchArray} */ (text.match(GPT_SPLIT_RE))) {
     if (/^\s+$/.test(part) || /^ ?[^\s\p{L}\p{N}]/u.test(part)) {
       tokens.push(part);

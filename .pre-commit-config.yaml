@@ -2,10 +2,9 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
-      # Artifact metadata files keep their .editorconfig unset rules and
-      # vendored assets stay byte-identical to upstream, so both are exempt
-      # from whitespace and final-newline normalization. Markdown and lock
-      # files keep trailing whitespace per .editorconfig trim rules.
+      # Under apps/, vendored files and .txt, .webp, .png, .svg, and .ico files
+      # are exempt from whitespace and final-newline fixes. Markdown and lock
+      # files are exempt from trailing-whitespace removal.
       - id: trailing-whitespace
         exclude: (^apps/.*(/vendor/|\.(txt|webp|png|svg|ico)$)|\.(md|lock)$)
       - id: end-of-file-fixer

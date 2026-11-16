@@ -3,8 +3,7 @@
 Each command runs a ``gh pr ...`` invocation with standard output left on the
 terminal, so ``gh`` formats it. When the environment blocks GitHub GraphQL
 (which every ``gh pr`` subcommand needs), the command is rebuilt on the REST
-API instead. The functions return the process exit code so a failing check
-still fails the target.
+API instead. The functions return the process exit code.
 """
 
 from __future__ import annotations
@@ -24,8 +23,8 @@ if TYPE_CHECKING:
 
 # ``gh pr list`` shows 30 pull requests unless told otherwise.
 _LIST_LIMIT = 30
-# ``gh pr checks`` polls every 10 seconds. The REST watch also stops after an
-# hour so a check that never finishes cannot hold a terminal forever.
+# ``gh pr checks`` polls every 10 seconds. The REST watch stops after
+# CHECKS_MAX_POLLS polls, about an hour.
 CHECKS_INTERVAL_SECONDS = 10.0
 CHECKS_MAX_POLLS = 360
 # REST ``mergeable_state`` values that mean branch protection allows a merge.
@@ -149,8 +148,7 @@ def create_pr(
         )
         fields = {"title": pr_title, "head": head, "base": target, "body": pr_body}
         if not gh_runner.same_repo(source, slug):
-            # GitHub needs the source repository's name when a cross-repository
-            # PR stays inside one organization, where the owner prefix is not enough.
+            # Cross-repository heads also send the source repository name.
             fields["head_repo"] = source.split("/")[1]
         pull = gh_runner.rest(f"repos/{slug}/pulls", method="POST", fields=fields, run_fn=run_fn)
         print(pull["html_url"])
@@ -164,8 +162,7 @@ def create_pr(
 def _require_pushed(slug: str, branch: str, *, run_fn: RunFunction | None) -> str:
     """Return the local ``HEAD`` commit, failing unless GitHub's ``branch`` points at it.
 
-    ``gh pr create`` offers to push the branch first. The REST fallback does
-    not push, so it refuses rather than open a PR that is missing commits.
+    This path never pushes.
     """
     local = gh_runner.run_git(["rev-parse", "HEAD"], run_fn=run_fn)
     try:
@@ -188,14 +185,12 @@ def _filled_text(
 ) -> tuple[str, str]:
     """Return a PR title and body drawn from the commits ``head_sha`` adds to ``base``.
 
-    The head is a commit SHA rather than a branch name. Repositories of one owner
-    can share a branch name, so ``owner:branch`` may name the wrong one, while the
-    pushed commit is unambiguous across a fork network.
+    The head is a commit SHA, not a branch name, so the compare reads the pushed
+    commit exactly.
 
     Mirrors ``gh pr create --fill``: one commit supplies its own subject and
     body, several commits give the branch name as the title and their subjects
-    as a list. GitHub's compare API reads the commits, so the result never
-    depends on a local tracking ref that is missing, stale, or from a fork.
+    as a list. The commits come from GitHub's compare API, not a local tracking ref.
     """
     entries = gh_runner.rest_pages(
         f"repos/{slug}/compare/{quote(base, safe='')}...{head_sha}",
@@ -352,8 +347,8 @@ def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
         head_repo = str(head_info.get("full_name") or "")
         is_fork = not gh_runner.same_repo(head_repo, slug)
         if is_fork:
-            # A fork's branch can share a local name such as main, so it gets
-            # the fork owner as a prefix instead of updating that branch.
+            # Fork branches get the fork owner as a prefix, so a same-named local
+            # branch is not updated.
             branch = f"{head_repo.split('/')[0] or 'fork'}/{branch}"
         _fetch_pr_into_branch(pr, branch, run_fn=run_fn)
         gh_runner.run_git(
@@ -362,7 +357,7 @@ def checkout_pr(pr: int, *, run_fn: RunFunction | None = None) -> int:
         gh_runner.run_git(
             ["config", f"branch.{branch}.{gh_runner.PR_REPO_CONFIG}", slug], run_fn=run_fn
         )
-        # Track the PR's branch like gh pr checkout, so git pull works afterwards.
+        # Track the PR's branch as gh pr checkout does.
         remote, merge = _pr_upstream(pull, pr, head_ref, head_info, is_fork=is_fork)
         gh_runner.run_git(["config", f"branch.{branch}.remote", remote], run_fn=run_fn)
         gh_runner.run_git(["config", f"branch.{branch}.merge", merge], run_fn=run_fn)

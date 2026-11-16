@@ -33,15 +33,12 @@ def _load_canonical_site_url() -> str:
 
 
 def _goto_until_served(session: MonitoredPage, path: str) -> None:
-    """Navigate with retries until the live deployment actually serves the page.
+    """Navigate with retries until the live site serves the page.
 
-    A freshly published GitHub Pages deployment can time out or serve a 404 or
-    its 503 maintenance page for a short window while the CDN warms up, so a
-    single navigation right after a deploy is racy. Success requires an actual
-    response below 400; a missing response or any error status is retried.
-    Failures the monitor recorded during an unserved attempt are dropped before
-    the next attempt, so only the attempt that serves the page is judged by
-    ``assert_clean()`` at context exit.
+    Success means a response below 400. A missing response or an error status is
+    retried after a pause. Failures the monitor recorded during an unserved
+    attempt are cleared before the next attempt, so only the serving attempt is
+    checked by ``assert_clean()`` at context exit.
     """
     last_failure = "navigation was not attempted"
     for attempt in range(GOTO_ATTEMPTS):

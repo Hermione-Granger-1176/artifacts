@@ -3,12 +3,11 @@
  * layer, so exported samples are searchable and selectable rather than a
  * picture of a page.
  *
- * It walks the exact same block list the on-screen paper renderer walks, so the
- * two agree on the content of a given seed. The layout is this module's own:
- * jsPDF positions in A4 points while the preview lays out in CSS pixels, so
- * nothing here can be derived from the DOM geometry. Anything drawn at a fixed
- * offset has to be measured against what sits next to it first, because fixed
- * offsets caused the letterhead and meta-gutter overprints.
+ * It walks the same block list as the on-screen paper renderer, so both show the
+ * same content for a given seed. The layout is this module's own. jsPDF
+ * positions in A4 points, not CSS pixels, so positions cannot be taken from the
+ * DOM. Anything drawn at a fixed offset must be measured against the content
+ * beside it.
  *
  * @module pdf-render
  */
@@ -48,10 +47,10 @@ const MONOGRAM_STYLES = new Set(["block", "stamp"]);
 /**
  * Map a CSS font stack onto one of the three fonts jsPDF ships by default.
  *
- * Each vendor's `font` carries into the export, so the six brands keep distinct
- * letterheads in the PDF. The core fonts are the only ones available without
- * embedding a binary, so serif and monospace stacks map onto times and courier
- * and everything else stays helvetica.
+ * Each vendor's `font` maps onto a core font, so the letterheads stay distinct in
+ * the PDF. Core fonts are used because no font binary is embedded. Serif and
+ * monospace stacks map to times and courier, and everything else maps to
+ * helvetica.
  * @param {string} stack - CSS font-family stack from the vendor record.
  * @returns {string} A jsPDF core font family name.
  */
@@ -119,10 +118,8 @@ export function hexToRgb(hex) {
 /**
  * Small stateful cursor over one jsPDF document.
  *
- * jsPDF is entirely imperative and autotable reports where it stopped through
- * `lastAutoTable.finalY`; wrapping both in one object keeps the vertical
- * position in a single place instead of threading a `y` variable through every
- * block branch.
+ * jsPDF is imperative, and autotable reports where it stopped through
+ * `lastAutoTable.finalY`. The cursor holds the vertical position in one place.
  */
 class PdfCursor {
   /**
@@ -215,7 +212,7 @@ function drawHeader(cursor, model) {
   doc.rect(0, 0, width, HEADER_BAR_HEIGHT, "F");
 
   if (hasMark) {
-    // The preview draws a monogram tile for these vendors, so the PDF does too.
+    // Monogram tile, matching the on-screen logo.
     doc.setFillColor(...accent);
     doc.rect(MARGIN, 30, MONOGRAM_SIZE, MONOGRAM_SIZE, "F");
     cursor.textStyle("bold", 15, [255, 255, 255]);
@@ -224,13 +221,10 @@ function drawHeader(cursor, model) {
     });
   }
 
-  // Measure the letterhead first, then give the title whatever room is left,
-  // shrinking it until it fits. Fixed sizes from opposite margins made
-  // "Ironwood Construction Materials" and "DELIVERY CHALLAN" overprint by 15pt.
+  // Measure the letterhead first, then shrink the title to fit the room left.
   doc.setFont(family, "bold");
   doc.setFontSize(17);
-  // The same capitals as the page's logo, so the sidecar's vendor_name text
-  // matches both outputs.
+  // Same capitals as the page's logo, so the vendor_name text matches the sidecar.
   const vendorName = printedVendorName(vendor);
   const nameWidth = doc.getTextWidth(vendorName);
   const titleRoom = width - MARGIN - nameX - nameWidth - HEADER_GAP;
@@ -271,10 +265,7 @@ function drawHeader(cursor, model) {
 function drawFooter(cursor, model) {
   cursor.textStyle("normal", 7.5, [165, 165, 165]);
 
-  // Wrapped, not centred blindly. Ironwood's name and tagline push this string
-  // 6pt past the text column, and an unwrapped centred line bleeds into both
-  // margins rather than breaking. The DOM renderer wraps it, which is why the
-  // overflow only ever showed up in the PDF.
+  // The footer wraps to the text column width. Each line is centred.
   const lines = cursor.doc.splitTextToSize(model.footer, cursor.width - 2 * MARGIN);
 
   lines.forEach((line, index) => {
@@ -319,11 +310,8 @@ function drawParties(cursor, block) {
     doc.setTextColor(...GREY);
     doc.text(caption, width - MARGIN - META_GUTTER, right);
 
-    // The value is right-aligned against the margin, so it grows leftward into
-    // the label. The gutter was a fixed 170pt with nothing measured, which put
-    // "Goods returned, damaged in transit" straight through "Reason:" on a
-    // quarter of all credit notes. When the pair will not fit on one line, the
-    // value drops to its own line instead of overprinting.
+    // The value is right-aligned to the margin. If the label and value do not
+    // fit on one line within the gutter, the value moves to its own line.
     const captionWidth = doc.getTextWidth(caption);
     doc.setFont(family, "bold");
     doc.setTextColor(...INK);
@@ -497,12 +485,9 @@ function drawCallout(cursor, block) {
   cursor.table({
     startY: cursor.y + 8,
     body: [[block.text]],
-    // `theme: "plain"` is load-bearing. Under the default striped theme,
-    // `alternateRowStyles.fillColor` resolves to 245 on row index 0 and
-    // outranks both `styles` and `bodyStyles`, so these single-row tables
-    // painted flat grey no matter which of those the fill was declared in.
-    // Measured, not assumed: didParseCell reports 245 for styles and for
-    // bodyStyles, and the accent only for the plain and grid themes.
+    // `theme: "plain"` is required. The default striped theme applies
+    // `alternateRowStyles.fillColor` to row 0, which overrides the fill set in
+    // `styles` and `bodyStyles`.
     theme: "plain",
     styles: { font: cursor.family, fontSize: 8.5, cellPadding: 8, lineColor: LINE, lineWidth: 0.4 },
     bodyStyles: { fillColor: cursor.accentSoft, textColor: INK }
@@ -536,9 +521,8 @@ function drawBanner(cursor, block) {
     margin: { left: cursor.width - MARGIN - 230 },
     tableWidth: 230,
     body: [[block.label, block.value]],
-    // See the callout above: without the plain theme this prints white text
-    // on rgb(245, 245, 245), which made the balance due, the one number a
-    // statement of account exists to communicate, invisible in every PDF.
+    // Requires the plain theme, as the callout does, so the white text sits on
+    // the accent fill.
     theme: "plain",
     styles: { font: cursor.family, fontSize: 11, cellPadding: 7, fontStyle: "bold" },
     bodyStyles: { fillColor: cursor.accent, textColor: 255 },

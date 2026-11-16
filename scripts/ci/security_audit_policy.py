@@ -181,8 +181,7 @@ def unused_exception_errors(
 ) -> list[str]:
     """Report each reviewed exception that no current finding matched.
 
-    An exception outliving its advisory would silently cover a future one with
-    the same id, so every audit fails on it.
+    Every unused exception is an error, so the audit fails on it.
     """
     return [
         f"Unused {ecosystem} vulnerability exception: "

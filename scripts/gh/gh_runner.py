@@ -1,24 +1,20 @@
 """Thin, dependency-injected wrappers around the ``gh`` and ``git`` CLIs.
 
-Every function that runs a subprocess accepts ``run_fn`` so tests can inject a
-fake runner and exercise the logic without touching the network or a real
-repository. Keeping the GitHub plumbing here means the PR and CI helpers share
-one place for repository and pull-request detection, timeouts, and retries.
+Every function that runs a subprocess accepts ``run_fn`` for an injected runner.
+The PR and CI helpers share repository and pull-request detection, timeouts, and
+retries from this module.
 
-``gh api`` has no built-in retry and treats a single 5xx, network blip, or
-rate-limit response as a hard non-zero exit. Per GitHub's API guidance the
-shared policy in ``scripts.lib.gh_policy`` retries only transient
-infrastructure errors (HTTP 500, 502, 503, and 504 plus network and timeout
-failures) with bounded exponential backoff, and fails fast on rate limits
-rather than hammering the API (which can get an integration banned). HTTP 501
-is treated as fatal, since "Not Implemented" never clears on a retry.
-Non-idempotent mutations (posting a reply) opt out of retries so a lost
-response never double-posts.
+``gh api`` has no built-in retry: a 5xx, network failure, or rate-limit response
+is a hard non-zero exit. The shared policy in ``scripts.lib.gh_policy`` retries
+only transient infrastructure errors (HTTP 500, 502, 503, and 504, plus network
+and timeout failures) with bounded exponential backoff. Rate limits fail
+immediately. HTTP 501 is fatal. Non-idempotent mutations such as posting a reply
+do not retry.
 
-Some environments block GitHub's GraphQL endpoint, and ``gh`` subcommands such
-as ``gh pr view`` use GraphQL internally. That failure is reported as
-:class:`GhGraphqlUnavailableError`, never retried, and remembered for the rest
-of the process. Callers keep GraphQL (or the ``gh`` subcommand) as the primary
+Some environments block GitHub's GraphQL endpoint, which ``gh`` subcommands such
+as ``gh pr view`` use internally. That failure is reported as
+:class:`GhGraphqlUnavailableError`, is never retried, and is remembered for the
+rest of the process. Callers keep GraphQL (or the ``gh`` subcommand) as the primary
 path and pass a REST equivalent to :func:`with_rest_fallback` or
 :func:`gh_or_rest`; :func:`rest`, :func:`rest_text`, and :func:`rest_pages` are
 the shared ``gh api`` client those fallbacks use.
@@ -46,10 +42,8 @@ RunFunction = Callable[..., subprocess.CompletedProcess[str]]
 DEFAULT_TIMEOUT = 30
 LOG_TIMEOUT = 120
 
-# Retry budget (extra attempts beyond the first) for idempotent calls. The
-# classification rules and the bounded exponential backoff live in
-# ``scripts.lib.gh_policy`` so every ``gh`` caller in this repository shares one
-# rate-limit and transient-failure policy.
+# Retry budget (extra attempts beyond the first) for idempotent calls.
+# Classification and backoff live in ``scripts.lib.gh_policy``.
 DEFAULT_RETRIES = gh_policy.DEFAULT_GH_RETRIES
 
 
@@ -60,8 +54,8 @@ class GhError(RuntimeError):
 class GhRateLimitError(GhError):
     """Raised when GitHub reports a primary or secondary rate limit.
 
-    Kept distinct from :class:`GhError` so callers never auto-retry it; the
-    correct response is to stop and wait for the limit window to reset.
+    Distinct from :class:`GhError` so callers do not retry it. Callers should
+    stop and wait for the limit window to reset.
     """
 
 
@@ -83,8 +77,8 @@ class _GraphqlState:
 
 _GRAPHQL_STATE = _GraphqlState()
 
-# Git config key, under branch.<name>, where a REST checkout records the PR it
-# fetched. A fork PR's branch is not in origin, so a head lookup cannot find it.
+# Git config keys, under branch.<name>, that a REST checkout uses to record the
+# PR it fetched.
 PR_NUMBER_CONFIG = "gh-pr-number"
 PR_REPO_CONFIG = "gh-pr-repo"
 
@@ -190,8 +184,8 @@ def _run(
         if result.returncode == 0:
             return result
 
-        # Classify on the real output, but never raise a bare "failed:" when the
-        # command exited quietly: the exit code is the only clue left.
+        # Classify on the real output. A command that exits quietly reports its
+        # exit code.
         detail = (result.stderr or result.stdout or "").strip()
         reported = detail or f"no output (exit code {result.returncode})"
         kind = gh_policy.classify_gh_failure(detail)
@@ -225,10 +219,9 @@ def run_gh_passthrough(
 ) -> int:
     """Run ``gh`` with its output on this terminal and return its exit code.
 
-    Commands such as ``gh pr list`` format their output for a terminal, so
-    standard output stays attached and nothing is captured or retried. Standard
-    error is captured only to recognize the GraphQL-unavailable verdict, and is
-    replayed once the command ends.
+    Standard output stays attached to the terminal, and nothing is captured or
+    retried. Standard error is captured only to recognize the GraphQL-unavailable
+    verdict, and is replayed once the command ends.
 
     Raises:
         GhGraphqlUnavailableError: If the environment blocks GitHub GraphQL.
@@ -283,9 +276,8 @@ def _field_args(key: str, value: object) -> list[str]:
     Integers and booleans are typed parameters (``-F``), lists become repeated
     ``key[]`` fields, and everything else is a string (``-f``).
     """
-    # bool is a subclass of int, so both go through -F (typed parameters).
-    # gh expects JSON booleans, so serialize bool as lowercase true/false
-    # rather than Python's True/False, which gh would send as a string.
+    # bool is a subclass of int, so both go through -F. Booleans serialize as
+    # lowercase true/false, the JSON form gh expects.
     if isinstance(value, bool):
         return ["-F", f"{key}={str(value).lower()}"]
     if isinstance(value, int):
@@ -313,7 +305,7 @@ def graphql(
         run_fn: Optional injected subprocess runner.
         timeout: Per-attempt timeout in seconds.
         retries: Extra attempts for transient failures. Pass ``0`` for
-            non-idempotent mutations so a lost response never double-applies.
+            non-idempotent mutations.
 
     Returns:
         The ``data`` object from the GraphQL response.
@@ -332,8 +324,8 @@ def graphql(
     payload = gh_json(args, run_fn=run_fn, timeout=timeout, retries=retries)
     if not isinstance(payload, dict):
         raise GhError("Unexpected GraphQL response shape")
-    # gh exits non-zero on GraphQL errors (handled above), but a 200 response
-    # can still carry an errors array alongside partial data; catch that too.
+    # gh exits non-zero on most GraphQL errors. A response can still carry an
+    # errors array alongside partial data, so check it too.
     errors = payload.get("errors")
     if errors:
         message = json.dumps(errors)
@@ -368,14 +360,12 @@ def rest_text(
             and the JSON body for every other method.
         fields: Request parameters. ``GET`` sends them as query arguments (see
             :func:`_field_args` for the typing rules). Other methods send them
-            as a JSON body on standard input, so a long comment or PR body
-            never meets the operating system's per-argument size limit.
+            as a JSON body on standard input.
         headers: Extra ``Name: value`` request headers, such as an ``Accept`` type.
         run_fn: Optional injected subprocess runner.
         timeout: Per-attempt timeout in seconds.
         retries: Extra attempts for transient failures. Defaults to the shared
-            budget for ``GET`` and to none for mutations, so a lost response
-            never applies a write twice.
+            budget for ``GET`` and to none for mutations.
     """
     args = ["api", "--method", method, endpoint]
     stdin_text = None
@@ -424,9 +414,9 @@ def rest_pages(
 ) -> list[dict[str, Any]]:
     """Return every object of a paginated REST list, optionally capped at ``limit``.
 
-    Pages through ``per_page``/``page`` explicitly instead of ``gh api
-    --paginate`` so each page parses as one JSON document. ``items_key`` names
-    the array inside an envelope response such as ``check_runs``. Objects that
+    Pages through ``per_page``/``page`` so each page parses as one JSON document.
+    ``items_key`` names the array inside an envelope response such as
+    ``check_runs``. Objects that
     ``accept`` rejects are skipped and do not count toward ``limit``.
     """
     per_page = 100 if limit is None else max(1, min(limit, 100))
@@ -545,7 +535,7 @@ def _repo_from_gh_default(*, run_fn: RunFunction | None = None) -> str:
     gh marks the chosen remote with ``remote.<name>.gh-resolved``. The value is
     ``base`` for that remote's own repository, or an ``owner/name`` in older gh
     versions. A default that cannot be read raises rather than falling back to
-    ``origin``, which may be a fork with unrelated PR and issue numbers.
+    ``origin``.
     """
     try:
         output = run_git(["config", "--get-regexp", r"^remote\..+\.gh-resolved$"], run_fn=run_fn)
@@ -582,8 +572,7 @@ def same_repo(a: str, b: str) -> bool:
 def require_checkout_repo(slug: str, action: str, *, run_fn: RunFunction | None = None) -> None:
     """Refuse an ``action`` that fetches from ``origin`` when ``origin`` is not ``slug``.
 
-    PR and issue numbers belong to one repository, so fetching ``pull/<n>/head``
-    or a base branch from a different one would use unrelated commits.
+    PR and issue numbers belong to one repository.
     """
     local = _repo_from_remote(run_fn=run_fn)
     if not local:
@@ -712,9 +701,9 @@ type _PullHead = tuple[str, str, str | None]
 def _recorded_pull_head(pull: dict[str, Any], *, owner: str, branch: str) -> _PullHead:
     """Return the head a recorded pull request lives under.
 
-    A fork checkout's local branch is prefixed, so this reads the PR's own head
-    and falls back to ``owner`` and ``branch`` for whatever it omits. The source
-    repository is ``None`` when GitHub no longer reports one, as for a deleted fork.
+    Reads the PR's own head and falls back to ``owner`` and ``branch`` for any
+    field it omits. The source repository is ``None`` when GitHub reports none,
+    as for a deleted fork.
     """
     head = as_object(pull.get("head"))
     head_repo = as_object(head.get("repo"))
@@ -732,9 +721,8 @@ def _first_pull_number(
 ) -> int | None:
     """Return the number of the first open, else newest closed, PR on any of ``heads``.
 
-    Every head is searched for an open PR before any closed one, so a closed PR
-    on a tracked branch never hides an open PR on the local name. A PR counts
-    only when it comes from the head's source repository.
+    Every head is searched for an open PR before any closed one. A PR counts only
+    when it comes from the head's source repository.
     """
     for state in ("open", "closed"):
         for owner, head_branch, head_repo in heads:
@@ -775,9 +763,8 @@ def _tracked_head(branch: str, *, run_fn: RunFunction | None) -> tuple[str, str]
 def _head_repo_matches(pull: dict[str, Any], repo: str | None) -> bool:
     """Return whether ``pull`` comes from ``repo``, or GitHub does not say where it comes from.
 
-    A head filter names only the owner, so two repositories of one owner can
-    share a branch name. A PR whose source repository was deleted reports none,
-    and it is kept rather than lost.
+    The head filter names only the owner, so the source repository is checked
+    here. A PR whose source repository was deleted reports none and is kept.
     """
     if repo is None:
         return True
@@ -789,13 +776,11 @@ def _current_pr_number_rest(*, run_fn: RunFunction | None = None) -> int:
     """Find the PR whose head is the current branch through the REST API.
 
     Like ``gh pr view``, an open PR wins. Otherwise the newest closed or merged
-    one counts, so a branch merged through the fallback still finds its PR. A
-    recorded PR that is no longer open yields to a newer open PR on its head.
+    PR counts. A recorded PR that is not open yields to an open PR on its head.
     Without a recorded PR, the upstream the branch tracks is tried first, then
-    origin's owner with the local name, which covers a branch that has not been
-    pushed with ``-u`` yet. An open PR on either head beats a closed one. Each
-    head names its source repository, so a same-named branch in another
-    repository of the same owner is never taken for it.
+    origin's owner with the local name. An open PR on either head beats a closed
+    one. Each head names its source repository, so a same-named branch in another
+    repository of the same owner is not matched.
     """
     branch = current_branch(run_fn=run_fn)
     slug = resolve_repo(run_fn=run_fn)

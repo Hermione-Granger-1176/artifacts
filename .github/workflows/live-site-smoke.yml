@@ -16,8 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright/python:v1.64.1-noble@sha256:330d401ae23c905896a0c26c66c36fc971b621519e7b11b435a8328d7bf6e031
-      # The official image does not include GNU make or GitHub CLI. Use its
-      # default root user only to install them before Makefile-only setup runs.
+      # The image has neither GNU make nor GitHub CLI. The apt-install step
+      # below adds them.
       options: --init --ipc=host
     timeout-minutes: 20
     permissions:
@@ -104,8 +104,8 @@ jobs:
         if: steps.smoke.outputs.status != '0'
         run: exit 1
 
-  # Setup failures inside the container can leave it without make or gh, so
-  # the fallback alert runs on the host runner, which ships both tools.
+  # Alerts when smoke fails before it sets a status. Runs on the host runner,
+  # which has make and gh.
   setup-failure-alert:
     needs: smoke
     if: ${{ always() && needs.smoke.result == 'failure' && needs.smoke.outputs.status == '' }}

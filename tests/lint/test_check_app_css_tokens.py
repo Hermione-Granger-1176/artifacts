@@ -468,7 +468,7 @@ def test_run_check_fails_closed_when_no_stylesheets_found(tmp_path: Path) -> Non
 
 
 def test_run_check_passes_on_the_current_app_stylesheets() -> None:
-    """The migrated app stylesheets on this branch stay on the shared tokens."""
+    """The app stylesheets in this repository use only the shared tokens."""
     assert run_check() == []
 
 

@@ -165,8 +165,8 @@ test('parseLcov treats detailed files without BRDA rows as zero-branch files', (
 });
 
 test('parseLcov keys branch arms by line position, not process-local block ids', () => {
-  // The same source branch shows up with block id 2 in one process and 6 in
-  // another (V8 block ids are process-local). It must merge as one arm.
+  // The same source branch can carry block id 2 in one process and 6 in another,
+  // since V8 block ids are process-local. Both rows count as one arm.
   const misaligned = [
     'SF:js/app.js',
     'DA:31,1',
@@ -185,10 +185,9 @@ test('parseLcov keys branch arms by line position, not process-local block ids',
 });
 
 test('parseLcov credits a branch that another block covered without reporting it', () => {
-  // V8 emits a BRDA row only when an arm count differs from its enclosing
-  // function, so a block that fully took the branch reports plain DA hits and
-  // no BRDA rows for that line. The unhit row from the other block must not
-  // mask that coverage.
+  // V8 emits a BRDA row only when an arm count differs from its enclosing function.
+  // A block that fully took the branch therefore reports DA hits and no BRDA row for
+  // that line. The unhit row from the other block does not hide that coverage.
   const complementary = [
     'SF:js/app.js',
     'DA:24,1',

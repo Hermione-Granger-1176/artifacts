@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Run commands with paths read from stdin, one per line.
 
-Every Make target that takes files reads them this way, so a path can hold
-spaces, quotes, or shell metacharacters without any quoting rules::
+Every Make target that takes files reads them this way. Paths may contain spaces,
+quotes, or shell metacharacters::
 
     make stage <<'EOF'
     My Notes.md
@@ -13,9 +13,9 @@ Usage: ``python -m scripts.lib.stdin_paths [--require] [--name NAME] [DEFAULT ..
 -- COMMAND ... [--then COMMAND ...]``
 
 Each non-blank stdin line is one path, kept exactly, apart from a trailing
-carriage return. A terminal or a closed stdin counts as no paths, so an optional list
-never waits for typing. With no paths, each command runs with the ``DEFAULT``
-arguments instead, or, with ``--require``, the usage message is printed and the
+carriage return. A terminal or a closed stdin counts as no paths. With no paths,
+each command runs with the ``DEFAULT`` arguments instead, or, with ``--require``,
+the usage message is printed and the
 exit code is 2. A relative path that starts with ``-`` gets a ``./`` prefix so
 a command cannot read it as an option.
 
@@ -33,7 +33,7 @@ from dataclasses import dataclass
 from typing import TextIO
 
 # A runner takes the command vector and returns its exit code.
-# Injectable so tests never start a real process.
+# Tests pass a stub runner in place of a real process.
 CommandRunner = Callable[[Sequence[str]], int]
 
 THEN = "--then"

@@ -124,7 +124,7 @@ def test_parse_dependency_seeds_accepts_a_satisfied_host() -> None:
 
 
 def test_parse_dependency_seeds_rejects_an_apt_get_command() -> None:
-    """Playwright 1.64 no longer prints an install command, so one is not a package list."""
+    """An apt-get install command is rejected as a dependency report."""
     with pytest.raises(runtime.RuntimeSetupError, match="did not provide package seeds"):
         runtime.parse_dependency_seeds("sudo apt-get install -y libnss3\n")
 
@@ -271,7 +271,7 @@ def test_read_os_release_skips_comments_and_blank_lines(
 
 
 def test_read_os_release_rejects_malformed_content(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Reject keys and values that a naive shell source would have executed."""
+    """Reject keys and values that are not plain assignments."""
     fake_os_release(monkeypatch, "bad-key=value\n")
     with pytest.raises(runtime.RuntimeSetupError, match="malformed /etc/os-release key"):
         runtime.read_os_release()
@@ -410,14 +410,11 @@ def test_checked_run_reports_failures_with_bounded_output() -> None:
 def test_is_within_returns_a_verdict_for_unresolvable_paths(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Hostile filesystem entries get a verdict instead of an escaping exception.
+    """Unresolvable filesystem entries get a boolean verdict instead of an exception.
 
-    The containment guard validates untrusted extracted trees, so it has to answer
-    even when resolution fails. A symlink loop raises RuntimeError from pathlib's
-    ELOOP check on Python 3.12 and resolves best-effort on 3.13+, so the boolean
-    for that case is interpreter-dependent and only "does not raise" is asserted.
-    Denial is asserted where it is version-stable, since a guard that fails open
-    on an unresolvable path would let an escaping entry through.
+    A symlink loop raises RuntimeError on Python 3.12 and resolves best-effort on
+    3.13 and later, so only the return type is asserted for it. Denial is asserted
+    for the other entries, where the result is the same on every version.
     """
     loop = tmp_path / "loop"
     other = tmp_path / "other"
@@ -432,9 +429,8 @@ def test_is_within_returns_a_verdict_for_unresolvable_paths(
 
     assert runtime.is_within(dangling, tmp_path) is False
 
-    # An unreadable directory makes lstat raise PermissionError. Permission bits
-    # do not stop root, so the denial is simulated rather than set with chmod,
-    # which keeps the check meaningful for every user that runs the suite.
+    # The denial is simulated with a patched lstat, because permission bits do
+    # not stop root.
     blocked = tmp_path / "blocked"
     (blocked / "inner").mkdir(parents=True)
     real_lstat = Path.lstat
@@ -526,7 +522,7 @@ def test_download_and_extract_rejects_an_unsafe_archive_path(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A symlinked archive could redirect extraction input outside staging."""
+    """A symlinked archive is rejected as an unsafe package archive path."""
 
     def fake_checked_run(
         command: Sequence[str],
@@ -554,7 +550,7 @@ def test_download_and_extract_requires_empty_archive_staging(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Anything left beside the archives means the staging area is not trustworthy."""
+    """Extra files in the staging directory are an error."""
 
     def fake_checked_run(
         command: Sequence[str],
@@ -649,7 +645,7 @@ def test_validate_extracted_root_rejects_symlink_loops(tmp_path: Path) -> None:
 
 
 def test_validate_extracted_root_rejects_usr_lib64_host_overlay(tmp_path: Path) -> None:
-    """Guard usr/lib64 loader and libc overlays that runtime discovery would trust."""
+    """Reject loader and libc files under usr/lib64."""
     loader_root = tmp_path / "loader-root"
     loader = loader_root / "usr" / "lib64" / "ld-linux-x86-64.so.2"
     loader.parent.mkdir(parents=True)
@@ -682,13 +678,10 @@ def test_validate_extracted_root_rejects_absolute_symlinks(tmp_path: Path) -> No
 def test_validate_extracted_root_does_not_walk_through_symlinked_directories(
     tmp_path: Path,
 ) -> None:
-    """The walk refuses the escaping link itself without reading what it points at.
+    """The walk reports an escaping directory link without descending into it.
 
-    ``rglob`` yields a symlinked directory but does not descend through it, so a
-    hostile package cannot turn validation into a scan of the wider filesystem.
-    That containment is a property of pathlib rather than of this module, and
-    ``Path.resolve`` already changed behaviour under us between 3.12 and 3.13, so
-    it is pinned here rather than assumed.
+    The test pins the pathlib behavior that the walk relies on: ``rglob`` yields
+    a symlinked directory without following it.
     """
     outside = tmp_path / "outside"
     (outside / "deep").mkdir(parents=True)
@@ -719,7 +712,7 @@ def test_validate_extracted_root_accepts_relative_links_and_plain_files(
 
 
 def test_validate_extracted_root_requires_an_extracted_tree(tmp_path: Path) -> None:
-    """A missing runtime root means extraction silently produced nothing."""
+    """A missing runtime root is an error."""
     with pytest.raises(runtime.RuntimeSetupError, match="did not create a runtime root"):
         runtime.validate_extracted_root(tmp_path / "missing")
 
@@ -789,7 +782,7 @@ def test_regular_file_rejects_unstattable_paths() -> None:
 
 
 def test_recorded_engines_ignores_unsupported_manifest_entries(tmp_path: Path) -> None:
-    """Never feed an unrecognized engine name back into the Playwright CLI."""
+    """Unrecognized engine names are dropped from the recorded engines."""
     paths = runtime.RuntimePaths.from_repo(tmp_path)
     runtime.ensure_cache_root(paths)
     paths.local_libraries.mkdir(parents=True)
@@ -805,7 +798,7 @@ def test_recorded_engines_ignores_unsupported_manifest_entries(tmp_path: Path) -
 
 
 def test_requested_engines_extends_a_chromium_only_manifest(tmp_path: Path) -> None:
-    """Preparing WebKit must widen, never replace, the recorded Chromium closure."""
+    """Preparing WebKit widens the recorded Chromium engine set."""
     paths = ready_paths(tmp_path, engines=("chromium",))
 
     assert runtime.requested_engines(paths, ["webkit"]) == ("chromium", "webkit")
@@ -835,7 +828,7 @@ def test_cache_root_refuses_symlink(tmp_path: Path) -> None:
 
 
 def test_cache_root_refuses_dangling_symlink(tmp_path: Path) -> None:
-    """Reject a broken symlink root that exists() would silently skip."""
+    """A dangling symlink root is rejected."""
     (tmp_path / ".playwright").symlink_to(tmp_path / "missing", target_is_directory=True)
 
     with pytest.raises(runtime.RuntimeSetupError, match="not a symlink"):
@@ -843,7 +836,7 @@ def test_cache_root_refuses_dangling_symlink(tmp_path: Path) -> None:
 
 
 def test_cache_root_must_sit_directly_below_the_repository(tmp_path: Path) -> None:
-    """Never create the cache anywhere but the repository's own ignored directory."""
+    """The cache root must sit directly below the repository root."""
     paths = runtime.RuntimePaths.from_repo(tmp_path)
     escaped = dataclasses.replace(paths, cache_root=tmp_path / "nested" / ".playwright")
 
@@ -874,7 +867,7 @@ def test_cache_lock_reports_an_unopenable_lock(tmp_path: Path) -> None:
 
 
 def test_cache_lock_rejects_a_non_regular_lock(tmp_path: Path) -> None:
-    """A FIFO planted at the lock path must not be accepted as a lock file."""
+    """A FIFO at the lock path is rejected as a lock file."""
     paths = runtime.RuntimePaths.from_repo(tmp_path)
     runtime.ensure_cache_root(paths)
     os.mkfifo(paths.cache_root / "setup.lock")
@@ -943,7 +936,7 @@ def test_remove_stale_staging_deletes_only_owned_stage_directories(tmp_path: Pat
 
 
 def test_remove_stale_staging_rejects_a_forged_stage_symlink(tmp_path: Path) -> None:
-    """Never follow a planted staging symlink into an unrelated directory."""
+    """A staging symlink is rejected rather than followed."""
     paths = runtime.RuntimePaths.from_repo(tmp_path)
     runtime.ensure_cache_root(paths)
     outside = tmp_path / "outside"
@@ -1013,7 +1006,7 @@ def test_publish_local_libraries_swaps_an_existing_cache(tmp_path: Path) -> None
 
 
 def test_publish_local_libraries_refuses_staging_outside_the_cache(tmp_path: Path) -> None:
-    """Never publish from a staging directory outside the repository cache."""
+    """A staging directory outside the cache is refused."""
     paths = runtime.RuntimePaths.from_repo(tmp_path)
     runtime.ensure_cache_root(paths)
     outside = tmp_path / "outside-stage"
@@ -1048,7 +1041,7 @@ def test_exchange_directories_reports_a_kernel_failure(tmp_path: Path) -> None:
 
 
 def test_exchange_directories_requires_renameat2(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Refuse to publish non-atomically on a host without renameat2."""
+    """Without renameat2, publication is refused."""
 
     class LibraryWithoutRenameat2:
         """A C library handle that does not expose renameat2."""
@@ -1147,7 +1140,7 @@ def test_prepare_tolerates_staging_already_removed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A step that cleans up its own staging must not break the outer cleanup."""
+    """Staging removed during preparation does not break the outer cleanup."""
     paths = ready_paths(tmp_path)
 
     def remove_stage_and_fail(
@@ -1278,7 +1271,7 @@ def test_discovered_directories_handles_a_missing_root(tmp_path: Path) -> None:
 
 
 def test_prepend_environment_keeps_unset_variables_unset() -> None:
-    """Never introduce an empty variable when nothing was discovered."""
+    """An empty discovery list leaves the variable unset."""
     environment: dict[str, str] = {}
 
     runtime.prepend_environment(environment, "LD_LIBRARY_PATH", [])
@@ -1299,7 +1292,7 @@ def test_browser_root_defaults_to_the_shared_cache(
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     shared_paths = runtime.RuntimePaths.from_repo(tmp_path)
     assert shared_paths.browser_root == tmp_path / "home" / ".cache" / "ms-playwright"
-    # The shared browsers are never placed under the repository-local cache.
+    # The shared browser root is outside the repository-local cache.
     assert not runtime.is_within(shared_paths.browser_root, shared_paths.cache_root)
 
 
@@ -1372,7 +1365,7 @@ def test_browser_cache_ready_rejects_a_symlinked_engine_directory(tmp_path: Path
 
 
 def test_require_ready_reports_each_missing_precondition(tmp_path: Path) -> None:
-    """Refuse to run before a verified cache, matching host, and installed browsers."""
+    """require_ready reports a stale or missing manifest and refuses to run."""
     paths = ready_paths(tmp_path)
 
     assert runtime.require_ready(paths) == runtime.ENGINES
@@ -1421,7 +1414,7 @@ def test_patch_webkit_launchers_preserves_inherited_private_libraries(tmp_path: 
 
 
 def test_patch_webkit_launchers_rejects_an_unexpected_format(tmp_path: Path) -> None:
-    """Never rewrite a launcher whose library-path line is not the known one."""
+    """A launcher without the known library-path line is not rewritten."""
     paths = runtime.RuntimePaths.from_repo(tmp_path, browser_root=tmp_path / "shared-browsers")
     launcher = write_webkit_launcher(paths, patched=False)
     launcher.write_text("#!/bin/sh\nexec MiniBrowser\n", encoding="utf-8")
@@ -1479,8 +1472,7 @@ def test_patch_webkit_launchers_reports_an_unwritable_cache(
 ) -> None:
     """A read-only shared browser cache cannot stage a replacement launcher.
 
-    Shared and network-mounted homes routinely mount the Playwright cache
-    read-only, so this is the ordinary failure rather than an exotic one.
+    The failure is reported as a setup error.
     """
     paths = runtime.RuntimePaths.from_repo(tmp_path, browser_root=tmp_path / "shared-browsers")
     write_webkit_launcher(paths, patched=False)
@@ -1627,13 +1619,13 @@ def test_clean_removes_only_the_repository_local_cache(
 
     assert not paths.cache_root.exists()
     assert sibling.read_text(encoding="utf-8") == "keep"
-    # Browsers live outside the repository cache, so cleaning leaves them shared.
+    # Browsers live outside the repository cache and are kept.
     assert paths.browser_root.is_dir()
     assert "shared browsers kept" in capsys.readouterr().out
 
 
 def test_clean_is_idempotent(tmp_path: Path) -> None:
-    """Cleaning an absent cache succeeds instead of failing the Make target."""
+    """Cleaning an absent cache succeeds."""
     runtime.clean(runtime.RuntimePaths.from_repo(tmp_path))
 
 

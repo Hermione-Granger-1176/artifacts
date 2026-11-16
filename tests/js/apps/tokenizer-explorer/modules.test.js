@@ -470,7 +470,7 @@ test('insightReserveCopies covers every insight line the sliders can produce', (
   // than their widest form, which the reserve copies print.
   const shape = (text) => text.replace(/\d+(\.\d+)?/g, '#');
   const shapes = new Set(copies.map(shape));
-  // Written for the longest candidate word, so no real winner makes a longer line.
+  // The copies use the longest candidate word, so no real winner produces a longer line.
   assert.ok(copies.some((copy) => copy.includes('"centigrade"')));
 
   const mocks = setupDocumentMock();

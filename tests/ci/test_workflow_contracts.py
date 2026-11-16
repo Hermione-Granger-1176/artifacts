@@ -96,17 +96,16 @@ APT_INSTALL_ACTION = "./.github/actions/apt-install"
 
 
 def _assert_apt_install(job: dict[str, object], name: str, packages: str) -> None:
-    """Pin a container job's tool bootstrap to the shared retrying action."""
+    """Assert a container job's tool bootstrap uses the shared apt-install action."""
     assert _step_uses(job, name) == APT_INSTALL_ACTION
     assert _step_with(job, name) == {"packages": packages}
 
 
 def test_apt_install_action_retries_a_brief_apt_outage() -> None:
-    """Pin the container apt bootstrap's retry budget and backoff.
+    """Checks the apt-install action's retry budget and backoff.
 
-    A brief runner DNS outage should get three attempts spaced 30s and 60s
-    apart, a failed index fetch must count as a failure, and a tool already on
-    PATH is not reinstalled.
+    The action makes three attempts spaced 30s and 60s apart, counts a failed
+    index fetch as a failure, and skips tools already on PATH.
     """
     action = yaml.safe_load(
         (REPO_ROOT / ".github" / "actions" / "apt-install" / "action.yml").read_text(
@@ -152,7 +151,7 @@ def _github_app_token_steps(value: object) -> list[dict[str, object]]:
 
 
 def test_github_app_token_actions_use_client_id_without_renaming_repository_variables() -> None:
-    """Use the current action input while preserving the repository variable contract."""
+    """Pinned token steps use client-id, and the repository variables keep their names."""
     documents = [
         yaml.safe_load(path.read_text(encoding="utf-8")) for path in _workflow_and_action_files()
     ]
@@ -170,7 +169,7 @@ def test_github_app_token_actions_use_client_id_without_renaming_repository_vari
 
 
 def test_playwright_ci_images_match_locked_python_package() -> None:
-    """Keep every browser container on one immutable image matching uv.lock."""
+    """Every browser container uses one digest-pinned image whose version matches uv.lock."""
     images = _playwright_ci_images()
     assert images, "expected Playwright images in browser workflows"
     assert all(PLAYWRIGHT_CI_IMAGE_PIN.fullmatch(image) for image in images), images
@@ -255,8 +254,7 @@ def test_update_workflow_keeps_expected_triggers_and_jobs() -> None:
     assert _step(plan, "Checkout repository")["with"]["fetch-depth"] == 0
     plan_run = _step_run(plan, "Compute app impact plan")
     assert "make ci-thumbnail-plan" in plan_run
-    # Push plans diff from the last deployed main commit, so a replaced pending
-    # push run cannot leave its changes unplanned.
+    # Push plans diff from the last deployed main commit.
     assert "git show FETCH_HEAD:deploy-metadata.json" in plan_run
     assert 'git merge-base --is-ancestor "$deployed_sha" "$head_sha"' in plan_run
     assert (
@@ -298,15 +296,14 @@ def test_update_workflow_supports_one_click_redeploy_of_a_known_good_sha() -> No
     validate = _step(plan, "Validate redeploy SHA")
     assert validate["if"] == "github.event_name == 'workflow_dispatch' && inputs.redeploy-sha != ''"
     validate_run = _step_run(plan, "Validate redeploy SHA")
-    # Validation uses the API (no working tree) so a bad SHA fails with a clear
-    # message instead of an opaque BUILD_REF checkout failure.
+    # Validation queries the API without a working tree, so an invalid SHA fails
+    # with a clear message.
     assert 'gh api "repos/${{ github.repository }}/commits/${REDEPLOY_SHA}"' in validate_run
     assert "git cat-file" not in validate_run
-    # Only a full SHA can match deploy-metadata.commit_sha during verification,
-    # and the API also resolves branch and tag names, so both checks are needed.
+    # A full 40-character SHA is required.
     assert "grep -Eqx '[0-9a-f]{40}'" in validate_run
     assert 'if [ "$resolved" != "$REDEPLOY_SHA" ]; then' in validate_run
-    # Validation must run before the checkout it guards against.
+    # Validation runs before the checkout.
     plan_step_names = [step.get("name") for step in _steps(plan)]
     assert plan_step_names.index("Validate redeploy SHA") < plan_step_names.index(
         "Checkout repository"
@@ -423,8 +420,7 @@ def test_update_parallel_shards_and_assembly_use_manifest_bound_make_targets() -
 
     ledger = _job(workflow, "save-app-ledger")
     ledger_condition = ledger["if"].strip()
-    # The implicit success() would treat the transitively skipped
-    # dependency-review job as a failure and skip this job on every push.
+    # The job uses !cancelled() rather than the implicit success() check.
     assert ledger_condition.startswith("!cancelled() &&")
     assert "github.event_name == 'push'" in ledger_condition
     assert "github.ref == 'refs/heads/main'" in ledger_condition
@@ -459,9 +455,8 @@ def test_update_publish_job_reuses_verified_site_artifact() -> None:
     assert _step_uses(publish, "Download verified site artifact").startswith(
         "actions/download-artifact@"
     )
-    # Publish provisions through ci-setup like every other verifying job. A manual
-    # rebuild would repeat a full uv sync, an npm ci, and a Playwright --with-deps
-    # apt pass on every deploy, and the caches that make those no-ops would go unused.
+    # Publish provisions through ci-setup, like the other verifying jobs, and
+    # does not rebuild the environment.
     assert _step_with(publish, "CI setup")["install-deps"] == "true"
     assert _step_with(publish, "CI setup")["browser-engines"] == "chromium"
     assert "container" not in publish
@@ -772,8 +767,8 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
         "steps.audit.outputs.checked == 'true' && steps.audit.outputs.status == '0'"
     )
 
-    # The stale-preview audit runs inside the settings audit step, so one run
-    # reports both audits and they share one drift-alert issue.
+    # The stale-preview audit runs inside the settings audit step, so both
+    # report to one drift-alert issue.
     assert "make ci-audit-repo-settings" in audit_run
     assert "make ci-audit-previews" in audit_run
     audit_fallback = _step(audit_job, "Alert when repository settings audit setup fails")
@@ -815,8 +810,7 @@ def test_audit_and_refresh_action_workflows_keep_expected_entrypoints() -> None:
     assert open_token == "${{ github.token }}"
     close_token = _step(smoke_job, "Close live-site smoke issue when clean")["env"]["GH_TOKEN"]
     assert close_token == "${{ github.token }}"
-    # The setup-failure alert runs on the host runner so it still works when
-    # the container never got make or gh installed.
+    # The setup-failure alert runs on the host runner, not in the smoke container.
     assert all(
         step.get("name") != "Alert when live-site smoke setup fails" for step in smoke_job["steps"]
     )
@@ -856,8 +850,7 @@ def test_deploy_failure_alert_workflow_opens_and_closes_issue() -> None:
 
     assert set(_jobs(workflow)) == {"alert"}
     alert = _job(workflow, "alert")
-    # A fork PR from the contributor's own `main` also reports head_branch main,
-    # so the filter must pin the event and the head repository too.
+    # The filter also requires a non-PR event and the same head repository.
     assert alert["if"] == (
         "github.event.workflow_run.head_branch == 'main' && "
         "github.event.workflow_run.event != 'pull_request' && "
@@ -882,8 +875,7 @@ def test_deploy_failure_alert_workflow_opens_and_closes_issue() -> None:
     assert "make ci-alert-issue" in close_run
     assert "state=close" in close_run
 
-    # A preview publish can cancel a pending main publish in the shared Pages
-    # concurrency group, so a cancelled run at the tip of main is redeployed.
+    # Redeploys a cancelled main run when it is still the tip of main.
     redeploy = _step(alert, "Redeploy main when its run was cancelled")
     assert redeploy["if"] == "github.event.workflow_run.conclusion == 'cancelled'"
     assert redeploy["env"]["GH_TOKEN"] == "${{ github.token }}"
@@ -898,7 +890,7 @@ def test_schedule_watchdog_runs_from_push_and_syncs_alert_issue() -> None:
     workflow = _load_workflow("schedule-watchdog.yml")
     on_block = _workflow_on(workflow)
 
-    # A push (not a schedule) trigger is essential: GitHub never auto-disables it.
+    # Triggers on push, not on schedule.
     assert set(on_block) == {"push", "workflow_dispatch"}
     assert on_block["push"]["branches"] == ["main"]
 
@@ -938,7 +930,7 @@ def test_schedule_watchdog_runs_from_push_and_syncs_alert_issue() -> None:
     )
 
     fallback = _step(watchdog, "Alert when watchdog setup fails")
-    # A status function overrides implicit success(), so setup failures alert too.
+    # The !cancelled() status function replaces implicit success(), so setup failures alert.
     assert fallback["if"] == "${{ !cancelled() && steps.watchdog.outputs.checked != 'true' }}"
     assert "state=setup-failure" in _step_run(watchdog, "Alert when watchdog setup fails")
 
@@ -1022,7 +1014,7 @@ def test_all_action_references_are_pinned_or_local() -> None:
     )
 
     for path, lineno, ref, comment in references:
-        # Repo-relative so a failure names the exact file among the action.yml copies.
+        # Repo-relative path, so a failure names the exact file.
         location = f"{path.relative_to(REPO_ROOT)}:{lineno}"
         if ref.startswith("./"):
             continue
@@ -1036,7 +1028,7 @@ def test_all_action_references_are_pinned_or_local() -> None:
 
 def test_no_python_heredocs_remain_in_workflows_or_actions() -> None:
     """No workflow or composite action embeds an inline Python heredoc."""
-    # Also match versioned interpreters such as python3.12 so no heredoc slips by.
+    # Also matches versioned interpreters such as python3.12.
     heredoc_pattern = re.compile(r"python3?(?:\.\d+)?\s+-\s*<<")
     files = _workflow_and_action_files()
     assert files, "expected at least one workflow or action file to validate"
@@ -1191,15 +1183,12 @@ def test_setup_steps_cache_locked_environments_and_downloads() -> None:
     )
     assert ci_setup_cache["if"] == "inputs.install-deps == 'true' && inputs.browser-engines != ''"
     assert ci_setup_cache["id"] == "playwright-cache"
-    # The exact installed package version changes only when Playwright changes.
-    # The engine set prevents a job from restoring a subset of what it needs.
+    # Keyed on the installed package version and the engine set.
     assert ci_setup_cache["with"]["key"] == (
         "playwright-${{ runner.os }}-${{ runner.arch }}"
         "-${{ steps.playwright-version.outputs.version }}-${{ inputs.browser-engines }}"
     )
-    # One browser knob, not two. An engine set says both whether to install and
-    # what to install, so a caller cannot ask for no browsers and an engine at
-    # the same time, and the key cannot disagree with what was installed.
+    # One browser input: an engine set that says both whether and what to install.
     assert "install-browsers" not in ci_setup["inputs"]
     assert ci_setup["inputs"]["browser-engines"]["default"] == ""
     venv_cache = next(
@@ -1229,8 +1218,7 @@ def test_setup_steps_cache_locked_environments_and_downloads() -> None:
     )
     assert "restore-keys" not in node_modules_cache["with"]
     setup_uv = next(step for step in ci_setup["runs"]["steps"] if step.get("name") == "Set up uv")
-    # uv itself must always be installed: audit-python invokes uv directly,
-    # so a cached .venv is not a substitute for the uv binary.
+    # uv is installed on every run.
     assert setup_uv["if"] == "inputs.install-deps == 'true'"
     assert setup_uv["uses"].startswith("astral-sh/setup-uv@")
     assert setup_uv["with"]["enable-cache"] is False
@@ -1255,10 +1243,7 @@ def test_setup_steps_cache_locked_environments_and_downloads() -> None:
         'make setup-playwright-engines engines="$BROWSER_ENGINES"',
     ):
         assert browser_guard in browser_install["run"]
-    # A hit restores binaries, not the apt packages they load, so the system-deps
-    # pass may only be skipped for an engine set the runner image already
-    # satisfies. Chromium qualifies; WebKit does not, and skipping it left the
-    # restored MiniBrowser unable to load its shared libraries.
+    # On a cache hit, the system-deps pass is skipped only for the chromium engine set.
     assert "with_deps=1" in browser_install["run"]
     assert (
         '[ "$PLAYWRIGHT_CACHE_HIT" = "true" ] && [ "$BROWSER_ENGINES" = "chromium" ]'
@@ -1284,10 +1269,7 @@ def test_setup_steps_cache_locked_environments_and_downloads() -> None:
 
     ci_setup_steps = ci_setup["runs"]["steps"]
     setup_python = next(s for s in ci_setup_steps if s.get("name") == "Set up Python")
-    # No pip cache here. Python dependencies land in .venv via uv, and .venv is
-    # cached whole, so a pip download cache has no consumer on the hit path. It
-    # was also self-defeating: actions/cache skips the save on a primary-key
-    # hit, so a hashFiles('uv.lock') key froze the entry until uv.lock changed.
+    # No pip cache: uv installs Python dependencies into .venv, and .venv is cached whole.
     assert "cache" not in setup_python.get("with", {})
     assert "cache-dependency-path" not in setup_python.get("with", {})
     ci_uv_cache = next(s for s in ci_setup_steps if s.get("name") == "Cache uv downloads")
@@ -1308,13 +1290,10 @@ def test_setup_steps_cache_locked_environments_and_downloads() -> None:
 
 
 def test_secret_scan_is_scoped_away_from_published_build_output() -> None:
-    """The scan covers source history and skips the copies CI publishes of it.
+    """The secret scan skips the built pr-preview/ copies kept on gh-pages.
 
-    secret-scan checks out with fetch-depth 0, so an event with no commit range
-    walks every branch including gh-pages, where each pull request leaves a built
-    copy of the site under pr-preview/. That produced 75 generic-api-key hits on
-    minified bundles and, because secret-scan is a required check, made the
-    documented workflow_dispatch rollback impossible to run.
+    secret-scan checks out with fetch-depth 0, so it walks every branch,
+    including gh-pages.
     """
     update = _load_workflow("update.yml")
     scan = _step(_job(update, "secret-scan"), "Scan for committed secrets")
@@ -1326,18 +1305,15 @@ def test_secret_scan_is_scoped_away_from_published_build_output() -> None:
     # The default rule set stays on; only the path scope narrows.
     assert config["extend"]["useDefault"] is True
 
-    # Nothing else may be excluded: pr-preview is safe to skip only because CI
-    # assembles it from source this same scan still covers in full. Asserting the
-    # whole allowlist, not just its paths, so a later commits/regexes/stopwords
-    # key cannot widen the scope past what this contract describes.
+    # The allowlist holds only pr-preview/, which CI builds from source that this
+    # scan covers. The whole allowlist is asserted, so no other key can widen the scope.
     allowlist = config["allowlist"]
     assert allowlist["paths"] == ["^pr-preview/"]
     assert set(allowlist) <= {"description", "paths"}
     assert "rules" not in config
 
-    # Individually reviewed historical findings are accepted by fingerprint
-    # instead, which pins rule, file, line, and commit, so the same file stays
-    # scanned and a new finding in it still fails.
+    # Reviewed findings are accepted by fingerprint, which pins rule, file, line,
+    # and commit.
     fingerprints = [
         line
         for line in (REPO_ROOT / ".gitleaksignore").read_text(encoding="utf-8").splitlines()
@@ -1353,9 +1329,8 @@ def test_secret_scan_is_scoped_away_from_published_build_output() -> None:
 def test_ci_setup_restores_download_caches_only_when_an_install_will_run() -> None:
     """A download cache is restored only when the step that reads it will run.
 
-    ``~/.cache/uv`` is read by ``make install`` and ``~/.npm`` by ``npm ci``. A
-    ``.venv`` or ``node_modules`` hit means neither runs, so restoring them then
-    transfers hundreds of megabytes into a job that never opens them.
+    ``~/.cache/uv`` is read by ``make install`` and ``~/.npm`` by ``npm ci``.
+    Neither runs on a ``.venv`` or ``node_modules`` cache hit.
     """
     ci_setup = yaml.safe_load(
         (REPO_ROOT / ".github" / "actions" / "ci-setup" / "action.yml").read_text(encoding="utf-8")
@@ -1371,8 +1346,8 @@ def test_ci_setup_restores_download_caches_only_when_an_install_will_run() -> No
     node_cache = step("Cache node modules")
     assert node_cache["if"] == "inputs.install-deps == 'true' && inputs.node-version != ''"
     npm_cache = step("Cache npm downloads")
-    # node-version may be empty, and an empty toolchain has no ~/.npm worth
-    # keying, so the guard matches the one on Set up Node.js.
+    # The guard matches the one on Set up Node.js, which is skipped when
+    # node-version is empty.
     assert npm_cache["if"] == (
         "inputs.install-deps == 'true' && inputs.node-version != ''"
         " && steps.node-modules-cache.outputs.cache-hit != 'true'"
@@ -1387,15 +1362,13 @@ def test_ci_setup_restores_download_caches_only_when_an_install_will_run() -> No
     assert install["env"]["NODE_VERSION"] == "${{ inputs.node-version }}"
     assert 'if [ -n "$NODE_VERSION" ]' in install["run"]
 
-    # The gate only works if the cache it reads has already been restored, so
-    # each producer of a cache-hit output must come first.
+    # Each producer of a cache-hit output runs before the cache that reads it.
     order = [s.get("name") for s in steps]
     assert order.index("Cache virtual environment") < order.index("Cache uv downloads")
     assert order.index("Resolve Node.js version") < order.index("Cache node modules")
     assert order.index("Cache node modules") < order.index("Cache npm downloads")
 
-    # setup-uv installs the centrally governed tool without restoring a second
-    # dependency cache that would duplicate the conditional uv cache above.
+    # setup-uv installs uv without its own cache.
     setup_uv = step("Set up uv")
     assert setup_uv["uses"].startswith("astral-sh/setup-uv@")
     assert setup_uv["with"]["enable-cache"] is False

@@ -4,8 +4,7 @@
  * Conventions: a coupon frequency `k` sets the number of periods per year.
  * The per-period yield is `annualYieldPct / 100 / k`, the per-period coupon is
  * `faceValue * couponRatePct / 100 / k`, and the number of periods is
- * `years * k`. The explainer always prices annual bonds (`k = 1`), but the
- * math stays frequency-general so the fixtures can exercise both cases.
+ * `years * k`. The explainer uses annual bonds (`k = 1`); the functions accept any `k`.
  *
  * @module bond-math
  */
@@ -75,9 +74,9 @@ function sumPresentValues(rows) {
 /**
  * Present value (clean price) of a bond, in closed form: the coupons are an
  * annuity, `c * (1 - v^n) / i`, and the face is paid once, `F * v^n`, where
- * `v = 1 / (1 + i)`. It equals the sum of the schedule's present values without
- * building the schedule, which matters because the price-rate curve prices the
- * bond at more than a hundred rates on every slider tick.
+ * `v = 1 / (1 + i)`. It equals the sum of the schedule's present values, computed
+ * without building the schedule. Returns 0 when the bond has no periods; a zero
+ * yield returns the undiscounted sum.
  *
  * @param {PricedBond} bond - Bond terms plus its market yield.
  * @returns {number} Bond price.
@@ -100,8 +99,7 @@ export function bondPrice({ faceValue, couponRatePct, years, annualYieldPct, fre
  * Discounted cash-flow schedule for a bond: one row per coupon period, each with
  * its undiscounted payment (the final period also returns face), the discount
  * factor `1 / (1 + i)^t`, and the present value. The present values sum to the
- * bond price, so the schedule is what the worked-example table and its fixtures
- * read from.
+ * bond price.
  *
  * @param {PricedBond} bond - Bond terms plus its market yield.
  * @returns {DiscountedCashFlow[]} The discounted schedule.

@@ -98,7 +98,7 @@ The shared design system lives in `css/src/` and is bundled into `css/style.css`
 - Reach for the shared component families in `css/src/04-artifact-components.css` before writing app CSS: `.control-field` (with `-head`, `-hints`, `-note`), `.stat-grid` / `.stat` (modifiers `.is-center`, `.stat-label.is-caps`, `.stat-value.is-mono`), `.chip` (hue tones `.is-*`, `.is-mono`, solid `.is-solid-*`), `.segmented` (`.is-fused`, the inset pill `.is-inset`, `.active`), `.meter` / `.meter-fill` (tone modifiers), `.app-callout` (hue tones), `.section-kicker`, plus the shared buttons, inputs, tables, code windows, and `.section-nav`
 - Keep `apps/<slug>/css/app.css` focused on app-specific dimensions, grids, visualizations, and component variants built on those tokens and families. It retains its `body.app-<slug>` scope
 - A change to a shared component or token is intentional shared work in `css/src/`, not an app-local edit
-- A compact control height that sits below a fingertip wraps it in `max(<compact height>, var(--touch-target, 0px))`. `--touch-target` (2.75rem) is set only on coarse pointers in `css/src/01-tokens.css`, so mouse and trackpad screens keep the compact size. Hover-only effects go under `@media (hover: hover)`, because a tap counts as hover on touch screens and leaves them stuck open. Info tips are the exception: they have no other way to open on a touch screen, so a tap shows the tip and a tap elsewhere hides it. Their markers are 24px on touch screens, the WCAG 2.2 minimum, because a 2.75rem marker would break the label line
+- A compact control height that sits below a fingertip wraps it in `max(<compact height>, var(--touch-target, 0px))`. `--touch-target` (2.75rem) is set only on coarse pointers in `css/src/01-tokens.css`, so mouse and trackpad screens keep the compact size. Put hover-only effects under `@media (hover: hover)`, because a tap leaves hover styles stuck open. Info tip markers are the exception. They are 24px on touch screens, the WCAG 2.2 minimum. A tap shows the tip, and a tap elsewhere hides it
 
 ### Token lint
 
@@ -173,6 +173,15 @@ Each document has one purpose: a tutorial teaches through visible results, a how
 - Use numbered lists for steps and bullets for parallel facts. Introduce each list with a complete sentence.
 - Format code as code and UI labels in bold. Use descriptive link text and serial commas.
 - Preserve generated README sections and the meaning of policies and historical decisions.
+- Write docs pages to describe the current system. History and decision rationale live in the ADRs under `docs/adr/` and in each app's `apps/<slug>/docs/decisions.md`. Link to those records rather than repeating them.
+
+## Code comments and docstrings
+
+Comments and docstrings describe what the current code does. They cover behavior, inputs, outputs, invariants, and edge cases.
+
+- Do not record history in a comment, such as what the code used to do, past bugs, or PR and issue numbers.
+- Do not justify a design choice in a comment. Put history and rationale in commit messages, in ADRs under `docs/adr/`, or in the app's `docs/decisions.md`.
+- Do not restate the next line in a comment. Name the behavior the reader cannot see from the code.
 
 ## Logo and favicon
 

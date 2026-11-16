@@ -33,17 +33,15 @@ concurrency:
 
 env:
   PYTHONPATH: "."
-  # The ref every build/verify/deploy job checks out. It is github.sha for the
-  # normal push, PR, and schedule paths, and a one-click rollback target when a
-  # workflow_dispatch run supplies redeploy-sha. Because prepare_site derives the
-  # deploy commit SHA from the checked-out HEAD, the published metadata reflects
-  # the redeployed commit honestly with no extra plumbing.
+  # Ref that the build, verify, and deploy jobs check out. This is github.sha,
+  # or redeploy-sha when a workflow_dispatch run supplies one. prepare_site takes
+  # the deploy commit SHA from the checked-out HEAD, so the published metadata
+  # matches it.
   BUILD_REF: ${{ (github.event_name == 'workflow_dispatch' && inputs.redeploy-sha) || github.sha }}
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "24"
   PAGES_BRANCH: gh-pages
-  # Give the Pages backend its documented ten-minute queue window. A shorter
-  # local timeout turned transient deployment_queue delays into false failures.
+  # Matches the Pages backend's ten-minute queue window.
   PAGES_DEPLOY_TIMEOUT_MS: "600000"
   PAGES_PUBLISH_DIR: .artifacts/pages-publish
   PREVIEW_ROOT: pr-preview
@@ -51,14 +49,12 @@ env:
   VERIFY_DEPLOY_ATTEMPTS: "12"
   VERIFY_DEPLOY_DELAY_SECONDS: "5"
   ARTIFACTS_STRICT_THUMBNAILS: "1"
-  # A retry hides an intermittent browser failure locally, but CI must keep the
-  # signal visible and fail until the underlying instability is understood.
+  # Flaky browser tests fail the run instead of passing on retry.
   ARTIFACTS_FAIL_ON_FLAKY_BROWSER_TESTS: "1"
   GENERATED_OUTPUT_ARGS: js/data.js js/gallery-config.js README.md apps
 
 jobs:
-  # The plan carries full slug lists only in its artifact. Job outputs remain
-  # small so GitHub Actions output limits cannot truncate large app changes.
+  # Full slug lists live only in the plan artifact. Job outputs stay small.
   plan:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
@@ -75,23 +71,17 @@ jobs:
       reason: ${{ steps.plan.outputs.reason }}
       skip-verification: ${{ steps.plan.outputs.skip-verification }}
     steps:
-      # Validate the redeploy target before any checkout runs. A mistyped SHA
-      # would otherwise fail the BUILD_REF checkout below with an opaque error
-      # and skip this message entirely. gh api needs no working tree, and
-      # because every build and deploy job needs this plan job, a failure here
-      # stops the whole pipeline with a clear reason before any downstream
-      # BUILD_REF checkout is attempted.
+      # Validates redeploy-sha before any checkout. Every build and deploy job
+      # needs this job, so a failure here stops the pipeline.
       - name: Validate redeploy SHA
         if: github.event_name == 'workflow_dispatch' && inputs.redeploy-sha != ''
         env:
           GH_TOKEN: ${{ github.token }}
           REDEPLOY_SHA: ${{ inputs.redeploy-sha }}
         run: |
-          # Deploy verification compares deploy-metadata.commit_sha (always a
-          # full SHA) with this input, and BUILD_REF reaches checkouts and shell
-          # steps, so accept only a full lowercase commit SHA. The commits API
-          # also resolves branch names, tags, and short SHAs, which would deploy
-          # and then fail verification on every attempt.
+          # Accepts only a full lowercase commit SHA, since deploy verification
+          # compares it with deploy-metadata.commit_sha. Branch names, tags, and
+          # short SHAs are rejected.
           if ! printf '%s' "$REDEPLOY_SHA" | grep -Eqx '[0-9a-f]{40}'; then
             echo "redeploy-sha must be a full 40-character lowercase commit SHA." >&2
             exit 1
@@ -137,10 +127,8 @@ jobs:
         run: |
           base_sha="${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}"
           head_sha="${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}"
-          # GitHub replaces a pending push run when a newer push lands. If this
-          # run diffed only event.before, no run would plan the replaced push's
-          # changes. Diff from the commit that main last deployed instead, when
-          # that commit is an ancestor of this push.
+          # On push runs, the diff base is the commit in gh-pages deploy-metadata.json
+          # when that commit is an ancestor of this push. Otherwise it stays event.before.
           if [ "${{ github.event_name }}" = "push" ]; then
             deployed_sha=$( { git fetch --quiet --depth=1 origin "$PAGES_BRANCH" \
               && git show FETCH_HEAD:deploy-metadata.json | jq -r '.commit_sha // empty'; } 2>/dev/null || true)
@@ -274,8 +262,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright/python:v1.64.1-noble@sha256:330d401ae23c905896a0c26c66c36fc971b621519e7b11b435a8328d7bf6e031
-      # The official image does not include GNU make. Use its default root user
-      # only to install GNU make before the Makefile-only setup runs.
+      # The image does not include GNU make. The apt-install step below adds it.
       options: --init --ipc=host
     timeout-minutes: 20
     permissions:
@@ -298,9 +285,8 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           node-version: ${{ env.NODE_VERSION }}
           install-deps: "true"
-          # The pinned Playwright image supplies browsers and Linux libraries.
-          # Skipping the host cache and install avoids mixing image binaries
-          # with runner packages.
+          # The container image supplies browsers and Linux libraries, so no
+          # browsers are installed on the host.
           browser-engines: ""
 
       - name: Run root browser verification
@@ -308,22 +294,22 @@ jobs:
           ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-ci/root
         run: make test-browser-root
 
-      # A bounded cross-engine safety net: the small root-plus-apps smoke pass,
-      # in the job that already provisions both engines.
+      # Small root-plus-apps smoke pass on WebKit. Runs in this job, which
+      # already has both engines.
       - name: Run WebKit smoke pass
         env:
           ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-ci/root
         run: make test-browser-webkit-smoke
 
-      # Times the gallery and every app to its ready mark in Chromium, against
-      # an absolute budget, on the pinned image so runs stay comparable.
+      # Times the gallery and each app to its ready mark in Chromium, against an
+      # absolute budget, on the pinned image.
       - name: Check page speed
         env:
           ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-ci/root
         run: make test-page-speed
 
-      # Baselines are what this pinned image renders, so CI is where they hold.
-      # A mismatch saves the captures with the failure artifacts below.
+      # Visual baselines match what this pinned image renders. A mismatch saves
+      # captures with the failure artifacts below.
       - name: Compare visual baselines
         env:
           ARTIFACTS_BROWSER_ARTIFACT_DIR: .artifacts/browser-ci/root
@@ -350,8 +336,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright/python:v1.64.1-noble@sha256:330d401ae23c905896a0c26c66c36fc971b621519e7b11b435a8328d7bf6e031
-      # The official image does not include GNU make. Use its default root user
-      # only to install GNU make before the Makefile-only setup runs.
+      # The image does not include GNU make. The apt-install step below adds it.
       options: --init --ipc=host
     timeout-minutes: 20
     permissions:
@@ -391,8 +376,8 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           node-version: ${{ env.NODE_VERSION }}
           install-deps: "true"
-          # Browser binaries and their system libraries come from the pinned
-          # container rather than the runner cache.
+          # The container image provides the browsers and their system libraries,
+          # so none are installed on the host.
           browser-engines: ""
 
       - name: Run app browser shard
@@ -529,8 +514,8 @@ jobs:
           overwrite: true
           retention-days: 1
 
-  # Branch protection requires this stable name. It only aggregates dependency
-  # outcomes and intentionally does not run tests or build files.
+  # Stable job name that branch protection requires. Checks the results of the
+  # jobs above and runs no tests or builds.
   verify:
     if: >-
       always() && github.event.action != 'closed' &&
@@ -568,8 +553,8 @@ jobs:
           [ "$SECRET_SCAN_RESULT" = "success" ]
           [ "$DEPENDENCY_REVIEW_RESULT" = "success" ] || [ "$DEPENDENCY_REVIEW_RESULT" = "skipped" ]
 
-  # Without a status function the implicit success() considers transitively
-  # skipped jobs (dependency-review on pushes) and skips this job forever.
+  # Runs on main pushes after verify succeeds. The !cancelled() guard lets
+  # skipped upstream jobs pass through.
   save-app-ledger:
     if: >-
       !cancelled() &&
@@ -629,8 +614,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # GITLEAKS_CONFIG is set explicitly rather than relying on root discovery,
-      # so the scope stays wired to a file the workflow contract test pins.
+      # Points gitleaks at .gitleaks.toml explicitly instead of relying on root discovery.
       - name: Scan for committed secrets
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
@@ -651,10 +635,9 @@ jobs:
       - name: Review dependency changes
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v4
 
-  # Publish only the verified `_site` artifact. This job never regenerates
-  # thumbnails or mutates source branches.
-  # Skipped alongside verify when the planner detects an automated
-  # thumbnail-only commit. The site was already deployed by the prior run.
+  # Publishes the verified `_site` artifact. Does not regenerate thumbnails or
+  # change source branches. Skipped when the plan sets skip-verification, which
+  # marks an automated thumbnail-only commit.
   publish:
     if: >-
       github.event.action != 'closed' &&
@@ -698,20 +681,15 @@ jobs:
           escalation-app-private-key: ${{ secrets.ESCALATION_APP_PRIVATE_KEY }}
           python-version: ${{ env.PYTHON_VERSION }}
           node-version: ${{ env.NODE_VERSION }}
-          # Publish intentionally stays on the hosted runner instead of the
-          # official Playwright container. This mixed deployment job needs the
-          # runner's GitHub CLI and deployment toolchain as well as a browser.
-          # The official Python image remains the boundary for pure browser
-          # jobs, while this job uses the shared host setup explicitly.
+          # Runs on the hosted runner, not the Playwright container, because it
+          # needs the runner's GitHub CLI and deployment tools as well as a browser.
+          # Chromium is installed on the host.
           browser-engines: chromium
-          # Install here, behind the shared cache hits. Installing by hand
-          # later in the job (pip install uv, then make setup-ci) would run a
-          # full uv sync, an npm ci, and a Playwright --with-deps apt pass on
-          # every deploy and leave the shared caches unused.
+          # Dependencies and Chromium are installed here by ci-setup, which
+          # restores the shared caches first.
           #
-          # An untrusted run (fork or Dependabot) skips deploying because no app
-          # token is minted, but it still restores the caches. That is a
-          # restore, not an install.
+          # Untrusted runs (forks, Dependabot) mint no app token and do not deploy.
+          # Their caches are still restored.
           install-deps: "true"
 
       - name: Download verified site artifact
@@ -853,17 +831,16 @@ jobs:
           number: ${{ steps.merged-preview.outputs.number }}
           delete: true
 
-      # Workflow-based Pages deploys do not write classic deployment records, so
-      # create one ourselves for main-site publishes to keep the Deployments page
-      # and github-pages environment badge honest. Previews and cleanup are excluded.
+      # Creates a classic deployment record for main-site publishes, since Pages
+      # workflow deploys do not write one. Skipped on pull request runs.
       - name: Create main deployment record
         id: deployment-record
         if: github.event_name != 'pull_request' && steps.setup.outputs.token-available == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # required_contexts must be an empty JSON array, which plain -f cannot
-          # express, so send the whole body as JSON through --input -.
+          # Sends the body as JSON on stdin. required_contexts must be an empty
+          # array, which -f cannot express.
           deployment_id=$(gh api "repos/${{ github.repository }}/deployments" \
             --input - --jq '.id' <<'JSON'
           {
@@ -978,9 +955,9 @@ jobs:
           -f state=failure
           -f log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-  # Persist thumbnails only when the planner explicitly allows it.
-  # This job never regenerates thumbnails. It only applies the validated
-  # thumbnail artifact packaged by `assemble-site`.
+  # Runs when the plan's persist-mode is not 'none', a thumbnail artifact changed,
+  # and publish succeeded. Does not regenerate thumbnails. It applies the
+  # validated artifact packaged by `assemble-site`.
   persist-thumbnails:
     if: >-
       !cancelled() &&
@@ -1129,9 +1106,8 @@ jobs:
             echo "Artifact changed: ${{ needs.assemble-site.outputs.thumbnail-artifact-changed }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Preview cleanup is isolated from publish/persistence. Closing an unmerged PR
-  # removes only that PR's preview subtree and preview comment. A merged PR is
-  # cleaned by the main push publish so the merge creates one Pages deployment.
+  # Removes the PR's preview subtree and preview comment when the PR closes
+  # without merging. Merged PRs are cleaned up by the main push publish.
   cleanup-preview:
     if: >-
       github.event_name == 'pull_request' &&

@@ -133,7 +133,7 @@ def test_edit_pr_subcommand_passes_title_and_body(
 
 
 def test_edit_pr_subcommand_forwards_body_file(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A --body-file is forwarded to edit_pr so gh reads it, not the CLI."""
+    """A --body-file is passed to edit_pr as a path, without being read."""
     captured: dict[str, object] = {}
     monkeypatch.setattr(pr_review, "edit_pr", lambda _pr=None, **kwargs: captured.update(kwargs))
 
@@ -365,7 +365,7 @@ def test_pr_subcommands_dispatch_to_pr_commands(
 
 
 def test_pr_create_rejects_a_body_without_a_title() -> None:
-    """A body only makes sense with a title; otherwise the text is filled from commits."""
+    """pr-create rejects --body when --title is missing."""
     with pytest.raises(GhError, match="needs a --title"):
         cli.main(["pr-create", "--body", "B"])
 
@@ -497,7 +497,7 @@ def test_issue_subcommands_dispatch_to_issue_commands(
 def test_current_pr_subcommand_prints_the_number(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """current-pr prints just the number, for the Makefile's PR_NUM."""
+    """current-pr prints only the PR number followed by a newline."""
     monkeypatch.setattr(gh_runner, "current_pr_number", lambda: 42)
 
     assert cli.main(["current-pr"]) == 0
@@ -516,7 +516,7 @@ def test_current_pr_subcommand_prints_the_number(
 def test_option_equals_value_keeps_a_leading_dash(
     argv: list[str], attribute: str, value: str
 ) -> None:
-    """The Makefile passes free text as --option=value, so a leading dash survives parsing."""
+    """An --option=value argument keeps a value with a leading dash intact."""
     args = cli._build_parser().parse_args(argv)
 
     assert getattr(args, attribute) == value
@@ -527,6 +527,6 @@ def test_option_equals_value_keeps_a_leading_dash(
     [["issue-list", "--search", "-label:bug"], ["issue-create", "--title", "-fix", "--body", "b"]],
 )
 def test_separate_value_with_a_leading_dash_is_read_as_an_option(argv: list[str]) -> None:
-    """The separate-word form fails, which is why the Makefile never uses it for free text."""
+    """A value with a leading dash given as a separate word is parsed as an option and exits."""
     with pytest.raises(SystemExit):
         cli._build_parser().parse_args(argv)

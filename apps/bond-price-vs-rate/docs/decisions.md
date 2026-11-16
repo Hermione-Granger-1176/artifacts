@@ -68,3 +68,7 @@ The root gallery already uses this model. Reusing it keeps theme state consisten
 - Semiannual and continuous compounding, day-count conventions
 - Accrued interest and dirty vs clean price
 - Discounting each cash flow off the curve's spot rates (the bond still prices against one flat rate; the curve chapter is context, not the discounting engine)
+
+## Why only `transform` transitions on buttons
+
+`.btn` transitions only `transform`. Fills flip with the theme instead of fading through a low-contrast midpoint.

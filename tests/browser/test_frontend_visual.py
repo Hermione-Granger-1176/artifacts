@@ -6,9 +6,8 @@ generous tolerance (see ``scripts/ci/visual_regression.py``). Set
 ``ARTIFACTS_UPDATE_VISUAL_BASELINES=1`` (via ``make visual-baselines``) to
 rewrite the baselines after an intentional visual change.
 
-Font rendering differs between hosts, so the committed baselines are the ones
-the pinned Playwright image renders, and CI compares against them in that image.
-When a capture differs, the test also writes it to
+The committed baselines are rendered by the pinned Playwright image, and CI
+compares against them in that image. When a capture differs, the test also writes it to
 ``$ARTIFACTS_BROWSER_ARTIFACT_DIR/visual-baselines/``, which CI uploads with the
 job's failure artifacts; ``make visual-baselines-from-ci`` adopts those captures
 as the new baselines after an intentional change.
@@ -37,10 +36,10 @@ BASELINE_DIR = REPO_ROOT / "tests" / "browser" / "baselines"
 UPDATE_ENV = "ARTIFACTS_UPDATE_VISUAL_BASELINES"
 VIEWPORT = (1200, 800)
 
-# The root gallery renders an animated 3D book scene whose anti-aliased frames
-# vary a few percent even after animations are frozen, so it gets a looser
-# total-diff tolerance than the static app heroes. Both still catch gross
-# regressions (layout collapse, missing hero, inverted colors).
+# The root gallery's animated book scene varies a few percent between frames
+# even after animations are frozen, so it gets a looser total-diff tolerance
+# than the static app heroes. Both tolerances still catch gross regressions
+# (layout collapse, missing hero, inverted colors).
 MAX_DIFF_FRACTION = {"root": 0.18}
 DEFAULT_MAX_DIFF_FRACTION = 0.05
 
@@ -85,9 +84,9 @@ def _capture_hero(app_browser: AppBrowserHarness, target: str) -> bytes:
             "() => { document.getAnimations().forEach((animation) => { "
             "try { animation.finish(); } catch (error) { animation.pause(); } }); }"
         )
-        # Finishing the intro's first fade lets the book scene start the next one
-        # and only then mark itself open, so wait for that end state, then for
-        # every animation started since to settle before the capture.
+        # The book scene marks itself open only after the intro's first fade ends
+        # and it starts the next animation. Wait for that state, then for every
+        # animation to settle before the capture.
         if target == "root":
             page.wait_for_selector('#book-shell[data-scene-intro="open"]', state="attached")
         page.wait_for_function(
@@ -123,7 +122,7 @@ def test_hero_matches_baseline(app_browser: AppBrowserHarness, tmp_path: Path, t
         failed_copy.write_bytes(image_bytes)
         artifact_root = os.environ.get(ARTIFACT_DIR_ENV, "").strip()
         if artifact_root:
-            # Named like the baseline, so a CI capture can replace it as is.
+            # Uses the baseline's file name, so the capture can replace the baseline as is.
             captured = Path(artifact_root) / "visual-baselines" / baseline.name
             captured.parent.mkdir(parents=True, exist_ok=True)
             captured.write_bytes(image_bytes)

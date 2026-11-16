@@ -45,24 +45,22 @@ export function setExtraType(extras, id, type) {
 }
 
 const ALLOWED_EXTRA_FIELDS = new Set(["amount", "every", "startPeriod", "period"]);
-// The schedule matches these fields against whole period numbers, so a value
-// such as 1.5 would never match or would land on a different period.
+// The schedule matches these fields against whole period numbers. Non-integer values are rejected.
 const PERIOD_FIELDS = new Set(["every", "startPeriod", "period"]);
 
 /**
  * Largest extra payment one row can hold: the top of the loan-amount slider.
- * The schedule caps every extra at the outstanding balance, which never
- * exceeds the principal, so a larger amount pays off nothing more and would
- * only print as a run of digits in the row summary. A typed amount above it is
- * clamped, the way the principal and rate fields clamp to their ranges.
+ * The schedule caps each extra at the outstanding balance, which never exceeds
+ * the principal. A typed amount above this value is clamped, as the principal
+ * and rate fields are clamped to their ranges.
  */
 export const MAX_EXTRA_AMOUNT = 500_000;
 
 /**
  * Update one editable numeric field for an extra payment when the input is valid.
  *
- * A value that is not a finite number is rejected, as a negative one is:
- * `1e400` is a well-formed number literal that parses to Infinity.
+ * Values that are not finite numbers are rejected, as are negative ones. A
+ * string such as `1e400` parses to Infinity and is rejected.
  *
  * @param {Array<Record<string, number | string>>} extras
  * @param {number} id
@@ -171,8 +169,8 @@ function extraField({ label, name, className, field, value, min, max, step }) {
  * @returns {void}
  */
 export function renderExtras({ container, extras, periodLabel }) {
-  // Rebuilding the rows would drop focus from the control that was pressed
-  // (a type toggle, say), so remember it and focus the same control after.
+  // Rebuilding the rows drops focus. The control that had focus is focused again
+  // in the rebuilt row.
   const active = /** @type {HTMLElement | null} */ (document.activeElement ?? null);
   const focusRow = active && container.contains(active) ? /** @type {HTMLElement | null} */ (active.closest("[data-extra-id]")) : null;
   const focusSelector = focusRow ? controlSelector(/** @type {HTMLElement} */ (active)) : "";

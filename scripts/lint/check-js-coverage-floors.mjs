@@ -3,14 +3,10 @@
 /**
  * Enforces per-file JS coverage floors.
  *
- * The aggregate coverage gate (test:coverage) lets a weakly tested module hide
- * behind well-tested neighbors. This consumes the lcov report that
- * `make coverage-js` already emits (so the suite runs with coverage only once
- * in the CI gate), then fails if any non-excluded source file drops below the
- * per-file line or branch floor. When the report is absent (standalone runs),
- * it falls back to running the suite itself with the same coverage excludes
- * the aggregate gate uses. The file set is auto-discovered from the lcov
- * report, so newly added modules are covered without editing a list here.
+ * Reads the lcov report that `make coverage-js` writes. If the report is absent,
+ * runs the suite with coverage using the same excludes as the aggregate gate.
+ * Fails when any non-excluded source file is below the per-file line or branch
+ * floor. The file set comes from the lcov report.
  *
  * Exit codes:
  *   0: every checked file meets the floors
@@ -29,12 +25,10 @@ const ROOT_DIR = resolve(scriptDir, "..", "..");
 export const LINE_FLOOR = 80;
 export const BRANCH_FLOOR = 70;
 
-// Repo-relative location where the aggregate coverage run (npm run
-// test:coverage via make coverage-js) writes its lcov report.
+// Repo-relative path of the lcov report that `make coverage-js` writes.
 export const DEFAULT_LCOV_PATH = ".artifacts/js-coverage.lcov";
 
-// Keep the fallback run's instrumentation scope identical to package.json's
-// test:coverage, so the floors never see files the aggregate gate excludes.
+// Matches the exclusions in package.json's test:coverage script.
 const COVERAGE_EXCLUDES = ["node_modules/**", "tests/**"];
 
 /** Summary counter records and the block field each one fills. */
@@ -42,8 +36,8 @@ const SUMMARY_COUNTERS = { "LF:": "lf", "LH:": "lh", "BRF:": "brf", "BRH:": "brh
 
 /**
  * Split raw lcov text into per-record blocks (one per `SF:`/`end_of_record`
- * pair). Branch rows are grouped per line and kept in report order because
- * V8 block ids are process-local and cannot be compared across blocks.
+ * pair). Branch rows are grouped per line, in report order. Branch block ids
+ * are not matched across blocks.
  * @param {string} text - Raw lcov report.
  * @returns {{
  *   file: string,
@@ -98,9 +92,8 @@ function splitLcovBlocks(text) {
 }
 
 /**
- * Pick each counter pair's best block from summary-only reports, independently
- * for lines and branches, so one block's weak branch numbers cannot ride in on
- * its strong line numbers.
+ * Pick the block with the most lines hit and, independently, the block with the
+ * most branches hit. Used for summary-only reports.
  * @param {string} file - Source file path shared by the blocks.
  * @param {ReturnType<typeof splitLcovBlocks>} blocks - All SF blocks for the file.
  * @returns {ReturnType<typeof mergeFileBlocks>} Merged coverage record.
@@ -183,13 +176,10 @@ function mergeDetailBlocks(file, detailBlocks) {
 /**
  * Merge one file's SF blocks into a single coverage record.
  *
- * Lines are keyed by line number (stable across processes), so `DA` records
- * union cleanly with max hits. Branches need care: V8 emits a `BRDA` row only
- * for a branch arm whose execution count differs from its enclosing function,
- * and its block ids are process-local. So arms are keyed by (line, position
- * within that line), and an arm also counts as covered when any block executed
- * the line (`DA` > 0) without reporting branch rows for it, which is how V8
- * reports a fully taken branch.
+ * Lines are keyed by line number, and `DA` records merge with the maximum hit
+ * count. Arms are keyed by line and position within that line. V8 omits `BRDA`
+ * rows for fully taken branches, so an arm also counts as covered when any block
+ * executes its line (`DA` > 0) without reporting branch rows for that line.
  * @param {ReturnType<typeof splitLcovBlocks>} blocks - All SF blocks for one file.
  * @returns {{ file: string, linesFound: number, linesHit: number, branchesFound: number, branchesHit: number }}
  *   Merged coverage record.
@@ -206,11 +196,10 @@ function mergeFileBlocks(blocks) {
 /**
  * Parse lcov text into merged per-file coverage records.
  *
- * The Node test runner isolates each test file in its own process, so a source
- * module loaded by several test files appears as several `SF` blocks in one
- * report. Those blocks are merged per file (see mergeFileBlocks for the exact
- * line and branch semantics). Reports that only carry summary counters
- * (`LF`/`LH`/`BRF`/`BRH`) without line detail fall back to those summary numbers.
+ * Each test file runs in its own process, so a source module loaded by several
+ * test files appears as several `SF` blocks. These are merged per file (see
+ * mergeFileBlocks for the line and branch rules). Reports with only summary
+ * counters (`LF`/`LH`/`BRF`/`BRH`) use those numbers.
  * @param {string} text - Raw lcov report.
  * @returns {{ file: string, linesFound: number, linesHit: number, branchesFound: number, branchesHit: number }[]}
  *   One merged record per source file.
@@ -241,8 +230,7 @@ export function normalizePath(sourceFile, rootDir = "") {
 
 /**
  * Decide whether a repo-relative path is exempt from per-file floors.
- * Tests, dependencies, vendored code, and generated gallery data never carry
- * their own unit coverage, so they are skipped.
+ * Excludes tests, dependencies, vendored code, and generated gallery data.
  * @param {string} relPath - Repo-relative posix path.
  * @returns {boolean} Whether the path should be excluded from enforcement.
  */
@@ -272,7 +260,7 @@ function percentCovered(hit, found) {
 /**
  * Evaluate parsed lcov records against per-file coverage floors.
  * Files with zero measurable lines or branches count as fully covered for
- * that dimension (there is nothing to miss).
+ * that dimension.
  * @param {ReturnType<typeof parseLcov>} records - Parsed lcov records.
  * @param {{
  *   lineFloor: number,
@@ -352,8 +340,7 @@ function collectFallbackLcov({
   rootDir,
 }) {
   const dest = join(tmpdir(), `js-coverage-floors-${process.pid}.lcov`);
-  // The finally block guarantees the temp report never leaks, whether the
-  // suite run fails, the read throws, or everything succeeds.
+  // The finally block removes the temp report on every path.
   try {
     try {
       execFileSyncImpl(
@@ -401,8 +388,8 @@ export function runCoverageFloors({
 } = {}) {
   const sharedReport = join(rootDir, DEFAULT_LCOV_PATH);
 
-  // When the aggregate coverage gate already produced the report, consume it
-  // instead of running the whole suite under coverage a second time.
+  // Reuse the report from make coverage-js when it exists. Otherwise run the
+  // suite under coverage.
   const lcov = existsSyncImpl(sharedReport)
     ? readFileSyncImpl(sharedReport, "utf-8")
     : collectFallbackLcov({ execFileSyncImpl, readFileSyncImpl, rmSyncImpl, consoleObj, rootDir });

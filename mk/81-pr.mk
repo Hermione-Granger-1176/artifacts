@@ -2,8 +2,8 @@
 
 .PHONY: pr pr-create pr-edit pr-list pr-status pr-checks pr-diff pr-checkout pr-comments pr-comment pr-review-comments pr-reply pr-resolve pr-address pr-copilot-review pr-comments-list pr-comment-delete pr-summary pr-watch pr-merge pr-merge-admin pr-reviewers pr-label pr-close
 
-# Current branch's PR, resolved through the tested helper: `gh pr view` first, then
-# the REST API when the environment blocks GraphQL.
+# Current branch's PR, resolved through the GH helper: `gh pr view` first, then
+# the REST API when GraphQL is blocked.
 PR_NUM = $(if $(pr_num),$(pr_num),$(strip $(shell $(GH) current-pr 2>/dev/null)))
 
 pr: ## PR commands (make pr)

@@ -20,13 +20,10 @@ ci-heavy-checks: ## Run slow test, coverage, dead-code, and security checks
 	$(VENV_PYTHON) scripts/ci/run_parallel_checks.py --timeout 1200 \
 		test-py coverage-js dead-code security
 
-# The workflow helpers from here down, except the two shard package and merge
-# targets and ci-schedule-watchdog, run on the system interpreter ($(PYTHON))
-# with the shared repository path prefix instead of $(VENV_PYTHON). The monitor
-# workflows and the update.yml plan, publish, and cleanup jobs call them without
-# a provisioned venv, and the coverage-summary and setup-failure alert paths
-# must work even when dependency installation failed. The helpers and
-# everything they import are stdlib-only. The monitor helpers read GH_TOKEN
+# The workflow helpers below run on the system interpreter ($(PYTHON)) with the
+# shared repository path prefix. The exceptions are the two shard package and
+# merge targets and ci-schedule-watchdog, which use $(VENV_PYTHON). The helpers
+# and everything they import are stdlib-only. The monitor helpers read GH_TOKEN
 # from the environment.
 ci-thumbnail-plan: ## Compute a git-diff app impact plan (event_name= base_sha= head_sha= [force_full=true])
 	$(call need,event_name,make ci-thumbnail-plan event_name=push base_sha=SHA head_sha=SHA)

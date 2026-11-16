@@ -15,7 +15,7 @@
  */
 
 body.app-bond-price-vs-rate {
-  /* A rail beside a story needs more than the shared 1000px shell, so this app widens its shell, header included. */
+  /* Widens the shared shell and header to 1200px for the rail beside the story. */
   --shell-max-width: 1200px;
   --br-rail-width: 352px;
 
@@ -87,9 +87,9 @@ body.app-bond-price-vs-rate .br-price-caption {
 }
 
 /*
- * Tabular digits plus room for the widest price ("$3,838.12", which is as wide
- * as "$1,000.00" with tabular digits and fits in 8ch, a digit being 1ch), so the
- * readout never changes width as the price gains or loses a digit.
+ * Tabular digits with a minimum width of 8ch, which fits the widest price
+ * ("$3,838.12") at one digit per 1ch. The readout does not change width as the
+ * price gains or loses a digit.
  */
 body.app-bond-price-vs-rate .br-price {
   min-width: 8ch;
@@ -103,8 +103,8 @@ body.app-bond-price-vs-rate .br-price {
 /*
  * Stacked variants: every variant of a readout shares the shared .reserve cell
  * and only the active one shows. Each ghost (.reserve-ghost) is the same wording
- * with the longest numbers any slider setting prints, so a digit more or less
- * cannot change where a line wraps.
+ * with the longest numbers any slider setting prints. Ghosts set the box size, and
+ * a digit more or less does not move where a line wraps.
  */
 body.app-bond-price-vs-rate .chip.reserve {
   display: inline-grid;
@@ -206,9 +206,8 @@ body.app-bond-price-vs-rate .br-chapter.is-current .br-chapter-num {
 /*
  * Chapters out of view are muted: the heading drops to the secondary text
  * color, the badge stays hollow, and the charts fade. Body text keeps its
- * full color because fading it with opacity would push it below the 4.5:1
- * contrast floor. Muting only applies once the tracker is running, so no
- * chapter is ever left faded without it.
+ * full color and is never faded; it must stay above 4.5:1 contrast. Muting
+ * applies only while `.is-tracking` is set on the story.
  */
 
 body.app-bond-price-vs-rate .br-chapter-head h2,
@@ -226,8 +225,7 @@ body.app-bond-price-vs-rate .br-story.is-tracking .br-chapter:not(.is-current) .
   opacity: 0.55;
 }
 
-/* Text, callouts, cards, and charts share one measure, so every block in a
-   chapter ends on the same right edge instead of zig-zagging. */
+/* Text, callouts, cards, and charts share one measure: every block in a chapter has the same maximum width. */
 
 body.app-bond-price-vs-rate .br-chapter-body {
   display: flex;
@@ -358,9 +356,9 @@ body.app-bond-price-vs-rate .br-arrow.is-flat {
 /* ── The maths ────────────────────────────────────────────────────── */
 
 /*
- * The CSS-built pricing formula, its legend, and the worked cash-flow table. No
- * math library is used, so the formula is styled spans with border-top fraction
- * bars and sup/sub for the exponents and sum bounds.
+ * The CSS-built pricing formula, its legend, and the worked cash-flow table. The
+ * formula is styled spans with border-top fraction bars and sup/sub for the
+ * exponents and sum bounds. No math library is loaded.
  */
 
 body.app-bond-price-vs-rate .br-formula {
@@ -588,9 +586,9 @@ body.app-bond-price-vs-rate .br-grid-3 p {
 /* ── Control feel ─────────────────────────────────────────────────── */
 
 /*
- * Buttons lift on hover and press on :active, the same feel the shared
- * .is-inset choices have. Only transform animates on .btn, so fills flip with
- * the theme instead of fading through a low-contrast midpoint.
+ * Buttons lift on hover and press on :active, matching the shared .is-inset
+ * choices. Only transform animates on .btn; other properties change without a
+ * transition.
  */
 
 body.app-bond-price-vs-rate .br-story .btn {
@@ -607,7 +605,7 @@ body.app-bond-price-vs-rate .br-story .btn:not(:disabled):active {
 
 /* ── Responsive layout ────────────────────────────────────────────── */
 
-/* Tablets keep the pinned rail beside the story with a narrower rail. Below 760px it stacks above the story. */
+/* Tablets keep the pinned rail beside the story with a narrower rail. At 760px and below, the rail stacks above the story. */
 
 @media (min-width: 761px) and (max-width: 960px) {
   body.app-bond-price-vs-rate {

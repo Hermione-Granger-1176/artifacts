@@ -16,7 +16,7 @@ def test_classify_gh_failure_identifies_transient_errors() -> None:
     assert gh_policy.classify_gh_failure("timed out while calling API") == "transient"
     assert gh_policy.classify_gh_failure("network error") == "transient"
     assert gh_policy.classify_gh_failure("404 Not Found") != "transient"
-    # Rate limits must never be treated as retryable; they fail fast instead.
+    # Rate limits are not retryable and fail fast.
     assert gh_policy.classify_gh_failure("API rate limit exceeded (HTTP 429)") != "transient"
     assert gh_policy.classify_gh_failure("You have exceeded a secondary rate limit") != "transient"
 
@@ -57,7 +57,7 @@ def test_run_gh_api_fails_fast_on_rate_limit_without_retry(
             description="listing changed files for pull_request owner/repo",
         )
 
-    # A single attempt, no backoff sleeps: the limit window must reset first.
+    # One attempt, with no backoff sleeps.
     assert calls == 1
     assert sleep_calls == []
 

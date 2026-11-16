@@ -28,7 +28,9 @@ DEFAULT_DOC_PATHS = (
     Path("CLAUDE.md"),
     Path(".github/CONTRIBUTING.md"),
     Path(".github/pull_request_template.md"),
+    Path("docs/ci.md"),
     Path("docs/operations.md"),
+    Path("docs/troubleshooting.md"),
 )
 
 

@@ -209,9 +209,9 @@ body.artifact-app {
   /*
    * Printed-document palette. Deliberately theme-independent, so it is not in
    * the theme files: a preview of a page that will be exported to PDF or PNG
-   * has to keep looking like paper in both themes.
-   * Because white paper is the only background these ever sit on, the ink,
-   * muted and faint steps are each held above 4.5:1 against it.
+   * keeps looking like paper in both themes.
+   * The ink, muted, and faint steps each keep a contrast ratio above 4.5:1 on
+   * white paper, the only background they sit on.
    */
   --color-document-paper: rgb(255, 255, 255);
   --color-document-ink: rgb(26, 26, 26);
@@ -244,19 +244,19 @@ body.artifact-app {
   --book-fit-min-height: 460px;
   --book-spread-ratio: 1.325;
   --gallery-card-gap: 1.25rem;
-  /* Every artifact thumbnail is 960x600, so image slots can be sized before the image loads. */
+  /* Every artifact thumbnail is 960x600. Image slots use this ratio before the image loads. */
   --card-thumb-ratio: 1.6;
   --desk-note-size: 100px;
   --desk-note-gap: 0.6rem;
   --desk-note-offset-top: 6rem;
   --album-rim: 14px;
-  /* Scrapbook album. The leather colours are themed, so they live in the theme files. */
+  /* Scrapbook album. The leather colours are themed and live in the theme files. */
   --color-album-ribbon: rgb(214, 170, 72);
   --color-album-chalk: rgb(240, 236, 226);
   --color-album-print: rgb(250, 248, 242);
   /* The notepad's wire binding. */
   --color-notepad-coil: rgb(176, 174, 170);
-  /* Graphite pencil on the daytime paper. The album pages keep this paper in both themes, so the pencil does too. */
+  /* Graphite pencil on the daytime paper, which the album pages keep in both themes. */
   --color-pencil: rgb(72, 68, 63);
   --color-pencil-soft: rgb(104, 98, 90);
   --color-pencil-on-note: rgb(72, 68, 63);
@@ -344,8 +344,8 @@ body.artifact-app {
 }
 
 /*
- * Touch screens: the smallest a control may be, so compact controls still take a fingertip.
- * Pointer screens leave it unset, and every control keeps its compact size there.
+ * Touch screens: the minimum size for a control. Pointer screens leave it unset,
+ * and controls keep their compact size there.
  */
 @media (pointer: coarse) {
   :root {
@@ -365,7 +365,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* The gallery keeps the scrollbar's space reserved, so opening an overlay (which hides the bar) never shifts the page sideways. */
+/* Reserves the scrollbar gutter in the gallery. Opening an overlay, which hides the bar, does not shift the page sideways. */
 html:has(body:not(.artifact-app)) {
   scrollbar-gutter: stable;
 }
@@ -644,7 +644,7 @@ button {
   background: color-mix(in srgb, var(--color-note-text) 12%, transparent);
 }
 
-/* With an empty box the clear button fades out but keeps its slot, so the input does not resize on the first keystroke. Hidden visibility also takes it out of the tab order and the accessibility tree. */
+/* With an empty box, the clear button fades out and keeps its slot. Hidden visibility also removes it from the tab order and the accessibility tree. */
 .search-clear.hidden {
   display: inline-block !important;
   visibility: hidden;
@@ -669,7 +669,7 @@ button {
   transform: rotate(-4deg);
 }
 
-/* How many artifacts match, in pencil. Sized to balance the sort note on the other side. */
+/* How many artifacts match, in pencil. Its width matches the control cluster's minimum width. */
 .search-count {
   flex: 0 0 5.5rem;
   font-size: 1.35rem;
@@ -678,7 +678,7 @@ button {
   text-align: right;
 }
 
-/* An empty note still holds its line, so it does not grow from nothing on the first keystroke. */
+/* An empty note still holds its line height. */
 .search-count::before {
   content: '\200b';
 }
@@ -731,7 +731,7 @@ button {
 /*
  * The visible label ("A to Z") appears in the accessible name ("Sort by name, A to Z").
  * The other label sits invisibly in the same grid cell, so the note keeps the wider
- * label's width and nothing beside it moves when the order flips.
+ * label's width.
  */
 .sort-toggle::before,
 .sort-toggle::after {
@@ -756,8 +756,8 @@ button {
 }
 
 /*
- * The reset note hangs beside the sort note outside the row's flow, so showing it
- * never resizes the search note. It only fades in while a filter is active.
+ * The reset note hangs beside the sort note, outside the row's flow. It fades in
+ * only while a filter is active.
  */
 .filter-reset {
   position: absolute;
@@ -836,7 +836,7 @@ button {
 }
 
 .book-shell {
-  /* Fit the open book to the screen height, and shrink its width with it so the pages keep their shape. */
+  /* Fits the open book to the screen height and scales its width with it. */
   --book-fit-height: clamp(
     var(--book-fit-min-height),
     calc(100svh - var(--book-chrome-y)),
@@ -873,7 +873,7 @@ button {
   height: min(var(--book-fit-height), calc(100cqi / var(--book-spread-ratio)));
   transform-style: preserve-3d;
 
-  /* Horizontal drags turn pages, so touch browsers must not take them for panning. */
+  /* Horizontal drags turn pages, so touch panning is limited to the vertical axis. */
   touch-action: pan-y pinch-zoom;
 }
 
@@ -882,7 +882,7 @@ button {
   transform: translateX(-25%);
 }
 
-/* The notepad's open link sits beside the card, so it is locked with it. */
+/* Cards and their open links ignore the pointer while a turn runs. */
 .book-sheet.is-turning .artifact-card,
 .book-sheet.is-turning .card-notes-open {
   pointer-events: none;
@@ -890,17 +890,13 @@ button {
 
 /*
  * The shadow always has the open book's box, so the intro never resizes it.
- * The shadow itself is the ::before; its masked box reaches past it by
- * --shadow-reach on every side, so the blur is never cut off, and further to
- * the left by --shadow-lead, so the box still covers the spine when the closed
- * book slides it right. The mask image is two mask-widths wide (one mask-width
- * is the shadow plus a reach on each side) and its right half sits on the
- * shadow, so the soft edge has room on both sides; the edge rests at 44% of the
- * image, just past the shadow's left side, where the open book leaves it. The
- * closed book slides the box right by 62% of a mask-width, which puts the edge
- * on the spine, and slides the shadow back by the same amount, so the shadow
- * never moves. The intro slides both home: only transforms change, so the
- * compositor runs the sweep.
+ * The shadow itself is the ::before. The masked box extends past it by
+ * --shadow-reach on every side, and by --shadow-lead to the left, so the box
+ * still covers the spine when the closed book slides it right. The mask image
+ * is two mask-widths wide, and its edge rests at 44% of the image, just past
+ * the shadow's left side. The closed book slides the box right by 62% of a
+ * mask-width, which puts the edge on the spine, and slides the shadow back by
+ * the same amount. The intro slides both home. Only transforms change.
  */
 .book-shadow {
   --shadow-reach: 80px;
@@ -1030,8 +1026,8 @@ button {
   pointer-events: none;
 }
 
-/* The edge stacks grow and shrink as the page turns instead of snapping. They
-   take their first depth while the book opens, without growing in. */
+/* The edge stacks animate their box-shadow as the page turns. Their first depth
+   is taken while the book opens, without a transition. */
 .book-shell.is-open .book-inner::before,
 .book-shell.is-open .book-inner::after {
   transition: box-shadow 0.35s ease;
@@ -1061,7 +1057,7 @@ button {
     calc(min(var(--stack-right-n), 6) * 1.5px) calc(min(var(--stack-right-n), 6) * 0.6px) 0 calc(min(var(--stack-right-n), 6) * -0.3px) var(--color-page-paper);
 }
 
-/* One ruled paper for every surface in the book. All of these share the same top edge, so the rules line up and never shift when a leaf lands. */
+/* One ruled paper for every surface in the book. All of these share the same top edge, so their rules line up. */
 .book-inner::before,
 .book-inner::after,
 .book-endpaper,
@@ -1430,7 +1426,7 @@ button {
   --tape: var(--color-note-6);
 }
 
-/* Chalky doodles, drawn as masks so they take the chalk token colour. */
+/* Chalky doodles, drawn as masks filled with the chalk token colour. */
 .book-doodle {
   position: absolute;
   background: var(--color-album-chalk);
@@ -1680,7 +1676,7 @@ button {
   opacity: var(--desk-note-rest-opacity);
 }
 
-/* A long label gets smaller type so it stays on its square note. */
+/* Long labels use a smaller font size. */
 .desk-note[data-long] {
   font-size: 1.15rem;
 }
@@ -1713,7 +1709,7 @@ button {
   opacity: 1;
   z-index: 50;
 
-  /* An outline takes no space, so the note and its label stay put when it turns active. */
+  /* An outline takes no layout space, so the note does not move when it turns active. */
   outline: 2px solid var(--color-text-primary);
   outline-offset: -2px;
   box-shadow:
@@ -1916,13 +1912,13 @@ button {
   grid-template-rows: repeat(2, minmax(0, 1fr));
 }
 
-/* Both pages are the same ruled sheet, so the cards on each sit right of its red margin line. */
+/* Both pages use the same ruled sheet. Cards sit right of the red margin line. */
 .artifact-page-left,
 .artifact-page-right {
   padding: 1.2rem 1.4rem 2.4rem calc(var(--paper-margin-x) + 1rem);
 }
 
-/* Gutter shading is baked into each page so a turning leaf carries its own. */
+/* Each page carries its own gutter shading, including a turning leaf. */
 .artifact-page-slice::after {
   content: '';
   position: absolute;
@@ -2010,7 +2006,7 @@ button {
   z-index: 2;
 }
 
-/* A tap counts as hover on touch screens, so only a real pointer lifts a card on hover. */
+/* Hover lifts a card only for devices with a hover-capable pointer. */
 @media (hover: hover) {
   .artifact-card:hover {
     transform: translateY(-4px) rotate(var(--note-hover-rotate));
@@ -2282,7 +2278,7 @@ button {
   color: var(--color-pencil-soft);
 }
 
-/* Holds the width of a second page tag while only one page exists, so the row keeps its shape. */
+/* Holds the width of a second page tag while only one page exists. */
 .page-slot-empty {
   visibility: hidden;
 }
@@ -2329,7 +2325,7 @@ button {
   }
 }
 
-/* A disabled tag lies flat on the desk with a faded label. Its paper stays opaque, so it never turns into a grey box on the night desk. */
+/* A disabled tag lies flat, with faded paper and label. */
 .page-btn:disabled {
   cursor: not-allowed;
 }
@@ -2410,7 +2406,7 @@ button {
   max-height: 50vh;
   object-fit: contain;
 
-  /* The thumbnail's shape is known, so the panel is the right height before the image arrives. */
+  /* Reserves the thumbnail's aspect ratio before the image loads. */
   aspect-ratio: var(--card-thumb-ratio);
 }
 
@@ -2741,7 +2737,7 @@ body.artifact-app .btn {
   font-weight: 500;
 }
 
-/* The emphasis blue holds 4.5:1 under the label in both themes; the base blue only reaches 3.6:1 against white. */
+/* Primary buttons use the emphasis blue, which holds 4.5:1 under the label in both themes. */
 body.artifact-app .btn-primary {
   background: var(--color-blue-emphasis);
   color: var(--color-text-on-accent);
@@ -3011,8 +3007,6 @@ body.artifact-app .info-tip {
 
 /*
  * Touch screens: the info marker grows to 24px, the WCAG 2.2 minimum target size.
- * It sits inline in labels, where a 2.75rem marker would break the line, and its
- * tooltip pseudo-elements leave none free for a larger invisible target.
  */
 @media (pointer: coarse) {
   body.artifact-app .info-tip {
@@ -3274,8 +3268,8 @@ body.artifact-app .reserve-ghost {
 /*
  * Meter: thin progress bar with a tone-colored fill. The fill is full width and
  * scaled from its left edge with the scale property (0 to 1, see setMeterValue
- * in js/modules/meter.js), so a change runs on the compositor with no layout. An
- * inline width still works as before for fills that have not adopted the helper.
+ * in js/modules/meter.js). An inline width still applies to fills that do not
+ * use the helper.
  */
 
 body.artifact-app .meter {
@@ -3505,9 +3499,8 @@ body.artifact-app {
 
 /*
  * renderSectionNav injects the nav into the [data-section-nav] slot. The slot
- * is display: contents so the sticky nav's containing block stays the body.
- * While the slot is empty it is a block that holds the nav's height, so the
- * page does not drop when the script fills it.
+ * is display: contents, so the sticky nav's containing block is the body. While
+ * the slot is empty it is a block that holds the nav's height.
  */
 body.artifact-app [data-section-nav] {
   display: contents;
@@ -3659,7 +3652,7 @@ body.artifact-app .section-nav-node:last-child .section-nav-tip {
   transform: none;
 }
 
-/* A tap counts as hover on touch screens and would leave the tip stuck open, so only a real pointer shows it on hover. */
+/* Shows the tip on hover only for devices with a hover-capable pointer. */
 @media (hover: hover) {
   body.artifact-app .section-nav-node:hover .section-nav-tip {
     opacity: 1;
@@ -3888,14 +3881,14 @@ body.artifact-app .scroll-top:focus-visible {
   }
 }
 
-/* Laptop and desktop: the book scales with the screen height, so captions scale with the book width. */
+/* Laptop and desktop: caption size follows the book width. */
 @media (min-width: 901px) {
   .card-name {
     font-size: clamp(1.15rem, 2.6cqi, 1.7rem);
   }
 }
 
-/* Short laptop screens: tighten the chrome above and below the book so the book gets the height. */
+/* Short laptop screens: tightens the chrome above and below the book. */
 @media (min-width: 901px) and (max-height: 900px) {
   :root {
     --book-chrome-y: 236px;
@@ -3919,13 +3912,13 @@ body.artifact-app .scroll-top:focus-visible {
 /*
  * Phones and tablets held upright: the two-page book becomes a notepad bound at the top. It shows
  * one artifact per page and flips its pages up over the binding, like a desk calendar. The notepad
- * fills the screen below the search, so the page itself barely scrolls.
+ * fills the screen below the search, and the page itself barely scrolls.
  */
 @media (max-width: 900px) {
   :root {
     --notepad-width: 40rem;
     --notepad-binding: 30px;
-    /* Header, the two toolbar rows, the pager, and their gaps: the screen height the notepad leaves for them. */
+    /* Height taken by the header, the two toolbar rows, the pager, and their gaps. */
     --notepad-chrome-y: 18.25rem;
   }
 
@@ -3970,8 +3963,8 @@ body.artifact-app .scroll-top:focus-visible {
 
   /*
    * The toolbar is centred: the search note on its own row, then the filter dropdowns and the sort
-   * note on a row under it. Each dropdown panel clears its own group and the search clears itself,
-   * so the reset note stays on the desk layout.
+   * note on a row under it. Each dropdown panel clears its own group, and the search clears itself.
+   * The reset note is hidden in this layout.
    */
   .toolbar-ribbon {
     width: min(100%, var(--notepad-width));
@@ -4024,9 +4017,9 @@ body.artifact-app .scroll-top:focus-visible {
   }
 
   /*
-   * The notepad is drawn flat, so the cover and a turning page always paint over the page under
-   * them, even while they tip away from the reader. Each still gets depth from its parent's
-   * perspective, seen from the binding.
+   * The notepad is drawn flat. The cover and a turning page paint over the page under them while
+   * they tip away from the reader. Each gets depth from its parent's perspective, seen from the
+   * binding.
    */
   .book-sheet,
   .book-inner {
@@ -4038,11 +4031,11 @@ body.artifact-app .scroll-top:focus-visible {
     height: clamp(23rem, calc(100svh - var(--notepad-chrome-y)), 50rem);
     transform-style: flat;
 
-    /* Swipes up and down turn the pages, so only sideways pans and zoom stay with the browser. */
+    /* Vertical swipes turn pages. Only sideways panning and pinch zoom remain browser gestures. */
     touch-action: pan-x pinch-zoom;
   }
 
-  /* The closed notepad hangs page one under its cover, so the cover flips up onto a page that is already there. */
+  /* The closed notepad hangs page one under its cover. The cover flips up onto that page. */
   .book-shell:not(.is-open) .book-sheet {
     transform: none;
   }
@@ -4090,8 +4083,8 @@ body.artifact-app .scroll-top:focus-visible {
   }
 
   /*
-   * A top-bound notepad is held shut by a band across its lower cover, like an elastic closure,
-   * so the ribbon runs side to side and slides down off the bottom edge before the cover flips up.
+   * The band holds the closed notepad shut across its lower cover. It runs side to side and slides
+   * down off the bottom edge before the cover flips up.
    */
   .book-ribbon {
     inset: 84cqh 0 auto;
@@ -4201,9 +4194,9 @@ body.artifact-app .scroll-top:focus-visible {
   }
 
   /*
-   * Each face hides once it turns away from the reader, so the page gives way to the plain back
-   * as the sheet passes upright. The leaf keeps its faces in 3D for this, so it never takes an
-   * opacity of its own, which would flatten them; the back face fades instead.
+   * Each face hides once it turns away from the reader, so the plain back shows as the sheet
+   * passes upright. The leaf never takes an opacity of its own, because that flattens its 3D
+   * faces. The back face fades instead.
    */
   .notepad-leaf-face {
     position: absolute;
@@ -4237,7 +4230,7 @@ body.artifact-app .scroll-top:focus-visible {
     opacity: 0;
   }
 
-  /* The cover hangs from the binding too, so it flips up on load like the pages do. */
+  /* The cover hangs from the binding too and flips up on load like the pages. */
   .book-cover {
     inset: 0;
     width: auto;
@@ -4248,7 +4241,7 @@ body.artifact-app .scroll-top:focus-visible {
     border-radius: 8px;
   }
 
-  /* The cover turns over the binding like the pages, so its inside faces the reader once it is past upright. */
+  /* The cover turns over the binding like the pages. Its inside faces the reader once it is past upright. */
   .book-cover-back {
     border-radius: 8px;
     transform: rotateX(180deg);
@@ -4303,7 +4296,7 @@ body.artifact-app .scroll-top:focus-visible {
 
 /*
  * Short landscape screens (phones on their side): the detail card sets its picture beside the
- * text and scrolls the text, so the open button is never cut off below the screen.
+ * text and scrolls the text within the panel height.
  */
 @media (orientation: landscape) and (max-height: 560px) {
   .detail-overlay {
@@ -4337,9 +4330,8 @@ body.artifact-app .scroll-top:focus-visible {
 }
 
 /*
- * Theme swaps repaint every themed surface at once, so any running color
- * transition would fade at its own speed while the background flips. The
- * theme toggles add this class to <html> for two frames around the change.
+ * Turns off color transitions while the theme changes. The theme toggles add
+ * this class to <html> for two frames around the change.
  */
 .theme-switching,
 .theme-switching *,

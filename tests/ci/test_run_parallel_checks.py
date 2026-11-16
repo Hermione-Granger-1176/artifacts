@@ -197,7 +197,7 @@ def test_main_returns_one_with_no_targets() -> None:
 
 
 def test_run_check_gives_the_target_no_stdin() -> None:
-    """A target that reads optional paths must not wait on the caller's stdin."""
+    """Each target runs with stdin set to DEVNULL."""
     seen: dict[str, object] = {}
 
     def recording_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:

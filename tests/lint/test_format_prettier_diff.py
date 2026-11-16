@@ -33,7 +33,7 @@ def formatter(
 def test_prints_a_unified_diff_and_exits_zero_when_files_differ(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A difference is this command's purpose, not a failure."""
+    """Exit 0 with a unified diff on stdout when Prettier would change the file."""
     path = tmp_path / "eslint.config.js"
     path.write_text("const a=1\n", encoding="utf-8")
     commands, run = formatter({str(path): (0, "const a = 1;\n", "")})
@@ -72,7 +72,7 @@ def test_shows_a_diff_for_line_endings_alone(
 
 
 def test_refuses_markdown_before_running_prettier(capsys: pytest.CaptureFixture[str]) -> None:
-    """Markdown belongs to make align-tables-check, so no path is formatted."""
+    """Markdown paths are rejected with exit 2 before Prettier runs."""
     commands, run = formatter({})
 
     code = format_prettier_diff.main(["a.yml", "README.md", "notes.MARKDOWN"], format_fn=run)
@@ -85,7 +85,7 @@ def test_refuses_markdown_before_running_prettier(capsys: pytest.CaptureFixture[
 def test_a_prettier_failure_stops_the_run_with_its_exit_code(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A syntax error must not look like "no changes"."""
+    """A failing Prettier run returns its exit code and skips the remaining files."""
     broken = tmp_path / "broken.js"
     broken.write_text("const =\n", encoding="utf-8")
     later = tmp_path / "later.js"
@@ -115,7 +115,7 @@ def test_runs_the_configured_runner(tmp_path: Path) -> None:
 def test_default_formatter_captures_output_without_a_shell(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The real formatter keeps line endings and never asks for a shell."""
+    """The default formatter runs without a shell and decodes raw output with replacement."""
     seen: dict[str, object] = {}
 
     def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:

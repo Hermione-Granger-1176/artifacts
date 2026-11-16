@@ -11,7 +11,7 @@ from scripts.ci import run_security_audit
 
 
 def write_text(path: Path, content: str) -> None:
-    """Write text."""
+    """Create parent directories and write text as UTF-8."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
@@ -523,7 +523,7 @@ def test_run_pip_audit_splits_the_command_override_and_keeps_strict(
 
 
 def test_run_pip_audit_rejects_empty_command(tmp_path: Path) -> None:
-    """An empty launcher cannot produce a malformed subprocess command."""
+    """An empty launcher command raises ValueError."""
     requirements_file = tmp_path / "requirements.txt"
     write_text(requirements_file, "pkg==1.0\n")
 
@@ -534,7 +534,7 @@ def test_run_pip_audit_rejects_empty_command(tmp_path: Path) -> None:
 def test_run_pip_audit_reports_a_missing_executable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A missing pip-audit names itself instead of raising a bare OSError."""
+    """A missing executable raises RuntimeError that names it."""
     repo_root = tmp_path / "repo"
     requirements_file = repo_root / ".artifacts" / "requirements-audit.txt"
     write_text(requirements_file, "pkg==1.0\n")
@@ -570,7 +570,7 @@ def test_run_pip_audit_reports_launcher_start_failures(
 def test_run_pip_audit_reports_skipped_dependencies(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A skipped dependency preserves --strict semantics through the JSON report."""
+    """Dependencies that pip-audit reports as skipped become skip messages."""
     repo_root = tmp_path / "repo"
     requirements_file = repo_root / ".artifacts" / "requirements-audit.txt"
     write_text(requirements_file, "pkg==1.0\n")
@@ -713,6 +713,6 @@ def test_main_reports_errors(
 
 
 def test_parse_dependency_findings_rejects_a_non_object_entry() -> None:
-    """A malformed pip-audit dependency entry fails closed rather than being skipped."""
+    """A dependency entry that is not an object raises ValueError."""
     with pytest.raises(ValueError, match="dependency entries must be objects"):
         run_security_audit._parse_dependency_findings("not-an-object", Path("requirements.txt"))

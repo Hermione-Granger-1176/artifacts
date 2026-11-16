@@ -1,6 +1,5 @@
 /* Embedding demos: the dimension explorer scatter and the similarity playground.
- * Both canvases resolve their colors from shared tokens so they re-render
- * correctly when the theme toggles. */
+ * Both canvases resolve their colors from shared tokens and redraw when the theme toggles. */
 
 import { DIM_COLORS, EMB_VECS, EMB_PAIRS, EMB_CATEGORIES } from "./data.js";
 import { cosineSim, eucDist, verdictForSimilarity, project2D } from "./math.js";
@@ -13,8 +12,8 @@ const EMB_VECS_BY_WORD = EMB_VECS;
 /** @type {Record<string, string[]>} */
 const EMB_CATEGORIES_BY_NAME = EMB_CATEGORIES;
 
-// Use the prompt-specific accent tokens (not the vibrant --color-* bases): they carry
-// the WCAG-AA text colors in light mode and flip to the vibrant hues in dark.
+// Prompt-specific accent tokens. In light mode they carry the WCAG-AA text colors;
+// in dark mode they switch to the vibrant hues.
 const TONE_VARS = {
   teal: "--pc-teal",
   accent: "--pc-accent",
@@ -24,9 +23,8 @@ const TONE_VARS = {
   rose: "--pc-rose"
 };
 
-// Canvas colors resolved from shared tokens and cached per theme, so the drag and
-// hover redraws stop re-reading computed styles every frame. refreshPalette()
-// drops the cache when the theme toggles.
+// Canvas colors resolved from shared tokens and cached per theme; redraws read the
+// cache instead of computed styles. refreshPalette() drops the cache when the theme toggles.
 const CANVAS_VARS = [
   ...new Set([
     ...DIM_COLORS,
@@ -115,9 +113,8 @@ function initDimensions() {
   const caption = byId("dimCaption");
   const toggle = byId("dimToggle");
 
-  // One set of 48 points (8 clusters of 6) generated in 3D. Every view is a projection of the
-  // same data, so adding dimensions genuinely adds separation rather than
-  // drawing a new picture.
+  // One set of 48 points (8 clusters of 6) generated in 3D. Every view is a
+  // projection of the same data.
   const groups = DIM_COLORS.map((token, gi) => {
     const cx = (gi % 4) * 0.25 + 0.125;
     const cy = gi < 4 ? 0.28 : 0.72;
@@ -140,8 +137,8 @@ function initDimensions() {
     "2D: a second axis and the 8 groups start pulling apart.",
     "3D: drag to rotate. Separation holds from every angle. Real models use 12,000+ axes."
   ];
-  // Reserve the room of the longest caption (two lines on a phone), so changing
-  // the mode never moves the page below.
+  // Reserves room for the longest caption (two lines on a phone), so a mode
+  // change does not move the page below.
   reserveSpace(caption, captions.map((text) => makeEl("p", "pc-note", text)));
   let currentDims = 1;
   let yaw = 0.7;
@@ -190,9 +187,8 @@ function initDimensions() {
     ctx.globalAlpha = 1;
   }
 
-  // The bitmap keeps the size set in the markup for every mode (the 1D strip is
-  // drawn centered inside it), so the canvas box never changes shape and draw()
-  // never reallocates the bitmap.
+  // The bitmap keeps the markup size in every mode; the 1D strip is drawn
+  // centered inside it. draw() never resizes the bitmap.
   function draw() {
     const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext("2d"));
     const W = canvas.width;
@@ -201,7 +197,7 @@ function initDimensions() {
     ctx.clearRect(0, 0, W, H);
 
     if (currentDims === 1) {
-      // Project onto a diagonal axis so cluster structure exists but overlaps.
+      // Projects onto a diagonal axis, where the clusters overlap.
       const values = allPoints.map((p) => (p.x + p.y + p.z) / 3);
       const min = Math.min(...values);
       const range = (Math.max(...values) - min) || 1;
@@ -240,7 +236,7 @@ function initDimensions() {
     }
   }
 
-  // A drag can fire several pointermoves per frame; draw once per frame.
+  // Coalesces redraws to one per animation frame.
   const scheduleDraw = createFrameScheduler(draw);
 
   canvas.addEventListener("pointerdown", (event) => {
@@ -291,8 +287,8 @@ function initSimilarity() {
   const swapBtn = byId("embSwapBtn");
   const canvas = /** @type {HTMLCanvasElement} */ (byId("embCanvas"));
 
-  // The A/B chips reserve the width of the longest word, so a longer pick never
-  // pushes the other chip and the Swap button sideways.
+  // The A/B chips reserve the width of the longest word, so picks of different
+  // lengths do not shift the other chip or the Swap button.
   const longestWord = Math.max(...Object.keys(EMB_VECS_BY_WORD).map((word) => word.length));
   for (const chip of [selAEl, selBEl]) {
     chip.style.setProperty("--emb-word-ch", String(longestWord));
@@ -543,9 +539,8 @@ function initSimilarity() {
         redrawCurrent();
       }
     });
-    // Hit-test the click itself. A touch tap fires no pointermove first, and
-    // `hovered` still names the word a first click just selected, so reusing
-    // it would make a double-click compare a word with itself.
+    // Hit-tests the click itself rather than relying on `hovered`, which can
+    // still name the word the previous click selected.
     canvas.addEventListener("click", (event) => {
       const hit = wordAt(event);
       if (hit) {

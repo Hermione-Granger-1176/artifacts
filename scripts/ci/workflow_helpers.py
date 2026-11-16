@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 """Provide small command-line helpers for GitHub Actions workflows.
 
-These helpers keep trust-boundary decisions and artifact validation in tested
-Python instead of inline shell.
-
-Most subcommands are GitHub Actions entry points; workflow steps and local runs
-invoke this CLI through the Make targets below, so prefer those targets over
-calling this module directly. The exceptions run before the workspace is set
-up or take their arguments straight from the GitHub event context, so
-workflows invoke them directly: app-token-policy (the ci-setup action),
-lock-refresh-workflow-run and validate-lock-artifact (commit-python-locks.yml),
-and validate-thumbnail-artifact (update.yml).
+Workflow steps and local runs invoke most subcommands through the Make targets
+below. Prefer those targets over calling this module directly. The subcommands
+that run before the workspace is set up, or that read their arguments from the
+GitHub event context, are called directly by workflows: app-token-policy (the
+ci-setup action), lock-refresh-workflow-run and validate-lock-artifact
+(commit-python-locks.yml), and validate-thumbnail-artifact (update.yml).
 
 Examples:
     make ci-thumbnail-plan event_name=push base_sha=SHA head_sha=SHA
@@ -377,8 +373,8 @@ def invalidate_thumbnails(
     )
 
 
-# The Node test reporter prefixes these lines with an info symbol; matching on
-# the ASCII part keeps this module free of ambiguous unicode characters.
+# The Node test reporter prefixes these lines with an info symbol, so the
+# markers match only the ASCII text.
 JS_COVERAGE_START_MARKER = "start of coverage report"
 JS_COVERAGE_END_MARKER = "end of coverage report"
 
@@ -418,8 +414,8 @@ def extract_coverage_snippet(report: str, *, source: str) -> str:
     start = report.find(JS_COVERAGE_START_MARKER)
     if start == -1:
         raise ValueError(f"Coverage report markers not found in {source}")
-    # Search past the start marker so an end marker appearing earlier in the
-    # report cannot produce an inverted or partial slice.
+    # Search past the start marker so an end marker earlier in the report
+    # cannot match.
     end = report.find(JS_COVERAGE_END_MARKER, start + len(JS_COVERAGE_START_MARKER))
     if end == -1:
         raise ValueError(f"Coverage report markers not found in {source}")
@@ -723,7 +719,7 @@ def _handle_audit_previews(args: argparse.Namespace) -> int:
         "previews_checked",
         lambda: audit_previews(repo=args.repo, pages_branch=args.pages_branch),
     )
-    # Sorted so the output does not depend on Git trees API response ordering.
+    # Sorted for deterministic output.
     print(json.dumps({"open-previews": sorted(previews)}, sort_keys=True))
     return 0
 

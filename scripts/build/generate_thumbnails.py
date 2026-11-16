@@ -67,9 +67,7 @@ THUMBNAIL_MANIFEST_ENV_VAR = "ARTIFACTS_THUMBNAIL_MANIFEST"
 THUMBNAIL_SHARD_MANIFEST_ENV_VAR = "ARTIFACTS_THUMBNAIL_SHARD_MANIFEST"
 ThumbnailStatus = Literal["generated", "skipped", "failed"]
 ARTIFACT_BASE_URL = ""
-# Apps that roll random content or show dates relative to today would render a
-# new picture on every capture, so CI would commit a fresh thumbnail each run.
-# Every capture sees the same clock and the same Math.random sequence instead.
+# Every capture runs with a fixed clock and a seeded Math.random sequence.
 THUMBNAIL_FIXED_TIME = "2026-01-15T12:00:00Z"
 SEEDED_RANDOM_SCRIPT = """
 (() => {

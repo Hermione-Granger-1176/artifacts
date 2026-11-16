@@ -5,7 +5,7 @@ assignees, milestone, and its most recent comments, so triaging an issue does
 not need several ``gh issue view`` passes. Every parse helper is defensive so a
 malformed field surfaces as a clear ``GhError`` instead of an opaque
 ``TypeError``. When GraphQL is blocked, the REST issue and its comments are
-reshaped into the same JSON so the parsing below is shared.
+reshaped into the same JSON.
 """
 
 from __future__ import annotations
@@ -15,8 +15,7 @@ from typing import Any
 from . import gh_runner
 from .gh_runner import GhError, RunFunction, require_mapping
 
-# Fields requested from ``gh issue view --json``. Kept in one constant so the
-# request and the parse helpers below stay in sync.
+# Fields requested from ``gh issue view --json``.
 _ISSUE_FIELDS = "number,title,state,url,author,labels,assignees,milestone,comments"
 
 # How many of the most recent comments to echo in the summary.

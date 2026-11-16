@@ -1,13 +1,11 @@
 /**
  * Turns a clean render into something that looks like it came off a scanner.
  *
- * A corpus where every page is a pixel-perfect 2x raster on pure white cannot
- * tell you where an extractor breaks, because nothing in it is hard. This module
- * is the axis that makes the "how much accuracy do I lose to scan quality"
- * measurement possible at all: the same seed, rendered clean and rendered
- * degraded, differing only in the pixels.
+ * This module degrades a clean render so that extractor accuracy can be compared
+ * against scan quality. The same seed is rendered clean and degraded, and the
+ * two differ only in the pixels.
  *
- * Two contracts hold, and both matter more than any individual effect.
+ * Two contracts hold.
  *
  * **Degradation is seeded.** Every stochastic choice is drawn from the document
  * seed, in a fixed order, so a given seed plus a given preset always produces
@@ -15,13 +13,11 @@
  *
  * **Degradation reports the geometry it applied.** Skew, rotation, and keystone
  * move the ink; noise, blur, and JPEG do not. `planDegradation` returns the
- * projective transform it is about to apply, in normalised page coordinates, so
- * the annotation payload can run every box through it before serialising.
- * Without that, the boxes would silently stop matching the ink.
+ * projective transform it applies, in normalised page coordinates, and the
+ * annotation payload runs every box through it.
  *
- * Planning is deliberately split from painting. `planDegradation` is pure
- * arithmetic over a seed and a page size, so the JSON-only batch path can
- * transform its boxes without ever rasterising anything.
+ * Planning is separate from painting. `planDegradation` is pure arithmetic over
+ * a seed and a page size, so boxes can be transformed without rasterising.
  *
  * @module degrade
  */
@@ -104,10 +100,8 @@ const CLEAN = /** @type {DegradeSettings} */ ({
 /**
  * The presets, in the order the output panel lists them.
  *
- * Each is a rough physical story rather than a set of numbers picked to look
- * pretty: a desk scanner that is basically fine, a shared office copier with a
- * dirty platen, a thermal fax that has thrown away most of the greyscale, and a
- * phone held at an angle under a ceiling light.
+ * Each preset describes a physical device: a desk scanner, a shared office
+ * copier, a thermal fax, and a phone photo taken under a ceiling light.
  */
 export const DEGRADE_PRESETS = [
   {
@@ -190,11 +184,8 @@ export const DEGRADE_PRESETS = [
 ];
 
 /**
- * The subset of settings the custom panel exposes as sliders.
- *
- * Not every knob: a panel with eighteen sliders in it is a panel nobody reads.
- * These are the ones that change what an extractor sees the most, and anything
- * left out still moves when the preset changes.
+ * The subset of settings the custom panel exposes as sliders. Settings not
+ * listed here are still set by the preset.
  */
 export const DEGRADE_KNOBS = [
   { key: "rotation", label: "Rotation", min: 0, max: 5, step: 0.1, unit: "°" },
@@ -278,9 +269,8 @@ function about(m, cx, cy) {
 /**
  * Jitter a nominal magnitude and give it a sign.
  *
- * A preset that always tilted 1.1 degrees clockwise would teach a model the
- * preset rather than the effect, so the magnitude varies by a quarter either way
- * and the direction is a coin flip off the document's own seed.
+ * The magnitude varies by a quarter either way and the sign is drawn from the
+ * seed, so a preset does not produce the same tilt on every page.
  * @param {number} nominal - Preset magnitude.
  * @param {() => number} random - Seeded stream.
  * @returns {number} Signed, jittered magnitude.
@@ -305,9 +295,8 @@ function pagePixelTransform(applied, width, height) {
   const shearRadians = (applied.skew * Math.PI) / 180;
   const cos = Math.cos(radians);
   const sin = Math.sin(radians);
-  // Keystone as a real projective map rather than a horizontal squeeze: tilting
-  // a page away from the lens narrows the far edge *and* foreshortens it, and a
-  // model trained on a squeeze alone would not have seen the second half.
+  // Keystone is a projective map, not a horizontal squeeze, so the far edge both
+  // narrows and foreshortens.
   const gradient = applied.keystone / centreY;
   const base = multiply(
     /** @type {Matrix3} */ ([[1, 0, 0], [0, 1, 0], [0, -gradient, 1]]),
@@ -321,8 +310,8 @@ function pagePixelTransform(applied, width, height) {
 }
 
 /**
- * Reject a page or bitmap without a positive size. The planning and pixel maths
- * divide by both dimensions, so they are checked once here, where a page enters.
+ * Rejects a page or bitmap without a positive size, since the planning and pixel
+ * maths divide by both dimensions.
  * @param {number} width - Page or bitmap width.
  * @param {number} height - Page or bitmap height.
  * @returns {void}
@@ -337,9 +326,8 @@ function assertPageSize(width, height) {
 /**
  * Work out the geometry and the seeded choices for one degraded page.
  *
- * Pure: no canvas, no DOM. The JSON-only batch path calls this and nothing else,
- * which is what lets a labels-only run transform its boxes correctly without
- * rasterising a single page.
+ * Pure: no canvas, no DOM. The JSON-only batch path calls this without
+ * rasterising.
  * @param {{
  *   height: number,
  *   preset?: string,
@@ -352,8 +340,8 @@ function assertPageSize(width, height) {
 export function planDegradation({ height, preset = "custom", seed, settings, width }) {
   assertPageSize(width, height);
   const random = createSeededRandom(seed + SEED_OFFSET);
-  // Drawn unconditionally and in a fixed order, so turning one effect off never
-  // shifts the stream underneath the others.
+  // Drawn unconditionally in a fixed order, so disabling one effect does not
+  // change the values of the others.
   const rotation = jitter(settings.rotation, random);
   const skew = jitter(settings.skew, random);
   const bandPhase = random() * Math.PI * 2;
@@ -382,9 +370,8 @@ export function planDegradation({ height, preset = "custom", seed, settings, wid
 /**
  * Scale and centre the transformed page so it still fits its own frame.
  *
- * Rotating a page inside a fixed canvas would otherwise slice the corners off.
- * A projective transform also moves the bounding box away from the page centre,
- * so scaling about the old centre is not sufficient for a keystoned page.
+ * Scaling about the page centre is not enough for a keystoned page, because the
+ * projective transform moves the bounding box.
  * @param {Matrix3} m - Transform before fitting.
  * @param {number} width - Page width.
  * @param {number} height - Page height.
@@ -421,8 +408,8 @@ function pageScaling(width, height) {
 /**
  * Re-express a pixel-space transform in 0..1 page coordinates.
  *
- * The boxes are normalised, so the matrix that moves them has to be too.
- * Conjugating by the page size is what keeps the two in the same units.
+ * Conjugating by the page size puts the matrix in the same units as the
+ * normalised boxes.
  * @param {Matrix3} m - Transform in pixels.
  * @param {number} width - Page width.
  * @param {number} height - Page height.
@@ -438,10 +425,9 @@ function toNormalised(m, width, height) {
 /**
  * Re-express a normalised transform in the pixels of a given bitmap.
  *
- * The plan is made against the layout page (794 x 1123) but applied to the 2x
- * capture (1588 x 2246). Normalised coordinates are what let one plan serve
- * both: the matrix is scaled into whatever bitmap is actually in hand at draw
- * time, so nothing has to know the capture scale.
+ * The plan is made against the layout page (794 x 1123) and applied to the 2x
+ * capture (1588 x 2246). The matrix is scaled into the pixels of the bitmap at
+ * draw time, so the capture scale is not needed here.
  * @param {Matrix3} m - Transform over normalised coordinates.
  * @param {number} width - Bitmap width.
  * @param {number} height - Bitmap height.
@@ -462,7 +448,7 @@ function round4(value) {
 
 /**
  * @param {number} value - Raw number.
- * @returns {number} Rounded to eight places, which is exact enough for a matrix.
+ * @returns {number} Rounded to eight places.
  */
 function round8(value) {
   return Math.round(value * 100_000_000) / 100_000_000;
@@ -474,12 +460,10 @@ const INK_CEILING = 190;
 /**
  * Apply every per-pixel effect in one pass over the bitmap.
  *
- * One pass rather than one per effect: this runs over roughly fourteen million
- * bytes for a 2x A4 page, and walking that five times is the difference between
- * a batch you can leave running and a tab that stops responding.
+ * All per-pixel effects run in one pass over the bitmap, rather than one pass
+ * per effect over roughly fourteen million bytes for a 2x A4 page.
  *
- * Exported separately from the canvas work so it can be tested on a bitmap small
- * enough to assert on by hand.
+ * Exported separately from the canvas work so it can be tested on small bitmaps.
  * @param {Uint8ClampedArray} data - RGBA bytes, modified in place.
  * @param {number} width - Bitmap width in pixels.
  * @param {number} height - Bitmap height in pixels.
@@ -505,13 +489,11 @@ export function applyPixelPass(data, width, height, applied, random) {
       const index = (y * width + x) * 4;
       const dx = x - lightX;
       const shade = vignette ? band * (1 - (vignette * (dx * dx + dy * dy)) / farthest) : band;
-      // One draw per pixel, shared across the three channels: a scanner adds
-      // luminance grain, and drawing per channel would produce colour speckle
-      // on what is meant to be a greyscale page.
+      // One draw per pixel, shared by the three channels, so the grain is
+      // luminance only and adds no colour speckle.
       const grain = noise ? (random() + random() - 1) * noise : 0;
-      // Rec. 601 luma, because a fax has no colour to reproduce and an accent
-      // that survives into a monochrome scan is the one thing that gives a
-      // synthetic page away.
+      // Rec. 601 luma. Monochrome output removes colour, so accents do not
+      // survive into the greyscale.
       const luma = mono ? 0.299 * data[index] + 0.587 * data[index + 1] + 0.114 * data[index + 2] : 0;
 
       for (let channel = 0; channel < 3; channel += 1) {
@@ -520,9 +502,8 @@ export function applyPixelPass(data, width, height, applied, random) {
         value = (value - 128) * contrast + 128 + brightness + grain;
 
         if (bleed && value < INK_CEILING) {
-          // Ink spreading into the paper around a stroke: the closer a pixel
-          // already is to black, the further this drags it, which thickens
-          // strokes instead of merely darkening the whole page.
+          // Ink spread. The darker a pixel, the further it is pushed toward
+          // black, which thickens strokes.
           value -= bleed * (INK_CEILING - value) * 0.6;
         }
 
@@ -537,12 +518,11 @@ export function applyPixelPass(data, width, height, applied, random) {
 }
 
 /**
- * How tall each strip is when a keystone forces a piecewise draw.
+ * Height in pixels of each strip drawn when a keystone is applied.
  *
- * Canvas 2D cannot draw a projective transform in one call. Strips of a few
- * pixels approximate it to well under a pixel of error, which is far below the
- * blur and grain applied immediately afterwards, and the matrix reported to the
- * annotations is the exact projective one either way.
+ * Canvas 2D cannot draw a projective transform in one call, so the source is
+ * drawn in strips, each with an affine approximation. The matrix reported to the
+ * annotations is the exact projective one.
  */
 const KEYSTONE_STRIP = 4;
 
@@ -575,8 +555,7 @@ function drawGeometry(ctx, source, transformPx) {
     const d = (leftBottomY - leftTopY) / strip;
 
     ctx.setTransform(a, b, c, d, leftTopX - c * top, leftTopY - d * top);
-    // One pixel of overlap, so neighbouring strips meet without a hairline of
-    // background showing through where the rounding falls badly.
+    // One pixel of overlap between strips, so no background shows at the seams.
     const rows = Math.min(strip + 1, height - top);
     ctx.drawImage(source, 0, top, width, rows, 0, top, width, rows);
   }
@@ -604,7 +583,7 @@ function drawDust(ctx, count, width, height, random) {
 }
 
 /**
- * Draw a faint horizontal crease, as left by a fax or a folded letter.
+ * Draw a faint horizontal crease.
  * @param {CanvasRenderingContext2D} ctx - Destination context.
  * @param {number} width - Canvas width.
  * @param {number} height - Canvas height.
@@ -680,8 +659,8 @@ function drawCoffeeRing(ctx, width, height, random) {
 /**
  * Paint the physical marks a page picks up before it reaches a scanner.
  *
- * The marks are drawn in a fixed order, because the dust, the fold, and the
- * coffee ring each draw from the same seeded stream.
+ * The marks are drawn in a fixed order, since dust, fold, and coffee ring share
+ * one seeded stream.
  * @param {CanvasRenderingContext2D} ctx - Destination context.
  * @param {AppliedSettings} applied - Resolved settings.
  * @param {number} width - Canvas width.
@@ -714,7 +693,7 @@ function drawArtifacts(ctx, applied, width, height, random) {
 }
 
 /**
- * Darken the page edges the way a lid that does not quite close does.
+ * Darken the page edges, as a scanner lid that does not close fully does.
  * @param {CanvasRenderingContext2D} ctx - Destination context.
  * @param {number} strength - Shadow strength, 0 to 1.
  * @param {number} width - Canvas width.
@@ -747,7 +726,7 @@ function drawEdgeShadow(ctx, strength, width, height) {
 /**
  * Render a degraded copy of a clean page capture.
  *
- * The source canvas is never modified, because pair mode writes both.
+ * The source canvas is not modified, so pair mode can write both.
  * @param {HTMLCanvasElement} source - Clean 2x render from `capturePaper`.
  * @param {DegradePlan} plan - Output of `planDegradation` for the same page.
  * @param {{ documentObj?: Document }} [options={}] - DOM injection point.
@@ -762,8 +741,8 @@ export function degradeCanvas(source, plan, { documentObj = document } = {}) {
   canvas.height = source.height;
   const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext("2d"));
 
-  // The page is smaller than the sheet once it has been rotated to fit, so the
-  // background is what shows in the corners. Scanner white, not pure white.
+  // The page is smaller than the sheet after rotation, so the background shows
+  // in the corners. The background is off-white, not pure white.
   ctx.fillStyle = "rgb(246, 245, 242)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -789,10 +768,8 @@ export function degradeCanvas(source, plan, { documentObj = document } = {}) {
 /**
  * Choose the image encoding a set of settings implies.
  *
- * JPEG loss is not painted onto the bitmap, it is the encoding: asking a canvas
- * for a lossy JPEG is the same compression a real scanner applies, and baking it
- * into a PNG would mean an async round-trip through an `Image` for a worse
- * result.
+ * JPEG loss comes from the encoding, not from the bitmap. Lossy settings encode
+ * as JPEG through `toDataURL`.
  * @param {DegradeSettings | AppliedSettings} settings - Resolved settings.
  * @returns {{ extension: string, mime: string, quality: number }} Encoding to use.
  */

@@ -1,11 +1,10 @@
 /**
- * Shared helpers for updating existing DOM nodes in place. Skipping writes
- * when the value is unchanged avoids needless mutations and style
- * invalidation on every input tick.
+ * Shared helpers for updating existing DOM nodes in place. Writes are skipped
+ * when the value is unchanged.
  * @module dom-sync
  */
 
-/** Node.TEXT_NODE, spelled out so the module also loads where Node is not defined. */
+/** Node.TEXT_NODE value, defined locally. The module does not depend on the global Node. */
 const TEXT_NODE = 3;
 
 /**
@@ -16,9 +15,7 @@ const TEXT_NODE = 3;
  * @returns {void}
  */
 export function setText(element, text) {
-  // A lone text node is rewritten in place. Assigning textContent would discard
-  // it and allocate a new one on every change, which a table of thousands of
-  // cells redrawn on each slider tick pays for in garbage collection.
+  // A lone text node is rewritten in place instead of replaced through textContent.
   const node = element.firstChild;
   if (text !== "" && node && node === element.lastChild && node.nodeType === TEXT_NODE) {
     const textNode = /** @type {Text} */ (node);
@@ -50,11 +47,10 @@ export function setAttr(element, name, value) {
 const settledElements = new WeakSet();
 
 /**
- * Let an element take its first value without its CSS transition, so a bar or
- * meter starts at its value instead of growing in as the page loads. The
+ * Writes an element's first value with its CSS transition disabled. The
  * element's own inline transition, if any, is restored two frames later, once
- * that value has been styled, and every later change animates as usual. Call it before each write; only
- * the first call per element does anything.
+ * that value has been styled. Later changes animate as usual. Call it before
+ * each write; only the first call per element does anything.
  *
  * @param {HTMLElement} element
  * @returns {void}

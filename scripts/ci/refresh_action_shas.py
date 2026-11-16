@@ -10,7 +10,7 @@ already pinned to a 40-character SHA are left untouched.
 The commit SHA for each ``owner/repo@ref`` pair is resolved through the GitHub
 commits API using the token in the ``GH_TOKEN`` environment variable. Lookups
 are cached per ``owner/repo@ref`` and retried a bounded number of times with a
-simple linear backoff so transient network failures do not abort the refresh.
+linear backoff.
 
 For normal use, prefer ``make refresh-action-shas`` over calling this module
 directly.

@@ -97,7 +97,7 @@ def test_retry_re_raises_the_final_failure() -> None:
 
 
 def test_retry_requires_a_positive_attempt_count() -> None:
-    """A maintenance helper cannot silently skip all network attempts."""
+    """Rejects an attempt count below 1, so no network call is silently skipped."""
     with pytest.raises(ValueError, match="at least 1"):
         pins.retry(lambda: "never", attempts=0)
 
@@ -125,7 +125,7 @@ def test_pypi_latest_version_reads_a_stable_release(monkeypatch: pytest.MonkeyPa
 def test_pypi_latest_version_rejects_invalid_payloads(
     monkeypatch: pytest.MonkeyPatch, payload: object
 ) -> None:
-    """Never write a dependency version that is not a stable semantic release."""
+    """Rejects a PyPI version that is not a stable semantic release."""
     monkeypatch.setattr(pins, "urlopen", lambda *_args, **_kwargs: Response(payload))
 
     with pytest.raises(ValueError, match="invalid latest Playwright version"):
@@ -157,7 +157,7 @@ def test_locked_playwright_version_reads_uv_lock(tmp_path: Path) -> None:
 def test_locked_playwright_version_rejects_ambiguous_or_invalid_locks(
     tmp_path: Path, lock_text: str
 ) -> None:
-    """Fail closed when the lock cannot identify one exact stable package."""
+    """Raises ValueError when the lock does not identify exactly one stable Playwright version."""
     path = tmp_path / "uv.lock"
     path.write_text(lock_text, encoding="utf-8")
 
@@ -198,7 +198,7 @@ def test_registry_digest_reads_the_immutable_python_image_digest(
 def test_registry_digest_rejects_unsupported_images_and_bad_headers(
     monkeypatch: pytest.MonkeyPatch, image: str, digest: str | None
 ) -> None:
-    """Never write a digest from the wrong registry or an invalid response."""
+    """Rejects unsupported image references and missing or malformed digest headers."""
     monkeypatch.setattr(pins, "urlopen", lambda *_args, **_kwargs: Response(digest=digest))
 
     with pytest.raises(ValueError, match=r"Unsupported|invalid digest"):
@@ -206,7 +206,7 @@ def test_registry_digest_rejects_unsupported_images_and_bad_headers(
 
 
 def test_replace_one_changes_a_pin_and_detects_a_noop(tmp_path: Path) -> None:
-    """Require one owned pin while avoiding needless writes."""
+    """Returns True when the pin changes and False when it already matches."""
     path = tmp_path / "config"
     path.write_text("pin=old\n", encoding="utf-8")
     pattern = pins.re.compile(r"(?m)^pin=\S+$")
@@ -217,7 +217,7 @@ def test_replace_one_changes_a_pin_and_detects_a_noop(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("text", ["none\n", "pin=a\npin=b\n"])
 def test_replace_one_rejects_missing_or_duplicate_pins(tmp_path: Path, text: str) -> None:
-    """Fail when a refactor makes pin ownership ambiguous."""
+    """Raises when the file has no matching pin or more than one."""
     path = tmp_path / "config"
     path.write_text(text, encoding="utf-8")
 
@@ -226,7 +226,7 @@ def test_replace_one_rejects_missing_or_duplicate_pins(tmp_path: Path, text: str
 
 
 def test_upgrade_project_dependency_updates_only_the_exact_requirement(tmp_path: Path) -> None:
-    """Update the project requirement before uv regenerates its lock."""
+    """Updates the exact project requirement and returns False once it matches."""
     path = tmp_path / "pyproject.toml"
     path.write_text('dependencies = [\n  "playwright==1.61.0",\n]\n', encoding="utf-8")
 
@@ -236,7 +236,7 @@ def test_upgrade_project_dependency_updates_only_the_exact_requirement(tmp_path:
 
 
 def test_upgrade_project_dependency_rejects_invalid_versions(tmp_path: Path) -> None:
-    """A project pin must stay on a stable semantic release."""
+    """Rejects a non-stable version for the project pin."""
     path = tmp_path / "pyproject.toml"
     path.write_text('dependencies = ["playwright==1.61.0"]\n', encoding="utf-8")
 
@@ -245,7 +245,7 @@ def test_upgrade_project_dependency_rejects_invalid_versions(tmp_path: Path) -> 
 
 
 def test_refresh_workflow_images_updates_every_browser_workflow(tmp_path: Path) -> None:
-    """Keep each browser-only workflow on the same versioned image digest."""
+    """Updates every workflow file to the new image, and a rerun changes nothing."""
     paths = [tmp_path / "one.yml", tmp_path / "two.yml"]
     old = f"{pins.PLAYWRIGHT_IMAGE_PREFIX}v1.61.0-noble@{DIGEST}"
     for path in paths:
@@ -261,7 +261,7 @@ def test_refresh_workflow_images_updates_every_browser_workflow(tmp_path: Path) 
 
 
 def test_refresh_workflow_images_replaces_all_owned_references(tmp_path: Path) -> None:
-    """Update every browser job when one workflow reuses the image twice."""
+    """Replaces every image reference in a file, including repeated ones."""
     path = tmp_path / "workflow.yml"
     old = f"{pins.PLAYWRIGHT_IMAGE_PREFIX}v1.61.0-noble@{DIGEST}"
     path.write_text(f"first: {old}\nsecond: {old}\n", encoding="utf-8")
@@ -273,7 +273,7 @@ def test_refresh_workflow_images_replaces_all_owned_references(tmp_path: Path) -
 
 
 def test_refresh_workflow_images_rejects_a_missing_pin(tmp_path: Path) -> None:
-    """Fail when a browser workflow loses its owned image reference."""
+    """Raises when a workflow has no Playwright image pin."""
     path = tmp_path / "workflow.yml"
     path.write_text("jobs: {}\n", encoding="utf-8")
 
@@ -288,7 +288,7 @@ def test_refresh_workflow_images_rejects_a_missing_pin(tmp_path: Path) -> None:
 def test_refresh_workflow_images_rejects_invalid_pins(
     tmp_path: Path, version: str, digest: str
 ) -> None:
-    """Do not write malformed image references."""
+    """Rejects an invalid Playwright version or digest."""
     path = tmp_path / "workflow.yml"
     path.write_text(
         f"image: {pins.PLAYWRIGHT_IMAGE_PREFIX}v1.61.0-noble@{DIGEST}\n", encoding="utf-8"
@@ -301,7 +301,7 @@ def test_refresh_workflow_images_rejects_invalid_pins(
 def test_refresh_locked_image_uses_the_locked_version_and_registry_digest(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The image refresh is coupled to uv.lock, not to an independent version."""
+    """The image version is read from uv.lock, not supplied separately."""
     lock = tmp_path / "uv.lock"
     workflow = tmp_path / "workflow.yml"
     monkeypatch.setattr(pins, "registry_digest", lambda _image: DIGEST)

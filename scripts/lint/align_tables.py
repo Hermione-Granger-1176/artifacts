@@ -80,9 +80,9 @@ def build_separator(widths: list[int], original_cells: list[str]) -> str:
 def align_table(lines: list[str]) -> list[str]:
     """Align a block of table lines so pipe characters are vertically aligned.
 
-    Only the second row can be the delimiter row, so a body row of dashes keeps
-    its text. Every row keeps the first row's indentation, which places a table
-    inside a list item.
+    Only the second row is treated as the delimiter row, so other rows of dashes
+    keep their text. Every row uses the first row's indentation, so a table
+    inside a list item stays nested.
     """
     indent = lines[0][: len(lines[0]) - len(lines[0].lstrip())]
     rows = [split_cells(line) for line in lines]

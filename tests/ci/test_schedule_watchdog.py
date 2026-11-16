@@ -10,7 +10,7 @@ from scripts.ci import schedule_watchdog
 
 
 def test_discover_only_scheduled_yaml_files(tmp_path):
-    """New cron workflows are monitored without maintaining a filename table."""
+    """Every workflow with a schedule trigger is discovered, with no filename list."""
     for name in ("b.yml", "a.yaml"):
         (tmp_path / name).write_text("on:\n  schedule:\n    - cron: '0 7 * * *'\n")
     (tmp_path / "manual.yml").write_text("on:\n  workflow_dispatch:\n")
@@ -33,7 +33,7 @@ def test_discovery_reads_schedule_structure(tmp_path):
 
 
 def test_invalid_workflow_yaml_is_check_failure(tmp_path):
-    """A parse failure cannot silently exclude a disabled workflow."""
+    """A YAML parse failure raises RuntimeError instead of skipping the file."""
     (tmp_path / "broken.yml").write_text("on: [\n")
     with pytest.raises(RuntimeError, match=r"Cannot parse workflow broken\.yml"):
         schedule_watchdog.scheduled_workflow_files(tmp_path)
@@ -41,7 +41,7 @@ def test_invalid_workflow_yaml_is_check_failure(tmp_path):
 
 @pytest.mark.parametrize("payload", [None, [], {}, {"state": None}, {"state": ""}, {"state": 1}])
 def test_unreadable_metadata_is_check_failure(payload):
-    """Unreadable metadata cannot produce a healthy verdict."""
+    """Metadata without a non-empty string state raises RuntimeError."""
     with pytest.raises(RuntimeError, match="metadata"):
         schedule_watchdog.fetch_workflow_state(
             "owner/name", "smoke.yml", run_gh_api_json_fn=lambda *_args, **_kwargs: payload
@@ -145,7 +145,7 @@ def test_cli_failure_does_not_report_disabled_workflow(monkeypatch, tmp_path, ca
 
 @pytest.mark.parametrize("exit_code, checked", [(1, "true"), (2, "false")])
 def test_make_preserves_checked_when_it_collapses_exit_codes(tmp_path, exit_code, checked):
-    """Alert routing uses checked because Make returns 2 for both failures."""
+    """The checked output tells the two failures apart when Make exits 2 for both."""
     output = tmp_path / "output"
     makefile = tmp_path / "Makefile"
     makefile.write_text(f"check:\n\t@echo checked={checked} >> {output}\n\t@exit {exit_code}\n")

@@ -44,7 +44,7 @@ def retry(
 
     The helper retries network failures (``OSError``, which covers ``URLError``,
     ``HTTPError``, and timeouts) and truncated JSON bodies. A ``ValueError`` from
-    a malformed version or digest repeats on every call, so it fails at once.
+    a malformed version or digest is not retried.
     """
     if attempts < 1:
         raise ValueError("attempts must be at least 1")

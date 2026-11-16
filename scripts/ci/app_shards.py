@@ -23,7 +23,7 @@ SHARD_MANIFEST_FILE = "manifest.json"
 
 
 def browser_app_slugs(apps_root: Path, slugs: list[str] | None = None) -> list[str]:
-    """Return app slugs that have the mature app browser-test entry point."""
+    """Return app slugs that have the browser-test entry point at ``js/app.js``."""
     candidates = discover_app_slugs(apps_root) if slugs is None else slugs
     return [slug for slug in candidates if (apps_root / slug / "js" / "app.js").is_file()]
 

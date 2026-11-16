@@ -1,7 +1,7 @@
 /**
- * Hold chart redraws while a canvas is off screen and run the latest one when
- * it scrolls near the viewport, so a slider drag only repaints what a reader
- * can see. Shared by the apps that keep several Chart.js charts on one page.
+ * Holds chart redraws while a canvas is off screen and runs the latest one when
+ * it nears the viewport. Shared by the apps that keep several Chart.js charts
+ * on one page.
  * @module offscreen-draws
  */
 

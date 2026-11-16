@@ -103,8 +103,7 @@ test('tokenizer renders colored tokens and an ID view', () => {
     assert.ok(h.el('tokenOutput').children.length > 0);
     assert.notEqual(h.el('tokCount').textContent, '0');
 
-    // Both views stay in the output, stacked; the inactive one is hidden, so the
-    // box always fits the taller view.
+    // Both views stay in the output, stacked. The inactive one is hidden.
     const [textLayer, idsLayer] = h.el('tokenOutput').children;
     assert.ok(textLayer.children.length > 0);
     assert.equal(idsLayer.children.length, textLayer.children.filter((c) => c.className.startsWith('pc-tok ')).length);

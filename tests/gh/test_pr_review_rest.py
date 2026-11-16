@@ -91,7 +91,7 @@ def test_list_threads_hides_resolved_threads_by_default() -> None:
 
 
 def test_list_threads_remembers_the_blocked_verdict() -> None:
-    """The first blocked call is remembered, so later calls skip GraphQL entirely."""
+    """Later calls skip GraphQL and the repository lookup after one call is blocked."""
     runner = _sandbox(*_thread_routes())
 
     pr_review.list_threads(7, run_fn=runner)
@@ -261,10 +261,10 @@ def test_address_numeric_thread_replies_then_resolves() -> None:
 def test_node_ids_explain_the_numeric_route_when_graphql_is_blocked(
     operation: Callable[[FakeGh], None], listing: str
 ) -> None:
-    """A GraphQL node id cannot be used here, and the error names the listing with the right ids.
+    """A GraphQL node id is refused, and the error names the listing that holds numeric ids.
 
-    Thread actions take the thread listing. Deleting a comment takes the comment listing,
-    because the thread listing holds only first comments and cannot name a reply.
+    Thread actions take ids from the thread listing. Deleting a comment takes ids from
+    the comment listing, which also includes replies.
     """
     runner = _sandbox()
 
@@ -332,7 +332,7 @@ def test_pr_summary_falls_back_to_rest() -> None:
 
 
 def test_copilot_review_falls_back_to_the_bot_login() -> None:
-    """The REST request names the Copilot bot, since @copilot is a gh shorthand."""
+    """The REST request names the Copilot bot login instead of the @copilot alias."""
     runner = _sandbox(
         (
             rest(
@@ -395,7 +395,7 @@ def test_edit_pr_falls_back_with_a_body_file(tmp_path: Path) -> None:
 
 
 def test_edit_pr_fallback_reuses_the_stdin_body(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Standard input read for gh is still available to the fallback."""
+    """A body file of ``-`` is read from standard input."""
     monkeypatch.setattr("sys.stdin", io.StringIO("piped"))
     runner = _sandbox(*_pr_routes(), _patch_route("body=piped"))
 

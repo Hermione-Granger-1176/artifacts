@@ -4,7 +4,7 @@ This is a deliberately small cross-engine safety net: it loads each page in
 WebKit, asserts the page has no console, page, or network failures (through
 ``MonitoredPage``), and checks the key landmark elements render. It mirrors the
 load checks in ``test_frontend_smoke.py`` and ``test_frontend_apps_smoke.py``
-without repeating their full interaction coverage, so CI cost stays bounded.
+without repeating their interaction coverage.
 
 Select WebKit by exporting ``ARTIFACTS_BROWSER_ENGINE=webkit`` (the
 ``test-browser-webkit-smoke`` Make target does this).

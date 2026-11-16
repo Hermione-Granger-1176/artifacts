@@ -134,8 +134,7 @@ def _review_threads(data: Any) -> dict[str, Any]:
 
     Raises:
         GhError: If the payload has no repository or pull request. An invalid or
-            inaccessible PR returns ``pullRequest: null`` (with no ``errors``
-            array), which would otherwise surface as an opaque ``TypeError``.
+            inaccessible PR returns ``pullRequest: null`` with no ``errors`` array.
     """
     repository = data.get("repository") if isinstance(data, dict) else None
     pull_request = repository.get("pullRequest") if isinstance(repository, dict) else None
@@ -208,9 +207,8 @@ def _page_info(connection: dict[str, Any], message: str) -> dict[str, Any]:
 def _page_has_next(page_info: dict[str, Any], message: str) -> bool:
     """Return ``pageInfo.hasNextPage`` as a bool, raising on a malformed value.
 
-    The GraphQL ``PageInfo.hasNextPage`` field is non-null, so a valid response
-    always carries it. A missing or non-boolean value is therefore malformed and
-    surfaces as ``GhError`` rather than silently truncating pagination.
+    The field is non-null in GraphQL. A missing or non-boolean value raises
+    ``GhError``.
     """
     has_next = page_info.get("hasNextPage")
     if not isinstance(has_next, bool):
@@ -221,10 +219,8 @@ def _page_has_next(page_info: dict[str, Any], message: str) -> bool:
 def _require_end_cursor(page_info: dict[str, Any], message: str) -> str:
     """Return ``pageInfo.endCursor`` as a non-empty string, or raise ``GhError``.
 
-    Only call this after ``_page_has_next`` has confirmed ``hasNextPage`` is true,
-    since pagination must then continue from this cursor. A missing, non-string,
-    or empty ``endCursor`` is malformed and surfaces as a clear error instead of
-    being forwarded into the next query as a confusing value.
+    Call this only after ``_page_has_next`` has confirmed ``hasNextPage`` is true.
+    A missing, non-string, or empty ``endCursor`` raises ``GhError``.
     """
     after = page_info.get("endCursor")
     if not isinstance(after, str) or not after:
@@ -333,9 +329,9 @@ def list_threads(
 ) -> list[ReviewThread]:
     """Return the review threads for ``pr`` (auto-detected when omitted).
 
-    Pages through ``reviewThreads`` so a PR with more than 100 threads is
-    reported in full instead of being silently truncated at the first page.
-    Falls back to the REST thread route when GraphQL is unavailable.
+    Pages through ``reviewThreads``, so a PR with more than 100 threads is
+    reported in full. Falls back to the REST thread route when GraphQL is
+    unavailable.
     """
     owner, name = _owner_name(run_fn=run_fn)
     pr = gh_runner.resolve_pr_number(pr, run_fn=run_fn)
@@ -353,8 +349,7 @@ def list_threads(
 def _graphql_only(action: str, listing: str, call: Callable[[], object]) -> None:
     """Run a GraphQL-only ``call``, explaining the numeric-id route if GraphQL is blocked.
 
-    ``listing`` names the ``make`` target that prints the right numeric ids: the
-    thread listing holds only each thread's first comment, so it cannot name a reply.
+    ``listing`` names the ``make`` target that prints the numeric ids for this action.
     """
     try:
         call()
@@ -370,10 +365,8 @@ def reply_to_thread(
 ) -> None:
     """Reply to a review thread by its node id, or by its first comment's numeric id.
 
-    Posting a reply is not idempotent, so it does not auto-retry: a lost
-    response after a successful write would otherwise double-post the comment.
-    A numeric id replies through REST on ``pr`` (the current branch's PR when
-    omitted).
+    Posting a reply is not idempotent, so it does not auto-retry. A numeric id
+    replies through REST on ``pr`` (the current branch's PR when omitted).
     """
     if _is_rest_id(thread_id):
         slug, pr = gh_runner.resolve_repo_and_pr(pr, run_fn=run_fn)
@@ -559,12 +552,10 @@ def list_comments(
 ) -> list[ReviewComment]:
     """Return every individual review comment on ``pr`` (auto-detected when omitted).
 
-    Unlike ``list_threads`` (which keeps only each thread's first comment for a
-    summary view), this flattens all comments so a specific reply can be
-    targeted by its node id, e.g. to delete a stray one. Both the thread list
-    and each thread's comments are fully paginated, so "every" is literal even
-    past the 100-per-page GraphQL caps. When GraphQL is unavailable the ids are
-    the numeric REST ids that ``delete_review_comment`` also accepts.
+    Unlike ``list_threads``, which keeps only each thread's first comment, this
+    flattens all comments. Both the thread list and each thread's comments are
+    fully paginated. When GraphQL is unavailable the ids are the numeric REST ids
+    that ``delete_review_comment`` also accepts.
     """
     owner, name = _owner_name(run_fn=run_fn)
     pr = gh_runner.resolve_pr_number(pr, run_fn=run_fn)
@@ -577,8 +568,7 @@ def list_comments(
 def delete_review_comment(comment_id: str, *, run_fn: RunFunction | None = None) -> None:
     """Delete a single review comment by its node id or numeric REST id.
 
-    Deletion is destructive and not idempotent (a retry would error on the
-    already-removed comment), so it does not auto-retry.
+    Deletion is not idempotent, so it does not auto-retry.
     """
     if _is_rest_id(comment_id):
         slug = gh_runner.resolve_repo(run_fn=run_fn)
@@ -672,16 +662,14 @@ def pr_summary(pr: int | None = None, *, run_fn: RunFunction | None = None) -> s
     return "\n".join(lines)
 
 
-# Copilot only reviews a pull request on creation and does not auto-rerun on
-# later pushes, so re-requesting it is part of the review-feedback loop. Pass
-# ``gh`` the ``@copilot`` shorthand, because the literal
-# ``copilot-pull-request-reviewer[bot]`` login does not resolve there. The REST
-# fallback sends that login instead.
+# Copilot reviews a pull request on creation and does not re-review later
+# pushes. ``gh`` takes the ``@copilot`` shorthand, since the bot's login does not
+# resolve there. The REST fallback sends that login instead.
 def request_copilot_review(pr: int | None = None, *, run_fn: RunFunction | None = None) -> None:
     """Request a GitHub Copilot code review on the pull request.
 
-    This re-requests Copilot after addressing review feedback, since it does not
-    automatically re-review new pushes. Raises ``GhError`` if the request fails
+    This re-requests Copilot, which does not automatically re-review new pushes.
+    Raises ``GhError`` if the request fails
     (for example, if Copilot code review is not enabled for the repository).
     """
     pr = gh_runner.resolve_pr_number(pr, run_fn=run_fn)
@@ -730,11 +718,9 @@ def edit_pr(
 ) -> None:
     """Edit a pull request's title and/or body (current branch when ``pr`` is omitted).
 
-    ``body_file`` is forwarded straight to ``gh pr edit --body-file`` so gh reads
-    the file itself, which avoids an "argument list too long" failure for a
-    large body. ``-`` means standard input: it is read once here and piped to
-    gh, so the REST fallback still has the text if GraphQL turns out to be
-    unavailable. ``body`` is a small inline string forwarded as ``--body``.
+    ``body_file`` is forwarded to ``gh pr edit --body-file``, which reads the file
+    itself. ``-`` means standard input: it is read once here, piped to gh, and
+    reused by the REST fallback. ``body`` is forwarded as ``--body``.
     Raises ``GhError`` when no title, body, or body file is supplied.
     """
     if title is None and body is None and body_file is None:

@@ -20,9 +20,9 @@ import { createOffscreenDraws } from "../../../../js/modules/offscreen-draws.js"
  */
 
 /**
- * Format an axis tick as a percent with exactly two decimals, so Chart.js
- * auto-generated steps never leak floating-point noise and every tick lines
- * up (e.g. 4.800000000000001 renders as "4.80%" and 5 as "5.00%").
+ * Format an axis tick as a percent with exactly two decimals. Floating-point
+ * noise in the tick value is removed (e.g. 4.800000000000001 renders as "4.80%"
+ * and 5 as "5.00%").
  * @param {number} value - Raw tick value.
  * @returns {string} Fixed two-decimal percent label.
  */
@@ -278,8 +278,8 @@ function isCurrentBar(chart, index) {
 }
 
 /**
- * Draws each bar's label just past its end. The page carries no datalabels
- * plugin, so this one chart gets a small inline plugin instead.
+ * Draws each bar's label just past its end. This is an inline plugin; no
+ * datalabels plugin is loaded.
  * @type {import("chart.js").Plugin<"bar">}
  */
 const barEndLabels = {
@@ -305,7 +305,7 @@ const barEndLabels = {
 /**
  * A horizontal bar per maturity, as long as the dollars a one-point rate rise
  * costs, with the new price and the loss written at its end. The value axis is
- * hidden because every bar carries its own number.
+ * hidden; each bar carries its own number.
  * @param {HTMLCanvasElement} canvas - Target canvas element.
  * @returns {ChartInstance} The created chart.
  */
@@ -432,8 +432,7 @@ function drawOrDefer(charts, name, run, animate) {
   /** @type {import("../../../../js/modules/offscreen-draws.js").OffscreenDraws} */ (offscreenDraws.get(charts)).draw(
     charts[name].canvas,
     () => {
-      // An instant redraw cancels any ease still running, such as the first
-      // draw's, which would otherwise finish later and put back the old bars.
+      // An instant redraw stops any ease still running, such as the first draw's.
       if (mode === "none") {
         charts[name].stop();
       }
@@ -444,9 +443,9 @@ function drawOrDefer(charts, name, run, animate) {
 
 /**
  * Create the three explainer charts on the first call, then redraw only the ones
- * given new data. Input-driven redraws skip Chart.js's animation so a slider drag
- * follows the pointer; pass `animate` for a change that should ease (the first
- * draw and a curve switch). A chart that is off screen redraws once it scrolls in.
+ * given new data. Input-driven redraws skip Chart.js's animation; pass `animate`
+ * for a change that should ease (the first draw and a curve switch). A chart that
+ * is off screen redraws once it scrolls in.
  * @param {ChartRenderOptions} options - Chart data, formatting callbacks, and which charts to redraw.
  * @returns {Charts} Chart instances keyed by name.
  */

@@ -2,9 +2,9 @@
 
 .PHONY: ci-runs ci-pages-runs ci-run ci-rerun ci-dispatch ci-caches ci-cache-delete ci-run-log ci-job-log ci-watch ci-failures
 
-# Smart default for CI-run targets: the caller's run= else the latest run on the
-# current branch, resolved through the tested gh helper (same source as
-# ci-failures). Stays empty when nothing can be resolved so the guard can fire.
+# Default run for CI-run targets: the run= value, else the latest run on the
+# current branch, resolved through the gh helper (same source as ci-failures).
+# Empty when nothing resolves, and the target's guard then fails.
 RUN_ID = $(if $(run),$(run),$(strip $(shell $(GH) latest-run-id 2>/dev/null)))
 
 ci-runs: ## List recent CI workflow runs
@@ -23,21 +23,20 @@ ci-rerun: ## Re-run one CI workflow run (make ci-rerun [run=ID] [failed=1], defa
 	test -n "$$run_id" || { printf 'Usage: make ci-rerun run=123456 (or run on a branch with a resolvable latest run)\n' >&2; exit 1; }; \
 	gh run rerun "$$run_id" $(if $(filter 1,$(failed)),--failed)
 
-# Prefer this over re-running a run whose jobs already uploaded an artifact:
-# attempts share one artifact namespace, so replaying a failed publish leaves two
-# artifacts of the same name and the deploy step refuses the ambiguity.
+# Re-running a run that already uploaded an artifact leaves two artifacts with
+# the same name, which the deploy step rejects. Start a fresh run with ci-dispatch
+# instead.
 ci-dispatch: ## Start a fresh workflow run (make ci-dispatch workflow=update.yml [ref=branch] [inputs="key=value ..."])
 	$(call need,workflow,make ci-dispatch workflow=update.yml [ref=branch] [inputs="key=value ..."])
 	gh workflow run "$(workflow)" $(if $(ref),--ref "$(ref)") $(foreach kv,$(inputs),-f "$(kv)")
 
-# Largest first, because the reason to look is almost always that something is
-# being restored that no step reads.
+# Sorted by size, largest first.
 ci-caches: ## List Actions caches, largest first (make ci-caches [limit=N] [key=prefix])
 	gh cache list --limit "$(if $(limit),$(limit),30)" --sort size_in_bytes --order desc $(if $(key),--key "$(key)")
 
-# gh takes an id or a key in the same positional slot, so one variable covers
-# both. A key is not unique on its own: the same key exists once per ref, and gh
-# resolves it against the current branch unless ref= names another one.
+# gh takes an id or a key in the same positional slot, so `cache` holds either.
+# A key is unique only per ref. gh resolves it against the current branch unless
+# ref= names another.
 ci-cache-delete: ## Delete one Actions cache (make ci-cache-delete cache=ID_or_key [ref=refs/heads/BRANCH])
 	$(call need,cache,make ci-cache-delete cache=1234 OR cache=my-cache-key [ref=refs/heads/main])
 	gh cache delete "$(cache)" $(if $(ref),--ref "$(ref)")

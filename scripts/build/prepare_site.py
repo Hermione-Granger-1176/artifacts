@@ -398,10 +398,8 @@ def _resolve_module_tree(entry_file: Path) -> list[Path]:
     """Walk ES module imports starting from *entry_file* and return all dependencies.
 
     Only static ``import ... from "..."`` and ``export ... from "..."`` are followed.
-    Dynamic ``import()`` is ignored because the browser discovers those modules at
-    runtime.
-    The entry file itself is excluded from the result (it is already referenced by
-    the ``<script>`` tag).
+    Dynamic ``import()`` is ignored.
+    The entry file itself is excluded from the result.
     """
     visited: set[Path] = set()
     result: list[Path] = []
@@ -436,7 +434,7 @@ def _inject_modulepreload_hints() -> None:
 
     For each HTML file in ``_site/`` that contains a ``<script type="module">``,
     the full static import tree is walked and matching ``<link>`` hints are
-    inserted before ``</head>`` so the browser can fetch all modules in parallel.
+    inserted before ``</head>``.
     """
     for html_path in DEPLOY_DIR.rglob("*.html"):
         content = _read_text(html_path)
@@ -459,8 +457,7 @@ def _inject_modulepreload_hints() -> None:
         ]
 
         insertion = "\n".join(hints) + "\n"
-        # Only the first </head> closes the document head. A later one, say in
-        # a code sample, is page content and must stay unchanged.
+        # Replace only the first </head>. Later occurrences are page content.
         content = content.replace("</head>", insertion + "</head>", 1)
         _write_text(html_path, content)
         logger.info(

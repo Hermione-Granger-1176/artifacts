@@ -60,9 +60,8 @@ export function formatCurrency(value, digits = 0) {
 const groupedNumberFormats = new Map();
 
 /**
- * One cached formatter per fraction-digit count. `toLocaleString` with options
- * builds a new formatter on every call, which is orders of magnitude slower
- * than reusing one across the thousands of cells in a loan schedule.
+ * Returns a cached formatter for each fraction-digit count, so one formatter is
+ * created per count.
  * @param {number} digits - Fraction digits to show.
  * @returns {Intl.NumberFormat} An en-US formatter with grouped thousands.
  */

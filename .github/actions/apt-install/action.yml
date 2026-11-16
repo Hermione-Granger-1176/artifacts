@@ -23,8 +23,8 @@ runs:
           command -v "$package" >/dev/null 2>&1 || missing="$missing $package"
         done
         if [ -n "$missing" ]; then
-          # Retry the apt bootstrap so a brief runner DNS outage does not fail
-          # the job before it starts. A failed index fetch counts as a failure.
+          # Runs apt-get update and install up to three times, sleeping 30 and
+          # then 60 seconds between attempts. A failed index fetch counts as a failure.
           for attempt in 1 2 3; do
             # $missing is a list of package names, so it is split on purpose.
             # shellcheck disable=SC2086

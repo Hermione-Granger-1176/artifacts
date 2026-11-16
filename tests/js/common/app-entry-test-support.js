@@ -139,8 +139,7 @@ export function setupFullMocks() {
 
   Object.assign(elementMap, Object.fromEntries(allIds.map((id) => [id, makeElement(id)])));
 
-  // Mirror the tokenizer markup's id + data-nav-label pairs so the shared
-  // section-nav's markup discovery finds them in document order.
+  // Mirrors the tokenizer markup's id and data-nav-label pairs, in document order.
   const navSectionDefs = [
     ['sec-sampling', 'Sampling'], ['sec-distribution', 'Distribution'],
     ['sec-tokens', 'Tokens'], ['concepts', 'Concepts']
@@ -150,8 +149,7 @@ export function setupFullMocks() {
     elementMap[id].setAttribute('data-nav-label', label);
   }
 
-  // Segmented toggles resolve their child buttons through querySelectorAll so
-  // initSegmented can wire them the way the real DOM does.
+  // Segmented toggles return their buttons from querySelectorAll, as the real DOM does.
   elementMap.viewToggle.querySelectorAll = () => [elementMap.btnCharts, elementMap.btnTable];
   elementMap.tableToggle.querySelectorAll = () => [elementMap.btnPeriod, elementMap.btnYearly];
   elementMap.curveToggle.querySelectorAll = () => [

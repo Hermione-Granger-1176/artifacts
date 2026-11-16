@@ -207,9 +207,8 @@ DIRTY_BOOK_STATE = """() => {
 }"""
 
 
-# Counts animation frames the page has requested and not yet run. Every book
-# turn tweens on the frame clock or plays Web Animations, so no pending frame and
-# no running script animation means nothing in flight can still land a page.
+# Tracks animation frames that are requested but not yet run. A book turn is
+# idle when no frame is pending and no script animation is running.
 FRAME_TRACKER = """(() => {
     const pending = new Set();
     const request = window.requestAnimationFrame.bind(window);
@@ -257,7 +256,7 @@ def _wait_for_idle_book(page) -> None:
     """Wait until no turn is in flight: no pending frame and no running script animation.
 
     Needs ``FRAME_TRACKER`` installed as an init script before the page loads. Polls
-    on a timer, because polling on animation frames would count its own frames.
+    on a timer rather than on animation frames, which would count as pending frames.
     """
     page.wait_for_function(BOOK_IDLE, polling=50)
 
@@ -625,7 +624,7 @@ def test_notepad_flips_its_page_up_over_the_binding_and_leaves_no_inline_state(
 
 
 def test_dark_theme_lifts_the_cover_and_keeps_the_ruled_paper(tmp_path: Path, monkeypatch) -> None:
-    """At night the leather lightens so the book stands off the desk, and the ruled paper stays."""
+    """In dark theme the cover is lighter, and the paper rule color does not change."""
     deploy_root = build_smoke_site(tmp_path, monkeypatch)
 
     with (
@@ -688,8 +687,7 @@ def test_resize_across_the_mobile_breakpoint_mid_turn_leaves_no_leaf_or_inline_s
         # Book page 2 starts with the fifth artifact, which is notepad page 5.
         expect(page.locator("#gallery-status")).to_contain_text("page 5 of")
         _assert_clean_book(page)
-        # Clean now must also mean clean for good: a cancelled turn that kept
-        # running would hold a frame or an animation until it landed.
+        # The page must also go idle, so a cancelled turn is not still running.
         _wait_for_idle_book(page)
         _assert_clean_book(page)
         expect(page.locator(".page-counter")).to_have_text(re.compile(r"^5 / \d+$"))

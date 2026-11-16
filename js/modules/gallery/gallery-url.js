@@ -1,7 +1,6 @@
 import { normalizeSelection, splitListParam } from './catalog.js';
 
-// The gallery data has no creation dates (every app shares one import commit),
-// so the order is by name: 'az' (the default) or 'za'.
+// Sort is by name: 'az' (the default) or 'za'. The gallery data has no creation dates.
 export const DEFAULT_GALLERY_STATE = { page: 1, sort: 'az', q: '' };
 
 /**
@@ -42,7 +41,7 @@ export function readGalleryStateFromSearch({
   return {
     page: Math.max(1, Number.parseInt(params.get('page') || '', 10) || defaults.page),
     q: normalizeSearchQuery(params.get('q') || defaults.q),
-    // A pre-rename `sort=oldest` link listed A to Z, which is now the default.
+    // Legacy `sort=oldest` links fall back to the default, A to Z.
     sort: params.get('sort') === 'za' ? 'za' : defaults.sort,
     tools: normalizeSelection(splitListParam(params.get('tool')), allTools),
     tags: normalizeSelection(splitListParam(params.get('tag')), allTags),

@@ -273,8 +273,8 @@ test('formatPeriodsAsDuration converts periods to years and months', () => {
   assert.equal(formatPeriodsAsDuration(1, 52), 'under 1m');
 });
 
-// The metrics block ships in index.html; the test builds one slot per
-// data-metric name found there, so the page and the module cannot drift apart.
+// The metrics block ships in index.html. The tests build one slot per
+// data-metric name found there.
 const pageMarkup = readFileSync(
   new URL('../../../../apps/loan-amortization/index.html', import.meta.url),
   'utf8'
@@ -342,7 +342,7 @@ test('renderMetrics keeps nodes and the chip text when values change or the chip
 
     assert.equal(slots.heroValue, heroValue);
     assert.equal(slots.heroValue.textContent, '$650');
-    // The chip keeps its last text so it holds its width while it fades out.
+    // The chip keeps its last text while hidden.
     assert.equal(slots.chip.textContent, chipText);
     assert.equal(slots.chip.classList.contains('is-empty'), true);
     assert.equal(slots.chip.getAttribute('aria-hidden'), 'true');
@@ -417,7 +417,7 @@ test('updateExtraField rejects NaN and negative values', () => {
 
 test('updateExtraField rejects amounts that parse to Infinity', () => {
   const extras = [createExtra(1)];
-  // `1e400` is a well-formed number literal, so a type=number field may keep it.
+  // `1e400` parses to Infinity and is rejected.
   updateExtraField(extras, 1, 'amount', '1e400');
   assert.equal(extras[0].amount, 500);
   updateExtraField(extras, 1, 'amount', 'Infinity');

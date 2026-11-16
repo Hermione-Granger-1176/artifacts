@@ -3,15 +3,12 @@
  *
  * The renderer touches createElement, className, textContent, setAttribute,
  * appendChild, replaceChildren, and style.setProperty. The box annotator adds
- * querySelectorAll, getBoundingClientRect, childNodes, and a Range. That is
- * still a small enough surface that plain objects beat pulling in jsdom, and it
- * keeps the tests honest about exactly which DOM features the modules rely on.
+ * querySelectorAll, getBoundingClientRect, childNodes, and a Range.
  *
  * Geometry is faked deterministically by `layOut` rather than measured: nodes
- * are stacked down the page in document order. It is not a browser's layout,
- * and it is not meant to be. What it exercises is the arithmetic, the walk, and
- * the normalisation. Whether the real numbers land on the real ink is settled
- * in `tests/browser/`, against a real page.
+ * are stacked down the page in document order. It is not a browser's layout.
+ * The tests check the arithmetic, the walk, and the normalisation. Whether the
+ * real numbers land on the real ink is checked in `tests/browser/`, against a real page.
  */
 
 /** DOM node type for a text node. */
@@ -54,8 +51,8 @@ export function createFakeElement(tag) {
     getBoundingClientRect() {
       return this.rect;
     },
-    // A node either carries text or carries children in this renderer, never
-    // both, so a text node is synthesised on demand rather than stored.
+    // A node carries either text or children, never both. Text nodes are
+    // synthesised on demand.
     get childNodes() {
       if (this.children.length) {
         return this.children;
@@ -99,7 +96,7 @@ export function createFakeDocument() {
  * A Range stand-in that reports geometry for a slice of a text node.
  *
  * Character widths are uniform, so a word's rect is its share of the owning
- * element's box. Crude, and enough to prove the annotator slices the right
+ * element's box. This is crude. It checks that the annotator slices the right
  * substrings and normalises each one against the page.
  * @returns {Record<string, any>} The range.
  */

@@ -1,8 +1,8 @@
 import { prefersReducedMotion, scrollBehavior } from '../motion.js';
 
 /**
- * Bind the shared reduced-motion helpers to the gallery's window, so the book
- * scene and the detail overlay can take them as one injected dependency.
+ * Bind the shared reduced-motion helpers to the gallery's window. The book scene
+ * and the detail overlay receive them as one injected dependency.
  * @param {Pick<Window, 'matchMedia' | 'scrollTo'>} windowObj - Window to query and scroll.
  * @returns {{
  *   prefersReducedMotion: () => boolean,

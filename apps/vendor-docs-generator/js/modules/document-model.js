@@ -1,13 +1,11 @@
 /**
  * Builds the seed-driven data model behind every generated document.
  *
- * The model is deliberately renderer-agnostic: `buildDocument` returns a header
- * plus an ordered list of typed blocks, and both the on-screen paper renderer
- * and the jsPDF renderer walk that same list. One model means the two renderers
- * cannot disagree about the *facts* of a document.
+ * The model is renderer-agnostic. `buildDocument` returns a header plus an
+ * ordered list of typed blocks, and both the on-screen paper renderer and the
+ * jsPDF renderer walk that same list, so they agree on the facts of a document.
  *
- * Appearance is not shared. The PDF renderer has its own layout code, because
- * sharing a model is not the same as sharing a layout engine.
+ * Appearance is not shared. The PDF renderer has its own layout code.
  *
  * @module document-model
  */
@@ -32,9 +30,8 @@ import { TAX_RATE, catalogFor, findDocumentType, findVendor } from "./vendors.js
  * @typedef {{ align: Align, label: string, width?: number }} Column
  *
  * A printed label, the value beside it, and optionally the ground-truth field
- * that value belongs to. The third slot is what lets the paper renderer stamp
- * `data-field` onto the node without knowing anything about the schema, and
- * what keeps the box annotations and the JSON sidecar naming one thing once.
+ * for that value. The paper renderer stamps the field onto the node as
+ * `data-field`.
  * @typedef {{ field: string, text: string }} SpanTag A field printed inside a
  *   longer string, such as the rate in "Sales tax (8.25%)". The paper renderer
  *   wraps that text in its own labelled span, so the field gets its own box.
@@ -66,15 +63,11 @@ import { TAX_RATE, catalogFor, findDocumentType, findVendor } from "./vendors.js
  * The structured truth a builder had in hand before it stringified anything.
  *
  * Every property beyond `buyer`, `documentDate` and `documentNumber` is
- * optional because document types genuinely differ: a delivery challan has no
- * totals and a statement has no line items. `annotations.js` turns an absent
- * property into an explicit `null` in the sidecar, so a consumer can always
- * tell "this document has no due date" from "the generator forgot to record
- * one".
- * A property is set only when the document actually prints the thing. That is
- * the whole contract: `buyer_phone` is null on a clean invoice because a clean
- * invoice does not show one, and an extractor scored against this file is
- * therefore never penalised for failing to read something that is not there.
+ * optional because document types differ: a delivery challan has no totals and
+ * a statement has no line items. `annotations.js` turns an absent property into
+ * an explicit `null` in the sidecar.
+ * A property is set only when the document prints it. For example, `buyer_phone`
+ * is null on a clean invoice, which does not show one.
  * @typedef {{
  *   againstInvoice?: string,
  *   amountPaid?: number,
@@ -226,11 +219,10 @@ function hashText(text, initial, multiplier, modulo) {
 /**
  * A small stable number derived from a vendor id.
  *
- * The seed owns the commercial event: which buyer, which dates. The vendor owns
- * its own paperwork: its document number series, its ledger, how many of its own
- * catalogue items it puts on a page. This salt goes into every vendor-owned
- * derivation, so six vendors on one seed print different numbers and ledgers
- * while sharing the buyer and the dates.
+ * The seed owns the shared event: the buyer and the dates. The vendor owns its
+ * paperwork: its document number series, its ledger, and its item count. This
+ * salt goes into every vendor-owned derivation, so vendors on one seed print
+ * different numbers and ledgers.
  * @param {string} vendorId - Vendor identifier.
  * @returns {number} Deterministic salt for that vendor.
  */
@@ -241,11 +233,8 @@ export function vendorSalt(vendorId) {
 /**
  * Plausible quantity range per unit of measure.
  *
- * Drawing 2 to 40 of everything produced nonsense on the service and freight
- * catalogues: fourteen forty-foot shipping containers and eight "shipments" of
- * a document handling fee on one page. Anything not listed keeps the wide
- * default, so a new catalogue entry with a familiar unit is covered without
- * touching this table.
+ * Units not listed here use `DEFAULT_QTY_RANGE`. Service and freight units have
+ * narrow ranges, so a document does not list many containers or shipments.
  * @type {Record<string, [number, number]>}
  */
 const QTY_RANGE_BY_UNIT = {
@@ -300,9 +289,8 @@ export function buildItems(vendorId, seed, count) {
 /**
  * Stable per-item product code.
  *
- * A neutral internal code gives the dense invoice an extra identifier column
- * without claiming a tax jurisdiction, and hashing the description keeps one
- * code per catalogue item everywhere.
+ * Internal code for the dense invoice's product code column. It is derived from
+ * the description, so each catalogue item keeps one code.
  * @param {string} description - Catalogue description.
  * @returns {string} Six-digit product code.
  */
@@ -398,9 +386,8 @@ const SERVICE_UNITS = new Set(["day", "mo", "shp", "yr"]);
 /**
  * Freight and handling charged on top of the line items.
  *
- * Goods pages get a seeded charge, so an extractor has to read the field; a
- * page of services ships nothing and stays at zero, so the corpus holds genuine
- * zeros alongside genuine values.
+ * Documents with goods get a seeded charge. Documents with only service units
+ * have a zero charge.
  * @param {LineItem[]} items - Priced line items.
  * @param {number} seed - Seed driving the charge.
  * @returns {number} Shipping and handling in currency units.
@@ -431,8 +418,8 @@ function pricedColumns() {
 /**
  * Ground-truth field for each column of the standard priced table.
  *
- * `null` marks a column that carries no extractable fact: the row number is an
- * artefact of the layout, not something a parser should be scored on.
+ * `null` marks a column with no extractable fact. The row number is a layout
+ * artefact.
  * @type {(string | null)[]}
  */
 const PRICED_FIELDS = [null, "description", "quantity", "unit", "unit_price", "amount"];
@@ -441,8 +428,7 @@ const PRICED_FIELDS = [null, "description", "quantity", "unit", "unit_price", "a
  * The buying party's address block, paired with the field each line belongs to.
  *
  * The renderer stamps these onto the individual line elements, so a two-line
- * address produces two `buyer_address` regions rather than one box stretched
- * over the gap between them.
+ * address produces two `buyer_address` regions.
  * @param {string} label - Heading above the buyer.
  * @param {Buyer} buyer - Buyer to render.
  * @param {LabelledValue[]} meta - Document metadata beside the buyer.
@@ -644,8 +630,8 @@ function denseKeyGrid({ baseDate, documentNumber, dueDate, orderDate, orderNumbe
     kind: "keygrid",
     columns: [
       [
-        // Every buyer in the corpus is a business with an accounts-payable
-        // contact, and the seller carries a tax id. That is B2B.
+        // Every buyer is a business and the seller has a tax id, so the supply
+        // type is B2B.
         ["Supply type", "B2B"],
         ["Document type code", "Invoice"],
         ["Seller legal name", `${vendor.name} Inc.`],
@@ -685,10 +671,9 @@ function densePartyPair(buyer) {
       [buyer.name, ...buyer.lines, `Contact: ${buyer.contact}`],
       [buyer.name, ...buyer.lines, `Tel: ${buyer.phone}`]
     ],
-    // The receiver column tags the name and address. The consignee repeats
-    // them, and tagging both would put two regions with the same field on
-    // opposite sides of the page for one printed fact. The contact and the
-    // phone each appear once, so each gets a span tag inside its line.
+    // The receiver column tags the name and address. The consignee column repeats
+    // them and is not tagged, so each fact has one region. The contact and phone
+    // each appear once, and each gets a span tag inside its line.
     columnFields: [
       ["buyer_name", ...buyer.lines.map(() => "buyer_address"), [{ field: "buyer_contact", text: buyer.contact }]],
       [null, ...buyer.lines.map(() => null), [{ field: "buyer_phone", text: buyer.phone }]]
@@ -777,10 +762,8 @@ function denseItemsTable({ items, lineTaxes, productCodes, skus, totals }) {
  */
 function buildDenseInvoice(context) {
   const { vendor, buyer, seed, baseDate, number, random } = context;
-  // Deliberately the same lines and amounts as `buildInvoice`. The two layouts
-  // are two treatments of one invoice, which is what the layout toggle
-  // promises, so one seed cannot print two different grand totals depending on
-  // which layout is showing.
+  // Uses the same lines and amounts as `buildInvoice`, so one seed prints the
+  // same grand total in either layout.
   const { items, totals, shipping, billedTotals } = billInvoice(context);
   const { grand } = billedTotals;
   const orderNumber = `ORD-${padNumber(Math.floor(random() * 8_999_999_999) + 1_000_000_000, 10)}`;
@@ -803,8 +786,8 @@ function buildDenseInvoice(context) {
       kind: "totals",
       rows: [
         ["Total assessable value", formatMoney(totals.subtotal), "subtotal"],
-        // The rate also prints on every line, but those cells belong to the
-        // line items. The document-level rate needs its own printed place.
+        // The rate also prints on every line, but those cells belong to the line
+        // items, so the document-level rate needs its own row.
         salesTaxRow(totals, "Total sales tax"),
         ["Shipping and handling", formatMoney(shipping), "shipping"],
         ["Grand total", formatMoney(grand), "grand_total"]
@@ -839,9 +822,8 @@ function buildDenseInvoice(context) {
       paymentTerms: "Net 30",
       reference,
       shipping,
-      // The printed grand total includes shipping, which is not a line item, so
-      // the sidecar's `grand_total` has to include it too or the JSON and the
-      // page disagree about the one number a payer cares about.
+      // The printed grand total includes shipping, which is not a line item. The
+      // sidecar's `grand_total` includes it too.
       totals: billedTotals,
       vendorCompanyReg: vendor.companyReg
     }
@@ -853,8 +835,8 @@ function buildDenseInvoice(context) {
  * @returns {BuiltDocument} Payment receipt with a zero balance.
  */
 function buildReceipt(context) {
-  // A receipt settles the invoice produced by the same seed, so it must repeat
-  // that invoice's lines and amount rather than merely borrowing its number.
+  // A receipt settles the invoice produced by the same seed, so it repeats that
+  // invoice's lines and amount.
   const { items, totals, shipping, billedTotals: paidTotals } = billInvoice(context);
   const documentNumber = `RCP-${context.number}`;
   const againstInvoice = `INV-${context.number}`;
@@ -886,8 +868,7 @@ function buildReceipt(context) {
         [
           ["Receipt #", documentNumber, "document_number"],
           ["Date", formatDate(receiptDate), "document_date"],
-          // One seed is one commercial event, so the receipt settles the invoice
-          // that same seed produces and the two can be matched.
+          // The receipt settles the invoice that the same seed produces.
           ["Against invoice", againstInvoice, "against_invoice"],
           ["Method", paymentMethod, "payment_method"]
         ],
@@ -896,9 +877,7 @@ function buildReceipt(context) {
       ),
       pricedTable(items),
       {
-        // The subtotal and tax rows are not decoration. Without them the receipt
-        // jumped from a line-item table straight to an amount due that silently
-        // included 8.25%, so the printed lines never summed to the printed total.
+        // The subtotal and tax rows let the printed lines sum to the printed total.
         kind: "totals",
         rows: [
           ["Subtotal", formatMoney(totals.subtotal), "subtotal"],
@@ -1000,8 +979,7 @@ function buildChallan(context) {
         ],
         fields: [null, "description", "quantity", "unit", "remarks"],
         rowScope: "line_items",
-        // Each remark carries a lot number plus the occasional handling note,
-        // so the column varies and an extraction pipeline has to read it.
+        // Each remark is a lot number, with an occasional handling note.
         rows: items.map((item, index) => [
           String(index + 1),
           item.desc,
@@ -1013,8 +991,7 @@ function buildChallan(context) {
       {
         kind: "chips",
         items: [
-          // Packages are how the goods are crated, not how many rows the table
-          // has. Those were the same number on every challan ever generated.
+          // Packages are the crate count, not the number of table rows.
           ["Total packages", String(packages), "package_count"],
           ["Total qty", String(totalQty), "total_quantity"]
         ]
@@ -1030,13 +1007,9 @@ function buildChallan(context) {
 }
 
 /**
- * Credit or debit note, chosen by seed parity.
- *
- * The selectable type is "Credit or debit note", so a page that says DEBIT NOTE
- * is correct. What was wrong is that the filename and the ZIP folder still said
- * `creditnote`, which means the label contradicted the image for half the
- * corpus. The resolved variant is returned so the filename can say which one it
- * actually is.
+ * Credit or debit note, chosen by seed parity: even seeds give a credit note and
+ * odd seeds a debit note. The resolved variant is returned so the filename and
+ * folder match the page title.
  * @param {BuildContext} context - Shared document context.
  * @returns {BuiltDocument} Body blocks, facts, title, and the resolved variant.
  */
@@ -1104,19 +1077,14 @@ function buildLedger(context, periodStart) {
   const salt = vendorSalt(context.vendor.id);
   const random = createSeededRandom(context.seed * 17 + salt);
 
-  // Six movement dates drawn anywhere in the period and then sorted, rather than
-  // accumulated from random gaps. Accumulating cannot fill the period without
-  // sometimes running past its end, and clamping the overshoot piles rows onto
-  // the last day. Drawing then sorting is monotonic and in-bounds by
-  // construction, so the ledger always spans the period the heading claims.
+  // Movement dates are drawn anywhere in the period, then sorted. The dates are
+  // in order and inside the period by construction.
   const offsets = Array.from({ length: LEDGER_MOVEMENTS }, () => 1 + Math.floor(random() * PERIOD_DAYS)).sort(
     (left, right) => left - right
   );
 
-  // The period opens with the balance carried in from the previous one, so the
-  // first payment has something to settle. Without it a ledger that happens to
-  // draw a payment first would go negative, which a statement of account never
-  // does: you cannot pay down a debt you do not have.
+  // The period opens with a balance brought forward, so the ledger never goes
+  // negative.
   let balance = roundCents(180 + random() * 1400);
   /** @type {LedgerEntry[]} */
   const transactions = [
@@ -1256,13 +1224,13 @@ export function buildDocument({ docTypeId, seed, style = "clean", today = new Da
   const docType = findDocumentType(docTypeId);
   const dense = docType.id === "invoice" && style === "dense";
   const random = createSeededRandom(seed + 13);
-  // Draw order matters: days-ago first, then the document number, so a seed
-  // keeps producing the same dates and numbers as it always has.
+  // Draw order is fixed: days-ago first, then the document number, so a seed
+  // always produces the same dates and numbers.
   const daysAgo = Math.floor(random() * 180);
   const baseDate = addDays(today, -daysAgo);
-  // A document number comes out of the issuing vendor's own series, so the
-  // vendor salt goes in here. The buyer and the base date above stay purely
-  // seed-derived, which is what lets the same seed be compared across vendors.
+  // The document number comes from the issuing vendor's series, so the vendor
+  // salt is applied here. The buyer and base date are derived from the seed
+  // alone, so the same seed can be compared across vendors.
   const number = padNumber(
     100_000 + ((Math.floor(random() * 899_999) + vendorSalt(vendor.id)) % 899_999),
     6

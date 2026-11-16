@@ -21,7 +21,7 @@ def test_iter_lint_paths_sorts_files_and_prunes_ignored_directories(tmp_path: Pa
 
 
 def test_iter_lint_paths_skips_root_build_dirs_but_walks_nested_ones(tmp_path: Path) -> None:
-    """`/build/` and `/dist/` are root-only ignores, so scripts/build/ is still linted."""
+    """Root-only ignores such as `/build/` skip the root directory, not nested ones."""
     for relative in ("build/out.js", "dist/out.js", "coverage/lcov.info", "scripts/build/gen.py"):
         target = tmp_path / relative
         target.parent.mkdir(parents=True, exist_ok=True)

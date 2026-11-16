@@ -3,11 +3,10 @@
  *
  * The story column is a run of numbered chapters. An IntersectionObserver
  * watches a thin band a little above the middle of the viewport and marks the
- * chapter crossing it as current, so the reader always has one chapter at full
- * strength while the others sit slightly muted. A second observer covers the
- * last chapter, which can be too short to ever reach the band before the page
- * runs out of scroll. The muting is a CSS rule gated on `.is-tracking`, so
- * every chapter stays at full strength until the tracking starts.
+ * chapter crossing it as current. Exactly one chapter is current at a time. A
+ * second observer marks the last chapter when it is fully visible. The muting is
+ * a CSS rule gated on `.is-tracking`, so every chapter stays at full strength
+ * until the tracking starts.
  * @module chapters
  */
 
@@ -27,7 +26,7 @@ function markCurrent(chapters, current) {
 }
 
 /**
- * Start tracking which chapter is in view. The page markup always carries the chapters.
+ * Start tracking which chapter is in view. The markup must contain at least one `.br-chapter`.
  * @param {Document} [documentObj] - Document to query for `.br-chapter` nodes.
  * @returns {void}
  */

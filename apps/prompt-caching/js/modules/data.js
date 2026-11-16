@@ -2,9 +2,8 @@
  *
  * Everything here is static reference data: the toy BPE vocabulary, the worked
  * attention example, the hand-tuned word embeddings, and the canned demo
- * scripts. Colors are expressed as shared-token names so the canvas demos can
- * resolve them per-theme at draw time. The section nav comes from the
- * data-nav-label attributes in index.html.
+ * scripts. Colors are shared-token names, resolved per theme at draw time. The
+ * section nav comes from the data-nav-label attributes in index.html.
  */
 
 /* Tier 1: whole words any real tokenizer keeps intact (very high frequency). */
@@ -187,10 +186,9 @@ export const SUMMARY_STEPS = [
   { title: "Cross-request reuse", tone: "rose", desc: "Providers keep the cache for 5 to 10 minutes. Same prompt prefix on the next request? Reuse everything. 10x cheaper, up to 85% faster." }
 ];
 
-/* Eight distinct cluster colors from the shared palette, resolved per theme at
- * draw time. The palette has five hues, so three clusters use the emphasis
- * shade of a hue. Clusters 0 to 3 sit in the top row and 4 to 7 below them,
- * and no shade sits next to another shade of its own hue. */
+/* Eight cluster colors from the shared palette, resolved per theme at draw time.
+ * Three clusters use the emphasis shade of a hue. Clusters 0 to 3 sit in the top
+ * row and 4 to 7 below them; no shade sits next to another shade of its own hue. */
 export const DIM_COLORS = [
   "--color-amber", "--color-green", "--color-blue", "--color-purple",
   "--color-red", "--color-purple-emphasis", "--color-amber-emphasis", "--color-blue-emphasis"

@@ -6,8 +6,8 @@ import { createRuntime } from "./runtime.js";
 
 /**
  * Create the shared runtime, install its global error handlers, and call `run`.
- * Every app loads its entry as a module script, which runs after the document
- * has been parsed, so `run` is called right away.
+ * App entries are module scripts, so the document is already parsed when `run`
+ * is called.
  * `window.__ARTIFACT_READY__` is true only after `run` returns. If `run` throws,
  * the error is reported once as fatal, which shows the runtime error banner.
  *

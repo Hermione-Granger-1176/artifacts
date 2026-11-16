@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Report workspace health for ``make status``.
 
-This backs the ``status`` Make target. It must run on the system interpreter
-before ``make setup`` provisions a virtual environment, so it imports only the
-standard library and shells out to git, uv, npm, and the venv helpers, treating
-a tool that cannot launch as a plain failure.
+This backs the ``status`` Make target. It runs on the system interpreter, before
+a virtual environment exists, so it imports only the standard library. It shells
+out to git, uv, npm, and the venv helpers. A tool that cannot launch counts as a
+plain failure.
 
 The report has five sections: Git, Venv, Node plus lock currency, Generated
 files (drift, or a presence check without a venv) plus the ``_site`` payload,
@@ -24,7 +24,7 @@ from typing import TextIO
 from scripts import REPO_ROOT
 
 # A runner takes a command vector plus a working directory and optional env, and
-# returns the completed process. Injectable so tests never touch real tooling.
+# returns the completed process. Tests pass a stub runner in place of real tooling.
 Runner = Callable[..., "subprocess.CompletedProcess[str]"]
 
 DRIFT_CHECKER = "scripts/lint/check_generated_drift.py"
@@ -58,8 +58,8 @@ def _succeeds(
 
     A command that cannot launch (missing, not executable, wrong format) counts
     as a plain failure. ``OSError`` covers every such launch error. Every
-    subprocess in this module routes through here so no launch failure can hard
-    fail ``make status``.
+    subprocess in this module routes through here, so a launch failure never
+    fails ``make status``.
     """
     try:
         return run_fn(cmd, cwd=cwd, env=env)
@@ -151,9 +151,8 @@ def _write_node_section(
     emit("OK: node_modules exists" if node_ok else "MISSING: run make setup")
     uv_check = _succeeds([uv, "lock", "--check"], cwd=root, run_fn=run)
     emit("OK: uv.lock is current" if _ok(uv_check) else "STALE: run make lock")
-    # `npm ci` fails when package.json and package-lock.json disagree, and
-    # --dry-run leaves node_modules alone. `npm install --dry-run` exits 0 even
-    # for a stale lock, so it cannot answer this question.
+    # `npm ci --dry-run` fails when package.json and package-lock.json disagree,
+    # and leaves node_modules alone.
     npm_check = _succeeds([npm, "ci", "--dry-run", "--ignore-scripts"], cwd=root, run_fn=run)
     emit("OK: package-lock.json is current" if _ok(npm_check) else "STALE: run make lock-node")
 
@@ -167,7 +166,7 @@ def _write_pull_request_summary(out: TextIO, *, root: Path, venv_python: str, ru
         env=_child_env(root),
     )
     # Any failure, including a launch failure, leaves the target succeeding.
-    # A launch failure still prints a line so the report stays actionable.
+    # A launch failure prints one line.
     _write_output(out, summary, f"UNAVAILABLE: {venv_python} could not be launched")
 
 

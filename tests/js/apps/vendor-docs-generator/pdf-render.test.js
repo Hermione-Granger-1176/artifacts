@@ -79,8 +79,7 @@ test('the sample-data footer is centred and wrapped inside the text column', () 
     assert.ok(lines.length > 0, `${vendor.id} should print a footer`);
     assert.equal(printed.join(' '), model.footer, `${vendor.id} footer should be complete`);
 
-    // Ironwood's name and tagline push this string past the text column, and an
-    // unwrapped centred line bleeds into both margins instead of breaking.
+    // Ironwood's name and tagline make this footer long, so it must wrap inside the text column.
     for (const line of printed) {
       assert.ok(
         line.length * 7.5 * 0.5 <= 595 - 2 * 42 + 1,
@@ -202,16 +201,11 @@ test('the credit note renders its callout and the statement its balance banner',
   const banner = statement.doc.tables.find((table) => table.body?.[0]?.[0] === 'Balance due');
   assert.ok(banner, 'the statement should emit a balance banner');
 
-  // The fill has to sit in bodyStyles. Declared in `styles` it loses to the
-  // theme's body styling, and this banner then printed white text on a flat
-  // rgb(245, 245, 245): the balance due, the one number a statement of account
-  // exists to communicate, was invisible in every exported PDF.
+  // The fill belongs in bodyStyles. In `styles` the theme's body styling overrides it.
   assert.deepEqual(banner.bodyStyles.fillColor, hexToRgb(findVendor('verde').accent));
   assert.equal(banner.bodyStyles.textColor, 255);
   assert.equal(banner.styles.fillColor, undefined, 'a styles fill would be overridden');
-  // Under the default striped theme, alternateRowStyles resolves to 245 on row
-  // index 0 and beats both styles and bodyStyles, so this is the load-bearing
-  // part of the fix, not the bodyStyles move.
+  // The striped theme paints row 0 grey over both style objects, so the banner uses the plain theme.
   assert.equal(banner.theme, 'plain');
 
   const callout = credit.doc.tables.find((table) =>
@@ -223,9 +217,8 @@ test('the credit note renders its callout and the statement its balance banner',
 });
 
 test('the letterhead and the title never overprint each other', () => {
-  // Ironwood plus DELIVERY CHALLAN overlapped by 15pt on every seed, because
-  // both halves were drawn at a fixed size from opposite margins with nothing
-  // measured in between.
+  // Checks that the vendor name ends before the title starts, for every vendor,
+  // document type, and style.
   for (const vendor of VENDORS) {
     for (const type of DOCUMENT_TYPES) {
       for (const style of ['clean', 'dense']) {
@@ -241,8 +234,8 @@ test('the letterhead and the title never overprint each other', () => {
         assert.ok(name && title, `${vendor.id}/${type.id} should print both`);
         assert.equal(title.align, 'right');
 
-        // Reconstructed from the sizes actually used, because the title shrinks
-        // to fit and the monogram tile shifts the name right.
+        // Positions come from the sizes actually used: the title can shrink, and
+        // the monogram tile shifts the name right.
         const nameEnd = name.x + name.width;
         const titleStart = title.x - title.width;
 
@@ -256,9 +249,8 @@ test('the letterhead and the title never overprint each other', () => {
 });
 
 test('a long meta value drops to its own line instead of overprinting the label', () => {
-  // "Goods returned, damaged in transit" printed straight through "Reason:" on
-  // a quarter of all credit notes, because the gutter was a fixed 170pt and the
-  // right-aligned value simply grew leftwards into it.
+  // Long values such as "Goods returned, damaged in transit" wrap onto their own
+  // line rather than running into the label.
   const seeds = Array.from({ length: 40 }, (_unused, index) => 100 + index * 2);
   let sawWrap = false;
 

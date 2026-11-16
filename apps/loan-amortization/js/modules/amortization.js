@@ -152,8 +152,7 @@ export function runSchedule(
     });
   }
 
-  // Rounded projections of the rows the loop already built, kept out of the
-  // loop body so only the genuinely running totals accumulate in place.
+  // Rounded per-row values, built from the rows after the loop ends.
   const balances = rows.map((row) => Math.round(row.balance));
   const principalParts = rows.map((row) => Math.round(row.principal));
   const interestParts = rows.map((row) => Math.round(row.interest));

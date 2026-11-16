@@ -5,8 +5,8 @@ export const SAMPLE_DRAW_COUNT = 100;
 const TOP_P_EPSILON = 1e-9;
 
 /**
- * Return a one-hot distribution for greedy decoding. Ties resolve to the
- * first highest logit, matching the stable order of the scenario data.
+ * Returns a one-hot distribution for greedy decoding. Ties resolve to the
+ * first highest logit.
  *
  * @param {number[]} logits
  * @returns {number[]}
@@ -19,8 +19,7 @@ function greedyProbabilities(logits) {
 
 /**
  * Convert raw logits into normalized probabilities at one temperature.
- * Temperature zero is greedy decoding, so it returns a one-hot distribution
- * instead of attempting to divide logits by zero.
+ * Temperature zero returns a one-hot distribution (greedy decoding).
  *
  * @param {number[]} logits
  * @param {number} temperature
@@ -71,10 +70,9 @@ export function buildTopPSelection(tokens, temperature, topP) {
     }
     inTopP.add(token.idx);
     cumulative += token.prob;
-    // A running float sum can land just under topP when the kept tokens add
-    // up to it exactly (0.7 + 0.2 gives 0.8999999999999999), which would keep
-    // one extra token. The tolerance does not apply at top P 1, where it would
-    // drop a tail token smaller than the tolerance.
+    // Compares with a small tolerance for float error in the running sum. The
+    // tolerance is not applied at top P 1, where it would drop tail tokens
+    // smaller than the tolerance.
     if (topP < 1 && cumulative >= topP - TOP_P_EPSILON) {
       break;
     }
@@ -122,7 +120,7 @@ export function drawToken(tokens, random = Math.random) {
 
 /**
  * Draw repeatedly and return a count keyed by each token's stable index.
- * The injectable random callback makes demonstrations and tests reproducible.
+ * The `random` argument can be injected for deterministic output.
  *
  * @param {Array<{ idx: number, adjustedProb: number }>} tokens
  * @param {number} drawCount

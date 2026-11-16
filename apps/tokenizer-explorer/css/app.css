@@ -13,8 +13,7 @@
 
 body.app-tokenizer-explorer {
   /*
-   * A settings card beside the sampler does not fit the shared 1000px shell, so
-   * this app widens its shell, header and section nav included.
+   * Widens the shell, header, and section nav to fit the settings card beside the sampler.
    */
   --shell-max-width: 1200px;
 
@@ -92,16 +91,14 @@ body.app-tokenizer-explorer .tk-card-head .section-kicker {
 /* ── Prompt ───────────────────────────────────────────────────────── */
 
 /*
- * The prompt is a flow of token chips and the completion blank is its last
- * item, so the blank sits inline at the end of the line and only wraps when
- * the line is genuinely full. The wrapper that holds the chips dissolves so
- * the chips and the blank are siblings in one flex row.
+ * The prompt is a flow of token chips, and the completion blank is its last
+ * item. The blank sits inline and wraps only when the line is full. The chip
+ * wrapper is display: contents, so the chips and the blank are siblings in one
+ * flex row.
  *
- * The prompt is as tall as the tallest scenario's prompt at the current width,
- * so picking another scenario never moves what sits below it. The live prompt
- * and one hidden copy of every scenario's prompt share one grid cell (the shared
- * .reserve classes), so the cell takes the tallest of them and the browser does
- * the line counting.
+ * The prompt is as tall as the tallest scenario's prompt at the current width.
+ * The live prompt and one hidden copy of every scenario's prompt share one grid
+ * cell (the shared .reserve classes), so the cell takes the tallest of them.
  */
 
 body.app-tokenizer-explorer .tk-prompt-live,
@@ -123,8 +120,8 @@ body.app-tokenizer-explorer .prompt-chip {
 
 /*
  * The blank is as wide as the longest candidate word (--blank-chars, set per
- * scenario) and keeps one border box whether it is empty or filled, so picking
- * a token only changes its colours. The side borders are transparent while empty.
+ * scenario). It keeps one border box whether empty or filled, so picking a token
+ * changes only its colours. The side borders are transparent while empty.
  */
 
 body.app-tokenizer-explorer .blank {
@@ -236,9 +233,9 @@ body.app-tokenizer-explorer .tk-swatch.is-seen {
 
 /*
  * One grid template for the header row and every candidate row, so the token,
- * bar, and number columns share their edges all the way down. The Seen column
- * only has content once Sample 100x has run, but its track is always reserved,
- * so the bars keep their width when the tally arrives.
+ * bar, and number columns line up. The Seen column has content only after
+ * Sample 100x runs. Its track is always reserved, so bars keep their width when
+ * the tally arrives.
  */
 
 body.app-tokenizer-explorer .tk-candidates {
@@ -397,7 +394,7 @@ body.app-tokenizer-explorer .is-cut .tk-draw {
   font-weight: 400;
 }
 
-/* The drawn token is bold, ringed, and checked, so colour is never the only cue. */
+/* The drawn token uses bold, a ring, and a check mark, not color alone. */
 
 body.app-tokenizer-explorer .is-picked .tk-token {
   color: var(--color-green-text);
@@ -431,9 +428,9 @@ body.app-tokenizer-explorer .tk-actions {
 }
 
 /*
- * Room for the longer status copy, so the buttons never shift when the status
- * changes. The slot holds the live text and a hidden copy of every status in
- * one grid cell, so it is as tall as the longest at any width.
+ * Reserves room for the longest status copy. The slot holds the live text and a
+ * hidden copy of every status in one grid cell, so it is as tall as the longest
+ * at any width.
  */
 
 body.app-tokenizer-explorer .tk-status-slot {
@@ -478,7 +475,7 @@ body.app-tokenizer-explorer .control-field-head label .tk-icon {
   color: var(--color-text-secondary);
 }
 
-/* Room for two lines of note, so the sliders below never jump as the copy changes. */
+/* Reserves room for two lines of note. */
 
 body.app-tokenizer-explorer .control-field-note {
   min-height: 2.5em;
@@ -507,8 +504,8 @@ body.app-tokenizer-explorer .tk-key .app-callout-body {
 }
 
 /*
- * The sampling pseudo-code is folded away by default: the key idea above says
- * the same thing in words, so the code is there for whoever wants to read it.
+ * The sampling pseudo-code is folded away by default. The key callout above
+ * states the same idea in words.
  */
 
 body.app-tokenizer-explorer .tk-disclosure {
@@ -534,8 +531,7 @@ body.app-tokenizer-explorer .tk-disclosure summary::-webkit-details-marker {
   display: none;
 }
 
-/* A chevron drawn from two borders, so it inherits the label's colour and
-   needs no asset under the self-only CSP. */
+/* A chevron drawn from two borders. It inherits the label's color and needs no image asset. */
 
 body.app-tokenizer-explorer .tk-disclosure summary::after {
   width: 6px;
@@ -589,10 +585,9 @@ body.app-tokenizer-explorer .syn-cm {
 /* ── Controls: one height, one skin per kind of choice ────────────── */
 
 /*
- * Dropdown, buttons, and the segmented track share --tk-control-height, and
- * the track gets a tinted trough so the active preset reads as a raised pill
- * and not as a label that happens to be darker. Presets split their track
- * evenly, so the row shares both card edges.
+ * Dropdown, buttons, and the segmented track share --tk-control-height. The
+ * track has a tinted trough, and the active preset reads as a raised pill.
+ * Presets split their track evenly across the card width.
  */
 
 body.app-tokenizer-explorer .tk-workbench .select-input,
@@ -619,8 +614,8 @@ body.app-tokenizer-explorer .tk-workbench .segmented.is-fused button {
 }
 
 /*
- * Both labels sit in one grid cell and the unpressed state hides the other, so
- * the button keeps the width of the longer label and neighbours never shift.
+ * Both labels sit in one grid cell, and the unpressed state hides the other.
+ * The button keeps the width of the longer label.
  */
 
 body.app-tokenizer-explorer .whitespace-toggle {
@@ -788,8 +783,7 @@ body.app-tokenizer-explorer .card-icon.red {
   color: var(--color-red-text);
 }
 
-/* The title and tagline are spans, because a button may hold only phrasing
- * content; display: block stacks them. */
+/* Title and tagline are spans, stacked with display: block. */
 body.app-tokenizer-explorer .card-title,
 body.app-tokenizer-explorer .card-tagline {
   display: block;
@@ -854,9 +848,9 @@ body.app-tokenizer-explorer .tip {
 /* ── Control feel ─────────────────────────────────────────────────── */
 
 /*
- * Buttons lift on hover and press on :active, the same feel the shared
- * .is-inset choices have. Only transform animates on .btn, so fills flip with
- * the theme instead of fading through a low-contrast midpoint.
+ * Buttons lift on hover and press on :active, matching the shared .is-inset
+ * choices. Only transform transitions on .btn, so background color does not
+ * fade through a midpoint.
  */
 
 body.app-tokenizer-explorer .tk-workbench .btn {
@@ -886,10 +880,7 @@ body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):active {
 
   /*
    * The settings card sits above the main card on screen but after it in the
-   * markup. Scroll anchoring walks the markup order, so it anchors to a node in
-   * the main card, which is below the "Show the code" disclosure. Opening the
-   * disclosure pushes that node down and the browser scrolls to follow it,
-   * which throws the summary up the screen. The main card cannot be an anchor.
+   * markup. The main card opts out of scroll anchoring, which follows markup order.
    */
   body.app-tokenizer-explorer .tk-main {
     overflow-anchor: none;
@@ -918,9 +909,9 @@ body.app-tokenizer-explorer .tk-workbench .btn:not(:disabled):active {
   }
 
   /*
-   * A phone has no room for a fifth column: the thin observed bar carries the tally.
-   * The Seen cells are only visually hidden, because the bar is hidden from screen
-   * readers and these cells are their only way to hear the counts.
+   * On phones the fifth column is dropped, and the thin observed bar carries the tally.
+   * The Seen cells are visually hidden but stay in the accessibility tree, since
+   * the bar is hidden from screen readers.
    */
   body.app-tokenizer-explorer .tk-candidates {
     --tk-cols: 5.5rem minmax(0, 1fr) 2.75rem 2.75rem;

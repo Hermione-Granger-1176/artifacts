@@ -56,7 +56,7 @@ def _issue_route(issue: dict[str, Any] | None = None) -> Route:
     return (rest("GET", "repos/o/r/issues/5"), json_response(issue or ISSUE))
 
 
-# --- primary path ---------------------------------------------------------------------------
+# gh CLI path
 
 
 @pytest.mark.parametrize(
@@ -206,7 +206,7 @@ def _issue_route(issue: dict[str, Any] | None = None) -> Route:
 def test_gh_is_the_primary_path(
     call: Callable[[Recorder], int], expected: list[str], stdin: str | None
 ) -> None:
-    """On a machine with GraphQL, each command runs the same gh invocation as before."""
+    """With GraphQL available, each command runs its gh call with the expected arguments."""
     recorder = Recorder()
 
     assert call(recorder) == 0
@@ -223,7 +223,7 @@ def test_edit_requires_a_title_or_body() -> None:
         issue_commands.edit_issue(5, run_fn=Recorder())
 
 
-# --- REST fallback --------------------------------------------------------------------------
+# REST fallback
 
 
 def test_list_fallback_filters_out_pull_requests(capsys: pytest.CaptureFixture[str]) -> None:
@@ -283,7 +283,7 @@ def test_list_fallback_keeps_the_last_assignee_like_gh() -> None:
 def test_develop_fallback_refuses_when_gh_repo_is_not_origin(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The base branch would come from origin, so another GH_REPO stops before any git change."""
+    """A GH_REPO that differs from origin is refused before any git change runs."""
     monkeypatch.setenv("GH_REPO", "org/project")
     runner = FakeGh(sandbox_routes("alice/project"))
 
@@ -294,7 +294,7 @@ def test_develop_fallback_refuses_when_gh_repo_is_not_origin(
 
 
 def test_develop_fallback_refuses_a_non_github_origin(monkeypatch: pytest.MonkeyPatch) -> None:
-    """An origin that is not on GitHub cannot supply the base branch, so nothing is fetched."""
+    """An origin that is not on GitHub is refused, and nothing is fetched."""
     monkeypatch.setenv("GH_REPO", "o/r")
     runner = FakeGh(
         [(has("remote"), completed_process(0, "https://gitlab.com/o/r.git\n")), *sandbox_routes()]

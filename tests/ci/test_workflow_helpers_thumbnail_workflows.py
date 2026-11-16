@@ -548,7 +548,7 @@ def test_validate_thumbnail_artifact_rejects_paths_outside_one_app_level(
 def test_thumbnail_plan_rejects_invalid_artifact_slugs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Persisted plans and invalidation targets cannot escape the app root."""
+    """Plan slugs that are not valid artifact slugs raise ValueError."""
     monkeypatch.chdir(tmp_path)
     outside_thumbnail = tmp_path / "outside" / "thumbnail.webp"
     outside_thumbnail.parent.mkdir()
@@ -1066,7 +1066,7 @@ def test_thumbnail_plan_skip_verification_true_for_bot_thumbnail_commit(
     write_text(tmp_path / "apps" / "loan-amortization" / "index.html", "<html></html>\n")
     (tmp_path / "apps" / "loan-amortization" / "thumbnail.webp").write_bytes(b"thumb")
 
-    # PR-level files include both code and thumbnails (whole PR)
+    # PR-level files include both code and thumbnails.
     monkeypatch.setattr(
         workflow_helpers,
         "_run_gh_api",
@@ -1303,7 +1303,7 @@ def test_main_thumbnail_plan_passes_actor_and_bot_login(monkeypatch: pytest.Monk
 def test_scheduled_full_sweep_forces_a_conservative_plan(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A requested full sweep avoids comparison and automated-commit shortcuts."""
+    """A full sweep disables the comparison and automated-commit shortcuts."""
     monkeypatch.chdir(tmp_path)
     write_text(tmp_path / "apps" / "alpha" / "index.html", "<html></html>\n")
 

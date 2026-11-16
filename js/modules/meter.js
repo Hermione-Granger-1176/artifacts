@@ -1,7 +1,6 @@
 /**
  * Shared meter-fill control for artifact apps. The shared .meter-fill is full
- * width and scaled from its left edge with the `scale` property, so changing
- * the fill needs no layout, unlike changing `width`.
+ * width and is scaled from its left edge with the `scale` property, not `width`.
  * @module meter
  */
 
@@ -10,7 +9,7 @@ import { skipFirstTransition } from "./dom-sync.js";
 /**
  * Set how full a .meter-fill is.
  * @param {HTMLElement} fill - The .meter-fill element.
- * @param {number} fraction - Fill between 0 and 1; out-of-range values and NaN are clamped.
+ * @param {number} fraction - Fill between 0 and 1. Out-of-range values are clamped; non-finite values become 0.
  * @returns {number} The fraction applied after clamping.
  */
 export function setMeterValue(fill, fraction) {

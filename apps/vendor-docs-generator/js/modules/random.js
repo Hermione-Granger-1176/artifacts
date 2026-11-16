@@ -2,11 +2,10 @@
  * Seeded pseudo-random helpers.
  *
  * Every random choice inside a generated document is a pure function of one
- * integer seed, so the preview, the PNG, the text PDF, and the batch entry for
- * a given seed and reference date all agree. That rules out `Math.random()`
- * anywhere inside document construction. It is used only when `rollSeed`
- * chooses a new document and when `planBatch` uses its default seed and style
- * sources.
+ * integer seed. The preview, the PNG, the text PDF, and the batch entry for a
+ * given seed and reference date therefore match. `Math.random()` is not used
+ * during document construction. It is used only when `rollSeed` chooses a new
+ * document and when `planBatch` uses its default seed and style sources.
  *
  * @module random
  */
@@ -17,13 +16,9 @@ const MULTIPLIER = 16_807;
 /**
  * How many draws to discard before handing the stream to a caller.
  *
- * A raw Lehmer generator seeded with a small integer opens with a
- * correspondingly small value: seeds 907, 938 and 969 return 0.0071, 0.0073 and
- * 0.0076. Any caller that reads the first draw as a probability therefore takes
- * the same branch for every small seed, which is how a `random() < 0.2` freight
- * check managed to return "carriage paid" every single time. Discarding the
- * first few draws decorrelates the opening of the stream; four is enough to
- * scatter neighbouring seeds across the whole interval.
+ * A raw Lehmer generator seeded with a small integer returns a small first
+ * value. Discarding the first few draws spreads neighbouring seeds across the
+ * whole interval.
  */
 const WARMUP_DRAWS = 4;
 
@@ -75,8 +70,8 @@ export function pickFrom(items, seed) {
 }
 
 /**
- * Produce a shuffled index list, so line items appear in a different order
- * from one document to the next even when they come from the same catalogue.
+ * Produce a shuffled index list, used to reorder line items between documents
+ * that draw on the same catalogue.
  * @param {number} length - Number of indices to shuffle.
  * @param {() => number} random - Source of randomness.
  * @returns {number[]} Indices `0..length-1` in shuffled order.

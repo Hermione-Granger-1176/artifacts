@@ -194,8 +194,8 @@ test('values are normalised: ISO dates, numeric money, fractional rates', () => 
 });
 
 test('a printed date and its ISO form describe the same calendar day', () => {
-  // toISOString would convert to UTC first, so a date built west of Greenwich
-  // would report the previous day and silently contradict the page.
+  // Checks that the ISO value and the printed text name the same local calendar day,
+  // with no shift through UTC.
   for (const selection of everyCombination(3)) {
     const payload = annotate(selection);
     const printed = payload.fields.document_date;
@@ -321,8 +321,8 @@ test('degradation is null on a clean page and fully described otherwise', () => 
   assert.equal(payload.degradation.seed, 4242);
   assert.deepEqual(payload.degradation.applies_to, ['png', 'pdf_raster']);
   assert.deepEqual(payload.degradation.transform, degradation.transform);
-  // Every resolved value, not just the ones the preset named, so a reader can
-  // reproduce the page without also owning this version of the preset table.
+  // The settings hold every resolved value, not only the ones the preset named,
+  // so a reader can reproduce the page from the sidecar alone.
   assert.equal(payload.degradation.settings.contrast, 1.35);
   assert.ok('lightCenter' in payload.degradation.settings, 'the seeded choices count too');
   assert.deepEqual(JSON.parse(JSON.stringify(payload)).degradation, payload.degradation);

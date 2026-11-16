@@ -49,10 +49,8 @@ async function waitForBatch(button, maxTicks = 500) {
   assert.fail('batch did not return to its idle state');
 }
 
-// One import, one pass over every control. The entry point is a module with
-// side effects, so re-importing it per assertion would both re-run the
-// bootstrap and split its coverage across cache-busted URLs; driving the whole
-// workbench inside a single test keeps the run honest.
+// The entry point is a module with side effects. This test imports it once and
+// drives every control in one pass.
 test('the vendor-docs-generator studio boots and drives every control', async () => {
   const { canvas, dialog, elementMap, layoutButtons, pdf, resizeObservers, zip } = setupAppMocks();
   const { vdPair, vdPairLabel, vdPdfMode } = elementMap;
@@ -265,8 +263,7 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     assert.equal(elementMap.vdDownloadJson.hidden, true, 'the single-page JSON button steps aside');
     assert.equal(elementMap.vdExport.textContent, 'Generate ZIP');
     assert.equal(elementMap.vdBatchStatus.textContent, 'One ZIP, foldered as vendor / type.');
-    // The stop button holds an invisible slot under the primary button, so a
-    // run starting does not move anything.
+    // The stop button keeps its slot under the primary button.
     assert.equal(elementMap.vdBatchStop.hidden, false);
     assert.ok(elementMap.vdBatchStop.classList.contains('is-idle'));
 
@@ -275,8 +272,7 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     assert.equal(elementMap.vdBatchCountOut.textContent, '25');
     assert.match(elementMap.vdEstimate.textContent, /^25 documents, roughly /);
 
-    // An idle meter is an empty grey track above the button, so it stays
-    // invisible (in its row) until there is progress to report.
+    // An idle meter stays in its row but is hidden until there is progress.
     assert.ok(elementMap.vdProgress.classList.contains('is-idle'), 'the meter starts idle');
 
     elementMap.vdBatchCount.value = '2';
@@ -369,8 +365,7 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     };
 
     // ── Controls touched mid-run wait for the run to end ──────────────
-    // A redraw mid-run would put another document under a capture or a box
-    // measurement in flight, so the page the reader picked appears afterwards.
+    // A redraw mid-run is deferred, so the page the reader picked appears after the batch ends.
     elementMap.vdBatchCount.value = '2';
     const vendorBeforeRun = elementMap.vdVendor.value;
     let captionDuringRun = null;
@@ -443,8 +438,7 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     choose(elementMap.vdFormat, 'data-format', 'pdf');
     assert.equal(pairApplies(), false);
 
-    // Touching a knob is what makes a run custom, so the sidecar never claims a
-    // preset the page was not rendered under.
+    // Changing a knob makes the scan custom, so no preset is active.
     const grain = elementMap.vdKnobs.children[6].children[1];
     grain.value = '3';
     fire(grain, 'input');
@@ -491,9 +485,8 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     fire(elementMap.vdExport, 'click');
     await waitForBatch(elementMap.vdExport);
 
-    // The seed picks the layout, so the stem varies; what must not vary is that
-    // a lossy scan writes a JPEG, pair mode writes the clean PNG beside it, and
-    // one sidecar labels both.
+    // The seed picks the layout, so the file stem varies. A lossy scan writes a
+    // JPEG, pair mode writes the clean PNG beside it, and one sidecar labels both.
     const scanDocs = [...zip.archives.at(-1).files.keys()].filter((path) => path.includes('/'));
     assert.deepEqual(
       scanDocs.map((path) => path.slice(path.indexOf('apex_invoice') + 'apex_invoice'.length).replace(/^[\w]*?(?=\.)/, '')),
@@ -506,10 +499,9 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     assert.equal(scanned.degradation.preset, 'fax');
     assert.equal(scanned.degradation.seed, scanned.seed, 'the page and its wear share one seed');
     assert.deepEqual(scanned.degradation.applies_to, ['png', 'pdf_raster']);
-    // The mock paper has no queryable children, so the regions themselves are
-    // exercised in annotate-boxes.test.js and in Chromium; what matters here is
-    // that a degraded run still asks for boxes and still declares where they
-    // apply, rather than quietly dropping them.
+    // The mock paper has no queryable children. Regions are covered in
+    // annotate-boxes.test.js and the browser tests. This checks that a degraded
+    // run still writes boxes and declares where they apply.
     assert.deepEqual(scanned.boxes_apply_to, ['png', 'pdf_raster']);
     assert.deepEqual(scanned.boxes.page, { width: 794, height: 1123, unit: 'normalised' });
     assert.ok(scanned.degradation.transform.flat().every(Number.isFinite));
@@ -594,8 +586,8 @@ test('the vendor-docs-generator studio boots and drives every control', async ()
     fire(elementMap.vdFullClose, 'click');
     assert.ok(Math.abs(zoom() - 368 / 794) < 1e-9, 'and closing it refits');
 
-    // An export owns it too: a resize mid-capture must not bake a scale into
-    // the raster, and the fit comes back once the export is done.
+    // An export owns the zoom too. A resize during capture leaves the raster at
+    // actual size, and the fit returns afterwards.
     choose(elementMap.vdFormat, 'data-format', 'png');
     const zoomsDuringCapture = [];
     const realHtml2Canvas = globalThis.window.html2canvas;

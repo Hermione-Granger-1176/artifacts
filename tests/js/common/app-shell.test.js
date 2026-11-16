@@ -135,8 +135,7 @@ test('renderAppShell fills shared shell placeholders', () => {
   assert.match(slots['[data-app-shell="runtime-error"]'].innerHTML, /id="runtime-error"/);
   assert.match(slots['[data-app-shell="runtime-error"]'].innerHTML, /id="runtime-error-details"/);
   assert.match(slots['[data-app-shell="runtime-error"]'].innerHTML, /id="runtime-error-copy"/);
-  // display:none keeps the idle failure text out of the accessibility tree;
-  // visually-hidden would let a screen reader read it on a healthy page.
+  // The idle error banner uses display:none, so its text is hidden from assistive technology.
   assert.match(slots['[data-app-shell="runtime-error"]'].innerHTML, /class="runtime-error hidden"/);
   assert.match(slots['[data-app-shell="scroll-top"]'].innerHTML, /id="scroll-top"/);
 });

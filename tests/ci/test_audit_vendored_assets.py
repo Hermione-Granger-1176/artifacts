@@ -70,7 +70,7 @@ def _affected(
 ) -> dict[str, object]:
     """Build one OSV ``affected`` entry with a single range of events.
 
-    A range needs an ``introduced`` event, so a call with no events gets ``introduced 0``.
+    With no events given, the range holds ``introduced 0``.
     """
     return {
         "package": {"name": name, "ecosystem": ecosystem},
@@ -116,7 +116,7 @@ def test_query_osv_posts_package_and_version(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_the_client_waits_longer_than_osv_takes_to_paginate() -> None:
-    """OSV paginates a query after 20 seconds, so a shorter client timeout would cut it off."""
+    """The client timeout is longer than the 20 seconds after which OSV paginates a query."""
     assert audit.OSV_TIMEOUT_SECONDS > 20
 
 
@@ -173,7 +173,7 @@ def test_query_osv_raises_after_the_last_attempt(monkeypatch: pytest.MonkeyPatch
 def test_query_osv_does_not_retry_a_rejected_request(
     monkeypatch: pytest.MonkeyPatch, code: int
 ) -> None:
-    """A 4xx other than 429 means OSV rejected the query, so a retry cannot help."""
+    """A 4xx other than 429 is raised after one attempt, with no retry."""
     calls: list[int] = []
 
     def rejecting_urlopen(_request: Request, **_kwargs: object) -> _Response:
@@ -189,7 +189,7 @@ def test_query_osv_does_not_retry_a_rejected_request(
 
 
 def test_query_osv_does_not_retry_a_bad_response(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A malformed body is a data problem, so it fails on the first attempt."""
+    """A body that is not JSON fails on the first attempt, with no retry."""
     calls: list[int] = []
 
     def bad_urlopen(_request: Request, **_kwargs: object) -> _Response:
@@ -244,7 +244,7 @@ def test_query_osv_returns_an_empty_object_as_no_vulnerabilities(
 def test_query_osv_returns_an_unexpected_shape_for_parse_findings_to_reject(
     monkeypatch: pytest.MonkeyPatch, payload: object
 ) -> None:
-    """The merge step leaves a malformed response untouched so the parser rejects it."""
+    """A response that is not a dict with a list of vulns is returned unchanged."""
     _stub_pages(monkeypatch, payload)
     assert audit.query_osv("jspdf", "2.5.1") == payload
 
@@ -306,7 +306,7 @@ def test_parse_findings_returns_nothing_without_vulns() -> None:
 
 
 def test_parse_findings_fails_closed_on_a_paginated_response() -> None:
-    """A truncated response would drop advisories, so it raises."""
+    """A paginated response raises instead of returning a partial list."""
     with pytest.raises(ValueError, match="paginated"):
         audit.parse_findings("jspdf", "2.5.1", {"vulns": [], "next_page_token": "abc"})
 
@@ -376,7 +376,7 @@ def test_version_key_treats_missing_zeros_and_build_metadata_as_equal() -> None:
     ],
 )
 def test_version_key_rejects_anything_that_is_not_a_semantic_version(value: object) -> None:
-    """An unorderable value raises so the audit fails closed."""
+    """An unorderable value raises ValueError."""
     with pytest.raises(ValueError, match="OSV version"):
         audit._version_key(value, "A")
 
@@ -436,10 +436,7 @@ def test_has_fix_compares_versions_numerically_and_ignores_trailing_zeros() -> N
 
 
 def test_has_fix_orders_pre_release_boundaries_in_unrelated_intervals() -> None:
-    """A beta boundary elsewhere in the timeline does not abort the audit.
-
-    Real npm records carry boundaries such as ``introduced 16.0.0-beta.0``.
-    """
+    """Pre-release boundaries such as ``introduced 5.0.0-beta.1`` order like any version."""
     events = (
         {"introduced": "0"},
         {"fixed": "4.3.0"},
@@ -459,7 +456,7 @@ def test_has_fix_orders_a_pre_release_fix_boundary_before_its_release() -> None:
 
 
 def test_has_fix_counts_a_fix_in_any_alternative_range() -> None:
-    """Several ranges in one entry are alternatives, as in the real jszip record."""
+    """Ranges in one entry are alternatives, and a fixed event in any covering range counts."""
     entry = {
         "package": {"name": "jspdf", "ecosystem": "npm"},
         "ranges": [
@@ -524,7 +521,7 @@ def test_has_fix_treats_introduced_zero_as_before_every_version() -> None:
     [{"fixd": "4.0.0"}, {"Fixed": "4.0.0"}, {"commit": "abc"}],
 )
 def test_has_fix_rejects_an_event_kind_it_does_not_know(event: dict[str, str]) -> None:
-    """A misspelled key must not read as "no fix"."""
+    """A misspelled event key raises instead of being read as no fix."""
     with pytest.raises(ValueError, match="event kind"):
         _fixed({"introduced": "0"}, event)
 
@@ -566,7 +563,7 @@ def test_has_fix_is_false_when_the_fixed_release_is_listed_as_affected() -> None
 
 @pytest.mark.parametrize("listed", ["latest", "v4.0.0", 5, "1.0.0-a..b"])
 def test_has_fix_rejects_a_listed_version_it_cannot_order(listed: object) -> None:
-    """A listed ``v4.0.0`` could be the fixed ``4.0.0``, so an unreadable value is not skipped."""
+    """An unreadable listed version raises instead of being skipped."""
     record = _record([{"introduced": "0"}, {"fixed": "4.0.0"}], versions=["3.0.0", listed])
     with pytest.raises(ValueError, match="OSV version"):
         audit._has_fix(record, "jspdf", "3.0.0")
@@ -631,10 +628,10 @@ _MALFORMED_RECORDS = [
     {"id": "A", "affected": [{"package": _PACKAGE, "ranges": ["x"]}]},
     {"id": "A", "affected": [{"package": _PACKAGE, "ranges": [{"events": "x"}]}]},
     {"id": "A", "affected": [{"package": _PACKAGE, "ranges": [{"events": ["x"]}]}]},
-    # A range with no type or an unknown type could hide a fix, so it is rejected.
+    # A range with no type, or an unknown type, is rejected.
     {"id": "A", "affected": [{"package": _PACKAGE, "ranges": [{"events": _EVENTS}]}]},
     {"id": "A", "affected": [_affected(*_EVENTS, range_type="SEMVR")]},
-    # A type that is not a string must raise ValueError, not crash on a set lookup.
+    # A range type that is not a string raises ValueError.
     {"id": "A", "affected": [_affected(*_EVENTS, range_type=["SEMVER"])]},
     {"id": "A", "affected": [_affected(*_EVENTS, range_type=5)]},
 ]
@@ -710,7 +707,7 @@ def test_audit_applies_an_exception_through_its_review_by_date() -> None:
 
 
 def test_audit_rejects_expired_exception() -> None:
-    """An exception past its review date no longer silences the finding."""
+    """An exception past its review date does not silence the finding."""
     ignored, errors = audit.audit_findings(
         today=date(2026, 6, 1),
         exceptions=(_exception(review_by=date(2026, 5, 31)),),
@@ -739,7 +736,7 @@ def test_audit_rejects_unfixed_only_exception_once_a_fix_exists() -> None:
 
 
 def test_audit_rejects_overlapping_exceptions() -> None:
-    """Two exceptions for one advisory are ambiguous, so the audit fails."""
+    """Two exceptions matching one advisory fail the audit."""
     _, errors = audit.audit_findings(
         today=date(2026, 1, 1),
         exceptions=(_exception(), _exception(vulnerability_id="CVE-1")),
@@ -753,7 +750,7 @@ def test_audit_rejects_overlapping_exceptions() -> None:
 
 
 def test_audit_reports_unused_exception() -> None:
-    """An exception with no matching finding is reported so the list cannot rot."""
+    """An exception with no matching finding is reported as unused."""
     _, errors = audit.audit_findings(
         today=date(2026, 1, 1), exceptions=(_exception(),), findings=()
     )
@@ -773,7 +770,7 @@ def _patch_main(
     error: Exception | None = None,
     manifest_error: Exception | None = None,
 ) -> None:
-    """Replace main's config, manifest, and findings so only main's own logic runs."""
+    """Replace main's config, manifest, and findings with stubs."""
 
     def load_manifest() -> tuple[VendoredAsset, ...]:
         if manifest_error is not None:
@@ -793,7 +790,7 @@ def _patch_main(
 def test_main_passes_and_says_how_many_package_versions_it_checked(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """A clean manifest exits 0 and the count shows the audit looked at something."""
+    """A clean manifest exits 0 and prints how many package versions were checked."""
     _patch_main(monkeypatch, assets=(_asset(path="a"), _asset(path="b"), _asset("jszip", "3.10.1")))
 
     assert audit.main([]) == 0

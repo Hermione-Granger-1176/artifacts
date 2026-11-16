@@ -114,8 +114,8 @@ def _local_import_path(importer: Path, specifier: str, repo_root: Path) -> Path 
 def _script_sources(index_path: Path, repo_root: Path) -> list[Path]:
     """Return local module script files referenced by one app index page.
 
-    Classic scripts (vendor bundles, app-theme) cannot statically import shared
-    modules, so only ``type="module"`` tags seed the dependency traversal.
+    Only ``type="module"`` tags seed the dependency traversal. Classic scripts
+    (vendor bundles, app-theme) are not traversed.
     """
     if index_path.is_symlink():
         raise ValueError(f"Refusing to read symlinked app index: {index_path}")
@@ -150,7 +150,7 @@ def shared_module_consumers(repo_root: Path = Path()) -> dict[str, set[str]]:
 
     The traversal begins with script tags in every app index page and follows
     static ESM imports through app-local and shared modules. Dynamic imports
-    intentionally remain outside this conservative static graph.
+    are not followed.
     """
     if repo_root.is_symlink():
         raise ValueError(
@@ -284,19 +284,19 @@ def _shared_module_impact(changed_modules: set[str], repo_root: Path) -> tuple[s
     """Return the apps that import the changed shared modules, and whether to expand to all.
 
     A dependency graph that cannot be built, or a module no app imports, expands
-    to every app rather than risk skipping a consumer.
+    to every app.
     """
     try:
         consumers_by_path = shared_module_consumers(repo_root)
     except (OSError, ValueError):
-        # A partial dependency graph could skip a consumer. Expand instead.
+        # Expand to every app.
         return set(), True
 
     slugs: set[str] = set()
     for module_path in changed_modules:
         consumers = consumers_by_path.get(module_path, set())
         if not consumers:
-            # Unknown or unused modules are intentionally fail-open.
+            # Unknown or unused modules expand to every app.
             return slugs, True
         slugs.update(consumers)
     return slugs, False

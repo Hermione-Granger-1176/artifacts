@@ -14,11 +14,9 @@ if TYPE_CHECKING:
 
 @pytest.fixture(autouse=True)
 def _fresh_graphql_verdict() -> Iterator[None]:
-    """Start and end every test with GraphQL assumed reachable.
+    """Reset the process-wide GraphQL availability verdict before and after each test.
 
-    A GraphQL-unavailable verdict is remembered for the life of the process, so
-    a test that triggers one would otherwise send every later test down the REST
-    path.
+    Every test starts and ends with GraphQL assumed reachable.
     """
     gh_runner.reset_graphql_availability()
     yield

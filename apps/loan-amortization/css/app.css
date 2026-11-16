@@ -8,7 +8,7 @@
  */
 
 body.app-loan-amortization {
-  /* Two columns need more than the shared 1000px shell, so this app widens its shell, header included. */
+  /* Widens the shared shell and header to 1200px for the two-column layout. */
   --shell-max-width: 1200px;
   --loan-inputs-width: 300px;
   --loan-control-height: max(2.25rem, var(--touch-target, 0px));
@@ -45,9 +45,8 @@ body.app-loan-amortization .loan-charts {
 }
 
 /*
- * The charts and the schedule differ a lot in height. Holding the view area at
- * one viewport keeps the page long enough that switching views never clamps
- * the scroll position of the toggle being pressed.
+ * The charts and the schedule differ in height. The view area is at least one
+ * viewport tall.
  */
 body.app-loan-amortization .loan-view {
   min-height: 100vh;
@@ -296,10 +295,8 @@ body.app-loan-amortization .loan-hero {
 }
 
 /*
- * The savings chip owns a row from the first paint, at every width. It fades
- * in and out and keeps its last text while hidden, so nothing around it moves.
- * Beside the EMI it could wrap onto a new row, because the first extra payment
- * widens the extras line under the EMI and fills the chip at the same time.
+ * The savings chip sits on its own row at every width, so it never wraps beside
+ * the EMI. It fades in and out and keeps its last text while hidden.
  */
 
 body.app-loan-amortization .loan-hero-aside {
@@ -360,9 +357,9 @@ body.app-loan-amortization .loan-kpis .stat-sub {
 }
 
 /*
- * The shared tooltip is one nowrap line centered on its tip, which runs off
- * the page for tips near an edge. Here it wraps, and hangs from the tip's
- * right edge (KPI tiles) or left edge (hero label).
+ * This overrides the shared tooltip, which is one nowrap line centered on its
+ * tip. Here tooltips wrap and hang from the tip's right edge (KPI tiles) or
+ * left edge (hero label).
  */
 
 body.app-loan-amortization .loan-kpis .info-tip:hover::after,
@@ -465,7 +462,7 @@ body.app-loan-amortization tr.year-row td {
 }
 
 /*
- * Choice controls use the shared inset pill (.is-fused.is-inset), so they get
+ * Choice controls use the shared inset pill (.is-fused.is-inset) and inherit
  * its hover tint and press. Buttons lift on hover and press on :active to
  * match. Icons sit left of the label and inherit its color.
  */
@@ -492,7 +489,7 @@ body.app-loan-amortization .loan-icon {
   flex: none;
 }
 
-/* Only the press moves; the fill must flip with the theme, not fade. */
+/* Only transform animates on .btn; other properties change without a transition. */
 body.app-loan-amortization .btn {
   transition: transform var(--transition-fast) ease;
 }
@@ -519,7 +516,7 @@ body.app-loan-amortization .btn-remove:active {
   }
 }
 
-/* Responsive: KPI tiles use two columns from 761px to 1100px and below 700px, and the inputs stack above the results below 760px. */
+/* Responsive: KPI tiles use two columns from 761px to 1100px and at 700px and below. The inputs stack above the results at 760px and below. */
 
 @media (min-width: 761px) and (max-width: 1100px), (max-width: 700px) {
   body.app-loan-amortization .loan-kpis {

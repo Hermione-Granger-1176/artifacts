@@ -18,10 +18,9 @@ def ignored_directory_names(*, root_anchored: bool = False) -> set[str]:
     belong in ``ROOT_SKIP_DIRECTORIES``. The others match at any depth and
     belong in ``SKIP_DIRECTORIES``.
 
-    Globs and genuinely nested patterns are left to git. The walkers compare one
-    path component at a time, so ``.claude/plans/`` has no faithful spelling
-    here: the bare component ``plans`` would match that name anywhere, and
-    ``.claude`` would skip siblings .gitignore does not exclude.
+    Globs and nested patterns such as ``.claude/plans/`` are left out of the
+    result. The walkers compare one path component at a time, so those
+    directories are still walked.
     """
     names: set[str] = set()
     for raw in (REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines():

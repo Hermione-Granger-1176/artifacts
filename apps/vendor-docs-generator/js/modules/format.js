@@ -1,10 +1,10 @@
 /**
  * Deterministic formatting helpers for generated vendor documents.
  *
- * Everything here avoids `toLocaleString`/`toLocaleDateString` on purpose: the
- * same seed has to produce byte-identical text in the browser, in Node tests,
- * and in the CI thumbnail run, and locale data is not guaranteed to match
- * across those three. Hand-rolled grouping and month names keep output stable.
+ * Nothing here uses `toLocaleString` or `toLocaleDateString`. A given seed
+ * produces byte-identical text in the browser, in Node tests, and in the CI
+ * thumbnail run, and locale data is not guaranteed to match across those. Grouping
+ * and month names are hand-rolled.
  *
  * @module format
  */
@@ -67,16 +67,11 @@ const SCALES = /** @type {[string, number][]} */ ([
 ]);
 
 /**
- * Round a value to whole cents, half away from zero, on the decimal the value
- * prints as.
+ * Round a value to whole cents, half away from zero, using the decimal digits
+ * the value prints as.
  *
- * `Math.round(value * 100)` works on the binary value instead, so a half-cent
- * amount such as 522.295, stored as 522.29499999999996, would be cut down to
- * 522.29 while 0.145 rounds up. Reading the digits of the shortest decimal
- * string keeps the decision exact: the third decimal digit alone says whether
- * the dropped part is at least half a cent. Shifting the decimal point with an
- * `e2` suffix instead would not be exact, because re-parsing a 17-digit string
- * such as `147.49999999999999` lands on 147.5.
+ * The decision reads the digits of the shortest decimal string, so the third
+ * decimal digit alone decides whether the dropped part is at least half a cent.
  * @param {number} value - Raw amount.
  * @returns {number} Amount rounded to two decimal places.
  */
@@ -97,9 +92,9 @@ export function roundCents(value) {
     return value;
   }
 
-  // A third decimal only prints when doubles are under a cent apart, below
-  // 2^46, so the cents stay below 2^53: an exact integer, and dividing it by
-  // 100 gives the nearest double to the printed cents.
+  // A third decimal only prints for values below 2^46, so the cent count stays
+  // below 2^53 and is an exact integer. Dividing it by 100 gives the nearest
+  // double to the printed cents.
   const cents = Number(whole + fraction.slice(0, 2)) + (fraction.charAt(2) >= "5" ? 1 : 0);
 
   // A negative amount that rounds to zero comes back as plain zero, not -0.
@@ -122,9 +117,7 @@ export function formatAmount(value) {
 /**
  * Format a number as US dollars.
  *
- * A negative amount reads `-$1,234.50`, with the sign outside the symbol.
- * Prefixing `$` to the already-signed output of `formatAmount` would print
- * `$-1,234.50`, which no accounting document does.
+ * A negative amount reads `-$1,234.50`, with the sign before the symbol.
  *
  * @param {number} value - Amount to format.
  * @returns {string} Dollar-prefixed amount, for example `$1,234.50`.
@@ -156,11 +149,9 @@ export function formatDate(date) {
 /**
  * Format a date as a calendar date in ISO 8601.
  *
- * This is the machine-readable half of every printed date in the ground-truth
- * sidecar. `toISOString` is deliberately not used: it converts to UTC first, so
- * a date built in a timezone behind UTC comes back as the previous day and the
- * annotation would disagree with the page. Reading the local calendar fields is
- * the only way the two stay in step.
+ * Reads the local calendar fields, so the value matches the date printed on the
+ * page. `toISOString` is not used because it converts to UTC first and can
+ * return the previous day.
  * @param {Date} date - Date to format.
  * @returns {string} Date as `YYYY-MM-DD`.
  */
@@ -259,8 +250,7 @@ export function amountInWords(value) {
 /**
  * First letters of the first two words of a name.
  *
- * Shared by both renderers so the monogram tile reads the same in the export as
- * it does on screen.
+ * Used by both renderers for the monogram tile.
  * @param {string} name - Vendor name.
  * @returns {string} Up to two upper-case initials.
  */
@@ -277,9 +267,9 @@ export function initialsOf(name) {
 const CAPITALISED_LOGO_STYLES = new Set(["stripe", "thin"]);
 
 /**
- * The document title as the page prints it. The title is set in capitals, and
- * the capitals live in the text itself (not in a CSS text-transform), so the
- * sidecar text, the box text, and the pixels all agree.
+ * The document title as the page prints it. The capitals are part of the text
+ * itself, not a CSS text-transform, so the sidecar, the boxes, and the pixels
+ * carry the same string.
  * @param {string} title - Document title, such as "Delivery challan".
  * @returns {string} The printed title, such as "DELIVERY CHALLAN".
  */

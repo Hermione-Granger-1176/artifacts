@@ -21,7 +21,7 @@ def test_python_recipes_preserve_the_callers_python_path() -> None:
 
 
 def test_markdown_formatting_has_one_non_conflicting_owner() -> None:
-    """Prettier and table alignment must not fight over Markdown whitespace."""
+    """Prettier's format scripts exclude Markdown, which align-tables owns."""
     package = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
 
     for name in ("format", "format:check"):
@@ -87,7 +87,7 @@ GH_TARGET_COMMANDS = {
 
 
 def test_pr_and_issue_targets_use_the_tested_gh_helpers() -> None:
-    """GitHub targets go through scripts.gh so GraphQL-blocked sandboxes can fall back to REST."""
+    """Each GitHub target calls its scripts.gh helper subcommand."""
     for target, command in GH_TARGET_COMMANDS.items():
         assert f"$(GH) {command}" in target_recipe(target), target
 
@@ -104,7 +104,7 @@ def test_gh_helper_commands_in_the_makefile_exist() -> None:
 
 
 def test_thread_targets_accept_a_pr_number_for_numeric_ids() -> None:
-    """Numeric thread ids need the PR, so reply, resolve, and address forward pr_num."""
+    """Reply, resolve, and address pass pr_num to gh, which numeric thread ids require."""
     for target in ("pr-reply", "pr-resolve", "pr-address"):
         assert '$(if $(pr_num),--pr "$(pr_num)")' in target_recipe(target), target
 
@@ -129,19 +129,16 @@ def test_comment_delete_uses_a_structured_identifier_name() -> None:
     assert "$(comment)" not in recipe
 
 
-# Make joins a trailing backslash to the next line, so a long .PHONY list can be
-# wrapped without changing what it declares. Assertions about declarations match
-# against this collapsed view so they track behavior rather than line breaks;
-# recipe bodies keep using MAKEFILE_TEXT, where the line structure is the point.
+# Makefile text with each backslash line continuation joined into one line.
+# Declaration checks use this view. Recipe checks use MAKEFILE_TEXT, where the
+# line structure matters.
 MAKEFILE_LOGICAL_LINES = re.sub(r"\\\n[ \t]*", " ", MAKEFILE_TEXT)
 
-# Playwright installs browsers into this user-level cache, which every other
-# project on the machine reuses and which is therefore not ours to delete.
+# Playwright's user-level browser cache, shared by every project on the machine.
 SHARED_BROWSER_CACHE = "ms-playwright"
 
-# Targets that lint, format, or scan Python. Their scope comes from the tool's
-# own config (CLAUDE.md rule 4); the Makefile only lets a caller narrow it with
-# paths on stdin.
+# Targets that lint, format, or scan Python. Each tool's own config sets the
+# scope. The Makefile only lets a caller narrow it with paths on stdin.
 PYTHON_SCOPE_TARGETS = (
     "lint-py",
     "fmt-py",
@@ -163,12 +160,11 @@ def target_recipe(name: str) -> str:
 
 
 def test_python_scope_targets_take_paths_on_stdin() -> None:
-    """Paths on stdin still narrow every Python scope target.
+    """Each Python scope target takes paths on stdin, and fmt-py passes them to both tools.
 
-    Checked in the recipe, not only in the help text. Each target is one call to
-    the stdin path runner, so a tool can never run outside it: fmt-py chains its
-    two tools with --then, and both see the same paths, rather than the second
-    widening back to the whole tree.
+    Checks the recipe, not only the help text. Each target is one call to the
+    stdin path runner. fmt-py chains its two tools with --then, so both see the
+    same paths.
     """
     for target in PYTHON_SCOPE_TARGETS:
         assert re.search(rf"^{re.escape(target)}:.*\[paths on stdin\]", MAKEFILE_TEXT, re.MULTILINE)
@@ -190,7 +186,7 @@ def test_vulture_scope_comes_from_its_own_config() -> None:
 
 @pytest.mark.parametrize("variable", ["files", "file", "paths", "path", "src"])
 def test_no_recipe_reads_paths_from_a_make_variable(variable: str) -> None:
-    """Make splits and expands a variable before any tool sees it, so paths use stdin."""
+    """No recipe reads paths from a Make variable, since Make splits and expands them first."""
     assert f"$({variable})" not in MAKEFILE_TEXT
     assert f"$(value {variable})" not in MAKEFILE_TEXT
 
@@ -276,10 +272,9 @@ def test_lock_node_update_is_phony_and_documented() -> None:
 
 
 def test_clean_keeps_the_shared_playwright_browser_cache() -> None:
-    """Make clean removes repository-local state only.
+    """Make clean removes repository-local state only and leaves the shared browser cache.
 
-    The browsers live in a user-level cache every project reuses, so a path that
-    reached it would cost every other checkout a multi-hundred-megabyte download.
+    The browser cache is user-level and shared, so clean must not touch it.
     """
     recipe = target_recipe("clean")
 
@@ -289,23 +284,20 @@ def test_clean_keeps_the_shared_playwright_browser_cache() -> None:
 
 
 def test_clean_documents_that_it_keeps_shared_browsers() -> None:
-    """The intent is stated in the help text, not left implicit in the path list."""
+    """The clean help text says it keeps shared Playwright browsers."""
     assert re.search(r"^clean:.*## .*keeps shared Playwright browsers", MAKEFILE_TEXT, re.MULTILINE)
 
 
 def test_clean_cannot_be_aimed_outside_the_repository() -> None:
     """The only variable path in the rm -rf is confined to the repository.
 
-    Every other entry is a fixed repository-relative literal, so VENV is the one
-    way this recipe can be pointed elsewhere. It is set with ?= and make imports
-    the environment, so an unrelated exported VENV would otherwise redirect an
-    rm -rf into the user's home with no flag and no warning.
+    Every other entry is a fixed repository-relative literal. VENV is the one
+    variable that could point elsewhere, since make imports it from the environment.
     """
-    # Pinned as the whole expression rather than its parts. Asserting only that
-    # CURDIR and abspath appear would still pass if filter became filter-out,
-    # which inverts the guard into deleting exactly the paths it should refuse.
-    # The words guard is part of the pin: make splits on whitespace, so without
-    # it a VENV holding spaces expands into several separately deleted paths.
+    # The whole expression is pinned, not just its parts. Checking only for CURDIR
+    # and abspath would also pass if filter were changed to filter-out. The words
+    # guard is part of the pin: make splits on whitespace, so a VENV with spaces
+    # would expand into several paths.
     assert (
         "CLEAN_VENV = $(if $(filter 1,$(words $(VENV))),$(filter $(CURDIR)/%,$(abspath $(VENV))))"
         in MAKEFILE_TEXT
@@ -317,19 +309,16 @@ def test_clean_cannot_be_aimed_outside_the_repository() -> None:
     # and the bare one never appears.
     assert 'rm -rf "$(CLEAN_VENV)"' in recipe
     assert "rm -rf $(VENV)" not in recipe
-    # An empty result means VENV escaped the repository, so the recipe stops
-    # rather than falling through to deleting the remaining shorter paths.
+    # An empty result means VENV is outside the repository, and the recipe exits
+    # instead of deleting the remaining paths.
     assert 'test -n "$(CLEAN_VENV)"' in recipe
     assert "exit 1" in recipe
 
 
 def test_clean_refusal_message_survives_a_quote_in_the_path() -> None:
-    """The refusal reaches the operator instead of dying in the shell.
+    """The clean refusal message quotes VENV, so an apostrophe in the path does not break the shell.
 
-    VENV is the value most likely to be odd, and it is the one interpolated into
-    this printf. Single-quoting it turns a path containing an apostrophe into an
-    unterminated string, so the operator sees a shell syntax error rather than
-    the reason their clean was refused.
+    VENV is the value most likely to be odd, and it is interpolated into this printf.
     """
     recipe = target_recipe("clean")
 
@@ -338,20 +327,17 @@ def test_clean_refusal_message_survives_a_quote_in_the_path() -> None:
 
 
 def test_ci_rerun_replays_a_run_and_can_narrow_to_failed_jobs() -> None:
-    """Replaying a run is a first-class target, not a raw gh invocation."""
+    """ci-rerun replays a run through gh run rerun, optionally only its failed jobs."""
     recipe = target_recipe("ci-rerun")
 
     assert 'gh run rerun "$$run_id"' in recipe
-    # Without this, a partially green run can only be replayed in full, which
-    # re-uploads artifacts the surviving jobs already produced. Gated on the
-    # literal 1 like local_libs, so failed=0 reads as off rather than as merely
-    # non-empty and therefore on.
+    # --failed is added only when failed is the literal 1, so failed=0 leaves it off.
     assert "$(if $(filter 1,$(failed)),--failed)" in recipe
     assert "$(if $(failed),--failed)" not in recipe
 
 
 def test_ci_watch_resolves_a_run_and_surfaces_failure_status() -> None:
-    """The CI watcher works in noninteractive shells and returns run failures."""
+    """ci-watch resolves the run id and passes --exit-status to gh run watch."""
     recipe = target_recipe("ci-watch")
 
     assert 'run_id="$(RUN_ID)"' in recipe
@@ -361,7 +347,7 @@ def test_ci_watch_resolves_a_run_and_surfaces_failure_status() -> None:
 
 
 def test_ci_dispatch_starts_a_fresh_run_with_optional_inputs() -> None:
-    """A fresh run is the escape hatch when replaying a run cannot work."""
+    """ci-dispatch starts a new workflow run, with an optional ref and inputs."""
     recipe = target_recipe("ci-dispatch")
 
     assert 'gh workflow run "$(workflow)"' in recipe
@@ -376,7 +362,7 @@ def test_ci_dispatch_guards_its_required_argument() -> None:
 
 
 def test_ci_caches_lists_largest_entries_first() -> None:
-    """Auditing cache waste starts from the biggest entries, so the sort is pinned."""
+    """ci-caches lists the largest cache entries first."""
     recipe = target_recipe("ci-caches")
 
     assert "gh cache list" in recipe
@@ -385,15 +371,13 @@ def test_ci_caches_lists_largest_entries_first() -> None:
 
 
 def test_ci_cache_delete_guards_its_required_argument() -> None:
-    """Deleting a cache is unrecoverable, so the target refuses an empty target."""
+    """ci-cache-delete requires cache= and prints usage without it."""
     recipe = target_recipe("ci-cache-delete")
 
     assert "$(call need,cache," in recipe
-    # gh accepts an id or a key in the one positional slot, so a single variable
-    # serves both; there is no --key flag to route a key through.
+    # gh takes an id or a key in one positional slot, so one variable serves both.
     assert 'gh cache delete "$(cache)"' in recipe
-    # A key resolves against the current branch unless a ref disambiguates it,
-    # and retired keys usually have one entry per ref that once built them.
+    # A key resolves against the current branch unless ref is given.
     assert '$(if $(ref),--ref "$(ref)")' in recipe
 
 
@@ -451,10 +435,9 @@ def test_group_file_targets_are_phony() -> None:
 def test_free_text_reaches_the_helper_as_one_option_equals_value_word(
     target: str, variable: str, option: str
 ) -> None:
-    """A value that starts with a dash, such as SEARCH='-label:bug', must not read as an option.
+    """Free text is one ``--option=value`` word, so a leading dash is not an option.
 
-    argparse takes ``--search -label:bug`` for two options and fails, while
-    ``--search=-label:bug`` is one word whose value it never inspects.
+    For example, SEARCH='-label:bug' stays the value of --search.
     """
     recipe = target_recipe(target)
 

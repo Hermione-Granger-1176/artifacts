@@ -670,7 +670,7 @@ def test_main_sync_alert_issue_reads_detail_file(
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> None:
-    """Alert detail files remain supported for generated reports."""
+    """Alert detail can be read from a file path given with --detail-file."""
     captured: dict[str, object] = {}
 
     def fake_sync_alert_issue(**kwargs: object) -> str:

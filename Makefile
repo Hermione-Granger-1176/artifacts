@@ -2,7 +2,7 @@
 
 # ─── Variables ────────────────────────────────────────────────────────────────
 
-# Prefer python3.12 (the CI-pinned version), then fall back to 3.13/3.14 or python3.
+# Prefer python3.12, then 3.13 or 3.14, then python3.
 # Override by passing PYTHON=... on the command line or in the environment.
 PYTHON      ?= $(shell command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3)
 UV          ?= uv
@@ -15,34 +15,30 @@ NPM         ?= npm
 MAIN_BRANCH  ?= main
 PAGES_BRANCH ?= gh-pages
 
-# Prefix Python commands with the repository root without discarding a
-# PYTHONPATH the developer set for their own tooling.
+# Prefix Python commands with the repository root, keeping any PYTHONPATH already set.
 PY_PATH_PREFIX = PYTHONPATH=.$${PYTHONPATH:+:$${PYTHONPATH}}
 
 # Browser targets opt into the private Linux runtime only with local_libs=1.
-# Browsers install into Playwright's shared cache so every project reuses one
-# copy; only the extracted shared libraries and per-run scratch live below the
-# ignored .playwright cache. The wrapper refuses to download packages mid-run.
+# Browsers install into Playwright's shared cache. The extracted shared libraries
+# and per-run scratch live below the ignored .playwright cache. The wrapper
+# refuses to download packages mid-run.
 PLAYWRIGHT_LOCAL_RUNTIME := $(VENV_PYTHON) scripts/setup/playwright_local_runtime.py
 PLAYWRIGHT_LOCAL_RUN = $(if $(filter 1,$(local_libs)),$(PLAYWRIGHT_LOCAL_RUNTIME) run --,)
 
-# Entry point for tested GitHub PR/CI helpers. Keep Make targets as thin
-# wrappers so GitHub behavior is testable Python instead of inline shell.
+# Entry point for the GitHub PR and CI helpers. Make targets are thin wrappers
+# around it.
 GH = $(PY_PATH_PREFIX) $(VENV_PYTHON) -m scripts.gh.cli
 
 # ─── Free text ────────────────────────────────────────────────────────────────
 #
-# Bodies arrive on standard input. That keeps multiline prose, quotes,
-# backticks, and shell-looking text out of make's parser and out of recipe
-# source. A title, search term, or close comment is short text, so it arrives
-# through the environment instead:
+# Bodies arrive on standard input. A title, search term, or close comment
+# arrives through the environment:
 #
 #     TITLE='Fix the retry loop' make issue-create < issue.md
 #     SEARCH='is:open label:bug' make issue-list
 #     COMMENT='Resolved in the latest deploy' make issue-close issue=7
 #
-# Make expands command-line assignments while parsing the file. Refuse those
-# spellings for free text so callers use the safe environment or stdin forms.
+# Free-text variables given as make arguments are refused. Use the environment or stdin.
 NO_TTY_READ := [ -t 0 ] ||
 FREE_TEXT_VARS := TITLE COMMENT SEARCH
 $(foreach v,$(FREE_TEXT_VARS),$(if $(filter command line,$(origin $(v))),$(error \
@@ -55,8 +51,7 @@ $(v)= is no longer an argument: body and other prose arrive on stdin, while a ti
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 #
-# Targets that take files read them on stdin, one per line, so a path can hold
-# spaces, quotes, or shell syntax without any quoting:
+# Targets that take files read paths on stdin, one per line:
 #
 #     make stage <<'EOF'
 #     My Notes.md

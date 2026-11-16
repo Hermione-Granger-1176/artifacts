@@ -35,8 +35,8 @@ def run_check(
 ) -> CheckResult:
     """Run a single make target and return the captured result.
 
-    The target gets no stdin. Path-taking targets read paths from stdin, and a
-    pipe inherited from the caller that never closes would make them wait.
+    The target runs with stdin set to DEVNULL, so a target that reads stdin gets
+    end-of-file immediately.
     """
     start = time.monotonic()
     try:

@@ -1,10 +1,9 @@
 /**
  * Export paths: single-document PDF and PNG, plus the batch ZIP.
  *
- * The three vendored libraries are reached through injected accessors rather
- * than touched directly, so the whole module runs under Node in tests with
- * lightweight fakes, and so a missing UMD global fails with a clear message
- * instead of a `TypeError` deep inside a click handler.
+ * The three vendored libraries are reached through injected accessors, so the
+ * module runs under Node in tests with fakes. A missing UMD global is reported
+ * with a clear message.
  *
  * @module exporters
  */
@@ -65,9 +64,9 @@ function base64Payload(dataUrl) {
 /**
  * Hand a blob or data URL to the browser as a download.
  *
- * The anchor is attached to the document before clicking and revoked on a
- * timer rather than immediately: Safari and Firefox both cancel the download
- * if the object URL disappears in the same tick as the click.
+ * The anchor is attached before the click. The URL is revoked on a timer, not
+ * immediately, because the download is cancelled if the object URL disappears
+ * in the same tick as the click.
  * @param {Blob | string} source - Blob, or an already-formed data URL.
  * @param {string} filename - Name to save as.
  * @param {{ documentObj?: Document, windowObj?: Window & typeof globalThis }} [options={}] - Injection points.
@@ -113,9 +112,8 @@ export async function capturePaper(paper, deps) {
 /**
  * Rasterise the page and put it through the scan pipeline, if one is asked for.
  *
- * The clean capture is kept alongside the degraded one rather than discarded,
- * because pair mode writes both from a single render. Rendering the page twice
- * to get them would double the slowest step in the whole batch.
+ * The clean capture is returned alongside the degraded one, so pair mode can
+ * write both from a single render.
  * @param {HTMLElement} paper - Element to capture.
  * @param {ExportDeps} deps - Injected library accessors.
  * @param {DegradePlan | null} [plan=null] - Degradation to apply, or null for clean.
@@ -135,8 +133,7 @@ export async function renderRaster(paper, deps, plan = null) {
 }
 
 /**
- * Wrap a rasterised page into a single-page A4 PDF, producing the "scanned
- * document" look that image-based extraction pipelines need to be tested against.
+ * Wrap a rasterised page into a single-page A4 PDF with a scanned-document look.
  * @param {Raster} raster - Rasterised page.
  * @param {ExportDeps} deps - Injected library accessors.
  * @returns {ArtifactsJsPdfDocument} A PDF holding the image.
@@ -184,9 +181,8 @@ export async function downloadPdf(model, mode, paper, deps, plan = null) {
 /**
  * Export the on-screen document as an image download.
  *
- * The extension follows the encoding rather than the button: a lossy scan
- * preset writes a JPEG, because that is the compression a real scanner applied
- * and calling the result a PNG would be a lie about the file.
+ * The extension follows the encoding, not the button: a lossy scan preset
+ * writes a JPEG.
  * @param {DocumentModel} model - Document to export.
  * @param {HTMLElement} paper - Rendered paper element.
  * @param {ExportDeps} deps - Injected library accessors.
@@ -246,10 +242,9 @@ export function planBatch({
 
         let seed = Math.floor(seedSource() * seedRange) + 1_000;
 
-        // A repeated seed would produce the same filename and JSZip would
-        // silently replace the earlier document. Probe the finite seed range
-        // instead of retrying the random source, which may legitimately be a
-        // deterministic or constant function in tests and scripted runs.
+        // A repeated seed would produce the same filename. The seed is probed
+        // forward through the seed range rather than redrawn, because the random
+        // source may be deterministic or constant in tests and scripted runs.
         for (let offset = 0; usedSeeds.has(seed) && offset < usedSeeds.size; offset += 1) {
           seed = seed === 900_999 ? 1_000 : seed + 1;
         }
@@ -259,8 +254,7 @@ export function planBatch({
           vendorId,
           docTypeId,
           seed,
-          // Mix dense invoices into roughly 40% of the invoice samples so a
-          // batch exercises both layouts without needing two runs.
+          // Invoice samples use the dense layout about 40% of the time.
           style: docTypeId === "invoice" && styleSource() < 0.4 ? "dense" : "clean"
         });
       }
@@ -271,15 +265,12 @@ export function planBatch({
 }
 
 /**
- * Rough compressed size of one document, per artefact, in bytes.
- *
- * Rounded up from real runs. The estimate warns before a large batch, such as a
- * 500-page PNG run, is generated and zipped entirely in the browser.
+ * Approximate compressed size of one document, per artefact, in bytes. The
+ * estimate is shown before a large batch is generated and zipped in the browser.
  */
 const BYTES_PER_DOCUMENT = {
   png: 900_000,
-  // Grain is close to incompressible, so a degraded page stored losslessly is
-  // roughly twice the size of the clean one it came from.
+  // Degraded PNGs are estimated at about twice the clean size.
   pngNoisy: 1_800_000,
   jpg: 420_000,
   pdfText: 16_000,
@@ -331,8 +322,8 @@ export function estimateBatchBytes({
   }
 
   if (groundTruth || format === "json") {
-    // Counted twice on purpose: every sidecar is written both as its own file
-    // and as a line of manifest.jsonl.
+    // Counted twice: each sidecar is written as its own file and as a line of
+    // manifest.jsonl.
     const perSidecar =
       BYTES_PER_DOCUMENT.json +
       (boxes ? BYTES_PER_DOCUMENT.jsonRegions : 0) +
@@ -363,8 +354,7 @@ export function formatBytes(bytes) {
 /**
  * Capture the page once and write whichever raster-backed files the batch wants.
  *
- * The image and the PDF come from one capture, because a second render of the
- * same page is the slowest step in the batch.
+ * The image and the PDF come from one capture.
  * @param {ArtifactsJsZipArchive} zip - Archive being filled.
  * @param {string} base - Archive path of the document, without extension.
  * @param {{
@@ -385,8 +375,7 @@ async function writeRasterFiles(zip, base, { degradation, deps, pair, paper, wan
     zip.file(`${base}.${raster.extension}`, base64Payload(raster.dataUrl), { base64: true });
 
     if (pair && degradation) {
-      // The whole point of pair mode: one seed, two images, differing only
-      // in scan quality, so accuracy can be plotted against it.
+      // Pair mode writes one seed as two images that differ only in scan quality.
       zip.file(`${base}.clean.png`, base64Payload(raster.clean.toDataURL("image/png")), { base64: true });
       wroteClean = true;
     }
@@ -402,17 +391,11 @@ async function writeRasterFiles(zip, base, { degradation, deps, pair, paper, wan
 /**
  * Generate a batch of documents and hand back a foldered ZIP.
  *
- * Text PDFs skip raster capture because jsPDF writes straight from the model.
- * `json` skips both file renderers, although the application can still update
- * its DOM stage through `renderPreview` as visible batch progress or to measure
- * boxes. It is the right format for anyone iterating on an evaluation script
- * rather than on the pages themselves.
+ * Text PDFs skip raster capture, since jsPDF writes from the model. `json` skips
+ * both file renderers, but `renderPreview` still runs for every item.
  *
- * When ground truth is on, each document gets a sidecar next to it and the run
- * also writes `manifest.jsonl` and `README.txt` at the archive root. The
- * manifest exists because tooling that streams a dataset wants one file to
- * read, not five hundred to glob; the README exists so a ZIP found in a
- * downloads folder months later still explains its own schema and settings.
+ * When annotations are enabled, each document gets a sidecar next to it, and
+ * the archive root also gets `manifest.jsonl` and `README.txt`.
  * @param {{
  *   annotate?: (model: DocumentModel, degradation: DegradePlan | null) => Record<string, any>,
  *   degrade?: (model: DocumentModel) => DegradePlan | null,
@@ -448,8 +431,8 @@ export async function runBatch({
   const wantsPng = formatWritesPng(format);
   const wantsPdf = formatWritesPdf(format);
   const wantsCanvas = wantsPng || (wantsPdf && pdfMode === "image");
-  // Merged rather than defaulted, so a caller that names only some of the
-  // README fields does not end up printing "undefined" into the archive.
+  // Merged over the defaults, so README fields the caller omits keep their
+  // default values.
   const dataset = {
     boxes: false,
     degradation: "clean",
@@ -470,8 +453,8 @@ export async function runBatch({
     }
 
     const model = renderPreview(item);
-    // The folder names the variant the model resolved, so an odd-seed debit
-    // note lands in debitnote/, not in the creditnote/ folder it was planned as.
+    // The folder uses the variant the model resolved, which can differ from the
+    // planned type. An odd-seed debit note goes in debitnote/.
     const base = `${item.vendorId}/${model.docVariantId}/${model.filenameBase}`;
     const degradation = degrade ? degrade(model) : null;
 
@@ -480,8 +463,7 @@ export async function runBatch({
     }
 
     if (wantsCanvas) {
-      // Sequential on purpose: one shared paper element is reused for every
-      // capture, so the renders cannot overlap.
+      // Sequential: one shared paper element is reused for every capture.
       const wroteClean = await writeRasterFiles(zip, base, {
         degradation,
         deps,
@@ -497,8 +479,8 @@ export async function runBatch({
     }
 
     if (annotate) {
-      // Measured after any capture, so the sidecar describes the same paper the
-      // PNG was taken from rather than a page that has since been re-rendered.
+      // Runs after the capture, so the sidecar describes the paper the PNG was
+      // taken from.
       const payload = annotate(model, degradation);
       manifest.push(payload);
       zip.file(`${base}.json`, annotationsToJson(payload));
@@ -507,13 +489,10 @@ export async function runBatch({
     done += 1;
     onProgress({ done, total: plan.length, phase: "generating" });
 
-    // Hand the main thread back often enough that a click can be seen. The
-    // canvas formats already yield inside `renderRaster`, but text PDFs and
-    // JSON do not touch it, so without this the loop runs to completion before
-    // the browser can process the Stop button at all. Time-sliced rather than
-    // every document, because a round trip through the task queue per document
-    // is real cost on a 1,800 document JSON run and buys nothing beyond
-    // responsiveness the eye cannot resolve.
+    // Yield to the main thread about every YIELD_INTERVAL_MS so that clicks, such
+    // as Stop, are processed. Canvas formats yield inside `renderRaster`. Text
+    // PDFs and JSON do not, so this check is needed for them. Yields are
+    // time-sliced, not made per document.
     if (Date.now() - sliceStartedAt >= YIELD_INTERVAL_MS) {
       await new Promise((resolve) => {
         setTimeout(resolve, 0);

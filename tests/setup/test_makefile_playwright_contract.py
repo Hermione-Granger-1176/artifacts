@@ -12,10 +12,8 @@ LOCAL_RUNTIME = "$(PLAYWRIGHT_LOCAL_RUNTIME)"
 LOCAL_RUN = "$(PLAYWRIGHT_LOCAL_RUN)"
 BROWSER_TESTS = "$(RUN_BROWSER_TESTS)"
 
-# A recipe that names a browser suite or the thumbnail renderer launches a real
-# browser and therefore has to inherit the private runtime when local_libs=1.
 # A recipe launches a browser when it runs a browser test file or the thumbnail
-# generator; a recipe that only reads or writes files under tests/browser/
+# generator. A recipe that only reads or writes files under tests/browser/
 # (such as the visual baselines) does not.
 BROWSER_RECIPE_MARKERS = ("tests/browser/test_", "generate_thumbnails.py")
 
@@ -34,8 +32,8 @@ def target_recipe(name: str) -> str:
 def browser_launching_targets() -> dict[str, str]:
     """Return every target whose recipe launches a browser, discovered from the Makefile.
 
-    Discovering these instead of listing them means a newly added browser target
-    cannot silently skip the local-runtime wrapper.
+    Targets are found by scanning every recipe, so a new browser target is checked
+    without being listed here.
     """
     recipes = {
         match.group("name"): match.group("recipe")
@@ -53,28 +51,25 @@ def browser_launching_targets() -> dict[str, str]:
 
 
 def test_playwright_uses_native_host_detection() -> None:
-    """Do not retain the obsolete Ubuntu platform override workaround.
+    """The Makefile has no Playwright platform override.
 
-    The pinned Playwright supports this host natively, and a stale override can leave
-    the revision cache holding a browser built for another platform archive.
+    The pinned Playwright detects the host platform natively.
     """
     assert "PLAYWRIGHT_HOST_PLATFORM_OVERRIDE" not in MAKEFILE_TEXT
     assert "PLAYWRIGHT_SUPPORTED_UBUNTU" not in MAKEFILE_TEXT
 
 
 def test_playwright_runtime_is_type_checked() -> None:
-    """Keep the setup utility inside the strict Python type-check scope."""
+    """The setup utility is inside the Python type-check scope."""
     assert re.search(r"^PY_TYPE_PATHS\s*:=\s*scripts/\s*$", MAKEFILE_TEXT, re.MULTILINE)
 
 
 def test_local_runtime_always_runs_under_the_repository_interpreter() -> None:
-    """Pin the single entry point that makes sys.executable the Playwright environment.
+    """The local runtime is launched through the repository interpreter, $(VENV_PYTHON).
 
-    The probe re-launches Python through sys.executable, so it imports Playwright
-    only because every invocation starts from the virtual-environment interpreter.
-    Resolving .venv/bin/python inside the script cannot replace this contract: that
-    path is a symlink to the system interpreter, so the module's own containment
-    guard would reject it.
+    The probe re-launches Python through sys.executable. The script does not resolve
+    .venv/bin/python itself, because that path is a symlink that the module's
+    containment guard rejects.
     """
     assert re.search(
         r"^PLAYWRIGHT_LOCAL_RUNTIME\s*:="
@@ -97,8 +92,7 @@ def test_every_browser_launching_target_inherits_the_wrapper() -> None:
     """Every discovered browser target opts in through the shared wrapper."""
     targets = browser_launching_targets()
 
-    # Guard the discovery itself: the paths that bypass RUN_BROWSER_TESTS are the
-    # ones most likely to be missed, so require them to be found.
+    # These targets bypass RUN_BROWSER_TESTS, so the discovery must find them.
     assert {"visual-baselines", "thumbnails", "thumbnails-shard"}.issubset(targets)
     assert any(name.startswith("test-browser-") for name in targets)
 
@@ -120,7 +114,7 @@ def test_browser_test_helper_runs_under_the_wrapper() -> None:
 
 
 def test_visual_baselines_wraps_its_direct_pytest_call() -> None:
-    """visual-baselines calls pytest directly, so it needs the wrapper of its own."""
+    """visual-baselines calls pytest directly, so its recipe wraps that call itself."""
     recipe = target_recipe("visual-baselines")
 
     assert BROWSER_TESTS not in recipe
@@ -139,7 +133,7 @@ def test_local_setup_targets_never_install_system_packages() -> None:
 
 
 def test_ci_setup_targets_keep_system_dependency_installation() -> None:
-    """CI stays on Playwright's system-package install on disposable runners."""
+    """The CI setup targets install system packages with --with-deps."""
     assert "playwright install chromium --with-deps" in target_recipe("setup-playwright-ci")
     assert "playwright install webkit --with-deps" in target_recipe("setup-playwright-webkit-ci")
 
@@ -158,10 +152,9 @@ def test_selected_playwright_setup_validates_engines_and_dependencies() -> None:
 
 
 def test_local_setup_prepares_libraries_around_a_shared_browser_install() -> None:
-    """Prepare the private libraries on both sides of a sudo-free browser install.
+    """Prepare the private libraries before and after the browser install.
 
-    The second preparation is what patches the freshly installed WebKit bundle
-    launcher, so the ordering is part of the contract.
+    The second preparation patches the installed WebKit bundle launcher.
     """
     for target, engine in (
         ("setup-playwright-local", "chromium"),
@@ -174,17 +167,16 @@ def test_local_setup_prepares_libraries_around_a_shared_browser_install() -> Non
         assert recipe.count(prepare) == 2
         assert install in recipe
         assert recipe.index(prepare) < recipe.index(install) < recipe.rindex(prepare)
-        # Browsers land in Playwright's shared cache, so no repository-local
-        # browser path is layered onto the install.
+        # Browsers install into Playwright's shared cache, and the recipe sets
+        # no repository-local browser path.
         assert "PLAYWRIGHT_BROWSERS_PATH" not in recipe
 
 
 def test_webkit_local_setup_extends_rather_than_replaces_the_manifest() -> None:
-    """Installing one engine must never strand the other's library closure.
+    """Installing one engine keeps the other engine's library closure.
 
-    Each local target requests only its own engine; the runtime unions that
-    request with the recorded engine set, so the resolved package closure is
-    always the union both engines need.
+    Each local target requests only its own engine. The runtime unions that
+    request with the recorded engine set.
     """
     webkit_recipe = target_recipe("setup-playwright-webkit-local")
 
@@ -200,7 +192,7 @@ def test_webkit_local_setup_extends_rather_than_replaces_the_manifest() -> None:
 
 
 def test_local_runtime_lifecycle_targets_are_exposed() -> None:
-    """Keep every lifecycle and real-engine gate entry point discoverable through Make."""
+    """Each lifecycle and gate entry point is reachable through Make."""
     for target, action in (
         ("playwright-local-status", "status"),
         ("playwright-local-gate", "probe"),
@@ -210,7 +202,7 @@ def test_local_runtime_lifecycle_targets_are_exposed() -> None:
 
 
 def test_local_runtime_targets_are_documented_in_help() -> None:
-    """Every new target carries the ## comment that drives make help."""
+    """Each target has a ## description, which make help reads."""
     for target in (
         "setup-playwright-local",
         "setup-playwright-webkit-local",
@@ -227,7 +219,7 @@ def test_clean_removes_the_repository_local_playwright_cache() -> None:
 
 
 def test_playwright_cache_is_ignored() -> None:
-    """Never track the repository-local runtime cache."""
+    """The repository-local runtime cache is ignored by git."""
     gitignore = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
 
     assert ".playwright/" in gitignore

@@ -62,7 +62,7 @@ The main entry points are:
 - `make check`: run the full local gate, including browsers, thumbnails, index generation, and site assembly. `make check-web` runs the browser and thumbnail checks.
 - `make status`: inspect Git state, dependencies, lockfiles, generated files, and the PR summary.
 
-[Operations](docs/operations.md) describes command selection, CI behavior, browser setup, and recovery.
+[Operations](docs/operations.md) describes command selection and browser setup. [Troubleshooting](docs/troubleshooting.md) covers failures and recovery.
 
 ## GitHub commands
 
@@ -133,7 +133,7 @@ Change the inputs or generator for these outputs. Do not edit the outputs by han
 
 Pushes to `main` trigger the GitHub Actions deployment to GitHub Pages. Trusted PRs (same repository, excluding Dependabot) receive previews under `gh-pages/pr-preview/pr-<number>/` and a preview-link comment on each push.
 
-CI manages `gh-pages`. Do not edit it manually. Deployments use GitHub App tokens and verified GraphQL commits. [Architecture](docs/architecture.md) describes the pipeline, token roles, and deployment records.
+CI manages `gh-pages`. Do not edit it manually. Deployments use GitHub App tokens and verified GraphQL commits. [CI and deployment](docs/ci.md) describes the pipeline, token roles, and deployment records.
 
 ## App conventions
 
@@ -147,4 +147,6 @@ CI manages `gh-pages`. Do not edit it manually. Deployments use GitHub App token
 
 ## Documentation ownership
 
-[Workspace documentation](docs/README.md) links to the owning document for each concern: structure, architecture, frontend behavior, operations, maintenance, style, and architecture decisions. Link to those sources instead of repeating their policies.
+[Workspace documentation](docs/README.md) links to the owning document for each concern: structure, architecture, CI and deployment, frontend behavior, operations, troubleshooting, maintenance, style, and architecture decisions. Link to those sources instead of repeating their policies.
+
+Docs and code comments describe the current system. Comments state what the code does, never its history or the justification for it. History and rationale belong only in `docs/adr/` and in each app's `docs/decisions.md`. [Style guide](docs/style.md) has the details.

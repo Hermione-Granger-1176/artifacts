@@ -93,14 +93,13 @@ const PAPER_WIDTH = 794;
 const PAPER_HEIGHT = 1123;
 /** Padding on .vd-paper-frame, from var(--space-4) on all four sides. */
 const FRAME_PADDING = 32;
-/** Floor on the fit scale, so a very short window still shows a legible page. */
+/** Lower bound on the fit scale. */
 const MIN_FIT_SCALE = 0.25;
 
 /**
  * The Labels ladder, as the three switches it stands for. Each rung includes
- * everything below it, which is why one segmented control can replace three
- * checkboxes: "words" without "boxes" or "boxes" without "labels" is not a
- * state the page can ever be in.
+ * everything below it, so the states form one ladder rather than three
+ * independent switches.
  * @type {Record<string, { boxes: boolean, truth: boolean, words: boolean }>}
  */
 const LABEL_LEVELS = {
@@ -135,11 +134,9 @@ const exportDeps = {
  * Wire a segmented control whose buttons carry one data attribute each, and
  * return a setter so state changed elsewhere can move the highlight.
  *
- * `initSegmented` only reacts to clicks. The Labels ladder, the preset row, and
- * the format control are also moved by code (a JSON batch lifts Labels off
- * None, a knob makes the preset custom), and `.active` is the source of truth
- * for the pressed state, so the setter writes both rather than leaving the two
- * to drift apart.
+ * `initSegmented` only reacts to clicks. Code also moves the Labels ladder, the
+ * preset row, and the format control, so the setter updates `.active` and
+ * `aria-pressed` together.
  * @param {HTMLElement} container - Element wrapping the buttons.
  * @param {string} attribute - Data attribute holding each button's value.
  * @param {(value: string) => void} onSelect - Called with the chosen value.
@@ -307,9 +304,8 @@ initializeMatureApp({
     /**
      * Name the scan settings for a human.
      *
-     * `findPreset` falls back to clean for an unknown id, which is right for
-     * settings and wrong for a caption: "custom" is a real state, and labelling
-     * it "Clean" would describe a page that is anything but.
+     * `findPreset` falls back to clean for an unknown id, so "custom" is handled
+     * here instead.
      * @returns {string} Preset label, or "Custom".
      */
     function presetLabel() {
@@ -317,8 +313,8 @@ initializeMatureApp({
     }
 
     /**
-     * Set the status line. An empty one keeps its row (see the footer rules in
-     * app.css), so a message arriving does not move the export button.
+     * Set the status line. An empty value keeps the row height (see the footer
+     * rules in app.css).
      * @param {string} text - Message, or an empty string to clear it.
      * @returns {void}
      */
@@ -329,8 +325,7 @@ initializeMatureApp({
     /** @type {{ input: HTMLInputElement, key: string, output: HTMLElement, unit: string }[]} */
     const knobs = [];
 
-    // Built from DEGRADE_KNOBS rather than written into index.html, so the list
-    // of exposed settings lives in one place and adding one is a single edit.
+    // Built from DEGRADE_KNOBS, so the list of exposed settings lives in one place.
     for (const knob of DEGRADE_KNOBS) {
       const field = document.createElement("div");
       const head = document.createElement("div");
@@ -357,9 +352,8 @@ initializeMatureApp({
       knobs.push({ input, key: knob.key, output, unit: knob.unit });
 
       input.addEventListener("input", () => {
-        // Touching a knob is what makes a run custom: the preset it started from
-        // has stopped being an honest description of what will be rendered, and
-        // the sidecar would otherwise name a preset that was not used.
+        // Touching a knob switches to the custom preset, so the sidecar does not
+        // name a preset that was not used.
         state.degradeOverrides = { ...currentSettings(), [knob.key]: Number(input.value) };
         state.degradePreset = "custom";
         syncDegrade();
@@ -427,8 +421,8 @@ initializeMatureApp({
     }
 
     /**
-     * The dense layout is an invoice-only treatment; grey it out elsewhere so
-     * the control never claims to do something it will not do.
+     * The dense layout applies only to invoices, so the control is disabled for
+     * other types.
      * @returns {void}
      */
     function syncLayoutAvailability() {
@@ -453,8 +447,7 @@ initializeMatureApp({
     /**
      * The scan and label settings the running export started with, or null
      * when nothing is exporting. An export reads these instead of the live
-     * controls, so a change made mid-run applies to the next export rather
-     * than to half of this one, and the README describes every page in it.
+     * controls, so a change made mid-run applies to the next export.
      * @type {ReturnType<typeof liveExportSettings> | null}
      */
     let exportSettings = null;
@@ -472,21 +465,17 @@ initializeMatureApp({
     /**
      * Scale the preview so the whole page fits the frame in both directions.
      *
-     * Fitting on width alone left the page taller than its container, which
-     * meant a scrollbar inside a panel that was already inside the scrolling
-     * document. Fitting the smaller of the two ratios means the preview never
-     * scrolls; reading the page at 100% is what the full-size overlay is for.
+     * The page is scaled to fit both width and height, so the preview never
+     * scrolls. Reading the page at 100% uses the full-size overlay.
      * @returns {void}
      */
     function syncFitScale() {
-      // The overlay owns the zoom while it is open, and so does an export, which
-      // needs the page at actual size however the frame resizes meanwhile.
+      // The overlay and an export own the zoom while active.
       if (fullscreen.open || pinnedAtActualSize > 0) {
         return;
       }
 
-      // An unmeasured frame (detached, or a test double) is treated as exactly
-      // big enough, so the preview starts at 1 rather than guessing small.
+      // An unmeasured frame is treated as large enough for scale 1.
       const frameWidth = paperFrame.clientWidth || PAPER_WIDTH + FRAME_PADDING;
       const frameHeight = paperFrame.clientHeight || PAPER_HEIGHT + FRAME_PADDING;
       const availableWidth = frameWidth - FRAME_PADDING;
@@ -504,7 +493,7 @@ initializeMatureApp({
      * Move the live paper into the full-size overlay and open it.
      *
      * The element itself moves rather than being cloned, so the renderer and
-     * the exporters keep pointing at one page no matter which mode is showing.
+     * exporters always use the same page.
      * @returns {void}
      */
     function openFullscreen() {
@@ -517,9 +506,7 @@ initializeMatureApp({
     /**
      * Return the paper to the inline frame and restore the fitted scale.
      *
-     * Runs for the scan preview too, which puts an image in the overlay rather
-     * than the live page; emptying the overlay first means one close path serves
-     * both instead of two that can disagree.
+     * Also used by the scan preview, which puts an image in the overlay.
      * @returns {void}
      */
     function closeFullscreen() {
@@ -533,9 +520,7 @@ initializeMatureApp({
      * @returns {void}
      */
     function draw() {
-      // An export owns the paper until it finishes. Redrawing now would put a
-      // different document under a capture or a box measurement in flight, so
-      // the draw waits for the export to end.
+      // An export owns the paper until it finishes, so the draw waits.
       if (pinnedAtActualSize > 0) {
         drawPending = true;
         return;
@@ -552,8 +537,8 @@ initializeMatureApp({
       });
 
       renderPaper(paper, currentModel);
-      // CSSOM rather than an inline style attribute, like the paper's own
-      // vendor colours: the self-only CSP would drop the attribute.
+      // Set through CSSOM, not an inline style attribute, because the CSP drops
+      // inline style attributes.
       vendorSwatch.style.setProperty("--vd-accent", vendor.accent);
       captionVendor.textContent = vendor.name;
       captionType.textContent = currentModel.dense
@@ -566,9 +551,8 @@ initializeMatureApp({
     /**
      * Run a task with the preview pinned to actual size.
      *
-     * The fit-width view scales the paper with a CSS transform, and
-     * html2canvas would bake that scale into the capture. Neutralising it for
-     * the duration of an export keeps every raster sample a true 794px page.
+     * The fit view scales the paper with a CSS transform, which html2canvas would
+     * bake into the capture. The scale is set to 1 for the duration of the task.
      * @template T
      * @param {() => Promise<T>} task - Work to run at actual size.
      * @returns {Promise<T>} Whatever the task resolves to.
@@ -621,9 +605,8 @@ initializeMatureApp({
     /**
      * Plan the degradation for one document, or nothing if the run is clean.
      *
-     * Planned against the layout page rather than the 2x capture: the transform
-     * is normalised, so one plan serves both, and the JSON-only path can move
-     * its boxes without rasterising anything.
+     * Planned against the layout page. The transform is normalised, so the same
+     * plan applies to the 2x capture.
      * @param {ReturnType<typeof buildDocument>} model - Document being exported.
      * @returns {import("./modules/degrade.js").DegradePlan | null} The plan.
      */
@@ -646,11 +629,10 @@ initializeMatureApp({
     /**
      * Build the ground-truth sidecar for a rendered document.
      *
-     * Boxes are measured off the live paper element, so this has to be called
-     * while that element still holds the document being described. They are then
-     * moved through whatever geometry the scan preset applies, because a tilted
-     * page has its ink somewhere other than where the DOM put it, and labels
-     * pointing at the clean layout would be worse than no labels at all.
+     * Boxes are measured off the live paper element, so this must be called while
+     * that element holds the document. They are then moved through the scan
+     * preset's geometry, since the ink of a tilted page is not where the DOM
+     * places it.
      * @param {ReturnType<typeof buildDocument>} model - Document on the paper.
      * @param {import("./modules/degrade.js").DegradePlan | null} [degradation] - Scan plan.
      * @returns {Record<string, any>} The sidecar payload.
@@ -687,9 +669,8 @@ initializeMatureApp({
     /**
      * Say what the Labels ladder will produce for the format picked.
      *
-     * The text-layer PDF is called out because it is the one export boxes do
-     * not describe, and every payload repeats it in `boxes_apply_to`, so nobody
-     * has to remember which export the coordinates belong to.
+     * The text-layer PDF is called out because boxes do not describe it. Every
+     * payload also records this in `boxes_apply_to`.
      * @returns {string} The note.
      */
     function labelsNoteText() {
@@ -730,11 +711,9 @@ initializeMatureApp({
     /**
      * Keep the output panel consistent with its state, and say what it will do.
      *
-     * One pass over everything the scope, format, labels, and scan choices
-     * decide between: which rows exist, what the primary button says, and what
-     * the size estimate is. Written as a function of state rather than as a set
-     * of handlers poking at each other, so a change from any control, or from
-     * code, lands the panel in the same place.
+     * Updates the output panel from state: which rows exist, what the primary
+     * button says, and the size estimate. A change from a control or from code
+     * lands the panel in the same state.
      * @returns {void}
      */
     function syncOutput() {
@@ -788,13 +767,13 @@ initializeMatureApp({
       formatJsonButton.hidden = !batch;
       downloadJsonButton.hidden = batch;
       syncStopButton();
-      // None is the first rung, and the one a JSON batch cannot stand on.
+      // A JSON batch cannot use the None label level, so that button is disabled.
       labelsSegment.buttons[0].disabled = state.format === "json";
     }
 
     /**
-     * Dim the PDF type and the pair option when they do not apply, rather than
-     * hiding them, so the rows under them stay where they were.
+     * Disable the PDF type and pair option when they do not apply, rather than
+     * hiding them, so the layout does not shift.
      * @param {boolean} degraded - Whether the scan settings change the page.
      * @returns {void}
      */
@@ -807,8 +786,8 @@ initializeMatureApp({
         button.disabled = !pdfApplies;
       }
 
-      // Pair mode writes the clean original beside a degraded PNG, so it means
-      // nothing for a clean page or an export with no PNG in it.
+      // Pair mode writes the clean original beside a degraded PNG, so it applies
+      // only to degraded exports that include a PNG.
       const pairApplies = degraded && writesPng();
       pairLabel.classList.toggle("is-disabled", !pairApplies);
       pairToggle.disabled = !pairApplies;
@@ -868,8 +847,7 @@ initializeMatureApp({
       const percent = Math.round(Math.min(1, Math.max(0, fraction)) * 100);
       setMeterValue(progressFill, percent / 100);
       progress.setAttribute("aria-valuenow", String(percent));
-      // An empty track is just a grey slab above the button, so the meter
-      // stays invisible (but keeps its row) until there is progress to report.
+      // The meter stays idle, but keeps its row, until there is progress to report.
       progress.classList.remove("is-idle");
     }
 
@@ -884,14 +862,11 @@ initializeMatureApp({
 
     buttonById("vdFullOpen").addEventListener("click", openFullscreen);
     buttonById("vdFullClose").addEventListener("click", () => fullscreen.close());
-    // Also fires for the Escape key, which is the dialog's own affordance.
+    // Also fires for the Escape key.
     fullscreen.addEventListener("close", closeFullscreen);
 
-    // The frame is what the page is fitted to, so it is what gets watched: a
-    // window resize, a rotated phone, and a panel that changes the layout around
-    // the frame all land here, where a window listener would see only the first.
-    // It also reports once on observe(), before the first paint, so the page is
-    // never shown at the wrong size.
+    // The frame is observed rather than the window, since the page is fitted to
+    // the frame. The observer also fires once on observe().
     new ResizeObserver(() => syncFitScale()).observe(paperFrame);
 
     buttonById("vdGenerate").addEventListener("click", () => {
@@ -943,9 +918,8 @@ initializeMatureApp({
     const previewScanButton = buttonById("vdPreviewScan");
     previewScanButton.addEventListener("click", () => {
       void withBusyButton(previewScanButton, "Rendering...", async () => {
-        // Choosing between five scan presets from their descriptions alone is
-        // guesswork, and the live page cannot show the effect: degradation
-        // happens to the raster, and the boxes are measured off the DOM.
+        // The live page does not show scan effects, since degradation applies to
+        // the raster. The preview renders the raster instead.
         const dataUrl = await atActualSize(async () => {
           const canvas = await capturePaper(paper, exportDeps);
           const degradation = degradationFor(currentModel);
@@ -971,9 +945,7 @@ initializeMatureApp({
       );
     });
 
-    // Read by `runBatch` between documents. A plain flag rather than an
-    // AbortController because there is nothing to abort: the run is a loop, and
-    // stopping it means finishing the archive early rather than discarding it.
+    // Read by `runBatch` between documents. Stopping finishes the archive early.
     let stopRequested = false;
 
     batchStopButton.addEventListener("click", () => {
@@ -1006,9 +978,7 @@ initializeMatureApp({
     function deliverBatch({ blob, count, stopped }, planned, startedAt) {
       const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
 
-      // Stopping before the first document finished leaves an archive holding
-      // nothing but a README describing an empty run, which is a worse thing
-      // to hand someone than no file at all.
+      // An archive with no documents is not downloaded.
       if (count === 0) {
         setStatus("Stopped before the first document. Nothing downloaded.");
         return;
@@ -1065,8 +1035,8 @@ initializeMatureApp({
             renderPreview: (item) => {
               const model = buildDocument(item);
               renderPaper(paper, model);
-              // The paper now shows a batch page, so put the reader's page
-              // back once the run ends.
+              // The paper shows a batch page, so the reader's page is redrawn when
+              // the run ends.
               drawPending = true;
               return model;
             }

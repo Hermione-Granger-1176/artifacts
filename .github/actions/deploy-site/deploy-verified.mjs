@@ -37,7 +37,7 @@ export function walkDir(dir, root = dir, deps = { readdirSync: fs.readdirSync })
 
 /**
  * Compute file additions and deletions for a deploy.
- * Compares Git blob SHAs to skip unchanged files (true idempotency).
+ * Skips files whose Git blob SHA matches the remote file.
  * Preserves files under the preview root directory on the remote branch.
  * @param {string[]} localFiles - Files in the deploy directory.
  * @param {Map<string, string>} remoteFiles - Current remote files (path to blob SHA).
@@ -105,9 +105,8 @@ export function computeRemoval(remoteFiles, subdirPrefix) {
 
 /**
  * Check whether an error is a GitHub REST 404 (resource not found).
- * The fetchJson helper throws messages shaped like "404 Not Found: <body>",
- * so the status leads the message. Only genuine 404s match; other statuses
- * (including a body that merely mentions 404) do not.
+ * Matches messages that start with the status code, as fetchJson formats them
+ * ("404 Not Found: <body>"). A body that mentions 404 does not match.
  * @param {unknown} error - Error (or other caught value) to classify.
  * @returns {boolean} Whether the error is a 404 Not Found.
  */
@@ -170,9 +169,8 @@ async function bootstrapBranch(clients, branch, consoleObj) {
   try {
     await postJson("refs", { ref: `refs/heads/${branch}`, sha: commit.sha });
   } catch (error) {
-    // Two runs can both see the missing branch and race to create it. The
-    // loser gets a 422 "Reference already exists"; recover by adopting the
-    // winner's HEAD instead of failing the deploy.
+    // If a concurrent run already created the ref, this call fails with a 422
+    // "Reference already exists". The winner's HEAD is adopted in that case.
     if (!isRefAlreadyExistsError(error)) {
       throw error;
     }
@@ -217,7 +215,7 @@ async function fetchBranchState(clients, branch, consoleObj) {
   const headSha = await resolveHeadSha(clients, branch, consoleObj);
   consoleObj.log(`Current ${branch} HEAD: ${headSha}`);
 
-  // Fetch commit to get tree SHA (the trees API needs a tree SHA, not a commit SHA).
+  // Fetch the commit to read its tree SHA.
   const commit = await clients.fetchJson(`${gitBase}/commits/${headSha}`);
   const treeSha = commit.tree.sha;
 

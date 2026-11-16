@@ -1,9 +1,8 @@
 /* Lightweight DOM/window harness for the Prompt Caching demos.
  *
- * Lives under tests/ so it is excluded from coverage. It provides just enough of
- * the DOM (elements with children, classList, dataset, a small querySelector
- * engine, canvas context stubs) plus controllable timers and IntersectionObserver
- * so the feature modules can be driven end-to-end without a browser. */
+ * It provides just enough of the DOM (elements with children, classList, dataset,
+ * a small querySelector engine, canvas context stubs) plus controllable timers and
+ * IntersectionObserver so the feature modules can be driven end-to-end without a browser. */
 
 import { InertObserver } from "../../common/browser-floor.js";
 

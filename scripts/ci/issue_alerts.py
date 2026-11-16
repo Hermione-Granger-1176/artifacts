@@ -9,8 +9,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 ISSUE_TITLE_MATCH_LIMIT = 100
-# Creating an issue or posting a comment is not idempotent. If a request times
-# out after GitHub applied it, a retry posts a second copy, so these calls make
+# Creating an issue or posting a comment is not idempotent, so these calls make
 # one attempt. Closing an issue is idempotent and keeps the default retries.
 NON_IDEMPOTENT_ATTEMPTS = 1
 

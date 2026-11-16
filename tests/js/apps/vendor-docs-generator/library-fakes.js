@@ -2,8 +2,8 @@
  * Recording stand-ins for the three vendored export libraries.
  *
  * They record the calls the renderers and exporters make rather than
- * producing real files, which is what lets the PDF and batch paths be tested
- * under Node without a browser or a 420KB UMD bundle.
+ * producing real files, so the PDF and batch paths run under Node without a
+ * browser or the 420KB UMD bundle.
  */
 
 /** Average glyph advance as a fraction of the point size, for measurement. */
@@ -50,10 +50,9 @@ function createFakeJsPdfDocument({ pageWidth = 595, pageHeight = 842 } = {}) {
       calls.push({ name: 'setFontSize', args: [size] });
       return doc;
     },
-    // Real jsPDF measures against embedded metrics. An average advance width of
-    // half the point size is close enough for Helvetica that the fitting and
-    // wrapping branches behave the way they do in the browser, which is what
-    // these tests are here to exercise.
+    // Real jsPDF measures against embedded font metrics. This fake uses an
+    // average advance of half the point size, which is close enough to Helvetica
+    // for the fitting and wrapping branches to take the same paths.
     getTextWidth(text) {
       return String(text).length * doc.fontSize * AVERAGE_ADVANCE;
     },
@@ -108,8 +107,8 @@ function createFakeJsPdfDocument({ pageWidth = 595, pageHeight = 842 } = {}) {
           align: options?.align ?? 'left',
           size: doc.fontSize,
           family: doc.fontFamily,
-          // Recorded so a test can reconstruct the drawn box exactly rather than
-          // assuming the nominal point size, which the header fitter changes.
+          // Recorded so tests can reconstruct the drawn box from the actual size,
+          // since the header fitter can change it.
           width: String(line).length * doc.fontSize * AVERAGE_ADVANCE
         });
       }
@@ -118,8 +117,7 @@ function createFakeJsPdfDocument({ pageWidth = 595, pageHeight = 842 } = {}) {
     },
     autoTable(options) {
       tables.push(options);
-      // Exercise the didParseCell hook the way autotable does, so styling
-      // branches are covered rather than merely defined.
+      // Calls the didParseCell hook for every body cell, as autotable does.
       if (typeof options.didParseCell === 'function') {
         (options.body ?? []).forEach((row, rowIndex) => {
           row.forEach((_cell, columnIndex) => {
@@ -169,10 +167,8 @@ export function createFakeJsPdf(options = {}) {
 /**
  * A canvas that records every 2D drawing call and owns a real pixel buffer.
  *
- * The buffer is genuine, so the degradation pixel pass can be run over it and
- * asserted on byte by byte; everything geometric is recorded rather than
- * rasterised, because reproducing a browser's compositor under Node would test
- * the reproduction rather than the code.
+ * The buffer is real, so the degradation pixel pass can run over it and be
+ * asserted byte by byte. Geometry is recorded rather than rasterised.
  * @param {number} [width=1588] - Canvas width.
  * @param {number} [height=2246] - Canvas height.
  * @returns {Record<string, any>} The canvas, with `ctx` and `encodings` exposed.
@@ -207,8 +203,7 @@ export function createFakeCanvas(width = 1588, height = 2246) {
       calls.push({ name: 'createLinearGradient', args });
       return { stops: [], addColorStop(offset, color) { this.stops.push([offset, color]); } };
     },
-    // Allocated at the size actually asked for, so a canvas resized after
-    // construction still hands back a buffer the pixel pass can walk.
+    // Allocated at the requested size, even if the canvas was resized after construction.
     getImageData(_x, _y, dataWidth, dataHeight) {
       calls.push({ name: 'getImageData', args: [_x, _y, dataWidth, dataHeight] });
       imageData = {

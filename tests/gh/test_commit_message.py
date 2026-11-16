@@ -17,7 +17,7 @@ def test_clean_message_has_no_leaks() -> None:
 
 
 def test_leaked_terminator_with_trailing_shell_is_flagged() -> None:
-    """The commit b68de52 leak shape is rejected."""
+    """A heredoc terminator followed by shell text on the same line is rejected."""
     message = "Redesign scroll-top icon\n\nEOF && make push 2>&1 | tail -3\n"
     problems = commit_message.find_shell_leaks(message)
     assert len(problems) == 1

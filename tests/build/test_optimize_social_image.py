@@ -85,10 +85,9 @@ def test_optimize_png_writes_when_smaller(tmp_path: Path) -> None:
 def test_optimize_png_flattens_before_resizing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test palette sources are converted to RGB before the downscale.
+    """Palette sources are converted to RGB before the downscale.
 
-    Pillow forces NEAREST resampling for palette-mode images, so resizing a
-    "P" image directly would produce jagged output.
+    Pillow resamples palette ("P") images with NEAREST, which produces jagged output.
     """
     path = tmp_path / "share.png"
     Image.new("RGB", (2400, 1260), (12, 34, 56)).quantize(colors=8).save(path)

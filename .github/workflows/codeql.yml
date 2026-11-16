@@ -9,7 +9,7 @@ on:
     branches:
       - main
   schedule:
-    # Staggered from dependency-audit.yml (06:00 Mon) to avoid runner contention.
+    # Mondays at 06:30 UTC, half an hour after the Dependency Audit schedule.
     - cron: "30 6 * * 1"
 
 permissions:

@@ -1,8 +1,6 @@
 """Shared fakes for the ``scripts.gh`` test suite.
 
-Kept in a dedicated support module (mirroring
-``tests/ci/workflow_helpers_test_support.py``) so individual test modules
-don't import helpers from one another.
+Test modules import their helpers from this module.
 """
 
 from __future__ import annotations
@@ -105,7 +103,7 @@ def sandbox_routes(slug: str = "o/r") -> list[tuple[Callable[[list[str]], bool],
             graphql_blocked(),
         ),
         (has("remote"), completed_process(0, f"https://github.com/{slug}.git\n")),
-        # No branch has a PR recorded by an earlier REST checkout.
+        # git config lookups find no stored value.
         (has("config", "--get"), completed_process(1)),
         (has("config"), completed_process(0)),
     ]

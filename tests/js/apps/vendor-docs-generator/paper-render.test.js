@@ -64,7 +64,7 @@ test('the block and stamp treatments print a two-letter monogram', () => {
 
 test('the thin treatment splits the name into a lead word and a tail', () => {
   const logo = buildLogo(createFakeDocument(), findVendor('lumen'));
-  // The capitals are in the text, so the box text matches the pixels.
+  // The capitals are in the text node, so the text matches what is printed.
   assert.equal(findByClass(logo, 'vd-logo-name')[0].textContent, 'LUMEN');
   assert.equal(findByClass(logo, 'vd-logo-sub')[0].textContent, 'OFFICE INTERIORS');
 });
@@ -90,8 +90,7 @@ test('the paper carries the letterhead, title, and sample footer', () => {
   assert.equal(findByClass(paper, 'vd-doc-title')[0].textContent, model.title.toUpperCase());
   assert.match(findByClass(paper, 'vd-doc-foot')[0].textContent, /Not a valid tax record/);
 
-  // The middle line holds the phone and the email in two separately labelled
-  // spans, so it reads through textOf rather than off a single text node.
+  // The middle line holds the phone and email in two labelled spans, so it is read with textOf.
   const vendorLines = findByClass(paper, 'vd-vendor-line').map((node) =>
     textOf(node).replace(/\s+/g, ' ').trim()
   );
@@ -217,8 +216,7 @@ test('every vendor and type combination renders without throwing', () => {
 });
 
 test('the page preview is not a live region, but the short caption is', async () => {
-  // A live region on the paper would read the whole document aloud on every
-  // redraw, and once per document in a batch.
+  // The paper is not a live region. Only the short caption is announced.
   const { readFileSync } = await import('node:fs');
   const html = readFileSync(new URL('../../../../apps/vendor-docs-generator/index.html', import.meta.url), 'utf8');
   assert.doesNotMatch(html.match(/<article class="vd-paper"[^>]*>/)[0], /aria-live/);
@@ -226,8 +224,8 @@ test('the page preview is not a live region, but the short caption is', async ()
 });
 
 test('reduced motion never changes the printed page', async () => {
-  // The capture reads the page as styled, so a reduced-motion rule that moved
-  // the stamp would make one seed render two different pages.
+  // The reduced-motion rules leave the page and stamp styles unchanged, so a
+  // seed always renders the same page.
   const { readFileSync } = await import('node:fs');
   const css = readFileSync(new URL('../../../../apps/vendor-docs-generator/css/app.css', import.meta.url), 'utf8');
   const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));

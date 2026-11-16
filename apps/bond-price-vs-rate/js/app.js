@@ -113,7 +113,7 @@ function buildYieldCurveSeries(bond) {
 
 /**
  * Push the selected curve's rate at the bond's maturity into the market-rate
- * slider, and flash its readout so the move is visible in the controls.
+ * slider, and flashes its readout.
  */
 function applyCurveRate() {
   const bond = readBond();

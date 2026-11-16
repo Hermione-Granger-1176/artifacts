@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """Tolerant pixel comparison for the visual-regression baseline check.
 
-Screenshot baselines are inherently sensitive to font rendering, so this
-comparison is deliberately forgiving: a pixel only counts as changed when at
-least one channel differs from the baseline by more than ``channel_tolerance``,
-and the overall image only fails when the changed fraction exceeds
-``max_diff_fraction``. The Playwright capture in
-``tests/browser/test_frontend_visual.py`` drives this module; keeping the math
-here makes it unit-testable without a browser.
+A pixel counts as changed only when at least one channel differs from the
+baseline by more than ``channel_tolerance``. The overall image fails only when
+the changed fraction exceeds ``max_diff_fraction``. The Playwright capture in
+``tests/browser/test_frontend_visual.py`` drives this module.
 """
 
 from __future__ import annotations
@@ -70,8 +67,7 @@ def compare_images(
         )
 
     changed = _changed_pixel_count(baseline, candidate, channel_tolerance=channel_tolerance)
-    # A real screenshot always has a non-zero area, and a size mismatch is
-    # handled above, so the divisor is always positive here.
+    # Sizes match and screenshots are non-empty, so the divisor is positive.
     total = baseline.width * baseline.height
     diff_fraction = changed / total
     passed = diff_fraction <= max_diff_fraction

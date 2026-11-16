@@ -93,8 +93,8 @@ def list_issues(
     """List issues (``gh issue list``) with the same filters the target accepts.
 
     Without ``search`` the REST fallback lists the repository's issues
-    directly. With it, the fallback sends the filters and the search text
-    through the REST search endpoint, which some sandboxes do not expose.
+    directly. With it, the fallback sends the filters and search text to the
+    REST search endpoint.
     """
     args = [
         "issue",
@@ -244,8 +244,7 @@ def edit_issue(
 ) -> int:
     """Change an issue's title and/or body (``gh issue edit``).
 
-    ``body`` is piped to ``--body-file -`` so a large body never hits the
-    command-line length limit.
+    ``body`` is piped to ``--body-file -``.
     """
     if title is None and body is None:
         raise GhError("Provide a title or body to edit.")
@@ -283,9 +282,8 @@ def label_issue(
             gh_runner.rest(f"{path}/labels", method="POST", fields={"labels": names}, run_fn=run_fn)
             print(f"Added labels to issue #{issue}: {labels}")
             return 0
-        # Deleting a label the issue does not carry is a 404, while gh treats it
-        # as a no-op, so only the labels actually present are removed, under the
-        # spelling the issue uses.
+        # Only labels the issue carries are deleted, under the spelling the issue
+        # uses. Deleting an absent label returns 404.
         current = _labels_of(as_object(gh_runner.rest(path, run_fn=run_fn)))
         present = {label.lower(): label for label in current}
         for name in names:
