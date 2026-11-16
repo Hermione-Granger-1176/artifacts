@@ -1,7 +1,7 @@
 name: Schedule Watchdog
 
-# Runs on pushes to main and on manual dispatch. Checks that the scheduled
-# workflows are enabled and reports stale or disabled ones through an alert issue.
+# Runs on pushes to main and on manual dispatch. Reads each scheduled
+# workflow's enabled state and reports disabled ones through an alert issue.
 on:
   push:
     branches:

@@ -227,8 +227,8 @@ export function findDocumentType(typeId) {
 
 /**
  * Read a vendor's catalogue.
- * @param {string} vendorId - A `VENDORS` id. Unknown ids return `undefined`;
- *   resolve through `findVendor` first.
+ * @param {string} vendorId - A `VENDORS` id. Resolve an unknown id through
+ *   `findVendor` first.
  * @returns {readonly CatalogEntry[]} Catalogue entries for that vendor.
  */
 export function catalogFor(vendorId) {
