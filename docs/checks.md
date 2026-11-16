@@ -10,7 +10,7 @@ This reference describes the check targets and their configuration. [Operations]
 - `make lint-css` runs stylelint on `**/*.css`. Ignores: `config/stylelint.config.js`.
 - `make lint-yaml` runs yamllint on the repo root. Ignores: `.yamllint.yml`.
 - `make lint-workflows` runs `scripts/lint/lint-workflows.mjs`, which wraps `actionlint` over `.github/workflows/*.yml` and `.github/workflows/*.yaml`. It drops the `undefined variable "vars"` diagnostic and reports everything else.
-- `make lint-doc-commands` checks `README.md`, `CLAUDE.md`, `.github/CONTRIBUTING.md`, `.github/pull_request_template.md`, and `docs/operations.md` for direct commands that should be Make targets.
+- `make lint-doc-commands` checks `README.md`, `CLAUDE.md`, `.github/CONTRIBUTING.md`, `.github/pull_request_template.md`, `docs/ci.md`, `docs/operations.md`, and `docs/troubleshooting.md` for direct commands that should be Make targets.
 - `make lint-make-targets` checks that every `make <target>` reference in Markdown, in `.github` YAML shell blocks, and in non-test Python or JavaScript source names a target in `Makefile` or `mk/*.mk`. It also rejects raw shell control flow (`if`, `for`, `while`, `case`) in recipes, unless the target is on the allowlist in `scripts/lint/make_targets.py`.
 - `make lint-js-test-coverage` checks that at least one test file under `tests/js/` imports every JS or MJS source file under `js/` and `apps/`. It skips the generated `js/data.js` and `js/gallery-config.js`, vendored files, and `docs/` directories.
 - `make lint-artifact-csp` checks the root `index.html` and every `apps/<slug>/index.html`. Each page needs a Content-Security-Policy meta tag in the head, before any markup that can load a resource. The policy must:
