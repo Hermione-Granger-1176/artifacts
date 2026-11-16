@@ -22,7 +22,7 @@ A `pull_request` event with `opened`, `reopened`, or `synchronize` starts the ru
 
 ### Push to main
 
-A push to `main` starts the run. `workflow_dispatch` and the weekly schedule take the same path with a full sweep and `persist-mode` set to `none`. `dependency-review` does not run. `save-app-ledger` runs after `verify` and records the main-verified app hashes in the Actions cache.
+A push to `main` starts the run. `workflow_dispatch` and the weekly schedule take the same path with `persist-mode` set to `none`. The weekly schedule always runs a full sweep. A dispatch runs one when its `full-sweep` input is true, which is the default. `dependency-review` does not run. `save-app-ledger` runs after `verify` and records the main-verified app hashes in the Actions cache.
 
 `publish` replaces the `gh-pages` root with the new site. For a merged PR, it also removes that PR's `pr-preview/pr-N/` subtree, so one deployment covers both. It then verifies the live URL, browser-tests it, and creates a `github-pages` deployment record marked `success` or `failure`. If runtime changes or missing thumbnails call for it, `persist-thumbnails` opens or updates the follow-up PR `ci/save-generated-thumbnails-YYYYMMDD` with the Harry1176 token.
 
@@ -52,7 +52,7 @@ The verification jobs and `assemble-site` run in full, so the code is built and 
 
 - **Python lock refresh.** On a same-repo Dependabot uv PR, `refresh-python-locks.yml` runs `make lock` and uploads `uv.lock`. `commit-python-locks.yml` checks that the triggering run, artifact, PR, SHA, and branch match. It rejects symlinks and missing files, confirms the branch has not moved, and writes the lock to the PR branch or a `ci/refresh-python-locks-*` branch.
 - **Action SHA pinning.** `refresh-action-shas.yml` pins `uses:` refs that are not full SHAs and opens or updates a maintenance PR. It does not move existing pins.
-- **Playwright pin refresh.** `refresh-playwright.yml` runs `make refresh-ci-pins`, which updates the locked Playwright version and its official image digest. It opens one maintenance PR that changes `pyproject.toml`, `uv.lock`, `update.yml`, and `live-site-smoke.yml` together.
+- **Playwright pin refresh.** `refresh-playwright.yml` runs `make refresh-ci-pins`, which updates the locked Playwright version and its official image digest. It writes only the files whose pins changed, among `pyproject.toml`, `uv.lock`, `update.yml`, and `live-site-smoke.yml`, and opens or updates one maintenance PR with them. When nothing changed, it opens no PR.
 - **Dependency lock refresh.** `refresh-locks.yml` runs `make lock` and `make lock-node` and opens or updates a maintenance PR for lock changes.
 - **Repo settings audit.** `audit-repo-settings.yml` runs `make ci-audit-repo-settings` and `make ci-audit-previews`. It reports drift from [External GitHub settings](#external-github-settings) and preview directories whose PR is no longer open. Drift goes to the step summary and to a dedicated issue, which closes once the audit passes.
 - **Live site smoke.** `live-site-smoke.yml` runs `make test-browser-live` against the published site daily and on dispatch. On failure it uploads Playwright artifacts and opens or updates an alert issue, which closes after a passing run.
