@@ -1,1 +1,0 @@
-const o="(prefers-reduced-motion: reduce)";export function prefersReducedMotion(e=window){return e.matchMedia(o).matches}export function scrollBehavior(e=window){return prefersReducedMotion(e)?"auto":"smooth"}
