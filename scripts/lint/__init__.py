@@ -19,8 +19,10 @@ if TYPE_CHECKING:
 # Entries match one path component at a time (`part in SKIP_DIRECTORIES`), so a
 # nested .gitignore pattern such as `.claude/plans/` cannot be listed. A bare
 # `plans` would skip every directory with that name, and `.claude` would skip
-# subdirectories that .gitignore does not ignore. tests/lint/test_skip_directories.py
-# fails when .gitignore has a single-component directory missing from this list.
+# subdirectories that .gitignore does not ignore. The walkers therefore descend
+# into directories that only a nested pattern ignores.
+# tests/lint/test_skip_directories.py fails when .gitignore has a
+# single-component directory missing from this list.
 SKIP_DIRECTORIES = frozenset(
     {
         ".artifacts",
