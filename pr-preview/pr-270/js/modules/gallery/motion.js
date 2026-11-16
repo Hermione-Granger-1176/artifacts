@@ -1,0 +1,1 @@
+import{prefersReducedMotion as r,scrollBehavior as o}from"../motion.js";export function createMotionHelper(e){return{prefersReducedMotion:()=>r(e),getScrollBehavior:()=>o(e),scrollToTop:()=>e.scrollTo({top:0,behavior:o(e)})}}

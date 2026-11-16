@@ -1,0 +1,1 @@
+export function createOffscreenDraws(o,c="200px 0px"){const r=new Set,t=new Map,f=new IntersectionObserver(e=>{for(const{target:n,isIntersecting:s}of e){if(!s){r.add(n);continue}r.delete(n);const i=t.get(n);t.delete(n),i?.()}},{rootMargin:c});return o.forEach(e=>f.observe(e)),{draw(e,n,s=!1){if(!s&&r.has(e)){t.set(e,n);return}t.delete(e),n()}}}
