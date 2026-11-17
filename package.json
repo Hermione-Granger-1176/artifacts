@@ -28,8 +28,8 @@
     "esbuild": "0.28.2",
     "eslint": "10.14.0",
     "globals": "17.14.0",
-    "knip": "6.44.1",
-    "prettier": "3.9.10",
+    "knip": "6.45.1",
+    "prettier": "3.10.1",
     "stylelint": "17.16.0",
     "typescript": "7.0.2"
   },
