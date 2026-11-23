@@ -21,19 +21,16 @@
   },
   "devDependencies": {
     "actionlint": "2.0.6",
-    "axe-core": "4.14.0",
+    "axe-core": "4.14.1",
     "chart.js": "4.6.1",
     "chartjs-plugin-annotation": "3.1.0",
     "chartjs-plugin-datalabels": "2.2.0",
     "esbuild": "0.28.2",
-    "eslint": "10.14.0",
+    "eslint": "10.15.0",
     "globals": "17.14.0",
-    "knip": "6.45.1",
+    "knip": "6.47.0",
     "prettier": "3.10.1",
     "stylelint": "17.16.0",
     "typescript": "7.0.2"
-  },
-  "overrides": {
-    "minimatch": "11.0.3"
   }
 }
