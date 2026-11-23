@@ -129,7 +129,7 @@ runs:
     - name: Create GitHub App token
       id: app-token
       if: steps.token-policy.outputs.allowed == 'true' && inputs.app-id != '' && inputs.app-private-key != ''
-      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+      uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3
       with:
         client-id: ${{ inputs.app-id }}
         private-key: ${{ inputs.app-private-key }}
@@ -137,7 +137,7 @@ runs:
     - name: Create escalation token
       id: escalation-token
       if: steps.token-policy.outputs.allowed == 'true' && inputs.escalation-app-id != '' && inputs.escalation-app-private-key != ''
-      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+      uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3
       with:
         client-id: ${{ inputs.escalation-app-id }}
         private-key: ${{ inputs.escalation-app-private-key }}
@@ -145,7 +145,7 @@ runs:
     - name: Create audit token
       id: audit-token
       if: steps.token-policy.outputs.allowed == 'true' && inputs.audit-app-id != '' && inputs.audit-app-private-key != ''
-      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+      uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3
       with:
         client-id: ${{ inputs.audit-app-id }}
         private-key: ${{ inputs.audit-app-private-key }}
@@ -208,7 +208,7 @@ runs:
     # dependency cache is disabled; the uv download cache below is used instead.
     - name: Set up uv
       if: inputs.install-deps == 'true'
-      uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       with:
         enable-cache: false
 
